@@ -95,7 +95,7 @@ section.diagram > .cell-stage > .mermaid svg { width:100% !important; max-width:
  * KEYED ON `aria-roledescription`, which every Mermaid family writes on the svg root and
  * none of our chart SVGs carry — a chart is token-driven and must keep filling its band.
  * `class` is not usable (null on sequence and pie) and neither is the svg id (`lattice-mmd-N`
- * from the CLI, `lattice-mermaid-N` from the browser).
+ * on every path, which also prefixes the svg's internal ids).
  *
  * THE FLOOR. The contract above scales down without limit, so a wide LR flowchart drew
  * 3.4px labels on a phone. The prose-projection kernel now writes natural width, floor
@@ -1342,6 +1342,21 @@ section.diagram :is(pre, marp-pre):not([data-lattice-settle="rendered"]) > code 
 }
 :is(pre, marp-pre):where([data-lattice-hydrate])[data-lattice-settle="rendered"] + [data-lattice-figure] > svg {
   max-width:100%; max-height:100%; display:block;
+}
+
+/* A FIGURE INSIDE A QUOTE OR A LIST ITEM sizes as the CLI's baked one does (`.mermaid-svg` above): the
+ * container's width, and the height its viewBox gives at that width. The fixed 1152×480 box above is
+ * for hosts that are not slides; a top-level figure escapes it because it is a flex item of the slide
+ * and shrinks, but inside a `blockquote` or an `li` it is an ordinary block and kept all 480 px, so the
+ * Studio drew a quoted diagram filling the stage, pushed the paragraphs after it out and stamped the
+ * slide `overflow`, where the CLI's file fits (followups.d/2739-p11). The live preview and the
+ * Studio's player bake both run this, so the Webpage export matches the CLI's `--player` again. */
+section :is(blockquote, li) > :is(pre, marp-pre)[data-lattice-hydrate][data-lattice-settle="rendered"] + [data-lattice-figure] {
+  display:flex; align-items:safe center; justify-content:safe center;
+  width:100%; height:auto; max-width:100%; overflow:hidden;
+}
+section :is(blockquote, li) > :is(pre, marp-pre)[data-lattice-hydrate][data-lattice-settle="rendered"] + [data-lattice-figure] > svg {
+  width:100% !important; max-width:100% !important; height:auto !important; max-height:none !important;
 }
 
 /* Themed parser-error block. Uses the same fail-soft palette as .verdict

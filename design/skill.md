@@ -260,8 +260,12 @@ Works on SVG, PNG, and JPEG. Composes with every treatment
 | Goal | Front-matter |
 |---|---|
 | Logo on every slide | `logo: ./logo.svg` |
-| Title slide only | `logo: ./logo.svg` + `logo-on: title` |
-| Preserve brand colors on a plate | `logo: ./logo.svg` + `logo-style: brand` |
+| Title slide only | `logo: ./logo.svg` + `logo-finish: title` |
+| Keep the file's own colors on a plate | `logo: ./logo.svg` + `logo-finish: brand` |
+| Recolor from the palette (follows light and dark) | `logo-finish: accent` or a blend, `accent-ink` |
+| Another berth (hides the header, footer or page number there) | `logo-finish: bottom-center` |
+| Several at once, one line | `logo-finish: bottom-center accent-ink lg title` |
+| Hide it on one slide | `<!-- _class: no-logo -->` |
 
 The directive runs at build time. It does **not** render in the
 marp-vscode preview pane, which runs marp-core directly without Lattice's

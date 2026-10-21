@@ -207,6 +207,7 @@
       "rows": {
         "shape": "fields",
         "quotes": false,
+        "nested": "detail",
         "legacy": [
           "value",
           "status"

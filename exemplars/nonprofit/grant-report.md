@@ -38,13 +38,13 @@ The Hartwell Foundation's $750,000 grant ran July 2024 through June 2026. It fun
 
 1. 218
    - Adults enrolled
-   - target 200 · +9% `On plan` `Funder`
+   - target 200 · +9% `{On plan}` `{Funder}`
 2. 81%
    - Placement rate
-   - target 75% · +6pp `On plan` `Verified`
+   - target 75% · +6pp `{On plan}` `{Verified}`
 3. 92%
    - Credential pass rate
-   - target 85% `On plan` `Audited`
+   - target 85% `{On plan}` `{Audited}`
 
 ---
 
@@ -100,12 +100,12 @@ We committed to drawing enrollees from Dayton's three highest-unemployment ZIP c
 
 ## Milestones against the grant timeline.
 
-- [x] Curriculum approved by state board `Q3 2024`
-- [x] First cohort enrolled `Q4 2024`
-- [x] Clinical lab build-out complete `Q1 2025`
-- [x] Four cohorts graduated `through Q2 2026`
-- [-] Employer partnerships `8 of 10`
-- [ ] Final funder evaluation `Due Q3 2026`
+- [x] Curriculum approved by state board `{Q3 2024}`
+- [x] First cohort enrolled `{Q4 2024}`
+- [x] Clinical lab build-out complete `{Q1 2025}`
+- [x] Four cohorts graduated `{through Q2 2026}`
+- [-] Employer partnerships `{8 of 10}`
+- [ ] Final funder evaluation `{Due Q3 2026}`
 
 ---
 
@@ -170,13 +170,13 @@ We spent $742K of the $750K award. The unspent $8K is committed to the final ind
 
 1. 71%
    - Women enrolled
-   - of 218 total `On plan` `Verified`
+   - of 218 total `{On plan}` `{Verified}`
 2. 58%
    - Parents of minors
-   - supporting a household `On plan` `Funder`
+   - supporting a household `{On plan}` `{Funder}`
 3. 86%
    - Completion rate
-   - of those enrolled `On plan` `Audited`
+   - of those enrolled `{On plan}` `{Audited}`
 
 ---
 
@@ -199,7 +199,7 @@ We promised ten employer partners and landed eight; a regional system paused hir
 
 ## Where a renewal takes the program.
 
-| Workstream | Now `Y2` | Build `Y3` | Scale `Y4` |
+| Workstream | Now `{Y2}` | Build `{Y3}` | Scale `{Y4}` |
 | --- | --- | --- | --- |
 | Enrollment | [x] 218 | [-] 300 | [ ] 450 |
 | Employer partners | [x] 8 | [-] 14 | [ ] 22 |

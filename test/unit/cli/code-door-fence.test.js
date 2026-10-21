@@ -414,7 +414,12 @@ describe('the gate for a plugin’s one script', () => {
   test('refuses the contribution points that run code outside the sandbox, naming each', () => {
     const why = refusePluginCode(plugin({}, { contributes: { fences: { gantt: {} }, syntax: {}, hydrate: {}, bake: {} } }));
     assert.match(why, /syntax, hydrate, bake/);
-    assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'inline', 'styles', 'diagnostics']);
+    assert.deepEqual([...PLUGIN_DATA_CONTRIBUTIONS], ['fences', 'inline', 'styles', 'diagnostics', 'returns']);
+  });
+
+  test('refuses `embedded`: a plugin that arrives as data never loads on every render with no off switch', () => {
+    assert.match(refusePluginCode(plugin({}, { embedded: true })), /declares `embedded`, which only a plugin in this repository may hold/);
+    assert.match(refusePluginCode(plugin({}, { embedded: false })), /declares `embedded`/, 'even false: the key is the repository\'s alone');
   });
 
   test('refuses render.exec (hydrate "pass", a bake), payload and vendor by rule, not by prose', () => {

@@ -95,10 +95,10 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 1. +9%
    - the delta leads
-   - `vs plan` `up`
+   - `{vs plan}` `{up}`
 2. 4
    - tiles still rule
-   - `per row` `on plan`
+   - `{per row}` `{on plan}`
 
 ---
 
@@ -109,10 +109,10 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 1. +9%
    - the delta leads
-   - `vs plan` `up`
+   - `{vs plan}` `{up}`
 2. 4
    - tiles still rule
-   - `per row` `on plan`
+   - `{per row}` `{on plan}`
 
 ---
 
@@ -123,13 +123,13 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 1. 1
    - tile promoted
-   - `the headline` `spotlight`
+   - `{the headline}` `{spotlight}`
 2. 2
    - support tiles
-   - `beside it` `on plan`
+   - `{beside it}` `{on plan}`
 3. 0
    - competing heroes
-   - `one only` `rule`
+   - `{one only}` `{rule}`
 
 ---
 
@@ -140,7 +140,7 @@ Short rows and tiles hug their text and sit where the deck's `cards:` says. `str
 
 1. 99.9%
    - the SLO frame
-   - `target line` `slo`
+   - `{target line}` `{slo}`
 2. 1
    - breach shown
-   - `never hidden` `ops`
+   - `{never hidden}` `{ops}`

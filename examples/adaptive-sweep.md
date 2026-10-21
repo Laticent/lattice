@@ -51,15 +51,15 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 - Federal
   - `15 U.S.C. §6501 · COPPA`
   - Verifiable parental consent for under-13 data.
-  - `In effect since 2000`
+  - `{In effect since 2000}`
 - State
   - `Cal. Civ. Code §1798.120 · CCPA/CPRA`
   - Opt-in to sell or share under-16 data; opt-out over-16.
-  - `Enforced 2023`
+  - `{Enforced 2023}`
 - Local
   - `NYC Admin Code §22-1201`
   - Bias-audit obligation for employment AEDTs.
-  - `Effective 2023`
+  - `{Effective 2023}`
 
 ---
 
@@ -106,13 +106,13 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 
 ## Who owns each part of the framework.
 
-- Owns the scoring model `Head of Product`
+- Owns the scoring model `{Head of Product}`
   - Sets the weights and signs off changes after each calibration, then retunes them until the output agrees with the roadmap.
-- Runs the weekly signal review `Chief of Staff`
+- Runs the weekly signal review `{Chief of Staff}`
   - Chairs the thirty minutes and keeps the decision log current.
-- Maintains the decision log `Program Manager`
+- Maintains the decision log `{Program Manager}`
   - Every call recorded with its bet; chases the missing predicted outcomes.
-- Owns adoption `Enablement Lead`
+- Owns adoption `{Enablement Lead}`
   - Onboards each team to the weekly ritual.
 
 ---
@@ -176,15 +176,15 @@ Twelve more components, each rendered on a 9:16 frame. Every one reflows to the 
 1. EU AI Act
    - `Title III`
    - Conformity-assessment pre-market obligation took effect.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Developer and deployer duties for consequential-decision systems.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. FTC v. Avast
    - `§5 unfairness`
    - $16.5M consent order; clarifies the deception standard for privacy branding.
-   - `Final Mar 2026`
+   - `{Final Mar 2026}`
 
 ---
 

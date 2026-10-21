@@ -146,14 +146,14 @@ size — i.e. something the marks don't already spell out. That test sorts the
 **Color/size-categorical → integrated SVG key.** `piechart`, `radar`, `map`,
 and `quadrant·cohort` carry their key **inside the diagram's own `<svg>`
 viewBox**: diagram, a gradient **spine**, and the swatch+label+value key are one
-unit that scales together (emitted by `svg-legend.js` — see
+unit that scales together (emitted by `legend-svg-key.js` — see
 `engineering/decisions/2026-06-13-svg-native-legend.md`). No CSS grid, no
 `::before` spine — the key is SVG `<text>`/`<rect>` in viewBox units, so it tracks
 the diagram at any size and the four read as one family; long labels **wrap**
 (never clip). `word-cloud` joined them on 2026-07-27 with a key of a different
 KIND: not swatch·label·value rows but a `size = frequency` A-ramp, since word size
 is what encodes weight there. It is emitted by the kernel rather than by
-`buildSvgLegend`, but it shares the family's **spine** (`svg-legend.js buildSpine`)
+`keySvg` (`legend-svg-key.js`), but it shares the family's **spine** (`svg-legend.js buildSpine`)
 and lives in the cloud's own viewBox, so key and words scale as one unit. The
 `--chart-spine*` tokens it used to own are deleted — nothing reads them now.
 
@@ -182,7 +182,7 @@ slides, so cross-renderer parity holds.
 
 A keyed chart's key and diagram are ONE viewBox, so CSS cannot reflow them — the
 kernel does, at render time. In a tall box the right rail letterboxes the whole
-unit into a short band, so `svg-legend.js buildPortrait` stacks the key beneath
+unit into a short band, so `legend-svg-key.js buildPortrait` stacks the key beneath
 the diagram instead (`piechart`, `radar`, `map`, `quadrant·cohort`, and
 `word-cloud` with its own A-ramp).
 
@@ -291,6 +291,145 @@ renders it, older SVG renderers may not. The export keeps a `viewBox`, so it
 stays fully responsive (the intrinsic `width`/`height` is only a default
 footprint). Embed-only — text stays selectable; glyph **outlining** to `<path>`
 was deferred (`2026-06-13-svg-native-legend.md` §4d).
+
+---
+
+## How a chart is written — the house rules
+
+Every chart reads the same Markdown shapes, so an author who has written one chart can write the
+next. The rules come from two decisions: `engineering/decisions/2026-09-28-segno-unified-inline-notation.md`
+(Segno, the inline notation) and `engineering/decisions/2026-09-22-chart-axis-grammar.md` (the
+axis line). Each rule has one shared reader. A new chart uses these readers and
+never invents a second spelling for the same idea.
+
+| Idea | How it is written | Shared reader | Charts that use it |
+|---|---|---|---|
+| A **label** | The list item's text: `- Cyber outage …` | the chart's own list parse | every list chart |
+| A **value** | An inline-code pill after the label: `` `$4.2M` `` `` `38%` `` | Segno's `number` type, through `lib/core/chart-values.js` | bar, line, waterfall, funnel, … |
+| A **range** or span | `a..b` in a pill: `` `Q1..Q3` `` `` `0..10` `` `` `$10M..$50M` `` | Segno's `range` type (`docs/src/lib/segno/types.ts`) | gantt, the axis line, histogram |
+| A **position** | A point record, x first: `` `{$4.2M, 62%}` `` `` `{4, 5}` `` | `readPoint` (`lib/core/chart-point.js`) | scatter, quadrant, risk-matrix, ep-curve |
+| An **axis** | One bracketed list in its own paragraph above the heading, one member per axis: `` `[{Effort, 0..10, 5}, {Reach}]` `` | `parseBracketList` + `readAxisMember` (`lib/core/bracket-list.js`, `lib/core/axis-member.js`); the members a chart takes are its manifest's `axisSet` | scatter, quadrant, matrix-grid, gantt, histogram, ep-curve |
+| A **series** | Nesting: one list item per series or category, its points under it | the chart's own list parse | line, bar `grouped`, ep-curve |
+| **Detail** for a hover card | A nested sublist whose items are not data | `markDetail.splitDetail` (`_chart-family/mark-detail.js`) | most list charts |
+
+Five rules follow from the table:
+
+1. **`..` is the only range delimiter.** A hyphen or en-dash between two values is not a range,
+   because a dash reads two ways beside a negative number (`-5–10`). `lint:deck` names the dash
+   form on a gantt span; a new chart that reads ranges adds the same check for its own pills.
+2. **Data lives in pills and a label in text.** A chart never reads a number or a position out of
+   the list text, so `lint:deck` can check every value and the label can say anything.
+3. **A position is one record, not two pills.** `{x, y}` keeps the two numbers of one point
+   together; scatter's three loose pills were retired for it.
+4. **An axis is declared once, above the heading.** Its name, its domain (`min..max`) and its
+   threshold or scale are members of the one bracketed line. The domain is optional and derives
+   from the data. A bracketed span on a chart with no `axisSet` is an ordinary eyebrow.
+5. **A log scale is the word `log` in an axis member:** `` `[{Annual loss, $1M..$250M, log}]` ``.
+   Only a chart that asks `readAxisMember` for it reads it: a histogram draws log when asked and
+   its whole domain is above zero, and `lint:deck` warns when it is not; an EP curve's
+   return-period axis is always log, so there the word changes nothing. On every other chart the
+   word is ignored. `lint:deck` names it on a quadrant; on scatter and gantt it says nothing yet,
+   so check the drawing there.
+
+When a new chart needs an idea this table does not have, add the row here in the same PR, with
+its reader, rather than spelling the idea a new way inside one kernel.
+
+### Axes and labels
+
+Where an axis, a tick, a title or a label goes is decided by the shared emitters in
+`_chart-family/cartesian.js` and `_chart-family/svg-label.js`, so a new chart calls them
+rather than placing text itself. Every rule below names the code that enforces it.
+
+**Axes**
+
+1. **Values sit in the gutter, on the canvas, never on a mark.** A value axis's ticks are
+   end-anchored in the left gutter beside each gridline, one line each; an x axis's ticks
+   center under the axis and hang below it (`buildValueTicks`). The contrast of a label is
+   then a property of the slide background, not of whichever fill is behind it.
+2. **A chart prints values on its marks OR draws a value axis, and says which.** `bar`
+   prints values on its bars and drops the axis when every label fits (`wantsValueAxis`);
+   `histogram` always prints on its bands, because a band's height is value per unit of
+   range and an axis of that would mislead; `line` always keeps its tick column; `waterfall`
+   and a one-curve `ep-curve` do both.
+3. **One formatter per axis.** Every tick on an axis shares one magnitude unit, chosen from
+   the widest tick, and the affix every value agrees on (`$`, `%`) is carried onto it
+   (`axisUnit`, `axisFormatter`, `affixOf`). A value printed on a mark keeps the axis's unit
+   at its own precision (`markFormatter`).
+4. **The domain is chosen by what the mark encodes.** A length from zero (`bar`, `waterfall`,
+   `ep-curve`'s loss) includes zero and snaps out to whole steps (`niceTicks`); a position
+   (`scatter`, `slope`) pads the data instead (`niceDomain`); `line` includes zero only when
+   the data comes near it. A log axis is drawn only over a domain above zero (`logScale`) and
+   labels the values the author wrote (a histogram's band edges, an EP curve's return
+   periods), not a generated ladder.
+5. **Gridlines are quiet, the zero rule is not, and the bottom rule is zero or nothing.**
+   `buildGrid` gives the zero tick `.cart-zero` and every other `.cart-grid`. `buildAxisRule`
+   draws the plot's bottom edge, which reads as a baseline, so a chart draws it only when the
+   axis starts at zero: below zero the zero rule is the baseline.
+
+**Axis titles**
+
+6. **A title comes only from the axis line**, the bracketed list above the heading, and is
+   drawn by `buildAxisTitle`: uppercase, tracked, muted, one line. The x title centers below
+   the ticks; the y title is rotated a quarter turn at the far left. A chart draws no title it
+   was not given, with one exception that earns it: `ep-curve` captions its x axis
+   `Return period`, because an unlabeled log axis of bare years reads as anything.
+
+**Crowded labels**
+
+7. **A name is never silently dropped; an axis label may thin.** A category name that cannot
+   fit is culled or shortened by `buildCategoryLabels`, which reports it through
+   `label-drops.js`, and a value label that cannot be placed reports too (rule 8). Axis labels whose
+   numbers are carried elsewhere thin on purpose and stay silent: `line`'s interior stride,
+   `histogram`'s band edges (`thinEvenly`, every Nth and always the last) and `ep-curve`'s
+   return periods (powers of ten first, so 1-in-100 never thins away).
+8. **A value label moves before it is cut.** A label too wide for its mark moves first: above
+   a taller neighbor or up a line (`histogram`), beside its dot with a leader (`placeLabels`,
+   eight anchors on three rings). A label that still does not fit is hidden or cut short, and
+   either way it reports (`overlap`, `truncate`). `slope` hides its end labels without
+   reporting, deliberately (`slope.transform.js`).
+
+**Series names and keys**
+
+9. **Name a series where it is drawn when you can, and use a key when you cannot.** A line's
+   or curve's name sits at its right end in the series' own text-safe ink (`.cart-series`,
+   `--mark-ink`), wraps to two lines and is nudged clear of its neighbors; it carries
+   `data-series-for`, not `data-series`, so it is not counted as one of the series' shapes.
+   When names cannot fit, `line` falls back to a key. A key is drawn by `keySvg` (`legend-svg-key.js`)
+   inside the chart's own viewBox: a right rail in landscape, stacked below in portrait,
+   labels wrapped, never clipped. The three-way test for whether a chart needs a key at all is
+   § Legend / key system.
+
+**Sizes and baselines**
+
+10. **Sizes are viewBox units, set once.** `cartesian.js` `FS` (tick 7, category 7.5, value 8,
+    series 7.5, axis title 6.5) mirrors `chart-family.styles.css` and is gated by
+    `cartesian.test.js`, so a kernel measures text at the size CSS paints it. A chart that
+    draws its own geometry (`tower`, `risk-matrix`) keeps its own sizes in its own `FS`, gated
+    the same way by its own test.
+11. **Every label carries its baseline to its lines.** `wrapSvgLabel` writes
+    `dominant-baseline` on the `<text>` and on every `<tspan>` (#2297); its `vAlign` is one of
+    `baseline`, `middle`, `hanging` or `bottom`, and any other word falls back to `baseline`
+    without a word, so write the one you mean.
+
+**Labels the reader can reach**
+
+12. **Every mark says what it is.** A data mark carries `data-label` (its full name, never
+    the shortened text on the slide) and `data-value`; the narration opens a sentence with
+    that name so the Present Guide can point at it (§ Accessibility). A label that names one
+    mark carries `data-mark-for` so a tap on it opens that mark's card.
+
+**Where the family still differs** (each is a candidate to fold in, not a rule to copy):
+
+- Most members set their own gutters (`scatter`, `waterfall`, `bar`, `line`, `histogram`)
+  although the `GUTTER` comment in `cartesian.js` asks them not to; the left gutter that
+  holds ticks should come from `tickGutter`, as `waterfall` and `ep-curve` do.
+- Axis titles sit at slightly different heights (`scatter` 3 units from the bottom on its
+  baseline, `histogram` and `ep-curve` 10 units up, hanging).
+- § Legend / key system's catalog predates `bar grouped`, `line`, `stacked-bar`, `heatmap` and
+  `tower`, which also draw keys through `keySvg`.
+- `tower` and `risk-matrix` print figures ON their marks, against rule 1, each with ink chosen
+  for the mark it sits on (`tower`'s computed from its segment's fill; `risk-matrix`'s the
+  canvas color on a heading-ink disk).
 
 ---
 
@@ -480,7 +619,7 @@ when its mark was drawn (a non-numeric bar, an all-zero stack or a name-only bul
 draws none). A tap on a label opens a card only when the marks at its index name ONE
 thing: a stacked bar's segments and a grouped bar's series are several cards, so their
 category name and total recede with the bar but a tap on them falls through to the
-nearest mark (`namedMark`). A pie or map legend row is one too: `buildSvgLegend` stamps
+nearest mark (`namedMark`). A pie or map legend row is one too: `keySvg` stamps
 a row only when the caller passes `markFor` (the pie passes the wedge index, the map
 its entry's mark index, since its legend is sorted by value). A legend of series
 (line, stacked-bar, radar) passes none, so its rows stay inert instead of opening
@@ -647,7 +786,9 @@ uses does not port to a plot its labels share with everything.
 
 Seven members plot a value against an axis: `bar`, `stacked-bar`, `line`,
 `waterfall`, `scatter`, `slope`, `bullet`. They landed together, and they share
-`_chart-family/cartesian.js` on top of everything above.
+`_chart-family/cartesian.js` on top of everything above. `histogram` and `ep-curve`
+joined later on the same substrate, and `tower` and `risk-matrix` borrow its scales and
+label helpers for their own geometry (§ How a chart is written › Axes and labels).
 
 **Why a second shared layer.** Until these arrived the family had no Cartesian
 chart at all — every member either drew a bespoke geometry (the funnel's

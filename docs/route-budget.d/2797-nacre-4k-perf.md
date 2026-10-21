@@ -1,0 +1,2 @@
+playground: +32
+The playground's snapshot cache (docs/src/playground/snapshot-cache.js) now also removes the Underpainting's brush span when it strips a loading painting from a stored slide, so a replayed shell carries no stray span: one `querySelectorAll(...).forEach(remove)` line, +11 B gz measured in CI against main. The declared figure leaves room for gzip spread. Nothing else in this PR touches eager JS: the Nacre change is CSS, and the brush span's runtime code ships in the slide runtime, not a route chunk.

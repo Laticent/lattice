@@ -255,3 +255,44 @@ describe('card-tag provenance (the `tag:` register)', () => {
 		expect(cardTagDeckValue({ align: 'end', color: 'none', placement: undefined })).toBe('none end');
 	});
 });
+
+describe('image-card provenance (the `image-card:` register)', () => {
+	it('mirrors the kernel word → class maps exactly', async () => {
+		const { IMAGE_CARD_AXES } = await import('./slide-provenance');
+		const kernel = await import('../../../../lib/core/resolve-image-card.js');
+		const axes: readonly { axis: string; names: readonly string[]; tokens: readonly string[] }[] = kernel.IMAGE_CARD_REGISTER.AXES;
+		// Same axes in the same order, each word mapped to the same class, in the same order (the
+		// first word on each axis is its default).
+		expect(Object.keys(IMAGE_CARD_AXES)).toEqual(axes.map((a) => a.axis));
+		for (const a of axes) {
+			expect(Object.entries(IMAGE_CARD_AXES[a.axis as keyof typeof IMAGE_CARD_AXES])).toEqual(a.names.map((n, i) => [n, a.tokens[i]]));
+		}
+	});
+
+	it('reads the deck line per axis, overrides one axis per slide by its class, and writes the line back', async () => {
+		const { imageCardProvenance, setImageCard, deckImageCard, imageCardDeckValue } = await import('./slide-provenance');
+		const src = deck('image-card: top-right soft compact  # quiet', '## A');
+		expect(deckImageCard(src)).toEqual({ placement: 'top-right', backing: 'soft', density: 'compact' });
+		const chunk = '<!-- _class: image spotlight at-bl card-regular -->\n\n## A';
+		expect(imageCardProvenance(chunk, src, 'placement')).toMatchObject({ state: 'on', value: 'bottom-left', deckValue: 'top-right' });
+		expect(imageCardProvenance(chunk, src, 'density')).toMatchObject({ state: 'on', value: 'regular', deckValue: 'compact' });
+		expect(imageCardProvenance(chunk, src, 'backing')).toMatchObject({ state: 'inherited', value: 'soft' });
+		expect(imageCardProvenance(chunk, src, 'ink')).toMatchObject({ state: 'off' });
+		const set = setImageCard(chunk, 'placement', 'center');
+		expect(getClassTokens(set)).toEqual(['image', 'spotlight', 'card-regular', 'at-center']);
+		expect(getClassTokens(setImageCard(set, 'placement', null))).toEqual(['image', 'spotlight', 'card-regular']);
+		expect(getClassTokens(setImageCard(set, 'density', 'compact'))).toEqual(['image', 'spotlight', 'at-center', 'compact']);
+		expect(imageCardDeckValue({})).toBeNull();
+		expect(imageCardDeckValue({ size: 'sm', placement: 'top', ink: undefined })).toBe('top sm');
+	});
+});
+
+describe('the deck image-card line, as classes', () => {
+	const deck = (fm: string) => `---\ntitle: T\n${fm}---\n\n`;
+
+	it('maps the deck line to the classes it stamps', async () => {
+		const { deckImageCardClasses } = await import('./slide-provenance');
+		expect(deckImageCardClasses(deck('image-card: bottom 35% light\n'))).toEqual(['at-bottom', 'card-o35', 'ink-light']);
+		expect(deckImageCardClasses(deck(''))).toEqual([]);
+	});
+});

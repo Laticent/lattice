@@ -122,7 +122,7 @@ these change the deck's slide count.
 | Channel | May carry | Why |
 |---|---|---|
 | **In-tree** (first-party) | everything, T0–T3 | reviewed by us |
-| **npm** (`lattice-plugin-*`, a project dependency) | **code**, T0–T1, Node-side, resolved at build time | you ran `npm i`. You already execute the engine and 15 transitive dependencies in that process; a plugin there is no more privileged than any dependency you chose |
+| **npm** (`lattice-plugin-*`, a project dependency) | ~~**code**, T0–T1, Node-side, resolved at build time.~~ **Superseded** by [`2026-10-16-npm-plugin-threat-model.md`](2026-10-16-npm-plugin-threat-model.md) §6. In v1 an npm plugin is a self-contained bundle Lattice downloads and never installs; it renders only in the locked page and returns either a fragment or data the host sanitizes and attaches (decision 10). It never sends code to a viewer's browser, has no `bake`, and does not load in the Studio or desktop app. It is refused when the OS layer reads OFF or cannot be probed. | you ran `npm i`. You already execute the engine and 15 transitive dependencies in that process; a plugin there is no more privileged than any dependency you chose |
 | **Shared zip / Studio / AI-generated** | **declarative only** — manifest, CSS, skeleton, DSL rules, provider tables | the recipient never consented, and the preview is a same-origin frame next to the user's OpenRouter key |
 
 The third row is the shipped threat model, unchanged. The second row is the one

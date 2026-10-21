@@ -1,0 +1,179 @@
+{
+  "$schema": "../../manifest.schema.json",
+  "name": "tower",
+  "adapt": {
+    "mode": "reflow",
+    "priority": [
+      "title",
+      "layers",
+      "shares"
+    ]
+  },
+  "function": "evidence",
+  "form": "canvas",
+  "substance": "series",
+  "render": "svg",
+  "focusAxes": [
+    "mark"
+  ],
+  "renderNote": "Layers, shares, figures and the key are one `<svg>`. Every layer is the same height, not drawn to scale: its size is printed beside it in the market's notation (`$40M xs $50M`) and each boundary carries its figure on the right edge, so a $40M bottom layer stays as readable as a $200M top one.",
+  "kernel": {
+    "figureClass": "tower-figure",
+    "marks": [
+      {
+        "class": "tower-share",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": true
+      },
+      {
+        "class": "tower-open",
+        "paint": "none",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "tower-retention",
+        "paint": "none",
+        "encodes": "none",
+        "bears": true
+      },
+      {
+        "class": "tower-layer",
+        "paint": "fill",
+        "encodes": "none",
+        "bears": false
+      },
+      {
+        "class": "chart-key-swatch",
+        "paint": "fill",
+        "encodes": "hue",
+        "bears": false
+      }
+    ]
+  },
+  "projection": {
+    "frame": "each layer sits on the one below it, split across the reinsurers who took a share of it",
+    "figure": "svg",
+    "data": true
+  },
+  "stage": "canvas",
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "bucket": "chart",
+  "tags": [
+    "risk",
+    "ownership",
+    "proportion",
+    "board-deck"
+  ],
+  "description": "A reinsurance program as stacked layers, each written as its limit in excess of its attachment and split across the reinsurers who took a share of it.",
+  "purpose": "Use for a reinsurance or insurance tower — a catastrophe program, a casualty excess tower, a D&O program. The retention sits at the bottom, each layer above it is labeled in the market's notation (`$40M xs $50M`), and each layer is split into its reinsurers' shares, one color per reinsurer across every layer, with any unplaced share shown as `Open`.",
+  "slots": {
+    "title": {
+      "selector": "h2",
+      "required": true,
+      "description": "Slide heading — say what the structure means for the client ('A $50M retention saves $3.7M'), not 'Program structure'."
+    },
+    "layers": {
+      "selector": "ul > li",
+      "required": true,
+      "description": "One li per layer: the layer name, then a trailing inline-code size in the market's notation — `Layer 2 \\`$70M xs $90M\\`` (limit, then `xs`, `x/s` or `excess of`, then attachment). A size with no `xs` is the retention, the band from zero to that figure. Any order: the chart sorts by attachment, lowest at the bottom."
+    },
+    "shares": {
+      "selector": "li > ul > li",
+      "required": false,
+      "description": "Optional nested bullets under a layer, one per reinsurer: `Acme Re \\`30%\\``. Each reinsurer keeps one color across every layer. Shares that add up to less than 100% leave the rest as an `Open` segment; a layer with no shares is drawn plain."
+    }
+  },
+  "skeleton": "<!-- _class: tower -->\n\n## Who carries each layer of the program.\n\n- Layer 2 `$100M xs $50M`\n  - Reinsurer A `60%`\n  - Reinsurer B `40%`\n- Layer 1 `$40M xs $10M`\n  - Reinsurer A `50%`\n  - Reinsurer C `50%`\n- Retention `$10M`\n",
+  "anatomyBlock": "funnel",
+  "sample": "<!-- _class: tower -->\n\n`Property catastrophe program · 2027`\n\n## Six reinsurers carry $310M above a $50M retention.\n\n- Layer 3 `$200M xs $160M`\n  - Acme Re `30%`\n  - Globex Re `25%`\n  - Helios Re `20%`\n- Layer 2 `$70M xs $90M`\n  - Acme Re `40%`\n  - Vantage Re `35%`\n  - Umbra Re `25%`\n- Layer 1 `$40M xs $50M`\n  - Globex Re `60%`\n  - Meridian Re `40%`\n- Retention `$50M`\n",
+  "stressDoc": {
+    "summary": "Six layers, eight reinsurers (two fold into Others), one layer part-placed.",
+    "sample": "<!-- _class: tower -->\n\n## A six-layer casualty tower, 85% placed at the top.\n\n- Layer 6 `$100M xs $400M`\n  - Acme Re `35%`\n  - Globex Re `30%`\n  - Helios Re `20%`\n- Layer 5 `$100M xs $300M`\n  - Acme Re `25%`\n  - Vantage Re `25%`\n  - Umbra Re `25%`\n  - Meridian Re `25%`\n- Layer 4 `$100M xs $200M`\n  - Orion Re `50%`\n  - Atlas Re `50%`\n- Layer 3 `$100M xs $100M`\n  - Globex Re `50%`\n  - Acme Re `50%`\n- Layer 2 `$75M xs $25M`\n  - Vantage Re `60%`\n  - Helios Re `40%`\n- Layer 1 `$15M xs $10M`\n  - Acme Re `100%`\n- Retention `$10M`\n"
+  },
+  "whenToUse": [
+    {
+      "title": "The structure is the decision",
+      "body": "A tower earns its slide when the conversation is about the program's shape — where the retention sits, how the layers stack, which reinsurers carry which part. For the cost of each layer, use `stacked-bar` or `bar`; for how losses would hit it, use `waterfall`."
+    },
+    {
+      "title": "Two to six layers",
+      "body": "Every layer is the same height, so the bands thin as layers are added. Past six, merge the thin top layers or split the program across two slides."
+    },
+    {
+      "title": "Up to six reinsurers",
+      "body": "Each reinsurer keeps one color across every layer. A seventh and beyond fold into one `Others` color, summed per layer, so name the ones the client will ask about."
+    }
+  ],
+  "antiPatterns": [
+    {
+      "title": "Reading the height as the size",
+      "body": "The layers are drawn at equal height on purpose, so a $40M layer and a $200M layer look the same size. When the audience needs to SEE the size difference, show the limits as a `bar` chart instead."
+    },
+    {
+      "title": "Shares that are dollars",
+      "body": "A share is a percentage of its layer. Write the reinsurer's line as `30%`, not `$12M`: a dollar figure reads as 12 million percent."
+    }
+  ],
+  "related": [
+    {
+      "name": "stacked-bar",
+      "when": "the premium or cost of each layer, compared on a scale"
+    },
+    {
+      "name": "waterfall",
+      "when": "how a loss or a result walks from one total to another"
+    },
+    {
+      "name": "table",
+      "when": "the full placement slip, with every line and every term"
+    }
+  ],
+  "commonMistakes": [
+    {
+      "mistake": "Writing the layer as attachment then limit (`$50M xs $40M` for a $40M layer sitting at $50M).",
+      "fix": "The market's order is LIMIT xs ATTACHMENT: `$40M xs $50M` is $40M of cover above $50M. The chart reads it that way, so the reversed form draws the wrong boundaries."
+    }
+  ],
+  "dataShapeGuidance": [
+    "A layer's size reads like every chart number (lib/core/chart-values.js), on both sides of `xs`: `$40M`, `USD 40mn`, `EUR 40 Mio.` and `40,000,000` all mean the same.",
+    "Shares are percentages of the layer. Under 100% leaves an `Open` segment; over 100% is drawn scaled to the layer and the description says it is over-placed."
+  ],
+  "specimenVoice": true,
+  "pane": {
+    "side": 35,
+    "stack": 50,
+    "budget": {
+      "axis": "item",
+      "basis": "editorial",
+      "side": {
+        "sweet": 4,
+        "hard": 6
+      },
+      "stack": {
+        "sweet": 3,
+        "hard": 5
+      },
+      "note": "Counted in LAYERS (top-level items; the shares nest under them). Editorial: every layer is the same height, so the bands thin as layers are added, and past six on a full slide the name and notation no longer fit beside a band."
+    },
+    "review": "side 25 measured, 35 reviewed: the key cramps at 25%, as stacked-bar's does; stack 30 measured, 50 reviewed: a tower in a band under half the stage thins every layer to a sliver."
+  },
+  "venueCapacity": {
+    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+  },
+  "gesture": {
+    "archetype": "part",
+    "units": {
+      "layer": {
+        "select": "[data-mark=\"{mark}\"]",
+        "labels": "[data-mark-for=\"{mark}\"]"
+      }
+    },
+    "key": "last"
+  }
+}

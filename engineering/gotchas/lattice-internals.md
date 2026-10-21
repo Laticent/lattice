@@ -1064,23 +1064,45 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 ## A rule works in the CLI export and does nothing in the Studio or Playground preview
 
-- **Symptom:** A theme or engine rule whose selector starts with `:where(section…)` styles the
-  slide in the CLI's PDF and HTML, and has no effect in the Studio's and the Playground's live
-  slide. Nothing errors. #2705 found two: the code plugin's `:where(section) pre` (code blocks
+- **Symptom:** A theme or engine rule that names the slide in a way the packer does not recognize
+  (below) styles the slide in the CLI's PDF and HTML, and has no effect in the Studio's and the
+  Playground's live slide. Until 2026-10-17 that included a leading `:where(section…)`. Nothing errors. #2705 found two: the code plugin's `:where(section) pre` (code blocks
   lost their panel in the preview) and a finish's split-panel reset (a legacy finish left its
   white section mask on the panel, so the panel painted white under its white text).
 - **Cause:** The engine packs every sheet for the live preview (`packSelector` in
-  `lib/engine/css.js`). Only a literal leading `section`, or a leading `:is(…)` it distributes,
-  counts as the slide; anything else is scoped as a slide DESCENDANT. So
-  `:where(section.finish) .panel-left` packs to
-  `article.lattice > section :where(section.finish) .panel-left`, a section inside a section.
-  The CLI reads the FLAT pack, which also ships each re-scoped arm as written, so the CLI still
-  matches. It is the Marp-side trap in `marp.md` ("A theme rule gated on `:root[…]`"), from the
-  engine's own packer.
-- **Fix:** Lead with `section` and move the weight-free part inside `:where()`:
-  `section.finish :where(.panel-left, …)`. The rewrite adds the type selector plus whatever
-  classes leave `:where()`, less those that enter it ((0,0,1) here), so check what the rule must
-  still lose to.
+  `lib/engine/css.js`). Only a literal leading `section`, a leading `:is(…)` it distributes, a bare
+  `:root`, and (since the 2026-10-17 packer fix) a leading `:where(section…)` count as the slide; anything else is
+  scoped as a slide DESCENDANT, a section inside a section. The CLI reads the FLAT pack, which also
+  ships each re-scoped arm as written, so the CLI still matches. It is the Marp-side trap in
+  `marp.md` ("A theme rule gated on `:root[…]`"), from the engine's own packer.
+- **Fixed in the packer (2026-10-17): a leading `:where(section…)`.** `:where(section.finish) .panel-left`
+  now packs to TWO arms: `article.lattice > :where(section.finish) .panel-left` (the slide, with the
+  author's zero-weight filter still zero-weight) and `article.lattice > section :where(section.finish)
+  .panel-left` (the descendant arm this shape always packed to, kept so a raw `<section>` an author nests
+  in a slide still matches). FLAT adds the as-written arm too, as for any re-scoped arm. The result
+  matches everything the old one did and now the slide as well. A first version emitted only the slide
+  arm and lost the nested section in the preview (and, for an exact `:where(section) > .x`, the nested
+  children in the export); the independent checker found it. Measured on a fixture theme, preview vs the
+  CLI's unwrapped export sheet, `outline-width`: single arm preview 0px → 3px (export 3px), multi-arm
+  0px → 4px (export 4px), a rule hitting a nested raw section 9px before and after, `:where(section) >
+  .x` on its child 2px before and after; the export column is identical to `main`'s. All 33 shipped sheets
+  (css, flat, html) hash identically before and after, because no shipped selector leads with
+  `:where(section…)`.
+  **It applies only when EVERY arm is one compound that starts with `section` (not `section\.a`, not
+  `section|a`) and none mentions `:root`.** An arm with a combinator inside it (`:where(section .wrap) .d`)
+  filters on a descendant of a section, not on the slide, so it keeps scoping as a descendant and keeps
+  working. A mixed list (`:where(section.a, .b) .y`) is ambiguous and stays dead (the fixture's mixed rule:
+  preview 0px, export 5px); `:where(:root)` and `:where(section:root)` stay dead on purpose, because a
+  `color-scheme` moved onto the slide stops it inheriting a forced dark mode (see the `:where(:root)`
+  bullet below). All are pinned in `css-scope.test.js`, where the guard exempts the companion arm only
+  while its slide arm sits beside it.
+  One gap, not a regression: pane twins (`widenForPanes`, `lib/core/pane-css.js`) are made only for an
+  arm with a literal leading `section`, so `:where(section.list) .x` styles a list SLIDE in the
+  preview but not a list PANE; the CLI makes no twin either, so the two agree.
+- **Still the fix for everything else:** lead with `section` and move the weight-free part inside
+  `:where()`: `section.finish :where(.panel-left, …)`. The rewrite adds the type selector plus
+  whatever classes leave `:where()`, less those that enter it ((0,0,1) here), so check what the
+  rule must still lose to.
 - **The trailing form is the same trap.** `:where(.lattice-exporting) section.finish` packs to
   `article.lattice > section :where(.lattice-exporting) section.finish`. Nine such arms sat in
   `base.finish.css`, `base.modifiers.css`, the split-panel and split-compare styles and both finish
@@ -1089,8 +1111,27 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   ancestor. Each had a `section….lattice-exporting` sibling that does the work, so they were
   deleted, not rewritten. Computed style on an exporting split slide, old sheet vs new, was
   identical in the packed and CLI forms (0 properties differ).
-- **Guard:** `test/unit/engine/css-scope.test.js` packs every `lib/` and `themes/` stylesheet
-  and fails on a packed `section :where(section…)` or `section :where(…) section`
-  (one `:where()`, one level of nested parens; `:where(.a) > section.x` and `:where(:root)` slip past it).
+- **`:where(:root)` looks like the same trap and is not one: leave it dead.** Each light theme writes
+  `:where(:root) { color-scheme: light; }` as a zero-specificity DOCUMENT default. The packer scopes
+  it to `article.lattice > section :where(:where(section):not([\20 root]))`, which matches nothing,
+  so preview slides compute `color-scheme: normal` where the CLI computes `light`. Pixels are the
+  same (`light-dark()` reads `normal` as light), and the dead arm is the right one. In the CLI the
+  rule lands on `<html>` and slides inherit it. In the preview the frame's `<html>` belongs to the
+  host, which forces `:root{color-scheme:dark}` for dark mode. A packer that moved the rule onto the
+  slide (tried in catalog-followups-3, reverted) put `color-scheme: light` ON each slide, which
+  stops it inheriting from `<html>`. Measured: a palette with no `-dark` sibling rendered a white
+  slide under a forced-dark frame, and every CLI export of a deck with
+  `style: ":root{color-scheme:dark}"` came out white (the export copies only `--*` properties onto the
+  slide, so the author's dark stays on `<html>`). Rule: **never put `color-scheme` on the slide from a
+  root rule.** Dark themes and `section.dark` set it on the slide on purpose, with their own selector.
+- **Guard:** `test/unit/engine/css-scope.test.js` packs every `lib/` and `themes/` stylesheet and
+  fails on any packed selector that puts a `section` type selector below the slide compound
+  (`nestsSlide`: a structural parse of compounds and combinators; `:where()`/`:is()` arms followed,
+  `:not()`/`:has()` not). It catches `:where(section.x) .a`, `:where(.a) > section.x`, `.x section.x`,
+  `:is(.a) section.x` and a descendant after `+`/`~`; each was proven to fail on the previous guard.
+  Two arms are sanctioned with their justification in `SANCTIONED_NESTED_SLIDE`: the themes'
+  `:where(:root)` default (above) and `:root[data-lattice-view="fluid"] section[…]`, which only
+  exists in an exported page that ships the flat sheet. The scan fails on a stale sanction.
 - **Commits:** #2705 (code plugin), the catalog follow-ups PR (base.finish.css), the
-  catalog-followups-2 PR (the nine `.lattice-exporting` arms).
+  catalog-followups-2 PR (the nine `.lattice-exporting` arms), catalog-followups-3 (the structural
+  guard; `:where(:root)` recorded as dead on purpose).

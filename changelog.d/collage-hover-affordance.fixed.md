@@ -1,0 +1,1 @@
+- **Collage:** a photo you can open now says so before you click. The pointer becomes the zoom cursor over it (in the Studio preview too, where the frame takes no pointer events), the photo gets the accent ring the keyboard focus already draws, and it rises a little more (3% instead of 2%) while its neighbors recede. Print and PDF output are unchanged.

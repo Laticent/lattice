@@ -1,0 +1,1 @@
+- The code door now measures Chromium's OS sandbox on macOS and Windows as well as Linux. Before, it assumed the platform default on those two. An npm plugin runs only where the sandbox reads on. A code package whose sandbox cannot be measured still renders, now with a warning, where before the line said the sandbox was on by default.

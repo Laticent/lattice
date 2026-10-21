@@ -68,7 +68,7 @@ instead.
 | `-q`, `--quiet` | Print errors only |
 | `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K` |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
-| `--allow-remote` | Let the render fetch web images, media and fonts. Off by default, so web images show as placeholders |
+| `--allow-remote` | Let the render fetch web images, media and fonts, and let the plain `.html` keep remote scripts, frames and stylesheets. Off by default, so web images show as placeholders and a remote `<script src>`, `<iframe>` or `<link rel=stylesheet>` in the `.html` is refused |
 | `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
 | `--packages <dir>` | Use `<dir>` as the package store for this run |
 | `--disable-plugin <names>` | Switch plugins off for this run, comma-separated (`mermaid,math`) or repeated. The engine and the plugins' bakes both skip them, so the PDF, images and PowerPoint show their source, and a deck's `plugins:` list cannot turn them back on. A `--fluid` or `--player` page shows their source too. An unknown name fails the run |
@@ -110,10 +110,11 @@ stay the same.
 | `--fluid` | A viewer where each slide fills the screen and reflows on a phone. Same as `fluid: true` |
 | `--no-player-motion` | Ship still slides in the player even when the deck sets `motion: on`. Same as `player-motion: off` |
 | `--player-mode <m>` | Open the player in `light`, `dark` or `system` mode, over the deck's `color-mode:` |
+| `--player-consent <origins>` | Let the player load web pictures from these origins (comma-separated, such as `https://images.example.com`), but only after the reader presses **Load pictures** in a banner. Until then each picture is a placeholder, and with JavaScript off it stays one, listed as a link. The site must allow cross-origin reads (CORS); if it does not, the banner says so and lists the links. Off by default |
 | `--narrate` | Voice the player with Kokoro, the Studio's on-device voice. Needs the optional voice install (see [`lattice video`](#lattice-video)) |
 | `--no-guide` | Leave the Guide (the focus and gestures that follow the narration) out of a narrated player |
 
-`--player-mode` and `--narrate` apply to `--player` only; without it, the render
+`--player-mode`, `--player-consent` and `--narrate` apply to `--player` only; without it, the render
 prints a note and ignores them.
 
 When several apply, `--player` wins. Between `--read` and `--fluid`, a flag

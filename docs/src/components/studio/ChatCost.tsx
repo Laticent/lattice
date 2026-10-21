@@ -1,12 +1,16 @@
 import { ChevronDown } from 'lucide-react';
 import * as React from 'react';
 import { shortName } from '@/components/studio/ai/or-catalog.js';
+import { readLedger } from '@/components/studio/ai/spend.js';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { agentTurnUsd, architectSpend, type ChatGrounding, useArchitectStatus } from './architect';
+import { approxTokens, modelText, SUMMARY_MAX_TOKENS, shouldSuggestCompaction, splitForCompaction } from './chat-compact';
+import { num } from './chat-trace';
 import { ModelList, useModelCatalog } from './ModelPicker';
 import { assetChoices, onAssetUrlsChanged } from './media-urls';
 import { type ReferenceDoc, refDocsTokens } from './reference-doc';
+import type { ChatMessage, ChatUsage } from './studio-store';
 
 // The money readout: what this turn costs, and what the session has spent.
 //
@@ -22,13 +26,19 @@ import { type ReferenceDoc, refDocsTokens } from './reference-doc';
 // threading any of that through. On the free on-device tier it renders NOTHING — no
 // money UI at all, rather than a reassuring fake $0.
 //
+// THE METRICS DROPDOWN. The session figure is no longer a bare number: it is the trigger of a
+// second dropdown ("Chat metrics") that answers the three budget questions without a trip to
+// Settings — what this session, this deck and today have cost, how full the model's context
+// window is, and what the last reply cost. Everything in it was already arriving in each
+// response's `usage` block or in the spend tally; none of it adds a request or a charge.
+//
 // THE CHIP. The header used to carry two unlabeled numbers ("≈ $0.018–0.024  $6.08 session")
 // and no way to change the model without leaving the chat for Workspace → AI. It is now one
 // chip naming the model with a dropdown, and one figure for the session. The per-turn range
 // moved INTO the dropdown, where it has room to say which end is a question and which an
 // edit — the dropdown is also where you are when the price should change your choice.
 
-export function ChatCost({ source, grounding, docs, primed, explicitCache = true, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; className?: string }) {
+export function ChatCost({ source, grounding, docs, primed, explicitCache = true, deckId, messages, compact, className }: { source: string; grounding?: ChatGrounding; docs?: ReferenceDoc[] | null; primed?: boolean; explicitCache?: boolean; deckId?: string; messages?: ChatMessage[]; compact?: CompactControls; className?: string }) {
 	const [spend, setSpend] = React.useState(() => architectSpend());
 	const [pulse, setPulse] = React.useState(0);
 	const status = useArchitectStatus(pulse);
@@ -67,15 +77,211 @@ export function ChatCost({ source, grounding, docs, primed, explicitCache = true
 	const usd = (n: number) => `$${n.toFixed(n < 0.1 ? 3 : 2)}`;
 
 	if (!cloud) return null;
-	const sessionFmt = `$${spend.session.toFixed(2)}`;
+	const last = withCurrentWindow(lastUsage(messages), status.price?.contextLength);
 	return (
 		<span className={cn('flex min-w-0 items-center gap-2 font-sans text-[11px] normal-case tracking-normal', className)}>
 			<ModelChip status={status} turnEst={turnEst} usd={usd} spend={spend} onRefresh={() => setPulse((p) => p + 1)} />
-			<span className="shrink-0 whitespace-nowrap text-muted-foreground" title={spend.cap > 0 ? `This session: ${sessionFmt} of your $${spend.cap.toFixed(2)} cap` : `This session: ${sessionFmt}`}>
-				<span className={cn('font-semibold', spend.status.level === 'over' ? 'text-[var(--fail,#b3261e)]' : spend.status.level === 'warn' ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{sessionFmt}</span>
-				<span className="sr-only"> spent this session</span>
-			</span>
+			<MetricsMenu spend={spend} deckId={deckId} last={last} usd={usd} messages={messages} price={status.price} compact={compact} />
 		</span>
+	);
+}
+
+/** What the metrics dropdown needs to offer compaction: run it, whether a turn or a compaction is already in flight, and undo (null when there is nothing to undo). */
+export type CompactControls = { run: () => void; busy: boolean; undo: (() => void) | null };
+
+/** The newest reply's usage in a thread, or null when none has been recorded (a thread saved before usage was kept). */
+export function lastUsage(messages: ChatMessage[] | undefined): ChatUsage | null {
+	for (let i = (messages?.length ?? 0) - 1; i >= 0; i--) {
+		const u = messages?.[i]?.usage;
+		if (messages?.[i]?.role === 'assistant' && u && typeof u === 'object') return { ...u, cost: num(u.cost), prompt: num(u.prompt), completion: num(u.completion), cached: num(u.cached), reasoning: num(u.reasoning), rounds: num(u.rounds), window: num(u.window) || null };
+	}
+	return null;
+}
+
+/** 1234 -> "1.2K", 1_200_000 -> "1.2M". */
+export function fmtTok(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+	if (n >= 1000) return `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}K`;
+	return String(Math.round(n));
+}
+
+/** The newest reply's usage, measured against the model chosen NOW: the reply saved the window of the model that wrote it, and a switch since then would leave the ring on the old one. The prompt size stays the reply's, the best count of the thread. */
+export function withCurrentWindow(last: ChatUsage | null, window: number | null | undefined): ChatUsage | null {
+	return last && window ? { ...last, window } : last;
+}
+
+/** How full the window is, 0..1, or null when either number is unknown. */
+export function contextFill(last: ChatUsage | null): number | null {
+	if (!last?.window || !last.prompt) return null;
+	return Math.min(1, last.prompt / last.window);
+}
+
+const level = (f: number | null) => (f == null ? 'ok' : f >= 0.9 ? 'over' : f >= 0.7 ? 'warn' : 'ok');
+const levelColor = (l: string) => (l === 'over' ? 'text-[var(--fail,#b3261e)]' : l === 'warn' ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground');
+const levelBar = (l: string) => (l === 'over' ? 'bg-[var(--fail,#b3261e)]' : l === 'warn' ? 'bg-[var(--warn,#9a6a00)]' : 'bg-primary');
+
+/** The session figure and the dropdown behind it. */
+function MetricsMenu({ spend, deckId, last, usd, messages, price, compact }: { spend: Spend; deckId?: string; last: ChatUsage | null; usd: (n: number) => string; messages?: ChatMessage[]; price: { promptPerM: number | null; completionPerM: number | null } | null; compact?: CompactControls }) {
+	const [open, setOpen] = React.useState(false);
+	// Read when the menu opens and whenever a charge lands: the ledger is localStorage, not state.
+	const [tick, setTick] = React.useState(0);
+	React.useEffect(() => {
+		const on = () => setTick((t) => t + 1);
+		globalThis.addEventListener?.('lattice-spend-changed', on);
+		return () => globalThis.removeEventListener?.('lattice-spend-changed', on);
+	}, []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `tick` and `open` are the re-read triggers.
+	const ledger = React.useMemo(() => readLedger(deckId ?? ''), [deckId, tick, open]);
+	const sessionFmt = `$${spend.session.toFixed(2)}`;
+	const over = spend.status.level === 'over';
+	const warn = spend.status.level === 'warn';
+	const fill = contextFill(last);
+	const ctxLevel = level(fill);
+	const pct = fill == null ? null : Math.round(fill * 100);
+	const cachedPct = last?.prompt ? Math.min(100, Math.round((last.cached / last.prompt) * 100)) : null;
+	// Compaction: what cutting the older messages would save each turn, and what the one summarizing call costs. Both are estimates
+	// (4 characters a token), shown as such; the real cost is reported when it is done.
+	const split = React.useMemo(() => (messages ? splitForCompaction(messages) : null), [messages]);
+	const suggest = !!messages && shouldSuggestCompaction(messages, fill);
+	const plan = React.useMemo(() => {
+		if (!split) return null;
+		const was = split.older.reduce((n, m) => n + approxTokens(modelText(m)), 0);
+		const cost = price?.promptPerM != null && price.completionPerM != null ? (was / 1e6) * price.promptPerM + (SUMMARY_MAX_TOKENS / 1e6) * price.completionPerM : null;
+		return { messages: split.older.length, saved: Math.max(0, was - 300), cost };
+	}, [split, price]);
+	return (
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					aria-label={`Chat metrics: ${sessionFmt} spent this session${pct != null ? `, context ${pct}% full` : ''}`}
+					title={spend.cap > 0 ? `This session: ${sessionFmt} of your $${spend.cap.toFixed(2)} cap` : `This session: ${sessionFmt}`}
+					className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1 py-0.5 text-muted-foreground hover:text-foreground data-[state=open]:text-foreground"
+				>
+					{fill != null && <ContextRing fill={fill} level={ctxLevel} />}
+					<span className={cn('font-semibold', over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>{sessionFmt}</span>
+					{suggest && <span className="size-1.5 shrink-0 rounded-full bg-[var(--warn,#9a6a00)]" title="This conversation is long enough that compacting may pay off" />}
+					<ChevronDown className="size-3 shrink-0" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent align="end" className="w-[min(92vw,20rem)] p-3 text-[12px]" data-testid="chat-metrics">
+				<div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Spend</div>
+				<Row label="This session">
+					<span className={cn('font-semibold', over ? 'text-[var(--fail,#b3261e)]' : warn ? 'text-[var(--warn,#9a6a00)]' : 'text-foreground')}>
+						{usd(spend.session)}
+						{spend.cap > 0 ? ` of $${spend.cap.toFixed(2)}` : ''}
+					</span>
+				</Row>
+				{spend.cap > 0 && <Bar value={spend.session / spend.cap} tone={over ? 'over' : warn ? 'warn' : 'ok'} />}
+				{deckId && (
+					<Row label="This deck" hint={`last ${ledger.keepDays} days`}>
+						<span className="font-semibold">{usd(ledger.deck)}</span>
+					</Row>
+				)}
+				<Row label="Today" hint="every deck">
+					<span className="font-semibold">{usd(ledger.today)}</span>
+				</Row>
+				<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Context window</div>
+				{last ? (
+					<>
+						<Row label="Used">
+							<span className={cn('font-semibold', levelColor(ctxLevel))}>
+								{last.estimated ? '≈ ' : ''}
+								{fmtTok(last.prompt)}
+								{last.window ? ` of ${fmtTok(last.window)}` : ''}
+								{pct != null ? ` · ${pct}%` : ''}
+							</span>
+						</Row>
+						{fill != null && <Bar value={fill} tone={ctxLevel} />}
+						<Row label="Read from cache" hint="billed at a fraction of normal input">
+							<span className="font-semibold">{cachedPct == null ? '—' : `${cachedPct}%`}</span>
+						</Row>
+						<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Last reply</div>
+						<Row label="Cost">
+							<span className="font-semibold">{usd(last.cost)}</span>
+						</Row>
+						<Row label="Model calls">
+							<span className="font-semibold">{last.rounds}</span>
+						</Row>
+						<Row label="Written">
+							<span className="font-semibold">{fmtTok(last.completion)} tokens{last.reasoning ? ` (${fmtTok(last.reasoning)} thinking)` : ''}</span>
+						</Row>
+					</>
+				) : (
+					<p className="text-muted-foreground">Send a message and the window fills in here.</p>
+				)}
+				{compact && (
+					<>
+						<div className="mt-3 mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Conversation</div>
+						{plan ? (
+							<>
+								{suggest && <p className="mb-1.5 rounded-md bg-[var(--accent-soft)] px-2 py-1.5 leading-snug">This conversation is getting long. Compacting would shrink what is re-sent every turn.</p>}
+								<Row label="Would compact" hint="the older messages become a short briefing; the latest six stay word for word">
+									<span className="font-semibold">{plan.messages} messages</span>
+								</Row>
+								<Row label="Saves about" hint="estimated from text length">
+									<span className="font-semibold">{fmtTok(plan.saved)} tokens a turn</span>
+								</Row>
+								<Row label="Costs once" hint="one model call to write the briefing">
+									<span className="font-semibold">{plan.cost == null ? '—' : `≈ ${usd(plan.cost)}`}</span>
+								</Row>
+							</>
+						) : (
+							<p className="text-muted-foreground">Too short to compact. It becomes useful once a thread has a dozen or so messages.</p>
+						)}
+						<div className="mt-2 flex gap-2">
+							<button
+								type="button"
+								disabled={!plan || compact.busy}
+								onClick={() => {
+									compact.run();
+									setOpen(false);
+								}}
+								className="rounded-md border border-border px-2 py-1 font-medium hover:border-[var(--accent)] disabled:pointer-events-none disabled:opacity-50"
+							>
+								{compact.busy ? 'Working…' : 'Compact conversation'}
+							</button>
+							{compact.undo && (
+								<button type="button" onClick={compact.undo} className="rounded-md px-2 py-1 font-medium text-muted-foreground hover:text-foreground">
+									Undo
+								</button>
+							)}
+						</div>
+					</>
+				)}
+				<p className="mt-3 text-[10.5px] leading-snug text-muted-foreground">Figures come from the usage OpenRouter reports with each reply. Reading them costs nothing.</p>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+	return (
+		<div className="flex items-baseline justify-between gap-3 py-0.5" title={hint}>
+			<span className="text-muted-foreground">{label}</span>
+			{children}
+		</div>
+	);
+}
+
+function Bar({ value, tone }: { value: number; tone: string }) {
+	return (
+		<span className="my-1 block h-[5px] overflow-hidden rounded-full bg-border" aria-hidden>
+			<span className={cn('block h-full rounded-full', levelBar(tone))} style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
+		</span>
+	);
+}
+
+/** A 12px ring that fills as the context window does. Shape from us, color from the token. */
+function ContextRing({ fill, level: l }: { fill: number; level: string }) {
+	const r = 5;
+	const c = 2 * Math.PI * r;
+	return (
+		<svg viewBox="0 0 12 12" className={cn('size-3 shrink-0 -rotate-90', levelColor(l))} aria-hidden>
+			<title>Context window fill</title>
+			<circle cx="6" cy="6" r={r} fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
+			<circle cx="6" cy="6" r={r} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray={`${(c * fill).toFixed(2)} ${c.toFixed(2)}`} />
+		</svg>
 	);
 }
 

@@ -362,8 +362,8 @@ section:is(.flowchart, .state-chart) .fc-key-item {
   gap: var(--sp-xs);
 }
 section:is(.flowchart, .state-chart) .fc-key-label {
-  font-family: var(--pill-font);
-  letter-spacing: var(--pill-tracking);
+  font-family: var(--font-body);
+  letter-spacing: 0.04em;
 }
 /* Each swatch wears the paint of the mark it decodes. */
 section:is(.flowchart, .state-chart) .fc-key-swatch {

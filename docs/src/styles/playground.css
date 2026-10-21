@@ -79,7 +79,7 @@
 /* Editor | preview split — react-resizable-panels Group (2026-07-19 splitter
    migration; supersedes the CSS-Grid split of the 2026-07-02 decision). The
    library renders .pg-split as a locked display:flex row and sizes the two
-   .pg-pane Panels inline from px minimums (editor 280 / preview 320) + a
+   .pg-pane Panels inline from px minimums (editor 300 / preview 300) + a
    persisted ratio; the 1px Separator between them IS the divider line. We style
    the seam (resizable.tsx), the collapsed-pane rail, and the drag shield. Below
    820px the group is `disabled` and body[data-pane] tabs own layout (the mobile
@@ -119,11 +119,11 @@
    reservation below, for the window in which only ONE of the two panes has parsed.) */
 .pg-split > #pg-split-editor {
 	flex-basis: 0;
-	flex-grow: var(--pg-split-a, 45);
+	flex-grow: var(--pg-split-a, 46);
 }
 .pg-split > #pg-split-preview {
 	flex-basis: 0;
-	flex-grow: var(--pg-split-b, 55);
+	flex-grow: var(--pg-split-b, 54);
 }
 /* RESERVE THE PANE THAT HAS NOT PARSED YET (#1800). `flex-grow` divides the row between the
    children that ARE there, and the document is STREAMED: for as long as the parser has emitted
@@ -155,7 +155,7 @@
    owns the layout regardless. */
 .pg-split:not(:has(> #pg-split-preview))::after {
 	content: '';
-	flex: var(--pg-split-b, 55) 1 0;
+	flex: var(--pg-split-b, 54) 1 0;
 }
 /* THE PANES' PIXEL MINIMUMS are NOT applied here (#1589) — the seed in playground.astro
    appends them to <head> as a media-query-scoped stylesheet, because which of them applies
@@ -164,7 +164,7 @@
    · Restoring a saved layout is not a clamp. The library resolves an under-minimum size in
      TWO branches: below the MIDPOINT of `collapsedSize` and `minSize` it snaps a collapsible
      pane to the 28px rail; only above it does it clamp to the minimum. A static
-     `min-width: 320px` paints 320 where the app is about to show 28 — measured 292px wrong,
+     `min-width: 300px` paints 300 where the app is about to show 28 — measured 292px wrong,
      held ~1.3s, on the share a divider dragged past its minimum leaves behind.
    · The rules have to name the panel ids and the a→editor / b→preview mapping, which
      `PG_SPLIT_PANEL_IDS` and the seed own. Generating them there keeps that in one place;
@@ -367,6 +367,43 @@
 	   its gray never matched the brand. Now the pane is just the brand color the whole
 	   time, and the slides fade in over the SAME color — nothing to flicker. */
 	background: var(--bg-alt);
+}
+/* The slide map (PlaygroundMap.tsx). The row wraps the preview and the map. With the map off it
+   generates no box at all (`display: contents`), so the preview's layout is exactly what it was
+   before the map existed; with it on, the row is the flex item and holds the two side by side, or
+   one over the other where the panes stack. */
+.pg-preview-row {
+	display: contents;
+}
+.pg-preview-row[data-map] {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	min-width: 0;
+}
+.pg-preview-row[data-map='side'] {
+	flex-direction: row;
+}
+/* Stacked, the map lives in the walk bar (WalkBar `mapSlot`), so the row holds only the preview. */
+.pg-preview-row[data-map='stacked'] {
+	flex-direction: column;
+}
+.pg-preview-row[data-map='stacked'] > .pg-map {
+	display: none;
+}
+.pg-preview-row[data-map] > .pg-preview-wrap {
+	min-width: 0;
+}
+.pg-map {
+	flex: none;
+	min-width: 0;
+	min-height: 0;
+}
+.pg-preview-row[data-map='side'] > .pg-map {
+	width: 148px;
+}
+.pg-preview-row[data-map='stacked'] > .pg-map {
+	height: 112px;
 }
 /* Kill the shared animated skeleton for the Playground preview (see .pg-preview-wrap
    above): the pane's own brand fill is the placeholder. `!important` overrides the
@@ -846,6 +883,36 @@
 }
 .pg-walk-caption.is-notice {
 	color: var(--accent);
+}
+/* With the slide map on, a narrow screen shares the walk bar with it: Prev, the position and Next stack in one
+   column and the map's strip fills the rest of the row, so the map adds no bar of its own and no second set
+   of buttons. */
+:is(:root[data-pg-view='read'], body[data-view='read']) .pg-walk[data-map] {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	grid-template-areas: 'steps map' 'caption caption';
+	align-items: center;
+	column-gap: 10px;
+}
+.pg-walk[data-map] .pg-walk-row {
+	grid-area: steps;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 4px;
+}
+.pg-walk[data-map] .pg-walk-step.next {
+	max-inline-size: 9.5rem;
+}
+.pg-walk[data-map] .pg-walk-pos {
+	min-width: 0;
+}
+.pg-walk[data-map] .pg-walk-map {
+	grid-area: map;
+	block-size: 116px;
+	min-width: 0;
+}
+.pg-walk[data-map] .pg-walk-caption {
+	grid-area: caption;
 }
 @media (max-width: 560px) {
 	.pg-walk {

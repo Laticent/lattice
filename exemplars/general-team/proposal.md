@@ -85,13 +85,13 @@ Three CS managers can each own about twenty-five large accounts — enough to co
 
 1. −60%
    - Large-account churn
-   - from $1.2M to under $500K `On plan` `Finance`
+   - from $1.2M to under $500K `{On plan}` `{Finance}`
 2. 75
    - Accounts covered
-   - the entire at-risk segment `On plan` `CS`
+   - the entire at-risk segment `{On plan}` `{CS}`
 3. 3.5×
    - Return on cost
-   - $1.4M retained on $400K spend `On plan` `Finance`
+   - $1.4M retained on $400K spend `{On plan}` `{Finance}`
 
 ---
 

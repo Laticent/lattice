@@ -611,9 +611,16 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	const craft = page.locator('header').getByText('Craft', { exact: true });
 	if (await craft.isVisible().catch(() => false)) await craft.click();
 
+	// The Library button TOGGLES the panel, and "New deck" and the Craft switch re-render the shell
+	// after their clicks return. A one-shot `isVisible()` read mid-re-render chose wrong on a CI
+	// runner (#2739: the tab was never found, twice) while passing every local run, so open it until
+	// the tab is really there. A Library that cannot open still fails here, after 15 s.
 	const imagesTab = page.getByRole('tab', { name: 'Images' });
-	if (!(await imagesTab.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
-	await imagesTab.click();
+	await expect(async () => {
+		if (!(await imagesTab.isVisible())) await page.getByRole('button', { name: CHROME.library }).click();
+		await expect(imagesTab).toBeVisible({ timeout: 2_000 });
+		await imagesTab.click({ timeout: 2_000 });
+	}).toPass({ timeout: 15_000 });
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');
 	await first.getByLabel('Name', { exact: true }).fill('roomy');

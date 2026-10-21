@@ -16,6 +16,7 @@ const { loadAll } = require('../../../lib/components');
 const engine = require('../../../lib/engine');
 const { narrateChart } = require('../../../lib/core/chart-narration.js');
 const ROW_DETAIL = require('../../../lib/core/chart-rows.js');
+const { readChartRows } = require('../../../lib/core/chart-row-source.js');
 
 const manifests = loadAll(path.join(__dirname, '../../../lib/components'));
 const vocab = buildVocab(manifests);
@@ -236,8 +237,8 @@ describe('a description cannot break the slide, the narration or the card', () =
     assert.match(say(bar('- Alpha `10`\n  > first line\n  continued lazily\n- Beta `20`')), /first line continued lazily\. Beta/);
     // `1. ` puts its content at column 3: a two-space quote ends the list in the engine, and is no
     // row's description to the narrator either.
-    assert.deepEqual(ROW_DETAIL.readChartRows('1. A `1`\n  > q\n2. B `2`', 'bar').descriptions, []);
-    const three = ROW_DETAIL.readChartRows('1. A `1`\n   > q\n2. B `2`', 'bar');
+    assert.deepEqual(readChartRows('1. A `1`\n  > q\n2. B `2`', 'bar').descriptions, []);
+    const three = readChartRows('1. A `1`\n   > q\n2. B `2`', 'bar');
     assert.equal(three.markdown, '1. A `1`\n2. B `2`');
     assert.deepEqual(three.descriptions.map((d) => [d.anchor, d.blocks[0].text]), [[0, 'q']]);
     // A radar series draws no mark of its own: its quote is dropped, never read as an axis at zero.

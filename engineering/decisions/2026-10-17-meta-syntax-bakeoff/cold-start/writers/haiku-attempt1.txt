@@ -1,0 +1,8 @@
+
+<invoke/>
+<invoke name="Bash">
+<invoke>
+<parameter name="command">ls -la /home/user/lattice 2>/dev/null; ls -la /tmp/claude-0/-tmp-claude-0--home-user-lattice-24c66920-f9c2-5c84-a5c9-9e90f2a72048-scratchpad-cold-run/24c66920-f9c2-5c84-a5c9-9e90f2a72048/scratchpad 2>/dev/null; ls -la /home/user 2>/dev/null; find / -iname "*lattice*" -not -path "*/proc/*" 2>/dev/null | head -50</parameter>
+</invoke>
+error
+The tool call was malformed and has been removed. Please retry.

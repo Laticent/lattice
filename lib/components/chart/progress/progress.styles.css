@@ -179,8 +179,10 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
   /* Rows are two lines tall once the label takes its own row, so the
    * between-row rhythm tightens to keep five of them inside the stage. Declared
    * HERE rather than on a second rule sharing this selector — see the note on
-   * `.progress-track` below for why a duplicate selector blinds the gate. */
-  row-gap: var(--sp-sm);
+   * `.progress-track` below for why a duplicate selector blinds the gate. Stepped from
+   * `--sp-sm` to `--sp-xs` for the portrait fixture (five rows under a two-line headline
+   * and a two-line lead), which painted 11.6px past the stage; now 20.5px inside it. */
+  row-gap: var(--sp-xs);
 }
 
 

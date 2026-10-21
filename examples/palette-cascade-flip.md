@@ -63,7 +63,7 @@ Try `cuoio` for warm terracotta and amber, `ardesia` for muted slate and teal.
 ## The status trio comes from the palette, not the engine.
 
 - [x] Done rows take the palette's own pass ink
-- [-] Partial rows take its warn ink `amber`
+- [-] Partial rows take its warn ink `{amber}`
 - [ ] Open rows keep the neutral ring
 - [x] An achromatopsia palette paints three grays
 - [/] Descoped rows stay struck and muted

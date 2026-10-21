@@ -2,7 +2,7 @@
  * Integration: every worked exemplar deck renders cleanly, and its
  * committed PDF is fresh.
  *
- * The 45 worked exemplars (`exemplars/<sector>/<name>.md`, the "what
+ * The 46 worked exemplars (`exemplars/<sector>/<name>.md`, the "what
  * good looks like" library served by the Drawing Board's Drafting
  * picker) are a standing surface that must keep rendering as components
  * evolve — the maintenance debt the design doc flags
@@ -34,7 +34,7 @@
  * NOT pixel-diff against a golden (that's the gallery `regress` tier's
  * job, and the exemplars were render-verified by eye in #341).
  *
- * Cold runs render 45 full decks (up to ~25 slides each) and are slow;
+ * Cold runs render 46 full decks (up to ~25 slides each) and are slow;
  * the render helper caches by input hash for warm local runs. CI
  * disables the cache and verifies the real build.
  */
@@ -68,12 +68,12 @@ describe('exemplar-render', () => {
 
   // Guard the discovery itself: if the walk finds nothing (a moved
   // directory, a renamed tree), every per-deck test would silently
-  // vanish and the suite would pass green. The library is a fixed 45.
+  // vanish and the suite would pass green. The library is a fixed 46.
   test('discovers the worked exemplar library', () => {
     assert.equal(
       decks.length,
-      45,
-      `expected 45 worked exemplar decks under exemplars/, found ${decks.length}`,
+      46,
+      `expected 46 worked exemplar decks under exemplars/, found ${decks.length}`,
     );
   });
 

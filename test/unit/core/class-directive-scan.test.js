@@ -183,10 +183,17 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
     const wrong = [];
     let compared = 0;
     let skipped = 0;
+    let paneSplit = 0;
     let slides = 0;
     for (const { rel, src } of decks) {
       const spans = slideClassSpans(src).spans.map((s) => s.slideClass);
       const scanned = payloads(src).slice(2); // drop the two front-matter chunks
+      // A PANE-SPLIT divergence, a second known kind: a deck that cannot lay panes side by side (square, portrait,
+      // story, mobile) gives each pane its own page (lib/core/panes.js), which a `^---$` scan cannot see either.
+      if (spans.length > scanned.length && /<!--\s*_?pane:/.test(src) && /^size:\s*(?:square|portrait|story|mobile)\b/m.test(src)) {
+        paneSplit++;
+        continue;
+      }
       if (scanned.length !== spans.length) {
         // A BOUNDARY divergence, not a class one — `splitTopLevel`'s `^---$` rule
         // against the engine's full thematic-break + `split: headings` rule. It is
@@ -213,6 +220,7 @@ describe('class-directive scan ≡ the engine, over the committed corpus', () =>
       }
     }
     assert.equal(skipped, 2, 'the boundary-divergence set should stay at the two `split: headings` decks');
+    assert.equal(paneSplit, 1, 'and the pane-split set at examples/image-pane-story.md');
     assert.ok(compared > 200, `expected 200+ comparable decks, compared ${compared}`);
     // Print the live figures so the PR/ADR/CHANGELOG numbers can be re-read off a
     // run instead of transcribed once and left to rot across rebases — every one of

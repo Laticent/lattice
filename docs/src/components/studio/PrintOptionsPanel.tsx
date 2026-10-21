@@ -41,8 +41,9 @@ import { buildSrcdoc, handoutRegions, nUpCells, resolvePrintSheet, splitSections
 import { downloadBlob, downloadUrl, isIOSLike, namedFileUrl } from './download';
 import { frontMatterBlock, stripFrontMatter, withPrintCanvas } from './front-matter';
 import { splitSlides } from './lint';
+import { OffFencesNotice } from './OffFencesNotice';
 import { PooledThumbFace, PreviewPool } from './preview-pool';
-import { buildDeckRender, type DeckRender, type ExtraTheme } from './share-export';
+import { buildDeckRender, type DeckRender, type ExtraTheme, withExportMarker } from './share-export';
 import { hasDrawnFence } from './slide-thumb';
 import { DEGRADED_TOAST_MS } from './toast-duration';
 
@@ -124,6 +125,11 @@ export function whenPrintReady(
 const STAGE_PAD_X = 40;
 const STAGE_PAD_Y = 48;
 
+/** The frame's measuring-lists registry (lib/core/measure-kit.js), or undefined before its runtime ran. */
+type MeasureRegistry = { idle: (ms?: number) => Promise<boolean>; settle: () => number };
+const measuringOf = (frame: HTMLIFrameElement): MeasureRegistry | undefined =>
+	(frame.contentDocument as (Document & { __latticeMeasure?: MeasureRegistry }) | null)?.__latticeMeasure;
+
 /** The panel's one print frame and the document it holds (see `printHtmlDoc`). */
 type PrintFrame = { frame: HTMLIFrameElement; doc: string; loaded: boolean };
 
@@ -148,6 +154,9 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 			const go = () => {
 				signal();
 				if (!isLive()) return;
+				// Whatever is still measuring packs now with what it knows: a list left `measuring` is
+				// hidden by its component's CSS and would print as a gap.
+				try { measuringOf(frame)?.settle(); } catch { /* noop */ }
 				frame.inert = false;
 				try {
 					frame.contentWindow?.focus();
@@ -157,7 +166,10 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 				}
 			};
 			const w = frame.contentWindow as (Window & { __latticeFontsReady?: Promise<void> }) | null;
-			whenPrintReady(w?.__latticeFontsReady, go);
+			// Hold for the collage / logo-wall measure too (lib/core/measure-kit.js), inside the same 3 s bound.
+			const measured = measuringOf(frame)?.idle(2500);
+			const fonts = w?.__latticeFontsReady;
+			whenPrintReady(fonts && measured ? Promise.all([fonts, measured]).then(() => undefined) : fonts, go);
 		} catch { signal(); }
 	};
 	const kept = slot.current?.frame.isConnected ? slot.current : null;
@@ -197,6 +209,7 @@ export function PrintOptionsPanel({
 	resetKey = 0,
 	active = true,
 	onBack,
+	onWrite,
 }: {
 	options: SingleSlideOptions;
 	source: string;
@@ -212,6 +225,8 @@ export function PrintOptionsPanel({
 	/** False while the Share sheet hides this panel (closed, or on another view). A print or an
 	 *  opened PDF tab that lands then is dropped; the built PDF stays cached for the next show. */
 	active?: boolean;
+	/** Edits the deck (the off-fence notice's "Turn on"). */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 	onBack: () => void;
 }) {
 	const [opts, setOpts] = React.useState<Opts>(DEFAULT_OPTS);
@@ -436,7 +451,7 @@ export function PrintOptionsPanel({
 		// it could not be built.
 		const imageFailures = ex.createImageFailureLog();
 		if (!imgs) {
-			const out = await ex.rasterizeDeckImages(render, (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
+			const out = await ex.rasterizeDeckImages(await withExportMarker(render), (m: string) => { if (mountedRef.current) setStatus(m); }, { imageFailures });
 			imgs = { render, images: out.images, geom: out.geom, pageFormat: out.pageFormat };
 			if (mountedRef.current) setImgCache(imgs);
 		}
@@ -608,6 +623,8 @@ export function PrintOptionsPanel({
 				<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Print deck</h3>
 				<p className="text-[12px] text-muted-foreground">Every slide is scaled to fit its page, centered — never cropped. The PDF is built when you print or download.</p>
 			</section>
+
+			<OffFencesNotice source={source} onWrite={onWrite} />
 
 			{/* Preview — the theme's inverse-surface stage + white sheet + dashed safe margin, compact.
 			    N-up frames one slide per grid cell; the handout adds a notes panel below. */}

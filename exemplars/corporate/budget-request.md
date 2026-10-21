@@ -102,13 +102,13 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 
 1. 9 mo
    - Payback period
-   - on run-cost alone `Modeled` `Finance`
+   - on run-cost alone `{Modeled}` `{Finance}`
 2. $21M
    - 3-year net savings
-   - after the $6.2M spend `Modeled` `CFO`
+   - after the $6.2M spend `{Modeled}` `{CFO}`
 3. 14 to 2 wk
    - Feature lead time
-   - off the mainframe `Target` `Product`
+   - off the mainframe `{Target}` `{Product}`
 
 ---
 

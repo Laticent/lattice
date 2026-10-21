@@ -9,11 +9,14 @@
 // Everything here touches window/fetch, so it lives outside the React tree and
 // the pure controller (playground-controller.ts). PlaygroundApp drives it.
 
+import type { DeckIndex } from './deck-outline';
 import { resolveDeckTheme } from './deck-theme';
 import { ensureEngine } from './load-engine';
 import { renderSig, resolveThemeName } from './playground-controller';
 import { renderMarkdown } from './render-engine';
+import type { RenderedIndex } from './rendered-index';
 import { samplesBaseFor } from './samples-base';
+import { createStyleLoader, type FetchMode, type StyleLoader } from './style-loader';
 import { createThemeFetcher } from './theme-fetch';
 
 type PreviewState = { frameSig: string; lastSections: unknown };
@@ -29,7 +32,11 @@ export type RenderResult =
 	// coalesce a heavy write.
 	// `anchor` is where the reader was in the document a full write just replaced (null on a
 	// patch, or at the top) — the host scrolls the new document back to it.
-	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean; anchor: { index: number; frac: number; slide?: string } | null }
+	// `index` says which authored slide and part each page belongs to (rendered-index.ts). It reads the
+	// stamps of the one `splitForPreview` call below, and it is LAZY: nothing is computed until a
+	// map of the preview asks, so a Playground with no map pays nothing per keystroke. Each call
+	// returns the same promise.
+	| { status: 'rendered'; count: number; state: PreviewState; geom: { w: number; h: number }; patched: boolean; anchor: { index: number; frac: number; slide?: string } | null; index: () => Promise<RenderedIndex> }
 	| { status: 'error'; message: string }
 	| { status: 'pending' }; // engine not loaded yet — caller should retry
 
@@ -48,16 +55,45 @@ export function createEngineBridge(
 	// deck-preview.js has no jsdelivr defaults any more.
 	// See engineering/decisions/2026-09-03-self-hosted-runtime-deps.md.
 	assets: { dagreUrl?: string; katexUrl?: string } = {},
+	// On-demand engine styles (style-loader.ts), OPT-IN: `?styles=modules` in the page URL (with a
+	// `stylesBase`, the folder the sync script stages the modules and their index in). Off by default, so
+	// the Playground registers the whole `lattice.css` as it always did. The reviews of 2026-10-19 found the
+	// default-on case unsupported: first visitors take the newcomer bake, which carries the whole sheet, and
+	// the runtime-token list that keeps the scan honest needs a live-frame gate and a device check first
+	// (engineering/decisions/2026-10-18-on-demand-styles.md §11).
+	options: { stylesBase?: string; stylesIndex?: string } = {},
 ) {
 	const isKnownTheme = (name: string) => validPalettes.includes(name);
+	// The deck outline of the last source rendered, so the next render re-parses only what changed.
+	let deckIndex: DeckIndex | undefined;
+	// Slides each part makes on its own, by part text: only a deck whose slide count differs from its
+	// part count needs it (rendered-index.ts `renderedIndexOf`), and an edit re-renders one part.
+	const partCounts = new Map<string, number>();
 	// Theme fetch + addThemes (the "ensureThemes" pattern) is shared — see
 	// theme-fetch.ts. The bridge only orchestrates render around it.
-	const themes = createThemeFetcher(themeBase);
+	// `?styles=modules` (one request per module), `?styles=floor` (the start-up set as one file) or `?styles=bundle` (that, and every
+	// later batch of modules as one request to a composing endpoint). All three are opt-in experiments (followup 2794-p3).
+	const stylesParam = typeof location !== 'undefined' ? /[?&]styles=(modules|floor|bundle)(?:&|$)/.exec(location.search)?.[1] : undefined;
+	const loaderOn = !!stylesParam;
+	// `&predict=source` guesses the first render's modules from the Markdown; `&predict=3,9,12` supplies them (an experiment's oracle).
+	const predictParam = typeof location !== 'undefined' ? /[?&]predict=([\w,]+)(?:&|$)/.exec(location.search)?.[1] : undefined;
+	const predict = predictParam === 'source' ? 'source' : predictParam ? predictParam.split(',').map(Number).filter(Number.isInteger) : undefined;
+	let styles: StyleLoader | undefined;
+	if (options.stylesBase && loaderOn) {
+		// What the frame document holds that the engine's HTML does not (the host's own `<html>`
+		// attributes, the texture <defs>, the classes and attributes its agents add later) is declared
+		// by the preview module, which loads after this bridge is built: so it is read per scan.
+styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex, shell: () => window.LatticeDeckPreview?.scanShell, fetchMode: stylesParam as FetchMode, predict });
+	}
+	const themes = createThemeFetcher(themeBase, { styles });
 	// `sample:<name>` images resolve into the staged lib/samples/ copy (./samples-base.ts), and a
 	// bare relative ref resolves against the same folder — the site has no deck directory.
 	const samplesBase = samplesBaseFor(themeBase);
 
 	/** True once both irreducible globals are present (engine bundle + bridge). */
+	let backstopArmed = false;
+	const BACKSTOP_MS = 4000;
+
 	function ready(): boolean {
 		return Boolean(window.LatticePlayground && window.LatticeDeckPreview);
 	}
@@ -89,11 +125,21 @@ export function createEngineBridge(
 	 * fetch isn't pre-warmed, not a correctness issue (theme-fetch.ts caches
 	 * by name, so a later real request for the same name is a no-op).
 	 */
-	function prefetchTheme(): void {
+	function prefetchTheme(source?: string): void {
 		const root = document.documentElement;
 		const palette = root.getAttribute('data-palette') || 'cuoio';
 		const mode = root.getAttribute('data-mode') === 'dark' ? 'dark' : 'light';
-		void themes.fetch('lattice').catch(() => {});
+		// With the style loader the whole sheet is not what the first render needs: fetch the index and
+		// the always-needed modules instead (the floor), which is what `ensureBase` registers.
+		if (styles) {
+			if (source) styles.hint(source);
+			void themes.prefetchFloor?.()?.catch(() => {});
+			// The source the first render will take is already known, and its class words name most of
+			// the modules the slides will need: start those fetches now, in parallel with the engine
+			// bundle, instead of after the first render finds them out. Cache only (style-loader.ts `warm`).
+			if (source) styles.warm(source);
+		}
+		else void themes.fetch('lattice').catch(() => {});
 		void themes.fetch(palette).catch(() => {});
 		if (mode === 'dark') void themes.fetch(palette + '-dark').catch(() => {});
 	}
@@ -123,9 +169,23 @@ export function createEngineBridge(
 				siteMode: mode,
 				isKnownTheme,
 			});
+			// User-timing marks, so a trace says where the time went when the loader is on: the floor, the
+			// first render, the scan and module fetch, the second render (`performance.getEntriesByName`).
+			const mark = (name: string) => styles && typeof performance !== 'undefined' && performance.mark?.(`lattice-styles:${name}`);
+			mark('start');
+			styles?.warm(source);
 			await themes.ensure(deckPalette, deckMode);
+			mark('floor');
 			const theme = resolveThemeName(deckPalette, deckMode, PGref.hasTheme(deckPalette + '-dark'));
-			const out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
+			// The base this render starts under: `growBase` answers true if it has moved by the time the
+			// scan is done, even when the scan itself finds nothing new.
+			const startedUnder = themes.baseVersion();
+			let out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
+			mark('render1');
+			// What the FRAME will hold is what must be scanned, not what the engine returned: the structural split
+			// adds the cover and card classes of a portrait or square deck, and a scan of the unsplit HTML never
+			// asked for their modules (found by the red team, 2026-10-19: 30 of 38 portrait and square examples
+			// painted a plain cover). Everything the host does to the HTML happens before the scan.
 			const geom = { w: out.width || 1280, h: out.height || 720 };
 			// Split on STRUCTURE, the way the PDF export does (lib/core/structural-split.js). The
 			// render is one section per authored slide; at portrait/square the export cuts each
@@ -134,6 +194,44 @@ export function createEngineBridge(
 			// here, not `renderMarkdown`: Studio exports share that function and stay unsplit until
 			// they opt in themselves. A no-op at landscape, and on a bundle without the function.
 			const html = PGref.splitForPreview ? PGref.splitForPreview(out.html, source, geom.w, geom.h).html : out.html;
+			// The slides are rendered; now the styles they need. A scan that brings in a module the base
+			// lacks re-registers the base, and the engine recomposes the sheet so it has the
+			// module BEFORE anything paints (no flash of unstyled content). Warm, this is a no-op.
+			if (await themes.growBase(html, startedUnder, out.css)) {
+				mark('modules');
+				// Render again: the engine composes the sheet from the base it holds NOW, and the slides are cheap
+				// next to the fetch (the second render costs 200 to 500 ms on a heavy deck). A `restyle()` hook on the
+				// engine's result would recompose the sheet alone (30 to 70 ms) for about 70 bytes of engine JS, but
+				// `getting-started` sits within 20 bytes of its engine ceiling (docs/route-budget.json), so the hook
+				// waits for an owner's decision on that ceiling (followup 2794-p5).
+				out = await renderMarkdown(PGref, source, theme, { baseUrl: samplesBase, samplesUrl: samplesBase });
+				mark('render2');
+			}
+			// The net under the loader: once the page has been quiet for a few seconds, fetch the whole sheet and
+			// make it the base. A module no scan could know to ask for heals; a tab that outlives a deploy keeps a
+			// complete sheet. Once per bridge; a failed fetch changes nothing.
+			if (styles && !backstopArmed) {
+				backstopArmed = true;
+				setTimeout(() => void themes.backstop(), BACKSTOP_MS);
+			}
+			// Which authored slide and part each page of this render is: read later and once, when a map
+			// asks (rendered-index.ts). The outline too is built there, so a Playground with no map does
+			// not parse the deck a second time per keystroke.
+			let indexed: Promise<RenderedIndex> | null = null;
+			const index = () =>
+				(indexed ??= (async () => {
+					// Loaded when a map asks, not with the Playground: the outline, the index and the glossary
+					// kernel are only needed to place pages on slides.
+					const [{ updateDeckIndex }, { renderedIndexOf, stampsOf }, { autoGlossarySections }] = await Promise.all([import('./deck-outline'), import('./rendered-index'), import('../../../lib/core/glossary-auto.mjs')]);
+					const deck = (deckIndex = updateDeckIndex(deckIndex, source));
+					return renderedIndexOf(
+						stampsOf(html),
+						deck,
+						async (md) => stampsOf((await renderMarkdown(PGref, md, theme, { baseUrl: samplesBase, samplesUrl: samplesBase })).html).length,
+						partCounts,
+						autoGlossarySections(source),
+					);
+				})());
 			// Letterbox the filmstrip in the BRAND background (the pane's `--bg-alt` for the
 			// active palette + mode), not the engine's generic `#0c0c0c`/`#e7e7ea` default: the
 			// preview pane shows solid `--bg-alt` while the engine loads, so matching the iframe
@@ -151,7 +249,11 @@ export function createEngineBridge(
 				css: out.css,
 				mode: deckMode,
 				geom,
-				sig: renderSig(theme, deckMode, geom.w, geom.h),
+				// The loader's part of the signature is read off the sheet THIS render produced, not off the
+				// loader's current state: another render can register a module between this one's second pass
+				// and this write, and a signature that claimed it would let the next patch skip a sheet that
+				// lacks it. (The length moves whenever a module joins the base; the theme is already above.)
+				sig: renderSig(theme, deckMode, geom.w, geom.h) + (themes.baseSignature() ? `|${themes.baseSignature().charAt(0)}${out.css.length}` : ''),
 				// What the document's SHAPE depends on. When only the theme or mode moved, the
 				// live document restyles in place (deck-preview.js `restyleDocument`) instead of
 				// being rewritten — no blank frame, and the reader keeps their scroll position.
@@ -179,7 +281,7 @@ export function createEngineBridge(
 				// EDGE"); this flag only has the fit agent tell it the on-screen scale.
 				slideEdge: true,
 			});
-			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched, anchor: r.anchor ?? null };
+			return { status: 'rendered', count: r.count, state: r.state, geom, patched: r.patched, anchor: r.anchor ?? null, index };
 		} catch (e) {
 			return { status: 'error', message: String((e as Error)?.message || e) };
 		}

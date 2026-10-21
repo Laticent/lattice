@@ -1,0 +1,48 @@
+{
+  "name": "@laticent/veduta",
+  "version": "0.1.0",
+  "description": "A windowed preview, headless: which units of a long list a view should mount, at what fidelity and in what order, for a stage and a map beside it. Ranked advisory intent, single, multi and picture-in-picture policies, a fidelity ladder, a page-global live budget, and a capacity the host reports. Works with any focus source; cost does not grow with the list.",
+  "license": "AGPL-3.0-only",
+  "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Laticent/lattice.git",
+    "directory": "docs/src/lib/veduta"
+  },
+  "homepage": "https://github.com/Laticent/lattice/tree/main/docs/src/lib/veduta#readme",
+  "bugs": {
+    "url": "https://github.com/Laticent/lattice/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "exports": {
+    ".": {
+      "@laticent/source": "./index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "*.ts",
+    "!*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../../../tools/library-prepack.js"
+  }
+}

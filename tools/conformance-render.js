@@ -55,12 +55,11 @@ function changedComponents(base = 'origin/main') {
   } catch {
     return null;
   }
+  const { classifyPath } = require('../lib/conformance/changed-paths');
   const names = new Set();
   for (const f of out.split('\n')) {
-    // Bucketed `<bucket>/<name>/…`, or a FLAT `<name>/<name>.<ext>`. A `_` shared folder maps to
-    // nothing here (its consumers are the nightly's to cover), never to its bucket's name.
-    const m = f.match(/^lib\/components\/[^/]+\/([^/_][^/]*)\//) || f.match(/^lib\/components\/([^/_][^/]*)\/\1\.(?:manifest\.json|styles\.css)$/);
-    if (m) names.add(m[1]);
+    const c = classifyPath(f);
+    if (c.kind === 'component') names.add(c.name);
   }
   return [...names].sort();
 }
@@ -132,46 +131,44 @@ const OVERFLOW_PAGE = (src, clipSel, ignoreSel) => {
 };
 
 /**
- * The card-row trigger (§6.3 rule 6: geometry, not markup). A card row is THREE OR MORE sibling
- * boxes that (1) are visibly boxes — a painted background or a border, (2) have the same width
- * and the same height to within 1 px, and (3) share one parent (no alignment test: a wrapped grid and a column both count).
- * Per slide it returns the largest such group. A `<dl>`, a flex row and a grid all hit it the same.
+ * The card-row trigger (§6.3 rule 6: geometry, not markup). A card row is sibling boxes that
+ * (1) are visibly boxes: a painted background, or a border on at least THREE sides (a one-sided
+ * rule is a rail, not a box), (2) are at least 60 x 40 px, (3) share one parent, and either
+ * (a) THREE OR MORE have the same height to within 1 px (a flex row of cards hugs its text, so
+ * widths differ: `stats`), or (b) two or more have the same width AND height (a pair of panels:
+ * `decision`, `compare-prose`). Per slide it returns the largest group.
+ * Scored 2026-10-17 against test/conformance/card-row-corpus.json with the component-level
+ * rule in `summarize` (a third of the component's own slides): see the decision note §13.5.
  */
 const CARD_ROW_PAGE = () => {
   const paintsBox = (cs) => {
     const bg = cs.backgroundColor;
     const filled = bg && bg !== 'transparent' && !/^rgba\(0, 0, 0, 0\)/.test(bg);
-    const edge = ['Top', 'Right', 'Bottom', 'Left'].some((s) => parseFloat(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== 'none');
-    return filled || edge;
+    const sides = ['Top', 'Right', 'Bottom', 'Left'].filter((s) => parseFloat(cs[`border${s}Width`]) > 0 && cs[`border${s}Style`] !== 'none').length;
+    return filled || sides >= 3;
   };
   const out = [];
   for (const s of document.querySelectorAll('section[data-lattice-slide]')) {
     let best = 0;
     for (const parent of s.querySelectorAll('*')) {
-      const kids = [...parent.children].filter((k) => {
+      const rects = [...parent.children].filter((k) => {
         const r = k.getBoundingClientRect();
         return r.width >= 60 && r.height >= 40 && paintsBox(getComputedStyle(k));
-      });
-      if (kids.length < 3) continue;
-      const rects = kids.map((k) => k.getBoundingClientRect());
-      const groups = new Map();
-      for (const r of rects) {
-        const key = `${Math.round(r.width)}x${Math.round(r.height)}`;
-        // tolerate 1 px by also counting the neighbors
-        groups.set(key, (groups.get(key) || 0) + 1);
-      }
-      let top = 0;
-      for (const [key, n] of groups) {
-        const [w, h] = key.split('x').map(Number);
-        const near = [...groups].filter(([k]) => { const [a, b] = k.split('x').map(Number); return Math.abs(a - w) <= 1 && Math.abs(b - h) <= 1; }).reduce((t, [, c]) => t + c, 0);
-        top = Math.max(top, n, near);
-      }
-      best = Math.max(best, top);
+      }).map((k) => k.getBoundingClientRect());
+      if (rects.length < 2) continue;
+      const most = (same) => Math.max(...rects.map((a) => rects.filter((b) => same(a, b)).length));
+      const equal = most((a, b) => Math.abs(a.width - b.width) <= 1 && Math.abs(a.height - b.height) <= 1);
+      const sameHeight = most((a, b) => Math.abs(a.height - b.height) <= 1);
+      best = Math.max(best, equal, sameHeight >= 3 ? sameHeight : 0);
     }
-    out.push({ slide: Number(s.getAttribute('data-lattice-slide')), cls: [...s.classList].join(' '), cardRow: best >= 3, size: best });
+    out.push({ slide: Number(s.getAttribute('data-lattice-slide')), cls: [...s.classList].join(' '), cardRow: best >= 2, size: best });
   }
   return out;
 };
+
+/** A component "has a card row" when at least this share of its own slides trigger. One slide in a
+ *  gallery (a diagram's table, a glossary's grid) is not the component's form. */
+const CARD_ROW_SHARE = 1 / 3;
 
 /** Per slide, section classes and slide number — to attribute rows to a component. */
 const SLIDE_INDEX_PAGE = () => [...document.querySelectorAll('section[data-lattice-slide]')].map((s) => ({
@@ -455,7 +452,7 @@ function summarize(r, labels = {}) {
   const trigger = { tp: [], fn: [], fp: [], tn: [] };
   for (const o of per.values()) {
     if (!Object.hasOwn(labels, o.name)) continue;
-    const hit = o.cardRowSlides > 0;
+    const hit = o.slides > 0 && o.cardRowSlides / o.slides >= CARD_ROW_SHARE;
     trigger[labels[o.name] ? (hit ? 'tp' : 'fn') : (hit ? 'fp' : 'tn')].push(o.name);
   }
   const rate = (a, b) => (a + b ? a / (a + b) : null);
@@ -501,7 +498,7 @@ function formatReport(r, summary) {
   return lines.join('\n');
 }
 
-module.exports = { ownerOf, GENERATED_CLASSES, PR_THEMES, changedComponents, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE };
+module.exports = { ownerOf, GENERATED_CLASSES, PR_THEMES, changedComponents, runMatrix, chunkFiles, CHUNK_SLIDES, summarize, formatReport, renderHtmlOnly, galleryFiles, buildMatrixDeck, galleryBody, probeOverflow, probeCardRows, probeAxe, OVERFLOW_PAGE, CARD_ROW_PAGE, CARD_ROW_SHARE };
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────
 if (require.main === module) {

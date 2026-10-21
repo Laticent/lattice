@@ -135,12 +135,13 @@ describe('the OpenRouter model catalog', () => {
 
 	it('prices a ~…-latest alias that is not itself listed at its family’s dearest member, and carries an image price through', async () => {
 		localStorage.setItem('lattice-db-or-key', 'sk-test-not-real');
-		const entry = (id: string, prompt: string, completion: string, image?: string) => ({ id, name: id, pricing: { prompt, completion, ...(image ? { image } : {}) }, architecture: { input_modalities: ['text', 'image'] } });
+		const entry = (id: string, prompt: string, completion: string, image?: string) => ({ id, name: id, context_length: 128000, pricing: { prompt, completion, ...(image ? { image } : {}) }, architecture: { input_modalities: ['text', 'image'] } });
 		vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: [entry('vendor/gpt-1', '0.000001', '0.000002'), entry('vendor/gpt-2-pro', '0.000003', '0.000012', '0.000003'), entry('other/x', '0.1', '0.1')] }), { status: 200 })));
 		const m = createArchitectModel({ getSettings: () => ({}) }) as unknown as { openRouterModelPrice: (id?: string) => { promptPerM: number; completionPerM: number; imagePerM: number | null } | null; listOpenRouterModels: () => Promise<unknown[]> };
 		await m.listOpenRouterModels();
-		expect(m.openRouterModelPrice('~vendor/gpt-latest')).toEqual({ promptPerM: 3, completionPerM: 12, imagePerM: 3 }); // the dearest of vendor/gpt-*
+		expect(m.openRouterModelPrice('~vendor/gpt-latest')).toEqual({ promptPerM: 3, completionPerM: 12, imagePerM: 3, contextLength: null }); // the dearest of vendor/gpt-*; no window of its own
 		expect(m.openRouterModelPrice('vendor/gpt-1')?.imagePerM).toBeNull();
+		expect(m.openRouterModelPrice('vendor/gpt-1')).toMatchObject({ contextLength: 128000 });
 		expect(m.openRouterModelPrice('~nobody/gpt-latest')).toBeNull();
 	});
 });

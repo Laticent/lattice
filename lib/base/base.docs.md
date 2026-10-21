@@ -310,42 +310,39 @@ paragraph placed immediately after the eyebrow:
 **What stays as `_em_`.** Table footnotes and body prose that happens
 to be italic. These are not subtitles.
 
-### Metadata pill (trailing inline code)
+### A pill on a list row
 
-A trailing inline `code` span on a list row becomes a **pill** — a small,
-fully-rounded status/metadata chip pinned to the end of the row.
+A pill on a list row is written in the pills plugin's notation, `` `{…}` ``, and a component that takes one places
+and tints it:
 
 ```markdown
-- Throughput target met `on track`
-- API latency `at risk`
+- Throughput target met `{on track}`
+- API latency `{at risk}`
 ```
+
+A bare trailing `` `code` `` is plain inline code in every layout. Until 2026-10 a trailing code span was promoted to
+a pill by its position (the "universal pill rule"); that rule, its `pill-tag` transformer and the per-component copies
+of its chrome are gone. `lint:deck` warns `bare-row-pill` where a component used to draw a pill from a bare span and
+names the spelling to write. A label with a comma needs quotes, `` `{"Dana Whitfield, VP Sales"}` ``.
 
 **One exception: `collage` reads the trailing span as photo hints.** On a `collage` slide a
 trailing code span after a photo is the photo's hint list (`hero`, one of `top` `bottom` `left`
-`right` `center`, a ratio such as `3:2`), consumed before the pill pass, so it never draws.
+`right` `center`, a ratio such as `3:2`), consumed before any pill is drawn, so it never draws.
 It is read all or nothing: if any word is not a hint, nothing is applied, the span is
 not drawn, and `collage-hint` names the word.
 
 Authoring guidance: keep pill text to **one word (hyphenated is fine) or
 two words at most**. Pills are `white-space: nowrap`, so a long phrase
-will not wrap — it just makes a wide pill. (This is a guideline, not a
-hard validator: enforcing a word count in CSS would require truncating
-text, which hides content, so it is intentionally left to the author.)
+will not wrap — it just makes a wide pill.
 
-**Pills share one structure, not one color.** Every pill across every
-layout draws its geometry — radius, proportional (em-based) padding, the
-body sans, weight, tracking, and center-/middle-aligned text — from the
-universal `--pill-*` tokens in `base.tokens.css`. (Pills use the deck's
-sans, not mono: a pill is a status / label chip, not code, and the sans
-also vertically centers caps correctly where mono seats them high.) The
-separate non-pill citation/identifier chips keep their own mono. Color
-stays per-pill:
-a layout sets `--pill-fg` / `--pill-bg` / `--pill-border` (or its own
-semantic hue tokens) to carry the meaning. Three pills are **sanctioned
-variants** that deliberately override specific axes and document why at
-their own CSS site: chart-status (a bar-matching semi-round chip),
-list-tabular `register` (a wide "stamp"), and redline `.annotated`
-(footnote superscript / positioned counter).
+**Pills share one structure, not one color.** Every pill draws its geometry — radius, proportional (em-based)
+padding, the body sans, weight and tracking — in the pills plugin, from the `--pill-*` tokens in `base.tokens.css`
+that only that plugin reads. A component sets color, case, tracking or size through `--lat-pill-edge`, `-bg`, `-ink`,
+`-case`, `-tracking`, `-size`, `-cap` and `-scale` (`lib/plugins/pills/pills.docs.md` § For components), never the
+pill's border, fill, padding or radius. The `checkHandRolledPills` gate holds that line: no stylesheet outside the
+plugin reads a `--pill-*` token, except two named exceptions that wait on the checks note. Elements that look like a
+pill but are not one (a state chart's transition chip, a chart status chip, a redline footnote marker, a split-page
+pointer) own their type and shape and share only the base `--radius-*` scale.
 
 ### Key Insight panel
 
@@ -1517,10 +1514,13 @@ One canvas is genuinely unanswerable, and one is not:
 ```yaml
 ---
 logo: lattice                     # a built-in name, or a path / URL of your own
-logo-style: auto | brand          # optional, default `auto`
-logo-on: all | title              # optional, default `all`
+logo-finish: bottom-center accent-ink lg   # optional: placement color size scope, one word each
 ---
 ```
+
+The logo shows on every slide while `logo:` is set; `_class: no-logo` hides it on one slide. The words
+of `logo-finish:` and what each does are in `lib/base/_logo/logo.docs.md` § Authoring. Naming a
+placement hides the header, footer or page number in that band, because the brand wins.
 
 **A name, or a path — and the difference decides where your deck works.**
 `logo: lattice` is a BUILT-IN: the engine inlines Lattice's own mark, so it
@@ -1535,6 +1535,13 @@ says so now). For your own mark on a web surface, give a URL the viewer can
 fetch, or a `data:` URI. To try the feature with a placeholder mark, write
 `logo: sample:logo-acme-mark.svg`: a `sample:` name is one of Lattice's own
 sample pictures (`lib/samples/README.md`), and it resolves on every surface.
+
+**Which URLs a logo may name.** A relative path, `https:`, a `data:image/…` URL,
+and a `sample:` or `asset:` name. Anything else (`javascript:`, `file:`, `http:`,
+`data:text/html`, a protocol-relative `//host/x`) is dropped: the deck shows no
+logo and the render carries a `meta/url-scheme` diagnostic. A slide's
+`_backgroundImage: url(…)` follows the same list and drops the image instead.
+The one list is `lib/core/url-scheme.js`.
 
 A real DOM element (rather than a `::before` pseudo) is what lets
 the logo compose with every treatment — tints
@@ -1559,160 +1566,26 @@ gracefully no-ops in the vscode-webview sandbox (fetch can't reach
 workspace files). Same constraint `class: dark` has — see
 `engineering/gotchas.md`.
 
-**Brand style.** `logo-style: brand` adds `deck-logo-brand` to the
-injected img. The silhouette mask is removed; the logo's original
-colors render directly on a soft `--bg-alt` plate. Use when the
-brand's colors carry meaning (government insignia, university
-crests); reach for `auto` otherwise.
+**Brand colors.** The `brand` color word (`logo-finish: brand`) puts `logo-brand` on the section.
+The silhouette filter is removed; the logo's original colors render directly on a soft `--bg-alt`
+plate. Use when the brand's colors carry meaning (government insignia, university crests); reach for
+`auto` or a palette color otherwise.
 
 ---
 
 ## Inline pills — `{LABEL}`
 
+A pill is `` `{LABEL}` `` in single-backtick inline code, drawn by the **pills plugin** — an embedded plugin, so it
+loads on every render and has no off switch. The whole contract (shapes, the twelve color slots, sizes, quoting, what
+stays literal, icons, where a pill can go, the Studio editor, and the interface a component uses to tint or size one)
+lives with the plugin: [`lib/plugins/pills/pills.docs.md`](../plugins/pills/pills.docs.md). A component that wants a
+pill has its author write one; it never paints its own.
+
 **Turning the grammar off:** `inline-code: literal` in front matter makes every
 single-backtick span in the deck literal — pills, marks and all, including any in the
 deck's own `header:` / `footer:`. One slide at a time is
-`<!-- _class: inline-code-literal -->`. It is the switch for a
-deck you did not write, where `` `[x]` `` in prose was never meant to draw anything. See
-[`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`; the Studio carries it
-as **Deck settings · General · Inline pills and marks**.
-
-A `{LABEL}` inside **single-backtick** inline code renders as a pill. Shape and color
-belong to the value, not to the slide — one ledger can carry four different statuses
-without any variant class on the section.
-
-The label comes first, then any shape, color and size words, separated by commas and in any
-order: `{BETA, tag, c4}`. Each word can also be written by name — `{BETA, shape=tag, color=c4}`
-is the same pill. A label that holds a comma is quoted: `{"Cost, excluding tax"}`, and so is
-one that holds `|` `=` `[` `]` `{` or `"` (`{"A|B", tag}`, `{"5\" screen"}`). Unquoted, such a
-label leaves the span as plain code, and `lint:deck` warns (`pill-literal`) with the quoted
-spelling. This is
-the [Segno notation](../../engineering/decisions/2026-09-28-segno-unified-inline-notation.md)
-every inline directive shares.
-
-```markdown
-1. Settlement engine
-   - Shipped and load-tested `{STABLE, c2}`
-2. Ledger migration
-   - Cutover paused for review `{PARTIAL, c4}`
-```
-
-### Shape
-
-`tag` · `tag-bordered` · `chip` · `circle` · `chevron-right` · `chevron-left` ·
-`diamond`. With no shape word you get the capsule `pill`.
-
-Every shape is exactly as tall as the capsule, so pills of different shapes share one
-center line and never make a row or a line of prose taller. `circle` is a
-capsule-height disc and `diamond` a capsule-height rhombus, so they hold **one
-character, or a number up to two digits** — `{3, circle}`, `{12, circle}`, `{!, diamond}`. The clipped shapes (the chevrons and the diamond)
-carry the same 1px edge as the rest. The label is centered on its capitals, not on the
-line box, so it sits on the pill's visual center in Chrome, Firefox and Safari alike;
-lowercase descenders hang into the bottom padding. Anything longer stretches the box until
-it stops reading as the shape (`{OK, circle}` is an oval, `{WM, circle}` a capsule), so
-`lint:deck` **warns** (`pill-shape-crowded`), the editor underlines the pill, and the fix
-points at `tag` or `chip`. It never blocks a deck.
-
-### Color — `c1` … `c12`
-
-Ordinal slots onto the categorical tokens, **not color names**. The same slot is sky
-blue on `indaco` and deep red on `burgundy`, so a slot picks contrast, never meaning —
-never write `c2` because "green means good". Text contrast comes from the categorical
-policy already in the engine, so a slot needs no per-pill contrast math.
-
-### Size — automatic, then `sm` `lg`
-
-A pill sizes itself from the text it sits in, so most pills need no size word:
-
-| Where the pill sits | Size |
-|---|---|
-| A heading or other large text (`#`, `##`, a title slide, a lead or emphasis paragraph) | Half the text's size: large in a title, a step up in a slide title. Text under about twice the pill size, such as an `###` subheading, keeps the usual size |
-| Body text, lists, cards, table cells | The metadata size, as always |
-| A below-note, a chart caption or a figure caption | Small |
-| Footers, headers and other small print | Small, 0.85 of the text around it |
-
-`sm` and `lg` still work, and they scale whatever the context gave: `lg` in a
-footer is a bigger footer pill, not a heading-sized one.
-
-Word order is free: `` `{X, tag, c4, lg}` `` and `` `{X, lg, c4, tag}` `` are the same pill.
-
-### What stays literal
-
-Plain inline code is untouched — `` `getUserId()` ``, `` `:root` ``, `` `[data-mark]` ``,
-`` `--accent` ``, `` `{ ok, scene }` ``. A pill's `{` is followed directly by its label,
-which is what separates it from a JS object literal an author wrote as code: those pad
-their braces.
-
-An unknown or repeated word fails back to literal rather than being ignored:
-`` `{X, c13}` `` renders as code, visibly wrong in review, instead of quietly becoming a
-pill the author did not ask for.
-
-To force the literal for a label that WOULD qualify, put a **backslash** in front:
-`` `\{LIVE}` `` renders as `{LIVE}`, and `` `\[x]` `` renders as `[x]`. A broken pill escapes
-the same way and silences `pill-literal`: `` `\{A|B}` `` renders as `{A|B}`.
-
-The backslash is only an escape when what follows would have become a pill or a mark, or
-is a broken pill attempt, so a regex is safe: `` `\[a-z]` `` and `` `\d+` `` are untouched
-and keep their backslash. Braces that belong to another language are never a pill attempt —
-a span holding a backslash (LaTeX `` `\{a,b\}` ``, a regex `` `\{2,3\}` ``), a regex interval
-(`` `{2,5}` ``) or a template tag (`` `{{name}}` ``) — so they get no warning and keep every
-backslash.
-
-**Fenced and indented code blocks are never touched at all** — they are not inline code,
-so nothing in them is ever read as a directive.
-
-### An icon in a pill — `icon=`
-
-`{S3, icon=bucket, c4}` leads the label with a drawn icon, in the pill's own color, at any shape:
-`{Primary, icon=database, tag}`. `{icon=database}` is an icon with no label. `icon` is written by
-name, because a pill's first word is its label. The icons come from the **icons** plugin
-(`lib/plugins/icons/icons.docs.md`), which also draws an icon on its own in prose (`^{database}`);
-with that plugin off, the pill shows its label alone. A name the set does not have — or a vendor
-service name like `icon=lambda` — keeps the span literal, and `lint:deck` names the role icon to
-use instead.
-
-### Where a pill can go
-
-Anywhere inline code can — verified on a real render: a heading, a paragraph,
-mid-sentence, a blockquote, a table cell, a footer, and a list row's clause. A fenced
-` ``` ` block is not inline code and is never touched.
-
-In a **`list-tabular` row** a pill takes the same cell a trailing `` `code` `` takes, so
-`` 1. cards-grid `{STABLE, c2}` `` puts the pill in the trailing column. Two limits, both
-measured:
-
-- **`spec`** addresses its two codes by position among `code` elements, which cannot see
-  a pill. A `spec` row whose trailing chip is a pill works; one whose **key** is a pill
-  does not — the key stays in the trailing column.
-- **Two trailing items in one row overlap**, e.g. `` 1. Name `META` `{PILL}` ``. That is
-  not about pills: two plain `` `code` `` values do the same, because the row is a grid
-  and a grid item paints over rather than pushing. Put one value in the trailing slot.
-
-### Editing a pill without typing it — the Studio
-
-In the Studio's Compose editor a pill is **drawn as the slide draws it**, in your theme's own
-colors, and it is **one object**: its `{…}` text is not on the page, and there is no caret inside
-it. **Tap or click the pill** to change its label, shape, color and size from one editor (a popover
-on a desktop or tablet, a sheet on a phone). Each pick rewrites **only the word you changed** in the
-span, so `{BETA, c4, tag}` stays in that order and every other pill on the slide is untouched.
-**Done** closes the editor and puts the cursor just after the pill; **Edit as text** turns the pill
-back into its `{…}` text with the words between the braces selected, and the pill is drawn again when
-the cursor leaves it. The arrow keys step over a pill as one thing, Backspace takes all of it, and
-Enter on a selected pill opens its editor.
-
-The slide bar has **Undo** and **Redo** buttons for the whole deck, because a phone has no undo
-gesture Compose's history is visible to (iOS's own undo lists only what the browser edited). On a
-narrow pane the bar is two rows: history and the insert doors on the first, the Format group on the
-second. The **+ Pill** button puts a new pill at the cursor (a short selected word becomes its label)
-and opens its editor.
-
-A pill stays as text on a slide that is edited in Markdown, in a deck set to `inline-code: literal`,
-and where the engine would not draw it (a reserved label, an unknown icon). Opening a deck never
-rewrites it: a drawn pill writes back the exact code span it came from. Two code spans cannot touch in
-Markdown (`` `{A}``{B}` `` is one span, and both would stop being pills), so Compose keeps a single space
-between a pill and a neighboring pill or code span, and **+ Pill** adds that space itself. Backspace on that space does nothing visible: it comes straight back. The editor does not touch a
-pill's `icon=`; that word is kept exactly as written. Design:
-`engineering/decisions/2026-10-13-compose-inline-notation-editors.md`.
+`<!-- _class: inline-code-literal -->`. See [`base.registers.docs.md`](base.registers.docs.md) § `inline-code:`;
+the Studio carries it as **Deck settings · General · Inline pills and marks**.
 
 ## Inline sparks — `~{12 14 17}`
 
@@ -1881,9 +1754,16 @@ and `…-cvd-redundant-encoding.md`.
 
 In the Studio, a photo you add to the Library is a picture any deck can show: `![](asset:team-offsite)` on a slide, or
 `![bg](asset:hero)` as a background. The name is the one on the photo's card. It works wherever an image does (an
-`image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`), and it exists only in the Studio's browser. The CLI
-leaves the reference as written, and a Markdown or Marp export carries the reference, not the photo (a workspace backup
-carries the photo).
+`image` slide, a `collage` list, a `logo-wall` mark, a deck `logo:`). The Library exists only in the Studio's browser; in
+the CLI the same name reads a file in an `assets/` folder beside the deck (see below). A Markdown or Marp export carries
+the reference, not the photo (a workspace backup carries the photo).
+
+**In the CLI: an `assets/` folder beside the deck.** `assets/team-offsite.jpg` answers `asset:team-offsite`. The name is the
+file's name without its extension, lowercased (letters, digits, `-` and `_`); pictures and clips only (`.jpg` `.png`
+`.gif` `.webp` `.avif` `.svg` `.mp4` `.webm` `.mov`). Two files with one name (`logo.png`, `logo.svg`): the first in
+alphabetical order is used and the run names the other. A file whose real path is outside the deck folder (a symlink)
+is not listed. A name the folder lacks draws the missing-image stand-in, and `npm run lint:deck` warns
+(`asset-missing`), naming the slide.
 
 **You write the picture; the photo's own details fill in the rest.**
 

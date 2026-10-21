@@ -19,7 +19,8 @@ import { webPolicySig } from '../../../lib/core/subresource-csp.mjs';
 import { SWAP_REFLOW, sectionSwapKind } from '../../../lib/core/swap-kind.mjs';
 import { markupHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
-import { buildSrcdoc, docStyleText } from './deck-preview.js';
+import { windowFor } from '../lib/veduta/core.js';
+import { buildSrcdoc, docStyleText, SCAN_SHELL } from './deck-preview.js';
 import { paneComponentsSig } from './pane-sheet-sig.js';
 import { splitSections } from './preview-virtual.js';
 import { LV_ATTR, placeholderOf, SLIDE_SELECTOR, virtualHtml, visibleRange, windowRange, withIndex } from './virtual-window.js';
@@ -160,6 +161,35 @@ function mountedRange(cur, lattice) {
 const NEED_OVERSCAN = 1;
 const MOUNT_OVERSCAN = 3;
 const KEEP_OVERSCAN = 5;
+const STAGE_BAND = { need: NEED_OVERSCAN, mount: MOUNT_OVERSCAN, keep: KEEP_OVERSCAN };
+
+/**
+ * What the window does for a reader at `vp` (the frame's viewport over the slide list), from
+ * Veduta's `multi` policy. `mount` is the visible slides plus MOUNT either side and `keep` is
+ * the visible slides plus KEEP: the same two runs this file always computed. `settled` is
+ * whether the run mounted right now (`held`) is still the answer, by the band rule (NEED /
+ * KEEP + MOUNT), so a move is skipped; it is only worked out when `held` is given. Pure
+ * arithmetic with no DOM, so it is safe on the scroll path.
+ */
+export function mountPlan(count, vp, first, held) {
+	const at = (over, previous) =>
+		windowFor({
+			policy: 'multi',
+			stage: 'scrolled',
+			count,
+			focus: first,
+			viewports: { stage: vp },
+			overscan: { stage: over },
+			hysteresis: !!previous,
+			previous,
+		}).state.runs.stage;
+	const mount = at({ need: NEED_OVERSCAN, mount: MOUNT_OVERSCAN, keep: KEEP_OVERSCAN }, null);
+	const keep = at({ need: NEED_OVERSCAN, mount: KEEP_OVERSCAN, keep: KEEP_OVERSCAN }, null);
+	if (!held) return { mount, keep, settled: null };
+	const run = at(STAGE_BAND, { runs: { stage: held }, caps: {} });
+	return { mount, keep, settled: run.lo === held.lo && run.hi === held.hi };
+}
+
 // Scroll seek: a scroll crossing the viewport in under this many ms is a fling, not reading.
 const SEEK_VIEWPORT_MS = 150;
 // …and a fling that stops (no frame for this long) mounts where it landed.
@@ -174,7 +204,7 @@ const PIN_MS = 1500;
  * a different slide arriving, and `in-place` would let the runtime hand one slide's diagram to
  * another (lib/core/swap-kind.mjs). Returns whether anything changed.
  */
-function applyWindow(frame, sections, lo, hi, keepLo, keepHi) {
+function applyWindow(frame, sections, lo, hi, keepLo, keepHi, joined = false, pin = null) {
 	const doc = frame.contentDocument;
 	const lattice = doc?.querySelector('.lattice');
 	if (!lattice || !sections) return false;
@@ -205,10 +235,19 @@ function applyWindow(frame, sections, lo, hi, keepLo, keepHi) {
 		} else unfitted = true;
 		lattice.replaceChild(fresh, old);
 	};
+	let from = keepLo;
+	let to = keepHi;
+	if (joined) {
+		// Grow outward from the mounted run through slides that are already real, stopping at the first placeholder.
+		from = lo;
+		to = hi;
+		while (from - 1 >= keepLo && from - 1 >= 0 && !cur[from - 1].hasAttribute(LV_ATTR)) from--;
+		while (to + 1 <= keepHi && to + 1 < cur.length && !cur[to + 1].hasAttribute(LV_ATTR)) to++;
+	}
 	for (let i = 0; i < cur.length; i++) {
 		const ph = cur[i].hasAttribute(LV_ATTR);
 		if (ph && i >= lo && i <= hi) swap(i, withIndex(sections[i], i));
-		else if (!ph && (i < keepLo || i > keepHi)) swap(i, placeholderCached(sections[i]));
+		else if (!ph && (i < from || i > to) && !(pin && i >= pin.lo && i <= pin.hi)) swap(i, placeholderCached(sections[i]));
 	}
 	// Whatever was cached about this window is stale now — the next scroll re-reads it.
 	if (changed && frame.contentWindow) frame.contentWindow.__lvGeom = null;
@@ -239,12 +278,11 @@ export function syncVirtual(frame, state) {
 	if (g && g.sections === sections && g.w === win.innerWidth && g.h === win.innerHeight && g.first?.isConnected && g.first.style.transform === g.scale) {
 		const vis = visibleRange(win.scrollY, win.innerHeight, g.top, g.pitch, sections.length);
 		if (!vis) return false;
-		const need = windowRange(vis.first, vis.last, sections.length, NEED_OVERSCAN);
 		// Unmount lazily: a run up to MOUNT past KEEP is left alone, so trimming one slide off
-		// the back never costs a move of its own — the next mount trims it.
-		const slack = windowRange(vis.first, vis.last, sections.length, KEEP_OVERSCAN + MOUNT_OVERSCAN);
-		const settled = g.contiguous && need.lo >= g.lo && need.hi <= g.hi && g.lo >= slack.lo && g.hi <= slack.hi;
-		if (settled) return false;
+		// the back never costs a move of its own — the next mount trims it. Veduta's band rule
+		// answers "no move" by handing the held run back unchanged.
+		const plan = mountPlan(sections.length, { y: win.scrollY, h: win.innerHeight, top: g.top, pitch: g.pitch }, vis.first, { lo: g.lo, hi: g.hi });
+		if (g.contiguous && plan.settled) return false;
 	}
 	const lattice = frame.contentDocument?.querySelector('.lattice');
 	if (!lattice) return false;
@@ -257,15 +295,10 @@ export function syncVirtual(frame, state) {
 	const top = win.scrollY + r0.top;
 	const vis = visibleRange(win.scrollY, win.innerHeight, top, pitch, cur.length);
 	if (!vis) return false;
-	const mount = windowRange(vis.first, vis.last, cur.length, MOUNT_OVERSCAN);
-	const keep = windowRange(vis.first, vis.last, cur.length, KEEP_OVERSCAN);
+	const { mount, keep: kept } = mountPlan(cur.length, { y: win.scrollY, h: win.innerHeight, top, pitch }, vis.first, null);
 	// A pinned landing (mountAround) stays mounted until its scroll has had time to arrive.
 	const pin = win.__lvPin;
-	if (pin && pin.until > Date.now()) {
-		keep.lo = Math.min(keep.lo, pin.lo);
-		keep.hi = Math.max(keep.hi, pin.hi);
-	}
-	const changed = applyWindow(frame, sections, mount.lo, mount.hi, keep.lo, keep.hi);
+	const changed = applyWindow(frame, sections, mount.lo, mount.hi, kept.lo, kept.hi, true, pin && pin.until > Date.now() ? pin : null);
 	// Re-read the run after a move (the old NodeList holds the replaced nodes). This runs only
 	// when something mounted, never on the settled frames the cache answers.
 	const after = changed ? lattice.querySelectorAll(SLIDE_SELECTOR) : cur;
@@ -525,4 +558,5 @@ export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = f
 	return { state: st, count: sections.length, patched, restyled, anchor };
 }
 
+export { SCAN_SHELL };
 export default { renderDeck, patchSections, restyleDocument, syncVirtual, mountAround, attachVirtual };

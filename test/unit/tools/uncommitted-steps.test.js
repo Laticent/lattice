@@ -81,6 +81,8 @@ const EXPECTED_UNCOMMITTED = new Set([
   'build-vetrina-lib.js',
   // Its whole write set is docs/src/lib/fuoco/dist/, covered by docs/.gitignore's `dist/`.
   'build-fuoco-lib.js',
+  // Its whole write set is docs/src/lib/veduta/dist/, covered by docs/.gitignore's `dist/`.
+  'build-veduta-lib.js',
   // Its whole write set is docs/src/lib/mosaico/dist/, covered by docs/.gitignore's `dist/`.
   'build-mosaico-lib.js',
   'build-lente-lib.js',

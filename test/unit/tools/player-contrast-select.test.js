@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 // Which galleries does a diff send to the player-contrast sweep? The selector's one job is to
 // never MISS a gallery a change could move, so most of these arms are about the default: an
 // unclassified path selects everything.
-const { selectGalleries, readGalleries, NON_RENDER } = require('../../../tools/player-contrast-select.js');
+const { selectGalleries, readGalleries, sampleExamples, NON_RENDER } = require('../../../tools/player-contrast-select.js');
 
 const G = [
 	{ file: 'lib/components/chart/bar/bar.gallery.md', dir: 'lib/components/chart/bar/', theme: 'indaco' },
@@ -55,4 +55,13 @@ test('the real tree: 75 galleries, each owned by a directory that exists', () =>
 	for (const g of real) assert.match(g.file, /^lib\/components\/[^/]+\/([^/]+)\/\1\.gallery\.md$/);
 	assert.ok(real.every((g) => g.theme), 'every gallery resolves a theme (default indaco)');
 	assert.ok(NON_RENDER.length > 0);
+});
+
+test('the examples sample is deterministic, keeps every non-indaco and finish/mode deck, and fills to N', () => {
+	const a = sampleExamples(undefined, 40);
+	assert.deepEqual(a, sampleExamples(undefined, 40), 'no randomness: the baseline keys must not move');
+	assert.ok(a.length >= 40 && a.length <= 60, `got ${a.length}`);
+	assert.ok(a.every((f) => /^examples\/[^/]+\.md$/.test(f)));
+	assert.ok(a.includes('examples/accent-on-accent.md') || a.length > 0);
+	assert.ok(a.some((f) => /theme: cuoio/.test(require('node:fs').readFileSync(f, 'utf8').slice(0, 300))), 'a non-default theme is always in');
 });

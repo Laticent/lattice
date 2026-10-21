@@ -3,7 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { type EditorState, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
-import { CLASS_RE } from './deck-source';
+import { classNameOf, classPayloadOf } from './deck-source';
 
 // The Compose "grammar registers" — the block styles the engine renders from plain structure
 // (base.modifiers.css): H1/H2 headings, an inline-code label as an eyebrow (before a heading)
@@ -178,6 +178,10 @@ const TABLE_UNSUITED = new Set([
 	'slope',
 	'stacked-bar',
 	'waterfall',
+	'tower',
+	'risk-matrix',
+	'histogram',
+	'ep-curve',
 	'gantt',
 	'journey', // engine clips it with a table added
 	'kanban',
@@ -241,9 +245,9 @@ const TABLE_UNSUITED = new Set([
 export function slideTakesTable(directives: string[]): boolean {
 	let declared: boolean | undefined;
 	for (const d of directives) {
-		const m = d.match(CLASS_PAYLOAD_RE);
-		if (!m) continue;
-		for (const token of m[1].trim().split(/\s+/)) {
+		const payload = classPayloadOf(d);
+		if (payload == null) continue;
+		for (const token of payload.trim().split(/\s+/)) {
 			if (token && TABLE_UNSUITED.has(token)) declared = false;
 		}
 	}
@@ -254,10 +258,10 @@ export function slideTakesTable(directives: string[]): boolean {
  *  component is renamed or retired. Not for runtime use — call `slideTakesTable`. */
 export const TABLE_UNSUITED_NAMES: readonly string[] = [...TABLE_UNSUITED];
 
-/** The WHOLE `_class:` payload — every token, not just the leading one that `CLASS_RE`
- *  takes. Matches the running-global `<!-- class: … -->` spelling too, so a deck that
- *  sets its layout that way is gated the same as a per-slide one. */
-const CLASS_PAYLOAD_RE = /<!--\s*_?class:\s*([^>]*?)\s*-->/;
+// The WHOLE `_class:` payload — every token, not just the leading one `classNameOf` takes — is
+// `classPayloadOf` (deck-source.ts, over the engine's comment grammar). It reads the running-global
+// `<!-- class: … -->` spelling too, so a deck that sets its layout that way is gated the same as a
+// per-slide one.
 
 /**
  * Every `_class` token a slide's directives carry, in directive order.
@@ -272,9 +276,9 @@ const CLASS_PAYLOAD_RE = /<!--\s*_?class:\s*([^>]*?)\s*-->/;
 export function classTokens(directives: string[]): string[] {
 	const out: string[] = [];
 	for (const d of directives) {
-		const m = d.match(CLASS_PAYLOAD_RE);
-		if (!m) continue;
-		for (const token of m[1].trim().split(/\s+/)) if (token) out.push(token);
+		const payload = classPayloadOf(d);
+		if (payload == null) continue;
+		for (const token of payload.trim().split(/\s+/)) if (token) out.push(token);
 	}
 	return out;
 }
@@ -293,7 +297,7 @@ function rendersBlock(directives: string[], block: 'key-insight' | 'below-note',
 	if (!blocks) return true;
 	// Read EVERY token of the directive, not just the first.
 	//
-	// `CLASS_RE` captures one token, which is all the heading gate needs — but a class
+	// `classNameOf` takes one token, which is all the heading gate needs — but a class
 	// payload is a token LIST and the component name is not required to lead it.
 	// `<!-- _class: dark quote -->` is ordinary, legal authoring, and matching the first
 	// token alone resolved it to `dark`, found no entry, and fell through to permissive.
@@ -306,9 +310,9 @@ function rendersBlock(directives: string[], block: 'key-insight' | 'below-note',
 	// a slide naming `constructor` off the prototype chain.
 	let declared: string[] | undefined;
 	for (const d of directives) {
-		const m = d.match(CLASS_PAYLOAD_RE);
-		if (!m) continue;
-		for (const token of m[1].trim().split(/\s+/)) {
+		const payload = classPayloadOf(d);
+		if (payload == null) continue;
+		for (const token of payload.trim().split(/\s+/)) {
 			if (!token || !Object.hasOwn(blocks, token)) continue;
 			const entry = blocks[token];
 			if (Array.isArray(entry)) declared = entry; // later directives win, as the engine does
@@ -333,8 +337,8 @@ function rendersBlock(directives: string[], block: 'key-insight' | 'below-note',
 function headingKeysFor(directives: string[], headings?: SlideHeadings): Reg[] {
 	let cls: string | null = null;
 	for (const d of directives) {
-		const m = d.match(CLASS_RE);
-		if (m) cls = m[1];
+		const name = classNameOf(d);
+		if (name) cls = name;
 	}
 	if (cls == null) return ['h1', 'h2'];
 	const gh = headings?.[cls];

@@ -73,6 +73,7 @@
     "--chart-cat7-ink",
     "--chart-cat8",
     "--chart-cat8-ink",
+    "--fs-meta",
     "--icon-bare",
     "--icon-edge",
     "--icon-hue",
@@ -85,7 +86,6 @@
     "--icon-tile",
     "--icon-tile-h",
     "--icon-u",
-    "--pill-fs",
     "--radius-sm",
     "--text-heading"
   ],

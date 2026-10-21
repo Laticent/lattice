@@ -22,6 +22,7 @@ import {
 	evaluateAllowance,
 	evaluateRoute,
 	freeBytes,
+	grewFiles,
 	LAZY_BUDGET_ROUTE,
 	METRICS,
 	measure,
@@ -29,6 +30,7 @@ import {
 	PR_ALLOWANCE_BYTES,
 	parseDeclarations,
 	rebaseline,
+	withFixedHashes,
 } from './check-route-budget.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -109,6 +111,21 @@ describe('per-PR allowance', () => {
 
 	it('never fails a PR that shrinks the route', () => {
 		expect(evaluateAllowance('studio', { eagerJsGz: 590_000 }, { eagerJsGz: 600_000 }, 700_000).problems).toEqual([]);
+	});
+
+	test('an overage names the files that grew, so a byte nobody wrote has an address (followup 2749-p3)', () => {
+		const base = { eagerJsGz: 600_000, eagerFiles: { '_astro/studio.00000000.js': 500_000, '_astro/shared.00000000.js': 100_000 } };
+		const actual = { eagerJsGz: 602_100, eagerFiles: { '_astro/studio.00000000.js': 500_000, '_astro/shared.00000000.js': 102_069, '_astro/new.00000000.js': 31 } };
+		const r = evaluateAllowance('studio', actual, base, 700_000);
+		expect(r.problems[0]).toContain('Grew most (gzip bytes, hashes fixed): _astro/shared.00000000.js +2069, _astro/new.00000000.js +31.');
+		expect(r.line).toContain('(_astro/shared.00000000.js +2069, _astro/new.00000000.js +31)');
+		// A base measured before the field existed names nothing, and still gates.
+		expect(evaluateAllowance('studio', { eagerJsGz: 602_100 }, { eagerJsGz: 600_000 }, 700_000).problems[0]).not.toContain('Grew most');
+	});
+
+	test('grewFiles ranks by size of change, counts a file one side lacks in full, and skips unchanged files', () => {
+		expect(grewFiles({ a: 10, b: 5, c: 7 }, { a: 10, b: 9, d: 3 })).toEqual(['c +7', 'b -4', 'd -3']);
+		expect(grewFiles(undefined, { a: 1 })).toEqual([]);
 	});
 });
 
@@ -328,5 +345,71 @@ describe('ledger coverage of the perf-nightly url list', () => {
 		for (const [name, r] of Object.entries(ledger.routes)) {
 			expect(typeof r.eagerJsGz?.soft === 'number' || typeof r.htmlRaw?.soft === 'number', `${name} has no budget`).toBe(true);
 		}
+	});
+});
+
+// The hashes that move with any engine change (followups.d/2718-p5). A real build puts the asset
+// version in two chunks only, and renames those chunks; the rename cascades through every chunk
+// that imports them. These routes model that: same code, different hashes.
+describe('the hashes an engine change moves', () => {
+	const ver = (hex) => `/playground/v/${hex}/`;
+	// `hashes` = [app, door, shared] chunk hashes; the door carries the asset version.
+	function route({ hex, hashes, extra = '' }) {
+		const [app, door, shared] = hashes;
+		const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-v-'));
+		fs.mkdirSync(path.join(dist, '_astro'), { recursive: true });
+		fs.mkdirSync(path.join(dist, 'studio'), { recursive: true });
+		fs.writeFileSync(path.join(dist, 'studio/index.html'), `<script type="module" src="/_astro/app.${app}.js"></script>`);
+		fs.writeFileSync(path.join(dist, `_astro/app.${app}.js`), `import"./shared.${shared}.js";const door=()=>import("./door.${door}.js");export{door}${extra}`);
+		fs.writeFileSync(path.join(dist, `_astro/shared.${shared}.js`), `import"./leaf.js";export const s=1;`);
+		fs.writeFileSync(path.join(dist, '_astro/leaf.js'), 'export const l=1;');
+		fs.writeFileSync(path.join(dist, `_astro/door.${door}.js`), `export const base="${ver(hex)}";`);
+		return dist;
+	}
+	const A = { hex: 'aaaaaaaaaaaa', hashes: ['aaaaaaaa', 'aaaaaaaa', 'aaaaaaaa'] };
+	const B = { hex: '9f3e1c7a2b64', hashes: ['_HQlLF-y', 'AbCdEfGh', 'Cb-C8llU'] };
+
+	it('measures two builds that differ only in those hashes at the same size', () => {
+		const a = measure('home', 'studio/index.html', route(A));
+		const b = measure('home', 'studio/index.html', route(B));
+		expect(b.eagerJsGz).toBe(a.eagerJsGz);
+		expect(a.eagerJsGz).toBeGreaterThan(0);
+	});
+
+	it('still sees a real change beside them', () => {
+		const a = measure('home', 'studio/index.html', route(A));
+		const noise = Array.from({ length: 30 }, () => Math.random().toString(36).slice(2)).join('');
+		const b = measure('home', 'studio/index.html', route({ ...B, extra: `;const n="${noise}"` }));
+		expect(b.eagerJsGz - a.eagerJsGz).toBeGreaterThan(100);
+	});
+
+	it('fixes esbuild engine chunk names, which have a hyphen and no leading dot', () => {
+		const src = Buffer.from('import"./chunk-3MJJUJ6G.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js";import"./chunk-abcdefgh.js";import"./chunk-3MJJUJ6G.json";import"./chunk-3MJJUJ6G.js-x"', 'utf8');
+		expect(withFixedHashes(src).toString()).toBe('import"./chunk-00000000.js";import"./chunk-3MJJUJ6GX.js";import"./chunk-short.js";import"./chunk-abcdefgh.js";import"./chunk-3MJJUJ6G.json";import"./chunk-3MJJUJ6G.js-x"');
+	});
+
+	it('measures an engine whose chunk names changed at the same size', () => {
+		const build = (a, b) => {
+			const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'route-budget-e-'));
+			const esm = path.join(dist, 'playground/v/aaaaaaaaaaaa/esm');
+			fs.mkdirSync(esm, { recursive: true });
+			fs.mkdirSync(path.join(dist, 'studio'), { recursive: true });
+			fs.writeFileSync(path.join(dist, 'studio/index.html'), '<script src="/playground/v/aaaaaaaaaaaa/esm/engine.js"></script>');
+			fs.writeFileSync(path.join(esm, 'engine.js'), `import"./chunk-${a}.js";import"./chunk-${b}.js";`);
+			fs.writeFileSync(path.join(esm, `chunk-${a}.js`), 'export const a=1;');
+			fs.writeFileSync(path.join(esm, `chunk-${b}.js`), 'export const b=2;');
+			return dist;
+		};
+		const x = measure('home', 'studio/index.html', build('AAAAAAAA', 'AAAAAAAA'.replace(/A/g, 'B')));
+		const y = measure('home', 'studio/index.html', build('3MJJUJ6G', '47LLA435'));
+		expect(y.engineJsGz).toBe(x.engineJsGz);
+		expect(x.engineJsGz).toBeGreaterThan(0);
+	});
+
+	it('rewrites only the 12-hex version and the 8-character chunk hash, and keeps the length', () => {
+		const src = Buffer.from(`import"./a.Cp3wbWjU.js";x="${ver('abcdef012345')}";y="${ver('abc')}z";w="./a.Cp3wbWjUx.js";v="a.b.js"`, 'utf8');
+		const out = withFixedHashes(src).toString();
+		expect(out.length).toBe(src.length);
+		expect(out).toBe(`import"./a.00000000.js";x="${ver('000000000000')}";y="${ver('abc')}z";w="./a.Cp3wbWjUx.js";v="a.b.js"`);
 	});
 });

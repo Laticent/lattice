@@ -32,6 +32,8 @@ import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
+import { CardBackingControl } from './image-card-backing';
+import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -39,7 +41,7 @@ import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setChartFinish, setEyebrow, setFinish, setHeadline, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setChartFinish, setEyebrow, setFinish, setHeadline, setImageCard, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -420,6 +422,104 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		[chunk, source],
 	);
 	const onCardTag = (axis: CardTagAxis, v: string) => onMutate((c) => setCardTag(c, axis, v === '__inherit__' ? null : v));
+	// Image card — the deck `image-card:` register's per-slide override (lib/core/resolve-image-card.js),
+	// on image slides only. Five axes, each Auto = follow the deck, then the layout's default.
+	// `includes`, not `component`: the engine stamps the deck's words on any slide naming `image`.
+	const showsImageCard = tokens.includes('image');
+	const imageCard = React.useMemo(
+		() => Object.fromEntries(IMAGE_CARD_ROWS.map((r) => [r.axis, imageCardProvenance(chunk, source, r.axis)])) as Record<ImageCardAxis, ReturnType<typeof imageCardProvenance>>,
+		[chunk, source],
+	);
+	// A thin spotlight card needs an ink or the theme's own ink is read against the photo. The photo
+	// is read AHEAD, when an image slide opens or its card moves (the effect below), so that each
+	// step of the Card backing slider decides the ink synchronously and writes it WITH the backing in
+	// one edit: one Undo step, and an ink only for the opacity the card has at that step
+	// (lib/core/card-ink.mjs, card-ink-pick.ts). `autoInkRef` is the ink this session wrote for the
+	// slide, so it can be taken back out when the card is no longer thin; an ink the author sets is
+	// never touched.
+	const slideRef = React.useRef(slideNumber);
+	slideRef.current = slideNumber;
+	const chunkRef = React.useRef(chunk);
+	chunkRef.current = chunk;
+	const pickRef = React.useRef<typeof import('./card-ink-pick') | null>(null);
+	// Whether the read-ahead has landed for this slide: shown on the control, so a test (and a person
+	// watching) can tell the next thin step will be one edit.
+	const [behindReady, setBehindReady] = React.useState(false);
+	const behindRef = React.useRef<{ slide: number; rgb: number[] } | null>(null);
+	const autoInkRef = React.useRef<{ slide: number; ink: 'light' | 'dark' } | null>(null);
+	// What the card's box and photo depend on: where it sits, how big, and which photo.
+	// The composition is part of it: switching a slide between spotlight and statement changes what the
+	// card needs, and the read belongs to the composition it was taken under.
+	const cardKey = `${tokens.filter((t) => /^(at-|card-(sm|md|lg)$|band$|compact$|mirror$|spotlight$|statement$|clean$|split$|gallery$|full$|contain$|museum$)/.test(t)).join(' ')}|${/!\[bg[^\]]*\]\([^)]*\)/.exec(chunk)?.[0] ?? ''}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: re-read when the slide or its card geometry changes, not on every keystroke.
+	React.useEffect(() => {
+		behindRef.current = null;
+		setBehindReady(false);
+		if (!showsImageCard) return;
+		let live = true;
+		const at = slideNumber;
+		void import('./card-ink-pick').then(async (pick) => {
+			pickRef.current = pick;
+			// The preview lags a slide switch; try again once if it still shows the other slide.
+			for (const wait of [0, 700]) {
+				if (wait) await new Promise((r) => setTimeout(r, wait));
+				if (!live) return;
+				const rgb = await pick.readBehindCard(chunkRef.current, at);
+				if (!live) return;
+				if (rgb) {
+					behindRef.current = { slide: at, rgb };
+					setBehindReady(true);
+					return;
+				}
+			}
+		});
+		return () => {
+			live = false;
+		};
+	}, [slideNumber, showsImageCard, cardKey]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: forget the session's pick when the slide changes.
+	React.useEffect(() => {
+		autoInkRef.current = null;
+	}, [slideNumber]);
+	const onImageCard = (axis: ImageCardAxis, v: string) => {
+		if (axis === 'ink') autoInkRef.current = null; // the author chose: it is theirs now
+		onMutate((c) => setImageCard(c, axis, v === '__inherit__' ? null : v));
+	};
+	const onBacking = (word: string | null) => {
+		const at = slideNumber;
+		const pick = pickRef.current;
+		const behind = behindRef.current?.slide === at ? behindRef.current.rgb : null;
+		if (pick && behind) {
+			// The usual path: one edit carries the backing and the ink. `auto` is read ONCE, here, and the
+			// updater never reads the ref: `settingsWrite` runs it on the current source and again on a
+			// fresher one when an editor flush landed between, and a run that read a ref the first run had
+			// already changed would orphan the session's ink. Every run is now the same pure function of its
+			// chunk; each records its outcome on the ref, so the last run, the one that landed, is what stays.
+			const auto = autoInkRef.current?.slide === at ? autoInkRef.current.ink : null;
+			onMutate((c) => {
+				const edit = pick.applyBacking(c, source, word, behind, auto);
+				if (edit.picked) autoInkRef.current = { slide: at, ink: edit.picked };
+				else if (edit.removed) autoInkRef.current = null;
+				return edit.chunk;
+			});
+			return;
+		}
+		// The photo has not been read yet (the first moments on a slide): write the backing now and the
+		// ink when the read lands, if the card is thin and still names no ink by then. That is two edits,
+		// so two Undo steps, and only happens before the read-ahead has landed.
+		onMutate((c) => setImageCard(c, 'backing', word));
+		void (async () => {
+			const mod = pick ?? (await import('./card-ink-pick'));
+			const rgb = behind ?? (await mod.readBehindCard(chunk, at));
+			if (!rgb || slideRef.current !== at) return;
+			if (behindRef.current?.slide !== at) behindRef.current = { slide: at, rgb };
+			onMutate((c) => {
+				const late = mod.applyLateRead(c, source, rgb);
+				if (late.picked) autoInkRef.current = { slide: at, ink: late.picked };
+				return late.chunk;
+			});
+		})();
+	};
 
 	// Brand bar (the deck `spectrum:` register's per-slide override). Rainbow is the
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
@@ -739,6 +839,53 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								</Row>
 							)}
 							{accepts('accent') && <Row label="Accent" desc="Emphasize this layout's key element." help={<>Picks out whatever this layout treats as its focal element and paints it in the theme accent.</>}><Switch label="Accent treatment" on={has('accent')} onClick={() => toggle('accent')} /></Row>}
+						</div>
+			),
+		}] : []),
+		// IMAGE — the text card on a photo slide; only on `image` slides, and next to Look because
+		// on one of those it is the setting an author reaches for first.
+		...(editable && showsImageCard ? [{
+			value: 'image',
+			label: 'Image',
+			keywords: 'image photo picture spotlight statement card text placement opacity ink size compact',
+			body: () => (
+						<div className="py-1">
+							<TabIntro>The text card over the photo. It moves on <code>spotlight</code> and <code>statement</code>, the two layouts that float the words over the picture. Auto follows the deck's Image settings.</TabIntro>
+							{IMAGE_CARD_ROWS.map((row) => {
+								const p = imageCard[row.axis];
+								if (row.axis === 'backing') {
+									return (
+										<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
+											<CardBackingControl
+												ariaLabel={`Slide ${row.label.toLowerCase()}`}
+												word={p.state === 'on' ? p.value : undefined}
+												inheritedWord={p.deckValue}
+												autoLabel={p.deckValue ? `Auto: ${imageCardOptionLabel(p.deckValue)}` : `Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
+												onChange={onBacking}
+												inkReady={behindReady}
+											/>
+										</Row>
+									);
+								}
+								return (
+									<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
+										<CatalogSelect
+											ariaLabel={`Slide ${row.label.toLowerCase()}`}
+											value={p.state === 'on' ? (p.value ?? '__inherit__') : '__inherit__'}
+											onValueChange={(v) => onImageCard(row.axis, v)}
+											className="w-full"
+											groups={[
+												{
+													options: [
+														{ value: '__inherit__', label: autoHead(p.deckValue ? imageCardOptionLabel(p.deckValue) : IMAGE_CARD_DEFAULT_LABEL[row.axis]) },
+														...imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w) })),
+													],
+												},
+											]}
+										/>
+									</Row>
+								);
+							})}
 						</div>
 			),
 		}] : []),

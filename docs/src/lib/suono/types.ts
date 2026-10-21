@@ -161,6 +161,9 @@ export interface Stage {
 	 *  original's tracks itself; `.stop()` disconnects the shaping. Null where Web Audio is missing, so
 	 *  the caller sends the original unshaped. */
 	gainStream(stream: MediaStream, gain: number): GainStream | null;
+	/** A copy of what this stage PLAYS (its clips, never a stream it amplifies), as a live stream: what a
+	 *  call sends when a presenter's narration should reach the others. Null where Web Audio is missing. */
+	tapPlayback(): PlaybackTap | null;
 	/** Release the context (rare — a stage is meant to outlive many plays). */
 	dispose(): void;
 }
@@ -180,6 +183,16 @@ export interface GainStream {
 	/** Set the gain: 1 is the stream as captured, 2 is twice the amplitude (+6 dB). Clamped to 0–4. */
 	setGain(gain: number): void;
 	/** Disconnect the shaping and end the shaped track. Idempotent. */
+	stop(): void;
+	/** Mix another live stream into the shaped one, unshaped (a narration into a call). Returns the way
+	 *  to take it out again, or null where it cannot. */
+	mix(stream: MediaStream): (() => void) | null;
+}
+
+/** A live copy of a stage's playback, from `Stage.tapPlayback`. */
+export interface PlaybackTap {
+	readonly stream: MediaStream;
+	/** Stop copying and end the track. Idempotent. */
 	stop(): void;
 }
 

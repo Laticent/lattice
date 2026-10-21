@@ -47,13 +47,13 @@ The controls did not move because they were untidy. They moved because they were
 
 1. 4
    - staging pills
-   - all of them unconditional `Chrome`
+   - all of them unconditional `{Chrome}`
 2. 1
    - Exit button
-   - top left, never hidden `Chrome`
+   - top left, never hidden `{Chrome}`
 3. 0
    - states showing only the deck
-   - fullscreen made it bigger `Gap`
+   - fullscreen made it bigger `{Gap}`
 
 <!-- note: Land these slowly. Fullscreen was the tell: it filled the display with the cockpit. There was no setting, anywhere, that showed a room only the deck. -->
 

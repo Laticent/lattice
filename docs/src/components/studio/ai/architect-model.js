@@ -335,7 +335,8 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
         const kin = (catalogCache || []).filter((x) => x.id.startsWith(family) && x.promptPerM != null);
         m = kin.sort((a, b) => (b.completionPerM ?? 0) - (a.completionPerM ?? 0))[0];
       }
-      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null } : null;
+      // `contextLength` only for a listed model: an alias's dearest family member may have a different window, so it stays null there.
+      return m ? { promptPerM: m.promptPerM, completionPerM: m.completionPerM, imagePerM: m.imagePerM ?? null, contextLength: m.id === id ? m.contextLength ?? null : null } : null;
     },
     disconnect() { writeLS(OR_KEY_LS, null); writeLS(OR_VERIFIER_LS, null); },
     // OAuth step 1: stash a PKCE verifier and return the URL to redirect to. The
@@ -423,7 +424,7 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
       writeCachedCatalog(list);
       return list;
     },
-    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, cacheTail, model: modelOverride, reasoningEffort }) {
+    async complete({ messages, json, onToken, signal, onUsage, onGenerationId, onFinishReason, maxTokens, plugins, cacheTtl, tools, toolChoice, onToolCalls, onToolStart, onReasoning, cacheTail, model: modelOverride, reasoningEffort }) {
       const key = readLS(OR_KEY_LS);
       if (!key) throw new Error('OpenRouter not connected');
       // usage:{include:true} guarantees the authoritative per-request `usage.cost`
@@ -550,6 +551,14 @@ function openRouterBackend(defaultModel = DEFAULT_OR_MODEL, defaultMaxTokens = 0
             if (obj.id && onGenerationId) { try { onGenerationId(obj.id); } catch {} onGenerationId = null; }
             const t = obj.choices?.[0]?.delta?.content || '';
             if (t) { full += t; onToken(t); }
+            // A reasoning model streams its thinking beside the answer (`delta.reasoning`, or the
+            // structured `reasoning_details`). It is already billed and already on the wire, so
+            // surfacing it asks for nothing more: we never send a `reasoning` setting to get it.
+            if (onReasoning) {
+              const dl = obj.choices?.[0]?.delta;
+              const th = (typeof dl?.reasoning === 'string' && dl.reasoning) || (Array.isArray(dl?.reasoning_details) ? dl.reasoning_details.map((x) => (typeof x?.text === 'string' ? x.text : typeof x?.summary === 'string' ? x.summary : '')).join('') : '');
+              if (th) { try { onReasoning(th); } catch {} }
+            }
             for (const d of obj.choices?.[0]?.delta?.tool_calls || []) {
               // No `index` (some providers omit it): a fragment WITH an id starts a call, one
               // without continues the last — never a nameless call of its own.

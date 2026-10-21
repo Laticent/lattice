@@ -1,0 +1,95 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "pills",
+  "api": 1,
+  "title": "Pills",
+  "description": "Shaped, colored labels written in inline code: `{LIVE}` draws a capsule, `{BETA, tag, c4}` a sharp tag in the fourth categorical color, `{3, circle}` a numbered badge. A label comes first, then shape, color and size words in any order (or by name: `shape=tag`), and a pill sizes itself from the text around it. Pills are part of how Lattice draws a slide, so this plugin is embedded: it loads on every render and has no off switch. Components that show a status, an audience or a count author a pill or translate their content into one and pass in only a color, a size or a case.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "line",
+        "d": "M36 40H92A24 24 0 0 1 92 88H36A24 24 0 0 1 36 40Z",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M52 64H76",
+        "width": 9
+      }
+    ]
+  },
+  "embedded": true,
+  "optional": [
+    "icons"
+  ],
+  "contributes": {
+    "inline": {
+      "pill": {
+        "untagged": true
+      }
+    },
+    "services": [
+      "reads"
+    ],
+    "styles": true
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  },
+  "tokens": [
+    "--bg",
+    "--cat-1-fill",
+    "--cat-1-mark",
+    "--cat-10-fill",
+    "--cat-10-mark",
+    "--cat-11-fill",
+    "--cat-11-mark",
+    "--cat-12-fill",
+    "--cat-12-mark",
+    "--cat-2-fill",
+    "--cat-2-mark",
+    "--cat-3-fill",
+    "--cat-3-mark",
+    "--cat-4-fill",
+    "--cat-4-mark",
+    "--cat-5-fill",
+    "--cat-5-mark",
+    "--cat-6-fill",
+    "--cat-6-mark",
+    "--cat-7-fill",
+    "--cat-7-mark",
+    "--cat-8-fill",
+    "--cat-8-mark",
+    "--cat-9-fill",
+    "--cat-9-mark",
+    "--cat-on-fill",
+    "--lat-pill-base",
+    "--lat-pill-bg",
+    "--lat-pill-cap",
+    "--lat-pill-case",
+    "--lat-pill-edge",
+    "--lat-pill-h",
+    "--lat-pill-ink",
+    "--lat-pill-inset",
+    "--lat-pill-pb",
+    "--lat-pill-pt",
+    "--lat-pill-scale",
+    "--lat-pill-shift",
+    "--lat-pill-size",
+    "--lat-pill-tracking",
+    "--muted-mark",
+    "--pill-font",
+    "--pill-fs",
+    "--pill-pad-x",
+    "--pill-pad-y",
+    "--pill-radius",
+    "--pill-tracking",
+    "--pill-weight",
+    "--radius-sm",
+    "--text-body"
+  ]
+}

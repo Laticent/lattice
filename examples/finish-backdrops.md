@@ -5,10 +5,7 @@ finish: atrium
 paginate: true
 header: "Lattice · finishes"
 logo: sample:logo-acme-mark.svg
-logo-on: title
-logo-x: 50
-logo-y: 82
-logo-scale: 1.0
+logo-finish: bottom-center title
 ---
 
 <!-- A glyph-mark (monogram / numeral) is ALWAYS author-personalized — it NEVER
@@ -194,10 +191,9 @@ lower-left. Exported verbatim from the Finish Studio.
 
 # The brand mark moves too.
 
-The deck logo is placed with `logo-x` `logo-y` `logo-scale` — the same
-place-and-size model as a finish mark. This deck seats it along the
-bottom of every title, enlarged; flip the numbers and the mark lands anywhere,
-at any size, identically in the live preview and the baked PDF.
+The deck logo is styled on one line, `logo-finish` — a berth, a color, a size, a
+scope. This deck seats it bottom-center on the title only; change one word and
+the mark moves, identically in the live preview and the baked PDF.
 
 ---
 

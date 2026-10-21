@@ -3,6 +3,8 @@ import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
 import sizes from '../../../../lib/engine/sizes.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from './front-matter-keys';
+import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
 import { STUDIO_LANGUAGES } from './studio-language';
 
 // Studio editor autocomplete — context-aware completion for the three things an
@@ -73,6 +75,25 @@ const STATIC_VALUES: Record<string, string[]> = {
 	...Object.fromEntries(OFFERED_SETTINGS.filter((r) => !r.vocab && (r.values || r.complete)).map((r) => [r.key, [...((r.complete || r.values) as readonly string[])]])),
 	size: Object.keys(sizes.SIZES),
 };
+
+// The keys that take one word per axis on ONE line (`tag:`, `backdrop:`, `image-card:`, the plugin
+// registers), so completion offers a second word after the first.
+const AXIS_KEYS = new Set(OFFERED_SETTINGS.filter((r) => r.kind === 'axis').map((r) => r.key));
+// The axes of the registers the Studio mirrors (slide-provenance.ts, each pinned to its kernel
+// by a test). A key not listed still completes, without the filled-axis filter.
+const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
+	backdrop: [BACKDROP_STRENGTHS, BACKDROP_MASKS],
+	tag: Object.values(CARD_TAG_AXES),
+	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
+	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
+};
+
+/** The words still worth offering after `written` on an axis-register line. Exported for a test. */
+export function nextAxisWords(key: string, written: string, words: readonly string[]): string[] {
+	const used = new Set(written.toLowerCase().split(/[\s,]+/).filter(Boolean));
+	const filled = (REGISTER_AXES[key] ?? []).filter((axis) => axis.some((w) => used.has(w)));
+	return words.filter((w) => !used.has(w) && !filled.some((axis) => axis.includes(w)));
+}
 
 /**
  * The key → value-list map the editor completes against: every fixed-vocabulary register,
@@ -341,6 +362,17 @@ export function makeStudioCompletion(
 		if (reg && Object.hasOwn(registerOptions, reg[1]) && inFrontMatter(context.state.doc.toString(), context.pos)) {
 			const word = context.matchBefore(/[\w-]*/);
 			return { from: word ? word.from : context.pos, options: registerOptions[reg[1]], validFor: /^[\w-]*$/ };
+		}
+		// 1g. The NEXT word of a one-line axis register (`image-card: top-right so|`). Each takes up
+		// to one word per axis on one line, so completion keeps going after the first word, leaving
+		// out the words already written and, where the axes are known, the rest of a filled axis.
+		const axisLine = /^([\w-]+):[ \t]*((?:[\w-]+[ \t,]+)+)[\w-]*$/.exec(before);
+		if (axisLine && AXIS_KEYS.has(axisLine[1]) && Object.hasOwn(registerOptions, axisLine[1]) && inFrontMatter(context.state.doc.toString(), context.pos)) {
+			const keep = new Set(nextAxisWords(axisLine[1], axisLine[2], registerOptions[axisLine[1]].map((o) => o.label)));
+			const options = registerOptions[axisLine[1]].filter((o) => keep.has(o.label));
+			if (!options.length) return null;
+			const word = context.matchBefore(/[\w-]*/);
+			return { from: word ? word.from : context.pos, options, validFor: /^[\w-]*$/ };
 		}
 
 		// 2. Fenced-block language right after the opening ``` .

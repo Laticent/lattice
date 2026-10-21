@@ -515,11 +515,11 @@ Unchanged from `2026-09-13` §Axis 2, applied per contribution:
 |---|---|---|
 | **In-tree** (`lib/plugins/`) | every contribution | phase A |
 | **Zip / Studio / AI-generated** (the data layer) | `styles`, `diagnostics` (a component without a transform is already its own data package, and may declare the plugins it needs) | phase E. **Refused:** `payload`, any `exec`, `syntax`, `hydrate`, `bake` — and every script file by extension, which `lib/packages/read.js:35` already does. `fences` code through the code-package door (consent + sandbox) once it ships, §9 decision 3 |
-| **npm** (`lattice-plugin-*`, resolved at build time) | every code contribution | phase G, after the `LICENSE-EXCEPTIONS` plugin grant (contribution model, finding 6). Discovery by an explicit list, not by name prefix, so a transitive dependency named `lattice-plugin-*` gets no code into a deck |
+| **npm** (`lattice-plugin-*`, explicit list) | ~~every code contribution~~ **Superseded** by [`2026-10-16-npm-plugin-threat-model.md`](2026-10-16-npm-plugin-threat-model.md) §6. In v1: a fragment, or data the host sanitizes and attaches, rendered in the locked page only. No `bake`, no `hydrate`, no `payload`, no code sent to a viewer's browser, no Studio or desktop loading | phase G, after the `LICENSE-EXCEPTIONS` plugin grant (contribution model, finding 6), the canary harness and G5. Discovery by an explicit list, not by name prefix, so a transitive dependency named `lattice-plugin-*` gets no code into a deck. The plugin is one bundle, never `npm install`ed |
 
 **A `bake` (phase D) runs with full Node privileges** — it is required into the CLI's own
 process and may start others — so no sandbox the code-package door has can hold one. Only an
-in-tree plugin, or an npm plugin after the grant, may carry `bake.js`.
+in-tree plugin may carry `bake.js`; an npm plugin may not in v1 (threat-model note §6 rows 3 and 4).
 
 **Names.** Shipped plugin names are reserved, per the spine's `<name>-custom` rule. A data-layer
 plugin that collides with a shipped one, or with another installed plugin, is **disabled with a
@@ -1785,6 +1785,32 @@ shows only on a slide the door draws on: a `diagram` slide is rebuilt by a shipp
 A `chip` is still a block (a fence is block syntax). **Amended 2026-10-14 (owner):** inline syntax such as `!{Ada Okafor}` is
 not a parser rule but an inline-code kind, and a zip plugin may now bring one, written `@kind{…}`, through this same door:
 `2026-10-14-plugin-inline-door.md`.
+
+**A host that narrows its defaults after a deck is open (2026-10-18, #2759).** The Studio preview kept a drawn
+diagram when `LatticePlayground.setPluginDefaults` took Mermaid out: the engine's render caches already key on the
+defaults, but nothing scheduled a render, so no new markup reached the frame. `DeckPreview` now schedules one on
+`lattice:plugin-defaults`, as the Playground page already did. **Gate, do not purge:** the runtime's SVG cache
+(`mermaidSvgCache`, keyed by scope and source) is reached only through fences the engine left untagged, and an
+off fence carries `data-lattice-off`, which every runtime selector skips, so the cache needs no purge and the next
+turn-on may reuse an entry. Exports render from the current admission in a fresh frame, so an export made while the
+plugin is off ships the source (`e2e/plugin-admission.spec.ts`, "on, off, on"). The Plugins tab's checkbox is the
+deck's `plugins:` list, never an off switch: every shipped plugin is on by default and a list only adds, so only a
+host can turn one off.
+
+**The export says so (2026-10-18, #2758).** A fence whose plugin is off ships as source, so Share → Webpage names it
+before the export (a row in the options panel) and after (the completion message), read from the registry and the
+deck's admission (`docs/src/lib/off-fences.ts`), never from a plugin's name.
+
+**Every export, and an action (2026-10-20, followup `2758-p1`).** One component, `OffFencesNotice`
+(`docs/src/components/studio/OffFencesNotice.tsx`), shows the notice in every Share panel whose export draws
+diagrams: PDF, PowerPoint, LibreOffice, Images, Webpage, the Marp bundle and Print. The same sentence joins each of
+those exports' completion message (`withOffFences` in `share-export.ts`; Print has no completion message, its panel
+is the one place). The notice's **Turn on** writes the plugin into the deck's `plugins:` list, the same write as the
+Plugins tab's checkbox. A deck's list adds to the host's defaults (`admitPlugins`), so under a host that narrowed
+them the listed plugin is admitted again, the next render draws the fence and the next export ships the drawing;
+the choice travels with the deck. A host that hands the panels no way to edit the deck gets the notice without the
+button. `docs/e2e/plugin-admission.spec.ts` drives both arms through the real Share sheet for every panel, and the
+action through to an export that draws.
 
 ## References
 

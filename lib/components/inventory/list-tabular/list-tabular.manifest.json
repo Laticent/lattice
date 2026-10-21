@@ -84,7 +84,7 @@
   "sample": "<!-- _class: list-tabular -->\n\n## The tabular list rules rows into a register.\n\n1. Rows\n   - Label, clause, optional meta line.\n   - _Twelve soft · sixteen hard_\n2. Looks\n   - Eight named looks reskin the rows.\n   - _def · spec · register_\n3. Escalation\n   - Long content leaves for a table.\n   - _split past six rows_\n",
   "stressDoc": {
     "summary": "Six rows — the register's page.",
-    "sample": "<!-- _class: list-tabular register -->\n\n## Six rows is the register's practical page.\n\n1. title `stable`\n2. big-number `stable`\n3. cards-grid `stable`\n4. split-panel `stable`\n5. funnel `stable`\n6. radar `beta`\n"
+    "sample": "<!-- _class: list-tabular register -->\n\n## Six rows is the register's practical page.\n\n1. title `{stable}`\n2. big-number `{stable}`\n3. cards-grid `{stable}`\n4. split-panel `{stable}`\n5. funnel `{stable}`\n6. radar `{beta}`\n"
   },
   "whenToUse": [
     {
@@ -151,7 +151,7 @@
     "register": {
       "label": "register",
       "summary": "Status pills on each row.",
-      "sample": "<!-- _class: list-tabular register -->\n\n## register pairs names with status chips.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. radar `beta`\n4. word-cloud `preview`\n"
+      "sample": "<!-- _class: list-tabular register -->\n\n## register pairs names with status chips.\n\n1. cards-grid `{stable}`\n2. split-panel `{stable}`\n3. radar `{beta}`\n4. word-cloud `{preview}`\n"
     },
     "rule": {
       "label": "def + rule",
@@ -171,7 +171,7 @@
     "outline": {
       "label": "register + outline",
       "summary": "Outline pills — a lighter register.",
-      "sample": "<!-- _class: list-tabular register outline -->\n\n## outline boxes each row in a keyline.\n\n1. cards-grid `stable`\n2. split-panel `stable`\n3. quote `stable`\n"
+      "sample": "<!-- _class: list-tabular register outline -->\n\n## outline boxes each row in a keyline.\n\n1. cards-grid `{stable}`\n2. split-panel `{stable}`\n3. quote `{stable}`\n"
     },
     "fit-name": {
       "label": "fit-name",

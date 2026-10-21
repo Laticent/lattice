@@ -10,6 +10,7 @@
 
 import { deriveKatexProviderUrl, ensureKatexProvider } from '@/lib/ensure-katex';
 import { ensureEngine } from '@/lib/load-engine';
+import { offFences, offFencesSentence } from '@/lib/off-fences';
 import type { LatticePlaygroundEngine } from '@/lib/playground-global';
 import { renderMarkdown } from '@/lib/render-engine';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
@@ -50,6 +51,8 @@ export type DeckRender = {
 	 *  runtime bundle because inlining it put 25.9 KiB gzipped on every reader of every
 	 *  deck for an engine only a branching machine uses. */
 	dagreUrl?: string;
+	/** Who a clipped slide's marker speaks to in the exported file (lib/core/resolve-overflow-marker.js). Set by the export entry points, never by `buildDeckRender`: the Studio's own measuring and reading views stay on the authoring default. */
+	overflowMarker?: OverflowMarker;
 	/** The engine's FLAT pack (`styles: 'flat'`), wrapper-stripped, with the local component
 	 *  CSS after it. Present only when the caller asked for the flat mode — a host that shows
 	 *  slide content outside a slide (the Reading view). */
@@ -207,34 +210,23 @@ function escAttr(s: string): string {
 }
 
 /**
- * Assemble a self-contained document equivalent to the emulator's `cleanDocHtml`
- * (the `docHtml` input `assemblePlayer` expects): base64 fonts + the deck CSS +
- * per-slide sizing + a11y texture defs + the rendered `<section>` slides. This
- * mirrors the emulator's scaffold (lattice.js htmlDoc) so the shared
- * assembler sees the same shape from either host. Offline by construction — the
- * `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
+ * The document `assemblePlayer` packs (its `docHtml`), built from the CLI's own pieces: the deck
+ * <style> is `exportDeckStyleText` (lib/export/export-scaffold.js), the same template lattice.js
+ * fills, with the deck's `style:` block packed by `exportGlobalCss`; the texture <defs> are the sets
+ * the page references, chosen as the CLI chooses them. Until 2026-10-17 this was a hand-written
+ * mirror that carried none of the Marp system rules, no `style:` block and every texture set, so
+ * the same deck packed two ways (decisions/2026-10-16-player-as-library-audit.md §11.9). The
+ * skip link and `<main>` the CLI's page also carries never reach a player, so they are left out.
+ * Offline by construction — the `#lattice-embedded-fonts` block is data-URI base64, not bundled URLs.
  */
-function buildSelfContainedDoc(p: {
-	lang: string;
-	title: string;
-	fontCss: string;
-	css: string;
-	w: number;
-	h: number;
-	a11yDefs: string;
-	slides: string;
-	katexLink: string;
-}): string {
+function buildSelfContainedDoc(p: { lang: string; title: string; fontCss: string; katexFacesCss: string; deckStyle: string; a11yDefs: string; slides: string; katexLink: string }): string {
 	return `<!DOCTYPE html>
 <html lang="${escAttr(p.lang)}"><head><meta charset="utf-8">
 <title>${escHtml(p.title)}</title>
-<style id="lattice-embedded-fonts">${sanitizeStyleText(p.fontCss)}</style>
+<style id="lattice-embedded-fonts">${sanitizeStyleText(p.fontCss)}${p.katexFacesCss}</style>
 ${p.katexLink}
 <style>
-@page { size: ${p.w}px ${p.h}px; margin: 0; }
-body { margin: 0; padding: 0; }
-${sanitizeStyleText(p.css)}
-section[data-lattice-slide] { width: ${p.w}px !important; height: ${p.h}px !important; }
+${p.deckStyle}
 </style></head><body>
 ${p.a11yDefs}
 ${p.slides}
@@ -316,14 +308,6 @@ function materializeNotes(sections: string[], notesCore: NotesCore, record: Slid
 		.join('\n');
 }
 
-/** The injected capabilities `assemblePlayer` needs, backed by browser APIs. */
-type PlayerCaps = {
-	parseHtml: (html: string) => Document;
-	sanitize: (html: string) => string;
-	sha256: (s: string) => Promise<string>;
-	inlineAssets: (html: string) => { html: string; count: number; missing: string[] };
-	katexCss?: () => string | null;
-};
 type PlayerCore = {
 	assemblePlayer: (
 		data: {
@@ -347,35 +331,65 @@ type PlayerCore = {
 			now?: number;
 			build?: string;
 			playerVersion?: string;
+			host?: string;
 		},
-		caps: PlayerCaps,
+		caps: import('./player-caps-browser').PlayerCaps,
 	) => Promise<{ html: string; report: unknown }>;
+	/** The export document's deck stylesheet, the CLI's own (lib/export/export-scaffold.js). */
+	exportDeckStyleText: (p: { w: number; h: number; deckCss: string; globalCss?: string }) => string;
+	/** The deck's front-matter `style:` CSS, packed as the CLI packs it (lib/export/author-css.js). */
+	exportGlobalCss: (fmText: string, slidesHtml: string) => string;
+	/** The texture pattern sets the page references, as the CLI selects them (lib/core/accessibility-textures.js). */
+	texturePatternDefs: (only?: string[]) => string;
+	texturePrefixesReferencedIn: (text: string) => string[];
+	/** KaTeX's sheet made self-contained, as the CLI makes it (lib/export/katex-inline.js). */
+	katexFontFiles: (css: string) => string[];
+	inlineKatexFonts: (css: string, base64Of: (file: string) => string | null) => string;
+	splitKatexSheet: (inlined: string) => { faces: string; rules: string };
+	/** The engine's front-matter parser (lib/engine/directives.js). */
+	parseFrontMatter: (src: string) => { directives: Record<string, unknown>; body: string };
+	/** The engine version, from the root package.json at build time. */
+	ENGINE_BUILD: string;
 };
-
-/**
- * The browser `sha256` capability: UTF-8 bytes → SHA-256 → base64, matching the
- * Node adapter's `crypto.createHash('sha256').update(s,'utf8').digest('base64')`
- * exactly (the value goes into the CSP `script-src 'sha256-…'`, so the encoding
- * must be identical or the hashed player script is refused).
- */
-async function sha256Base64(s: string): Promise<string> {
-	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-	const bytes = new Uint8Array(buf);
-	let bin = '';
-	for (let i = 0; i < bytes.length; i += 0x8000) {
-		bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 0x8000)));
-	}
-	return btoa(bin);
-}
 
 /**
  * Download the current deck as a self-contained `.html` player — the app-side
  * equivalent of the CLI `--player` export. Renders the full deck in-browser,
  * assembles a self-contained document (base64 fonts, full deck CSS), and runs the
  * shared `assemblePlayer` with browser capabilities, then prunes the CSS and the
- * font faces the deck never uses (`player-prune-browser.ts`, P2b). Kept faces ship
- * whole: nothing glyph-subsets them on this path.
+ * font faces the deck never uses (`player-prune-browser.ts`, P2b). Kept faces are
+ * glyph-subset by the CLI's own subsetter, so the packer stages match the CLI's.
  */
+/**
+ * The overflow-marker level a Webpage export bakes at: the workspace's standing setting, resolved by
+ * `resolveExportOverflowMarker` (lib/core/resolve-overflow-marker.js), the one resolver the CLI's
+ * `--overflow-marker` and the Marp bundle also go through. `loadSettings()` does not validate the
+ * stored value, so the resolver is what keeps a stored `off` or a junk string from silencing the
+ * marker; it always answers a level, never nothing.
+ */
+async function exportOverflowMarker(): Promise<OverflowMarker> {
+	const [{ loadSettings }, core] = await Promise.all([
+		import('./studio-store'),
+		import('../../../../lib/core/resolve-overflow-marker.js') as unknown as Promise<{ default: { resolveExportOverflowMarker: (o: { workspace?: unknown }) => { marker: OverflowMarker } } }>,
+	]);
+	return core.default.resolveExportOverflowMarker({ workspace: loadSettings().overflowMarker }).marker;
+}
+
+/** An export's render, with the marker level the export setting names (`reader` unless the author chose otherwise). The capture frame paints the runtime's marker into every raster, so without this a clipped slide reached a PDF, PNG or PowerPoint reader with the red ring and "OVERFLOWS" (followups.d/2739-p6). */
+export async function withExportMarker(render: DeckRender): Promise<DeckRender> {
+	return { ...render, overflowMarker: await exportOverflowMarker() };
+}
+
+/** A fence whose plugin is off ships as source: the panel said so before the export, the completion message
+ *  says so after (#2758). Folded into an export's degradation reason, append-never-assign, by every Studio
+ *  export that draws diagrams. */
+function withOffFences(reason: string | undefined, source: string): string | undefined {
+	const off = offFences(source);
+	if (!off) return reason;
+	const sentence = offFencesSentence(off, 'shipped');
+	return reason ? `${reason}; ${sentence}` : sentence;
+}
+
 export async function shareHtmlPlayer(
 	options: SingleSlideOptions,
 	source: string,
@@ -414,31 +428,47 @@ export async function shareHtmlPlayer(
 	// placeholder. The file is self-contained either way; this decides only whether the author's
 	// browser contacts those sites now.
 	embedWebPictures = false,
+	// Origins whose pictures the player loads only after the reader presses "Load pictures" — the CLI's
+	// `--player-consent`, through the same `assemblePlayer` field. Ignored for pictures that were embedded.
+	consentOrigins: string[] = [],
 	// Resolves to a DEGRADATION reason when the export completed but shipped something
 	// lesser than intended (today: the diagram bake did not run), else undefined. The
 	// caller surfaces it in the completion toast — see the return at the end.
 ): Promise<string | undefined> {
 	onStatus?.('Rendering the deck…');
 	const PG = await ensureReady(options);
-	const theme = await ensureTheme(options, palette, mode, extra, source);
+	// The deck's own theme, never its `-dark` twin. The CLI renders the theme the deck declares and
+	// lets `color-mode:` set the slides' `dark` class; the Studio rendered `<palette>-dark` whenever
+	// its PREVIEW was dark, so the same deck exported under two theme names (§11.9 of
+	// decisions/2026-10-16-player-as-library-audit.md). The player carries both modes either way
+	// (its dark block), and `scheme` below picks the one it opens in.
+	const theme = await ensureTheme(options, palette, 'light', extra, source);
 	// `styles: 'flat'`: the player is a document that shows slide content outside a slide, so it
 	// asks for the flat mode and ships `out.flatCss`. `out.css` stays the scoped preview shape
 	// for the diagram bake's capture frame below.
 	let out = await renderMarkdown(PG, source, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(source)) });
+	// Split on STRUCTURE, as the CLI's `--player` does (lib/core/structural-split.js): at
+	// portrait/square/mobile a multi-member slide becomes cover → one element per page → closing.
+	// `settle: false` is the CLI's own setting, so both hosts emit the same pages. A no-op at
+	// landscape. Without it a `size: story` deck exported 8 slides here and 32 from the CLI.
+	// The strip-notes candidate below re-renders through the same cut, so it compares like-for-like.
+	// Loud when the bundle lacks it: the export would quietly ship each multi-element slide as one
+	// crowded page, and a portrait deck as a different file from the CLI's.
+	if (!PG.splitForPreview) console.warn('lattice: this engine bundle has no structural split; a portrait, square or mobile deck exports unsplit.');
+	const splitLikeCli = <R extends { html: string; width?: number; height?: number }>(r: R, src: string): R =>
+		PG.splitForPreview ? { ...r, html: PG.splitForPreview(r.html, src, r.width || 1280, r.height || 720, { settle: false }).html } : r;
+	out = splitLikeCli(out, source);
 
 	onStatus?.('Embedding fonts…');
-	const [fontMod, deckMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
+	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
 		import('@/playground/font-embed.js'),
-		import('@/playground/deck-preview.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
 		import('@/lib/sanitize-slide-html.js'),
 		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
 	const fontCss = await fontMod.buildFontEmbedCss();
-	const deck = deckMod as unknown as { A11Y_DEFS: string; splitSections: (html: string) => string[] };
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
-	const a11yDefs = deck.A11Y_DEFS;
 	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
 	// `describe:` and `say:` ride as HTML comments, and every pipeline below this
 	// point destroys them — the capture frame sanitizes, and `sanitizeSlideHtml` deletes
@@ -524,7 +554,7 @@ export async function shareHtmlPlayer(
 			// The same embed + placeholder passes, so the candidate compares like-for-like with
 			// `recordSections`. The cache means it fetches nothing the first pass already did, and
 			// the notes cut changes no picture, so the first pass's report stands for it.
-			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
+			async (src) => renderMarkdown(PG, src, theme, { styles: 'flat', samplesUrl: samplesBaseFor(options.themeBase), ...(await assetOpts(src)) }).then((r) => splitLikeCli(r, src)).then(async (r) => ({ ...r, html: remoteRef.blockWebImages((await withMedia(r.html)).html, []).html })),
 		);
 		envelopeSource = cut.source;
 		fidelityWarning = cut.warning;
@@ -563,12 +593,20 @@ export async function shareHtmlPlayer(
 		const result = await ex.bakeDeckSections({
 			html: playerHtml,
 			css: out.css + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : ''),
-			mode,
+			mode: 'light', // the render's own mode (above); the frame forces no scheme on the slides
 			geom: { w: out.width || 1280, h: out.height || 720 },
 			runtimeUrl: options.runtimeUrl,
 			fontCss,
 			...(options.dagreUrl ? { dagreUrl: options.dagreUrl } : {}),
-		});
+			// WHO a clipped slide's marker speaks to: the workspace's export setting (`reader` unless
+			// the author chose `author`), as the Marp bundle reads it and as the CLI's
+			// `--overflow-marker` defaults. Without it the frame took itself for an authoring
+			// surface, and every Webpage export shipped the red ring, "OVERFLOWS" and the "Fix Me"
+			// chips to its reader (decisions/2026-10-16-player-as-library-audit.md §11.8).
+			// Through the resolver the CLI and the Marp bundle use, so a stored `off` (never a valid
+			// standing default) or a junk value falls back to `reader` instead of silencing every clip.
+			overflowMarker: await exportOverflowMarker(),
+		}, { playerBake: true });
 		// Slide-count parity is the correctness gate: notes, narration cues and the
 		// manifest are all indexed by slide, so a bake that lost or gained a section
 		// would silently mis-bind them. Mismatch → use the static render.
@@ -613,7 +651,12 @@ export async function shareHtmlPlayer(
 		onStatus?.('Diagrams could not be rendered — exporting without them…');
 		bakeWarning = 'diagrams ship as source, not as drawings';
 	}
-	const tagged = (baked ?? recordSections).map((sec, i) => sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`));
+	// A section the structural split already numbered (`2.2`, `2.3`: page k of authored slide 2) keeps
+	// its number, as `stampSlideNumbers` (lib/core/structural-split.js) keeps it for the CLI. Prepending
+	// a second attribute shadowed it, so the same split page was slide `3` here and `2.2` from the CLI.
+	const tagged = (baked ?? recordSections).map((sec, i) =>
+		/^<section\b[^>]*\sdata-lattice-slide=/i.test(sec) ? sec : sec.replace(/^<section\b/i, `<section data-lattice-slide="${i + 1}"`),
+	);
 	// Belt and braces: under `--strip-notes` the render above is already note-free, so this
 	// is a second, independent guarantee that no materialized copy carries note text.
 	const slides = materializeNotes(tagged, notesCore, noteRecord, stripNotes);
@@ -643,6 +686,7 @@ export async function shareHtmlPlayer(
 	if (mediaWarning) {
 		bakeWarning = bakeWarning ? `${bakeWarning}; ${mediaWarning}` : mediaWarning;
 	}
+	bakeWarning = withOffFences(bakeWarning, source);
 
 	// KaTeX is styled by a stylesheet the offline file must carry inline. The core's
 	// `katexCss` cap is SYNCHRONOUS, so pre-fetch the vendored sheet here (only when
@@ -663,6 +707,34 @@ export async function shareHtmlPlayer(
 				katexText = null; // core drops the link + reports it; math ships unstyled
 			}
 		}
+	}
+	// SELF-CONTAINED, as the CLI makes it (lib/export/katex-inline.js): each woff2 the sheet names is
+	// fetched from beside it and inlined, the faces join the font block and the rules ride in
+	// `#lattice-katex`. Linked instead, the sheet's relative font urls could not load in a shared file,
+	// the dead faces were stripped, and every Studio math player drew its math in fallback type
+	// (decisions/2026-10-16-player-as-library-audit.md §11.9). A font that cannot be fetched keeps its
+	// relative url, inert, exactly as the CLI keeps a font it cannot read.
+	let katexFaces = '';
+	let katexRules = '';
+	if (katexText != null && options.katexUrl) {
+		const files = coreMod.katexFontFiles(katexText);
+		const b64 = new Map<string, string | null>(
+			await Promise.all(
+				files.map(async (f): Promise<[string, string | null]> => {
+					try {
+						const res = await fetch(new URL(`fonts/${f}`, new URL(options.katexUrl as string, document.baseURI)).href);
+						if (!res.ok) return [f, null];
+						const bytes = new Uint8Array(await res.arrayBuffer());
+						let bin = '';
+						for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+						return [f, btoa(bin)];
+					} catch {
+						return [f, null];
+					}
+				}),
+			),
+		);
+		({ faces: katexFaces, rules: katexRules } = coreMod.splitKatexSheet(coreMod.inlineKatexFonts(katexText, (f) => b64.get(f) ?? null)));
 	}
 
 	// Narration. Projected from THESE sections rather than from a second render, so
@@ -763,28 +835,34 @@ export async function shareHtmlPlayer(
 	// engine bundle that predates the `styles` option exporting what it did before.
 	const deckCss = unwrapFlatSheet(out.flatCss ?? out.css);
 	const css = deckCss + (extraCss ? `\n/* studio-local-components */\n${extraCss}` : '');
+	const fmText = (source.match(/^---\r?\n([\s\S]*?)\r?\n---/) || [])[1] ?? '';
+	const deckStyle = sanitizeStyleText(coreMod.exportDeckStyleText({ w, h, deckCss: css, globalCss: coreMod.exportGlobalCss(fmText, slides) }));
 	const docHtml = buildSelfContainedDoc({
 		lang,
 		title,
 		fontCss,
-		css,
-		w,
-		h,
-		a11yDefs,
+		deckStyle,
+		a11yDefs: coreMod.texturePatternDefs(coreMod.texturePrefixesReferencedIn(`${deckStyle}\n${slides}`)),
 		slides,
-		katexLink: needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
+		// As the CLI writes them: the rules in `#lattice-katex`, the faces after the text faces in the one font block.
+		katexLink: katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : needsKatex ? '<link rel="stylesheet" href="katex.min.css">' : '',
+		katexFacesCss: katexFaces ? sanitizeStyleText(katexFaces) : '',
 	});
 
-	const caps: PlayerCaps = {
-		parseHtml: (html: string) => new DOMParser().parseFromString(html, 'text/html'),
+	// The packer's browser half: the shared prune kernel's page and the CLI's own glyph subsetter
+	// (player-prune-browser.ts), loaded before assembly since the subsetter seals the document.
+	// The capabilities live in player-caps-browser.ts so the host-parity test drives these exact
+	// functions (test/integration/export/player-host-parity.test.js).
+	const [packer, { browserPlayerCaps }] = await Promise.all([import('./player-prune-browser').catch(() => null), import('./player-caps-browser')]);
+	// The core's inlineAssets cap is SYNCHRONOUS, and the browser's fetch is not, so the pictures
+	// were embedded up front (`withMedia`, above) and the cap hands the core that pass's tally. The
+	// browser render carries no `file://` refs (a CLI-only concern).
+	const caps = browserPlayerCaps({
 		sanitize: sanitizeMod.sanitizeSlideHtml,
-		sha256: sha256Base64,
-		// The core's cap is SYNCHRONOUS, and the browser's fetch is not, so the pictures were
-		// embedded up front (`withMedia`, above) and this hands the core that pass's tally. The
-		// browser render carries no `file://` refs (a CLI-only concern).
-		inlineAssets: (html: string) => ({ html, count: media.count, missing: media.missing.map((m) => m.url) }),
+		media: { count: media.count, missing: media.missing.map((m) => m.url) },
 		katexCss: () => katexText,
-	};
+		subsetFonts: packer?.subsetFontsInBrowser,
+	});
 
 	const { html } = await coreMod.assemblePlayer(
 		{
@@ -798,7 +876,8 @@ export async function shareHtmlPlayer(
 			width: w,
 			height: h,
 			theme: { name: palette, mode: scheme },
-			config: undefined,
+			// The deck's front-matter directives, read by the engine's own parser, as the CLI records them.
+			config: coreMod.parseFrontMatter(source).directives,
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
@@ -819,9 +898,16 @@ export async function shareHtmlPlayer(
 			// The Guide rides with the narration unless the author switched it off (player-core).
 			guide: narration?.guide !== false,
 			readAlong: readAlongVoice ? { voice: readAlongVoice } : undefined,
-			now: Date.now(),
-			build: 'studio',
-			playerVersion: 'studio',
+			// Pinned, as the CLI pins it (SOURCE_DATE_EPOCH, else the epoch): two exports of an unchanged
+			// deck are byte-identical, and the same deck at the same epoch packs the same from either
+			// host (decisions/2026-10-16-player-as-library-audit.md §11). Nothing reads the stamp.
+			now: 0,
+			...(consentOrigins.length ? { consentOrigins } : {}),
+			// The same provenance a CLI export stamps: the engine's version and the player's (the core
+			// defaults `playerVersion` to the one PLAYER_VERSION). Which tool made the file is the
+			// `host` field, the one piece of metadata host parity ignores (§11.9).
+			build: coreMod.ENGINE_BUILD,
+			host: 'studio',
 		},
 		caps,
 	);
@@ -833,9 +919,8 @@ export async function shareHtmlPlayer(
 	onStatus?.('Optimizing…');
 	let finalHtml = html;
 	try {
-		const { prunePlayerInBrowser } = await import('./player-prune-browser');
-		const pr = await prunePlayerInBrowser(html);
-		if (pr.applied) finalHtml = pr.html;
+		const pr = packer ? await packer.prunePlayerInBrowser(html) : null;
+		if (pr?.applied) finalHtml = pr.html;
 	} catch {
 		/* prune skipped — ship the full player */
 	}
@@ -859,7 +944,7 @@ export async function shareHtmlPlayer(
  */
 export async function renderThemeShowcase(options: SingleSlideOptions, theme: { name: string; label?: string; css: string }): Promise<Blob> {
 	const { showcaseDeck } = await import('./asset-bundle');
-	const render = await buildDeckRender(options, showcaseDeck(theme.label || theme.name), theme.name, 'light', { name: theme.name, css: theme.css });
+	const render = await withExportMarker(await buildDeckRender(options, showcaseDeck(theme.label || theme.name), theme.name, 'light', { name: theme.name, css: theme.css }));
 	const ex = await exporters();
 	return ex.renderPdfBlob(render, `${theme.name}-showcase`, undefined, { deck: `${theme.name} showcase`, engine: 'lattice' });
 }
@@ -1061,7 +1146,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
 	}
 	const removed = await ex.exportMarp(embedFinishInMarkdown(photos?.source ?? source, finishClass, finishCss), name, palette, options.themeBase, { includeAgent: true, files: photos?.files, overflowMarker: overflowMarker ?? loadSettings().overflowMarker, extraTheme: extra, components: [...components], pluginsOff: deckPluginsOff(source) });
-	return [marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined;
+	return withOffFences([marpExportNote(removed), latticePhotoNote(named, true, photos)].filter(Boolean).join('; ') || undefined, source);
 }
 
 /** One-click image PDF (2× raster, one slide per page). The page-image format
@@ -1069,13 +1154,13 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
 	// `embedSource` — the `.lattice` to carry when the author chose "Re-openable in Lattice".
-	return ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource });
+	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource }), source);
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's
@@ -1084,18 +1169,18 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource });
+	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource }), source);
 }
 
 /** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
  *  picture per slide, or with `editable` every paragraph as a real text box over a picture
  *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await buildDeckRender(options, source, palette, mode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource });
+	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource }), source);
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
@@ -1137,7 +1222,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 		const darkExists = await createThemeFetcher(options.themeBase).fetch(`${base}-dark`).then(() => true).catch(() => false);
 		if (!darkExists) renderMode = 'light';
 	}
-	const render = await buildDeckRender(options, src, palette, renderMode, extra, extraCss);
+	const render = await withExportMarker(await buildDeckRender(options, src, palette, renderMode, extra, extraCss));
 
 	// The chart/diagram SVG "look" (transparent/light/dark/print) renders the extracted vectors
 	// independent of the slides. When it differs from the slides' own scheme, do a SECOND full
@@ -1180,7 +1265,7 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 	// left null — the `generator: 'studio'` field already marks the source.
 	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
 	const ex = await exporters();
-	return ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta);
+	return withOffFences(await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta), source);
 }
 
 type ReadAlongCore = {
@@ -1315,7 +1400,8 @@ export async function shareCaptions(
 	// export has substituted them at projection precedence since #902 Gap 1; this browser
 	// export never did, so the same deck's captions disagreed with what Present spoke. Same
 	// substitution, shared rather than copied (narration-resolve.ts).
-	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected);
+	const { deckPluginsOff: offFor } = await import('@/lib/plugin-admission');
+	projected = narrationResolve.applyChartNarration(splitSlides(stripFrontMatter(source)), projected, undefined, narrationResolve.narrationDeck(source, offFor(source)));
 	const slideTexts = readAlongCore.mergeNarration(notes.length, projected, { sayLines, fmSayMap });
 	// Emphasis only where the resolved text is still the text the spans were measured against —
 	// the ONE shared rule, so all four producers spend the same beats. This sibling was missed on

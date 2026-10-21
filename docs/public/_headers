@@ -1,0 +1,14 @@
+# Cloudflare Pages, which serves the PR previews, reads this file; GitHub Pages (lattice.style)
+# ignores it and sends max-age=600. docs/scripts/sync-playground-assets.mjs names the playground
+# folder by a hash of every file it writes there, so those files never change under their URL:
+# cache them for good. Only the folders that script writes are listed: `newcomer/` is baked into
+# the same folder later, from inputs outside the hash, and must keep revalidating.
+# Without this the previews send max-age=0, and every mark, theme and module revalidates per request.
+/playground/v/:hash/samples/*
+  Cache-Control: public, max-age=31536000, immutable
+/playground/v/:hash/themes/*
+  Cache-Control: public, max-age=31536000, immutable
+/playground/v/:hash/esm/*
+  Cache-Control: public, max-age=31536000, immutable
+/playground/v/:hash/styles/*
+  Cache-Control: public, max-age=31536000, immutable

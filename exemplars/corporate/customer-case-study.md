@@ -112,13 +112,13 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 1. 190
    - Units per day
-   - up from 80 `2.4× output` `Measured`
+   - up from 80 `{2.4× output}` `{Measured}`
 2. 4 wk
    - Order lead time
-   - down from 12 `−67%` `Verified`
+   - down from 12 `{−67%}` `{Verified}`
 3. +44%
    - Revenue YoY
-   - on filled backlog `12-mo` `Audited`
+   - on filled backlog `{12-mo}` `{Audited}`
 
 ---
 
@@ -131,13 +131,13 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 
 1. 7.4 mo
    - Payback period
-   - on full deployment `Achieved` `Finance`
+   - on full deployment `{Achieved}` `{Finance}`
 2. $1.9M
    - Year-one savings
-   - labor + scrap + rework `Measured` `Ops`
+   - labor + scrap + rework `{Measured}` `{Ops}`
 3. 31%
    - Cost per unit cut
-   - sustained at scale `12-mo` `Audited`
+   - sustained at scale `{12-mo}` `{Audited}`
 
 ---
 

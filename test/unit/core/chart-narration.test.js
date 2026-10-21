@@ -2130,8 +2130,8 @@ test('narrateDataSeries: strips the markdown a label carries rather than reading
 // is the tripwire that says when its OUTPUT moves, which is the thing a reviewer needs to see
 // in a diff.
 const PICTURE_DATA_ROSTER = [
-  'bar', 'bullet', 'funnel', 'heatmap', 'hub-spoke', 'line', 'map', 'piechart',
-  'quadrant', 'radar', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'word-cloud',
+  'bar', 'bullet', 'ep-curve', 'funnel', 'heatmap', 'histogram', 'hub-spoke', 'line', 'map', 'piechart',
+  'quadrant', 'radar', 'scatter', 'risk-matrix', 'slope', 'stacked-bar', 'tower', 'waterfall', 'word-cloud',
 ];
 
 test('narrateDataSeries: exactly the declared picture-data components narrate, and no others', () => {

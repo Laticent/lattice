@@ -280,7 +280,7 @@ export function SettingsNoMatch({ query }: { query: string }) {
 
 /** The pill count drawn when the strip CANNOT be measured — no `ResizeObserver` (jsdom), or
  *  a container that has not been laid out yet. Two is what the narrowest supported panel
- *  (`SET_MIN`, 260px) was measured to afford, so the unmeasured shape is never wider than
+ *  (`DOCK.min`, 280px) was measured to afford, so the unmeasured shape is never wider than
  *  the real one and never has to shrink under the user. */
 const FALLBACK_SHORTCUTS = 2;
 /** `gap-1.5`, in px — the strip's own gap, which the fit has to pay for between every pair. */

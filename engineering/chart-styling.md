@@ -55,6 +55,11 @@ The census reports each width twice, `user` as declared and `px` as rendered, an
 the physical column is the one to read. Its scale comes from `getScreenCTM()`,
 never from the viewBox ratio — see above for what that mistake costs.
 
+`--check` judges each element, not each class. A canvas-colored stroke is a separator
+(it follows what it separates), so it is exempt; any other stroke on the same class must
+still be pinned. `heatmap-cell` is the case: measured cells stroke in the canvas color,
+empty cells carry the dotted family edge, and only the second is held to the rule.
+
 **The rule:** a data mark's edge comes from `var(--chart-edge)` and carries
 `vector-effect: non-scaling-stroke`. That pairing is load-bearing in both
 directions — `non-scaling-stroke` strips the viewBox scaling so the weight is

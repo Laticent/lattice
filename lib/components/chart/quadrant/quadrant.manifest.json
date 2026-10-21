@@ -310,6 +310,7 @@
       "rows": {
         "shape": "fields",
         "quotes": true,
+        "nested": "detail",
         "markless": {
           "default": [
             1

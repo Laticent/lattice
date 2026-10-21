@@ -140,7 +140,9 @@ both places, where a Node process has nothing to measure with.
   **Not claimed:** an OS sandbox under the renderer. The CLI launches Chromium with
   `--no-sandbox`, so both walls are browser policy over a renderer that a Chromium exploit could
   escape; whether code packages refuse to run without the OS sandbox is open for the owner
-  (`followups.d/2314-p4-code-packages.md`). Pinned by
+  (`followups.d/2314-p4-code-packages.md`). **Superseded by §9:** `lib/core/os-sandbox.js` adds the
+  OS layer where the machine allows it; what stays open is whether to refuse where it reads OFF
+  (2026-10-17, threat-model note §6). Pinned by
   `test/integration/export/code-sandbox-network.test.js` (the control, each wall alone, both,
   the literal launch list, and a check that the page still lays out text for `measure`). The
   Studio's sandboxed iframe is built and measured too (§10).
@@ -188,8 +190,8 @@ replaced by one answer: no shared toolkit; every package is self-contained (§8)
 The three are decided (§6, §8). Phase 6 starts with the unverified claim in §4 (a network log
 from a hostile transform in the CLI's page and in the Studio's iframe, on the real
 surfaces), then the toolkit build, then consent and the doors. It gets the full
-adversarial trio on what ships (HARD RULE #25). The follow-up that tracks it is
-`followups.d/2314-p4-code-packages.md`.
+adversarial trio on what ships (HARD RULE #25). The follow-up that once tracked it,
+`followups.d/2314-p4-code-packages.md`, now holds only the question of refusing at OS layer OFF.
 
 ## 8. Decided: self-contained packages, bundled at export (owner, 2026-09-25)
 

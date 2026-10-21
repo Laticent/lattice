@@ -50,6 +50,9 @@ describe('the generated registries on a multi-plugin tree', () => {
     fs.copyFileSync(path.join(ROOT, 'lib/plugins/host-grammar.mjs'), path.join(root, 'lib/plugins/host-grammar.mjs'));
     // host-grammar.mjs reads the deck's `plugins:` list and slide classes through this (admitPlugins).
     fs.copyFileSync(path.join(ROOT, 'lib/plugins/deck-plugins.mjs'), path.join(root, 'lib/plugins/deck-plugins.mjs'));
+    // …and deck-plugins.mjs reads a comment through the shared grammar (lib/core/comment-directive.mjs).
+    fs.mkdirSync(path.join(root, 'lib/core'), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, 'lib/core/comment-directive.mjs'), path.join(root, 'lib/core/comment-directive.mjs'));
 
     // Dependency order a → b → c. Two plugins after `fence`, two before it, one after `table`.
     writePlugin(root, 'a', { syntax: {

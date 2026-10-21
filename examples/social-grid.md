@@ -23,13 +23,13 @@ KPIs, comparisons and split panels reflow to the taller frame — no rebuild, ju
 
 1. $2.4B
    - Total revenue
-   - +9% vs target `On plan` `Board`
+   - +9% vs target `{On plan}` `{Board}`
 2. 42%
    - Gross margin
-   - +2pp QoQ `On plan`
+   - +2pp QoQ `{On plan}`
 3. $1.1B
    - Cash
-   - +$180M QoQ `On plan`
+   - +$180M QoQ `{On plan}`
 
 ---
 

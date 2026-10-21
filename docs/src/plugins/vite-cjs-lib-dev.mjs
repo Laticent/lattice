@@ -18,14 +18,41 @@ import path from 'node:path';
  * paper cut; this is the same interop in fifteen lines, applied to nothing else.
  *
  * DELIBERATELY NARROW. It handles the one shape that actually occurs — a leaf module
- * that assigns `module.exports` and requires nothing itself — and REFUSES anything with
- * its own `require(`, because faithfully resolving a require graph is the job of the
- * real plugin, not of a shim. A refusal fails exactly the way today fails, loudly, at
+ * that assigns `module.exports` and requires nothing itself — plus ONE extension: a module
+ * whose every `require(` names a sibling leaf of that same shape (`./x` in the same folder,
+ * itself require-free), which is inlined at the call site. That is `remote-ref.js` reading
+ * its URL table from `media-sources.js`. It REFUSES anything else with its own `require(`,
+ * because faithfully resolving a require graph is the job of the real plugin, not of a shim. A refusal fails exactly the way today fails, loudly, at
  * the import site: better than a shim that silently half-loads a module.
  *
  * `apply: 'serve'` scopes it to the dev server. The built site never sees this plugin,
  * so it cannot mask a build-time interop problem.
  */
+const REQUIRE = /\brequire\s*\(/;
+const REQUIRE_SIBLING = /\brequire\(\s*(['"])\.\/([A-Za-z0-9_.-]+?)(?:\.js)?\1\s*\)/g;
+const IS_CJS_LEAF = (src) => /^\s*module\.exports\s*=/m.test(src) && !REQUIRE.test(src) && !/^\s*(?:export|import)\s/m.test(src);
+const wrapModule = (src) => `(() => {\nconst module = { exports: {} };\nconst exports = module.exports;\n${src}\nreturn module.exports;\n})()`;
+
+/**
+ * Inline every `require('./sibling')` in `src` with that sibling's body, or return null when any
+ * `require(` is not exactly that shape (a sibling that is missing, ESM, or requires something).
+ */
+export function inlineSiblingLeaves(src, dir) {
+	let refused = false;
+	const out = src.replace(REQUIRE_SIBLING, (_whole, _q, name) => {
+		let sibling;
+		try {
+			sibling = fs.readFileSync(path.join(dir, `${name}.js`), 'utf8');
+		} catch {
+			refused = true;
+			return '';
+		}
+		if (!IS_CJS_LEAF(sibling)) refused = true;
+		return wrapModule(sibling);
+	});
+	return refused || REQUIRE.test(out) ? null : out;
+}
+
 export default function viteCjsLibDev(repoRoot) {
 	// Vite ids use POSIX separators on every platform, so compare in that shape rather than
 	// with `path.sep` — on Windows the raw comparison silently never matches and the plugin
@@ -45,7 +72,11 @@ export default function viteCjsLibDev(repoRoot) {
 				return null;
 			}
 			if (!/^\s*module\.exports\s*=/m.test(src)) return null;
-			if (/\brequire\s*\(/.test(src)) return null;
+			if (REQUIRE.test(src)) {
+				const inlined = inlineSiblingLeaves(src, path.dirname(file));
+				if (inlined === null) return null;
+				src = inlined;
+			}
 			// REFUSE anything that already speaks ESM. The `module.exports` match is a regex,
 			// so it can fire on a template literal or a block comment inside a module that is
 			// really ESM — and wrapping one of those would append a SECOND `export default`

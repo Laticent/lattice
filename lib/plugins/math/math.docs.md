@@ -3,7 +3,11 @@
 Typeset math on any slide. `$…$` renders inline, and a paragraph that is exactly `$$…$$`
 renders as a centered display equation. [KaTeX](https://katex.org/) draws both, synchronously,
 at parse time — the same call on every surface, so the CLI's PDF, the HTML player, the Studio
-and the Playground agree.
+and the Playground agree. In Node (the CLI, the library API, the docs build) KaTeX runs behind a
+**wall**: QuickJS compiled to WebAssembly, in the same process, with no browser, no file system,
+no network and hard limits on memory and time (`lib/core/katex-wall.js`; owner decision 14 and
+the 2026-10-20 speed rule). Every result is checked against what KaTeX emits before it leaves,
+and is byte for byte what KaTeX gives in Node (`test/unit/core/katex-wall.test.js`).
 
 This is a **plugin** (`engineering/decisions/2026-09-27-plugin-system.md`). It contributes the
 `$` syntax to every slide — `$$…$$` on a plain content slide typesets exactly as it does on a
@@ -45,7 +49,7 @@ $$
 |---|---|
 | `math.manifest.json` | the two syntax rules (`math_inline`, `math_block`), their `$` trigger and host anchors, and the `math` fence |
 | `math.syntax.mjs` | the grammar — both markdown-it rules and `detect(source)`, which also finds a ` ```math ` fence. Pure and KaTeX-free, so the boundary parser and the docs site's pre-scan import it without KaTeX's 76 KB gzip |
-| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer |
+| `math.render.js` | the renderers — `katex.renderToString` behind a bounded memo, and the display-equation reflow for non-16:9 decks (`lib/core/tex-linebreak.js`) — and the `math` fence renderer, which is the display renderer. Its KaTeX is the wall (`lib/core/katex-wall.js`), which the Playground build swaps for `lib/engine/katex-browser-stub.js` |
 | `math.fixtures.md` | the conformance cases the plugin harness runs |
 
 **Options** (`createEngine`): `math: false` disables the plugin (the `$` stays text);

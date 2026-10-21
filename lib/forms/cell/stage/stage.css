@@ -310,7 +310,7 @@ section.form.silent > .cell-footer > footer {
  * footer text + rail, matching the retired pseudo's appearance. */
 section.form > .cell-footer > .lat-pagination {
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
+  font-size: var(--chrome-fs);
   color: var(--marp-slide-footer-color, var(--text-muted));
   white-space: nowrap;
   pointer-events: none;

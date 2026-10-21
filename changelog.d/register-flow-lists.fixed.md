@@ -1,0 +1,1 @@
+- **`tag:` and `backdrop:` read a YAML flow list.** `tag: [plain, large]` and `backdrop: [40, clear]` now style the deck the way `tag: plain large` does. They used to stamp nothing while the value looked valid. `lint:deck` reads them the same way, and a `%` inside a word (`4%0`) is still an unknown value.

@@ -130,6 +130,33 @@ export const ceilingFor = (soft) => soft + Math.round(soft * CEILING_PCT);
 // `export{b}from"./x.js"`. Not `import("./x.js")`: the `(` never matches.
 const STATIC_IMPORT = /(?<![\w$.])(?:import|export)\s*(?:[^'"()]*?\bfrom\s*)?["']\.\/([A-Za-z0-9._-]+\.js)["']/g;
 
+// THREE HASHES MOVE WITH ANY ENGINE CHANGE AND GZIP DIFFERENTLY (followups.d/2718-p5).
+//   • The asset version, `/playground/v/<12 hex>/`, which sync-playground-assets.mjs hashes from
+//     every staged asset. Two `_astro` chunks carry it (authoring-door, code-record-source).
+//   • Rollup's chunk file names, `name.<8 chars>.js`. Those two chunks are content-hashed, so a new
+//     version renames them, and the rename cascades: every chunk that imports or preloads them
+//     names a different file, and so do the chunks that import THOSE. A bundle-free PR then moved
+//     StudioIsland +3, architect -2 and so on, and an over-soft route owed a declaration for it
+//     (#2708, #2718). Found by building one tree twice with only the version changed: the version
+//     string is in no EAGER chunk, so replacing it alone changed zero bytes.
+//   • esbuild's engine chunk names, `chunk-<8 A-Z0-9>.js`, which `esm/engine.js` and `esm/chart-*.js`
+//     name in their imports. A CI runner showed all 29 differ between base and PR. They are in
+//     engineJsGz, chartKernelGz, chartKernelsGz and lintCoreGz (ledger-checked, not base-compared),
+//     never in eagerJsGz, so they do not move the per-PR allowance; they can tip a metric near a limit.
+// The gate gzips each chunk with all three replaced by a fixed string of the SAME LENGTH. Only the
+// measured copy changes: STATIC_IMPORT and every file lookup still read the real text, and the
+// fixed lengths mean no real size move is hidden. Zeros gzip a little smaller than random
+// characters, so absolute numbers fall about 1% (studio 508630 against 514320 on one build), well
+// inside STALE_SLACK_PCT; base and PR are measured by this same code, so the allowance is unaffected.
+const ASSET_VERSION = /\/playground\/v\/[a-f0-9]{12}\//g;
+const ASSET_VERSION_FIXED = '/playground/v/000000000000/';
+const CHUNK_HASH = /\.[A-Za-z0-9_-]{8}\.js(?![\w-])/g;
+const CHUNK_HASH_FIXED = '.00000000.js';
+const ESBUILD_CHUNK = /chunk-[A-Z0-9]{8}\.js(?![\w-])/g;
+const ESBUILD_CHUNK_FIXED = 'chunk-00000000.js';
+export const withFixedHashes = (buf) =>
+	Buffer.from(buf.toString('latin1').replace(ASSET_VERSION, ASSET_VERSION_FIXED).replace(CHUNK_HASH, CHUNK_HASH_FIXED).replace(ESBUILD_CHUNK, ESBUILD_CHUNK_FIXED), 'latin1');
+
 /**
  * Walk a module graph from `entries` (paths relative to `dist`), following static imports
  * only, and return the gzip total of every file reached that is not in `exclude`, plus the
@@ -141,6 +168,9 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 	const seen = new Set(entries);
 	const queue = [...entries];
 	let gz = 0;
+	// Each file's share, under its name with the content hash fixed, so a base build and a PR build
+	// name the same chunk alike and a byte overage can say which file grew (followup 2749-p3 route-budget delta).
+	const files = {};
 	while (queue.length) {
 		const rel = queue.pop();
 		const file = path.join(dist, rel);
@@ -148,7 +178,12 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 			throw new Error(`check-route-budget: ${owner} needs /${rel}, which is not in dist/ — the build is broken, not smaller.`);
 		}
 		const src = fs.readFileSync(file);
-		if (!exclude.has(rel)) gz += zlib.gzipSync(src, { level: 6 }).length;
+		if (!exclude.has(rel)) {
+			const n = zlib.gzipSync(withFixedHashes(src), { level: 6 }).length;
+			gz += n;
+			const key = withFixedHashes(Buffer.from(rel, 'latin1')).toString('latin1');
+			files[key] = (files[key] || 0) + n;
+		}
 		for (const m of src.toString('utf8').matchAll(STATIC_IMPORT)) {
 			const next = path.posix.join(path.posix.dirname(rel), m[1]);
 			if (!seen.has(next)) {
@@ -157,7 +192,24 @@ function closure(entries, dist, exclude = new Set(), owner = 'the route') {
 			}
 		}
 	}
-	return { gz, seen };
+	return { gz, seen, files };
+}
+
+/**
+ * The files whose gzip bytes changed most between two `eagerFiles` maps, largest change first, as
+ * `name +N` / `name -N` (a file only one side has counts in full). PURE. The answer to "this PR adds
+ * 13 bytes and changes no code: where are they?" — a shared chunk that a dependency or a generated
+ * file grew, named instead of guessed (#2785 went 69 bytes over through one).
+ */
+export function grewFiles(actualFiles, baseFiles, n = 5) {
+	if (!actualFiles || !baseFiles) return [];
+	const names = new Set([...Object.keys(actualFiles), ...Object.keys(baseFiles)]);
+	return [...names]
+		.map((f) => [f, (actualFiles[f] || 0) - (baseFiles[f] || 0)])
+		.filter(([, d]) => d !== 0)
+		.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]) || (a[0] < b[0] ? -1 : 1))
+		.slice(0, n)
+		.map(([f, d]) => `${f} ${d > 0 ? '+' : '-'}${Math.abs(d)}`);
 }
 
 /**
@@ -171,7 +223,7 @@ export function measure(route, routeHtml, dist = DIST) {
 	const direct = [...new Set((html.match(/\/_astro\/[A-Za-z0-9._-]+\.js/g) || []).map((r) => r.slice(1)))];
 	const eager = closure(direct, dist, new Set(), routeHtml);
 	const engine = measureEngine(html, dist);
-	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size };
+	const out = { eagerJsGz: eager.gz, engineJsGz: engine.gz, htmlRaw: Buffer.byteLength(html), chunks: eager.seen.size, eagerFiles: eager.files };
 	if (route === LAZY_BUDGET_ROUTE) {
 		Object.assign(out, measureCharts(engine, dist), measureLintCore(engine, dist));
 	}
@@ -306,13 +358,16 @@ export function evaluateAllowance(route, actual, base, soft, declared = 0, allow
 	}
 	const delta = actual.eagerJsGz - base.eagerJsGz;
 	const owed = delta - freeBytes(base.eagerJsGz, soft, allowance);
-	const line = `${route} eagerJsGz ${delta >= 0 ? '+' : '-'}${Math.abs(delta)} bytes vs main${owed > 0 ? `, ${owed} to declare (declared ${declared})` : ''}`;
+	// Which files moved: a base measured before this field existed has no map, and then nothing is named.
+	const grew = delta !== 0 ? grewFiles(actual.eagerFiles, base.eagerFiles) : [];
+	const line = `${route} eagerJsGz ${delta >= 0 ? '+' : '-'}${Math.abs(delta)} bytes vs main${owed > 0 ? `, ${owed} to declare (declared ${declared})` : ''}${grew.length ? ` (${grew.join(', ')})` : ''}`;
 	if (owed > 0 && declared < owed) {
 		return {
 			line,
 			problems: [
 				`${route} eagerJsGz: this PR adds ${delta} bytes of eager JS vs main, and ${owed} of them are not free\n` +
 					`    (a PR gets up to ${allowance} bytes, and only while the route stays at or under soft ${soft}).\n` +
+					(grew.length ? `    Grew most (gzip bytes, hashes fixed): ${grew.join(', ')}.\n` : '') +
 					`    Give bytes back, or add docs/route-budget.d/<slug>.md to this PR with the line \`${route}: +${owed}\`\n` +
 					`    and a sentence on what grew and why. One file per PR; the next reset folds it into the history.`,
 			],

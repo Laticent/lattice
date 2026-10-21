@@ -101,7 +101,7 @@ A chart-family member is any layout the engine wraps in `.chart-frame`. That net
 
 ## What ships in each phase, by workstream.
 
-| Workstream | Foundation `Q2` | Hardening `Q3` | Scale `Q4` |
+| Workstream | Foundation `{Q2}` | Hardening `{Q3}` | Scale `{Q4}` |
 | --- | --- | --- | --- |
 | Framework | [x] Signal taxonomy | [-] Scoring model v2 | [ ] Per-team weighting |
 | Adoption | [x] Pilot onboarding | [-] Weekly review | [ ] Org-wide rollout |

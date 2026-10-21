@@ -1,0 +1,161 @@
+name: Platform suites (macOS / Windows)
+
+# REPORT-ONLY. Checks that need a real macOS or Windows runner, chosen from .github/platform-suites.json
+# (engineering/development.md § Platform suites). The per-PR CI is Linux only, so anything that depends on the OS
+# (symlinked temp folders, path separators, a native tool) has no evidence there; a suite here is that evidence.
+#
+# WHAT RUNS WHEN
+#   nightly            every suite
+#   workflow_dispatch  the suites named in the `suites` input (comma-separated), or every suite when it is empty
+#   pull_request       the suites whose `paths` match the diff, and all of them when the registry or this plumbing changed;
+#                      most PRs select none, so the matrix is skipped
+# tools/platform-suites-plan.js holds the rule.
+#
+# ALERT. A scheduled or manual run that fails (or is cancelled, which is how a timeout reads) opens a GitHub issue titled "Nightly
+# platform suites failed", or comments on the open one, with the failed jobs and the run link; a person closes it. The lookup matches the exact title and the bot author (the nightly family's form), so an issue someone else files under that title is never the thread; two failing runs that overlap could still each open one. Without it a red nightly is only a red row in the Actions tab and
+# GitHub's default failure email to whoever last edited the cron line. Pull requests do not alert: their check already shows red.
+#
+# NOT A MERGE GATE. This workflow is separate from the `ci` gate and a suite's check is not in the required set. A red
+# suite is shown honestly (no continue-on-error); promoting one to required is a separate decision, made once it has run
+# clean for a while (owner ruling 2026-10-18).
+#
+# COST. The repository is public, so GitHub-hosted macOS and Windows minutes are free. First run on #2771 (2026-10-18): the
+# `export-confine` macOS job took 2 m 23 s (install, build and the three test files), and the `plan` job took 2 m 16 s
+# because it checked out the full history; it now does a shallow checkout and one API call (re-measure on the next run).
+# Nightly-equivalent run on main (2026-10-19, run 39297285443 at c27bbb1, whole-job times from the job list): `plan` 10 s;
+# macOS `export-confine` 2 m 06 s and `wait-for-macos` 2 m 34 s; Windows `build-windows` 3 m 24 s and `export-confine-windows`
+# 3 m 29 s (`npm ci` is about 75 s of each Windows job, the full build about 75 s). All four suites green. The cron trigger has
+# fired once (run 39235883310, 2026-10-19): due 04:41 UTC, it started 10:13 UTC, 5 h 32 m late (GitHub delays scheduled runs under
+# load, and can drop one), and went green. It ran at 2e2755d, before the Windows and wait-for suites landed, so it ran only
+# `export-confine` (plan 19 s, macOS job 2 m 20 s). The first cron run of all four suites is the next one: re-measure from it.
+
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: 'Suites to run, comma-separated (empty = every suite)'
+        required: false
+        default: ''
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  # Per pull request, so a new push replaces the old run; every other trigger gets its own group, so a manual dispatch
+  # never cancels the nightly.
+  group: platform-suites-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Changed files (pull requests)
+        if: github.event_name == 'pull_request'
+        # One API call, not a full-history checkout: the first version used `fetch-depth: 0` on a 4.5 GB repository and the
+        # `plan` job took 2 m 16 s, paid on every pull request.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
+      - name: Plan
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          SUITES: ${{ github.event.inputs.suites }}
+        run: |
+          args=(--event "$EVENT" --github-output)
+          if [ "$EVENT" = "pull_request" ]; then args+=(--changed "$RUNNER_TEMP/changed.txt"); fi
+          if [ -n "$SUITES" ]; then args+=(--suites "$SUITES"); fi
+          node tools/platform-suites-plan.js "${args[@]}"
+
+  run:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    name: ${{ matrix.suite }} (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      # dist/ and the docs-site bundles are BUILT, not committed, and the CLI loads them.
+      - name: Build the generated bundles
+        run: npm run build
+      - name: Suite
+        shell: bash
+        env:
+          SUITE_NAME: ${{ matrix.suite }}
+          SUITE_OS: ${{ matrix.os }}
+          SUITE_WHY: ${{ matrix.why }}
+          SUITE_RUN: ${{ matrix.run }}
+        run: |
+          {
+            echo "### $SUITE_NAME on $SUITE_OS"
+            echo
+            printf '%s\n' "$SUITE_WHY"
+          } >> "$GITHUB_STEP_SUMMARY"
+          bash -c "$SUITE_RUN"
+
+  alert:
+    # Runs when `plan` or any suite failed on a scheduled or manual run, and files the failure where a person will see it.
+    needs: [plan, run]
+    # `cancelled` counts: a job killed by its timeout reads that way. These runs have no supersession (the concurrency group is per run on a
+    # schedule or dispatch), so a cancel here is a timeout or a person.
+    if: ${{ always() && github.event_name != 'pull_request' && (contains(fromJSON('["failure","cancelled"]'), needs.plan.result) || contains(fromJSON('["failure","cancelled"]'), needs.run.result)) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      actions: read
+      contents: read
+    steps:
+      - name: Open or update the failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+        run: |
+          title='Nightly platform suites failed'
+          # A failed lookup must not stop the alert: file the issue with the run link and no job list.
+          failed=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs" --paginate \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled" or .conclusion == "timed_out") | "- \(.name) (\(.conclusion)): \(.html_url)"') || failed=''
+          body=$(printf '%s run on `%s` failed: %s\n\nFailed jobs:\n%s\n\nThe registry is .github/platform-suites.json; close this issue when the suites are green again.' \
+            "$EVENT" "$REF" "$RUN_URL" "${failed:-"(none listed; open the run)"}")
+          # The family lookup: exact title AND the bot author, so an issue anyone else files under this title is never the thread.
+          existing=$(gh issue list --repo "$REPO" --state open --limit 1000 --json number,title,author \
+            --jq "[.[] | select(.title == \"$title\") | select(.author.is_bot == true and (.author.login == \"app/github-actions\" or .author.login == \"github-actions\" or .author.login == \"github-actions[bot]\"))][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$body"
+            echo "commented on #$existing" >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh issue create --repo "$REPO" --title "$title" --body "$body")
+            echo "opened $url" >> "$GITHUB_STEP_SUMMARY"
+          fi

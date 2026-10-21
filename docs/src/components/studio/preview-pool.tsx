@@ -127,7 +127,27 @@ type Tile = {
 	inBand: boolean;
 	/** Bumped every time the tile re-enters the band, so eviction order is LRU. */
 	seq: number;
+	/** The tile's `onPicture`, read through a ref so a new callback does not re-register the tile. */
+	picture?: { current: PictureHandler | undefined };
 };
+
+/**
+ * A still picture of what a slot shows: a JPEG of the slide at the tile's size, or null when the slot moved on to
+ * another tile before the capture ran, or the capture failed. Rasterized with html-to-image (the export's route) and
+ * run only after the pool's scroller has been still for CAPTURE_QUIET_MS, one capture at a time.
+ */
+export type CapturePicture = () => Promise<Blob | null>;
+/** Told each time the tile's own picture has rendered in a pooled frame, with a way to capture it. */
+export type PictureHandler = (capture: CapturePicture) => void;
+
+/** How long the pool's scroller must be still before a capture runs. A capture clones and inlines a slide on the main
+ *  thread, so it never competes with a scroll the reader is making. */
+export const CAPTURE_QUIET_MS = 300;
+/** How long a slot must go without another render before its picture is offered for capture. A re-point that lands while
+ *  a render is in flight is deferred and runs after it, and the in-flight render's own report would otherwise offer a
+ *  picture of the slide the slot is leaving. */
+export const CAPTURE_SETTLE_MS = 400;
+
 
 /**
  * Which slots a tile may be re-pointed into WITHOUT a full document rewrite.
@@ -268,6 +288,18 @@ export const BASE_SLOTS = 10;
  *  is a visible defect rather than an invisible one. */
 export const HARD_MAX_SLOTS = 28;
 
+/**
+ * What a pool tells its host after it mounts and after every pass. `capacity` is the most frames it will
+ * ever hold (its `maxSlots`, at most HARD_MAX_SLOTS): a host that asks for more live tiles than this gets
+ * the rest blank, so it should ask for no more. `slots` is how many frames it retains now, which is its
+ * high-water mark because a pool never releases one; `held` is how many of them show a tile.
+ */
+export interface PoolReport {
+	capacity: number;
+	slots: number;
+	held: number;
+}
+
 /** Minimum gap between re-point passes. Long enough that a flick settles into one reassignment
  *  rather than sixty, short enough that letting go feels immediate. */
 export const APPLY_MS = 220;
@@ -287,11 +319,20 @@ export const RELEASE_GRACE = 600;
  * A surface that shows one or two at a time passes less: the chat transcript passes 4, because the
  * cap still grows to cover whatever is on screen and a frame it never needs is memory it never
  * spends (engineering/decisions/2026-10-12-chat-figures-bakeoff.md).
+ *
+ * `maxSlots` lowers the hard ceiling for a host that budgets its frames (never above HARD_MAX_SLOTS).
+ * `onSettle` receives a `PoolReport`: the slide map (map-rail/MapRail.tsx) passes its `capacity` to
+ * Veduta's `settle` as the live cap, so the core never asks this pool for more live tiles than it holds.
  */
-export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { children: React.ReactNode; className?: string; baseSlots?: number }) {
+export function PreviewPool({ children, className, baseSlots = BASE_SLOTS, maxSlots = HARD_MAX_SLOTS, onSettle }: { children: React.ReactNode; className?: string; baseSlots?: number; maxSlots?: number; onSettle?: (report: PoolReport) => void }) {
 	// Read by the assignment pass, which outlives a render: a ref, so a changed prop reaches it.
 	const baseSlotsRef = React.useRef(baseSlots);
 	baseSlotsRef.current = baseSlots;
+	const ceiling = Number.isFinite(maxSlots) ? Math.max(1, Math.min(HARD_MAX_SLOTS, Math.floor(maxSlots))) : HARD_MAX_SLOTS;
+	const ceilingRef = React.useRef(ceiling);
+	ceilingRef.current = ceiling;
+	const onSettleRef = React.useRef(onSettle);
+	onSettleRef.current = onSettle;
 	const layerRef = React.useRef<HTMLDivElement>(null);
 	const tiles = React.useRef(new Map<number, Tile>());
 	const seq = React.useRef(0);
@@ -437,7 +478,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 			const rank = (x: { t: Tile; on: boolean }) => (x.on ? 0 : x.t.inBand ? 1 : 2);
 			// THE CAP COVERS EVERYTHING ON SCREEN, so the sort decides who waits a beat, never who is
 			// left staring at an empty card.
-			const cap = Math.min(HARD_MAX_SLOTS, Math.max(baseSlotsRef.current, ranked.filter((x) => x.on).length));
+			const cap = Math.min(ceilingRef.current, Math.max(Math.min(baseSlotsRef.current, ceilingRef.current), ranked.filter((x) => x.on).length));
 			const want = ranked
 				.sort((a, b) => (rank(a) === rank(b) ? b.t.seq - a.t.seq : rank(a) - rank(b)))
 				.slice(0, cap)
@@ -490,7 +531,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 				const free = next.filter((s) => s.tileId === null && s.id === idk);
 				let slot = free.find((s) => s.key === k);
 				const shapeless = !next.some((s) => s.key === k && s.id === idk);
-				if (!slot && (next.length < cap || (shapeless && next.length < HARD_MAX_SLOTS))) {
+				if (!slot && (next.length < cap || (shapeless && next.length < ceilingRef.current))) {
 					slot = { tileId: null, rect: { top: 0, left: 0, width: 0, height: 0 }, props: null, key: k, id: idk, gen: 0 };
 					next.push(slot);
 				}
@@ -515,6 +556,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 				slot.rect = rectOf(t.el);
 			}
 			setSlots(next);
+			onSettleRef.current?.({ capacity: ceilingRef.current, slots: next.length, held: next.filter((x) => x.tileId !== null).length });
 		}, wait);
 	}, [rectOf]);
 
@@ -542,6 +584,115 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 			}
 		},
 		[reposition],
+	);
+
+	// ── CAPTURE ── a still of what a slot shows, for a host's poster tier (map-rail/poster-cache.ts).
+	// The slot's frame is a same-origin document the pool already owns, so a capture reads its rendered section; no
+	// second render and no new document. Captures queue, run one at a time, and wait until the scroller the pool sits
+	// in has been still for CAPTURE_QUIET_MS (and for an idle callback where the browser has one).
+	const slotEls = React.useRef(new Map<number, HTMLDivElement>());
+	const lastScroll = React.useRef(0);
+	const captureQueue = React.useRef<Array<{ run: () => Promise<void>; cancel: () => void }>>([]);
+	const capturing = React.useRef(false);
+	const quietTimer = React.useRef(0);
+	const drainCaptures = React.useCallback(() => {
+		if (!alive.current || capturing.current || captureQueue.current.length === 0 || quietTimer.current) return;
+		const still = Date.now() - lastScroll.current;
+		const go = () => {
+			quietTimer.current = 0;
+			if (!alive.current) return;
+			if (Date.now() - lastScroll.current < CAPTURE_QUIET_MS) return drainCaptures();
+			const job = captureQueue.current.shift();
+			if (!job) return;
+			capturing.current = true;
+			job.run().finally(() => {
+				capturing.current = false;
+				drainCaptures();
+			});
+		};
+		const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+		quietTimer.current = window.setTimeout(() => {
+			if (idle) idle(go, { timeout: 1000 });
+			else go();
+		}, Math.max(0, CAPTURE_QUIET_MS - still));
+	}, []);
+	React.useEffect(() => {
+		const wrapper = layerRef.current?.parentElement;
+		const scroller = wrapper ? scrollParent(wrapper) : null;
+		const target: HTMLElement | Window | null = scroller ?? (typeof window === 'undefined' ? null : window);
+		if (!target) return;
+		const onScroll = () => {
+			lastScroll.current = Date.now();
+		};
+		target.addEventListener('scroll', onScroll, { passive: true });
+		return () => {
+			target.removeEventListener('scroll', onScroll);
+			window.clearTimeout(quietTimer.current);
+			quietTimer.current = 0;
+			// A pool that is gone captures nothing, and every waiting caller hears so.
+			for (const job of captureQueue.current) job.cancel();
+			captureQueue.current = [];
+		};
+	}, []);
+	/** The slot at `index` committed a render. Once it has gone CAPTURE_SETTLE_MS without another, and still shows its
+	 *  tile's current props, the tile is offered a capture. */
+	const settleTimers = React.useRef(new Map<number, number>());
+	React.useEffect(
+		() => () => {
+			for (const t of settleTimers.current.values()) window.clearTimeout(t);
+			settleTimers.current.clear();
+		},
+		[],
+	);
+	const offer = React.useCallback(
+		(index: number) => {
+			const s = slotsRef.current[index];
+			const t = s && s.tileId !== null ? tiles.current.get(s.tileId) : undefined;
+			const handler = t?.picture?.current;
+			if (!alive.current || !s || !t || !handler || s.props !== t.props) return;
+			const tileId = t.id;
+			const props = s.props;
+			handler(
+				() =>
+					new Promise<Blob | null>((resolve) => {
+						let tries = 0;
+						const job = {
+							run: async () => {
+								// The capture code is its own chunk: every pool host loads this file, and only the slide map captures.
+								const { captureSlot, slotShows } = await import('./pool-capture');
+								// Still this tile with these props, and the frame itself shows them: true before the capture and after it.
+								const same = () => {
+									const now = slotsRef.current[index];
+									return !!now && now.tileId === tileId && now.props === props && tiles.current.get(tileId)?.props === props && slotShows(slotEls.current.get(index), props);
+								};
+								// A full write still loading is waited for (a few times), never captured.
+								if (!same() && tries++ < 8 && slotsRef.current[index]?.tileId === tileId && slotsRef.current[index]?.props === props) {
+									window.setTimeout(() => {
+										captureQueue.current.push(job);
+										drainCaptures();
+									}, 250);
+									return;
+								}
+								resolve(same() ? await captureSlot(slotEls.current.get(index), same) : null);
+							},
+							cancel: () => resolve(null),
+						};
+						captureQueue.current.push(job);
+						drainCaptures();
+					}),
+			);
+		},
+		[drainCaptures],
+	);
+	const slotRendered = React.useCallback(
+		(index: number) => {
+			const s = slotsRef.current[index];
+			const t = s && s.tileId !== null ? tiles.current.get(s.tileId) : undefined;
+			if (!t?.picture?.current) return;
+			window.clearTimeout(settleTimers.current.get(index));
+			settleTimers.current.set(index, window.setTimeout(() => offer(index), CAPTURE_SETTLE_MS));
+		},
+		[offer],
 	);
 
 	const api = React.useMemo<PoolApi>(
@@ -615,6 +766,14 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 		};
 	}, [schedule]);
 
+	// THE CAPACITY IS KNOWN BEFORE ANY PASS, so it is reported at once, from a layout effect, which runs before
+	// the effects of the host that wraps this pool. A host that settles in an effect (the map rail) therefore
+	// has it at its first settle. It is reported again whenever the ceiling changes, and after every pass with
+	// what the pool then retains.
+	React.useLayoutEffect(() => {
+		onSettleRef.current?.({ capacity: ceiling, slots: slotsRef.current.length, held: slotsRef.current.filter((x) => x.tileId !== null).length });
+	}, [ceiling]);
+
 	React.useEffect(() => {
 		const layer = layerRef.current;
 		if (!layer || typeof ResizeObserver === 'undefined') return;
@@ -647,11 +806,15 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 								// WebKit does not reclaim.
 								// biome-ignore lint/suspicious/noArrayIndexKey: the slot index IS the identity here.
 								key={`${i}:${s.gen}`}
+								ref={(el) => {
+									if (el) slotEls.current.set(i, el);
+									else slotEls.current.delete(i);
+								}}
 								className="absolute overflow-hidden"
 								style={{ top: clip.top, left: clip.left, width: clip.width, height: clip.height, visibility: hidden ? 'hidden' : 'visible' }}
 							>
 								<div data-slide-frame className="absolute overflow-hidden" style={{ top: s.rect.top - clip.top, left: s.rect.left - clip.left, width: s.rect.width, height: s.rect.height, ...slideFrameStyle('flat') }}>
-									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden /> : null}
+									{s.props ? <DeckPreview {...s.props} drawn={s.props.drawn ?? hasDrawnFence(s.props.sample)} chromeless active className="size-full" aria-hidden onRender={() => slotRendered(i)} /> : null}
 								</div>
 							</div>
 						);
@@ -661,6 +824,7 @@ export function PreviewPool({ children, className, baseSlots = BASE_SLOTS }: { c
 		</PoolContext.Provider>
 	);
 }
+
 
 let nextTileId = 1;
 
@@ -672,8 +836,11 @@ let nextTileId = 1;
  * Outside a `PreviewPool` it renders the placeholder and no preview rather than throwing, so a
  * caller that has not been wrapped yet degrades to an empty tile instead of a crash.
  */
-export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { className?: string }) {
+export function PooledThumbFace({ className, onPicture, ...props }: PooledPreviewProps & { className?: string; onPicture?: PictureHandler }) {
 	const pool = React.useContext(PoolContext);
+	// Read by the pool after a slot renders this tile, so a new handler never re-registers the tile.
+	const pictureRef = React.useRef(onPicture);
+	pictureRef.current = onPicture;
 	const ref = React.useRef<HTMLDivElement>(null);
 	const id = React.useRef(0);
 	if (id.current === 0) id.current = nextTileId++;
@@ -683,7 +850,7 @@ export function PooledThumbFace({ className, ...props }: PooledPreviewProps & { 
 		const el = ref.current;
 		if (!el || !pool) return;
 		const tileId = id.current;
-		pool.register({ id: tileId, el, props: propsRef.current, inBand: false, seq: 0 });
+		pool.register({ id: tileId, el, props: propsRef.current, inBand: false, seq: 0, picture: pictureRef });
 		if (typeof IntersectionObserver === 'undefined') {
 			// No observer (jsdom, very old engines): treat everything as in band. The pool's slot
 			// ceiling still bounds the documents, so this degrades to "eager" rather than "unbounded".

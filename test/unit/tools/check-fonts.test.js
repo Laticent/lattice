@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { demandFaces, webExportFaces, cdnRegressions } = require('../../../tools/check-fonts.js');
+const { demandFaces, webExportFaces, webExportByteDrift, cdnRegressions } = require('../../../tools/check-fonts.js');
 const { TEXT_FACES, faceKey } = require('../../../lib/fonts/text-faces.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
@@ -15,6 +15,13 @@ test('manifest demand and the web-export supply describe the same faces', () => 
   assert.equal(demand.size, TEXT_FACES.length, 'demand set drops no manifest face');
   assert.deepEqual([...demand].sort(), [...supply].sort(), 'web-export supply == manifest');
   assert.deepEqual(missing, [], 'every web-export woff2 exists on disk');
+});
+
+// The set check passed while six vendored files held other bytes than assets/fonts/, so the Studio
+// drew Outfit 400/700, Caveat and Shantell from different glyphs than the CLI (§11.9 of
+// decisions/2026-10-16-player-as-library-audit.md). Same faces is not enough: same files.
+test('every web-export woff2 is the manifest face\'s own file, byte for byte', () => {
+  assert.deepEqual(webExportByteDrift(), []);
 });
 
 test('zero-network guard: no Google-Fonts CDN URL in the engine CSS or bundle', () => {

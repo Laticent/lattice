@@ -60,9 +60,11 @@ export function hoverCodeCopyAt(frame, clientX, clientY) {
 				button = el?.closest?.('.lat-code-copy-btn') ?? null;
 			}
 		}
-		for (const was of doc.querySelectorAll('[data-host-hover]')) if (was !== pre && was !== button) was.removeAttribute('data-host-hover');
-		pre?.setAttribute('data-host-hover', '');
-		button?.setAttribute('data-host-hover', '');
+		for (const was of doc.querySelectorAll('pre[data-host-hover], .lat-code-copy-btn[data-host-hover]')) if (was !== pre && was !== button) was.removeAttribute('data-host-hover');
+		// Only on a change: `setAttribute` with the value already there still queues a mutation record, and the
+		// frame's observers (the runtime's geometry and overflow passes) run on every record.
+		if (pre && !pre.hasAttribute('data-host-hover')) pre.setAttribute('data-host-hover', '');
+		if (button && !button.hasAttribute('data-host-hover')) button.setAttribute('data-host-hover', '');
 		return Boolean(button);
 	} catch (_e) {
 		return false; // a torn-down or cross-origin frame: nothing to mark

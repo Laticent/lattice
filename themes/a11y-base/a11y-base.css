@@ -343,6 +343,19 @@ section.piechart .chart-key-swatch[data-hue="3"] { fill: url(#latt-a11y-chart-te
 section.piechart .chart-key-swatch[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
 section.piechart .chart-key-swatch[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
 section.piechart .chart-key-swatch[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+/* tower: each reinsurer's share and its key swatch take the slot's texture, so a
+ * reinsurer's line still reads up the program without hue. The share figure sits ON the
+ * segment, so over a texture it takes heading ink with a canvas halo instead of the
+ * fill-derived ink, which was solved against a flat color, not a pattern. The Open
+ * segment and the retention are outlines with no fill, so they need nothing. */
+:is(section.tower, figure.chart-frame) :is(.tower-share, .chart-key-swatch)[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }
+:is(section.tower, figure.chart-frame) :is(.tower-share, .chart-key-swatch)[data-hue="2"] { fill: url(#latt-a11y-chart-tex-2) !important; }
+:is(section.tower, figure.chart-frame) :is(.tower-share, .chart-key-swatch)[data-hue="3"] { fill: url(#latt-a11y-chart-tex-3) !important; }
+:is(section.tower, figure.chart-frame) :is(.tower-share, .chart-key-swatch)[data-hue="4"] { fill: url(#latt-a11y-chart-tex-4) !important; }
+:is(section.tower, figure.chart-frame) :is(.tower-share, .chart-key-swatch)[data-hue="5"] { fill: url(#latt-a11y-chart-tex-5) !important; }
+:is(section.tower, figure.chart-frame) :is(.tower-share, .chart-key-swatch)[data-hue="6"] { fill: url(#latt-a11y-chart-tex-6) !important; }
+:is(section.tower, figure.chart-frame) .tower-share-value { fill: var(--text-heading) !important; stroke: var(--bg); stroke-width: 1.8; paint-order: stroke fill; stroke-linejoin: round; }
+
 /* hub-spoke: only a GROUPED satellite (or a tiered branch and its leaves) carries a
  * `data-hue`, so only those take a texture, keyed like the pie's swatches so a disc
  * and its key swatch match by pattern. Neutral satellites stay one solid gray (one hue,
@@ -403,13 +416,17 @@ section.funnel .funnel-band { fill: url(#latt-a11y-chart-tex-1) !important; }
  * distinction hue cannot. The `line` chart needs its endpoint dot to match its
  * own line, which is why the dot is in the same rule as the path. */
 :is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="0"],
+:is(section.ep-curve, figure.chart-frame) .ep-path[data-series="0"],
 :is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="0"],
 :is(section.scatter, figure.chart-frame) .scatter-trend[data-series="0"] { stroke-dasharray: none !important; }
 :is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="1"],
+:is(section.ep-curve, figure.chart-frame) .ep-path[data-series="1"],
 :is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="1"] { stroke-dasharray: 7 4 !important; }
 :is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="2"],
+:is(section.ep-curve, figure.chart-frame) .ep-path[data-series="2"],
 :is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="2"] { stroke-dasharray: 1.5 3.5 !important; stroke-linecap: round; }
 :is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="3"],
+:is(section.ep-curve, figure.chart-frame) .ep-path[data-series="3"],
 :is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="3"] { stroke-dasharray: 9 3 2 3 !important; }
 :is(section.line, figure.chart-frame) :is(.line-path, .line-dot)[data-series="4"],
 :is(section.slope, figure.chart-frame) :is(.slope-line, .slope-bar)[data-series="4"] { stroke-dasharray: 4 3 !important; }
@@ -423,7 +440,7 @@ section.funnel .funnel-band { fill: url(#latt-a11y-chart-tex-1) !important; }
  * palette whose whole job is the non-color channel makes the key unusable. */
 /* WHY scatter AND slope ARE NOT ON THIS LIST. Neither builds a keyed legend, so
  * a `.chart-key-swatch` arm for them matches nothing: scatter never calls
- * buildSvgLegend, and slope's only mention of it is a comment saying it draws
+ * keySvg, and slope's only mention of it is a comment saying it draws
  * its two-entry key in its own coordinate system instead. Both arms were carried
  * here for years, dead. */
 :is(section.bar, section.stacked-bar, section.line, figure.chart-frame) .chart-key-swatch[data-hue="1"] { fill: url(#latt-a11y-chart-tex-1) !important; }

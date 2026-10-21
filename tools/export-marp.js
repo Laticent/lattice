@@ -78,7 +78,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { bakeSplits, stripPaneMarkers } = require('../lib/core/bake-splits');
-const { liftImageBgImages } = require('../lib/core/bg-image');
+const { liftImageBgImages } = require('../lib/core/bg-image-lift');
 const { sampleName } = require('../lib/core/remote-ref');
 const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
@@ -88,6 +88,7 @@ const {
   safeName, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/core/marp-bundle');
+const { withSlideOnlySpotted } = require('../lib/core/marp-slide-only');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -289,6 +290,11 @@ function main(argv) {
   for (const n of disabledPlugins) {
     if (!PLUGIN_NAMES.includes(n)) die(`--disable-plugin: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')})`);
   }
+  {
+    const { PLUGIN_GRAMMAR } = require('../lib/plugins/grammar.generated.mjs');
+    const embedded = new Set(PLUGIN_GRAMMAR.filter((g) => g.embedded).map((g) => g.name));
+    for (const n of disabledPlugins) if (embedded.has(n)) die(`--disable-plugin: "${n}" is an embedded plugin, part of how Lattice reads and draws a slide, and cannot be switched off`);
+  }
   for (const n of defaultPlugins || []) {
     if (!PLUGIN_NAMES.includes(n)) die(`--default-plugins: no plugin is named "${n}" (plugins: ${PLUGIN_NAMES.join(', ')}; or none)`);
   }
@@ -392,7 +398,9 @@ function main(argv) {
   // Marp strips and `fetch` can't recover over `file://`), so diagrams,
   // structural components, and the deck's own color mode / logo / meta all render
   // client-side when the deck is opened as HTML in a browser.
-  const bundled = withRuntimeScriptsReport(fm + bakedBody, {
+  // Lattice scopes a plain `<!-- header: H -->` (and `footer:`, `paginate:`) to its own slide; Marp carries it onto
+  // every later slide. Writing it as `_header:` makes Marp read the deck Lattice renders (lib/core/marp-slide-only.mjs).
+  const bundled = withRuntimeScriptsReport(withSlideOnlySpotted(fm + bakedBody), {
     overflowMarker: marker,
     pluginsOff: admission.off,
   });

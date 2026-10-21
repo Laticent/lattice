@@ -6,7 +6,7 @@ reference: lib/plugins/
 tests: test/unit/plugins/conformance.test.js
 -->
 
-**Version:** 0.5-draft · **Status:** Draft · **Date:** 2026-10-06 · **Host API:** `api: 1`
+**Version:** 0.8-draft · **Status:** Draft · **Date:** 2026-10-19 · **Host API:** `api: 1`
 
 A **plugin** teaches Lattice something that works on any slide — a syntax (`$…$`), a fenced block
 (` ```functionplot `), the browser code that draws it and the CSS that paints it — as one folder
@@ -89,6 +89,16 @@ at every level: an unknown field is an error.
 | `title`, `description` | yes | one line each, for people |
 | `icon` | no | the plugin's mark, as data: `{ "viewBox": "0 0 W H", "paths": [{ "ink", "d", "width"? }] }`, no other keys. `W` and `H` are 1–9999; 1–24 paths. `ink` is `line` (stroked in the heading ink), `accent` (stroked in the accent) or `fill` (filled with the accent); `d` is SVG path data and nothing else, 2–2000 characters of commands and plain numbers (no exponent); `width` a stroke width, 0.5–16, default 6. The host draws it and colors each ink from the active theme, so a mark can carry no color, element, script or style of its own, and holds its contrast on every palette. A plugin with none is shown by its name |
 
+### 3.1a Classes — embedded, essential, external
+
+A plugin belongs to one of three classes, named for what an author can do with it:
+
+| Class | Author-facing label | Rule |
+|---|---|---|
+| embedded | Always on | `"embedded": true`. Part of how the host reads and draws every slide: admitted first on every render, ignoring the default set, the deck's `plugins:` list and any disable switch (a host refuses a request to disable one). In-tree only — a zip, an npm package or a listed external plugin that sets it is refused. It may `requires` only embedded plugins. It may claim the untagged record kind (`contributes.inline.<kind>.untagged: true`, the bare `` `{…}` ``); only an embedded plugin may, and only one. |
+| essential | Comes with Lattice | In the tree and in the default set; a host or a deck may narrow it. |
+| external | From *author* | Everything else; always admitted by an explicit act. |
+
 ### 3.2 Dependencies
 
 | Field | Value |
@@ -102,11 +112,12 @@ installation, CSS order and hydrate order, and nothing else.
 
 ### 3.2.1 Loading — what admits a plugin
 
-Every plugin is loaded EXPLICITLY, by one of three routes, and nothing else admits one:
+Every plugin is loaded EXPLICITLY, by one of four routes, and nothing else admits one:
 
 | Route | Source |
 |---|---|
-| default | the host's default set — every shipped plugin, unless the host narrows it |
+| embedded | an embedded plugin (§3.1a): admitted first, on every render, and cannot be narrowed away |
+| default | the host's default set — every essential plugin (one that comes with Lattice), unless the host narrows it |
 | listed | the deck's front-matter `plugins:` import list (`plugins: [math, mermaid]`) |
 | component | a slide class the deck uses, whose component manifest declares `plugins.requires` — or FILLS one of the plugin's extension points (§3.3): filling a slot is requiring the plugin |
 
@@ -180,6 +191,8 @@ is marked too.
 | `highlight` | `true` — a highlight.js grammar for the plugin's code fences | `highlight.js` exporting `highlight`, and at least one fence `as: "code"` |
 | `styles` | `true` | `styles.css` |
 | `extensionPoints` | slots the plugin OFFERS and components FILL, keyed by the plugin's own slot name: `{ block?, bucket, role, entry, description }`. At most one slot per plugin in api 1. A component fills a slot by declaring its BLOCK (`block`, default the slot name: the chart family's `kernel`), which MUST be an object block the component manifest schema defines, and which only one plugin reads. Every component in `bucket` that declares the block fills the slot: it ships `<name>.<role>.js` exporting `entry`, called with the signature the offering plugin's `api` fixes, and by filling it REQUIRES the plugin (§3.2.1), with no `plugins` block. Not running, the plugin passes every filler's section through as authored and marks it (and a pane of it) `data-lattice-off="<plugin>"`, which a browser pass MUST skip as it skips a marked fence. In api 1 a slot is filled only by in-tree components; a slot filled by PLUGINS (data, such as an icon pack) is reserved for a later version as an additive field | `<name>.dispatch.js`, the plugin's own module that calls the fillers (§2; in-tree only, no host contract in api 1); the registry records the slot in `extension-points.generated.json`, keyed by block |
+| `meta` | a DATA PROVIDER for the slide-metadata vocabulary (design note 2026-10-17-meta-record.md §5.0): `{ fields: { <key>: { type, values?, scope?, bare?, local?, applied?, customProp?, complete?, describe? } }, markers?: [<name>…], comments?: { <key>: { kind: "structure" \| "channel" } } }`. It renders nothing; the build freezes it into `lib/plugins/meta.generated.mjs`, and every reader of a slide comment derives its key lists from there. A plugin that contributes it must be **embedded** (§3.1a: the host drops it from any `disabled` list and admits it whatever the default set says), at most one plugin may, and no `registers` key may repeat a field. **In-tree only** (§10). Additive: it changes no api 1 plugin | — (no role module) |
+| `returns` | `{ fields: { <field>: { type, values?, min?, max? } } }` — values a renderer may hand back besides its drawing. `type` is `word` (one of `values`), `number` (inside `min`/`max`), `flag`, `text` (control and bidi characters removed, no markup, 256 characters at most) or `markdown` (emphasis, lists, tables, code and quotes; no HTML, link, image or fence; 2,000 at most). At most 16 fields, named `[a-z][a-z0-9-]{0,31}` with no `--` and no trailing hyphen. The HOST writes each value as `data-returned-<plugin>--<field>` on the slide's own `<section>`; a value its field does not admit disables the plugin for the render, with an alert (§4.2). Pinned into consent. No URL and no CSS-valued type | — (the renderer returns it) |
 | `diagnostics` | `{ "<name>/<id>": "message" }` — every ID reported on the plugin's behalf. **In api 1 only the HOST reports**, and only `<name>/deprecated-alias` (a deprecated fence alias was used); a plugin module has no `ctx.report` yet | — |
 
 ### 3.4 `payload`, `tokens`, `render`
@@ -223,6 +236,11 @@ fence's body.
 - A renderer MUST escape author text it writes into markup (`ctx.escape`, `ctx.escapeAttr`).
 - A fence whose figure is drawn in the browser returns a placeholder built with
   `ctx.hydrateAttrs(token.content)` (§6).
+- A sandboxed renderer (the code-package door) that declares `contributes.returns` (§3.3) MAY
+  return `{ html, data }` instead of a string. `data` is an object of the declared fields. The
+  host checks every value (`lib/packages/plugin-returns.mjs`), and one value outside its field,
+  or a name not declared, disables the plugin for the whole render: its blocks keep their source
+  with a note, and the user is told why. A renderer never writes an attribute itself.
 
 ### 4.3 `hydrate.js` — the browser half
 
@@ -279,7 +297,7 @@ It may require anything; no browser bundle ever loads it. `ctx` is frozen and ca
 - `name`, a fresh `state` object the bake may fill, and the export's GENERIC services
   (`BAKE_SERVICES` in `lib/plugins/host-bake.js`; `bakeDeck` refuses any other): `pkgRoot`,
   `quiet`, `print`, `paletteUsesTexture`, `orientation`, `browser: { path, args }`,
-  `readToken(scope, name)` (a palette token as a `{ band, hand }` scope resolves it),
+  `fileConfine` (the CLI's local-file confiner: `.roots` and `.allows(fileUrl)`, which a bake with its own browser page applies to every `file:` request), `readToken(scope, name)` (a palette token as a `{ band, hand }` scope resolves it),
   `scopeKey(scope)` and `paletteReader(palette, hand)` (a token reader over any palette, with the sketch face's
   re-points). None names a plugin: what a plugin builds from a palette is the plugin's.
 
@@ -432,10 +450,10 @@ leaves its fences as code blocks.
 | Channel | May carry |
 |---|---|
 | In-tree (`lib/plugins/`) | every contribution |
-| Zip — the Studio Library, `lattice packages add` (later phase) | `styles` and `diagnostics` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
+| Zip — the Studio Library, `lattice packages add` (later phase) | `styles`, `diagnostics` and `returns` (data `contributes`), and the top-level `icon` (data, drawn by the host); fence code and `inline` kinds only through the code-package door (consent pinned to the code's hash, its fence and its kinds with their slots, then a sandbox). Never `syntax`, `hydrate` (a pass least of all), `highlight`, `bake`, `payload`, `meta` or `extensionPoints` — and a zip COMPONENT cannot fill a slot either, because a filler is code — a `bake` runs with full Node privileges in the CLI's process, which no sandbox the door has can hold |
 | npm, by an explicit list (later phase) | every contribution, after the license grant |
 
-A shipped plugin's name is reserved.
+An embedded or essential plugin's name is reserved.
 
 ## 11. Creating one
 
@@ -456,6 +474,15 @@ highlight.js language or alias, and at most 64 characters.
   rather than an SVG file, so it travels on every channel (§10), a zip included, with nothing
   to sanitize. The website's Plugins hub is its only reader so far; no Studio or zip-channel
   surface draws it yet.
+
+- **0.7-draft, the `meta` data provider (2026-10-18).** §3.3 gains `meta`: the slide-metadata
+  vocabulary as manifest data, always on, in-tree only, additive (no api bump). The first user is
+  `lib/plugins/meta/`, which replaces five hand-kept lists of comment-directive keys.
+
+- **0.8-draft, `returns` (2026-10-19).** §3.3 gains `returns`, and §4.2 lets a sandboxed
+  renderer return `{ html, data }`: values the host checks against their declared fields and
+  writes on the slide's `<section>`. Open to zip and npm plugins (§10). Additive: a plugin that
+  declares none returns a string as before, and its consent digest is unchanged.
 
 - **0.6-draft, inline kinds and the `@name{…}` form (2026-10-14).** §3.3 gains `inline`: every
   inline kind is called `@name{…}`, an in-tree kind keeps its one-character `sigil` as an alias,
@@ -503,7 +530,7 @@ highlight.js language or alias, and at most 64 characters.
   `chart` bucket; filling a slot is requiring the plugin (§3.2.1), and a switched-off slot plugin
   marks each filler's section `data-lattice-off`.
 
-- **0.5-draft, `shared/` (2026-10-05).** A shipped plugin may carry an in-tree-only `shared/`
+- **0.5-draft, `shared/` (2026-10-05).** An essential or embedded plugin may carry an in-tree-only `shared/`
   folder of modules (§2); Mermaid's five shared kernels moved there from `lib/integrations/mermaid/`.
 
 - **0.5-draft, admission on the browser half (2026-10-05).** `data-lattice-off="<plugin>"` (§3.2.1,
@@ -532,8 +559,8 @@ highlight.js language or alias, and at most 64 characters.
   protocol's markup on its `<pre>` (§6), and a release keeps its content.
 - **0.2-draft (2026-09-28).** Phase D: `bake` and `render.exec.bake: "subprocess"`, a fence
   `as: "code"`, and `render.exec.hydrate: "runtime"`. `mermaid` stops being a host-reserved fence
-  name and becomes the mermaid plugin's. Shipped plugins: `math`, `function-plot`, `anima`,
+  name and becomes the mermaid plugin's. Essential plugins: `math`, `function-plot`, `anima`,
   `mermaid`.
 - **0.1-draft (2026-09-27).** First draft: `syntax`, `fences`, `hydrate`, `styles` and
-  `diagnostics`; `payload`, `tokens`, `render.surfaces`; the settle protocol. Shipped plugins:
+  `diagnostics`; `payload`, `tokens`, `render.surfaces`; the settle protocol. Essential plugins:
   `math`, `function-plot`, `anima`.

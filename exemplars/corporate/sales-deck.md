@@ -124,13 +124,13 @@ Each closed deal teaches the model what real buying signals look like in your bu
 
 1. 4%
    - median forecast error
-   - down from 14% `3.5× better` `Verified`
+   - down from 14% `{3.5× better}` `{Verified}`
 2. +19%
    - win-rate lift
-   - within two quarters `Measured` `Cohort`
+   - within two quarters `{Measured}` `{Cohort}`
 3. 142%
    - net revenue retention
-   - expansion across the base `12-mo` `Audited`
+   - expansion across the base `{12-mo}` `{Audited}`
 
 ---
 

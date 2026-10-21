@@ -20,6 +20,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { JSDOM } = require('jsdom');
+const { closeQuietly } = require('../../helpers/jsdom-close');
 
 const RUNTIME = path.join(__dirname, '..', '..', '..', 'dist', 'lattice-runtime.js');
 
@@ -48,7 +49,7 @@ test('a stamped host swap is laid out before the next frame', { skip: !fs.exists
   const s = lat.querySelector('section');
   assert.ok(s.hasAttribute('data-lattice-slide'), 'the Form stamp landed in the microtask');
   assert.ok(s.querySelector(':scope > .image-text > h2'), 'the heading is in its text column before paint');
-  w.close();
+  closeQuietly(w);
 });
 
 test('an unstamped write keeps the debounced schedule', { skip: !fs.existsSync(RUNTIME) && 'dist/ not built' }, async () => {
@@ -60,5 +61,5 @@ test('an unstamped write keeps the debounced schedule', { skip: !fs.existsSync(R
   assert.ok(!s.hasAttribute('data-lattice-slide'), 'no transform ran in the microtask');
   await new Promise((r) => setTimeout(r, 300));
   assert.ok(s.hasAttribute('data-lattice-slide'), 'the debounced pass still lays it out');
-  w.close();
+  closeQuietly(w);
 });

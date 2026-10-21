@@ -33,7 +33,7 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 
 - Values are signed by the author, not inferred: `+1.4M` rises, `-0.8M` falls, `1.4M` is a level. A pasted U+2212 minus sign is accepted and normalized, so a figure copied out of a spreadsheet or a PDF does not silently invert.
 - The magnitude suffix is scale, not decoration — `1.4M` is 1 400 000 and `800k` is 800 000, so a walk may mix the two on one axis. `%` is not a magnitude: `12%` is 12.
-- An affix every value agrees on is carried onto the value axis, so a walk authored in `$` gets an axis reading `$0M · $5M · $10M`. Only the affix is read off the sign-stripped text; mixing `$4M` with `12%` in one walk yields no affix, which is the honest read of an axis that cannot describe itself.
+- An affix every value agrees on is carried onto the value axis, so a walk authored in `$` gets an axis reading `$0M · $5M · $10M`. Only the affix is read off the sign-stripped text; mixing `$4M` with `12%` in one walk yields no affix, which is the honest read of an axis that cannot describe itself. Money is read as a global client writes it: a currency code (`EUR 4.2M`), a country dollar (`US$4.2M`), the currency after the number (`4.2M €`, `4200€`), and the magnitude words `Mio`, `Mrd`, and beside a currency `mn`, `Md` and `Cr` (crore). The axis keeps the currency where you put it and prints a decimal comma when your values use one (`4,2` → `4,5`).
 - The signed steps should sum from the opening level to the closing level. They are not forced to: each bar is drawn at the figure the author gave it, and a walk that does not reconcile shows the gap where the last connector meets the closing bar rather than silently absorbing it.
 
 ## When to use
@@ -101,6 +101,25 @@ Re-bases the axis on the walk itself and tears the anchors it clips. For a compr
 - Mix `-0.2M`
 - Cost base `-1.9M`
 - Closing cash `9.8M`
+```
+
+### `lower-is-better`
+
+Swaps the meaning hues for a walk where a rise is bad news — a loss ratio, claims, cost, churn — so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down.
+
+```markdown
+<!-- _class: waterfall lower-is-better -->
+
+`Combined ratio · %`
+
+## Cat losses pushed the combined ratio 6 points above plan.
+
+- Plan `94`
+- Cat losses `+8`
+- Attritional `+1`
+- Rate `-2`
+- Expenses `-1`
+- Actual `100`
 ```
 
 ## Universal modifiers

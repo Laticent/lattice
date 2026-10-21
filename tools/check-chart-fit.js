@@ -47,13 +47,23 @@
  * viewBox edge. Asserting on those would be a false positive, so they are
  * skipped and counted.
  *
- * THREE SIZES. A chart that fits at landscape routinely clips at portrait: `cqi`
+ * FOUR SIZES. A chart that fits at landscape routinely clips at portrait: `cqi`
  * is a share of container INLINE size, so portrait (1080 inline) shrinks every
  * cqi-derived length ~44% against landscape (1920) at exactly the moment the box
- * grows taller. The fixture is therefore rendered at landscape, portrait AND
- * square, and each fixture slide is really three cases. Rendering the same deck
- * three times (rather than keeping three fixtures) keeps coverage identical
- * across sizes by construction.
+ * grows taller. The fixture is therefore rendered at landscape, portrait, square
+ * AND strip (`size: mobile`, 1080x2340, aspect 0.46 — the registered canvas that
+ * lands in `lib/adaptive/families.js`'s `strip` family, 0..0.5), and each fixture
+ * slide is really four cases. Rendering the same deck four times (rather than
+ * keeping four fixtures) keeps coverage identical across sizes by construction.
+ *
+ * WHY STRIP IS THERE. Until 2026-10-18 the gate measured landscape, portrait and
+ * square, so nothing gated the strip family: #2770 changed `timeline-list`'s
+ * tall/strip arm and could only check strip by hand. Measured when it was added:
+ * 57 chart slides (landscape 47, square 53, portrait 57: autosplit paginates more
+ * at the tall sizes), green on the first run, ~26-32s of wall-clock. The fixture
+ * sweep runs in `integration-nightly.yml` only; the per-PR falsifiability arm
+ * pins `--size square`, so strip adds no PR cost. Falsified at that size with
+ * `--style` (a stage-overflowing `min-height` fires on 56 of the 57 chart slides).
  *
  * Usage:
  *   node tools/check-chart-fit.js [fixture.md]      # gate: exit 1 on a clip
@@ -83,7 +93,7 @@
  * `integration-nightly.yml`'s `chartfit` arm). 2 rather than 1 keeps a SETUP
  * failure distinct from a real clip finding.
  *
- * NOT browser-free, so not in `build:check`: it costs three emulator renders.
+ * NOT browser-free, so not in `build:check`: it costs four emulator renders.
  */
 
 const fs = require('node:fs');
@@ -134,9 +144,9 @@ const SANCTIONED_CLIPS = [
   // (`examples/portrait-roadmap.md`, 5 pages) behind a line saying "known".
 ];
 
-// The three supported deck shapes. `size:` is the front-matter key the emulator
+// The four supported deck shapes. `size:` is the front-matter key the emulator
 // reads; landscape is the default and takes no key.
-// `autosplit` is ON for portrait/square and omitted for landscape, mirroring the
+// `autosplit` is ON for portrait/square/strip and omitted for landscape, mirroring the
 // engine: `AUTOSPLIT_APPLIES` (lattice.js) makes it a no-op on a landscape
 // deck, and it is the supported answer for a portrait slide that cannot fit — a
 // roadmap paginates its phase cards rather than clipping (#1209). Measuring portrait
@@ -145,6 +155,7 @@ const SIZES = [
   { name: 'landscape', size: null, autosplit: false, viewport: [1920, 1080] },
   { name: 'portrait', size: 'portrait', autosplit: true, viewport: [1080, 1350] },
   { name: 'square', size: 'square', autosplit: true, viewport: [1080, 1080] },
+  { name: 'strip', size: 'mobile', autosplit: true, viewport: [1080, 2340] },
 ];
 
 /**

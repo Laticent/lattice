@@ -34,10 +34,12 @@ export function WalkBar(props: {
 	prevDisabled: boolean;
 	nextDisabled: boolean;
 	notice: string | null;
+	/** The slide map's strip lives in the bar on a narrow screen: this reports the element it goes into, and `mapOn` says whether it shows. */
+	mapSlot?: { ref: (el: HTMLElement | null) => void; on: boolean };
 }): React.ReactElement {
-	const { index, count, caption, onPrev, onNext, nextLabel, prevDisabled, nextDisabled, notice } = props;
+	const { index, count, caption, onPrev, onNext, nextLabel, prevDisabled, nextDisabled, notice, mapSlot } = props;
 	return (
-		<nav id="pg-walk" className="pg-walk" aria-label="Component walkthrough">
+		<nav id="pg-walk" className="pg-walk" aria-label="Component walkthrough" data-map={mapSlot?.on ? '' : undefined}>
 			<div className="pg-walk-row">
 				<button type="button" className="pg-walk-step" onClick={onPrev} disabled={prevDisabled} aria-label="Previous slide">
 					‹ Prev
@@ -63,6 +65,7 @@ export function WalkBar(props: {
 					{nextLabel || 'Next ›'}
 				</button>
 			</div>
+			{mapSlot && <div ref={mapSlot.ref} className="pg-walk-map" hidden={!mapSlot.on} />}
 			{/* ONE line-box for both, always rendered. A notice ("that step is gone — showing the
 			    title") is transient and outranks the caption while it is up; giving it its own
 			    element would add a line and move the deck, which is the defect this bar was fixed

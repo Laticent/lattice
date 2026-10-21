@@ -1,6 +1,7 @@
 {
 	"$schema": "../../manifest.schema.json",
 	"name": "heatmap",
+	"plugins": { "optional": ["legend"] },
 	"focusAxes": [
 		"mark"
 	],
@@ -160,6 +161,7 @@
 		"The band key is OPT-IN. Add `scale` to the slide and the chart names each of the five ramp bands by the range of values that band actually holds.",
 		"To name the bands yourself, write a label set in an inline-code span above the table: `[{1, Cold}, {3, Warm}, {5, Hot}]`. The KEY IS THE RAMP STEP, 1 through 5 — not a value from your data. Name only the steps that carry meaning; the rest keep their derived range.",
 		"The ramp is cut at the matrix's own quantiles, so which step a value lands in depends on the whole matrix. If a step you named carries no cells, its label is dropped and the description says so — check the rendered key rather than assuming step 2 is 'the second-smallest value'.",
+		"To point at one cell, add a callout with the legend plugin: a paragraph holding `@legend{{Onboarding change, row=\"Feb 2026\", col=M2}}` in inline code under the table. `row=` and `col=` name the cell by its labels as the chart prints them; the short form `for=` takes its index counted row by row from 0 (`for=14`) or `Row/Column` (`for=Feb 2026/M2`). The label sits in a lane to the right of the grid, and a marker ties it to its cell: the cell is ringed and carries a marker, and the same marker leads the label. A marker is one of six shapes (circle, square, triangle, diamond, hexagon, star) in a color, one shape per callout, with its number inside when the cell has room; on a grid whose values fill their cells the shape goes alone. No line crosses the grid, and a marker goes only where it covers no printed number or name: whole inside the cell's top-left corner, or as a badge just outside it, the same place and size for every marker on the chart. The pill's words pick the marker (`{…, tag, c4}` is a square in `c4`); it is sized from the cell and never larger than its copy in the lane, whose digit is as large as the label, and a callout's words are never smaller than the band key's labels. At most six callouts draw on one chart; the rest are listed as not drawn and `lint:deck` warns. `detail=\"…\"` joins the cell's card and the speaker note. Several callouts go in a list, `@legend{[{A, for=…}, {B, for=…}]}`. The grid gives up the lane's width, at most a quarter of the figure. `legend: off` in the front matter (or `legend-off` on the slide) hides callouts; `legend-on` brings a slide's back. Contract: `lib/plugins/legend/legend.docs.md`.",
 		"A cell can carry its own description with a `note=` annotation — `| Jan | 100 | 62 `note=dipped after onboarding` |`. It shows on hover on the live surfaces, folds into the slide's speaker note for print, and never changes the value. Quote a note that holds a comma: `note=\"dipped, then recovered\"`."
 	],
 	"specimenVoice": true,

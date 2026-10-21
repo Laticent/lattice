@@ -9,11 +9,13 @@
 
 import { ArrowLeft, Globe, ImageDown, Layers, Loader2, MicOff, Monitor, Moon, Play, Sun, X } from 'lucide-react';
 import * as React from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
-import { sourceHasWebPictures } from '../../../../lib/export/inline-url-media.mjs';
+import { webPictureOrigins } from '../../../../lib/export/inline-url-media.mjs';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
+import { OffFencesNotice } from './OffFencesNotice';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
 
@@ -28,6 +30,8 @@ export type WebpageExportChoice = {
 	 *  author's browser contacts those sites only when asked. Either way the file itself stays
 	 *  self-contained and loads nothing when the recipient opens it. */
 	embedWebPictures: boolean;
+	/** Web origins whose pictures the player may load once the reader presses "Load pictures" (the CLI's `--player-consent`). Only for pictures that are not embedded. */
+	consentOrigins: string[];
 	scheme: Scheme;
 	narration: NarrationChoice;
 };
@@ -42,6 +46,7 @@ export function WebpageOptionsPanel({
 	onBack,
 	onExport,
 	onCancel,
+	onWrite,
 }: {
 	busy?: boolean;
 	status?: string | null;
@@ -61,6 +66,8 @@ export function WebpageOptionsPanel({
 	onExport: (choice: WebpageExportChoice) => void;
 	/** Stop a bake in progress. Owned by the sheet, not this panel — see `launch`. */
 	onCancel: () => void;
+	/** Edits the deck (the off-fence notice's "Turn on"); absent, the notice offers no action. */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 }) {
 	// Default OFF: notes ride (matching the CLI player default). Stripping is opt-in.
 	const [stripNotes, setStripNotes] = React.useState(false);
@@ -79,7 +86,10 @@ export function WebpageOptionsPanel({
 	// makes the author's browser contact those sites at export time; the FILE is self-contained
 	// either way — the recipient's copy carries the bytes and its policy loads nothing on open.
 	const [embedWebPictures, setEmbedWebPictures] = React.useState(false);
-	const deckHasWebPictures = React.useMemo(() => sourceHasWebPictures(source, typeof location === 'undefined' ? undefined : location.origin), [source]);
+	const webOrigins = React.useMemo(() => webPictureOrigins(source, typeof location === 'undefined' ? undefined : location.origin), [source]);
+	const deckHasWebPictures = webOrigins.length > 0;
+	// ASK THE READER INSTEAD: the origins the author lets the player load from, behind a "Load pictures" button in the file.
+	const [consent, setConsent] = React.useState<string[]>([]);
 	// Narration is opt-in too, and for a different reason: it is the only option here that
 	// can spend money and add megabytes. See NarrationExportOptions for the bill.
 	const [narration, setNarration] = React.useState<NarrationChoice>({ captions: false, audio: false, allowPartial: false, voice: { model: '', voice: '', speed: 1 } });
@@ -108,7 +118,7 @@ export function WebpageOptionsPanel({
 	// ref went with it: closing the sheet mid-bake left three workers synthesizing and billing
 	// with nothing left to stop them, and reopening it re-mounted a Cancel button whose ref was
 	// null — the only stop control in the feature, dead. It belongs to the owner of the run.
-	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice, playerMotion, embedWebPictures: deckHasWebPictures && embedWebPictures });
+	const launch = (choice: NarrationChoice) => onExport({ stripNotes, scheme, narration: choice, playerMotion, embedWebPictures: deckHasWebPictures && embedWebPictures, consentOrigins: deckHasWebPictures && !embedWebPictures ? consent.filter((o) => webOrigins.includes(o)) : [] });
 	// The exported player's default color mode. The panel remounts each time the export step
 	// is opened (ShareSheet renders it conditionally), so this mount-time default already
 	// re-syncs — no effect needed, so an explicit user pick is never silently clobbered.
@@ -200,6 +210,9 @@ export function WebpageOptionsPanel({
 					</div>
 				) : null}
 
+				{/* Fences whose plugin is off for this deck — only when the deck holds one. */}
+				<OffFencesNotice source={source} onWrite={onWrite} />
+
 				{/* Pictures from other sites — only when the deck shows one. */}
 				{deckHasWebPictures ? (
 					<div className="rounded-xl border border-border bg-background p-3.5">
@@ -217,6 +230,22 @@ export function WebpageOptionsPanel({
 							</span>
 							<Switch className="mt-0.5" aria-label="Embed pictures from other sites" checked={embedWebPictures} disabled={busy} onCheckedChange={setEmbedWebPictures} />
 						</div>
+						{!embedWebPictures ? (
+							<div className="mt-3 border-t border-border pt-3">
+							<fieldset className="m-0 min-w-0 space-y-1.5 border-0 p-0" data-consent-origins="">
+								<legend className="float-left w-full p-0 pb-1.5 text-[12px] font-semibold text-[var(--text-heading)]">Let the reader load them</legend>
+								<p className="text-[11.5px] leading-snug text-muted-foreground">A banner in the file asks first. Pictures from a site you tick load only when the reader presses "Load pictures", and the site learns their address. Left unticked, they stay placeholders.</p>
+								{webOrigins.map((o, i) => (
+									<div key={o} className="flex items-center gap-2">
+										<Checkbox id={`consent-origin-${i}`} aria-label={`Ask readers to load pictures from ${new URL(o).host}`} checked={consent.includes(o)} disabled={busy} onCheckedChange={(v) => setConsent((cur) => (v === true ? [...cur, o] : cur.filter((x) => x !== o)))} />
+										<label htmlFor={`consent-origin-${i}`} className="cursor-pointer font-mono text-[11px] text-foreground">
+											{new URL(o).host}
+										</label>
+									</div>
+								))}
+							</fieldset>
+						</div>
+						) : null}
 					</div>
 				) : null}
 

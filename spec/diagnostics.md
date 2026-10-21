@@ -119,7 +119,8 @@ distinct, stable ID.
 | `chart-list-split-quote` | warning | ✓ | A `>` at the left margin between two items of a chart's list. It ends the list, so every row after it drops out of the chart. On a chart that reads a row's `>` (flowchart, state-chart and the 13 detail charts) the fix indents a one-line quote under the item above, where it becomes that row's description (a quote of several lines gets no machine fix: indent each line by hand); on a list chart that reads no detail under its rows there is no machine fix. |
 | `chart-row-quote-unread` | warning | — | A `>` under a row with no mark of its own: a radar series (its marks are its axes) or a quadrant group (its marks are its points). The chart lifts it out, so it is shown nowhere; move it under an axis or a point, where it is that mark's description. |
 | `chart-value-malformed` | warning | — | A value in a chart's rows or cells that is shaped like a number but is not one: two signs (`--5`, `(-5)`), an unpaired parenthesis (`(5`, `5)`), or digits that are not one number (`1,2,3`, `1.2.3.4x`). The chart reads it as no value (a point chart draws no mark, a pie wedge or funnel stage reads as zero, a bullet prints it as typed); before, each read as a different number with no warning. Only charts that read numbers check it, so a dotted date on a timeline is not flagged. Which number was meant is the author's call, so there is no machine fix. |
-| `chart-row-record-unread` | warning | — | A chart's data row whose value is written as one `{…}` record (``- Uptime `{4.2M, target=5.0M}` ``), the chart authoring model's row form, on a chart that does not draw it yet: the span renders as a pill or as code and the row loses its value (a bar draws no bar, progress prints the braces). The chart's row schema reads the record, and the fix names the spans the chart reads today (`` `4.2M` `5.0M` ``). There is no machine fix, because the model's codemod writes the record form. Scatter and quadrant already read a record and are not checked; a nested bullet under a row that has a value is detail and is not checked. |
+| `chart-row-record-unread` | warning | — | A chart's data row written as one `{…}` record (``- Uptime `{4.2M, target=5.0M}` ``) that the chart cannot draw: the record holds a field with no span form yet (bullet's `band=` and `floor=`, progress's `note=`), it follows another code span on the row (`` `1` `{2}` ``), it sits in a later paragraph of its row, or on the line after a heading item (the old spans draw a value there, the record is read only from the row's first line, so it stays a pill), it is a plain number under a row that has a value (stacked-bar's segment under a total: the old form reads it as a segment, the record as a note), or the chart's row schema refuses it and it is not a pill either (`{3, targt=5}`: a typo that used to drop the row from the chart), it sits in a chart list inside a `>` quote (the old spans draw there, a record does not), or a badge before the row's label holds a value too, as a record or a plain number (`` `{1}` North `{40}` ``, `` `1` North `{40}` ``: the chart reads neither; `{1, circle}` reads as a badge). A record in a `>` quote that is a row's description is not checked: neither form draws a row there. A record with an old form draws, because the chart family rewrites it to the spans each chart reads. Scatter and quadrant read a record directly and are not checked; a nested bullet under a row that has a value is detail on a chart that reads it so, and is not checked, except bullet's keyword rows (`Target`, `Plan`, `Floor`, `Band` and the rest of its keywords) written as records, which the bullet reads as a note. There is no machine fix, because the model's codemod writes the record form. |
+| `chart-table-unescaped-pipe` | warning | — | A `|` inside a table cell's `{> …}` description that is not written `\|`. A table row splits on every unescaped pipe before the chart reads the cell, so the pipe ends the description early and adds a cell: the row has more cells than its header and every value after the description shifts one column. The fix is `\|` inside the description, or rewording it. A `|` in a list row's `>` description is just text and is not checked. |
 | `statement-ol-bold` | error | — | A `**bold**` span inside an ordered-list statement, which splits the counter-grid row (e.g. `principles`). |
 | `split-bodyless-item` | error | ✓ | A right-panel item with no nested body on a split layout — the title won't lift to bold. |
 | `split-missing-headline` | warning | — | An h2-anchored split slide (`split-panel`/`split-compare`) with no `## ` headline — the left panel renders empty. |
@@ -146,6 +147,8 @@ distinct, stable ID.
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
+| `bg-side-unread` | warning | — | A `![bg left]` / `![bg right]` (or a ratio) on a slide that is not `image`: only the image layout places a picture beside the text, so it fills the whole slide behind it instead. |
+| `bg-ratio-unread` | warning | — | A ratio such as `![bg left:40%]` on an `image` slide: the ratio is not read, so the slide falls back to a full-bleed background and loses its panel. |
 | `label-set-above-body` | warning | — | A label list naming key entries, placed above the chart: there it names the axes instead of relabeling the key, or shows as text if it has more items than the chart has axes. |
 | `label-set-unbound` | warning | — | A bracketed label list that relabels nothing: on a component with no key, an entry that is not one of the component's key members, or a key named twice (the last wins). |
 | `shell-fence-is-script` | info | — | A `shell` (or similar) fence holding a script; the language only colors terminal prompts, so it renders nearly plain. |
@@ -176,6 +179,9 @@ distinct, stable ID.
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
+| `legend-span` | warning | — | A `@legend{…}` span that does not read, has an anchored label with no `for=`, reads `{1, lg}` as a styled label, or sits on a slide where no component reads a legend. |
+| `legend-off` | info | — | A `@legend{…}` callout on a slide where the author switched the legend off (`legend: off`, `legend-off`): it is hidden, and its detail still reaches the speaker note. |
+| `bare-row-pill` | warning | — | A bare code span where a component used to draw a pill from one (cards, kpi, actors, a register, a roadmap header and the others): it is plain inline code now, and the pills plugin's `{…}` draws the pill. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |
 | `unknown-inline-kind` | warning | ✓ | A named span `@name{…}` whose name no kind has: neither the host's, a shipped plugin's, nor a listed plugin's. It renders as code; the autofix takes the nearest kind name when one is close. |
@@ -216,10 +222,11 @@ distinct, stable ID.
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
 | `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-spark`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
-| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-logo-on`, `unknown-logo-style`. A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
+| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
+| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
@@ -229,9 +236,11 @@ distinct, stable ID.
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
 | `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
+| `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
 | `retired-form-key` | warning | — | `form: off`, which no longer works; slides now show the title band and progress bar. |
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
 | `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |
+| `asset-missing` | warning | — | An `asset:<name>` picture reference that names no file in `assets/` beside the deck (or whose file is a symlink out of the deck folder), so the CLI draws the missing-picture stand-in. Checked by `tools/lint-deck.js`, which has the file system; the linter core does not. |
 | `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold`, Marp values Lattice treats as `false`. |
 | `stray-overflow-marker` | warning | — | `overflow-marker:` in the deck; it is an export setting, so the line does nothing. |
 | `stray-export-settings` | warning | — | An export-settings block copied in from another export. |
@@ -260,6 +269,13 @@ distinct, stable ID.
 | `gantt-dangling-after` | error | — | A gantt `after=` naming no task on the slide. |
 | `gantt-inverted-dependency` | warning | — | A gantt task that starts before the task it depends on. |
 | `journey-actor-shortcut` | warning | ✓ | A journey actor in the retired `@sales` shortcut, which renders as code and drops the actor. Autofixes to `{who=sales}`. |
+| `ep-curve-duplicate` | warning | — | An EP curve point whose return period is already in its curve; the chart keeps the first. |
+| `ep-curve-point` | warning | — | An EP curve record the chart cannot read as `{return period, loss}`, such as one with a thousands separator; the point is left out. |
+| `ep-curve-too-many` | warning | — | An EP curve slide with more than four curves; the chart draws the first four. |
+| `histogram-bands-join` | warning | — | Neighboring histogram bands that leave a gap or overlap. |
+| `histogram-dash-range` | warning | — | A histogram band written with a dash instead of `..`; the row is left out. |
+| `histogram-log-zero` | warning | — | `log` on a histogram axis whose domain reaches zero; the chart draws a linear axis. |
+| `histogram-negative` | warning | — | A histogram value below zero; the band draws with no height. |
 | `quadrant-axis-part` | warning | — | A quadrant axis list with the wrong number of members, or a member part the chart ignores. |
 | `quadrant-retired-axis` | error | ✓ | The retired quadrant axis format. Autofixes to the bracketed list. |
 
@@ -362,6 +378,21 @@ Emitted by `tools/lint-deck.js` itself (`--discover`), not by `lint-core`, becau
 | `narration-acronyms` | suggestion | — | All-caps tokens that narration will read letter by letter. |
 | `narration-passthrough` | suggestion | — | Slash, ratio and identifier tokens that narration will read as glyphs. |
 
+### 3.11 Slide metadata comments
+
+A **record comment** opens with `{` or `@meta{` (`<!-- {layout=content} -->`). These rules report a
+record in a position no reader will take it from, and the old directive form the record replaces
+(`engineering/decisions/2026-10-17-meta-record.md` §5.3, §5.5). A record inside a code fence is
+literal text and is never reported.
+
+| Rule ID | Severity | Autofix | What it catches |
+|---|---|---|---|
+| `meta-opener-bare` | error | — | A bare `<!--` with the record on the next line: the comment is a note, not a record. |
+| `meta-not-own-line` | error | — | A record inside a list item or blockquote. |
+| `meta-in-html-block` | error | — | A record directly under an HTML line with no blank line between, so both become one HTML block. |
+| `meta-block-in-container` | error | — | A multi-line record holding a blank line inside a list or blockquote, where the comment ends early. |
+| `legacy-directive-comment` | warning | — | An old-form directive comment (`<!-- _class: x -->`). Off unless the host opts in (`metaCut`) until the engine stops reading the form. |
+
 > **Autofix is per-finding, not per-rule.** The ✓ marks rules that *can* offer a
 > deterministic autofix; whether a given finding carries one depends on its
 > source line. `card-style-inline-title`, `ledger-inline-title`, and
@@ -442,6 +473,9 @@ The reference engine is `lintTextWith(source, vocab)` in `lint-core.js`:
 
 ## 7. Change log
 
+- **Unreleased.** §3.11 adds five rules for slide-metadata comments: `meta-opener-bare`,
+  `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container` and
+  `legacy-directive-comment` (off by default).
 - **1.1 (2026-10-08).** The registry catches up with the reference
   implementation: 13 rows became 181: all 178 literal rule IDs plus three families, grouped by
   what they check (§3), and a test now pins the registry to the code. Two

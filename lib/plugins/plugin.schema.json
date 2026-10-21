@@ -21,6 +21,10 @@
     },
     "title": {"type": "string", "minLength": 1},
     "description": {"type": "string", "minLength": 1},
+    "embedded": {
+      "type": "boolean",
+      "description": "IN-TREE ONLY. An embedded plugin is part of the engine's body: the host admits it on every render, whatever the default set, a host's narrowing, the deck's `plugins:` list or `disabled` say, and no switch turns it off. A package that arrives as data (a zip) never holds it; the importer refuses one that does. Making a plugin embedded is an owner decision with its own note (engineering/decisions/2026-10-17-pills-plugin.md § 4.5)."
+    },
     "icon": {
       "type": "object",
       "description": "The plugin's mark, as DATA rather than markup: a viewBox and a list of paths, each tagged with the ink it takes. The host draws it (lib/plugins/plugin-icon.mjs) and colors each ink from the active theme — `line` takes the heading ink; `accent` and `fill` take the palette's accent (`accent` stroked, `fill` filled) — so a mark holds its contrast on every palette and can never carry a fixed color, a script or a style. A path is SVG path data and nothing else (the pattern admits only path commands and numbers). Optional; a plugin with none is shown by its name.",
@@ -70,6 +74,29 @@
           "description": "Stable IDs, namespaced `<plugin>/<id>`, and the message each reports.",
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"},
           "additionalProperties": {"type": "string", "minLength": 1}
+        },
+        "returns": {
+          "type": "object",
+          "description": "Values a renderer may hand back besides its drawing (threat-model decisions 10 to 12, engineering/decisions/2026-10-16-npm-plugin-threat-model.md). The renderer returns `{ html, data }`; the HOST holds every value to its field here and writes it as `data-returned-<plugin>--<field>` on the slide's own <section>. A value its field does not admit, or a name not declared here, disables the plugin for the render with an alert. Pinned into consent. Checked by `returnsRefusal` (lib/packages/code-shape.mjs).",
+          "additionalProperties": false,
+          "required": ["fields"],
+          "properties": {
+            "fields": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 16,
+              "propertyNames": {"pattern": "^(?=[a-z][a-z0-9-]{0,31}$)(?!.*--)(?!.*-$)"},
+              "additionalProperties": {
+                "oneOf": [
+                  {"type": "object", "additionalProperties": false, "required": ["type", "values"], "properties": {"type": {"const": "word"}, "values": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"}}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "number"}, "min": {"type": "number"}, "max": {"type": "number"}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "flag"}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "text"}, "max": {"type": "integer", "minimum": 1, "maximum": 256}}},
+                  {"type": "object", "additionalProperties": false, "required": ["type"], "properties": {"type": {"const": "markdown"}, "max": {"type": "integer", "minimum": 1, "maximum": 2000}}}
+                ]
+              }
+            }
+          }
         },
         "fences": {
           "type": "object",
@@ -124,7 +151,11 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 1,
-                "description": "In-tree only, and required there: the tag character before `{`, one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts), the kind's short alias. A zip plugin's kind declares none."
+                "description": "In-tree only, and required there unless the kind is `untagged`: the tag character before `{`, one of Segno's TAGS (docs/src/lib/segno/notation-grammar.ts), the kind's short alias. A zip plugin's kind declares none."
+              },
+              "untagged": {
+                "type": "boolean",
+                "description": "In-tree and EMBEDDED plugins only: the kind is the bare record `{…}` with no tag character (a pill). At most one kind in the whole registry is untagged. The row declares its own `lead` and `alias` in `<name>.inline.js`, and the dispatcher keeps it where the first-party pill row sat, between the state marks and the sparks."
               },
               "slot": {
                 "type": "object",
@@ -167,6 +198,56 @@
                   "uniqueItems": true,
                   "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
                   "description": "The axis's words, its default first."
+                }
+              }
+            }
+          }
+        },
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fields"],
+          "description": "A DATA PROVIDER for the slide-metadata vocabulary: the keys an author may set in an HTML comment on a slide, each with a type. It renders nothing. The build derives every key list the engine, the linter, the notes extractor and the editor used to keep by hand (lib/plugins/meta.generated.mjs, read through lib/core/meta-keys.mjs), and every plugin's `registers` join the vocabulary on their own. Always on and in-tree only: the host refuses to disable a plugin that contributes it, because a deck cannot be read without it. Contract: engineering/decisions/2026-10-17-meta-record.md §5.0.",
+          "properties": {
+            "fields": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9]*$"},
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type"],
+                "properties": {
+                  "type": {"enum": ["text", "enum", "classes", "css", "url", "steps", "words"], "description": "The field's type. The host validates a value against it at the boundary (record note §5.7)."},
+                  "values": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}, "description": "The words an `enum` field accepts."},
+                  "scope": {"enum": ["deck", "slide"], "description": "`deck`: the key is written once, at the top of the deck, and never per slide (Marp's global-only keys). `slide`: set on a slide, in either spelling (`<!-- header: H -->` or `<!-- _header: H -->`), it applies to that slide only; only front matter sets it for every slide. Omitted: it may be set per slide, or from a slide on."},
+                  "bare": {"const": true, "description": "The key may be written with no value (`<!-- _build -->`). Every other key requires a colon, so prose such as `<!-- color -->` stays a note."},
+                  "local": {"const": true, "description": "One of Marp's local directives, which a bare (non-underscore) comment may also set."},
+                  "applied": {"const": true, "description": "The engine writes the key on the slide as `data-<key>`."},
+                  "customProp": {"const": false, "description": "An applied key that gets its `data-*` attribute and NOT the `--<key>` custom property, because code rather than CSS reads it."},
+                  "complete": {"const": true, "description": "The editor offers the key's name when an author types `<!-- _`."},
+                  "describe": {"type": "string", "minLength": 1}
+                }
+              }
+            },
+            "markers": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+              "description": "Bare marker comments (`<!-- stress-slide -->`) that carry no value: tooling reads them, they are never speaker notes."
+            },
+            "comments": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+              "description": "Comment keys that are not slide directives but are not speaker notes either, each with the channel that reads it. `structure`: the pane carve splits the slide at it (`<!-- _pane: list -->`, `<!-- panes: 60/40 -->`). `channel`: a note-like comment with its own sink (`say:` is read-as text for narration, `describe:` is the slide's accessible description). Readers that must not mistake one for a speaker note, or must find one, ask the vocabulary instead of keeping a list.",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["kind"],
+                "properties": {
+                  "kind": {"enum": ["structure", "channel"]},
+                  "describe": {"type": "string", "minLength": 1}
                 }
               }
             }

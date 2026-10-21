@@ -38,13 +38,13 @@ Harvest Table closes that gap. We recover surplus food from grocers and farms, c
 
 1. 412,000
    - Meals served
-   - up from 318,000 `+30%` `2025`
+   - up from 318,000 `{+30%}` `{2025}`
 2. $1.8M
    - Food rescued at retail value
-   - up from $1.3M `+38%` `Audited`
+   - up from $1.3M `{+38%}` `{Audited}`
 3. 94%
    - Of budget to programs
-   - target 90% `On plan` `Audited`
+   - target 90% `{On plan}` `{Audited}`
 
 ---
 
@@ -183,7 +183,7 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 ## Where we grow in 2026.
 
-| Workstream | Now `2025` | Build `2026` | Scale `2027` |
+| Workstream | Now `{2025}` | Build `{2026}` | Scale `{2027}` |
 | --- | --- | --- | --- |
 | Meals served | [x] 412K | [-] 600K | [ ] 1M |
 | Kitchen sites | [x] 2 | [-] 4 | [ ] 7 |
@@ -201,13 +201,13 @@ After a layoff, Theresa skipped dinners so her kids could eat. A neighbor brough
 
 1. 600,000
    - Meals served / yr
-   - up from 412,000 `+46%` `2026`
+   - up from 412,000 `{+46%}` `{2026}`
 2. 4
    - Kitchen sites
-   - up from 2 `2× sites` `Build`
+   - up from 2 `{2× sites}` `{Build}`
 3. 94%
    - To programs held
-   - quality kept at scale `Target` `On plan`
+   - quality kept at scale `{Target}` `{On plan}`
 
 ---
 

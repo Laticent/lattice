@@ -1,6 +1,6 @@
 /**
  * Integration: convenience `logo:` directive injects `<img class="deck-logo">`
- * as the first child of every section selected by the `logo-on` rule.
+ * as the first child of every section selected by the `logo-finish` scope word and `no-logo`.
  *
  * Three render paths must agree:
  *   1. the engine's `applyDeckLogoToHtml` (HTML path)
@@ -45,7 +45,10 @@ describe('deck-logo', () => {
     for (const s of bodies) {
       assert.match(s.inner, /^<img[^>]*\bclass="deck-logo"/,
         `slide ${s.id} should start with <img class="deck-logo">; got inner="${s.inner.slice(0, 120)}"`);
-      assert.match(s.inner, /src="\.\/acme-logo\.svg"/,
+      // The CLI passes the deck's folder as `baseUrl`, so the author's `./acme-logo.svg` is written as
+      // the absolute file:// URL of the same file; a relative src would resolve against the `-o`
+      // folder and break the logo whenever the output is written elsewhere.
+      assert.match(s.inner, /src="(?:\.\/|file:\/\/\/[^"]*\/test\/fixtures\/)acme-logo\.svg"/,
         `slide ${s.id} should reference the logo path`);
       assert.match(s.inner, /aria-hidden="true"/,
         `slide ${s.id} logo should be aria-hidden`);

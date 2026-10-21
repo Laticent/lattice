@@ -14,13 +14,13 @@ Inventory — parallel sets of related items.
 
 ## The actors ledger names who owns what.
 
-- Owns one row `Each actor`
+- Owns one row `{Each actor}`
   - A verb-first responsibility, twelve words at most.
-- Reads top to bottom `The ledger`
+- Reads top to bottom `{The ledger}`
   - Order carries seniority or sequence.
-- Answers by name `The role chip`
+- Answers by name `{The role chip}`
   - The inline code names the seat.
-- Stops at six rows `This layout`
+- Stops at six rows `{This layout}`
   - Past six, reach for list-tabular.
 
 ---
@@ -152,28 +152,28 @@ Inventory — parallel sets of related items.
 
 - ![Acme](sample:logo-acme.svg)
   - Acme
-  - `Series B`
+  - `{Series B}`
 - ![Globex](sample:logo-globex.svg)
   - Globex
-  - `Enterprise`
+  - `{Enterprise}`
 - ![Vantage](sample:logo-vantage.svg)
   - Vantage
-  - `Public`
+  - `{Public}`
 - ![Umbra](sample:logo-umbra.svg)
   - Umbra
-  - `Series C`
+  - `{Series C}`
 - ![Meridian](sample:logo-meridian.svg)
   - Meridian
-  - `Seed`
+  - `{Seed}`
 - ![Helios](sample:logo-helios.svg)
   - Helios
-  - `Public`
+  - `{Public}`
 - ![Northwind](sample:logo-northwind.svg)
   - Northwind
-  - `Anchor`
+  - `{Anchor}`
 - ![Cobalt](sample:logo-cobalt.svg)
   - Cobalt
-  - `Series A`
+  - `{Series A}`
 
 ---
 

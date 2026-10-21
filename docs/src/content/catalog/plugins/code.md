@@ -1,7 +1,7 @@
 ---
 kind: plugin
 name: Code
-order: 7
+order: 8
 promise: Paste code, name the language; it's highlighted in your theme.
 intro: A fenced code block tagged with its language, like `ts` or `python`, comes out on a code panel with every keyword, string and comment in the theme's syntax colors. One line above the block, `@code{…}`, adds a title, line numbers, a focus on the lines that matter or a diff — and copy buttons where the deck is read in a browser.
 useWhen: Your slides show an API call, a config file, a query or a migration, and a screenshot of an editor would be blurry, unsearchable and the wrong colors.

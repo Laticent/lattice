@@ -36,7 +36,7 @@
       "list-tabular",
       "split across slides"
     ],
-    "note": "the ledger reads cleanly up to about six rows"
+    "note": "the ledger reads cleanly up to about six rows; from five each row collapses to one line, so seven fit when each body is one line (about 10 words)"
   },
   "density": {
     "axis": "item",
@@ -60,15 +60,15 @@
     "rows": {
       "selector": "ul > li",
       "required": true,
-      "description": "One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing inline-code actor name (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body."
+      "description": "One row per responsibility. Each li leads with the responsibility label — rendered bold automatically (no `**…**` needed) — then a trailing actor-name pill, written `{Name}` in inline code (rendered as a right-aligned categorical pill), then an optional nested bullet carrying a one-line body."
     }
   },
-  "skeleton": "<!-- _class: actors -->\n\n## Who owns each part of the process.\n\n- Owns the first part `First actor`\n  - One-line note on what that ownership covers.\n- Owns the second part `Second actor`\n  - One-line note.\n- Owns the third part `Third actor`\n  - One-line note.\n",
+  "skeleton": "<!-- _class: actors -->\n\n## Who owns each part of the process.\n\n- Owns the first part `{First actor}`\n  - One-line note on what that ownership covers.\n- Owns the second part `{Second actor}`\n  - One-line note.\n- Owns the third part `{Third actor}`\n  - One-line note.\n",
   "anatomyBlock": "actors",
-  "sample": "<!-- _class: actors -->\n\n## The actors ledger names who owns what.\n\n- Owns one row `Each actor`\n  - A verb-first responsibility, twelve words at most.\n- Reads top to bottom `The ledger`\n  - Order carries seniority or sequence.\n- Answers by name `The role chip`\n  - The inline code names the seat.\n- Stops at six rows `This layout`\n  - Past six, reach for list-tabular.\n",
+  "sample": "<!-- _class: actors -->\n\n## The actors ledger names who owns what.\n\n- Owns one row `{Each actor}`\n  - A verb-first responsibility, twelve words at most.\n- Reads top to bottom `{The ledger}`\n  - Order carries seniority or sequence.\n- Answers by name `{The role chip}`\n  - The inline code names the seat.\n- Stops at six rows `{This layout}`\n  - Past six, reach for list-tabular.\n",
   "stressDoc": {
     "summary": "Seven rows — the ledger's ceiling.",
-    "sample": "<!-- _class: actors -->\n\n## Seven rows is where the ledger maxes out.\n\n- Row one `First seat`\n  - Even at the ceiling, every row keeps a verb-first responsibility line.\n- Row two `Second seat`\n  - Eighteen words is the hard budget; this row spends most of them deliberately.\n- Row three `Third seat`\n  - Rows stay parallel or the column of chips stops lining up.\n- Row four `Fourth seat`\n  - Middle rows read fastest; bury nothing important here.\n- Row five `Fifth seat`\n  - The eye is tiring by now — keep these short.\n- Row six `Sixth seat`\n  - The soft ceiling was one row ago.\n- Row seven `Last seat`\n  - The hard stop; an eighth row means a second slide.\n"
+    "sample": "<!-- _class: actors -->\n\n## Seven rows is where the ledger maxes out.\n\n- Row one `{First seat}`\n  - Even at the ceiling, every row keeps a verb-first responsibility line.\n- Row two `{Second seat}`\n  - Eighteen words is the hard budget; this row spends most of them deliberately.\n- Row three `{Third seat}`\n  - Rows stay parallel or the column of chips stops lining up.\n- Row four `{Fourth seat}`\n  - Middle rows read fastest; bury nothing important here.\n- Row five `{Fifth seat}`\n  - The eye is tiring by now — keep these short.\n- Row six `{Sixth seat}`\n  - The soft ceiling was one row ago.\n- Row seven `{Last seat}`\n  - The hard stop; an eighth row means a second slide.\n"
   },
   "whenToUse": [
     {
@@ -119,7 +119,7 @@
   "commonMistakes": [
     {
       "mistake": "Putting the actor name as the first word of the row instead of a trailing inline-code chip.",
-      "fix": "The row reads responsibility-then-actor: the label leads (auto-bold), and the actor name must be a TRAILING, direct-child inline-code chip on the same line — `- Owns the first part \\`First actor\\`` — not the other way around, or it won't render as the right-aligned pill."
+      "fix": "The row reads responsibility-then-actor: the label leads (auto-bold), and the actor name must be a TRAILING, direct-child pill on the same line — `- Owns the first part \\`{First actor}\\`` — not the other way around, or it won't render as the right-aligned pill."
     }
   ],
   "specimenVoice": true,

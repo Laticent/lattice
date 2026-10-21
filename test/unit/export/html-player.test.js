@@ -1706,7 +1706,11 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Then the no-JS page states a concrete color-scheme per baked scheme, as the script
 	// stamps it, where it used to inherit the sheet's `light dark` (found by the new
 	// integration test's style comparison).
-	assert.equal(sha, '22a355ea43e72b8b0843dca640f30288b9a8387c0c5c6e4b11acfe37c282ca11', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for canonical ATTRIBUTE ORDER (2026-10-17, host parity §11.9): every element in a
+	// slide now takes its attributes in name order, so the CLI and the Studio serialize a slide the
+	// same way whatever wrote them. Diffed: exactly three lines move, two <section> tags and one
+	// <aside>, each the same attributes reordered; nothing else.
+	assert.equal(sha, 'e4861b03e066275d67b35a33425aacfeca0232cba48393d1b4c46777a2081b03', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -2722,4 +2726,28 @@ test('prunePlayerCss safelist splits compounds and functional pseudos, never sub
 	assert.doesNotMatch(keep('.anima-live-x{a:3}', ['.anima-live']), /anima-live-x/);
 	assert.doesNotMatch(keep('#anima-live{a:4}', ['.anima-live']), /anima-live/);
 	assert.doesNotMatch(keep('p.accent-body{a:5}', ['body']), /accent-body/);
+});
+
+// What the inliner bakes into a shared player is limited by TYPE: pictures only, wherever they sit
+// (a sibling folder's logo is ordinary), and never another kind of file a deck names. A reference
+// to nothing stays as written, so no folder path rides into the file. Found by the #2739 red team.
+test('relative style urls resolve to files that exist, and the inliner embeds pictures only', () => {
+	const { fileToDataUri } = require('../../../lib/export/html-player.js');
+	const { bake } = require('./bake-helper.js');
+	const os = require('node:os');
+	const fs = require('node:fs');
+	const path = require('node:path');
+	const { pathToFileURL } = require('node:url');
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-inline-'));
+	fs.mkdirSync(path.join(root, 'deck'));
+	fs.writeFileSync(path.join(root, 'secret.txt'), 'private');
+	fs.writeFileSync(path.join(root, 'logo.svg'), "<svg xmlns='http://www.w3.org/2000/svg'/>");
+	const base = pathToFileURL(path.join(root, 'deck') + path.sep).href;
+	const out = bake('<div style="background:url(&quot;../secret.txt&quot;)"></div><div style="background:url(../logo.svg)"></div><div style="background:url(typo.png)"></div>', { baseUrl: base });
+	assert.ok(out.html.includes('url(typo.png)'), 'a reference to nothing stays as written');
+	assert.ok(out.html.includes('url(&quot;../secret.txt&quot;)'), 'and so does a file that is not a picture: no folder path in the file');
+	assert.deepEqual(out.missing, ['../secret.txt (not a picture, so not embedded)', 'typo.png'], 'both reported, as written, with the reason');
+	assert.match(out.html, /url\(data:image\/svg\+xml/, "a sibling folder's picture is embedded");
+	assert.doesNotMatch(out.html, /cHJpdmF0ZQ|private/, 'a file that is not a picture never is');
+	assert.equal(fileToDataUri(path.join(root, 'secret.txt')), null);
 });

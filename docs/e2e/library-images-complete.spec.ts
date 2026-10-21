@@ -44,9 +44,40 @@ async function withPhotos(page: Page) {
 
 const editorText = (page: Page) => page.getByLabel('Deck source');
 
+// ACCEPT THE MENU THE WAY CODEMIRROR WILL TAKE IT. `acceptCompletion` returns false, and leaves the key to
+// the next binding, in two windows: within `interactionDelay` (75 ms, CodeMirror's default, which the Studio
+// keeps) of the menu first opening, and while a source is still pending (the menu then carries
+// `cm-tooltip-autocomplete-disabled` but keeps its options and its `aria-selected`). The Enter then reaches
+// the Markdown keymap, which continues the list: `- te` became `- te` plus a new `- ` line, the failure four
+// unrelated PRs hit (followups.d/2649-p3). It happened whenever the three assertions before the Enter all
+// passed on their first poll, which is a matter of when the menu happened to appear. So the helper records
+// when the menu opened, from the page, and polls until it is older than the delay and enabled.
+const CM_INTERACTION_DELAY_MS = 75;
+
+async function watchMenuOpen(page: Page) {
+	await page.evaluate(() => {
+		const w = window as unknown as { __cmMenuAt?: number };
+		w.__cmMenuAt = document.querySelector('.cm-tooltip-autocomplete') ? Date.now() : undefined;
+		new MutationObserver(() => {
+			const open = !!document.querySelector('.cm-tooltip-autocomplete');
+			if (open && w.__cmMenuAt === undefined) w.__cmMenuAt = Date.now();
+			if (!open) w.__cmMenuAt = undefined;
+		}).observe(document.body, { childList: true, subtree: true });
+	});
+}
+
+async function acceptCompletion(page: Page) {
+	await expect(page.locator('.cm-tooltip-autocomplete')).not.toHaveClass(/cm-tooltip-autocomplete-disabled/);
+	await expect
+		.poll(() => page.evaluate(() => Date.now() - ((window as unknown as { __cmMenuAt?: number }).__cmMenuAt ?? Date.now())))
+		.toBeGreaterThan(CM_INTERACTION_DELAY_MS + 25);
+	await page.keyboard.press('Enter');
+}
+
 test('@smoke typing an image reference offers the Library photos, shared and this deck’s own @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await withPhotos(page);
 	await setEditorContent(page, '# Pics\n\n');
+	await watchMenuOpen(page);
 	await appendToEditor(page, '![team](as');
 	const menu = page.locator('.cm-tooltip-autocomplete');
 	await expect(menu).toBeVisible();
@@ -54,10 +85,9 @@ test('@smoke typing an image reference offers the Library photos, shared and thi
 	await expect(menu.getByRole('option', { name: /asset:deck-only/ })).toContainText('this deck');
 	// Narrow by typing, then accept: the reference lands whole.
 	await page.keyboard.type('set:team');
-	// Accept only once the menu has settled on the match: CodeMirror ignores an Enter that lands in its first moments.
 	await expect(menu.getByRole('option', { name: /asset:team-shot/ })).toHaveAttribute('aria-selected', 'true');
 	await expect(menu.getByRole('option')).toHaveCount(1);
-	await page.keyboard.press('Enter');
+	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('![team](asset:team-shot');
 	// And it is the photo the slide then paints.
 	await page.keyboard.type(')');
@@ -67,12 +97,13 @@ test('@smoke typing an image reference offers the Library photos, shared and thi
 test('@smoke on a collage slide a list item offers whole photo lines, with the alt text selected @crosswidth @webkit-tablet @gecko', async ({ page }) => {
 	await withPhotos(page);
 	await setEditorContent(page, '<!-- _class: collage -->\n\n## Site walk\n\n');
+	await watchMenuOpen(page);
 	await typeInEditor(page, '- te');
 	const menu = page.locator('.cm-tooltip-autocomplete');
 	await expect(menu).toBeVisible();
 	await expect(menu.getByRole('option', { name: /team-shot/ })).toContainText('photo');
 	await expect(menu.getByRole('option', { name: /team-shot/ })).toHaveAttribute('aria-selected', 'true');
-	await page.keyboard.press('Enter');
+	await acceptCompletion(page);
 	await expect(editorText(page)).toContainText('![Team shot](asset:team-shot)');
 	// The alt text is selected, so typing replaces it with something a screen reader can use.
 	await page.keyboard.type('The whole team');

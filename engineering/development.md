@@ -164,7 +164,7 @@ test/integration/invariants/  component-invariants (semantic gate),     [PR]
                               tools/check-slide-contrast.js)
 test/integration/galleries/   emulator.gallery                      [nightly]
 test/integration/components/  component- + bucket-galleries          [nightly]
-test/integration/exemplars/   exemplar-render (45 decks)            [nightly]
+test/integration/exemplars/   exemplar-render (46 decks)            [nightly]
 test/integration/mermaid/     mermaid-smoke                         [nightly]
 test/integration/screenshot/  screenshot, svg-scaling              [nightly]
 test/integration/lint-engine/ lint-engine-equivalence: esm/lint.js  [nightly]
@@ -228,7 +228,7 @@ last green run of this arm could have moved (`tools/player-contrast-select.js`, 
 "every gallery" for any path it does not recognize); on Sunday it audits all of them. The
 selector's rules, what it cannot see (a component's CSS leaking into another gallery; themes no
 gallery is on) and the measured saving are in
-`engineering/decisions/2026-10-16-player-contrast-galleries.md`. The sweep compares against
+`engineering/decisions/2026-10-16-player-contrast-galleries.md`. On Sunday (and on a manual dispatch) a second step audits a 41-deck sample of `examples/` for other themes and composed finish and register mixes (`player-contrast-select.js --examples`, about 8 min on 4 cores). The sweep compares against
 `test/oracle/player-contrast.json` — blessed **on `main`**, because ratios move with every theme
 and contrast change and a baseline blessed on a branch is stale before that branch merges — and
 fails only on a finding that is **new** or has got **worse**; the known sub-AA runs are tracked in
@@ -481,6 +481,28 @@ Three things the table's `n` column hides and the comment block spells out: skip
 are dropped, cancelled jobs are counted at their truncated duration (which flatters every
 percentile), and the window is ~13 hours. If a job outgrows its cap, raise the number and
 say what the new measured duration is — don't delete the line.
+
+## Platform suites (macOS and Windows)
+
+The per-PR CI is Linux only, so anything that depends on the operating system has no real-surface evidence there (HARD RULE #23). A
+**platform suite** is a check that runs on a GitHub-hosted macOS or Windows runner (free on this public repo), chosen by the work.
+The registry is `.github/platform-suites.json`, the workflow is `.github/workflows/platform-suites.yml`, and the selection rule is
+`tools/platform-suites-plan.js`. **Report-only**: the check is not required, and a red suite shows red.
+
+- **When it runs:** nightly, every suite; a manual dispatch (`gh workflow run platform-suites.yml -f suites=export-confine`, or
+  empty for all); a pull request, the suites whose `paths` match its diff (and all of them if the registry, planner or workflow changed).
+- **Add one:** an entry in the registry with `name`, `os`, `paths`, `run` and a `why` that names the OS-dependent behavior Linux cannot
+  show, then `npm run build:check` (`checkPlatformSuites` rejects a malformed entry or a `run` naming a deleted file).
+- **Use it as evidence:** link the run in the PR body under the claim it backs. The decision and its reasoning:
+  `engineering/decisions/2026-10-18-platform-suites.md`.
+- **Not worth a suite:** the Windows git-hook rules (`tools/prepare.js` under cmd.exe). Every Windows leg's `npm ci` already runs
+  `prepare`, and it passed on `windows-latest` (run 39197530212); running the hooks themselves would run the whole unit suite there.
+- **Alert:** a scheduled or manual run that fails or is cancelled (a timeout reads as cancelled) opens, or comments on, a GitHub issue titled "Nightly platform suites failed" (the
+  `alert` job in the workflow: failed jobs and the run link; a person closes it). Pull requests do not alert, since their check shows red.
+- **Windows:** `build-windows` runs the full `npm run build` on `windows-latest` and `export-confine-windows` runs the CLI confinement
+  checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
+  backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
+  installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
 
 ## Integration test cache
 
@@ -1041,7 +1063,8 @@ The Studio's real-browser e2e suite (`docs/e2e/*.spec.ts`, driven by
 `engineering/decisions/2026-06-28-experience-gating-playwright.md`. The two
 sandbox specs, `code-packages.spec.ts` and `web-images.spec.ts`, also run in that workflow's own
 `security` job, on Chromium, Gecko and WebKit with no retries: the whole suite overran its
-45-minute step on most nights, and a leak must not wait on a suite that never reaches it. That
+45-minute step on most nights, and a leak must not wait on a suite that never reaches it. `player-host-parity.spec.ts` has its own
+`player-parity` job for the same reason (Chromium only, about 2 minutes of tests). That
 asymmetry is a footgun: a change to shared Studio chrome can pass every
 PR-gating tier (unit/build/lint) while silently breaking specs that only the
 nightly runs (the #780 drift; `2026-07-06-e2e-chrome-selector-contract.md`). So

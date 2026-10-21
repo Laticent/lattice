@@ -380,7 +380,7 @@ fix lands once, not per surface (see
   to that section — because the engine derives a slide's page number from its
   ordinal position among the sections it parses and accepts no offset, and because
   a lone slice also loses inherited running-global directives (a mid-deck
-  `<!-- header: … -->`) and the deck-scoped progress rail. Narrowing is skipped
+  `<!-- class: … -->`; `header`, `footer` and `paginate` no longer carry) and the deck-scoped progress rail. Narrowing is skipped
   whenever the engine's section count disagrees with `slideCount` — a
   `_focusSteps` or `split: headings` deck expands one authored slide into several,
   and picking by index there would paint the WRONG slide — in which case the

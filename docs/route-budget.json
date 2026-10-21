@@ -22,7 +22,7 @@
       },
       "lintCoreGz": {
         "soft": 92465,
-        "hard": 102736
+        "hard": 112000
       },
       "chartKernelsGz": {
         "soft": 200314,
@@ -86,7 +86,7 @@
       },
       "engineJsGz": {
         "soft": 288314,
-        "hard": 317145
+        "hard": 321241
       }
     }
   }

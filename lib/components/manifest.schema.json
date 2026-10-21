@@ -246,6 +246,27 @@
         }
       }
     },
+    "inlineRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depths"],
+      "description": "Declare this when the component lays its LIST ITEMS out with `display:flex` or `grid`. In such a container every child is its own item, so a pill, check or bold span inside an item's label splits the label into separate items (a step card's title became three stacked blocks with the pill stretched full width). The shared transformer lib/transformers/inline-run.js wraps the item's leading inline run in one `<span class=\"lat-run\">` when it holds bare text AND an element, so the flex host sees one item for its label, as it did for plain text. A trailing pill or inline `code` stays outside: components read it as a slot. OMIT for a component whose items are plain blocks, which is most of them. Measured, not assumed: a pill injected mid-text into every list item of the gallery source split 69 flex or grid hosts across 16 components (engineering/decisions/2026-10-20-inline-objects-audit.md).",
+      "properties": {
+        "depths": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "List depths whose items are wrapped: 1 is an item of the section's outermost list, 2 an item of a list nested inside one of those. Name only the depths the component's CSS makes a flex or grid container."
+        },
+        "slots": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^\\.?[a-z][a-z0-9-]*$" },
+          "uniqueItems": true,
+          "description": "Direct children of an item that this component's CSS reads as STRUCTURE, beyond the two every component has (a trailing `code` and a trailing `.lat-pill`, the metadata-pill convention). Each is a tag name (`strong`, `em`) or a class token with a leading dot (`.badge`, `.lat-spark`): a title `strong`, the pricing badge. A slot at the end of an item's run stays a sibling of the wrapper, and an item that starts with one is not wrapped, so the rule that styles the slot still matches. Read them off the component's own `li > X` selectors, and look at the layout too: a component that spaces its item's children with `justify-content` or grid columns treats them as items. OMIT when the component reads none beyond the defaults."
+        }
+      }
+    },
     "labelSet": {
       "type": "object",
       "additionalProperties": false,
@@ -1724,6 +1745,10 @@
             "quotes": {
               "type": "boolean",
               "description": "A `>` blockquote indented under one of the chart's LIST rows is that row's description, read with the row's value-less nested bullets as its detail: shown on hover and tap and in the speaker note (lib/components/chart/_chart-family/mark-detail.js). False on a table chart, whose cells carry no list row, and on progress, whose nested note shows on the slide face."
+            },
+            "nested": {
+              "enum": ["point-unless-valued", "detail"],
+              "description": "What a record written on a row NESTED under another row is, as the chart's kernel reads that row today (lib/core/chart-rows.js `isDetailRow`). `point-unless-valued`: a series point under a parent that holds no value of its own (a bar category, a line series, a slope entity, a stacked-bar category), and detail under one that does, where a pill is a pill as it is on main (a delta under a bar value). Two documented shapes put a plain value under a valued parent and are read from the old spans until phase 4, and lint says so: stacked-bar's authored category total over its segments, and a plain-number record under a valued parent. `detail`: every row below the first data depth is detail, whatever its parent holds (pie, funnel, map, waterfall, word-cloud, progress, quadrant, scatter, radar, bullet; bullet's keyword rows `Target`, `Floor`, `Band` read from the old spans until phase 4). Detail rows keep their pills."
             },
             "markless": {
               "type": "object",

@@ -137,7 +137,22 @@ export default defineConfig({
 		{
 			name: 'desktop',
 			use: { viewport: { width: 1440, height: 900 } },
-			grepInvert: /@mobile|^(?!.*@crosswidth).*@webkit/,
+			grepInvert: /@mobile|@player-parity|^(?!.*@crosswidth).*@webkit/,
+		},
+		// THE HOST-PARITY SPEC (e2e/player-host-parity.spec.ts). Both hosts must measure text the same
+		// way, and a hosted runner's two Chromium modes do not: the CLI's page (`headless: 'new'`) takes
+		// whole-pixel or fractional glyph advances from the machine's font settings, while Playwright's
+		// headless shell defaults to full hinting. `--font-render-hinting=none` pins the Studio side to
+		// the fractional advances the CLI side gets, so the spec compares CODE, not font configuration.
+		// A real browser's settings still differ; the parity claim is per browser build AND per font
+		// configuration (engineering/pipeline.md).
+		{
+			name: 'player-parity',
+			use: {
+				viewport: { width: 1440, height: 900 },
+				launchOptions: { args: ['--font-render-hinting=none'] },
+			},
+			grep: /@player-parity/,
 		},
 		// A RAISED BROWSER MINIMUM FONT SIZE — the low-vision setting at Chrome's
 		// Settings -> Appearance -> Customize fonts. `--blink-settings=minimumFontSize` is the

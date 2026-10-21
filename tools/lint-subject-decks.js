@@ -21,6 +21,11 @@ const SANCTIONED_SUBJECT_DECKS = Object.freeze([
     rule: 'chart-value-malformed',
     why: 'the demo deck for followups.d/2609-p2: it shows a chart drawing no value for `--5`, `(840` and `1,2,3`, so the warning is the point',
   },
+  {
+    file: 'examples/bg-split-ratio.md',
+    rule: 'bg-ratio-unread',
+    why: 'the demo deck for followups.d/2739-p4: it shows `![bg left:40%]` keeping its panel at the layout\'s own share, so the note that the ratio is not read is the point',
+  },
 ]);
 
 /** Is this finding on `rel` (a repo-relative path) one its deck is sanctioned to carry? */

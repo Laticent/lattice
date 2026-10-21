@@ -320,7 +320,7 @@ function substituteVars(value, probes) {
  * Each var() in a value is an INDEPENDENT slot and gets its own probe — the first
  * cut substituted one probe into every slot at once, which reported 40+ false
  * positives on this repo's own CSS. `border: var(--chart-hairline) solid
- * var(--pill-ink)` is fine as `1px solid red` and nonsense as `red solid red`, and
+ * var(--chart-status-ink)` is fine as `1px solid red` and nonsense as `red solid red`, and
  * only a per-slot search finds the first. The slot's DECLARED FALLBACK is tried
  * ahead of these where one exists, because the author wrote the type they expect
  * right there in the value.

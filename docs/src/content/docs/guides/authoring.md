@@ -363,9 +363,15 @@ a running band turns **on** by giving it text and **off** by removing the line.
 The section rail has no such directive, so its deck-wide off-switch is the
 `no-progress` class, which propagates to every slide. Want the rail gone
 everywhere? Add `class: no-progress` to the front matter. Want it back on one
-slide? That direction is rarer — reach for Marp's per-slide `_header:` /
-`_footer:` / `_paginate:` local directives when you need to turn a band *on* for
+slide? That direction is rarer — reach for the per-slide `_header:` /
+`_footer:` / `_paginate:` directives when you need to turn a band *on* for
 a single slide against a deck that leaves it off.
+
+A header, footer or page-number comment on a slide sets **that slide only**, with
+or without the underscore: `<!-- header: "Appendix" -->` on slide 12 puts the text
+on slide 12 and nowhere else. This is where Lattice differs from Marp, which
+carries the plain form onto every later slide. To set one for every slide, put it
+in the front matter.
 
 For a slide that wants **none** of the standard chrome — a bookend, a full-bleed
 statement — `silent` clears the header, footer, and page number in one token:

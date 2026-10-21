@@ -175,6 +175,7 @@
       "rows": {
         "shape": "fields",
         "quotes": true,
+        "nested": "detail",
         "legacy": [
           "value"
         ]

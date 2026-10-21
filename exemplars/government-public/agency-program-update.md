@@ -33,13 +33,13 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 1. 70%
    - Claims on new platform
-   - target 65% this quarter `On plan`
+   - target 65% this quarter `{On plan}`
 2. 4.2 days
    - Median time to first payment
-   - vs 21 days on legacy `On plan`
+   - vs 21 days on legacy `{On plan}`
 3. $51M
    - Spent of $58M authorised
-   - 88% drawn `On plan`
+   - 88% drawn `{On plan}`
 
 ---
 
@@ -70,13 +70,13 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 1. 99.94%
    - Platform availability
-   - SLO 99.9% `On track`
+   - SLO 99.9% `{On track}`
 2. 99.2%
    - Payment accuracy
-   - target 99% `On track`
+   - target 99% `{On track}`
 3. 0
    - Security findings open
-   - pen-test cleared `Compliant`
+   - pen-test cleared `{Compliant}`
 
 ---
 
@@ -87,7 +87,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ## What ships in each phase, by workstream.
 
-| Workstream | Now `Q2 2027` | Next `Q4 2027` | Later `Q2 2028` |
+| Workstream | Now `{Q2 2027}` | Next `{Q4 2027}` | Later `{Q2 2028}` |
 | --- | --- | --- | --- |
 | Claims platform | [x] Initial claims | [-] Appeals module | [ ] Employer portal |
 | Legacy retirement | [x] Read-only | [-] Mainframe off | [ ] Data archive |
@@ -103,7 +103,7 @@ Two years in, the modernised platform processes seven of every ten initial claim
 
 ## Delivery status by workstream, plainly stated.
 
-| Workstream | Foundation `FY26` | Build `FY27` | Scale `FY28` |
+| Workstream | Foundation `{FY26}` | Build `{FY27}` | Scale `{FY28}` |
 | --- | --- | --- | --- |
 | Claims platform | [x] Core engine | [-] 70% of volume | [ ] Full cutover |
 | Legacy retirement | [x] Inventory | [-] Phased cutover | [ ] Decommission |

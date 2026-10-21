@@ -399,13 +399,24 @@ the same pinned instant (`SOURCE_DATE_EPOCH`, else the epoch), and
 `test/integration/export/player-reproducible.test.js` exports a deck twice and compares the bytes.
 Before 2026-10-16 the CLI stamped the wall clock there, the only byte that moved between runs.
 
-**What keeps a player file small**, in the order the passes run:
+**The same deck gives the same player from the CLI and the Studio**, apart from three things: the
+time stamp, the policy's script hashes, and the envelope's `host` field (`cli` or `studio`), which
+records which tool wrote the file. Everything else is meant to match, formatting included: both
+hosts compose the deck sheet from the minified builds (`lib/export/cli-deck-sheet.js`
+`shippedSheetText`), build the document's stylesheet from `lib/export/export-scaffold.js`, embed
+the same font files, and stamp the same `build` and `playerVersion`. What still differs is listed
+in `engineering/decisions/2026-10-16-player-as-library-audit.md` §11.9.
+
+**What keeps a player file small**, in the order the passes run. Both hosts run every pass with
+the same code: the first two inside `assemblePlayer`'s tail (`player-seal.mjs` `sealPlayer`,
+which also writes the CSP), the rest in `player-prune.js` `prunePlayerHtml`, to which each host
+hands only a page (`lattice.js` a scratch Chromium tab, the Studio an offscreen iframe).
 
 | Pass | Where | What it removes |
 |---|---|---|
-| Glyph subset | `html-player.js` `subsetEmbeddedFonts` (CLI only) | characters the deck never draws |
-| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` (both hosts, inside `assemblePlayer`) | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
-| CSS prune | `player-prune.js`, run in a real browser by `lattice.js` and the Studio | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
+| Glyph subset | `player-fonts.js` `subsetEmbeddedFonts` (both hosts; the Studio runs it from the player-prune bundle) | characters the deck never draws |
+| Asset hoist | `player-assets.mjs` `hoistRepeatedAssets` | the second and later copies of a picture: each large base64 `url(data:…)` used twice or more is stored once as `:root{--lp-asset-N:url(…)}` and referenced with `var()` |
+| CSS prune | `player-prune.js` `prunePlayerHtml`, in a real browser | rules no element matches, behind a computed-style gate; it never targets the dark block or the `lp-assets` block (`PRUNE_SKIP_STYLE_IDS`) |
 | Font prune | `player-prune.js` `prunePlayerFontFaces` | families nothing uses |
 | Font merge | `player-prune.js` `mergeIdenticalFontFaces` | an identical font file declared once per weight: adjacent weights that share one file become one face with a weight range, unless a weight the page uses (measured, or written in the shipped CSS) falls strictly inside the run undeclared, or another stylesheet also declares the family |
 
@@ -413,6 +424,48 @@ The font merge is exact for every weight a face declares and every weight outsid
 was checked by rendering every weight from 100 to 900 in Chromium, WebKit and Firefox. A weight
 inside a run that no face declares (550 between 500 and 600) is the one case that would render
 differently, so the guard refuses the merge. Record: `decisions/2026-10-16-player-as-library-audit.md` §3.
+
+**The Studio's raster exports carry the export setting's overflow marker.** PDF, images, PowerPoint and LibreOffice rasterize a
+capture frame whose runtime paints the marker, so `share-export.ts` passes each one the workspace's level (`reader` by
+default); `docs/e2e/studio-raster-export-marker.spec.ts` reads the left-edge pixel of a clipped slide in each (an
+authoring ring is red there).
+
+**The Studio's Webpage export takes `--player-consent`'s choice.** Share → Webpage lists the other sites a deck's pictures use
+(`webPictureOrigins`, `lib/export/inline-url-media.mjs`); a ticked site goes to `assemblePlayer` as `consentOrigins`, the field
+the CLI sets. `docs/e2e/studio-player-consent.spec.ts` drives it on Chromium, Firefox and WebKit against a loopback server:
+the export, and the file before the reader consents, make no request.
+
+**The CLI draws a Mermaid fence in a quote or a list item.** `lib/core/mermaid-fences.js` (shared with the narrator) opens a
+fence only at 0-3 spaces, so `mermaid.bake.js` also asks `lib/plugins/mermaid/shared/nested-fences.js`, which reads the fence
+tokens markdown-it reports for the deck and re-quotes the baked figure with the opener's prefix. A fence indented one to three
+spaces under a list item is found by both walkers; the nested entry wins, so the figure keeps the item's indent and stays in
+the list, as the Studio draws it. In the Studio a quoted or list-nested figure sizes as the CLI's baked one does: the
+container's width and the height its viewBox gives (`mermaid.styles.css`, followups.d/2739-p11). Before, it kept the 1152×480
+box meant for hosts that are not slides, filled the stage and flagged the slide as overflowing. The parity spec carries both
+shapes (`examples/mermaid-nested-fences.md`, `examples/mermaid-quoted-fence.md`). On a `diagram` slide a bulleted fence keeps the
+slide-level splice, so the figure fills the stage. The bake ends each figure with a blank line (quoted for a quote) when
+the next line would otherwise join its HTML block, so a caption under the fence renders as markdown (followups.d/2739-p12). In a tight list that blank line makes the list
+loose (each item's text in a `<p>`), where the Studio, which never bakes, keeps it tight: only a blank line ends that HTML
+block, so this is the price of the caption rendering at all, and `section p` carries no spacing of its own.
+
+**The two hosts pack the same input to the same bytes.** `test/integration/export/player-host-parity.test.js`
+fires every pass above on one fixture and asserts one SHA from the CLI's code and from the
+Studio's own modules bundled into Chromium. That covers the packer.
+
+**And the two hosts render the same deck to the same file.** The Studio's Share → Webpage export and
+the CLI's `--player` write identical bytes for one deck, apart from three things the owner ruled out:
+the record's `generatedAt`, its `host` field (`cli` or `studio`), and the policy's script hashes.
+`docs/e2e/player-host-parity.spec.ts` asserts it from markdown in both hosts (nightly, in its own
+`player-parity` job in `studio-e2e-nightly.yml`, which also runs on every dispatch), on a plain deck, a Mermaid deck and a portrait split. `PARITY_CORPUS=1` runs it over the 25 example decks §11.9
+measured (all byte-identical on 2026-10-20), and `PARITY_DECKS=a,b` over a named list: run the corpus before shipping a change to the
+Studio's bake or to a runtime pass its bake frame runs, because a new runtime stamp is a byte only the Studio's file carries. **The claim is per browser build:** both hosts read computed styles, and two Chromium
+versions spell some computed colors differently, so the spec runs the CLI on the Chromium the suite
+uses, and a Studio export made in Safari or Firefox will differ. **It is also per font
+configuration:** a hosted runner's Playwright headless shell hints glyph advances to whole pixels
+while the CLI's page does not, which moved a Mermaid node 4.8 px (three red nightly dispatches,
+2026-10-18), so the spec runs in its own `player-parity` Playwright project with
+`--font-render-hinting=none`. Record:
+`decisions/2026-10-16-player-as-library-audit.md` §11.9.
 
 **This is same-machine reproducibility, and the cross-machine gap is much bigger
 than people expect.** Skia's rasterization is CPU-dispatched and not

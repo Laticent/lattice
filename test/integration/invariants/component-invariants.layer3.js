@@ -33,7 +33,7 @@
 // HTML (gantt/kanban/progress/timeline-list/roadmap/state-chart). That frame
 // existing == the chart-family transform ran and consumed the authored source.
 const CHARTS = [
-  'bar', 'bullet', 'funnel', 'heatmap', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'gantt', 'hub-spoke', 'journey', 'kanban', 'map', 'piechart',
+  'bar', 'bullet', 'funnel', 'heatmap', 'line', 'scatter', 'slope', 'stacked-bar', 'waterfall', 'tower', 'risk-matrix', 'histogram', 'ep-curve', 'gantt', 'hub-spoke', 'journey', 'kanban', 'map', 'piechart',
   'progress', 'quadrant', 'radar', 'roadmap', 'state-chart', 'flowchart',
   'timeline-list', 'word-cloud',
 ];
@@ -247,7 +247,7 @@ const LAYER3 = {
     'renders multiple token-colored mark spans':
       present('.logo-mark', 2, 'logo-wall did not render multiple .logo-mark spans (logo-marks transform)'),
     'marks can carry a name + pill caption below the mark':
-      eachWith('ul > li', [':scope > .logo-mark', ':scope > ul > li > code'], 2,
+      eachWith('ul > li', [':scope > .logo-mark', ':scope > ul > li > .lat-pill'], 2,
         'logo-wall did not render captioned marks (mark + nested name/pill list)'),
   },
   'q-and-a': {
@@ -280,7 +280,7 @@ const LAYER3 = {
   },
   'statute-stack': {
     'each jurisdiction renders a label and a statutory citation':
-      eachWith('ul > li', ['strong', 'code'], 3, 'statute-stack did not render labeled rows with citations'),
+      eachWith('ul > li', ['strong', '.lat-pill'], 3, 'statute-stack did not render labeled rows with citations'),
   },
 
   // ── math ──

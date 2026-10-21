@@ -65,11 +65,11 @@ footer: "Budget the words, not just the elements"
 
 ## Each row gets a word budget too.
 
-- Owns the scoring model `Head of Product`
+- Owns the scoring model `{Head of Product}`
   - One short responsibility, not a job description.
-- Runs the weekly review `Chief of Staff`
+- Runs the weekly review `{Chief of Staff}`
   - A clause per row keeps the ledger scannable.
-- Maintains the log `Program Manager`
+- Maintains the log `{Program Manager}`
   - Detail belongs on a follow-up slide, not here.
 
 ---
@@ -78,11 +78,11 @@ footer: "Budget the words, not just the elements"
 
 ## The chrome has budgets, regardless of layout.
 
-- Eyebrow `≤ 5 words`
+- Eyebrow `{≤ 5 words}`
   - A label that frames, not a sentence that explains.
-- Title and subtitle `≤ 10 · ≤ 12`
+- Title and subtitle `{≤ 10 · ≤ 12}`
   - The takeaway lands in one tight line.
-- Key insight and pill `≤ 18 · ≤ 2`
+- Key insight and pill `{≤ 18 · ≤ 2}`
   - One memorable sentence; a one-word status chip.
 
 ---

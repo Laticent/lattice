@@ -190,6 +190,21 @@ export interface UseResizableSplitOptions {
 	 *  (see bucketOf), so this only needs to change on a config change; it can't
 	 *  cause a wrong-config restore even if it under-specifies. */
 	configKey: string
+	/**
+	 * The ideal layout for a panel set that has no SAVED layout — what a first visit, or a
+	 * panel toggled into a never-dragged configuration, starts at. Receives the ids the group
+	 * has right now and returns each one's percentage plus whether the editor must fold to its
+	 * rail to keep every other panel at its minimum. Without it the panels' own `defaultSize`
+	 * stand, which is only right when they are all one unit (mixed px + % is normalized by the
+	 * library, so a px dock never opens at its px default).
+	 */
+	freshLayout?: (ids: string[]) => { layout: Record<string, number>; foldEditor: boolean } | undefined
+	/**
+	 * The person asked to expand a pane that is folded (or collapsed into a group with no room
+	 * for it). The library would swap the panes instead, so the consumer makes room — it closes a
+	 * dock — and the fold lifts itself on that panel-set change.
+	 */
+	onFoldedExpand?: (side: SplitSide) => void
 	/** The ids of the panels the consumer is about to render, in any order —
 	 *  **only from an island that NEVER server-renders** (`client:only`). The name carries the
 	 *  constraint because passing it from a hydrated island is silently destructive, and a
@@ -310,6 +325,15 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// collapsed pane; we re-collapse it and, during this window, treat pollCollapse's
 	// transient expand/collapse as noise (no persist, no callbacks).
 	const configChangingRef = React.useRef(false)
+	// True from the moment the stored-collapse restore effect re-collapses a pane until the
+	// library's onResize has reported it. A SEPARATE flag from `configChangingRef` on purpose:
+	// `tryRestore`'s `releaseConfigChanging` clears that one two frames after its own setLayout,
+	// which can land before this effect's double-rAF collapse does, and the poll then read the
+	// restore as the person's own collapse (a reload re-showed "Editor collapsed.").
+	const restoringCollapseRef = React.useRef(false)
+	// Which run of the restore effect owns `restoringCollapseRef`. A re-run inside the settle window
+	// must not have its flag cleared by the previous run's pending settle frames.
+	const restoreGenRef = React.useRef(0)
 
 	// The pending-restore latch. `pending` is raised when a restore is WANTED (mount, or a
 	// config change) and lowered the moment the group can answer — layout applied, or
@@ -318,6 +342,18 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 	// whichever signal arrives first satisfy it: the layout effect, the group's own
 	// `onLayoutChanged`, or a frame.
 	const restoreRef = React.useRef({ pending: false, frame: 0, deadline: 0, attempts: 0 })
+	// True while the editor is collapsed by `freshLayout` (a display adaptation to a narrow
+	// group), not by the person: it is never persisted, and it unfolds when the room returns.
+	const autoFoldRef = React.useRef(false)
+	const releaseConfigChanging = React.useCallback(
+		() =>
+			requestAnimationFrame(() =>
+				requestAnimationFrame(() => {
+					configChangingRef.current = false
+				}),
+			),
+		[],
+	)
 
 	/**
 	 * Assert the saved layout onto the panel set the group ACTUALLY has right now, and report
@@ -344,7 +380,17 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		// pollCollapse ← the panel's onResize ← the group's ResizeObserver, whereas this can run
 		// synchronously from `onLayoutChanged`, so the ref is structurally one observer tick
 		// stale at exactly this call site. The handles answer for now.
-		if (editorRef.current?.isCollapsed() || previewRef.current?.isCollapsed()) return done()
+		if (editorRef.current?.isCollapsed() || previewRef.current?.isCollapsed()) {
+			if (!autoFoldRef.current) return done()
+			// We folded the editor ourselves: put it back once the panel set has room again.
+			const fresh = optsRef.current.freshLayout?.(Object.keys(g.getLayout()))
+			if (!fresh || fresh.foldEditor) return done()
+			autoFoldRef.current = false
+			configChangingRef.current = true
+			editorRef.current?.expand()
+			releaseConfigChanging()
+			return false
+		}
 		const current = g.getLayout() as LayoutMap
 		const ids = Object.keys(current)
 		// `{}` until the library has measured the group, and setLayout({}) would THROW.
@@ -354,7 +400,44 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		// Bucket by the ACTUAL present ids (see bucketOf), so a saved layout is only ever
 		// applied to the exact panel set it was saved for.
 		const saved = readLayoutStore(storageKey)[bucketOf(current)]
-		if (!saved) return done()
+		// A saved layout cannot outrank the group's width: when the panels it holds leave the pair
+		// no room, the fold applies whatever was saved (the saved widths stay saved).
+		const expectedIds = optsRef.current.clientOnlyPanelIds
+		if (saved && (!expectedIds || bucketFor(expectedIds) === bucketOf(current))) {
+			const foldNow = optsRef.current.freshLayout?.(ids)
+			if (foldNow?.foldEditor) {
+				if (state.attempts++ >= RESTORE_MAX_ATTEMPTS) return done()
+				configChangingRef.current = true
+				g.setLayout(foldNow.layout)
+				autoFoldRef.current = true
+				if (!editorRef.current?.isCollapsed()) editorRef.current?.collapse()
+				releaseConfigChanging()
+				return editorRef.current?.isCollapsed() ? done() : false
+			}
+		}
+		if (!saved) {
+			// The group registers a toggled-in panel a beat after this runs. Laying out the panel
+			// set it HAD would call the toggle settled and leave the new dock at the library's
+			// own default, so wait until the group holds the set the consumer is rendering.
+			const expected = optsRef.current.clientOnlyPanelIds
+			if (expected && bucketFor(expected) !== bucketOf(current)) return false
+			const fresh = optsRef.current.freshLayout?.(ids)
+			if (!fresh) return done()
+			if (!fresh.foldEditor && layoutsMatch(current, fresh.layout)) return done()
+			if (state.attempts++ >= RESTORE_MAX_ATTEMPTS) return done()
+			configChangingRef.current = true
+			g.setLayout(fresh.layout)
+			if (fresh.foldEditor) {
+				autoFoldRef.current = true
+				if (!editorRef.current?.isCollapsed()) editorRef.current?.collapse()
+				releaseConfigChanging()
+				// Done only once the editor is really collapsed: a setLayout during the library's
+				// init window is dropped, so ask again until it reports back (bounded above).
+				return editorRef.current?.isCollapsed() ? done() : false
+			}
+			releaseConfigChanging()
+			return false
+		}
 		const target: LayoutMap = {}
 		for (const id of ids) {
 			if (typeof saved[id] !== "number") return done() // incomplete → leave the layout alone
@@ -366,7 +449,7 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		if (state.attempts++ >= RESTORE_MAX_ATTEMPTS) return done()
 		g.setLayout(target)
 		return false
-	}, [groupRef, editorRef, previewRef, storageKey])
+	}, [groupRef, editorRef, previewRef, storageKey, releaseConfigChanging])
 
 	// THE BACKSTOP behind the `defaultLayout` seed above — a LAYOUT effect, deliberately not
 	// `useEffect` + a double rAF.
@@ -443,19 +526,86 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 		const side = readStoredCollapse(storageKey)
 		if (!side) return
 		configChangingRef.current = true
+		const gen = ++restoreGenRef.current
+		restoringCollapseRef.current = true
 		let inner = 0
+		let collapsedHere = false
 		const outer = requestAnimationFrame(() => {
 			inner = requestAnimationFrame(() => {
 				if (!panelRefOf(side).current?.isCollapsed()) panelRefOf(side).current?.collapse()
+				collapsedHere = true
 				configChangingRef.current = false
+				// Hold the restore flag two more frames so the library's onResize for this collapse is
+				// read as the restore, not as the person's collapse.
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						if (restoreGenRef.current === gen) restoringCollapseRef.current = false
+					})
+				})
 			})
 		})
 		return () => {
 			cancelAnimationFrame(outer)
 			if (inner) cancelAnimationFrame(inner)
+			// Once the collapse has run, its settle frames finish clearing the flag (only if this run
+			// still owns it); before that, nothing else would.
+			if (!collapsedHere && restoreGenRef.current === gen) restoringCollapseRef.current = false
 			configChangingRef.current = false
 		}
 	}, [ready, active, configKey, storageKey, panelRefOf])
+
+	// A WINDOW resize can leave the panel set it already has too wide for the group (or give the
+	// room back), and neither is a config change. Re-ask the same fold question on a settled
+	// resize; it only folds or unfolds — it never re-applies widths, so a dragged layout stays.
+	React.useEffect(() => {
+		if (!ready || !active || !optsRef.current.freshLayout) return
+		let timer = 0
+		const sync = () => {
+			const g = groupRef.current
+			const editor = editorRef.current
+			if (!g || !editor) return
+			const layout = g.getLayout() as LayoutMap
+			const ids = Object.keys(layout)
+			const expected = optsRef.current.clientOnlyPanelIds
+			if (!ids.length || (expected && bucketFor(expected) !== bucketOf(layout))) return
+			const fresh = optsRef.current.freshLayout?.(ids)
+			if (!fresh) return
+			if (fresh.foldEditor && !editor.isCollapsed() && !previewRef.current?.isCollapsed()) {
+				configChangingRef.current = true
+				autoFoldRef.current = true
+				// collapse() alone is a no-op on a group the library has already squeezed; lay the
+				// folded widths out first, as the toggle path does.
+				g.setLayout(fresh.layout)
+				if (!editor.isCollapsed()) editor.collapse()
+				releaseConfigChanging()
+			} else if (!fresh.foldEditor && autoFoldRef.current && editor.isCollapsed()) {
+				autoFoldRef.current = false
+				configChangingRef.current = true
+				editor.expand()
+				releaseConfigChanging()
+				// The library scales the unfolded panels in percentages, which drifts the docks off
+				// the contract; a set the person never dragged goes back to its ideal widths.
+				if (!readLayoutStore(storageKey)[bucketOf(layout)]) {
+					requestAnimationFrame(() =>
+						requestAnimationFrame(() => {
+							const now = groupRef.current?.getLayout() as LayoutMap | undefined
+							const again = now ? optsRef.current.freshLayout?.(Object.keys(now)) : undefined
+							if (again && !again.foldEditor && !editor.isCollapsed()) groupRef.current?.setLayout(again.layout)
+						}),
+					)
+				}
+			}
+		}
+		const onResize = () => {
+			window.clearTimeout(timer)
+			timer = window.setTimeout(sync, 150)
+		}
+		window.addEventListener("resize", onResize)
+		return () => {
+			window.clearTimeout(timer)
+			window.removeEventListener("resize", onResize)
+		}
+	}, [ready, active, groupRef, editorRef, previewRef, releaseConfigChanging, storageKey])
 
 	// Track collapse via the panel's authoritative isCollapsed() (the library has
 	// no onCollapse event; onResize is our poll). Per-side prev guards the edge so
@@ -468,9 +618,20 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 			// Reflect the live state in the UI always…
 			if (now) setCollapsed(side)
 			else setCollapsed((c) => (c === side ? null : c))
+			// The library itself collapses the editor when a toggled-in panel leaves it no room,
+			// before `tryRestore` can say so. Ask the same question it would: is the fold what the
+			// ideal layout wants for a panel set the person never dragged?
+			if (now && side === "a" && !autoFoldRef.current) {
+				const layout = groupRef.current?.getLayout() as LayoutMap | undefined
+				const ids = layout ? Object.keys(layout) : []
+				if (ids.length && optsRef.current.freshLayout?.(ids)?.foldEditor) autoFoldRef.current = true
+			}
+			if (!now && side === "a") autoFoldRef.current = false
 			// …but during a config-change re-layout, the expand/collapse is the library
 			// churning, not the user — don't persist it or fire callbacks.
-			if (configChangingRef.current) return
+			if (configChangingRef.current || restoringCollapseRef.current) return
+			// A fold we made ourselves is not the person's collapse: no toast, nothing remembered.
+			if (now && autoFoldRef.current) return
 			if (now) {
 				writeStoredCollapse(storageKey, side)
 				optsRef.current.onCollapse?.(side)
@@ -479,13 +640,35 @@ export function useResizableSplit(options: UseResizableSplitOptions): ResizableS
 				optsRef.current.onExpand?.(side)
 			}
 		},
-		[panelRefOf, storageKey],
+		[panelRefOf, groupRef, storageKey],
 	)
 	const onEditorResize = React.useCallback(() => pollCollapse("a"), [pollCollapse])
 	const onPreviewResize = React.useCallback(() => pollCollapse("b"), [pollCollapse])
 
 	const collapse = React.useCallback((side: SplitSide) => panelRefOf(side).current?.collapse(), [panelRefOf])
-	const expand = React.useCallback((side: SplitSide) => panelRefOf(side).current?.expand(), [panelRefOf])
+	const expand = React.useCallback(
+		(side: SplitSide) => {
+			if (side === "a" && editorRef.current?.isCollapsed() && optsRef.current.onFoldedExpand) {
+				// Folded by us, or collapsed by the person into a group with no room for it: either
+				// way the library would swap the panes, so make room instead.
+				const layout = groupRef.current?.getLayout() as LayoutMap | undefined
+				const ids = layout ? Object.keys(layout) : []
+				const byFold = autoFoldRef.current
+				if (byFold || (ids.length && optsRef.current.freshLayout?.(ids)?.foldEditor)) {
+					optsRef.current.onFoldedExpand(side)
+					// Our own fold lifts itself once the dock is gone; a collapse the person made does
+					// not, so open the editor once the room exists.
+					if (!byFold)
+						window.setTimeout(() => {
+							if (editorRef.current?.isCollapsed()) editorRef.current.expand()
+						}, 300)
+					return
+				}
+			}
+			panelRefOf(side).current?.expand()
+		},
+		[panelRefOf, editorRef, groupRef],
+	)
 	// Reset (⌘K "Reset split"): expand any collapsed pane, clear this config's saved
 	// layout + collapse, and restore the DEFAULT editor share of the PAIR — keeping
 	// any docked Studio side panels where they are.

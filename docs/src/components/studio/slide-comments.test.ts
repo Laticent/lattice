@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	addComment,
 	clearComments,
@@ -7,7 +7,10 @@ import {
 	editComment,
 	importComments,
 	listComments,
+	mayDeleteComment,
+	mergeSessionComments,
 	openCountForSlide,
+	setCommentRelay,
 	setResolved,
 } from './slide-comments';
 
@@ -108,5 +111,55 @@ describe('slide-comments store', () => {
 		// The key is gone, not left as "[]" — a deleted deck leaks nothing.
 		expect(localStorage.getItem('lattice-studio-comments-' + DECK)).toBeNull();
 		expect(listComments(DECK)).toHaveLength(0);
+	});
+});
+
+// A live session's hold on a deck's comments (2026-10-20 live note, slice 6).
+describe('slide-comments in a live session', () => {
+	afterEach(() => setCommentRelay(null));
+	const relay = (mayDelete: (id: string) => boolean = () => true) => {
+		const log: string[] = [];
+		setCommentRelay({ deckId: DECK, added: (c) => log.push(`add ${c.body}`), resolved: (id, r) => log.push(`resolve ${id} ${r}`), deleted: (id) => log.push(`del ${id}`), mayDelete });
+		return log;
+	};
+
+	it("reports this person's own adds, resolves and deletes on the session's deck, and nothing on another deck", () => {
+		const log = relay();
+		const c = addComment(DECK, 1, 'Check the source');
+		setResolved(DECK, String(c?.id), true);
+		deleteComment(DECK, String(c?.id));
+		addComment('another-deck', 1, 'Elsewhere');
+		expect(log).toEqual(['add Check the source', `resolve ${c?.id} true`, `del ${c?.id}`]);
+	});
+
+	it("does not delete someone else's shared comment", () => {
+		const c = addComment(DECK, 1, 'Their note');
+		const log = relay((id) => id !== c?.id);
+		expect(mayDeleteComment(DECK, String(c?.id))).toBe(false);
+		deleteComment(DECK, String(c?.id));
+		expect(listComments(DECK)).toHaveLength(1);
+		expect(log).toEqual([]);
+	});
+
+	it('takes what the session sends without reporting it back, and drops a malformed one', () => {
+		const mine = addComment(DECK, 1, 'Mine');
+		const log = relay();
+		mergeSessionComments(DECK, [{ id: 'mine-shared', slide: 1, author: 'You', body: 'x', createdAt: 5, resolved: false, owner: 'me' }], [], 'me');
+		mergeSessionComments(DECK, [{ id: 's1', slide: 2, author: 'Amina', body: 'Shared', createdAt: 5, resolved: false, owner: 'amina' }, { id: 's2', slide: 0, author: 'x', body: 'bad slide', createdAt: 5, resolved: false, owner: 'x' }], [{ id: String(mine?.id), owner: 'me' }], 'me');
+		expect(listComments(DECK).map((c) => c.id)).toEqual(['mine-shared', 's1']);
+		expect(log).toEqual([]);
+	});
+
+	it("never lets someone else's word take over a comment this copy holds under another owner, or one never shared", () => {
+		const own = addComment(DECK, 1, 'My private note');
+		mergeSessionComments(DECK, [{ id: 'old1', slide: 2, author: 'Amina', body: 'Check the number', createdAt: 5, resolved: false, owner: 'amina' }], [], 'me');
+		// Mallory re-adds both ids under her own ownership, then deletes them.
+		mergeSessionComments(DECK, [{ id: 'old1', slide: 2, author: 'Mallory', body: 'FORGED', createdAt: 6, resolved: false, owner: 'mallory' }, { id: String(own?.id), slide: 1, author: 'Mallory', body: 'FORGED', createdAt: 6, resolved: false, owner: 'mallory' }], [], 'me');
+		mergeSessionComments(DECK, [], [{ id: 'old1', owner: 'mallory' }, { id: String(own?.id), owner: 'mallory' }], 'me');
+		const held = listComments(DECK);
+		expect(held.map((c) => c.body).sort()).toEqual(['Check the number', 'My private note']);
+		// Amina's own word still reaches her comment.
+		mergeSessionComments(DECK, [], [{ id: 'old1', owner: 'amina' }], 'me');
+		expect(listComments(DECK).map((c) => c.id)).toEqual([own?.id]);
 	});
 });

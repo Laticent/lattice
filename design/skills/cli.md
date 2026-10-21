@@ -144,6 +144,7 @@ npx lattice packages list --type theme
 npx lattice packages export theme/brand -o brand.zip
 npx lattice packages remove theme/brand
 npx lattice packages trust component/org-chart
+npx lattice packages fetch --trust                     # the npm plugins lattice-plugins.json lists, pinned by SHA-256
 npx lattice deck.md deck.pdf --packages ./team-packages
 npx lattice packages new plugin demo-plot              # scaffold lib/plugins/demo-plot/ (a checkout)
 

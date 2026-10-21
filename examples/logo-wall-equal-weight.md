@@ -86,16 +86,16 @@ The wall used to draw each mark as large as its cell allowed. A cell is wide and
 
 - ![Pinnacle](sample:logo-pinnacle.svg)
   - Pinnacle
-  - `Series B`
+  - `{Series B}`
 - ![Keystone](sample:logo-keystone.svg)
   - Keystone
-  - `Public`
+  - `{Public}`
 - ![Spire](sample:logo-spire.svg)
   - Spire
-  - `Seed`
+  - `{Seed}`
 - ![Acme](sample:logo-acme.svg)
   - Acme
-  - `Anchor`
+  - `{Anchor}`
 
 ---
 

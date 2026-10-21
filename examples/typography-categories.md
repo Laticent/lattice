@@ -33,17 +33,17 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 ## Quarter in four numbers.
 
 - Revenue
-  - `$48.2M`
+  - `{$48.2M}`
   - up 23% YoY
 - Net retention
-  - `118%`
-  - `expanding`
+  - `{118%}`
+  - `{expanding}`
 - Gross margin
-  - `71%`
-  - `+4pt`
+  - `{71%}`
+  - `{+4pt}`
 - Pipeline
-  - `$210M`
-  - `3.1x cover`
+  - `{$210M}`
+  - `{3.1x cover}`
 
 ---
 
@@ -83,15 +83,15 @@ Every role keeps its hierarchy in the tall frame, because the portrait scale is 
 - Federal
   - `15 U.S.C. §6501 · COPPA`
   - Verifiable parental consent for under-13 personal data.
-  - `In effect`
+  - `{In effect}`
 - State
   - `Cal. Civ. Code §1798 · CCPA`
   - Notice, opt-out, and access rights for residents.
-  - `Enforced`
+  - `{Enforced}`
 - Local
   - `NYC §22-1201 · LL144`
   - Annual bias audit for automated hiring tools.
-  - `Effective`
+  - `{Effective}`
 
 ---
 

@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "checklist",
+  "inlineRun": { "depths": [1] },
   "adapt": {
     "mode": "native",
     "priority": [
@@ -55,7 +56,7 @@
     "items": {
       "selector": "ul > li",
       "required": true,
-      "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing inline-code pill floats right as a status tag."
+      "description": "Each item prefixed with a state marker — [x] done, [-] partial, [!] failed, [?] unknown, [ ] to do, or [/] skipped (struck through). Plain text follows the marker; an optional trailing pill, written `{status}` in inline code, floats right as a status tag."
     }
   },
   "skeleton": "<!-- _class: checklist -->\n\n## Pre-launch readiness.\n\n- [x] First item that is fully done.\n- [x] Second item that is fully done.\n- [-] Third item that is partially complete with a caveat.\n- [!] Fourth item that was checked and failed.\n- [?] Fifth item nobody can settle yet.\n- [ ] Sixth item that is not yet started.\n",
@@ -109,8 +110,8 @@
   ],
   "commonMistakes": [
     {
-      "mistake": "Writing the status pill as plain trailing text instead of inline code.",
-      "fix": "The optional trailing status tag must be inline `code` (e.g. `` `blocked` ``) to render as a floated pill — plain trailing text just becomes part of the line's prose."
+      "mistake": "Writing the status pill as plain trailing text instead of `{status}` in inline code.",
+      "fix": "The optional trailing status tag must be a pill in inline code (e.g. `` `{blocked}` ``) to render as a floated pill — plain trailing text just becomes part of the line's prose."
     },
     {
       "mistake": "Confusing `[/]` (out-of-scope, struck through) with `[-]` (partial / in-progress).",

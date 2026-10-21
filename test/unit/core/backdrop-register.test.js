@@ -288,3 +288,14 @@ test('generator: a frame edge writes the keyline color and the outer inset', () 
   assert.match(css, /--fin-frame-mark:color-mix\(/);
   assert.doesNotMatch(g.generateFinishCss('plain', { edge: { type: 'none' } }), /--fin-frame-mark/);
 });
+
+test('kernel and lint agree: a YAML flow list renders, and only a trailing % is dropped', () => {
+  const warn = (v) => lintText(`---\ntheme: indaco\nbackdrop: ${v}\n---\n\n## A\n\nB\n`).filter((f) => f.rule === 'unknown-backdrop').length;
+  assert.deepEqual(backdropClasses('[40, clear]'), ['backdrop-40', 'backdrop-clear']);
+  assert.equal(warn('[40, clear]'), 0);
+  assert.deepEqual(backdropClasses('[60%, open]'), ['backdrop-60', 'backdrop-open']);
+  for (const v of ['4%0', '%40']) {
+    assert.deepEqual(backdropClasses(v), [], v);
+    assert.equal(warn(v), 1, v);
+  }
+});

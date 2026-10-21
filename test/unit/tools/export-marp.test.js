@@ -129,8 +129,10 @@ describe('export-marp bundle (end-to-end)', () => {
     assert.match(baked, /<div class="lattice-bg/, 'the panel was baked');
     assert.doesNotMatch(baked, /!\[bg\]/);
     assert.match(baked, /split: rule/, 'and the splits are still baked');
-    // The engine lifts this deck too — that is the parity being kept.
-    assert.match(latticeEngine.createEngine().render(deck).html, /lattice-bg/);
+    // The ENGINE reads this deck as two slides under `split: headings`, and the picture as the second slide's own
+    // background (that slide is not `image`): it lifts on its own tokens now (followups.d/2739-p10). The Marp
+    // bundle keeps the source walk, which does not split headings, so the two disagree on this shape.
+    assert.doesNotMatch(latticeEngine.createEngine().render(deck).html, /lattice-bg/);
   });
 
   test('deck carries the BAKED front matter, with the deck-wide registers', () => {

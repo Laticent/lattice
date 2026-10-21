@@ -81,6 +81,12 @@ heading) belongs to the heading's slide, not the one before.
 A leading YAML front-matter block carries deck-wide directives. Besides Marpit's own
 (`theme`, `paginate`, `class`, `header`, `footer`, …), LFM 1.1 defines two kinds of key.
 
+**`header`, `footer` and `paginate` are set for every slide only in front matter.** In a slide comment, in either
+spelling (`<!-- header: H -->` or `<!-- _header: H -->`), they apply to that slide only. This differs from Marpit,
+where the plain spelling carries onto every later slide. A slide drops the deck's chrome with `_class: no-header`,
+`no-footer` or `no-paginate`. A renderer that exports to Marpit MUST write such a comment in the underscore spelling,
+so the exported deck renders the same.
+
 **Registers** set one deck-wide choice from a list of values. Each value is a word, matched
 without regard to case (`mode: Sketch` is `sketch`). A renderer applies the register to every
 slide. A single-word register whose value is not in the list MUST NOT change the render. A
@@ -113,8 +119,10 @@ specify them, and `split:` and `preset:` have none.
 | `lift:` | `off` · `on` | Whether cards are raised off the slide. | `unknown-lift` |
 | `cards:` | `center` · `stretch` · `top` · `spread` | Where a row of cards puts the height it does not need. | `unknown-cards` |
 | `tag:` | up to one word per axis: color (`color` `plain` `none`), size (`small` `regular` `large`), placement (`corner` `foot` `notch` `band` `inline`), alignment (`start` `center` `end`) | The look of a card's tag. | `unknown-tag` |
+| `image-card:` | up to one word per axis: placement (`top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right`), backing (`solid` `soft` `sheer` `clear`, or a level in 5% steps: `5%` `10%` `15%` `20%` `25%` `30%` `35%` `40%` `45%` `50%` `60%` `65%` `70%` `75%` `85%` `90%` `95%`), ink (`light` `dark`), size (`sm` `md` `lg`), density (`regular` `compact`), shape (`float` `band`) | The text card on an `image` slide that floats its words over the photo (`spotlight`, `statement`). Image slides only. | `unknown-image-card` |
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
 | `chart-finish:` | `off` · `pigment` · `etching` · `tone` | How every chart spends its color. | `unknown-chart-finish` |
+| `legend:` | `on` · `off` | Whether the legend plugin draws the callouts an author writes on a chart (`@legend{…}`); `off` hides them. | `unknown-legend` |
 | `spark:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline sparks (§3.6). | `unknown-spark` |
 | `icon:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline icons (§3.6). | `unknown-icon` |
 | `avatar:` | up to one word per axis: shape (`circle` `rounded` `square`), frame (`framed` `bare`) | The deck's default for avatars. | `unknown-avatar` |
@@ -129,6 +137,7 @@ specify them, and `split:` and `preset:` have none.
 | Key | Value | What it sets | Rule |
 |---|---|---|---|
 | `logo:` | a path or URL | The deck's logo on every slide. | — |
+| `logo-finish:` | up to one word per axis: a placement (`top-right` `top-left` `top-center` `bottom-left` `bottom-center` `bottom-right`), a color (`auto` `accent` `ink` `muted` `canvas` `inverse` `brand` `accent-ink` `accent-canvas` `ink-canvas`), a size (`md` `sm` `lg`), a scope (`all` `title`) | How the logo looks and where it sits. A placement word hides the header, footer or page number in that band. | `unknown-logo-finish` |
 | `plugins:` | a list of plugin names | The plugins the deck needs loaded. It only adds: a renderer that loads more by default still does. | `unknown-plugin` |
 
 **Delivery** keys change no rendered pixel. They tell a self-presenting player how to
@@ -150,7 +159,7 @@ accepts Marp's own keys (`marp:`, `headingDivider:`, `author:` …) so a Marp de
 
 The value lists above are the ones the reference implementation ships, each defined once
 in `lib/core/resolve-<key>.js` (`*_NAMES`), or for a plugin's register (`spark:`, `icon:`,
-`avatar:`) in the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
+`avatar:`, `legend:`) in the plugin's manifest. The keys themselves are rows of `lib/core/deck-settings.js`, and a row
 marked `spec: '2.3'` must have a line in the tables above. The full behavior of every register is
 documented in `lib/base/base.registers.docs.md`. Where that page and this table disagree
 about a value list, this table is the contract and the disagreement is a defect.
@@ -564,6 +573,7 @@ LFM 1.1 deliberately does **not**:
 | 1.1-draft | 2026-10-08 | §2.3 lists every front-matter register the reference implementation reads, each with its values and its `unknown-<key>` diagnostic, plus the settings (`logo:`, `plugins:`) and the delivery keys (`pace:`, `delivery:`, `greeting:`, `closing:`). §2.2 specifies the heading split. §2.4 adds the `_lens` tag. §3.6 adds the inline notation: pills, marks, sparks and icons. Each has shared test cases in `spec/conformance/lfm/`. Additive (a minor version, §7). Waits on the owner's sign-off. |
 | 1.1-draft | 2026-10-14 | §3.6 rule 4: a span in a declared data slot belongs to that slot and never renders as a pill, mark, spark or icon; `grammar.json` publishes the slots as `dataSlots` (§4). This writes down what the reference implementation already does for flowchart, hub-spoke and state-chart rows, and it keeps `` `{4.2}` `` on a chart row from becoming a pill once a chart declares its rows. A change to a normative meaning, landed before ratification (§7). Shared case: `spec/conformance/lfm/data-slots.json`. Record: `engineering/decisions/2026-10-14-chart-authoring-uniform-model.md` §3 decision 12, §6. |
 | 1.1-draft | 2026-10-16 | §2.3 adds the four registers the reference implementation read but the table omitted: `spectrum-card:`, `spectrum-card-edge:`, `spectrum-trim:` and the avatars plugin's `avatar:`. An L2 tool SHOULD report an unknown top-level key as `unknown-key`. Additive. The table is now checked against `lib/core/deck-settings.js`, so a register the engine reads cannot go missing from it again. Shared case: `spec/conformance/lfm/front-matter-keys.json`. Record: `engineering/decisions/2026-10-15-conformance-harness.md` §9 phase 1. |
+| 1.1-draft | 2026-10-20 | §2.3: `header`, `footer` and `paginate` in a slide comment apply to that slide only, in either spelling; only front matter sets them for every slide. A change to a normative meaning that departs from Marpit, landed before ratification (§7); the engine's changelog carries the `Breaking:` line. Owner ruling: `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r. |
 
 ## Appendix A — A worked example (informative)
 

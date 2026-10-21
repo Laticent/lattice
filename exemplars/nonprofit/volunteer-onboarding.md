@@ -163,10 +163,10 @@ Once your badge is active, the volunteer portal shows every open slot for the ne
 
 - [x] Signed volunteer agreement
 - [x] Completed this orientation
-- [-] Shadow shift scheduled `Book online`
+- [-] Shadow shift scheduled `{Book online}`
 - [ ] Closed-toe shoes and a water bottle
 - [ ] Emergency contact on file
-- [/] Animal-handling certification `Not needed yet`
+- [/] Animal-handling certification `{Not needed yet}`
 
 ---
 
@@ -188,13 +188,13 @@ These aren't bureaucracy — every one comes from something we learned the hard 
 
 ## Who to call when you need help.
 
-- Volunteer scheduling `Priya Anand, Coordinator`
+- Volunteer scheduling `{"Priya Anand, Coordinator"}`
   - Shift changes, no-shows, and badge questions — text or email anytime.
-- Animal care questions `Dr. Lin Okafor, Vet tech`
+- Animal care questions `{"Dr. Lin Okafor, Vet tech"}`
   - On site weekdays; ask before handling any flagged animal.
-- Adoption floor `Marcus Reyes, Lead`
+- Adoption floor `{"Marcus Reyes, Lead"}`
   - Pairs visitors with animals — loop him in before introducing a dog to a family.
-- After-hours emergencies `Front desk line`
+- After-hours emergencies `{Front desk line}`
   - Injuries, escapes, or anything urgent — call first, then find the nearest staff.
 
 ---

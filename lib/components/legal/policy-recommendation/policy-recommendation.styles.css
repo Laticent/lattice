@@ -136,19 +136,14 @@
    * CARD_STYLE_LAYOUTS hardening in cards-grid). */
   section.policy-recommendation > .cell-stage > ul > li > :is(ul, ol) { font-weight: 400; }
 
-  /* Citation chip — the trailing inline-code on an evidence line. */
-  section.policy-recommendation > .cell-stage > ul > li > ul > li > code {
-    font-family: var(--pill-font);
-    font-size: var(--pill-fs);
-    font-weight: var(--pill-weight);
-    letter-spacing: var(--pill-tracking);
-    border-radius: var(--pill-radius);
-    padding: var(--pill-pad-y) var(--pill-pad-x);
-    white-space: nowrap;
-    background: var(--bg-alt);
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
-  }
+  /* Citation chip — a pill at the end of an evidence line, written `{FTC 2025}` in inline code and
+   * drawn by the pills plugin. A record's citation is quiet: the panel's own fill, hairline and
+   * secondary ink, not the plugin's default chip. */
+  section.policy-recommendation > .cell-stage > ul > li > ul > li > .lat-pill:not([data-c]) {
+    --lat-pill-bg: var(--bg-alt);
+    --lat-pill-edge: var(--border);
+    --lat-pill-ink: var(--text-secondary);
+}
 
   /* The ask — the closing legislative call to action, a filled stance bar.
    * The trailing blockquote renders as a DIRECT `section > blockquote` on some

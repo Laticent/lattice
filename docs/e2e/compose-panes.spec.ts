@@ -65,7 +65,7 @@ test('@crosswidth the pane gallery says what each pick does, starts fresh with a
 	expect(src).toContain('> The mix shift is structural.');
 	expect(src).not.toContain('Services crossed licenses');
 	// Undo, from the notice, puts the pane's text back.
-	await page.getByRole('button', { name: 'Undo', exact: true }).click();
+	await page.locator('[data-sonner-toast]').getByRole('button', { name: 'Undo', exact: true }).click();
 	await expect.poll(() => deckSource(page)).toContain('### What changed\n\n- Services crossed licenses');
 	expect(await deckSource(page)).not.toContain('- First `120`');
 });

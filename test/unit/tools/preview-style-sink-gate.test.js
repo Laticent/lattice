@@ -321,11 +321,14 @@ describe('the css-tree re-wrap arm', () => {
     assert.deepEqual(errs, []);
   });
 
-  test('the live tree passes, and both known re-wrap sites are discovered', () => {
+  // ONE known site since 2026-10-16: the two hand-written twins (lattice.js and the Studio's
+  // player-prune-browser.ts) became page capabilities around the shared `prunePlayerHtml`, which
+  // owns the re-wrap (decisions/2026-10-16-player-as-library-audit.md §11).
+  test('the live tree passes, and the known re-wrap site is discovered', () => {
     const errors = [];
     const seen = checkCssTreeRewrapSinks(errors);
     assert.deepEqual(errors, [], `unguarded css-tree re-wrap on the live tree:\n${errors.join('\n')}`);
-    for (const must of ['lattice.js', 'docs/src/components/studio/player-prune-browser.ts']) {
+    for (const must of ['lib/export/player-prune.js']) {
       assert.ok(seen.includes(must), `${must} is no longer discovered as a css-tree re-wrap — did the prune move?`);
     }
   });

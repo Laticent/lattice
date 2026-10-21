@@ -1,5 +1,5 @@
 import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
+	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import './asset-render-hook';
@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { FeedbackSheet } from '@/components/site/FeedbackSheet';
 import { paletteLabel } from '@/components/site/PaletteSelectItems';
 import { sliceSlide } from '@/components/studio/ai/architect-edits.js';
+import { setSpendDeck } from '@/components/studio/ai/spend.js';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -54,7 +55,7 @@ import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
-import { tapCollageAt } from '../../playground/collage-host.js';
+import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
 import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
@@ -76,6 +77,7 @@ import { useDeckFileDrop } from './deck-drop';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
+import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorHandle } from './Editor';
 import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
@@ -83,13 +85,15 @@ import type { FabricateSeed } from './Fabricate';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
-import { generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
+import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
+import { CardBackingControl } from './image-card-backing';
+import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
 import type { TagChange } from './LensesPanel';
@@ -103,7 +107,9 @@ import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
 import { liveColor } from './live/live-model';
+import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
+import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -123,9 +129,9 @@ import { DRAWER_LABEL, StudioDrawer } from './StudioDrawer';
 import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
-import { importComments } from './slide-comments';
+import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
 import { getClassTokens } from './slide-directives';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag } from './slide-provenance';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -136,11 +142,11 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { formatCodeNotice, type StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
-import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
+import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
-import { TOURS } from './tours';
+import { DEFAULT_TOUR, TOURS } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -184,6 +190,8 @@ const Fabricate = React.lazy(() => {
 // (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
+// The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
+const StudioMap = React.lazy(() => import('./StudioMap'));
 const ReadArticle = React.lazy(() => import('./ReadArticle').then((m) => ({ default: m.ReadArticle })));
 // The icon grid (and the icons' data it fetches on open) loads only when an author opens it.
 const IconGrid = React.lazy(() => import('./IconGrid').then((m) => ({ default: m.IconGrid })));
@@ -249,7 +257,7 @@ const CodePackagesNotice = React.lazy(() => import('./CodePackagesNotice').then(
 // the old Developer footer disclosure, so there is one place for "things about this
 // deck" instead of a tab strip plus a stray expander.
 // See engineering/decisions/2026-08-18-settings-panel-coverage-and-ux.md.
-type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'motion' | 'speech' | 'plugins';
+type DeckTab = 'look' | 'chrome' | 'general' | 'brand' | 'image' | 'motion' | 'speech' | 'plugins';
 // There is deliberately NO `DECK_TABS` list here. There was one, and it survived the
 // move to `deckSections` as a SECOND hand-kept copy of the same six labels in the same
 // order — the exact duplication the slide panel's `sectionDefs` had just collapsed, and
@@ -321,13 +329,8 @@ function timeAgo(ts: number): string {
 // The library enforces each panel's px min itself, so the old narrow-fold budget
 // math (BAR_W/HANDLE_W/PAIR_MIN/FOLD_SAFETY/panelBudget → the #721 zero-void
 // invariant) is retired — v4's pixel min/max express the same constraint directly.
-const ARCH_MIN = 200; // Assistant (Coach/Chat/Lenses) min width — cards stay legible
-const ARCH_DEFAULT = 232; // Assistant default (matches the old fixed column)
-const SET_MIN = 260; // Settings min width (the inspector fields stay usable)
-const SET_DEFAULT = 296; // Settings default (matches the old inspector column)
-const PANEL_MAX = 420; // drag ceiling for a docked panel
-const LIB_MIN = 240; // Library min — fits its header floor (title + a usable search field + the icon-only Import button); tabs scroll below this
-const LIB_DEFAULT = 380; // Library docked default — wider than the coach; asset cards need room
+// Every docked side panel shares ONE contract (DOCK in dock-layout.ts): Settings, the
+// Assistant slot (Coach / Chat / Live / Lenses), Library and the tablet Inspector.
 // Editor/preview pane MINIMUMS — the width at which the pane's HEADER toolbar stops
 // clipping, so "drag to the minimum" never cuts an icon off (it collapses to the rail
 // instead). Measured on the real surface (a width sweep reading header.scrollWidth vs
@@ -369,6 +372,25 @@ const unassessedCard = (id: string): CoachCard => ({
 type Props = { options: SingleSlideOptions; components?: ComponentEntry[]; componentNames?: string[]; catalogUrl?: string; lintVocab?: any; slideHeadings?: Record<string, ('h1' | 'h2')[]>; slideBlocks?: Record<string, string[]>; slideFences?: Record<string, string> };
 
 const NO_WEB_IMAGES_EAGER: WebImageSummary = { count: 0, origins: [], byOrigin: {} };
+
+
+/** The slides an edit changed, 1-based, for the live note "applied an AI edit to slide 3" (2026-10-20 live
+ *  note §5.3). A change that moves the slide count marks every slide from the first difference on, capped. */
+function changedSlides(before: string, after: string): number[] | null {
+	if (before === after) return null;
+	const a = splitSlides(stripFrontMatter(before));
+	const b = splitSlides(stripFrontMatter(after));
+	// A slide added or removed shifts every slide after it: name where the deck first differs, not all of them.
+	if (a.length !== b.length) {
+		const at = a.findIndex((s, i) => s !== b[i]);
+		return [(at < 0 ? Math.min(a.length, b.length) : at) + 1];
+	}
+	const out: number[] = [];
+	for (let i = 0; i < a.length && out.length < 12; i++) if (a[i] !== b[i]) out.push(i + 1);
+	// No slide differs: the change is in the deck's settings, unless the front matter is the same too.
+	if (!out.length && frontMatterBlock(before) === frontMatterBlock(after)) return null;
+	return out;
+}
 
 export default function StudioShell({ options, components: seedComponents = [], componentNames, catalogUrl, lintVocab, slideHeadings, slideBlocks, slideFences }: Props) {
 	// The component catalog is FETCHED, not inlined (2026-08-17 loading audit §5, §9.3).
@@ -454,6 +476,36 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setSource: typeof setSourceRaw = React.useCallback((next) => { setSourceEpoch((e) => e + 1); setSourceRaw(next); }, []);
 	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. */
 	const setSourceFromEditor = setSourceRaw;
+	// Live (2026-10-20 note §7.5): a tour in a session plays on a PRACTICE deck. `source` then holds the
+	// practice text, so the editor, preview and lint all show it, while `real` keeps the shared deck's text:
+	// what the session sees, what remote edits update, and what any save writes. The session's records are
+	// held as they were, so the practice deck's empty Library never reads as records withdrawn.
+	const [practice, setPractice] = React.useState<{ real: string; records: LiveRecords; slide: number; count: number } | null>(null);
+	// Bumped when a session ends mid-tour: the editor rebuilds from the shared text, so Undo cannot bring
+	// the practice deck back over it.
+	const [editorEpoch, setEditorEpoch] = React.useState(0);
+	// Live (§5.3): an applied AI edit is said in the people chat. The session hook is declared further down,
+	// so the edit paths above it reach it through this ref.
+	const liveAiEditRef = React.useRef<((slides: number[]) => void) | null>(null);
+	const noteAiEdit = React.useCallback((before: string, after: string) => {
+		const slides = changedSlides(before, after);
+		if (slides) liveAiEditRef.current?.(slides);
+	}, []);
+	// An AI chat turn in flight here, for "asking the AI" (§5.3).
+	const [aiAsking, setAiAsking] = React.useState(false);
+	// The open deck's comments, for a live session to offer the ones it does not have yet (slice 6).
+	const [deckComments, setDeckComments] = React.useState<Array<{ id: string; slide: number; body: string; createdAt: number; author: string }>>([]);
+	React.useEffect(() => {
+		const read = () => setDeckComments(listComments(deck.id).map(({ id, slide, body, createdAt, author }) => ({ id, slide, body, createdAt, author })));
+		read();
+		const onChange = (e: Event) => {
+			if ((e as CustomEvent<{ deckId?: string }>).detail?.deckId === deck.id) read();
+		};
+		window.addEventListener(COMMENTS_EVENT, onChange);
+		return () => window.removeEventListener(COMMENTS_EVENT, onChange);
+	}, [deck.id]);
+	const practiceRef = React.useRef(practice);
+	practiceRef.current = practice;
 	// Always-current mirror of `source`, so a settings write can snapshot the exact
 	// pre-change text for one-click Undo without threading it through every setter.
 	const sourceRef = React.useRef(source);
@@ -749,7 +801,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Present is the heaviest thing the Studio opens (a second render surface, plus a
 	// popup window when the Stage is used) — the crumb is what tells a later
 	// crash report that the heap climb started here.
-	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); setPresentOpen(true); }, []);
+	const openPresent = React.useCallback(() => { crashCrumb('action', 'opened Present'); if (livePresentRef.current) setPresentByRoom(true); setPresentOpen(true); }, []);
+	// While someone presents to everyone, this person's own Present joins it (the way back in, §7.2).
+	const livePresentRef = React.useRef(false);
+	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
+	const [presentByRoom, setPresentByRoom] = React.useState(false);
+	const presentByRoomRef = React.useRef(false);
+	presentByRoomRef.current = presentByRoom;
 	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
 	// PresentOverlay is React.lazy below. `presentEverOpened` latches true once PresentOverlay
 	// has actually MOUNTED (via its `onReady` callback below) and never resets, so from then on
@@ -924,6 +982,34 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
+	// The slide map beside (or under) the focused preview. Off by default and remembered; read after
+	// hydration so the server and the client agree. `mapStacked` puts the rail under the slide when the
+	// pane is narrow, measured on the wrapper (which the rail does not resize) so it cannot flip-flop.
+	const [mapOn, setMapOn] = React.useState(false);
+	// `null` until the wrapper has been measured with the map on: the pills hide only once the map is KNOWN to sit beside.
+	const [mapStacked, setMapStacked] = React.useState<boolean | null>(null);
+	// A CALLBACK REF in state, not a ref object: the Article and Fabricate views unmount the preview pane and mount a
+	// new wrapper on the way back, and an observer left on the detached one read width 0 and stuck the map as a strip.
+	const [mapWrap, setMapWrap] = React.useState<HTMLDivElement | null>(null);
+	// The map has mounted (its chunk loaded): until then the pills stay, so there is never a moment with no navigator.
+	const [mapReady, setMapReady] = React.useState(false);
+	const onMapReady = React.useCallback(() => setMapReady(true), []);
+	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
+	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
+	const mapEver = useEverTrue(mapOn);
+	React.useEffect(() => {
+		try {
+			if (localStorage.getItem('lattice-studio-map') === '1') setMapOn(true);
+		} catch {}
+	}, []);
+	const toggleMap = React.useCallback(() => {
+		setMapOn((on) => {
+			try {
+				localStorage.setItem('lattice-studio-map', on ? '0' : '1');
+			} catch {}
+			return !on;
+		});
+	}, []);
 	// Bumped on a tap over the iPhone-landscape cinema slide to re-reveal the whisper layer.
 	const [whisperReveal, setWhisperReveal] = React.useState(0);
 	// TYPING MODE: the Compose surface reports when the software keyboard is up (and the user
@@ -1215,9 +1301,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		listStudioComponents()
 			.then((list) => setLocalComponents((prev) => (same(prev, list) ? prev : list)))
 			.catch(() => setLocalComponents((prev) => (prev.length ? [] : prev)));
-		// The zip plugins share the Library's refresh: every place that changes the shelf calls this.
+		// The zip plugins share the Library's refresh: every place that changes the shelf calls this. The WHOLE record
+		// decides "unchanged": a re-import that keeps the code but widens its returns, kinds or placeholder replaces the
+		// record under the same id, and comparing only id, code and fence kept the old declaration live until a reload.
 		listStudioPlugins()
-			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => p.id === list[i].id && p.code === list[i].code && p.fence === list[i].fence) ? prev : list)))
+			.then((list) => setLocalPlugins((prev) => (prev.length === list.length && prev.every((p, i) => JSON.stringify(p) === JSON.stringify(list[i])) ? prev : list)))
 			.catch(() => setLocalPlugins((prev) => (prev.length ? [] : prev)));
 	}, []);
 	React.useEffect(() => { refreshComponents(); }, [refreshComponents]);
@@ -1245,7 +1333,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			localPlugins.map((p) => (p.kinds ?? []).map((k) => k.name)),
 		);
 		let live = true;
-		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}) }))).then(
+		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}), ...(p.returns !== undefined ? { returns: p.returns } : {}) }))).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },
 			(e) => console.warn('lattice: the plugin door did not load', e),
 		);
@@ -1278,6 +1366,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// shelf) load on that first use, scoped to the OPEN deck so its own photos are offered beside the shared ones.
 	const deckIdRef = React.useRef(deck.id);
 	deckIdRef.current = deck.id;
+	// The spend ledger books each charge under the open deck, so the chat can say what THIS deck has cost.
+	React.useEffect(() => setSpendDeck(deck.id), [deck.id]);
 	const completionAssets = React.useCallback(
 		() =>
 			import('./media-urls').then(async (m) => {
@@ -1293,6 +1383,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the Inspector Finish menu, and renders in the deck preview (its CSS injected +
 	// its class applied — the consumption loop). Loaded async; refreshed on save/delete.
 	const [savedFinishes, setSavedFinishes] = React.useState<StudioFinish[]>([]);
+	// A live session's Library records, as the host shared them (themes, finish recipes, component
+	// names), held in memory for the session only (2026-10-20-live-uniform-experience.md §5.2). They
+	// join what this browser RENDERS; exports and the `.lattice` file keep this browser's own Library.
+	const [sessionRecords, setSessionRecords] = React.useState<LiveRecords>(NO_RECORDS);
+	const sessionThemes = React.useMemo<StudioTheme[]>(() => sessionRecords.themes.map((t) => ({ id: `live:${t.name}`, name: t.name, label: t.name, css: t.css, essentials: null, overrides: null, rampStrategy: null })), [sessionRecords]);
+	const renderThemes = React.useMemo(() => (sessionThemes.length ? [...sessionThemes, ...savedThemes.filter((t) => !sessionThemes.some((x) => x.name === t.name))] : savedThemes), [sessionThemes, savedThemes]);
+	const renderFinishes = React.useMemo(() => {
+		if (!sessionRecords.finishes.length) return savedFinishes;
+		const shared = sessionRecords.finishes.map((f): StudioFinish => {
+			const recipe = coerceRecipe(f.recipe);
+			return { id: `live:${f.name}`, name: f.name, label: f.label, css: generateFinishCss(f.name, recipe), recipe };
+		});
+		return [...shared, ...savedFinishes.filter((f) => !shared.some((x) => x.name === f.name))];
+	}, [sessionRecords, savedFinishes]);
 	const refreshFinishes = React.useCallback(() => {
 		listStudioFinishes().then(setSavedFinishes).catch(() => setSavedFinishes([]));
 	}, []);
@@ -1459,6 +1563,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
+	// The map is a column beside the slide (not a strip under it, and not dropped by the phone's cinema morph).
+	const mapBeside = mapOn && mapReady && mapStacked === false && !landscapePhone;
 	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
 	// never the problem (`100dvh` already equals the visible height). The on-device geometry
@@ -1468,6 +1574,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
+	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), or be unmounted by a view
+	// round trip, so the effect follows the wrapper element itself.
+	// A layout effect, so the first paint with the map on already knows whether it stacks, and the pills (hidden only
+	// beside it) are never dropped and remounted on a phone. A later resize across 560 px (a split drag, a window
+	// resize that keeps the tree) reaches it through the observer, a frame later.
+	React.useLayoutEffect(() => {
+		const el = mapWrap;
+		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
+		const read = () => setMapStacked(el.clientWidth < 560);
+		read();
+		const ro = new ResizeObserver(read);
+		ro.observe(el);
+		return () => {
+			ro.disconnect();
+			setMapStacked(null);
+		};
+	}, [mapOn, mapWrap]);
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
 	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
 	// nothing on the other side of the breakpoint could ever clear it. That was survivable
@@ -1500,12 +1623,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Settings + Assistant are Panels with px min/max/default — the library enforces
 	// the min constraints itself, so the old narrow-fold budget math (#721: the
 	// panelBudget / archEff / setEff clamps) is retired. The Assistant slot holds ONE
-	// of Architect / Lenses / Library (mutually exclusive); Library docks wider
-	// (asset cards) so it carries its own default + min.
+	// of Architect / Lenses / Library (mutually exclusive); every dock shares DOCK.
 	const assistantOpen = architectOpen || liveOpen || lensesOpen || libraryOpen;
-	const assistantMin = libraryOpen ? LIB_MIN : ARCH_MIN;
-	const assistantDefault = libraryOpen ? LIB_DEFAULT : ARCH_DEFAULT;
-
+	
 	// Deck-level front-matter (size / paginate / header / footer) is split off the
 	// body so it never reads as a phantom slide, but is prepended back to whatever
 	// single slide the preview renders so its directives (e.g. `size`) take effect.
@@ -1693,7 +1813,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		() => (components.length ? components.map((c) => c.name) : componentNames?.length ? componentNames : KNOWN),
 		[components, componentNames],
 	);
-	const knownWithLocal = React.useMemo(() => [...catalogNames, ...localNames], [catalogNames, localNames]);
+	// A live session's custom component names count as known, so a member's lint and Coach do not offer
+	// to "fix" the host's class in the shared deck (2026-10-20-live-uniform-experience.md §5.2).
+	const lintLocalNames = React.useMemo(() => (sessionRecords.components.length ? [...localNames, ...sessionRecords.components.filter((c) => !localNames.includes(c))] : localNames), [localNames, sessionRecords]);
+	const knownWithLocal = React.useMemo(() => [...catalogNames, ...lintLocalNames], [catalogNames, lintLocalNames]);
 	const lintKnown = React.useMemo(() => (validation ? knownWithLocal : usedComponents(source)), [validation, source, knownWithLocal]);
 	// The unknown layout names, not just their count: "1 issue" tells an author nothing, and
 	// Compose shows no underline to look for. The chip and the Coach card both name them.
@@ -1767,6 +1890,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	const saveSourceGuarded = React.useCallback((id: string, src: string) => {
 		if (decksClearedRef.current) return;
+		// A practice deck is never saved: the deck keeps the shared text.
+		if (practiceRef.current) src = practiceRef.current.real;
 		saveSource(id, src);
 		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
 		// rather than passed in: this is the deck's real title as the deck states it —
@@ -1781,7 +1906,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renames the deck in the switcher, the header, ⌘K, Share and the export filename with
 	// no separate rename step. `deck.title` is only the fallback for a deck carrying
 	// neither (it holds the last name the deck was loaded/created under).
-	const deckTitle = React.useMemo(() => titleFromSource(source, deck.title), [source, deck.title]);
+	// A tour's practice deck (live note §7.5) is named as one, so nobody reads its title as the shared deck renamed.
+	const deckTitle = React.useMemo(() => (practice ? 'Practice deck' : titleFromSource(source, deck.title)), [practice, source, deck.title]);
 
 	// Keep the crash record's header current: what was open when it died. LABELS and
 	// SIZES only — a deck's title and its slide count, never a line of its content —
@@ -2208,17 +2334,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// mean anything once it is set, so the Inspector hides them until then.
 	const logo = getFrontMatter(source, 'logo') || '';
 	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
-	const logoOn = getFrontMatter(source, 'logo-on') || 'all';
-	const setLogoOn = (value: string) => settingsWrite(`Logo on → ${value}`, (s) => writeFrontMatterLine(s, 'logo-on', value === 'all' ? null : value));
-	const logoStyle = getFrontMatter(source, 'logo-style') || 'auto';
-	const setLogoStyle = (value: string) => settingsWrite(`Logo style → ${value}`, (s) => writeFrontMatterLine(s, 'logo-style', value === 'auto' ? null : value));
-	// Placement + size ride as free numbers (the engine clamps: x/y 0–100 as the logo
-	// CENTER in %, scale 0.2–3). A blank field clears the key back to the default spot.
-	const logoX = getFrontMatter(source, 'logo-x') || '';
-	const logoY = getFrontMatter(source, 'logo-y') || '';
-	const logoScale = getFrontMatter(source, 'logo-scale') || '';
-	const setLogoNum = (key: 'logo-x' | 'logo-y' | 'logo-scale', label: string) => (v: string) =>
-		settingsWrite(label, (s) => writeFrontMatterLine(s, key, v.trim() || null));
+	// ONE line styles it (`logo-finish:`, lib/core/resolve-logo-finish.js): placement, color, size, scope.
+	// A default word is left out and the key goes once every axis is default, like `image-card:`.
+	const logoWords = parseLogoFinish(getFrontMatter(source, 'logo-finish') || '');
+	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
+	const setLogoWord = (axis: LogoFinishAxis, v: string) =>
+		settingsWrite('Logo style', (s) => {
+			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === '__default__' ? undefined : v };
+			return writeFrontMatterLine(s, 'logo-finish', logoFinishValue(next) || null);
+		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
 	const metaLine = getFrontMatter(source, 'meta') || '';
 	const setMetaLine = (v: string) => settingsWrite('Meta line', (s) => writeFrontMatterLine(s, 'meta', v.trim() || null));
@@ -2270,7 +2394,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// That's the form the deck carries, autocomplete offers, and Apply writes — the
 	// SAME token in `finish:` front matter and per-slide `_class:` lines.
 	const builtinFinishNames = React.useMemo(() => ((lintVocab as { finishNames?: string[] } | null)?.finishNames) || [], [lintVocab]);
-	const savedFinishTokens = React.useMemo(() => savedFinishes.map((f) => `finish-${f.name}`), [savedFinishes]);
+	const savedFinishTokens = React.useMemo(() => renderFinishes.map((f) => `finish-${f.name}`), [renderFinishes]);
 	// The `finish:` VALUE vocabulary the editor completes: built-in presets bare (the
 	// engine adds the prefix) + saved finishes prefixed.
 	const editorFinishValues = React.useMemo(() => [...builtinFinishNames, ...savedFinishTokens], [builtinFinishNames, savedFinishTokens]);
@@ -2279,14 +2403,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const editorFinishClasses = React.useMemo(() => [...builtinFinishNames.map((b) => `finish-${b}`), ...savedFinishTokens], [builtinFinishNames, savedFinishTokens]);
 	// The `theme:` front-matter VALUE vocabulary — the built-in palettes + the user's
 	// saved (Fabricated) themes, so the editor completes a deck's own theme name.
-	const editorPalettes = React.useMemo(() => [...BUILTIN_PALETTES, ...savedThemes.map((t) => t.name)], [savedThemes]);
+	const editorPalettes = React.useMemo(() => [...BUILTIN_PALETTES, ...renderThemes.map((t) => t.name)], [renderThemes]);
 	// Lint accepts BOTH the prefixed token and the bare slug of a saved finish (a deck
 	// authored before the prefix convention shouldn't false-warn).
-	const savedFinishLintNames = React.useMemo(() => savedFinishes.flatMap((f) => [`finish-${f.name}`, f.name]), [savedFinishes]);
+	const savedFinishLintNames = React.useMemo(() => renderFinishes.flatMap((f) => [`finish-${f.name}`, f.name]), [renderFinishes]);
 	// When the active `finish:` value names a SAVED finish (not a built-in register
 	// entry), it renders via injected CSS + an applied class — the engine doesn't
 	// know its name. `activeSavedFinish` is that record (or undefined).
-	const activeSavedFinish = React.useMemo(() => savedFinishes.find((f) => finish === `finish-${f.name}` || finish === f.name), [savedFinishes, finish]);
+	const activeSavedFinish = React.useMemo(() => renderFinishes.find((f) => finish === `finish-${f.name}` || finish === f.name), [renderFinishes, finish]);
+	// The same from this browser's own finishes only: what an export applies.
+	const ownActiveSavedFinish = React.useMemo(() => savedFinishes.find((f) => finish === `finish-${f.name}` || finish === f.name), [savedFinishes, finish]);
 	function removeFinish(f: StudioFinish) {
 		deleteStudioFinish(f.id).then(() => {
 			refreshFinishes();
@@ -2307,32 +2433,46 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const finishOverride = React.useMemo(() => parseFinishOverride(source), [source]);
 	// The saved finishes this deck uses: the `finish-<slug>` class token as a whole word
 	// (front-matter value or a per-slide _class line), or the bare deck-wide slug (back-compat).
-	const usedSavedFinishes = React.useMemo(
-		() =>
-			savedFinishes.filter((f) => {
+	// The saved finishes a deck uses from a list, and their CSS. Two lists: what this browser RENDERS
+	// (its own plus a live session's) and its OWN, which is all an export carries.
+	const finishesUsedFrom = React.useCallback(
+		(list: StudioFinish[]) =>
+			list.filter((f) => {
 				const esc = `finish-${f.name}`.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 				return new RegExp(`\\b${esc}\\b`).test(source) || finish === f.name;
 			}),
-		[savedFinishes, source, finish],
+		[source, finish],
 	);
-	const finishExtraCss = React.useMemo(() => {
-		if (!usedSavedFinishes.length) return undefined;
-		const hasOverride = Object.keys(finishOverride).length > 0;
-		return usedSavedFinishes
-			.map((f) => {
-				// The active deck-wide finish REGENERATES with the override deep-merged into its
-				// recipe (backdrop + any layer); every other used finish renders its baked CSS.
-				const isActive = finish === `finish-${f.name}` || finish === f.name;
-				return isActive && hasOverride ? generateFinishCss(f.name, mergeFinishOverride(f.recipe, finishOverride)) : f.css;
-			})
-			.filter(Boolean)
-			.join('\n\n') || undefined;
-	}, [usedSavedFinishes, finish, finishOverride]);
+	const usedSavedFinishes = React.useMemo(() => finishesUsedFrom(renderFinishes), [finishesUsedFrom, renderFinishes]);
+	const ownUsedSavedFinishes = React.useMemo(() => (renderFinishes === savedFinishes ? usedSavedFinishes : finishesUsedFrom(savedFinishes)), [finishesUsedFrom, renderFinishes, savedFinishes, usedSavedFinishes]);
+	const finishCssOf = React.useCallback(
+		(used: StudioFinish[]) => {
+			if (!used.length) return undefined;
+			const hasOverride = Object.keys(finishOverride).length > 0;
+			return used
+				.map((f) => {
+					// The active deck-wide finish REGENERATES with the override deep-merged into its
+					// recipe (backdrop + any layer); every other used finish renders its baked CSS.
+					const isActive = finish === `finish-${f.name}` || finish === f.name;
+					return isActive && hasOverride ? generateFinishCss(f.name, mergeFinishOverride(f.recipe, finishOverride)) : f.css;
+				})
+				.filter(Boolean)
+				.join('\n\n') || undefined;
+		},
+		[finish, finishOverride],
+	);
+	const finishExtraCss = React.useMemo(() => finishCssOf(usedSavedFinishes), [finishCssOf, usedSavedFinishes]);
+	const ownFinishExtraCss = React.useMemo(() => (ownUsedSavedFinishes === usedSavedFinishes ? finishExtraCss : finishCssOf(ownUsedSavedFinishes)), [finishCssOf, ownUsedSavedFinishes, usedSavedFinishes, finishExtraCss]);
 	// The preview's extraCss = local-component CSS + (when active) the saved finish's
 	// rule. Combined so a deck can use both at once.
 	const previewExtraCss = React.useMemo(
 		() => [usedLocalCss, finishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined,
 		[usedLocalCss, finishExtraCss, codeStamp, assetStampText],
+	);
+	// The same, with only this browser's own finishes: what an export carries.
+	const exportExtraCss = React.useMemo(
+		() => (ownFinishExtraCss === finishExtraCss ? previewExtraCss : [usedLocalCss, ownFinishExtraCss, codeStamp, assetStampText].filter(Boolean).join('\n\n') || undefined),
+		[ownFinishExtraCss, finishExtraCss, previewExtraCss, usedLocalCss, codeStamp, assetStampText],
 	);
 	// Point the registry at the open deck (its own photos join the shared ones) and take its stamp.
 	// Skipped entirely until a deck names a photo or the Library has been used, so a deck without
@@ -2353,6 +2493,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// RENDER/ARTIFACT paths (preview, Present, PDF/PPTX/Print) — never the editable
 	// source or the Markdown/Marp source handoff, which stay clean.
 	const finishClass = activeSavedFinish ? `finish finish-${activeSavedFinish.name}` : '';
+	const ownFinishClass = ownActiveSavedFinish ? `finish finish-${ownActiveSavedFinish.name}` : '';
 	// The deck front-matter the PREVIEW renders with — the editable `fm` plus, when a
 	// saved finish is active, the `finish finish-<slug>` class MERGED into any existing
 	// `class:` (deduped union — a deck's own `class: dark wide` is preserved). Stamped
@@ -2392,6 +2533,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const setDeckTag = (axis: CardTagAxis, v: string) => {
 		const next = { ...deckTag, [axis]: v === '__auto__' ? undefined : v };
 		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'tag', cardTagDeckValue(next)));
+	};
+	// Image card — the deck `image-card:` register (lib/core/resolve-image-card.js): ONE line
+	// holding up to five words (placement, backing, ink, size, density). The default on an axis
+	// leaves its word out, and the default on every axis removes the key.
+	const deckImage = deckImageCard(source);
+	const setDeckImage = (axis: ImageCardAxis, v: string) => {
+		const next = { ...deckImage, [axis]: v === '__auto__' ? undefined : v };
+		settingsWrite('Image card', (s) => writeFrontMatterLine(s, 'image-card', imageCardDeckValue(next)));
 	};
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'lift', lift ? 'off' : 'on'));
 	// Write the declared text (trimmed); a blank field clears the directive so the
@@ -2865,6 +3014,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the memoized rail re-renders only when the deck or the focused slide changes.
 	const goToSlideLatest = React.useRef(goToSlide);
 	goToSlideLatest.current = goToSlide;
+	// The map rail's pick. An arrow key on the rail must not hand keyboard focus to the editor or re-open a
+	// collapsed pane (a key is not a pick), so it moves the focus quietly; a click is a pick, like a pill.
+	const onMapPick = React.useCallback((chunkIndex: number, section: number, via?: { key: boolean }) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), via?.key ? { section, focus: false, expand: false } : { section }), []);
 	const onRailPick = React.useCallback((chunkIndex: number, section: number) => goToSlideLatest.current(viewChunksRef.current.indexOf(chunkIndex), { section }), []);
 	// Switch the reader lens for the preview; restart at the top of the reshaped set.
 	function setLens(next: PresentLens) {
@@ -2917,6 +3069,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			off();
 		};
 	}, []);
+	const livePracticeRef = React.useRef<{ start: () => void; end: () => boolean } | null>(null);
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
@@ -2955,7 +3108,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setCmdOpen,
 		setMobilePane,
 		mobile,
+		// Read when a tour starts: in a session the tour practices on a throwaway deck (`live` is
+		// declared further down, so the session's state reaches here through a ref).
+		get practice() {
+			return livePracticeRef.current;
+		},
 	});
+	const demoActiveRef = React.useRef(demoActive);
+	demoActiveRef.current = demoActive;
 	// A mobile tour types into the Markdown editor then points at SEL.panePreview
 	// (tour-kit.ts) — if Compose typing had already collapsed the pane bar
 	// (`chromeCollapsed`, fed by ComposeView's onTypingCollapse) and a tour starts
@@ -2993,6 +3153,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		mobile,
 		stopDemo,
 	});
+	const lessonActiveRef = React.useRef(lessonActive);
+	lessonActiveRef.current = lessonActive;
 	// THE DEEP LINK — `/studio/?lesson=<id>`, what the site search's Learn rows open. The param is
 	// read when the timer fires, not when the effect runs, so StrictMode's mount-unmount-mount cannot
 	// strand it; it is removed only as the lesson starts, so a reload does not replay it. There is no
@@ -3094,6 +3256,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		defaultRatio: 100 - PREVIEW_CHROME.defaultPreviewFrac * 100,
 		configKey: splitConfigKey,
 		clientOnlyPanelIds: splitPanelIds,
+		// The editor is folded because the docks leave it no room; opening it means giving one up.
+		onFoldedExpand: () => {
+			if (desktop && assistantOpen) setActiveAssistant(null);
+			else setInspectorOpen(false);
+		},
+		// A panel set the person never dragged starts at the ideal layout for this group width,
+		// not at whatever the library makes of mixed px + % defaults (dock-layout.ts).
+		freshLayout: (ids) => {
+			const w = mainEl?.getBoundingClientRect().width ?? 0;
+			return idealDockLayout(w, ids, STUDIO_SPLIT_PANEL_IDS[0], STUDIO_SPLIT_PANEL_IDS[1]);
+		},
 		onCollapse: (side) => notify(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
 		// No onDragStart suspend — scaleFrame tracks the pane live (see above). One
 		// authoritative refit of every live host on release covers any host that was
@@ -3256,7 +3429,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let live = true;
 		setAssessing(true);
 		const id = setTimeout(() => {
-			assessDeck(source, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes).then((a: CoachAssessment) => {
+			assessDeck(source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes).then((a: CoachAssessment) => {
 				if (!live) return;
 				setScorecard(a.scorecard);
 				setDeckHasContent(a.hasContent);
@@ -3268,7 +3441,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			live = false;
 			clearTimeout(id);
 		};
-	}, [source, lintVocab, components, localNames, savedFinishLintNames, profileOverride, editorPalettes]);
+	}, [source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes]);
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
@@ -3452,11 +3625,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			}
 			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
 			setSource(next);
+			noteAiEdit(source, next);
 			discardFix(key);
 			notify('Fix applied — ⌘Z or restore from History to undo.');
 			return true;
 		},
-		[fixStates, source, deck.id, discardFix, setSource],
+		[fixStates, source, deck.id, discardFix, setSource, noteAiEdit],
 	);
 	// Draft fixes for EVERY draftable finding (idle OR previously-stale), serialized against
 	// one source snapshot so slide numbers stay coherent — each lands as its own reviewable
@@ -3516,10 +3690,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			applied++;
 			discardFix(key);
 		}
-		if (applied) setSource(next);
+		if (applied) {
+			setSource(next);
+			noteAiEdit(source, next);
+		}
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
 		notify(applied ? `${applied} fix${applied > 1 ? 'es' : ''} applied${stale.length ? ` · ${stale.length} need a re-draft (slide changed)` : ''} — undo from History.` : 'None applied — those slides changed since they were drafted. Re-draft them.');
-	}, [fixStates, source, deck.id, discardFix, setSource]);
+	}, [fixStates, source, deck.id, discardFix, setSource, noteAiEdit]);
 
 	// ⌘K (command palette), ⌘. (toggle the quiet overlay), Esc (clear it). Radix
 	// popovers/sheets/dialogs handle Escape first and stop its propagation, so `Esc`
@@ -3592,6 +3769,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Track the document's light/dark mode reactively so exports + the preview
 	// follow a mode flip while Studio is open (the topbar writes <html data-mode>).
 	const [mode, setMode] = React.useState<string>(() => (typeof document !== 'undefined' ? (document.documentElement.getAttribute('data-mode') ?? 'light') : 'light'));
+	// The live session's frozen look (set from the session below, where `live` exists), or null.
+	const [sessionLook, setSessionLook] = React.useState<LiveLook | null>(null);
 	React.useEffect(() => {
 		const root = document.documentElement;
 		const sync = () => setMode(root.getAttribute('data-mode') ?? 'light');
@@ -3610,24 +3789,40 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// (`class: dark`, a `-dark` theme) wins over the site mode. resolveDeckTheme
 	// (deck-theme.ts) is the one place that precedence lives; here we map its result
 	// onto DeckPreview/Present's paletteOverride / extraTheme / modeOverride props.
-	const preview = React.useMemo(() => {
-		const isKnownTheme = (n: string) => BUILTIN_PALETTES.includes(n) || savedThemes.some((t) => t.name === n);
-		const r = resolveDeckTheme(source, { sitePalette: palette, siteMode: mode === 'dark' ? 'dark' : 'light', isKnownTheme });
-		const modeOverride = pinnedMode(r);
+	// In a live session the SESSION's look stands in for this browser's site palette and mode, so every
+	// member renders the same deck the same way (2026-10-20-live-uniform-experience.md §5.1). The host
+	// froze it when the session started; a null palette is a saved theme the host did not share. The
+	// Studio's own chrome keeps this browser's palette: only the deck follows the session.
+	// EXPORTS never follow the session: a member's PDF, PPTX or `.lattice` file renders as it would outside
+	// the session (an export-bytes change is the owner's call, QUALITY BAR), so they read `ownPreview`.
+	const look = sessionLook;
+	const resolvePreview = React.useCallback((look: LiveLook | null, themes: StudioTheme[]) => {
+		const isKnownTheme = (n: string) => BUILTIN_PALETTES.includes(n) || themes.some((t) => t.name === n);
+		const sitePalette = look ? (look.palette ?? DEFAULT_PALETTE) : palette;
+		const r = resolveDeckTheme(source, { sitePalette, siteMode: look ? look.mode : mode === 'dark' ? 'dark' : 'light', isKnownTheme });
+		// Live: always pass the resolved mode, so a deck that pins none still renders in the session's.
+		const modeOverride = pinnedMode(r) ?? (look ? r.mode : undefined);
 		if (r.fromDeck) {
 			// The deck names its own theme — pin the preview to it. A deck theme that
 			// names a saved (Fabricated) library theme needs its CSS registered, so
 			// pass it as extraTheme; a built-in is fetched by name (extraTheme none).
 			// A shipped name always resolves to the shipped theme. A record saved under one
 			// before saves were guarded (library/reserved-names.ts) must not re-skin it.
-			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : savedThemes.find((t) => t.name === r.palette);
+			const saved = RESERVED_THEME_NAMES.has(r.palette) ? undefined : themes.find((t) => t.name === r.palette);
 			return { paletteOverride: r.palette, extraTheme: saved ? { name: saved.name, css: saved.css } : undefined, modeOverride };
 		}
 		// Un-themed deck → adopt the website palette (the saved-theme CSS path is the
 		// existing activeTheme/extraTheme behavior). A `class: dark` on an un-themed
-		// deck still pins dark via modeOverride.
+		// deck still pins dark via modeOverride. Live: the session's built-in palette, by name.
+		if (look) {
+			// The session's palette is a built-in, or a saved theme the host shared with its record.
+			const shared = BUILTIN_PALETTES.includes(sitePalette) ? undefined : themes.find((t) => t.name === sitePalette);
+			return { paletteOverride: sitePalette, extraTheme: shared ? { name: shared.name, css: shared.css } : undefined, modeOverride };
+		}
 		return { paletteOverride: activeTheme?.name, extraTheme, modeOverride };
-	}, [source, palette, mode, savedThemes, activeTheme, extraTheme]);
+	}, [source, palette, mode, activeTheme, extraTheme]);
+	const ownPreview = React.useMemo(() => resolvePreview(null, savedThemes), [resolvePreview, savedThemes]);
+	const preview = React.useMemo(() => (look || renderThemes !== savedThemes ? resolvePreview(look, renderThemes) : ownPreview), [resolvePreview, ownPreview, look, renderThemes, savedThemes]);
 	// The saved Library records this deck uses — its saved theme, its saved components and
 	// its saved finishes — which a `.lattice` project carries along as package folders
 	// (portable-packages §4). Built from the same derivations the preview uses, so the file
@@ -3636,14 +3831,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Only a theme the deck NAMES: an un-themed deck previews in the site picker's theme,
 		// which the file must not carry as if the deck depended on it.
 		const named = getFrontMatter(source, 'theme');
-		const themeName = named && preview.extraTheme?.name === named ? named : undefined;
+		const themeName = named && ownPreview.extraTheme?.name === named ? named : undefined;
 		const usedComps = new Set(usedLocalComponents.map((c) => c.name));
 		return {
 			themes: themeName ? savedThemes.filter((t) => t.name === themeName) : [],
 			components: localComponents.filter((c) => usedComps.has(c.name)),
-			finishes: usedSavedFinishes,
+			finishes: ownUsedSavedFinishes,
 		};
-	}, [source, preview.extraTheme, savedThemes, usedLocalComponents, localComponents, usedSavedFinishes]);
+	}, [source, ownPreview.extraTheme, savedThemes, usedLocalComponents, localComponents, ownUsedSavedFinishes]);
 
 	const slideNo = Math.min(activeSlide, viewSlides.length - 1) + 1;
 	const goToSlideRef = React.useRef(goToSlide);
@@ -3676,14 +3871,73 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (v >= 0) goToSlide(v, { origin: 'live' });
 		else notify('That slide is hidden by the current reader view.');
 	};
+	// This browser's own records the deck uses, as a live session shares them (only what the host
+	// shares ever leaves; §6 rule 6). Components travel by name only.
+	// The same object while nothing in it changed: `deckPackages` is rebuilt on every keystroke, and the
+	// session reads a new object as new records to check.
+	const liveRecordsRef = React.useRef<LiveRecords>(NO_RECORDS);
+	const liveRecords = React.useMemo<LiveRecords>(() => {
+		const next: LiveRecords = { themes: deckPackages.themes.map((t) => ({ name: t.name, css: t.css })), finishes: deckPackages.finishes.map((f) => ({ name: f.name, label: f.label, recipe: f.recipe })), components: deckPackages.components.map((c) => c.name) };
+		const was = liveRecordsRef.current;
+		const same = was.themes.length === next.themes.length && was.finishes.length === next.finishes.length && was.components.length === next.components.length && next.themes.every((t, i) => t.name === was.themes[i].name && t.css === was.themes[i].css) && next.finishes.every((f, i) => f.name === was.finishes[i].name && f.label === was.finishes[i].label && f.recipe === was.finishes[i].recipe) && next.components.every((c, i) => c === was.components[i]);
+		if (!same) liveRecordsRef.current = next;
+		return liveRecordsRef.current;
+	}, [deckPackages]);
+	const liveSiteTheme = React.useMemo(() => (activeTheme ? { name: activeTheme.name, css: activeTheme.css } : null), [activeTheme]);
+	const livePublicPanelRef = React.useRef<'coach' | 'lenses' | 'library' | 'live' | null>(null);
+	if (activeAssistant !== 'chat') livePublicPanelRef.current = activeAssistant;
+	const livePublicPanel = livePublicPanelRef.current;
+	const liveSource = practice ? practice.real : source;
 	const live = useLiveSession({
-		source,
-		setSource: setSourceFromEditor,
+		source: liveSource,
+		// Remote edits during a practice run update the shared text kept aside, not the practice deck.
+		setSource: (next: string) => {
+			if (practiceRef.current) setPractice((p) => (p ? { ...p, real: next } : p));
+			else setSourceFromEditor(next);
+		},
 		deckId: deck.id,
-		deckTitle: titleFromSource(source, deck.title),
-		slideCount: slides.length,
+		deckTitle: titleFromSource(liveSource, deck.title),
+		// A tour's practice deck is not where this person is: presence keeps the shared deck's slide.
+		slideCount: practice ? practice.count : slides.length,
 		theme: palette,
-		activeSlide: activeFullIndex,
+		mode: mode === 'dark' ? 'dark' : 'light',
+		records: practice ? practice.records : liveRecords,
+		siteTheme: liveSiteTheme,
+		// Activity (§7.6): the AI Chat panel is never reported; what someone asks the AI is theirs. The last
+		// other panel stands in for it, so opening Chat neither shows nor closes anything for a follower.
+		panel: livePublicPanel,
+		view,
+		presenting: presentOpen,
+		asking: aiAsking,
+		comments: practice ? [] : deckComments,
+		applyComments: (deckId, set, del, me) => mergeSessionComments(deckId, set, del, me),
+		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
+		canFollowDoing: () => desktop,
+		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
+		// already running is left alone.
+		startTour: (tourId) => {
+			if (demoActiveRef.current || lessonActiveRef.current) return;
+			startDemo(tourId);
+		},
+		openRoomPresent: () => {
+			// A Present this person opened themselves is theirs: the Live panel offers to join instead.
+			if (presentOpenRef.current && !presentByRoomRef.current) return;
+			// A tour on a practice deck ends first, so Present freezes the shared deck, not the practice one.
+			if (practiceRef.current) stopDemo();
+			setPresentByRoom(true);
+			setPresentOpen(true);
+		},
+		closeRoomPresent: () => {
+			if (presentByRoomRef.current) setPresentOpen(false);
+			setPresentByRoom(false);
+		},
+		followDoing: (d) => {
+			if (!desktop) return;
+			if (d.panel) revealCraftDock();
+			setActiveAssistant(d.panel);
+			setView(d.view);
+		},
+		activeSlide: practice ? practice.slide : activeFullIndex,
 		goToSlide: goToFullSlide,
 		openSharedDeck: ({ deckId, title, source: shared }) => {
 			flushActiveDeck();
@@ -3698,6 +3952,130 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			return d.id;
 		},
 	});
+	const liveRecordsIn = live.collab?.records ?? NO_RECORDS;
+	React.useEffect(() => setSessionRecords(liveRecordsIn), [liveRecordsIn]);
+	const liveLook = live.collab?.look ?? null;
+	React.useEffect(() => {
+		setSessionLook((was) => (was?.palette === liveLook?.palette && was?.mode === liveLook?.mode ? was : liveLook));
+	}, [liveLook]);
+	// Present together (§7.2): the host's Present reports where it is while presenting to everyone, and
+	// opens when that starts; a member's Present opened by the room follows the presenter.
+	livePresentRef.current = !!live.view.present;
+	const livePresentingToAll = live.view.presentingToAll;
+	const livePresentingToAllRef = React.useRef(livePresentingToAll);
+	livePresentingToAllRef.current = livePresentingToAll;
+	const liveActionsRef = React.useRef(live.actions);
+	liveActionsRef.current = live.actions;
+	React.useEffect(() => {
+		if (livePresentingToAll) setPresentOpen(true);
+	}, [livePresentingToAll]);
+	// While presenting to everyone the host's Present shows the deck as it was when it started (§6 rule 7):
+	// narration is synthesized on the presenter's own key, so an edit someone makes meanwhile can neither
+	// add to the bill nor move a slide under the people following. Edits land when the presentation ends.
+	const [presentFrozen, setPresentFrozen] = React.useState<{ slides: string[]; fm: string } | null>(null);
+	const presentSourceRef = React.useRef({ slides, fm: previewFm });
+	presentSourceRef.current = { slides, fm: previewFm };
+	// A member following the presentation freezes too, so the same index is still the same slide.
+	const presentTogether = livePresentingToAll || presentByRoom;
+	// A member who joins mid-presentation opens before the shared deck is bound: binding it re-freezes,
+	// so the frozen copy is the room's deck and not the one this browser had open.
+	// The same holds when a tour's practice deck gives way to the shared deck: the frozen copy is never practice.
+	const practicing = practice !== null;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `deck.id` is the trigger; the source is read from the ref.
+	React.useEffect(() => {
+		setPresentFrozen(presentTogether && !practicing ? presentSourceRef.current : null);
+	}, [presentTogether, deck.id, practicing]);
+	// Every way Present closes (its own Exit, Escape on the loading screen, the loading screen's Cancel,
+	// the room ending it) ends the same things: the room's hold on it, and this browser presenting to all.
+	const presentWasOpenRef = React.useRef(presentOpen);
+	React.useEffect(() => {
+		const was = presentWasOpenRef.current;
+		presentWasOpenRef.current = presentOpen;
+		if (!was || presentOpen) return;
+		setPresentByRoom(false);
+		if (livePresentingToAllRef.current) liveActionsRef.current.presentToEveryone(false);
+	}, [presentOpen]);
+	// Narration on the call (§7.3): while this browser presents to everyone and is on the call, what its
+	// narration plays goes out with its microphone, so everyone on the call hears the presenter's voice and
+	// no second speaker plays it. Only the presenter synthesizes; nothing is fetched or sent besides audio.
+	const liveInCall = live.view.call.inCall;
+	React.useEffect(() => {
+		if (!livePresentingToAll || !liveInCall) return;
+		let tap: { stream: MediaStream; stop(): void } | null = null;
+		let canceled = false;
+		void import('./read-aloud').then(({ narrationStage }) => {
+			if (canceled) return;
+			tap = narrationStage().tapPlayback();
+			if (tap) live.actions.mixIntoCall(tap.stream);
+		});
+		return () => {
+			canceled = true;
+			live.actions.mixIntoCall(null);
+			tap?.stop();
+		};
+	}, [livePresentingToAll, liveInCall, live.actions]);
+	// Show me in a session (§7.5): the tour's new deck is a practice one, and ending the tour puts the
+	// shared deck back as the session now has it. Only while bound to a session; a tour anywhere else is
+	// the solo tour, which keeps its deck.
+	// Comments (slice 6): while bound to a session, this person's adds, resolves and deletes on the deck go to it.
+	const liveCommentDeck = live.collab && !practice ? deck.id : null;
+	const liveActionsForComments = live.actions;
+	React.useEffect(() => {
+		if (!liveCommentDeck) return;
+		const a = liveActionsForComments;
+		setCommentRelay({ deckId: liveCommentDeck, added: (c) => a.commentAdded(c), resolved: (id, r) => a.commentResolved(id, r), deleted: (id) => a.commentDeleted(id), mayDelete: (id) => a.mayDeleteComment(id) });
+		return () => setCommentRelay(null);
+	}, [liveCommentDeck, liveActionsForComments]);
+	// An AI edit is said in the session only while bound to it, and never from a tour's practice deck.
+	liveAiEditRef.current = live.collab && !practice ? live.actions.noteAiEdit : null;
+	livePracticeRef.current = live.collab
+		? {
+				// `practiceRef` moves at once, not at the next render: a remote edit arriving in between must
+				// already go to the right text.
+				start: () => {
+					if (practiceRef.current) return;
+					const next = { real: sourceRef.current, records: liveRecords, slide: activeFullIndex, count: slides.length };
+					practiceRef.current = next;
+					setPractice(next);
+					setSource('');
+				},
+				end: () => {
+					const was = practiceRef.current;
+					if (!was) return false;
+					practiceRef.current = null;
+					setPractice(null);
+					setSource(was.real);
+					return true;
+				},
+			}
+		: null;
+	// A session that ends mid-tour leaves nothing to practice beside: the shared text kept aside comes back.
+	React.useEffect(() => {
+		if (!live.collab && practiceRef.current) {
+			const was = practiceRef.current;
+			practiceRef.current = null;
+			// The tour stops first: left running, it would go on typing into the real deck.
+			stopDemo();
+			setPractice(null);
+			setSource(was.real);
+			setEditorEpoch((e) => e + 1);
+		}
+	}, [live.collab, setSource, stopDemo]);
+	// Pressing a tour as the host of a session with others in it plays it for everyone (§7.5).
+	const showMe = (tourId?: string) => {
+		const sent = live.actions.tourForEveryone(typeof tourId === 'string' ? tourId : DEFAULT_TOUR);
+		if (sent === 'sent') notify('Playing the tour for everyone in the session.');
+		else if (sent === 'presenting') notify('Stop presenting to everyone first, then start the tour.');
+		else if (sent === 'wait') notify('A tour just started for everyone. Give it a moment before starting another.');
+		else startDemo(tourId);
+	};
+	const liveForPresent = React.useMemo(
+		() =>
+			live.view.status === 'live'
+				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), follow: presentByRoom ? live.view.present : null, inertKeys: presentByRoom }
+				: undefined,
+		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom],
+	);
 	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
 	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
 	const openLive = () => {
@@ -3795,7 +4173,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		el.setAttribute('aria-label', `Reset zoom to fit — currently ${pct}`);
 	}, []);
 	const previewTapOffRef = React.useRef<(() => void) | null>(null);
+	const rehoverRef = React.useRef<(() => void) | null>(null);
+	// The pointer has not moved but the slide under it has: hit-test it again (see `onHover`'s setup).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the slide index is the trigger; the effect reads no value from it
+	React.useEffect(() => {
+		rehoverRef.current?.();
+	}, [viewIndex]);
+	// The holder element itself, for the live pointer layer (which reads pointer moves on it).
+	const previewHolderElRef = React.useRef<HTMLDivElement | null>(null);
 	const previewHolderRef = React.useCallback((holder: HTMLDivElement | null) => {
+		previewHolderElRef.current = holder;
 		previewHolderRoRef.current?.disconnect();
 		previewHolderRoRef.current = null;
 		zoomRef.current?.dispose();
@@ -3829,24 +4216,41 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		let hoverAt: { x: number; y: number } | null = null;
 		let hoverRaf = 0;
 		const hoverFrame = () => previewBoxRef.current?.querySelector<HTMLIFrameElement>('iframe.live');
-		const onHover = (e: PointerEvent) => {
-			if (e.pointerType !== 'mouse') return;
-			hoverAt = { x: e.clientX, y: e.clientY };
+		const scheduleHover = () => {
 			if (hoverRaf) return;
 			hoverRaf = requestAnimationFrame(() => {
 				hoverRaf = 0;
-				if (hoverAt) hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
+				if (hoverAt) {
+					const overCopy = hoverCodeCopyAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					const overPhoto = hoverCollageAt(hoverFrame(), hoverAt.x, hoverAt.y);
+					// The frame takes no pointer events, so its own `cursor:` never applies: the holder wears it.
+					const cursor = overPhoto ? 'zoom-in' : overCopy ? 'pointer' : '';
+					if (holder.style.cursor !== cursor) holder.style.cursor = cursor;
+				}
 			});
+		};
+		const onHover = (e: PointerEvent) => {
+			if (e.pointerType !== 'mouse') return;
+			hoverAt = { x: e.clientX, y: e.clientY };
+			scheduleHover();
+		};
+		// A slide change under a still mouse moves no pointer, so the marker and the cursor would stay
+		// on what was under it. The slide-change effect below asks for one more hit-test.
+		rehoverRef.current = () => {
+			if (hoverAt) scheduleHover();
 		};
 		const onLeave = () => {
 			hoverAt = null;
 			hoverCodeCopyAt(hoverFrame(), null, null);
+			hoverCollageAt(hoverFrame(), null, null);
+			holder.style.cursor = '';
 		};
 		holder.addEventListener('pointerdown', onPress, true);
 		holder.addEventListener('click', onTap);
 		holder.addEventListener('pointermove', onHover);
 		holder.addEventListener('pointerleave', onLeave);
 		previewTapOffRef.current = () => {
+			rehoverRef.current = null;
 			holder.removeEventListener('pointerdown', onPress, true);
 			holder.removeEventListener('click', onTap);
 			holder.removeEventListener('pointermove', onHover);
@@ -4199,7 +4603,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (!req || !compose) return;
 			// A look's modifiers ride its skeleton's `_class` (SlidePicker `variantSample`); they go
 			// on the pane's marker the way a slide's go on its `_class`.
-			const classWords = (item.skeleton.match(/<!--\s*_class:\s*([^>]*?)\s*-->/)?.[1] || '').split(/\s+/).filter(Boolean);
+			// Read through the shared reader (slide-directives → lib/core/meta-record.mjs), not a local regex.
+			const classWords = getClassTokens(item.skeleton);
 			const modifiers = classWords[0] === item.name ? classWords.slice(1) : [];
 			const keeps = item.name === req.current || req.fit[item.name] === 'keeps';
 			const token = compose.applyPane(req, { cls: item.name, modifiers, skeleton: keeps ? null : item.skeleton });
@@ -4225,6 +4630,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const applyChatEdit = (next: string) => {
 		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI chat edit', Date.now()));
 		setSource(next);
+		noteAiEdit(source, next);
 		goToChunk(0, { after: next });
 		// The AI edit jumps the preview to the top — reveal a collapsed preview so
 		// the applied change is never rendered into a hidden pane (no-op when open).
@@ -4587,12 +4993,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		async (draft: string) => {
 			const diagrams = extractDiagrams(draft);
 			const [a, errs] = await Promise.all([
-				assessDeck(draft, lintVocab, components, localNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
+				assessDeck(draft, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes),
 				diagrams.length ? import('./mermaid-parse').then((m) => m.checkDiagrams(diagrams, options?.runtimeUrl ?? '')).catch(() => undefined) : Promise.resolve(undefined),
 			]);
 			return { findings: a.findings, ...(errs ? { diagrams: errs } : {}) };
 		},
-		[lintVocab, components, localNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
+		[lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes, options?.runtimeUrl],
 	);
 	// And the agent's fit check renders the draft the way export does (draft-fit.ts). The shell
 	// hands over only what that render needs; the lazy agent imports the render path itself.
@@ -4621,7 +5027,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const chatBodyWith = (title?: string, costSlot?: HTMLElement | null) => (
 		<PanelLoader panel={chatPanel} shell={(body) => <ChatShell title={title} aiReady={ai.ready} deckId={deck.id}>{body}</ChatShell>}>
-			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
+			{(ArchitectChat) => <ArchitectChat title={title} costSlot={costSlot} deckId={deck.id} source={source} aiReady={ai.ready} grounding={chatGrounding} onApply={applyChatEdit} onBusyChange={setAiAsking} onShareTurn={live.collab && !live.collab.readOnly ? live.actions.shareAiTurn : null} onConnect={() => setWorkspaceOpen(true)} onManageDocs={() => { setLibInitialFilter('refdoc'); setLibraryOpen(true); }} />}
 		</PanelLoader>
 	);
 
@@ -4868,24 +5274,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{pageNumbersField}
 				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{logoField}
-				{/* The five logo modifiers mean nothing without a logo, so they stay hidden
-				    until one is set — otherwise the tab opens with five dead rows. */}
+				{/* The logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with dead rows. */}
 				{logo.trim() !== '' && (
-					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
-					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
-					// this was a scope, searching the word that is the entire reason they exist
-					// hid all five and left the path field standing alone. A scope also takes the
-					// indent rule with them when they do filter out, which the marked div did.
+					// A SCOPE, not a bare marked div: these rows are `Position`, `Color`, `Size` and
+					// `Show on`, and not one of them says "logo" — so searching the word that is the
+					// entire reason they exist must keep all four.
 					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-						<Field label="Show on" desc="Every slide, or just the cover.">
-							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
-						</Field>
-						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
-							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
-						</Field>
-						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. A value outside 0.2–3 is clamped to the nearest end.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
-						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
-						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
+						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
+							const meta = {
+								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-finish:</code> line.</> },
+								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors on a soft plate.</> },
+								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
+								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
+							}[axis];
+							return (
+								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
+									<CatalogSelect
+										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
+										onValueChange={(v) => setLogoWord(axis, v)}
+										className="w-full"
+										groups={[{ options: [{ value: '__default__', label: `${logoFinishLabel(logoFinishWords(axis)[0])} (default)` }, ...logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w) }))] }]}
+									/>
+								</Field>
+							);
+						})}
 					</SettingsScope>
 				)}
 				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />
@@ -5040,6 +5454,40 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</Field>
 					)}
 				</SubGroup>}
+			</div>
+			),
+		},
+		{
+			// The `image-card:` register: the text card on every image slide that floats its words
+			// over the photo. Its own tab, not a Look sub-group: five controls that act on one
+			// component, which an author reaches for while laying out photo slides.
+			value: 'image',
+			label: 'Image',
+			keywords: 'image photo picture spotlight statement card text placement opacity ink size compact',
+			body: () => (
+			<div>
+				<TabNote>The text card on every photo slide that floats its words over the picture (<code>image spotlight</code>, <code>image statement</code>). A slide can change any one of these in its own Image tab.</TabNote>
+				{IMAGE_CARD_ROWS.map((row) => (
+					<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
+						{row.axis === 'backing' ? (
+							<CardBackingControl
+								ariaLabel={row.label}
+								word={deckImage.backing}
+								inheritedWord={undefined}
+								autoLabel={`Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
+								onChange={(w) => setDeckImage('backing', w ?? '__auto__')}
+							/>
+						) : (
+						<CatalogSelect
+							ariaLabel={row.label}
+							value={deckImage[row.axis] && (row.axis === 'ink' || deckImage[row.axis] !== imageCardWords(row.axis)[0]) ? (deckImage[row.axis] as string) : '__auto__'}
+							onValueChange={(v) => setDeckImage(row.axis, v)}
+							className="w-full"
+							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)` }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w) }))] }]}
+						/>
+						)}
+					</Field>
+				))}
 			</div>
 			),
 		},
@@ -5251,8 +5699,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    the badge went (it was the title again), title and sentence merged, and the
 				    find toolbar came up off a 40px row of its own.
 				    THE ROW ALWAYS CARRIES WORDS. A first cut hid the line below a 320px
-				    container, which is every DOCKED desktop width — SET_DEFAULT is 296 and
-				    296 − 28px of padding = 268 — so the banner rendered as icons and a tint at
+				    container, which is every DOCKED desktop width — the dock default is 320 (was 296) and
+				    320 − 28px of padding = 292 — so the banner rendered as icons and a tint at
 				    the default, and the scope was legible only by drag-resizing the panel past
 				    348px. Two phrasings that swap on the container instead: the sentence where
 				    it fits, an abbreviation where it does not. */}
@@ -5451,7 +5899,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab ? onLiveEditorChange : setSourceFromEditor} collab={live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={deck.id} className="flex-1" />
+					<Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" />
 				</React.Suspense>
 			)}
 		</section>
@@ -5506,6 +5954,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(LiveCorner) => <LiveCorner people={liveBySlide.get(activeFullIndex) ?? []} />}
 					</PanelLoader>
 				)}
+				{/* Live: everyone's pointer over the slide, drawn only (§7.6); loaded with the session. */}
+				{live.pointers && live.view.status === 'live' && (
+					<PanelLoader panel={livePointersPanel} shell={() => null}>
+						{(LivePointers) => <LivePointers source={live.pointers as NonNullable<typeof live.pointers>} holder={previewHolderElRef} slide={activeFullIndex} />}
+					</PanelLoader>
+				)}
 				{/* The zoom's only chrome, and it earns its place twice: it tells a reader
 				    who zoomed by accident WHY the slide is cropped, and it is the pointer-free
 				    way back to fit (a middle-click also resets, but a trackpad has no middle
@@ -5549,7 +6003,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={previewHolderRef} className={cn('flex min-h-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
+			<div ref={setMapWrap} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
+			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
 				    overlay's press-and-hold rides a parent-hosted capture surface layered
@@ -5611,6 +6066,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ErrorBoundary>
 				</div>
 			</div>
+			{mapEver && (
+				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[96px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
+					<Frozen active={mapOn && !landscapePhone}>
+					<React.Suspense fallback={null}>
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} people={mapBeside ? liveBySlide : undefined} classLabels={effectiveStop !== 'read'} onReady={onMapReady} />
+					</React.Suspense>
+					</Frozen>
+				</div>
+			)}
+			</div>
 			{slideClipped && clipVenue && clipVenue.scale > 1 && effectiveStop !== 'read' && (
 				<React.Suspense fallback={null}>
 					<ClipNotice venue={clipVenue} down={clipDown} slide={slides[curIndex] ?? ''} splittable={composeLens === 'full'} onSplit={opSplitForVenue} onDown={opVenueDown} />
@@ -5665,7 +6130,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
 					</div>
 				)}
-			<SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />
+			{/* Where the map sits BESIDE the slide it is the navigator: its tiles carry the number, the position, first to
+			    last, the Live dots and (outside Read) the component class, so a second list of the same slides under them is only noise. Where it stacks
+			    under the slide (a narrow pane, a phone) the strip has no labels or steps, so the pills stay. */}
+			{!mapBeside && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />}
+				<button
+					type="button"
+					aria-label="Slide map"
+					aria-pressed={mapOn}
+					title="Slide map — a rail of every slide beside the preview"
+					onClick={toggleMap}
+					className={cn('ml-auto grid size-8 shrink-0 place-items-center rounded-lg border bg-card transition-colors [@media(pointer:coarse)]:size-11', mapOn ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
+				>
+					<GalleryVerticalEnd className="size-4" aria-hidden />
+				</button>
 			</div>
 			)}
 			{!previewChromeless && (
@@ -5915,7 +6393,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							<DropdownMenuSeparator />
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
-								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => startDemo(t.id))} className="flex-col items-start gap-0.5 py-2">
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => showMe(t.id))} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
 								</DropdownMenuItem>
@@ -6066,7 +6544,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		...(effectiveStop === 'read' ? [{ id: 'read-article', group: 'actions', label: 'Read as an article', icon: FileText, run: () => setView('article') } satisfies StudioCommand] : []),
 		{ id: 'library', group: 'actions', label: 'Library — saved themes & components', icon: FileBox, run: () => { revealCraftDock(); setLibraryOpen(true); } },
 		{ id: 'workspace', group: 'actions', label: 'Workspace settings', icon: SettingsCog, run: () => setWorkspaceOpen(true) },
-		{ id: 'watch-demo', group: 'actions', label: 'Watch demo — the Studio drives itself', icon: MonitorPlay, run: () => startDemo() },
+		{ id: 'watch-demo', group: 'actions', label: 'Watch demo — the Studio drives itself', icon: MonitorPlay, run: () => showMe() },
 		{ id: 'feedback', group: 'actions', label: 'Send feedback', icon: FeedbackIcon, run: () => setFeedbackOpen(true) },
 		// New deck — the slim Write header's switcher carries it too, but ⌘K is the header's
 		// stated "reaches every feature" path, so it must be reachable here.
@@ -6392,7 +6870,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<DropdownMenuContent align="end" className="w-64">
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
 							{TOURS.map((t) => (
-								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => startDemo(t.id)} className="flex-col items-start gap-0.5 py-2">
+								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={() => showMe(t.id)} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
 								</DropdownMenuItem>
@@ -6468,7 +6946,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onLive={openLive}
 						demoActive={demoActive}
 						tours={TOURS}
-						onStartDemo={startDemo}
+						onStartDemo={showMe}
 						onLibrary={() => setLibraryOpen(true)}
 						onSearch={() => setCmdOpen(true)}
 						onFeedback={() => setFeedbackOpen(true)}
@@ -6674,7 +7152,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    simply not rendered (the activity-bar icon reopens it). */}
 						{desktop && effectiveStop === 'craft' && inspectorOpen && (
 							<>
-								<ResizablePanel id="studio-settings" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={SET_DEFAULT} className="overflow-hidden border-r border-border bg-background">
+								<ResizablePanel id="studio-settings" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-background">
 									{/* Empty: the settings are drawn over this box by `settingsDock`, which outlives it. */}
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
@@ -6687,11 +7165,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    2026-07-19 migration adds. */}
 						{desktop && effectiveStop === 'craft' && assistantOpen && (
 							<>
-								{/* Library gets its own panel id (+ wider default) so switching the
-								    assistant slot Coach→Library is a fresh panel identity — the library
-								    applies Library's 380px default instead of caching Coach's ~232px width
-								    (each keeps its own persisted width via the per-panel-id bucket). */}
-								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={assistantMin} maxSize={PANEL_MAX} defaultSize={assistantDefault} className="overflow-hidden border-r border-border bg-card">
+								{/* Library keeps its own panel id so switching the assistant slot
+								    Coach→Library is a fresh panel identity, and each keeps its own
+								    persisted width via the per-panel-id bucket. */}
+								<ResizablePanel id={libraryOpen ? 'studio-library' : 'studio-assistant'} minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-r border-border bg-card">
 									{coachOpen && (
 										<>
 											<div className="border-b border-border px-3.5 py-2 font-mono text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Coach</div>
@@ -6737,7 +7214,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{bp === 'tablet' && effectiveStop === 'craft' && inspectorOpen && (
 							<>
 								<ResizableHandle aria-label="Resize inspector panel" />
-								<ResizablePanel id="studio-tablet-inspector" minSize={SET_MIN} maxSize={PANEL_MAX} defaultSize={296} className="overflow-hidden border-l border-border bg-background">
+								<ResizablePanel id="studio-tablet-inspector" minSize={DOCK.min} maxSize={DOCK.max} defaultSize={DOCK.default} className="overflow-hidden border-l border-border bg-background">
 									<div ref={setSettingsSlot} className="min-h-0 flex-1" />
 								</ResizablePanel>
 							</>
@@ -6832,7 +7309,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* ── Overlays ─────────────────────────────────────────────── */}
 			{shareMounted && (
 				<PanelLoader panel={sharePanel} sheet open={shareOpen} shell={(body) => <ShareShell open={shareOpen} onOpenChange={setShareOpen} deckTitle={deckTitle}>{body}</ShareShell>}>
-					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={finishClass} finishExtraCss={finishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={preview.paletteOverride ?? palette} mode={preview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={preview.extraTheme} extraCss={previewExtraCss} onPresent={openPresent} onCollaborate={openLive} />}
+					{(ShareSheet) => <ShareSheet open={shareOpen} onOpenChange={setShareOpen} initialView={shareStart} deckTitle={deckTitle} source={source} deckId={deck.id} finishClass={ownFinishClass} finishExtraCss={ownFinishExtraCss} localComponents={usedLocalComponents} deckPackages={deckPackages} options={deckOptions} palette={ownPreview.paletteOverride ?? palette} mode={ownPreview.modeOverride ?? (mode === 'dark' ? 'dark' : 'light')} extraTheme={ownPreview.extraTheme} extraCss={exportExtraCss} onPresent={openPresent} onCollaborate={openLive} onWrite={settingsWrite} />}
 				</PanelLoader>
 			)}
 			<FeedbackSheet open={feedbackOpen} onOpenChange={setFeedbackOpen} area="Studio" context={{ Deck: deckTitle, Theme: `${palette} · ${mode}` }} />
@@ -6928,7 +7405,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</button>
 					}
 				>
-					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} onReady={() => setPresentEverOpened(true)} options={options} slides={slides} frontMatter={previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
+					<PresentOverlay open={presentOpen} onClose={() => setPresentOpen(false)} live={liveForPresent} onReady={() => setPresentEverOpened(true)} options={options} slides={presentFrozen?.slides ?? slides} frontMatter={presentFrozen?.fm ?? previewFm} registry={lensReg} startIndex={activeFullIndex} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} webOrigins={webAllowed} />
 				</React.Suspense>
 			)}
 			{cmdPalette}

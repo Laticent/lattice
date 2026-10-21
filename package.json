@@ -56,6 +56,7 @@
     "docs/src/lib/suono",
     "docs/src/lib/tavola",
     "docs/src/lib/trama",
+    "docs/src/lib/veduta",
     "docs/src/lib/vetrina"
   ],
   "files": [
@@ -176,6 +177,8 @@
     "vetrina-lib:check": "node tools/build-vetrina-lib.js --check",
     "fuoco-lib:build": "node tools/build-fuoco-lib.js",
     "fuoco-lib:check": "node tools/build-fuoco-lib.js --check",
+    "veduta-lib:build": "node tools/build-veduta-lib.js",
+    "veduta-lib:check": "node tools/build-veduta-lib.js --check",
     "lente-lib:build": "node tools/build-lente-lib.js",
     "lente-lib:check": "node tools/build-lente-lib.js --check",
     "segno-lib:build": "node tools/build-segno-grammar.js && node tools/build-segno-lib.js",
@@ -192,6 +195,7 @@
     "capabilities:build": "node tools/build-capabilities.js",
     "capabilities:check": "node tools/build-capabilities.js --check",
     "queue:precheck": "bash tools/queue-precheck.sh",
+    "branch:owner": "bash tools/branch-owner.sh",
     "release": "node tools/release.js",
     "release:dry": "node tools/release.js --dry-run",
     "release:prepare": "node tools/release.js --prepare",
@@ -199,6 +203,7 @@
     "release:zip": "node tools/build-release-zip.js",
     "changelog:bump": "node tools/changelog.js --bump",
     "backlog": "node tools/backlog.js",
+    "card": "node tools/card.js",
     "followups": "node tools/followups.js",
     "docs:components": "node tools/build-component-docs.js",
     "docs:components:check": "node tools/build-component-docs.js --check",
@@ -311,7 +316,7 @@
     "test:integration": "node --test 'test/integration/**/*.test.js'",
     "test:integration:pr": "node --test 'test/integration/parity/*.test.js' 'test/integration/export/*.test.js' 'test/integration/invariants/*.test.js'",
     "test:integration:shard": "node tools/shard-tests.js --weights test/integration/shard-weights.json 'test/integration/parity/*.test.js' 'test/integration/export/*.test.js' 'test/integration/invariants/*.test.js'",
-    "test:integration:nightly": "node --test 'test/integration/galleries/*.test.js' 'test/integration/components/*.test.js' 'test/integration/exemplars/*.test.js' 'test/integration/mermaid/*.test.js' 'test/integration/screenshot/*.test.js' 'test/integration/lint-engine/*.test.js'",
+    "test:integration:nightly": "node --test 'test/integration/galleries/*.test.js' 'test/integration/components/*.test.js' 'test/integration/exemplars/*.test.js' 'test/integration/mermaid/*.test.js' 'test/integration/screenshot/*.test.js' 'test/integration/lint-engine/*.test.js' 'test/integration/export-nightly/*.test.js'",
     "test:integration:galleries": "node --test 'test/integration/galleries/*.test.js'",
     "test:integration:parity": "node --test 'test/integration/parity/*.test.js'",
     "test:integration:mermaid": "node --test 'test/integration/mermaid/*.test.js'",
@@ -336,6 +341,7 @@
     "tavola-lib:build": "node tools/build-tavola-lib.js"
   },
   "dependencies": {
+    "@jitl/quickjs-wasmfile-release-sync": "0.31.0",
     "@laticent/cadenza": "^0.1.0",
     "@laticent/calco": "^0.1.0",
     "@laticent/ltt": "^0.1.0",
@@ -358,6 +364,7 @@
     "pptxgenjs": "^3.12.0",
     "puppeteer": "^23.0.0",
     "qrcode": "^1.5.4",
+    "quickjs-emscripten-core": "0.31.0",
     "roughjs": "^4.6.6",
     "woff2-encoder": "^2.0.0"
   },
@@ -374,6 +381,7 @@
     "ajv": "^8.20.0",
     "animejs": "^4.5.0",
     "axe-core": "^4.12.1",
+    "buffer": "^6.0.3",
     "c8": "^11.0.0",
     "d3-geo": "^3.1.1",
     "dependency-cruiser": "^18.0.0",

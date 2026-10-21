@@ -67,37 +67,32 @@ section.actors > .cell-stage > ol > li > strong {
   color:var(--text-heading);
   line-height:var(--lh-snug);
 }
-/* Inline code = actor name chip, outlined categorical pill, right-aligned.
- * Pill chrome (font, border, bg, color, radius) inherits from the
- * universal pill rule. This block adds grid placement and the actors-
- * specific letter-spacing + slightly wider padding. The categorical
- * border color is fed via --pill-border below (set per-row by the
- * nth-child rotation), which the universal rule consumes directly.
- * The --cN-dark palette is theme-defined; both cuoio (warm earth
- * pigments) and indaco (cool L≈32 deeps) ship balanced sets. */
-section.actors > .cell-stage > ul > li > code,
-section.actors > .cell-stage > ol > li > code {
+/* The actor name is a pill — written `{First seat}` in inline code and drawn by the pills plugin,
+ * outlined in the row's categorical hue and kept at its natural width so the strong label takes
+ * the rest of the header row (that is what right-anchors it). The --cN-dark palette is
+ * theme-defined; both cuoio (warm earth pigments) and indaco (cool L≈32 deeps) ship balanced sets. */
+section.actors > .cell-stage > ul > li > .lat-pill,
+section.actors > .cell-stage > ol > li > .lat-pill {
   flex:0 0 auto;
-  /* right-anchored on the header row by the universal pill rule (auto-start inline). */
-  display:inline-flex; align-items:center;
-  letter-spacing:0.04em;
-  padding:3px 11px;
 }
-/* Categorical rotation across items (cycle of 6, then mauve/slate).
- * Sets --pill-border on the <li>; both the universal pill rule
- * (border on the <code>) and the actors row marker (border-left on
- * the <li>) consume the same variable. */
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --pill-border:var(--cat-1-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --pill-border:var(--cat-2-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --pill-border:var(--cat-3-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+4) { --pill-border:var(--cat-4-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+5) { --pill-border:var(--cat-5-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --pill-border:var(--cat-6-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --pill-border:var(--cat-7-mark); }
-section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --pill-border:var(--cat-8-mark); }
+/* The hue is a default: a pill whose author named a color keeps it. */
+section.actors > .cell-stage > ul > li > .lat-pill:not([data-c]),
+section.actors > .cell-stage > ol > li > .lat-pill:not([data-c]) {
+  --lat-pill-edge:var(--actor-hue, var(--muted-mark));
+}
+/* Categorical rotation across items (cycle of 8). Sets --actor-hue on the <li>; the pill's edge
+ * and the row marker (border-left on the <li>) take the same hue. */
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+1) { --actor-hue:var(--cat-1-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+2) { --actor-hue:var(--cat-2-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+3) { --actor-hue:var(--cat-3-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+4) { --actor-hue:var(--cat-4-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+5) { --actor-hue:var(--cat-5-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+6) { --actor-hue:var(--cat-6-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n+7) { --actor-hue:var(--cat-7-mark); }
+section.actors > .cell-stage > :is(ul, ol) > li:nth-child(8n)   { --actor-hue:var(--cat-8-mark); }
 /* The accent left-border picks up the same hue as the chip. */
 section.actors > .cell-stage > :is(ul, ol) > li {
-  border-left-color:var(--pill-border, var(--accent));
+  border-left-color:var(--actor-hue, var(--accent));
 }
 /* Body row spans full width below the header. */
 section.actors > .cell-stage > ul > li > ul,
@@ -129,13 +124,32 @@ section.actors > .cell-stage > ol > li > ol > li {
    invisible. */
 section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol) > li > strong { flex: 0 0 100%; padding-bottom: var(--sp-2xs); }
 /* Drop the chip onto its own line, hanging at the LEFT under the responsibility. The
-   universal pill rule (base.modifiers) auto-starts the chip's inline edge to right-anchor
-   it; cancel that (zero reset) so the chip sits left on its own wrapped line. */
-section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ul > li > code,
-section.actors.actors:where([data-family="tall"], [data-family="strip"]) > .cell-stage > ol > li > code {
-  margin-left: 0;
-}
+   chip rides the row's far end through the strong label's `flex:1`; here the label takes the full
+   line (above), so the chip wraps onto its own line and hangs at the left. */
 
+
+/* ── Dense roster (five rows or more) ─────────────────────────────────────
+ * Measured at hd: a two-line row is 101px (two lines + gap + padding), so the stage seats four
+ * (4 × 101 + gaps = 428 of 435px). Five rows needed 537px, and flex-shrink squeezed each row
+ * below its own content, so every title overprinted its body. From five rows the row becomes ONE
+ * line — responsibility, body, chip — which is 50px, so seven rows need 386px and fit.
+ * That holds while each body stays on one line (about 10 words at hd). A body that wraps makes
+ * its row 83px, and seven rows then outgrow the stage; the export's OVERFLOW line and the render
+ * tier's overflow probe report it (nothing here does). Tall and strip decks keep their stacked
+ * reflow above (their stage is shaped for it). */
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li {
+  flex-wrap:nowrap;
+  padding-block:var(--sp-xs);
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > strong {
+  order:1; flex:0 0 22%;
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > :is(ul, ol) {
+  order:2; flex:1 1 0; min-width:0;
+}
+section.actors:not([data-family="tall"], [data-family="strip"]) > .cell-stage > :is(ul, ol):has(> li:nth-child(5)) > li > .lat-pill {
+  order:3;
+}
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the cards; vertical
  * berth (padding-block, never margin — #20) so the stage's overflow:clip doesn't

@@ -484,3 +484,33 @@ test('the Studio webpage export embeds another site’s picture when the author 
 	expect(img, 'the other site’s picture is inside the file and decodes').toEqual({ src: 'data:image/png;base64,', loaded: true });
 	expect(requests, 'opening the file contacts no site').toEqual([]);
 });
+
+// A shared file speaks to a READER. The capture frame the Webpage export bakes in used to carry
+// no export-settings block, so the runtime took it for an authoring surface: every player the
+// Studio made carried `data-lattice-overflow-marker="author"` and the type-floor tab on every
+// slide, and a clipped slide reached its reader with the red ring, "OVERFLOWS" and the "Fix Me"
+// chips, where the CLI's player shows a calm "Content clipped" pill
+// (engineering/decisions/2026-10-16-player-as-library-audit.md §11.8).
+test('the Studio webpage export carries the reader overflow marker, never the authoring one', async ({ page }, testInfo) => {
+	test.setTimeout(180_000);
+	const long = Array.from({ length: 14 }, (_, i) => `- item ${i + 1}: a long line of text that keeps going so the slide holds far too much to fit`).join('\n');
+	const file = await exportWebpage(page, testInfo, `---\ntheme: indaco\n---\n\n# Fits\n\nA short slide.\n\n---\n\n# Overflows\n\n${long}\n`, { as: 'overflow.html' });
+	const html = await readFile(file, 'utf8');
+	expect(html).not.toContain('data-lattice-overflow-marker="author"');
+	expect(html).not.toContain('class="illegible-tab"');
+	const sections = await exportedSections(page, file);
+	expect(sections).toHaveLength(2);
+	for (const s of sections) expect(s).toContain('data-lattice-overflow-marker="reader"');
+	// `reader` still marks: a clipped slide says so (resolve-overflow-marker.js), it just says it calmly.
+	expect(sections[1]).toMatch(/class="[^"]*\bclip-marked\b/);
+	expect(sections[0]).not.toMatch(/class="[^"]*\bclip-marked\b/);
+	// What the reader SEES on the clipped slide: the calm pill, and no "Fix Me" chip.
+	const viewer = await page.context().newPage();
+	await viewer.goto(`file://${file}`, { waitUntil: 'networkidle' });
+	await viewer.keyboard.press('ArrowRight');
+	const slide = viewer.locator('section[data-lattice-slide="2"]');
+	await expect(slide.locator('.overflow-tab')).toBeVisible();
+	await expect(slide.locator('.overflow-tab')).toHaveText(/content clipped/i);
+	await expect(viewer.locator('.fixme-tab:visible')).toHaveCount(0);
+	await viewer.close();
+});

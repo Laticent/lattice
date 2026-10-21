@@ -6,6 +6,38 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-20 — measured on the image card band (#2824) rebased onto main
+
+Raises the lint core's ceiling by 2,500 bytes (109500 → 112000), soft target unchanged; the owner chose this on 2026-10-20 (#2824). The PR adds the `thin-card-no-ink` rule and the class-reading policy it shares with the Studio (`lib/core/card-ink-policy.mjs`) to the lint core, and the image-card register gains the `shape` axis and 17 backing levels. Measured at 110,100 bytes with the rebased tree, about 600 over the old ceiling. Before asking, it gave back what it could: the policy is split from the photo-sampling maths so the lint core takes only the class reading (about 750 bytes), the composition reader is restated in the policy instead of pulling in `image-aspect` (about 1,000 bytes), the level lists are formulas, and the finding's text is shorter. The one remaining option, dropping the rule, would leave hand-written decks without a warning for the thin cards the Studio fixes automatically. The owner then asked for more room than the measurement needs (112000, about 1.9KB of headroom), so the next lint rule does not trip it at once.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 112000 |
+
+### 2026-10-19 — measured on the legend plugin (#2798) built on top of main at b9cb419
+
+Raises the getting-started route's engine ceiling by 4KB (317145 → 321241 bytes), soft target unchanged; the owner chose this on 2026-10-19 (#2798, decision D1). The route's engine is the preview runtime, which ships the heatmap transform and the roadmap, matrix-grid and obligation-matrix keys, so the legend plugin's reader, lane emitter and key emitter ride along: heatmap callouts draw on the runtime's surfaces too (the Marp export, the VS Code preview), which the other choice, leaving them out of the runtime, would have broken. Before asking, #2798 gave back what the runtime never calls: the reader's diagnostic sentences moved to the linter (`lib/authoring/legend-messages.js`), and the key emitter split from the legend's own-class key and the mark vocabulary (`lib/core/legend-key.js`). That took the growth over main from 4,364 to 3,634 bytes gzipped on `dist/lattice-runtime-min.js`, and CI measured the route at 311.4KB against the old 309.7KB ceiling. 321241 leaves about 2.3KB over that measurement.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | engineJsGz | 288314 | 288314 | +0 | 321241 |
+
+### 2026-10-18 — measured on the slide-metadata reader (#2772) built on top of main at adba03a
+
+Raises the lint core's ceiling by about 3KB (106000 → 109500 bytes), soft target unchanged; the owner chose this on 2026-10-18 (#2772). Main alone sits at the ceiling (105.7KB measured on this PR against 103.5KB). #2772 adds the one slide-metadata reader (`lib/core/meta-record.mjs`), the vocabulary it reads (`lib/plugins/meta.generated.mjs`, `lib/core/meta-keys.mjs`) and the five meta lint rules the design asks for (`meta-opener-bare`, `meta-not-own-line`, `meta-in-html-block`, `meta-block-in-container`, `legacy-directive-comment`) to the lint core. Before asking, it gave back what it could: the Studio-only structured edit moved to its own module (`lib/core/meta-edit.mjs`), the manifest's prose is left out of the generated vocabulary, and one scan serves about 20 rules that each scanned the deck. That took the growth over main from 3.4KB to 2.2KB gzipped on the minified lint bundle. 109500 is the measured 108237 bytes plus about 1.2KB so a later lint change does not trip it at once. The lint core loads after the Studio's first paint (engine-spine note §5).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 109500 |
+
+### 2026-10-17 — measured on the histogram and EP curve charts built on top of main at f25ed16
+
+Raises the lint core's ceiling to 106000 bytes (102736 → 106000), soft target unchanged; the owner chose this on 2026-10-17 for the histogram and EP curve charts (the reinsurance beta, `engineering/decisions/2026-10-15-business-deck-gaps.md` §7.4). Main alone measured 102695 bytes, 41 bytes under the old ceiling, so any lint change past that would trip it. The charts add seven `lint:deck` warnings and the row and point readers they share with the charts and their narrators: the histogram's dash range, gap or overlap, log over zero and negative value, and the EP curve's unreadable point (a thousands separator, `{1,000, $900M}`, drops a point without a word otherwise), duplicate return period and fifth curve. Before asking, the work shared one slide loop between the two rule sets and shortened their messages (149 bytes back). Measured on top of main: 105932 bytes with both rule sets, 104439 with the histogram's only, 102950 with neither (the `log` axis word in the shared axis reader and the two chart names alone pass the old ceiling). The owner chose to keep all seven. The lint core loads after the Studio's first paint (engine-spine note §5).
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 106000 |
+
 ### 2026-10-16 — measured on #2716 built on top of main at 72ae80f
 
 Raises the lint core's ceiling by 1KB (101712 → 102736 bytes), soft target unchanged; the owner chose this on 2026-10-16 (#2716). #2716 (the code record follow-ups) adds the measured code-pane column and bar tables and the rules that read them to the lint core. Before asking, it gave back what it could: the column table is written without its keys (655 bytes) and the record writer moved to its own entry, esm/code-record.js, which only the Studio's code options panel loads (about 0.8KB). That left it at 101813 bytes on top of main (main alone, at the same commit: 98317 bytes), 101 bytes past the old ceiling. The other give-backs on offer (an encoding about 20 bytes under the ceiling, or dropping the bar and wrapped-row counting) were weighed and refused: the first fails on the next lint change anywhere, the second reopens a clip the lint should name. The lint core loads after the Studio's first paint (engine-spine note §5).

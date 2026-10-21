@@ -425,3 +425,80 @@ describe('the rules the CLI door learned', () => {
 		expect(opened.map((o) => o.ran)).toEqual([1]);
 	});
 });
+
+describe('data returns (threat-model decisions 11 and 12): the CLI door’s rules, in the Studio', () => {
+	const { RETURN_ENVELOPE, pluginReturnFields } = require('../../../../lib/packages/code-shape.mjs') as { RETURN_ENVELOPE: string; pluginReturnFields: (m: unknown) => ReturnType<typeof import('../../../../lib/packages/code-shape.mjs').pluginReturnFields> };
+	const cli = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string, kinds?: unknown[], returns?: unknown[]) => string };
+	const RETURNS = { fields: { status: { type: 'word', values: ['ok', 'late'] }, note: { type: 'text' } } };
+	const fields = pluginReturnFields({ contributes: { returns: RETURNS } });
+	const returning = (data: Record<string, unknown>) => () => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>drawn</p>', data })}`;
+	const install = async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS }]);
+		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence, [], fields) });
+	};
+	const statusOf = async (deck: string) => {
+		let status: { failed?: { name: string; why: string }[] } = {};
+		const off = onCodePackagesStatus((s) => {
+			status = s;
+		});
+		const html = await draw(deck, true);
+		off();
+		return { html, failed: status.failed ?? [] };
+	};
+
+	it('the declaration is pinned into the digest the CLI computes, and an approval without it does not run the plugin', async () => {
+		expect(await pluginDigest(code, PLUGIN.fence, [], fields)).toBe(cli.pluginDigest(code, PLUGIN.fence, [], fields));
+		expect(await pluginDigest(code, PLUGIN.fence, [], fields)).not.toBe(await pluginDigest(code, PLUGIN.fence));
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS }]);
+		await approve();
+		expect(await draw(DECK)).toContain('its code has not been approved in this browser');
+	});
+
+	it('a clean value lands on the slide’s own <section>, escaped', async () => {
+		await install();
+		renderer = returning({ status: 'late', note: 'a "q" & b' });
+		const html = await draw(DECK);
+		expect(html).toContain('<p>drawn</p>');
+		expect(html).toMatch(/<section\b[^>]*data-returned-gantt-plugin--status="late"[^>]*data-returned-gantt-plugin--note="a &quot;q&quot; &amp; b"/);
+	});
+
+	it('a value its declaration does not admit disables the plugin for the render, with a note and a strip alert, every render the result is reused', async () => {
+		await install();
+		renderer = returning({ status: 'late', note: '</style><img src=//e>' });
+		for (const pass of [1, 2]) {
+			const { html, failed } = await statusOf(DECK);
+			expect(html, `pass ${pass}`).not.toContain('<p>drawn</p>');
+			expect(html).not.toMatch(/data-returned-|<img src=\/\/e/);
+			expect(html).toContain('the plugin was disabled for this render, because its note holds markup');
+			expect(failed.some((f) => /disabled for this render/.test(f.why))).toBe(true);
+		}
+		expect(opened.map((o) => o.ran)).toEqual([1]);
+	});
+
+	it('a malformed envelope fails the block, and nothing of it lands', async () => {
+		await install();
+		renderer = () => `${RETURN_ENVELOPE}{"html":3}`;
+		const html = await draw(DECK);
+		expect(html).toContain('the renderer returned an object whose html is not text');
+		expect(html).not.toMatch(/data-returned-/);
+	});
+
+	it('two blocks on one slide with different values for one field: the first is kept, and the strip says so', async () => {
+		await install();
+		renderer = (f) => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>drawn</p>', data: { status: f.body.includes('Second') ? 'ok' : 'late' } })}`;
+		const deck = '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n\n## Two\n\n```gantt\nFirst 1\n```\n\n```gantt\nSecond 2\n```\n';
+		const { html, failed } = await statusOf(deck);
+		expect(html).toContain('data-returned-gantt-plugin--status="late"');
+		expect(html).not.toContain('data-returned-gantt-plugin--status="ok"');
+		expect(failed.some((f) => /two different values for status/.test(f.why))).toBe(true);
+	});
+
+	it('a stored record with a malformed declaration does not stop the plugin door: it declares nothing, so its data is refused', async () => {
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: { fields: { status: { type: 'word' } } } }]);
+		await approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence) });
+		renderer = returning({ status: 'late' });
+		const { html, failed } = await statusOf(DECK);
+		expect(html).toContain('it declares no return fields');
+		expect(failed.some((f) => /disabled for this render/.test(f.why))).toBe(true);
+	});
+});

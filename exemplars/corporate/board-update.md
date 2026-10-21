@@ -36,13 +36,13 @@ Bottom line up front: Q2 revenue landed 11% ahead of plan and contribution margi
 
 1. $58.4M
    - Quarterly revenue
-   - plan $52.6M · +11% `Ahead` `Board`
+   - plan $52.6M · +11% `{Ahead}` `{Board}`
 2. 31%
    - Contribution margin
-   - +3pp QoQ `Ahead` `Audit`
+   - +3pp QoQ `{Ahead}` `{Audit}`
 3. $41M
    - Cash & equivalents
-   - +$6M QoQ `On plan` `Investor`
+   - +$6M QoQ `{On plan}` `{Investor}`
 
 ---
 
@@ -141,13 +141,13 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 
 1. $238M
    - FY revenue guide
-   - reaffirmed `On plan` `Board`
+   - reaffirmed `{On plan}` `{Board}`
 2. 30%
    - FY contribution margin
-   - +2pp vs FY25 `On plan` `Audit`
+   - +2pp vs FY25 `{On plan}` `{Audit}`
 3. 99%
    - peak coverage with pre-buy
-   - vs 86% without `Decision` `Ops`
+   - vs 86% without `{Decision}` `{Ops}`
 
 ---
 

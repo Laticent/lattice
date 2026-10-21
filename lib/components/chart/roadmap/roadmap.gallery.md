@@ -22,7 +22,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
@@ -38,7 +38,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## horizons spreads the bets across three horizons.
 
-| Workstream    | Horizon 1 `Now`          | Horizon 2 `Next`         | Horizon 3 `Later`         |
+| Workstream    | Horizon 1 `{Now}`          | Horizon 2 `{Next}`         | Horizon 3 `{Later}`         |
 | ------------- | ------------------------ | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1     | [-] Dedupe pass    | [ ] Auto-routing |
 | Scoring       | [x] Equal weights      | [-] Per-team weights   | [/] Decision profiles |
@@ -53,7 +53,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## status reads delivery state at a glance.
 
-| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`      | Scale `Q4 2026`           |
+| Workstream    | Foundation `{Q2 2026}` | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`           |
 | ------------- | -------------------- | ------------------------ | ------------------------- |
 | Signal Intake | [x] Connector v1 | [-] Dedupe pass    | [?] Auto-routing |
 | Scoring       | [x] Equal weights    | [-] Per-team weights | [ ] Decision profiles |
@@ -69,7 +69,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## swimlane gives each team its own track.
 
-| Workstream    | Foundation `Q2 2026` | Hardening `Q3 2026`    | Scale `Q4 2026`           |
+| Workstream    | Foundation `{Q2 2026}` | Hardening `{Q3 2026}`    | Scale `{Q4 2026}`           |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
 | Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
 | Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
@@ -85,7 +85,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## milestones pins the dated path.
 
-| Workstream    | Beta `Q2 2026`       | RC `Q3 2026`           | GA `Q4 2026`              |
+| Workstream    | Beta `{Q2 2026}`       | RC `{Q3 2026}`           | GA `{Q4 2026}`              |
 | ------------- | -------------------- | ---------------------- | ------------------------- |
 | Signal Intake | Connector v1     | Dedupe pass        | Auto-routing  |
 | Scoring       | Equal weights        | Per-team weights   | Decision profiles    |
@@ -118,7 +118,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
@@ -134,7 +134,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
@@ -150,7 +150,7 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |

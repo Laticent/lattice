@@ -16,6 +16,7 @@
 import { ArrowLeft, Eye, EyeOff, Loader2, Package, Wrench } from 'lucide-react';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { OffFencesNotice } from './OffFencesNotice';
 import type { OverflowMarker } from './studio-store';
 
 const CHOICES: { value: OverflowMarker; label: string; icon: React.ReactNode }[] = [
@@ -37,6 +38,8 @@ export function MarpOptionsPanel({
 	status,
 	defaultMarker,
 	onBack,
+	source,
+	onWrite,
 	onExport,
 }: {
 	busy?: boolean;
@@ -46,6 +49,10 @@ export function MarpOptionsPanel({
 	 *  conditionally), so this mount-time default re-syncs on its own and an explicit
 	 *  pick is never silently clobbered — same reasoning as WebpageOptionsPanel. */
 	defaultMarker: OverflowMarker;
+	/** The deck, for the off-fence notice (#2758). */
+	source?: string;
+	/** Edits the deck (the off-fence notice's "Turn on"). */
+	onWrite?: (label: string, updater: (s: string) => string) => void;
 	onBack: () => void;
 	onExport: (overflowMarker: OverflowMarker) => void;
 }) {
@@ -62,6 +69,8 @@ export function MarpOptionsPanel({
 					<h3 className="text-[15px] font-semibold text-[var(--text-heading)]">Export Marp bundle</h3>
 					<p className="mt-0.5 text-[12px] text-muted-foreground">A self-contained <code>.zip</code> — the deck, its palette, fonts and runtime. Renders in any Marp tool.</p>
 				</div>
+
+				{source ? <OffFencesNotice source={source} onWrite={onWrite} /> : null}
 
 				<div className="rounded-xl border border-border bg-background p-3.5">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">If a slide overflows</span>

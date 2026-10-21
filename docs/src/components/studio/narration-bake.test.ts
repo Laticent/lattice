@@ -319,6 +319,28 @@ describe('measureNarration — the pre-flight', () => {
 		expect(seen.total).toBe(2);
 	});
 
+	it("narrates a heatmap callout only while the deck's legend is on", async () => {
+		// A slide is narrated split from its deck, so the bake hands the narrator the front matter:
+		// with `legend: off` the callout is not drawn, and it must not be read aloud either.
+		const deck = (fm: string) => ['---', `theme: indaco${fm}`, '---', '', '<!-- _class: heatmap -->', '', '## R', '', '| | M0 | M1 |', '| --- | --: | --: |', '| Jan | 100 | 62 |', '', '`@legend{{Dip in the second month, row=Jan, col=M1}}`', ''].join('\n');
+		const on = await measureNarration(deck(''), undefined, VOICE);
+		const off = await measureNarration(deck('\nlegend: off'), undefined, VOICE);
+		expect(on.totalChars - off.totalChars, 'the callout sentence is the whole difference').toBeGreaterThanOrEqual('Dip in the second month'.length);
+	});
+
+	it('lines a blank slide up with its rendered section, so the projection is used and nothing shifts', async () => {
+		// The engine renders a blank slide for `---` twice in a row. When splitSlides dropped it, the source had one
+		// slide fewer than the render, so the projection stood down for the WHOLE deck and every slide was quoted
+		// from the markdown flatten instead of what it says on screen.
+		const blank = ['---', 'theme: indaco', '---', '', '# One', '', 'The first slide says this.', '', '---', '', '---', '', '# Two', '', 'And the second says this.', ''].join('\n');
+		const m = await measureNarration(blank, [S1, '', S2], VOICE);
+		expect(m.total).toBe(2);
+		expect(m.missingChars, 'the projected words, not the flattened markdown').toBe(S1.length + S2.length);
+		// The arm: the same projection without the blank section is one short, and stands down.
+		const short = await measureNarration(blank, [S1, S2], VOICE);
+		expect(short.missingChars).not.toBe(S1.length + S2.length);
+	});
+
 	it('falls back to the markdown flatten when the projection does not line up — as Present does', async () => {
 		// A length mismatch stands the projection down; Present then narrates the markdown
 		// flatten, and every clip on the device is keyed on THAT text. A bake that resolved to

@@ -8,8 +8,10 @@ swimlane: engineering/decisions/2026-09-29-route-budget-soft-hard.md
 source: https://github.com/Laticent/lattice/pull/2718
 ---
 
-# The docs build still differs by a few bytes on CI, so bundle-free PRs owe a declaration
+# Find the synced asset that differs between base and PR on CI, then remove the diagnostic step
 
+status    — the gate no longer charges for the noise (the check normalizes the asset version and chunk-name hashes, decision
+            note §8). What is left is the root cause and a temporary diagnostic step in `docs-build`.
 why now   — #2718 bundles nothing, yet CI's route-budget allowance charged it studio +4 and
             playground +1 bytes of eager JS, and it had to add docs/route-budget.d/2718-*.md
             to pass. #2708 hit the same noise. Locally, a build of main 68d9eac and a build of
@@ -19,8 +21,9 @@ why now   — #2718 bundles nothing, yet CI's route-budget allowance charged it 
 where     — docs/scripts/measure-route-base.sh (the base build) against the PR build in ci.yml's
             docs-build job. Diff the two builds' eager chunks on a runner, not locally: upload
             both dist/ trees as artifacts from one docs-build run and compare file by file.
-done when — two CI builds of the same tree measure 0 bytes apart, or the allowance ignores a
-            diff smaller than the measured noise and the PR that sets it records the noise.
+done when — the step's output on a CI run names the asset that differs and that asset is fixed (or
+            shown to be unavoidable), then the step and the `ROUTE_BASE_ASSETS_OUT` lines in
+            `measure-route-base.sh` come out.
 evidence  — the per-chunk byte diff from one CI run, before and after.
 verify    — tier 1 checker: it changes how a merge gate measures.
 
@@ -56,3 +59,18 @@ The mechanism is now known; the CI trigger is not.
    that string. That is harmless for the budget, since the string's length is fixed, and it changes
    how a merge gate measures.
 3. Both: 2 now, and 1 to find the cause.
+
+## What the first runner diagnostic measured (2026-10-17, PR #2754, run 39025809175)
+
+On one bundle-free PR, base `8e239d2fc003` against PR `15d18e66e68c`, both 899 files:
+
+- **All 29 `esm/chunk-*.js` names differ** (esbuild's content-hashed shared chunks), so the 24 `esm/chart-*.js`
+  entries, `esm/engine.js`, `esm/lint.js`, `esm/code-record.js` and `esm/chunks.json` differ in bytes because
+  they name those chunks.
+- **Three files differ that are not chunk-named:** `lattice-runtime.js`, `export/lattice-runtime-min.js` and
+  `fmt/browser.mjs`. They come from the root build (`dist/`), not from `build-playground.js`.
+- **Ruled out locally:** editing an `engineering/` doc and adding a `followups.d/` file does not change
+  `build-playground.js` output (same 30 chunks, same listing hash).
+- **Next probe:** diff the contents of one non-chunk file (`lattice-runtime.js`) between the two trees on a
+  runner (upload both as artifacts), to see what text differs. If it is a path or a timestamp, fix it at the
+  source; the chunk names probably follow from the same input.

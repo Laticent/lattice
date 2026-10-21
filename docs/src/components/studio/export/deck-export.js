@@ -33,18 +33,52 @@
 // A DEFAULT import: it is a CommonJS leaf (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
+import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
+// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
+// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import dataBlockCore from '../../../../../lib/core/data-block.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
+import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
+import bakedFigureCore from '../../../../../lib/plugins/mermaid/shared/baked-figure-tag.js';
+import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
 import { themeChain } from '../../../../../lib/theme/chain.mjs';
 import { THEME_EDGES } from '../../../../../lib/theme/edges.generated.mjs';
 import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-preview.js';
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
+import { ribbonCaptureStyle } from './capture-ribbon.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
+
+const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
+const { bakedFigureOpenTag } = bakedFigureCore;
+const { equalizeCardTags } = cardTagEqualizeCore;
+const { authorPinsTheme } = initDirectiveCore;
+
+/** The type lib/core/export-settings.js writes and the runtime reads (`EXPORT_SETTINGS_TYPE`). */
+const EXPORT_SETTINGS_BLOCK = dataBlockCore.dataBlock('application/lattice-export-settings');
+
+/**
+ * A frame document carrying the EXPORT's decisions (lib/core/export-settings.js). The runtime reads
+ * the block at boot to tell an export from an authoring surface; a frame without one is an authoring
+ * surface and draws the AUTHOR overflow marker, which is how every Studio Webpage export shipped the
+ * red ring and the "Fix Me" chips to its reader (decisions/2026-10-16-player-as-library-audit.md §11.8).
+ *
+ * Inserted right after `<meta charset>`, the first fixed thing in buildSrcdoc's head and ahead of any
+ * author content, so no stylesheet text can ever precede it. Inert JSON (`type` is not a script type),
+ * `<` escaped by data-block.js. Built from data-block.js rather than export-settings.js, which
+ * `require`s and so is refused by the dev server's CommonJS shim (vite-cjs-lib-dev.mjs).
+ */
+export function withExportSettings(srcdoc, settings) {
+	const at = srcdoc.indexOf('<meta charset="utf-8">');
+	if (at < 0) throw new Error('withExportSettings: the frame document has no <meta charset>');
+	const end = at + '<meta charset="utf-8">'.length;
+	return srcdoc.slice(0, end) + EXPORT_SETTINGS_BLOCK.write(settings) + srcdoc.slice(end);
+}
 
 function safeName(name) {
 	return (name || 'deck').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'deck';
@@ -217,7 +251,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
 	const marp = PG?.marp;
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, liftImageBgImages, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -274,10 +308,17 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// resolves it from the workspace setting (share-export.ts).
 	// `withRuntimeScriptsReport` also drops the deck's own executable HTML (marp-cli would run it on the
 	// recipient's machine) and says what it dropped; this function returns that for the toast.
+	// The Marp bundle ships Markdown, so it keeps the SOURCE lift of `![bg]`; every render lifts on the engine's tokens.
+	// Imported here, not at the top: Node's unit tests import this module, and the loader names `@/` paths.
+	const { liftImageBgImages } = await (await import('../../../playground/bg-image-lift-source.js')).loadBgImageLift();
+	// Lattice scopes a plain `<!-- header: H -->` (and `footer:`, `paginate:`) to its own slide; Marp carries it onto
+	// every later slide, so it is written as `_header:` first. Imported here, on demand, and not from the engine: the
+	// engine ships on every route and the rewrite put one over its ceiling (lib/core/marp-slide-only.mjs).
+	const { withSlideOnlySpotted } = await import('../../../../../lib/core/marp-slide-only.mjs');
 	const bundled = withRuntimeScriptsReport(
 			// The pane markers go after the split bake (bake-splits.js `stripPaneMarkers`): Marp cannot
 			// carve a pane and would read each marker as a speaker note.
-			liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components)))), undefined),
+			withSlideOnlySpotted(liftImageBgImages(stripPaneMarkers(bakeSplits(appendAutoGlossary(embedComponentsInMarkdown(localized, components)))), undefined)),
 			// `pluginsOff` — the plugins the Studio's admission left off for this deck: Marp renders the
 			// bundle, so its runtime marks them from the settings block (lib/plugins/mark-off.mjs).
 			{ localAssets: false, bundledAssets: [...samplePaths.values()], overflowMarker, pluginsOff },
@@ -432,7 +473,7 @@ function withTimeout(p, ms) {
 // — in the .pdf, the .pptx, the .png set and the shared player, all seven exports
 // below. Not a blank chart; a plausible wrong one, in bytes handed to someone
 // else.
-async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins }, { releaseDiagrams = true } = {}) {
+async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl, webOrigins, overflowMarker, framePadding, playerBake }, { releaseDiagrams = true } = {}) {
 	const gw = geom?.w || 1280;
 	const gh = geom?.h || 720;
 	const host = document.createElement('div');
@@ -462,6 +503,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// actually carrying a drawn state chart, so a chart-less export fetches nothing.
 			...(dagreUrl ? { dagreUrl } : {}),
 			webOrigins: webOrigins || [],
+			// A bake frame lays slides out at ONE TO ONE, as the CLI's page does: with the default padding
+			// the FIT agent scaled every slide by (frame - padding) / slide, and anything that measures its
+			// box at mount — a function-plot sizes its SVG from it — baked 6% small (§11.9).
+			...(framePadding != null ? { padding: framePadding } : {}),
 			// `diagrams: false` — do NOT stamp `data-lattice-diagrams` here. Rule A hides an
 			// un-tagged mermaid fence, which is right for a frame a human watches and wrong for
 			// this one: nobody sees it, and rasterizeSection runs it through `html-to-image`,
@@ -473,12 +518,19 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 			// and this is an explicit `visibility:hidden` on a descendant <code>.
 			diagrams: false,
 			contentVisibility: false, cursor: false, sync: false, printRules: false });
+		// An EXPORT frame says so: with the block the runtime draws the export's marker level rather
+		// than the authoring one. Only the Webpage bake passes a level today; the rasterizers keep
+		// their behavior. Added here, not in buildSrcdoc, because that module loads with every
+		// preview and this one only on export (`withExportSettings`).
+		const frameDoc = overflowMarker || playerBake
+			? withExportSettings(srcdoc, { overflowMarker: overflowMarker ? resolveOverflowMarker(overflowMarker) : undefined, playerBake: playerBake || undefined })
+			: srcdoc;
 		// Every settle await below is BOUNDED — an unbounded wait could hang the
 		// export forever (a srcdoc whose load never fires, or a `fonts.ready` that
 		// stalls on a slow/failed face), leaving the mobile progress card stuck with
 		// no error and no Retry. A slightly-early capture is safe: sectionsOf →
 		// ensureFontsLoaded re-waits afterward with the embedded data-URI faces.
-		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = srcdoc; }), 10000);
+		await withTimeout(new Promise((res) => { frame.addEventListener('load', () => res(), { once: true }); frame.srcdoc = frameDoc; }), 10000);
 		const win = frame.contentWindow;
 		const doc = frame.contentDocument;
 		if (!doc) throw new Error('Could not prepare the export render.');
@@ -505,6 +557,10 @@ async function createCaptureFrame({ html, css, mode, geom, runtimeUrl, fontCss, 
 		// last one and a fence still un-settled here would bake as a blank. `bakeDeckSections`
 		// opts out — it waits again, longer, and owns the give-up itself.
 		await waitForDiagrams(doc, 4000, { release: releaseDiagrams });
+		// A collage or logo wall measures its pictures before it packs, and is hidden meanwhile. Hold
+		// the capture for that (capped), then pack what is left with what is known, so no export bakes
+		// a list that is still hidden.
+		await waitForMeasuring(doc, 4000);
 		// A graph chart waits for its fonts before its first draw (Trama's pipeline). A face
 		// requested after `fonts.ready` settled can hold that wait past this point, so draw
 		// every chart now, as the CLI export does, rather than capture its measuring tiles.
@@ -623,13 +679,23 @@ const UNDRAWN_FIGURES = '[data-lattice-hydrate]:is([data-lattice-settle="pending
  * deck that splits one source slide into several (`split:`, focus steps) yields more rows
  * than it has slides, and the caller must not read row N as source slide N.
  *
+ * `scope` measures only the slides a turn changed. The frame lays out every slide it is given, and
+ * that layout is nearly all of the cost (a 40-slide deck blocked the page for ~2 s at 4x CPU), so
+ * the slides outside `scope.only` are handed to the frame as EMPTY sections: each keeps its open
+ * tag, its place in the order and its number, and holds nothing to lay out. Their rows come back
+ * `skipped`, never as "fits". A deck whose rendered sections do not match `scope.slideCount` (an
+ * auto-glossary, a `split:` slide) cannot be addressed by slide number, so it is measured whole.
+ *
  * @param {object} render `{ html, css, mode, geom, runtimeUrl, fontCss, dagreUrl }`
- * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean }[] | null>}
+ * @param {{ only: number[], slideCount: number }} [scope] 1-based source slides to measure
+ * @returns {Promise<{ slide: number, overflows: boolean, clipped: boolean, illegible: boolean, undrawn: boolean, skipped?: boolean }[] | null>}
  *   one row per source slide, or null when the frame held no slides. `undrawn` marks a slide
  *   holding a figure that had not drawn when it was measured: its other flags are not a verdict.
+ *   `skipped` marks a slide `scope` left out: it was not measured at all.
  */
-export async function measureDeckFit(render) {
-	const { frame, dispose } = await createCaptureFrame(render);
+export async function measureDeckFit(render, scope) {
+	const kept = scope ? await emptyOtherSlides(render, scope.only, scope.slideCount).catch(() => null) : null;
+	const { frame, dispose } = await createCaptureFrame(kept ?? render);
 	try {
 		const doc = frame.contentDocument;
 		const win = frame.contentWindow;
@@ -650,10 +716,34 @@ export async function measureDeckFit(render) {
 			row.undrawn ||= !!sec.querySelector(UNDRAWN_FIGURES);
 			bySlide.set(n, row);
 		});
-		return [...bySlide.values()].sort((a, b) => a.slide - b.slide);
+		const rows = [...bySlide.values()].sort((a, b) => a.slide - b.slide);
+		if (kept) {
+			const only = new Set(scope.only);
+			for (const row of rows) if (!only.has(row.slide)) Object.assign(row, { overflows: false, clipped: false, illegible: false, undrawn: false, skipped: true });
+		}
+		return rows;
 	} finally {
 		dispose();
 	}
+}
+
+/** The render with every slide outside `only` emptied, or null when its sections cannot be told
+ *  apart by number (the count differs from the deck's slides). */
+async function emptyOtherSlides(render, only, slideCount) {
+	// Depth-aware, like `slideChannelRecord`.
+	const { splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	const html = emptySlidesOf(String(render.html || ''), only, slideCount, splitSectionsCore);
+	return html === null ? null : { ...render, html };
+}
+
+/** Pure half of `emptyOtherSlides`: `html` with every section outside `only` (1-based) emptied, each
+ *  keeping its open tag, close tag, number and place; null when the section count is not `slideCount`. */
+export function emptySlidesOf(html, only, slideCount, splitSections) {
+	const parts = splitSections(html);
+	if (parts.filter((p) => p.type === 'section').length !== slideCount) return null;
+	const keep = new Set(only);
+	let n = 0;
+	return parts.map((p) => (p.type !== 'section' ? p.text : keep.has(++n) ? `${p.openTag}${p.inner}${p.close}` : `${p.openTag}${p.close}`)).join('');
 }
 
 /**
@@ -677,10 +767,86 @@ async function slideChannelRecord(html) {
 	return notesCore.slideNoteRecord(sections);
 }
 
+/** Each top-level slide's `style` attribute as the engine wrote it (null when it has none), in
+ *  order, read with the depth-aware section walker so a `<section>` nested in a slide is not a slide. */
+// EVERY DRAWN MERMAID FIGURE LEAVES IN THE `figure-baked` SHAPE, the CLI's (lib/plugins/mermaid/
+// shared/baked-figure-tag.js): one `div.mermaid-svg[data-lattice-figure][data-mmd-idx]` holding the baked
+// svg, in place of the live pair the browser pass draws into (the source `<pre>` and its sibling
+// `.mermaid`). The pair shipped here until 2026-10-17, and it was the only difference left between
+// the two hosts' files for a deck with diagrams (decisions/2026-10-16-player-as-library-audit.md
+// §11.9). mermaid.styles.css styles both shapes, so the figure keeps its look.
+//
+// `data-mmd-idx` is the figure's place in the shared kernel's walk (lib/core/render-diagrams.js),
+// which runs in document order and counts EVERY fence, drawn or not: the CLI pushes each walked
+// fence before it renders (mermaid.bake.js `MERMAID_REBAKE_DEFS`). So it is the fence's index among
+// all Mermaid fences in the document, not the svg's id number: the browser pass refuses an over-long
+// fence before it takes a counter value, so `lattice-mmd-<n>` and the index part ways after one. A
+// figure that did not draw keeps its source `<pre>`, as it ships from the CLI (`mermaidFallbackPre`),
+// and is already counted as failed; such a deck is not byte-identical across hosts in any case.
+function bakedMermaidFigures(doc) {
+	const fences = [...doc.querySelectorAll('pre[data-lattice-hydrate="mermaid"]')];
+	fences.forEach((pre, idx) => {
+		if (pre.getAttribute('data-lattice-settle') !== 'rendered') return;
+		const fig = pre.nextElementSibling;
+		if (fig?.getAttribute('data-lattice-figure') !== 'mermaid') return;
+		const svg = fig.querySelector(':scope > svg');
+		if (!svg) return;
+		const holder = doc.createElement('div');
+		holder.innerHTML = `${bakedFigureOpenTag({ name: 'mermaid', pinned: authorPinsTheme(pre.textContent || ''), idx })}</div>`;
+		const wrap = holder.firstElementChild;
+		if (!wrap) return;
+		wrap.append(svg);
+		pre.replaceWith(wrap);
+		fig.remove();
+	});
+}
+
+async function slideOpenAttrs(html) {
+	// No slide, nothing to restore, and no reason to load the authoring bundle for it.
+	if (!/<section\b/i.test(String(html || ''))) return [];
+	const { splitSectionsCore } = await import('../../../playground/authoring-door.js').then((door) => door.loadAuthoring());
+	return splitSectionsCore(String(html || ''))
+		.filter((p) => p.type === 'section')
+		.map((p) => {
+			const el = new DOMParser().parseFromString(`${p.openTag}</section>`, 'text/html').body.firstElementChild;
+			return el ? [...el.attributes].map((a) => [a.name, a.value]) : [];
+		});
+}
+
 // Inline styles the in-iframe FIT agent writes onto every section to scale the preview
 // to its pane (deck-preview.js fitAgent) — transient chrome, not deck markup, so they
 // must not be serialized into an exported artifact.
 const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'visibility', 'content-visibility'];
+
+/**
+ * Wait for the frame's measuring lists (`collage`, `logo-wall`: lib/core/measure-kit.js) to pack, for at
+ * most `ms`, then finish any still measuring with the shapes known so far. A list the runtime left
+ * `measuring` is hidden by the component's CSS and, in the webpage export (which strips the runtime),
+ * would stay hidden for good. Returns whether it all packed before the cap.
+ * @param {Document} doc the capture frame's document
+ * @param {number} [ms]
+ * @returns {Promise<boolean>}
+ */
+export async function waitForMeasuring(doc, ms = 4000) {
+	const reg = doc?.__latticeMeasure;
+	if (!reg) return true;
+	const packed = await reg.idle(ms);
+	if (!packed) reg.settle();
+	return packed;
+}
+
+/** Backstop for a frame whose runtime never reported (an older bundle): a list still `measuring` becomes
+ *  the unpacked grid, never hidden. Returns how many it moved. */
+export function unhideMeasuringLists(doc) {
+	let n = 0;
+	for (const attr of ['data-collage', 'data-logo-wall']) {
+		for (const el of doc.querySelectorAll(`[${attr}="measuring"]`)) {
+			el.setAttribute(attr, 'fallback');
+			n++;
+		}
+	}
+	return n;
+}
 
 /**
  * Bake the deck's RUNTIME-rendered content into static markup, and return one HTML
@@ -721,8 +887,15 @@ const FIT_INLINE_PROPS = ['transform', 'transform-origin', 'margin-bottom', 'vis
  * @param {{ freezeTokens?: boolean }} [opts]
  * @returns {Promise<{ sections: string[], diagrams: number, failed: number } | null>}
  */
-export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
-	const { frame, dispose } = await createCaptureFrame(render, { releaseDiagrams: false });
+export async function bakeDeckSections(render, { freezeTokens = false, playerBake = false } = {}) {
+	const authoredAttrs = await slideOpenAttrs(render.html);
+	// `playerBake`: the Studio's Webpage export, whose file must be the CLI's `--player` bytes
+	// (decisions/2026-10-16-player-as-library-audit.md §11.9). It frames one to one and writes
+	// `playerBake: true` into the frame's settings block, which the browser Mermaid pass reads as
+	// "draw as the CLI draws". Read·Article's live view bakes too, and keeps the preview's frame and
+	// diagram config: the caller decides, never the bake.
+	const frameRender = playerBake ? { ...render, framePadding: 0, playerBake: true } : render;
+	const { frame, dispose } = await createCaptureFrame(frameRender, { releaseDiagrams: false });
 	try {
 		const doc = frame.contentDocument;
 		if (!doc) return null;
@@ -739,64 +912,123 @@ export async function bakeDeckSections(render, { freezeTokens = false } = {}) {
 		// `share-export.ts` already turns that into "N figure(s) ship as source, not as
 		// drawings" for the author. A second channel would report the same fences twice.
 		await waitForDiagrams(doc, 12000);
-		const sections = [...doc.querySelectorAll('.lattice > section')];
-		if (!sections.length) return null;
-		let diagrams = 0;
-		let failed = 0;
-		// Bake each Mermaid svg into a SELF-STYLED one with native <text> labels. The
-		// player sanitizes its slide DOM and that sanitizer bars both things a Mermaid
-		// svg leans on — its own injected `<style>` (all of mermaid's type + paint) and
-		// `<foreignObject>` (EVERY label: HTML smuggled into the SVG namespace, the mXSS
-		// shape we keep shut). Unbaked, the diagram arrives as shapes and arrows with no
-		// words. Mutating in place is safe: this frame is a throwaway.
-		//
-		// CHARTS are deliberately left alone — token-driven, driven by the deck CSS the
-		// player ships, and freezing their computed colors would pin them to the
-		// export-time scheme, killing the player's dark/light toggle and Read·Article's
-		// `figure.chart-frame` recolor. Mermaid bakes its colors at render time anyway.
+		// The one await after the wait, BEFORE anything touches the frame: `finishBake` below is a
+		// plain function, so the frame's live runtime cannot interleave with it. Its observers queue
+		// on a mutation, and an `await` in the middle let one land part-way through — under load it
+		// re-minted the `reader` level's stripped `illegible-tab` berths and re-stamped size props
+		// between the restore and the read.
 		const { bakeSvg } = await import('../../../playground/standalone-svg.generated.js');
-		const win = frame.contentWindow;
-		// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the
-		// player's sanitizer strips it, and the diagram ships as shapes with no words —
-		// exactly the defect this bake exists to prevent. Silence here is indistinguishable
-		// from success, which is how the original bug went unnoticed for so long.
-		let unbaked = 0;
-		// The host's figure marker (plugin-system phase D), written by every drawn plugin's runtime pass
-		// and bake alike — never a plugin's own output class.
-		const svgs = doc.querySelectorAll('[data-lattice-figure] > svg');
-		for (const svg of svgs) {
-			try {
-				const flat = bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens });
-				svg.replaceWith(flat);
-			} catch {
-				unbaked++;
-			}
-		}
-		if (unbaked) {
-			console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
-		}
-		for (const sec of sections) {
-			for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
-			if (!sec.getAttribute('style')) sec.removeAttribute('style');
-			// The spent source <pre> RIDES ALONG rather than being dropped, even though the
-			// CLI's player carries none (mmdc replaces the fence outright). It is already
-			// `display:none`, and both the visibility and the SVG sizing rules are written as
-			// ADJACENT-SIBLING selectors on it (`pre[data-lattice-settle="rendered"] + [data-lattice-figure]`
-			// in mermaid.styles.css / highlight-js.css) — removing the <pre> would unstyle the very
-			// diagram this step exists to ship. Read·Article is unaffected: the prose
-			// projection re-hosts the first `svg` under the stage, which is the rendered one.
-			//
-			// Counted by the host's markup, like the wait: every runtime-drawn figure, whichever
-			// plugin drew it, is `rendered` or it ships as source.
-			for (const fig of sec.querySelectorAll('[data-lattice-hydrate][data-lattice-settle]')) {
-				if (fig.getAttribute('data-lattice-settle') === 'rendered') diagrams++;
-				else failed++;
-			}
-		}
-		return { sections: sections.map((s) => s.outerHTML), diagrams, failed };
+		return finishBake(doc, { authoredAttrs, bakeSvg, win: frame.contentWindow, freezeTokens, playerBake, overflowMarker: render.overflowMarker });
 	} finally {
 		dispose();
 	}
+}
+
+/**
+ * Everything the bake does once the diagrams have drawn, SYNCHRONOUSLY. Not `async` on purpose: an
+ * `await` in here is a syntax error, which is what holds the no-interleave rule above (a comment
+ * alone did not).
+ */
+function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake, overflowMarker }) {
+	// The level's strip, the same function the CLI runs before it takes its player DOM.
+	if (overflowMarker) stripMarkerForLevel(resolveOverflowMarker(overflowMarker), doc);
+	unhideMeasuringLists(doc);
+	const sections = [...doc.querySelectorAll('.lattice > section')];
+	if (!sections.length) return null;
+	// Counted BEFORE `bakedMermaidFigures` swaps each drawn Mermaid pair for the baked figure,
+	// while the source `<pre>` still carries the settle state. Every runtime-drawn figure, whichever
+	// plugin drew it, is `rendered` or it ships as source.
+	let diagrams = 0;
+	let failed = 0;
+	for (const fig of doc.querySelectorAll('.lattice > section [data-lattice-hydrate][data-lattice-settle]')) {
+		if (fig.getAttribute('data-lattice-settle') === 'rendered') diagrams++;
+		else failed++;
+	}
+	// The baked shape BEFORE the bake measures, for the player: the bake turns each HTML label into
+	// SVG text at the position it measures on the live svg, which lays out under its wrapper's CSS.
+	if (playerBake) bakedMermaidFigures(doc);
+	// EACH SLIDE'S `style` BACK TO THE ENGINE'S, before the bake measures. Every inline style the
+	// frame wrote onto a slide is frame chrome — the FIT agent's transform, the runtime's
+	// `--_sec-1cqi` size stamps — and none of it belongs in a file.
+	//
+	// `style` ONLY, not the whole opening tag, and that was measured: restoring every attribute
+	// broke all 10 decks of a parity run, because the CLI's export page runs an overflow watcher
+	// of its own (lattice.js `check`) that stamps `data-lattice-overflow-marker` and the overflow
+	// classes on each slide, exactly as the runtime's does here. Those stamps are content both files
+	// carry. A runtime stamp only the Studio writes is still possible; the two-host spec
+	// (docs/e2e/player-host-parity.spec.ts) is what catches one. Restored BEFORE measuring because the bake
+	// turns HTML labels into SVG text at positions measured in screen space, and the fit agent's
+	// transform leaked float noise into every one (`y="9.99996…"` against the CLI's
+	// `y="10.00005…"`). A frame holding another slide count than its render falls back to removing
+	// the FIT props.
+	// The player only. Read·Article keeps main's behavior: it needs no CLI parity, so its frame's
+	// stamps stay until the bake is done and only the FIT props go, after it (below).
+	const restore = playerBake && authoredAttrs && authoredAttrs.length === sections.length;
+	if (playerBake && !restore) console.warn(`[deck-export] the bake frame holds ${sections.length} slides for a ${authoredAttrs?.length ?? 0}-slide render; slide attributes are cleaned, not restored.`);
+	const dropFitProps = (sec) => {
+		for (const prop of FIT_INLINE_PROPS) sec.style.removeProperty(prop);
+		if (!sec.getAttribute('style')) sec.removeAttribute('style');
+	};
+	if (playerBake) {
+		sections.forEach((sec, i) => {
+			if (!restore) {
+				dropFitProps(sec);
+				return;
+			}
+			const style = authoredAttrs[i].find(([name]) => name === 'style');
+			if (style) sec.setAttribute('style', style[1]);
+			else sec.removeAttribute('style');
+		});
+	}
+	// …and the card-tag equalizer's section stamp put back, by the same kernel the CLI injects into
+	// its page (lattice.js `equalizeCardTagsInPage`). `--card-tag-block` is a measured LAYOUT input
+	// (base.card-tag.css reserves the tag's height from it), not frame chrome, and the restore above
+	// dropped it with the rest, so a tagged card's body lost its reserve under the tag. Run after the
+	// restore, so it writes the property the way the CLI's page does.
+	if (playerBake) equalizeCardTags(doc);
+	// Bake each drawn figure's svg into a SELF-STYLED one with native <text> labels. The player
+	// sanitizes its slide DOM and that sanitizer bars both things a Mermaid svg leans on — its own
+	// injected `<style>` (all of mermaid's type + paint) and `<foreignObject>` (EVERY label: HTML
+	// smuggled into the SVG namespace, the mXSS shape we keep shut). Unbaked, the diagram arrives as
+	// shapes and arrows with no words. Mutating in place is safe: this frame is a throwaway.
+	//
+	// CHARTS are deliberately left alone — token-driven, driven by the deck CSS the player ships, and
+	// freezing their computed colors would pin them to the export-time scheme, killing the player's
+	// dark/light toggle and Read·Article's `figure.chart-frame` recolor. Mermaid bakes its colors at
+	// render time anyway.
+	//
+	// The host's figure marker (plugin-system phase D), written by every drawn plugin's runtime pass
+	// and bake alike — never a plugin's own output class.
+	const svgs = doc.querySelectorAll('[data-lattice-figure] > svg');
+	// A MERMAID ROOT IS FINISHED THE WAY THE CLI'S WORKER FINISHES IT, for the player: the worker
+	// sets the root's background (shared/render-worker.js, kept for the image set's standalone
+	// files), which also makes the browser re-write the root's whole `style` attribute, and its
+	// XMLSerializer declares the xlink namespace. Both ride into the CLI's file.
+	if (playerBake) {
+		for (const svg of svgs) {
+			if (svg.parentElement?.getAttribute('data-lattice-figure') !== 'mermaid') continue;
+			svg.style.backgroundColor = 'transparent';
+			svg.setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:xlink', 'http://www.w3.org/1999/xlink');
+		}
+	}
+	// COUNTED, not swallowed. An un-flattenable diagram keeps its `<foreignObject>`, the player's
+	// sanitizer strips it, and the diagram ships as shapes with no words — exactly the defect this
+	// bake exists to prevent.
+	let unbaked = 0;
+	for (const svg of svgs) {
+		try {
+			svg.replaceWith(bakeSvg(svg, win, { foreignObjectLabels: 'text', freezeTokens }));
+		} catch {
+			unbaked++;
+		}
+	}
+	if (unbaked) console.warn(`[deck-export] ${unbaked}/${svgs.length} diagram(s) could not be baked; they will ship without labels.`);
+	if (!playerBake) sections.forEach(dropFitProps);
+	// Runtime BOOKKEEPING is not deck content: `data-lattice-image-text` is the image-text fold's
+	// "decided already" mark (lib/core/bg-image.js), written by a DOM pass the CLI's page does not
+	// run, so it shipped in the Studio's file alone (§11.9).
+	for (const sec of sections) sec.removeAttribute('data-lattice-image-text');
+	return { sections: sections.map((sec) => sec.outerHTML), diagrams, failed };
 }
 
 /** The capture frame's font sheet, as its own loader so the Studio's idle warm-up can fetch it
@@ -1024,8 +1256,6 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	//     now-blank border transparent. Layout is unchanged (the border keeps its
 	//     width), so this is invisible in the preview and faithful in the export.
 	const cs = getComputedStyle(section);
-	const borderless = parseFloat(cs.borderTopWidth) === 0 || cs.borderTopStyle === 'none';
-	const hasGradientBorder = cs.borderImageSource && cs.borderImageSource !== 'none';
 	const prev = {
 		borderImageSource: section.style.borderImageSource,
 		borderTopColor: section.style.borderTopColor,
@@ -1035,27 +1265,9 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 		backgroundSize: section.style.backgroundSize,
 		backgroundOrigin: section.style.backgroundOrigin,
 	};
-	if (hasGradientBorder && borderless) {
-		section.style.borderImageSource = 'none';
-	} else if (hasGradientBorder) {
-		const grad = cs.borderImageSource;
-		const tw = cs.borderTopWidth;
-		// Layer the ribbon gradient as a top strip OVER the slide's own background
-		// (preserved — a canvas color rides on background-color, untouched here; an
-		// image canvas is kept as the second layer).
-		const baseImg = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
-		section.style.backgroundImage = baseImg ? `${grad}, ${baseImg}` : grad;
-		section.style.backgroundRepeat = baseImg ? `no-repeat, ${cs.backgroundRepeat}` : 'no-repeat';
-		section.style.backgroundPosition = baseImg ? `top left, ${cs.backgroundPosition}` : 'top left';
-		section.style.backgroundSize = baseImg ? `100% ${tw}, ${cs.backgroundSize}` : `100% ${tw}`;
-		// Anchor the strip to the BORDER box, i.e. the band the real ribbon occupies. From the
-		// default padding box it sat just inside the border, under the finish's `.backdrop`
-		// (a padding-box child), so a backdrop mask or veil painted over it: `backdrop: clear`
-		// erased the ribbon wherever the clearance ellipse reached the top edge (#2388).
-		section.style.backgroundOrigin = baseImg ? `border-box, ${cs.backgroundOrigin}` : 'border-box';
-		section.style.borderImageSource = 'none';
-		section.style.borderTopColor = 'transparent';
-	}
+	// The ribbon repaint itself is a pure function of the computed style (capture-ribbon.js), shared with the slide
+	// map's poster capture, which hands it to html-to-image as the clone's style instead of writing the live node.
+	Object.assign(section.style, ribbonCaptureStyle(cs));
 	// Force the finish OPAQUE (export-safe) face for the raster. A finish shows its
 	// RICH screen face by default — directional alpha fades the browser composites
 	// fine, but html-to-image can mis-serialize (color-mix / fade-to-transparent), and

@@ -192,6 +192,7 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 					</Inert>
 				}
 				onClose={docked ? () => onOpenChange(false) : undefined}
+				fluidActions
 				showClose={!docked}
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">

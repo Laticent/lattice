@@ -2,7 +2,7 @@
 
 # Data visualization
 
-`24 components`
+`28 components`
 
 Every chart component in one deck — the full charting surface.
 
@@ -36,6 +36,28 @@ Every chart component in one deck — the full charting surface.
 - Gross renewal `2.8M` `2.6M`
 - Services revenue `1.1M` `1.8M`
 - Partner-sourced ARR `0.9M` `1.4M`
+
+---
+
+<!-- _class: ep-curve -->
+<!-- _footer: "ep-curve · data-viz gallery" -->
+
+`[{Return period}, {Loss}]`
+
+## A 1-in-100 year costs $410M a single event, $480M a year.
+
+- OEP
+  - `{10, $120M}`
+  - `{25, $190M}`
+  - `{50, $300M}`
+  - `{100, $410M}`
+  - `{250, $560M}`
+- AEP
+  - `{10, $150M}`
+  - `{25, $230M}`
+  - `{50, $350M}`
+  - `{100, $480M}`
+  - `{250, $650M}`
 
 ---
 
@@ -109,6 +131,20 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 | Feb 2026 | 100 | 58 | 44 | 41 |
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
+
+---
+
+<!-- _class: histogram -->
+<!-- _footer: "histogram · data-viz gallery" -->
+
+`[{Annual loss, $1M..$250M, log}, {Share of years}]`
+
+## Most years stay under $10M; one in thirty tops $100M.
+
+- `$1M..$10M` `55%`
+- `$10M..$50M` `30%`
+- `$50M..$100M` `12%`
+- `$100M..$250M` `3%`
 
 ---
 
@@ -332,6 +368,22 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
+<!-- _class: risk-matrix -->
+<!-- _footer: "risk-matrix · data-viz gallery" -->
+
+`Enterprise risk register · Q4 2026`
+
+## Cyber and hurricane risk sit in the red; both have a plan.
+
+- Cyber outage `{4, 5}` `{2, 4}`
+- Hurricane season `{3, 5}` `{3, 3}`
+- Reserve shortfall `{3, 4}`
+- FX swing `{4, 2}`
+- Key person loss `{2, 3}`
+- Pandemic `{1, 5}`
+
+---
+
 <!-- _class: roadmap -->
 <!-- _footer: "roadmap · data-viz gallery" -->
 
@@ -339,7 +391,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weights  |
 | Governance | [x] Decision log       | [x] Calibration cadence  | [?] Board reporting     |
@@ -453,6 +505,28 @@ Four milestones show the shape; the date chips carry the when.
    - Sixteen words is each entry's budget.
 4. `Q4` The fourth milestone
    - Four to six entries reads best.
+
+---
+
+<!-- _class: tower -->
+<!-- _footer: "tower · data-viz gallery" -->
+
+`Property catastrophe program · 2027`
+
+## Six reinsurers carry $310M above a $50M retention.
+
+- Layer 3 `$200M xs $160M`
+  - Acme Re `30%`
+  - Globex Re `25%`
+  - Helios Re `20%`
+- Layer 2 `$70M xs $90M`
+  - Acme Re `40%`
+  - Vantage Re `35%`
+  - Umbra Re `25%`
+- Layer 1 `$40M xs $50M`
+  - Globex Re `60%`
+  - Meridian Re `40%`
+- Retention `$50M`
 
 ---
 

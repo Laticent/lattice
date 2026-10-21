@@ -24,7 +24,7 @@
  * Every color is a token (#3); no glyph is typed (#29) — the drawing is ours. */
 section .lat-icon {
   --icon-scale:1;
-  --icon-u:calc(min(0.85em, max(var(--pill-fs), 0.5em)) * var(--icon-scale));
+  --icon-u:calc(min(0.85em, max(var(--fs-meta), 0.5em)) * var(--icon-scale));
   --icon-tile-h:calc(1.25 * (1.6 * var(--icon-u) + 2px));
   --icon-pad-out:0.15em;
   --icon-inset:calc(0.2 * var(--icon-tile-h));
@@ -140,10 +140,7 @@ section .lat-pill > .lat-pill-icon {
 /* An icon-only pill (`{icon=database}`, which names itself with role="img") has no label to
  * space from. Not `:last-child`: the label is a text node, which that selector never sees. */
 section .lat-pill[role='img'] > .lat-pill-icon { padding-right:0; }
-/* ...and no label tracking to balance either: the pill indents its line by `--pill-tracking` to
- * cancel the space letter-spacing leaves after a label's last letter, and with no label that
- * indent only pushed the drawing right. */
-section .lat-pill[role='img'] { text-indent:0; }
+/* (The icon-only pill's `text-indent:0` lives with the pill: lib/plugins/pills/pills.styles.css.) */
 
 /* ── On a sketch slide — the tile, drawn by hand ────────────────────────────
  * An icon is enrolled as a rough-ink structure (`kind: 'icon'`,

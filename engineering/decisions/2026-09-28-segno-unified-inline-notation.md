@@ -1063,7 +1063,7 @@ implementations (`tools/parser-bakeoff/shared.mjs`).
 ## Open questions
 
 The three this note first carried — coordinates, journey sigils, color slots — are decisions 10 to 12.
-Two were open from phase 2 on, and #2730 added a third:
+Two were open from phase 2 on, and #2730 added a third and a fourth:
 
 - **Editor tooling.** Segno stops at the first error and has no incremental parsing or
   highlighting. If the Studio editor needs highlighting of Segno spans, is the path a display-only
@@ -1077,6 +1077,15 @@ Two were open from phase 2 on, and #2730 added a third:
   the parser's state in locals rather than module variables. Either change touches every generated
   parser, including the flowchart row and list-text ones, so it would need its own bench and
   checker. (Raised by #2730.)
+- ~~**Spark and avatar spans pay about 2 µs on the inline path.**~~ Measured on 2026-10-17, and
+  not worth code. On the fixture's 99 `~{` and 91 `!{` spans, `dispatches` costs 2.6 µs for a spark
+  and 1.9 µs for an avatar, but the slot read is 0.7 µs of that (one `slot.read` per dispatch), so
+  the rest is each plugin's own work after the read (`parseData`, the modifier checks). `tryRead`
+  cannot help: it skips only the wording of a refusal, and 97 of the 99 spark spans are valid, where
+  it ran at 0.99-1.01 of `read` over three runs of 300 paired slices. The plain-record parser cannot
+  take them either, because `restrict()` removes tags and a spark's `~` and an avatar's `!` are
+  tags. The prize is also small: a deck holds a handful of such spans, and the fixture's 190 are
+  3.6% of its 5,314. No code changed, so there is no `bench:check` before and after.
 
 **Phase 1's checker** (one independent agent) confirmed the LL(1) check sound on about 4,800 random
 grammars against a brute-force recognizer, the generated parser identical to the closure parser on the

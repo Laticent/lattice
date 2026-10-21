@@ -10,11 +10,11 @@
       "",
       "## Who owns each part of the process.",
       "",
-      "- Owns the first part `First actor`",
+      "- Owns the first part `{First actor}`",
       "  - One-line note on what that ownership covers.",
-      "- Owns the second part `Second actor`",
+      "- Owns the second part `{Second actor}`",
       "  - One-line note.",
-      "- Owns the third part `Third actor`",
+      "- Owns the third part `{Third actor}`",
       "  - One-line note."
     ],
     "description": "Roster of responsibilities owned by named actors."
@@ -362,6 +362,20 @@
     ],
     "description": "Section boundary slide. Dark canvas with a single heading."
   },
+  "lattice: ep-curve": {
+    "prefix": "lattice-ep-curve",
+    "body": [
+      "<!-- _class: ep-curve -->",
+      "",
+      "## A 1-in-100 year costs $410M.",
+      "",
+      "- `{10, $120M}`",
+      "- `{50, $300M}`",
+      "- `{100, $410M}`",
+      "- `{250, $560M}`"
+    ],
+    "description": "An exceedance-probability curve: the loss to expect once every N years, with return periods across on a log scale and up to four curves (OEP and AEP, gross and net)."
+  },
   "lattice: flowchart": {
     "prefix": "lattice-flowchart",
     "body": [
@@ -438,6 +452,20 @@
       "| Second row | 21 | 43 |"
     ],
     "description": "A numeric matrix read as intensity — where the value concentrates across two dimensions."
+  },
+  "lattice: histogram": {
+    "prefix": "lattice-histogram",
+    "body": [
+      "<!-- _class: histogram -->",
+      "",
+      "## Most values sit in the first band.",
+      "",
+      "- `0..10` `45%`",
+      "- `10..20` `30%`",
+      "- `20..30` `15%`",
+      "- `30..40` `10%`"
+    ],
+    "description": "One quantity cut into bands that join end to end: each bar is as wide as its band and its area is the band's share, with an optional log axis for bands that widen toward the tail."
   },
   "lattice: hub-spoke": {
     "prefix": "lattice-hub-spoke",
@@ -538,13 +566,13 @@
       "",
       "1. $2.4B",
       "   - Total revenue",
-      "   - target $2.2B · +9% `On plan` `Board`",
+      "   - target $2.2B · +9% `{On plan}` `{Board}`",
       "2. 42%",
       "   - Gross margin",
-      "   - +2pp QoQ `On plan` `Audit`",
+      "   - +2pp QoQ `{On plan}` `{Audit}`",
       "3. $1.1B",
       "   - Cash & equivalents",
-      "   - +$180M QoQ `On plan` `Investor`"
+      "   - +$180M QoQ `{On plan}` `{Investor}`"
     ],
     "description": "Executive KPI system — one base, five layout modifiers."
   },
@@ -620,7 +648,7 @@
       "",
       "- ![First brand](sample:logo-acme.svg)",
       "  - First brand",
-      "  - `Series B`",
+      "  - `{Series B}`",
       "- ![Second brand](sample:logo-globex.svg)",
       "  - Second brand",
       "- ![Third brand](sample:logo-vantage.svg)",
@@ -741,11 +769,11 @@
       "One line naming the problem or the stakes.",
       "",
       "- First reason",
-      "  - The evidence for it, with a `Citation` chip.",
+      "  - The evidence for it, with a `{Citation}` chip.",
       "- Second reason",
-      "  - The evidence for it, with a `Citation` chip.",
+      "  - The evidence for it, with a `{Citation}` chip.",
       "- Third reason",
-      "  - The evidence for it, with a `Citation` chip.",
+      "  - The evidence for it, with a `{Citation}` chip.",
       "",
       "> The specific legislative ask — sponsor, vote, or amend, with the section."
     ],
@@ -919,17 +947,30 @@
       "1. Change name",
       "   - `Citation reference`",
       "   - Summary in one sentence.",
-      "   - `Effective Mon YYYY`",
+      "   - `{Effective Mon YYYY}`",
       "2. Change name",
       "   - `Citation reference`",
       "   - Summary in one sentence.",
-      "   - `Effective Mon YYYY`",
+      "   - `{Effective Mon YYYY}`",
       "3. Change name",
       "   - `Citation reference`",
       "   - Summary in one sentence.",
-      "   - `Effective Mon YYYY`"
+      "   - `{Effective Mon YYYY}`"
     ],
     "description": "Change log against a baseline — numbered list of statutes/cases/rules with citation, summary, and effective date."
+  },
+  "lattice: risk-matrix": {
+    "prefix": "lattice-risk-matrix",
+    "body": [
+      "<!-- _class: risk-matrix -->",
+      "",
+      "## Where our top risks sit.",
+      "",
+      "- Risk one `{4, 5}`",
+      "- Risk two `{3, 3}`",
+      "- Risk three `{2, 4}`"
+    ],
+    "description": "A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbered marker and a key that lists them worst first."
   },
   "lattice: roadmap": {
     "prefix": "lattice-roadmap",
@@ -938,7 +979,7 @@
       "",
       "## What ships in each phase, by workstream.",
       "",
-      "| Workstream | Foundation `Q2 2026` | Hardening `Q3 2026` | Scale `Q4 2026` |",
+      "| Workstream | Foundation `{Q2 2026}` | Hardening `{Q3 2026}` | Scale `{Q4 2026}` |",
       "| --- | --- | --- | --- |",
       "| First workstream | [x] Shipped item | [-] In-flight item | [ ] Planned item |",
       "| Second workstream | [x] Shipped item | [/] Out-of-scope item | [ ] Planned item |",
@@ -1147,15 +1188,15 @@
       "",
       "## Jurisdiction comparison framing the three obligations.",
       "",
-      "- Federal `Citation`",
+      "- Federal `{Citation}`",
       "  - Headline obligation in one sentence.",
-      "  - `Status or effective date`",
-      "- State `Citation`",
+      "  - `{Status or effective date}`",
+      "- State `{Citation}`",
       "  - Headline obligation in one sentence.",
-      "  - `Status or effective date`",
-      "- Local `Citation`",
+      "  - `{Status or effective date}`",
+      "- Local `{Citation}`",
       "  - Headline obligation in one sentence.",
-      "  - `Status or effective date`"
+      "  - `{Status or effective date}`"
     ],
     "description": "Citation hierarchy — federal / state / local rows with citation, headline obligation, and status."
   },
@@ -1243,6 +1284,23 @@
       "Fourteen months blended, against a nine-month plan."
     ],
     "description": "Topic anchor inside a section. A horizontal cut: the topic above, the section's topics as a scale below."
+  },
+  "lattice: tower": {
+    "prefix": "lattice-tower",
+    "body": [
+      "<!-- _class: tower -->",
+      "",
+      "## Who carries each layer of the program.",
+      "",
+      "- Layer 2 `$100M xs $50M`",
+      "  - Reinsurer A `60%`",
+      "  - Reinsurer B `40%`",
+      "- Layer 1 `$40M xs $10M`",
+      "  - Reinsurer A `50%`",
+      "  - Reinsurer C `50%`",
+      "- Retention `$10M`"
+    ],
+    "description": "A reinsurance program as stacked layers, each written as its limit in excess of its attachment and split across the reinsurers who took a share of it."
   },
   "lattice: verdict-grid": {
     "prefix": "lattice-verdict-grid",

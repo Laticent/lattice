@@ -918,10 +918,10 @@ describe('component-manifest', () => {
       // `heatmap` as the numeric-matrix member that note deferred,
       // `flowchart` (2026-09-25-flowchart-authoring.md), and `hub-spoke` as the
       // structure member (one center and its satellites).
-      assert.equal(g.chart.length, 24, 'chart bucket has 24 components');
+      assert.equal(g.chart.length, 28, 'chart bucket has 28 components');
       assert.deepEqual(
         g.chart.map((m) => m.name).sort(),
-        ['bar', 'bullet', 'flowchart', 'funnel', 'gantt', 'heatmap', 'hub-spoke', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'waterfall', 'word-cloud'],
+        ['bar', 'bullet', 'ep-curve', 'flowchart', 'funnel', 'gantt', 'heatmap', 'histogram', 'hub-spoke', 'journey', 'kanban', 'line', 'map', 'matrix-grid', 'piechart', 'progress', 'quadrant', 'radar', 'risk-matrix', 'roadmap', 'scatter', 'slope', 'stacked-bar', 'state-chart', 'timeline-list', 'tower', 'waterfall', 'word-cloud'],
       );
       // diagram = 1: diagram
       assert.equal(g.diagram.length, 1, 'diagram bucket has 1 component');
@@ -1081,7 +1081,7 @@ describe('component-manifest', () => {
         'treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette',
         'tint-edge at-right', 'mark-threads', // decoration
         'with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl', // typography
-        'silent', 'no-header', 'no-footer', 'no-paginate', 'no-progress', // chrome
+        'silent', 'no-header', 'no-footer', 'no-paginate', 'no-progress', 'no-logo', // chrome
         'no-note', 'note-warn', // note
         'safe', // social
         'table-plain', 'table-fill', 'state-cells', 'row-label', 'no-row-label', // table
@@ -1165,7 +1165,7 @@ describe('component-manifest', () => {
       // model, not a chrome control an author toggles. The retired-form lint rules
       // coach a deck still carrying either token; the vocabulary no longer blesses it.
       assert.deepEqual([...UNIVERSAL_GROUPS.chrome].sort(), [
-        'no-footer', 'no-header', 'no-paginate', 'no-progress', 'silent',
+        'no-footer', 'no-header', 'no-logo', 'no-paginate', 'no-progress', 'silent',
       ]);
     });
   });

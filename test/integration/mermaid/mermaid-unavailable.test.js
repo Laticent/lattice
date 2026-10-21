@@ -200,6 +200,7 @@ async function readFence({ mermaid, payload = '404', laterDeck = null, laterMs =
         stamped: document.documentElement.hasAttribute('data-lattice-diagrams'),
         stateAtLoad: window.__stateAtLoad ?? null,
         bomb: window.__bomb || 0,
+        raf: window.__raf ?? null,
       };
     });
     return { ...read, settled, settledMs, gaveUp: gaveUpLines.length > 0, gaveUpLines, payloadRequests };
@@ -422,6 +423,34 @@ describe('a fence Mermaid never draws', { skip: skipWithoutChrome(CHROME), timeo
   test('a document with no fence never asks for the payload', async () => {
     const r = await readFence({ mermaid: 'no-tag', payload: 'serve', deck: ['---', 'theme: indaco', '---', '', '## No diagram here'].join('\n'), settleMs: 1500 });
     assert.deepEqual(r.payloadRequests, [], 'a deck without a diagram never fetches the library');
+  });
+
+  test('a document with no fence and no Mermaid tag runs no frame loop', async () => {
+    // The bootstrap wait is a requestAnimationFrame loop with a ten-second cap. In a prose deck it had
+    // nothing to wait FOR, and still kept a frame callback running every 16ms after every boot, so the
+    // Studio's preview never let the compositor go idle (182 callbacks in 3 s, measured on the built
+    // Studio). Counted from a wrapper installed before the runtime, and only the calls the runtime itself
+    // makes: the harness polls on rAF too (puppeteer's waitForFunction). About 90 runtime calls in the
+    // window without the early return in boot(), none with it.
+    const r = await readFence({
+      mermaid: 'no-tag', payload: 'serve',
+      deck: ['---', 'theme: indaco', '---', '', '## No diagram here'].join('\n'),
+      extraScript: '<script>window.__raf=0;var __r=window.requestAnimationFrame;window.requestAnimationFrame=function(f){if(String(new Error().stack).indexOf("lattice-runtime")>-1)window.__raf++;return __r.call(window,f)};</script>',
+      settleMs: 1500,
+    });
+    assert.ok(r.raf !== null && r.raf < 15, `a prose deck must not poll every frame — ${r.raf} runtime frame callbacks in the first 1.5s`);
+  });
+
+  test('a fence that arrives after a diagram-free boot still draws, with no frame loop to carry it', async () => {
+    // The early return above leans on this: a fence patched into a document that booted without one asks
+    // the plugin host for the library (`runPass` -> `requestMermaidLibrary`), and the load schedules the pass.
+    const r = await readFence({
+      mermaid: 'no-tag', payload: 'serve',
+      deck: ['---', 'theme: indaco', '---', '', '## No diagram yet'].join('\n'),
+      laterDeck: DECK, laterMs: 400, waitFor: 'rendered', settleMs: 20000,
+    });
+    assert.equal(r.state, 'rendered', 'the late fence is drawn');
+    assert.ok(r.svgs > 0, 'and the SVG is on the slide');
   });
 
   test('takes the fence back when a slow Mermaid finally loads, with no edit to trigger it', async () => {

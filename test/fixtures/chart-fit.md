@@ -153,8 +153,8 @@ only the shapes that broke above. The authoring mirrors
 is the gate's stable copy of it (the gallery is long-running and moves; a gate
 fixture must not).
 
-`tools/check-chart-fit.js` renders this deck at landscape, portrait AND square,
-so each slide below is really three cases.
+`tools/check-chart-fit.js` renders this deck at landscape, portrait, square AND strip,
+so each slide below is really four cases.
 
 ---
 
@@ -409,7 +409,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it.
 
 ## The roadmap grids workstreams against phases.
 
-| Workstream | Foundation `Q2 2026`   | Hardening `Q3 2026`      | Scale `Q4 2026`         |
+| Workstream | Foundation `{Q2 2026}`   | Hardening `{Q3 2026}`      | Scale `{Q4 2026}`         |
 | ---------- | ---------------------- | ------------------------ | ----------------------- |
 | Framework  | [x] Signal taxonomy    | [-] Scoring model v2     | [ ] Per-team weighting  |
 | Adoption   | [x] Pilot onboarding   | [-] Weekly signal review | [ ] Org-wide rollout    |
@@ -744,6 +744,107 @@ panel token, not to re-litigate that. -->
 - Working capital `+0.4M`
 - One-off receipts `+0.2M`
 - Closing cash `10.4M`
+
+---
+
+<!-- _class: tower -->
+
+## Six layers and seven reinsurers, the crowded tower.
+
+- Layer 6 `$100M xs $400M`
+  - Acme Reinsurance Company `35%`
+  - Globex Re `30%`
+- Layer 5 `$100M xs $300M`
+  - Vantage Re `25%`
+  - Umbra Re `25%`
+  - Meridian Re `25%`
+  - Helios Re `25%`
+- Layer 4 `$100M xs $200M`
+  - Orion Re `50%`
+  - Globex Re `50%`
+- Layer 3 `$100M xs $100M`
+  - Acme Reinsurance Company `50%`
+  - Vantage Re `50%`
+- Layer 2 `$75M xs $25M`
+  - Helios Re `100%`
+- Layer 1 `$15M xs $10M`
+  - Acme Reinsurance Company `100%`
+- Retention `$10M`
+
+---
+
+<!-- _class: risk-matrix -->
+
+## Twelve risks with long names, four in one cell.
+
+- Cyber outage at the primary data center `{4, 5}` `{2, 4}`
+- Ransomware across the broker network `{4, 5}`
+- Cloud provider regional failure `{4, 5}`
+- Third-party claims system outage `{4, 5}`
+- Gulf hurricane season above the model `{3, 5}` `{3, 3}`
+- Reserve shortfall on long-tail casualty `{3, 4}`
+- Regulatory fine for late reporting `{2, 4}`
+- FX swing on euro-denominated premium `{4, 2}`
+- Key person loss in the cat modeling team `{2, 3}`
+- Pandemic business interruption `{1, 5}`
+- Office flood `{1, 2}`
+- Social inflation on liability verdicts `{3, 3}`
+
+---
+
+<!-- _class: histogram -->
+
+`[{Annual aggregate loss, log}, {Share of simulated years}]`
+
+## Twelve unequal bands on a log axis, the tail under one percent.
+
+- Attritional `$1M..$2M` `18%`
+- `$2M..$5M` `21%`
+- `$5M..$10M` `16%`
+- `$10M..$20M` `13%`
+- `$20M..$50M` `11%`
+- `$50M..$100M` `8%`
+- `$100M..$200M` `6%`
+- `$200M..$400M` `3.5%`
+- `$400M..$700M` `2%`
+- `$700M..$1B` `0.9%`
+- `$1B..$2B` `0.5%`
+- Cat tail `$2B..$5B` `0.1%`
+
+---
+
+<!-- _class: ep-curve -->
+
+`[{Return period}, {Gross loss}]`
+
+## Four curves, ten return periods from 1-in-2 to 1-in-10,000.
+
+- Gross OEP
+  - `{2, $20M}`
+  - `{5, $55M}`
+  - `{10, $120M}`
+  - `{25, $190M}`
+  - `{50, $300M}`
+  - `{100, $410M}`
+  - `{200, $520M}`
+  - `{250, $560M}`
+  - `{1000, $900M}`
+  - `{10000, $1.6B}`
+- Gross AEP
+  - `{2, $35M}`
+  - `{10, $150M}`
+  - `{100, $480M}`
+  - `{10000, $1.9B}`
+- Net OEP after the cat program
+  - `{2, $20M}`
+  - `{10, $50M}`
+  - `{100, $90M}`
+  - `{10000, $1.2B}`
+- Net AEP after the cat program
+  - `{2, $30M}`
+  - `{10, $70M}`
+  - `{100, $130M}`
+  - `{10000, $1.4B}`
 
 ---
 

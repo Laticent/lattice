@@ -22,10 +22,14 @@
 // running half is door-run.ts, loaded only once a render meets a code package, so a Studio with no
 // code package never downloads the kernel, the sanitizer or the runner.
 
+import { commentBodies, readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
+import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
 import { ASPECT_RE, planFencePlugins } from '../../../../lib/packages/code-door-fence.mjs';
-import { pluginConsentText } from '../../../../lib/packages/code-shape.mjs';
+import { pluginConsentText, pluginReturnFields, returnsRefusal } from '../../../../lib/packages/code-shape.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
+
+/** The `class` slice of the directive vocabulary: `unapprovedIn` asks one key (lib/core/comment-directive.mjs). */
 
 /** A code package the Studio knows: a saved component whose package carries a `transform.js`. */
 // `facts`: the slide-facts version the package's manifest declares (lib/packages/code-shape.mjs factsRefusal).
@@ -49,6 +53,8 @@ export type StudioPlugin = {
 	placeholder?: { placement?: string; aspect?: string; size?: string };
 	/** The inline kinds it draws (`@kind{…}`, 2026-10-14-plugin-inline-door.md), with each kind's declared slot and placeholder. */
 	kinds?: StudioPluginKind[];
+	/** The values it declares it may return (`pluginReturnFields`; threat-model decisions 11 and 12), pinned into its digest. */
+	returns?: ReturnType<typeof pluginReturnFields>;
 };
 /** One inline kind a zip plugin declares: its name, its fields as a Segno slot spec, and its placeholder's size. */
 export type StudioPluginKind = { name: string; slot?: unknown; placeholder?: { size?: string }; title?: string };
@@ -73,8 +79,8 @@ export async function codeDigest(code: string): Promise<string> {
  * `pluginConsentText`, from the renderer's bytes as they are held here. The two share the text's shape
  * (head, code, tail), so a change to what the digest covers changes both.
  */
-export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = []): Promise<string> {
-	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2]).split('\u0001');
+export async function pluginDigest(code: string, fence: string, kinds: readonly (string | { name: string; slot?: unknown })[] = [], returns: ReturnType<typeof pluginReturnFields> = []): Promise<string> {
+	const [head, tail] = pluginConsentText('\u0001', fence, [...kinds] as Parameters<typeof pluginConsentText>[2], returns).split('\u0001');
 	const enc = new TextEncoder();
 	const parts = [enc.encode(head), enc.encode(code), enc.encode(tail)];
 	const all = new Uint8Array(parts.reduce((n, a) => n + a.length, 0));
@@ -164,20 +170,26 @@ export async function setCodePackages(list: { name: string; code: string; facts?
  * only draws in a deck that lists it under `plugins:` (decision 11), and only once approved.
  */
 let setPluginsSeq = 0;
-export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[] }[]): Promise<void> {
+export async function setPlugins(list: { name: string; fence: string; code: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown }[]): Promise<void> {
 	const mine = ++setPluginsSeq;
 	const next = new Map<string, StudioPlugin>();
 	for (const p of list) {
 		const kinds = (p.kinds ?? []).filter((k) => k && typeof k.name === 'string');
+		// The declared return fields, normalized the one way both doors pin them (code-shape.mjs `pluginReturnFields`).
+		// A record the zip gate did not check (an old or hand-edited one) declares nothing rather than failing every
+		// plugin's load: its renderer's data is then refused at render time, with an alert (the inversion lens).
+		const declared = p.returns === undefined || returnsRefusal({ contributes: { returns: p.returns } }) ? undefined : p.returns;
+		const returns = pluginReturnFields({ contributes: { returns: declared } });
 		next.set(p.name, {
 			kind: 'plugin',
 			name: p.name,
 			fence: p.fence ?? '',
 			code: p.code,
-			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) }))),
+			sha256: await pluginDigest(p.code, p.fence ?? '', kinds.map((k) => ({ name: k.name, ...(k.slot ? { slot: k.slot } : {}) })), returns),
 			bytes: new TextEncoder().encode(p.code).length,
 			...(p.placeholder ? { placeholder: p.placeholder } : {}),
 			...(kinds.length ? { kinds } : {}),
+			...(returns.length ? { returns } : {}),
 		});
 	}
 	if (mine !== setPluginsSeq) return;
@@ -254,7 +266,13 @@ export function unapprovedIn(source: string): (StudioCodePackage | StudioPlugin)
 	if (deckClass) add(deckClass[1]);
 	// `pane:` too: a package in a pane runs through the same slot (the inversion lens found a pane
 	// slide whose note pointed at a notice that never came).
-	for (const m of text.matchAll(/<!--\s*(?:_?class|pane)\s*:\s*([^>]*?)\s*-->/g)) add(m[1]);
+	// `_class:` / `class:` go through the shared directive grammar; a `pane:` marker is pane grammar
+	// (design note 2026-10-17-meta-record.md §5.4) and stays a local read of the text after its colon.
+	for (const inner of commentBodies(text)) {
+		const dir = readDirectiveComment(`<!--${inner}-->`, CLASS_VOCAB);
+		if (dir) add(dir.value);
+		else if (/^pane\s*:/.test(inner)) add(inner.slice(inner.indexOf(':') + 1));
+	}
 	return [...[...packages.values()].filter((p) => tokens.has(p.name) && !isApproved(p)), ...pluginsWanted];
 }
 

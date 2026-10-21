@@ -51,13 +51,13 @@ Bottom line up front: occupancy held at 95% and 73% of guests moved into housing
 
 1. 142
    - Nightly beds filled
-   - capacity 150 · 95% `On plan` `Board`
+   - capacity 150 · 95% `{On plan}` `{Board}`
 2. 73%
    - Guests placed in housing
-   - target 70% `On plan` `Programs`
+   - target 70% `{On plan}` `{Programs}`
 3. $2.1M
    - Operating reserve
-   - 5.2 months runway `On plan` `Finance`
+   - 5.2 months runway `{On plan}` `{Finance}`
 
 ---
 
@@ -151,7 +151,7 @@ Beds keep people safe tonight; placements end the crisis. We held 73% housing pl
 
 ## Where the organization grows over three years.
 
-| Workstream | Now `2026` | Build `2027` | Scale `2028` |
+| Workstream | Now `{2026}` | Build `{2027}` | Scale `{2028}` |
 | --- | --- | --- | --- |
 | Shelter beds | [x] 150 | [-] 280 | [ ] 320 |
 | Housing placements | [x] 73% | [-] 80% | [ ] 85% |
@@ -169,13 +169,13 @@ Beds keep people safe tonight; placements end the crisis. We held 73% housing pl
 
 1. 280
    - Beds at full build
-   - up from 150 `+87%` `Build`
+   - up from 150 `{+87%}` `{Build}`
 2. 80%
    - Placement target held
-   - quality kept at scale `Target` `Programs`
+   - quality kept at scale `{Target}` `{Programs}`
 3. 6.0
    - Reserve months
-   - rebuilt post-lease `On plan` `Finance`
+   - rebuilt post-lease `{On plan}` `{Finance}`
 
 ---
 
@@ -208,12 +208,12 @@ Year-one cost is $340K lease plus $70K fit-out. A committed three-year county co
 
 ## Governance and compliance items for this decision.
 
-- [x] FY2025 audit filed clean `Compliant`
-- [x] Lease reviewed by counsel `Compliant`
-- [x] County contract terms confirmed `Compliant`
-- [-] Capital-campaign quiet phase underway `60% of goal`
-- [ ] Board vote on the Elm Street lease `today`
-- [/] New-build feasibility study `deferred`
+- [x] FY2025 audit filed clean `{Compliant}`
+- [x] Lease reviewed by counsel `{Compliant}`
+- [x] County contract terms confirmed `{Compliant}`
+- [-] Capital-campaign quiet phase underway `{60% of goal}`
+- [ ] Board vote on the Elm Street lease `{today}`
+- [/] New-build feasibility study `{deferred}`
 
 ---
 

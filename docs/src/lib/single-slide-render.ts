@@ -418,7 +418,9 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 // deck to actually carry deck-scoped state:
 //   · the page NUMBER — only rendered when `paginate` is truthy, which in the Studio is a
 //     default-OFF toggle that none of the three shipped decks sets;
-//   · inherited RUNNING-GLOBAL directives — a bare `<!-- header: … -->` mid-deck. The Studio's own
+//   · inherited RUNNING-GLOBAL directives — a bare `<!-- class: … -->` mid-deck (`header`, `footer` and
+//     `paginate` set only their own slide, audit §11r, so the probe below over-triggers on them, the cheap
+//     direction). The Studio's own
 //     header/footer controls write FRONT MATTER, which the caller already prepends to the slice, so
 //     this is reachable only by hand-authoring directive comments;
 //   · the deck-scoped PROGRESS RAIL and watermark glyph — both derived from divider slides, and both
@@ -489,7 +491,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	},
 	{
 		fact: 'running-global directive',
-		why: 'a directive comment without the `_` spot prefix applies to its slide AND every one after, so a slice loses what it inherited',
+		why: 'a directive comment without the `_` spot prefix (other than header, footer and paginate) applies to its slide AND every one after, so a slice loses what it inherited',
 		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
 	},
 
@@ -1624,7 +1626,7 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 						// engineering/decisions/2026-09-01-manifest-driven-chart-dispatch.md).
 						// Overflow is read from the live frame after it settles (below) — 0 here
 						// as a placeholder.
-						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|progress|timeline-list|piechart|gantt|kanban|radar|hub-spoke|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
+						s.charts = (out.html.match(/<section\b[^>]*\sclass="[^"]*\b(?:bar|bullet|line|scatter|slope|stacked-bar|waterfall|tower|risk-matrix|histogram|ep-curve|progress|timeline-list|piechart|gantt|kanban|radar|hub-spoke|quadrant|state-chart|flowchart|funnel|map|journey|word-cloud|roadmap|matrix-grid|heatmap)\b/g) || []).length;
 						// Diagram fences a runtime draws (Mermaid's), by the plugin registry's fence names.
 						s.drawn = drawnFenceCount(out.html);
 						// Match the engine's OWN KaTeX gate exactly — renderMarkdown

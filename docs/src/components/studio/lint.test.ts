@@ -243,12 +243,12 @@ describe('slideIndexAt / slideStartOffset (editor↔preview sync, fuzz)', () => 
 		expect(slideIndexAt(src, 5)).toBe(0);
 	});
 
-	it('an EMPTY slide chunk does not shift every later slide', () => {
-		// `splitSlides` drops empty chunks; a raw separator count did not, so a stray double separator
-		// desynced the rest of the deck on top of the front-matter offset.
+	it('an EMPTY slide chunk is a slide, and does not shift every later slide', () => {
+		// The engine renders a blank slide for each empty chunk (only a body's empty FIRST chunk is dropped), so
+		// `splitSlides` keeps them; every index, offset and caret lookup must agree with that list.
 		const src = `${FM}one${SEP}---${SEP}two${SEP}three`;
 		const slides = splitSlides(stripFrontMatter(src));
-		expect(slides).toEqual(['one', 'two', 'three']);
+		expect(slides).toEqual(['one', '', '', 'two', 'three']);
 		for (let i = 0; i < slides.length; i++) {
 			const start = slideStartOffset(src, i);
 			expect(src.slice(start, start + slides[i].length)).toBe(slides[i]);

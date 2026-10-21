@@ -99,6 +99,234 @@ Text leads from the right; image anchors from the left.
 
 ---
 
+<!-- _class: image spotlight at-tl -->
+<!-- _footer: "Top left · image at-tl — The text card sits in the top-left corner." -->
+
+## at-tl lifts the card to the top left.
+
+Move the card to wherever the photo is quiet, so the subject keeps the frame.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image statement at-top -->
+<!-- _footer: "Top center · image at-top — The text card sits centered along the top." -->
+
+## at-top centers the title up high.
+
+The scrim follows the words to the top edge.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight at-tr -->
+<!-- _footer: "Top right · image at-tr — The text card sits in the top-right corner." -->
+
+## at-tr parks the card top right.
+
+The subject sits low and left, so the words take the open sky.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image statement at-center -->
+<!-- _footer: "Center · image at-center — The text card sits in the middle of the slide." -->
+
+## at-center puts the title dead center.
+
+A radial scrim darkens only the middle.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight at-bl -->
+<!-- _footer: "Bottom left · image at-bl — The text card sits in the bottom-left corner — the default." -->
+
+## at-bl is the default corner.
+
+Name it to return a slide to bottom left inside a deck that moved it.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight at-bottom -->
+<!-- _footer: "Bottom center · image at-bottom — The text card sits centered along the bottom." -->
+
+## at-bottom centers the card low.
+
+A caption band under the subject, centered on the slide.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image statement at-br -->
+<!-- _footer: "Bottom right · image at-br — The text card sits in the bottom-right corner." -->
+
+## at-br anchors the title bottom right.
+
+The scrim flips to darken the right side.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-solid -->
+<!-- _footer: "Solid backing · image card-solid — The card or scrim at full strength — the default." -->
+
+## card-solid keeps the card opaque.
+
+Full legibility over any photo. This is the default.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-soft -->
+<!-- _footer: "Soft backing · image card-soft — The card or scrim at 80%, so the photo glows through." -->
+
+## card-soft lets the photo glow through.
+
+The panel drops to 80% and loses its lift shadow.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-sheer ink-light -->
+<!-- _footer: "Sheer backing · image card-sheer — The card or scrim at 55%, a tint more than a panel." -->
+
+## card-sheer turns the card into a tint.
+
+At 55% the photo reads through; pair it with an ink that suits the photo.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image statement card-clear -->
+<!-- _footer: "Clear backing · image card-clear — No card and no scrim: the words ride the photo." -->
+
+## card-clear drops the scrim.
+
+Only for a photo with a calm, dark patch where the words land.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight ink-light -->
+<!-- _footer: "Light ink · image ink-light — White words on a dark backing." -->
+
+## ink-light sets white words on a dark card.
+
+The card turns dark to match, whatever the deck palette.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image statement ink-dark -->
+<!-- _footer: "Dark ink · image ink-dark — Near-black words on a light backing." -->
+
+## ink-dark sets dark words on a light scrim.
+
+For a bright photo: the scrim turns light and the title goes dark.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-sm at-tr -->
+<!-- _footer: "Small card · image card-sm — A narrower card with smaller type, so the photo breathes." -->
+
+## card-sm keeps the card discreet.
+
+Smaller type and a narrower card leave the photo the slide.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-md -->
+<!-- _footer: "Medium card · image card-md — The default card width and type." -->
+
+## card-md is the default size.
+
+Name it to return a slide to the default inside a deck that resized it.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-lg -->
+<!-- _footer: "Large card · image card-lg — A wider card with larger type, for a message that leads." -->
+
+## card-lg lets the message lead.
+
+Wider card, bigger heading, room for a longer line.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight card-regular -->
+<!-- _footer: "Regular density · image card-regular — The default card spacing, so one slide can step out of a deck-wide compact." -->
+
+## card-regular keeps the default spacing.
+
+In a deck that sets `image-card: compact`, this slide keeps the roomier card.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight at-bottom band -->
+<!-- _footer: "Full-width band · image band — Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear." -->
+
+## band keeps the middle of the photo clear.
+
+The heading takes the left column and the text the right, in one short strip along the edge.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight at-bottom card-float -->
+<!-- _footer: "Floating card · image card-float — The default floating card, so one slide can step out of a deck-wide band." -->
+
+## card-float keeps the card a card.
+
+In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
 <!-- _class: image dark -->
 <!-- _footer: "Composition: dark · image dark" -->
 

@@ -239,6 +239,33 @@ describe('LiveAudio mic level', () => {
 		a.dispose();
 	});
 
+	it('mixes a narration into what is sent: set before joining, kept open while the mic is muted, closed when taken out', async () => {
+		const nodes = withShaping();
+		const a = new LiveAudio(() => {});
+		const narration = { getAudioTracks: () => [] } as unknown as MediaStream;
+		a.mixIntoSend(narration);
+		await a.join();
+		a.setMuted(true);
+		// The sent track stays open for the narration; the microphone's own capture is what goes quiet.
+		expect(nodes[0].track.enabled).toBe(true);
+		a.unmix(narration);
+		expect(nodes[0].track.enabled).toBe(false);
+		a.setMuted(false);
+		expect(nodes[0].track.enabled).toBe(true);
+		a.dispose();
+	});
+
+	it('never opens a muted microphone to mix, where the send cannot be shaped (it would be the raw capture)', async () => {
+		fakeBrowser();
+		(window as unknown as { AudioContext?: unknown }).AudioContext = undefined;
+		const a = new LiveAudio(() => {});
+		const sent = await a.join();
+		a.setMuted(true);
+		expect(a.mixIntoSend({ getAudioTracks: () => [] } as unknown as MediaStream)).toBe(false);
+		for (const t of sent.getAudioTracks()) expect(t.enabled).toBe(false);
+		a.dispose();
+	});
+
 	it('clamps the level to 0–200 %, and keeps it across a re-capture and a new call', async () => {
 		withShaping();
 		const a = new LiveAudio(() => {});

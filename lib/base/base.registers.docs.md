@@ -45,8 +45,10 @@ model, see `design/concepts.md`.
 | [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etching or tone | `off` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
+| [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
+| [`legend:`](#the-legend-front-matter-register-chart-callouts) | Whether the legend plugin's callouts are drawn | `on` |
 | [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
 
 ## The `plugins:` front-matter import list
@@ -789,11 +791,14 @@ shared screen.
 |---|---|---|---|---|
 | `laptop` | *(no class)* | You on your own screen. The default when `venue:` is omitted. | 1x | 1x |
 | `huddle` | `venue-huddle` | 4–6 people around a TV | 1.15x | 1.15x |
-| `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x |
-| `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x |
+| `conference` | `venue-conference` | 10–30 people | 1.3x | about 1.5x (header, footer, page number 1.1x) |
+| `hall` | `venue-hall` | 50–2,000 people | 1.5x | about 1.95x (header, footer, page number 1.3x) |
 
-"Labels" is the meta role — eyebrows, captions, the running header and page number —
-which a venue lifts past the body because the smallest text fails first at distance.
+"Labels" is the meta role — eyebrows, captions, card tags — which a venue lifts past the
+body because the smallest text fails first at distance. The running header, footer and
+page number are wayfinding, not content: they follow the venue's type step (1.3x at
+conference, 1.5x at hall), skip the label lift, and take a further 15% cut, so they sit
+well under the body and the eyebrows.
 If your back row is farther from the screen than the band assumes (for example, 30
 people and a small TV), pick the next venue up.
 
@@ -1068,6 +1073,50 @@ An unknown word, or a second word on one axis, is `unknown-tag`. Kernel:
 § TEXT ALIGNMENT; measure: `lib/core/card-tag-equalize.js`; record:
 `engineering/decisions/2026-09-27-card-tag-register.md`.
 
+## The `image-card:` front-matter register (the text card on a photo)
+
+The `spotlight` and `statement` compositions of the `image` component float the slide's words
+over a full-bleed photo: spotlight in a card, statement on a scrim. `image-card:` sets how that
+card looks on every image slide, so a deck of photos keeps one treatment without a class on
+each slide. It takes up to six words, one per axis, in any order:
+
+```yaml
+image-card: top-right soft sm compact
+```
+
+| Axis | Deck value | Per-slide class | Effect |
+|---|---|---|---|
+| Placement | `top-left` `top` `top-right` `center` `bottom-left` `bottom` `bottom-right` | `at-tl` `at-top` `at-tr` `at-center` `at-bl` `at-bottom` `at-br` | Where the card sits. **Default `bottom-left`**. A portrait deck keeps the card full width, so only the vertical part applies |
+| Backing | `solid` `soft` `sheer` `clear`, or a level `5%` … `95%` in 5% steps | `card-solid` … · `card-o5` … `card-o95` | The card's opacity, 0–100%: how much of what sits behind the words survives, spotlight's panel and statement's scrim. The four names are 100%, 80%, 55% and none; the levels fill the gaps (`image-card: 65%`; `55%` and `80%` are written `sheer` and `soft`). A thin backing needs a matching ink. **Default `solid`** |
+| Ink | `light` `dark` | `ink-light` `ink-dark` | White or near-black words; the backing flips to match. Unset, spotlight uses the deck's own ink on a `--bg` card and statement uses white on a dark scrim |
+| Size | `sm` `md` `lg` | `card-sm` `card-md` `card-lg` | The card's width, padding and type, stepped together. **Default `md`** |
+| Density | `regular` `compact` | `card-regular` `compact` | `compact` tightens the card's padding and its inset from the slide edge to 70%. **Default `regular`** |
+| Shape | `float` `band` | `card-float` `band` | `band` stretches the card across the slide along the top or bottom edge, heading left and text right, so the middle of the photo stays clear. It needs a `top` or `bottom` placement and does nothing on a corner, on `center`, or in a portrait or square deck (which already span the width). **Default `float`** |
+
+**Image slides only.** Two of these classes mean something on other layouts too: `at-*` places
+the corner and edge tints, and `compact` tightens any slide. So the deck's words ride only a
+slide whose own class list names `image`; a chart or prose slide in the same deck is untouched.
+On an image slide whose composition sets its text beside the photo (`clean`, `split`, `gallery`)
+the card classes paint nothing, with two exceptions that follow from the shared words: `compact`
+still tightens that slide's spacing, as it does on any slide, and an `at-*` word also moves a
+tint the slide carries (`tint-corner`, `tint-edge`).
+
+**A slide overrides one axis at a time.** A slide's own class on an axis replaces the deck's word
+on that axis and keeps the rest: in a deck with `image-card: top-right soft`, a slide with
+`_class: image spotlight at-bl` gets a soft card in the bottom-left corner. `card-regular` is the
+slide-side way out of a deck-wide `compact`, and `card-float` the way out of a deck-wide `band`; the deck value `regular` stamps nothing, because
+leaving the axis out already means it.
+
+Not `image:`: that key is Marp's Open Graph image URL, which Lattice accepts and ignores.
+
+**Thin cards and ink.** A spotlight card under 60% opaque lets the photo show through, so the theme's own ink is read against the photo, which no theme can promise anything about. `ink-light` (white words on a near-black card) and `ink-dark` (near-black words on a near-white card) swap the card's fill and ink together and restore a contrast floor. Lint warns when a thin spotlight card has neither on the slide or the deck line (`thin-card-no-ink`). In the Studio, dragging the slide's Card backing slider below 60% with no ink set samples the photo behind the card, in the real preview, and writes whichever of the two reads better; it never overwrites an ink you set, and Card ink → Auto removes it. A photo the browser cannot read (a cross-origin image) gets no automatic ink, and the lint warning is what tells you. A statement's ink is fixed white on a dark scrim, so it never needs one.
+
+**Dividers.** The card draws two hairlines that take no space: a line under the heading of a stacked card, and a vertical line between a `band`'s two columns. Both paint `--spectrum-structure`, the token every structural rule reads, so they follow the deck's `spectrum-trim:` (a quiet accent tint by default, the deck's spectrum under `on`) and a slide's own `spectrum-trim` class. `rule: none` drops them.
+
+In the Studio: Deck settings → **Image**, one control per axis (backing is a slider with the four names as chips); on an image slide, the slide
+inspector's **Image** tab shows the same five controls, each defaulting to the deck's value.
+Full catalog of the classes: `lib/components/imagery/image/image.docs.md`.
+
 ## The `spark:` front-matter register (inline sparks)
 
 A **spark** is the word-sized chart an author writes in inline code (`` `~{12 14 17}` ``,
@@ -1100,6 +1149,33 @@ corners keeps a frame in a bare deck unless it also says `bare`. A ring's frame 
 square rather than 3:2. The table slide above drops the
 frame and keeps the deck's etching and rounded words for any spark that asks for a frame back.
 `lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
+
+## The `legend:` front-matter register (chart callouts)
+
+The **legend plugin** draws the labels an author writes on a chart, such as a heatmap callout
+(`` `@legend{{Onboarding change, for="Feb 2026 · M2"}}` ``,
+[`legend.docs.md`](../plugins/legend/legend.docs.md)). It is on by default. `legend:` turns it
+off for the whole deck; the legend plugin declares it in `legend.manifest.json`, and
+`lib/core/register-factory.js` builds it.
+
+| Deck value | Per-slide class | Effect |
+|---|---|---|
+| `on` | `legend-on` | Callouts are drawn and narrated. **The default** (omit the key) |
+| `off` | `legend-off` | Callouts are hidden: not drawn, not described, not read aloud |
+
+```markdown
+---
+legend: off
+---
+
+<!-- _class: heatmap legend-on -->
+```
+
+**The slide wins over the deck**, so the heatmap above shows its callouts in a deck that hides
+them everywhere else. A hidden callout's `detail` still joins its cell's hover card and the
+speaker note, so the words the author wrote reach the PDF. `lint:deck` notes each hidden callout
+(`legend-off`, info) so a callout that vanished is never a mystery. A host turns the plugin off
+outright with `--disable-plugin legend`, with the same result.
 
 ## The slide's corner — `corners:`
 

@@ -94,16 +94,16 @@ Then each slide opens with one comment naming its layout — `_class: kpi`,
 
 1. 1
    - folder to copy
-   - keep it together `Complete`
+   - keep it together `{Complete}`
 2. 5 MB
    - on disk, minified
    - CSS + runtime + fonts
 3. 61
    - layouts available
-   - none to install `Included`
+   - none to install `{Included}`
 4. 0
    - build steps
-   - before first render `None`
+   - before first render `{None}`
 
 ---
 

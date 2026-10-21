@@ -194,17 +194,17 @@ section.redline.split > .cell-stage > :is(ol, ul) { grid-column:1 / -1; grid-row
 
 /* .annotated — single passage with numbered sup markers; annotations below. */
 /* sanctioned: a superscript footnote marker — stays raised + small (0.7em,
- * vertical-align:super) rather than a centered inline-flex pill. Geometry that
- * doesn't fight the superscript routes through the --pill-* tokens. */
+ * vertical-align:super) rather than a centered inline-flex pill. It is the redline's own mark,
+ * so it states its type and shape and shares only the base radius scale. */
 section.redline.annotated > .cell-stage > blockquote sup {
   display:inline-block;
   background:var(--accent);
   color:var(--on-accent);
-  font-family:var(--pill-font);
+  font-family:var(--font-body);
   font-size:0.7em;
   font-weight:700;
   padding:0 0.4em;
-  border-radius:var(--pill-radius);
+  border-radius:var(--radius-full);
   line-height:1.4;
   vertical-align:super;
 }
@@ -224,12 +224,12 @@ section.redline.annotated > .cell-stage > :is(ol, ul) > li::before {
   position:absolute; left:0; top:0.156cqi;
   display:inline-flex; align-items:center; justify-content:center;
   background:var(--accent); color:var(--on-accent);
-  font-family:var(--pill-font);
-  font-size:var(--pill-fs);
+  font-family:var(--font-body);
+  font-size:var(--fs-meta);
   font-weight:700;
-  letter-spacing:var(--pill-tracking);
+  letter-spacing:0.04em;
   padding:0 0.5em;
-  border-radius:var(--pill-radius);
+  border-radius:var(--radius-full);
   line-height:1.4;
 }
 

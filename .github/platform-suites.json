@@ -1,0 +1,96 @@
+{
+  "$comment": "The platform-suite registry (engineering/development.md § Platform suites). One entry per check that must run on a real macOS or Windows runner. `os`: runner labels (macos-latest, windows-latest). `paths`: globs; a PR that touches one runs the suite, and the nightly and a manual dispatch run every suite. `run`: the command, from the repo root after `npm ci` and `npm run build`. `why`: what this suite proves that Linux cannot. tools/check-ownership.js (checkPlatformSuites) fails on a malformed entry or a `run` that names a file that is gone.",
+  "suites": [
+    {
+      "name": "export-confine",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "lib/export/file-confine.js",
+        "lib/export/html-player.js",
+        "lib/export/player-core.mjs",
+        "test/integration/export/confine-cli.test.js",
+        "test/unit/export/file-confine.test.js",
+        "test/unit/export/html-player-inline-file-urls.test.js",
+        "test/unit/export/bake-helper.js",
+        "lattice.js",
+        "lib/export/video.mjs",
+        "test/unit/export/cli-file-urls.test.js",
+        "lib/plugins/mermaid/shared/render-worker.js",
+        "test/integration/export/mermaid-worker-confine.test.js"
+      ],
+      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+      "why": "A render reads a local file only by REAL path inside the deck folder (media note §4.11). macOS reaches /tmp and $TMPDIR through symlinks (/private/tmp, /private/var), the case a real-path check gets wrong first; Linux cannot show it. The Mermaid worker's own page applies the same check. Windows runs as export-confine-windows."
+    },
+    {
+      "name": "export-confine-windows",
+      "os": [
+        "windows-latest"
+      ],
+      "paths": [
+        "lib/export/file-confine.js",
+        "lib/export/html-player.js",
+        "lib/export/player-core.mjs",
+        "test/integration/export/confine-cli.test.js",
+        "test/unit/export/file-confine.test.js",
+        "test/unit/export/html-player-inline-file-urls.test.js",
+        "test/unit/export/bake-helper.js",
+        "lattice.js",
+        "lib/export/video.mjs",
+        "test/unit/export/cli-file-urls.test.js",
+        "lib/plugins/mermaid/shared/render-worker.js",
+        "test/integration/export/mermaid-worker-confine.test.js"
+      ],
+      "run": "node --test test/integration/export/confine-cli.test.js test/unit/export/file-confine.test.js test/unit/export/html-player-inline-file-urls.test.js test/integration/export/mermaid-worker-confine.test.js",
+      "why": "The same CLI confinement checks as export-confine, on Windows: the CLI names its output page with pathToFileURL (file:///C:/…), and file-confine must turn that back into a path on the same drive and refuse a host-qualified (UNC) address. It uses the full `npm run build` (build-windows proves that build passes there). Symlink creation may need a privilege the runner lacks; if so those tests fail with EPERM and the run shows it."
+    },
+    {
+      "name": "wait-for-macos",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "tools/wait-for.sh",
+        ".claude/hooks/warn-unbounded-wait.sh",
+        "test/unit/tools/wait-for.test.js",
+        "test/unit/tools/warn-unbounded-wait.test.js"
+      ],
+      "run": "for t in timeout gtimeout flock perl; do command -v $t || echo \"no $t\"; done; brew install coreutils && node --test test/unit/tools/wait-for.test.js test/unit/tools/warn-unbounded-wait.test.js",
+      "why": "tools/wait-for.sh takes its lock with flock(1) or, where that is missing, perl's flock builtin, and needs GNU timeout (gtimeout on macOS). macOS ships neither flock(1) nor timeout, so the perl path and the exit-69 'missing dependency' path are the ones a Mac takes; Linux tests drive them only by pinning WAIT_FOR_LOCK_IMPL and a controlled PATH (engineering/development.md § Waiting for a slow job: 'macOS itself remains UNVERIFIED'). The first two runs (jobs 117883739691, 117885882571) showed a stock macOS runner has perl but no timeout, gtimeout or flock; the tests failed because their lock probe called flock(1), not because wait-for.sh did (its own run-mode test passed). The probe now falls back to perl, `isLive` to `ps` (no /proc), and the entry installs coreutils first (the supported state)."
+    },
+    {
+      "name": "build-windows",
+      "os": [
+        "windows-latest"
+      ],
+      "paths": [
+        "tools/check-ownership.js",
+        "tools/build.js",
+        "tools/prepare.js",
+        "lefthook.yml",
+        "tools/check-lint-coverage.js"
+      ],
+      "run": "node tools/check-ownership.js && node -e \"require('fs').accessSync('dist/docs/components.pick.md')\"",
+      "why": "`npm run build` runs tools/check-ownership.js first, and on Windows every gate that compared a backslash path with a forward-slash allowlist reported its sanctions stale and aborted the build (platform-suites run 39197530212, job 117883739719), so no CLI suite could use the full build there; the path, Biome-launch, command-length and report-path fixes in tools/check-ownership.js and tools/check-lint-coverage.js removed that. The suite's own build step IS the check (the default `npm run build`); `run` then re-runs the ownership gate and confirms the generated artifacts exist."
+    },
+    {
+      "name": "os-sandbox-measure",
+      "os": [
+        "macos-latest",
+        "windows-latest"
+      ],
+      "paths": [
+        "lib/core/os-sandbox.js",
+        "lib/core/code-sandbox.js",
+        "lib/packages/code-door.js",
+        "lib/packages/code-door-worker.js",
+        "lib/packages/npm-plugin-admission.js",
+        "test/integration/export/os-sandbox-measure.test.js",
+        "test/integration/export/npm-plugin-admission.test.js"
+      ],
+      "run": "node --test test/integration/export/os-sandbox-measure.test.js test/integration/export/npm-plugin-admission.test.js",
+      "why": "The code door reads the OS sandbox layer before it runs a stranger's code, and an npm plugin runs only where it reads `on` (threat-model note §6 decisions 7 and 13). macOS (sandbox_check) and Windows (chrome://sandbox) are read differently from Linux, and only a real runner of each starts Chromium's sandbox to be read. The npm admission test then runs the real door there: an npm plugin draws exactly when the measured layer admits it."
+    }
+  ]
+}

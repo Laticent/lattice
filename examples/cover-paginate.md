@@ -34,31 +34,31 @@ A long register can't shrink to fit — so when it holds more than one record, t
 - Federal
   - `15 U.S.C. §6501 · COPPA`
   - Verifiable parental consent for under-13 personal data.
-  - `In effect since 2000`
+  - `{In effect since 2000}`
 - California
   - `Cal. Civ. Code §1798.120 · CCPA/CPRA`
   - Opt-in for selling or sharing under-16 data; opt-out for over-16.
-  - `Enforced 2023`
+  - `{Enforced 2023}`
 - New York City
   - `NYC Admin Code §22-1201`
   - Bias-audit obligation for AEDTs used in employment decisions.
-  - `Effective 2023`
+  - `{Effective 2023}`
 - Illinois
   - `740 ILCS 14 · BIPA`
   - Written release before collecting biometric identifiers.
-  - `Private right of action`
+  - `{Private right of action}`
 - Texas
   - `Tex. Bus. & Com. §503.001 · CUBI`
   - Consent before capturing a biometric identifier for commerce.
-  - `AG enforcement only`
+  - `{AG enforcement only}`
 - Virginia
   - `Va. Code §59.1-575 · VCDPA`
   - Opt-in consent for sensitive data, including children's.
-  - `Effective 2023`
+  - `{Effective 2023}`
 - Colorado
   - `Colo. Rev. Stat. §6-1-1301 · CPA`
   - Universal opt-out mechanism honored for targeted advertising.
-  - `Effective 2023`
+  - `{Effective 2023}`
 
 ---
 
@@ -71,31 +71,31 @@ A long register can't shrink to fit — so when it holds more than one record, t
 1. EU AI Act
    - `Title III`
    - Conformity-assessment pre-market obligation took effect.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 2. Colorado AI Act
    - `SB 24-205`
    - Developer and deployer duties for consequential-decision systems.
-   - `Effective Feb 2026`
+   - `{Effective Feb 2026}`
 3. FTC v. Avast
    - `§5 unfairness`
    - $16.5M consent order; clarifies the deception standard for privacy branding.
-   - `Final Mar 2026`
+   - `{Final Mar 2026}`
 4. Texas DPSA
    - `§541.151`
    - DSAR opt-out portal mandatory; small-business safe-harbor narrowed.
-   - `Effective Mar 2026`
+   - `{Effective Mar 2026}`
 5. EU Data Act
    - `Reg 2023/2854`
    - Cloud-switching and IoT data-access duties begin to bite.
-   - `Effective Sep 2026`
+   - `{Effective Sep 2026}`
 6. India DPDP Rules
    - `MeitY notification`
    - Consent-manager registration and children's-data rules finalized.
-   - `Effective 2026`
+   - `{Effective 2026}`
 7. UK DPDI
    - `Royal Assent`
    - Reforms UK GDPR; a recognized-legitimate-interest list is introduced.
-   - `Effective 2026`
+   - `{Effective 2026}`
 
 ---
 

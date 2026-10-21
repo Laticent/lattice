@@ -64,6 +64,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils imagemagick fonts-noto-color-emoji
       - run: npm ci
 
+      # WebKit and Firefox for the npm-plugin export check (test/integration/export-nightly/). The
+      # check opens real HTML exports in Chromium, WebKit and Firefox, and an engine that cannot
+      # start is reported UNVERIFIED, never as a pass (HARD RULE #23). Playwright lives in docs/, so
+      # the docs deps are installed too, and LATTICE_PLAYWRIGHT points the test at it. Chromium is not
+      # installed here: the check drives the puppeteer one this job already has.
+      - name: Install docs deps (Playwright)
+        run: npm ci
+        working-directory: docs
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: '1'
+      - name: Install Playwright WebKit and Firefox (pinned to @playwright/test)
+        run: npx playwright install --with-deps webkit firefox
+        working-directory: docs
+
       # The suite exits non-zero on a render regression. Capture the verdict into
       # an output and keep the job green so the report + issue steps always run and
       # the issue step keys off `failed` (not the step's own exit). Tee the TAP
@@ -73,6 +87,7 @@ jobs:
         run: |
           set -uo pipefail
           REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          export LATTICE_PLAYWRIGHT="$GITHUB_WORKSPACE/docs/node_modules/playwright"
           if npm run --silent test:integration:nightly 2>&1 | tee "$REPORT"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
@@ -195,6 +210,41 @@ jobs:
           path: ${{ runner.temp }}/player-contrast-green
           key: player-contrast-green-${{ github.run_id }}
 
+      # THE COMPOSED-DECK SAMPLE, WEEKLY (owner ruling 2026-10-17: sampled, option C).
+      # The galleries are all indaco and each shows one component, so the sweep above cannot see another
+      # theme or a composed finish and register mix by real pixels. Sundays only (and on a manual
+      # dispatch, which is how its time is measured): every examples/ deck on a theme other than
+      # indaco, every deck that sets `finish:` or `mode:`, and an even stride of the rest, about 40 of
+      # 284 (tools/player-contrast-select.js --examples). Same baseline file as the galleries: a bless
+      # rewrites only the decks it opened, and the gallery sweep ignores rows it did not open. It does
+      # not touch the last-green marker, which belongs to the gallery arm.
+      - name: Player contrast sweep (examples sample, weekly, vs baseline)
+        id: examples
+        run: |
+          set -uo pipefail
+          if [ "$(date -u +%u)" != 7 ] && [ "$GITHUB_EVENT_NAME" != workflow_dispatch ]; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- player contrast, examples sample (vs test/oracle/player-contrast.json) ---'
+          } >> "$REPORT"
+          START=$(date +%s)
+          if ! SELECTED="$(node tools/player-contrast-select.js --examples 40 2>> "$REPORT")"; then
+            echo "player-contrast-select FAILED; the examples sweep was not run" | tee -a "$REPORT"
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mapfile -t DECKS < <(printf '%s\n' "$SELECTED" | sed '/^$/d')
+          if node tools/check-player-contrast.js --quiet --concurrency auto --baseline test/oracle/player-contrast.json "${DECKS[@]}" 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "examples sample: ${#DECKS[@]} decks in $(( $(date +%s) - START )) s" | tee -a "$REPORT"
+
       # THE PALETTE MATRIX, RENDERED FOR REAL — the referee for the per-PR sweep.
       #
       # `test/integration/invariants/palette-sweep.suite.js` gates all 32 palettes on every
@@ -262,7 +312,7 @@ jobs:
       #   check:chart-fit   does a chart paint OUTSIDE `.cell-stage` (which is
       #                     `overflow: clip`, so it is CUT silently), re-derive an
       #                     inset the stage already owns, or spill its own viewBox?
-      #                     Three emulator renders, one per @size.
+      #                     Four emulator renders, one per @size.
       #   geometry:check    does a slide measure differently depending on the window
       #                     it is viewed in? Renders 5 decks across 8 surfaces,
       #                     including transform-scaled ones.
@@ -457,7 +507,7 @@ jobs:
       # `check-chart-fit: [^0-9]` AND `geometry-parity error:` ARE THE CATCH-ALLS, and
       # leaving them out was this change's own near-repeat of #1529. Matching each FINDING
       # headline is not enough: both tools end in a `.catch` that prints the stack and
-      # exits 2, and for a step that drives a browser through three emulator renders THAT
+      # exits 2, and for a step that drives a browser through four emulator renders THAT
       # is the likeliest failure — a dead subprocess, a missing sidecar, a navigation
       # timeout — not a clip. Every such line was unmatched, so a crash would have filed an
       # issue whose marker block held the section header and nothing else, while the
@@ -512,7 +562,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -625,6 +675,7 @@ jobs:
           && steps.run.outcome == 'success' && steps.run.outputs.failed == 'false'
           && steps.families.outcome == 'success' && steps.families.outputs.failed == 'false'
           && steps.contrast.outcome == 'success' && steps.contrast.outputs.failed == 'false'
+          && steps.examples.outcome == 'success' && steps.examples.outputs.failed == 'false'
           && steps.palette.outcome == 'success' && steps.palette.outputs.failed == 'false'
           && steps.codewidth.outcome == 'success' && steps.codewidth.outputs.failed == 'false'
           && steps.chartfit.outcome == 'success' && steps.chartfit.outputs.failed == 'false'

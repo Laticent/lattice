@@ -32,7 +32,7 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // off or were over the cap.
 const NO_PHOTO_NOTE = new Set(['printsrc', 'captions', 'lattice', 'md', 'marp']);
 
-export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; initialView?: 'menu' | 'pdf' }) {
+export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, onWrite, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; /** Edits the deck: the off-fence notice's "Turn on" (#2758). */ onWrite?: (label: string, updater: (s: string) => string) => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
 	// The sheet has a format MENU plus a pre-export OPTIONS step per format that has
 	// a real per-artifact decision: PDF (comments as sticky notes; re-openable),
@@ -248,7 +248,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					voice: choice.narration.voice,
 					guide: choice.narration.guide !== false,
 					signal,
-				}, choice.playerMotion, choice.embedWebPictures);
+				}, choice.playerMotion, choice.embedWebPictures, choice.consentOrigins);
 				// The export succeeded but shipped something lesser (today: the diagram bake did
 				// not run). Hand the reason to the toast — the progress line it was announced on
 				// is already gone by the time the file lands.
@@ -333,16 +333,16 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					{printEver ? (
 						<div hidden={view !== 'print'}>
 							<Frozen active={printShown}>
-								<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} resetKey={printShows} active={printShown} onBack={() => setView('menu')} />
+								<PrintOptionsPanel options={options} source={artifactSource} name={name} palette={palette} mode={mode} extraTheme={extraTheme} extraCss={extraCss} resetKey={printShows} active={printShown} onWrite={onWrite} onBack={() => setView('menu')} />
 							</Frozen>
 						</div>
 					) : null}
 					{view === 'print' ? null : view === 'pdf' ? (
-						<ExportOptionsPanel deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
+						<ExportOptionsPanel source={source} onWrite={onWrite} deckId={deckId} slideCount={slideCount} busy={busy === 'pdf'} status={progress} onBack={() => setView('menu')} onExport={exportPdf} />
 					) : view === 'pptx' ? (
-						<ExportOptionsPanel format="pptx" deckId={deckId} slideCount={slideCount} busy={busy === 'pptx'} status={progress} onBack={() => setView('menu')} onExport={exportPptx} />
+						<ExportOptionsPanel format="pptx" source={source} onWrite={onWrite} deckId={deckId} slideCount={slideCount} busy={busy === 'pptx'} status={progress} onBack={() => setView('menu')} onExport={exportPptx} />
 					) : view === 'odp' ? (
-						<ExportOptionsPanel format="odp" deckId={deckId} slideCount={slideCount} busy={busy === 'odp'} status={progress} onBack={() => setView('menu')} onExport={exportOdp} />
+						<ExportOptionsPanel format="odp" source={source} onWrite={onWrite} deckId={deckId} slideCount={slideCount} busy={busy === 'odp'} status={progress} onBack={() => setView('menu')} onExport={exportOdp} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
 							busy={busy === 'html'}
@@ -354,13 +354,14 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 							onBack={() => setView('menu')}
 							onExport={exportHtml}
 							onCancel={() => bakeRef.current?.abort()}
+							onWrite={onWrite}
 						/>
 					) : view === 'imageset' ? (
-						<ImageSetOptionsPanel busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
+						<ImageSetOptionsPanel source={source} onWrite={onWrite} busy={busy === 'images'} status={progress} onBack={() => setView('menu')} onExport={exportImages} />
 					) : view === 'lattice' ? (
 						<LatticeOptionsPanel busy={busy === 'lattice'} status={progress} source={source} deckId={deckId} onBack={() => setView('menu')} onExport={exportLattice} />
 					) : view === 'marp' ? (
-						<MarpOptionsPanel busy={busy === 'marp'} status={progress} defaultMarker={loadSettings().overflowMarker} onBack={() => setView('menu')} onExport={exportMarpBundle} />
+						<MarpOptionsPanel source={source} onWrite={onWrite} busy={busy === 'marp'} status={progress} defaultMarker={loadSettings().overflowMarker} onBack={() => setView('menu')} onExport={exportMarpBundle} />
 					) : (
 						SHARE_MENU.map((section) => (
 								<PanelSection key={section.label} label={section.label}>

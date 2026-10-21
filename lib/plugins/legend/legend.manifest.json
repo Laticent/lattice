@@ -1,0 +1,83 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "legend",
+  "api": 1,
+  "title": "Legend",
+  "description": "One model for every key, value label and callout on a chart: a legend is a group of labels, and a label is text with an optional mark (a swatch or a stroke) and an optional plate (a pill's shape). Written `@legend{{Month 2 drop-off, tag, c4, row=\"Feb 2026\", col=M2}}` for a label anchored to a mark, or `@legend{[{Poor, c1}, {Good, c3}], key}` for a key. A bare label, with no mark and no plate, is the default. On by default; an author turns it off for the deck with `legend: off` in the front matter, or for one slide with the `legend-off` class (`legend-on` turns it back on), and a host with `--disable-plugin legend`. Off, a callout is not drawn or narrated, and its detail still reaches the speaker note. Wave 0 of engineering/decisions/2026-10-19-universal-legend.md: the heatmap draws anchored labels; the other charts' keys move onto it one adopter at a time.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "accent",
+        "d": "M20 34H40V54H20Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M54 44H108",
+        "width": 8
+      },
+      {
+        "ink": "accent",
+        "d": "M20 74H40V94H20Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M54 84H96",
+        "width": 8
+      }
+    ]
+  },
+  "contributes": {
+    "registers": {
+      "legend": {
+        "axes": {
+          "show": [
+            "on",
+            "off"
+          ]
+        }
+      }
+    },
+    "styles": true
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  },
+  "tokens": [
+    "--bg",
+    "--cat-1-fill",
+    "--cat-1-mark",
+    "--cat-10-fill",
+    "--cat-10-mark",
+    "--cat-11-fill",
+    "--cat-11-mark",
+    "--cat-12-fill",
+    "--cat-12-mark",
+    "--cat-2-fill",
+    "--cat-2-mark",
+    "--cat-3-fill",
+    "--cat-3-mark",
+    "--cat-4-fill",
+    "--cat-4-mark",
+    "--cat-5-fill",
+    "--cat-5-mark",
+    "--cat-6-fill",
+    "--cat-6-mark",
+    "--cat-7-fill",
+    "--cat-7-mark",
+    "--cat-8-fill",
+    "--cat-8-mark",
+    "--cat-9-fill",
+    "--cat-9-mark",
+    "--cat-on-fill",
+    "--cat-on-mark",
+    "--font-body",
+    "--legend-mark-ink",
+    "--text-body"
+  ]
+}

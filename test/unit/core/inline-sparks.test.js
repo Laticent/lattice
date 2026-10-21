@@ -290,7 +290,7 @@ describe('inline-sparks — measured too big (lint-core sparkFitFindings)', () =
     assert.ok(!onBar.includes('end') && !onBar.includes('zero'), 'a bar takes no markers or :zero');
     assert.deepEqual(sparks.nextWords('~{72%}').words.filter((w) => w.axis === 'type').map((w) => w.label), ['ring', 'bullet']);
     assert.equal(sparks.nextWords('~{1,2}'), null, 'a broken spark offers nothing');
-    const pills = require('../../../lib/core/inline-pills.js');
+    const pills = require('../../../lib/plugins/pills/pills.inline.js');
     assert.equal(pills.nextWords('{LIVE}').next, 'shape');
     assert.equal(pills.nextWords('{LIVE, tag}').next, 'color');
     assert.equal(pills.nextWords('{LIVE, tag, c3, lg}'), null, 'a complete pill offers nothing');

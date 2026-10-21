@@ -135,12 +135,12 @@ The routing rule was changed through a console that writes straight to productio
 
 ## Action-item status as of this retro.
 
-- [x] Incident timeline reconstructed `complete`
-- [x] Customer comms sent `complete`
-- [-] Direct-write console disabled `in progress`
-- [ ] Staging gate enforced in pipeline `this sprint`
-- [ ] Routing-layer alerts live `this sprint`
-- [ ] First rollback game-day scheduled `July`
+- [x] Incident timeline reconstructed `{complete}`
+- [x] Customer comms sent `{complete}`
+- [-] Direct-write console disabled `{in progress}`
+- [ ] Staging gate enforced in pipeline `{this sprint}`
+- [ ] Routing-layer alerts live `{this sprint}`
+- [ ] First rollback game-day scheduled `{July}`
 
 ---
 

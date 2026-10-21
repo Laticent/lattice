@@ -365,6 +365,14 @@ describe('asset-bundle — package zips from elsewhere', () => {
 			expect(round.plugins).toBeUndefined();
 		});
 
+		it('is refused when its styles.css reaches off the device, as `lattice packages add` refuses it (an address in a custom property too)', async () => {
+			for (const css of ['[data-lattice-plugin="glow"]{background:url(https://evil.example/b.png)}', '[data-lattice-plugin="glow"]{--q:"https://evil.example/y";background-image:image-set(var(--q) 1x)}']) {
+				const round = await unpackBundle(await zipOf({ files: { 'glow.styles.css': css } }), { plugins: true });
+				expect(round.plugins).toEqual([]);
+				expect(round.refused[0].why).toMatch(/^its styles\.css: /);
+			}
+		});
+
 		it('is refused for anything that runs code outside the sandbox, by rule', async () => {
 			for (const [manifest, why] of [
 				[{ contributes: { fences: { glow: {} }, hydrate: {} } }, /contributes hydrate/],

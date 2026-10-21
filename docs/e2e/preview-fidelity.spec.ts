@@ -28,24 +28,26 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 const PANEL = '[data-testid="preview-fidelity-overlay"]';
 
-// A deck whose FIRST slide sets a running `header:` the second inherits — the smallest real case
-// where the fast route would lose something, so the registry diverts to the whole-deck render and
-// the diff has a genuine, nameable difference to report.
+// A deck whose FIRST slide sets a running `backgroundColor:` the second inherits — the smallest real
+// case where the fast route would lose something, so the registry diverts to the whole-deck render and
+// the diff has a genuine, nameable difference to report. (It was a running `header:` until the owner
+// ruled that `header`, `footer` and `paginate` set their own slide only, audit §11r: a header no longer
+// carries, so there is nothing for a lone slide to lose.)
 const RUNNING_HEADER_DECK = `---
 paginate: true
 ---
 
-<!-- header: Q3 Board Review -->
+<!-- backgroundColor: ivory -->
 
 # Opening
 
-Running header set here.
+Running background set here.
 
 ---
 
 # Second slide
 
-This slide inherits the header from slide one.
+This slide inherits the background from slide one.
 `;
 
 // A deck with nothing deck-derived on it — the cheap route, where a position is supplied.
@@ -119,9 +121,9 @@ test('preview fidelity: the diff names WHAT differs instead of quoting markup', 
 
 	await diffButton(page).click();
 
-	// The inherited running header is exactly what a lone slide loses, so the readout must carry a
-	// row named for it — labeled the way the AUTHOR wrote it (`header`, not `data-header`).
-	const header = row(page, 'header');
+	// The inherited running background is exactly what a lone slide loses, so the readout must carry a
+	// row named for it — labeled without the engine's `data-` (`background-color`, not `data-background-color`).
+	const header = row(page, 'background-color');
 	await expect(header).toBeVisible({ timeout: 20_000 });
 	await expect(header).toContainText('missing');
 

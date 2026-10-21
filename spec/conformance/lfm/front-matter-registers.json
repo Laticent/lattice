@@ -1,5 +1,5 @@
 {
- "title": "Every register value in \u00a72.3 is accepted, and a value outside the list is unknown-<key>",
+ "title": "Every register value in §2.3 is accepted, and a value outside the list is unknown-<key>",
  "spec": "LFM-1.1",
  "section": "2.3",
  "rows": [
@@ -864,6 +864,82 @@
    }
   },
   {
+   "name": "image-card: top-right",
+   "source": "---\nimage-card: top-right\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: center soft",
+   "source": "---\nimage-card: center soft\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: bottom sheer light",
+   "source": "---\nimage-card: bottom sheer light\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: top-left clear dark sm",
+   "source": "---\nimage-card: top-left clear dark sm\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: bottom-right lg compact",
+   "source": "---\nimage-card: bottom-right lg compact\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "image-card: regular",
+   "source": "---\nimage-card: regular\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: bottom-center accent-ink lg",
+   "source": "---\nlogo-finish: bottom-center accent-ink lg\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: title",
+   "source": "---\nlogo-finish: title\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: top-left brand",
+   "source": "---\nlogo-finish: top-left brand\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "logo-finish: (unknown)",
+   "source": "---\nlogo-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-logo-finish",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
    "name": "corners: square",
    "source": "---\ncorners: square\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
@@ -929,6 +1005,20 @@
       "slide": 0
      }
     ]
+   }
+  },
+  {
+   "name": "legend: on",
+   "source": "---\nlegend: on\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "legend: off",
+   "source": "---\nlegend: off\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
    }
   },
   {

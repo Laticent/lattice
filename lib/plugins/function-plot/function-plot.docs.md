@@ -44,8 +44,8 @@ S-shaped, with asymptotes at 0 and 1.
 |---|---|
 | Engine HTML | a placeholder, `data-lattice-settle="pending"` |
 | Studio preview, Playground | the plot — the runtime loads `function-plot.js` from beside itself, only for a deck that has a plot |
-| CLI PDF / PNG / PPTX | the plot — every capture waits until no placeholder is pending |
-| HTML player (`--player`) | the plot, baked to static SVG |
+| CLI PDF / PNG / PPTX | the plot, drawn in the locked page (`lib/export/locked-figures.js`: no network, the OS sandbox where the machine allows it), sanitized and written into the capture page, which loads no copy of the library |
+| HTML player (`--player`) | the plot, drawn the same way and baked to static SVG |
 | `--read` article | **not carried** — the article re-hosts equations, tables and charts, not plots (this predates the plugin) |
 | `--fluid`, plain `--html` | the plot, drawn by the export page's own copy of the host; the library is inlined into the page, so a copy opened elsewhere draws too |
 | Export to Marp | a code block showing the config (no Marp tool runs Lattice's plugins) |
@@ -72,6 +72,7 @@ S-shaped, with asymptotes at 0 and 1.
 | `function-plot.manifest.json` | the fence and its alias, the hydrate, the library payload, the tokens, the per-surface products |
 | `function-plot.render.js` | the fence renderer: the placeholder, from `ctx.hydrateAttrs` |
 | `function-plot.hydrate.js` | the browser half — one self-contained function every browser surface runs |
+| `lib/export/locked-figures.js` | the CLI's capture half: the same `hydrate`, run in the locked page for every export that captures a page (owner decisions 14 and 16) |
 | `function-plot.styles.css` | the palette overrides for function-plot's inline strokes, and the error surface |
 | `function-plot.fixtures.md` | the conformance cases |
 

@@ -121,6 +121,51 @@ describe('the inline object node', () => {
 		expect(normalizeObjects(EditorState.create({ doc: slideOff }), kernels, false)).toBeNull();
 	});
 
+	it('leaves a chart row\'s data record as the code it is: the chart reads it, it is not a pill', () => {
+		// `{4.2}` is a valid pill label, so the pill pass would take it; on a chart slide the row's last
+		// span is the chart's record (lib/core/chart-rows.js `ownsRecordSpan`).
+		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{4.2}`\n- APAC `{NEW, tag}` new `{1.8}`');
+		expect(texts(chart)).toEqual(['{NEW, tag}']);
+		// The same rows on a slide outside the model are pills, and a description keeps its pill.
+		const list = mount('<!-- _class: content -->\n\n## T\n\n- EMEA `{4.2}`');
+		expect(texts(list)).toEqual(['{4.2}']);
+		const quoted = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `4.2`\n  > see `{LIVE}`');
+		expect(texts(quoted)).toEqual(['{LIVE}']);
+	});
+
+	it('agrees with the engine on where the chart\'s record is: cells, wrapped spans, detail rows, later lists', () => {
+		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		// A table cell holding only the record is the chart's (table slides are not locked in Compose).
+		expect(texts(mount(src('heatmap', '| | Mon | Tue |\n|---|---|---|\n| AM | `{3}` | `{5}` |')))).toEqual([]);
+		expect(texts(mount(src('matrix-grid', '| | A |\n|---|---|\n| S | `{done}` |')))).toEqual([]);
+		// A span wrapped in emphasis is not the row's last child in the engine, so it is a pill.
+		expect(texts(mount(src('bar', '- EMEA **`{4.2}`**')))).toEqual(['{4.2}']);
+		// A record under a valued row is detail, where a pill is a pill.
+		expect(texts(mount(src('piechart', '- Direct `60%`\n  - Online `{40%}`')))).toEqual(['{40%}']);
+		// Only the slide's first list is the chart's.
+		expect(texts(mount(src('bar', '- EMEA `{4.2}`\n\nStatus:\n\n1. Shipped `{12}`')))).toEqual(['{12}']);
+		// A comment after the record is content to the engine (an html_inline child), so the record is not the row's last span.
+		expect(texts(mount(src('bar', '- A `{3}` <!-- c -->\n- B `{4}`')))).toEqual(['{3}']);
+		expect(texts(mount(src('matrix-grid', '| | A |\n|---|---|\n| S | `{done}` <!-- c --> |')))).toEqual(['{done}']);
+	});
+
+	it('agrees with the engine on the lead paragraph: a row holds its value once, in its first block', () => {
+		const src = (cls: string, body: string) => `<!-- _class: ${cls} -->\n\n## T\n\n${body}`;
+		// The row already has a value, so a delta beside it is a pill.
+		expect(texts(mount(src('bar', '- North `40` up `{+3%}`')))).toEqual(['{+3%}']);
+		expect(texts(mount(src('bar', '- Q2 `16` `{risk}`\n  - vs plan `{-12%}`')))).toEqual(['{risk}', '{-12%}']);
+		// A second paragraph is not the row's lead.
+		expect(texts(mount(src('bar', '- Q1\n\n  about `{+3%}`\n- Q2 `5`')))).toEqual(['{+3%}']);
+		// Bullet reads every nested row as detail.
+		expect(texts(mount(src('bullet', '- Uptime\n  - vs plan `{+3%}`\n- Cost `3` `5`')))).toEqual(['{+3%}']);
+	});
+
+	it('counts a pill already drawn before the span as code, as the engine does', () => {
+		// `{LIVE}` is an object by now; the record after it is "after another code span" in the source, so a pill.
+		const chart = mount('<!-- _class: bar -->\n\n## T\n\n- EMEA `{LIVE}` `{4.2}`');
+		expect(texts(chart)).toEqual(['{LIVE}', '{4.2}']);
+	});
+
 	it('plain text copy and textContent still see the notation', () => {
 		const view = mount(DECK);
 		expect(view.state.doc.textContent).toContain('{SHIPPED, c2}');
@@ -813,5 +858,43 @@ describe('sparks are objects too (phase 2)', () => {
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, code, code + 2)));
 		expect(insertObject(() => kernels, { kind: 'spark' })(view.state, view.dispatch)).toBe(false);
 		expect(view.state.doc.eq(before)).toBe(true);
+	});
+});
+
+// The PLACE ORACLE's Compose arm (test/unit/core/place-oracle.test.js holds the other readers). Compose measures a
+// span's place from a ProseMirror document, a third way. For the shared corpus it must leave as code exactly the
+// record spans the engine claims, and turn every other pill-shaped span into an object. A slide with a raw list or
+// table is locked in Compose (edited in Markdown), so it has no objects to compare.
+describe('the place oracle: Compose leaves exactly the engine\'s record spans as code', () => {
+	const req = createRequire(import.meta.url);
+	const { corpus, deckOf, droppedTexts } = req('../../../../test/unit/core/place-corpus.js') as {
+		corpus: (n: number) => { chart: string; body: string; name: string }[];
+		deckOf: (s: { chart: string; body: string }) => string;
+		droppedTexts: (body: string) => Set<string>;
+	};
+	const { READERS, fencedTexts } = req('../../../../test/unit/core/place-readers.js') as {
+		READERS: { engine: (s: { chart: string; body: string }) => string[] };
+		fencedTexts: (body: string) => Set<string>;
+	};
+	const seen = { owned: 0, pills: 0 };
+	for (const slide of corpus(Number(process.env.ORACLE_N) || 10)) {
+		it(slide.name, () => {
+			if (/<(?:ul|ol|table)\b/i.test(slide.body.replace(/`[^`]*`/g, ''))) return; // locked in Compose
+			const fenced = fencedTexts(slide.body);
+			const dropped = droppedTexts(slide.body); // cells past the header's width: the engine draws neither a record nor a pill
+			const owned = new Set(READERS.engine(slide));
+			const made = new Set(texts(mount(deckOf(slide))));
+			const candidates = [...new Set([...slide.body.replace(/\r/g, '').matchAll(/(?<!`)`(\{[^{}`\n]*\})`(?!`)/g)].map((m) => m[1]))]
+				.filter((t) => !fenced.has(t) && !dropped.has(t) && kindOf(t, kernels) !== null);
+			seen.owned += candidates.filter((t) => owned.has(t)).length;
+			seen.pills += candidates.filter((t) => !owned.has(t)).length;
+			for (const t of candidates) {
+				expect(made.has(t), `${t} in ${slide.name}: engine ${owned.has(t) ? 'claims it as the record' : 'draws a pill'}\n${slide.body}`).toBe(!owned.has(t));
+			}
+		});
+	}
+	it('compared both kinds of span, or the arm proves nothing', () => {
+		expect(seen.owned).toBeGreaterThan(40);
+		expect(seen.pills).toBeGreaterThan(40);
 	});
 });

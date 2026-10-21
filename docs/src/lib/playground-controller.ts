@@ -25,6 +25,8 @@ export const SEARCH_KEY = 'lattice-docs-pg-search';
 export const LENS_KEY = 'lattice-docs-pg-lens';
 export const VIEW_KEY = 'lattice-docs-pg-view';
 export const FOCUS_KEY = 'lattice-docs-pg-focus';
+/** Whether the slide map (a rail of the deck's slides beside the preview) is on. '1' or absent. */
+export const MAP_KEY = 'lattice-docs-pg-map';
 export const HANDOFF_KEY = 'lattice-docs-pg-handoff';
 export const BACKUP_KEY = 'lattice-docs-pg-source-backup';
 export const INSERTED_HASH_KEY = 'lattice-docs-pg-inserted-hash';

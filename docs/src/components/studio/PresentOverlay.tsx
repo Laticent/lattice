@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Tip } from '@/components/ui/tooltip';
 import { type PaceName, slideBeatMs } from '@/lib/cadenza';
 import { FULL_LENS_ID, type LensProjection, type LensRegistry, lensEligibility, readerLenses } from '@/lib/lente';
+import { deckPluginsOff } from '@/lib/plugin-admission';
 import { alreadyGreets, alreadyThanks, BOOKEND_GAP_MS, greetingPeriod, greetingText, resolveBookends } from '@/lib/resolve-bookends';
 import { DELIVERY_STYLES, frontMatterDelivery, resolveDelivery } from '@/lib/resolve-delivery';
 import { acronymSpokenMap, frontMatterLang, frontMatterSayMap, lexiconMap } from '@/lib/resolve-narration';
@@ -36,7 +37,7 @@ import { SLIDE_SEP } from './deck-ops';
 import { createGuideConductor, guideStageTheme } from './guide-conductor';
 import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { type PresentLens, presentationPairs } from './lint';
-import { resolveNarration } from './narration-resolve';
+import { narrationDeck, resolveNarration } from './narration-resolve';
 import { PresentCaption } from './PresentCaption';
 import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
@@ -128,7 +129,27 @@ type RehearsalBeat = { at: number; kind: string; text: string; hold: number };
 type RehearsalSlide = { index: number; target: number; why: string; beats: RehearsalBeat[] };
 type RehearsalPlan = { totalTarget: number; suggestMinutes: number; slides: RehearsalSlide[] };
 
-export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter: deckFrontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, webOrigins }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; /** Web origins the reader allowed this deck's images to load from (trio follow-up 11). */ webOrigins?: string[] }) {
+/** A short fingerprint of a slide's text (FNV-1a), so a follower can find the presenter's slide by what it
+ *  says when its own frozen deck differs. Not a security measure: the transport is already host-only. */
+function slideHash(text: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+	return (h >>> 0).toString(16);
+}
+
+/** Present together in a live session (engineering/decisions/2026-10-20-live-uniform-experience.md §7.2). */
+export type PresentLive = {
+	/** This browser presents to everyone: where its Present is, as it moves. */
+	onTransport?: (t: { idx: number; page: number; lens: string; hash: string }) => void;
+	presentingToAll?: boolean;
+	onStopPresentingToAll?: () => void;
+	/** This browser follows someone's presentation: where they are. */
+	follow?: { idx: number; page: number; lens: string; by: string; hash?: string } | null;
+	/** Opened by the room, not by this person: the keyboard does nothing until they click into Present. */
+	inertKeys?: boolean;
+};
+
+export function PresentOverlay({ open, onClose, onReady, options, slides, frontMatter: deckFrontMatter = '', registry, startIndex = 0, paletteOverride, extraTheme, modeOverride, extraCss, webOrigins, live }: { open: boolean; onClose: () => void; /** Fires once, on this component's actual first mount — StudioShell uses it to know when it's safe to keep this mounted across future close/reopen (see StudioShell.tsx's `presentEverOpened`). */ onReady?: () => void; options: SingleSlideOptions; slides: string[]; frontMatter?: string; registry?: LensRegistry; startIndex?: number; paletteOverride?: string; extraTheme?: { name: string; css: string }; modeOverride?: 'light' | 'dark'; extraCss?: string; /** Web origins the reader allowed this deck's images to load from (trio follow-up 11). */ webOrigins?: string[]; live?: PresentLive }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: fire-once-on-mount by design; onReady is a stable callback.
 	React.useEffect(() => { onReady?.(); }, []);
 	// THE VENUE SWITCH — change the room size for THIS showing without editing the deck (owner
@@ -178,10 +199,22 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// writes a page, and it goes through `setIdxRaw`. Keyed to the slide's TEXT as well as its
 	// index, so an edit or a lens that puts another slide at the same index starts it on page 0.
 	const [pageAt, setPageAt] = React.useState({ idx: -1, page: 0, slide: '' });
-	const setIdx = React.useCallback((next: React.SetStateAction<number>) => {
-		setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
-		setIdxRaw(next);
+	// Live: a member following a presentation moves with the presenter until they move on their own;
+	// every mover of this person's own (a key, the rail, the sorter, a lens) detaches them (§7.2).
+	const [detached, setDetached] = React.useState(false);
+	const followingRef = React.useRef(false);
+	followingRef.current = !!live?.follow && !detached;
+	const detach = React.useCallback(() => {
+		if (followingRef.current) setDetached(true);
 	}, []);
+	const setIdx = React.useCallback(
+		(next: React.SetStateAction<number>) => {
+			detach();
+			setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
+			setIdxRaw(next);
+		},
+		[detach],
+	);
 	// Start Present on the slide you were editing (full lens), set SYNCHRONOUSLY on the
 	// open transition — DURING RENDER, not in an effect — so the first present slide IS
 	// the cursor slide. `idx` state persists across open/close (this component stays
@@ -199,7 +232,9 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		prevOpenRef.current = open;
 		if (open) {
 			setLens(landingLens);
-			setIdx(landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0);
+			// Not `setIdx`: opening is not this person moving, so it must not detach them from a presentation.
+			setPageAt((p) => (p.idx === -1 ? p : { idx: -1, page: 0, slide: '' }));
+			setIdxRaw(landingLens === 'full' ? Math.max(0, Math.min(startIndex, slides.length - 1)) : 0);
 		}
 	}
 	// Read-aloud diagnostics overlay — a first-class, draggable on-brand readout
@@ -300,6 +335,59 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const paneCounts = React.useMemo(() => (paneMod ? paneMod.paneSplitCounts(set, frontMatter + set.join(SLIDE_SEP)) : undefined), [paneMod, set, frontMatter]);
 	const pages = Math.max(1, paneCounts?.[clamped] ?? 1);
 	const page = pageAt.idx === clamped && pageAt.slide === cur ? Math.min(pageAt.page, pages - 1) : 0;
+	// Live (§7.2). Presenting to everyone: say where this Present is whenever it moves.
+	const onTransport = live?.onTransport;
+	React.useEffect(() => {
+		if (open && onTransport) onTransport({ idx: clamped, page, lens, hash: slideHash(cur ?? '') });
+	}, [open, onTransport, clamped, page, lens, cur]);
+	// Following a presentation: go where the presenter is, until this person moves on their own. A lens
+	// this deck does not offer is not followed (the slide index would mean another slide).
+	const follow = live?.follow ?? null;
+	const followable = !follow || follow.lens === lens || follow.lens === 'full' || !!(registry && lensEligibility(slides, registry, follow.lens).status === 'ok');
+	React.useEffect(() => {
+		if (!open || !follow || detached || !followable) return;
+		const lensChanges = follow.lens !== lens;
+		if (lensChanges) setLens(follow.lens);
+		// The presenter's slide by its text first: a member whose frozen deck differs (they joined after an
+		// edit) still lands on the slide the presenter is showing; the index only when no slide matches.
+		const byHash = follow.hash && slideHash(set[follow.idx] ?? '') !== follow.hash ? set.findIndex((t) => slideHash(t) === follow.hash) : -1;
+		const to = byHash >= 0 ? byHash : follow.idx;
+		setIdxRaw(to);
+		// The slide's text is known unless the lens changes with this step: a page step on a split slide
+		// keeps its page instead of painting page 0 for a frame.
+		setPageAt({ idx: to, page: follow.page, slide: lensChanges ? '' : (set[to] ?? '') });
+	}, [open, follow, detached, followable, lens, set]);
+	// The page needs the slide's text, which the lens above may only now have changed: fill it in.
+	React.useEffect(() => {
+		if (follow && !detached && pageAt.idx === clamped && pageAt.slide === '' && cur) setPageAt((p) => ({ ...p, slide: cur }));
+	}, [follow, detached, pageAt, clamped, cur]);
+	// Opened by the room: until this person clicks into Present, its keys do nothing, so someone typing in
+	// the editor when it opened does not fire fullscreen (F), the Stage window (S) or a slide change. Focus
+	// leaves the editor too, so their keystrokes stop landing in the deck underneath.
+	const inertRef = React.useRef(false);
+	React.useEffect(() => {
+		if (!open || !live?.inertKeys) {
+			inertRef.current = false;
+			return;
+		}
+		inertRef.current = true;
+		if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+		const wakeKeys = () => {
+			inertRef.current = false;
+		};
+		// A click, or a moment: the threat is keys already in flight from someone typing, so 1.5 s is enough,
+		// and a keyboard-only member is never locked out.
+		window.addEventListener('pointerdown', wakeKeys, { once: true });
+		const t = window.setTimeout(wakeKeys, 1500);
+		return () => {
+			window.removeEventListener('pointerdown', wakeKeys);
+			window.clearTimeout(t);
+		};
+	}, [open, live?.inertKeys]);
+	// Leaving and coming back to Present starts following again.
+	React.useEffect(() => {
+		if (!open) setDetached(false);
+	}, [open]);
 	// The RENDERED section on screen: the Stage shows section n of the whole presented deck, and
 	// after a split slide that is no longer the presented index.
 	const shownSection = (paneCounts ? paneCounts.slice(0, clamped).reduce((a, b) => a + b, 0) : clamped) + page;
@@ -356,11 +444,14 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	// rather than fall through to the flatten. Until the projection lands (or after a lens
 	// switch invalidates the tag) the markdown flatten keeps Present off dead air and off a
 	// stale lens's narration.
+	const chartDeck = React.useMemo(() => narrationDeck(frontMatter, deckPluginsOff(frontMatter)), [frontMatter]);
 	const narrationAt = React.useCallback(
 		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
-			const script = narrateChartScript(md);
+			// The deck's switches (`legend: off`, the host's plugin switch) live in its front matter, which
+			// `set[i]` does not carry; the narrator reads them from here (narration-resolve.ts `narrationDeck`).
+			const script = narrateChartScript(md, chartDeck);
 			const text = resolveNarration({
 				say: getSayLine(md),
 				fmSay: fmSayMap.get((setIndices[i] ?? i) + 1), // front-matter say[author slide number]
@@ -382,7 +473,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			const refs = script?.refs.length && text === script.text ? script.refs : isProjected && projected.refs[i]?.length ? projected.refs[i] : undefined;
 			return { text, emphasis, refs };
 		},
-		[set, setIndices, fmSayMap, projected],
+		[set, setIndices, fmSayMap, projected, chartDeck],
 	);
 	const narrationAtRef = React.useRef(narrationAt);
 	narrationAtRef.current = narrationAt;
@@ -1682,18 +1773,20 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	}, []);
 	const goNext = React.useCallback(() => {
 		dismissHint();
+		detach();
 		if (page < pages - 1) setPageAt({ idx: clamped, page: page + 1, slide: cur });
 		else setIdx((i) => Math.min(i + 1, count - 1));
-	}, [count, dismissHint, page, pages, clamped, cur, setIdx]);
+	}, [count, dismissHint, detach, page, pages, clamped, cur, setIdx]);
 	const goPrev = React.useCallback(() => {
 		dismissHint();
+		detach();
 		if (page > 0) return setPageAt({ idx: clamped, page: page - 1, slide: cur });
 		const to = Math.max(clamped - 1, 0);
 		if (to === clamped) return;
 		// Arriving from the slide after it, a split slide opens on its LAST page.
 		setIdxRaw(to);
 		setPageAt({ idx: to, page: Math.max(1, paneCounts?.[to] ?? 1) - 1, slide: set[to] ?? '' });
-	}, [dismissHint, page, clamped, cur, paneCounts, set]);
+	}, [dismissHint, detach, page, clamped, cur, paneCounts, set]);
 	const goFirst = React.useCallback(() => { dismissHint(); setIdx(0); }, [dismissHint, setIdx]);
 	const goLast = React.useCallback(() => { dismissHint(); setIdx(Math.max(count - 1, 0)); }, [count, dismissHint, setIdx]);
 	// The kernel's action names → this overlay's movers, so the shared keymap drives
@@ -1882,6 +1975,12 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	React.useEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
+			// Opened by the room and not clicked into yet: only Escape (leave) does anything.
+			if (inertRef.current && e.key !== 'Escape') {
+				// Swallowed, not passed on: a space or an arrow must not scroll or reach anything underneath.
+				e.preventDefault();
+				return;
+			}
 			wake();
 			// In the overview, Escape just closes the sorter (not all of Present), and
 			// the deck keys are inert (the grid owns navigation by click).
@@ -2113,6 +2212,23 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			>
 			<div className="pointer-events-auto flex w-full items-center gap-2 px-3 py-3 sm:px-5 sm:py-3.5">
 				<button type="button" onClick={onClose} className="shrink-0 rounded-md p-1.5 text-muted-foreground hover:text-foreground" aria-label="Exit present"><X className="size-5" /></button>
+				{/* Live (§7.2): who leads this showing, and the way back to them. */}
+				{live?.presentingToAll && (
+					<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[12px] font-semibold" data-live-presenting>
+						<span className="hidden sm:inline">Presenting to everyone</span>
+						{muted && <span className="hidden font-normal text-muted-foreground md:inline">· Voice is off, so nobody hears narration</span>}
+						<button type="button" onClick={live.onStopPresentingToAll} className="text-[var(--accent)] hover:underline">Stop</button>
+					</span>
+				)}
+				{follow && (detached ? (
+					<button type="button" onClick={() => { reader.stop(); setAutoplay(false); setPlaying(false); setDetached(false); }} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--accent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--accent)]" data-live-rejoin>
+						Rejoin {follow.by}
+					</button>
+				) : (
+					<span role="status" className="inline-flex min-w-0 shrink items-center gap-1.5 truncate rounded-full bg-[var(--accent-soft)] px-2.5 py-1 text-[12px] font-semibold" data-live-following={followable ? '' : 'paused'}>
+						{followable ? `Following ${follow.by}` : `${follow.by} is on a view this deck can't show`}
+					</span>
+				))}
 				{/* Lens switch — the shared LensPicker (same widget as the editor's preview
 				    header), centered. Was a horizontally-scrolling chip row that clipped. */}
 				<div className="flex min-w-0 flex-1 justify-center">
@@ -2407,7 +2523,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					{!rehearse && (
 						<div className={cn('flex items-center gap-2 transition-opacity duration-300 motion-reduce:!opacity-100 motion-reduce:transition-none', revealed ? 'opacity-100' : 'opacity-50')}>
 							<Tip label="Captions — show the narration as text"><button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button></Tip>
-							<Tip label="Voice — speak the narration aloud"><button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
+							<Tip label={follow && !detached ? `${follow.by}'s voice comes through the call` : 'Voice — speak the narration aloud'}><button type="button" disabled={!!follow && !detached} onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
 							    status string mid-delivery is jarring, and for a screen reader it
 							    reads as the control itself becoming a different control. Buffering
 							    is reported on the rail, where it belongs. */}

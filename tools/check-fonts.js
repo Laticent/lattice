@@ -67,6 +67,31 @@ function webExportFaces(missingFiles) {
   return faces;
 }
 
+// ── BYTE PARITY (web export): every vendored woff2 IS the manifest face's file ──
+// The set check above passed while five vendored files carried other bytes than assets/fonts/
+// (Caveat 700, Outfit 400/700, Shantell 400/700: one variable file standing in for several static
+// ones), so the Studio drew those weights from different glyphs than the CLI and the same deck
+// exported two different players (decisions/2026-10-16-player-as-library-audit.md §11.9). Each
+// FACES row names its import; that import's file must equal the manifest face's woff2, byte for byte.
+function webExportByteDrift() {
+  const js = fs.readFileSync(WEBEXPORT_JS, 'utf8');
+  const fileOf = new Map([...js.matchAll(/import\s+(\w+)\s+from\s+'\.\/fonts\/([^']+\.woff2)'/g)].map((m) => [m[1], m[2]]));
+  const manifest = new Map(TEXT_FACES.map((f) => [faceKey(f.family, f.weight, f.style), f.file]));
+  const drift = [];
+  for (const r of js.matchAll(/\{\s*family:\s*'([^']+)'\s*,\s*weight:\s*(\d+)\s*,\s*style:\s*'(\w+)'\s*,\s*url:\s*(\w+)/g)) {
+    const key = faceKey(r[1], Number(r[2]), r[3]);
+    const vendored = fileOf.get(r[4]);
+    const canonical = manifest.get(key);
+    if (!vendored || !canonical) continue; // the set checks above report a missing row or file
+    const a = path.join(WEBEXPORT_FONTS, vendored);
+    const b = path.join(ASSET_FONTS, `${canonical}.woff2`);
+    if (fs.existsSync(a) && fs.existsSync(b) && !fs.readFileSync(a).equals(fs.readFileSync(b))) {
+      drift.push(`${key}: ${rel(a)} differs from ${rel(b)} — copy the canonical file over it`);
+    }
+  }
+  return drift;
+}
+
 // ── REGRESSION GUARD: no Google-Fonts CDN URL may return ──────────────────────
 // Scan every SOURCE CSS that gets bundled (lib/**/*.css, themes/**/*.css) — not
 // just base.tokens.css — so a CDN url() added to any component/integration sheet
@@ -115,6 +140,7 @@ function main() {
   report('In the manifest but NOT vendored for the web-export path (font-embed.js)', diff(demand, webExport));
   report('Vendored in font-embed.js but NOT in the manifest (stale)', diff(webExport, demand));
   report('Listed in a supply but missing its woff2 on disk', missingFiles);
+  report('Vendored for the web export with OTHER bytes than the manifest face (assets/fonts/)', webExportByteDrift());
   report('CDN regression — a Google-Fonts URL reappeared', cdnRegressions());
 
   if (problems.length) {
@@ -134,4 +160,4 @@ function main() {
 
 if (require.main === module) process.exit(main());
 
-module.exports = { demandFaces, webExportFaces, cdnRegressions };
+module.exports = { demandFaces, webExportFaces, webExportByteDrift, cdnRegressions };

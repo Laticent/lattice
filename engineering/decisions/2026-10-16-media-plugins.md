@@ -80,7 +80,7 @@ section background. `collage` reads `- ![Alt](path) \`hero, top, 3:2\`` list ite
 |---|---|---|---|---|
 | Embedded | `data:image/png;base64,…` | passes through | renders | renders |
 | Relative path | `pic.jpg` | `resolveAssetUrl` (`bg-image.js:73`) against `baseUrl` | against the host's base | CLI lifts `![bg]` to `file://`; the player inlines `file://` as `data:` (`html-player.js:70-112`) |
-| Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineFileUrls` |
+| Absolute / `file:` | `/x/pic.jpg` | passes through | as written | inlined by `inlineDocAssets` |
 | Web | `https://…` | `blockWebImages` (`remote-ref.js:527`) | a drawn hatch until the reader allows it | CLI: blocked unless `--allow-remote`; Studio player: fetched on opt-in, capped (`inline-url-media.mjs:132`) |
 | Sample art | `sample:<name>` | `sampleName` (`remote-ref.js:67`) + `samplesUrl` | the site's staged copy | `file://` into `lib/samples/` |
 | Library | `asset:<name>` | `assetName` (`remote-ref.js:82`) + the host's `assetUrls` map | `blob:` URL | `data:` URI (`media-urls.ts:160`); **CLI: unsupported** |
@@ -891,3 +891,102 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
 - 2026-10-16: §4.6 added: each plugin's guide, fixtures, drawn icon and docs-site entry.
 - 2026-10-16: §4.5 added after #2725's attack. The design now takes every address from the author's block.
   The inline records stay off the runtime DOM mirror, and every slice gets the adversarial trio.
+- 2026-10-17: slice 1 started (branch `claude/media-cli-fixes-and-sources`). Landed: `lib/core/media-sources.js` with the six rows;
+  `isRemoteUrl` in `remote-ref.js` is now `isRemoteRef`, derived from each row's `locality`, with `sampleName`, `assetName` and
+  `urlAsParsed` moved to the table; `resolveAssetUrl` and `installBackgroundImage` classify through the table instead of their
+  own `sample:` / `asset:` regexes; a relative reference that leaves the deck's folder (`../x`, `/etc/x`) becomes the drawn
+  stand-in. D1 and D3 were fixed first (the CLI passes `baseUrl` and uses the class-aware lift). The `file` row is `remote`
+  to the markup gates on purpose (§4.11 asks for stricter or equal, and today `file:` is remote). Confinement applies only
+  on a `file:` base: the Studio and the playground pass the site's samples folder as `baseUrl`, where `/images/x.jpg` is a
+  same-origin fetch the site ships on purpose (changelog 2358), so a web base resolves as before. Found by the red team and
+  the inversion pass on this slice. The confinement is a **breaking** change for a CLI deck that reaches into a sibling folder
+  (`![bg](../assets/a.jpg)`), which the owner's decision 2 accepts (no GA users) and the changelog says so.
+  **Still owed by slice 1:** `asset:` resolving in the CLI against a deck-folder map; the symlink half of "paths stay inside the
+  deck" (it needs the file system, so it lands with the inline export); a typed `file:///abs/path` still loads in the CLI, so
+  "a `file` row is refused unless the deck was authored on this machine" is not enforced yet (it needs an authored-here signal);
+  "only in-tree rows may declare `local`" (vacuous until a plugin can contribute a row, slice 2); and the `check-ownership`
+  census of rows; the two CSS `url(sample:…)` matchers left in `bg-image.js` (`SAMPLE_CSS_URL` and the `(?:sample|asset):` pre-checks
+  beside it), which scan text rather than classify a reference; and the rows' `scheme` and `resolve(id, host)` fields from §4.1
+  (`resolveAssetUrl` still branches on `row.id`). The differential test (`test/unit/core/media-sources.test.js`) ran 53 corpus
+  entries, all with the same answer as before, plus a fuzzed set that is never looser. The fuzzed set does contain stricter
+  strings (`sample:a<TAB>b`, `<U+0001>sample:a`: the table parses the raw string where the old code parsed it after the URL
+  parser's clean-up, so these are now remote). The red team's 3M-string fuzz over every code point to U+2FFFF found none looser.
+- 2026-10-17: CI caught what the slice's three reviewers did not: `lib/packages/code-door-worker.js` injects `remote-ref.js`
+  into the sanitizer page as a raw script (no module system), so its new `require('./media-sources')` left every code package
+  unable to draw ("Waiting failed: 5000ms exceeded", `code-package-door.test.js`, 3 tests). `asPageScript` now inlines a
+  `require('./sibling')` and refuses any other `require(` loudly. The two places that load `remote-ref.js` outside a bundler
+  (this loader and the docs dev shim) are the full list; a third would need the same treatment.
+- 2026-10-17: the player's `file://` inliner (`lib/export/html-player.js`) took four independent checker passes. The late
+  commits fixed a CSS sample in a code block, a `style='…'` typed inside another attribute (alt text), an `<img>` whose
+  `data-src` or alt text held `src='file://…'`, scanner reads inside end tags, bogus comments and raw-text bodies, and a
+  quadratic `url(` scan (now bounded at 4096 characters). The inliner now tokenizes real start tags and reads exactly three
+  places: an `<img src>`, a `style` attribute value and a `<style>` body. Two behaviors the last checker judged off the path are
+  in `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md`. The unclosed-quote scan of the tag pattern is
+  quadratic on input no serializer produces, so it is not guarded.
+- 2026-10-18: §4.11 "Paths stay inside the deck" gets its file-system half (`lib/export/file-confine.js`). The CLI checks the REAL
+  path of every local file a render reads: Chromium's `file:` requests (answered with the drawn stand-in for an image, refused
+  for anything else), the player's inliner, the logo-wall mark reader and the SVG rasterizer. A symlink in the deck folder that
+  points out, and a typed `file:///abs/path` outside the folder, are refused and named on stderr. **Decision (the "authored
+  here" signal the follow-up asked for):** the CLI has no way to tell a deck its author wrote on this machine from a stranger's
+  zip, so it does not try. A typed `file:` address is allowed exactly when its real path is inside the deck's folder or
+  Lattice's install (the same two roots `pdf-asset-reader.js` uses), which is where a deck's own relative references land. The
+  `file` row stays `remote` for the markup gates. The Studio and the playground have no local file system and are unchanged.
+- 2026-10-18: slice 1's `asset:` in the CLI (`lib/export/deck-assets.js`). **Decision:** the folder is `assets/` beside the deck. The
+  Library's own name rule applies to the file stem (lowercase, digits, `-`, `_`); a symlink out of the folder is not listed;
+  the CLI always hands the render an `assetUrls` map, even an empty one, so a missing name draws the stand-in and never prints a
+  dead `asset:` address. `lint:deck` carries the `asset-missing` warning (the linter core is fs-free, so the folder check
+  lives in `tools/lint-deck.js`).
+- 2026-10-18: the rows take the §4.1 shape. Each has `scheme` and `resolve(ref, host)` (a URL, the reference itself to pass it
+  through, or `null` for the drawn stand-in); `classify` looks the scheme up in the table; `resolveAssetUrl` is one loop over it;
+  the two CSS-text matchers in `bg-image.js` read `NAMED_SCHEMES`. A test greps `lib/` for the scheme pair outside the table.
+  Evidence: the differential test is unchanged and green; HTML exports of seven decks (the baseline gallery, jargon and
+  data-viz galleries, collage, avatars, adaptive-image, deck-logo) are byte-identical old versus new; the engine bench
+  moves inside the base-versus-base spread.
+- 2026-10-18: the §4.11 census exists: `SANCTIONED_MEDIA_SOURCES` and `checkMediaSourceCensus` in `tools/check-ownership.js`. It fails on
+  a row without an entry, an entry without a row, a changed `locality`, a `contributed` row that says `local`, and two rows
+  claiming one scheme. It runs inside the existing `build:check` step, so it adds no CI job, step or hook (CLAUDE.md second
+  filter, row 2). A scratch `drive` row made it fail with the message recorded in the PR body.
+- 2026-10-18: the player inliner's tokenizer is replaced by a linear start-tag reader that follows the HTML tokenizer's tag states
+  (`readTag`, `mapPlayerContexts`) and a forward-pass `url(file://…)` reader (`rewriteFileUrls`); `resolveStyleUrls` got the same
+  treatment (`replacePlainUrls`), because a 1 MB `url(file://` style attribute took 277 s there. **Decision on the owner's DOM
+  question** (put to the owner in the PR body, not blocking): the owner was away, so the safe, reversible default was the
+  tokenizer fix the follow-up already described. **Decision:** `<template>` content IS a CSS context, so a style attribute in it is
+  baked (a script clones it into the page, and a browser then loads the picture). Players of six decks are byte-identical old
+  versus new.
+- 2026-10-18: the trio on the inliner (red team, inversion, checker) found three regressions in its first cut: `toLowerCase()` index
+  drift on `İ`, an SVG `<style>` skipped, and an unclosed `<svg>` switching off later `<style>`s. All three were fixed in the same
+  PR: lowercase is ASCII-only, a `<style>` body is CSS wherever it sits, and `<plaintext>` and a double-escaped `<script>` end
+  where a browser ends them. `player-inliner-oracle.test.js` diffs the reader against parse5 on a seeded corpus (it fails on the
+  first cut), which is the harness the inversion asked for.
+- 2026-10-18: **the linear tokenizer was replaced the same day by the DOM route.** The owner's standing rules (no tech debt, no
+  dismissed alerts, no settling) ruled out keeping a hand-written HTML tokenizer: a second CodeQL alert (`--!>`, then the
+  `<script>` escape scan) showed the model it has to keep in step with the HTML spec has no end. The inliner is now
+  `inlineDocAssets(doc, { baseUrl, confine })` in `html-player.js`: it walks the parsed document with a tree walker and bakes
+  an `<img src>`, each `style` attribute and each `<style>` body (and `<template>` content), reading plain, entity-decoded CSS.
+  `player-core.mjs` gains an optional `caps.inlineDocAssets(doc)` (called after the parse and the script removal) beside the
+  string `caps.inlineAssets` the browser host keeps. There is no second parse: the assembler parsed the document anyway. Measured
+  on the 3.1 MB baseline-gallery document: about 100–140 ms for the inliner pass (the string tokenizer took about 60 ms), so the
+  DOM route costs roughly 50–80 ms per export and deletes about 300 lines. The six decks' players are byte-identical to the
+  tokenizer's output. `rewriteFileUrls` and `replacePlainUrls` share one forward-pass CSS reader (`mapCssUrls`) that skips comments and strings and
+  treats a nested `url(` as one bad url, as a browser does (the regex forms were quadratic on hostile CSS, and read a `url(` inside
+  a comment). With it, `followups.d/2748-p3-player-inliner-entity-spellings-and-template.md` has nothing left and is deleted. One thing the DOM route inherits and the tokenizer did not hide: jsdom overflows its stack on about 140,000
+  unclosed nested elements, in the assembler's own parse, with or without the inliner.
+- 2026-10-18: the inliner's last review round found one disagreement with a browser per pass, so the review was replaced by a
+  measurement: `test/integration/export/inliner-browser-oracle.test.js` loads a seeded corpus (500 CSS declarations over a `style`
+  attribute and a `<style>` body: comments, strings, escapes, whitespace, newlines, case, nests, one distinct file per address)
+  in headless Chromium and requires that every `file://` picture Chromium requests is one the inliner reads. It passes on
+  `b5bacb8` and fails on the `d376aff` reader, and the over-read direction is bounded to the one shape that is invalid CSS. A new
+  class of disagreement now fails a test instead of waiting for the next reviewer.
+- 2026-10-18: the inliner now bakes every picture position the checker found a browser loading and the old reader skipped: `srcset` on
+  `<img>` and `<picture>`'s `<source>` (one forward-pass parser, candidates and descriptors kept), `<video poster>`, SVG `<image href>`
+  and `xlink:href`, and CSS `image-set()` (a bare string inside it is an address; `url()` inside it was already read). Each position
+  went into `inliner-browser-oracle.test.js` (a markup channel beside the CSS channels), and both oracles fail on the previous reader
+  and pass now. Out of scope on purpose: `<iframe>`, `<object>`, `<embed>`, `<input type=image>` and media `src`, which are not
+  picture positions and which the slide sanitizer governs. `followups.d/2748-p3-player-inliner-other-picture-positions.md` is
+  deleted; the Windows item was fixed in the follow-through PR (CLI file URLs now use `pathToFileURL`); proof on a Windows runner is run 39266738239.
+- 2026-10-19: **the Mermaid worker page is confined too.** `render-worker.js` runs its own Chromium page, which the main-page guard never
+  saw: a flowchart image node (`A@{ img: "file:///…" }`) made it open any file. `confineFileRequests` now answers a `file:` request whose
+  real path is outside the render page's folder, the install and the job's `confineRoots` (the deck folder, from the new generic bake
+  service `fileConfine`) with the stand-in, and names it on stderr, which the bake forwards to the CLI's. Measured on the real page: before the guard both the outside and the
+  inside picture were requested; after it the outside one is refused and the inside one loads (`mermaid-worker-confine.test.js`). The
+  CLI also builds its file URLs with `pathToFileURL` now; `export-confine-windows` runs it on a Windows runner (run 39266738239), after `npm run build` was made to pass there.

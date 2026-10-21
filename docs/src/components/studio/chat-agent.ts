@@ -6,6 +6,7 @@
 // model, the spend gate and the Studio's prompt voice.
 // See engineering/decisions/2026-10-05-studio-chat-agent.md.
 
+import { getSpendDeck } from '@/components/studio/ai/spend.js';
 // ONLY LAZY-ONLY MODULES ARE IMPORTED HERE. Vite writes every chunk a lazily imported
 // module statically needs into the IMPORTER's preload map — and the importer is the eager
 // `architect` chunk. Importing `architect.ts`, `front-matter` or the palettes from here put
@@ -20,9 +21,12 @@ import type { ArchitectModel, ChatGrounding, ChatOptions, ChatResult, ChatTurn, 
 import { AGENT_TOOLS, type AgentComplete, type AgentComponent, type AgentRawEdit, ASSET_TOOLS, bindKernel, buildAgentSystem, createToolbox, type DeckCheck, deckBrief, deckForTurn, describeEdit, type KernelDeps, runAgentLoop, type ToolCall } from './architect-agent';
 import { VIDEO_TOKENS, withPhotos } from './chat-photo-parts';
 import { THINKING } from './chat-status';
+import { boundTrace } from './chat-trace';
+import type { FitScope } from './draft-fit';
 import { FRONT_MATTER_KEYS } from './front-matter-keys';
 import { boundedCatalog, priceRound, resolvePictureTokens } from './picture-tokens';
 import type { ContentPart, MsgContent, ReferenceDoc } from './reference-doc';
+import type { ChatTrace } from './studio-store';
 
 type Arch = typeof import('./architect');
 type Spend = typeof import('@/components/studio/ai/spend.js');
@@ -133,6 +137,11 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// gate waits for the price itself (cloudBudgetBlock), in stop mode with a cap.
 	let catalogOnce: ReturnType<typeof boundedCatalog> | null = null;
 	const catalog = () => (catalogOnce ??= boundedCatalog(model));
+	// Started now, not awaited: the end-of-turn window lookup reads it, and on a turn that never needed the catalog it would otherwise be
+	// the FIRST call and hold the reply for up to its 4 s bound.
+	void catalog().catch(() => {});
+	// This turn's charges book under the deck it was sent from, even if the author switches decks before it ends.
+	const turnDeck = getSpendDeck();
 	// The Library is read once per turn. A failed read is an empty Library, never a failed turn.
 	// One instance per turn: it reads the shelf (every photo's bytes) once and serves list, thumbnails and
 	// captions from that read, instead of one full read per call.
@@ -194,6 +203,23 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 	// prices only an open round — a finished one already reported its exact cost.
 	let roundOpen = false;
 	let rounds = 0;
+	// What the rounds that FINISHED reported, for the reply's usage line and the context meter. It comes from the same
+	// `usage` block that already feeds the spend tally, so keeping it is free; an aborted round never reports and is absent.
+	const used = { cost: 0, prompt: 0, completion: 0, cached: 0, reasoning: 0, rounds: 0 };
+	const tally = (u: Parameters<NonNullable<Parameters<ArchitectModel['complete']>[0]['onUsage']>>[0]) => {
+		used.rounds++;
+		used.cost += Number(u?.cost) || 0;
+		used.prompt = Number(u?.prompt_tokens) || 0;
+		used.completion += Number(u?.completion_tokens) || 0;
+		used.cached = Number(u?.prompt_tokens_details?.cached_tokens) || 0;
+		used.reasoning += Number(u?.completion_tokens_details?.reasoning_tokens) || 0;
+	};
+	// The trace "Show work" lists: one entry per model call. A call's thinking and cost are held here until the loop
+	// reports the call's commands (onRound), which always follows its `complete` and precedes the next.
+	const traceRounds: ChatTrace['rounds'] = [];
+	let roundThinking = '';
+	let roundUse = { cost: 0, prompt: 0, completion: 0 };
+	let firstPictureTokens: number | null = null;
 	let blockedNote: string | null = null;
 	const soFar = () => [...done, streamed].map((t) => t.trim()).filter(Boolean).join('\n\n');
 	const complete: AgentComplete = async (msgs, { tools, onToken }) => {
@@ -208,6 +234,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 		const { tokens: pictureTokens, usd: pictureUsd } = pictureCount && pictureCost ? priceRound(await pictureCost, model.openRouterModelPrice?.() ?? null, pictureCount, photos.length) : { tokens: 0, usd: 0 };
 		roundPictureTokens = pictureTokens;
 		roundPictureUsd = pictureUsd;
+		firstPictureTokens ??= pictureTokens;
+		roundThinking = '';
+		roundUse = { cost: 0, prompt: 0, completion: 0 };
 		if (streamed.trim()) done.push(streamed);
 		streamed = '';
 		genId = null;
@@ -252,7 +281,16 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 				finish = r;
 			},
 			signal: opts?.signal,
-			onUsage: (u) => recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0)),
+			onReasoning: (t: string) => {
+				// Kept to a bit more than the trace saves; a model that thinks for pages should not grow memory with it.
+				if (roundThinking.length < 6000) roundThinking += t;
+				opts?.onReasoning?.(t);
+			},
+			onUsage: (u) => {
+				recordSpend(u?.cost ?? 0, u?.total_tokens ?? (u?.prompt_tokens || 0) + (u?.completion_tokens || 0), turnDeck);
+				tally(u);
+				roundUse = { cost: Number(u?.cost) || 0, prompt: Number(u?.prompt_tokens) || 0, completion: Number(u?.completion_tokens) || 0 };
+			},
 		});
 		roundOpen = false;
 		rounds++;
@@ -267,6 +305,9 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			toolbox,
 			onToken: opts?.onToken,
 			onTool: (name) => opts?.onActivity?.(TOOL_ACTIVITY[name] ?? name),
+			onRound: (r) => {
+				traceRounds.push({ ...(roundThinking.trim() ? { reasoning: roundThinking } : {}), ...(r.text.trim() ? { text: r.text } : {}), calls: r.calls, ...roundUse });
+			},
 			signal: opts?.signal,
 		});
 		reply = turn.reply;
@@ -294,13 +335,13 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			// exact figure.
 			if (roundOpen && (streamed || genId)) {
 				const est = estimateUsd(roundPrompt, model.openRouterModelPrice?.() ?? null, Math.ceil(streamed.length / 4), docTokens + systemTokens + roundPictureTokens + attachedTokens, roundPictureUsd) ?? 0;
-				if (est) recordSpend(est, Math.ceil(streamed.length / 4));
+				if (est) recordSpend(est, Math.ceil(streamed.length / 4), turnDeck);
 				if (genId && model.openRouterGenerationCost) {
 					void model
 						.openRouterGenerationCost(genId)
 						.then((exact) => {
 							if (exact == null || !Number.isFinite(exact)) return;
-							adjustSpend(exact - est);
+							adjustSpend(exact - est, turnDeck);
 							try {
 								globalThis.dispatchEvent?.(new Event('lattice-spend-changed'));
 							} catch {
@@ -330,7 +371,21 @@ export async function chatAgent(model: ArchitectModel, history: ChatTurn[], sour
 			else notes.push(`This turn stopped partway with an error: ${msg.slice(0, 140)}`);
 		}
 	}
-	return finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
+	const result = finalizeAgent(source, reply, toolbox.proposal(), toolbox.activity, notes);
+	if (result.status !== 'ok' || !used.rounds) return result;
+	const modelId = model.openRouterModel?.() ?? '';
+	// The catalog is already loaded by now on a normal turn; a miss (an alias id, a slow fetch) leaves the window unknown.
+	const window = (await catalog().catch(() => []) as { id: string; contextLength?: number | null }[]).find((m) => m.id === modelId)?.contextLength ?? null;
+	const lastUser = history[history.length - 1];
+	const sent = {
+		primer: estTokens(staticPrefix),
+		deck: estTokens(dynamicTail) + estTokens(deckForTurn(source)),
+		history: history.slice(0, -1).reduce((n, m) => n + estTokens(String(m.content ?? '')), 0) + estTokens(String(lastUser?.content ?? '')),
+		tools: estTokens(JSON.stringify(library.length ? [...AGENT_TOOLS, ...ASSET_TOOLS] : AGENT_TOOLS)),
+		docs: docTokens,
+		photos: attachedTokens + (firstPictureTokens ?? 0),
+	};
+	return { ...result, usage: { ...used, window, model: modelId }, ...(traceRounds.length ? { trace: boundTrace({ rounds: traceRounds, sent }) } : {}) };
 }
 
 /** The checker's warnings on a draft the turn ended on: no errors, but worth a look. Said to
@@ -345,15 +400,15 @@ export function checkerNote(warnings: string[]): string {
  *  is imported HERE, from the lazy agent, and never from the shell: an `import()` in
  *  StudioShell lists every chunk the export renderer needs in the shell's preload map, which
  *  cost +361 B of startup JavaScript once main's plugin split (#2525) added chunks to it. */
-function withFit(grounding?: ChatGrounding): ((source: string) => Promise<DeckCheck>) | undefined {
+function withFit(grounding?: ChatGrounding): ((source: string, fitScope?: FitScope) => Promise<DeckCheck>) | undefined {
 	const check = grounding?.check;
 	const fr = grounding?.fitRender;
 	if (!check) return undefined;
 	if (!fr) return check;
-	return async (source) => {
+	return async (source, fitScope) => {
 		const [base, fit] = await Promise.all([
 			check(source),
-			import('./draft-fit').then((m) => m.measureDraftFit(fr.options, source, fr.palette, fr.mode, fr.extra, fr.extraCss)).catch(() => undefined),
+			import('./draft-fit').then((m) => m.measureDraftFit(fr.options, source, fr.palette, fr.mode, fr.extra, fr.extraCss, fitScope)).catch(() => undefined),
 		]);
 		return fit ? { ...base, fit } : base;
 	};

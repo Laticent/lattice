@@ -117,12 +117,28 @@ const COMMENTS_ONLY = {
   'studio-e2e-nightly.yml::security':
     'absolute per run, but a sandbox leak can be intermittent, so one clean night (no retries) ' +
     'does not prove it gone',
+  'studio-e2e-nightly.yml::player-parity':
+    'absolute per run, but the gap it guards depends on the deck: three decks matching tonight do ' +
+    'not prove a new runtime stamp is absent from a fourth',
   'webkit-baselines-nightly.yml::audit':
     'absolute per run, but its tolerance lives in the workflow and the tool, and widening it ' +
     'turns a night green without moving a label — the same shape as a re-bless',
   'perf-nightly.yml::watch':
     'differential — head against a base ~24h old, and it emits no harness-failure marker to ' +
     'discriminate on',
+};
+
+/**
+ * AGGREGATE ALERTS. A job that reads other jobs' `needs.*.result` rather than a
+ * measuring step's outputs, so the stand-down arms (outputs paired with
+ * outcomes, a measurement floor) have nothing to bind to. It is not scanned by
+ * `alarmJobs()`; the arm "an aggregate alert" below pins what applies to it.
+ * Each entry carries why it never closes its thread.
+ */
+const AGGREGATE_ALERTS = {
+  'platform-suites.yml::alert':
+    'it reports that a suite on another OS failed; one green night on one OS is not proof the ' +
+    'platform gap is gone, so a person closes the issue',
 };
 
 /**
@@ -152,6 +168,7 @@ function alarmJobs() {
       const steps = spec.steps || [];
       const filing = steps.find((s) => code(s.run).includes('gh issue create'));
       if (!filing) continue;
+      if (`${file}::${job}` in AGGREGATE_ALERTS) continue;
       const standDown = steps.find((s) => /Stand down|Report .* on the rolling issue/.test(s.name || ''));
       out.push({ file, job, id: `${file}::${job}`, filing, standDown, steps });
     }
@@ -247,6 +264,22 @@ test('nightly alarm contract', async (t) => {
       'modulepreload-coverage-nightly.yml', 'overflow-nightly.yml', 'studio-e2e-nightly.yml',
     ]) {
       assert.ok(files.has(f), `${f} no longer files a rolling issue — did it move or get renamed?`);
+    }
+  });
+
+  await t.test('an aggregate alert is always()-guarded, bot-scoped, and never closes', () => {
+    for (const id of Object.keys(AGGREGATE_ALERTS)) {
+      const [file, job] = id.split('::');
+      const doc = YAML.parse(fs.readFileSync(path.join(WF_DIR, file), 'utf8'));
+      const spec = doc.jobs?.[job];
+      assert.ok(spec, `${id} is listed in AGGREGATE_ALERTS but no longer exists — drop it`);
+      assert.match(norm(spec.if), /always\(\)/, `${id}: the alert job lacks always(), so a failed needs mutes it`);
+      assert.ok(spec.needs?.length >= 1, `${id}: reads no needs.* result`);
+      const run = (spec.steps || []).map((s) => code(s.run)).join('\n');
+      assert.ok(run.includes('gh issue create'), `${id}: files nothing`);
+      assert.ok(!run.includes('gh issue close'), `${id}: closes a thread, but ${AGGREGATE_ALERTS[id]}`);
+      assert.ok(!run.includes('--search "in:title'), `${id}: uses the tokenizing in:title search`);
+      assert.match(run, /\.author\.login == \\"app\/github-actions\\"/, `${id}: lookup is not scoped to the bot author`);
     }
   });
 
@@ -641,7 +674,7 @@ test('nightly alarm contract', async (t) => {
     // secret unset Playwright skips every test, prints "N skipped" and EXITS 0.
     // Outcome and output both read green while nothing was tested.
     const pw = jobs.filter((j) => j.file === 'studio-e2e-nightly.yml');
-    assert.equal(pw.length, 3, 'expected the three studio-e2e jobs');
+    assert.equal(pw.length, 4, 'expected the four studio-e2e jobs');
     for (const { id, standDown } of pw) {
       // The GUARD specifically — `! grep -qE …` — not merely the pattern
       // somewhere in the step. The step greps twice (once to gate, once for the

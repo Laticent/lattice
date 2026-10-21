@@ -121,12 +121,12 @@ Rows, grids, stacked columns and centered blocks all follow the one register, an
 
 ## Three jurisdictions, one obligation each.
 
-- Federal `15 U.S.C. §6501`
+- Federal `{15 U.S.C. §6501}`
   - Parental consent for under-13 data.
-  - `In effect since 2000`
-- State `Cal. Civ. §1798.120`
+  - `{In effect since 2000}`
+- State `{Cal. Civ. §1798.120}`
   - The right to opt out of sale.
-  - `In effect since 2020`
-- International `GDPR Art. 8`
+  - `{In effect since 2020}`
+- International `{GDPR Art. 8}`
   - Member-state consent age, 13 to 16.
-  - `In effect since 2018`
+  - `{In effect since 2018}`

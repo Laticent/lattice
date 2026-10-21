@@ -208,6 +208,10 @@ async function pluginRefusal_(pkg: Parameters<typeof refusePluginCode>[0]): Prom
 	const { codeSyntaxRefusal } = await import('../../../../lib/packages/code-syntax.mjs');
 	const syntax = codeSyntaxRefusal(String(pkg.files[pkg.roles['render.js']] ?? ''), { fence: true });
 	if (syntax) return syntax;
+	// Its stylesheet, on the CLI's terms (lib/packages/gate.js `refusePlugin`).
+	const { refuseImportedPluginStyles } = await import('./import-gate');
+	const sheet = await refuseImportedPluginStyles(String(pkg.files[pkg.roles['styles.css']] ?? ''), String(pkg.manifest?.name ?? ''));
+	if (sheet) return `its styles.css: ${sheet.why}`;
 	// Each inline kind's slot, compiled once here as `lattice packages add` does (gate.js `inlineSlotCompileRefusal`).
 	const pins = pluginKindPins(pkg.manifest);
 	if (!pins.some((k) => k.slot)) return null;

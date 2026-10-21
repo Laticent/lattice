@@ -56,6 +56,10 @@ export type StudioDemoBindings = {
 	 *  deck switcher + activity bar it anchors on live. */
 	setPosture: (p: 'write' | 'craft') => void;
 	setCmdOpen: (open: boolean) => void;
+	/** In a live session the tour plays on a PRACTICE deck (2026-10-20 live note §7.5): `startPractice`
+	 *  stands in for `createFirstDeck` and swaps the editor and preview to a blank local text the session
+	 *  never sees; `endPractice` throws it away and puts the shared deck back. Null outside a session. */
+	practice: { start: () => void; end: () => boolean } | null;
 };
 
 export type StudioDemo = {
@@ -90,6 +94,8 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		// a saved theme keeps its name) and mode (from the DOM, a settled read). The deck
 		// itself is NOT snapshotted: the demo builds a real, persisted "My First Deck".
 		const snap = { palette: b.palette, mode: document.documentElement.dataset.mode || 'light' };
+		// Decided once per run: a tour that started in a session stays a practice run to its end.
+		const practice = b.practice;
 
 		// Clear the shell to a clean compose canvas before the cursor appears.
 		b.setCmdOpen(false);
@@ -98,7 +104,8 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		// establish the full surface so no beat resolves a missing selector to a no-op.
 		b.setPosture('craft');
 		b.setView('compose');
-		b.setPresentOpen(false);
+		// In a session, Present may be the room's (someone presenting to everyone): the tour leaves it be.
+		if (!practice) b.setPresentOpen(false);
 		b.setShareOpen(false);
 		b.setArchitectOpen(false);
 		b.setInspectorOpen(false);
@@ -109,9 +116,12 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 
 		// The action bag: every step's `act` pokes a live setter through the ref, so a
 		// long-running demo always drives the freshest state.
+		// In a session the deck menu stays shut (its items leave the session) and the new deck is a practice one.
 		const actions: StudioActions = {
-			openDeckMenu: (o) => bindRef.current.setDeckMenuOpen(o),
-			createFirstDeck: () => bindRef.current.createFirstDeck(),
+			openDeckMenu: (o) => {
+				if (!practice) bindRef.current.setDeckMenuOpen(o);
+			},
+			createFirstDeck: () => (practice ? practice.start() : bindRef.current.createFirstDeck()),
 			gotoSlide: (i) => bindRef.current.goToSlide(i),
 			setMobilePane: (pane) => bindRef.current.setMobilePane(pane),
 		};
@@ -166,6 +176,14 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			theme: { accent: 'var(--accent, #2b6ef2)', caption: b.mobile ? 'scrim' : 'bar' },
 			onStop: (reason: StopReason) => {
 				const cur = bindRef.current;
+				if (practice) {
+					// The practice deck goes; the shared deck comes back. The look was never touched.
+					// False when the session ended mid-tour and already put the deck back: there is no shared deck now.
+					const back = practice.end();
+					cur.setInspectorOpen(false);
+					notify(!back ? 'Tour ended.' : reason === 'complete' ? 'Tour complete. You are back on the shared deck.' : 'Tour ended. You are back on the shared deck.');
+					return;
+				}
 				// The deck is NOT restored (the newcomer keeps "My First Deck"). Only the
 				// global flourishes are undone — close any stage the demo left open, and put
 				// the palette + mode back the way we found them (the demo reskins to carbone and

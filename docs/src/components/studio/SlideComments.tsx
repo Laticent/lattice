@@ -7,7 +7,7 @@
 import { Check, MessageSquarePlus, RotateCcw, Trash2 } from 'lucide-react';
 import * as React from 'react';
 import { Tip } from '@/components/ui/tooltip';
-import { addComment, COMMENTS_EVENT, commentsForSlide, deleteComment, setResolved } from './slide-comments';
+import { addComment, COMMENTS_EVENT, commentsForSlide, deleteComment, mayDeleteComment, setResolved } from './slide-comments';
 
 function timeAgo(ts: number, now: number): string {
 	const s = Math.max(0, Math.round((now - ts) / 1000));
@@ -68,14 +68,14 @@ export function SlideComments({ deckId, slide }: { deckId: string; slide: number
 			)}
 
 			{open.map((c) => (
-				<CommentRow key={c.id} c={c} now={now} onResolve={() => setResolved(deckId, c.id, true)} onDelete={() => deleteComment(deckId, c.id)} />
+				<CommentRow key={c.id} c={c} now={now} onResolve={() => setResolved(deckId, c.id, true)} onDelete={mayDeleteComment(deckId, c.id) ? () => deleteComment(deckId, c.id) : undefined} />
 			))}
 
 			{resolved.length > 0 && (
 				<div className="mt-3 border-t border-border pt-2">
 					<div className="mb-1 font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">Resolved ({resolved.length})</div>
 					{resolved.map((c) => (
-						<CommentRow key={c.id} c={c} now={now} resolved onResolve={() => setResolved(deckId, c.id, false)} onDelete={() => deleteComment(deckId, c.id)} />
+						<CommentRow key={c.id} c={c} now={now} resolved onResolve={() => setResolved(deckId, c.id, false)} onDelete={mayDeleteComment(deckId, c.id) ? () => deleteComment(deckId, c.id) : undefined} />
 					))}
 				</div>
 			)}
@@ -90,16 +90,20 @@ function CommentRow({
 	onResolve,
 	onDelete,
 }: {
-	c: { id: string; author: string; body: string; createdAt: number };
+	c: { id: string; author: string; body: string; createdAt: number; sharedBy?: string };
 	now: number;
 	resolved?: boolean;
 	onResolve: () => void;
-	onDelete: () => void;
+	/** Absent when this person may not delete it (someone else's comment in a live session). */
+	onDelete?: () => void;
 }) {
 	return (
 		<div className={`group my-1.5 rounded-lg border border-border px-2.5 py-2 ${resolved ? 'opacity-60' : ''}`}>
 			<div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-				<span className="font-semibold text-foreground">{c.author}</span>
+				<span className="min-w-0 truncate">
+					<span className="font-semibold text-foreground">{c.author}</span>
+					{c.sharedBy && <span> · shared by {c.sharedBy}</span>}
+				</span>
 				<span>·</span>
 				<span>{timeAgo(c.createdAt, now)}</span>
 				<span className="flex-1" />
@@ -111,14 +115,16 @@ function CommentRow({
 				>
 					{resolved ? <RotateCcw className="size-3.5" /> : <Check className="size-3.5" />}
 				</button></Tip>
-				<Tip label="Delete"><button
-					type="button"
-					onClick={onDelete}
-					aria-label="Delete comment"
-					className="rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"
-				>
-					<Trash2 className="size-3.5" />
-				</button></Tip>
+				{onDelete && (
+					<Tip label="Delete"><button
+						type="button"
+						onClick={onDelete}
+						aria-label="Delete comment"
+						className="rounded p-0.5 text-muted-foreground opacity-0 hover:text-[var(--fail,#b3261e)] group-hover:opacity-100"
+					>
+						<Trash2 className="size-3.5" />
+					</button></Tip>
+				)}
 			</div>
 			<p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-foreground">{c.body}</p>
 		</div>

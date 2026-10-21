@@ -288,3 +288,35 @@ test('inlineUrlMedia fetches at most maxPictures distinct pictures and reports t
 	assert.equal(r.count, 1);
 	assert.match(r.missing[0].reason, /1-picture limit/);
 });
+
+// An SVG embeds as percent-encoded UTF-8 (lib/core/data-uri.js) with `'`, parens and spaces escaped
+// too, so it is safe in every CSS quoting: the rewriters keep the author's own quote around a
+// `url()`, and an SVG with single-quoted attributes used to end a `url('…')` at its first `'`.
+test('a percent-encoded SVG is safe bare, single-quoted and double-quoted', async () => {
+	const { inlineUrlMedia } = await load();
+	const { bytesToDataUri, isBareSafeDataUri } = require('../../../lib/core/data-uri.js');
+	const SVG = bytesToDataUri(Buffer.from(`<svg xmlns='http://www.w3.org/2000/svg'><g transform='scale(2)'/></svg>`), 'image/svg+xml');
+	assert.doesNotMatch(SVG, /['"() ]/, 'no character any url() form reads as syntax');
+	assert.ok(isBareSafeDataUri(SVG));
+	const fetchDataUri = fakeFetch({ 'https://studio.test/a.svg': { dataUri: SVG }, 'https://studio.test/p.png': { dataUri: PNG } });
+	const r = await inlineUrlMedia(`<style>.a{background:url(/a.svg)} .q{background:url('/a.svg')} .b{background:url(/p.png)}</style>`, { baseUrl: BASE, origins: ORIGINS, fetchDataUri });
+	assert.ok(r.html.includes(`.a{background:url(${SVG})}`), 'bare stays bare');
+	assert.ok(r.html.includes(`.q{background:url('${SVG}')}`), 'single quotes are safe');
+	assert.ok(r.html.includes(`.b{background:url(${PNG})}`), 'base64 stays bare');
+});
+
+test('bytesToDataUri: SVG percent-encoded with quote, parens and spaces escaped (a BOM kept), the rest base64', () => {
+	const { bytesToDataUri } = require('../../../lib/core/data-uri.js');
+	const svg = Buffer.from("\ufeff<svg a='b'>(a b)</svg>", 'utf8');
+	assert.equal(bytesToDataUri(svg, 'image/svg+xml'), `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg.toString('utf8')).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29')}`);
+	const png = Buffer.from([0, 1, 254, 255]);
+	assert.equal(bytesToDataUri(png, 'image/png'), `data:image/png;base64,${png.toString('base64')}`);
+});
+
+test('webPictureOrigins: the other sites a deck shows pictures from, sorted and deduplicated; this site never', async () => {
+	const { webPictureOrigins } = await load();
+	const own = 'https://studio.test';
+	const md = '![a](https://b.example/x.png) ![b](https://a.example:8443/y.png) ![c](https://b.example/z.png) ![d](https://studio.test/q.png) ![e](/local.png)';
+	assert.deepEqual(webPictureOrigins(md, own), ['https://a.example:8443', 'https://b.example']);
+	assert.deepEqual(webPictureOrigins('no pictures here', own), []);
+});

@@ -24,7 +24,7 @@
   gallery, not only against tests. Class names are passed in full rather than composed from
   a prefix — `checkChartMarks` proves a declared mark class is really written by searching
   string literals under `lib/`, and a composed `${prefix}-legend-mark` is invisible to it.
-  (`lib/core/html-legend.js`)
+  (Since folded into the legend plugin's HTML emitter, `keyHtml` in `lib/core/legend-key.js`.)
 - **`liftLabelSet` moved from `heatmap` into the kernel**, so the second adopter neither
   imports across components nor re-derives it. It carries a bug worth keeping fixed: EVERY
   one-code paragraph is a candidate, because a slide's eyebrow sets in exactly the same

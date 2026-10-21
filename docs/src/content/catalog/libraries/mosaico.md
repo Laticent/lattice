@@ -47,7 +47,8 @@ Mosaico treats layout as a search over arrangements, and makes the arrangement e
 - **`tree`** tries every guillotine layout of up to six boxes, where each cut runs all the way
   across the region it divides. Every node of the tree stores its width as a straight line in its
   height, so a tile that spans several grid tracks keeps its exact shape and the gutters need no
-  rounding. It keeps the arrangement that leaves the least empty space and crop.
+  rounding. It keeps the arrangement that leaves the least empty space and crop, with a penalty
+  on any box that would shrink to a sliver.
 - **`rows`** breaks a list of any length into balanced, centered rows and gives every item the
   **same area**, unless that would make it taller than a cap. A wordmark, a badge and a crest then
   carry the same weight.
@@ -74,6 +75,21 @@ const wall = pack([4, 1, 0.5, 3], {}, {
 
 The grid adapter emits `fr` tracks, so the browser fits the result to whatever box it has. Mosaico
 needs only the container's shape.
+
+**Spacing, padding and alignment.** Give the container a size and every length is in that unit, so a design's 16 px gutter is
+`gap: 16` for either strategy. `columnGap` and `rowGap` set the two directions apart, `padding` insets
+the layout from the container's edges, and `align` says where the layout sits in the space it
+leaves: at the start, the center or the end, and for `rows` justified across the width.
+
+```ts
+const r = pack([1.5, 0.67, 1], { width: 1280, height: 720 }, {
+  padding: 24, columnGap: 12, rowGap: 20, align: 'start',
+});
+// r.placed: each photo's box in pixels, padding and alignment applied, ready to draw
+```
+
+Gutters stay exact even when the layout is too wide for its box and has to shrink, and when `fill`
+stretches it to close the margin: Mosaico resizes the boxes, not the gutters.
 
 ## Where else it fits
 

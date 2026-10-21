@@ -75,6 +75,10 @@ async function listsAPlugin(page: import('@playwright/test').Page, width: number
 		await expect(page.locator(`[data-plugin-row="${name}"]`)).toContainText('On by default');
 	}
 	await expect(mermaid).toContainText('Needed by diagram slides');
+	// The embedded plugins (meta and pills) are always on and cannot be listed, so neither has a row or a checkbox: one quiet line names them.
+	await expect(page.locator('[data-plugin-row="pills"]')).toHaveCount(0);
+	await expect(page.locator('[data-plugin-row="meta"]')).toHaveCount(0);
+	await expect(page.locator('[data-plugins-embedded]')).toContainText('Always on: Slide metadata, Pills');
 
 	const sw = page.getByRole('checkbox', { name: /List Math in this deck/ });
 	await expect(sw).toHaveAttribute('aria-checked', 'false');

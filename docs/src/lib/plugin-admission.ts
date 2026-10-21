@@ -12,6 +12,12 @@
 //     copy of that parser, so both copies are pointed at the deck's `off` set: with math off, a `---` inside `$$` splits a slide here exactly where
 //     the engine splits it.
 //
+// A THIRD copy is NOT switched: the read-along core (the narrators) inlines the parser since the chart row record's
+// place moved onto one token tracker, and nothing here reaches it, because importing that core would put it on the
+// Studio's startup path. Under a host that narrows plugins, the narrators parse on the default grammar. It matters
+// only for chart rows written inside a `$$` or code-record block, and is tracked in
+// followups.d/2690-p1-chart-model-phase-2-reader.md (round 16).
+//
 // On the shipped default set `pluginAdmission` answers null, nothing is off, and this does nothing.
 
 import { deckPluginsOffFor } from '@/playground/editor-diagnostics.js';
@@ -36,7 +42,7 @@ export const PLUGIN_DEFAULTS_EVENT = 'lattice:plugin-defaults';
 // and a string compare.
 let applied = '';
 
-/** Point both boundary-parser copies at this deck's admission. Call before a source-side read. */
+/** Point the main and lint boundary-parser copies at this deck's admission (the narrators' copy is not reachable from here). Call before a source-side read. */
 export function followDeckAdmission(deck: string): void {
 	const off = deckPluginsOff(deck);
 	const key = off.join(',');

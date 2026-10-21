@@ -101,6 +101,19 @@ export async function refuseImportedTheme(css: string, name: string): Promise<Im
 }
 
 /**
+ * Refuse an imported PLUGIN's `styles.css` that reaches off the device, or `null` to allow.
+ * Nothing applies it yet (plugin-library.ts stores it for the step that delivers it), so it is
+ * held to the exfil rules alone, as `refusePlugin` in lib/packages/gate.js holds it in the CLI.
+ */
+export async function refuseImportedPluginStyles(css: string, name: string): Promise<ImportRefusal> {
+	if (!css.trim()) return null;
+	// `gateCss` for its exfil findings; `firstRefusal` ignores the style ones (scoping, hex, margin).
+	const { gateCss } = await loadLayoutCore();
+	const verdict = gateCss(css, name) as { findings?: Finding[] };
+	return firstRefusal(verdict.findings, name);
+}
+
+/**
  * Refuse an imported COMPONENT on the same terms — its CSS and its sample slide.
  *
  * The component arm of the same `.zip` was ungated while the theme arm was not, which
