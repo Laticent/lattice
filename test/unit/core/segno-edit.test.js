@@ -12,8 +12,12 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const avatars = require('../../../lib/plugins/avatars/avatars.inline.js');
-const icons = require('../../../lib/plugins/icons/icons.inline.js');
+const avatarKernel = require('../../../lib/plugins/avatars/avatars.inline.js');
+const iconKernel = require('../../../lib/plugins/icons/icons.inline.js');
+const editors = require('../../../lib/authoring/inline-editors.js');
+// The kernels as the engine ships them, plus the editor's writers from the authoring bundle.
+const avatars = { ...avatarKernel, edit: editors.avatar.edit, written: (t) => editors.avatar.read(t)?.written ?? null };
+const icons = { ...iconKernel, edit: editors.icon.edit };
 const { editRecord } = require('../../../lib/core/segno-edit.js');
 const { compileSlot } = require('../../../lib/core/segno-spec.js');
 
