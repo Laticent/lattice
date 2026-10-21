@@ -40,7 +40,7 @@ export function int(min: number, max: number): Schema<number> {
  *  how an id is named, never how text is carried. */
 export function pattern(re: RegExp, max = 64): Schema<string> {
 	if (!re.source.startsWith('^') || !re.source.endsWith('$')) throw new Error('pattern must be anchored with ^ and $');
-	if (!Number.isInteger(max) || max < 1 || max > 64) throw new Error('pattern strings are at most 64 characters');
+	if (!Number.isInteger(max) || max < 1 || max > 128) throw new Error('pattern strings are at most 128 characters');
 	return (v) => (typeof v === 'string' && v.length <= max && re.test(v) ? v : undefined);
 }
 

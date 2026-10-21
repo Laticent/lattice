@@ -15,7 +15,8 @@
 //     its owner changes or it is removed, and refuses a clock that jumps too far.
 //   - RATE, WITHOUT LOSING THE LAST UPDATE. A sender's updates that change anything but the caret are applied
 //     at most ten a second; the latest one is kept and applied on a trailing timer, a removal is never held, and
-//     a caret-only update is never held (a fast typist's caret must not freeze). Awareness resends only on a
+//     a caret-only update is held only to 30 a second per sender (latest kept), so a fast typist's caret stays
+//     current and a flood cannot run every peer's handlers. Awareness resends only on a
 //     change or every 15 s, so dropping a final update would leave a follower stale for up to 15 s.
 //
 // This is the ONLY production file in Tavola that imports Yjs's awareness protocol (and lib0, its byte
@@ -39,6 +40,12 @@ export const MAX_CLOCK_JUMP = 100_000;
 export const RATE_MIN_MS = 100;
 /** `view.set` writes to awareness at most once per this many ms. */
 export const SEND_MIN_MS = 200;
+/** A caret-only update from one sender is applied at most once per this many ms (the latest is kept), so a typist's
+ *  caret stays responsive and a hostile one cannot run every peer's handlers 20,000 times a second. */
+export const CARET_MIN_MS = 33;
+/** The largest clock a client may open with, when we hold no record of it. Honest clocks count changes and 15 s
+ *  renewals, so a day of heavy use is far below this; a forged near-2^53 clock is refused. */
+export const MAX_FIRST_CLOCK = 5_000_000;
 
 type State = Record<string, unknown>;
 /** One awareness entry after the gate: a client, its clock, and its rebuilt state (null is a removal). */
@@ -183,6 +190,9 @@ export function yjsAwareness(aw: Awareness, o: YjsAwarenessOptions): YjsAwarenes
 	const viewField = o.view?.field ?? 'view';
 	/** The peer each client id was last applied for. */
 	const owner = new Map<number, PeerId>();
+	/** Every client id a peer has ever been accepted for, kept across removals so `forget` can clear its clock record. */
+	const bound = new Map<number, PeerId>();
+	const lastCaretAt = new Map<PeerId, number>();
 	/** Per client: the state minus the caret, as last applied; how long ago we applied a non-caret change. */
 	const lastShape = new Map<number, string>();
 	const lastAt = new Map<PeerId, number>();
@@ -195,14 +205,14 @@ export function yjsAwareness(aw: Awareness, o: YjsAwarenessOptions): YjsAwarenes
 	};
 	const clockOk = (client: number, clock: number) => {
 		const cur = aw.meta.get(client)?.clock;
-		return cur === undefined || clock <= cur + MAX_CLOCK_JUMP;
+		return cur === undefined ? clock <= MAX_FIRST_CLOCK : clock <= cur + MAX_CLOCK_JUMP;
 	};
 	const sanitizeOpts = (from: PeerId): SanitizeOptions => ({ ...o, member: o.memberOf(from), clockOk, onDrop: o.onDrop });
 
 	const apply = (e: Entry, from: PeerId) => {
 		// A client id that now speaks for someone else starts from nothing: an old clock record must not
 		// out-rank the new owner's updates.
-		const prev = owner.get(e.client);
+		const prev = bound.get(e.client);
 		if (prev !== undefined && prev !== from) {
 			aw.meta.delete(e.client);
 			lastShape.delete(e.client);
@@ -211,7 +221,11 @@ export function yjsAwareness(aw: Awareness, o: YjsAwarenessOptions): YjsAwarenes
 			owner.delete(e.client);
 			lastShape.delete(e.client);
 		} else owner.set(e.client, from);
+		bound.set(e.client, from);
 		applyAwarenessUpdate(aw, encodeEntries([e]), from);
+		// A removal leaves Yjs's clock record behind, and a forged one would out-rank the owner's honest updates for
+		// good. The state is gone, so the record goes too (the roster binding, not the clock, decides who may speak).
+		if (e.state === null) aw.meta.delete(e.client);
 		if (e.state) lastShape.set(e.client, shapeOf(e.state));
 	};
 	const flushPending = (from: PeerId) => {
@@ -220,6 +234,7 @@ export function yjsAwareness(aw: Awareness, o: YjsAwarenessOptions): YjsAwarenes
 		if (!held) return;
 		pending.delete(from);
 		lastAt.set(from, now());
+		lastCaretAt.set(from, now());
 		for (const e of held.values()) apply(e, from);
 	};
 
@@ -256,15 +271,17 @@ export function yjsAwareness(aw: Awareness, o: YjsAwarenessOptions): YjsAwarenes
 			for (const e of entries) {
 				// A removal, a first sight, a caret-only change and a state we are not behind on are applied now.
 				const same = e.state !== null && lastShape.get(e.client) === shapeOf(e.state);
-				if (e.state === null || same || t - last >= RATE_MIN_MS) {
+				const caretDue = t - (lastCaretAt.get(from) ?? -Infinity) >= CARET_MIN_MS;
+				if (e.state === null || (same && caretDue) || (!same && t - last >= RATE_MIN_MS)) {
 					pending.get(from)?.delete(e.client);
+					if (e.state !== null) lastCaretAt.set(from, t);
 					if (e.state !== null && !same) lastAt.set(from, t);
 					apply(e, from);
 				} else {
 					let held = pending.get(from);
 					if (!held) pending.set(from, (held = new Map()));
 					held.set(e.client, e);
-					if (!timers.has(from)) timers.set(from, later(() => flushPending(from), RATE_MIN_MS - (t - last)));
+					if (!timers.has(from)) timers.set(from, later(() => flushPending(from), same ? CARET_MIN_MS - (t - (lastCaretAt.get(from) ?? t)) : RATE_MIN_MS - (t - last)));
 				}
 			}
 		},
@@ -278,14 +295,16 @@ export function yjsAwareness(aw: Awareness, o: YjsAwarenessOptions): YjsAwarenes
 			return () => aw.off('update', h);
 		},
 		forget(peer) {
-			const ids = [...owner].filter(([, p]) => p === peer).map(([c]) => c);
+			const ids = [...bound].filter(([, p]) => p === peer).map(([c]) => c);
 			const t = timers.get(peer);
 			if (t !== undefined) cancel(t);
 			timers.delete(peer);
 			pending.delete(peer);
 			lastAt.delete(peer);
+			lastCaretAt.delete(peer);
 			for (const c of ids) {
 				owner.delete(c);
+				bound.delete(c);
 				lastShape.delete(c);
 			}
 			if (ids.length) removeAwarenessStates(aw, ids, 'tavola');

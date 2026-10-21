@@ -128,7 +128,7 @@ function Row({ label, hint, desc, help, find, children }: { label: string; hint?
 	// the moment you changed it. A search whose answers move when you edit is not learnable.
 	const hit = useSettingsHit(label, desc, find);
 	// Live: see Field in StudioShell.
-	const row = useFollowRow(label);
+	const row = useFollowRow(label, 'slide');
 	if (!hit) return null;
 	return (
 		<div {...hit} {...row.props} data-follow-ghost={row.ghost ?? undefined} className={cn('my-1.5', row.ghost && FOLLOW_GHOST)}>
@@ -1156,7 +1156,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
 	// Live: say which section is open while this panel is the one showing, and open the one a person we follow is
 	// in (the session decides when; this only decides how).
-	useViewKey('section', reportSection ? activeTab : null);
+	useViewKey('section', reportSection && tier === 'advanced' && view === 'group' ? activeTab : null);
 	useAppliedKey('section', (v) => {
 		if (v === null) return;
 		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');

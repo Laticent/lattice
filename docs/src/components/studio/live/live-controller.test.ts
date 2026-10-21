@@ -1190,6 +1190,11 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(applied).toEqual(['inspector:deck', 'section:brand']);
 		// Choosing another section yourself, well after the last move, stops following.
 		(g as unknown as { lastApplyAt: number }).lastApplyAt = 0;
+		// A report with no press, tap or key behind it (a panel finishing its lazy load) is not theirs.
+		followBus.setLocal('section', 'look');
+		expect(g.view().following).toBe(hostId);
+		followBus.setLocal('section', 'motion');
+		window.dispatchEvent(new Event('pointerdown'));
 		followBus.setLocal('section', 'look');
 		expect(g.view().following).toBeNull();
 		off();
@@ -1248,9 +1253,12 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(seen.length).toBe(4);
 		place(null);
 		await settle(h, g);
-		// Past the gate's rate limit, so the end is seen before the next start.
+		// Past the gate's rate limit, so the end is seen before the next start; and the leader has been gone long enough
+		// that a Present again is a new one, not a blip.
 		await new Promise((r) => setTimeout(r, 150));
 		await settle(h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: ages the leader's absence.
+		(g as any).presentGoneAt = Date.now() - 4000;
 		place(5);
 		await until(() => seen.length === 5, h, g);
 		expect(seen[4]).toEqual({ idx: 5, by: 'Sharmarke' });
@@ -1293,13 +1301,26 @@ describe('LiveController: activity, Follow and pointers', () => {
 		// A Present of our own is left alone.
 		g.update(deps('shared-deck', { presenting: true }));
 		place(1);
+		// Past the gate's rate limit, so the place has arrived while our own Present is still open.
+		await new Promise((r) => setTimeout(r, 150));
 		await settle(h, g);
 		expect(seen).toEqual([]);
 		g.update(deps('shared-deck', { presenting: false }));
-		// Typing: a Join, not an open; pressing it opens at wherever the leader is.
+		// Closing our own Present while the leader still presents is not a request to open theirs.
+		place(2);
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		expect(seen).toEqual([]);
+		// The leader's Present ends and, a while later, another starts; this person is typing: a Join, not an open.
+		lead.clear('present');
+		lead.flush();
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		// biome-ignore lint/suspicious/noExplicitAny: ages the leader's absence.
+		(g as any).presentGoneAt = Date.now() - 4000;
 		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
 		(g as any).rt.ytext.insert(0, 'x');
-		place(2);
+		place(3);
 		await until(() => asks.some((a) => a.includes('is presenting')), h, g);
 		expect(seen).toEqual([]);
 		joined?.();
@@ -1344,7 +1365,6 @@ describe('LiveController: activity, Follow and pointers', () => {
 		const { g } = await guestOf(h, 'Amina');
 		// biome-ignore lint/suspicious/noExplicitAny: a modified client putting values outside the lists into its view.
 		(g as any).rt.aw.setLocalStateField('view', { panel: 'chat', section: '<img src=x>', focus: 'not-a-row', inspector: 'deck' });
-		// biome-ignore lint/suspicious/noExplicitAny: the host's view of the guest, as the gate left it.
 		const guestId = h.view().people.find((p) => p.name === 'Amina')?.id as string;
 		// biome-ignore lint/suspicious/noExplicitAny: reads the view the gate kept.
 		const kept = () => (h as any).rt.view.of(guestId).all() as Record<string, unknown>;
@@ -1393,6 +1413,137 @@ describe('LiveController: activity, Follow and pointers', () => {
 		off();
 	});
 
+	describe('after the trio', () => {
+		async function follower(h: Ctl) {
+			const sh = shell();
+			const asks: string[] = [];
+			const slides: number[] = [];
+			sh.host.followDoing = () => {};
+			sh.host.canFollowDoing = () => true;
+			sh.host.notifyAction = (m) => asks.push(m);
+			sh.host.goToSlide = (n) => slides.push(n);
+			localStorage.removeItem('lattice-live-links');
+			sessionStorage.removeItem('lattice-live-sids');
+			location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+			takeLiveIntent();
+			const g = new Made(sh.host, deps('g-deck', { slideCount: 6 }));
+			await g.resume();
+			await until(() => g.lobby()?.stage === 'ready', h, g);
+			g.lobbyActions.setName('Amina');
+			g.lobbyActions.knock();
+			await until(() => h.view().waiting.length > 0, h, g);
+			h.actions.admit(h.view().waiting[0].id);
+			await until(() => g.view().status === 'live', h, g);
+			const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+			// biome-ignore lint/suspicious/noExplicitAny: the leader's screen reports where it is.
+			const lead = (h as any).rt.view;
+			return { g, sh, asks, slides, hostId, lead };
+		}
+
+		it('a move this screen cannot honor is applied once, not on every awareness change', async () => {
+			const { h } = await hostSession();
+			const { g, hostId, lead } = await follower(h);
+			const applied: string[] = [];
+			const off = followBus.onApply((k, v) => applied.push(`${k}:${v}`));
+			followBus.setLocal('inspector', 'none');
+			g.actions.follow(hostId);
+			lead.set('inspector', 'deck');
+			lead.set('section', 'brand');
+			lead.flush();
+			await until(() => applied.length >= 2, h, g);
+			// The screen ignores `section` (the tab is not on its slide); the leader only moves their focus.
+			for (let i = 0; i < 4; i++) {
+				lead.set('focus', i % 2 ? 'header' : 'footer');
+				lead.flush();
+				await new Promise((r) => setTimeout(r, 120));
+				await settle(h, g);
+			}
+			expect(applied).toEqual(['inspector:deck', 'section:brand']);
+			off();
+		});
+
+		it('a Go prompt waits while the action slot holds an Undo, and is raised once it is free', async () => {
+			const { h } = await hostSession();
+			const { g, sh, asks, hostId } = await follower(h);
+			let busy = true;
+			sh.host.actionBusy = () => busy;
+			g.actions.follow(hostId);
+			// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+			(g as any).rt.ytext.insert(0, 'x');
+			h.update(deps('host-deck', { slideCount: 6, activeSlide: 4 }));
+			await new Promise((r) => setTimeout(r, 200));
+			await settle(h, g);
+			expect(asks).toEqual([]);
+			busy = false;
+			h.update(deps('host-deck', { slideCount: 6, activeSlide: 5 }));
+			await until(() => asks.some((a) => /is on slide 6/.test(a)), h, g);
+		});
+
+		it('an own slide move ends the follow and says so; Stop does not announce itself', async () => {
+			const { h } = await hostSession();
+			const { g, sh, hostId } = await follower(h);
+			const said: string[] = [];
+			sh.host.notify = (m) => said.push(m);
+			g.actions.follow(hostId);
+			g.update(deps('shared-deck', { slideCount: 6, activeSlide: 2 }));
+			expect(g.view().following).toBeNull();
+			expect(said.some((m) => /You stopped following Sharmarke/.test(m))).toBe(true);
+			said.length = 0;
+			g.actions.follow(hostId);
+			g.actions.follow(null as unknown as string);
+			expect(said).toEqual([]);
+		});
+
+		it('ending a follow closes the Present it opened', async () => {
+			const { h } = await hostSession();
+			const { g, hostId, lead } = await follower(h);
+			const seen: unknown[] = [];
+			const off = followBus.onApply((k, v) => k === 'present' && seen.push(v));
+			g.actions.follow(hostId);
+			lead.set('present', { idx: 1, page: 0, lens: 'full' });
+			lead.flush();
+			await until(() => seen.length === 1, h, g);
+			g.actions.follow(null as unknown as string);
+			expect(seen.at(-1)).toBeNull();
+			off();
+		});
+
+		it('"Show my slide" off withholds the Present place too', async () => {
+			const { h } = await hostSession();
+			const { g } = await guestOf(h, 'Amina');
+			const guestId = h.view().people.find((p) => p.name === 'Amina')?.id as string;
+			g.actions.setShare({ slide: false });
+			followBus.setLocal('present', { idx: 7, page: 0, lens: 'full', hash: 'abc123' });
+			await new Promise((r) => setTimeout(r, 300));
+			await settle(h, g);
+			// The host holds a quick change for its rate limit's trailing timer: let that pass too.
+			await new Promise((r) => setTimeout(r, 150));
+			await settle(h, g);
+			// biome-ignore lint/suspicious/noExplicitAny: reads the view the host kept for the guest.
+			expect((h as any).rt.view.of(guestId).get('present')).toBeUndefined();
+			g.actions.setShare({ slide: true });
+			await until(
+				// biome-ignore lint/suspicious/noExplicitAny: reads the view the host kept for the guest.
+				() => (h as any).rt.view.of(guestId).get('present')?.idx === 7,
+				h,
+				g,
+			);
+		});
+
+		it('the host\'s Bring everyone waits for a member typing in a number field, like any other text field', async () => {
+			const { h } = await hostSession();
+			const { g, slides, asks } = await follower(h);
+			const input = document.createElement('input');
+			input.type = 'number';
+			document.body.append(input);
+			input.focus();
+			h.actions.bringEveryone();
+			await until(() => asks.some((a) => /The host is on slide/.test(a)), h, g);
+			expect(slides).toEqual([]);
+			input.remove();
+		});
+	});
+
 	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {
 		const { h } = await hostSession();
 		const sh = shell();
@@ -1425,11 +1576,12 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(slides).toEqual([3]);
 	});
 
-	it('a leader who reconnects under a new id is still followed', async () => {
+	it('a leader who leaves ends the follow with a notice, and a member who takes their name and color is not followed', async () => {
 		const { h } = await hostSession();
-		const { g } = await guestOf(h, 'Amina');
+		const { g, notes } = await guestOf(h, 'Amina');
 		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
 		g.actions.follow(hostId);
+		expect(g.view().following).toBe(hostId);
 		// biome-ignore lint/suspicious/noExplicitAny: the roster after the leader rejoins: same name and color, a new id.
 		const r = (g as any).rt;
 		const state = r.session.getState();
@@ -1437,7 +1589,8 @@ describe('LiveController: activity, Follow and pointers', () => {
 		const spy = vi.spyOn(r.session, 'getState').mockReturnValue({ ...state, members: state.members.map((m: { id: string }) => (m.id === hostId ? { ...host, id: 'reconnected' } : m)) });
 		// biome-ignore lint/suspicious/noExplicitAny: runs the awareness handler as an awareness change would.
 		(g as any).onAwareness();
-		expect(g.view().following).toBe('reconnected');
+		expect(g.view().following).toBeNull();
+		expect(notes.some((n) => /left, so you stopped following/.test(n))).toBe(true);
 		spy.mockRestore();
 	});
 

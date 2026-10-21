@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { cleanView } from '@/lib/tavola/view';
 import { FOCUS_ROWS, rowIdOf } from './follow-bus';
-import { changedWords, describeMove, placeOf, placeWords, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
+import { changedWords, describeMove, placeOf, placeWords, SECTIONS, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
 
 describe('follow keys', () => {
 	it('keep only places from the declared lists, and flags', () => {
@@ -57,6 +57,22 @@ describe('describing a move', () => {
 	});
 });
 
+describe('section ids', () => {
+	const read = (f: string) => readFileSync(join(__dirname, '..', f), 'utf8');
+	const idsAfter = (src: string, marker: string) => {
+		const start = src.indexOf(marker);
+		const end = src.indexOf('\n\t];', start);
+		return [...src.slice(start, end).matchAll(/^\t\t+value: '([a-z]+)',/gm)].map((m) => m[1]);
+	};
+	it('of the Deck and Slide panels are all on the list a view may carry', () => {
+		const deck = idsAfter(read('StudioShell.tsx'), 'const deckSections:');
+		const slide = idsAfter(read('SlideContext.tsx'), 'const sectionDefs:');
+		expect(deck.length).toBeGreaterThanOrEqual(6);
+		expect(slide.length).toBeGreaterThanOrEqual(5);
+		for (const id of [...deck, ...slide]) expect(SECTIONS as readonly string[], `section "${id}" is not in SECTIONS`).toContain(id);
+	});
+});
+
 describe('settings rows that can be marked', () => {
 	const read = (f: string) => readFileSync(join(__dirname, '..', f), 'utf8');
 	const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -64,6 +80,8 @@ describe('settings rows that can be marked', () => {
 		const rows = new Set<string>();
 		for (const f of ['StudioShell.tsx', 'SlideContext.tsx']) for (const m of read(f).matchAll(/<(?:Field|TextRow|Row) label="([^"]+)"/g)) rows.add(slug(m[1]));
 		for (const m of read('StudioShell.tsx').matchAll(/settingsWrite\(\s*[`'"]([^`'"$→]+?)\s*(?:→|[`'"])/g)) rows.add(slug(m[1]));
+		// Every Slide-panel edit goes through one generic label, "This slide": it names no row, so it is not one.
+		rows.delete('this-slide');
 		expect([...FOCUS_ROWS].sort()).toEqual([...rows].sort());
 	});
 
@@ -80,20 +98,22 @@ describe('settings rows that can be marked', () => {
 	it('keep the widest view Live sends within the limit, so no key is dropped for size', () => {
 		const widest = {
 			panel: 'library',
-			view: 'compose',
+			view: 'fabricate',
 			presenting: false,
 			asking: true,
 			inspector: 'slide',
 			section: 'comments',
-			focus: 'card-rail-placement',
+			focus: 'in-the-exported-player',
 			shown: 'setup',
 			setupTab: 'General',
-			changed: { what: 'card-rail-placement', n: 1_000_000 },
-			present: { idx: 10_000, page: 10_000, lens: 'a'.repeat(64), hash: 'abcdef12' },
+			changed: { what: 'inline-pills-and-marks', n: 1_000_000 },
+			present: { idx: 10_000, page: 10_000, lens: 'a'.repeat(128), hash: 'abcdef12' },
 		};
 		const { view, dropped } = cleanView(widest, VIEW_KEYS);
 		expect(dropped).toEqual([]);
 		expect(Object.keys(view)).toHaveLength(Object.keys(widest).length);
+		// About 430 bytes at the time of writing, against a limit of 512.
+		expect(new TextEncoder().encode(JSON.stringify(view)).length).toBeLessThan(470);
 	});
 });
 

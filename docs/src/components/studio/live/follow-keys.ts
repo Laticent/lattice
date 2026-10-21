@@ -7,8 +7,8 @@ import { bool, defineViewKeys, type Infer, int, obj, oneOf, opt, pattern } from 
 import { FOCUS_ROWS, rowName } from './follow-bus';
 import type { LiveDoing } from './live-model';
 
-/** The section ids of the Deck and Slide panels. A typo in a component's tab id is caught by `useViewKey`'s
- *  type; a new tab joins this list in the same commit. */
+/** The section ids of the Deck and Slide panels. A tab whose id is not here is not shown to others (the gate drops
+ *  it and the connection log counts it); `follow-keys.test.ts` re-reads both panels and fails when a tab is missing. */
 export const SECTIONS = ['look', 'chrome', 'general', 'brand', 'image', 'motion', 'speech', 'plugins', 'notes', 'marks', 'comments'] as const;
 
 /** `none` is "no side panel open": an absent key means "no information", which is a different thing. */
@@ -21,15 +21,15 @@ export const VIEW_KEYS = defineViewKeys({
 	inspector: oneOf(['none', 'deck', 'slide']),
 	/** The section tab inside it. The ids of the Deck and Slide panels' tabs (both panels have a `look`). */
 	section: oneOf(SECTIONS),
-	/** Where this member's own Present is, while it is open. */
 	/** The settings row with focus: a place from the listed rows. */
 	focus: oneOf(FOCUS_ROWS),
 	/** The workspace settings sheet is open (shown to others, never applied), and which tab. */
-	shown: oneOf(["setup"]),
+	shown: oneOf(['setup']),
 	setupTab: oneOf(['General', 'AI', 'Data']),
 	/** The last settings row changed, by name only, with a counter so each change is seen once. */
 	changed: obj({ what: oneOf(FOCUS_ROWS), n: int(0, 1_000_000) }),
-	present: obj({ idx: int(0, 10_000), page: int(0, 10_000), lens: pattern(/^[A-Za-z0-9_-]+$/, 64), hash: opt(pattern(/^[0-9a-f]{1,8}$/, 8)) }),
+	/** Where this member's own Present is, while it is open. */
+	present: obj({ idx: int(0, 10_000), page: int(0, 10_000), lens: pattern(/^[A-Za-z0-9_-]+$/, 128), hash: opt(pattern(/^[0-9a-f]{1,8}$/, 8)) }),
 });
 
 type Panel = Infer<(typeof VIEW_KEYS)['schemas'] extends ReadonlyMap<string, infer S> ? S : never>;

@@ -304,8 +304,8 @@ beside `doing`: Tavola's Yjs adapter rebuilds awareness from a closed list of ke
 asking, inspector, section, present, focus, shown, setupTab, changed), each a place from a fixed list, an
 integer in a range, or a flag. `doing` is still written for one release so a tab that has not updated follows
 as before. The slide now goes through the same typing gate as the panel (it did not before: a leader changing
-slides moved a follower mid-sentence). Following survives the leader reconnecting under a new id (same name and
-color, within 20 s).
+slides moved a follower mid-sentence). A follow ends, with a notice, when the person followed leaves; it does not
+rebind to whoever takes their name and color (follow note §14).
 
 Pointers ride a `ptr` post in slide coordinates. At most about ten a second leave a browser (the last
 position wins); a held pointer is said again every 2 s; one arriving faster than 30 ms after the last move,

@@ -343,8 +343,10 @@ export const cleanDoing = (v: unknown): LiveDoing | undefined => {
 };
 /** This browser's activity from its Studio state. */
 const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting, ...(d.asking ? { asking: true } : {}) });
-/** How long a follow waits for its leader to come back under a new id before it ends. */
-const FOLLOW_GRACE_MS = 20_000;
+/** A settings report counts as this person's own move only within this long of a press, tap or key. */
+const GESTURE_MS = 700;
+/** A Present the person closed stays closed until the leader's Present has been gone this long (then a new one is a new one). */
+const PRESENT_GONE_MS = 3000;
 /** How long "Amina changed Theme" stays on her row. */
 const CHANGED_SHOW_MS = 20_000;
 /** Pointers: at most this many a second leave this browser; one arriving faster from a peer is dropped,
@@ -426,7 +428,8 @@ const typingInAField = (): boolean => {
 	if (typeof document === 'undefined') return false;
 	const el = document.activeElement as HTMLElement | null;
 	if (!el || el.closest('.cm-editor')) return false;
-	return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && /^(text|search|email|url|)$/.test(el.type)) || el.isContentEditable;
+	// Any input that takes typed characters (number and password too: a half-typed value is lost when the panel moves).
+	return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !/^(checkbox|radio|range|button|submit|reset|file|color|image|hidden)$/.test(el.type)) || el.isContentEditable;
 };
 
 type Runtime = {
@@ -552,8 +555,25 @@ export class LiveController {
 		return this.followingId;
 	}
 	private set following(id: string | null) {
+		if (this.followingId !== id && this.presentFollow === 'open') followBus.apply('present', null);
+		if (this.followingId !== id) this.presentFollow = 'idle';
 		this.followingId = id;
+		this.followName = (id && this.rt?.session.getState().members.find((m) => m.id === id)?.name) || '';
 		this.syncLeader();
+	}
+	/** Raise a Go or Join prompt, unless the one action slot holds something the person just earned (their Undo):
+	 *  it is raised at the next awareness change once the slot is free, and returns whether it was raised. */
+	private prompt(message: string, action: { label: string; onClick: () => void }): boolean {
+		if (this.host.actionBusy?.()) return false;
+		this.host.notifyAction(message, action);
+		return true;
+	}
+	/** A follow that ends other than by the person pressing Stop says so: it must never just stop. */
+	private endFollow(why: 'moved' | 'left') {
+		if (!this.following) return;
+		const name = this.followName || 'them';
+		this.following = null;
+		this.host.notify(why === 'left' ? `${name} left, so you stopped following.` : `You stopped following ${name}.`);
 	}
 	private lobbyName = storedLiveName();
 	private lobbyOpen = false;
@@ -631,8 +651,12 @@ export class LiveController {
 	private followedDoing: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
 	private followAsked = -1;
 	private slideAsked = -1;
-	private followWho: { name: string; color: LiveColor } | null = null;
-	private followLostAt = 0;
+	/** Who we follow, by name, for the notice when a follow ends. */
+	private followName = '';
+	/** When this person last pressed, tapped or typed anywhere: a report from a screen is theirs only just after one. */
+	private lastGestureAt = 0;
+	private presentOpenedAt = 0;
+	private presentGoneAt = 0;
 	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean } | null = null;
 	private lastApplyAt = 0;
 	private applying = false;
@@ -664,9 +688,8 @@ export class LiveController {
 		for (const key of ['inspector', 'section', 'present', 'focus', 'shown', 'setupTab', 'changed'] as const) {
 			const v = followBus.getLocal(key);
 			if (v === null) r.view.clear(key);
-			else r.view.set(key, v);
+			else if (!r.view.set(key, v)) this.viewDrops.set(key, (this.viewDrops.get(key) ?? 0) + 1);
 		}
-		r.view.flush();
 	}
 	/** Settings rows other people changed lately, by peer: the counter last seen, when, and which row. A counter seen
 	 *  for the first time is history (a late joiner), not news. */
@@ -713,8 +736,11 @@ export class LiveController {
 			return;
 		}
 		const name = r.session.getState().members.find((m) => m.id === who)?.name;
-		const focus = r.view.of(who).get('focus');
-		followBus.setLeader(name ? { name, focus: typeof focus === 'string' ? focus : null } : null);
+		const lead = r.view.of(who);
+		const focus = lead.get('focus');
+		const inspector = lead.get('inspector');
+		const theirSlide = (r.aw.getStates().get([...r.owner].find(([, p]) => p === who)?.[0] ?? -1) as AwState | undefined)?.slide;
+		followBus.setLeader(name ? { name, focus: typeof focus === 'string' ? focus : null, inspector: inspector === 'deck' || inspector === 'slide' ? inspector : null, sameSlide: theirSlide !== undefined && theirSlide === this.deps.activeSlide } : null);
 	}
 	/** Follow into Present (design note 2026-10-21 §7.4). The leader's Present is a place; ours opens at it, quietly,
 	 *  unless we are typing (then a Join), already in a Present of our own, or the room is presenting (that wins). */
@@ -724,11 +750,29 @@ export class LiveController {
 		const place = r.view.of(who).get('present') as PresentPlace | undefined;
 		const name = s.members.find((m) => m.id === who)?.name ?? 'They';
 		if (!place || !mirrors || this.roomPresent) {
-			if (this.presentFollow === 'open') followBus.apply('present', null);
-			this.presentFollow = 'idle';
+			if (this.presentFollow === 'open') {
+				followBus.apply('present', null);
+				this.presentFollow = 'idle';
+			}
+			// A Present the person closed stays closed through a short absence (a throttled tab, a share switch, a width
+			// change); only a leader who has been gone for a while and comes back is starting a new one.
+			if (this.presentFollow === 'declined') this.presentGoneAt ||= Date.now();
+			else this.presentFollow = 'idle';
 			return;
 		}
-		if (this.presentFollow === 'declined') return;
+		if (this.presentFollow === 'declined') {
+			if (!this.presentGoneAt || Date.now() - this.presentGoneAt < PRESENT_GONE_MS) {
+				this.presentGoneAt = 0;
+				return;
+			}
+			this.presentFollow = 'idle';
+			this.presentGoneAt = 0;
+		}
+		// We opened it and it is no longer open, though no render has said so yet: the person closed it.
+		if (this.presentFollow === 'open' && !this.deps.presenting && Date.now() - this.presentOpenedAt > 1500) {
+			this.presentFollow = 'declined';
+			return;
+		}
 		if (this.presentFollow === 'idle' && this.deps.presenting) return;
 		const next = { ...place, by: name };
 		if (this.presentFollow === 'open') {
@@ -740,6 +784,7 @@ export class LiveController {
 			const now = r.view.of(who).get('present') as PresentPlace | undefined;
 			if (!now) return;
 			this.presentFollow = 'open';
+			this.presentOpenedAt = Date.now();
 			this.lastApplyAt = Date.now();
 			this.applying = true;
 			try {
@@ -749,10 +794,7 @@ export class LiveController {
 			}
 		};
 		if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
-			if (this.presentAsked !== this.myEditAt) {
-				this.presentAsked = this.myEditAt;
-				this.host.notifyAction(`${name} is presenting`, { label: 'Join', onClick: open });
-			}
+			if (this.presentAsked !== this.myEditAt && this.prompt(`${name} is presenting`, { label: 'Join', onClick: open })) this.presentAsked = this.myEditAt;
 		} else open();
 	}
 	/** Member (and an heir): the host's records, validated, held in memory for the session only. */
@@ -998,7 +1040,7 @@ export class LiveController {
 		};
 		// Awareness goes through Tavola's Yjs adapter: the one hardened gate (bounds before the parse, identity from
 		// the roster, the clock, the rate) with this app's field cleaners.
-		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS, view: { keys: VIEW_KEYS }, allow: () => this.share.doing, onDrop: (_from, keys) => { for (const k of keys) this.viewDrops.set(k, (this.viewDrops.get(k) ?? 0) + 1); } });
+		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS, view: { keys: VIEW_KEYS }, allow: (k) => this.share.doing && (k !== 'present' || this.share.slide), onDrop: (_from, keys) => { for (const k of keys) this.viewDrops.set(k, (this.viewDrops.get(k) ?? 0) + 1); } });
 		const awStream = presence.stream;
 		const owner = presence.owner;
 		const key = args.key ?? null;
@@ -1046,12 +1088,25 @@ export class LiveController {
 		r.disposers.push(
 			followBus.onLocal((key, value) => {
 				this.publishBus();
-				if ((key === 'inspector' || key === 'section') && value !== null && this.following && Date.now() - this.lastApplyAt > 800 && value !== followBus.lastApplied(key)) {
-					this.following = null;
+				// A screen reports a new value for many reasons (a panel finishing its lazy load, a tab falling back); only one
+				// that comes just after a press, tap or key, and not right after Follow moved it, is this person's own move.
+				if ((key === 'inspector' || key === 'section') && value !== null && this.following && Date.now() - this.lastApplyAt > 800 && Date.now() - this.lastGestureAt < GESTURE_MS && value !== followBus.lastApplied(key)) {
+					this.endFollow('moved');
 					this.host.rerender();
 				}
 			}),
 		);
+
+		const gesture = () => {
+			this.lastGestureAt = Date.now();
+		};
+		if (typeof window !== 'undefined') {
+			const events = ['pointerdown', 'keydown', 'touchstart'] as const;
+			for (const ev of events) window.addEventListener(ev, gesture, true);
+			r.disposers.push(() => {
+				for (const ev of events) window.removeEventListener(ev, gesture, true);
+			});
+		}
 
 		let prev: SessionState = session.getState();
 		r.disposers.push(
@@ -1306,6 +1361,7 @@ export class LiveController {
 		this.followedDoing = null;
 		if (this.presentFollow === 'open') followBus.apply('present', null);
 		this.presentFollow = 'idle';
+		followBus.forgetApplied();
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
 		this.resetClips();
@@ -1526,6 +1582,7 @@ export class LiveController {
 		for (const k of Object.keys(v)) r.view.set(k, v[k]);
 		if (!d.asking) r.view.clear('asking');
 		this.publishBus();
+		r.view.flush();
 	}
 
 	private endCall() {
@@ -1726,16 +1783,17 @@ export class LiveController {
 		// My own navigation stops following; a follow jump does not.
 		if (prev.activeSlide !== deps.activeSlide) {
 			if (this.followJump) this.followJump = false;
-			else if (this.following) this.following = null;
+			else if (this.following) this.endFollow('moved');
 		}
 		// So does opening another panel or view of my own; following there does not.
 		if (prev.panel !== deps.panel || prev.view !== deps.view) {
 			const moved = this.followedDoing;
-			if (this.following && !(moved && moved.panel === deps.panel && moved.view === deps.view)) this.following = null;
+			if (this.following && !(moved && moved.panel === deps.panel && moved.view === deps.view)) this.endFollow('moved');
 			this.followedDoing = null;
 		}
 		// Closing a Present that Follow opened is a choice: it stays closed until the leader's Present ends and another starts.
-		if (prev.presenting && !deps.presenting && this.presentFollow === 'open') this.presentFollow = 'declined';
+		// (Or a Present of our own: closing it while the leader still presents is not a request to open theirs.)
+		if (prev.presenting && !deps.presenting && this.following && this.presentFollow !== 'declined') this.presentFollow = 'declined';
 		// Activity: what I am doing, when I share it.
 		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) this.publishDoing(deps);
 		// The host keeps the lobby invite current.
@@ -1774,22 +1832,10 @@ export class LiveController {
 		if (this.following && !this.applying) {
 			const slide = byPeer.get(this.following)?.slide;
 			if (!s.members.some((m) => m.id === this.following)) {
-				// A leader who reconnects comes back under a new id: keep following the same name and color for a
-				// short while rather than ending the follow silently (design note §7.3).
-				const gone = this.followWho;
-				const back = gone && s.members.find((m) => m.id !== s.me?.id && m.name === gone.name && m.color === gone.color);
-				if (back) {
-					this.following = back.id;
-					this.followLostAt = 0;
-				} else {
-					if (!this.followLostAt) this.followLostAt = r.session.now();
-					if (r.session.now() - this.followLostAt > FOLLOW_GRACE_MS) this.following = null;
-					return;
-				}
-			} else {
-				this.followLostAt = 0;
-				const m = s.members.find((x) => x.id === this.following);
-				if (m) this.followWho = { name: m.name, color: m.color };
+				// A leader who reconnects comes back under a new id, and nothing here can tell that member from another
+				// who takes the same name and color, so the follow ends, and says so (design note §13).
+				this.endFollow('left');
+				return;
 			}
 			if (!this.following) return;
 			else if (slide !== undefined && slide !== this.deps.activeSlide) {
@@ -1797,10 +1843,9 @@ export class LiveController {
 				// where the leader went, once per burst, and keeps their place.
 				if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
 					if (this.slideAsked !== this.myEditAt) {
-						this.slideAsked = this.myEditAt;
 						const who = this.following;
 						const name = s.members.find((m) => m.id === who)?.name ?? 'They';
-						this.host.notifyAction(`${name} is on slide ${slide + 1}`, {
+						const asked = this.prompt(`${name} is on slide ${slide + 1}`, {
 							label: 'Go',
 							onClick: () => {
 								const now = who ? this.awByPeer().get(who)?.slide : undefined;
@@ -1810,6 +1855,7 @@ export class LiveController {
 								}
 							},
 						});
+						if (asked) this.slideAsked = this.myEditAt;
 					}
 				} else {
 					this.followJump = true;
@@ -1820,7 +1866,7 @@ export class LiveController {
 			// Fabricate is a workspace of one's own, never mirrored: leaving it would throw away the follower's work.
 			const view = doing && doing.view !== 'fabricate' && this.deps.view !== 'fabricate' ? doing.view : this.deps.view;
 			const mirrors = !!this.host.canFollowDoing?.();
-			const moves = mirrors && this.following ? settingsMoves(r.view.of(this.following).all(), { inspector: followBus.getLocal('inspector'), section: followBus.getLocal('section') }) : [];
+			const moves = mirrors && this.following ? settingsMoves(r.view.of(this.following).all(), { inspector: followBus.getLocal('inspector'), section: followBus.getLocal('section') }).filter(([k, v]) => followBus.lastApplied(k) !== v) : [];
 			const panelMoves = !!(doing && this.host.followDoing && mirrors && (doing.panel !== this.deps.panel || view !== this.deps.view));
 			if (doing && (panelMoves || moves.length)) {
 				const target = { panel: doing.panel, view, moves, panelMoves };
@@ -1830,9 +1876,8 @@ export class LiveController {
 				if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
 					this.followPending = target;
 					if (this.followAsked !== this.myEditAt) {
-						this.followAsked = this.myEditAt;
 						const who = this.following;
-						this.host.notifyAction(`${name} ${describeMove(target, moves)}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) });
+						if (this.prompt(`${name} ${describeMove(target, moves)}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) })) this.followAsked = this.myEditAt;
 					}
 				} else this.followTo(target);
 			}
@@ -1848,7 +1893,7 @@ export class LiveController {
 				if (first && !this.bound) return;
 				const myEdit = this.myEditAt;
 				const slide = summon.slide;
-				if (r.session.now() - myEdit < TYPING_MS) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
+				if (r.session.now() - myEdit < TYPING_MS || typingInAField()) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
 				else {
 					this.host.goToSlide(slide);
 					this.host.notify(`The host brought everyone to slide ${slide + 1}.`);
@@ -2929,6 +2974,8 @@ export class LiveController {
 		setRole: (id, role) => this.rt?.session.setRole(id, role),
 		rename: (name) => this.rt?.session.rename(name),
 		follow: (id) => {
+			// A new follow starts from nothing applied, so the first sync moves this screen to where they are.
+			followBus.forgetApplied();
 			this.following = id;
 			this.onAwareness();
 			this.host.rerender();

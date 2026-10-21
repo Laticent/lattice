@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { followBus, useFollowRow, useViewKey } from './follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './follow-ui';
 
-function Row({ label }: { label: string }) {
-	const row = useFollowRow(label);
+function Row({ label, scope = 'deck' }: { label: string; scope?: 'deck' | 'slide' }) {
+	const row = useFollowRow(label, scope);
 	return (
 		<div data-testid="row" {...row.props} className={row.ghost ? FOLLOW_GHOST : undefined}>
 			{row.ghost && <FollowChip name={row.ghost} />}
@@ -40,9 +40,9 @@ describe('a settings row in Follow', () => {
 	it('wears the ring and the name only while the person we follow is in it', () => {
 		render(<Row label="Header" />);
 		expect(screen.queryByRole('status')).toBeNull();
-		act(() => followBus.setLeader({ name: 'Amina', focus: 'footer' }));
+		act(() => followBus.setLeader({ name: 'Amina', focus: 'footer', inspector: 'deck', sameSlide: true }));
 		expect(screen.queryByRole('status')).toBeNull();
-		act(() => followBus.setLeader({ name: 'Amina', focus: 'header' }));
+		act(() => followBus.setLeader({ name: 'Amina', focus: 'header', inspector: 'deck', sameSlide: true }));
 		expect(screen.getByRole('status').textContent).toBe('Amina');
 		act(() => followBus.setLeader(null));
 		expect(screen.queryByRole('status')).toBeNull();
@@ -79,5 +79,42 @@ describe('two components reporting one key', () => {
 		expect(followBus.getLocal('section')).toBe('chrome');
 		cleanup();
 		expect(followBus.getLocal('section')).toBeNull();
+	});
+});
+
+describe('a ring needs the leader in the same panel, and on the same slide for a slide row', () => {
+	it('is not drawn for a Deck row when the leader is in the Slide panel, nor the other way round', () => {
+		render(
+			<>
+				<Row label="Eyebrow" scope="deck" />
+				<Row label="Eyebrow" scope="slide" />
+			</>,
+		);
+		act(() => followBus.setLeader({ name: 'Amina', focus: 'eyebrow', inspector: 'slide', sameSlide: true }));
+		expect(screen.getAllByRole('status')).toHaveLength(1);
+		act(() => followBus.setLeader({ name: 'Amina', focus: 'eyebrow', inspector: 'deck', sameSlide: false }));
+		expect(screen.getAllByRole('status')).toHaveLength(1);
+		act(() => followBus.setLeader({ name: 'Amina', focus: 'eyebrow', inspector: 'slide', sameSlide: false }));
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('stays while the leader has a dropdown\'s menu open, and ends when they leave the row', () => {
+		render(
+			<>
+				<Row label="Header" />
+				<div data-radix-popper-content-wrapper="">
+					<button type="button">menu item</button>
+				</div>
+				<button type="button">elsewhere</button>
+			</>,
+		);
+		const seen: Array<string | null> = [];
+		followBus.onLocal((k, v) => k === 'focus' && seen.push(v as string | null));
+		const input = screen.getByLabelText('Header');
+		fireEvent.focus(input);
+		fireEvent.blur(input, { relatedTarget: screen.getByText('menu item') });
+		expect(seen).toEqual(['header']);
+		fireEvent.blur(input, { relatedTarget: screen.getByText('elsewhere') });
+		expect(seen).toEqual(['header', null]);
 	});
 });

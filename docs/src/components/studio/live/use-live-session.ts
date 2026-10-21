@@ -34,6 +34,7 @@ export function useLiveSession(deps: LiveDeps & ShellCallbacks) {
 				openSharedDeck: (o) => depsRef.current.openSharedDeck(o),
 				followDoing: (d) => depsRef.current.followDoing?.(d),
 				canFollowDoing: () => depsRef.current.canFollowDoing?.() ?? false,
+				actionBusy: () => depsRef.current.actionBusy?.() ?? false,
 				openRoomPresent: () => depsRef.current.openRoomPresent?.(),
 				closeRoomPresent: () => depsRef.current.closeRoomPresent?.(),
 				startTour: (id) => depsRef.current.startTour?.(id),

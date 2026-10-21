@@ -286,9 +286,9 @@ Built in #2830, one commit per slice. Where the build differs from the plan abov
   one focus report per row covers them without a prop on each. Rows are identified by the slug of the label
   written in the code, and only labels on `FOCUS_ROWS` take part; `follow-keys.test.ts` re-reads the source and
   fails when a row is added without joining the list (the build check of §10 as a unit test, not a CI step). Two
-  rows with the same label (the page `Size` and the logo `Size`) both ring; the limit is real and small.
-- **`VIEW_MAX_BYTES` is 512, not 256**, because the eleven keys with their longest values come to about 330
-  bytes (pinned by a test).
+  rows with the same label inside one panel (the page `Size` and the logo `Size`) both ring; the limit is real and small.
+- **`VIEW_MAX_BYTES` is 512, not 256**, because the eleven keys with their longest values come to about 430
+  bytes (a test pins it under 470).
 - **Present follow reuses the room Present's follower path** (`follow` on `PresentLive`, the hash lookup, the
   detach on the follower's own move). A Present opened by Follow is `inertKeys`, starts muted and never
   synthesizes; closing it keeps it closed until the leader's Present ends and another starts. A room Present
@@ -297,3 +297,45 @@ Built in #2830, one commit per slice. Where the build differs from the plan abov
   prints them ("dropped view values: panel 1, section 1").
 - **Not done:** raw `<input>` elements outside the two row wrappers have no ring (§11 item 1); the phone cases
   of §7.7 are covered by tests of the gate and are UNVERIFIED on a real phone.
+
+## 14. What the adversarial trio found, and what changed (2026-10-21)
+
+Red team, Munger inversion and an independent checker reviewed the build. Fixed in this PR, each with a test that
+fails without the fix:
+
+- **A removal left a forged clock behind** (red team, reproduced): a hostile host or a re-knocking member could mute a
+  client for the session by sending removals that stepped its clock. The adapter now drops the clock record when it
+  applies a removal, `forget` clears it for every id a peer was ever bound to, and a first-seen clock above 5,000,000
+  is refused.
+- **The 20 s rebind followed an impostor** (red team, reproduced): another admitted member who took the leader's name
+  and color was followed, and the 20 s bound was not enforced (and the grace branch also made a follower ignore the
+  host's "Bring everyone"). **Rebind removed.** A follow now ends when the person followed leaves, with the notice
+  "Amina left, so you stopped following." Surviving a reconnect needs the session to say that the same seat came
+  back; that is a protocol change, filed in `followups.d/2830-follow-same-seat-after-reconnect.md`.
+- **Present's place leaked with "share my slide" off** (red team, reproduced): `present` now follows both switches.
+- **A caret flood ran every peer's handlers 20,000 times** (red team, reproduced): caret-only updates are applied at
+  most once per 33 ms per sender, latest kept.
+- **A follow ended on an echo** (inversion): a screen's report counted as the person's own move even when it was a
+  panel finishing its lazy load. A report now counts only within 700 ms of a press, tap or key, and every follow that
+  ends other than by Stop says so.
+- **The ring did not know which panel** (inversion): sixteen labels are in both the Deck and Slide panels. The
+  leader's panel and slide travel with the ring, which is drawn only in the same panel (and on the same slide for a
+  Slide row). A dropdown's menu no longer clears the leader's ring while it is open.
+- **Present** (inversion, checker): ending a follow closes the Present it opened; a Present the person closed stays
+  closed through a short absence of the leader (3 s) and when they close their own; a close that races a render no
+  longer reopens.
+- **A move the screen could not honor was re-applied on every awareness event** (checker): a move is applied once per
+  value, and a new follow starts from nothing applied.
+- **Typing gate** (red team): number and password fields count, and a host's "Bring everyone" waits for a field like
+  every other move.
+- **Reporting what nobody can see** (inversion): the section is reported only where its tabs are on screen (Advanced
+  tier, grouped view) and the panel only while it is in view.
+- **Traffic**: a bus change no longer flushes awareness at once; the adapter's 200 ms timer does.
+- **The action slot** (inversion): Follow's Go and Join prompts wait while an Undo the person just earned holds the
+  slot, and are raised once it is free. **Slide-panel edits** now name the row in focus ("changed Eyebrow") instead
+  of "This slide", and a **lens id** up to 128 characters passes the `present` schema.
+- **Claims**: the row list is 68, the widest view is about 430 bytes (a test pins it), and a test fails when a tab id
+  is missing from `SECTIONS`.
+
+**Known and left**: surviving a leader's reconnect (above), and `uniqueClients`, a second line of defense behind the
+roster's first-match lookup, tested directly rather than through the session.

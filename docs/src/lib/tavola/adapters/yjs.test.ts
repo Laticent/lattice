@@ -5,7 +5,7 @@ import { Awareness, encodeAwarenessUpdate } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import type { Member } from '../types.js';
 import { bool, defineViewKeys, int, obj, oneOf } from '../view.js';
-import { encodeEntries, MAX_CLOCK_JUMP, MAX_ENTRY_BYTES, MAX_UPDATE_BYTES, RATE_MIN_MS, SEND_MIN_MS, sanitizeAwarenessUpdate, sanitizeEntries, yjsAwareness } from './yjs.js';
+import { CARET_MIN_MS, encodeEntries, MAX_CLOCK_JUMP, MAX_ENTRY_BYTES, MAX_UPDATE_BYTES, RATE_MIN_MS, SEND_MIN_MS, sanitizeAwarenessUpdate, sanitizeEntries, yjsAwareness } from './yjs.js';
 
 // The awareness gate, written once for every app. What a peer says about itself is rebuilt, bounded before
 // it is parsed, and filed under the transport sender; it can never name another member.
@@ -169,14 +169,26 @@ describe('yjsAwareness: rate, without losing the last update', () => {
 		expect(r.y.view.of('a').get('panel')).toBe('setup'); // the last one, not the first held
 	});
 
-	it('never holds a caret-only change, so a fast typist is never frozen', () => {
+	it('keeps a fast typist\'s caret current: caret-only updates are bounded per sender, and the latest is kept', () => {
 		const r = rig();
 		r.send(7, 1, { slide: 1, cursor: { anchor: 1, head: 1 } });
 		for (let i = 2; i < 30; i++) {
 			r.advance(5);
 			r.send(7, i, { slide: 1, cursor: { anchor: i, head: i } });
 		}
+		r.advance(CARET_MIN_MS);
 		expect((r.aw.getStates().get(7) as { cursor: { head: number } }).cursor.head).toBe(29);
+	});
+
+	it('bounds a caret flood: 20,000 caret-only messages at one instant change the state a handful of times, not 20,000', () => {
+		const r = rig();
+		r.send(7, 1, { slide: 1, cursor: { anchor: 0, head: 0 } });
+		let changes = 0;
+		r.aw.on('change', () => changes++);
+		for (let i = 2; i < 20_002; i++) r.send(7, i, { slide: 1, cursor: { anchor: i, head: i } });
+		r.advance(CARET_MIN_MS);
+		expect(changes).toBeLessThanOrEqual(3);
+		expect((r.aw.getStates().get(7) as { cursor: { head: number } }).cursor.head).toBe(20_001);
 	});
 
 	it('never holds a removal', () => {
@@ -191,6 +203,36 @@ describe('yjsAwareness: rate, without losing the last update', () => {
 });
 
 describe('yjsAwareness: the clock', () => {
+	it('a removal does not leave a forged clock behind: an owner whose id was attacked is heard again', () => {
+		const r = rig();
+		r.send(7, 1, { slide: 1 });
+		let c = 1;
+		for (let i = 0; i < 20; i++) {
+			c += MAX_CLOCK_JUMP;
+			r.y.stream.applyRemote(raw([[7, c, 'null']]), 'a');
+		}
+		expect(r.aw.meta.has(7)).toBe(false);
+		r.advance(RATE_MIN_MS);
+		r.send(7, 2, { slide: 4 });
+		expect((r.aw.getStates().get(7) as { slide: number }).slide).toBe(4);
+	});
+
+	it('refuses a first-seen clock near the top of the range', () => {
+		const r = rig();
+		r.send(7, 2 ** 52, { slide: 99 });
+		expect(r.aw.getStates().has(7)).toBe(false);
+		r.send(7, 3, { slide: 1 });
+		expect(r.aw.getStates().has(7)).toBe(true);
+	});
+
+	it('forgetting a peer clears the clock record of an id it was bound to even after a removal', () => {
+		const r = rig();
+		r.send(7, 90_000, { slide: 1 });
+		r.y.stream.applyRemote(raw([[7, 90_001, 'null']]), 'a');
+		r.y.stream.forget?.('a');
+		expect(r.aw.meta.has(7)).toBe(false);
+	});
+
 	it('refuses a clock that jumps past the bound, so one forged update cannot out-rank the owner', () => {
 		const r = rig();
 		r.send(7, 5, { slide: 1 });

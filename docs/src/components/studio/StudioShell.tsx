@@ -950,8 +950,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The Live session decides when (one typing gate); these only decide how.
 	const deckSectionIdsRef = React.useRef<string[]>([]);
 	useViewKey('shown', workspaceOpen ? 'setup' : null);
-	useViewKey('inspector', activeSettings ?? 'none');
-	useViewKey('section', activeSettings === 'deck' ? deckTab : null);
 	useAppliedKey('inspector', (v) => {
 		if (v === null) return;
 		if (v === 'deck' || v === 'slide') revealCraftDock();
@@ -994,6 +992,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// below can dismiss it the instant the source moves on its own. `next` is the
 	// source right after the write; `id` is Sonner's handle for dismiss().
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
+	const undoRef = React.useRef(undo);
+	undoRef.current = undo;
 	const [palette, setPalette] = React.useState(() => {
 		try {
 			return localStorage.getItem('lattice-studio-palette') || DEFAULT_PALETTE;
@@ -1567,7 +1567,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
 		// Live: say which row changed (its name only, never the value) so people following us can see it.
-		const changedRow = rowIdOf(label.split(' → ')[0]);
+		// A Slide-panel edit is labelled "This slide", not by row: the row in focus is the one being edited.
+		const changedRow = rowIdOf(label.split(' → ')[0]) ?? (label === 'This slide' ? followBus.getLocal('focus') : null);
 		if (changedRow) followBus.setLocal('changed', { what: changedRow, n: ++changedCountRef.current });
 		// Apply the precomputed result; fall back to re-running on the freshest source
 		// only if an editor flush landed between snapshot and commit.
@@ -3937,6 +3938,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		applyComments: (deckId, set, del, me) => mergeSessionComments(deckId, set, del, me),
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
+		// An Undo the person just earned keeps the action slot; Follow's prompts wait.
+		actionBusy: () => undoRef.current !== null,
 		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
 		// already running is left alone.
 		startTour: (tourId) => {
@@ -5637,6 +5640,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// show counters below key the content, and the deck scroller returns to the top
 	// (`ScrollTopOnMount`, keyed on the same counter).
 	const settingsShown = inspectorOpen && (mobile ? view === 'compose' : effectiveStop === 'craft');
+	// Live: say which settings panel is open and in view, and which section is showing. Only what a person can SEE is
+	// reported: a section tab is not on screen in the Basic tier or the flat list, and a panel kept mounted behind
+	// another is not open to them.
+	useViewKey('inspector', settingsShown ? (activeSettings ?? 'none') : 'none');
+	useViewKey('section', settingsShown && activeSettings === 'deck' && settingsTier === 'advanced' && settingsView === 'group' ? deckTab : null);
 	const settingsShows = useShowCount(settingsShown);
 	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
 	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
@@ -7639,7 +7647,7 @@ function Field({ label, desc, help, find, htmlFor, descId, after, children }: { 
 	// it in would match nearly every row on nearly every word.
 	const hit = useSettingsHit(label, desc, find);
 	// Live: which row has focus is shown to the people following us, and a row the person we follow is in wears a ring.
-	const row = useFollowRow(label);
+	const row = useFollowRow(label, 'deck');
 	if (!hit) return null;
 	return (
 		<div {...hit} {...row.props} data-follow-ghost={row.ghost ?? undefined} className={cn('my-2', row.ghost && FOLLOW_GHOST)}>

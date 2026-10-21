@@ -27,7 +27,7 @@ export const FOCUS_ROWS = [
 	'meta-line', 'mode', 'motion-speed', 'motion-style', 'new-slide-on', 'pace',
 	'page-numbers', 'play', 'preset', 'remove-reader-view', 'rename', 'section-rail',
 	'shape', 'size', 'slide-splitting', 'speed', 'stamp-shape',
-	'structural-trim', 'style', 'theme', 'this-slide', 'tone-shape',
+	'structural-trim', 'style', 'theme', 'tone-shape',
 	'type-scale', 'venue',
 ] as const;
 const ROW_SET: ReadonlySet<string> = new Set(FOCUS_ROWS);
@@ -61,7 +61,7 @@ export type LocalValues = {
 /** What the session tells a screen, by key. A `present` also names who it follows; `null` means "stop". */
 export type AppliedValues = { inspector: string; section: string; present: PresentPlace & { by: string } };
 /** What the person followed shows right now, for a screen that wants to mark it (the ghost ring). */
-export type Leader = { name: string; focus: string | null };
+export type Leader = { name: string; focus: string | null; inspector: 'deck' | 'slide' | null; sameSlide: boolean };
 export type BusKey = keyof LocalValues;
 /** The keys a screen can be told to move for (the rest are only ever shown). */
 export type ApplyKey = keyof AppliedValues;
@@ -120,7 +120,11 @@ export const followBus = {
 		const a = applied.get(key);
 		return a && Date.now() - a.at < REPLAY_MS ? ((a.value as AppliedValues[K] | null) ?? null) : null;
 	},
-	/** Forget everything (a session ended; tests). */
+	/** Forget what was applied (a follow began or a session ended), keeping what screens report. */
+	forgetApplied() {
+		applied.clear();
+	},
+	/** Forget everything (tests). */
 	reset() {
 		local.clear();
 		applied.clear();
@@ -173,9 +177,11 @@ export function useLeader(): Leader | null {
 
 /**
  * A settings row's part in Follow: `props` go on its root (they say which row has focus), and `ghost` is the name of
- * the person we follow while they are in this row, else null. Only a listed row takes part (`FOCUS_ROWS`).
+ * the person we follow while they are in this row, else null. Only a listed row takes part (`FOCUS_ROWS`). `scope` is
+ * the panel the row lives in: sixteen labels exist in both the Deck and Slide panels, so a ring needs the leader to be
+ * in the same panel (and, for a Slide row, on the same slide).
  */
-export function useFollowRow(label: string) {
+export function useFollowRow(label: string, scope: 'deck' | 'slide') {
 	const id = rowIdOf(label);
 	const leader = useLeader();
 	const props = React.useMemo(
@@ -184,11 +190,16 @@ export function useFollowRow(label: string) {
 				? {
 						onFocusCapture: () => followBus.setLocal('focus', id),
 						onBlurCapture: (e: React.FocusEvent<HTMLElement>) => {
-							if (!e.currentTarget.contains(e.relatedTarget as Node | null)) followBus.setLocal('focus', null);
+							const to = e.relatedTarget as HTMLElement | null;
+							if (e.currentTarget.contains(to)) return;
+							// A dropdown's menu lives in a portal outside the row: the row is still where they are while it is open.
+							if (to?.closest('[data-radix-popper-content-wrapper],[role="listbox"],[role="menu"]')) return;
+							followBus.setLocal('focus', null);
 						},
 					}
 				: {},
 		[id],
 	);
-	return { props, ghost: id && leader?.focus === id ? leader.name : null };
+	const ghost = id && leader?.focus === id && leader.inspector === scope && (scope === 'deck' || leader.sameSlide) ? leader.name : null;
+	return { props, ghost };
 }
