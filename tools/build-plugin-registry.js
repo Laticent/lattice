@@ -366,7 +366,9 @@ function renderGrammar(ordered, exportsByName, components, fills) {
       `    name: ${JSON.stringify(m.name)},`,
       `    title: ${JSON.stringify(m.title)},`,
       `    requires: Object.freeze(${JSON.stringify(m.requires || [])}),`,
-      `    alsoDisables: Object.freeze(${JSON.stringify(m.alsoDisables || [])}),`,
+      // Only where a plugin declares it (the legend plugin): the runtime bundles this file, and an
+      // empty list on every plugin was bytes on every page for one reader (`g.alsoDisables || []`).
+      ...(m.alsoDisables?.length ? [`    alsoDisables: Object.freeze(${JSON.stringify(m.alsoDisables)}),`] : []),
       `    embedded: ${m.embedded === true},`,
       `    optional: Object.freeze(${JSON.stringify(m.optional || [])}),`,
       `    degradesTo: ${JSON.stringify(m.render?.degradesTo || 'source')},`,

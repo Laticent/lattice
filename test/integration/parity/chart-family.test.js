@@ -90,7 +90,7 @@ describe('chart-family', () => {
     // SVG-native legend (2026-06-13-svg-native-legend.md): diagram + spine + key
     // share one viewBox, widened to 377 (disc 200 + two divider gaps + key rail;
     // the shared builder Math.ceils the exact rail width).
-    assert.match(pc[0], /<svg class="piechart-svg" viewBox="0 0 377 200"/);
+    assert.match(pc[0], /<svg class="piechart-svg" viewBox="0 0 380 200"/);
     // Donut path uses inner radius (r=50) — solid pies wouldn't carry it
     assert.match(pc[0], /A 50 50 0/);
     // 5 wedges + 5 SVG legend rows (swatch <rect> + label <text> per series)

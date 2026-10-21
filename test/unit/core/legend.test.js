@@ -11,7 +11,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { readLegend, readEntry, gridTarget, targetText, LEGEND_READERS, spanKind, calloutsOff, legendOff } = require('../../../lib/core/legend');
+const { readLegend, readEntry, gridTarget, targetText, CALLOUT_READERS, spanKind, calloutsOff } = require('../../../lib/core/legend');
 const { legendHtml } = require('../../../lib/core/legend-html');
 const { colorAttr } = require('../../../lib/core/legend-key');
 const { MARKS, markHtml, markSvg } = require('../../../lib/core/legend-mark');
@@ -132,7 +132,6 @@ describe('the split: @callout is a callout, @legend is the key (2026-10-20-callo
     assert.equal(calloutsOff({ tokens: ['legend-off'], frontMatter: 'callout: on' }), true);
     // Rendered, the deck's word arrives as a stamped `callout-*` class, and the slide's pre-split word wins.
     assert.equal(calloutsOff({ tokens: ['legend-on', 'callout-off'] }), false);
-    assert.equal(legendOff, calloutsOff);
   });
 });
 
@@ -225,10 +224,10 @@ describe('legend-mark: the mark slot', () => {
   });
 });
 
-test('LEGEND_READERS names only real slide classes', () => {
+test('CALLOUT_READERS names only real slide classes', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  for (const name of LEGEND_READERS) {
+  for (const name of CALLOUT_READERS) {
     assert.ok(fs.existsSync(path.join(__dirname, `../../../lib/components/chart/${name}/${name}.manifest.json`)), name);
   }
 });
