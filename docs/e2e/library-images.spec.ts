@@ -218,7 +218,7 @@ for (const vw of WIDTHS) {
 		await openLibraryImages(page, width);
 
 		// Add to THIS deck.
-		await page.getByRole('tab', { name: 'This deck' }).click();
+		await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
 		await pickPhoto(page, [{ name: 'Team.png', width: 800, height: 600, type: 'image/png' }]);
 		await expect(page.getByText(/Added 1 image to this deck/)).toBeVisible();
 		const card = page.locator('[data-media-card="team"]');

@@ -94,7 +94,7 @@ test('@smoke a deck-only photo renders in its own deck, and flipping it to share
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
 	await addPng(page, 'Mine.png');
 	const card = page.locator('[data-media-card="mine"]');
 	await expect(card.getByText('This deck', { exact: true })).toBeVisible();

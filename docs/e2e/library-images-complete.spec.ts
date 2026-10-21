@@ -37,7 +37,7 @@ async function withPhotos(page: Page) {
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await addPhoto(page, 'Team Shot.png');
 	await expect(page.locator('[data-media-card="team-shot"]')).toBeVisible();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
 	await addPhoto(page, 'Deck Only.png');
 	await expect(page.locator('[data-media-card="deck-only"]')).toBeVisible();
 }

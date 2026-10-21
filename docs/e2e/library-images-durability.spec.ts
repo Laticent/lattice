@@ -161,7 +161,7 @@ test('a backup carries the photos and a restore puts them back where they were @
 	await openLibraryImages(page);
 	await addPhoto(page, 'Keep Shared.png');
 	await expect(page.locator('[data-media-card="keep-shared"]')).toBeVisible();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
 	await addPhoto(page, 'Keep Deck.png');
 	await expect(page.locator('[data-media-card="keep-deck"]')).toBeVisible();
 	// One photo has been looked at by the chat and captioned; the other has not.
@@ -259,7 +259,7 @@ test('deleting a deck takes the photos kept to that deck, and only those @crossw
 	await openLibraryImages(page);
 	await addPhoto(page, 'Shared Stays.png');
 	await expect(page.locator('[data-media-card="shared-stays"]')).toBeVisible();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
 	await addPhoto(page, 'Goes With Deck.png');
 	await expect(page.locator('[data-media-card="goes-with-deck"]')).toBeVisible();
 	expect((await shelf(page)).map((r) => r.name)).toEqual(['goes-with-deck', 'shared-stays']);

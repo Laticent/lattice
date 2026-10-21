@@ -1154,7 +1154,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange} dropProps={dropProps}>
 			{header}
 
-				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
+				<div className={cn('flex items-center gap-2 bg-card px-4', LIBRARY_KINDS[sectionOf(filter)] ? 'pb-1.5 pt-2.5' : 'border-b border-border py-2.5')}>
 					{/* `PillTabs`, not a hand-rolled segmented track. This forked the shared
 					    primitive: same job (pick one section of the panel), different shape, and
 					    — because it was `aria-pressed` buttons rather than a `role="tablist"` —
@@ -1178,8 +1178,17 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					    shelf is hardest to read. */}
 				</div>
 				{LIBRARY_KINDS[sectionOf(filter)] && (
-					<div className="border-b border-border bg-card px-4 py-2">
-						<PillTabs ariaLabel={`${sectionOf(filter) === 'design' ? 'Design' : 'Media'} kinds`} value={filter} onValueChange={(v) => React.startTransition(() => setFilter(v as LibraryFilter))} tabs={LIBRARY_KINDS[sectionOf(filter)] ?? []} />
+					// The sections and their kinds are ONE block with one rule under it: three stacked bands
+					// each with its own divider read as a ladder of lines on a phone.
+					<div className="flex items-center gap-2 border-b border-border bg-card px-4 pb-2.5 pt-1">
+						<PillTabs className="min-w-0 flex-1" ariaLabel={`${sectionOf(filter) === 'design' ? 'Design' : 'Media'} kinds`} value={filter} onValueChange={(v) => React.startTransition(() => setFilter(v as LibraryFilter))} tabs={LIBRARY_KINDS[sectionOf(filter)] ?? []} />
+						{/* Where new media goes. It was its own labeled row with two more pills; now one small toggle on
+						    the kinds row, and only when a deck is open (with none open, media always goes to all decks). */}
+						{mediaTab && activeDeckId && (
+							<Button variant="outline" size="sm" className="shrink-0" aria-label={`New media goes to ${addScope === 'deck' ? 'this deck' : 'all decks'}. Change`} onClick={() => setAddScope((v) => (v === 'deck' ? 'library' : 'deck'))}>
+								{addScope === 'deck' ? 'This deck' : 'All decks'}
+							</Button>
+						)}
 					</div>
 				)}
 
@@ -1194,16 +1203,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						</div>
 					) : (
 						<>
-						{mediaTab && (
-							<div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-								<span className="font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">Add to</span>
-								{activeDeckId ? (
-									<PillTabs ariaLabel="Where new media goes" value={addScope} onValueChange={(v) => setAddScope(v as 'library' | 'deck')} tabs={[{ value: 'library', label: 'All decks' }, { value: 'deck', label: 'This deck' }]} />
-								) : (
-									<span className="text-[12px] text-foreground">All decks <span className="text-muted-foreground">(open a deck to add to just that one)</span></span>
-								)}
-							</div>
-						)}
 						{mediaTab && vMedia.length === 0 && (
 							<div className="grid place-items-center py-10">
 								<PanelEmpty icon={<FileBox />} title={q ? `No ${mediaWord} match` : `No ${mediaWord} yet`}>
