@@ -240,3 +240,16 @@ describe('calco odp — layouts, roles and the locked picture', () => {
     assert.doesNotMatch(content, /<text:page-number[^>]*>2\.2</);
   });
 });
+
+describe('calco odp — a text highlight', () => {
+  test('a highlighted run gets its own character style with a background; the same run without one does not share it', async () => {
+    const plain = style();
+    const lit = { ...style(), highlight: '#e6f0f5' };
+    const { zip } = await open({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'a ', style: plain }, { text: 'code', style: lit }]])] }] });
+    const content = await read(zip, 'content.xml');
+    assert.equal((content.match(/fo:background-color="#e6f0f5"/g) || []).length, 1, 'one style carries the background');
+    const spans = [...content.matchAll(/<text:span text:style-name="(T\d+)">([^<]*)<\/text:span>/g)];
+    const styleOf = (text) => spans.find((m) => m[2].includes(text))[1];
+    assert.notEqual(styleOf('a'), styleOf('code'));
+  });
+});

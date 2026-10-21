@@ -89,6 +89,8 @@ export interface ReadOptions {
 	 * The caller crops each one from a capture of the slide. Default false.
 	 */
 	sprites?: boolean;
+	/** With `shapes`: draw an inline chip (a code span, a mark) as a highlight on its words, not a shape. Default true. */
+	highlight?: boolean;
 }
 
 /**
@@ -244,6 +246,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		style: TextStyle;
 	}
 	const blocks = new Map<Element, Word[]>();
+	// Inline chips whose paint became a text highlight on their runs: the shapes pass leaves them alone, and the
+	// capture hides their paint.
+	const highlightEls = new Map<Element, Set<Node>>();
+	// The chips whose words were ALL placed as text: only those leave the picture (decided in the shapes pass).
+	let chipEls = new Set<Element>();
 	const range = doc.createRange();
 	const sectionRect = { left: origin.left, top: origin.top, right: origin.right, bottom: origin.bottom };
 	type Clip = { left: number; top: number; right: number; bottom: number };
@@ -292,6 +299,29 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const caps = cs.fontVariantCaps || '';
 		if (caps === 'small-caps' || caps === 'all-small-caps' || /small-caps/.test(cs.fontVariant || '')) style.smallCaps = true;
 		if (flat) style.flatColor = flat;
+		// An inline chip behind these words (a code span, a mark) is a highlight on the words, not a shape.
+		if (options?.shapes && options.highlight !== false) {
+			for (let chip: Element | null = el; chip && chip !== section; chip = chip.parentElement) {
+				const ccs = win.getComputedStyle(chip) as CSSStyleDeclaration & Record<string, string>;
+				if (!INLINE.test(ccs.display)) break;
+				const bg = parseColor(ccs.backgroundColor);
+				if (!bg || bg.a === 0) continue;
+				const plainPaint = (!ccs.backgroundImage || ccs.backgroundImage === 'none') && (!ccs.borderImageSource || ccs.borderImageSource === 'none') && !chip.querySelector('img,svg,canvas,math,video,picture');
+				// Blend a translucent tint over what is behind the chip; a picture or gradient behind it leaves the chip a shape.
+				const shown = !plainPaint ? undefined : bg.a >= 1 ? hex(bg) : chip.parentElement ? flatten(chip.parentElement, { ...bg, a: bg.a * opacity }) : undefined;
+				if (shown) {
+					style.highlight = shown;
+					// Translucent text over the highlight appears as the blend of the two; LibreOffice drops a run's background
+					// when the run also has a text opacity, so the blended color is written instead.
+					if (alpha < 1) {
+						const hl = parseColor(shown);
+						if (hl) style.flatColor = hex({ r: c.r * alpha + hl.r * (1 - alpha), g: c.g * alpha + hl.g * (1 - alpha), b: c.b * alpha + hl.b * (1 - alpha) });
+					}
+					highlightEls.set(chip, (highlightEls.get(chip) || new Set<Node>()).add(node));
+				}
+				break;
+			}
+		}
 		const pre = isPre(cs);
 		const value = node.nodeValue || '';
 		// Preformatted text is cut into words WITH their trailing spaces (and runs of
@@ -554,6 +584,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (!c || c === 'none' || c === 'normal' || c === '""' || c === "''" || ps.display === 'none' || ps.visibility !== 'visible') continue;
 				const tokens = parseContent(c);
 				if (!tokens || el === section) continue;
+				// The slide's decorative layer (a finish's wash, its ghost numeral or monogram) is background: the
+				// background capture draws its generated text, so reading it too would draw it twice.
+				let top: Element = el;
+				while (top.parentElement && top.parentElement !== section) top = top.parentElement;
+				const tcs = win.getComputedStyle(top);
+				if ((tcs.position === 'absolute' || tcs.position === 'fixed') && Number(tcs.zIndex) < 0 && !(top.textContent || '').trim()) continue;
 				// Inside something that is not drawn (display: none up the tree), there is nothing to read.
 				if (!el.getClientRects().length) continue;
 				cands.push({ el, side, tokens });
@@ -801,6 +837,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const approximated: string[] = [];
 	if (options?.shapes) {
 		const keptNodes = new Set<Node>(kept.map((wd) => wd.node));
+		chipEls = new Set([...highlightEls].filter(([, nodes]) => [...nodes].every((n) => keptNodes.has(n))).map(([chip]) => chip));
 		const px = (v: string) => Number.parseFloat(v) || 0;
 		// A color as the page wrote it. rgb() and color(srgb) are read from the string: the
 		// canvas returns a faint color (a 4% row wash) premultiplied to a byte, which moves its hue.
@@ -1676,7 +1713,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					const line = Number.parseFloat(cs.lineHeight) || px(cs.fontSize) * 1.4;
 					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: em, h: Math.min(rect.h, line) }, pseudo: 'before', bleed: bleedOf(cs), kind: 'list-marker' });
 				}
-				const found = analyze(cs, rect, opacityOf(el), el, tag);
+				const found = chipEls.has(el) ? null : analyze(cs, rect, opacityOf(el), el, tag);
 				// An inline box that wraps is several boxes, one a line: its one bounding rectangle would paint the gap
 				// between them too.
 				if (found?.plain && cs.display === 'inline' && el.getClientRects().length > 1) {
@@ -2024,6 +2061,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			});
 		});
 		refusedOut = refused;
+		for (const _chip of chipEls) approximated.push('chip-highlight');
 		if (options?.diagnose) keptOut = items.map((it) => ({ kind: it.kind || '?', x: Math.round(it.rect.x), y: Math.round(it.rect.y), w: Math.round(it.rect.w), h: Math.round(it.rect.h) }));
 	}
 
@@ -2206,7 +2244,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	if (options?.hide && shapes.length) {
 		const undo: Array<() => void> = [];
 		// A pseudo shape hides its pseudo (below), never its element: the element may paint something else.
-		for (const el of paintHidden as Set<HTMLElement>) {
+		for (const el of [...paintHidden, ...chipEls] as HTMLElement[]) {
 			const saved = el.getAttribute('style');
 			for (const [k, v] of [
 				['background-color', 'transparent'],

@@ -26,6 +26,12 @@ export interface TextStyle {
 	 * LibreOffice clips when the run is also letter-spaced.
 	 */
 	flatColor?: string;
+	/**
+	 * A solid color behind the run, as `#rrggbb`: an inline chip (a code span, a mark) drawn as a text highlight, so
+	 * it moves with its words and wraps with them. The chip's translucent tint is blended over what is behind it.
+	 * The chip's corners, border and padding are not carried.
+	 */
+	highlight?: string;
 	/** Extra space after each character, px. */
 	letterSpacing: number;
 	/** CSS `text-transform` (`none`, `uppercase`, `lowercase`, `capitalize`). */

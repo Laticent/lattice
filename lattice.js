@@ -135,7 +135,7 @@ function listAvailablePalettes() {
 // office suite has (`stacked-shadow`: two outer shadows as one; `backdrop-blur`: a frosted fill as its
 // translucent color). Empty when nothing was approximated.
 function approximatedNote(tally) {
-  const label = { 'stacked-shadow': 'stacked shadow', 'backdrop-blur': 'frosted fill' };
+  const label = { 'stacked-shadow': 'stacked shadow', 'backdrop-blur': 'frosted fill', 'chip-highlight': 'inline chip as highlight' };
   const parts = Object.entries(tally || {}).map(([kind, n]) => `${n} ${label[kind] || kind}${n === 1 ? '' : 's'}`);
   return parts.length ? `; approximated: ${parts.join(', ')}` : '';
 }

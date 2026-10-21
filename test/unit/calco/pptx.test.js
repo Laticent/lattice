@@ -265,3 +265,16 @@ describe('calco pptx — media are named by what their bytes are', () => {
     assert.doesNotMatch(rels, /Layout-\d+-image-1\.png/, 'none still names the old .png');
   });
 });
+
+describe('calco pptx — a text highlight', () => {
+  test('a highlighted run writes a:highlight with the color', async () => {
+    const JSZip = require('jszip');
+    const PptxGenJS = require('pptxgenjs');
+    const { writePptx } = require('@laticent/calco');
+    const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+    const lit = { ...style(), highlight: '#e6f0f5' };
+    const bytes = await writePptx(PptxGenJS, { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'code', style: lit }]])] }] }, 'nodebuffer', JSZip);
+    const xml = await (await JSZip.loadAsync(bytes)).file('ppt/slides/slide1.xml').async('string');
+    assert.match(xml, /<a:highlight><a:srgbClr val="E6F0F5"\/><\/a:highlight>/);
+  });
+});

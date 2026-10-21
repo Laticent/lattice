@@ -105,6 +105,8 @@ nothing, so a headless browser can receive them as source.
 - PowerPoint: weight is bold or not (600 and up is bold), and `text-transform` is applied to
   the text itself. Placement is measured in LibreOffice; PowerPoint is not verified.
 - No native charts, diagrams or equations.
+- An inline chip (a code span, a mark) is a highlight on its words: its corners, border and padding are not
+  carried, and it is opaque (its tint is blended over what is behind it).
 - What cannot be a shape (a photo, a chart, an icon, a gradient scrim) is a picture of its own,
   cropped from the slide, placed in order among the shapes and grouped with its card
   (`ReadOptions.sprites`, `Shape.kind === 'picture'`). A host that does not crop them (the Studio's

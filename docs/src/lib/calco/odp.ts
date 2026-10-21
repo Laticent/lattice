@@ -157,7 +157,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const textStyles = new Map<string, string>();
 	const textStyle = (s: TextStyle): string => {
 		const face = faceFor(s, used);
-		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps]);
+		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps, s.highlight]);
 		const hit = textStyles.get(key);
 		if (hit) return hit;
 		const name = `T${textStyles.size + 1}`;
@@ -183,6 +183,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			s.smallCaps ? 'fo:font-variant="small-caps"' : '',
 			s.underline ? 'style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '',
 			s.strike ? 'style:text-line-through-style="solid"' : '',
+			s.highlight ? `fo:background-color="${s.highlight}"` : '',
 		].filter(Boolean);
 		automatic.push(`<style:style style:name="${name}" style:family="text"><style:text-properties ${attrs.join(' ')}/></style:style>`);
 		return name;

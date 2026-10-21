@@ -179,6 +179,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		if (s.smallCaps) opts.lang = 'en-US" cap="small';
 		if (s.underline) opts.underline = { style: 'sng' };
 		if (s.strike) opts.strike = 'sngStrike';
+		if (s.highlight) opts.highlight = bareHex(s.highlight);
 		if (breakLine) opts.breakLine = true;
 		return { text: xmlSafe(applyTransform(run.text, s.transform)), options: opts };
 	};

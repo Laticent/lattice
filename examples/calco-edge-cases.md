@@ -61,13 +61,15 @@ Each pill is one rounded shape with its text and dot, and its dot is part of the
 ---
 
 <style>
-.note { font-size: 22px; line-height: 1.7; max-width: 760px; }
+.note { font-size: 22px; line-height: 1.7; max-width: 560px; margin-bottom: 14px; }
 .dash { margin-top: 22px; width: 560px; padding: 18px 24px; border: 2px dashed currentColor; border-radius: 10px; font-size: 20px; }
 </style>
 
 ## Inline code, wrapped and not
 
-<div class="note">Set <code>spectrum-trim: restrained</code> for a quiet rule, or <code>finish: atrium</code> for the wash. This long chip wraps across two lines when the column is narrow: <code>a-very-long-inline-code-token-that-needs-to-wrap-onto-a-second-line-in-this-narrow-box</code> and then the sentence ends.</div>
+<div class="note">Set <code>spectrum-trim: restrained</code> for a quiet rule, or <code>finish: atrium</code> for the wash. Each chip is a highlight on its words, so it moves and wraps with them.</div>
+
+<div class="note">A token too long for one line is cut mid-word, so this whole paragraph stays a picture: <code>a-very-long-inline-code-token-that-needs-to-wrap-onto-a-second-line-in-this-narrow-box</code> and then the sentence ends.</div>
 
 <div class="dash">A dashed border is not a native shape yet: it stays in the picture.</div>
 

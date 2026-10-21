@@ -1,7 +1,7 @@
 {
   "card-tags": {
     "refused": 9,
-    "shapes": 68,
+    "shapes": 67,
     "pictures": 6,
     "reasons": {
       "paint:overflow-clipped": 1,
@@ -14,7 +14,7 @@
   },
   "accent-finishes": {
     "refused": 14,
-    "shapes": 48,
+    "shapes": 23,
     "pictures": 14,
     "reasons": {
       "paint:bg-clip": 12,
@@ -24,7 +24,7 @@
   },
   "cards-stats-actors-kpi": {
     "refused": 0,
-    "shapes": 69,
+    "shapes": 60,
     "pictures": 0,
     "reasons": {}
   },
@@ -35,7 +35,7 @@
     "reasons": {}
   },
   "backdrop-register": {
-    "refused": 47,
+    "refused": 40,
     "shapes": 12,
     "pictures": 10,
     "reasons": {
@@ -43,9 +43,8 @@
       "pseudo:effect": 4,
       "pseudo:no-paint": 10,
       "paint:linear-gradient": 7,
-      "covered": 12,
-      "paint:bg-image": 4,
-      "paint:wrapped-inline": 1
+      "covered": 6,
+      "paint:bg-image": 4
     }
   }
 }

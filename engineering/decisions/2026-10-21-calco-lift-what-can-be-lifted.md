@@ -43,6 +43,7 @@ covers it, never to loosen the rule.
 | `linear-gradient(...)` with 2+ stops, angle or `to side` | `a:gradFill` (`.pptx`), `draw:gradient` plus an opacity gradient (`.odp`) |
 | `linear-gradient(C, C)` sized and placed (an accent rule) | a flat fill of its tile, or a second shape above a colored box |
 | a gradient under an opaque or clear border | a gradient over the border box (stops move at most the border's width) |
+| an inline chip (a code span, a mark) | a highlight on its words (`TextStyle.highlight`; **approximated**, §3) |
 | two outer shadows | the widest one (**approximated**) |
 | `backdrop-filter` on a translucent fill | the translucent fill (**approximated**) |
 
@@ -52,9 +53,22 @@ channels separately does not fade through black.
 ## 3. What was approximated, and how the user is told
 
 `ReadResult.approximated` lists one entry per lifted shape and kind (`stacked-shadow`,
-`backdrop-blur`). `captureSlides` passes it on, `writeOffice` tallies it, and `lattice` prints
+`backdrop-blur`, `chip-highlight`). `captureSlides` passes it on, `writeOffice` tallies it, and `lattice` prints
 `; approximated: 2 stacked shadows, 1 frosted fill` in the export line. The choice was the owner's:
 approximate and say so, rather than leave the box a picture.
+
+**Inline chips.** The first version lifted a chip as a rounded rectangle behind its paragraph. The owner
+found that bad: the shape does not move or wrap with the words, and a chip that wraps is two boxes. A chip is
+now a text highlight on its runs (`a:highlight` in `.pptx`, `fo:background-color` in `.odp`), so it moves,
+edits and wraps with the text. The tint is blended over what is behind it (a highlight is opaque), and text
+with its own transparency is blended over the highlight, because LibreOffice drops a run's background when
+the run also has a text opacity. The chip's corners, border and padding are lost. A chip whose words stay in
+the picture (a paragraph the reader cannot place, such as a token wider than its line) stays in the picture
+too. Measured in LibreOffice: the highlight pixel matches Chrome's chip within one level on a light and a dark
+slide.
+
+**Decorative text is not read.** A finish's monogram or numeral is generated text on the slide's decorative
+layer, which the background capture already draws; the reader skips it, so it no longer appears twice.
 
 ## 4. Measured (gallery, 120 slides, LibreOffice 24.2)
 
