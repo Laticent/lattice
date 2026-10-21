@@ -81,6 +81,13 @@ describe('tools/conformance.js', () => {
     assert.match(r.stdout, /0 fixed/);
     assert.match(r.stdout, /0 newly failing/);
   });
+  test('a corrupt baseline exits 2 with a message, not a stack trace', () => {
+    fs.writeFileSync(path.join(baselines, 'component.bar.json'), 'not json');
+    const r = run('component', 'bar', '--after');
+    assert.equal(r.status, 2);
+    assert.match(r.stderr, /unreadable/);
+    assert.doesNotMatch(r.stderr, /at Object|node:internal/);
+  });
   test('an unknown kind and an unknown flag exit 2', () => {
     assert.equal(run('nonsense').status, 2);
     assert.equal(run('component', 'bar', '--befor').status, 2);

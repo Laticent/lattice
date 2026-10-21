@@ -17,8 +17,8 @@
  *   --tier=static (default) | render | all             # render runs tools/conformance-render.js --only=<name>
  *
  * Exit codes: 0 holds · 1 something fails (a failing cell, a ledger entry that is stale or over its
- * ceiling, a broken contract or manifest) · 2 bad usage (unknown kind or flag, --after with no
- * baseline) · 3 no such instance (a typo reads as "new" otherwise; pass --new to say it is).
+ * ceiling, a broken contract or manifest) · 2 bad usage (unknown kind or flag,
+ * an unreadable baseline) · 3 no such instance (a typo reads as "new" otherwise; pass --new to say it is).
  * Debt is not a failure, but it is never "fixed" either: paying it down is, and a ledger entry the
  * work made stale fails here, as it does in `npm test`. The default tier checks STATIC clauses only,
  * and says so on every instance view. Baselines live in `.scratch/conformance/` (override with
@@ -170,7 +170,12 @@ function main(argv) {
 
   if (flags.has('--after')) {
     let before = [];
-    if (fs.existsSync(file)) before = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (fs.existsSync(file)) {
+      try { before = JSON.parse(fs.readFileSync(file, 'utf8')); if (!Array.isArray(before)) throw new Error('not a list'); } catch (e) {
+        process.stderr.write(`conformance: the baseline ${path.relative(ROOT, file)} is unreadable (${e.message}); delete it and run --before again\n`);
+        return 2;
+      }
+    }
     else process.stdout.write(`\n(no baseline for '${inst}': treating everything as owed before this run)\n`);
     const d = diffCells(before, cells);
     const names = (xs) => (xs.length ? `: ${xs.map((x) => x.clause).join(', ')}` : '');
