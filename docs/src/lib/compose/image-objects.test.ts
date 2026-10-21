@@ -327,6 +327,15 @@ describe('an image cannot forge deck structure (found by the red team)', () => {
 		expect(spacedDeck).toContain('(a%20b%0A---%0Ac)');
 	});
 
+	it('a backslash in a title or source is escaped, so it cannot cancel the quote or parenthesis after it', () => {
+		const doc = deckToDoc(['<!-- _class: content -->', '', '## T', '', 'x'].join('\n'));
+		const slide = doc.child(0);
+		const img = deckSchema.nodes.image.create({ src: 'asset:a\\', alt: 'p', title: 'end\\' });
+		const deck = docToDeck(deckSchema.nodes.doc.create(doc.attrs, [slide.copy(slide.content.append(Fragment.from(deckSchema.nodes.paragraph.create(null, img))))]));
+		expect(deck).toContain('![p](asset:a\\\\ "end\\\\")');
+		expect(deckToDoc(deck).childCount).toBe(1);
+	});
+
 	it('an ordinary image, with a title, writes the bytes the upstream rule always wrote', () => {
 		const src = ['<!-- _class: content -->', '', '## T', '', '![A (nice) pic](asset:harbor "A title")'].join('\n');
 		expect(docToDeck(deckToDoc(src))).toBe(src);

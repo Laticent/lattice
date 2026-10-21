@@ -55,7 +55,7 @@ test.describe('compose images', () => {
 		await expect(page.locator('.cs-img-badge')).toHaveText(/Background · Right side/);
 		// A web image is a stand-in that says what it is. Compose never reaches the network for it.
 		await expect(page.locator('.cs-img-stand')).toContainText('Elsewhere');
-		expect(requested.filter((u) => u.includes('example.com'))).toEqual([]);
+		expect(requested.filter((u) => new URL(u).hostname === 'example.com')).toEqual([]);
 		expect(await savedDeck(page)).toBe(DECK);
 	});
 

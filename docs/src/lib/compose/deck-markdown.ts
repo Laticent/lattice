@@ -322,7 +322,8 @@ const latticeNodes = {
 	image(state: SerializerState, node: PMNode) {
 		const src = Array.from(String(node.attrs.src ?? ''), (c) => (/\s/.test(c) || isBreakOrControl(c) ? encodeURIComponent(c) : c)).join('');
 		const title = oneLine(node.attrs.title);
-		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[()]/g, '\\$&')}${title ? ` "${title.replace(/"/g, '\\"')}"` : ''})`);
+		// A backslash is escaped with the parenthesis or quote it could otherwise cancel: `a\\` + `)` must not read as an escaped `)`.
+		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[\\()]/g, '\\$&')}${title ? ` "${title.replace(/[\\"]/g, '\\$&')}"` : ''})`);
 	},
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
