@@ -4,6 +4,7 @@
 // from a fixed list or a flag; there is no text a person typed. Design: engineering/decisions/2026-10-21-follow-over-tavola.md §6.
 
 import { bool, defineViewKeys, type Infer, int, obj, oneOf, opt, pattern } from '@/lib/tavola/view';
+import { FOCUS_ROWS, rowName } from './follow-bus';
 import type { LiveDoing } from './live-model';
 
 /** The section ids of the Deck and Slide panels. A typo in a component's tab id is caught by `useViewKey`'s
@@ -21,6 +22,13 @@ export const VIEW_KEYS = defineViewKeys({
 	/** The section tab inside it. The ids of the Deck and Slide panels' tabs (both panels have a `look`). */
 	section: oneOf(SECTIONS),
 	/** Where this member's own Present is, while it is open. */
+	/** The settings row with focus: a place from the listed rows. */
+	focus: oneOf(FOCUS_ROWS),
+	/** The workspace settings sheet is open (shown to others, never applied), and which tab. */
+	shown: oneOf(["setup"]),
+	setupTab: oneOf(['General', 'AI', 'Data']),
+	/** The last settings row changed, by name only, with a counter so each change is seen once. */
+	changed: obj({ what: oneOf(FOCUS_ROWS), n: int(0, 1_000_000) }),
 	present: obj({ idx: int(0, 10_000), page: int(0, 10_000), lens: pattern(/^[A-Za-z0-9_-]+$/, 64), hash: opt(pattern(/^[0-9a-f]{1,8}$/, 8)) }),
 });
 
@@ -72,4 +80,21 @@ export function describeMove(target: { panel: LiveDoing['panel']; view: LiveDoin
 	if (section) return `is in ${SECTION_NAME[section] ?? section}`;
 	if (target.panel) return `opened ${PANEL_NAME[target.panel]}`;
 	return target.view === 'article' ? 'opened Read' : 'went back to the editor';
+}
+
+/** Where someone is in the settings, in words: "in Deck · Brand", "in Setup · AI". Empty when they are in neither. */
+export function placeWords(view: Record<string, unknown>): string | null {
+	if (view.shown === 'setup') return `in Setup${typeof view.setupTab === 'string' ? ` · ${view.setupTab}` : ''}`;
+	const inspector = view.inspector;
+	if (inspector === 'deck' || inspector === 'slide') {
+		const section = typeof view.section === 'string' ? (SECTION_NAME[view.section] ?? null) : null;
+		return `in ${inspector === 'deck' ? 'Deck' : 'Slide'}${section ? ` · ${section}` : ''}`;
+	}
+	return null;
+}
+
+/** "changed Card rail placement": the row a person changed, by name. */
+export function changedWords(view: Record<string, unknown>): string | null {
+	const c = view.changed as { what?: unknown } | undefined;
+	return c && typeof c.what === 'string' ? `changed ${rowName(c.what)}` : null;
 }

@@ -32,12 +32,12 @@ describe('view schema', () => {
 	});
 
 	it('the whole view is bounded in UTF-8 bytes, and over the limit later keys are dropped', () => {
-		const ids = ['a', 'b', 'c', 'd', 'e'];
+		const ids = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
 		const wide = defineViewKeys(Object.fromEntries(ids.map((k) => [k, pattern(/^[a-z]+$/)])));
 		const long = 'x'.repeat(60);
 		const { view, dropped } = cleanView(Object.fromEntries(ids.map((k) => [k, long])), wide);
 		expect(new TextEncoder().encode(JSON.stringify(view)).length).toBeLessThanOrEqual(VIEW_MAX_BYTES);
-		expect(Object.keys(view).length).toBeLessThan(5);
+		expect(Object.keys(view).length).toBeLessThan(10);
 		expect(dropped.length).toBeGreaterThan(0);
 	});
 

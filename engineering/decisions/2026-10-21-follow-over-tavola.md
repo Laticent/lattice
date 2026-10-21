@@ -108,7 +108,7 @@ docs/src/lib/tavola/adapters/yjs.ts    the bridge: the ONLY production file that
 present: obj({ idx: int(0, 10_000), page: int(0, 10_000), lens: id64, hash: hex8 }) })`.
 - Every value is `oneOf`, an integer in a range, or a fixed-form id. **There is no free-text combinator.**
 - Keys are held in a `Map` and tested with `Object.hasOwn`, so `constructor` and `__proto__` are not keys.
-- `cleanView(raw, keys)` returns only declared keys whose value passes, at most 16 keys and 256 UTF-8 bytes
+- `cleanView(raw, keys)` returns only declared keys whose value passes, at most 16 keys and 512 UTF-8 bytes
   serialized. A failing value is dropped, not repaired, and counted (see §10, "silent drops").
 
 **Adapter (`adapters/yjs.ts`).** `yjsAwareness(awareness, { keys, fields, roster, share })` returns a Tavola

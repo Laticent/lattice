@@ -18,9 +18,9 @@ export type Schema<T> = (value: unknown) => T | undefined;
 /** The value a schema produces. */
 export type Infer<S> = S extends Schema<infer T> ? T : never;
 
-/** At most this many keys in one view, and this many UTF-8 bytes of JSON for all of it. */
+/** At most this many keys in one view, and this many UTF-8 bytes of JSON for all of it (the widest view Live sends, every key set with long values, is about 330). */
 export const VIEW_MAX_KEYS = 16;
-export const VIEW_MAX_BYTES = 256;
+export const VIEW_MAX_BYTES = 512;
 
 const NAME = /^[a-z][A-Za-z0-9]{0,31}$/;
 

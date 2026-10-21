@@ -28,6 +28,7 @@ import { clearDecksAndTheirPhotos, clearDownloadedModels, clearEverything, clear
 import { LensIcon } from './icons';
 import { CAN_INSTALL_EVENT, type InstallState, installState, promptInstall } from './install-app';
 import { LanguageSelect } from './LanguageSelect';
+import { useViewKey } from './live/follow-bus';
 import { ModelPicker } from './ModelPicker';
 import { OnDeviceTier } from './OnDeviceTier';
 import { WORKSPACE_DEFAULT_TAB, WORKSPACE_HEADER, WORKSPACE_TABS, WorkspaceAiSection, WorkspaceGroupLabel, type WorkspaceTab } from './panel-shells';
@@ -186,6 +187,8 @@ function HandlePreview({ kind }: { kind: HandleStyle }) {
 
 export function WorkspaceSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
 	const [tab, setTab] = React.useState<Tab>(WORKSPACE_DEFAULT_TAB);
+	// Live: others see that Setup is open, and which tab. Never the values, and never moved here (it holds this person's own keys and data).
+	useViewKey('setupTab', open ? tab : null);
 	const [dedup, setDedup] = React.useState(true);
 	React.useEffect(() => { setDedup(readDedupEnabled()); }, []);
 	const [caching, setCaching] = React.useState(true);

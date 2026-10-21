@@ -44,7 +44,7 @@ function doingLabel(p: LivePerson): string | null {
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
 	const doing = doingLabel(p);
-	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}`;
+	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}${p.at ? ` · ${p.at}` : ''}${p.changed ? ` · ${p.changed}` : ''}`;
 	if (p.slideHidden) return `Slide hidden${tail}`;
 	if (p.slide === null) return doing ? `Arriving… · ${doing}` : 'Arriving…';
 	return `Slide ${p.slide + 1}${tail}`;

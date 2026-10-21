@@ -13,7 +13,7 @@ import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
 import { followBus, type PresentPlace } from './follow-bus';
-import { describeMove, type FollowMove, placeOf, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
+import { changedWords, describeMove, type FollowMove, placeOf, placeWords, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
@@ -345,6 +345,8 @@ export const cleanDoing = (v: unknown): LiveDoing | undefined => {
 const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting, ...(d.asking ? { asking: true } : {}) });
 /** How long a follow waits for its leader to come back under a new id before it ends. */
 const FOLLOW_GRACE_MS = 20_000;
+/** How long "Amina changed Theme" stays on her row. */
+const CHANGED_SHOW_MS = 20_000;
 /** Pointers: at most this many a second leave this browser; one arriving faster from a peer is dropped,
  *  and one that has not moved for this long disappears. */
 const POINTER_EVERY_MS = 100;
@@ -542,7 +544,15 @@ export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (cl
 export class LiveController {
 	private rt: Runtime | null = null;
 	private deps: LiveDeps;
-	private following: string | null = null;
+	private followingId: string | null = null;
+	/** Whoever this browser follows. Setting it tells screens who they should mark (`syncLeader`). */
+	private get following(): string | null {
+		return this.followingId;
+	}
+	private set following(id: string | null) {
+		this.followingId = id;
+		this.syncLeader();
+	}
 	private lobbyName = storedLiveName();
 	private lobbyOpen = false;
 	private bound = false;
@@ -649,12 +659,58 @@ export class LiveController {
 	private publishBus() {
 		const r = this.rt;
 		if (!r) return;
-		for (const key of ['inspector', 'section', 'present'] as const) {
+		for (const key of ['inspector', 'section', 'present', 'focus', 'shown', 'setupTab', 'changed'] as const) {
 			const v = followBus.getLocal(key);
 			if (v === null) r.view.clear(key);
 			else r.view.set(key, v);
 		}
 		r.view.flush();
+	}
+	/** Settings rows other people changed lately, by peer: the counter last seen, when, and which row. A counter seen
+	 *  for the first time is history (a late joiner), not news. */
+	private changedSeen = new Map<string, { n: number; at: number; what: string | null }>();
+	private changedTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Look at everyone's `changed` counter after an awareness change: a new count is news, the first one seen is not. */
+	private scanChanged(peers: Iterable<string>) {
+		const r = this.rt;
+		if (!r) return;
+		let news = false;
+		for (const peer of peers) {
+			const view = r.view.of(peer).all();
+			const c = view.changed as { n?: number } | undefined;
+			if (!c || typeof c.n !== 'number') continue;
+			const seen = this.changedSeen.get(peer);
+			if (!seen) this.changedSeen.set(peer, { n: c.n, at: 0, what: null });
+			else if (seen.n !== c.n) {
+				this.changedSeen.set(peer, { n: c.n, at: Date.now(), what: changedWords(view) });
+				news = true;
+			}
+		}
+		if (!news) return;
+		this.host.rerender();
+		if (this.changedTimer) clearTimeout(this.changedTimer);
+		this.changedTimer = setTimeout(() => this.host.rerender(), CHANGED_SHOW_MS + 100);
+	}
+	/** Where a person is in the settings, and the row they changed lately, from the view they show. */
+	private placeOfPeer(peer: string): { at?: string; changed?: string } {
+		const r = this.rt;
+		if (!r) return {};
+		const at = placeWords(r.view.of(peer).all());
+		const seen = this.changedSeen.get(peer);
+		const changed = seen?.what && Date.now() - seen.at < CHANGED_SHOW_MS ? seen.what : undefined;
+		return { ...(at ? { at } : {}), ...(changed ? { changed } : {}) };
+	}
+	/** Tell screens where the person we follow is looking, so a settings row can mark it. */
+	private syncLeader() {
+		const r = this.rt;
+		const who = this.followingId;
+		if (!r || !who) {
+			followBus.setLeader(null);
+			return;
+		}
+		const name = r.session.getState().members.find((m) => m.id === who)?.name;
+		const focus = r.view.of(who).get('focus');
+		followBus.setLeader(name ? { name, focus: typeof focus === 'string' ? focus : null } : null);
 	}
 	/** Follow into Present (design note 2026-10-21 §7.4). The leader's Present is a place; ours opens at it, quietly,
 	 *  unless we are typing (then a Join), already in a Present of our own, or the room is presenting (that wins). */
@@ -986,7 +1042,7 @@ export class LiveController {
 		r.disposers.push(
 			followBus.onLocal((key, value) => {
 				this.publishBus();
-				if (key !== 'present' && value !== null && this.following && Date.now() - this.lastApplyAt > 800 && value !== followBus.lastApplied(key)) {
+				if ((key === 'inspector' || key === 'section') && value !== null && this.following && Date.now() - this.lastApplyAt > 800 && value !== followBus.lastApplied(key)) {
 					this.following = null;
 					this.host.rerender();
 				}
@@ -1709,6 +1765,8 @@ export class LiveController {
 		const s = r?.session.getState();
 		if (!r || !s || s.stage !== 'live') return;
 		const byPeer = this.awByPeer();
+		this.scanChanged(byPeer.keys());
+		this.syncLeader();
 		if (this.following && !this.applying) {
 			const slide = byPeer.get(this.following)?.slide;
 			if (!s.members.some((m) => m.id === this.following)) {
@@ -2618,7 +2676,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), ...(!me && st?.doing ? { doing: st.doing } : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), ...(!me && st?.doing ? { doing: st.doing } : {}), ...(!me && this.rt ? this.placeOfPeer(m.id) : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });

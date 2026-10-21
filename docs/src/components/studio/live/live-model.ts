@@ -21,6 +21,10 @@ export type LivePerson = {
 	editing: boolean;
 	/** What they are doing in the Studio, when they share it (not for this browser's own row). */
 	doing?: LiveDoing;
+	/** Where they are in the settings, in words ("in Deck · Brand", "in Setup · AI"), when they share it. */
+	at?: string;
+	/** The settings row they changed a moment ago ("changed Theme"): the row's name, never its value. */
+	changed?: string;
 	/** `off`: not on the call (no mic shown). `muted`: on the call, muted. */
 	mic: 'off' | 'muted' | 'on' | 'speaking';
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that

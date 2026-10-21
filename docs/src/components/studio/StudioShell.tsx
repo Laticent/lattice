@@ -105,7 +105,8 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
-import { followBus, type PresentPlace, useAppliedKey, useViewKey } from './live/follow-bus';
+import { followBus, type PresentPlace, rowIdOf, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
+import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
@@ -946,6 +947,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Live: say which settings panel and section are open, and open the ones a person we follow is in.
 	// The Live session decides when (one typing gate); these only decide how.
 	const deckSectionIdsRef = React.useRef<string[]>([]);
+	useViewKey('shown', workspaceOpen ? 'setup' : null);
 	useViewKey('inspector', activeSettings ?? 'none');
 	useViewKey('section', activeSettings === 'deck' ? deckTab : null);
 	useAppliedKey('inspector', (v) => {
@@ -1551,10 +1553,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		});
 		setUndo({ next, id });
 	}, [setSource]);
+	const changedCountRef = React.useRef(0);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		// Live: say which row changed (its name only, never the value) so people following us can see it.
+		const changedRow = rowIdOf(label.split(' → ')[0]);
+		if (changedRow) followBus.setLocal('changed', { what: changedRow, n: ++changedCountRef.current });
 		// Apply the precomputed result; fall back to re-running on the freshest source
 		// only if an editor flush landed between snapshot and commit.
 		setSource((s) => (s === prev ? next : updater(s)));
@@ -7598,9 +7604,12 @@ function Field({ label, desc, help, find, htmlFor, descId, after, children }: { 
 	// `help` is deliberately NOT searched: it is a paragraph of prose per row, so folding
 	// it in would match nearly every row on nearly every word.
 	const hit = useSettingsHit(label, desc, find);
+	// Live: which row has focus is shown to the people following us, and a row the person we follow is in wears a ring.
+	const row = useFollowRow(label);
 	if (!hit) return null;
 	return (
-		<div {...hit} className="my-2">
+		<div {...hit} {...row.props} data-follow-ghost={row.ghost ?? undefined} className={cn('my-2', row.ghost && FOLLOW_GHOST)}>
+			{row.ghost && <FollowChip name={row.ghost} />}
 			{/* `PINNED_FIELD_ROW` holds the row you are TYPING in above the keyboard — the
 			    position the command palette's docked field occupies, borrowed rather than
 			    recomputed. It goes on the LABEL+CONTROL row, not the whole block: the help

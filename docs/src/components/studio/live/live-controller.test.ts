@@ -1160,7 +1160,7 @@ describe('LiveController: activity, Follow and pointers', () => {
 		const off = followBus.onApply((k, v) => {
 			if (v === null) return;
 			applied.push(`${k}:${v}`);
-			followBus.setLocal(k, v);
+			(followBus.setLocal as (key: string, value: unknown) => void)(k, v);
 		});
 		g.actions.follow(hostId);
 		// biome-ignore lint/suspicious/noExplicitAny: the leader's screen reports its settings panel and section.
@@ -1295,6 +1295,36 @@ describe('LiveController: activity, Follow and pointers', () => {
 		joined?.();
 		expect(seen).toHaveLength(1);
 		off();
+	});
+
+	it('shows where a member is in the settings, the row they changed (once, never the first sight), and where the leader is looking', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		// biome-ignore lint/suspicious/noExplicitAny: the leader's screen reports where it is.
+		const lead = (h as any).rt.view;
+		const push = () => lead.flush();
+		const atOf = () => g.view().people.find((p) => p.role === 'host');
+		lead.set('shown', 'setup');
+		lead.set('setupTab', 'AI');
+		lead.set('changed', { what: 'theme', n: 1 });
+		push();
+		await until(() => atOf()?.at === 'in Setup · AI', h, g);
+		// A change counter seen for the first time is history: nothing is announced.
+		expect(atOf()?.changed).toBeUndefined();
+		await new Promise((r) => setTimeout(r, 150));
+		lead.set('changed', { what: 'theme', n: 2 });
+		push();
+		await until(() => atOf()?.changed === 'changed Theme', h, g);
+		// The leader's focus reaches the screens of whoever follows, and ends with the follow.
+		g.actions.follow(hostId);
+		await new Promise((r) => setTimeout(r, 150));
+		lead.set('focus', 'header');
+		push();
+		await until(() => followBus.getLeader()?.focus === 'header', h, g);
+		expect(followBus.getLeader()?.name).toBe('Sharmarke');
+		g.actions.follow(null as unknown as string);
+		expect(followBus.getLeader()).toBeNull();
 	});
 
 	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {

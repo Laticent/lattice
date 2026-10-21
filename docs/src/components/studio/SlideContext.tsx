@@ -33,7 +33,8 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
-import { followBus, useAppliedKey, useViewKey } from './live/follow-bus';
+import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
+import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -125,9 +126,12 @@ function Row({ label, hint, desc, help, find, children }: { label: string; hint?
 	// currently inheriting and none you had overridden, and a row vanished from the results
 	// the moment you changed it. A search whose answers move when you edit is not learnable.
 	const hit = useSettingsHit(label, desc, find);
+	// Live: see Field in StudioShell.
+	const row = useFollowRow(label);
 	if (!hit) return null;
 	return (
-		<div {...hit} className="my-1.5">
+		<div {...hit} {...row.props} data-follow-ghost={row.ghost ?? undefined} className={cn('my-1.5', row.ghost && FOLLOW_GHOST)}>
+			{row.ghost && <FollowChip name={row.ghost} />}
 			{/* The SAME 45/45 geometry the deck Inspector uses (SETTING_ROW in ui/panel) —
 			    every control in the column starts at one x, whatever its label's length, and
 			    a filling control truncates rather than growing. It still wraps: if a control's
