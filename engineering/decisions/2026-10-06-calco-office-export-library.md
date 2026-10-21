@@ -228,6 +228,17 @@ jargon gallery before, 0 on all five exported decks after. One PptxGenJS source 
 warning in modern powerpoint"; the comment beside it says the reverse, and the schema and the
 SDK both require it, so desktop PowerPoint is the one check left for that move.
 
+**Correction (2026-10-21): the notes-master move made desktop PowerPoint refuse the file.** The
+paragraph above left that move as "the one check left for desktop PowerPoint". The owner then
+opened `.pptx` exports from `main` and got "Sorry, PowerPoint can't read". PptxGenJS 3.12 points
+both `slideMaster1.xml` and `notesMaster1.xml` at one `theme1.xml`. A validator that encodes
+PowerPoint's rules reports a master sharing a theme as refused once `p:notesMasterIdLst` is NOT
+directly after `p:sldIdLst`, which is where `tidyPptx` put it for the schema. Plain and editable
+packages from `main` failed it identically. `tidyPptx` now keeps the schema order and gives each
+master its own copy of the theme (`giveMastersOwnThemes`), with its relationship and content
+type; the same packages then pass the XSD schema and that check. **Still not opened in desktop
+PowerPoint**: the validator is a stand-in, so "fixed" waits for the owner to open one.
+
 **The picture-only `.pptx` is tidied too (2026-10-07).** It writes through PptxGenJS directly
 (`lib/export/pptx-export.js` in the CLI, `exportPptx` in the Studio) and carried the last
 two defects: on the 58-slide jargon gallery, one schema error in `presentation.xml` and 57
