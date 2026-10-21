@@ -1,0 +1,2 @@
+studio: +1579
+The tour course adds Studio shell logic that has to be there at startup: the first-visit gate for the welcome card, saving and restoring the screen layout around every tour, the hand-off to the go-further card after a tour, and the six-entry tour registry. Given back first: the tour scripts, every sentence of every tour, the voice and its sound test, and the card itself all load on demand, which took the growth from +4839 to +1579.
