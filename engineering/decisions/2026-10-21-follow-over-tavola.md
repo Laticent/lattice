@@ -311,7 +311,7 @@ fails without the fix:
   and color was followed, and the 20 s bound was not enforced (and the grace branch also made a follower ignore the
   host's "Bring everyone"). **Rebind removed.** A follow now ends when the person followed leaves, with the notice
   "Amina left, so you stopped following." Surviving a reconnect needs the session to say that the same seat came
-  back; that is a protocol change, filed in `followups.d/2830-follow-same-seat-after-reconnect.md`.
+  back; that is a protocol change, filed in `followups.d/2830-p2-follow-same-seat-after-reconnect.md`.
 - **Present's place leaked with "share my slide" off** (red team, reproduced): `present` now follows both switches.
 - **A caret flood ran every peer's handlers 20,000 times** (red team, reproduced): caret-only updates are applied at
   most once per 33 ms per sender, latest kept.

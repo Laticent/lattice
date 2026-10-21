@@ -213,6 +213,18 @@ if (desktop) {
 	await toast.getByRole('button', { name: 'Go' }).click();
 	const went = await until(guest, () => /Slide 2 \/ 7/.test(document.body.innerText), null);
 	check(went, 'pressing Go took the guest to slide 2');
+
+	// 8. The Slide panel (not only Deck): the host opens it on a section; the guest, still following, opens the same.
+	await guest.keyboard.press('Escape');
+	await host.locator('nav[aria-label="Studio panels"] button[aria-label="Slide settings"]').last().click();
+	await host.waitForSelector('[aria-label="Slide settings sections"]', { timeout: 15000 });
+	await host.locator('[aria-label="Slide settings sections"] [role="tab"]', { hasText: 'Notes' }).first().click().catch(() => {});
+	const slideVisible = () => (document.querySelector('[aria-label="Slide settings sections"]')?.querySelector('[role="tab"]')?.getClientRects().length ?? 0) > 0;
+	const guestSlide = await until(guest, slideVisible, null, 15000);
+	check(guestSlide, 'the guest\'s Slide settings panel opened');
+	const guestNotes = await until(guest, () => document.querySelector('[aria-label="Slide settings sections"] [role="tab"][aria-selected="true"]')?.textContent?.includes('Notes') ?? false, null, 15000);
+	check(guestNotes, 'the guest\'s Slide panel is on the Notes section');
+	await shot('8-slide-panel');
 }
 
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nall checks passed');
