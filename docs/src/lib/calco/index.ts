@@ -17,7 +17,7 @@ export { imageExt, imageMime, isContinuousTone, jpegWins, PICTURE_FLAT_BYTES, PI
 
 export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx.js';
 export { applyRoles, buildPptx, embedPptxFonts, groupShapes, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, writePptx, xmlSafe } from './pptx.js';
-export type { ReadOptions, ReadResult } from './reader.js';
+export type { ReadOptions, ReadResult, Refusal } from './reader.js';
 export { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './reader.js';
 export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt.js';
 export type { Drawn, DrawnGroup, Insets, PathCmd, ShapeGeometry } from './shapes.js';

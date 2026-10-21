@@ -50,7 +50,7 @@ export function isPosition(frame: TextFrame, position: number): boolean {
 }
 
 /** Whether a run has only the styling a layout's slide number can carry. */
-function plain(frame: TextFrame): boolean {
+function hasBasicStyle(frame: TextFrame): boolean {
 	const st = frame.lines[0][0].style;
 	return !st.letterSpacing && st.alpha === 1 && !st.italic && !st.underline && !st.strike && !st.smallCaps && st.transform === 'none';
 }
@@ -76,7 +76,7 @@ function candidates(slide: Slide, position: number): Map<ChromeRole, { index: nu
 		// numbering resumes after it, so the office app's own count would disagree with the page.
 		if (role === 'number' && !isPosition(frame, position)) return;
 		// A layout's number carries size, color, face, weight and alignment, and no more.
-		if (role === 'number' && !plain(frame)) return;
+		if (role === 'number' && !hasBasicStyle(frame)) return;
 		const list = found.get(role as ChromeRole) || [];
 		list.push({ index, sig: signature(frame) });
 		found.set(role as ChromeRole, list);

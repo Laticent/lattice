@@ -441,12 +441,17 @@ describe('calco reader: native shapes', () => {
     assert.ok(boxAt(1040, 500), 'the backdrop paints below it');
   });
 
-  test('a fill clipped to its content box is that box; border-image, two shadows and a covered child stay', () => {
+  test('a fill clipped to its content box is that box; border-image and two shadows stay; a parent\'s positioned ::before and its child both lift, in paint order', () => {
     const seg = res.shapes.find((s) => s.kind === 'box' && s.fill?.color === '#006fa8' && Math.abs(s.x - 40) < 1);
     assert.ok(seg, 'the padded accent segment lifts');
     assert.ok(Math.abs(seg.y - 576) < 0.5 && Math.abs(seg.h - 2.5) < 0.1, `the fill is the content box: ${JSON.stringify(seg)}`);
     assert.equal(res.shapes.find((s) => Math.abs(s.x - 200) < 4 && Math.abs(s.y - 560) < 4), undefined, 'a border-image box');
-    assert.equal(boxAt(340, 560), undefined, 'a static child under its parent\'s absolutely placed ::before');
+    // The parent's absolutely placed ::before is lifted too, so nothing the picture keeps covers the child:
+    // both are shapes, and the pseudo paints ABOVE the static child, as CSS does.
+    const child = res.shapes.findIndex((s) => s.kind === 'box' && !s.pseudo && Math.abs(s.x - 340) < 1 && Math.abs(s.y - 560) < 1 && s.w === 100);
+    const pseudo = res.shapes.findIndex((s) => s.kind === 'box' && s.pseudo && Math.abs(s.x - 340) < 1 && Math.abs(s.y - 560) < 1 && s.w === 60);
+    assert.ok(child >= 0 && pseudo >= 0, 'the child and the pseudo are both shapes');
+    assert.ok(pseudo > child, 'the positioned pseudo is drawn after (above) the static child');
     assert.equal(boxAt(500, 560), undefined, 'two outer shadow layers');
   });
 

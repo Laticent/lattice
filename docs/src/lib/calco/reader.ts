@@ -47,6 +47,21 @@ export interface ReadResult {
 	shapes: Shape[];
 	/** True when the slide's read text (and lifted shapes) is now hidden (call `restoreSlide` after capture). */
 	hidden: boolean;
+	/** With `diagnose`: each painted box or pseudo-element that stayed in the picture, and why. */
+	refused?: Refusal[];
+}
+
+/** A box that stayed in the picture. `reason` names the test it failed: `paint:...`, `pseudo:...` or `covered`. */
+export interface Refusal {
+	tag: string;
+	cls: string;
+	/** The pseudo-element, when it is one. */
+	pseudo?: 'before' | 'after';
+	reason: string;
+	/** For `covered`: what the picture keeps above it. */
+	by?: string;
+	w: number;
+	h: number;
 }
 
 export interface ReadOptions {
@@ -57,6 +72,8 @@ export interface ReadOptions {
 	 * With `hide`, their paint is hidden too. Default false.
 	 */
 	shapes?: boolean;
+	/** Record, for audit, every box that stayed in the picture and why (`ReadResult.refused`). Default false. */
+	diagnose?: boolean;
 }
 
 /**
@@ -536,6 +553,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// refusal is itself picture content, which can refuse the box around it in turn.
 	const shapes: Shape[] = [];
 	const shapeEls: Element[] = [];
+	// Pseudo-elements whose paint was lifted into a shape, so the capture hides them.
+	const pseudoHides: Array<{ el: Element; side: 'before' | 'after' }> = [];
+	// Elements whose OWN paint was lifted into shapes, so the capture hides it (a pseudo's is hidden apart).
+	const paintHidden = new Set<Element>();
+	let refusedOut: Refusal[] | undefined;
 	if (options?.shapes) {
 		const keptNodes = new Set<Node>(kept.map((wd) => wd.node));
 		const px = (v: string) => Number.parseFloat(v) || 0;
@@ -630,8 +652,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			text?: boolean;
 			/** The box this item IS, when it is a box that was refused. */
 			paintOf?: Element;
+			/** Audit: what kind of picture content this is. */
+			kind?: string;
 		}
 		const items: Item[] = [];
+		const refused: Refusal[] = [];
+		const label = (el: Element) => ({ tag: String(el.localName), cls: String((el as HTMLElement).className || '').toString().slice(0, 60) });
+		const refuse = (el: Element, r: Rect, reason: string, pseudo?: 'before' | 'after', by?: string) => {
+			if (options?.diagnose) refused.push({ ...label(el), ...(pseudo ? { pseudo } : {}), reason, ...(by ? { by } : {}), w: Math.round(r.w), h: Math.round(r.h) });
+		};
 		interface Candidate {
 			el: Element;
 			rect: Rect;
@@ -642,6 +671,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			shadow: Shadow | null;
 			/** Fill, outline or shadow: the box covers its area, not just its edges. */
 			covers: boolean;
+			/** Painted by this pseudo-element of `el`, not by `el` itself. */
+			pseudo?: 'before' | 'after';
+			/** A mark lifted from a CSS mask: the path shape itself. */
+			mark?: Shape;
+			/** An outline drawn just outside the box (`box-shadow: 0 0 0 Wpx`). */
+			outerRing?: Paint & { width: number };
 		}
 		const candidates: Candidate[] = [];
 		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
@@ -665,8 +700,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// inset ring (no offset, no blur, a spread) is a border drawn inside the edge, which is
 		// how a tag outlines itself without moving its text: it comes back as `ring`. `false`
 		// when a layer is neither (an inner glow, an outer spread).
-		const shadowOf = (v: string, opacity: number): { outer: Shadow | null; ring: (Paint & { width: number }) | null } | false => {
-			const out: { outer: Shadow | null; ring: (Paint & { width: number }) | null } = { outer: null, ring: null };
+		const shadowOf = (v: string, opacity: number): { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null } | false => {
+			const out: { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null } = { outer: null, ring: null, outerRing: null };
 			if (!v || v === 'none') return out;
 			for (const layer of splitTop(v)) {
 				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
@@ -674,12 +709,19 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const paint = paintOf(color ? color[1] : 'currentcolor', opacity);
 				if (!paint) continue;
 				const [x, y, blur, spread] = rest.replace(/\binset\b/, '').trim().split(/\s+/).map(px);
+				// A layer that draws nothing (every length zero) is no layer.
+				if (!x && !y && !blur && !spread) continue;
 				if (/\binset\b/.test(rest)) {
 					if (x || y || blur || !(spread > 0) || out.ring) return false;
 					out.ring = { ...paint, width: spread };
 					continue;
 				}
-				if (spread) return false;
+				// An outer spread with no offset or blur is a ring just outside the box: an outline.
+				if (spread) {
+					if (x || y || blur || !(spread > 0) || out.outerRing) return false;
+					out.outerRing = { ...paint, width: spread };
+					continue;
+				}
 				// Two outer layers (a tight shadow under a soft one) are not one office shadow.
 				if (out.outer) return false;
 				out.outer = { ...paint, x, y, blur };
@@ -707,6 +749,410 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return SIDES.some((sd) => px(ps[`border${sd}Width`]) > 0 && ps[`border${sd}Style`] !== 'none' && !!paintOf(ps[`border${sd}Color`], 1));
 		};
 
+
+		// ── A box's paint, as one candidate. Shared by an element and a pseudo-element.
+		const analyze = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect, op: number, owner: Element, tag: string): { plain: boolean; box: Candidate; why: string } | null => {
+			const fill = paintOf(cs.backgroundColor, op);
+			let sides = SIDES.map((sd) => {
+				const width = px(cs[`border${sd}Width`]);
+				const st = cs[`border${sd}Style`];
+				if (!(width > 0) || st === 'none' || st === 'hidden') return null;
+				const p = paintOf(cs[`border${sd}Color`], op);
+				return p ? { ...p, width, style: st } : null;
+			});
+			let shadow: Shadow | null | false = null;
+			let outerRing: (Paint & { width: number }) | null = null;
+			const shadows = shadowOf(cs.boxShadow, op);
+			if (shadows === false) shadow = false;
+			else {
+				shadow = shadows.outer;
+				outerRing = shadows.outerRing;
+				// A ring inside a border would be a second outline: that box stays a picture.
+				if (shadows.ring && sides.some(Boolean)) shadow = false;
+				else if (shadows.ring) {
+					const ring = { ...shadows.ring, style: 'solid' };
+					sides = SIDES.map(() => ring);
+				}
+			}
+			// A shadow under a translucent fill or no fill would show THROUGH it in an office
+			// suite, where CSS clips it to outside the box.
+			if (shadow && !(fill && fill.alpha >= 1)) shadow = false;
+			const image = (cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
+			const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
+			if (!(fill || image || outline || shadow !== null || outerRing || sides.some(Boolean))) return null;
+			// Corner radii: circular only, `%` resolved, scaled down as CSS scales them.
+			const rx = CORNERS.map((c) => {
+				const parts = (cs[`border${c}Radius`] || '0px').split(/\s+/);
+				const h = parts[0].endsWith('%') ? (px(parts[0]) / 100) * rect.w : px(parts[0]);
+				const v = parts[1] ? (parts[1].endsWith('%') ? (px(parts[1]) / 100) * rect.h : px(parts[1])) : parts[0].endsWith('%') ? (px(parts[0]) / 100) * rect.h : h;
+				return [h, v];
+			});
+			const circular = rx.every(([h, v]) => Math.abs(h - v) <= 0.5);
+			const r = rx.map(([h]) => h);
+			const f = Math.min(1, rect.w / (r[0] + r[1] || 1), rect.w / (r[3] + r[2] || 1), rect.h / (r[0] + r[3] || 1), rect.h / (r[1] + r[2] || 1));
+			let radii = r.map((v) => Math.round(v * f * 100) / 100) as Candidate['radii'];
+			// A fill clipped to the padding or content box (a short accent rule drawn as a
+			// padded segment) paints a smaller box than the border box. Borders around it
+			// would need two boxes: that stays a picture.
+			let shape = rect;
+			let clipBad = false;
+			if (fill && cs.backgroundClip !== 'border-box') {
+				const content = cs.backgroundClip === 'content-box';
+				const ins = SIDES.map((sd) => px(cs[`border${sd}Width`]) + (content ? px(cs[`padding${sd}`]) : 0));
+				if (ins.some((v) => v > 0)) {
+					if (sides.some(Boolean) || shadow) clipBad = true;
+					shape = { x: rect.x + ins[3], y: rect.y + ins[0], w: rect.w - ins[1] - ins[3], h: rect.h - ins[0] - ins[2] };
+					radii = radii.map((v, i) => Math.max(0, Math.round((v - Math.max(ins[i === 0 || i === 3 ? 3 : 1], ins[i < 2 ? 0 : 2])) * 100) / 100)) as Candidate['radii'];
+					if (!(shape.w > 0 && shape.h > 0)) clipBad = true;
+				}
+			}
+			const plain =
+				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
+				cs.backgroundClip !== 'text' && !effected(owner) && unclipped(owner, rect) && tag !== 'html' && tag !== 'body';
+			const why = plain
+				? ''
+				: [
+						image && (cs.borderImageSource && cs.borderImageSource !== 'none' ? 'border-image' : /gradient/.test(cs.backgroundImage) ? `${/radial/.test(cs.backgroundImage) ? 'radial' : 'linear'}-gradient` : 'bg-image'),
+						outline && 'outline',
+						clipBad && 'bg-clip',
+						shadow === false && 'shadow',
+						!circular && 'elliptical-radius',
+						!sides.every((sd) => !sd || sd.style === 'solid') && 'border-style',
+						cs.backgroundClip === 'text' && 'clip-text',
+						effected(owner) && 'effect',
+						!unclipped(owner, rect) && 'overflow-clipped',
+					]
+						.filter(Boolean)
+						.join('+') || 'other';
+			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
+			box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
+			if (outerRing) box.outerRing = outerRing;
+			return { plain, box, why };
+		};
+
+		// ── A pseudo-element's box. The DOM has no rectangle for `::before`, so a PROBE stands in for
+		// it: a real element with the pseudo's layout (display, size, margins, position, a translate)
+		// takes its place for one read, and the pseudo is switched off meanwhile. If anything else
+		// moved by the swap, the pseudo is not measured and stays in the picture.
+		const probeStyle = doc.createElement('style');
+		probeStyle.textContent = '[data-calco-probe="before"]::before,[data-calco-probe="after"]::after{content:none!important}';
+		const LAYOUT = ['display', 'position', 'top', 'right', 'bottom', 'left', 'float', 'clear', 'order', 'flexGrow', 'flexShrink', 'flexBasis', 'alignSelf', 'justifySelf', 'verticalAlign', 'boxSizing', 'width', 'height', 'minWidth', 'minHeight', 'maxWidth', 'maxHeight', 'marginTop', 'marginRight', 'marginBottom', 'marginLeft', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'transform'] as const;
+		const measurePseudo = (el: Element, which: '::before' | '::after', ps: CSSStyleDeclaration & Record<string, string>): Rect | null => {
+			if (['none', 'inline', 'contents'].includes(ps.display)) return null;
+			if (ps.transform && ps.transform !== 'none') {
+				const m = ps.transform.match(/^matrix\(([^)]+)\)$/);
+				const v = m ? m[1].split(',').map(Number) : null;
+				// A translation only: a rotation or scale would make the box a different shape.
+				if (!v || Math.abs(v[0] - 1) > 1e-3 || Math.abs(v[3] - 1) > 1e-3 || Math.abs(v[1]) > 1e-3 || Math.abs(v[2]) > 1e-3) return null;
+			}
+			const watch = [el, el.parentElement, ...Array.from(el.children)].filter(Boolean).slice(0, 24) as Element[];
+			const snap = () => watch.map((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; });
+			const before = snap();
+			const probe = doc.createElement('calco-probe') as HTMLElement;
+			for (const k of LAYOUT) (probe.style as unknown as Record<string, string>)[k] = ps[k];
+			for (const sd of SIDES) {
+				probe.style.setProperty(`border-${sd.toLowerCase()}-width`, ps[`border${sd}Width`]);
+				probe.style.setProperty(`border-${sd.toLowerCase()}-style`, 'solid');
+				probe.style.setProperty(`border-${sd.toLowerCase()}-color`, 'transparent');
+			}
+			const side = which === '::before' ? 'before' : 'after';
+			if (!probeStyle.isConnected) doc.head.appendChild(probeStyle);
+			const had = el.getAttribute('data-calco-probe');
+			el.setAttribute('data-calco-probe', side);
+			if (side === 'before') el.insertBefore(probe, el.firstChild);
+			else el.appendChild(probe);
+			const rr = probe.getBoundingClientRect();
+			const after = snap();
+			probe.remove();
+			if (had === null) el.removeAttribute('data-calco-probe');
+			else el.setAttribute('data-calco-probe', had);
+			const moved = before.some((b, i) => b.some((v, j) => Math.abs(v - after[i][j]) > 0.5));
+			if (moved || !(rr.width > 0 && rr.height > 0)) return null;
+			return relRect(rr);
+		};
+
+		// ── A mark: a pseudo that paints a CSS mask. Our marks are curated inline SVG tokens (a
+		// check, a dash, a cross) whose alpha is the shape and whose color is the pseudo's
+		// background; that is a stroked or filled path, and it is lifted as one.
+		const tokenize = (d: string): string[] => d.match(/[MmLlHhVvCcSsQqTtAaZz]|-?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/g) || [];
+		const arcToCubics = (x1: number, y1: number, rx: number, ry: number, phi: number, fa: number, fs: number, x2: number, y2: number): number[][] => {
+			if (!rx || !ry) return [[x1, y1, x2, y2, x2, y2]];
+			rx = Math.abs(rx);
+			ry = Math.abs(ry);
+			const cp = Math.cos((phi * Math.PI) / 180);
+			const sp = Math.sin((phi * Math.PI) / 180);
+			const dx = (x1 - x2) / 2;
+			const dy = (y1 - y2) / 2;
+			const x1p = cp * dx + sp * dy;
+			const y1p = -sp * dx + cp * dy;
+			const lam = (x1p * x1p) / (rx * rx) + (y1p * y1p) / (ry * ry);
+			if (lam > 1) {
+				rx *= Math.sqrt(lam);
+				ry *= Math.sqrt(lam);
+			}
+			const num = rx * rx * ry * ry - rx * rx * y1p * y1p - ry * ry * x1p * x1p;
+			const den = rx * rx * y1p * y1p + ry * ry * x1p * x1p;
+			const co = (fa === fs ? -1 : 1) * Math.sqrt(Math.max(0, num / den));
+			const cxp = (co * rx * y1p) / ry;
+			const cyp = (-co * ry * x1p) / rx;
+			const cx = cp * cxp - sp * cyp + (x1 + x2) / 2;
+			const cy = sp * cxp + cp * cyp + (y1 + y2) / 2;
+			const ang = (ux: number, uy: number, vx: number, vy: number) => Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+			const t1 = ang(1, 0, (x1p - cxp) / rx, (y1p - cyp) / ry);
+			let dt = ang((x1p - cxp) / rx, (y1p - cyp) / ry, (-x1p - cxp) / rx, (-y1p - cyp) / ry);
+			if (!fs && dt > 0) dt -= 2 * Math.PI;
+			if (fs && dt < 0) dt += 2 * Math.PI;
+			const n = Math.max(1, Math.ceil(Math.abs(dt) / (Math.PI / 2) - 1e-9));
+			const out: number[][] = [];
+			for (let i = 0; i < n; i++) {
+				const a0 = t1 + (dt * i) / n;
+				const a1 = t1 + (dt * (i + 1)) / n;
+				const k = (4 / 3) * Math.tan((a1 - a0) / 4);
+				const pt = (a: number, kk: number, sgn: number): [number, number] => {
+					const x = Math.cos(a) - sgn * kk * Math.sin(a);
+					const y = Math.sin(a) + sgn * kk * Math.cos(a);
+					return [cp * rx * x - sp * ry * y + cx, sp * rx * x + cp * ry * y + cy];
+				};
+				const c1 = pt(a0, k, -1);
+				const c2 = pt(a1, k, 1);
+				const e = pt(a1, 0, 0);
+				out.push([c1[0], c1[1], c2[0], c2[1], e[0], e[1]]);
+			}
+			return out;
+		};
+		// An SVG path's `d` as absolute M, L, C, Z steps; null for anything this does not read.
+		const readPath = (d: string): Array<(string | number)[]> | null => {
+			const t = tokenize(d);
+			const out: Array<(string | number)[]> = [];
+			let i = 0;
+			let cmd = '';
+			let x = 0;
+			let y = 0;
+			let sx = 0;
+			let sy = 0;
+			let px2 = 0;
+			let py2 = 0;
+			const num = () => Number(t[i++]);
+			while (i < t.length) {
+				if (/^[A-Za-z]$/.test(t[i])) cmd = t[i++];
+				else if (!cmd) return null;
+				const rel = cmd === cmd.toLowerCase();
+				const up = cmd.toUpperCase();
+				if (up === 'Z') {
+					out.push(['Z']);
+					x = sx;
+					y = sy;
+					px2 = x;
+					py2 = y;
+					continue;
+				}
+				if (up === 'M' || up === 'L') {
+					let nx = num();
+					let ny = num();
+					if (rel) {
+						nx += x;
+						ny += y;
+					}
+					out.push([up === 'M' && cmd !== 'L' && cmd !== 'l' ? 'M' : 'L', nx, ny]);
+					if (up === 'M') {
+						sx = nx;
+						sy = ny;
+						cmd = rel ? 'l' : 'L';
+					}
+					x = nx;
+					y = ny;
+					px2 = x;
+					py2 = y;
+				} else if (up === 'H' || up === 'V') {
+					const v = num();
+					if (up === 'H') x = rel ? x + v : v;
+					else y = rel ? y + v : v;
+					out.push(['L', x, y]);
+					px2 = x;
+					py2 = y;
+				} else if (up === 'C') {
+					let a = [num(), num(), num(), num(), num(), num()];
+					if (rel) a = a.map((v, k) => v + (k % 2 ? y : x));
+					out.push(['C', ...a]);
+					px2 = a[2];
+					py2 = a[3];
+					x = a[4];
+					y = a[5];
+				} else if (up === 'S') {
+					let c2x = num();
+					let c2y = num();
+					let ex = num();
+					let ey = num();
+					if (rel) {
+						c2x += x;
+						c2y += y;
+						ex += x;
+						ey += y;
+					}
+					// The first control point reflects the last one (the current point when the last step was not a curve).
+					out.push(['C', 2 * x - px2, 2 * y - py2, c2x, c2y, ex, ey]);
+					px2 = c2x;
+					py2 = c2y;
+					x = ex;
+					y = ey;
+				} else if (up === 'Q') {
+					let qx = num();
+					let qy = num();
+					let ex = num();
+					let ey = num();
+					if (rel) {
+						qx += x;
+						qy += y;
+						ex += x;
+						ey += y;
+					}
+					// A quadratic, as the equivalent cubic.
+					out.push(['C', x + (2 / 3) * (qx - x), y + (2 / 3) * (qy - y), ex + (2 / 3) * (qx - ex), ey + (2 / 3) * (qy - ey), ex, ey]);
+					px2 = qx;
+					py2 = qy;
+					x = ex;
+					y = ey;
+				} else if (up === 'A') {
+					const rx = num();
+					const ry = num();
+					const phi = num();
+					const fa = num();
+					const fs = num();
+					let ex = num();
+					let ey = num();
+					if (rel) {
+						ex += x;
+						ey += y;
+					}
+					for (const c of arcToCubics(x, y, rx, ry, phi, fa, fs, ex, ey)) out.push(['C', ...c]);
+					x = ex;
+					y = ey;
+					px2 = x;
+					py2 = y;
+				} else return null;
+			}
+			return out;
+		};
+		const markOf = (ps: CSSStyleDeclaration & Record<string, string>, r: Rect, op: number): Shape | null => {
+			const mask = ps.maskImage && ps.maskImage !== 'none' ? ps.maskImage : ps.webkitMaskImage;
+			const color = paintOf(ps.backgroundColor, op);
+			if (!mask || !color || (ps.backgroundImage && ps.backgroundImage !== 'none')) return null;
+			// data:image/svg+xml, with any parameters (`;utf8`, `;charset=...`, `;base64`).
+			const m = mask.match(/^url\(\s*["']?data:image\/svg\+xml((?:;[^;,]+)*),([\s\S]*?)["']?\s*\)$/);
+			if (!m) return null;
+			let svg: string;
+			try {
+				svg = /;base64/.test(m[1]) ? atob(m[2]) : decodeURIComponent(m[2]);
+			} catch (_e) {
+				return null;
+			}
+			const dom = new win.DOMParser().parseFromString(svg, 'image/svg+xml');
+			const root = dom.documentElement;
+			if (root.localName !== 'svg' || dom.querySelector('parsererror')) return null;
+			const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+			if (vb.length !== 4 || vb.some(Number.isNaN) || !(vb[2] > 0 && vb[3] > 0)) return null;
+			const paths = Array.from(dom.querySelectorAll('path'));
+			// Only <path>: a circle or a text node in the mask would be dropped.
+			if (!paths.length || dom.querySelectorAll('*').length !== paths.length + 1) return null;
+			if ((ps.maskRepeat || ps.webkitMaskRepeat || 'no-repeat').split(/\s+/).some((v) => v !== 'no-repeat')) return null;
+			const size = (ps.maskSize || ps.webkitMaskSize || 'auto').trim();
+			let sx = r.w / vb[2];
+			let sy = r.h / vb[3];
+			if (size === 'contain' || size === 'auto' || size === 'auto auto') {
+				// Uniform, centered (mask-position 50% 50%).
+				const s = size === 'auto' || size === 'auto auto' ? 1 : Math.min(sx, sy);
+				sx = s;
+				sy = s;
+			} else if (!/^100%\s+100%$/.test(size)) return null;
+			const ox = r.x + (r.w - vb[2] * sx) / 2 - vb[0] * sx;
+			const oy = r.y + (r.h - vb[3] * sy) / 2 - vb[1] * sy;
+			const attr = (e: Element, k: string) => e.getAttribute(k) ?? root.getAttribute(k);
+			const first = paths[0];
+			const stroke = attr(first, 'stroke');
+			const fillAttr = attr(first, 'fill');
+			const filled = fillAttr !== 'none' && (fillAttr !== null || !stroke);
+			const stroked = !!stroke && stroke !== 'none';
+			// Several paths must share one treatment, so they can be one shape.
+			for (const pth of paths) {
+				if (attr(pth, 'stroke') !== stroke || attr(pth, 'fill') !== fillAttr || attr(pth, 'stroke-width') !== attr(first, 'stroke-width') || pth.hasAttribute('transform')) return null;
+			}
+			const cmds: Array<(string | number)[]> = [];
+			for (const pth of paths) {
+				const c = readPath(pth.getAttribute('d') || '');
+				if (!c) return null;
+				cmds.push(...c);
+			}
+			const pts: number[] = [];
+			const mapped = cmds.map((c) => {
+				if (c[0] === 'Z') return ['Z'];
+				const out: (string | number)[] = [c[0]];
+				for (let k = 1; k < c.length; k += 2) {
+					const X = ox + (c[k] as number) * sx;
+					const Y = oy + (c[k + 1] as number) * sy;
+					out.push(X, Y);
+					pts.push(X, Y);
+				}
+				return out;
+			});
+			if (!pts.length) return null;
+			const xs = pts.filter((_v, k) => k % 2 === 0);
+			const ys = pts.filter((_v, k) => k % 2 === 1);
+			let bx = Math.min(...xs);
+			let by = Math.min(...ys);
+			let bw = Math.max(...xs) - bx;
+			let bh = Math.max(...ys) - by;
+			// A straight rule has no thickness in one direction; a path needs a box.
+			if (bw < 1) {
+				bx -= (1 - bw) / 2;
+				bw = 1;
+			}
+			if (bh < 1) {
+				by -= (1 - bh) / 2;
+				bh = 1;
+			}
+			const round = (v: number) => Math.round(v * 1000) / 1000;
+			const path = mapped.map((c) => (c[0] === 'Z' ? ['Z'] : [c[0], ...(c.slice(1) as number[]).map((v, k) => round(v - (k % 2 ? by : bx)))])) as Shape['path'];
+			const shape: Shape = { kind: 'path', x: round(bx), y: round(by), w: round(bw), h: round(bh), path, closed: cmds.some((c) => c[0] === 'Z') && !stroked, pseudo: true };
+			if (stroked) {
+				const width = Number.parseFloat(attr(first, 'stroke-width') || '1') * ((sx + sy) / 2);
+				shape.stroke = { ...color, width: round(width) };
+				const cap = attr(first, 'stroke-linecap');
+				const join = attr(first, 'stroke-linejoin');
+				if (cap === 'round' || cap === 'square') shape.cap = cap;
+				if (join === 'round' || join === 'bevel') shape.join = join;
+			}
+			if (filled) shape.fill = color;
+			if (!shape.stroke && !shape.fill) return null;
+			return shape;
+		};
+		// A pseudo-element as a candidate: a plain box, or a mark. Null keeps it in the picture.
+		const liftPseudo = (el: Element, which: '::before' | '::after', why?: { reason: string }): Candidate | null => {
+			const no = (reason: string): null => {
+				if (why) why.reason = reason;
+				return null;
+			};
+			const ps = win.getComputedStyle(el, which) as CSSStyleDeclaration & Record<string, string>;
+			// Generated TEXT (a counter, a quote glyph) is not lifted here.
+			if (ps.content !== '""' && ps.content !== "''") return no('pseudo:text');
+			if (ps.filter !== 'none' || (ps.clipPath && ps.clipPath !== 'none') || (ps.mixBlendMode && ps.mixBlendMode !== 'normal') || (ps.backdropFilter && ps.backdropFilter !== 'none')) return no('pseudo:effect');
+			const op = opacityOf(el) * Number.parseFloat(ps.opacity || '1');
+			if (!(op > 0)) return no('pseudo:invisible');
+			const r = measurePseudo(el, which, ps);
+			if (!r) return no('pseudo:unmeasurable');
+			const side = which === '::before' ? 'before' : 'after';
+			const masked = (ps.maskImage && ps.maskImage !== 'none') || (ps.webkitMaskImage && ps.webkitMaskImage !== 'none');
+			if (masked) {
+				const mark = markOf(ps, r, op);
+				if (!mark || !effectless(el) || !unclipped(el, r)) return no(!mark ? 'pseudo:mask-not-a-path' : 'pseudo:mask-effect-or-clip');
+				return { el, rect: r, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, pseudo: side, mark };
+			}
+			const a = analyze(ps, r, op, el, 'pseudo');
+			if (!a || !a.plain) return no(a ? `pseudo:paint:${a.why}` : 'pseudo:no-paint');
+			a.box.pseudo = side;
+			return a.box;
+		};
+		const effectless = (el: Element) => !effected(el);
+
 		const DRAWN = new Set(['svg', 'math', 'img', 'canvas', 'video', 'iframe', 'object', 'embed', 'input', 'select', 'textarea', 'button', 'picture']);
 		const walk = (el: Element) => {
 			const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
@@ -715,81 +1161,38 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const shown = cs.visibility === 'visible' && opacityOf(el) > 0;
 			const rect = relRect(el.getBoundingClientRect());
 			if (el !== section && DRAWN.has(tag)) {
-				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect });
+				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect, kind: `drawn:${tag}` });
 				return;
 			}
 			// The slide's own `::before`/`::after` count too: a `::after` the slide places over a
 			// card (a vignette, a stamp) is painted above it, and stays in the picture.
 			if (shown) {
 				for (const which of ['::before', '::after'] as const) {
-					if (pseudoPaints(el, which)) items.push({ node: el, owner: el, rect: pseudoRect(el, which, rect), pseudo: which === '::before' ? 'before' : 'after' });
+					if (!pseudoPaints(el, which)) continue;
+					// A plain box or a mark becomes a shape of its own; the rest stays in the picture.
+					const why = { reason: 'pseudo:section' };
+					const lift = el !== section ? liftPseudo(el, which, why) : null;
+					const side = which === '::before' ? 'before' : 'after';
+					if (lift) candidates.push(lift);
+					else {
+						const pr = pseudoRect(el, which, rect);
+						items.push({ node: el, owner: el, rect: pr, pseudo: side, kind: `pseudo:${label(el).cls || label(el).tag}::${side}` });
+						refuse(el, pr, why.reason, side);
+					}
 				}
 			}
 			if (el !== section && shown) {
 				if (cs.display === 'list-item' && (cs.listStyleType !== 'none' || cs.listStyleImage !== 'none')) {
 					const em = px(cs.fontSize) * 2;
-					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: rect.w + em, h: rect.h }, pseudo: 'before' });
+					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: rect.w + em, h: rect.h }, pseudo: 'before', kind: 'list-marker' });
 				}
-				const op = opacityOf(el);
-				const fill = paintOf(cs.backgroundColor, op);
-				let sides = SIDES.map((sd) => {
-					const width = px(cs[`border${sd}Width`]);
-					const st = cs[`border${sd}Style`];
-					if (!(width > 0) || st === 'none' || st === 'hidden') return null;
-					const p = paintOf(cs[`border${sd}Color`], op);
-					return p ? { ...p, width, style: st } : null;
-				});
-				let shadow: Shadow | null | false = null;
-				const shadows = shadowOf(cs.boxShadow, op);
-				if (shadows === false) shadow = false;
-				else {
-					shadow = shadows.outer;
-					// A ring inside a border would be a second outline: that box stays a picture.
-					if (shadows.ring && sides.some(Boolean)) shadow = false;
-					else if (shadows.ring) {
-						const ring = { ...shadows.ring, style: 'solid' };
-						sides = SIDES.map(() => ring);
+				const found = analyze(cs, rect, opacityOf(el), el, tag);
+				if (found) {
+					if (found.plain) candidates.push(found.box);
+					else {
+						items.push({ node: el, owner: el, rect, paintOf: el, kind: 'refused-box' });
+						refuse(el, rect, `paint:${found.why}`);
 					}
-				}
-				// A shadow under a translucent fill or no fill would show THROUGH it in an office
-				// suite, where CSS clips it to outside the box.
-				if (shadow && !(fill && fill.alpha >= 1)) shadow = false;
-				const image = (cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
-				const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
-				if (fill || image || outline || shadow !== null || sides.some(Boolean)) {
-					// Corner radii: circular only, `%` resolved, scaled down as CSS scales them.
-					const rx = CORNERS.map((c) => {
-						const parts = (cs[`border${c}Radius`] || '0px').split(/\s+/);
-						const h = parts[0].endsWith('%') ? (px(parts[0]) / 100) * rect.w : px(parts[0]);
-						const v = parts[1] ? (parts[1].endsWith('%') ? (px(parts[1]) / 100) * rect.h : px(parts[1])) : parts[0].endsWith('%') ? (px(parts[0]) / 100) * rect.h : h;
-						return [h, v];
-					});
-					const circular = rx.every(([h, v]) => Math.abs(h - v) <= 0.5);
-					const r = rx.map(([h]) => h);
-					const f = Math.min(1, rect.w / (r[0] + r[1] || 1), rect.w / (r[3] + r[2] || 1), rect.h / (r[0] + r[3] || 1), rect.h / (r[1] + r[2] || 1));
-					let radii = r.map((v) => Math.round(v * f * 100) / 100) as Candidate['radii'];
-					// A fill clipped to the padding or content box (a short accent rule drawn as a
-					// padded segment) paints a smaller box than the border box. Borders around it
-					// would need two boxes: that stays a picture.
-					let shape = rect;
-					let clipBad = false;
-					if (fill && cs.backgroundClip !== 'border-box') {
-						const content = cs.backgroundClip === 'content-box';
-						const ins = SIDES.map((sd) => px(cs[`border${sd}Width`]) + (content ? px(cs[`padding${sd}`]) : 0));
-						if (ins.some((v) => v > 0)) {
-							if (sides.some(Boolean) || shadow) clipBad = true;
-							shape = { x: rect.x + ins[3], y: rect.y + ins[0], w: rect.w - ins[1] - ins[3], h: rect.h - ins[0] - ins[2] };
-							radii = radii.map((v, i) => Math.max(0, Math.round((v - Math.max(ins[i === 0 || i === 3 ? 3 : 1], ins[i < 2 ? 0 : 2])) * 100) / 100)) as Candidate['radii'];
-							if (!(shape.w > 0 && shape.h > 0)) clipBad = true;
-						}
-					}
-					const plain =
-						!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
-						cs.backgroundClip !== 'text' && !effected(el) && unclipped(el, rect) && tag !== 'html' && tag !== 'body';
-					const box = { el, rect: shape, alpha: op, fill, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
-					box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
-					if (plain) candidates.push(box);
-					else items.push({ node: el, owner: el, rect, paintOf: el });
 				}
 			}
 			for (let child = el.firstChild; child; child = child.nextSibling) {
@@ -799,13 +1202,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					// Text the picture keeps (not read, or left whole): its ink is picture content.
 					range2.selectNodeContents(child);
 					const r = range2.getBoundingClientRect();
-					if (r.width > 0 && r.height > 0) items.push({ node: child, owner: el, rect: relRect(r), text: true });
+					if (r.width > 0 && r.height > 0) items.push({ node: child, owner: el, rect: relRect(r), text: true, kind: 'unread-text' });
 				}
 			}
 		};
 		const range2 = doc.createRange();
 		walk(section);
 		range2.detach();
+		// The probe's rule is only for measuring; leave the page as it was found.
+		probeStyle.remove();
 
 		// The section's own paint is the slide's background: never a shape, always beneath.
 		const lifted = new Set(candidates.filter((c) => c.el !== section));
@@ -843,22 +1248,55 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const cover = coverOf(c);
 				if (!items.some((p) => cover.some((r) => overlaps(r, p.rect)) && above(p, c.el))) continue;
 				lifted.delete(c);
-				items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el });
+				items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, kind: 'refused-box' });
+				if (options?.diagnose) {
+					const by = items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
+					const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
+					refuse(c.el, c.rect, 'covered', c.pseudo, by ? by.kind : own ? `OWN ${own.kind}` : '?');
+				}
 				changed = true;
 			}
 		}
 
 		// Back to front: a parent before its children, else by painting level below their common
 		// ancestor, then tree order.
+		// A pseudo-element paints as its element's first (`::before`) or last (`::after`) child,
+		// unless it is positioned: then it paints with the positioned boxes, above static ones.
+		const rank = (c: Candidate) => (c.pseudo === 'before' ? 1 : c.pseudo === 'after' ? 2 : 0);
+		const lvl = (c: Candidate, common: Element): number => {
+			const base = levelOf(c.el, common);
+			if (!c.pseudo) return base;
+			const ps = win.getComputedStyle(c.el, c.pseudo === 'before' ? '::before' : '::after');
+			if (ps.position === 'static') return base;
+			const z = ps.zIndex === 'auto' ? Number.NaN : Number(ps.zIndex);
+			return Number.isNaN(z) ? Math.max(base, 2) : z < 0 ? Math.min(base, -1) : Math.max(base, 2 + z);
+		};
 		const order = [...lifted].sort((a, b) => {
-			if (a.el.contains(b.el)) return -1;
-			if (b.el.contains(a.el)) return 1;
+			if (a.el === b.el) {
+				if (!a.pseudo || !b.pseudo) return rank(a) - rank(b);
+				return lvl(a, a.el) - lvl(b, b.el) || rank(a) - rank(b);
+			}
+			if (a.el.contains(b.el)) {
+				if (!a.pseudo) return -1;
+				return lvl(a, a.el) - levelOf(b.el, a.el) || (a.pseudo === 'after' ? 1 : -1);
+			}
+			if (b.el.contains(a.el)) {
+				if (!b.pseudo) return 1;
+				return levelOf(a.el, b.el) - lvl(b, b.el) || (b.pseudo === 'after' ? -1 : 1);
+			}
 			const common = commonAncestor(a.el, b.el);
-			const d = levelOf(a.el, common) - levelOf(b.el, common);
+			const d = lvl(a, common) - lvl(b, common);
 			return d || (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
 		});
 		const same = (a: Paint & { width: number }, b: Paint & { width: number }) => a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01;
 		for (const c of order) {
+			if (c.pseudo) pseudoHides.push({ el: c.el, side: c.pseudo });
+			if (c.mark) {
+				shapes.push({ ...c.mark });
+				shapeEls.push(c.el);
+				continue;
+			}
+			const firstShape = shapes.length;
 			const { x, y, w, h } = c.rect;
 			// The outline is the border most sides share; a side that differs is a rule over it.
 			let stroke: (Paint & { width: number }) | undefined;
@@ -874,6 +1312,21 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (stroke) box.stroke = stroke;
 				if (c.shadow) box.shadow = c.shadow;
 				shapes.push(box);
+				shapeEls.push(c.el);
+			}
+			// An outline drawn outside the box: a stroke-only box one ring wider, whose band is exactly the ring.
+			if (c.outerRing) {
+				const rw = c.outerRing.width;
+				shapes.push({
+					kind: 'box',
+					x: x - rw,
+					y: y - rw,
+					w: w + 2 * rw,
+					h: h + 2 * rw,
+					radii: c.radii.map((v) => Math.round((v + rw) * 100) / 100) as Candidate['radii'],
+					stroke: c.outerRing,
+					pseudo: true,
+				});
 				shapeEls.push(c.el);
 			}
 			const [rTL, rTR, rBR, rBL] = c.radii;
@@ -894,15 +1347,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				shapes.push(line);
 				shapeEls.push(c.el);
 			});
+			if (c.pseudo) for (let k = firstShape; k < shapes.length; k++) shapes[k].pseudo = true;
+			else if (shapes.length > firstShape) paintHidden.add(c.el);
 		}
 
 		// LABELS: a box with no shadow that holds nothing lifted but ONE paragraph of its own
 		// carries that text inside it: one object, which moves and resizes with its words.
 		const carried = new Set<number>();
 		shapes.forEach((sh, i) => {
-			if (sh.kind !== 'box' || sh.shadow) return;
+			if (sh.kind !== 'box' || sh.shadow || sh.pseudo) return;
 			const el = shapeEls[i];
-			if (shapeEls.some((o, j) => j !== i && (o === el || el.contains(o)))) return;
+			// A pill's own dot or mark does not stop it carrying its text; another element's shape does.
+			if (shapeEls.some((o, j) => j !== i && !(shapes[j].pseudo && o === el) && (o === el || el.contains(o)))) return;
 			const inside = frames.map((_f, j) => j).filter((j) => el.contains(frameBlocks[j]));
 			if (inside.length === 1 && frameBlocks[inside[0]] === el) {
 				sh.text = inside[0];
@@ -914,7 +1370,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const cardOf = (el: Element, self: boolean): number => {
 			let best = -1;
 			shapes.forEach((sh, i) => {
-				if (sh.kind !== 'box') return;
+				if (sh.kind !== 'box' || sh.pseudo) return;
 				const box = shapeEls[i];
 				if ((box === el ? self : box.contains(el)) && (best < 0 || shapeEls[i].contains(shapeEls[best]))) best = i;
 			});
@@ -922,7 +1378,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		const groups = new Set<number>();
 		shapes.forEach((sh, i) => {
-			const g = cardOf(shapeEls[i], sh.kind !== 'box');
+			const g = cardOf(shapeEls[i], sh.kind !== 'box' || !!sh.pseudo);
 			if (g >= 0 && g !== i) {
 				sh.group = g;
 				groups.add(g);
@@ -937,6 +1393,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 		});
 		for (const g of groups) shapes[g].group = g;
+		refusedOut = refused;
 	}
 
 	// ── hide. FIRST CHOICE: wrap each text node that was read in an inline element that is
@@ -1117,7 +1574,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// freeze may have written inline styles on the same element.
 	if (options?.hide && shapes.length) {
 		const undo: Array<() => void> = [];
-		for (const el of new Set(shapeEls) as Set<HTMLElement>) {
+		// A pseudo shape hides its pseudo (below), never its element: the element may paint something else.
+		for (const el of paintHidden as Set<HTMLElement>) {
 			const saved = el.getAttribute('style');
 			for (const [k, v] of [
 				['background-color', 'transparent'],
@@ -1131,6 +1589,20 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			undo.push(() => flushStyle(el, saved));
 		}
+		if (pseudoHides.length) {
+			const sheet = doc.createElement('style');
+			sheet.textContent = '[data-calco-ph~="before"]::before,[data-calco-ph~="after"]::after{visibility:hidden!important}';
+			doc.head.appendChild(sheet);
+			const before = pseudoHides.map(({ el }) => [el, el.getAttribute('data-calco-ph')] as const);
+			for (const { el, side } of pseudoHides) el.setAttribute('data-calco-ph', `${el.getAttribute('data-calco-ph') || ''} ${side}`.trim());
+			undo.push(() => {
+				sheet.remove();
+				for (const [el, v] of before) {
+					if (v === null) el.removeAttribute('data-calco-ph');
+					else el.setAttribute('data-calco-ph', v);
+				}
+			});
+		}
 		const text = host.__calcoRestore;
 		host.__calcoRestore = () => {
 			for (const u of undo) u();
@@ -1138,7 +1610,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		hidden = true;
 	}
-	return { width: boxW, height: boxH, frames, shapes, hidden };
+	return { width: boxW, height: boxH, frames, shapes, hidden, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */
