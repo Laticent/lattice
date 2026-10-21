@@ -69,7 +69,6 @@ import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost, type EditSpan } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
 import { PlaygroundTourCard } from './PlaygroundTourCard';
-import { markPreviewPages, previewLayout } from './reading-page';
 import { WalkBar } from './WalkBar';
 
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
@@ -773,31 +772,32 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const anchorRef = React.useRef<{ index: number; frac: number; slide?: string } | null>(null);
 	const showPageRef = React.useRef<SyncPorts['show']>(() => false);
 	React.useEffect(() => {
-		const ports: SyncPorts = {
-			editor: () => editorRef.current,
-			previewLayout: (groups) => previewLayout(frameRef.current, groups),
-			previewScroll: () => frameRef.current?.contentWindow?.scrollY ?? 0,
-			setPreviewScroll: (y) => {
-				const win = frameRef.current?.contentWindow;
-				if (!win) return 0;
-				win.scrollTo({ top: y, behavior: 'auto' });
-				return win.scrollY;
-			},
-			markPages: (pages) => markPreviewPages(frameRef.current, pages),
-			show: (page, opts) => showPageRef.current(page, opts),
-			editing: () => viewRef.current === 'edit',
-			active: () => viewRef.current === 'edit' && !previewCollapsedRef.current,
-			// A phone shows one pane at a time; a pick that placed a caret in a hidden editor would only
-			// surprise the reader later.
-			canPick: () => (document.getElementById('editor-host')?.getClientRects().length ?? 0) > 0,
-			now: () => performance.now(),
-			raf: (cb) => requestAnimationFrame(cb),
-			cancelRaf: (id) => cancelAnimationFrame(id),
-		};
 		let dead = false;
 		let off: (() => void) | null = null;
-		import('@/lib/playground-focus').then(({ createPlaygroundFocus }) => {
+		// The preview-frame helpers (page geometry, the focus bar) load with the sync: only it uses them.
+		Promise.all([import('@/lib/playground-focus'), import('./reading-page')]).then(([{ createPlaygroundFocus }, { markPreviewPages, previewLayout }]) => {
 			if (dead) return;
+			const ports: SyncPorts = {
+				editor: () => editorRef.current,
+				previewLayout: (groups) => previewLayout(frameRef.current, groups),
+				previewScroll: () => frameRef.current?.contentWindow?.scrollY ?? 0,
+				setPreviewScroll: (y) => {
+					const win = frameRef.current?.contentWindow;
+					if (!win) return 0;
+					win.scrollTo({ top: y, behavior: 'auto' });
+					return win.scrollY;
+				},
+				markPages: (pages) => markPreviewPages(frameRef.current, pages),
+				show: (page, opts) => showPageRef.current(page, opts),
+				editing: () => viewRef.current === 'edit',
+				active: () => viewRef.current === 'edit' && !previewCollapsedRef.current,
+				// A phone shows one pane at a time; a pick that placed a caret in a hidden editor would only
+				// surprise the reader later.
+				canPick: () => (document.getElementById('editor-host')?.getClientRects().length ?? 0) > 0,
+				now: () => performance.now(),
+				raf: (cb) => requestAnimationFrame(cb),
+				cancelRaf: (id) => cancelAnimationFrame(id),
+			};
 			const { hub: made, sync } = createPlaygroundFocus(ports);
 			syncRef.current = sync;
 			off = () => sync.destroy();

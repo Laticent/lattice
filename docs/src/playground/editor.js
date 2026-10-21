@@ -22,7 +22,7 @@ import { bracketMatching, HighlightStyle, indentOnInput, LanguageDescription, La
 import { languages } from '@codemirror/language-data';
 import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
 import { Compartment, EditorSelection, EditorState, StateEffect, Transaction } from '@codemirror/state';
-import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
+import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, scrollPastEnd } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
@@ -527,88 +527,11 @@ const autoHeightTheme = EditorView.theme({
 // sub-editor) never validates.
 
 // ── The slide band ──────────────────────────────────────────────────────────
-// A range of the document the host wants marked: the slide the preview is showing. It is DRAWN, not
-// decorated: two absolutely positioned boxes beside the content (a wash behind the lines, a bar over the
-// gutter), placed from CodeMirror's own line heights. Line decorations were the first cut, and they cost a
-// CodeMirror transaction, a redraw of every line of the slide and a forced style recalc (CodeMirror reads the
-// DOM selection after any DOM change) at every slide boundary the reader scrolled past, which at 4x CPU
-// throttle was most of the dropped frames. A drawn box touches nothing CodeMirror owns, so a mark costs one
-// measure and two style writes. The text stays selectable and a click anywhere in the band lands exactly where
-// it was made: the boxes are paint, never a hit target.
-const bandPlugin = ViewPlugin.fromClass(
-	class {
-		constructor(view) {
-			this.view = view;
-			this.from = -1;
-			this.to = -1;
-			this.wash = document.createElement('div');
-			this.wash.className = 'cm-slide-band';
-			this.bar = document.createElement('div');
-			this.bar.className = 'cm-slide-band-gutter';
-			this.layer = document.createElement('div');
-			this.layer.className = 'cm-slide-band-layer';
-			this.layer.setAttribute('aria-hidden', 'true');
-			this.layer.append(this.wash);
-			// The wash sits behind the text (a layer with a negative z-index inside the scroller's own stacking
-			// context); the bar must sit over the gutter's background, so it is the scroller's child itself.
-			view.scrollDOM.insertBefore(this.layer, view.scrollDOM.firstChild);
-			view.scrollDOM.append(this.bar);
-			this.hide();
-			this.job = { read: (v) => this.read(v), write: (m) => this.write(m), key: this };
-		}
-		hide() {
-			this.wash.style.display = 'none';
-			this.bar.style.display = 'none';
-		}
-		/** The lines marked, as offsets of their first and last character; null when nothing is. */
-		range() {
-			return this.from < 0 ? null : { from: this.from, to: this.to };
-		}
-		set(range) {
-			if (range) {
-				const doc = this.view.state.doc;
-				const clamp = (n) => Math.max(0, Math.min(n, doc.length));
-				this.from = doc.lineAt(clamp(range.from)).from;
-				this.to = doc.lineAt(clamp(range.to)).to;
-			} else this.from = -1;
-			this.view.requestMeasure(this.job);
-		}
-		update(u) {
-			// A typed character moves the band's edges with the text.
-			if (this.from >= 0 && u.docChanged) {
-				this.from = u.changes.mapPos(this.from, -1);
-				this.to = u.changes.mapPos(this.to, 1);
-			}
-			if (u.docChanged || u.viewportChanged || u.geometryChanged) this.view.requestMeasure(this.job);
-		}
-		read(view) {
-			if (this.from < 0) return null;
-			const scroller = view.scrollDOM;
-			const sr = scroller.getBoundingClientRect();
-			const cr = view.contentDOM.getBoundingClientRect();
-			const top = view.documentTop - sr.top + scroller.scrollTop + view.lineBlockAt(this.from).top;
-			const bottom = view.documentTop - sr.top + scroller.scrollTop + view.lineBlockAt(this.to).bottom;
-			return { top, height: bottom - top, left: cr.left - sr.left + scroller.scrollLeft, width: cr.width };
-		}
-		write(m) {
-			if (!m) return this.hide();
-			const w = this.wash.style;
-			w.display = 'block';
-			w.top = `${m.top}px`;
-			w.height = `${m.height}px`;
-			w.left = `${m.left}px`;
-			w.width = `${m.width}px`;
-			const b = this.bar.style;
-			b.display = 'block';
-			b.top = `${m.top}px`;
-			b.height = `${m.height}px`;
-		}
-		destroy() {
-			this.layer.remove();
-			this.bar.remove();
-		}
-	},
-);
+// The slide the preview is showing, drawn as two boxes beside the content (`editor-band.js`, loaded on the first
+// `setBand` so the route's eager JS does not carry it). The theme rules for the boxes are below.
+const bandSlot = new Compartment();
+let bandModule = null;
+let bandLoading = null;
 
 /** Whether [from, to] is shorter than the editor's viewport. Heights of lines not yet drawn are
  *  CodeMirror's estimates, which is what a reveal has to decide by. */
@@ -841,7 +764,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 				vocab
 					? [linter(lintSource, { delay: 350, needsRefresh: (u) => u.transactions.some((tr) => tr.effects.some((e) => e.is(admissionChanged))) }), lintGutter()]
 					: [],
-				bandPlugin,
+				bandSlot.of([]),
 				// The Studio's markdown editor scrolls past its last line, so the end of a deck is not pinned to the
 				// bottom edge (and a slide can be centered). The Playground matches it; a fixed-height specimen
 				// (`autoHeight`) has no scroller to scroll in.
@@ -902,18 +825,28 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		},
 		// Mark a range of the document: the slide the preview is showing (offsets; null clears it).
 		setBand: (range) => {
-			const band = view.plugin(bandPlugin);
-			if (!band) return;
-			// A typed character moves the band's edges with the text, so a host that asks again after each edit asks
-			// for what is already there: skip the measure that would place it where it already is.
-			const cur = band.range();
-			if (range && cur) {
-				const doc = view.state.doc;
-				const len = doc.length;
-				if (cur.from === doc.lineAt(Math.min(Math.max(0, range.from), len)).from && cur.to === doc.lineAt(Math.min(Math.max(0, range.to), len)).to) return;
-			}
-			if (!range && !cur) return;
-			band.set(range);
+			const apply = () => {
+				const band = view.plugin(bandModule.bandPlugin);
+				if (!band) return;
+				// A typed character moves the band's edges with the text, so a host that asks again after each edit asks
+				// for what is already there: skip the measure that would place it where it already is.
+				const cur = band.range();
+				if (range && cur) {
+					const doc = view.state.doc;
+					const len = doc.length;
+					if (cur.from === doc.lineAt(Math.min(Math.max(0, range.from), len)).from && cur.to === doc.lineAt(Math.min(Math.max(0, range.to), len)).to) return;
+				}
+				if (!range && !cur) return;
+				band.set(range);
+			};
+			if (bandModule) return apply();
+			if (!range) return;
+			// The first call loads the band and installs it; later calls queue behind that load, in order.
+			bandLoading ??= import('./editor-band.js').then((m) => {
+				bandModule = m;
+				if (view.dom.isConnected) view.dispatch({ effects: bandSlot.reconfigure(m.bandPlugin) });
+			});
+			bandLoading.then(() => view.dom.isConnected && apply()).catch(() => {});
 		},
 		// Land on a slide the reader picked: the caret at `caret`. `frame`: also put [from, to] on screen, centered
 		// when it fits and from its start when it does not. A host that keeps the editor and the preview scrolled

@@ -232,6 +232,8 @@ and 10,000-line cases), against the merge-base. What they found, and what change
   A page that is already dropping frames now moves the follower at most every 33 ms, and always catches up on the
   frame where the reader stops (`followNow`). Following only when the scroll settles would remove most of the rest
   but contradicts the owner's choice of a continuous map; that is the owner's call and was not made here.
+- Eager JS: the drawn band (`editor-band.js`) and the preview-frame helpers (`reading-page.ts`) load with the focus
+  chunk, not with the route; the first cut of the band cost the Playground +2,259 B gz of eager JS, over the 2,048 B a PR may add.
 - `rangesOf` was quadratic in slide count (`seps.find` per page: 16 ms per edit at 3,000 slides); it is a binary
   search now.
 
