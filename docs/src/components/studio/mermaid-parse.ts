@@ -3,12 +3,15 @@
 // lazily). Why it exists, and why the return type is the contract: mermaid-check.ts and the
 // docblock on `checkDiagrams` below.
 
-import { overlongLabelText, overlongMessage } from '../../../../lib/plugins/mermaid/shared/label-length.js';
+import labelLength from '../../../../lib/plugins/mermaid/shared/label-length.js';
 import { engineBase } from '../../lib/engine-base';
 import { installPreviewDrawHost } from '../../lib/preview-draw-host';
 // Types only: a value import of mermaid-check.ts from this lazy chunk would make that module a
 // shared chunk of its own, and the re-chunking costs the Studio's startup more than this saves.
 import type { Diagram, DiagramError } from './mermaid-check';
+
+// A CommonJS file: default import, then destructure (docs/src/plugins/vite-cjs-lib-dev.test.ts).
+const { overlongLabelText, overlongMessage } = labelLength as { overlongLabelText: (s: string) => { kind: string; length: number; max: number } | null; overlongMessage: (o: { kind: string; length: number; max: number }) => string };
 
 // THE LIBRARY IS NOT IN THIS PAGE. Each diagram is sent to the preview's sandboxed draw frame as an ordinary
 // draw job (the frame already holds Mermaid for the previews), and what comes back is only whether the library
