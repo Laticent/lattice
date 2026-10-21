@@ -1088,6 +1088,97 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(moves.length).toBe(before);
 	});
 
+	it('the declared view carries where a member is, beside `doing`, and the privacy switch withholds both', async () => {
+		const { h } = await hostSession({ panel: 'coach' });
+		const { g } = await guestOf(h, 'Amina');
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		// biome-ignore lint/suspicious/noExplicitAny: reads the view Tavola kept for the host.
+		const shown = () => (g as any).rt.view.of(hostId).all() as Record<string, unknown>;
+		await until(() => shown().panel === 'coach', h, g);
+		expect(shown()).toMatchObject({ panel: 'coach', view: 'compose', presenting: false });
+		h.update(deps('host-deck', { panel: null, view: 'article', asking: true }));
+		await until(() => shown().panel === 'none' && shown().asking === true, h, g);
+		h.actions.setShare({ doing: false });
+		await until(() => Object.keys(shown()).length === 0, h, g);
+		h.actions.setShare({ doing: true });
+		await until(() => shown().view === 'article', h, g);
+	});
+
+	it('a leader on an older tab, who sends only `doing`, is still followed', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const moves: Array<{ panel: string | null; view: string }> = [];
+		sh.host.followDoing = (d) => moves.push(d);
+		sh.host.canFollowDoing = () => true;
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		g.actions.follow(g.view().people.find((p) => p.role === 'host')?.id as string);
+		// An older tab: its awareness state has `doing` and no `view`.
+		// biome-ignore lint/suspicious/noExplicitAny: replaces the leader's presence with the older tab's shape.
+		const aw = (h as any).rt.aw;
+		aw.setLocalState({ ...aw.getLocalState(), view: undefined, doing: { panel: 'live', view: 'compose', presenting: false } });
+		delete aw.getLocalState().view;
+		await until(() => moves.some((m) => m.panel === 'live'), h, g);
+	});
+
+	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const asks: string[] = [];
+		const slides: number[] = [];
+		sh.host.notifyAction = (m, a) => {
+			asks.push(m);
+			(sh as { go?: () => void }).go = a?.onClick;
+		};
+		sh.host.goToSlide = (n) => slides.push(n);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck', { slideCount: 5 }));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		g.actions.follow(g.view().people.find((p) => p.role === 'host')?.id as string);
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		h.update(deps('host-deck', { slideCount: 5, activeSlide: 3 }));
+		await until(() => asks.some((a) => a.includes('is on slide 4')), h, g);
+		expect(slides).toEqual([]);
+		(sh as { go?: () => void }).go?.();
+		expect(slides).toEqual([3]);
+	});
+
+	it('a leader who reconnects under a new id is still followed', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		g.actions.follow(hostId);
+		// biome-ignore lint/suspicious/noExplicitAny: the roster after the leader rejoins: same name and color, a new id.
+		const r = (g as any).rt;
+		const state = r.session.getState();
+		const host = state.members.find((m: { id: string }) => m.id === hostId);
+		const spy = vi.spyOn(r.session, 'getState').mockReturnValue({ ...state, members: state.members.map((m: { id: string }) => (m.id === hostId ? { ...host, id: 'reconnected' } : m)) });
+		// biome-ignore lint/suspicious/noExplicitAny: runs the awareness handler as an awareness change would.
+		(g as any).onAwareness();
+		expect(g.view().following).toBe('reconnected');
+		spy.mockRestore();
+	});
+
 	it('a phone or tablet follows the slide only: it is never moved and never offered a Go it cannot use', async () => {
 		const { h } = await hostSession();
 		const sh = shell();

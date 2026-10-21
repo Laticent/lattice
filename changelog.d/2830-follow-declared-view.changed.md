@@ -1,0 +1,1 @@
+- Live: where a member is (side panel, editor or Read view, presenting, asking) now travels as a declared view on Tavola, beside the old `doing` field so tabs that have not updated still follow. Following someone no longer ends when they reconnect, and a slide change no longer moves a person who is typing: they get a "Go" instead.

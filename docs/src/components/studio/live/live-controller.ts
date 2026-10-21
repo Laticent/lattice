@@ -5,13 +5,14 @@ import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
-import { type FieldCleaner, sanitizeAwarenessUpdate, yjsAwareness } from '@/lib/tavola/adapters/yjs';
+import { type FieldCleaner, sanitizeAwarenessUpdate, type YjsAwareness, yjsAwareness } from '@/lib/tavola/adapters/yjs';
 import { BUILTIN_PALETTES } from '@/lib/theme-catalog.generated';
 import { coerceRecipe } from '../finish-generate';
 import { RESERVED_FINISH_NAMES } from '../finish-library';
 import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
+import { placeOf, VIEW_KEYS, viewOf } from './follow-keys';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
@@ -341,6 +342,8 @@ export const cleanDoing = (v: unknown): LiveDoing | undefined => {
 };
 /** This browser's activity from its Studio state. */
 const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting, ...(d.asking ? { asking: true } : {}) });
+/** How long a follow waits for its leader to come back under a new id before it ends. */
+const FOLLOW_GRACE_MS = 20_000;
 /** Pointers: at most this many a second leave this browser; one arriving faster from a peer is dropped,
  *  and one that has not moved for this long disappears. */
 const POINTER_EVERY_MS = 100;
@@ -425,6 +428,8 @@ const typingInAField = (): boolean => {
 
 type Runtime = {
 	session: Session;
+	/** What this browser shows about where it is, and what the others show (Tavola's view over awareness). */
+	view: YjsAwareness['view'];
 	doc: Y.Doc;
 	ytext: Y.Text;
 	aw: Awareness;
@@ -612,6 +617,9 @@ export class LiveController {
 	/** Follow: the panel and view this browser was moved to, so a change it made itself stops following. */
 	private followedDoing: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
 	private followAsked = -1;
+	private slideAsked = -1;
+	private followWho: { name: string; color: LiveColor } | null = null;
+	private followLostAt = 0;
 	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
 	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view'] }) {
 		if (!this.following) return;
@@ -834,6 +842,7 @@ export class LiveController {
 			if (field === 'editingAt' && !this.share.typing) return;
 			if (field === 'slide' && !this.share.slide) return;
 			if (field === 'doing' && !this.share.doing) return;
+			if (field === 'view' && !this.share.doing) return;
 			setField(field, value);
 		};
 		const REMOTE = Symbol('tavola-remote');
@@ -862,7 +871,7 @@ export class LiveController {
 		};
 		// Awareness goes through Tavola's Yjs adapter: the one hardened gate (bounds before the parse, identity from
 		// the roster, the clock, the rate) with this app's field cleaners.
-		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS });
+		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS, view: { keys: VIEW_KEYS }, allow: () => this.share.doing });
 		const awStream = presence.stream;
 		const owner = presence.owner;
 		const key = args.key ?? null;
@@ -895,7 +904,7 @@ export class LiveController {
 		const fingerprint = args.host?.succession?.fingerprint ?? key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
+		rt = { session, view: presence.view, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
 		rt.disposers.push(() => {
 			rt?.release?.();
 			if (rt) rt.release = null;
@@ -903,7 +912,7 @@ export class LiveController {
 		this.rt = rt;
 		// A session started in a tab that already chose what to hide (a reload, or a second session): make the presence match.
 		if (!(this.share.cursor && this.share.slide && this.share.typing && this.share.doing)) this.applyShare();
-		else aw.setLocalStateField('doing', doingOf(d));
+		else this.publishDoing(d);
 		const r = rt;
 
 		let prev: SessionState = session.getState();
@@ -1350,7 +1359,10 @@ export class LiveController {
 		if (!this.share.cursor) delete st.cursor;
 		if (!this.share.typing) delete st.editingAt;
 		if (this.share.doing) st.doing = doingOf(this.deps);
-		else delete st.doing;
+		else {
+			delete st.doing;
+			delete st.view;
+		}
 		if (this.share.slide) {
 			delete st.slideHidden;
 			st.slide = this.deps.activeSlide;
@@ -1359,6 +1371,21 @@ export class LiveController {
 			st.slideHidden = true;
 		}
 		r.aw.setLocalState(st);
+		// On: show it again. Off: let the view forget what it last sent, so turning it back on writes it afresh.
+		if (this.share.doing) this.publishDoing(this.deps);
+		else r.view.flush();
+	}
+
+	/** Show where this browser is: the declared view, and `doing` beside it for one release so a tab that
+	 *  has not updated still follows (it reads only `doing`). */
+	private publishDoing(d: LiveDeps) {
+		const r = this.rt;
+		if (!r) return;
+		r.aw.setLocalStateField('doing', doingOf(d));
+		const v = viewOf(doingOf(d));
+		for (const k of Object.keys(v)) r.view.set(k, v[k]);
+		if (!d.asking) r.view.clear('asking');
+		r.view.flush();
 	}
 
 	private endCall() {
@@ -1568,7 +1595,7 @@ export class LiveController {
 			this.followedDoing = null;
 		}
 		// Activity: what I am doing, when I share it.
-		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) r.aw.setLocalStateField('doing', doingOf(deps));
+		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) this.publishDoing(deps);
 		// The host keeps the lobby invite current.
 		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
 			this.invitedAs = s.me?.name;
@@ -1602,12 +1629,50 @@ export class LiveController {
 		const byPeer = this.awByPeer();
 		if (this.following) {
 			const slide = byPeer.get(this.following)?.slide;
-			if (!s.members.some((m) => m.id === this.following)) this.following = null;
-			else if (slide !== undefined && slide !== this.deps.activeSlide) {
-				this.followJump = true;
-				this.host.goToSlide(slide);
+			if (!s.members.some((m) => m.id === this.following)) {
+				// A leader who reconnects comes back under a new id: keep following the same name and color for a
+				// short while rather than ending the follow silently (design note §7.3).
+				const gone = this.followWho;
+				const back = gone && s.members.find((m) => m.id !== s.me?.id && m.name === gone.name && m.color === gone.color);
+				if (back) {
+					this.following = back.id;
+					this.followLostAt = 0;
+				} else {
+					if (!this.followLostAt) this.followLostAt = r.session.now();
+					if (r.session.now() - this.followLostAt > FOLLOW_GRACE_MS) this.following = null;
+					return;
+				}
+			} else {
+				this.followLostAt = 0;
+				const m = s.members.find((x) => x.id === this.following);
+				if (m) this.followWho = { name: m.name, color: m.color };
 			}
-			const doing = this.following ? byPeer.get(this.following)?.doing : undefined;
+			if (!this.following) return;
+			else if (slide !== undefined && slide !== this.deps.activeSlide) {
+				// The same typing gate as every other thing Follow applies (design note §7.1): a typist is told
+				// where the leader went, once per burst, and keeps their place.
+				if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+					if (this.slideAsked !== this.myEditAt) {
+						this.slideAsked = this.myEditAt;
+						const who = this.following;
+						const name = s.members.find((m) => m.id === who)?.name ?? 'They';
+						this.host.notifyAction(`${name} is on slide ${slide + 1}`, {
+							label: 'Go',
+							onClick: () => {
+								const now = who ? this.awByPeer().get(who)?.slide : undefined;
+								if (this.following === who && now !== undefined) {
+									this.followJump = true;
+									this.host.goToSlide(now);
+								}
+							},
+						});
+					}
+				} else {
+					this.followJump = true;
+					this.host.goToSlide(slide);
+				}
+			}
+			const doing = this.following ? placeOf(r.view.of(this.following).all(), byPeer.get(this.following)?.doing) : undefined;
 			// Fabricate is a workspace of one's own, never mirrored: leaving it would throw away the follower's work.
 			const view = doing && doing.view !== 'fabricate' && this.deps.view !== 'fabricate' ? doing.view : this.deps.view;
 			if (doing && this.host.followDoing && this.host.canFollowDoing?.() && (doing.panel !== this.deps.panel || view !== this.deps.view)) {
