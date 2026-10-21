@@ -9,19 +9,22 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, insertFence, isInCode, leadingTag, type SlideFences, slideTakesCode } from '@/lib/compose/code-commands';
+import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
-import { type InlineKernels, inlineObjectsPlugin, insertBlocker, insertObject, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, repaintObjects } from '@/lib/compose/inline-objects';
+import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
+import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, repaintObjects } from '@/lib/compose/inline-objects';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
-import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, slideTakesTable } from '@/lib/compose/registers';
+import { activeRegister, applicableRegisters, applyRegister, type Reg, type SlideBlocks, type SlideHeadings, } from '@/lib/compose/registers';
 import { selectionSpansSlides, selectSlideThenDeck, touchesLockedSlide } from '@/lib/compose/selection-commands';
-import { insertStarterTable, stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { stripCellSpans, tabToNextCellOrAddRow } from '@/lib/compose/table-commands';
+import { ensurePluginData } from '@/lib/ensure-plugin-data';
 import { notify } from '@/lib/notify';
+import { altFromAssetName } from '@/lib/photo-alt';
 import { hasFinePointer } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
 import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
@@ -29,12 +32,16 @@ import { readEditMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 import stateMarks from '../../../../lib/core/state-marks.js';
 import { CodeControls, FencePicker } from './code-controls';
 import { registerValue } from './deck-preset';
+import { InsertControls } from './InsertControls';
+import { imageNodeView } from './image-node-view';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
 
 // The inline object editor is lazy, like IconGrid: none of it is in the Studio's startup JavaScript.
 const InlineObjectEditorHost = React.lazy(() => import('./InlineObjectEditor'));
+// The Library photo picker loads the first time the Image door is used, as the icon grid does.
+const PhotoPicker = React.lazy(() => import('./PhotoPicker'));
 
 const { stateClassesFor } = stateMarks;
 
@@ -631,6 +638,9 @@ class SlideView {
 	// rather than one flag per kind: the group hosts AT MOST one island, and a second
 	// boolean would make "both true" representable when it never is.
 	private hosted: FormatIsland | null = null;
+	// The slot the Insert menu island is portaled into, and whether it is mounted (only the active slide's bar is shown).
+	private insertSlot: HTMLElement;
+	private insertMounted = false;
 	constructor(
 		node: PMNode,
 		public view: EditorView,
@@ -643,12 +653,8 @@ class SlideView {
 		// Read LAZILY like getHeadings — the map arrives as a prop and a SlideView outlives
 		// a prop change, so a getter keeps the gutter current without recreating node views.
 		private getBlocks?: () => SlideBlocks | undefined,
-		// The per-class fence map and the live deck source, both lazy for the same reason:
-		// the door's default tag is computed at CLICK time, not at construction.
-		private getFences?: () => SlideFences | undefined,
-		private getSource?: () => string,
-		// The inline-notation kernels, once the authoring bundle has loaded (null before).
-		private getKernels?: () => InlineKernels | null,
+		// The Insert menu's slot (see `insertSlot`): the island is mounted by ComposeView.
+		private mountInsert?: (slot: HTMLElement | null, owner: SlideView) => void,
 	) {
 		this.node = node;
 		this.locked = !!node.attrs.locked;
@@ -717,43 +723,14 @@ class SlideView {
 		// falls back to a direct blank insert if it isn't. It says "Add", like the other four
 		// launchers and the gallery itself; "below" is the one thing this door adds (#1654).
 		actions.append(this.btn('Add slide below', 'plus', () => { const i = this.index(); if (i < 0) return; if (onInsertBelow) onInsertBelow(i); else this.insertBelow(); }, 'cs-pill-btn'));
-		// Insert a starter table into THIS slide at the caret (distinct from the add-slide `+` and the
-		// in-table edit dropdown). insertStarterTable is a no-op inside an existing table / a locked slide.
-		actions.append(this.btn('Insert table', 'grid-2x2-plus', () => { insertStarterTable(this.view.state, this.view.dispatch); this.view.focus(); }, 'cs-pill-btn cs-insert-table'));
-		// Insert a fence into THIS slide at the caret — the twin of the table door, and
-		// ONE door for every fence: the tag decides whether the engine draws a diagram, a
-		// scene or a plot, or highlight.js colors code, so a second "insert diagram" door
-		// would be a second door onto the same construct (design § Axis E).
-		//
-		// TAGGED, never bare. The tag comes from the caret slide's own layout when its
-		// grammar declares one (`diagram` → mermaid, `code` → js), else from the tag this
-		// deck already uses most, else plain text — so the door never opens a modal to ask
-		// a question the layout has already answered.
-		actions.append(this.btn('Insert code', 'square-code', () => {
-			const directives = (this.node.attrs.directives as string[]) || [];
-			const tag = defaultFenceTag(directives, this.getFences?.(), deckFenceTags(this.getSource?.() ?? ''));
-			insertFence(tag)(this.view.state, this.view.dispatch);
-			this.view.focus();
-		}, 'cs-pill-btn cs-insert-code'));
-		// Insert a pill at the caret and open its editor on it: the way in for an author who has
-		// no pill to click yet. A short selected word becomes its label. A no-op in a fence, in a
-		// locked slide, and until the kernels have loaded.
-		actions.append(this.btn('Insert pill', 'tag', () => {
-			// Say why when it declines, instead of doing nothing.
-			const kernels = this.getKernels?.() ?? null;
-			const deckLiteral = kernels?.isLiteralFromSource(this.getSource?.() ?? '') ?? false;
-			const why = insertBlocker(this.view.state, kernels, deckLiteral);
-			if (why) notify(why);
-			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral })(this.view.state, this.view.dispatch);
-		}, 'cs-pill-btn cs-insert-pill'));
-		// Insert a spark (a word-sized chart) after the caret's word and open its editor on it.
-		actions.append(this.btn('Insert spark', 'chart-line', () => {
-			const kernels = this.getKernels?.() ?? null;
-			const deckLiteral = kernels?.isLiteralFromSource(this.getSource?.() ?? '') ?? false;
-			const why = insertBlocker(this.view.state, kernels, deckLiteral, 'spark');
-			if (why) notify(why);
-			else insertObject(() => kernels, { getDeckLiteral: () => deckLiteral, kind: 'spark' })(this.view.state, this.view.dispatch);
-		}, 'cs-pill-btn cs-insert-spark'));
+		// THE INSERT MENU: one door for a table, code, diagram, equation, plot, image, pill, spark, avatar and
+		// icon (InsertControls.tsx). A React island mounted into this slot while the slide is active, so it is
+		// the real dropdown menu (arrow keys, Escape, focus return), and it names what is unavailable here and
+		// why. Four buttons for the first four had left no room for a fifth at 390px
+		// (engineering/decisions/2026-10-21-compose-point-and-click.md §5).
+		this.insertSlot = document.createElement('span');
+		this.insertSlot.className = 'cs-ins-slot';
+		actions.append(this.insertSlot);
 		if (onSettings) actions.append(this.btn('Slide settings', 'sliders-horizontal', () => { const i = this.index(); if (i >= 0) onSettings(i); }, 'cs-pill-btn'));
 		pill.append(history, historyDiv, this.fmtGroup, div, actions);
 
@@ -805,22 +782,13 @@ class SlideView {
 		// reasoning, and the two are mutually exclusive: a GFM cell is `inline*` and cannot hold a
 		// code block, so the caret is never in both.
 		const inCode = active && !this.locked && !inTable && isInCode(this.view.state);
-		// Hide the "insert table" action while the caret is in a table — there it's a no-op, and the
-		// table-edit dropdown already shows a table icon (avoid the doubled glyph).
-		this.dom.classList.toggle('cs-caret-in-table', inTable);
-		// Same for the fence door: inside a fence it is a no-op (`insertFence` refuses to nest),
-		// and the picker beside it already carries the code glyph.
-		this.dom.classList.toggle('cs-caret-in-code', inCode);
-		// WITHHOLD the table door where a table is editorially wrong for the layout — a title, a
-		// quote, a picture slide. Not because the engine cannot render one there (it can, and
-		// beautifully — that was the false premise of an earlier version of this gate) but because
-		// offering it produces a mis-set slide. Typing or pasting a table still works; only the
-		// button stands down. Permissive for an unclassed or unrecognized slide.
-		this.dom.classList.toggle('cs-no-table', !slideTakesTable((this.node.attrs.directives as string[]) || []));
-		// The fence door's own gate, on the same posture and a deliberately SHORTER list:
-		// on four layouts the fence IS the figure, so the door is withheld only where the
-		// slide has no body flow to hold a block at all (see `CODE_UNSUITED`).
-		this.dom.classList.toggle('cs-no-code', !slideTakesCode((this.node.attrs.directives as string[]) || []));
+		// The Insert menu is mounted while this slide is active, and unmounted when it is not. Which of its items
+		// is available where the caret is (a table inside a table, a block on a layout that draws its own figure)
+		// is the menu's to say when it opens, not a class that hides a button.
+		if (active !== this.insertMounted) {
+			this.insertMounted = active;
+			this.mountInsert?.(active ? this.insertSlot : null, this);
+		}
 		if (!inTable && !inCode) this.clearIsland(); // caret left the construct — unmount the island
 		if (!active) {
 			if (this.fmtGroup.childElementCount) {
@@ -1011,6 +979,7 @@ class SlideView {
 		clearTimeout(this.confirmTimer);
 		this.ac.abort(); // remove ALL button listeners in one shot (structural + format group)
 		this.clearIsland();
+		if (this.insertMounted) this.mountInsert?.(null, this);
 		liveSlideViews.delete(this);
 	}
 }
@@ -1109,6 +1078,21 @@ function codeHighlightPlugin() {
 // selection change — the same two lines every control in this file carries.
 /** A Floating UI virtual element: a rect read at position time, plus the element whose
  *  scroll ancestors should re-position it. */
+/**
+ * Fetch the drawings an avatar or an icon needs (the plugin's data script, not part of the engine bundle),
+ * once per plugin, then repaint every object. The data loader dedupes by file, so a deck of fifty avatars asks
+ * once; a failed load is retried by the next object that wants it.
+ */
+function ensureObjectData(src: string): void {
+	// One ask per plugin (its sigil) every ten seconds: a load that fails would otherwise repaint, ask again and loop.
+	const key = src.charAt(0);
+	const last = dataAsked.get(key) ?? -Infinity;
+	if (Date.now() - last < 10_000) return;
+	dataAsked.set(key, Date.now());
+	void ensurePluginData(`\`${src}\``).then(() => repaintObjects());
+}
+const dataAsked = new Map<string, number>();
+
 export type ChipAnchor = { getBoundingClientRect: () => DOMRect; contextElement?: Element };
 
 /** The chip currently in the DOM for the fence starting at `pos`, or null when that
@@ -1662,7 +1646,7 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: () => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1698,6 +1682,20 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		} else if (islandHostRef.current === owner) {
 			islandHostRef.current = null;
 			setIsland(null);
+		}
+	}, []);
+	// The Insert menu's slot: owned by the ACTIVE slide's bar, mounted by that slide and unmounted when it stops
+	// being active. Owner-keyed like the island above, so a late unmount from the slide that just lost the bar
+	// cannot clobber the one that just took it.
+	const [insertHost, setInsertHost] = React.useState<HTMLElement | null>(null);
+	const insertOwnerRef = React.useRef<object | null>(null);
+	const mountInsert = React.useCallback((slot: HTMLElement | null, owner: object) => {
+		if (slot) {
+			insertOwnerRef.current = owner;
+			setInsertHost(slot);
+		} else if (insertOwnerRef.current === owner) {
+			insertOwnerRef.current = null;
+			setInsertHost(null);
 		}
 	}, []);
 
@@ -1989,6 +1987,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// rendering (lib/compose/inline-objects.ts, "The open editor").
 	const [objEdit, setObjEdit] = React.useState<OpenObject | null>(null);
 	const closeObjEdit = React.useCallback(() => setObjEdit(null), []);
+	// Lazy readers for the Insert menu, stable so the menu island does not remount on every render.
+	// The Library photo picker, opened by the Insert menu's Image door. The caret stays where it was in the document while it
+	// is up, so a pick goes in at the place the author chose.
+	const [pickerOpen, setPickerOpen] = React.useState(false);
+	const openPicker = React.useCallback(() => setPickerOpen(true), []);
+	const onOpenLibraryRef = React.useRef(onOpenLibrary);
+	onOpenLibraryRef.current = onOpenLibrary;
+	const getKernelsStable = React.useCallback(() => kernelsRef.current, []);
+	const getSourceStable = React.useCallback(() => sourceRef.current, []);
+	const getFencesStable = React.useCallback(() => slideFencesRef.current, []);
 	React.useEffect(() => {
 		let live = true;
 		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring())
@@ -2141,9 +2149,10 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
-						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, () => slideFencesRef.current, () => sourceRef.current, () => kernelsRef.current),
+						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
-					inline_object: objectNodeView({ getKernels: () => kernelsRef.current, isRendered: () => pillSheetReady() }),
+					image: imageNodeView,
+					inline_object: objectNodeView({ getKernels: () => kernelsRef.current, isRendered: () => pillSheetReady(), ensureData: ensureObjectData }),
 					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el, pos) => onChipRef.current(el, pos), getPos as () => number | undefined),
 				},
 				// Strip merged-cell spans on paste so the no-merge invariant holds on the DOCUMENT,
@@ -2324,6 +2333,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					</div>,
 					document.body,
 				)}
+			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} />, insertHost)}
 			{island?.kind === 'table' && createPortal(<TableControls view={viewRef.current as EditorView} stateful={island.stateful} />, island.slot)}
 			{island?.kind === 'code' && createPortal(<CodeControls view={viewRef.current as EditorView} source={source} />, island.slot)}
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
@@ -2333,7 +2343,24 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			    "+ Pill" door. Keyed on the open id so a tap on another object remounts it on that one. */}
 			{objEdit && viewRef.current && kernelsRef.current && (
 				<React.Suspense fallback={null}>
-					<InlineObjectEditorHost key={objEdit.id} view={viewRef.current} kernels={kernelsRef.current} open={objEdit} onClose={closeObjEdit} />
+					<InlineObjectEditorHost key={objEdit.id} view={viewRef.current} kernels={kernelsRef.current} open={objEdit} onClose={closeObjEdit} onOpenLibrary={onOpenLibrary ? () => onOpenLibraryRef.current?.() : undefined} />
+				</React.Suspense>
+			)}
+			{pickerOpen && viewRef.current && (
+				<React.Suspense fallback={null}>
+					<PhotoPicker
+						open
+						onOpenChange={(o) => !o && setPickerOpen(false)}
+						onOpenLibrary={onOpenLibrary ? () => onOpenLibraryRef.current?.() : undefined}
+						onPick={(p) => {
+							const v = viewRef.current;
+							setPickerOpen(false);
+							if (!v) return;
+							const blocked = insertImageBlocker(v.state);
+							if (blocked) return notify(blocked);
+							insertImage(`asset:${p.name}`, descriptionAsAlt(p.caption ?? altFromAssetName(p.name)))(v.state, v.dispatch);
+						}}
+					/>
 				</React.Suspense>
 			)}
 			{chipAnchor && viewRef.current && <FencePicker view={viewRef.current} source={source} anchor={chipAnchor} open onOpenChange={(o) => { if (!o) { openChipRef.current = null; setChipAnchor(null); } }} align="start" />}
@@ -2524,7 +2551,18 @@ function ComposeStyles() {
 			.cs-npill-btn{all:unset;display:inline-block;cursor:pointer;vertical-align:baseline;border-radius:6px;-webkit-tap-highlight-color:transparent}
 			.cs-npill-btn:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
 			.cs-npill-text code{padding:0 .3em;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg-alt,#f2f5fa);font-size:.9em}
-			.ProseMirror-selectednode .lat-pill,.ProseMirror-selectednode .cs-npill-text code{outline:2px solid var(--accent,#1e5f96);outline-offset:1px}
+			.ProseMirror-selectednode .lat-pill,.ProseMirror-selectednode .lat-avatar,.ProseMirror-selectednode .lat-icon,.ProseMirror-selectednode .cs-npill-text code{outline:2px solid var(--accent,#1e5f96);outline-offset:1px}
+			/* An image drawn as a picture: one button, the picture at most as wide as the line and as tall as a slide's body copy
+			   reads comfortably, so a photo never pushes the text it sits among out of view. A background shows its side. */
+			.cs-img{display:inline-block;max-width:100%;vertical-align:top;user-select:none;-webkit-user-select:none}
+			.cs-img-btn{all:unset;position:relative;display:inline-block;max-width:100%;cursor:pointer;border-radius:8px;-webkit-tap-highlight-color:transparent}
+			.cs-img-btn:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-img-btn img{display:block;max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--border,#e4eaf2);background:var(--bg-alt,#f2f5fa)}
+			.cs-img-stand{display:flex;align-items:center;justify-content:center;min-width:160px;min-height:96px;max-width:100%;padding:12px 14px;border:1px dashed var(--border,#e4eaf2);border-radius:8px;background:var(--bg-alt,#f2f5fa);color:var(--text-muted,#5b6b7f);font-size:.8em;text-align:center;line-height:1.35}
+			.cs-img-missing{border-color:var(--warn,#b45309);color:var(--warn,#b45309)}
+			.cs-img-stand-label{overflow-wrap:anywhere}
+			.cs-img-badge{position:absolute;left:8px;bottom:8px;max-width:calc(100% - 16px);padding:2px 8px;border-radius:999px;background:var(--bg,#fff);border:1px solid var(--border,#e4eaf2);color:var(--text-body,#1f2937);font:600 10px/1.6 var(--font-mono,ui-monospace,monospace);letter-spacing:.04em;text-transform:uppercase}
+			.ProseMirror-selectednode .cs-img-btn{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
 			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
 			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			/* On a locked slide the chip is a LABEL, not a control — it still names the
@@ -2620,16 +2658,6 @@ function ComposeStyles() {
 					.cs-sb-pill > .cs-sb-format:empty{display:block}
 				}
 				.cs-tblc-div{flex:none;width:1px;height:14px;background:var(--border,#e4eaf2);margin:0 3px}
-				.cs-caret-in-table .cs-insert-table{display:none}
-				/* A layout whose grammar has no place for a table gets no table door. Hidden rather
-				   than dimmed, matching how the Format group drops a register the class won't
-				   render — no-ops are hidden, not disabled. */
-				.cs-no-table .cs-insert-table{display:none}
-				.cs-caret-in-code .cs-insert-code{display:none}
-				/* A layout with no body flow to hold a block gets no fence door — the same
-				   posture as the table gate, on a deliberately shorter list (on four layouts
-				   the fence IS the figure). Hidden, not dimmed, like every other no-op here. */
-				.cs-no-code .cs-insert-code{display:none}
 			/* MOBILE — bigger touch targets; caps on every line, content pill on the active slide. */
 			@media (max-width:640px){
 				.cs-host .cs-pane-change,.cs-host .cs-pane-add-title{min-height:32px}

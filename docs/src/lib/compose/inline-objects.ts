@@ -60,6 +60,48 @@ export interface SparkFields {
 	markers: string[];
 }
 
+/** What the engine reads out of an avatar (lib/plugins/avatars/avatars.inline.js `read`), plus `written`: only what the author wrote. */
+export interface AvatarFields {
+	name: string;
+	label: string;
+	size: string;
+	shape: string | null;
+	frame: string | null;
+	/** The tile color: written (`c3`) or picked from the name. */
+	c: string;
+	border: string | null;
+	gender: string;
+	/** Every trait with its value, written or picked by the name. */
+	traits: Record<string, string>;
+	/** The parameters the author wrote, by slot name (`color` is a number). */
+	written: Record<string, string | number>;
+}
+
+/** One change to an avatar (`edit` in avatars.inline.js): a slot parameter to its new value, `null` for "what the name picks". */
+export type AvatarEdit = Record<string, string | number | null>;
+
+/** What the engine reads out of an icon (lib/plugins/icons/icons.inline.js `read`). */
+export interface IconFields {
+	name: string;
+	c: string | null;
+	size: string;
+	frame: string | null;
+	look: string | null;
+	corners: string | null;
+	label: string;
+	/** The parameters the author wrote, by slot name (`color` is a number). */
+	written: Record<string, string | number>;
+}
+
+/** One change to an icon (`edit` in icons.inline.js): a slot parameter to its new value, `null` for the default. */
+export type IconEdit = Record<string, string | number | null>;
+
+/** A slot schema as the kernels export it (lib/core/segno-spec.js): the panel is drawn from it. */
+export interface SlotSpec {
+	readonly positional?: readonly { name: string; type: unknown }[];
+	readonly params: Readonly<Record<string, { type: string; values?: readonly string[]; prefix?: string; max?: number; named?: boolean } | string>>;
+}
+
 /** One change to a spark (lib/plugins/sparks/sparks.inline.js `editSpark`): an absent key leaves the axis alone. */
 export interface SparkEdit {
 	/** The numbers as an array, or the data text (`72/80`, `72%`, `12 14 17`). */
@@ -85,6 +127,23 @@ export interface InlineKernels {
 		readonly COLORS: readonly string[];
 		readonly MARKERS: readonly string[];
 		readonly MAX_POINTS: number;
+	};
+	avatar: {
+		read(text: string): AvatarFields | null;
+		edit(text: string, edit: AvatarEdit): string | null;
+		/** The same DOM the slide gets, or null until the plugin's drawings are loaded. */
+		element(doc: Document, text: string): HTMLElement | null;
+		readonly SPEC: SlotSpec;
+		readonly TRAIT_ORDER: readonly string[];
+	};
+	icon: {
+		read(text: string): IconFields | null;
+		edit(text: string, edit: IconEdit): string | null;
+		/** The same DOM the slide gets, or null until the plugin's drawings are loaded. */
+		element(doc: Document, text: string): HTMLElement | null;
+		readonly SPEC: SlotSpec;
+		/** The canonical icon for a name or alias, or null. */
+		canonical(name: string): string | null;
 	};
 	pill: {
 		read(text: string): PillFields | null;
@@ -139,6 +198,8 @@ export interface ObjectKind<F = unknown, E = unknown> {
 	edit(src: string, edit: E, kernels: InlineKernels): string | null;
 	/** The accessible name of the object's button. */
 	name(fields: F): string;
+	/** Is the drawing in a plugin's data script that loads on demand (avatars, icons)? Then `draw` is null until it lands. */
+	readonly needsData?: boolean;
 }
 
 export const pillKind: ObjectKind<PillFields, PillEdit> = {
@@ -157,8 +218,26 @@ export const sparkKind: ObjectKind<SparkFields, SparkEdit> = {
 	name: (f) => `Edit spark, ${f.type}`,
 };
 
-/** Every kind Compose can edit. An avatar is one more entry and one more panel. */
-export const OBJECT_KINDS: readonly ObjectKind[] = [pillKind as ObjectKind, sparkKind as ObjectKind];
+export const avatarKind: ObjectKind<AvatarFields, AvatarEdit> = {
+	id: 'avatar',
+	read: (src, k) => k.avatar.read(src),
+	draw: (doc, src, k) => k.avatar.element(doc, src),
+	edit: (src, edit, k) => k.avatar.edit(src, edit),
+	name: (f) => `Edit avatar ${f.name}`,
+	needsData: true,
+};
+
+export const iconKind: ObjectKind<IconFields, IconEdit> = {
+	id: 'icon',
+	read: (src, k) => k.icon.read(src),
+	draw: (doc, src, k) => k.icon.element(doc, src),
+	edit: (src, edit, k) => k.icon.edit(src, edit),
+	name: (f) => `Edit icon ${f.name.replace(/-/g, ' ')}`,
+	needsData: true,
+};
+
+/** Every kind Compose can edit. A new kind is one more entry here and one more panel in InlineObjectEditor.tsx. */
+export const OBJECT_KINDS: readonly ObjectKind[] = [pillKind as ObjectKind, sparkKind as ObjectKind, avatarKind as ObjectKind, iconKind as ObjectKind];
 
 /** Which kind owns `src`, and the fields it reads. Null when none does (the span stays text). */
 export function kindOf(src: string, kernels: InlineKernels): { kind: ObjectKind; fields: unknown } | null {
@@ -171,6 +250,9 @@ export function kindOf(src: string, kernels: InlineKernels): { kind: ObjectKind;
 }
 
 const objectType = () => deckSchema.nodes.inline_object;
+
+/** Can an editor be open on this node: an inline object, or an image (image-objects.ts)? */
+const openable = (node: PMNode | null | undefined): boolean => Boolean(node && (node.type === objectType() || node.type === deckSchema.nodes.image));
 const code = () => deckSchema.marks.code;
 
 // ── Text → object ────────────────────────────────────────────────────────────
@@ -361,7 +443,7 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 			if (!node.isText || !node.text || !codeMark.isInSet(node.marks)) return;
 			// The sigil first: the cheapest reject, before the kernel is asked anything.
 			const c = node.text.charCodeAt(0);
-			if (c !== 0x7b && c !== 0x7e && c !== 0x21) return;
+			if (c !== 0x7b && c !== 0x7e && c !== 0x21 && c !== 0x5e) return;
 			const to = from + node.nodeSize;
 			if (sparing && sel.from <= to && sel.to >= from) return;
 			if (!kindOf(node.text, kernels)) return;
@@ -416,6 +498,8 @@ export interface OpenObject {
 	pos: number;
 	/** The source as the document has it now (it changes with every edit the editor makes). */
 	src: string;
+	/** An image's alt text as the document has it now. An alt-only edit leaves `src` alone, and the editor must still redraw. */
+	alt?: string | null;
 	/** A new number per open, so a tap on a different object remounts the editor on it. */
 	id: number;
 }
@@ -442,8 +526,7 @@ export function openObject(state: EditorState): OpenObject | null {
 
 /** Select the object at `pos` and open its editor. */
 export function openObjectEditor(view: EditorView, pos: number): boolean {
-	const node = view.state.doc.nodeAt(pos);
-	if (node?.type !== objectType()) return false;
+	if (!openable(view.state.doc.nodeAt(pos))) return false;
 	view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)).setMeta(objectsKey, { open: pos } satisfies ObjectsMeta));
 	return true;
 }
@@ -542,35 +625,56 @@ export function insertBlocker(state: EditorState, kernels: InlineKernels | null,
 	return null;
 }
 
+/** How each kind goes in at the caret: its noun for the messages, whether it follows the caret's word, and its sample. */
+interface InsertPlan {
+	noun: string;
+	/** A pill is flush with its text. The rest sit beside words, so they follow the word the caret is in and are set off by a space. */
+	afterWord: boolean;
+	/** The source to insert; `label` is a short plain selection the author made, when there is one the kind can use. Null refuses. */
+	sample(kernels: InlineKernels, label: string | null): string | null;
+}
+
+export type InsertKind = 'pill' | 'spark' | 'avatar' | 'icon';
+
+const INSERT_PLANS: Record<InsertKind, InsertPlan> = {
+	pill: { noun: 'pill', afterWord: false, sample: (k, label) => k.pill.edit('{X}', { label: label ?? 'Status' }) },
+	spark: { noun: 'spark', afterWord: true, sample: () => SPARK_SAMPLE },
+	// A selected word is the person's name ("make this an avatar"); with nothing selected the sample name draws a face to start from.
+	avatar: { noun: 'avatar', afterWord: false, sample: (k, label) => k.avatar.edit('!{X}', { name: label ?? AVATAR_NAME }) },
+	icon: { noun: 'icon', afterWord: true, sample: (k) => (k.icon.read(ICON_SAMPLE) ? ICON_SAMPLE : null) },
+};
+
 /**
- * The "+ Pill" door: put a new pill at the caret and open its editor on it. A selected word becomes
- * the label (a short, plain selection only), so "make this a pill" is one tap. `insertBlocker` says
- * when it declines. At a code span's edge, or beside another object, a space keeps the two code spans
- * apart (`{A}``{B}` is one span in Markdown).
+ * The "+ Pill", "+ Spark", "+ Avatar" and "+ Icon" doors: put a new object at the caret and open its
+ * editor on it. For a pill and an avatar, a selected word becomes the label or the name (a short, plain
+ * selection only), so "make this a pill" is one tap. `insertBlocker` says when it declines. At a code
+ * span's edge, or beside another object, a space keeps the two code spans apart (`{A}``{B}` is one span
+ * in Markdown).
  */
-export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: 'pill' | 'spark' } = {}): Command {
+export function insertObject(getKernels: () => InlineKernels | null, opts: { sample?: string; getDeckLiteral?: () => boolean; kind?: InsertKind } = {}): Command {
 	return (state, dispatch) => {
 		const kernels = getKernels();
-		const spark = opts.kind === 'spark';
-		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false, spark ? 'spark' : 'pill') || !kernels) return false;
+		const plan = INSERT_PLANS[opts.kind ?? 'pill'];
+		if (insertBlocker(state, kernels, opts.getDeckLiteral?.() ?? false, plan.noun) || !kernels) return false;
 		const { $from, $to, from, to, empty } = state.selection;
 		const picked = empty ? '' : state.doc.textBetween(from, to, ' ').trim();
-		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : (opts.sample ?? 'Status');
-		// A spark starts as a small rising line: the author edits the numbers, the shape is already right. A selected
-		// word is left where it is (a number has no place in a label), so the spark goes in after it.
-		const src = spark ? SPARK_SAMPLE : kernels.pill.edit('{X}', { label });
+		const label = picked && picked.length <= 40 && !/\n/.test(picked) ? picked : null;
+		// An icon and a spark have no use for a selected word, so it is left where it is.
+		const usesLabel = plan === INSERT_PLANS.pill || plan === INSERT_PLANS.avatar;
+		const src = plan.sample(kernels, usesLabel ? (label ?? (opts.sample ?? null)) : null);
 		if (!src || !isObjectSource(src) || !kindOf(src, kernels)) return false;
 		if (dispatch) {
 			const node = objectType().create({ src });
-			// A spark goes after the word the caret is in, never through it.
-			const rest = spark && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
-			const at0 = spark ? $to.pos + rest : from;
-			const end0 = spark ? at0 : to;
-			const $at = spark ? state.doc.resolve(at0) : $from;
+			// A spark and an icon go after the word the caret is in, never through it.
+			const rest = plan.afterWord && $to.nodeAfter?.isText && !isCodeish($to.nodeAfter) ? /^\S*/.exec($to.nodeAfter.text ?? '')?.[0].length ?? 0 : 0;
+			const at0 = plan.afterWord ? $to.pos + rest : plan === INSERT_PLANS.avatar && !empty && !label ? to : from;
+			// An avatar never deletes a selection it cannot use as the name (long, or over a line break): it goes in after it, as a spark does.
+			const keepSelection = plan === INSERT_PLANS.avatar && !empty && !label;
+			const end0 = plan.afterWord || keepSelection ? at0 : to;
+			const $at = plan.afterWord || keepSelection ? state.doc.resolve(at0) : $from;
 			const before = $at.nodeBefore;
-			const after = spark ? $at.nodeAfter : $to.nodeAfter;
-			// A spark sits beside words, so it follows one with a space; a pill is meant to be flush with its text.
-			const needsGap = spark && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
+			const after = plan.afterWord || keepSelection ? $at.nodeAfter : $to.nodeAfter;
+			const needsGap = plan.afterWord && Boolean(before?.isText && before.text && !/\s$/.test(before.text) && !isCodeish(before));
 			const lead = needsGap || Boolean(before && touchesAsCode(before, node));
 			const trail = Boolean(after && touchesAsCode(node, after));
 			const space = () => deckSchema.text(' ');
@@ -586,20 +690,55 @@ export function insertObject(getKernels: () => InlineKernels | null, opts: { sam
 /** What "+ Spark" inserts: a short rising line, readable on a slide the moment it lands. */
 export const SPARK_SAMPLE = '~{12 14 13 17 21}';
 
+/** What "+ Avatar" draws when nothing is selected, and what "+ Icon" starts from. */
+export const AVATAR_NAME = 'Alex Rivera';
+export const ICON_SAMPLE = '^{star}';
+
 // ── What Compose shows ───────────────────────────────────────────────────────
 
 /** The live node views, so a change in what can be drawn (the pill sheet becoming ready) repaints them all. */
 const liveViews = new Set<ObjectView>();
 
-/** Repaint every object (the pill sheet became ready, or changed). */
+const repaintListeners = new Set<() => void>();
+
+/** Run `fn` after every repaint (a panel that draws an object itself redraws with it). Returns the way to stop. */
+export function onObjectsRepaint(fn: () => void): () => void {
+	repaintListeners.add(fn);
+	return () => repaintListeners.delete(fn);
+}
+
+/** Repaint every object (the pill sheet became ready, or changed, or a plugin's drawings arrived). */
 export function repaintObjects(): void {
 	for (const v of liveViews) v.paint();
+	for (const fn of repaintListeners) fn();
 }
 
 export interface ObjectViewDeps {
 	getKernels: () => InlineKernels | null;
 	/** Is the pill sheet ready, so an object can be drawn as the slide draws it? */
 	isRendered: () => boolean;
+	/**
+	 * Fetch the drawings of a kind that keeps them in a plugin data script (`needsData`), then call `repaintObjects`.
+	 * Called with the object's source when it could not be drawn for want of the data; it is the caller's to call once.
+	 */
+	ensureData?: (src: string) => void;
+}
+
+/**
+ * An object's drawing inside the ancestry the engine's rules expect. The engine writes every pill, spark,
+ * avatar and icon rule under `article.lattice > section …`, so the drawing needs that ancestry to be styled.
+ * The two wrappers are `display: contents`: they add no box, and the engine's own rules for `article` and
+ * `section` are not in the pill sheet, so they add no look. The caller puts the result inside a `.cs-pill-scope`.
+ */
+export function inSlideScope(drawn: HTMLElement): HTMLElement {
+	const article = document.createElement('article');
+	article.className = 'lattice';
+	article.style.display = 'contents';
+	const section = document.createElement('section');
+	section.style.display = 'contents';
+	section.append(drawn);
+	article.append(section);
+	return article;
 }
 
 /**
@@ -646,6 +785,8 @@ class ObjectView implements NodeView {
 		this.btn.title = 'Edit this one';
 		this.dom.className = 'cs-npill';
 		const real = kernels && owner && this.deps.isRendered() ? owner.kind.draw(document, src, kernels) : null;
+		// A drawing that is in a data script (an avatar's faces, an icon's shapes) is fetched when first wanted.
+		if (!real && owner?.kind.needsData && this.deps.isRendered()) this.deps.ensureData?.(src);
 		if (!real) {
 			// Not drawable yet (or here): the source in the code face, still one tappable thing.
 			this.dom.classList.add('cs-npill-text');
@@ -655,17 +796,7 @@ class ObjectView implements NodeView {
 			return;
 		}
 		this.dom.classList.add(PILL_SCOPE);
-		// The engine writes every pill rule under `article.lattice > section …`, so the pill needs that
-		// ancestry to be styled. The two wrappers are `display: contents`: they add no box, and the
-		// engine's own rules for `article` and `section` are not in the pill sheet, so they add no look.
-		const article = document.createElement('article');
-		article.className = 'lattice';
-		article.style.display = 'contents';
-		const section = document.createElement('section');
-		section.style.display = 'contents';
-		section.append(real);
-		article.append(section);
-		this.btn.append(article);
+		this.btn.append(inSlideScope(real));
 	}
 
 	update(node: PMNode): boolean {
@@ -720,8 +851,9 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 				const value = afterHistory === prev.afterHistory ? prev : { ...prev, afterHistory };
 				const meta = tr.getMeta(objectsKey) as ObjectsMeta | undefined;
 				if (meta && 'open' in meta) {
-					const src = next.doc.nodeAt(meta.open)?.attrs.src;
-					return typeof src === 'string' ? { ...value, open: { pos: meta.open, src, id: value.nextId }, nextId: value.nextId + 1 } : value;
+					const at = next.doc.nodeAt(meta.open);
+					const src = at?.attrs.src;
+					return typeof src === 'string' ? { ...value, open: { pos: meta.open, src, ...(at?.type === deckSchema.nodes.image ? { alt: (at.attrs.alt as string | null) ?? null } : {}), id: value.nextId }, nextId: value.nextId + 1 } : value;
 				}
 				if (meta && 'close' in meta) return value.open ? { ...value, open: null } : value;
 				let open = value.open;
@@ -730,11 +862,11 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 					const node = next.doc.nodeAt(pos);
 					const sel = next.selection;
 					// Still the object it was opened on, and still the selected node?
-					const here = node?.type === objectType() && sel instanceof NodeSelection && sel.from === pos;
+					const here = openable(node) && sel instanceof NodeSelection && sel.from === pos;
 					if (!here) {
 						open = null;
-					} else if (pos !== open.pos || node?.attrs.src !== open.src) {
-						open = { ...open, pos, src: node?.attrs.src as string };
+					} else if (pos !== open.pos || node?.attrs.src !== open.src || (open.alt !== undefined && (node?.attrs.alt ?? null) !== open.alt)) {
+						open = { ...open, pos, src: node?.attrs.src as string, ...(open.alt !== undefined ? { alt: (node?.attrs.alt as string | null) ?? null } : {}) };
 					}
 				}
 				return open === value.open ? value : { ...value, open };
@@ -744,7 +876,7 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 			// Enter on a selected object opens its editor: the keyboard's way in (arrow keys step over it).
 			handleKeyDown(view, event) {
 				const sel = view.state.selection;
-				if (event.key !== 'Enter' || !(sel instanceof NodeSelection) || sel.node.type !== objectType()) return false;
+				if (event.key !== 'Enter' || !(sel instanceof NodeSelection) || !openable(sel.node)) return false;
 				event.preventDefault();
 				return openObjectEditor(view, sel.from);
 			},

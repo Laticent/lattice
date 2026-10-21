@@ -97,8 +97,12 @@ export function setFenceTag(tag: string): Command {
  *
  * A no-op inside an existing fence (nesting a fence is not a thing an author means)
  * and inside a table cell, whose content is `inline*` and cannot hold a block.
+ *
+ * `starter` is the body of an engine fence (a diagram, an equation, a plot), so the figure
+ * draws the moment it lands. It is SELECTED, so the author's first keystroke replaces it.
+ * Without one the caret sits in the empty fence, as before.
  */
-export function insertFence(tag: string): Command {
+export function insertFence(tag: string, starter?: string): Command {
 	return (state, dispatch) => {
 		if (isInCode(state)) return false;
 		const { $from } = state.selection;
@@ -114,12 +118,12 @@ export function insertFence(tag: string): Command {
 		const depth = blockDepth($from);
 		if (depth === null) return false;
 		const after = $from.after(depth);
-		const node = deckSchema.nodes.code_block.create({ params: tag || PLAIN_FENCE.tag });
+		const node = deckSchema.nodes.code_block.create({ params: tag || PLAIN_FENCE.tag }, starter ? deckSchema.text(starter) : null);
 		if (dispatch) {
 			const tr = state.tr.insert(after, node);
 			// +1 enters the block we just inserted at `after`. Its position is known, so
 			// there is nothing to search for and nothing to map.
-			tr.setSelection(TextSelection.create(tr.doc, after + 1));
+			tr.setSelection(TextSelection.create(tr.doc, after + 1, after + 1 + (starter?.length ?? 0)));
 			dispatch(tr.scrollIntoView());
 		}
 		return true;

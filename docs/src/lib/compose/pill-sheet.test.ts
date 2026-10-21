@@ -32,6 +32,20 @@ describe('collectPillRules', () => {
 		expect(wrapped).not.toContain('.other');
 	});
 
+	it('keeps the rules of an avatar and an icon too: Compose draws them as the slide does', () => {
+		const more = collectPillRules([
+			sheetFrom(`
+				article.lattice > section .lat-avatar{display:inline-grid;width:var(--avatar-size)}
+				article.lattice > section .lat-avatar[data-shape="square"]{border-radius:0}
+				article.lattice > section .lat-icon{display:inline-block;color:var(--icon-ink)}
+				article.lattice > section .lat-icon-svg{width:1em}
+				article.lattice > section h3{color:red}
+			`),
+		]);
+		expect(more).toHaveLength(4);
+		expect(more.join('\n')).not.toMatch(/h3/);
+	});
+
 	it('survives a sheet it may not read', () => {
 		const hostile = { get cssRules(): CSSRuleList { throw new DOMException('no', 'SecurityError'); } } as unknown as CSSStyleSheet;
 		expect(collectPillRules([hostile])).toEqual([]);

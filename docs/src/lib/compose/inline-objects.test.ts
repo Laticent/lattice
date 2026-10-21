@@ -204,6 +204,7 @@ describe('opening a deck changes no bytes (the shipped corpus)', () => {
 	it('emits the same deck with and without the objects, and keeps every untouched slide verbatim', () => {
 		let withObjects = 0;
 		let converted = 0;
+		let avatarsAndIcons = 0;
 		for (const file of files) {
 			const source = fs.readFileSync(file, 'utf8');
 			let doc: ReturnType<typeof deckToDoc>;
@@ -219,6 +220,7 @@ describe('opening a deck changes no bytes (the shipped corpus)', () => {
 			if (!tr) continue;
 			withObjects++;
 			converted += objects(tr.doc).length;
+			avatarsAndIcons += objects(tr.doc).filter((o) => /^[!^]\{/.test(o.src)).length;
 			// The silent pass re-points the baseline; the emit must be byte-identical to the one without objects.
 			const base2 = initBaseline(doc);
 			rebaselineSlides(tr.doc, base2);
@@ -227,6 +229,7 @@ describe('opening a deck changes no bytes (the shipped corpus)', () => {
 			expect(docToDeck(tr.doc), file).toBe(docToDeck(doc));
 		}
 		// Measured when this was written: 112 pills in 6 decks convert (4 more sit in literal decks).
+		expect(avatarsAndIcons).toBeGreaterThanOrEqual(130); // 93 avatars and 47 icons (2026-10-21): they convert too, not only the pills
 		expect(withObjects).toBeGreaterThanOrEqual(5);
 		expect(converted).toBeGreaterThanOrEqual(100);
 	});
@@ -896,5 +899,123 @@ describe('the place oracle: Compose leaves exactly the engine\'s record spans as
 	it('compared both kinds of span, or the arm proves nothing', () => {
 		expect(seen.owned).toBeGreaterThan(40);
 		expect(seen.pills).toBeGreaterThan(40);
+	});
+});
+
+describe('avatars and icons are objects too', () => {
+	const DECK_AI = ['<!-- _class: content -->', '', '## Team', '', 'Lead `!{Ada Okafor, c3}` and `^{database, lg}` beside `{LIVE}`.', '', 'Plain line.'].join('\n');
+
+	it('turns avatar and icon spans into nodes, and writes back the bytes they came from', () => {
+		const view = mount(DECK_AI);
+		expect(texts(view)).toEqual(['!{Ada Okafor, c3}', '^{database, lg}', '{LIVE}']);
+		expect(docToDeck(view.state.doc)).toBe(DECK_AI);
+	});
+
+	it('names each kind from the kernel, so the panel is the one that owns the span', () => {
+		expect(kindOf('!{Ada Okafor}', kernels)?.kind.id).toBe('avatar');
+		expect(kindOf('^{database}', kernels)?.kind.id).toBe('icon');
+		expect(kindOf('~{1 2 3}', kernels)?.kind.id).toBe('spark');
+		expect(kindOf('{LIVE}', kernels)?.kind.id).toBe('pill');
+		// A name the icon set does not hold, and an avatar with no name, are not objects: they stay code.
+		expect(kindOf('^{not-an-icon-name}', kernels)).toBeNull();
+		expect(kindOf('!{}', kernels)).toBeNull();
+	});
+
+	it('writes one word of an avatar and of an icon, as one undo step each', () => {
+		const view = mount(DECK_AI);
+		const [avatar, icon] = objects(view.state.doc);
+		openObjectEditor(view, avatar.pos);
+		expect(editObject(view, avatar.pos, { hair: 'bob' }, kernels)).toBe(true);
+		expect(texts(view)[0]).toBe('!{Ada Okafor, c3, hair=bob}');
+		expect(editObject(view, avatar.pos, { color: null }, kernels)).toBe(true);
+		expect(texts(view)[0]).toBe('!{Ada Okafor, hair=bob}');
+		openObjectEditor(view, icon.pos);
+		expect(editObject(view, icon.pos, { name: 'server', size: null }, kernels)).toBe(true);
+		expect(texts(view)[1]).toBe('^{server}');
+		expect(docToDeck(view.state.doc)).toContain('`!{Ada Okafor, hair=bob}` and `^{server}` beside `{LIVE}`');
+		const depth = undoDepth(view.state);
+		undo(view.state, view.dispatch);
+		expect(undoDepth(view.state)).toBe(depth - 1);
+		expect(texts(view)[1]).toBe('^{database, lg}');
+	});
+
+	it('refuses what the kernel would refuse, and writes nothing', () => {
+		const view = mount(DECK_AI);
+		const [avatar, icon] = objects(view.state.doc);
+		const before = docToDeck(view.state.doc);
+		expect(editObject(view, avatar.pos, { hair: 'neon' }, kernels)).toBe(false);
+		expect(editObject(view, avatar.pos, { name: '  ' }, kernels)).toBe(false);
+		expect(editObject(view, icon.pos, { name: 'not-an-icon-name' }, kernels)).toBe(false);
+		expect(docToDeck(view.state.doc)).toBe(before);
+	});
+
+	describe('the doors', () => {
+		function caretAfter(view: EditorView, needle: string) {
+			let at = -1;
+			view.state.doc.descendants((node, pos) => {
+				if (at < 0 && node.isText && node.text?.includes(needle)) at = pos + node.text.indexOf(needle) + needle.length;
+			});
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+			return at;
+		}
+
+		it('+ Avatar puts a sample person at the caret, selects it and opens its editor', () => {
+			const view = mount(DECK_AI);
+			const at = caretAfter(view, 'Plain line.');
+			expect(insertObject(() => kernels, { kind: 'avatar' })(view.state, view.dispatch)).toBe(true);
+			expect(view.state.doc.nodeAt(at)?.attrs.src).toBe('!{Alex Rivera}');
+			expect(openObject(view.state)).toMatchObject({ pos: at, src: '!{Alex Rivera}' });
+		});
+
+		it('+ Avatar takes a selected word as the name', () => {
+			const view = mount(DECK_AI);
+			let from = -1;
+			view.state.doc.descendants((node, pos) => {
+				if (from < 0 && node.isText && node.text?.startsWith('Plain line')) from = pos;
+			});
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, from + 5)));
+			expect(insertObject(() => kernels, { kind: 'avatar' })(view.state, view.dispatch)).toBe(true);
+			expect(view.state.doc.nodeAt(from)?.attrs.src).toBe('!{Plain}');
+		});
+
+		it('+ Icon goes after the word the caret is in, set off by a space, and leaves a selected word alone', () => {
+			const view = mount(DECK_AI);
+			caretAfter(view, 'Plain');
+			expect(insertObject(() => kernels, { kind: 'icon' })(view.state, view.dispatch)).toBe(true);
+			expect(docToDeck(view.state.doc)).toContain('Plain `^{star}` line.');
+			expect(openObject(view.state)?.src).toBe('^{star}');
+		});
+
+		it('+ Avatar leaves a selection it cannot use as the name where it is, and goes in after it', () => {
+			const longSelection = 'x'.repeat(60);
+			const long = mount(['<!-- _class: content -->', '', '## T', '', longSelection].join('\n'));
+			let s0 = -1;
+			long.state.doc.descendants((node, pos) => {
+				if (s0 < 0 && node.isText && node.text?.startsWith('xxx')) s0 = pos;
+			});
+			long.dispatch(long.state.tr.setSelection(TextSelection.create(long.state.doc, s0, s0 + 60)));
+			expect(insertObject(() => kernels, { kind: 'avatar' })(long.state, long.dispatch)).toBe(true);
+			expect(docToDeck(long.state.doc)).toContain(`${longSelection}\`!{Alex Rivera}\``);
+		});
+
+		it('+ Icon leaves a SELECTED word where it is', () => {
+			const view = mount(DECK_AI);
+			let from = -1;
+			view.state.doc.descendants((node, pos) => {
+				if (from < 0 && node.isText && node.text?.startsWith('Plain line')) from = pos;
+			});
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, from + 5)));
+			expect(insertObject(() => kernels, { kind: 'icon' })(view.state, view.dispatch)).toBe(true);
+			expect(docToDeck(view.state.doc)).toContain('Plain `^{star}` line.');
+		});
+
+		it('say which noun they declined for', () => {
+			const view = mount(DECK_AI);
+			caretAfter(view, 'Lead');
+			// The caret is in plain text, so the door is open; a locked slide is not.
+			expect(insertBlocker(view.state, kernels, false, 'avatar')).toBeNull();
+			expect(insertBlocker(view.state, kernels, true, 'avatar')).toMatch(/^Avatars are turned off here/);
+			expect(insertBlocker(view.state, null, false, 'icon')).toBe('The icon editor is still loading.');
+		});
 	});
 });

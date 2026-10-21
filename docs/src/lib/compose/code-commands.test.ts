@@ -145,6 +145,15 @@ describe('inserting a fence', () => {
 		expect(isInCode(state)).toBe(true);
 	});
 
+	it('with a starter, writes the starter body and selects all of it, so the first keystroke replaces it', () => {
+		const { ok, state } = run(caretInProse(stateFor()), insertFence('math', 'E = mc^2'));
+		expect(ok).toBe(true);
+		expect(docToDeck(state.doc)).toContain('```math\nE = mc^2\n```');
+		const { from, to } = state.selection;
+		expect(state.doc.textBetween(from, to)).toBe('E = mc^2');
+		expect(isInCode(state)).toBe(true);
+	});
+
 	it('never produces a bare fence — an untagged one renders as undifferentiated mono', () => {
 		const { state } = run(caretInProse(stateFor()), insertFence(''));
 		expect(docToDeck(state.doc)).toContain('```text\n\n```');

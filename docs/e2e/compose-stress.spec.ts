@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { buildDeckIndex } from '../src/lib/deck-outline/deck-outline';
+import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
 import { expect, gotoStudio, persistedSource, railButtons, slideCount, test } from './studio-fixture';
 
 /**
@@ -415,10 +416,13 @@ test('deleting the slide you are editing lands on its neighbor, not the last sli
 // So the door is withheld on a curated list of layouts whose whole anatomy is one statement,
 // one number, or one picture — and kept everywhere else, `content` very much included.
 // Typing or pasting a table still works: the control stands down, the capability does not.
-test('@smoke the table door is withheld on a title slide and offered on content', async ({ page }) => {
+test('@smoke the table door is withheld on a title slide and offered on content (the Insert menu names why)', async ({ page }) => {
 	// `title` — a bookend. Withheld.
 	await caretInto(page, 0);
-	await expect(composeSlide(page, 0).getByRole('button', { name: 'Insert table' })).toBeHidden();
+	await openInsertMenu(page, { slide: composeSlide(page, 0) });
+	await expect(insertEntry(page, 'Table')).toHaveAttribute('data-disabled', '');
+	await expect(insertEntry(page, 'Table')).toContainText('does not suit this layout');
+	await page.keyboard.press('Escape');
 
 	// `content` — the catch-all body layout. This is the case the derived gate got wrong, and
 	// getting it wrong removed the only in-Compose route to a table on the default slide.
@@ -426,7 +430,9 @@ test('@smoke the table door is withheld on a title slide and offered on content'
 	await page.getByRole('button', { name: /^Insert content/i }).first().click();
 	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
 	await caretInto(page, 1);
-	await expect(composeSlide(page, 1).getByRole('button', { name: 'Insert table' })).toBeVisible();
+	await openInsertMenu(page, { slide: composeSlide(page, 1) });
+	await expect(insertEntry(page, 'Table')).not.toHaveAttribute('data-disabled', '');
+	await page.keyboard.press('Escape');
 });
 
 // And when it IS offered, what it inserts must be visible. The starter table was built with
@@ -440,7 +446,7 @@ test('inserting a table puts a visible table on the slide', async ({ page }) => 
 	await page.locator('[role="dialog"]').waitFor({ state: 'detached' });
 
 	await caretInto(page, 1);
-	await composeSlide(page, 1).getByRole('button', { name: 'Insert table' }).click();
+	await insertVia(page, 'Table', { slide: composeSlide(page, 1) });
 
 	const table = composeSlide(page, 1).locator('table');
 	await expect(table).toHaveCount(1);

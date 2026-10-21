@@ -82,6 +82,27 @@ describe('the Lattice group', () => {
 	});
 });
 
+describe('the starter an engine fence is inserted with', () => {
+	const starter = (tag: string) => LATTICE_FENCES.find((f) => f.tag === tag)?.starter ?? '';
+
+	it('exists for the fences a starter can make work on their own, and for no other', () => {
+		expect(LATTICE_FENCES.filter((f) => f.starter).map((f) => f.tag).sort()).toEqual(['functionplot', 'math', 'mermaid']);
+		// An empty Anima scene draws nothing, so it has none: scenes come from the scene library.
+		expect(starter('anima')).toBe('');
+	});
+
+	it('is the body grammar the fence declares: JSON for a plot, a Mermaid flowchart, TeX', () => {
+		expect(() => JSON.parse(starter('functionplot'))).not.toThrow();
+		expect(JSON.parse(starter('functionplot')).data[0].fn).toBeTruthy();
+		expect(starter('mermaid')).toMatch(/^flowchart (LR|TD)\n/);
+		expect(starter('math').trim().length).toBeGreaterThan(0);
+	});
+
+	it('never holds a fence line, which would end the fence it is written into', () => {
+		for (const f of LATTICE_FENCES) expect(f.starter ?? '', f.tag).not.toMatch(/^ {0,3}(`{3,}|~{3,})/m);
+	});
+});
+
 describe('resolving a tag', () => {
 	it('follows aliases on both halves of the manifest', () => {
 		expect(resolveFenceTag('ps1', MANIFEST)?.tag).toBe('powershell'); // lazy, via `aliases`

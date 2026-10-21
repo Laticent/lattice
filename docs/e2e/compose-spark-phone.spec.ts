@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test';
+import { insertVia } from './compose-insert';
 import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 /**
  * COMPOSE — the spark editor at phone width (390px, touch). The editor is a bottom sheet here, the slide bar
- * wraps to two rows, and both must hold with the new "Insert spark" door. This is Chromium with touch
+ * wraps to two rows, and both must hold with the Insert door. This is Chromium with touch
  * EMULATION, not a device: it says nothing about iOS Safari or a real keyboard.
  */
 // The fixture loads a deck through the desktop editor, so the page starts wide and is narrowed once Compose is open.
@@ -42,9 +43,10 @@ for (const mode of ['light', 'dark'] as const) {
 		const box = await bar.boundingBox();
 		expect(box).not.toBeNull();
 		expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-		for (const name of ['Insert table', 'Insert pill', 'Insert spark']) await expect(active.getByRole('button', { name })).toBeVisible();
-		const doors = await Promise.all(['Insert table', 'Insert pill', 'Insert spark'].map((n) => active.getByRole('button', { name: n }).boundingBox()));
-		for (const d of doors) expect((d?.x ?? 0) + (d?.width ?? 0)).toBeLessThanOrEqual(390);
+		// One Insert door holds every insert (table, code, image, pill, spark, avatar, icon...), and it fits the bar.
+		await expect(active.getByRole('button', { name: 'Insert', exact: true })).toBeVisible();
+		const door = await active.getByRole('button', { name: 'Insert', exact: true }).boundingBox();
+		expect((door?.x ?? 0) + (door?.width ?? 0)).toBeLessThanOrEqual(390);
 
 		// Tap a spark: the editor is a sheet, and a pick writes one word.
 		await page.getByRole('button', { name: 'Edit spark, bar' }).tap();
@@ -92,6 +94,6 @@ test('the active slide\'s bar stays fully on screen while a long slide scrolls u
 	expect(m.top, 'the pill is below the pane\'s top edge').toBeGreaterThanOrEqual(0);
 	expect(m.bottom, 'and above its bottom edge').toBeGreaterThanOrEqual(0);
 	// Its buttons are tappable where they are.
-	await active.getByRole('button', { name: 'Insert spark' }).tap();
+	await insertVia(page, 'Spark', { tap: true });
 	await expect(page.locator('[data-slot="popover-content"], [role="dialog"]').first()).toBeVisible();
 });
