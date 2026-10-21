@@ -12,7 +12,7 @@ import { RESERVED_FINISH_NAMES } from '../finish-library';
 import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
-import { followBus } from './follow-bus';
+import { followBus, type PresentPlace } from './follow-bus';
 import { describeMove, type FollowMove, placeOf, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
@@ -624,6 +624,10 @@ export class LiveController {
 	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean } | null = null;
 	private lastApplyAt = 0;
 	private applying = false;
+	private presentAsked = -1;
+	/** Following into Present: no Present of ours opened by Follow, one we opened that way, or one we closed ourselves
+	 *  (not reopened until the leader's Present ends and a new one starts). */
+	private presentFollow: 'idle' | 'open' | 'declined' = 'idle';
 	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean }) {
 		if (!this.following) return;
 		this.followAsked = -1;
@@ -645,12 +649,51 @@ export class LiveController {
 	private publishBus() {
 		const r = this.rt;
 		if (!r) return;
-		for (const key of ['inspector', 'section'] as const) {
+		for (const key of ['inspector', 'section', 'present'] as const) {
 			const v = followBus.getLocal(key);
 			if (v === null) r.view.clear(key);
 			else r.view.set(key, v);
 		}
 		r.view.flush();
+	}
+	/** Follow into Present (design note 2026-10-21 §7.4). The leader's Present is a place; ours opens at it, quietly,
+	 *  unless we are typing (then a Join), already in a Present of our own, or the room is presenting (that wins). */
+	private followPresent(r: Runtime, s: SessionState, mirrors: boolean) {
+		const who = this.following;
+		if (!who) return;
+		const place = r.view.of(who).get('present') as PresentPlace | undefined;
+		const name = s.members.find((m) => m.id === who)?.name ?? 'They';
+		if (!place || !mirrors || this.roomPresent) {
+			if (this.presentFollow === 'open') followBus.apply('present', null);
+			this.presentFollow = 'idle';
+			return;
+		}
+		if (this.presentFollow === 'declined') return;
+		if (this.presentFollow === 'idle' && this.deps.presenting) return;
+		const next = { ...place, by: name };
+		if (this.presentFollow === 'open') {
+			if (JSON.stringify(followBus.lastApplied('present')) !== JSON.stringify(next)) followBus.apply('present', next);
+			return;
+		}
+		const open = () => {
+			if (this.following !== who || this.deps.presenting || this.roomPresent) return;
+			const now = r.view.of(who).get('present') as PresentPlace | undefined;
+			if (!now) return;
+			this.presentFollow = 'open';
+			this.lastApplyAt = Date.now();
+			this.applying = true;
+			try {
+				followBus.apply('present', { ...now, by: name });
+			} finally {
+				this.applying = false;
+			}
+		};
+		if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+			if (this.presentAsked !== this.myEditAt) {
+				this.presentAsked = this.myEditAt;
+				this.host.notifyAction(`${name} is presenting`, { label: 'Join', onClick: open });
+			}
+		} else open();
 	}
 	/** Member (and an heir): the host's records, validated, held in memory for the session only. */
 	private received: LiveRecords = NO_RECORDS;
@@ -943,7 +986,7 @@ export class LiveController {
 		r.disposers.push(
 			followBus.onLocal((key, value) => {
 				this.publishBus();
-				if (value !== null && this.following && Date.now() - this.lastApplyAt > 800 && value !== followBus.lastApplied(key)) {
+				if (key !== 'present' && value !== null && this.following && Date.now() - this.lastApplyAt > 800 && value !== followBus.lastApplied(key)) {
 					this.following = null;
 					this.host.rerender();
 				}
@@ -1201,6 +1244,8 @@ export class LiveController {
 		this.pointerLater = null;
 		this.pointerNext = null;
 		this.followedDoing = null;
+		if (this.presentFollow === 'open') followBus.apply('present', null);
+		this.presentFollow = 'idle';
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
 		this.resetClips();
@@ -1629,6 +1674,8 @@ export class LiveController {
 			if (this.following && !(moved && moved.panel === deps.panel && moved.view === deps.view)) this.following = null;
 			this.followedDoing = null;
 		}
+		// Closing a Present that Follow opened is a choice: it stays closed until the leader's Present ends and another starts.
+		if (prev.presenting && !deps.presenting && this.presentFollow === 'open') this.presentFollow = 'declined';
 		// Activity: what I am doing, when I share it.
 		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) this.publishDoing(deps);
 		// The host keeps the lobby invite current.
@@ -1727,6 +1774,7 @@ export class LiveController {
 					}
 				} else this.followTo(target);
 			}
+			this.followPresent(r, s, mirrors);
 		}
 		if (!s.isHost) {
 			const hostId = s.members.find((m) => m.role === 'host')?.id;

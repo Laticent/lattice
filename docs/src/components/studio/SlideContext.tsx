@@ -1050,6 +1050,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// in (the session decides when; this only decides how).
 	useViewKey('section', reportSection ? activeTab : null);
 	useAppliedKey('section', (v) => {
+		if (v === null) return;
 		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');
 		if (scope === 'slide' && tabValues.includes(v)) setTab(v);
 	});

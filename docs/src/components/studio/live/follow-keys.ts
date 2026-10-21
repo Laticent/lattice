@@ -3,7 +3,7 @@
 // one more line here and the gate, the bounds and the privacy switch come with it. Every value is a place
 // from a fixed list or a flag; there is no text a person typed. Design: engineering/decisions/2026-10-21-follow-over-tavola.md §6.
 
-import { bool, defineViewKeys, type Infer, oneOf } from '@/lib/tavola/view';
+import { bool, defineViewKeys, type Infer, int, obj, oneOf, opt, pattern } from '@/lib/tavola/view';
 import type { LiveDoing } from './live-model';
 
 /** The section ids of the Deck and Slide panels. A typo in a component's tab id is caught by `useViewKey`'s
@@ -20,6 +20,8 @@ export const VIEW_KEYS = defineViewKeys({
 	inspector: oneOf(['none', 'deck', 'slide']),
 	/** The section tab inside it. The ids of the Deck and Slide panels' tabs (both panels have a `look`). */
 	section: oneOf(SECTIONS),
+	/** Where this member's own Present is, while it is open. */
+	present: obj({ idx: int(0, 10_000), page: int(0, 10_000), lens: pattern(/^[A-Za-z0-9_-]+$/, 64), hash: opt(pattern(/^[0-9a-f]{1,8}$/, 8)) }),
 });
 
 type Panel = Infer<(typeof VIEW_KEYS)['schemas'] extends ReadonlyMap<string, infer S> ? S : never>;

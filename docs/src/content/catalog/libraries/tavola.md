@@ -116,7 +116,7 @@ In a real app, share `formatLink(location.href, link)`, read it on the guest's s
 
 Tavola powers the **Live** panel in the Studio, Lattice's editor in the browser. The Studio builds live cursors, presence, follow mode, chat, and audio and video calls on top of it. The Lattice engine and its command-line tool don't use it.
 
-## Presence, and where each member is
+### Presence, and where each member is
 
 Awareness is how an app shows who is where. Tavola's Yjs adapter checks every incoming presence message once, for every app: it refuses oversize messages before reading them, files each status under the person who sent it, keeps a forged clock from silencing someone, and keeps only the keys you declared. A declared key holds a place from a fixed list, a number in a range, or an id of a fixed form, never free text, so what someone has typed and not yet committed cannot travel as presence. It ships beside the core as `@laticent/tavola/yjs`, so the core itself still needs no Yjs.
 

@@ -1185,6 +1185,118 @@ describe('LiveController: activity, Follow and pointers', () => {
 		off();
 	});
 
+	it('Follow opens Present at the leader\'s place, moves with it, closes with it, and stays closed if you close it', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const asks: string[] = [];
+		sh.host.followDoing = () => {};
+		sh.host.canFollowDoing = () => true;
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		const seen: Array<{ idx: number; by: string } | null> = [];
+		const off = followBus.onApply((k, v) => {
+			if (k === 'present') seen.push(v ? { idx: (v as { idx: number }).idx, by: (v as { by: string }).by } : null);
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: the leader's Present reports its place.
+		const lead = (h as any).rt.view;
+		const place = (idx: number | null) => {
+			if (idx === null) lead.clear('present');
+			else lead.set('present', { idx, page: 0, lens: 'full', hash: 'abc123' });
+			lead.flush();
+		};
+		g.actions.follow(hostId);
+		place(2);
+		await until(() => seen.length === 1, h, g);
+		expect(seen[0]).toEqual({ idx: 2, by: 'Sharmarke' });
+		place(3);
+		await until(() => seen.length === 2, h, g);
+		expect(seen[1]).toEqual({ idx: 3, by: 'Sharmarke' });
+		// The leader stops: ours closes with it.
+		place(null);
+		await until(() => seen.length === 3, h, g);
+		expect(seen[2]).toBeNull();
+		// Open again, then close it ourselves: it stays closed while the leader goes on, and comes back for a new Present.
+		g.update(deps('shared-deck', { presenting: false }));
+		place(1);
+		await until(() => seen.length === 4, h, g);
+		g.update(deps('shared-deck', { presenting: true }));
+		g.update(deps('shared-deck', { presenting: false }));
+		place(4);
+		await settle(h, g);
+		expect(seen.length).toBe(4);
+		place(null);
+		await settle(h, g);
+		// Past the gate's rate limit, so the end is seen before the next start.
+		await new Promise((r) => setTimeout(r, 150));
+		await settle(h, g);
+		place(5);
+		await until(() => seen.length === 5, h, g);
+		expect(seen[4]).toEqual({ idx: 5, by: 'Sharmarke' });
+		off();
+	});
+
+	it('Follow does not open Present over one you opened, over a typist (they get a Join), or over the room\'s', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const asks: string[] = [];
+		let joined: (() => void) | undefined;
+		sh.host.followDoing = () => {};
+		sh.host.canFollowDoing = () => true;
+		sh.host.notifyAction = (m, a) => {
+			asks.push(m);
+			joined = a.onClick;
+		};
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		const seen: unknown[] = [];
+		const off = followBus.onApply((k, v) => k === 'present' && seen.push(v));
+		// biome-ignore lint/suspicious/noExplicitAny: the leader's Present reports its place.
+		const lead = (h as any).rt.view;
+		const place = (idx: number) => {
+			lead.set('present', { idx, page: 0, lens: 'full' });
+			lead.flush();
+		};
+		g.actions.follow(hostId);
+		// A Present of our own is left alone.
+		g.update(deps('shared-deck', { presenting: true }));
+		place(1);
+		await settle(h, g);
+		expect(seen).toEqual([]);
+		g.update(deps('shared-deck', { presenting: false }));
+		// Typing: a Join, not an open; pressing it opens at wherever the leader is.
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		place(2);
+		await until(() => asks.some((a) => a.includes('is presenting')), h, g);
+		expect(seen).toEqual([]);
+		joined?.();
+		expect(seen).toHaveLength(1);
+		off();
+	});
+
 	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {
 		const { h } = await hostSession();
 		const sh = shell();

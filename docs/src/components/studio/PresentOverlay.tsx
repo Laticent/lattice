@@ -141,6 +141,9 @@ function slideHash(text: string): string {
 export type PresentLive = {
 	/** This browser presents to everyone: where its Present is, as it moves. */
 	onTransport?: (t: { idx: number; page: number; lens: string; hash: string; voice: boolean }) => void;
+	/** Where this Present is, as it moves; null when it closes or this person is following someone else's. Lets a
+	 *  member who follows this person open Present at the same place. */
+	onPlace?: (p: { idx: number; page: number; lens: string; hash: string } | null) => void;
 	/** This browser presents to everyone with Voice on: how it answers a member's request for one sentence's clip.
 	 *  It serves only what this device already holds. Called with null when it stops. */
 	serveClips?: (serve: ((hash: string) => Promise<{ bytes: Uint8Array; mime: string; lead?: number } | null>) | null) => void;
@@ -357,6 +360,18 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	React.useEffect(() => {
 		if (open && onTransport) onTransport({ idx: clamped, page, lens, hash: slideHash(cur ?? ''), voice: !muted && voiceMakesClips });
 	}, [open, onTransport, clamped, page, lens, cur, muted, voiceMakesClips]);
+	// Live: say where this Present is, for anyone who follows this person. Not while following someone else (the
+	// place is theirs), and cleared when Present closes.
+	const onPlace = live?.onPlace;
+	const followsSomeone = !!live?.follow && !detached;
+	React.useEffect(() => {
+		if (!open || !onPlace) return;
+		onPlace(followsSomeone ? null : { idx: clamped, page, lens, hash: slideHash(cur ?? '') });
+	}, [open, onPlace, followsSomeone, clamped, page, lens, cur]);
+	React.useEffect(() => {
+		if (!open || !onPlace) return;
+		return () => onPlace(null);
+	}, [open, onPlace]);
 	// Following a presentation: go where the presenter is, until this person moves on their own. A lens
 	// this deck does not offer is not followed (the slide index would mean another slide).
 	const follow = live?.follow ?? null;

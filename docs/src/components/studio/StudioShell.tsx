@@ -105,7 +105,7 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
-import { followBus, useAppliedKey, useViewKey } from './live/follow-bus';
+import { followBus, type PresentPlace, useAppliedKey, useViewKey } from './live/follow-bus';
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
@@ -805,6 +805,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const livePresentRef = React.useRef(false);
 	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
 	const [presentByRoom, setPresentByRoom] = React.useState(false);
+	const [presentFollow, setPresentFollow] = React.useState<(PresentPlace & { by: string }) | null>(null);
+	const reportPresentPlace = React.useCallback((p: PresentPlace | null) => followBus.setLocal('present', p), []);
 	const presentByRoomRef = React.useRef(false);
 	presentByRoomRef.current = presentByRoom;
 	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
@@ -947,10 +949,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	useViewKey('inspector', activeSettings ?? 'none');
 	useViewKey('section', activeSettings === 'deck' ? deckTab : null);
 	useAppliedKey('inspector', (v) => {
+		if (v === null) return;
 		if (v === 'deck' || v === 'slide') revealCraftDock();
 		setActiveSettings(v === 'deck' || v === 'slide' ? v : null);
 	});
 	useAppliedKey('section', (v) => {
+		if (v === null) return;
 		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');
 		if (scope === 'deck' && deckSectionIdsRef.current.includes(v)) setDeckTab(v as DeckTab);
 	});
@@ -4078,10 +4082,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const liveForPresent = React.useMemo(
 		() =>
 			live.view.status === 'live'
-				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), serveClips: livePresentingToAll ? live.actions.serveClips : undefined, follow: presentByRoom ? live.view.present : null, clips: roomClips, inertKeys: presentByRoom }
+				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), serveClips: livePresentingToAll ? live.actions.serveClips : undefined, follow: presentByRoom ? live.view.present : presentFollow, clips: roomClips, inertKeys: presentByRoom || !!presentFollow, onPlace: reportPresentPlace }
 				: undefined,
-		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom, roomClips],
+		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom, presentFollow, roomClips, reportPresentPlace],
 	);
+	// Follow into Present (design note 2026-10-21 §7.4): a Present opened because we follow someone is a third kind,
+	// after one we opened ourselves and one the room opened. It is quiet (the keyboard does nothing until a click,
+	// muted, no narration of our own) and a Present the room opened wins over it.
+	const presentFollowRef = React.useRef(presentFollow);
+	presentFollowRef.current = presentFollow;
+	useAppliedKey('present', (v) => {
+		if (v === null) {
+			if (presentFollowRef.current) {
+				setPresentFollow(null);
+				setPresentOpen(false);
+			}
+			return;
+		}
+		if (presentByRoomRef.current) return;
+		if (presentOpenRef.current && !presentFollowRef.current) return;
+		setPresentFollow(v);
+		setPresentOpen(true);
+	});
+	React.useEffect(() => {
+		if (!presentOpen) setPresentFollow(null);
+	}, [presentOpen]);
 	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
 	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
 	const openLive = () => {

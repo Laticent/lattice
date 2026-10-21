@@ -5,7 +5,7 @@ afterEach(() => followBus.reset());
 
 describe('follow bus', () => {
 	it('tells the session what a screen reports, once per change', () => {
-		const seen: Array<[string, string | null]> = [];
+		const seen: Array<[string, unknown]> = [];
 		const off = followBus.onLocal((k, v) => seen.push([k, v]));
 		followBus.setLocal('section', 'look');
 		followBus.setLocal('section', 'look');
