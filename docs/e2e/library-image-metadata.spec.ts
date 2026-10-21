@@ -402,6 +402,7 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	const mediaPill = page.getByRole('tab', { name: 'Media', exact: true });
 	if (!(await mediaPill.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
 	await mediaPill.click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await page.locator('[data-media-card="shared-probe"]').getByRole('button', { name: 'Details for shared-probe' }).click();
 	const dialog = page.locator('[data-media-detail="shared-probe"]');

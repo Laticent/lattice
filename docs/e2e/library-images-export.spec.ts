@@ -109,6 +109,7 @@ async function setUp(page: Page) {
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await addPhoto(page, 'Export Probe.png');
 	await expect(page.locator('[data-media-card="export-probe"]')).toBeVisible();
@@ -187,6 +188,7 @@ onEveryEngine('@smoke a photo deleted before export is named in the toast and dr
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await addPhoto(page, 'Soon Gone.png');
 	await expect(page.locator('[data-media-card="soon-gone"]')).toBeVisible();

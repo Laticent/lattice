@@ -34,6 +34,7 @@ async function openWithPhotos(page: Page, source: string = DECK): Promise<void> 
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await addLibraryPhoto(page, 'Harbor.png', '#1a6fb5');
 	await addLibraryPhoto(page, 'Forest.png', '#2a8a4a');
@@ -151,7 +152,7 @@ test.describe('compose images', () => {
 		await expect(picker(page).getByText('Your Library has no photos yet')).toBeVisible();
 		await picker(page).getByRole('button', { name: 'Open the Library' }).click();
 		await expect(picker(page)).toHaveCount(0);
-		await expect(page.getByRole('tab', { name: 'Images' })).toBeVisible();
+		await expect(page.getByRole('tab', { name: 'Media', exact: true })).toBeVisible();
 	});
 
 	test('a locked slide takes no image: the door says so', async ({ page }) => {

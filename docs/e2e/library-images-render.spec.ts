@@ -45,6 +45,7 @@ test('@smoke a Library photo paints in the live preview, and deleting it falls b
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await addPng(page, 'Probe Photo.png');
 	await expect(page.locator('[data-media-card="probe-photo"]')).toBeVisible();
@@ -93,6 +94,7 @@ test('@smoke a deck-only photo renders in its own deck, and flipping it to share
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
 	await addPng(page, 'Mine.png');
@@ -119,6 +121,7 @@ test('@smoke a collage of Library photos paints every tile and fills its frame @
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	const shapes = [
 		{ n: 'tall', w: 600, h: 900, color: '#d02828' },
@@ -148,6 +151,7 @@ test('@smoke a Library photo paints in the Present overlay @crosswidth @webkit-t
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Images' }).click();
 	await addPng(page, 'Stage.png', { w: 800, h: 450, color: '#2840d0' });
 	await expect(page.locator('[data-media-card="stage"]')).toBeVisible();

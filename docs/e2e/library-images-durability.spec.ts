@@ -61,8 +61,8 @@ async function addPhoto(page: Page, name: string, o: { w?: number; h?: number; n
 
 async function openLibraryImages(page: Page) {
 	// Idempotent: the docked panel stays open, and clicking its launcher again would close it.
-	const images = page.getByRole('tab', { name: 'Images' });
-	if (await images.isVisible().catch(() => false)) return;
+	const images = page.getByRole('tab', { name: 'Media', exact: true });
+	if (await images.isVisible().catch(() => false)) return void (await images.click());
 	const width = page.viewportSize()?.width ?? 1440;
 	if (width >= 1100) {
 		await page.getByRole('button', { name: CHROME.library }).click();
@@ -74,6 +74,7 @@ async function openLibraryImages(page: Page) {
 		await page.getByRole('button', { name: /^Library/ }).click();
 	}
 	await images.click();
+	await page.getByRole('tab', { name: 'Images' }).click();
 }
 
 /** The Library is a docked column at desktop widths (it stays open) and a modal sheet below that
