@@ -21,26 +21,30 @@ import { TOUR_LINES, TOUR_VOICE_DIR } from './lines';
 export const TOUR_PAN_STRENGTH = 0.5;
 
 let voice: ClipNarrator | null = null;
-let loaded: Promise<void> | null = null;
+/** Folders already asked for: the shared test line's, plus a tour's own. */
+const folders = new Map<string, Promise<void>>();
 
-/** Build the page's tour narrator if it is not built yet, and unlock audio. Call inside a gesture. */
-export function prepareTourVoice(): ClipNarrator {
+/** Build the page's tour narrator if it is not built yet, and unlock audio. Call inside a gesture.
+ *  `dir` names a tour's own clip folder, fetched alongside the shared test line. */
+export function prepareTourVoice(dir?: string): ClipNarrator {
 	if (!voice) {
 		voice = clipNarrator({ panStrength: TOUR_PAN_STRENGTH });
 		addEventListener('pagehide', disposeTourVoice, { once: true });
 	} else {
 		voice.unlock();
 	}
-	loaded ??= voice.load(TOUR_VOICE_DIR);
+	for (const d of dir && dir !== TOUR_VOICE_DIR ? [TOUR_VOICE_DIR, dir] : [TOUR_VOICE_DIR]) {
+		if (!folders.has(d)) folders.set(d, voice.load(d));
+	}
 	return voice;
 }
 
-/** Resolves once the tour's clip list has been read (never rejects). */
-export const tourVoiceReady = (): Promise<void> => (prepareTourVoice(), loaded ?? Promise.resolve());
+/** Resolves once the clip lists have been read (never rejects). */
+export const tourVoiceReady = (dir?: string): Promise<void> => (prepareTourVoice(dir), Promise.all(folders.values()).then(() => {}));
 
 /** The narrator the tour runs with: the recorded voice, or the silent one (captions and timing only). */
-export function tourNarrator(sound: boolean) {
-	return sound ? prepareTourVoice() : cadenzaNarrator({ pace: 'moderate' });
+export function tourNarrator(sound: boolean, dir?: string) {
+	return sound ? prepareTourVoice(dir) : cadenzaNarrator({ pace: 'moderate' });
 }
 
 /** True when the tour's clips loaded, so the test and the tour will be heard. */
@@ -75,5 +79,5 @@ export async function testTourSound(): Promise<boolean> {
 export function disposeTourVoice(): void {
 	voice?.dispose?.();
 	voice = null;
-	loaded = null;
+	folders.clear();
 }

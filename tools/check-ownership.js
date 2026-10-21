@@ -13476,13 +13476,6 @@ const SANCTIONED_DANGLING_TOKEN_READS = [
       'not a token defect.',
   },
   {
-    token: '--font-heading',
-    why:
-      'guided-tour.css reads `var(--font-heading, var(--font-body, inherit))` — the chain terminates ' +
-      'on --font-body, which the ENGINE does declare, so this degrades onto a real token rather than ' +
-      'onto a literal. Same optional-hook shape as --font-serif, one rung safer.',
-  },
-  {
     token: '--pg-deck-aspect',
     why:
       'a structural (non-color) playground hook with a literal fallback that is the shipping value: ' +

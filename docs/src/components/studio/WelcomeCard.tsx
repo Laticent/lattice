@@ -24,11 +24,13 @@ export type WelcomeCardProps = {
 	onTest: () => Promise<boolean>;
 	/** Opens the hands-on lessons (the next one the visitor has not finished). */
 	onLessons: () => void;
+	/** Words for a surface other than the Studio. The Studio's own are the defaults. */
+	copy?: { title?: string; body?: string };
 };
 
 type TestState = 'idle' | 'playing' | 'heard' | 'unavailable';
 
-export function WelcomeCard({ mode, onClose, onStart, onTest, onLessons }: WelcomeCardProps) {
+export function WelcomeCard({ mode, onClose, onStart, onTest, onLessons, copy }: WelcomeCardProps) {
 	const [test, setTest] = React.useState<TestState>('idle');
 	const runTest = () => {
 		setTest('playing');
@@ -42,8 +44,8 @@ export function WelcomeCard({ mode, onClose, onStart, onTest, onLessons }: Welco
 			{mode === 'start' && (
 				<DialogContent data-welcome="start" className="sm:max-w-md">
 					<DialogHeader>
-						<DialogTitle>Welcome to Lattice</DialogTitle>
-						<DialogDescription>A narrated tour of the Studio, about two minutes. It plays best with your sound on, ideally through headphones.</DialogDescription>
+						<DialogTitle>{copy?.title ?? 'Welcome to Lattice'}</DialogTitle>
+						<DialogDescription>{copy?.body ?? 'A narrated tour of the Studio, about two minutes. It plays best with your sound on, ideally through headphones.'}</DialogDescription>
 					</DialogHeader>
 					<div className="flex items-center gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
 						<Button type="button" variant="outline" size="sm" data-welcome="test" onClick={runTest} disabled={test === 'playing'}>

@@ -67,3 +67,23 @@ unverified by ear. The pan values above are what the audio graph received.
 
 - Real-device pass on iOS Safari (audio unlock inside the Start click) and on headphones.
 - Lessons are in Kokoro; the tour is in Gemini. Whether to re-voice them is the owner's call.
+
+## The Playground
+
+The Playground tour moved to Vetrina in the same change, and `driver.js` left the docs dependencies.
+
+- `guided-tour.js` keeps what a tour needs that is not the tour: the Tour button, the first-visit
+  timer, the global on/off and the production-only rule. It draws nothing now; it asks the page for
+  the start card (`pg-tour-offer`). The island may not have hydrated when the timer fires, so the ask
+  is also left on `window.__pgTourOffer` for the card to find when it mounts.
+- `playground-tour.js` holds the 10 steps, spoken from `PLAYGROUND_LINES` (folder `playground-tour`,
+  same Gemini voice). A step whose Explore/Edit mode differs from where the tour is gets a silent
+  switch beat first, and a visitor who stops mid-tour is put back in the view they started in.
+- `?tour=1` forces the offer on any host, as `?welcome=1` does in the Studio.
+- **A latent bug fell out:** the old tour's "Try any palette" step pointed at `#palette`, which does
+  not exist. driver.js dropped steps with no element, so it was skipped without a sound, and the
+  reachability test exempted it as "outside the component". The step now points at
+  `button[aria-label="Theme"]`.
+- Measured at 1440×900 and 390×844 against the dev server: 10 clips played; pans -0.46 (mode toggle),
+  -0.35 (picker), 0 (the walk bar, centered), -0.21, -0.27 (editor), +0.45 (Galleries), +0.37
+  (Deck settings), +0.34 (Theme). About 95 seconds. The phone tour switched to the editor pane on its own.

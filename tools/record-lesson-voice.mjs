@@ -61,16 +61,16 @@ const CHECK = args.includes('--check');
 const only = args.includes('--lesson') ? args[args.indexOf('--lesson') + 1] : null;
 const LIMIT = args.includes('--limit') ? Math.max(1, Number(args[args.indexOf('--limit') + 1]) || 1) : null;
 
-/** The tour's folder and its (Gemini) voice, set by plan(); every other folder speaks in Kokoro. */
+/** The tour folders and their (Gemini) voice, set by plan(); every other folder speaks in Kokoro. */
 let tourVoice = null;
 
 /** Lines per folder: each lesson's own, and `shared` for the lines every lesson may say. */
 async function plan() {
 	const { LESSON_LINES, SHARED_LINES, SHARED_VOICE_DIR } = await import(pathToFileURL(LINES_TS).href);
-	const { TOUR_LINES, TOUR_VOICE, TOUR_VOICE_DIR } = await import(pathToFileURL(TOUR_LINES_TS).href);
-	const dirs = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), [TOUR_VOICE_DIR]: Object.values(TOUR_LINES) };
+	const { TOUR_LINES, TOUR_VOICE, TOUR_VOICE_DIR, PLAYGROUND_LINES, PLAYGROUND_VOICE_DIR } = await import(pathToFileURL(TOUR_LINES_TS).href);
+	const dirs = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), [TOUR_VOICE_DIR]: Object.values(TOUR_LINES), [PLAYGROUND_VOICE_DIR]: Object.values(PLAYGROUND_LINES) };
 	for (const [id, lines] of Object.entries(LESSON_LINES)) dirs[id] = Object.values(lines);
-	tourVoice = { dir: TOUR_VOICE_DIR, voice: TOUR_VOICE };
+	tourVoice = { dirs: new Set([TOUR_VOICE_DIR, PLAYGROUND_VOICE_DIR]), voice: TOUR_VOICE };
 	if (only && !(only in dirs)) throw new Error(`no lesson "${only}" in lines.ts`);
 	return only ? { [SHARED_VOICE_DIR]: dirs[SHARED_VOICE_DIR], [only]: dirs[only] } : dirs;
 }
@@ -154,7 +154,7 @@ async function main() {
 	const { KOKORO } = await import('../lib/export/kokoro-voice.mjs');
 	const kokoroVoice = { model: KOKORO.model, voice: KOKORO.voice, dtype: KOKORO.dtype, speed: KOKORO.speed };
 	const dirs = await plan();
-	const voiceOf = (dir) => (dir === tourVoice.dir ? tourVoice.voice : kokoroVoice);
+	const voiceOf = (dir) => (tourVoice.dirs.has(dir) ? tourVoice.voice : kokoroVoice);
 
 	// What each folder needs, what it already has, and what is left over.
 	const work = [];
@@ -191,8 +191,8 @@ async function main() {
 	const { compressClip } = await import('../lib/core/narration-encode.mjs');
 
 	let tts = null;
-	const kokoroWork = work.filter((w) => w.dir !== tourVoice.dir);
-	const geminiWork = work.filter((w) => w.dir === tourVoice.dir).slice(0, LIMIT ?? Infinity);
+	const kokoroWork = work.filter((w) => !tourVoice.dirs.has(w.dir));
+	const geminiWork = work.filter((w) => tourVoice.dirs.has(w.dir)).slice(0, LIMIT ?? Infinity);
 	if (kokoroWork.length) {
 		const { loadKokoro } = await import('../lib/export/narrate-kokoro.mjs');
 		tts = await loadKokoro((m) => console.log(m));
@@ -203,7 +203,7 @@ async function main() {
 	const recorded = new Map();
 	for (const [i, w] of todo.entries()) {
 		const voice = voiceOf(w.dir);
-		const a = w.dir === tourVoice.dir ? await geminiSpeak(w.text, voice) : await tts.generate(w.text, { voice: voice.voice, ...(voice.speed !== 1 ? { speed: voice.speed } : {}) });
+		const a = tourVoice.dirs.has(w.dir) ? await geminiSpeak(w.text, voice) : await tts.generate(w.text, { voice: voice.voice, ...(voice.speed !== 1 ? { speed: voice.speed } : {}) });
 		const pcm = trimSilence(a.audio, a.sampling_rate, speechOnsetMs);
 		const mp3 = await compressClip(wavBlob(pcm, a.sampling_rate), KBPS);
 		if (!mp3) throw new Error('the mp3 encoder did not load (npm i --no-save @breezystack/lamejs@1.2.7)');

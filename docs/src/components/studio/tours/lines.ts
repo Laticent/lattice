@@ -34,3 +34,19 @@ export const TOUR_LINES = {
 	share: 'Everything you can send someone lives under Share, including a PDF.',
 	close: 'That is the whole shape of it. You write, Lattice designs, and you present. Would you like to go further?',
 } as const;
+
+/** The Playground's tour: same voice, its own folder, so a line added to one never stales the other. */
+export const PLAYGROUND_VOICE_DIR = 'playground-tour';
+
+export const PLAYGROUND_LINES = {
+	hello: 'Welcome to the Playground. Every Lattice component lives here, one deck at a time, with a live editor one tap away.',
+	mode: 'This switch flips between Explore, which draws the deck, and Edit, which opens its Markdown. Same deck, two views.',
+	pick: 'Pick any component here. Search by name, and its whole deck loads: the title, every variant, and a stress test.',
+	walk: 'Step through with the arrow keys. When a deck ends, it flows into the next component, so the catalog reads as one long story.',
+	step: 'The Step menu jumps to any slide in the deck.',
+	edit: 'In Edit you see the plain Markdown, with autocomplete for component names. Change a word, flip back, and the slide follows.',
+	galleries: 'Galleries load complete decks: showcase decks, one deck for each family, and every example.',
+	setup: 'Deck settings hold the dials that apply to the whole deck: finish, size, and page numbers.',
+	palette: 'And the palette recolors everything. Layouts never name a color, so the same Markdown looks right in every theme, light or dark.',
+	close: 'That is the Playground. Explore the catalog, grab any deck, and make it yours. The Tour button replays this any time.',
+} as const;

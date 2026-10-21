@@ -259,12 +259,12 @@ describe('PlaygroundApp — fuzz: view and pane never desync across random journ
 // ── Tour-step reachability ───────────────────────────────────────────────────
 // Every tour step that names an element must resolve in the MODE it declares —
 // in BOTH directions — or the tour would spotlight nothing (the handoff entry
-// path arrives in Edit; Explore steps must still mount). #palette lives in the
+// path arrives in Edit; Explore steps must still mount). the Theme select lives in the
 // site topbar, outside this component — exempt here, covered by the e2e drive.
 import { STEPS } from '@/playground/playground-tour.js';
 
 describe('PlaygroundApp — every tour step is reachable in its declared mode', () => {
-	const OUTSIDE = new Set(['#palette']);
+	const OUTSIDE = new Set(['button[aria-label="Theme"]']);
 
 	it('mounts every step target in read AND edit harnesses', async () => {
 		vi.stubGlobal(

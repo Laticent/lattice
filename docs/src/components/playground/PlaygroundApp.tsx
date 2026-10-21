@@ -67,6 +67,7 @@ import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
+import { PlaygroundTourCard } from './PlaygroundTourCard';
 import { WalkBar } from './WalkBar';
 
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
@@ -2783,6 +2784,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			{/* The page's one H1, visually hidden — the visible label is the branded site
 			    header, which is chrome, not a heading. */}
 			<h1 className="sr-only">Lattice playground</h1>
+			<PlaygroundTourCard />
 			{/* Chart detail reveal — the shared parent-hosted layer + its popover (PREVIEW mode:
 			    reveal whichever chart is under the pointer as the author edits). */}
 			<ChartDetailLayer ref={chartDetailRef} getFrame={() => frameRef.current} getStage={() => frameRef.current?.parentElement ?? null} hoverAny />
