@@ -56,8 +56,10 @@ export function useObjectUrl(blob: Blob | undefined): string | null {
 
 const clock = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, '0')}`;
 
-export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confirmLabel, onArm, onCancel, onDelete, onScope, onOpen }: {
+export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confirmLabel, onArm, onCancel, onDelete, onScope, onOpen, fresh }: {
 	m: MediaRecord;
+	/** Added a moment ago: rings the card so a fresh import is easy to find. */
+	fresh?: boolean;
 	/** The deck open in the Studio, or null when none is. A deck-scoped asset can only be moved from its own deck. */
 	activeDeckId: string | null;
 	/** How many decks reference `asset:<name>` right now. */
@@ -88,7 +90,7 @@ export function MediaCard({ m, activeDeckId, usedIn, usedElsewhere, armed, confi
 	const pinned = shared && usedElsewhere > 0;
 	const canFlip = shared ? activeDeckId !== null && !pinned : m.scope === activeDeckId;
 	return (
-		<div className="relative overflow-hidden rounded-xl border border-border bg-card" data-media-card={m.name}>
+		<div className={cn('relative overflow-hidden rounded-xl border bg-card', fresh ? 'border-[var(--accent)]' : 'border-border')} data-media-card={m.name}>
 			{/* The image is ABSOLUTE inside a fixed box. As a `h-full` grid item it was sized by its own
 			    row, not by the 88px: a 1920×2560 photo painted 351px tall, `object-cover` had nothing to
 			    crop to, and `overflow-hidden` showed only the top strip (measured in Chromium). */}

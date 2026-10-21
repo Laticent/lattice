@@ -34,10 +34,13 @@ async function withPhotos(page: Page) {
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await addPhoto(page, 'Team Shot.png');
 	await expect(page.locator('[data-media-card="team-shot"]')).toBeVisible();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'This deck' }).click();
 	await addPhoto(page, 'Deck Only.png');
 	await expect(page.locator('[data-media-card="deck-only"]')).toBeVisible();
 }

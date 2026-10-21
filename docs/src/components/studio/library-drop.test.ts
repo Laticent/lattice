@@ -10,7 +10,8 @@
 // rather than silently swallowed.
 
 import { describe, expect, it } from 'vitest';
-import { classifyDropped, refusedDetail, rejectedMessage } from './Library';
+import { classifyDropped, landingFilter, refusedDetail, rejectedMessage } from './Library';
+import { sectionOf } from './panel-shells';
 import { REF_DOC_ACCEPT } from './reference-doc';
 
 const file = (name: string) => new File(['x'], name);
@@ -122,5 +123,35 @@ describe('refusedDetail', () => {
 		const many = refusedDetail(Array.from({ length: 20 }, (_, i) => ({ name: `f${i}`, why: 'nope' })));
 		expect(typeof many).toBe('string');
 		expect(many.split('\n')).toHaveLength(5);
+	});
+});
+
+// One Import button: where the Library opens afterward is decided by what was picked.
+describe('landingFilter', () => {
+	const land = (...names: string[]) => landingFilter(classifyDropped(names.map(file)));
+
+	it('opens Images for photos, Videos for clips, and Media when a batch has both', () => {
+		expect(land('a.png', 'b.JPG')).toBe('image');
+		expect(land('clip.mp4')).toBe('video');
+		expect(land('a.png', 'clip.mov')).toBe('media');
+	});
+
+	it('opens Design for a package archive and Files for a reference file', () => {
+		expect(land('assets.zip')).toBe('design');
+		expect(land('notes.md', 'brief.pdf')).toBe('refdoc');
+	});
+
+	it('opens All when the batch spans kinds, and stays put when nothing can be added', () => {
+		expect(land('assets.zip', 'a.png')).toBe('all');
+		expect(land('notes.md', 'clip.mp4')).toBe('all');
+		expect(land('virus.exe')).toBeNull();
+	});
+
+	it('every landing filter lives under a pill that exists', () => {
+		for (const f of ['image', 'video', 'media', 'design', 'refdoc', 'all'] as const) {
+			expect(['all', 'design', 'media', 'files']).toContain(sectionOf(f));
+		}
+		expect(sectionOf('refdoc')).toBe('files');
+		expect(sectionOf('motion')).toBe('design');
 	});
 });

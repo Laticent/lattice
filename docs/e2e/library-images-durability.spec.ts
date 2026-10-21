@@ -61,8 +61,8 @@ async function addPhoto(page: Page, name: string, o: { w?: number; h?: number; n
 
 async function openLibraryImages(page: Page) {
 	// Idempotent: the docked panel stays open, and clicking its launcher again would close it.
-	const images = page.getByRole('tab', { name: 'Images' });
-	if (await images.isVisible().catch(() => false)) return;
+	const images = page.getByRole('tab', { name: 'Media', exact: true });
+	if (await images.isVisible().catch(() => false)) return void (await images.click());
 	const width = page.viewportSize()?.width ?? 1440;
 	if (width >= 1100) {
 		await page.getByRole('button', { name: CHROME.library }).click();
@@ -74,6 +74,8 @@ async function openLibraryImages(page: Page) {
 		await page.getByRole('button', { name: /^Library/ }).click();
 	}
 	await images.click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 }
 
 /** The Library is a docked column at desktop widths (it stays open) and a modal sheet below that
@@ -161,7 +163,8 @@ test('a backup carries the photos and a restore puts them back where they were @
 	await openLibraryImages(page);
 	await addPhoto(page, 'Keep Shared.png');
 	await expect(page.locator('[data-media-card="keep-shared"]')).toBeVisible();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'This deck' }).click();
 	await addPhoto(page, 'Keep Deck.png');
 	await expect(page.locator('[data-media-card="keep-deck"]')).toBeVisible();
 	// One photo has been looked at by the chat and captioned; the other has not.
@@ -259,7 +262,8 @@ test('deleting a deck takes the photos kept to that deck, and only those @crossw
 	await openLibraryImages(page);
 	await addPhoto(page, 'Shared Stays.png');
 	await expect(page.locator('[data-media-card="shared-stays"]')).toBeVisible();
-	await page.getByRole('tab', { name: 'This deck' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'This deck' }).click();
 	await addPhoto(page, 'Goes With Deck.png');
 	await expect(page.locator('[data-media-card="goes-with-deck"]')).toBeVisible();
 	expect((await shelf(page)).map((r) => r.name)).toEqual(['goes-with-deck', 'shared-stays']);

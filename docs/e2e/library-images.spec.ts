@@ -116,7 +116,9 @@ async function openLibraryImages(page: Page, width: number) {
 		await page.getByRole('button', { name: CHROME.moreControls, exact: true }).click();
 		await page.getByRole('button', { name: /^Library/ }).click();
 	}
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 }
 
 // Each width is its own describe with its own viewport, run in the `desktop` project: the
@@ -217,7 +219,8 @@ for (const vw of WIDTHS) {
 		await openLibraryImages(page, width);
 
 		// Add to THIS deck.
-		await page.getByRole('tab', { name: 'This deck' }).click();
+		await page.getByRole('button', { name: 'Filter' }).click();
+		await page.getByRole('menuitemradio', { name: 'This deck' }).click();
 		await pickPhoto(page, [{ name: 'Team.png', width: 800, height: 600, type: 'image/png' }]);
 		await expect(page.getByText(/Added 1 image to this deck/)).toBeVisible();
 		const card = page.locator('[data-media-card="team"]');

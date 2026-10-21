@@ -27,11 +27,17 @@ export type StudioFinish = {
 	/** What an imported package carried that this record does not model (its manifest,
 	 *  its recipe file's exact text), so exporting it again writes the same files. */
 	pkg?: PackageCarry;
+	/** When the record was last saved: the Library's sort key. */
+	addedAt?: number;
+	/** `'imported'` when the record arrived from a package (.zip / .lattice), absent when it was
+	 *  made here. Absent also on a record saved before this field existed, so the Library only
+	 *  ever claims "Imported", never "made here". */
+	origin?: 'imported';
 };
 
 // The asset record asset-store persists. `kind:'finish'` keeps it in its own lane
 // (listAssets filters by kind), beside 'theme' and 'component'.
-type FinishAssetRecord = { id: string; kind: 'finish'; name: string; label?: string; text?: string; recipe?: unknown; addedAt?: number; pkg?: PackageCarry };
+type FinishAssetRecord = { id: string; kind: 'finish'; name: string; label?: string; text?: string; recipe?: unknown; addedAt?: number; pkg?: PackageCarry; origin?: 'imported' };
 
 // The CSS is REGENERATED from the recipe on every read, not taken from the stored text. A
 // finish's CSS is always the generator's output for its recipe (the save path discards
@@ -41,7 +47,7 @@ type FinishAssetRecord = { id: string; kind: 'finish'; name: string; label?: str
 // recipe, which the generator cannot rebuild.
 function toStudioFinish(a: FinishAssetRecord): StudioFinish {
 	const recipe = coerceRecipe(a.recipe);
-	return { id: a.id, name: a.name, label: a.label || a.name, css: a.recipe ? generateFinishCss(a.name, recipe) : a.text || '', recipe, ...(a.pkg ? { pkg: a.pkg } : {}) };
+	return { id: a.id, name: a.name, label: a.label || a.name, css: a.recipe ? generateFinishCss(a.name, recipe) : a.text || '', recipe, ...(a.pkg ? { pkg: a.pkg } : {}), ...(a.addedAt ? { addedAt: a.addedAt } : {}), ...(a.origin ? { origin: a.origin } : {}) };
 }
 
 // Names a saved finish must NOT shadow: every shipped preset + the other
@@ -100,7 +106,7 @@ export function safeSaveSlug(text: string): string {
  * Pass the id you loaded and the same record is rewritten whatever the name becomes.
  * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe; pkg?: PackageCarry }, opts?: { historyLabel?: string }): Promise<StudioFinish> {
+export async function saveStudioFinish(input: { id?: string; name: string; label?: string; css: string; recipe: FinishRecipe; pkg?: PackageCarry; origin?: 'imported' }, opts?: { historyLabel?: string }): Promise<StudioFinish> {
 	// safeSaveSlug namespaces a reserved-name collision so a saved finish can never
 	// shadow a built-in preset (e.g. `atrium` → `atrium-custom`); empty → a timestamp.
 	const name = safeSaveSlug(input.name) || `finish-${Date.now().toString(36)}`;
@@ -117,6 +123,7 @@ export async function saveStudioFinish(input: { id?: string; name: string; label
 		recipe: input.recipe,
 		addedAt: Date.now(),
 		...(input.pkg ? { pkg: input.pkg } : {}),
+		...(input.origin ? { origin: input.origin } : {}),
 	};
 	// asset-store's putAsset replaces the empty id with a generated/looked-up one.
 	const { id: _drop, ...rest } = record;

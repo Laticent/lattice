@@ -102,7 +102,7 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 			usedThemeNames.add(name);
 		}
 		const css = core && name !== th.name ? core.renameThemeDirective(th.css, name) : th.css;
-		const st = await saveStudioTheme({ name, label: th.label, essentials: th.essentials ?? {}, css, ...(th.overrides ? { overrides: th.overrides } : {}), ...(th.rampStrategy ? { rampStrategy: th.rampStrategy } : {}), ...(th.pkg && name === th.name ? { pkg: th.pkg } : {}) }, keepMine ? undefined : history);
+		const st = await saveStudioTheme({ name, label: th.label, essentials: th.essentials ?? {}, css, ...(th.overrides ? { overrides: th.overrides } : {}), ...(th.rampStrategy ? { rampStrategy: th.rampStrategy } : {}), ...(th.pkg && name === th.name ? { pkg: th.pkg } : {}), origin: 'imported' }, keepMine ? undefined : history);
 		if (st.name !== th.name) rename({ kind: 'theme', from: th.name, to: st.name, why: st.name === unreservedName(RESERVED_THEME_NAMES, th.name) ? 'shipped' : why });
 		t.themes++;
 	}
@@ -157,6 +157,7 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 				skeleton: moved ? renameAssetInSource(c.skeleton, 'component', c.name, name).source : c.skeleton,
 				meta: c.manifest ? toMeta(c.manifest) : { bucket: c.bucket || undefined },
 				...(c.pkg && !moved ? { pkg: c.pkg } : {}),
+				origin: 'imported',
 			},
 			keepMine ? undefined : history,
 		);
@@ -216,7 +217,7 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 			}
 			usedFinishNames.add(name);
 		}
-		const sf = await saveStudioFinish({ name, label: fin.label, css: fin.css, recipe: fin.recipe, ...(fin.pkg && name === fin.name ? { pkg: fin.pkg } : {}) }, keepMine ? undefined : history);
+		const sf = await saveStudioFinish({ name, label: fin.label, css: fin.css, recipe: fin.recipe, ...(fin.pkg && name === fin.name ? { pkg: fin.pkg } : {}), origin: 'imported' }, keepMine ? undefined : history);
 		if (sf.name !== fin.name) rename({ kind: 'finish', from: fin.name, to: sf.name, why: sf.name === safeSaveSlug(fin.name) ? 'shipped' : why });
 		t.finishes++;
 	}
@@ -224,7 +225,7 @@ export async function importParsedBundle(parsed: ParsedBundle, opts: { keepMine?
 	// The art goes back through `saveStudioScene`, which re-sanitizes at the store boundary.
 	for (const m of parsed.scenes) {
 		try {
-			await saveStudioScene({ name: m.name, label: m.label, description: m.description, spec: m.spec, art: m.art, poster: m.poster, ...(m.pkg ? { pkg: m.pkg } : {}) });
+			await saveStudioScene({ name: m.name, label: m.label, description: m.description, spec: m.spec, art: m.art, poster: m.poster, ...(m.pkg ? { pkg: m.pkg } : {}), origin: 'imported' });
 			t.scenes++;
 		} catch {
 			t.refused.push({ name: m.label || m.name, why: 'its motion plan is not valid' });
