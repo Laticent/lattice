@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 522576,
+	"bytes": 614736,
 	"lines": [
 		{
 			"key": "5c17444a73e0",
@@ -115,11 +115,11 @@
 			}
 		},
 		{
-			"key": "e8dd49a295ec",
-			"text": "Welcome to Lattice. I’ll show you around. It takes about three minutes, and you can take over at any moment.",
-			"file": "e8dd49a295ec.mp3",
-			"bytes": 34992,
-			"speechMs": 5772,
+			"key": "0727eec7c403",
+			"text": "Welcome to Lattice. I’ll show you around. It takes about two minutes, and you can take over at any moment.",
+			"file": "0727eec7c403.mp3",
+			"bytes": 32544,
+			"speechMs": 5357,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -130,26 +130,26 @@
 								"display": "Welcome",
 								"spoken": "Welcome",
 								"startMs": 0,
-								"endMs": 297,
+								"endMs": 276,
 								"charOffset": 0
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 297,
-								"endMs": 446,
+								"startMs": 276,
+								"endMs": 414,
 								"charOffset": 8
 							},
 							{
 								"display": "Lattice.",
 								"spoken": "Lattice.",
-								"startMs": 446,
-								"endMs": 765,
+								"startMs": 414,
+								"endMs": 710,
 								"charOffset": 11
 							}
 						],
 						"startMs": 0,
-						"endMs": 1045,
+						"endMs": 970,
 						"charOffset": 0
 					},
 					{
@@ -158,137 +158,137 @@
 							{
 								"display": "I’ll",
 								"spoken": "I’ll",
-								"startMs": 1165,
-								"endMs": 1313,
+								"startMs": 1081,
+								"endMs": 1219,
 								"charOffset": 20
 							},
 							{
 								"display": "show",
 								"spoken": "show",
-								"startMs": 1313,
-								"endMs": 1462,
+								"startMs": 1219,
+								"endMs": 1357,
 								"charOffset": 25
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 1462,
-								"endMs": 1611,
+								"startMs": 1357,
+								"endMs": 1495,
 								"charOffset": 30
 							},
 							{
 								"display": "around.",
 								"spoken": "around.",
-								"startMs": 1611,
-								"endMs": 1930,
+								"startMs": 1495,
+								"endMs": 1791,
 								"charOffset": 34
 							}
 						],
-						"startMs": 1165,
-						"endMs": 2209,
+						"startMs": 1081,
+						"endMs": 2051,
 						"charOffset": 20
 					},
 					{
-						"display": "It takes about three minutes, and you can take over at any moment.",
+						"display": "It takes about two minutes, and you can take over at any moment.",
 						"words": [
 							{
 								"display": "It",
 								"spoken": "It",
-								"startMs": 2329,
-								"endMs": 2478,
+								"startMs": 2162,
+								"endMs": 2300,
 								"charOffset": 42
 							},
 							{
 								"display": "takes",
 								"spoken": "takes",
-								"startMs": 2478,
-								"endMs": 2775,
+								"startMs": 2300,
+								"endMs": 2576,
 								"charOffset": 45
 							},
 							{
 								"display": "about",
 								"spoken": "about",
-								"startMs": 2775,
-								"endMs": 3073,
+								"startMs": 2576,
+								"endMs": 2852,
 								"charOffset": 51
 							},
 							{
-								"display": "three",
-								"spoken": "three",
-								"startMs": 3073,
-								"endMs": 3222,
+								"display": "two",
+								"spoken": "two",
+								"startMs": 2852,
+								"endMs": 2990,
 								"charOffset": 57
 							},
 							{
 								"display": "minutes,",
 								"spoken": "minutes,",
-								"startMs": 3222,
-								"endMs": 3690,
-								"charOffset": 63
+								"startMs": 2990,
+								"endMs": 3424,
+								"charOffset": 61
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 3835,
-								"endMs": 3983,
-								"charOffset": 72
+								"startMs": 3559,
+								"endMs": 3697,
+								"charOffset": 70
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 3983,
-								"endMs": 4132,
-								"charOffset": 76
+								"startMs": 3697,
+								"endMs": 3835,
+								"charOffset": 74
 							},
 							{
 								"display": "can",
 								"spoken": "can",
-								"startMs": 4132,
-								"endMs": 4281,
-								"charOffset": 80
+								"startMs": 3835,
+								"endMs": 3973,
+								"charOffset": 78
 							},
 							{
 								"display": "take",
 								"spoken": "take",
-								"startMs": 4281,
-								"endMs": 4430,
-								"charOffset": 84
+								"startMs": 3973,
+								"endMs": 4111,
+								"charOffset": 82
 							},
 							{
 								"display": "over",
 								"spoken": "over",
-								"startMs": 4430,
-								"endMs": 4727,
-								"charOffset": 89
+								"startMs": 4111,
+								"endMs": 4387,
+								"charOffset": 87
 							},
 							{
 								"display": "at",
 								"spoken": "at",
-								"startMs": 4727,
-								"endMs": 4876,
-								"charOffset": 94
+								"startMs": 4387,
+								"endMs": 4525,
+								"charOffset": 92
 							},
 							{
 								"display": "any",
 								"spoken": "any",
-								"startMs": 4876,
-								"endMs": 5173,
-								"charOffset": 97
+								"startMs": 4525,
+								"endMs": 4801,
+								"charOffset": 95
 							},
 							{
 								"display": "moment.",
 								"spoken": "moment.",
-								"startMs": 5173,
-								"endMs": 5493,
-								"charOffset": 101
+								"startMs": 4801,
+								"endMs": 5098,
+								"charOffset": 99
 							}
 						],
-						"startMs": 2329,
-						"endMs": 5772,
+						"startMs": 2162,
+						"endMs": 5357,
 						"charOffset": 42
 					}
 				],
-				"durationMs": 5772
+				"durationMs": 5357
 			}
 		},
 		{
@@ -1024,6 +1024,395 @@
 					}
 				],
 				"durationMs": 9297
+			}
+		},
+		{
+			"key": "4ad5c8f0b03e",
+			"text": "Prefer not to see the markup? Compose is a visual editor for the same deck. Switch between the two whenever you like.",
+			"file": "4ad5c8f0b03e.mp3",
+			"bytes": 41760,
+			"speechMs": 6900,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Prefer not to see the markup?",
+						"words": [
+							{
+								"display": "Prefer",
+								"spoken": "Prefer",
+								"startMs": 0,
+								"endMs": 357,
+								"charOffset": 0
+							},
+							{
+								"display": "not",
+								"spoken": "not",
+								"startMs": 357,
+								"endMs": 535,
+								"charOffset": 7
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 535,
+								"endMs": 713,
+								"charOffset": 11
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 713,
+								"endMs": 892,
+								"charOffset": 14
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 892,
+								"endMs": 1070,
+								"charOffset": 18
+							},
+							{
+								"display": "markup?",
+								"spoken": "markup?",
+								"startMs": 1070,
+								"endMs": 1453,
+								"charOffset": 22
+							}
+						],
+						"startMs": 0,
+						"endMs": 1788,
+						"charOffset": 0
+					},
+					{
+						"display": "Compose is a visual editor for the same deck.",
+						"words": [
+							{
+								"display": "Compose",
+								"spoken": "Compose",
+								"startMs": 1932,
+								"endMs": 2288,
+								"charOffset": 30
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 2288,
+								"endMs": 2467,
+								"charOffset": 38
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2467,
+								"endMs": 2645,
+								"charOffset": 41
+							},
+							{
+								"display": "visual",
+								"spoken": "visual",
+								"startMs": 2645,
+								"endMs": 3002,
+								"charOffset": 43
+							},
+							{
+								"display": "editor",
+								"spoken": "editor",
+								"startMs": 3002,
+								"endMs": 3537,
+								"charOffset": 50
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 3537,
+								"endMs": 3715,
+								"charOffset": 57
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3715,
+								"endMs": 3894,
+								"charOffset": 61
+							},
+							{
+								"display": "same",
+								"spoken": "same",
+								"startMs": 3894,
+								"endMs": 4072,
+								"charOffset": 65
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 4072,
+								"endMs": 4277,
+								"charOffset": 70
+							}
+						],
+						"startMs": 1932,
+						"endMs": 4612,
+						"charOffset": 30
+					},
+					{
+						"display": "Switch between the two whenever you like.",
+						"words": [
+							{
+								"display": "Switch",
+								"spoken": "Switch",
+								"startMs": 4755,
+								"endMs": 4934,
+								"charOffset": 76
+							},
+							{
+								"display": "between",
+								"spoken": "between",
+								"startMs": 4934,
+								"endMs": 5290,
+								"charOffset": 83
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 5290,
+								"endMs": 5469,
+								"charOffset": 91
+							},
+							{
+								"display": "two",
+								"spoken": "two",
+								"startMs": 5469,
+								"endMs": 5647,
+								"charOffset": 95
+							},
+							{
+								"display": "whenever",
+								"spoken": "whenever",
+								"startMs": 5647,
+								"endMs": 6182,
+								"charOffset": 99
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 6182,
+								"endMs": 6361,
+								"charOffset": 108
+							},
+							{
+								"display": "like.",
+								"spoken": "like.",
+								"startMs": 6361,
+								"endMs": 6565,
+								"charOffset": 112
+							}
+						],
+						"startMs": 4755,
+						"endMs": 6900,
+						"charOffset": 76
+					}
+				],
+				"durationMs": 6900
+			}
+		},
+		{
+			"key": "122b167fd907",
+			"text": "Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them. Undo takes them back.",
+			"file": "122b167fd907.mp3",
+			"bytes": 52848,
+			"speechMs": 8752,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Some problems have one sure fix, like a slide with no heading.",
+						"words": [
+							{
+								"display": "Some",
+								"spoken": "Some",
+								"startMs": 0,
+								"endMs": 226,
+								"charOffset": 0
+							},
+							{
+								"display": "problems",
+								"spoken": "problems",
+								"startMs": 226,
+								"endMs": 677,
+								"charOffset": 5
+							},
+							{
+								"display": "have",
+								"spoken": "have",
+								"startMs": 677,
+								"endMs": 902,
+								"charOffset": 14
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 902,
+								"endMs": 1128,
+								"charOffset": 19
+							},
+							{
+								"display": "sure",
+								"spoken": "sure",
+								"startMs": 1128,
+								"endMs": 1353,
+								"charOffset": 23
+							},
+							{
+								"display": "fix,",
+								"spoken": "fix,",
+								"startMs": 1353,
+								"endMs": 1612,
+								"charOffset": 28
+							},
+							{
+								"display": "like",
+								"spoken": "like",
+								"startMs": 1832,
+								"endMs": 2057,
+								"charOffset": 33
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2057,
+								"endMs": 2283,
+								"charOffset": 38
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2283,
+								"endMs": 2508,
+								"charOffset": 40
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2508,
+								"endMs": 2734,
+								"charOffset": 46
+							},
+							{
+								"display": "no",
+								"spoken": "no",
+								"startMs": 2734,
+								"endMs": 2960,
+								"charOffset": 51
+							},
+							{
+								"display": "heading.",
+								"spoken": "heading.",
+								"startMs": 2960,
+								"endMs": 3444,
+								"charOffset": 54
+							}
+						],
+						"startMs": 0,
+						"endMs": 3867,
+						"charOffset": 0
+					},
+					{
+						"display": "Fix all applies every one of them.",
+						"words": [
+							{
+								"display": "Fix",
+								"spoken": "Fix",
+								"startMs": 4049,
+								"endMs": 4274,
+								"charOffset": 63
+							},
+							{
+								"display": "all",
+								"spoken": "all",
+								"startMs": 4274,
+								"endMs": 4500,
+								"charOffset": 67
+							},
+							{
+								"display": "applies",
+								"spoken": "applies",
+								"startMs": 4500,
+								"endMs": 4951,
+								"charOffset": 71
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 4951,
+								"endMs": 5627,
+								"charOffset": 79
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 5627,
+								"endMs": 5853,
+								"charOffset": 85
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 5853,
+								"endMs": 6079,
+								"charOffset": 89
+							},
+							{
+								"display": "them.",
+								"spoken": "them.",
+								"startMs": 6079,
+								"endMs": 6337,
+								"charOffset": 92
+							}
+						],
+						"startMs": 4049,
+						"endMs": 6761,
+						"charOffset": 63
+					},
+					{
+						"display": "Undo takes them back.",
+						"words": [
+							{
+								"display": "Undo",
+								"spoken": "Undo",
+								"startMs": 6942,
+								"endMs": 7393,
+								"charOffset": 98
+							},
+							{
+								"display": "takes",
+								"spoken": "takes",
+								"startMs": 7393,
+								"endMs": 7844,
+								"charOffset": 103
+							},
+							{
+								"display": "them",
+								"spoken": "them",
+								"startMs": 7844,
+								"endMs": 8070,
+								"charOffset": 109
+							},
+							{
+								"display": "back.",
+								"spoken": "back.",
+								"startMs": 8070,
+								"endMs": 8328,
+								"charOffset": 114
+							}
+						],
+						"startMs": 6942,
+						"endMs": 8752,
+						"charOffset": 98
+					}
+				],
+				"durationMs": 8752
 			}
 		},
 		{

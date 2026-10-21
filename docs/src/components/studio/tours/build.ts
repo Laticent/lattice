@@ -6,8 +6,9 @@ import type { StudioActions } from '../studio-actions';
 import { firstLook } from './first-look';
 import { DEFAULT_TOUR } from './index';
 import type { TourBuild } from './tour-kit';
+import { welcome } from './welcome';
 
-const BUILDS: Record<string, TourBuild> = { 'first-look': firstLook };
+const BUILDS: Record<string, TourBuild> = { welcome, 'first-look': firstLook };
 
 /** Resolve a tour by id → its Walkthrough, adapting to the surface. Falls back to the default. */
 export function buildTour(id: string, opts: { mobile: boolean }): Walkthrough<StudioActions> {

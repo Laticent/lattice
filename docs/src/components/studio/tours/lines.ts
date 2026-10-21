@@ -18,11 +18,13 @@ export const TOUR_VOICE_DIR = 'tour';
 export const TOUR_LINES = {
 	/** Said by the start card's Test button, panned left, then right. */
 	test: 'This is how the tour will sound. Left, and now right.',
-	hello: 'Welcome to Lattice. I’ll show you around. It takes about three minutes, and you can take over at any moment.',
+	hello: 'Welcome to Lattice. I’ll show you around. It takes about two minutes, and you can take over at any moment.',
 	write: 'This is where you write. Plain text, nothing else. A line of three dashes starts a new slide, and a line that starts with a hash is a heading.',
 	preview: 'And here is the result. Every slide draws itself as you type. No export, no waiting.',
 	rail: 'Every slide in your deck lives in this strip. Click one to jump straight to it.',
 	add: 'Add brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.',
+	compose: 'Prefer not to see the markup? Compose is a visual editor for the same deck. Switch between the two whenever you like.',
+	fixAll: 'Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them. Undo takes them back.',
 	reshape: 'Reshape shows the slide you wrote in a different layout. Same words, a new arrangement.',
 	theme: 'A theme sets the colors and type for the whole deck. Your words stay exactly where they are.',
 	mode: 'And light or dark is one click.',

@@ -37,9 +37,10 @@ test('@smoke the Show Me menu lists the tour, and it builds a deck and completes
 	await gotoStudio(page);
 	expect(await firstDeckCount(page)).toBe(0); // fresh context — no deck yet
 
-	// The menu offers the tour.
+	// The menu offers both tours: the narrated welcome and the hands-on first look.
 	await page.locator(SHOW_ME).click();
-	await expect(page.locator('[data-tour]')).toHaveCount(1);
+	await expect(page.locator('[data-tour]')).toHaveCount(2);
+	await expect(page.locator('[data-tour="welcome"]')).toBeVisible();
 	await expect(page.locator('[data-tour="first-look"]')).toBeVisible();
 
 	// Launch it. The stage mounts and the Show Me trigger hides while it runs
@@ -137,4 +138,26 @@ test('the Exit button hands the wheel back, leaving "My First Deck" behind', asy
 	await expect(page.locator(STAGE)).toHaveCount(0);
 	await expect(toastText(page)).toContainText('yours to edit');
 	await expect.poll(() => firstDeckCount(page)).toBe(1);
+});
+
+
+// The first-run welcome (2026-10-20-first-run-onboarding.md). `?welcome=1` forces the start card on a
+// host that would otherwise stay quiet (every e2e run does); a real first visit on the production site
+// gets the same card by itself.
+test('the welcome card offers a sound test, and Not now leaves the Studio untouched', async ({ page }) => {
+	await page.goto('/studio/?welcome=1');
+	const card = page.locator('[data-welcome="start"]').first();
+	await expect(card).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByRole('button', { name: 'Test sound' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Start without sound' })).toBeVisible();
+	await page.getByRole('button', { name: 'Not now' }).click();
+	await expect(page.locator('[data-welcome="start"]')).toHaveCount(0);
+	await expect(page.locator(STAGE)).toHaveCount(0);
+});
+
+test('Start without sound runs the narrated tour on captions', async ({ page }) => {
+	await page.goto('/studio/?welcome=1');
+	await page.getByRole('button', { name: 'Start without sound' }).click({ timeout: 30_000 });
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect(page.getByText('Welcome to Lattice. I’ll show you around.')).toBeVisible({ timeout: 15_000 });
 });

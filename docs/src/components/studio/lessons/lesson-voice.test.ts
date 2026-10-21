@@ -34,7 +34,7 @@ describe('the recorded lesson voice', () => {
 				expect(entry, `no clip for "${text}". ${RECORD}`).toBeDefined();
 				// The key hashes the text with the voice settings: a mismatch is a clip recorded for
 				// other words or another voice.
-				expect(entry?.key, `stale clip for "${text}". ${RECORD}`).toBe(lineKey(text, voiceOf(dir)));
+				expect(entry?.key, `stale clip for "${text}". ${RECORD}`).toBe(lineKey(text, voiceOf(dir) as typeof voice));
 				expect(fs.existsSync(path.join(VOICE_DIR, dir, entry?.file ?? '')), `${entry?.file} is missing. ${RECORD}`).toBe(true);
 			}
 			const used = new Set(lines.map((t) => byText.get(t)?.file));

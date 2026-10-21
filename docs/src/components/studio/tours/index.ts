@@ -15,11 +15,15 @@ export type TourMeta = {
 };
 
 export const TOURS: TourMeta[] = [
-	{ id: 'first-look', label: 'First look', description: 'The sixty-second version.' },
+	{ id: 'welcome', label: 'Welcome tour', description: 'A narrated walk through the Studio. About three minutes.' },
+	{ id: 'first-look', label: 'First look', description: 'The sixty-second version: watch a deck build itself.' },
 ];
 
 /** The tour the standing entry points (welcome banner, ⋯ menu, ⌘K) launch. */
-export const DEFAULT_TOUR = 'first-look';
+export const DEFAULT_TOUR = 'welcome';
+
+/** Tours that speak. Starting one builds the narrator inside the click and plays the recorded voice. */
+export const SPOKEN_TOURS: readonly string[] = ['welcome'];
 
 /** The scripts, fetched on the first start: they and the storyboard engine they compile to stay
  *  out of the Studio's startup bundle. */

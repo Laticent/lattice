@@ -2803,14 +2803,15 @@ export function createStage(opts: StageOptions): Stage {
 		return (register + travel) * pace;
 	}
 
-	/** Horizontal position of a target across the viewport, -1 … 1. */
+	/** Horizontal position of a target across the viewport, -1 … 1. The target's centre, not the point
+	 *  the cursor aims at: a pane that fills half the screen should pull the voice to that half. */
 	function panOf(target: Target): number | null {
 		if (destroyed) return null;
 		const r = liveRect(resolveSource(target));
 		if (!r) return null;
 		const w = doc.defaultView?.innerWidth || 0;
 		if (!w) return null;
-		return Math.max(-1, Math.min(1, (aimAt(r).x / w) * 2 - 1));
+		return Math.max(-1, Math.min(1, ((r.left + r.width / 2) / w) * 2 - 1));
 	}
 
 	// ── The caption's visibility state machine (the `caption:'cursor'` style) ───────────────

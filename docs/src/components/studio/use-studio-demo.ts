@@ -4,7 +4,7 @@ import type { StopReason } from '../../lib/vetrina';
 import { useLazyWalkthrough } from '../../lib/vetrina/react';
 import { buildTypeOps } from './demo-typing';
 import type { StudioActions } from './studio-actions';
-import { DEFAULT_TOUR, loadTours } from './tours';
+import { DEFAULT_TOUR, loadTours, SPOKEN_TOURS } from './tours';
 import type { buildTour as BuildTour } from './tours/build';
 
 // useStudioDemo — the seam that lets the framework-free Vetrina engine drive the live
@@ -54,7 +54,11 @@ export type StudioDemoBindings = {
 	setFocus: (on: boolean) => void;
 	/** Set the persisted posture. The tour runs on the full surface (Craft), where the
 	 *  deck switcher + activity bar it anchors on live. */
-	setPosture: (p: 'write' | 'craft') => void;
+	setPosture: (p: 'read' | 'write' | 'craft') => void;
+	/** The posture the visitor is in now, so a tour that needs the editor on screen can put it back after. */
+	posture: 'read' | 'write' | 'craft';
+	/** A tour finished on its own (not stopped or taken over). The Studio uses it to offer what comes next. */
+	onTourComplete?: (tourId: string) => void;
 	setCmdOpen: (open: boolean) => void;
 	/** In a live session the tour plays on a PRACTICE deck (2026-10-20 live note §7.5): `startPractice`
 	 *  stands in for `createFirstDeck` and swaps the editor and preview to a blank local text the session
@@ -66,7 +70,7 @@ export type StudioDemo = {
 	demoActive: boolean;
 	/** Launch a tour by id (from the "Show Me" menu). Omit for the default tour (welcome banner,
 	 *  ⋯ menu, ⌘K all pass nothing). Unknown ids fall back to the default. */
-	startDemo: (tourId?: string) => void;
+	startDemo: (tourId?: string, opts?: { sound?: boolean }) => void;
 	stopDemo: () => void;
 };
 
@@ -79,6 +83,11 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 	// Which tour to play — set by startDemo(id) right before the run's `configure` closure reads
 	// it. A ref (not state) so startDemo stays referentially stable and needs no re-render.
 	const tourIdRef = React.useRef<string>(DEFAULT_TOUR);
+	// Whether a spoken tour plays its recorded voice (false = captions and timing only). Set with the id.
+	const soundRef = React.useRef(true);
+	// The voice module, loaded with the engine (never in the startup bundle). A spoken tour's narrator is
+	// built from it inside the click that starts the run, so iOS lets it play.
+	const voiceRef = React.useRef<typeof import('./tours/tour-voice') | null>(null);
 
 	// The generic run lifecycle (single-flight start, stop, active state, unmount teardown)
 	// lives in the shared `useWalkthrough` adapter. This hook supplies only the Studio-specific
@@ -93,7 +102,8 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		// Snapshot only the GLOBAL look the demo flourishes with — palette (from state, so
 		// a saved theme keeps its name) and mode (from the DOM, a settled read). The deck
 		// itself is NOT snapshotted: the demo builds a real, persisted "My First Deck".
-		const snap = { palette: b.palette, mode: document.documentElement.dataset.mode || 'light' };
+		const tourId = tourIdRef.current;
+		const snap = { posture: b.posture, palette: b.palette, mode: document.documentElement.dataset.mode || 'light' };
 		// Decided once per run: a tour that started in a session stays a practice run to its end.
 		const practice = b.practice;
 
@@ -102,7 +112,11 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 		b.setFocus(false);
 		// The tour anchors on the deck switcher + activity bar, which render only in Craft;
 		// establish the full surface so no beat resolves a missing selector to a no-op.
-		b.setPosture('craft');
+		// The welcome tour walks the editor and preview, so it needs Write at least; it leaves a Craft
+		// visitor in Craft and puts a Read visitor back in Read when it ends. The others open the full surface.
+		const welcome = tourIdRef.current === 'welcome';
+		if (!welcome) b.setPosture('craft');
+		else if (b.posture === 'read') b.setPosture('write');
 		b.setView('compose');
 		// In a session, Present may be the room's (someone presenting to everyone): the tour leaves it be.
 		if (!practice) b.setPresentOpen(false);
@@ -124,6 +138,7 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			createFirstDeck: () => (practice ? practice.start() : bindRef.current.createFirstDeck()),
 			gotoSlide: (i) => bindRef.current.goToSlide(i),
 			setMobilePane: (pane) => bindRef.current.setMobilePane(pane),
+			toggleMode: () => bindRef.current.toggleMode(),
 		};
 
 		// Typing lands natively in the editor (append per keystroke run; set for the
@@ -165,6 +180,8 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 			// (per-slide alternation) vs. the desktop/tablet side-by-side. tourIdRef was set by
 			// startDemo(id) just before this closure ran.
 			play: buildTour(tourIdRef.current, { mobile: b.mobile }),
+			// A spoken tour plays the recorded voice, which leans toward the cursor's target; the others stay silent.
+			narrate: SPOKEN_TOURS.includes(tourIdRef.current) ? voiceRef.current?.tourNarrator(soundRef.current) : undefined,
 			type,
 			takeover: { scope: 'window' },
 			// The cursor + cues track the live app accent (recolor on the reskin beat), falling
@@ -193,28 +210,37 @@ export function useStudioDemo(rootRef: React.RefObject<HTMLElement | null>, bind
 				cur.setShareOpen(false);
 				cur.setInspectorOpen(false);
 				cur.setDeckMenuOpen(false);
+				if (welcome && snap.posture === 'read') cur.setPosture('read');
 				cur.applyPalette(snap.palette);
 				if ((document.documentElement.dataset.mode || 'light') !== snap.mode) cur.toggleMode();
 				// Names no deck: a deck is titled by its first heading now, so by the time a tour
 				// finishes it is called whatever the tour typed — not “My First Deck”.
-				notify(reason === 'complete' ? 'Demo complete — the deck is yours to edit.' : 'Demo ended — the deck is yours to edit.');
+				// A SPOKEN tour that ends by itself hands over to the host's own next step (the Studio opens its
+				// "go further" card); every other ending, and every other tour, keeps the plain toast.
+				if (reason === 'complete' && SPOKEN_TOURS.includes(tourId) && cur.onTourComplete) cur.onTourComplete(tourId);
+				else notify(reason === 'complete' ? 'Demo complete — the deck is yours to edit.' : 'Demo ended — the deck is yours to edit.');
 			},
 		};
 	}, () =>
 		// The engine and the tour scripts load together on the first start (route budget: neither
 		// is in the Studio's startup bundle).
-		Promise.all([import('../../lib/vetrina/index.js'), loadTours()]).then(([engine, tours]) => {
+		Promise.all([import('../../lib/vetrina/index.js'), loadTours(), SPOKEN_TOURS.includes(tourIdRef.current) ? import('./tours/tour-voice') : null]).then(([engine, tours, voice]) => {
 			buildRef.current = tours.buildTour;
+			voiceRef.current = voice;
 			return engine;
 		}),
 	);
 
 	// startDemo(id) records the tour, THEN starts — the run's configure closure reads the ref.
 	const startDemo = React.useCallback(
-		(tourId?: string) => {
+		(tourId?: string, opts?: { sound?: boolean }) => {
 			// Coerce defensively: some entry points wire startDemo straight to onClick/onSelect,
 			// which would pass a DOM event — anything non-string means "the default tour."
 			tourIdRef.current = typeof tourId === 'string' ? tourId : DEFAULT_TOUR;
+			soundRef.current = opts?.sound !== false;
+			// Build the narrator NOW, inside the click, when its module is already here (the welcome card
+			// preloads it); otherwise it is built once the import lands and unlocks on the next gesture.
+			if (SPOKEN_TOURS.includes(tourIdRef.current) && soundRef.current) voiceRef.current?.prepareTourVoice();
 			// A refused start (a lesson already holds Vetrina's one run) or a failed chunk load leaves
 			// the Studio as it was; the hook has already unlatched `active`.
 			demo.start().catch(() => notify('The tour could not start. If a lesson is running, finish or close it first.'));

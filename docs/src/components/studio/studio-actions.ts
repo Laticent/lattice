@@ -12,4 +12,6 @@ export type StudioActions = {
 	gotoSlide: (index: number) => void;
 	/** Swap the phone's single Edit/Preview pane (mobile only). Desktop/tablet ignore it. */
 	setMobilePane: (pane: 'edit' | 'preview') => void;
+	/** Flip light/dark. The tour flips it and flips it back; a stopped tour restores the look it found. */
+	toggleMode: () => void;
 };

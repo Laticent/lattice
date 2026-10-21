@@ -150,8 +150,10 @@ import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
+import { WelcomeCard } from './WelcomeCard';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
+import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
@@ -3068,6 +3070,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			off();
 		};
 	}, []);
+	// The first-run welcome cards: `start` before the narrated tour, `end` when it finishes on its own.
+	const [welcomeMode, setWelcomeMode] = React.useState<'start' | 'end' | null>(null);
 	const livePracticeRef = React.useRef<{ start: () => void; end: () => boolean } | null>(null);
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
@@ -3104,6 +3108,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setActiveSlide,
 		setFocus: setQuietened,
 		setPosture: changePosture,
+		posture,
+		onTourComplete: () => setWelcomeMode('end'),
 		setCmdOpen,
 		setMobilePane,
 		mobile,
@@ -3197,6 +3203,44 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		if (cmdOpen) warmLessons();
 	}, [cmdOpen, warmLessons]);
+	// ── First-run welcome (2026-10-20-first-run-onboarding.md) ─────────────
+	// A first-time visitor on the production site gets the start card once, a moment after the Studio
+	// settles. It is the click that unlocks audio and the place to test sound before anything speaks.
+	// The voice module is fetched when the card opens, so the Start click can build its narrator
+	// synchronously inside the gesture.
+	type TourVoice = typeof import('./tours/tour-voice');
+	const tourVoiceRef = React.useRef<TourVoice | null>(null);
+	const loadTourVoice = React.useCallback(() => import('./tours/tour-voice').then((m) => (tourVoiceRef.current = m)), []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once per page load, by design.
+	React.useEffect(() => {
+		const t = window.setTimeout(() => {
+			if (demoActiveRef.current || lessonActiveRef.current) return;
+			if (shouldAutoWelcome({ toursOn: toursEnabled(), search: window.location.search, toursStamp: document.documentElement.dataset.tours, automated: navigator.webdriver })) setWelcomeMode('start');
+		}, 2500);
+		return () => window.clearTimeout(t);
+	}, []);
+	React.useEffect(() => {
+		if (welcomeMode === 'start') loadTourVoice().catch(() => {});
+	}, [welcomeMode, loadTourVoice]);
+	const closeWelcome = React.useCallback(() => {
+		markWelcomed();
+		setWelcomeMode(null);
+	}, []);
+	const startWelcomeTour = React.useCallback(
+		(sound: boolean) => {
+			// Inside the click: build the narrator now so audio is unlocked by this very gesture.
+			if (sound) tourVoiceRef.current?.prepareTourVoice();
+			closeWelcome();
+			startDemo('welcome', { sound });
+		},
+		[closeWelcome, startDemo],
+	);
+	const testWelcomeSound = React.useCallback(async () => (await (tourVoiceRef.current ?? loadTourVoice())).testTourSound(), [loadTourVoice]);
+	const openLessonsAfterTour = React.useCallback(() => {
+		const done = doneLessons();
+		const next = LESSONS.find((l) => !done.has(l.id)) ?? LESSONS[0];
+		if (next) startLesson(next.id);
+	}, [startLesson]);
 	React.useEffect(() => {
 		if (lessonActive) setChromeCollapsed(false);
 	}, [lessonActive]);
@@ -7426,6 +7470,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{(LiveLobby) => <LiveLobby view={live.lobby as NonNullable<typeof live.lobby>} actions={live.lobbyActions} />}
 				</PanelLoader>
 			)}
+			<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} />
 			<Toaster />
 		</div>
 		</PanelNav>
