@@ -10,3 +10,4 @@ export { cleanName, PROTOCOL_VERSION } from './protocol.js';
 export { createSession, DEFAULT_CAP, HANDOFF_GRACE_MS, type HostOptions, MAX_MESSAGE, type Session, type SessionOptions, type Succession, type TokenEntry } from './session.js';
 export type { AudioStats, Clock, Color, Invite, Knock, LinkEvent, LinkKind, LinkPath, MediaOptions, Member, PeerId, Role, SessionState, Stage, Stream, Transport } from './types.js';
 export { linkKind } from './types.js';
+export { type AnyViewKeys, bool, cleanView, defineViewKeys, type Infer, int, obj, oneOf, opt, pattern, type Schema, VIEW_MAX_BYTES, VIEW_MAX_KEYS, type ViewKeys, type ViewValues } from './view.js';

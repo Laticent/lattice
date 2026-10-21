@@ -975,10 +975,13 @@ describe('LiveController: activity, Follow and pointers', () => {
 		const { g } = await guestOf(h, 'Amina');
 		// biome-ignore lint/suspicious/noExplicitAny: a modified client writing straight into its presence.
 		(g as any).rt.aw.setLocalStateField('doing', { panel: 'chat', view: 'compose', presenting: false });
-		await settle(h, g);
-		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
+		// A change that is not a caret move is applied at most ten times a second and the latest is kept, so the
+		// forged state replaces the real one a moment later, never the other way round.
+		await until(() => h.view().people.find((p) => p.name === 'Amina')?.doing === undefined, h, g);
 		// biome-ignore lint/suspicious/noExplicitAny: as above.
 		(g as any).rt.aw.setLocalStateField('doing', { panel: '<img src=x>', view: 'settings', presenting: 'yes' });
+		await settle(h, g);
+		await new Promise((r) => setTimeout(r, 150));
 		await settle(h, g);
 		expect(h.view().people.find((p) => p.name === 'Amina')?.doing).toBeUndefined();
 	});

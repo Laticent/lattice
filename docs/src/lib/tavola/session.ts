@@ -197,6 +197,22 @@ const realClock: Clock = {
 	clearTimeout: (h) => globalThis.clearTimeout(h as ReturnType<typeof setTimeout>),
 };
 
+/** A roster in which two members name one awareness client id: the first keeps it, the rest lose theirs, so
+ *  presence is dropped for the later claimant everywhere and cannot speak as the first. A hostile host could
+ *  otherwise bind one id to two people (red team, 2026-10-21). */
+export function uniqueClients(members: Member[]): Member[] {
+	const held = new Set<number>();
+	return members.map((m) => {
+		if (m.client === undefined) return m;
+		if (held.has(m.client)) {
+			const { client: _dropped, ...rest } = m;
+			return rest;
+		}
+		held.add(m.client);
+		return m;
+	});
+}
+
 export function createSession(opts: SessionOptions): Session {
 	const t = opts.transport;
 	const clock = opts.clock ?? realClock;
@@ -539,6 +555,7 @@ export function createSession(opts: SessionOptions): Session {
 		minTerm = Math.max(minTerm, term);
 		tokens.clear();
 		tokenOf.clear();
+		clientToken.clear();
 		claims.clear();
 		knockIds.clear();
 		pendingName = me.name;
@@ -563,6 +580,10 @@ export function createSession(opts: SessionOptions): Session {
 		stepDown(heard.term);
 		await guestOnHello(from, msg);
 	};
+	/** Host: the token each awareness client id was first bound under. A client id belongs to the token that
+	 *  first claimed it, so a peer that re-knocks claiming a dropped member's id with a different token is not
+	 *  bound to it (presence denial, red team 2026-10-21). */
+	const clientToken = new Map<number, string>();
 	const admitAs = (id: PeerId, name: string, role: Exclude<Role, 'host'>, color: Color, token: string, claimed?: number) => {
 		const tid = tokenId(token);
 		tokens.set(tid, { name, role, color });
@@ -570,7 +591,9 @@ export function createSession(opts: SessionOptions): Session {
 		knockIds.delete(id);
 		// A client id another member already speaks for is not bound: the newcomer's presence is
 		// then dropped everywhere, which is safer than letting it speak as someone else.
-		const bound = claimed !== undefined && !state.members.some((m) => m.client === claimed) ? { client: claimed } : {};
+		const owned = claimed !== undefined ? clientToken.get(claimed) : undefined;
+		const bound = claimed !== undefined && !state.members.some((m) => m.client === claimed) && (owned === undefined || owned === tid) ? { client: claimed } : {};
+		if (claimed !== undefined && 'client' in bound) clientToken.set(claimed, tid);
 		set({ members: [...state.members, { id, name, role, color, ...bound }], waiting: state.waiting.filter((w) => w.id !== id) });
 		sendControl(id, { t: 'admit', role, color, token, members: state.members });
 		broadcastRoster();
@@ -819,7 +842,7 @@ export function createSession(opts: SessionOptions): Session {
 				// from the first message on — a document that arrives right behind it is not dropped.
 				const me: Member = msg.members.find((m) => m.id === t.selfId) ?? { id: t.selfId, name: cleanName(state.me?.name ?? pendingName ?? 'Guest'), role: msg.role, color: msg.color, ...(client !== undefined ? { client } : {}) };
 				const before = new Set(state.members.map((m) => m.id));
-				set({ stage: 'live', token: msg.token, me, members: msg.members });
+				set({ stage: 'live', token: msg.token, me, members: uniqueClients(msg.members) });
 				for (const m of msg.members) if (m.id !== t.selfId && !before.has(m.id)) syncWith(m.id);
 				startClock();
 				// A regent that stepped down hands the tokens it issued to the host that took over.
@@ -847,7 +870,7 @@ export function createSession(opts: SessionOptions): Session {
 				const wasRole = state.me?.role;
 				minTerm = Math.max(minTerm, msg.term);
 				if (msg.heir !== t.selfId || (heirCred && termOf(heirCred.chain) < minTerm)) heirCred = null;
-				set({ members: msg.members, me, heir: msg.heir ?? null, minTerm });
+				set({ members: uniqueClients(msg.members), me, heir: msg.heir ?? null, minTerm });
 				for (const m of msg.members) {
 					if (m.id === t.selfId) continue;
 					const was = before.get(m.id);

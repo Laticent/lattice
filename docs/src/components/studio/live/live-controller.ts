@@ -1,12 +1,11 @@
 import type { Extension } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import * as decoding from 'lib0/decoding';
-import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
-import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
+import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
+import { type FieldCleaner, sanitizeAwarenessUpdate, yjsAwareness } from '@/lib/tavola/adapters/yjs';
 import { BUILTIN_PALETTES } from '@/lib/theme-catalog.generated';
 import { coerceRecipe } from '../finish-generate';
 import { RESERVED_FINISH_NAMES } from '../finish-library';
@@ -333,7 +332,7 @@ type AwState = { peer?: string; user?: { name: string; color: string; colorLight
 const LIVE_PANELS: readonly LiveDoing['panel'][] = ['coach', 'lenses', 'library', 'live'];
 const LIVE_VIEWS: readonly LiveDoing['view'][] = ['compose', 'fabricate', 'article'];
 /** A `doing` field as a peer sent it, or undefined: a panel and a view from the fixed lists, and a boolean. */
-const cleanDoing = (v: unknown): LiveDoing | undefined => {
+export const cleanDoing = (v: unknown): LiveDoing | undefined => {
 	if (!v || typeof v !== 'object') return undefined;
 	const { panel, view, presenting } = v as Record<string, unknown>;
 	if (panel !== null && !(LIVE_PANELS as readonly unknown[]).includes(panel)) return undefined;
@@ -436,7 +435,7 @@ type Runtime = {
 	ext: Extension;
 	key: HostKey | null;
 	/** Awareness client id → the peer whose state we accepted for it (the roster bound them). */
-	owner: Map<number, string>;
+	owner: ReadonlyMap<number, string>;
 	/** This browser's chat counter; a line's id is `<sid>:<n>`, `sid` random per session. */
 	chatN: number;
 	sid: string;
@@ -486,7 +485,7 @@ export function rebase(base: string, next: string, cur: string): { from: number;
 
 /** A y-codemirror caret position, kept only in the shape y-codemirror can read: one bad field there
  *  throws inside CodeMirror and turns off everyone's remote carets (red-team round 2, finding 5). */
-function cleanRelPos(x: unknown): Record<string, unknown> | null {
+export function cleanRelPos(x: unknown): Record<string, unknown> | null {
 	if (!x || typeof x !== 'object') return null;
 	const p = x as Record<string, unknown>;
 	const id = (v: unknown): { client: number; clock: number } | null => {
@@ -502,75 +501,36 @@ function cleanRelPos(x: unknown): Record<string, unknown> | null {
 	return { type, tname, item, assoc: Number.isInteger(p.assoc) ? p.assoc : 0 };
 }
 
-/** The client ids in an awareness update (one this file encoded, so it decodes). */
-function awarenessClients(u: Uint8Array): number[] {
-	const d = decoding.createDecoder(u);
-	const n = decoding.readVarUint(d);
-	const out: number[] = [];
-	for (let i = 0; i < n; i++) {
-		out.push(decoding.readVarUint(d));
-		decoding.readVarUint(d);
-		decoding.readVarString(d);
-	}
-	return out;
-}
-
 /**
- * Rewrite an incoming awareness update so it says only what `from` may say: an entry is kept only
- * for a client id the host's roster binds to `from` (`ownerOf`), and each state's `peer`, `user`
- * (name and color, from the roster), `summon` (host only) and `cursor` (shape-checked) are rebuilt
- * rather than believed. Returns null when nothing survives or the bytes do not decode.
+ * What this app lets a member say about itself in awareness, one cleaner per field. Tavola's Yjs adapter
+ * (`@/lib/tavola/adapters/yjs`) owns the rest of the gate: it refuses a message over 8 KB, an entry over 4 KB
+ * or more than 64 entries before any parse, keeps only the one client the host's roster binds to the sender,
+ * writes `peer` and `user` itself (a cleaner cannot name them), handles the clock and the rate, and drops a
+ * field no cleaner names. A cleaner sees who sent the value, so a `summon` counts only from the host.
  */
+const AWARENESS_FIELDS: Readonly<Record<string, FieldCleaner>> = {
+	slide: (v) => (Number.isInteger(v) && (v as number) >= 0 ? v : undefined),
+	slideHidden: (v) => (v === true ? true : undefined),
+	editingAt: (v) => (typeof v === 'number' ? v : undefined),
+	summon: (v, sender) => {
+		const sm = v as { slide?: unknown; n?: unknown } | undefined;
+		return sender.role === 'host' && sm && Number.isInteger(sm.slide) && Number.isInteger(sm.n) ? { slide: sm.slide as number, n: sm.n as number } : undefined;
+	},
+	cursor: (v) => {
+		const cur = v as { anchor?: unknown; head?: unknown } | undefined;
+		const anchor = cleanRelPos(cur?.anchor);
+		const head = cleanRelPos(cur?.head);
+		return anchor && head ? { anchor, head } : undefined;
+	},
+	doing: (v) => cleanDoing(v),
+};
+/** The name and color a member shows under, from the roster: never from what the peer sent. */
+const awarenessIdentity = (m: { name: string; color: LiveColor }) => ({ user: { name: m.name, color: liveColor(m.color), colorLight: liveColorLight(m.color) } });
+
+/** Rewrite an incoming awareness update so it says only what `from` may say (the gate above, as bytes). */
 export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (client: number) => string | undefined, member: { name: string; color: LiveColor; role: string } | undefined): Uint8Array | null {
 	if (!member) return null;
-	const entries: Array<[number, number, string]> = [];
-	try {
-		const dec = decoding.createDecoder(update);
-		const n = decoding.readVarUint(dec);
-		for (let i = 0; i < n; i++) {
-			const client = decoding.readVarUint(dec);
-			const clock = decoding.readVarUint(dec);
-			const raw = decoding.readVarString(dec);
-			if (ownerOf(client) === from) entries.push([client, clock, raw]);
-		}
-	} catch {
-		return null;
-	}
-	const out: Array<[number, number, string]> = [];
-	for (const [client, clock, raw] of entries) {
-		let state: AwState | null = null;
-		try {
-			state = JSON.parse(raw);
-		} catch {
-			continue;
-		}
-		if (state !== null && typeof state === 'object') {
-			const clean: AwState = { peer: from, user: { name: member.name, color: liveColor(member.color), colorLight: liveColorLight(member.color) } };
-			const st = state as Record<string, unknown>;
-			if (Number.isInteger(st.slide) && (st.slide as number) >= 0) clean.slide = st.slide as number;
-			if (st.slideHidden === true) clean.slideHidden = true;
-			if (typeof st.editingAt === 'number') clean.editingAt = st.editingAt;
-			const sm = st.summon as { slide?: unknown; n?: unknown } | undefined;
-			if (member.role === 'host' && sm && Number.isInteger(sm.slide) && Number.isInteger(sm.n)) clean.summon = { slide: sm.slide as number, n: sm.n as number };
-			const cur = st.cursor as { anchor?: unknown; head?: unknown } | undefined;
-			const anchor = cleanRelPos(cur?.anchor);
-			const head = cleanRelPos(cur?.head);
-			if (anchor && head) clean.cursor = { anchor, head };
-			const doing = cleanDoing(st.doing);
-			if (doing) clean.doing = doing;
-			state = clean;
-		}
-		out.push([client, clock, JSON.stringify(state)]);
-	}
-	if (out.length === 0) return null;
-	const enc = encoding.createEncoder();
-	encoding.writeVarUint(enc, out.length);
-	for (const [client, clock, json] of out) {
-		encoding.writeVarUint(enc, client);
-		encoding.writeVarUint(enc, clock);
-		encoding.writeVarString(enc, json);
-	}
-	return encoding.toUint8Array(enc);
+	return sanitizeAwarenessUpdate(update, from, { ownerOf, member: { id: from, name: member.name, color: member.color, role: member.role as 'host' | 'edit' | 'view' }, identity: awarenessIdentity, fields: AWARENESS_FIELDS });
 }
 
 export class LiveController {
@@ -877,7 +837,6 @@ export class LiveController {
 			setField(field, value);
 		};
 		const REMOTE = Symbol('tavola-remote');
-		const owner = new Map<number, string>();
 		let rt: Runtime | null = null;
 		const memberOf = (peer: string) => rt?.session.getState().members.find((m) => m.id === peer);
 		const ownerOf = (client: number) => {
@@ -901,29 +860,11 @@ export class LiveController {
 				return () => doc.off('update', h);
 			},
 		};
-		const awStream = {
-			encodeAll: () => encodeAwarenessUpdate(aw, [aw.clientID]),
-			applyRemote: (u: Uint8Array, from: string) => {
-				const clean = sanitizeAwareness(u, from, ownerOf, memberOf(from));
-				if (!clean) return;
-				for (const c of awarenessClients(clean)) owner.set(c, from);
-				applyAwarenessUpdate(aw, clean, from);
-			},
-			onLocal(cb: (u: Uint8Array) => void) {
-				const h = ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
-					if (origin !== 'local') return;
-					const mine = [...added, ...updated, ...removed].filter((c) => c === aw.clientID);
-					if (mine.length) cb(encodeAwarenessUpdate(aw, mine));
-				};
-				aw.on('update', h);
-				return () => aw.off('update', h);
-			},
-			forget(peer: string) {
-				const ids = [...owner].filter(([, p]) => p === peer).map(([c]) => c);
-				for (const c of ids) owner.delete(c);
-				if (ids.length) removeAwarenessStates(aw, ids, 'tavola');
-			},
-		};
+		// Awareness goes through Tavola's Yjs adapter: the one hardened gate (bounds before the parse, identity from
+		// the roster, the clock, the rate) with this app's field cleaners.
+		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS });
+		const awStream = presence.stream;
+		const owner = presence.owner;
 		const key = args.key ?? null;
 		const audio = new LiveAudio(() => this.host.rerender());
 		this.audio = audio;

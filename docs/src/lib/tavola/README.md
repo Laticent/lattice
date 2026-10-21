@@ -74,7 +74,7 @@ joined by the in-memory network: knock, admit, edit from either side, make the g
 npm i @laticent/tavola
 ```
 
-`trystero` (exactly 0.26.0) is an optional peer, needed only for `@laticent/tavola/trystero`.
+`trystero` (exactly 0.26.0) is an optional peer, needed only for `@laticent/tavola/trystero`. `yjs`, `y-protocols` and `lib0` are optional peers, needed only for `@laticent/tavola/yjs`.
 
 ## 60-second start
 
@@ -107,6 +107,43 @@ const parts = parseFragment(location.hash);
 const guest = createSession({ transport: trysteroTransport(parts.room, parts.secret), hostFingerprint: parts.host, doc: stream });
 // stage: connecting → lobby (guest.getState().invite) → guest.knock('Amina') → waiting → live
 ```
+
+## Presence, and where each member is (`@laticent/tavola/yjs`)
+
+Awareness is how an app shows who is where: a name, a color, a caret, a slide, and which panel someone has
+open. Tavola's core moves those bytes without reading them, which left every app to write its own checker, and a
+hand-written checker is the part that does not scale (one wrong field once turned off every viewer's carets). The
+Yjs adapter is that checker, written once, and it is the only production file that reads Yjs's awareness bytes.
+The core stays free of Yjs.
+
+```ts
+import { defineViewKeys, oneOf, int, obj } from '@laticent/tavola';
+import { yjsAwareness } from '@laticent/tavola/yjs';
+
+const keys = defineViewKeys({ panel: oneOf(['coach', 'deck', 'setup']), present: obj({ idx: int(0, 10_000) }) });
+const presence = yjsAwareness(awareness, { ownerOf, memberOf, identity, fields, view: { keys } });
+createSession({ transport, doc, awareness: presence.stream, /* ... */ });
+
+presence.view.set('panel', 'deck');         // mine: checked, coalesced to a few writes a second
+presence.view.of(peerId).get('panel');      // theirs: the latest value that passed the gate
+```
+
+- **The key list is the allowlist.** A key you did not declare is dropped on receipt. **Every value is a place from
+  a fixed list, an integer in a range, or an id of a fixed form: there is no free-text kind**, so what a person has
+  typed and not committed cannot travel as a view. A value that fails its check is dropped, not repaired, and
+  reported to `onDrop` so a mistake in a schema is visible.
+- **Bounds come before the parse.** A message over 8 KB, an entry over 4 KB, or more than 64 entries is refused
+  without reading any JSON, and only the sender's own bound client is kept, once.
+- **Identity is not a field.** `peer` and `user` are written from the roster row of the transport sender; a field
+  cleaner (`(value, sender) => clean`) cannot name them.
+- **The clock.** Yjs ignores an update whose clock is below the last it saw, so a forged huge clock would mute a
+  client for the session. The adapter forgets a client's clock record when its owner changes or it is removed, and
+  refuses a jump past `MAX_CLOCK_JUMP`; the host binds an awareness client id to the token that first claimed it,
+  and a guest drops a roster that gives one id to two people.
+- **Rate, without losing the last update.** A change that is not a caret move is applied at most ten times a
+  second per sender, the latest is kept and applied on a trailing timer, and a removal or a caret move is never
+  held. `view.set` writes at most five times a second, and asks your `allow(key)` at write time, so a privacy switch
+  turned off after a write was queued still wins.
 
 ## Testing without a network
 
