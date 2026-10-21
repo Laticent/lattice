@@ -193,7 +193,7 @@ whose `a:rPr` children were out of order, which the full ISO 29500 transitional 
 passes the FULL XSD on every slide, layout and master part of 24 decks (an independent run), so the schema claim
 holds, but not because of `validate.py`. Neither check opens PowerPoint.
 
-Both are now a harness in the repo, not a scratch script: `lib/export/office-conformance.js` (run it on any file with
+Both are now a harness in the repo, not a scratch script: `test/conformance/office/office-conformance.js` (run it on any file with
 `npm run conformance:office -- deck.pptx deck.odp`) holds the full-schema check over the vendored XSDs
 (`test/conformance/office/schemas`), the unique-shape-id rule, Microsoft's Open XML SDK validator
 (`tools/office-conformance/openxml-check`, .NET; the schema plus Office's semantic rules) and the `.odp` structure checks. It runs

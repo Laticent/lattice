@@ -401,6 +401,7 @@
     "trystero": "0.26.0",
     "typescript": "^6.0.3",
     "wink-porter2-stemmer": "^2.0.1",
+    "xmllint-wasm": "^5.3.0",
     "yaml": "^2.9.0",
     "zdog": "^1.1.3"
   },

@@ -3,7 +3,7 @@
  * the ISO 29500 schema, the unique-shape-id rule and Microsoft's Open XML SDK validator (`.pptx`), and the
  * package-structure checks (`.odp`). Each check also has an ARM THAT FAILS: a file broken in the one way
  * that check owns, which it must flag, so a validator that silently stopped looking is caught
- * (lib/export/office-conformance.js says what each check proves and what none of them does).
+ * (test/conformance/office/office-conformance.js says what each check proves and what none of them does).
  *
  * The Open XML SDK needs a .NET SDK. Locally it skips, with the reason, when `dotnet` is absent;
  * on CI (`CI` set) its absence fails the run.
@@ -15,7 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const JSZip = require('jszip');
-const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable } = require('../../../lib/export/office-conformance');
+const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable } = require('../../conformance/office/office-conformance');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const DECKS = ['accent-finishes', 'card-tags', 'sample-images', 'chart-finish', 'calco-edge-cases'];

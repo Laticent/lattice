@@ -7,10 +7,10 @@
  *
  * A `.pptx` runs through the ISO 29500 schema, the unique-shape-id rule and (when .NET is
  * installed) Microsoft's Open XML SDK validator; an `.odp` through the package-structure checks.
- * Exit 1 on any finding. The checks and what they do not prove: lib/export/office-conformance.js.
+ * Exit 1 on any finding. The checks and what they do not prove: test/conformance/office/office-conformance.js.
  */
 const fs = require('node:fs');
-const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable } = require('../lib/export/office-conformance');
+const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable } = require('../test/conformance/office/office-conformance');
 
 async function main() {
   const args = process.argv.slice(2);

@@ -24,8 +24,8 @@ test.beforeEach(async ({ page }) => {
 	await expect(page.getByRole('dialog')).toBeVisible();
 });
 
-// The same conformance checks the CLI export is held to (lib/export/office-conformance.js).
-const conformance = createRequire(import.meta.url)('../../lib/export/office-conformance.js') as {
+// The same conformance checks the CLI export is held to (test/conformance/office/office-conformance.js).
+const conformance = createRequire(import.meta.url)('../../test/conformance/office/office-conformance.js') as {
 	checkPptxSchema(bytes: Buffer): Promise<unknown[]>;
 	checkOdp(bytes: Buffer): Promise<unknown[]>;
 	checkOpenXml(files: string[]): Array<{ errors: unknown[] }>;
