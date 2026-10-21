@@ -1,0 +1,44 @@
+{
+  "card-tags": {
+    "refused": 12,
+    "shapes": 64,
+    "reasons": {
+      "covered": 4,
+      "paint:shadow+elliptical-radius": 1,
+      "paint:elliptical-radius": 1,
+      "paint:shadow+elliptical-radius+effect+overflow-clipped": 2,
+      "paint:elliptical-radius+effect": 3,
+      "paint:shadow+elliptical-radius+effect": 1
+    }
+  },
+  "accent-finishes": {
+    "refused": 14,
+    "shapes": 48,
+    "reasons": {
+      "paint:bg-clip": 12,
+      "covered": 2
+    }
+  },
+  "cards-stats-actors-kpi": {
+    "refused": 0,
+    "shapes": 69,
+    "reasons": {}
+  },
+  "chart-finish": {
+    "refused": 0,
+    "shapes": 7,
+    "reasons": {}
+  },
+  "backdrop-register": {
+    "refused": 47,
+    "shapes": 12,
+    "reasons": {
+      "paint:radial-gradient": 9,
+      "pseudo:effect": 4,
+      "pseudo:no-paint": 10,
+      "paint:linear-gradient": 7,
+      "covered": 13,
+      "paint:bg-image": 4
+    }
+  }
+}

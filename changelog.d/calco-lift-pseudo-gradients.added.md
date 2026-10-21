@@ -1,0 +1,2 @@
+- The editable `.odp` and `.pptx` now draw more of a slide as native shapes instead of pixels in the picture: pills with their dot, ring and icon (grouped as one object inside their card), accent bars, counter text such as "STEP 01", linear gradients (a real gradient fill with its stops and transparency), and sized one-color rules.
+- Two outer shadows draw as the wider one and a frosted box keeps its translucent fill; the export line counts both (`approximated: 2 stacked shadows, 1 frosted fill`).
