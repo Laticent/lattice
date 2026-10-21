@@ -127,9 +127,8 @@ gantt
 
 for (const tag of [' @gecko', ' @webkit-tablet']) {
 	test(`mermaid draws in the preview through a sandboxed draw frame, with its tooltip and its gantt link, and its library never loads into the deck page @smoke${tag}`, async ({ page, browserName }) => {
-		// The host does not offer Mermaid yet (docs/src/lib/preview-draw-host.ts `KINDS`): its frame cost a fresh page's first diagram about
-		// 1.0 s. This runs the in-page path, which is what ships, and keeps the tooltip, the gantt link and the timing under test; the frame
-		// arm below it was verified green on Chromium, Firefox and WebKit at 3c57aee and returns when 'mermaid' is offered.
+		// The host offers Mermaid (docs/src/lib/preview-draw-host.ts `KINDS`), so the frame arm runs; with LATTICE_NO_DRAW_HOST=1 the same
+		// spec measures the in-page path for the before/after.
 		const evidence = process.env.LATTICE_EVIDENCE_DIR;
 		if (baseline) await page.addInitScript(() => Object.defineProperty(window, '__latticeDrawHost', { value: null, writable: false, configurable: false }));
 		const loaded: string[] = [];
@@ -217,3 +216,20 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		}
 	});
 }
+
+test('a Studio export draws Mermaid itself, never through the preview draw frame @smoke', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'the export path is the same code on every engine; one engine is enough to pin that the frame is not used');
+	test.setTimeout(240_000);
+	await gotoStudio(page);
+	const preview = livePreview(page);
+	await setEditorContent(page, FLOW_DECK);
+	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toBeAttached({ timeout: 90_000 });
+	// Every draw the host takes leaves a mark; the preview's own are behind us, so any new one comes from the export.
+	await page.evaluate(() => performance.clearMarks('lattice-draw:draw-called'));
+	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
+	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).first().click();
+	const download = page.waitForEvent('download', { timeout: 200_000 });
+	await page.getByRole('dialog').getByRole('button', { name: /^Download PDF/ }).click();
+	await download;
+	expect(await page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length), 'the export asked the draw host to draw').toBe(0);
+});

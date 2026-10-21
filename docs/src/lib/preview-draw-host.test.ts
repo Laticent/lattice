@@ -54,6 +54,13 @@ describe('the previews\' draw host', () => {
 		expect(() => kinds.push('mermaid')).toThrow();
 	});
 
+	it('stops offering a kind whose frame could not load its library, so the page loads it itself', async () => {
+		const { installPreviewDrawHost, markDrawKindDown } = await import('./preview-draw-host');
+		installPreviewDrawHost(win);
+		markDrawKindDown('mermaid');
+		expect([...(win.__latticeDrawHost?.kinds as string[])]).toEqual(['function-plot']);
+	});
+
 	it('does not replace a host something else defined first', async () => {
 		const mine = { draw: async () => 'x' };
 		Object.defineProperty(win, '__latticeDrawHost', { value: mine, configurable: true });

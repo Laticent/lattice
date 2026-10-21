@@ -20,7 +20,7 @@ export type DrawJob =
 	| { kind: 'function-plot'; configB64: string; configText: string; width: number; height: number; index: number };
 export type DrawHost = {
 	/** Draw one figure, answering its SVG as text, or rejecting with why it did not draw. */
-	draw: (job: DrawJob, ms?: number) => Promise<string>;
+	draw: (job: DrawJob, ms?: number, again?: boolean) => Promise<string>;
 	/** Fetch and pin the kind's library and open its frame now, so a later draw finds both ready. Rejects with why it could not. */
 	warm: (kind: DrawKind) => Promise<void>;
 	/** Close every frame. The host is not used again. */
@@ -49,6 +49,9 @@ const mark = (name: string) => {
 	}
 };
 const OPEN_MS = 30_000;
+/** A draw that never reached its frame because the frame was closed first (an earlier draw overran): it is safe to send again to a fresh one. */
+class NotSent extends Error {}
+
 const DRAW_MS = 15_000;
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 const b64 = (buf: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -133,19 +136,24 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			},
 		};
 		let onReady: (() => void) | null = null;
+		let onFailed: (() => void) | null = null;
 		const listener = (e: MessageEvent) => {
 			// Only this frame speaks to us, and only in the shapes checkDrawReply reads.
 			if (e.source !== frame.contentWindow) return;
 			const r = checkDrawReply(e.data);
 			if ('ready' in r) return onReady?.();
+			if ('failed' in r) return onFailed?.();
 			if ('ignore' in r) return;
 			const w = f.waiting.get(r.id);
 			if (!w) return;
 			f.waiting.delete(r.id);
 			clearTimeout(w.timer);
 			mark('draw-answered');
-			if ('error' in r) w.reject(new Error(r.error));
-			else w.resolve(r.out);
+			if ('error' in r) {
+				w.reject(new Error(r.error));
+				// A module that failed to load (offline, a stale deploy) stays failed for the frame's life, because a browser keeps the failed import: the next draw opens a fresh frame.
+				if ('loadFailed' in r) f.close();
+			} else w.resolve(r.out);
 		};
 		window.addEventListener('message', listener);
 		try {
@@ -155,11 +163,17 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 					clearTimeout(timer);
 					resolve();
 				};
+				onFailed = () => {
+					clearTimeout(timer);
+					reject(new Error(`the ${kind} draw frame could not load its library`));
+				};
 				frame.srcdoc = html;
 				doc.body.appendChild(frame);
 			});
 		} catch (e) {
 			f.close();
+			// The page may draw this kind itself: a frame that could not open says so.
+			if (e instanceof Error) (e as Error & { drawUnavailable?: boolean }).drawUnavailable = true;
 			throw e;
 		}
 		mark('frame-ready');
@@ -189,8 +203,8 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		return fresh;
 	}
 
-	return {
-		async draw(job, ms = DRAW_MS) {
+	const self: DrawHost = {
+		async draw(job, ms = DRAW_MS, again = true): Promise<string> {
 			if (done) throw new Error('the draw host is closed');
 			const kind = job.kind;
 			if (!Object.hasOwn(DRAW_KINDS, kind)) throw new Error(`no draw frame for ${String(kind)}`);
@@ -199,12 +213,13 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			const next = f.queue.then(
 				() =>
 					new Promise<string>((resolve, reject) => {
-						if (f.closed) return reject(new Error('the draw frame was stopped'));
+						if (f.closed) return reject(new NotSent('the draw frame was stopped'));
 						const id = ++f.seq;
 						const timer = setTimeout(() => {
 							f.waiting.delete(id);
 							reject(new Error(`the ${kind} draw did not finish within ${ms} ms`));
-							// A frame that overran may be wedged: it is spent, and the next draw opens a fresh one.
+							// A frame that overran may be wedged: it is spent, and the next draw opens a fresh one. (A sandboxed same-site frame shares the page's
+						// thread in Chromium, so a drawing that is CPU-bound for longer than this blocks the page itself and this timer fires only afterward.)
 							f.close();
 						}, ms);
 						f.waiting.set(id, { resolve, reject, timer });
@@ -213,7 +228,13 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 					}),
 			);
 			f.queue = next.catch(() => {});
-			return next;
+			try {
+				return await next;
+			} catch (e) {
+				// One bad drawing closed the frame it shared with this one: this one goes to a fresh frame.
+				if (e instanceof NotSent && again && !done) return self.draw(job, ms, false);
+				throw e;
+			}
 		},
 		async warm(kind) {
 			if (done) throw new Error('the draw host is closed');
@@ -226,4 +247,5 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			frames.clear();
 		},
 	};
+	return self;
 }

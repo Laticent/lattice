@@ -75,6 +75,45 @@ function chunkGraphPlugin() {
 // the *.pages.dev deployment host); otherwise fall back to the per-deployment
 // CF_PAGES_URL on Cloudflare, or the lattice.style production origin.
 const onCloudflare = Boolean(process.env.CF_PAGES);
+// A sandboxed (opaque-origin) preview frame loads Mermaid's ES modules and the engine's fonts from this site, and both are fetched with CORS, so
+// those folders must answer with `Access-Control-Allow-Origin: *`. GitHub Pages (production) sends it on everything and the Cloudflare previews
+// read public/_headers; this is the LOCAL dev and preview servers (the e2e runs on `astro preview`). It is set on those folders ONLY, so Vite's own
+// CORS default (localhost origins only) still protects the rest of what the dev server can read. It is forced at `writeHead` because Vite's CORS
+// middleware, which runs after this one, would otherwise echo the page's origin, and on a 304 revalidation that replaces the cached `*` with an
+// origin the frame (origin `null`) does not match.
+// `astro preview` serves only the built, public `dist`, so it may send the header on everything; the DEV server can read the repo, so it gets the
+// narrow plugin below instead. (scripts/preview-e2e.mjs runs the preview in-process and sets the same header itself.)
+const IS_PREVIEW = process.argv.includes('preview');
+const FRAME_ASSETS = /^\/playground\/v\/[^/]+\/(?:frames\/|themes\/fonts\/|katex\/fonts\/)/;
+function drawFrameCors() {
+	// Returns nothing: a function returned from `configureServer` is run as a post hook.
+	/** @param {{ use: (fn: (req: any, res: any, next: () => void) => void) => void }} middlewares */
+	const attach = (middlewares) => {
+		middlewares.use((req, res, next) => {
+			if (FRAME_ASSETS.test((req.url || '').split('?')[0])) {
+				const writeHead = res.writeHead.bind(res);
+				/** @param {any[]} args */
+				res.writeHead = (...args) => {
+					res.setHeader('Access-Control-Allow-Origin', '*');
+					return writeHead(...args);
+				};
+			}
+			next();
+		});
+	};
+	return {
+		name: 'lattice-draw-frame-cors',
+		/** @param {{ middlewares: any }} server */
+		configureServer(server) {
+			attach(server.middlewares);
+		},
+		/** @param {{ middlewares: any }} server */
+		configurePreviewServer(server) {
+			attach(server.middlewares);
+		},
+	};
+}
+
 export default defineConfig({
 	site: process.env.SITE_URL || (onCloudflare ? process.env.CF_PAGES_URL : 'https://lattice.style'),
 	base: '/',
@@ -113,12 +152,7 @@ export default defineConfig({
 	// has its own connection-first policy (src/lib/prefetch-engine.ts, wired via
 	// <EngineWarm>) so we never speculatively spend it on a constrained link.
 	prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
-	// A sandboxed (opaque-origin) preview frame loads Mermaid's ES modules from this site, and a module is always fetched with CORS, so the
-	// files must answer with an `Access-Control-Allow-Origin`. GitHub Pages (production) sends `*` on everything it serves, and the
-	// Cloudflare previews read it from public/_headers; these are the LOCAL dev and preview servers (the e2e runs on `astro preview`).
-	server: { headers: { 'Access-Control-Allow-Origin': '*' } },
-	// Vite's own CORS middleware would ALSO answer, echoing the page's origin, and on a 304 revalidation of a font it replaces the cached `*` with
-	// that origin, so the frame's next request (origin `null`) fails CORS against the cache. One header, one value, on every response.
+	server: IS_PREVIEW ? { headers: { 'Access-Control-Allow-Origin': '*' } } : {},
 	// `server.fs.allow: ['..']` lets the dev server resolve repo files above the
 	// docs root (e.g. map-complete.js's lib/components basemap JSON). The pure
 	// authoring engines (lint-core/review-core/scorecard) and the Theme/Layout
@@ -136,7 +170,8 @@ export default defineConfig({
 	// dev-only shim for exactly that shape — see its header for why `optimizeDeps.include`
 	// does not do the job.
 	vite: {
-		server: { fs: { allow: ['..'] }, cors: false },
+		server: { fs: { allow: ['..'] } },
+		// The preview server serves only the built `dist`, which is public; its CORS is the one-line `server.headers` above, so Vite's is off here.
 		preview: { cors: false },
 		// The versioned asset directory, for a module that needs an engine asset before the page has
 		// loaded the engine: the lint core (src/playground/lint-core-source.js) loads `esm/lint.js` from
@@ -162,6 +197,7 @@ export default defineConfig({
 		// Preflight is OFF on purpose (see that file's header + the migration
 		// decision doc §0). It carries the shadcn ↔ Lattice token bridge.
 		plugins: [
+			drawFrameCors(),
 			tailwindcss(),
 			chunkGraphPlugin(),
 			viteCjsLibDev(path.resolve(import.meta.dirname, '..')),

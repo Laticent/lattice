@@ -22,14 +22,19 @@ const impl = () => import('./preview-draw-host-impl');
 // WHAT THE HOST DRAWS FOR A PAGE. A kind listed here is drawn in a sandboxed frame, and its library is not loaded into the page: the runtime
 // installs its stand-in (lib/plugins/draw-shims.mjs) only for a kind the host offers, and the preview builders skip the library's preload.
 // Mermaid is offered since its frame loads Mermaid's lazy ES modules by URL instead of inlining 3 MB (engineering/mermaid.md §5.3f).
-const KINDS = Object.freeze(['function-plot', 'mermaid']);
+const KINDS = ['function-plot', 'mermaid'];
+// A kind whose frame could not load its library (offline, a stale deploy) leaves the list, so the next preview frame loads the library itself.
+const down = new Set<string>();
+export const markDrawKindDown = (kind: string) => void down.add(kind);
 
 /** Install the host on `win`, once. Idempotent; never replaces a host something else defined. */
 export function installPreviewDrawHost(win: Window = window): void {
 	if (Object.getOwnPropertyDescriptor(win, '__latticeDrawHost')) return;
 	Object.defineProperty(win, '__latticeDrawHost', {
 		value: Object.freeze({
-			kinds: KINDS,
+			get kinds() {
+				return Object.freeze(KINDS.filter((k) => !down.has(k)));
+			},
 			draw: (job: Job) => impl().then((m) => m.draw(job)),
 			warm: (kind: string) => void impl().then((m) => m.warm(kind)),
 		}),

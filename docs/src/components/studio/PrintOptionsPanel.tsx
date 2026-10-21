@@ -183,6 +183,8 @@ function printHtmlDoc(doc: string, slot: { current: PrintFrame | null }, onDialo
 	const frame = kept?.frame ?? document.createElement('iframe');
 	if (!kept) {
 		frame.setAttribute('aria-hidden', 'true');
+		// An export frame: the runtime in it draws its figures itself, as the CLI does, and does not ask the Studio's draw host.
+		frame.dataset.latticeExport = 'print';
 		frame.tabIndex = -1;
 		frame.inert = true;
 		// Off-screen at a real size (not 0×0/hidden) so fonts + layout actually render before

@@ -665,11 +665,11 @@ page's draw host (`docs/src/lib/preview-draw-host.ts`, which lists the kinds it 
 frame's `srcdoc` and cost a fresh page's first diagram about 1.0 s more than drawing in the page (2.3 s to 3.4 s). A CPU trace named the
 cause: the page's HTML parser tokenized 3 MB of script text (`ParseHTML` 591 ms against 8 ms) and the bundle then evaluated as one 350 to
 500 ms task, which also blocked the main thread in the in-page path. Mermaid's own ES build (`mermaid.esm.min.mjs`) evaluates a 28 KB core
-and imports the chunks a diagram type needs when it draws one (a flowchart, a sequence and a gantt: about 30 requests and 400 KB). The
+and imports the chunks a diagram type needs when it draws one (the first drawing's 23 preloaded files are 721 KB raw and 192 KB gzipped, measured in review). The
 frame is a small `srcdoc` (two inline scripts: a boot module that imports the entry by its absolute URL, and an import map), its policy
 names the ONE directory the modules come from (not `'self'`, which is the whole site) and the engine's font folders, and the import map's
 `integrity` carries the SHA-256 of every module, which a browser that supports it enforces. The files are vendored
-(`lib/plugins/mermaid/vendor/esm/`, 82 files, 3.2 MB, pinned by tree hash in the manifest like every other copy) and staged under
+(`lib/plugins/mermaid/vendor/esm/`, 82 files, 3.1 MB, pinned by tree hash in the manifest like every other copy) and staged under
 `frames/mermaid/` (`docs/scripts/sync-playground-assets.mjs`); the per-file digests and the first drawing's `modulepreload` list are
 generated into `lib/plugins/draw-frame-libraries.generated.mjs`. A module loaded by an opaque-origin frame is a cross-origin fetch and needs
 CORS: GitHub Pages (production) sends `Access-Control-Allow-Origin: *` itself, the Cloudflare previews read `docs/public/_headers`, and the
@@ -688,14 +688,34 @@ shows a module outside the policy's directory is never even requested.
 
 | In the page, the library did | In a preview with a draw host, the stand-in does |
 |---|---|
-| measure text in the deck's fonts | the frame loads the font faces named in the config's `fontFamily` itself, from the engine's own font folders its policy names (the preview page has already filled the HTTP cache) |
+| measure text in the deck's fonts | the frame loads the font faces named in the config's `fontFamily` itself, from the engine's own font folders its policy names |
 | bind a flowchart's or class diagram's tooltip | a plain hover binder over the `title` the library puts on each `g.clickable`; the tooltip takes the diagram's own palette rule |
 | bind a gantt's `click` link | the frame sends the chart's links with its drawing (`db.getLinks()`), the host keeps `http(s)`, `mailto:`, `#`, `/` and `.` targets, and the binder opens one in place |
 | run a click CALLBACK | nothing: at `securityLevel: 'strict'` the library's own callback path returned early |
 
 **What does not change.** The CLI export, the plain `.html`, the player, `--fluid` and Export-to-Marp have no host page, so
-they load the single-file library as always. The Studio's Webpage bake frame draws in-page as well (`playerBake`), so its bytes stay the
-CLI's.
+they load the single-file library as always. The Studio's own exports (PDF, PNG, PPTX and the Webpage bake) draw in-page as well: each
+capture frame sits in a `data-lattice-export="capture"` element (`createCaptureFrame`), and the runtime's draw-host lookup skips a frame
+inside one, so what they bake is the library's own answer and not a sanitized copy of a frame's (a frame's policy allows no images, so a
+node with an `<img>` label would size differently there).
+
+**What the frame does not isolate.** In Chromium a sandboxed frame from the same site runs on the page's own thread. A definition that
+is CPU-bound for a long time (measured in review: a 14.5 KB mindmap of 1,200 nodes blocked the page for 33 s, a 33 KB state diagram for 17 s)
+freezes the Studio tab, and the host's 15 s timeout cannot fire until the work returns. The in-page library froze it the same way, so this is
+not new, but the frame does not fix it either. Only a frame served from another site gets its own process (measured above), which needs a second host.
+
+**When the frame cannot load.** The boot module imports the entry with a dynamic `import()` and posts `failed` if it cannot, so the host
+learns at once instead of waiting out its 30 s open timeout. The host then drops Mermaid from the list of kinds it offers (`kinds` is read
+on every pass), and the next preview frame loads the library into the page as it always did. A lazily imported chunk that fails (offline, or a
+deploy removed the folder) closes the frame, because a browser keeps a failed import, so the next draw opens a fresh one.
+The figure that was drawing when the failure hit shows an error until the next edit.
+
+**What it does not get: the service worker and the HTTP cache.** An opaque-origin frame cannot register or use a service worker, and
+Chromium keys its HTTP cache by the frame's origin, so the modules are fetched again on every page load (measured in review: a module served
+`immutable` still reached the server on each of three loads). The in-page library came from the service worker's cache after the first visit.
+The cold-cache numbers below therefore do not cover a returning visitor, and the offline Studio falls back to the in-page library only
+after the first failed draw. A frame served from a second origin with `allow-same-origin` would get its own cache, service worker and
+process, and that is the owner's call (see the decision note).
 
 **What it costs and what it saves** (CPU trace of the real Studio, headless Chromium, three runs each, editor change to first diagram):
 1779 ms drawing in the page, 1366 ms in the frame, against 885 ms for a prose deck; main-thread time 1652 ms and 1257 ms. The page

@@ -15,6 +15,7 @@
 import hydrateMod from '../../../lib/plugins/function-plot/function-plot.hydrate.js';
 import { createDrawHost } from './code-packages/draw-host';
 import { engineBase, sameOriginAsset } from './engine-base';
+import { markDrawKindDown } from './preview-draw-host';
 import { sanitizeDiagramSvg } from './sanitize-diagram-svg.js';
 import { sanitizeSlideHtml } from './sanitize-slide-html.js';
 
@@ -65,7 +66,8 @@ function framesFonts(asks: unknown) {
 	return out;
 }
 
-const SAFE_LINK = /^(?:https?:|mailto:|#|\/|\.)/i;
+// `/` or `\` followed by another `/` or `\` would be a protocol-relative link to another site.
+const SAFE_LINK = /^(?:https?:|mailto:|#|\/(?![/\\])|\.)/i;
 
 async function drawMermaid(job: Job): Promise<string> {
 	const frameJob = { ...job, fonts: framesFonts(job.fonts) } as Parameters<typeof host.draw>[0];
@@ -94,6 +96,7 @@ const host = createDrawHost({
 /** The most drawings remembered, and the most characters they hold between them. */
 const MEMO_MAX = 64;
 const MEMO_CHARS_MAX = 8_000_000;
+const MEMO_KEY_MAX = 100_000;
 const memo = new Map<string, string>();
 let memoChars = 0;
 // A draw already on its way is shared: two previews of one deck ask for the same plot at once.
@@ -129,8 +132,14 @@ export function draw(job: Job): Promise<string> {
 			return clean;
 		}))
 		.then((clean) => {
-			remember(key, clean);
+			// A key holds the whole definition: a job too big to keep is drawn again next time rather than held.
+			if (key.length <= MEMO_KEY_MAX) remember(key, clean);
 			return clean;
+		})
+		.catch((e) => {
+			// A frame that could not open leaves the kind to the page itself, from the next preview on.
+			if ((e as { drawUnavailable?: boolean })?.drawUnavailable) markDrawKindDown(job.kind);
+			throw e;
 		})
 		.finally(() => {
 			inFlight.delete(key);
@@ -145,5 +154,7 @@ export function warm(kind: string): void {
 	if (kind !== 'function-plot' && kind !== 'mermaid') return;
 	mark('warm');
 	// A tiny draw would do the same work, but it would draw something nobody asked for; the host exposes the opening alone.
-	void host.warm(kind).catch(() => {});
+	void host.warm(kind).catch((e) => {
+		if ((e as { drawUnavailable?: boolean })?.drawUnavailable) markDrawKindDown(kind);
+	});
 }

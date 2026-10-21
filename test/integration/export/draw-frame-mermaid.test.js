@@ -90,11 +90,11 @@ async function serve({ tamper = false } = {}) {
 }
 
 /** The module-loaded frame's document, built by the kernel the way the Studio's host builds it. `boot` overrides the boot module. */
-async function esmFrameHtml(base, { boot: bootText } = {}) {
+async function esmFrameHtml(base, { boot: bootText, preload } = {}) {
   await load();
   const scripts = kernel.drawFrameEsmScripts({ kind: 'mermaid', base, entry: registry.entry, integrity: registry.integrity });
   const boot = bootText ?? scripts.boot;
-  return kernel.drawFrameEsmDocument({ kind: 'mermaid', base, entry: registry.entry, integrity: registry.integrity, boot, importMap: scripts.importMap, bootHash: sha(boot), mapHash: sha(scripts.importMap), preload: registry.preload });
+  return kernel.drawFrameEsmDocument({ kind: 'mermaid', base, entry: registry.entry, integrity: registry.integrity, boot, importMap: scripts.importMap, bootHash: sha(boot), mapHash: sha(scripts.importMap), preload: preload ?? registry.preload });
 }
 
 /** Draw every definition in one sandboxed frame; answers `{ ready, replies }`, each reply `{ out }` or `{ error }`. */
@@ -119,10 +119,11 @@ async function drawAll(browser, parentUrl, html, definitions, config, { readyMs 
             };
             addEventListener('message', f);
           });
-        const ready = next((d) => d && d.t === 'ready', readyMs);
+        const ready = next((d) => d && (d.t === 'ready' || d.t === 'failed'), readyMs);
         frame.srcdoc = html;
         document.body.appendChild(frame);
-        if (!(await ready)) return { ready: false, replies: [] };
+        const first = await ready;
+        if (!first || first.t !== 'ready') return { ready: false, failed: first?.t === 'failed', replies: [] };
         const replies = [];
         for (const [i, definition] of defs.entries()) {
           const id = i + 1;
@@ -227,13 +228,38 @@ test('TAMPER: one module changed after its integrity was written is refused, and
   const server = await serve({ tamper: true });
   const browser = await open();
   try {
-    const { ready } = await drawAll(browser, `${server.origin}/parent.html`, await esmFrameHtml(server.base), ['flowchart LR\n A-->B'], CONFIG, { readyMs: 8000 });
+    // No modulepreload links: their own `integrity` attribute would refuse the file, and this arm is about the import map's.
+    const { ready } = await drawAll(browser, `${server.origin}/parent.html`, await esmFrameHtml(server.base, { preload: [] }), ['flowchart LR\n A-->B'], CONFIG, { readyMs: 8000 });
     assert.equal(server.hits.tampered, 1, "the changed chunk was served, so the refusal is the browser's");
     assert.equal(ready, false, 'a module whose bytes do not match its integrity does not run');
   } finally {
     await browser.close();
     server.close();
   }
+});
+
+test('FAILFAST: a frame whose library cannot be fetched says so at once, so the host does not wait out its open timeout', { timeout: TIMEOUT }, async () => {
+  await load();
+  const server = await serve();
+  const browser = await open();
+  try {
+    // Nothing answers at this directory's entry: the page is offline, or a deploy removed the folder.
+    const html = await esmFrameHtml(`${server.origin}/gone/mermaid/`, { preload: [] });
+    const started = Date.now();
+    const { ready, failed } = await drawAll(browser, `${server.origin}/parent.html`, html, ['flowchart LR\n A-->B'], CONFIG, { readyMs: 20000 });
+    assert.equal(ready, false);
+    assert.equal(failed, true, 'the frame reported the failure');
+    assert.ok(Date.now() - started < 10000, 'and did so well inside the 30 s the host would otherwise wait');
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('PATHS: a module path or directory with a dot segment is refused', async () => {
+  await load();
+  assert.throws(() => kernel.drawFrameEsmScripts({ kind: 'mermaid', base: 'http://localhost:1/a/', entry: '../x.mjs', integrity: { '../x.mjs': registry.integrity[registry.entry] } }));
+  assert.throws(() => kernel.drawFrameEsmScripts({ kind: 'mermaid', base: 'http://localhost:1/a/../b/', entry: registry.entry, integrity: registry.integrity }));
 });
 
 test('WALL: the policy names one directory and no eval, and a module outside it is never requested', { timeout: TIMEOUT }, async () => {
@@ -275,6 +301,8 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
         sheet: run('<svg><style>@import url(http://evil.example/x.css); .a{fill:red}</style><rect class="a"/></svg>'),
         terminator: run('<svg><style>/* </style><img src=x onerror="window.__x=3"> */ .a{fill:red}</style></svg>'),
         href: run('<svg><a href="javascript:window.__x=4"><text>t</text></a></svg>'),
+        escaped: run('<svg><style>@\\69mport url(http://evil.example/i.css); .a{fill:red}</style><rect class="a"/></svg>'),
+        target: run('<svg><a href="https://example.com/" target="_top"><text>t</text></a><a href="https://example.com/" target="_blank"><text>u</text></a></svg>'),
       };
     });
     assert.doesNotMatch(out.script, /<script|onclick/i);
@@ -285,6 +313,10 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
     assert.doesNotMatch(out.sheet, /@import|evil\.example/);
     assert.doesNotMatch(out.terminator, /onerror/i);
     assert.doesNotMatch(out.href, /javascript:/i);
+    assert.match(out.escaped, /fill:\s*red/);
+    assert.doesNotMatch(out.escaped, /mport|evil\.example/i, 'an @import spelled with a CSS escape is dropped too');
+    assert.doesNotMatch(out.target, /_top/);
+    assert.match(out.target, /target="_blank"/);
   } finally {
     await browser.close();
   }
