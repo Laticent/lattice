@@ -64,7 +64,8 @@ distinct background plus the chrome its slides share: a title is a title placeho
 number a slide-number field (when it equals the slide's position), and a header, footer or page number that two or more slides
 share on a background is drawn once on the layout (`planMasters`). A slide with no shared
 background keeps its own opaque picture and its own chrome, because a layout paints under the
-slide's picture. The slide picture is locked against moving and resizing.
+slide's picture. The slide's foreground picture, when there is one, is locked against moving and
+resizing; pictures of single objects are not, so a photo can be replaced or moved.
 
 ## Fonts
 
@@ -104,8 +105,10 @@ nothing, so a headless browser can receive them as source.
 - PowerPoint: weight is bold or not (600 and up is bold), and `text-transform` is applied to
   the text itself. Placement is measured in LibreOffice; PowerPoint is not verified.
 - No native charts, diagrams or equations.
-- A card that holds an icon, a chart or a `::before` tag stays in the foreground picture, so it is
-  one movable image, not a group.
+- What cannot be a shape (a photo, a chart, an icon, a gradient scrim) is a picture of its own,
+  cropped from the slide, placed in order among the shapes and grouped with its card
+  (`ReadOptions.sprites`, `Shape.kind === 'picture'`). A host that does not crop them (the Studio's
+  browser export) gets one foreground picture instead, and a card that holds picture content stays in it.
 - The `.pptx` picture lock is markup only: PowerPoint's Lock honors it; LibreOffice does not.
   Google Slides and Collabora on iOS are not verified.
 

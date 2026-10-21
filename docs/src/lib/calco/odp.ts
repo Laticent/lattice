@@ -331,6 +331,18 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 				})
 				.join('')
 		: '<style:master-page style:name="Default" style:page-layout-name="PM1" draw:style-name="Mdp1"/>';
+	// Pictures the shapes carry (a photo, an icon, a chart), written beside the slide pictures.
+	const spriteParts: Array<[string, Uint8Array]> = [];
+	const pictureXml = (shape: Shape, name: string, slideIndex: number, shapeIndex: number): string => {
+		if (!shape.image?.length) return '';
+		const path = `Pictures/slide${pad3(slideIndex)}-${shapeIndex + 1}.${imageExt(shape.image)}`;
+		spriteParts.push([path, shape.image]);
+		return (
+			`<draw:frame draw:style-name="gr1" draw:name="${xmlEscape(name)}" svg:x="${cm(shape.x)}" svg:y="${cm(shape.y)}" svg:width="${cm(shape.w)}" svg:height="${cm(shape.h)}">` +
+			`<draw:image xlink:href="${path}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
+			`<svg:title>${xmlEscape(name)}</svg:title><svg:desc>${xmlEscape(shape.alt || '')}</svg:desc></draw:frame>`
+		);
+	};
 	const pages = deck.slides.map((original, i) => {
 		const n = i + 1;
 		const slide = masters ? withoutHoisted(original, masters.hoisted[i]) : original;
@@ -343,7 +355,9 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 					xml:
 						'frame' in item
 							? frameXml(item.frame, nameOf(item.frame, n, item.index), group === undefined, n)
-							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`, item.label),
+							: item.shape.kind === 'picture'
+								? pictureXml(item.shape, `Picture ${n}.${item.index + 1}`, i, item.index)
+								: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`, item.label),
 				}));
 				// A pill inside a card is a group inside the card's group: each contiguous run of one
 				// owner's shapes nests.
@@ -366,11 +380,14 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			: '';
 		return (
 			`<draw:page draw:name="Slide ${n}" draw:master-page-name="${masters ? masterName(masters.layoutOf[i]) : 'Default'}">` +
-			`<draw:frame${masters ? ' draw:style-name="grPic"' : ''} draw:name="Slide ${n}" svg:x="0cm" svg:y="0cm" svg:width="${page.w}cm" svg:height="${page.h}cm">` +
-			`<draw:image xlink:href="Pictures/slide${pad3(i)}.${imageExt(slide.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
-			// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
-			`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
-			`</draw:frame>${boxes}${notesXml}</draw:page>`
+			(slide.image?.length
+				? `<draw:frame${masters ? ' draw:style-name="grPic"' : ''} draw:name="Slide ${n}" svg:x="0cm" svg:y="0cm" svg:width="${page.w}cm" svg:height="${page.h}cm">` +
+					`<draw:image xlink:href="Pictures/slide${pad3(i)}.${imageExt(slide.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
+					// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
+					`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
+					'</draw:frame>'
+				: '') +
+			`${boxes}${notesXml}</draw:page>`
 		);
 	});
 	// A layout's background: a flat fill, or the shared picture stretched over the page.
@@ -424,7 +441,8 @@ ${masterXml}
 		['styles.xml', 'text/xml'],
 		['meta.xml', 'text/xml'],
 		['settings.xml', 'text/xml'],
-		...deck.slides.map((s, i): [string, string] => [`Pictures/slide${pad3(i)}.${imageExt(s.image)}`, imageMime(s.image)]),
+		...deck.slides.flatMap((s, i): Array<[string, string]> => (s.image?.length ? [[`Pictures/slide${pad3(i)}.${imageExt(s.image)}`, imageMime(s.image)]] : [])),
+		...spriteParts.map(([path, bytes]): [string, string] => [path, imageMime(bytes)]),
 		...(deck.backgrounds || []).flatMap((b, bi): Array<[string, string]> => (b.image && masters?.layouts.some((l) => l.background === bi) ? [[bgPath(bi, b.image), imageMime(b.image)]] : [])),
 		...used.map((_f, i): [string, string] => [fontPath(i), 'application/x-font-ttf']),
 	];
@@ -443,10 +461,11 @@ ${parts.map(([p, t]) => `<manifest:file-entry manifest:full-path="${p}" manifest
 	zip.file('meta.xml', meta);
 	zip.file('settings.xml', settings);
 	deck.slides.forEach((slide, i) => {
-		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
+		if (slide.image && !slide.image.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		// PNG is compressed already; deflating it again costs time and saves nothing.
-		zip.file(`Pictures/slide${pad3(i)}.${imageExt(slide.image)}`, slide.image, { ...NO_DIRS, compression: 'STORE' });
+		if (slide.image?.length) zip.file(`Pictures/slide${pad3(i)}.${imageExt(slide.image)}`, slide.image, { ...NO_DIRS, compression: 'STORE' });
 	});
+	for (const [path, bytes] of spriteParts) zip.file(path, bytes, { ...NO_DIRS, compression: 'STORE' });
 	(deck.backgrounds || []).forEach((b, bi) => {
 		if (b.image && masters?.layouts.some((l) => l.background === bi)) zip.file(bgPath(bi, b.image), b.image, { ...NO_DIRS, compression: 'STORE' });
 	});

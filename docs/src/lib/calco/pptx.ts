@@ -276,12 +276,12 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	}
 
 	deck.slides.forEach((original, i) => {
-		if (!original.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
+		if (original.image && !original.image.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		const slide = masters ? withoutHoisted(original, masters.hoisted[i]) : original;
 		const s = pptx.addSlide(masters ? { masterName: layoutName(masters.layoutOf[i]) } : undefined);
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `${imageMime(slide.image)};base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}`, ...(options?.groups && masters ? { objectName: `${LOCK_TAG}Slide ${i + 1}` } : {}) });
+		if (slide.image?.length) s.addImage({ data: `${imageMime(slide.image)};base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}`, ...(options?.groups && masters ? { objectName: `${LOCK_TAG}Slide ${i + 1}` } : {}) });
 		const n = i + 1;
 		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
 			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.
@@ -297,6 +297,13 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 					const roleTag = options?.groups && group === undefined && (role === 'title' || (role === 'number' && isPosition(item.frame, n))) ? `${ROLE_TAG}${role}|` : '';
 					const name = role ? `${ROLE_NAMES[role]} ${n}` : `Text ${n}.${item.index + 1}`;
 					s.addText(runs, { ...textOptions, x: inch(box.x), y: inch(box.y), w: inch(box.w), h: inch(box.h), margin: 0, objectName: `${tag}${roleTag}${name}` });
+					continue;
+				}
+				if (item.shape.kind === 'picture') {
+					const pic = item.shape;
+					if (pic.image?.length) {
+						s.addImage({ data: `${imageMime(pic.image)};base64,${toBase64(pic.image)}`, x: inch(pic.x), y: inch(pic.y), w: inch(pic.w), h: inch(pic.h), altText: xmlSafe(pic.alt || '') || `Picture ${n}.${item.index + 1}`, objectName: `${tag}${subTag(pic.sub)}Picture ${n}.${item.index + 1}` });
+					}
 					continue;
 				}
 				const geom = shapeGeometry(item.shape);
@@ -409,28 +416,39 @@ export function groupShapes(xml: string): string {
 		return wrap(group, parts);
 	};
 	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
-	// there is polynomial in the number of adjacent shapes (CodeQL).
-	const OPEN = '<p:sp>';
-	const CLOSE = '</p:sp>';
+	// there is polynomial in the number of adjacent shapes (CodeQL). A group's members are shapes and
+	// pictures (`<p:sp>`, `<p:pic>`).
+	const OPENS = ['<p:sp>', '<p:pic>'];
+	const CLOSES = ['</p:sp>', '</p:pic>'];
 	let out = '';
 	let at = 0;
 	let current: string | null = null;
 	let members: Array<{ sub: string | null; sp: string }> = [];
+	const nextOpen = OPENS.map((o) => xml.indexOf(o, 0));
 	const flush = () => {
 		if (current !== null) out += wrapCard(current, members);
 		current = null;
 		members = [];
 	};
 	for (;;) {
-		const start = xml.indexOf(OPEN, at);
-		const end = start < 0 ? -1 : xml.indexOf(CLOSE, start);
+		// The next opening of each kind, searched again only once the scan has passed it.
+		for (let k = 0; k < OPENS.length; k++) if (nextOpen[k] !== -1 && nextOpen[k] < at) nextOpen[k] = xml.indexOf(OPENS[k], at);
+		let start = -1;
+		let kind = 0;
+		nextOpen.forEach((hit, k) => {
+			if (hit >= 0 && (start < 0 || hit < start)) {
+				start = hit;
+				kind = k;
+			}
+		});
+		const end = start < 0 ? -1 : xml.indexOf(CLOSES[kind], start);
 		if (end < 0) break;
-		// A group's members are ADJACENT shapes: anything between two closes the group.
+		// A group's members are ADJACENT: anything between two closes the group.
 		if (start !== at) {
 			flush();
 			out += xml.slice(at, start);
 		}
-		const sp = xml.slice(start, end + CLOSE.length);
+		const sp = xml.slice(start, end + CLOSES[kind].length);
 		const m = sp.match(tagged);
 		const group = m ? m[2] : null;
 		if (group !== current) flush();
@@ -438,7 +456,7 @@ export function groupShapes(xml: string): string {
 			current = group;
 			members.push({ sub: m[3] ?? null, sp: sp.replace(tagged, '$1') });
 		} else out += sp;
-		at = end + CLOSE.length;
+		at = end + CLOSES[kind].length;
 	}
 	flush();
 	return out + xml.slice(at);

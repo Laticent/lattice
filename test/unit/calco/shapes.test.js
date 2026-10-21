@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
 const { drawOrder, groupShapes, labelInsets, shapeGeometry, writeOdp, writePptx } = require('@laticent/calco');
-const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+const { ONE_PX_JPEG, ONE_PX_PNG, style, frame } = require('./_fixtures');
 
 const card = { kind: 'box', x: 100, y: 100, w: 300, h: 160, radii: [10, 10, 10, 10], fill: { color: '#f2f5fa', alpha: 1 }, stroke: { color: '#898e95', alpha: 1, width: 1 }, group: 0 };
 const accent = { kind: 'line', side: 'bottom', x: 110, y: 258.5, w: 280, h: 0, stroke: { color: '#2e608a', alpha: 1, width: 3 }, wrap: [10, 10], group: 0 };
@@ -184,5 +184,36 @@ describe('calco shapes — gradient fills', () => {
     assert.match(styles, /<draw:gradient [^>]*draw:angle="90deg"[^>]*>(<loext:gradient-stop [^>]*\/>){3}<\/draw:gradient>/);
     assert.match(styles, /<draw:opacity [^>]*>(<loext:opacity-stop [^>]*\/>){3}<\/draw:opacity>/);
     assert.match(content, /draw:fill="gradient" draw:fill-gradient-name="Gr1" draw:opacity-name="Op2"/);
+  });
+});
+
+describe('calco shapes — pictures in paint order', () => {
+  const card2 = { kind: 'box', x: 100, y: 100, w: 300, h: 140, radii: [8, 8, 8, 8], fill: { color: '#f2f5fa', alpha: 1 }, group: 0 };
+  const icon = { kind: 'picture', x: 110, y: 110, w: 40, h: 40, image: ONE_PX_PNG, alt: 'An icon', group: 0 };
+  const photo = { kind: 'picture', x: 500, y: 100, w: 200, h: 100, image: ONE_PX_JPEG };
+  const spriteDeck = () => ({ width: 1280, height: 720, slides: [{ frames: [], shapes: [card2, icon, photo] }] });
+
+  test('pptx: a picture is a p:pic with its alt text, inside its card\'s group; a loose one stays loose; no slide picture', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, spriteDeck(), 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.equal(xml.match(/<p:pic>/g).length, 2, 'two pictures, no full-slide one');
+    const group = xml.match(/<p:grpSp>[\s\S]*?<\/p:grpSp>/)[0];
+    assert.match(group, /<p:pic>[\s\S]*descr="An icon"/);
+    assert.match(group, /name="Shape 1\.1"/);
+    assert.equal((xml.replace(group, '').match(/<p:pic>/g) || []).length, 1, 'the photo is outside the group');
+    assert.doesNotMatch(xml, /calco-(group|sub)-/);
+  });
+
+  test('odp: a picture is a draw:frame with draw:image, in the card\'s draw:g, and its part is in the manifest', async () => {
+    const zip = await JSZip.loadAsync(await writeOdp(JSZip, spriteDeck(), 'nodebuffer'));
+    const content = await zip.file('content.xml').async('string');
+    const group = content.match(/<draw:g [^>]*>[\s\S]*?<\/draw:g>/)[0];
+    assert.match(group, /<draw:image xlink:href="Pictures\/slide001-2\.png"/);
+    assert.match(group, /<svg:desc>An icon<\/svg:desc>/);
+    assert.match(content, /Pictures\/slide001-3\.jpg|Pictures\/slide001-3\.jpeg/);
+    const manifest = await zip.file('META-INF/manifest.xml').async('string');
+    assert.match(manifest, /Pictures\/slide001-2\.png/);
+    assert.ok(zip.file('Pictures/slide001-2.png'));
+    assert.equal(zip.file('Pictures/slide001.png'), null, 'no full-slide picture');
   });
 });

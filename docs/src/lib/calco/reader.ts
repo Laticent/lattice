@@ -49,6 +49,8 @@ export interface ReadResult {
 	hidden: boolean;
 	/** With `diagnose`: each painted box or pseudo-element that stayed in the picture, and why. */
 	refused?: Refusal[];
+	/** With `diagnose`: every item the picture keeps (drawn elements, refused boxes, markers, unread text) with its box. */
+	kept?: Array<{ kind: string; x: number; y: number; w: number; h: number }>;
 	/** What lifted shapes only approximate, one entry per shape and kind: `stacked-shadow` (two outer shadows drawn as one) or `backdrop-blur` (a frosted fill drawn as its translucent color). */
 	approximated: string[];
 }
@@ -81,6 +83,12 @@ export interface ReadOptions {
 	 * a real element in for it during the read. Default true.
 	 */
 	pseudoText?: boolean;
+	/**
+	 * With `shapes`: keep what cannot be a shape as separate pictures, one per cluster of overlapping picture content
+	 * and in paint order among the shapes (`Shape.kind === 'picture'`), instead of one slide-sized foreground picture.
+	 * The caller crops each one from a capture of the slide. Default false.
+	 */
+	sprites?: boolean;
 }
 
 /**
@@ -789,6 +797,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// Elements whose OWN paint was lifted into shapes, so the capture hides it (a pseudo's is hidden apart).
 	const paintHidden = new Set<Element>();
 	let refusedOut: Refusal[] | undefined;
+	let keptOut: ReadResult['kept'];
 	const approximated: string[] = [];
 	if (options?.shapes) {
 		const keptNodes = new Set<Node>(kept.map((wd) => wd.node));
@@ -862,6 +871,21 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		type Rect = { x: number; y: number; w: number; h: number };
 		const relRect = (r: { left: number; top: number; width: number; height: number }): Rect => ({ x: (r.left - origin.left) / scale, y: (r.top - origin.top) / scale, w: r.width / scale, h: r.height / scale });
+		// How far a box's own ink reaches past its edge: its shadows (blur, spread and offset), its text shadow and a
+		// drop-shadow filter. A picture of that box is cropped this much wider, or the soft edge is cut off.
+		const bleedOf = (cs: CSSStyleDeclaration & Record<string, string>): number => {
+			let out = 0;
+			const lengths = (v: string) => (v && v !== 'none' ? splitTop(v).map((layer) => layer.replace(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+)\s*|\s*((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+)$/i, '').replace(/\binset\b/, '').trim().split(/\s+/).map(px)) : []);
+			for (const [x = 0, y = 0, blur = 0, spread = 0] of lengths(cs.boxShadow)) out = Math.max(out, blur + Math.max(spread, 0) + Math.max(Math.abs(x), Math.abs(y)));
+			for (const [x = 0, y = 0, blur = 0] of lengths(cs.textShadow)) out = Math.max(out, blur + Math.max(Math.abs(x), Math.abs(y)));
+			const drop = (cs.filter || '').match(/drop-shadow\(([^)]*(?:\([^)]*\))?[^)]*)\)/);
+			if (drop) for (const [x = 0, y = 0, blur = 0] of lengths(drop[1])) out = Math.max(out, blur + Math.max(Math.abs(x), Math.abs(y)));
+			// A blur spreads the ink about three times its radius.
+			const blur = (cs.filter || '').match(/\bblur\(([\d.]+)px\)/);
+			if (blur) out = Math.max(out, 3 * Number(blur[1]));
+			return Math.ceil(out);
+		};
+		const grow = (r: Rect, by: number): Rect => (by > 0 ? { x: r.x - by, y: r.y - by, w: r.w + 2 * by, h: r.h + 2 * by } : r);
 		const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
 		// Inside every box that clips it, and on the slide: a clipped box is not a shape.
 		const unclipped = (el: Element, r: Rect): boolean => {
@@ -887,6 +911,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			paintOf?: Element;
 			/** Audit: what kind of picture content this is. */
 			kind?: string;
+			/** A drawn element's own description (an image's alt text, an SVG's label). */
+			alt?: string;
+			/** How far its ink (shadows) reaches past `rect`; a picture of it is cropped that much wider. */
+			bleed?: number;
 		}
 		const items: Item[] = [];
 		const refused: Refusal[] = [];
@@ -1604,7 +1632,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const shown = cs.visibility === 'visible' && opacityOf(el) > 0;
 			const rect = relRect(el.getBoundingClientRect());
 			if (el !== section && DRAWN.has(tag)) {
-				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect, kind: `drawn:${tag}` });
+				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect, kind: `drawn:${tag}`, bleed: bleedOf(cs), alt: (el.getAttribute('alt') || el.getAttribute('aria-label') || el.querySelector('title')?.textContent || '').trim() || undefined });
 				return;
 			}
 			// The slide's own `::before`/`::after` count too: a `::after` the slide places over a
@@ -1619,7 +1647,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					if (lift) candidates.push(lift);
 					else {
 						const pr = pseudoRect(el, which, rect);
-						items.push({ node: el, owner: el, rect: pr, pseudo: side, kind: `pseudo:${label(el).cls || label(el).tag}::${side}` });
+						items.push({ node: el, owner: el, rect: pr, pseudo: side, bleed: bleedOf(win.getComputedStyle(el, which) as CSSStyleDeclaration & Record<string, string>), kind: `pseudo:${label(el).cls || label(el).tag}::${side}` });
 						refuse(el, pr, why.reason, side);
 					}
 				}
@@ -1627,13 +1655,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (el !== section && shown) {
 				if (cs.display === 'list-item' && (cs.listStyleType !== 'none' || cs.listStyleImage !== 'none')) {
 					const em = px(cs.fontSize) * 2;
-					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: rect.w + em, h: rect.h }, pseudo: 'before', kind: 'list-marker' });
+					// The marker sits left of the item's box, on its first line.
+					const line = Number.parseFloat(cs.lineHeight) || px(cs.fontSize) * 1.4;
+					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: em, h: Math.min(rect.h, line) }, pseudo: 'before', bleed: bleedOf(cs), kind: 'list-marker' });
 				}
 				const found = analyze(cs, rect, opacityOf(el), el, tag);
 				if (found) {
 					if (found.plain) candidates.push(found.box);
 					else {
-						items.push({ node: el, owner: el, rect, paintOf: el, kind: 'refused-box' });
+						items.push({ node: el, owner: el, rect, paintOf: el, bleed: bleedOf(cs), kind: 'refused-box' });
 						refuse(el, rect, `paint:${found.why}`);
 					}
 				}
@@ -1645,7 +1675,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					// Text the picture keeps (not read, or left whole): its ink is picture content.
 					range2.selectNodeContents(child);
 					const r = range2.getBoundingClientRect();
-					if (r.width > 0 && r.height > 0) items.push({ node: child, owner: el, rect: relRect(r), text: true, kind: 'unread-text' });
+					if (r.width > 0 && r.height > 0) items.push({ node: child, owner: el, rect: relRect(r), text: true, bleed: bleedOf(cs), kind: 'unread-text' });
 				}
 			}
 		};
@@ -1685,22 +1715,6 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (p.pseudo && p.node.contains(el)) return p.pseudo === 'after';
 			return !!(p.node.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
 		};
-		for (let changed = true; changed; ) {
-			changed = false;
-			for (const c of lifted) {
-				const cover = coverOf(c);
-				if (!items.some((p) => cover.some((r) => overlaps(r, p.rect)) && above(p, c.el))) continue;
-				lifted.delete(c);
-				items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, kind: 'refused-box' });
-				if (options?.diagnose) {
-					const by = items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
-					const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
-					refuse(c.el, c.rect, 'covered', c.pseudo, by ? by.kind : own ? `OWN ${own.kind}` : '?');
-				}
-				changed = true;
-			}
-		}
-
 		// Back to front: a parent before its children, else by painting level below their common
 		// ancestor, then tree order.
 		// A pseudo-element paints as its element's first (`::before`) or last (`::after`) child,
@@ -1714,7 +1728,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const z = ps.zIndex === 'auto' ? Number.NaN : Number(ps.zIndex);
 			return Number.isNaN(z) ? Math.max(base, 2) : z < 0 ? Math.min(base, -1) : Math.max(base, 2 + z);
 		};
-		const order = [...lifted].sort((a, b) => {
+		const paintOrder = (): Candidate[] => [...lifted].sort((a, b) => {
 			if (a.el === b.el) {
 				if (!a.pseudo || !b.pseudo) return rank(a) - rank(b);
 				return lvl(a, a.el) - lvl(b, b.el) || rank(a) - rank(b);
@@ -1731,8 +1745,119 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const d = lvl(a, common) - lvl(b, common);
 			return d || (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
 		});
+		// A lifted box that stays in the picture after all: it joins the picture items.
+		const unlift = (c: Candidate, reason: string, by?: Item) => {
+			const cover = coverOf(c);
+			lifted.delete(c);
+			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, kind: 'refused-box' });
+			if (options?.diagnose) {
+				const above_ = by || items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
+				const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
+				refuse(c.el, c.rect, reason, c.pseudo, above_ ? above_.kind : own ? `OWN ${own.kind}` : '?');
+			}
+		};
+		// SPRITES: the picture content, in clusters. Items whose padded boxes overlap are one cluster, and clusters
+		// whose boxes overlap are merged until none do, so every pixel of the foreground belongs to one picture.
+		const SPRITE_PAD = 8;
+		interface Cluster {
+			items: Item[];
+			box: Rect;
+			/** Pictures are emitted before the shape at this index of the paint order (so after every shape it must cover). */
+			at: number;
+		}
+		const clusterItems = (): Cluster[] => {
+			const out: Cluster[] = [];
+			for (const it of items) {
+				const ink = grow(it.rect, (it.bleed || 0) + SPRITE_PAD);
+				const x0 = Math.max(0, Math.floor(ink.x));
+				const y0 = Math.max(0, Math.floor(ink.y));
+				const x1 = Math.min(boxW, Math.ceil(ink.x + ink.w));
+				const y1 = Math.min(boxH, Math.ceil(ink.y + ink.h));
+				if (!(x1 > x0 && y1 > y0)) continue;
+				out.push({ items: [it], box: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, at: 0 });
+			}
+			for (let merged = true; merged; ) {
+				merged = false;
+				for (let i = 0; i < out.length && !merged; i++) {
+					for (let j = i + 1; j < out.length && !merged; j++) {
+						if (!overlaps(out[i].box, out[j].box)) continue;
+						const a = out[i].box;
+						const b = out[j].box;
+						const x0 = Math.min(a.x, b.x);
+						const y0 = Math.min(a.y, b.y);
+						out[i] = { items: [...out[i].items, ...out[j].items], box: { x: x0, y: y0, w: Math.max(a.x + a.w, b.x + b.w) - x0, h: Math.max(a.y + a.h, b.y + b.h) - y0 }, at: 0 };
+						out.splice(j, 1);
+						merged = true;
+					}
+				}
+			}
+			return out;
+		};
+		let clusters: Cluster[] = [];
+		if (!options?.sprites) {
+			for (let changed = true; changed; ) {
+				changed = false;
+				for (const c of lifted) {
+					const cover = coverOf(c);
+					if (!items.some((p) => cover.some((r) => overlaps(r, p.rect)) && above(p, c.el))) continue;
+					unlift(c, 'covered');
+					changed = true;
+				}
+			}
+		} else {
+			// A lifted box and a cluster that overlap must agree on who is on top. A box the cluster is partly above and
+			// partly below cannot be drawn in either order, and one painted later than another that must come after the
+			// cluster cannot be placed either: those boxes join the picture.
+			for (let changed = true; changed; ) {
+				changed = false;
+				clusters = clusterItems();
+				const order0 = paintOrder();
+				const index = new Map(order0.map((c, i) => [c, i] as const));
+				for (const k of clusters) {
+					const over: Candidate[] = [];
+					const under: Candidate[] = [];
+					for (const c of order0) {
+						const cover = coverOf(c);
+						const rel = k.items.filter((p) => cover.some((r) => overlaps(r, p.rect)));
+						if (!rel.length) continue;
+						const ab = rel.filter((p) => above(p, c.el));
+						if (ab.length && ab.length < rel.length) {
+							unlift(c, 'covered', ab[0]);
+							changed = true;
+							break;
+						}
+						(ab.length ? over : under).push(c);
+					}
+					if (changed) break;
+					const top = Math.max(-1, ...over.map((c) => index.get(c) as number));
+					const wrong = under.filter((c) => (index.get(c) as number) < top);
+					if (wrong.length) {
+						for (const c of wrong) unlift(c, 'covered');
+						changed = true;
+						break;
+					}
+					k.at = top + 1;
+				}
+			}
+		}
+
 		const same = (a: Paint & { width: number }, b: Paint & { width: number }) => a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01;
-		for (const c of order) {
+		const order = paintOrder();
+		// Pictures go in at their place in the paint order, each one in the group of the card it sits in.
+		const emitPictures = (at: number) => {
+			for (const k of clusters) {
+				if (k.at !== at) continue;
+				const owners = k.items.map((it) => it.owner);
+				const rep = owners.reduce((a, b) => commonAncestor(a, b));
+				const pic: Shape = { kind: 'picture', x: k.box.x, y: k.box.y, w: k.box.w, h: k.box.h };
+				const alt = k.items.find((it) => it.alt)?.alt;
+				if (alt) pic.alt = alt;
+				shapes.push(pic);
+				shapeEls.push(rep);
+			}
+		};
+		for (const [position, c] of order.entries()) {
+			emitPictures(position);
 			if (c.pseudo) pseudoHides.push({ el: c.el, side: c.pseudo });
 			if (c.mark) {
 				shapes.push({ ...c.mark });
@@ -1802,6 +1927,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (c.pseudo) for (let k = firstShape; k < shapes.length; k++) shapes[k].pseudo = true;
 			else if (shapes.length > firstShape) paintHidden.add(c.el);
 		}
+		emitPictures(order.length);
 
 		// LABELS: a box with no shadow that holds nothing lifted but ONE paragraph of its own
 		// carries that text inside it: one object, which moves and resizes with its words.
@@ -1856,6 +1982,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			});
 		});
 		refusedOut = refused;
+		if (options?.diagnose) keptOut = items.map((it) => ({ kind: it.kind || '?', x: Math.round(it.rect.x), y: Math.round(it.rect.y), w: Math.round(it.rect.w), h: Math.round(it.rect.h) }));
 	}
 
 	// ── hide. FIRST CHOICE: wrap each text node that was read in an inline element that is
@@ -2041,6 +2168,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const saved = el.getAttribute('style');
 			for (const [k, v] of [
 				['background-color', 'transparent'],
+				// A lifted gradient or one-color layer is drawn by the shape, so the picture must not draw it again.
+				['background-image', 'none'],
 				['border-top-color', 'transparent'],
 				['border-right-color', 'transparent'],
 				['border-bottom-color', 'transparent'],
@@ -2082,7 +2211,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			};
 		} else unmaterialize();
 	}
-	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}) };
+	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

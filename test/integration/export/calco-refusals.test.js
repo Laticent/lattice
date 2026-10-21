@@ -1,9 +1,9 @@
 /**
  * Integration: the refusal budget for Calco's editable export.
  *
- * A "refusal" is a painted box that `readSlide` leaves in the picture instead of lifting into a native
- * shape (`ReadResult.refused`, with `diagnose`). Every one is something an owner can still drag as part
- * of a picture, so the count is a ratchet: a change may lower it and may not raise it. The budget is
+ * A "refusal" is a painted box that `readSlide` leaves in a picture instead of lifting into a native
+ * shape (`ReadResult.refused`, with `diagnose`), and each cluster of such content is one picture of its
+ * own (`sprites`). Every one is something an owner cannot edit as a shape, so both counts are a ratchet: a change may lower it and may not raise it. The budget is
  * measured on the demo decks the export work was built against, rendered by the real CLI and read in
  * a real Chromium (HARD RULE #23).
  *
@@ -46,15 +46,17 @@ describe('calco refusal budget', () => {
       await new Promise((r) => setTimeout(r, 1500));
       let refused = 0;
       let shapes = 0;
+      let pictures = 0;
       const reasons = {};
       for (const slide of await page.$$('section[data-lattice-slide]')) {
-        const res = await slide.evaluate(readSlide, { shapes: true, diagnose: true });
+        const res = await slide.evaluate(readSlide, { shapes: true, diagnose: true, sprites: true });
         refused += res.refused.length;
-        shapes += res.shapes.length;
+        shapes += res.shapes.filter((sh) => sh.kind !== 'picture').length;
+        pictures += res.shapes.filter((sh) => sh.kind === 'picture').length;
         for (const r of res.refused) reasons[r.reason] = (reasons[r.reason] || 0) + 1;
       }
       await page.close();
-      measured[deck] = { refused, shapes, reasons };
+      measured[deck] = { refused, shapes, pictures, reasons };
     }
   });
   after(async () => {
@@ -64,13 +66,14 @@ describe('calco refusal budget', () => {
   });
 
   for (const deck of DECKS) {
-    test(`${deck}: no more refusals than the budget, and no fewer shapes`, (t) => {
+    test(`${deck}: no more refusals or pictures than the budget, and no fewer shapes`, (t) => {
       if (BLESS) return t.skip('blessing');
       const budget = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))[deck];
       assert.ok(budget, `no budget for ${deck}: bless it`);
       const got = measured[deck];
       assert.ok(got.refused <= budget.refused, `${deck}: ${got.refused} refusals, budget ${budget.refused}. Now: ${JSON.stringify(got.reasons)}. Was: ${JSON.stringify(budget.reasons)}`);
       assert.ok(got.shapes >= budget.shapes, `${deck}: ${got.shapes} lifted shapes, budget ${budget.shapes}`);
+      assert.ok(got.pictures <= budget.pictures, `${deck}: ${got.pictures} pictures, budget ${budget.pictures}`);
     });
   }
 });

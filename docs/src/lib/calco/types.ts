@@ -123,7 +123,7 @@ export type PathCmd = ['M', number, number] | ['L', number, number] | ['C', numb
  * recolorable object. The reader lifts it from a pseudo-element that paints a CSS mask.
  */
 export interface Shape {
-	kind: 'box' | 'line' | 'path';
+	kind: 'box' | 'line' | 'path' | 'picture';
 	x: number;
 	y: number;
 	w: number;
@@ -156,6 +156,13 @@ export interface Shape {
 	 * one object (its box, its dot, its ring, its mark), and that object is one member of the card.
 	 */
 	sub?: number;
+	/**
+	 * A picture: what could not be a shape (a photo, a chart, an icon, a box with a paint Calco cannot draw), cropped
+	 * from the slide. The reader fixes where it is and the host fills in the bytes; the picture sits in the paint order
+	 * among the shapes, so a card can hold an icon above its fill. Its description is the element's own alt text.
+	 */
+	image?: Uint8Array;
+	alt?: string;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */
@@ -181,8 +188,9 @@ export interface Slide {
 	 * EDITABLE mode it is the slide with its text hidden, and `frames` carries the text.
 	 * With `background` set it is only the FOREGROUND: transparent wherever the slide
 	 * shows nothing but its background, which the master page supplies.
+	 * Absent when the slide's pictures are `Shape`s of kind `picture`: each carries its own bytes.
 	 */
-	image: Uint8Array;
+	image?: Uint8Array;
 	/** Index into `Deck.backgrounds`: the background this slide inherits. Absent: none (the picture is opaque). */
 	background?: number;
 	/** Editable text. Empty in picture mode. */
