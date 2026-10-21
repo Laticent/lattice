@@ -35,7 +35,7 @@
     "reasons": {}
   },
   "backdrop-register": {
-    "refused": 40,
+    "refused": 47,
     "shapes": 12,
     "pictures": 10,
     "reasons": {
@@ -43,8 +43,9 @@
       "pseudo:effect": 4,
       "pseudo:no-paint": 10,
       "paint:linear-gradient": 7,
-      "covered": 6,
-      "paint:bg-image": 4
+      "covered": 12,
+      "paint:bg-image": 4,
+      "paint:wrapped-inline": 1
     }
   }
 }

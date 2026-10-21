@@ -102,6 +102,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// Loops, not `Math.min(...xs)`: a spread of more than about 120,000 values overflows the call stack.
 	const minOf = (xs: number[]) => xs.reduce((m, v) => (v < m ? v : m), Number.POSITIVE_INFINITY);
 	const maxOf = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
+	// Bring the slide on screen for the read, so text hidden under an opaque box can be hit-tested; the page's scroll
+	// position is put back before the read returns.
+	const scrollWas: [number, number] = [win.scrollX, win.scrollY];
+	try {
+		section.scrollIntoView({ block: 'start', inline: 'start', behavior: 'instant' as ScrollBehavior });
+	} catch {
+		// A page that cannot scroll has nothing to restore.
+	}
+	const putScrollBack = () => win.scrollTo(scrollWas[0], scrollWas[1]);
 	const boxW = section.offsetWidth;
 	const boxH = section.offsetHeight;
 	const origin = section.getBoundingClientRect();
@@ -280,9 +289,55 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// space between their words. It carries no word of its own, so it is remembered here and
 	// given to the next word read in the same block.
 	const pendingSpace = new Set<Element>();
+	// Text hidden under an opaque box is not read, but the capture must not draw it either: with the box lifted into a
+	// native shape, the text would surface in the foreground picture. It is hidden like text that was read.
+	const dropped: Array<[Text, Element]> = [];
 
+	// Whether another element paints an opaque box or a picture over ALL of this text. Hit-tested at a few points, which
+	// works only for points on the screen; a point off the screen is unknown and counts as shown.
+	const hiddenUnderOpaque = (node: Text, el: Element): boolean => {
+		range.selectNodeContents(node);
+		const r = range.getBoundingClientRect();
+		if (!(r.width > 0 && r.height > 0)) return false;
+		const vw = win.innerWidth || doc.documentElement.clientWidth;
+		const vh = win.innerHeight || doc.documentElement.clientHeight;
+		const points: Array<[number, number]> = [
+			[r.left + r.width / 2, r.top + r.height / 2],
+			[r.left + Math.min(2, r.width / 4), r.top + r.height / 2],
+			[r.right - Math.min(2, r.width / 4), r.top + r.height / 2],
+		];
+		return points.every(([x, y]) => {
+			if (x < 0 || y < 0 || x >= vw || y >= vh) return false;
+			const top = doc.elementFromPoint(x, y);
+			if (!top || top === el || el.contains(top) || top.contains(el)) return false;
+			const tcs = win.getComputedStyle(top);
+			let alpha = 1;
+			for (let e: Element | null = top; e && e !== doc.documentElement; e = e.parentElement) alpha *= Number.parseFloat(win.getComputedStyle(e).opacity || '1');
+			if (alpha < 0.99) return false;
+			if (/^(img|video|canvas|picture)$/i.test(top.localName)) return true;
+			const bg = parseColor(tcs.backgroundColor);
+			return !!bg && bg.a >= 0.99 && !(tcs.maskImage && tcs.maskImage !== 'none');
+		});
+	};
+	// The slide's decorative layer: absolutely placed children under the content that hold no text of their own.
+	let layers: Element[] | undefined;
+	const backdropLayers = (): Element[] => {
+		if (!layers) {
+			layers = (Array.from(section.children) as Element[]).filter((child) => {
+				const bcs = win.getComputedStyle(child);
+				return (bcs.position === 'absolute' || bcs.position === 'fixed') && Number(bcs.zIndex) < 0 && !(child.textContent || '').trim();
+			});
+		}
+		return layers;
+	};
 	const emit = (node: Text, el: Element, cs: CSSStyleDeclaration, opacity: number, clip: Clip) => {
 		if (tilted(el) || !/^horizontal/.test(cs.writingMode || 'horizontal-tb')) return;
+		// Text under an opaque box or picture is not shown: it is a layer the page hides, and reading it would put it in
+		// the file as live, searchable text.
+		if (hiddenUnderOpaque(node, el)) {
+			dropped.push([node, el]);
+			return;
+		}
 		// The body of a closed <details> is not shown.
 		const closed = el.closest('details');
 		if (closed && !closed.hasAttribute('open') && !el.closest('summary')) return;
@@ -323,6 +378,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (!bg || bg.a === 0) continue;
 				// An inline-block or inline-flex pill is a box of its own: its corners, border and padding are shapes.
 				if (ccs.display !== 'inline') break;
+				// A highlight is opaque. Over the slide's decorative layer (a finish's grid or glow) it would hide what the chip
+				// is drawn over, so the chip stays a translucent shape there.
+				const cr = chip.getBoundingClientRect();
+				if (backdropLayers().some((layer) => {
+					const lr = layer.getBoundingClientRect();
+					return cr.left < lr.right && lr.left < cr.right && cr.top < lr.bottom && lr.top < cr.bottom;
+				})) break;
 				const plainPaint = (!ccs.backgroundImage || ccs.backgroundImage === 'none') && (!ccs.borderImageSource || ccs.borderImageSource === 'none') && !chip.querySelector('img,svg,canvas,math,video,picture');
 				// Blend a translucent tint over what is behind the chip; a picture or gradient behind it leaves the chip a shape.
 				const shown = !plainPaint ? undefined : bg.a >= 1 ? hex(bg) : chip.parentElement ? flatten(chip.parentElement, { ...bg, a: bg.a * opacity }) : undefined;
@@ -667,6 +729,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const earlyHost = section as unknown as { __calcoRestore?: () => void };
 	const earlyExtras: Element[] = [];
 	earlyHost.__calcoRestore = () => {
+		putScrollBack();
 		unmaterialize();
 		for (const extra of earlyExtras) extra.remove();
 		earlyHost.__calcoRestore = undefined;
@@ -680,6 +743,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	const frameBlocks: Element[] = [];
 	const textOwners = new Set<Element>();
 	const kept: Word[] = [];
+	for (const [, el] of dropped) textOwners.add(el);
+	const droppedNodes = new Set(dropped.map(([n]) => n));
 	for (const [block, words] of blocks) {
 		if (unplaceable.has(block)) continue;
 		kept.push(...words);
@@ -963,15 +1028,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			for (let p: Element | null = inside ? el : el.parentElement; p && p !== section; p = p.parentElement) {
 				const cs = win.getComputedStyle(p);
 				if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
-				const c = relRect(p.getBoundingClientRect());
+				// `overflow` clips at the PADDING box, with the inner corner radius (outer radius minus the border).
+				const outer = relRect(p.getBoundingClientRect());
+				const bw = { t: px(cs.borderTopWidth), r: px(cs.borderRightWidth), b: px(cs.borderBottomWidth), l: px(cs.borderLeftWidth) };
+				const c = { x: outer.x + bw.l, y: outer.y + bw.t, w: outer.w - bw.l - bw.r, h: outer.h - bw.t - bw.b };
 				if (r.x < c.x - 0.5 || r.y < c.y - 0.5 || r.x + r.w > c.x + c.w + 0.5 || r.y + r.h > c.y + c.h + 0.5) return false;
 				// A rounded clip cuts the corners: a shape whose own corner lies outside the arc would poke out of it.
-				const radius = (v: string) => Number.parseFloat(v) || 0;
+				const radius = (v: string, a: number, b: number) => Math.max(0, (Number.parseFloat(v) || 0) - Math.min(a, b));
 				const arcs: Array<[number, number, number, number, number]> = [
-					[c.x, c.y, radius(cs.borderTopLeftRadius), r.x, r.y],
-					[c.x + c.w, c.y, radius(cs.borderTopRightRadius), r.x + r.w, r.y],
-					[c.x + c.w, c.y + c.h, radius(cs.borderBottomRightRadius), r.x + r.w, r.y + r.h],
-					[c.x, c.y + c.h, radius(cs.borderBottomLeftRadius), r.x, r.y + r.h],
+					[c.x, c.y, radius(cs.borderTopLeftRadius, bw.t, bw.l), r.x, r.y],
+					[c.x + c.w, c.y, radius(cs.borderTopRightRadius, bw.t, bw.r), r.x + r.w, r.y],
+					[c.x + c.w, c.y + c.h, radius(cs.borderBottomRightRadius, bw.b, bw.r), r.x + r.w, r.y + r.h],
+					[c.x, c.y + c.h, radius(cs.borderBottomLeftRadius, bw.b, bw.l), r.x, r.y + r.h],
 				];
 				for (const [cx, cy, rad, px_, py_] of arcs) {
 					if (rad <= 0.5) continue;
@@ -1805,7 +1873,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			for (let child = el.firstChild; child; child = child.nextSibling) {
 				if (child.nodeType === 1) {
 					if (!SKIP.has(String((child as Element).localName).toLowerCase()) || DRAWN.has(String((child as Element).localName).toLowerCase())) walk(child as Element);
-				} else if (child.nodeType === 3 && shown && !keptNodes.has(child) && /\S/.test(child.nodeValue || '')) {
+				} else if (child.nodeType === 3 && shown && !keptNodes.has(child) && !droppedNodes.has(child as Text) && /\S/.test(child.nodeValue || '')) {
 					// Text the picture keeps (not read, or left whole): its ink is picture content.
 					range2.selectNodeContents(child);
 					const r = range2.getBoundingClientRect();
@@ -1845,6 +1913,20 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				}
 				// The candidate is a pseudo of the same element. A pseudo paints above the element's own background, and
 				// below it only when it sits at a negative level.
+				if (p.pseudo && !p.text) {
+					// Two pseudo-elements of one element: a positioned one paints at its own level (z-index), above a static
+					// one; at equal levels `::before` paints before `::after`.
+					const level = (side: 'before' | 'after') => {
+						const ps = win.getComputedStyle(el, side === 'before' ? '::before' : '::after');
+						if (ps.position === 'static') return 1;
+						const z = ps.zIndex === 'auto' ? Number.NaN : Number(ps.zIndex);
+						return Number.isNaN(z) ? 2 : z < 0 ? -1 : 2 + z;
+					};
+					const lp0 = level(p.pseudo);
+					const lc0 = level(cand.pseudo);
+					if (lp0 !== lc0) return lp0 > lc0;
+					return p.pseudo === 'after' && cand.pseudo === 'before';
+				}
 				if (p.pseudo) return p.pseudo === 'after' && cand.pseudo === 'before';
 				if (p.text) return true;
 				return lvl(cand, el) < 1;
@@ -2033,6 +2115,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				// Every distinct description in the cluster (an icon and the chart beside it), not just the first.
 				const alt = [...new Set(k.items.map((it) => it.alt).filter(Boolean))].join('. ');
 				if (alt) pic.alt = alt;
+				if (k.items.some((it) => /^drawn:(img|video|canvas|picture)$/.test(it.kind || ''))) pic.photo = true;
 				shapes.push(pic);
 				shapeEls.push(rep);
 			}
@@ -2204,8 +2287,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			'outline-color', 'box-shadow', 'display', 'visibility', 'opacity', 'color',
 		];
 		const watched = new Set<Element>();
-		for (const wd of kept) {
-			const parent = wd.node.parentElement;
+		for (const parent of [...kept.map((wd) => wd.node.parentElement), ...dropped.map(([, el]) => el)]) {
 			if (!parent) continue;
 			watched.add(parent);
 			if (parent.parentElement) watched.add(parent.parentElement);
@@ -2217,7 +2299,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 		const paintBefore = new Map<Element, string>();
 		for (const el of watched) paintBefore.set(el, paintOf(el));
-		for (const node of new Set(kept.map((wd) => wd.node))) {
+		for (const node of new Set([...kept.map((wd) => wd.node), ...dropped.map(([n]) => n)])) {
 			if (!node.parentNode) continue;
 			const wrap = doc.createElement('calco-hide');
 			wrap.setAttribute(
@@ -2393,6 +2475,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			};
 		} else unmaterialize();
 	}
+	putScrollBack();
 	if (!hidden) earlyHost.__calcoRestore = undefined;
 	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }

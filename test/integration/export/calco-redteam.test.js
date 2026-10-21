@@ -140,5 +140,55 @@ describe('calco red-team fixtures', () => {
     assert.ok(!words(res).includes('MONOGRAM_AB'), words(res));
     assert.ok(words(res).includes('real'));
   });
-});
 
+  test('covered: text under an opaque box is not live text; text under a translucent overlay is', async () => {
+    const res = await read(
+      page(
+        '.t{position:absolute;left:60px;font-size:28px}.cover{position:absolute;left:40px;top:90px;width:500px;height:80px;background:#fff}.veil{position:absolute;left:40px;top:290px;width:500px;height:80px;background:rgba(255,255,255,.4)}',
+        '<p class="t" style="top:100px">UNDER_OPAQUE</p><div class="cover"></div><p class="t" style="top:300px">UNDER_VEIL</p><div class="veil"></div>',
+      ),
+    );
+    const got = words(res);
+    assert.ok(!got.includes('UNDER_OPAQUE'), got);
+    assert.ok(got.includes('UNDER_VEIL'), got);
+  });
+
+  test('covered: text under an opaque box is hidden from the capture, not left as picture ink', async () => {
+    const res = await read(
+      page(
+        '.t{position:absolute;left:60px;top:100px;font-size:28px}.cover{position:absolute;left:40px;top:90px;width:500px;height:80px;background:#fff}',
+        '<p class="t">UNDER_OPAQUE</p><div class="cover"></div>',
+      ),
+      { shapes: true, hide: true, sprites: true },
+    );
+    assert.equal(res.shapes.filter((sh) => sh.kind === 'picture').length, 0, 'the hidden text must not become a picture');
+  });
+
+  test('chip over the decorative layer stays a shape; the same chip elsewhere is a highlight', async () => {
+    const res = await read(
+      page(
+        '.backdrop{position:absolute;left:0;top:0;width:640px;height:720px;z-index:-1;background:repeating-linear-gradient(90deg,#fff,#fff 10px,#ddd 10px,#ddd 11px)}code{background:rgba(0,100,150,.1);padding:0 4px;font-family:monospace}p{position:absolute;margin:0;font-size:22px}',
+        '<div class="backdrop"></div><p style="left:100px;top:100px"><code>OVER_GRID</code></p><p style="left:800px;top:100px"><code>ON_WHITE</code></p>',
+      ),
+    );
+    const runs = res.frames.flatMap((f) => f.lines.flat());
+    assert.ok(!runs.find((r) => r.text.includes('OVER_GRID'))?.style.highlight, 'over the grid: no highlight');
+    assert.ok(runs.find((r) => r.text.includes('ON_WHITE'))?.style.highlight, 'on white: highlight');
+  });
+
+  test('clip: a shape that fills a rounded overflow box\'s padding box does not poke out of the inner corner', async () => {
+    const res = await read(page('.host{position:absolute;left:100px;top:100px;width:300px;height:200px;border:10px solid #888;border-radius:30px;overflow:hidden;box-sizing:content-box}.fill{position:absolute;inset:0;background:#c00}', '<div class="host"><div class="fill"></div></div>'), { shapes: true });
+    assert.equal(res.shapes.some((s) => s.kind === 'box' && s.fill?.color === '#cc0000' && s.radii?.every((r) => r === 0)), false, 'a square red box would poke out of the rounded padding-box corners');
+  });
+
+  test('order: a positioned ::before with a z-index is above a static ::after of the same element', async () => {
+    const res = await read(
+      page('.k{position:absolute;left:100px;top:100px;width:300px;height:100px;background:#fff}.k::before{content:"";position:absolute;left:10px;top:10px;width:120px;height:60px;z-index:1;background:radial-gradient(#f00,#00f)}.k::after{content:"";position:absolute;left:10px;top:10px;width:200px;height:60px;background:#0a0}', '<div class="k"></div>'),
+      { shapes: true, sprites: true },
+    );
+    const green = res.shapes.findIndex((s) => s.kind === 'box' && s.fill?.color === '#00aa00');
+    const grad = res.shapes.findIndex((s) => s.kind === 'picture');
+    assert.ok(green >= 0 && grad >= 0, JSON.stringify(res.shapes.map((s) => [s.kind, s.x, s.y])));
+    assert.ok(grad > green, 'the z-index 1 pseudo is drawn after the static one');
+  });
+});

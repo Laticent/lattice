@@ -169,6 +169,8 @@ export interface Shape {
 	 */
 	image?: Uint8Array;
 	alt?: string;
+	/** A picture that holds a raster image (an `<img>`, a video poster, a canvas): lossy JPEG is fine for it. */
+	photo?: boolean;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */

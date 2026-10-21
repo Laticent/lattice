@@ -181,12 +181,22 @@ PowerPoint tolerates the constructs LibreOffice reads (gradient angle on non-squ
 engine reads the `loext:` gradient and opacity stops. The shape ids on a slide are now unique (PptxGenJS wrote
 id 25 on every slide-number placeholder).
 
-## 11. Known gaps found in review, not fixed
+## 11. Gaps found in review, and how each closed
 
-- Hidden text under an opaque box, and text under a picture, is still read as live text (the same hole `main` has
-  for ordinary text).
-- An opaque highlight hides a backdrop layer's grid or glow behind a chip (`backdrop-register` slide 8).
-- Two backgrounds that differ only by a very faint watermark may share one master page (tolerance 3 per channel).
-- A shape reaching into a thick rounded border can pass the rounded-clip test (it measures the outer radius).
-- When a positioned `::before` with a z-index and a static `::after` of the same element are both candidates,
-  `above()` orders them by side, not by z-index.
+Each of these was found in review and fixed in the same PR, with a fixture in
+`test/integration/export/calco-redteam.test.js`.
+
+- **Hidden text under an opaque box or picture** is no longer read as live text, and no longer left as picture ink:
+  `hiddenUnderOpaque` hit-tests three points, and the dropped text is hidden from the capture like read text.
+  Checked on `card-tags` slide 7, where a panel covers the page number: `main` exported a phantom "7" on top of the panel.
+- **An opaque highlight over a backdrop layer's grid or glow** is not drawn: a chip that overlaps the decorative layer
+  stays in the picture (`backdrop-register` refusals 40 → 47, all `covered` / `wrapped-inline`; the ratchet is re-blessed for it).
+- **A shape reaching into a thick rounded border** is clipped against the padding box and its inner radii.
+- **A `::before` with a z-index and a static `::after`** of one element are ordered by level, not by side.
+- **Two backgrounds that differ only by a very faint watermark** may still share one master page. This is not a
+  defect: the backgrounds are JPEG-quantized, so a mark that faint is absent from the export either way. Tried at full
+  resolution and reverted.
+
+Cost, measured on this machine: `accent-finishes` exports in 7.5 s (`main`: about 5.2 s); the foreground capture uses
+`optimizeForSpeed` because each picture is re-encoded from it. A photograph under the flat-size threshold is a JPEG
+(`photo`), so `sample-images` is 839 KB (`main`: 877 KB).
