@@ -153,6 +153,8 @@ const LAND_ATTEMPTS = 2;
 const REVEAL_CAP_MS = LAND_SETTLE_MS * (1 + LAND_ATTEMPTS) + 500;
 /** How long a cover over the preview may last with no render to lift it. */
 const COVER_BACKSTOP_MS = REVEAL_CAP_MS + 1000;
+/** Frames the reveal will wait for the sync to put the preview on the editor's slide (about 1 s). */
+const REALIGN_TRIES = 60;
 
 /** The filmstrip's slide bands in the frame document's own coordinates. One reader, used
  *  by BOTH directions of the walk↔scroll loop, so the index the observer reports and the
@@ -640,6 +642,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const coverPreview = React.useCallback(() => {
 		const wrap = frameRef.current?.parentElement;
 		if (!wrap) return;
+		// A frame that has not gone live yet (the first render is still on its way) is already covered by the first
+		// reveal; a backstop armed now would show it before that render had landed. Only a switch that finds it
+		// covered by an earlier switch re-arms the timer.
+		if (!wrap.classList.contains('is-live') && !coverTimerRef.current) return;
 		wrap.classList.remove('is-live');
 		// Every switch re-arms the backstop: a second one must not inherit the first one's nearly spent timer.
 		if (coverTimerRef.current) clearTimeout(coverTimerRef.current);
@@ -747,6 +753,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		window.addEventListener('pageshow', onShow);
 		return () => window.removeEventListener('pageshow', onShow);
 	}, [onVirtualChange]);
+	/** Put the preview on the editor's slide and lift the reveal's hold on it. The sync can only realign once it can
+	 *  measure both panes (it needs the rendered index and a laid-out frame), so ask again for a few frames until it has
+	 *  nothing owed; the hold is lifted then, or after the cap, which is the reveal's own budget in frames. */
+	const settleRealign = React.useCallback((first: boolean) => {
+		let tries = 0;
+		const step = () => {
+			if (first && tries === 0) frameRef.current?.contentWindow?.__latticeFit?.();
+			const sync = syncRef.current;
+			sync?.loaded();
+			if (!sync?.pending() || ++tries > REALIGN_TRIES) {
+				realignPendingRef.current = false;
+				return;
+			}
+			requestAnimationFrame(step);
+		};
+		step();
+	}, []);
 	const onFrameLoad = React.useCallback(() => {
 		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
 		// touch and scroll listeners to the new one.
@@ -766,7 +789,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const anchor = anchorRef.current;
 		anchorRef.current = null;
 		const owedRealign = syncRef.current?.loaded();
-		realignPendingRef.current = false;
+		if (syncRef.current?.pending()) settleRealign(false);
+		else realignPendingRef.current = false;
 		if (owedRealign) {
 			// The caret's slide is owed the preview: the sync follows it as soon as it can.
 		} else if (anchor && viewRef.current === 'edit') {
@@ -783,7 +807,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (band) frame.contentWindow.scrollTo({ top: band.top + (byKey === anchor.index ? anchor.frac * band.height : 0), behavior: 'auto' });
 			}
 		}
-	}, [onVirtualChange, mountAroundIndex]);
+	}, [onVirtualChange, mountAroundIndex, settleRealign]);
 
 	// While the preview pane is collapsed, rendering into its 0-width iframe is
 	// both wasted work and the iOS FIT-blank precondition — defer instead, and
@@ -2031,7 +2055,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  gallery) is not a deck the frame was ever asked to hold. Then switching Edit and Explore needs no rewrite. */
 	const reusableFrame = React.useCallback((source: string | null | undefined, walkKind: 'plan' | 'deck') => {
 		const shown = lastRenderedSourceRef.current;
-		return walkKind === 'deck' && source != null && shown != null && lf(source) === lf(shown);
+		if (walkKind !== 'deck' || source == null || shown == null || lf(source) !== lf(shown)) return false;
+		// …and the document in the frame is the LAST write, fully loaded: `lastRenderedSourceRef` is set when a render
+		// resolves, which is before its document loads, and a switch in that window would patch a document that is
+		// about to be replaced.
+		const doc = frameRef.current?.contentDocument;
+		const wrote = (previewStateRef.current as { writeId?: number }).writeId;
+		return !!doc && doc.readyState === 'complete' && doc.documentElement.getAttribute('data-lattice-write') === String(wrote ?? '');
 	}, []);
 	/** Flip the surface. Entering Explore walks the remembered component; leaving
 	 * re-renders the untouched draft. Read mode never wrote it (invariant). */
@@ -2138,13 +2168,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					void render(false);
 					// No document load will say the frame has settled at Edit's width, so say it once it has re-fitted:
 					// the sync holds the preview's own scroll until then and puts it on the editor's slide.
-					requestAnimationFrame(() =>
-						requestAnimationFrame(() => {
-							frameRef.current?.contentWindow?.__latticeFit?.();
-							syncRef.current?.loaded();
-							realignPendingRef.current = false;
-						}),
-					);
+					requestAnimationFrame(() => requestAnimationFrame(() => settleRealign(true)));
 				} else freshRender();
 				// A click in Explore on another slide puts the caret at the end of its title.
 				if (changing) syncRef.current?.leaveExplore();
@@ -2153,7 +2177,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// re-fit after layout so the filmstrip scales to the new box.
 			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[freshRender, render, reusableFrame, readerComponent, startWalk, backupDraft, getSource, setSource, coverPreview],
+		[freshRender, render, reusableFrame, readerComponent, startWalk, backupDraft, getSource, setSource, coverPreview, settleRealign],
 	);
 
 	// ── The one-shot handoff (all three external writers land here) ─────────────

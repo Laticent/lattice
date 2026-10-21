@@ -327,14 +327,26 @@ Verified in `e2e/playground-tab-switch.spec.ts`: every frame the reader can see 
 slide, and the document is the same one (a marker set on its window survives); the case fails on the old code. Chromium,
 Firefox and WebKit at wide width; Chromium and WebKit at phone width. A real iPhone is UNVERIFIED.
 
-The checker on that PR found three defects, each fixed with a test that fails on the code before the fix:
+The checker on that PR found three defects. Be exact about what proves each fix:
 
 - **Explore to Edit still showed the wrong slide for a frame or two** on a wide screen: nothing made the reveal wait for the
   editor-slide realign, so the preview became visible at Explore's scroll and snapped a frame later. The reveal now waits
-  for `realignPendingRef`, set at the switch and cleared once the sync has realigned (the load event, or the re-fit on the
-  reuse path).
-- **A second switch before the first render landed left the cover on for the 5 s backstop.** The flag that holds the reveal
+  for `realignPendingRef`, set at the switch and cleared once the sync has actually realigned (`settleRealign` asks again
+  for up to 60 frames until the sync has nothing owed). The e2e case catches it on Chromium and Firefox, but not on every
+  run, and not on WebKit; it samples past the reveal and asserts the slide the reader started on.
+- **A second switch before the first render landed left the cover on for the backstop.** The flag that holds the reveal
   for Explore's target (`openOnPendingRef`) was cleared only when a render landed in Explore. It is cleared when the render
-  lands anywhere else, on the error path, and at the switch back to Edit.
-- **The backstop was shorter than the landing budget it backs up.** It is `REVEAL_CAP_MS + 1000` now, and every switch
-  re-arms it (a second switch used to inherit the first one's nearly spent timer).
+  lands anywhere else, on the error path, and at the switch back to Edit. **This one is fixed by reading the code, not by
+  a failing test:** neither the checker nor I could make Playwright reproduce the race (timed in-page switches at 0 to 250
+  ms with the fixes reverted all lifted the cover). The quick-switch cases in `playground-tab-switch.spec.ts` guard
+  against a regression, they do not prove the fix.
+- **The backstop was shorter than the landing budget it backs up.** It is `REVEAL_CAP_MS + 1000` now, and a switch that
+  finds the frame covered by an earlier one re-arms it. A frame that was never live is NOT covered: an early version armed the
+  backstop on any switch, and on a slow cold load it lifted the cover before the first render had landed, showing the
+  unfitted document (found by the second checker; `coverPreview` now returns for a frame that is neither live nor covered).
+
+A second checker, on those fixes, found one more path: a switch to Explore and back, a couple of hundred milliseconds
+after typing, took the reuse path while the full write was still loading, patched a document about to be replaced, and
+left the preview at an end of the deck. `reusableFrame` now also requires that the frame's document is the latest write
+and fully loaded. Measured on 200 slides, caret on 140: the preview ends at 70% of the deck beside the caret (before, it
+was pinned at the last slide).
