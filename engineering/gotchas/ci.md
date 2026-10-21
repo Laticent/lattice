@@ -680,3 +680,19 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Triggered by:** a jsdom window with `pretendToBeVisual` that runs the runtime and is closed
   after the runtime's observer is live.
 - **Removable when:** jsdom clears its animation-frame interval on `close()`.
+
+## The root-install jobs fail with `Cannot find module 'yjs'` (or `lib0`, `y-protocols`) from a Tavola adapter
+
+- **Symptom:** `lint`, `unit` and `preview` go red in about a minute, in `npm ci`'s `prepare` step, with
+  `build-tavola-lib: tsc declaration emit failed` and `error TS2307: Cannot find module 'lib0/decoding'` (or
+  `y-protocols/awareness`) pointing at `docs/src/lib/tavola/adapters/yjs.ts`. The same build passes on your machine and in the
+  pre-push `build:check`.
+- **Cause:** those jobs install the root workspace only, so `docs/node_modules` does not exist. TypeScript resolves a bare import by
+  walking up from the file: on your machine it finds `docs/node_modules/yjs` first; in the job it must find the root's, and the
+  root's `devDependencies` did not list the package.
+- **How to tell:** hide `docs/node_modules` and rebuild: `mv docs/node_modules /tmp/hide && rm -rf docs/src/lib/tavola/dist &&
+  node tools/build-tavola-lib.js; mv /tmp/hide docs/node_modules`. (The build says "already current" and skips unless `dist/` is
+  removed first.)
+- **Fix:** a package a Tavola (or any workspace library) entry imports goes in the root `devDependencies` at the same pinned version
+  as `docs/package.json`, and in the lockfile. `trystero` is already there for the same reason.
+- **Removable when:** the library builds resolve their types from the package they ship rather than from whichever install is nearest.
