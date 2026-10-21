@@ -86,6 +86,16 @@ const previewSlide = (page: Page) =>
 		return best;
 	});
 
+/** How far slide `n`'s middle is from the middle of the preview's window, in pixels. */
+const offCenter = (page: Page, n: number) =>
+	page.evaluate((i) => {
+		const f = document.getElementById('preview') as HTMLIFrameElement;
+		const win = f.contentWindow as Window;
+		const el = f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]')[i - 1] as HTMLElement;
+		const r = el.getBoundingClientRect();
+		return Math.abs((r.top + r.bottom) / 2 - win.innerHeight / 2);
+	}, n);
+
 /** Whether the band's first and last line are inside the editor's scroller. */
 const bandOnScreen = (page: Page) =>
 	page.evaluate(() => {
@@ -171,6 +181,27 @@ test(`a click inside the band lands where it was made ${TAGS}`, async ({ page })
 	expect(at?.line).toBe('- point 3.4');
 	expect(at?.col).toBeGreaterThan(0);
 	expect(at?.col).toBeLessThan('- point 3.4'.length);
+});
+
+test(`a click on a slide in the preview centers that slide in the preview ${TAGS}`, async ({ page }) => {
+	await open(page);
+	const frame = page.frameLocator('#preview');
+	await scrollPreviewTo(page, 3);
+	// Slide 4 is only partly on screen below slide 3: the click brings it to the middle.
+	await frame.locator('section[data-lattice-slide="4"]').click({ position: { x: 40, y: 20 } });
+	await expect.poll(() => offCenter(page, 4)).toBeLessThan(4);
+	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 4 title'))).toBe(true);
+});
+
+test(`a click on a line in the editor centers its slide in the preview and leaves the editor alone ${TAGS}`, async ({ page }) => {
+	await open(page);
+	const line = page.locator('.cm-line', { hasText: 'point 2.3' });
+	await line.waitFor();
+	const before = await page.evaluate(() => (document.querySelector('.cm-scroller') as HTMLElement).scrollTop);
+	await line.click({ position: { x: 40, y: 6 } });
+	await expect.poll(() => offCenter(page, 2)).toBeLessThan(4);
+	const after = await page.evaluate(() => (document.querySelector('.cm-scroller') as HTMLElement).scrollTop);
+	expect(Math.abs(after - before)).toBeLessThan(2);
 });
 
 /** The preview slide carrying the focus mark, as its stamp (`data-lattice-slide`), or ''. */

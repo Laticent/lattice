@@ -43,7 +43,7 @@
 // rules above run under a fake in a unit test (playground-sync.test.ts).
 
 import { deckFrame, deckTitleEnd } from './deck-outline/deck-frame';
-import { createScrollMap, type ScrollMap, sectionAt, type ViewLayout } from './fuoco/align';
+import { centeredAt, createScrollMap, maxScroll, type ScrollMap, sectionAt, type ViewLayout } from './fuoco/align';
 import type { FocusHub } from './fuoco/hub';
 import { partCount, partOfFlat } from './fuoco/outline';
 import { flatOfPage, pageOfFlat, type RenderedIndex } from './rendered-index';
@@ -144,6 +144,11 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	/** When the reader last moved the caret or typed. The editor scrolling right after is CodeMirror bringing the
 	 *  caret into view, and the caret, not the scroll, names the slide. */
 	let lastCaretMove = -Infinity;
+	/** When the text last changed by typing, and the slide the focus was on before the move being handled. */
+	let lastEdit = -Infinity;
+	/** When the caret last centered the preview. The editor scrolling right after is CodeMirror following the same caret. */
+	let lastCenter = -Infinity;
+	let lastFlat = -1;
 	let previewRaf = 0;
 	let settleRaf = 0;
 	let editorRaf = 0;
@@ -267,6 +272,8 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			echo.editor = null;
 			return;
 		}
+		// The caret just centered the preview; the editor scrolling to show that caret must not pull it elsewhere.
+		if (ports.now() - lastCenter < CARET_SCROLL_MS) return;
 		const L = pair();
 		if (!L) {
 			// The render is behind the text (typing, a paste): the preview catches up when the render lands.
@@ -288,6 +295,16 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		return true;
 	}
 
+	/** Center slide `flat` in the preview (the first at the top, the last at the bottom: the alignment's own rule). */
+	function centerPreview(flat: number): boolean {
+		const L = pair();
+		if (!L || flat < 0 || flat >= L.pv.tops.length) return false;
+		const target = Math.max(0, Math.min(centeredAt(L.pv, flat), maxScroll(L.pv)));
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
+		lastCenter = ports.now();
+		return true;
+	}
+
 	/** Put the editor where the preview says it should be (a click on a slide: the preview stays, the editor comes to it). */
 	function alignEditor(): boolean {
 		const L = pair();
@@ -302,9 +319,14 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		(f) => f,
 		(f) => {
 			const ol = hub.outline();
+			const before = lastFlat;
+			if (f.unitIndex >= 0) lastFlat = f.flat;
 			if (dead || !ol || f.unitIndex < 0) return;
 			paintBand(f);
 			paintMark(f);
+			// A click or key that puts the caret in another slide brings that slide to the middle of the preview; the
+			// editor stays where it is, under the pointer. Typing does not: a `---` typed mid-sentence is not a request.
+			if (ports.editing() && f.origin === 'editor' && f.cause === 'caret' && f.flat !== before && ports.now() - lastEdit > CARET_SCROLL_MS) centerPreview(f.flat);
 			// Only in Edit: elsewhere the hub's text is the render's, and its offsets are not the editor's.
 			if (!ports.editing()) {
 				if (f.origin === 'rail') showPage(f);
@@ -316,7 +338,8 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			const picks = (f.cause === 'nav' || f.cause === 'pick') && f.origin !== 'preview' && f.origin !== 'editor-view' && f.origin !== 'editor';
 			if (picks && ed && ext && ports.canPick()) {
 				// The alignment places the slide; when it cannot yet (the render has not landed) the editor frames it itself.
-				const aligned = f.origin === 'preview-pick' ? alignEditor() : pair() !== null;
+				// A click on a slide centers it in the preview first, then brings the editor level with it.
+				const aligned = f.origin === 'preview-pick' ? centerPreview(f.flat) && alignEditor() : pair() !== null;
 				ed.revealSlide({ from: ext.from, to: lastChar(ext), caret: deckTitleEnd(ol, f.unitIndex, f.part), grab: f.grab, frame: !aligned });
 			}
 			// A tile asks the preview for an exact move; the editor then follows it through the preview's scroll.
@@ -336,6 +359,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	return {
 		edited(text, span) {
 			if (!ports.editing()) return;
+			lastEdit = ports.now();
 			hub.update(text, { span, by: 'editor' });
 			// An edit can move a slide's edges (a `---` typed inside it) with no change of focus to say so.
 			if (!bandRaf) {

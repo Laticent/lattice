@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDeckIndex, deckOutliner } from './deck-outline';
-import { createScrollMap, sectionAt } from './fuoco/align';
+import { centeredAt, createScrollMap, maxScroll, sectionAt } from './fuoco/align';
 import { createFocusHub } from './fuoco/hub';
 import { createPlaygroundSync, type ScrolledLayout, type SyncPorts } from './playground-sync';
 import { buildRenderedIndex } from './rendered-index';
@@ -190,19 +190,56 @@ describe('the slide in focus is marked in both panes', () => {
 		expect(r.log.some((l) => /^mark \d/.test(l))).toBe(true);
 	});
 
-	it('moving the caret marks its slide but leaves both panes where they are: the scroll comes from the editor', async () => {
+	it('a click in another slide centers it in the preview and leaves the editor where it is', async () => {
 		const r = rig();
 		await r.land();
 		r.log.length = 0;
+		r.state.now += 1000;
 		r.sync.selected({ head: at('delta'), anchor: at('delta'), line: 'delta', user: true });
 		r.frame();
-		expect(r.log.some((l) => l.startsWith('preview-scroll') || l.startsWith('editor-scroll') || l.startsWith('page '))).toBe(false);
+		expect(r.log.some((l) => l.startsWith('editor-scroll') || l.startsWith('page '))).toBe(false);
+		expect(r.state.pv).toBeCloseTo(Math.max(0, Math.min(centeredAt(r.pvLayout(SLIDES), 3), maxScroll(r.pvLayout(SLIDES)))), 6);
 		expect(r.hub.get()).toMatchObject({ origin: 'editor', flat: 3 });
+		// The scroll the move caused is its own echo: it does not drive the editor.
+		expect(r.state.ed).toBe(0);
+	});
+
+	it('the editor scrolling to show that caret does not pull the centered preview elsewhere', async () => {
+		const r = rig();
+		await r.land();
+		r.scrollEditor(900);
+		r.state.now += 1000;
+		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
+		r.frame();
+		const centered = r.state.pv;
+		expect(centered).toBeCloseTo(0, 6);
+		// CodeMirror then scrolls the editor up to the caret.
+		r.state.now += 20;
+		r.scrollEditor(60);
+		expect(r.state.pv).toBe(centered);
+		expect(r.hub.get()).toMatchObject({ origin: 'editor', flat: 0 });
+	});
+
+	it('a caret move inside the slide in focus scrolls nothing, and neither does typing across a slide edge', async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
+		r.frame();
+		r.log.length = 0;
+		r.sync.selected({ head: at('alpha') + 2, anchor: at('alpha') + 2, line: 'alpha', user: true });
+		r.frame();
+		expect(r.log.some((l) => l.includes('scroll'))).toBe(false);
+		const typed = `${deck.slice(0, at('beta'))}x${deck.slice(at('beta'))}`;
+		r.sync.edited(typed, { from: at('beta'), toA: at('beta'), toB: at('beta') + 1 });
+		r.sync.selected({ head: at('beta') + 1, anchor: at('beta') + 1, line: 'xbeta', user: true });
+		r.frame();
+		expect(r.log.some((l) => l.includes('scroll'))).toBe(false);
 	});
 });
 
 describe('a pick moves the caret', () => {
-	it('a click on a slide puts the caret at the end of its title and brings the editor level with the preview', async () => {
+	it('a click on a slide puts the caret at the end of its title, centers it in the preview and brings the editor level', async () => {
 		const r = rig();
 		await r.land();
 		r.state.pv = 900;
@@ -210,7 +247,8 @@ describe('a pick moves the caret', () => {
 		r.frame();
 		const title = at('# Three') + '# Three'.length;
 		expect(r.log).toContain(`reveal caret=${title} grab=true frame=false`);
-		expect(r.state.ed).toBeCloseTo(r.map().toA(900), 6);
+		expect(r.state.pv).toBeCloseTo(centeredAt(r.pvLayout(SLIDES), 2), 6);
+		expect(r.state.ed).toBeCloseTo(r.map().toA(r.state.pv), 6);
 		expect(r.log.some((l) => l.startsWith('page '))).toBe(false);
 	});
 

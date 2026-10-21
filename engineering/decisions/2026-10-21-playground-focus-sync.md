@@ -193,3 +193,16 @@ An independent checker reviewed the later commits and found five defects, all fi
 Also: a failed load of the focus chunk is caught and logged, and the Playground works without the sync.
 Not changed: CodeMirror re-measuring line heights after `setScroll` could defeat the echo guard on long decks
 (plausible, not reproduced).
+
+## Clicks center the preview
+
+Owner decision after the review: a click puts its slide in the middle of the preview, by the same rule as the scroll
+alignment (first slide at the top, last at the bottom, every one between centered).
+
+- A click on a preview slide centers it in the preview, then brings the editor level with it (`centerPreview`,
+  then `alignEditor`). Both moves are instant, and each records its echo so neither drives the other back.
+- A caret move into another slide (a click or a key) centers that slide in the preview and leaves the editor alone:
+  re-centering the pane the reader just clicked in would move the text under the pointer. Moves inside the slide in
+  focus, and anything within `CARET_SCROLL_MS` of typing, scroll nothing.
+- For `CARET_SCROLL_MS` after the caret centered the preview, the editor's own scroll (CodeMirror following the same
+  caret) does not drive the preview, or the two moves would fight and land the preview on the wrong slide.
