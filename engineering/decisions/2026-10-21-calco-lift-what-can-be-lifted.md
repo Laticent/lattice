@@ -191,7 +191,15 @@ picture for such a slide without shooting its layers. Without that the 35-slide 
 whose folder it maps (`ppt/`), and checks slides, layouts and masters with a short denylist; it passed a file
 whose `a:rPr` children were out of order, which the full ISO 29500 transitional XSD rejects. The branch's output
 passes the FULL XSD on every slide, layout and master part of 24 decks (an independent run), so the schema claim
-holds, but not because of `validate.py`. Neither check opens PowerPoint. Two things are only inferred: that
+holds, but not because of `validate.py`. Neither check opens PowerPoint.
+
+Both are now a harness in the repo, not a scratch script: `lib/export/office-conformance.js` (run it on any file with
+`npm run conformance:office -- deck.pptx deck.odp`) holds the full-schema check over the vendored XSDs
+(`test/conformance/office/schemas`), the unique-shape-id rule, Microsoft's Open XML SDK validator
+(`tools/office-conformance/openxml-check`, .NET; the schema plus Office's semantic rules) and the `.odp` structure checks. It runs
+on five exported decks in `test/integration/export/office-conformance.test.js`, each check with an arm that must fail (a misordered
+child, a repeated id, an undeclared attribute, a missing master page, a compressed mimetype), and on the Studio's real download in
+`docs/e2e/studio-office-export.spec.ts`. The SDK validator passes every deck and flags the file `validate.py` passed. Two things are only inferred: that
 PowerPoint tolerates the constructs LibreOffice reads (gradient angle on non-square boxes, `a:highlight`, a
 `p:pic` inside a nested `p:grpSp`, a layout image background, slide-number fields), and that Collabora's newer
 engine reads the `loext:` gradient and opacity stops. The shape ids on a slide are now unique (PptxGenJS wrote

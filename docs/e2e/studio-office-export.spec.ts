@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { currentSlide, expect, gotoStudio, railButtons, setEditorContent, test, toastText } from './studio-fixture';
 
 // The Studio's Editable text export (PowerPoint and LibreOffice) runs the same capture the CLI does
@@ -23,6 +24,14 @@ test.beforeEach(async ({ page }) => {
 	await expect(page.getByRole('dialog')).toBeVisible();
 });
 
+// The same conformance checks the CLI export is held to (lib/export/office-conformance.js).
+const conformance = createRequire(import.meta.url)('../../lib/export/office-conformance.js') as {
+	checkPptxSchema(bytes: Buffer): Promise<unknown[]>;
+	checkOdp(bytes: Buffer): Promise<unknown[]>;
+	checkOpenXml(files: string[]): Array<{ errors: unknown[] }>;
+	openXmlAvailable(): boolean;
+};
+
 async function exportEditable(page: import('@playwright/test').Page, row: RegExp, confirm: RegExp) {
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: row }).click();
@@ -33,13 +42,17 @@ async function exportEditable(page: import('@playwright/test').Page, row: RegExp
 	const d = await download;
 	const fs = await import('node:fs');
 	const { default: JSZip } = await import('jszip');
-	return { name: d.suggestedFilename(), zip: await JSZip.loadAsync(fs.readFileSync((await d.path()) as string)) };
+	const file = (await d.path()) as string;
+	return { name: d.suggestedFilename(), file, zip: await JSZip.loadAsync(fs.readFileSync(file)) };
 }
 
 test('@gecko @webkit-tablet an editable PowerPoint export carries live text and shared backgrounds, not a picture per slide', async ({ page }) => {
-	const { name, zip } = await exportEditable(page, /^PowerPoint/, /^Download PowerPoint/);
+	const { name, file, zip } = await exportEditable(page, /^PowerPoint/, /^Download PowerPoint/);
 	expect(name).toMatch(/\.pptx$/);
 	await expect(toastText(page)).toContainText('PowerPoint ready.');
+	const fs = await import('node:fs');
+	expect(await conformance.checkPptxSchema(fs.readFileSync(file))).toEqual([]);
+	if (conformance.openXmlAvailable()) expect(conformance.checkOpenXml([file])[0].errors).toEqual([]);
 	const slide1 = await zip.file('ppt/slides/slide1.xml')!.async('string');
 	expect(slide1).toContain('Atlas expansion plan');
 	// Slides 2 and 3 paint the same background, so they inherit one layout rather than each carrying a full-slide picture.
@@ -57,8 +70,9 @@ test('@gecko @webkit-tablet an editable PowerPoint export carries live text and 
 });
 
 test('@gecko @webkit-tablet an editable LibreOffice export carries live text and master pages', async ({ page }) => {
-	const { name, zip } = await exportEditable(page, /^LibreOffice/, /^Download LibreOffice/);
+	const { name, file, zip } = await exportEditable(page, /^LibreOffice/, /^Download LibreOffice/);
 	expect(name).toMatch(/\.odp$/);
+	expect(await conformance.checkOdp((await import('node:fs')).readFileSync(file))).toEqual([]);
 	const content = await zip.file('content.xml')!.async('string');
 	expect(content).toContain('Atlas expansion plan');
 	expect(content).toContain('Demand is already there.');
