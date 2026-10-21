@@ -57,7 +57,40 @@ export function previewLayout(frame: HTMLIFrameElement | null, groups: readonly 
 }
 
 /** The pages marked last in each frame, so a new mark touches those and the new ones, not every page. */
-const marked = new WeakMap<HTMLIFrameElement, { doc: Document; pages: readonly number[] }>();
+const marked = new WeakMap<HTMLIFrameElement, { doc: Document; pages: readonly number[]; watch: ResizeObserver | null }>();
+
+/** Stretch the focus bar (`.db-bar`, styled by deck-preview.js) down the left edge of the marked pages. */
+function placeBar(doc: Document, lattice: Element, pages: readonly number[]): void {
+	let bar = doc.querySelector<HTMLElement>('.db-bar');
+	if (!pages.length) {
+		if (bar) bar.style.display = 'none';
+		return;
+	}
+	if (!bar) {
+		bar = doc.createElement('div');
+		bar.className = 'db-bar';
+		bar.setAttribute('aria-hidden', 'true');
+		doc.body.appendChild(bar);
+	}
+	// `.db-bar` is positioned against the body (`body{position:relative}`), which the frame pads in from the page edge.
+	const origin = doc.body.getBoundingClientRect();
+	let top = Number.POSITIVE_INFINITY;
+	let bottom = Number.NEGATIVE_INFINITY;
+	let left = 0;
+	for (const i of pages) {
+		const el = lattice.children[i];
+		if (!el) continue;
+		const r = el.getBoundingClientRect();
+		top = Math.min(top, r.top);
+		bottom = Math.max(bottom, r.bottom);
+		left = r.left;
+	}
+	if (top > bottom) {
+		bar.style.display = 'none';
+		return;
+	}
+	bar.style.cssText = `display:block;left:${left - origin.left}px;top:${top - origin.top}px;height:${bottom - top}px;`;
+}
 
 /** Mark the preview pages `pages` as the slide in focus (`db-active`, a bar down its left edge); none clears it. */
 export function markPreviewPages(frame: HTMLIFrameElement | null, pages: readonly number[] | null): void {
@@ -70,5 +103,14 @@ export function markPreviewPages(frame: HTMLIFrameElement | null, pages: readonl
 	const before = last && last.doc === doc ? last.pages : Array.from(lattice.querySelectorAll(':scope > .db-active'), (el) => Array.prototype.indexOf.call(lattice.children, el));
 	for (const i of before) if (!next.includes(i)) lattice.children[i]?.classList.remove('db-active');
 	for (const i of next) lattice.children[i]?.classList.add('db-active');
-	marked.set(frame, { doc, pages: next });
+	// The bar follows the slides when the frame is resized or the deck is rescaled to fit it.
+	let watch = last && last.doc === doc ? last.watch : null;
+	if (!watch && typeof ResizeObserver !== 'undefined') {
+		watch = new ResizeObserver(() => placeBar(doc, lattice, marked.get(frame)?.pages ?? []));
+		watch.observe(lattice);
+		watch.observe(doc.documentElement);
+	}
+	if (last && last.doc !== doc) last.watch?.disconnect();
+	marked.set(frame, { doc, pages: next, watch });
+	placeBar(doc, lattice, next);
 }

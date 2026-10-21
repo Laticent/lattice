@@ -229,6 +229,23 @@ describe('a pick moves the caret', () => {
 		expect(r.state.ed).toBeCloseTo(r.map().toA(600), 6);
 	});
 
+	it('once a pick has settled, the reader scrolling the preview to another slide names that slide', async () => {
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 1 });
+		r.frame();
+		r.state.now += 20;
+		r.scrollPreview(400);
+		expect(r.hub.get()).toMatchObject({ origin: 'rail', flat: 1 });
+		// Still inside the pick's window, the reader scrolls on to the last slide and stops.
+		r.state.now += 200;
+		r.scrollPreview(1700);
+		r.state.now += 300;
+		r.frame();
+		expect(r.hub.get()).toMatchObject({ origin: 'preview', flat: sectionAt(r.pvLayout(SLIDES), r.state.pv) });
+		expect(r.hub.get().flat).not.toBe(1);
+	});
+
 	it('frames the slide itself when the panes cannot be aligned yet', async () => {
 		const r = rig();
 		r.state.previewOk = false;
@@ -270,6 +287,38 @@ describe('two texts', () => {
 		expect(r.log.some((l) => l.startsWith('editor-scroll'))).toBe(false);
 		await r.land(typed, SLIDES + 1);
 		expect(r.sync.pending()).toBe(false);
+	});
+
+	it('realigns the preview when the render lands after typing scrolled the editor', async () => {
+		const r = rig();
+		await r.land();
+		const typed = `${deck}\n---\n\n# Six\n`;
+		r.sync.edited(typed);
+		r.sync.selected({ head: typed.length, anchor: typed.length, line: '', user: true });
+		r.frame();
+		r.state.now += 1000;
+		// A paste scrolls the editor while the render is behind: the preview cannot follow yet.
+		r.scrollEditor(700);
+		expect(r.state.pv).toBe(0);
+		expect(r.sync.pending()).toBe(true);
+		await r.land(typed, SLIDES + 1);
+		expect(r.state.pv).toBeGreaterThan(0);
+		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
+		expect(r.sync.pending()).toBe(false);
+	});
+
+	it('keeps the mark on the slide while typing runs ahead of the render', async () => {
+		const r = rig();
+		await r.land();
+		r.sync.selected({ head: at('beta'), anchor: at('beta'), line: 'beta', user: true });
+		r.frame();
+		expect(r.log.filter((l) => l.startsWith('mark')).at(-1)).toBe('mark 1');
+		const typed = `${deck.slice(0, at('beta'))}x${deck.slice(at('beta'))}`;
+		r.log.length = 0;
+		r.sync.edited(typed, { from: at('beta'), toA: at('beta'), toB: at('beta') + 1 });
+		r.sync.selected({ head: at('beta') + 1, anchor: at('beta') + 1, line: 'xbeta', user: true });
+		r.frame();
+		expect(r.log).not.toContain('mark none');
 	});
 
 	it('a full write opens its document at the top, so it is realigned with the editor once it has loaded', async () => {

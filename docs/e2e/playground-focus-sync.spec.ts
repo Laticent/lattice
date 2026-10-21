@@ -249,12 +249,25 @@ test(`the slide in focus carries a bar down its left edge, not an outline ${TAGS
 	await expect.poll(() => markedSlide(page)).toBe('3');
 	const look = await page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement;
-		const sec = f.contentDocument?.querySelector('.lattice > section.db-active') as HTMLElement;
-		const cs = getComputedStyle(sec);
-		// The shadow is `inset <x> 0 0 0`: a bar of width x on the left, none on the other three sides.
-		return { shadow: cs.boxShadow, outline: cs.outlineStyle };
+		const doc = f.contentDocument as Document;
+		const sec = doc.querySelector('.lattice > section.db-active') as HTMLElement;
+		const bar = doc.querySelector('.db-bar') as HTMLElement;
+		const s = sec.getBoundingClientRect();
+		const b = bar.getBoundingClientRect();
+		return {
+			outline: getComputedStyle(sec).outlineStyle,
+			// The bar is its own element, so the slide keeps whatever box-shadow the engine gave it.
+			shadow: getComputedStyle(sec).boxShadow,
+			barWidth: Math.round(b.width),
+			dLeft: Math.abs(b.left - s.left),
+			dTop: Math.abs(b.top - s.top),
+			dHeight: Math.abs(b.height - s.height),
+		};
 	});
 	expect(look.outline).toBe('none');
-	expect(look.shadow).toMatch(/inset/);
-	expect(look.shadow).toMatch(/\s6px 0px 0px 0px/);
+	expect(look.shadow).not.toMatch(/\s6px 0px 0px 0px/);
+	expect(look.barWidth).toBe(6);
+	expect(look.dLeft).toBeLessThan(1.5);
+	expect(look.dTop).toBeLessThan(1.5);
+	expect(look.dHeight).toBeLessThan(1.5);
 });

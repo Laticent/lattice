@@ -809,6 +809,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			if (lastRenderedSourceRef.current != null) sync.rendered(lastRenderedSourceRef.current, lastIndexRef.current, true);
 			setHub(made);
+		}).catch((err) => {
+			// A chunk that fails to load (offline, a deploy in between) leaves the Playground as it was before the focus:
+			// the editor and preview work, only the sync and the slide map stay off.
+			console.warn('[playground] the focus sync did not load', err);
 		});
 		return () => {
 			dead = true;

@@ -94,8 +94,10 @@ Playground-only maths).
   origin `editor-view`. The slide in focus is marked in **both**: the editor's band, and the preview's
   `db-active` mark (the Drawing Board's existing class), drawn as an accent bar down the slide's left edge. It
   was an outline first; slides are scaled to the frame's width, so the outline's left and right sides fell outside
-  the frame and only the top and bottom showed. An inset shadow lives inside the slide's box, so no frame edge and
-  no rounded-corner `clip-path` can cut it. The Drawing Board keeps its outline (`activeOutline`); this is the
+  the frame and only the top and bottom showed. An inset `box-shadow` on the section fixed the clipping but
+  replaced the shadow the engine already puts on a section (the overflow ring, the tone rails, the finish frame), so
+  the slide being edited lost its warning. The bar is now its own element, `.db-bar`, which `markPreviewPages` places
+  over the marked pages and re-places when the frame resizes, so it takes nothing from the slide. The Drawing Board keeps its outline (`activeOutline`); this is the
   separate `activeBar` option.
 - **What "current slide" means** is the section centered nearest (`sectionAt`), so a slide centered in one pane is
   current in both. An earlier cut used a focal line that slid from the top of the window to the bottom; it named
@@ -173,3 +175,21 @@ and `playground-sync.test.ts` pins it.
   `followups.d/2704-p5-preview-element-addresses.md`. A click selects the slide's title, not an element.
 - **Touch picks** reach the editor but are not exercised by a touch e2e.
 - **Compose** (the Studio's second editor) is untouched; this note is the Playground only.
+
+## Review fixes (checker on the final diff)
+
+An independent checker reviewed the later commits and found five defects, all fixed with a test that fails on the old code:
+
+- Scrolling the preview to its very bottom threw the editor to the end of its padding. The preview's end is a flat
+  run in the map (its last slide clamps while the editor scrolls through `scrollPastEnd`), and the end resolved to the
+  run's far side. It now resolves to the run's start, so the map is continuous there (`align.ts`).
+- A paste or typing that scrolled the editor left the preview behind when the render landed; the editor scroll now
+  marks the alignment as owed.
+- The focus bar blinked off on every keystroke while the index trailed the text; the mark now stays until the render.
+- The focus bar hid the section's own `box-shadow` (see above).
+- `SETTLE_MS` never ran, so for 1.5 s after a map tile pick the reader's own preview scroll could not change the
+  focus. A settle loop now names the slide the preview stopped on.
+
+Also: a failed load of the focus chunk is caught and logged, and the Playground works without the sync.
+Not changed: CodeMirror re-measuring line heights after `setScroll` could defeat the echo guard on long decks
+(plausible, not reproduced).

@@ -145,6 +145,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	 *  caret into view, and the caret, not the scroll, names the slide. */
 	let lastCaretMove = -Infinity;
 	let previewRaf = 0;
+	let settleRaf = 0;
 	let editorRaf = 0;
 	let bandRaf = 0;
 	let bandKey = '';
@@ -205,7 +206,10 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	function paintMark(f = hub.get()) {
 		if (!ports.editing()) return ports.markPages(null);
 		const ix = usable();
-		ports.markPages(ix && f.unitIndex >= 0 ? (ix.byFlat[f.flat] ?? null) : null);
+		// Typing runs ahead of the render, and until it lands the index describes older text: leave the mark where it
+		// is rather than blink it off on every keystroke. The render that lands paints it again.
+		if (!ix) return;
+		ports.markPages(f.unitIndex >= 0 ? (ix.byFlat[f.flat] ?? null) : null);
 	}
 
 	/** Say which slide a scrolled pane is on, unless that is already the focus. */
@@ -231,10 +235,27 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const ed = ports.editor();
 		const target = L.map.toA(L.pv.scroll);
 		if (ed && Math.abs(target - L.ed.scroll) >= 1) echo.editor = { y: ed.setScroll(target), at: ports.now() };
-		const now = ports.now();
-		// A pick's own scroll passes through slides on the way; it moves the editor along but names no new focus.
-		if (now < ownUntil && now - lastPreviewScroll < SETTLE_MS) return;
+		// A pick's own scroll passes through slides on the way; it moves the editor along but names no new focus
+		// until the preview has been still for a moment, and then names the slide it stopped on.
+		if (settling()) {
+			if (!settleRaf) settleRaf = ports.raf(settle);
+			return;
+		}
 		report(sectionAt(L.pv, L.pv.scroll), 'preview');
+	}
+
+	const settling = () => ports.now() < ownUntil && ports.now() - lastPreviewScroll < SETTLE_MS;
+
+	/** Wait out a pick's scroll (or the reader's, if it came during one), then name the slide the preview stopped on. */
+	function settle() {
+		settleRaf = 0;
+		if (dead || !ports.active()) return;
+		if (settling()) {
+			settleRaf = ports.raf(settle);
+			return;
+		}
+		const L = pair();
+		if (L) report(sectionAt(L.pv, L.pv.scroll), 'preview');
 	}
 
 	/** The editor scrolled: the preview follows, and the slide it is on becomes the focus. */
@@ -247,7 +268,11 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			return;
 		}
 		const L = pair();
-		if (!L) return;
+		if (!L) {
+			// The render is behind the text (typing, a paste): the preview catches up when the render lands.
+			owed = true;
+			return;
+		}
 		const target = L.map.toB(L.ed.scroll);
 		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
 		if (ports.now() - lastCaretMove < CARET_SCROLL_MS) return;
@@ -373,6 +398,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			dead = true;
 			unsubscribe();
 			if (previewRaf) ports.cancelRaf(previewRaf);
+			if (settleRaf) ports.cancelRaf(settleRaf);
 			if (editorRaf) ports.cancelRaf(editorRaf);
 			if (bandRaf) ports.cancelRaf(bandRaf);
 		},

@@ -379,9 +379,12 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		'.lattice{filter:' + slideFrameFilter('card') + ';}';
 	// The slide in focus, marked by a bar down its LEFT edge, inside the slide (the editor marks the same slide with
 	// a bar in its gutter). Not an outline: slides are scaled to the frame's width, so an outline's left and right
-	// sides fall outside the frame and are clipped, leaving two lines across the top and bottom. An inset shadow is
-	// painted inside the slide's own box, so no frame edge and no `clip-path` (rounded corners) can cut it.
-	const barRule = activeBar ? '.lattice>section.db-active{box-shadow:inset 6px 0 0 0 ' + activeBar + ';}' : '';
+	// sides fall outside the frame and are clipped, leaving two lines across the top and bottom. And not a section
+	// `box-shadow`: the engine spends that property on the overflow ring, the tone rails and the finish frame, and a
+	// second rule on it would hide whichever one the slide in focus carries. The bar is its own element
+	// (`.db-bar`, placed by markPreviewPages in components/playground/reading-page.ts), so it paints over the slide and
+	// takes nothing from it.
+	const barRule = activeBar ? 'body{position:relative;}.db-bar{position:absolute;width:6px;z-index:5;pointer-events:none;display:none;background:' + activeBar + ';}' : '';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';

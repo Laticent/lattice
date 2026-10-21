@@ -25,7 +25,10 @@ describe('the three rules are one rule', () => {
 		expect(map.toB(0)).toBe(0);
 		expect(map.toB(maxScroll(editor))).toBe(maxScroll(preview));
 		expect(map.toA(0)).toBe(0);
-		expect(map.toA(maxScroll(preview))).toBe(maxScroll(editor));
+		// The preview's end is a flat run (its last slide clamps while the editor scrolls through its padding): the end
+	// names the START of the run, so the preview's last pixel does not throw the editor across it.
+	expect(map.toA(maxScroll(preview))).toBeLessThan(maxScroll(editor));
+	expect(map.toA(maxScroll(preview))).toBeCloseTo(map.toA(maxScroll(preview) - 1e-9), 3);
 	});
 	it('the section a pane is on is the one centered in it, in both panes', () => {
 		for (let i = 1; i < 7; i++) {
@@ -70,7 +73,10 @@ describe('properties', () => {
 				expect(map.toB(0)).toBe(0);
 				if (maxA > 0 && maxScroll(b) > 0) {
 					expect(map.toB(maxA)).toBeCloseTo(maxScroll(b), 6);
-					expect(map.toA(maxScroll(b))).toBeCloseTo(maxA, 6);
+					// The end of B can be a flat run (B stuck while A scrolls through its padding); B at its end then
+					// names the START of the run, so B's last pixel does not throw A across it.
+					expect(map.toA(maxScroll(b))).toBeLessThanOrEqual(maxA + 1e-6);
+					expect(map.toA(maxScroll(b))).toBeCloseTo(map.toA(maxScroll(b) - 1e-9), 3);
 				}
 				let prev = -1;
 				for (let k = 0; k <= 40; k++) {

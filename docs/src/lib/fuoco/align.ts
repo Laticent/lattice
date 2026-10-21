@@ -82,7 +82,13 @@ export function createScrollMap(a: ViewLayout, b: ViewLayout): ScrollMap {
 		const last = pts[pts.length - 1][from];
 		if (pts.length < 2 || last <= first) return pts[0][to];
 		if (x <= first) return pts[0][to];
-		if (x >= last) return pts[pts.length - 1][to];
+		if (x >= last) {
+			// The end of `from` may be a flat run (a preview stuck at its bottom while the editor scrolls through its
+			// padding): take the START of the run, so the last step down onto the end does not jump across it.
+			let k = pts.length - 1;
+			while (k > 0 && pts[k - 1][from] === last) k--;
+			return pts[k][to];
+		}
 		// The last segment whose start is at or before x; a flat run on the `from` side (B stuck while A moves)
 		// resolves to its start going one way and its end going the other, which is the stable choice.
 		let lo = 0;
