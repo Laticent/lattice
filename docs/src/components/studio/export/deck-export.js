@@ -2392,6 +2392,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		const [calco, { toCanvas }] = await Promise.all([import('@/lib/calco'), import('html-to-image')]);
 		let slides = [];
 		let backgrounds;
+		const unreadable = [];
 		const progress = async (i) => {
 			if (onStatus) onStatus(`Rendering slide ${i + 1} of ${sections.length}…`, { current: i, total: sections.length });
 		};
@@ -2422,6 +2423,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 									// A slide the reader cannot read still exports, as a picture: the picture is the deliverable,
 									// the text boxes are the improvement.
 									console.warn(`[deck-export] slide ${i + 1} exports as a picture: ${e?.message || e}`);
+									unreadable.push(i + 1);
 									for (const undo of [calco.restoreSplit, calco.restoreSlide]) {
 										try {
 											undo(sections[i]);
@@ -2484,7 +2486,10 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		// Re-openable is a PowerPoint feature (embedded-source.ts writes an OPC part).
 		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);
 		download(blob, `${safeName(name)}.${kind.ext}`);
-		return missingImageReason(log);
+		const imageReason = missingImageReason(log);
+		if (!unreadable.length) return imageReason;
+		const picture = `${unreadable.length === 1 ? `slide ${unreadable[0]} is` : `slides ${unreadable.join(", ")} are`} one picture in the file, not editable`;
+		return imageReason ? `${picture}; ${imageReason}` : picture;
 	} finally {
 		dispose();
 	}

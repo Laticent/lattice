@@ -36,7 +36,7 @@ async function exportEditable(page: import('@playwright/test').Page, row: RegExp
 	return { name: d.suggestedFilename(), zip: await JSZip.loadAsync(fs.readFileSync((await d.path()) as string)) };
 }
 
-test('an editable PowerPoint export carries live text and shared backgrounds, not a picture per slide', async ({ page }) => {
+test('@gecko @webkit-tablet an editable PowerPoint export carries live text and shared backgrounds, not a picture per slide', async ({ page }) => {
 	const { name, zip } = await exportEditable(page, /^PowerPoint/, /^Download PowerPoint/);
 	expect(name).toMatch(/\.pptx$/);
 	await expect(toastText(page)).toContainText('PowerPoint ready.');
@@ -56,7 +56,7 @@ test('an editable PowerPoint export carries live text and shared backgrounds, no
 	expect(fullPictures.length).toBeLessThan(3);
 });
 
-test('an editable LibreOffice export carries live text and master pages', async ({ page }) => {
+test('@gecko @webkit-tablet an editable LibreOffice export carries live text and master pages', async ({ page }) => {
 	const { name, zip } = await exportEditable(page, /^LibreOffice/, /^Download LibreOffice/);
 	expect(name).toMatch(/\.odp$/);
 	const content = await zip.file('content.xml')!.async('string');
@@ -64,4 +64,15 @@ test('an editable LibreOffice export carries live text and master pages', async 
 	expect(content).toContain('Demand is already there.');
 	const styles = await zip.file('styles.xml')!.async('string');
 	expect((styles.match(/<style:master-page /g) || []).length).toBeGreaterThan(1);
+});
+
+test('a slide the capture cannot process still exports, as a picture, and the export says so', async ({ page }) => {
+	// No OffscreenCanvas: the capture's in-page image helpers throw on every slide.
+	await page.evaluate(() => {
+		(window as unknown as { OffscreenCanvas?: unknown }).OffscreenCanvas = undefined;
+	});
+	const { name, zip } = await exportEditable(page, /^PowerPoint/, /^Download PowerPoint/);
+	expect(name).toMatch(/\.pptx$/);
+	await expect(toastText(page)).toContainText('one picture in the file');
+	expect(Object.keys(zip.files).filter((n) => /^ppt\/media\/image-\d+-1\.(png|jpe?g)$/.test(n))).toHaveLength(3);
 });
