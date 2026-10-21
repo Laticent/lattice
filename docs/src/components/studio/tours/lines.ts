@@ -8,11 +8,13 @@
 // Pure data, no imports: the recorder reads this file straight from Node.
 // Design record: engineering/decisions/2026-10-20-first-run-onboarding.md.
 
+
 /** The voice every tour and every lesson is recorded in: the Gemini voice the owner picked from the
  *  featured roster (2026-10-20). One voice across the whole Studio, so a visitor never hears two. */
 export const TOUR_VOICE = { engine: 'gemini', model: 'google/gemini-3.1-flash-tts-preview', voice: 'Schedar' } as const;
 
 /** The folder under docs/public/lesson-voice/ the tour's clips live in. */
+
 export const TOUR_VOICE_DIR = 'tour';
 
 export const TOUR_LINES = {
@@ -36,6 +38,7 @@ export const TOUR_LINES = {
 } as const;
 
 /** The Playground's tour: same voice, its own folder, so a line added to one never stales the other. */
+
 export const PLAYGROUND_VOICE_DIR = 'playground-tour';
 
 export const PLAYGROUND_LINES = {

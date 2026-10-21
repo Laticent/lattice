@@ -7,7 +7,9 @@
 // Studio voice, from clips recorded ahead of time (./lines.ts), so the whole list is narrated.
 // `first-look` stands apart: the sixty-second build, which makes a deck, so it is not a step in the course.
 // The long hands-on tours became Studio lessons (engineering/decisions/2026-10-05-studio-lessons.md).
-import { CRAFT_VOICE_DIR, FIRST_LOOK_VOICE_DIR, PRESENT_VOICE_DIR, READ_VOICE_DIR, SHARE_VOICE_DIR, TOUR_VOICE_DIR } from './lines';
+// The folder names are literals here, not imports: the registry ships in the Studio's startup bundle and
+// ./lines is every sentence of every tour, which loads with the tour (importing a name from it pulled the
+// whole table into startup, +3.2 KB gzipped). tours.test.ts keeps the two in step.
 
 export type TourPosture = 'read' | 'write' | 'craft';
 
@@ -35,12 +37,12 @@ export type TourMeta = {
 };
 
 export const TOURS: TourMeta[] = [
-	{ id: 'welcome', label: 'Welcome tour', description: 'A narrated walk through the Studio. About two minutes.', dir: TOUR_VOICE_DIR, posture: 'write', next: 'read', endCard: true, endTitle: 'That’s the shape of it' },
-	{ id: 'read', label: 'Read tour', description: 'The quiet view: just the slides, or the deck as an article.', dir: READ_VOICE_DIR, posture: 'read', next: 'craft', endCard: true, endTitle: 'That’s Read', desktopOnly: true },
-	{ id: 'craft', label: 'Craft tour', description: 'The full workshop: every panel, one by one.', dir: CRAFT_VOICE_DIR, posture: 'craft', next: 'present', endCard: true, endTitle: 'That’s every panel', desktopOnly: true },
-	{ id: 'present', label: 'Present tour', description: 'Play the deck full screen, and every control in the room.', dir: PRESENT_VOICE_DIR, posture: 'write', next: 'share', endCard: true, endTitle: 'That’s Present' },
-	{ id: 'share', label: 'Share tour', description: 'Every way a deck can leave the Studio.', dir: SHARE_VOICE_DIR, posture: 'write', endCard: true, endTitle: 'That’s Share' },
-	{ id: 'first-look', label: 'First look', description: 'The sixty-second version: watch a deck build itself.', dir: FIRST_LOOK_VOICE_DIR, posture: 'craft', buildsDeck: true },
+	{ id: 'welcome', label: 'Welcome tour', description: 'A narrated walk through the Studio. About two minutes.', dir: 'tour', posture: 'write', next: 'read', endCard: true, endTitle: 'That’s the shape of it' },
+	{ id: 'read', label: 'Read tour', description: 'The quiet view: just the slides, or the deck as an article.', dir: 'tour-read', posture: 'read', next: 'craft', endCard: true, endTitle: 'That’s Read', desktopOnly: true },
+	{ id: 'craft', label: 'Craft tour', description: 'The full workshop: every panel, one by one.', dir: 'tour-craft', posture: 'craft', next: 'present', endCard: true, endTitle: 'That’s every panel', desktopOnly: true },
+	{ id: 'present', label: 'Present tour', description: 'Play the deck full screen, and every control in the room.', dir: 'tour-present', posture: 'write', next: 'share', endCard: true, endTitle: 'That’s Present' },
+	{ id: 'share', label: 'Share tour', description: 'Every way a deck can leave the Studio.', dir: 'tour-share', posture: 'write', endCard: true, endTitle: 'That’s Share' },
+	{ id: 'first-look', label: 'First look', description: 'The sixty-second version: watch a deck build itself.', dir: 'tour-first-look', posture: 'craft', buildsDeck: true },
 ];
 
 /** The tour the standing entry points (welcome banner, ⋯ menu, ⌘K) launch. */
