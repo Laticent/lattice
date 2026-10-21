@@ -519,7 +519,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			else if (t.t === 'quote') out += t.open ? '“' : '”';
 			else {
 				const st = snap?.get(t.name);
-				const vals = st && st.length ? st : [0];
+				const vals = st?.length ? st : [0];
 				if (t.t === 'counter') {
 					const x = numberText(vals[vals.length - 1], t.style);
 					if (x === null) return null;
@@ -1376,7 +1376,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				return { el, rect: r, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, pseudo: side, mark };
 			}
 			const a = analyze(ps, r, op, el, 'pseudo');
-			if (!a || !a.plain) return no(a ? `pseudo:paint:${a.why}` : 'pseudo:no-paint');
+			if (!a?.plain) return no(a ? `pseudo:paint:${a.why}` : 'pseudo:no-paint');
 			a.box.pseudo = side;
 			return a.box;
 		};
