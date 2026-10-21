@@ -8,7 +8,6 @@ header: "Dark diagram fills"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Dark diagram fills · title" -->
 
 # Jewel tones, not primaries
@@ -83,7 +82,6 @@ flowchart LR
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Dark diagram fills · closing" -->
 
 `Eight dark faces`

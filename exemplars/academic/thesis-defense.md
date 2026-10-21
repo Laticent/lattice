@@ -146,7 +146,6 @@ The cohort is observational — I show association, not proof that adding the ke
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

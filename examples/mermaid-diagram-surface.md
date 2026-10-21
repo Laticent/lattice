@@ -8,7 +8,6 @@ header: "Lattice · mermaid diagram surface"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Diagram surface · engine`
 

@@ -19,7 +19,6 @@ lexicon:
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -45,7 +44,6 @@ Prepared for the Northwind Analytics board of directors.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -108,7 +106,6 @@ Hartley & Stone on 9 October; the management letter had no findings.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -153,7 +150,6 @@ Hartley & Stone on 9 October; the management letter had no findings.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -190,7 +186,6 @@ Hartley & Stone on 9 October; the management letter had no findings.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -218,7 +213,6 @@ Hartley & Stone on 9 October; the management letter had no findings.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

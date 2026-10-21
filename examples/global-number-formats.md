@@ -98,7 +98,6 @@ A reinsurance deck carries `EUR 4.2M`, `4,2 Mio. €` and `USD 250mn`. Each of t
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

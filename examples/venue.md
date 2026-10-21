@@ -7,7 +7,6 @@ header: "Lattice · Venue"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -87,7 +86,6 @@ Name where the deck will be seen. The engine sizes the type for the back row.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

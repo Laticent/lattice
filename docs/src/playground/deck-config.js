@@ -1,4 +1,5 @@
 import frontMatterKey from '../../../lib/core/front-matter-key.js';
+import { paginateOn } from '../../../lib/core/meta-keys.mjs';
 import { SIZE_OPTIONS } from './deck-sizes.js';
 
 // What `key` resolves to under the deck's `preset:` when the deck does not write it — the
@@ -87,7 +88,8 @@ const FIELD_DEFAULTS = {
   // written value is `on`. Per-slide `_class: lifted` / `flat` override it.
   lift: 'off',
   size: 'hd', // default landscape (memorable name; 16:9 geometry) (themes also define 4K / standard)
-  paginate: 'false',
+  // Page numbers are ON by default (the owner's ruling, 2026-10-20); a deck opts out with `paginate: false`.
+  paginate: 'true',
   header: '',
   footer: '',
   class: '',
@@ -269,7 +271,7 @@ export function readFrontMatter(source) {
     // `lift` is binary — on when the deck opts in with `lift: on`.
     lift: map.lift ? TRUEY.test(map.lift) : presetBaseline(map.preset, 'lift') === 'on',
     size: map.size || 'hd',
-    paginate: TRUEY.test(map.paginate || ''),
+    paginate: paginateOn(map.paginate),
     header: map.header || '',
     footer: map.footer || '',
     class: map.class || '',
@@ -293,7 +295,8 @@ export function readFrontMatter(source) {
 }
 
 function isDefault(key, value) {
-  if (key === 'paginate') return !TRUEY.test(value);
+  // `paginate` is binary, default ON: only an explicit `paginate: false` is written, like `validate: off`.
+  if (key === 'paginate') return paginateOn(value);
   // `glossary` is binary — off is the omitted default; only `glossary: auto` is written.
   if (key === 'glossary') return (value == null ? '' : String(value)).trim().toLowerCase() !== 'auto';
   // `lift` is binary — off is the omitted default; only `lift: on` is written.
@@ -320,7 +323,7 @@ function isDefault(key, value) {
 // it's at its default (and should be omitted). `value` is a boolean for
 // paginate, a string otherwise.
 function normalize(key, value, preset) {
-  if (key === 'paginate') return value === true || TRUEY.test(value || '') ? 'true' : null;
+  if (key === 'paginate') return value === false || !paginateOn(value) ? 'false' : null;
   // engine reads on/true/yes — we always emit `on` (matches the example decks).
   // `glossary` writes the canonical `auto` when enabled; off omits the key. The switch
   // passes a boolean; a hand-typed `auto` is honored too.

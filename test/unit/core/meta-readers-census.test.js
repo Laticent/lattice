@@ -54,7 +54,7 @@ const CENSUS = [
   ['lib/authoring/review-core.js', S, 'class read is the shared slideClassDirectives; the rest strips or skips comments'],
   // ── Core, engine, render path ───────────────────────────────────────────
   ['lib/conformance/kinds/component.contract.js', M, 'galleryRealizes reads _class and _footer through readDirectiveComment'],
-  ['lib/core/auto-split.js', M, 'deckChromeFrom already reads through readDirectiveComment'],
+  ['lib/core/auto-split.js', S, 'deckChromeFrom reads front matter only since 2026-10-20: a plain header: or footer: comment is the slide\'s own (SLIDE_ONLY_KEYS), so no comment directive is deck chrome'],
   ['lib/core/bg-image-lift.js', M, 'parses each comment with readDirectiveComment (the Marp export\'s lift, moved out of bg-image.js)'],
   ['lib/core/chart-narration.js', M, 'spot class read through commentBodies and readDirectiveComment'],
   ['lib/core/class-directive-scan.mjs', M, 'a view over scanMetaSource'],

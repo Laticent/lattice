@@ -7,7 +7,6 @@ header: "Lattice · State chart — stress test"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Stress test`
 

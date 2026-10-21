@@ -7,7 +7,6 @@ header: "Lattice · Sovereign bookend measures"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Heading measure · title" -->
 
 # A measure counts characters, not slide width
@@ -20,7 +19,6 @@ Sixteen em, about thirty-three characters — the default heading measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Heading measure · divider" -->
 
 `Section 01 · The defect`
@@ -58,7 +56,6 @@ The frame alone would allow roughly ninety characters on one line, well past the
 
 <!-- _class: closing index -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "List rows · closing index" -->
 
 ## Where the measure is written down.
@@ -73,7 +70,6 @@ The frame alone would allow roughly ninety characters on one line, well past the
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Heading and lede · closing" -->
 
 ## Balance decides the breaks; the measure decides the width

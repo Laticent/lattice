@@ -52,6 +52,7 @@ import { setExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
+import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
@@ -67,7 +68,7 @@ import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
-import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SLIDE_COUNTER_SLOT } from './chrome-parts';
+import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
@@ -1006,15 +1007,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}
 	});
 	const [mobilePane, setMobilePane] = React.useState<'edit' | 'preview'>('preview');
-	// The slide map beside (or under) the focused preview. Off by default and remembered; read after
-	// hydration so the server and the client agree. `mapStacked` puts the rail under the slide when the
-	// pane is narrow, measured on the wrapper (which the rail does not resize) so it cannot flip-flop.
+	// The slide map: the thumbnail picker, in the slide strip in place of the pills (one picker at a
+	// time, at every width, so the map never takes width beside the slide). Off by default and
+	// remembered; read after hydration so the server and the client agree.
 	const [mapOn, setMapOn] = React.useState(false);
-	// `null` until the wrapper has been measured with the map on: the pills hide only once the map is KNOWN to sit beside.
-	const [mapStacked, setMapStacked] = React.useState<boolean | null>(null);
-	// A CALLBACK REF in state, not a ref object: the Article and Fabricate views unmount the preview pane and mount a
-	// new wrapper on the way back, and an observer left on the detached one read width 0 and stuck the map as a strip.
-	const [mapWrap, setMapWrap] = React.useState<HTMLDivElement | null>(null);
 	// The map has mounted (its chunk loaded): until then the pills stay, so there is never a moment with no navigator.
 	const [mapReady, setMapReady] = React.useState(false);
 	const onMapReady = React.useCallback(() => setMapReady(true), []);
@@ -1593,8 +1589,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
-	// The map is a column beside the slide (not a strip under it, and not dropped by the phone's cinema morph).
-	const mapBeside = mapOn && mapReady && mapStacked === false && !landscapePhone;
 	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
 	// never the problem (`100dvh` already equals the visible height). The on-device geometry
@@ -1604,23 +1598,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
-	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), or be unmounted by a view
-	// round trip, so the effect follows the wrapper element itself.
-	// A layout effect, so the first paint with the map on already knows whether it stacks, and the pills (hidden only
-	// beside it) are never dropped and remounted on a phone. A later resize across 560 px (a split drag, a window
-	// resize that keeps the tree) reaches it through the observer, a frame later.
-	React.useLayoutEffect(() => {
-		const el = mapWrap;
-		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
-		const read = () => setMapStacked(el.clientWidth < 560);
-		read();
-		const ro = new ResizeObserver(read);
-		ro.observe(el);
-		return () => {
-			ro.disconnect();
-			setMapStacked(null);
-		};
-	}, [mapOn, mapWrap]);
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
 	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
 	// nothing on the other side of the breakpoint could ever clear it. That was survivable
@@ -2144,7 +2121,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// Deck-level Look directives, READ from the deck's front-matter.
 	const deckSize = getFrontMatter(source, 'size') || '16:9';
-	const pageNumbers = getFrontMatter(source, 'paginate') === 'true';
+	// Page numbers are on unless the front matter says `paginate: false` (the owner's ruling, 2026-10-20).
+	const pageNumbers = paginateOn(getFrontMatter(source, 'paginate'));
 	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
 	// the toggle writes / clears the canonical `on`. Per-slide `_class: lifted`/`flat`
 	// override it in the source. (resolve-lift.js.)
@@ -2549,7 +2527,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `null` is "Default": the line is removed, and the deck renders at the designed size.
 	const deckVenue = readDeckVenue(source);
 	const setDeckVenue = (value: VenueName | null) => settingsWrite(value ? `Venue → ${venueOption(value)?.label}` : 'Venue → default', (s) => withVenue(s, value));
-	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? null : 'true'));
+	const togglePageNumbers = () => settingsWrite(pageNumbers ? 'Page numbers off' : 'Page numbers on', (s) => writeFrontMatterLine(s, 'paginate', pageNumbers ? 'false' : null));
 	// Backdrop — the deck `backdrop:` register (lib/core/resolve-backdrop.js): restraint over
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
 	const deckBd = deckBackdrop(source);
@@ -6091,6 +6069,44 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// full-bleed read) AND on an iPhone in landscape (the "cinema" morph — see the body
 	// branch below), where the slide fills the frame and swipe is the only verb.
 	const previewChromeless = effectiveStop === 'read' || landscapePhone;
+	const slideOpsShown = composeLens === 'full' && effectiveStop !== 'read';
+	// The slide actions: ONE group that lays itself out for the height the strip gives it. It reads the
+	// tallest thing BESIDE it (the pills, or the map), not its own row, so it can grow and shrink back
+	// without propping the strip open: one row of five beside the pills, two rows beside the taller map.
+	// The ORDER is the same in both (the owner's call, 2026-10-21): add, duplicate, delete, then the two
+	// moves, so a wrap always leaves the move pair alone on the second row, centered under the first.
+	// The width is set from the row count (`ceil(5 / rows)` buttons), which keeps it honest; a CSS-only
+	// `auto-fill` grid sizes its width as one row.
+	const slideOpsRef = React.useRef<HTMLDivElement>(null);
+	const [slideOpsRows, setSlideOpsRows] = React.useState(1);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `slideOpsShown` is the trigger (the group mounts and unmounts with it); the body reads the ref.
+	React.useEffect(() => {
+		const ops = slideOpsRef.current;
+		const strip = ops?.parentElement;
+		if (!ops || !strip || typeof ResizeObserver === 'undefined') return;
+		const read = () => {
+			let room = 0;
+			for (const el of strip.children) if (el !== ops) room = Math.max(room, (el as HTMLElement).offsetHeight);
+			// A row is 28px with a 2px gap; the group's own border and padding take 6px.
+			setSlideOpsRows(Math.max(1, Math.min(5, Math.floor((room - 6 + 2) / 30))));
+		};
+		read();
+		const ro = new ResizeObserver(read);
+		ro.observe(strip);
+		return () => ro.disconnect();
+	}, [slideOpsShown]);
+	const slideOps = (
+		// A wrapping flex row, exactly `cols` buttons wide (28px each, 2px gaps, plus the 2px padding and
+		// 1px border each side), so a short last row CENTERS under the full one: the two moves sit in the
+		// middle, not hard left as a grid would put them. The strip centers the group vertically.
+		<div ref={slideOpsRef} className="flex shrink-0 flex-wrap content-center items-center justify-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" style={{ width: Math.ceil(5 / slideOpsRows) * 30 - 2 + 6 }}>
+			<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
+			<RailOp label="Duplicate slide" onClick={opDuplicate}><Copy className="size-3.5" /></RailOp>
+			<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
+			<RailOp label="Move slide earlier" onClick={() => opMove(-1)} disabled={curIndex <= 0}><ArrowLeftToLine className="size-3.5" /></RailOp>
+			<RailOp label="Move slide later" onClick={() => opMove(1)} disabled={curIndex >= slides.length - 1}><ArrowRightToLine className="size-3.5" /></RailOp>
+		</div>
+	);
 	const previewPane = (
 		<section
 			id="studio-pane-preview"
@@ -6152,9 +6168,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					// a render. See `paintZoomBadge`.
 					<Tip label="Reset zoom to fit"><button ref={zoomBadgeRef} type="button" onClick={() => zoomRef.current?.reset()} className="shrink-0 rounded-full border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]" aria-label={`Reset zoom to fit — currently ${Math.round(previewZoomScale.current * 100)}%`}>{Math.round(previewZoomScale.current * 100)}%</button></Tip>
 				)}
-				<button type="button" onClick={() => stepDeck('prev')} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Previous slide">‹</button>
-				<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]"><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}>Slide {viewFlat + 1} / {viewFlatTotal}</span></span>
-				<button type="button" onClick={() => stepDeck('next')} className="shrink-0 rounded px-1.5 text-muted-foreground hover:text-[var(--accent)]" aria-label="Next slide">›</button>
+				{/* The navigator pill (prev · count · next) and the slide-map toggle, shared with the
+				    pre-paint skeleton (chrome-parts.tsx `SlideNavigator`). The map toggle lives HERE,
+				    not at the end of the slide strip, so the strip gives its whole width to the slides;
+				    the Read stop hides this bar, so there the strip keeps the toggle (below). */}
+				<SlideNavigator counter={<SlideCount n={viewFlat + 1} total={viewFlatTotal} />} onPrev={() => stepDeck('prev')} onNext={() => stepDeck('next')} mapOn={mapOn} onToggleMap={toggleMap} />
 				{splitUsable && (
 					<Tip label="Collapse preview — or drag the divider past its minimum"><Button variant="ghost" size="icon-sm" aria-label="Collapse preview" onClick={() => collapseFromHeader('b')}><PanelRightClose className="size-4" /></Button></Tip>
 				)}
@@ -6181,7 +6199,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={setMapWrap} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
 			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
@@ -6244,16 +6261,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</ErrorBoundary>
 				</div>
 			</div>
-			{mapEver && (
-				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[96px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
-					<Frozen active={mapOn && !landscapePhone}>
-					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} people={mapBeside ? liveBySlide : undefined} classLabels={effectiveStop !== 'read'} onReady={onMapReady} />
-					</React.Suspense>
-					</Frozen>
-				</div>
-			)}
-			</div>
 			{slideClipped && clipVenue && clipVenue.scale > 1 && effectiveStop !== 'read' && (
 				<React.Suspense fallback={null}>
 					<ClipNotice venue={clipVenue} down={clipDown} slide={slides[curIndex] ?? ''} splittable={composeLens === 'full'} onSplit={opSplitForVenue} onDown={opVenueDown} />
@@ -6261,8 +6268,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{/* Slide navigator — jump to any slide, see its component type. Dropped in the
 			    cinema morph (iPhone landscape): the whisper layer carries position instead. */}
-			{!landscapePhone && (
-			<div className="relative flex items-center gap-1.5 border-t border-border bg-background px-3 py-2">
+			{/* The strip: the lead (the slide actions, or the Read verbs at Read), a divider, then ONE
+			    picker. The map, when on, takes the pills' place at every width: one way to navigate, and no
+			    column eating width beside the slide when panels are open. */}
+			{/* Hidden, not unmounted, in the iPhone-landscape cinema morph: the map it holds must stay
+			    mounted once opened (see the map below). */}
+			<div hidden={landscapePhone || undefined} className={cn('relative flex items-center gap-1.5 border-t border-border bg-background px-3 py-2', landscapePhone && 'hidden')}>
 				{/* READ verbs — the Read stop's two actions lead the navigator, in the slot the
 				    slide-op rail holds at Write/Craft. "Edit this slide" stays the accent-filled
 				    primary (the newcomer's one unmissable step to Write, and not hover-gated);
@@ -6299,31 +6310,39 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
 					</>
 				)}
-				{composeLens === 'full' && effectiveStop !== 'read' && (
-					<div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-						<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
-						<RailOp label="Duplicate slide" onClick={opDuplicate}><Copy className="size-3.5" /></RailOp>
-						<RailOp label="Move slide earlier" onClick={() => opMove(-1)} disabled={curIndex <= 0}><ArrowLeftToLine className="size-3.5" /></RailOp>
-						<RailOp label="Move slide later" onClick={() => opMove(1)} disabled={curIndex >= slides.length - 1}><ArrowRightToLine className="size-3.5" /></RailOp>
-						<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
-					</div>
+				{slideOpsShown && (
+					<>
+						{slideOps}
+						<span aria-hidden="true" className="h-6 w-px shrink-0 bg-[var(--muted-mark)]" />
+					</>
 				)}
-			{/* Where the map sits BESIDE the slide it is the navigator: its tiles carry the number, the position, first to
-			    last, the Live dots and (outside Read) the component class, so a second list of the same slides under them is only noise. Where it stacks
-			    under the slide (a narrow pane, a phone) the strip has no labels or steps, so the pills stay. */}
-			{!mapBeside && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />}
-				<button
-					type="button"
-					aria-label="Slide map"
-					aria-pressed={mapOn}
-					title="Slide map — a rail of every slide beside the preview"
-					onClick={toggleMap}
-					className={cn('ml-auto grid size-8 shrink-0 place-items-center rounded-lg border bg-card transition-colors [@media(pointer:coarse)]:size-11', mapOn ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
-				>
-					<GalleryVerticalEnd className="size-4" aria-hidden />
-				</button>
-			</div>
+			{(!mapOn || !mapReady) && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />}
+			{/* Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame
+			    that is destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx). */}
+			{mapEver && (
+				<div className={cn('h-[88px] min-w-0 flex-1', !mapOn && 'hidden')} hidden={!mapOn}>
+					<Frozen active={mapOn && !landscapePhone}>
+					<React.Suspense fallback={null}>
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation="horizontal" people={liveBySlide} classLabels={effectiveStop !== 'read'} onReady={onMapReady} />
+					</React.Suspense>
+					</Frozen>
+				</div>
 			)}
+				{/* The map toggle moved to the preview bar; only the Read stop, which has no bar, keeps
+				    it at the strip's end. */}
+				{previewChromeless && (
+					<button
+						type="button"
+						aria-label="Slide map"
+						aria-pressed={mapOn}
+						title="Slide map — every slide as a thumbnail, in place of the slide pills"
+						onClick={toggleMap}
+						className={cn('ml-auto grid size-8 shrink-0 place-items-center rounded-lg border bg-card transition-colors [@media(pointer:coarse)]:size-11', mapOn ? 'border-[var(--accent)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
+					>
+						<GalleryVerticalEnd className="size-4" aria-hidden />
+					</button>
+				)}
+			</div>
 			{!previewChromeless && (
 			<div className="flex items-center gap-3 border-t border-border px-4 py-1.5 font-mono text-[11px] text-muted-foreground">
 				<span className="inline-flex shrink-0 items-center gap-1 text-[var(--pass)]">● Live</span>

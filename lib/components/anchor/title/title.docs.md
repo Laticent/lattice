@@ -43,7 +43,6 @@ First slide of every deck. Sets the topic and the visual tone. Suppresses header
 
 ```markdown
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

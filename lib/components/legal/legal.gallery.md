@@ -10,7 +10,6 @@ footer: "Six anchors · five variants each · candidate deck"
 <!-- galleryAuthored: legal-family domain composition; tools/build-bucket-galleries.js will not overwrite -->
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -34,7 +33,6 @@ Mark the one that earns the room. Slot labels lift via the slotLabelLift transfo
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Anchor 01 · statute-stack" -->
 
 `Anchor 01 · Federal / State / Local`
@@ -135,7 +133,6 @@ Pick this when the audience wants to scan many obligations at once.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Anchor 02 · citation-card" -->
 
 `Anchor 02 · quote, translate, act`
@@ -220,7 +217,6 @@ Pick this when the audience wants to scan many obligations at once.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Anchor 03 · obligation-matrix" -->
 
 `Anchor 03 · regimes × obligations`
@@ -317,7 +313,6 @@ Pick when each cell carries a sentence, not a glyph.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Anchor 04 · regulatory-update" -->
 
 `Anchor 04 · what's new`
@@ -444,7 +439,6 @@ Pick when each cell carries a sentence, not a glyph.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Anchor 05 · redline" -->
 
 `Anchor 05 · textual diff`
@@ -527,7 +521,6 @@ Pick when each cell carries a sentence, not a glyph.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Anchor 06 · authority-chain" -->
 
 `Anchor 06 · statute, regulation, guidance, case`
@@ -640,7 +633,6 @@ Pick when each cell carries a sentence, not a glyph.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 ## Mark the winners. The rest goes to the cutting room floor.

@@ -7,7 +7,6 @@ footer: 'Design system — function · form · substance · finish'
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -33,7 +32,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -59,7 +57,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -91,7 +88,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -113,7 +109,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -137,7 +132,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -159,7 +153,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -184,7 +177,6 @@ Function · Form · Substance · Finish. Authored in short names, organized in f
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

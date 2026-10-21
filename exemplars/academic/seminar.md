@@ -143,7 +143,6 @@ Wide-field surveys now imaging billions of galaxies will shrink the shape noise 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

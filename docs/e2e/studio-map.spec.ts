@@ -2,12 +2,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { gotoStudio, railButtons, setEditorContent } from './studio-fixture';
 
 /**
- * The Studio's slide map: a rail of the deck's slides beside (under, on a narrow pane) the focused
- * preview (studio/StudioMap.tsx, over map-rail/MapRail.tsx and Veduta's map window). It reads the
- * Studio's own focus hub and picks through the same call a pill makes, so these specs read what a
- * person reads: the "Slide N / M" label, the pill navigator and the rail's current tile. Where the map sits beside
- * the slide it IS the navigator and the pills hide; where it stacks under the slide (a narrow pane, a phone) they stay,
- * so a spec that needs the pill count reads it before the map opens (`pillsThenMap`).
+ * The Studio's slide map: the deck's slides as thumbnails in the slide strip under the preview, in
+ * place of the pills, at every width (studio/StudioMap.tsx, over map-rail/MapRail.tsx and Veduta's
+ * map window). ONE picker at a time: the owner's call (2026-10-21), so the pills go while the map is
+ * on and come back when it is off. It reads the Studio's own focus hub and picks through the same call
+ * a pill makes, so these specs read what a person reads: the "Slide N / M" label and the rail's
+ * current tile, and the pills once the map is closed again.
  * Off until the reader turns it on; the Playground has its own spec (playground-map.spec.ts).
  */
 
@@ -46,27 +46,27 @@ size: portrait
 async function mapOn(page: Page) {
 	await page.getByRole('button', { name: 'Slide map' }).click();
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible({ timeout: 40_000 });
+	// The map replaces the pills: one way to pick a slide, never two.
+	await expect(railButtons(page)).toHaveCount(0);
 }
-/** Count the pills while the map is off, then open the map. */
-async function pillsThenMap(page: Page) {
-	await expect(railButtons(page).first()).toBeVisible();
-	const pills = await railButtons(page).count();
-	await mapOn(page);
-	return pills;
-}
-const stacked = async (page: Page) => (await page.locator(RAIL).getAttribute('data-map-rail')) === 'horizontal';
+/** The pill count, read BEFORE the map opens, since the pills leave while it is on. */
+const pillsBefore = async (page: Page) => {
+	await expect(railButtons(page).first()).toBeVisible({ timeout: 40_000 });
+	return railButtons(page).count();
+};
 const current = (page: Page) => page.locator(`${RAIL} button[aria-current="true"]`).getAttribute('data-unit');
 const label = (page: Page, text: string) => expect(page.getByText(text, { exact: true })).toBeVisible();
 
 test('@crosswidth the map is off until asked, and then lists one tile per slide the pills list', async ({ page }) => {
 	await gotoStudio(page);
 	await expect(page.locator(RAIL)).toHaveCount(0);
-	const pills = await pillsThenMap(page);
+	const pills = await pillsBefore(page);
 	expect(pills).toBeGreaterThan(2);
-	// The map beside the slide replaces the pills; the strip under it keeps them.
-	await expect(railButtons(page)).toHaveCount((await stacked(page)) ? pills : 0);
-	// What the pills labeled a slide with outside Read, its component class, rides on the tile instead.
-	if (!(await stacked(page))) await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toContainText('title');
+	await mapOn(page);
+	// The map replaces the pills, so what a pill labeled a slide with outside Read, its component class, rides on the
+	// tile instead (audit §11p, kept in the strip by §11s). The fixture's stop is Craft, which is outside Read.
+	await expect(railButtons(page)).toHaveCount(0);
+	await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toContainText('title');
 	// One tile per pill: the rail's last tile is the pills' last slide, and there is none after it.
 	await page.locator(`${RAIL} button[aria-current="true"]`).focus();
 	await page.keyboard.press('End');
@@ -83,31 +83,34 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	await expect(railButtons(page)).toHaveCount(pills);
 });
 
-test('@crosswidth a tile moves the focus: the label and the tile agree, and the pill where the pills show', async ({ page }) => {
+test('@crosswidth a tile moves the focus: the label and the tile agree, and the pills follow once the map closes', async ({ page }) => {
 	await gotoStudio(page);
-	const total = await pillsThenMap(page);
+	const total = await pillsBefore(page);
+	await mapOn(page);
 	await page.locator(`${RAIL} button[data-unit="2"]`).click();
 	await label(page, `Slide 3 / ${total}`);
-	if (await stacked(page)) await expect(railButtons(page).nth(2)).toHaveAttribute('aria-current', 'true');
 	expect(await current(page)).toBe('2');
 	// The shell's own verbs move the rail too (a pick hands keyboard focus to the editor, as a pill does).
 	await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 	await page.keyboard.press('ArrowRight');
 	await expect.poll(() => current(page)).toBe('3');
+	await page.getByRole('button', { name: 'Slide map' }).click();
+	await expect(railButtons(page).nth(3)).toHaveAttribute('aria-current', 'true');
 });
 
-test('first, last, previous and next on the rail', async ({ page }) => {
+// The strip carries no first/last/previous/next buttons of its own (MapRail `controls` is the column's): the preview
+// bar's navigator steps the deck, and Home / End on the rail reach the ends (the arrow-keys spec below).
+test('the preview bar steps the deck and the map follows', async ({ page }) => {
 	await gotoStudio(page);
-	const total = await pillsThenMap(page);
-	const rail = page.locator(RAIL);
-	await rail.getByRole('button', { name: 'Map, last slide' }).click();
-	await label(page, `Slide ${total} / ${total}`);
-	await rail.getByRole('button', { name: 'Map, previous slide' }).click();
-	await label(page, `Slide ${total - 1} / ${total}`);
-	await rail.getByRole('button', { name: 'Map, first slide' }).click();
-	await label(page, `Slide 1 / ${total}`);
-	await rail.getByRole('button', { name: 'Map, next slide' }).click();
+	const total = await pillsBefore(page);
+	await mapOn(page);
+	const bar = page.locator('[data-slot="preview-bar"]');
+	await bar.getByRole('button', { name: 'Next slide' }).click();
 	await label(page, `Slide 2 / ${total}`);
+	await expect.poll(() => current(page)).toBe('1');
+	await bar.getByRole('button', { name: 'Previous slide' }).click();
+	await label(page, `Slide 1 / ${total}`);
+	await expect.poll(() => current(page)).toBe('0');
 });
 
 test('the rail follows the deck as it is edited', async ({ page }) => {
@@ -127,7 +130,6 @@ test('a blank slide is a pill and a tile, and the slide after it is picked as it
 	await page.locator(`${RAIL} button[aria-label^="Slide 3, Three"]`).click();
 	await label(page, 'Slide 3 / 3');
 	await expect(page.locator(`${RAIL} button[aria-current="true"]`)).toHaveAttribute('data-unit', '2');
-	// The pills hide beside the map, so close it to read them: the blank slide is a pill too.
 	await page.getByRole('button', { name: 'Slide map' }).click();
 	await expect(railButtons(page)).toHaveCount(3);
 });
@@ -143,9 +145,9 @@ test('a slide the structural split cuts into pages is still one tile', async ({ 
 
 test('@mobile on a phone the map is a strip a tap can use', async ({ page }) => {
 	await gotoStudio(page);
+	const total = await pillsBefore(page);
 	await mapOn(page);
 	expect(await page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
-	const total = await railButtons(page).count();
 	await page.locator(`${RAIL} button[data-unit="2"]`).click();
 	await label(page, `Slide 3 / ${total}`);
 });
@@ -155,9 +157,17 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 	await mapOn(page);
 	const coarse = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
 	test.skip(!coarse, 'fine pointer: the compact controls are right here');
+	// The HIT area, not the drawn box: the preview bar's controls stay at the row's height and reach
+	// 44px through a transparent positioned `::after` (chrome-parts.tsx `TOUCH_HIT`), so that box counts.
 	const small = await page.evaluate(() =>
-		[...document.querySelectorAll<HTMLElement>('[data-map-rail] button, button[aria-label="Slide map"]')]
-			.map((b) => ({ label: b.getAttribute('aria-label'), w: Math.round(b.getBoundingClientRect().width), h: Math.round(b.getBoundingClientRect().height) }))
+		[...document.querySelectorAll<HTMLElement>('[data-map-rail] button, [data-slot="preview-bar"] button[aria-label="Slide map"], [data-slot="preview-bar"] button[aria-label="Previous slide"], [data-slot="preview-bar"] button[aria-label="Next slide"]')]
+			.filter((b) => b.getBoundingClientRect().width > 0)
+			.map((b) => {
+				const r = b.getBoundingClientRect();
+				const a = getComputedStyle(b, '::after');
+				const grow = (v: string) => (a.position === 'absolute' && a.content !== 'none' ? Math.max(0, -parseFloat(v) || 0) : 0);
+				return { label: b.getAttribute('aria-label'), w: Math.round(r.width + grow(a.left) + grow(a.right)), h: Math.round(r.height + grow(a.top) + grow(a.bottom)) };
+			})
 			.filter((c) => c.w < 44 || c.h < 44),
 	);
 	expect(small).toEqual([]);
@@ -165,7 +175,8 @@ test('@parity every control of the Studio map clears the 44px touch floor on a c
 
 test('the arrow keys walk the rail slide by slide and keyboard focus stays on it', async ({ page }) => {
 	await gotoStudio(page);
-	const total = await pillsThenMap(page);
+	const total = await pillsBefore(page);
+	await mapOn(page);
 	await page.locator(`${RAIL} button[aria-current="true"]`).focus();
 	for (const n of [2, 3, 4]) {
 		await page.keyboard.press('ArrowDown');
@@ -197,8 +208,15 @@ async function reusesFrames(page: Page) {
 	}
 	const after = await page.evaluate(() => (window as unknown as { __frames: number }).__frames);
 	expect(after).toBe(first);
-	// The pool reports its capacity to Veduta, so the rail never asks for more live tiles than there are frames to show them.
-	const live = await page.locator(`${RAIL} button[data-tier="live"]`).count();
+	// The pool reports its capacity to Veduta, so the rail never asks for more live tiles than there are frames to show
+	// them. Counted IN VIEW: the strip keeps a live tile ready just past its edge, and the pool frames what can be seen.
+	const live = await page.evaluate(() => {
+		const rail = document.querySelector('[data-map-rail]')?.getBoundingClientRect();
+		return [...document.querySelectorAll('[data-map-rail] button[data-tier="live"]')].filter((b) => {
+			const r = b.getBoundingClientRect();
+			return rail && r.right > rail.left && r.left < rail.right && r.bottom > rail.top && r.top < rail.bottom;
+		}).length;
+	});
 	const frames = await page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
 	expect(live).toBeLessThanOrEqual(frames);
 	test.info().annotations.push({ type: 'retained', description: `frames created ${first}, after 3 toggles ${after}; live tiles ${live}, rail frames ${frames}` });
@@ -206,18 +224,25 @@ async function reusesFrames(page: Page) {
 test('closing and reopening the map re-uses its preview frames instead of creating new documents', async ({ page }) => reusesFrames(page));
 test('@webkit-tablet on WebKit, closing and reopening the map creates no new documents', async ({ page }) => reusesFrames(page));
 
-test('the rail restacks when the window crosses the narrow breakpoint and back', async ({ page }) => {
+test('the map sits in the slide strip at every width, under the slide, never in a column beside it', async ({ page }) => {
 	await gotoStudio(page);
 	await mapOn(page);
-	expect(await page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
-	await expect(railButtons(page)).toHaveCount(0);
-	await page.setViewportSize({ width: 390, height: 844 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
-	// Stacked under the slide, the strip has no labels or steps, so the pills come back.
-	await expect.poll(() => railButtons(page).count()).toBeGreaterThan(2);
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
-	await expect(railButtons(page)).toHaveCount(0);
+	for (const [width, height] of [[1440, 900], [820, 1180], [390, 844]] as const) {
+		await page.setViewportSize({ width, height });
+		await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
+		const box = await page.locator(RAIL).boundingBox();
+		const frame = await page.locator('[data-slide-frame]').first().boundingBox();
+		expect(box && frame && box.y >= frame.y + frame.height, `the map is under the slide at ${width}px`).toBe(true);
+		// The slide actions sit in the SAME row as the map (the strip), at every width.
+		const actionsBesideMap = await page.evaluate(() => {
+			const map = document.querySelector('[data-map-rail]')?.getBoundingClientRect();
+			return [...document.querySelectorAll('button[aria-label="Add slide"]')].some((b) => {
+				const r = b.getBoundingClientRect();
+				return !!map && r.width > 0 && r.top < map.bottom && r.bottom > map.top;
+			});
+		});
+		expect(actionsBesideMap, `the slide actions share the map's row at ${width}px`).toBe(true);
+	}
 });
 
 // THE CAPACITY REPORT BINDING ON THE REAL STUDIO. The pool reports its ceiling to the rail, and the rail passes it to
@@ -229,7 +254,9 @@ async function openTen(page: Page, slots: string | null) {
 	await gotoStudio(page);
 	await setEditorContent(page, TEN);
 	await mapOn(page);
-	await expect(page.locator(`${RAIL} button[data-unit]`)).toHaveCount(10, { timeout: 15_000 });
+	// The strip renders a WINDOW of tiles, so the deck's size is read off the counter, not the tile count.
+	await expect(page.getByText(/^Slide \d+ \/ 10$/)).toBeVisible({ timeout: 15_000 });
+	await expect.poll(() => page.locator(`${RAIL} button[data-unit]`).count()).toBeGreaterThan(3);
 }
 const liveTiles = (page: Page) => page.locator(`${RAIL} button[data-tier="live"]`).count();
 const railFrames = (page: Page) => page.evaluate(() => document.querySelectorAll('[data-map-rail] iframe').length);
@@ -248,9 +275,9 @@ test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles
 	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
 });
 
-// The Article view unmounts the preview pane, and the way back mounts a new map wrapper. The stack measure follows
-// the wrapper element (a callback ref), so the map is still beside the slide afterwards and still restacks.
-test('after a round trip to the Article view the map still sits beside the slide and restacks', async ({ page }) => {
+// The Article view unmounts the preview pane, and the way back mounts a new one. The map comes back in the slide
+// strip, still in place of the pills, and stays there at every width.
+test('after a round trip to the Article view the map is back in the strip, in place of the pills', async ({ page }) => {
 	await gotoStudio(page);
 	// The fixture seeds the Craft stop on every load, so the Read stop (where "Read as an article" lives) goes in after it.
 	await page.addInitScript(() => {
@@ -263,12 +290,11 @@ test('after a round trip to the Article view the map still sits beside the slide
 	await page.getByRole('button', { name: 'Read as an article' }).click();
 	await page.getByRole('button', { name: 'Back to the deck' }).click();
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible({ timeout: 40_000 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
-	await expect(railButtons(page)).toHaveCount(0);
-	await page.setViewportSize({ width: 390, height: 844 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
+	for (const [width, height] of [[1440, 900], [390, 844], [1440, 900]] as const) {
+		await page.setViewportSize({ width, height });
+		await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
+		await expect(railButtons(page)).toHaveCount(0);
+	}
 });
 
 // The map mounts a window of a long deck, so each tile says where it sits in the whole list, as the pills did by

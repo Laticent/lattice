@@ -132,7 +132,6 @@ We are blending the healing chemistry with a strain-responsive dye so a part cha
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

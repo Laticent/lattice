@@ -8,7 +8,6 @@ footer: "CONFIDENTIEL · Société Générale — ÜBERPRÜFUNG Q3 · do not dis
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 01 · The annexes and their approved decoration, at length`
 
@@ -52,7 +51,6 @@ or ink measurement could see it.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 02 · Another named section`
 
@@ -72,7 +70,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 03 · Another named section`
 
@@ -92,7 +89,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 04 · Another named section`
 
@@ -112,7 +108,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 05 · Another named section`
 
@@ -132,7 +127,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 06 · Another named section`
 
@@ -152,7 +146,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 07 · Another named section`
 
@@ -172,7 +165,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 08 · Another named section`
 
@@ -192,7 +184,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 09 · Another named section`
 
@@ -212,7 +203,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 10 · Another named section`
 
@@ -232,7 +222,6 @@ and a split page carries no band for this suite to measure.
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 11 · Another named section`
 

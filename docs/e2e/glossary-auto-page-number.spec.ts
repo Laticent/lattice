@@ -18,9 +18,10 @@ import { currentSlide, expect, gotoStudio, slideCount, test } from './studio-fix
 
 const DECK = fs.readFileSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../examples/mobile-landscape.md'), 'utf8');
 // The number the PDF prints on each authored slide: its position, or none where the slide opts out
-// with `_paginate: false` (the title and the closing slide). Read from the CLI's render of this deck.
+// (a `no-pagination` class, or a component whose manifest drops the number: title, divider,
+// closing). Read from the CLI's render of this deck.
 const BODY = DECK.replace(/^---\n[\s\S]*?\n---\n/, '').split(/^---$/m);
-const PDF_NUMBER = BODY.map((slide, i) => (/_paginate:\s*false/.test(slide) ? '' : String(i + 1)));
+const PDF_NUMBER = BODY.map((slide, i) => (/_class:[^\n]*\b(no-pagination|title|divider|closing)\b/.test(slide) ? '' : String(i + 1)));
 
 test('a glossary: auto deck numbers every preview slide as its PDF does, stepping both ways', async ({ page }) => {
 	await gotoStudio(page);

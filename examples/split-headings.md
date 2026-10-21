@@ -6,7 +6,6 @@ header: "Lattice · slides from headings"
 ---
 
 <!-- _class: title silent -->
-<!-- _paginate: false -->
 
 `slides from your outline`
 

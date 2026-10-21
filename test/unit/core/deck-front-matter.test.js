@@ -203,13 +203,17 @@ describe('deck front matter — the export bundle carries it', () => {
     const out = withRuntimeScripts(DECK);
     assert.match(out, /<script src="lattice-runtime-min\.js"><\/script>/);
     assert.match(out, new RegExp(`<script type="${FRONT_MATTER_TYPE}">.*</script>\\n$`, 's'));
-    // The deck's own body and front matter are untouched — the block is additive.
-    assert.ok(out.startsWith(DECK.replace(/\s*$/, '')), 'the deck source leads, unmodified');
+    // The deck's own body and front matter lead. The one addition is `paginate: true`: Lattice
+    // numbers by default and Marp does not, so the Marp bridge says so (lib/core/marp-bundle-scope.js).
+    assert.ok(out.startsWith(DECK.replace('\n---\n\n# A', '\npaginate: true\n---\n\n# A').replace(/\s*$/, '')), 'the deck source leads, plus paginate: true');
+    // A deck that already says, either way, is left as written.
+    const off = DECK.replace('theme: indaco', 'theme: indaco\npaginate: false');
+    assert.ok(withRuntimeScripts(off).startsWith(off.replace(/\s*$/, '')), 'an explicit paginate: is kept');
   });
 
-  test('a front-matter-less deck gets the scripts and no block', () => {
+  test('a front-matter-less deck gets the scripts and a front matter that numbers it, as Lattice does', () => {
     const out = withRuntimeScripts('# A\n');
     assert.match(out, /lattice-runtime-min\.js/);
-    assert.ok(!out.includes(FRONT_MATTER_TYPE));
+    assert.ok(out.startsWith('---\npaginate: true\n---\n\n# A'));
   });
 });

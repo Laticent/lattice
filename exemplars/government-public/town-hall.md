@@ -113,7 +113,6 @@ The draft budget is open for comment through May. You can comment online, speak 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

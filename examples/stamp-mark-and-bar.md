@@ -75,7 +75,6 @@ header: "Lattice · Stamps"
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Stamps`
 

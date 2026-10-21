@@ -38,7 +38,6 @@ export const SLIDE_CARDS = `<!-- _class: cards-grid -->
 
 /** A title slide — the inverse bookend, where the canvas flips to the dark surface. */
 export const SLIDE_TITLE = `<!-- _class: title -->
-<!-- _paginate: false -->
 
 # Fourth quarter review
 

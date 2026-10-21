@@ -147,7 +147,6 @@ Each closed deal teaches the model what real buying signals look like in your bu
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

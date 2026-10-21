@@ -183,7 +183,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
      `section.divider.numbered::after { content: counter(lat-divider, …) }` came out as
      `/* content: … */`. The emulator/CLI path does not pack, which is why one modifier
      rendered two different pictures.
-  2. `silent` / `no-paginate` null the same pseudo with
+  2. `silent` / `no-pagination` null the same pseudo with
      `section.silent.silent::after { content: none }` (`base.variants.css`) — deliberately
      doubled to (0,2,2) to beat the engine's pagination rule. `section.divider.numbered::after`
      is (0,2,2) too, and `base.variants.css` loads after `base.modifiers.css`, so the tie

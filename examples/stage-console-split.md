@@ -6,7 +6,6 @@ footer: "Laticent · Stage & console"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -60,7 +59,6 @@ The controls did not move because they were untidy. They moved because they were
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -115,7 +113,6 @@ The controls did not move because they were untidy. They moved because they were
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

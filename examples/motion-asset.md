@@ -16,7 +16,6 @@ Describe a drawing or bring one, and Lattice finds its parts. You give each one 
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

@@ -162,7 +162,6 @@ Inspecting 41,000 parcels needs roughly 40 additional seasonal inspectors. We pr
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

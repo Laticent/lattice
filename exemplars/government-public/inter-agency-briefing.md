@@ -126,7 +126,6 @@ The command structure can be chartered administratively, but the $46M readiness 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

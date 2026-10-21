@@ -12,14 +12,15 @@ footer: "Board review"
 
 # A slide's header stays on that slide.
 
-Front matter sets the header, footer and page number for every slide. A slide comment sets its own slide only.
+Front matter sets the header and footer for every slide. A slide comment sets its own slide only.
 
 ---
 
 # Front matter sets every slide
 
 - This slide shows the deck's header, footer and page number.
-- They come from three lines at the top of the deck: `header:`, `footer:` and `paginate:`.
+- The header and footer come from two lines at the top of the deck: `header:` and `footer:`.
+- Page numbers are on by default; `paginate: false` there would turn them off.
 
 ---
 
@@ -48,11 +49,11 @@ Front matter sets the header, footer and page number for every slide. A slide co
 
 ---
 
-<!-- _class: no-header no-paginate -->
+<!-- _class: no-header no-pagination -->
 
 # Dropping the deck's chrome on one slide
 
-- `_class: no-header no-paginate` hides the header and page number here.
+- `_class: no-header no-pagination` hides the header and page number here.
 - The footer stays, because only those two are named.
 
 ---

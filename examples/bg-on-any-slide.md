@@ -7,7 +7,6 @@ header: "Lattice · Slide backgrounds"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 # A background on any slide
 
@@ -65,7 +64,6 @@ The CLI now draws `![bg]` the way the Studio always has
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `One renderer, one answer`
 

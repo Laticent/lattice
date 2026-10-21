@@ -9,7 +9,6 @@ chart-finish: pigment
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Chart finish · title" -->
 
 # One line sets how every chart spends its color
@@ -158,7 +157,6 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Chart finish · closing" -->
 
 `chart-finish: pigment · etching · tone`

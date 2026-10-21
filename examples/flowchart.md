@@ -7,7 +7,6 @@ header: "Lattice · Flowchart"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Feature deck`
 

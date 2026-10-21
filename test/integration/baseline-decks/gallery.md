@@ -8,7 +8,6 @@ header: "Lattice · Layout Gallery"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 # From Signal to Strategy
@@ -21,7 +20,6 @@ A decision framework for product leaders navigating market uncertainty, quarterl
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Section break · divider" -->
 
 `Section 01 · Foundations`
@@ -264,7 +262,6 @@ The scoring model is the most configurable component, and therefore the most arg
 <!-- _class: closing -->
 <!-- _header: '' -->
 <!-- _footer: "Dark closing bookend · closing" -->
-<!-- _paginate: false -->
 
 `What Would Help Us Move Forward`
 
@@ -617,9 +614,8 @@ Shown whole, on a matte, with a placard — evidence handling for a whiteboard t
 
 ---
 
-<!-- _class: image spotlight -->
+<!-- _class: image spotlight no-pagination -->
 <!-- _footer: "Image · auto becomes spotlight (full-bleed + solid card) · image spotlight" -->
-<!-- _paginate: false -->
 
 ## The venue cost roughly what the calibration tooling would have.
 
@@ -642,9 +638,8 @@ The climb produced two insights and one signed waiver. The photo runs taller tha
 
 ---
 
-<!-- _class: image statement -->
+<!-- _class: image statement no-pagination -->
 <!-- _footer: "Image · opt-in statement (scrim + editorial title) · image statement" -->
-<!-- _paginate: false -->
 
 ## Think deeper. Plan longer. Return unchanged.
 
@@ -656,7 +651,6 @@ The line the room will repeat, set over the view that produced it. This one made
 
 <!-- _class: divider dark -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Dark variant — section break · divider dark" -->
 
 `Offsite · Nightfall`
@@ -678,9 +672,8 @@ Ownership of the weights, the CSV retirement date, and who carries the pager —
 
 ---
 
-<!-- _class: image spotlight dark -->
+<!-- _class: image spotlight dark no-pagination -->
 <!-- _footer: "Image · spotlight, dark · image spotlight dark" -->
-<!-- _paginate: false -->
 
 ## By dinner, the mandate had survived its first sunset.
 
@@ -1145,7 +1138,6 @@ Exclamations, questions, and ellipses pass through untouched — as does the man
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Treatment Library — section break · divider" -->
 
 `The Annexes · Approved Decoration`
@@ -1198,7 +1190,6 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Chart — gantt + kanban · divider" -->
 
 `The Plan · Two Views`
@@ -1254,7 +1245,6 @@ The marks bring their own haze and sit on top of either wash. Two backgrounds, o
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Chart — evidence suite · divider" -->
 
 `The Evidence · Ten Exhibits`
@@ -1533,7 +1523,6 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Split Layouts · split-panel + split-panel metric + split-panel steps + split-compare + split-panel pullquote" -->
 
 `The Review · Five Panels`
@@ -1638,7 +1627,6 @@ Building is settled. The remaining question is which layers deserve our engineer
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Legal Layouts · statute-stack + authority-chain + obligation-matrix + citation-card + regulatory-update + redline" -->
 
 `The Compliance Review · Six Exhibits`
@@ -1771,7 +1759,6 @@ Filled = applies, half = partial, empty = exempt — a rare grid where empty is 
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Operating Layouts · math + inventory + checklist + pricing + q-and-a + logo-wall" -->
 
 `The Operating Plan · Six Exhibits`
@@ -1898,7 +1885,6 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Connect Layouts · contact + wifi" -->
 
 `Closing Logistics · Two Codes`
@@ -1935,7 +1921,6 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 <!-- _class: closing accent -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Modifier — accent · closing accent" -->
 
 `Signal To Strategy · The End`

@@ -8,7 +8,6 @@ logo: lattice
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 # From Signal to Strategy
@@ -83,7 +82,6 @@ Commoditized infrastructure, compressed release cycles, and rising switching cos
 ---
 
 <!-- _class: divider numbered -->
-<!-- _paginate: false -->
 <!-- _footer: "Section opener · divider numbered" -->
 
 `Section 01 · The Framework`
@@ -310,7 +308,6 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: "Section close · closing" -->
 
 `Section 01 of 05 complete`
@@ -322,7 +319,6 @@ The shift from equal to calibrated weights takes two retrospective cycles — 60
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: "Section opener · divider" -->
 
 `Section 02 · The Evaluation`
@@ -748,7 +744,6 @@ for signal in calibrator.intake.unscored():
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: "Section close · closing" -->
 
 `Section 03 of 05 complete`
@@ -760,7 +755,6 @@ for signal in calibrator.intake.unscored():
 ---
 
 <!-- _class: divider dark -->
-<!-- _paginate: false -->
 <!-- _footer: "Section opener, dark canvas · divider dark" -->
 
 `Section 04 · The Results`
@@ -945,7 +939,6 @@ Four stages over eighteen months. The connective tissue is called "momentum."
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: "Final ask · closing" -->
 
 `What Would Help Us Move Forward`

@@ -145,7 +145,6 @@ The routing rule was changed through a console that writes straight to productio
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

@@ -6,7 +6,7 @@ import { Kbd } from '@/components/ui/kbd';
 import { Separator } from '@/components/ui/separator';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SLIDE_COUNTER_SLOT } from './chrome-parts';
+import { ACTIVITY_RAIL_CLOSED, ActivityRail, BAR_RULE, BarIcon, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideNavigator } from './chrome-parts';
 import { ChatIcon, FeedbackIcon, PreviewIcon } from './icons';
 import { LatticeMark } from './LatticeMark';
 import { LENSES } from './lens-picker';
@@ -429,24 +429,10 @@ export function StudioPreviewBarSkeleton() {
 			    container queries that hide the label and the count), and it is the whole 18px. */}
 			<ChevronDown className="size-3.5 shrink-0" /></button>
 			<span className="flex-1" />
-			{/* The app's slide counter: `px-2 py-0.5 font-sans text-[12px] font-semibold`. It was
-			    `px-2.5 py-1.5` here, which made the skeleton's natural height 52.6px against the
-			    app's 47 — invisible only because the band was pinned to a constant and clipped. */}
-			{/* The app brackets its counter with `‹` and `›` (unconditional), and they were missing
-			    here — 20px each plus two 8px gaps, which pushed the counter and the collapse
-			    button left of where the app puts them. */}
-			<button type="button" aria-label="Previous slide" className="shrink-0 rounded px-1.5 text-muted-foreground">‹</button>
-			{/* The count is per-deck content the shell must not draw, so the SLOT is reserved from
-			    `SLIDE_COUNTER_SLOT` — the constant the app's counter uses too. It was `w-12`, a
-			    width fitted to "Slide 1 / 7" on the welcome deck; the app's real pill measures
-			    65px against the 66px that produced, and any other deck moves it further ("Slide
-			    10 / 12" is 13px wider than "Slide 1 / 7"). Reserving on both sides also stops the
-			    app's own counter jittering as you page from slide 9 to 10, which no shell↔app
-			    comparison could see — both sides were wrong the same way.
-			    `text-[var(--text-heading)]` because the app's counter carries it: the pill matched
-			    on geometry and not on ink. */}
-			<span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-2 py-0.5 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--text-heading)]"><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}><ContentBar className="w-12" /></span></span>
-			<button type="button" aria-label="Next slide" className="shrink-0 rounded px-1.5 text-muted-foreground">›</button>
+			{/* The app's navigator pill and slide-map toggle, from the same component, so the
+			    two cannot drift. The count is per-deck content the shell must not draw, so the
+			    slot (`SLIDE_COUNTER_SLOT`, inside the component) holds a neutral bar. */}
+			<SlideNavigator counter={<ContentBar className="w-12" />} onToggleMap={() => {}} />
 			{/* "Collapse preview" — the app renders it wherever the split exists (`!mobile`), so
 			    the CSS gate is the app's own 700 boundary, not Tailwind's. It is here for a
 			    HEIGHT reason as much as a fidelity one: at 32px (`icon-sm`) it is the tallest
@@ -475,10 +461,12 @@ export function StudioPreviewFooterSkeleton() {
 				<span className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Plus className="size-3.5" /></span>
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Copy className="size-3.5" /></span>
+					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Trash2 className="size-3.5" /></span>
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowLeftToLine className="size-3.5" /></span>
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowRightToLine className="size-3.5" /></span>
-					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Trash2 className="size-3.5" /></span>
 				</span>
+				{/* The divider between the slide actions and the picker, as the app draws it. */}
+				<span aria-hidden="true" className="h-6 w-px shrink-0 bg-[var(--muted-mark)]" />
 				{/* The slides themselves are the user's deck — structure only, never a name. The
 				    numbered chip IS fixed chrome (slide N is always slide N), so it is drawn; the
 				    label beside it is the deck's content, so it stays a neutral bar. */}

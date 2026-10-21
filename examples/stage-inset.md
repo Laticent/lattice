@@ -7,7 +7,6 @@ header: "Lattice · The stage owns the outer inset"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 # One box, one inset
 
@@ -116,7 +115,6 @@ _The gate tests this by measurement — a non-transparent background, a backgrou
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 ## The inset is one number, in one place.
 

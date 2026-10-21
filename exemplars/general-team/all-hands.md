@@ -142,7 +142,6 @@ The ecosystem push only works if every team treats developers and partners as fi
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

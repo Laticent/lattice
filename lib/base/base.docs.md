@@ -1028,7 +1028,7 @@ that does this silently skips a number; `lint:deck` does not catch it.
 The numeral rides the slide HEADING's `::after`, so a `numbered` slide needs
 its heading — the required slot here anyway. It deliberately does NOT ride
 `section::after`: that pseudo is the engine's page number, which `silent` /
-`no-paginate` null and which the browser-path stylesheet reserves for the
+`no-pagination` null and which the browser-path stylesheet reserves for the
 pagination attribute. On the heading it composes cleanly — `divider silent
 numbered` stamps the index with no other chrome, and a paginated `divider
 numbered` keeps both the index and its page number.
@@ -1044,9 +1044,8 @@ break.
 <!-- _class: title silent -->
 ```
 
-Equivalent to writing all three Marp suppression directives
-(`<!-- _paginate: false -->`, `<!-- _header: "" -->`,
-`<!-- _footer: "" -->`) in one token.
+Equivalent to `no-pagination` plus `<!-- _header: "" -->` and
+`<!-- _footer: "" -->`, in one token.
 
 ### `sketch`
 
@@ -1194,6 +1193,21 @@ does **not** reach is a **Mermaid diagram** — mermaid renders its own SVG
 text at a fixed size, so a scaled slide grows the title and prose around
 the diagram but not the labels inside it. Full contract:
 `engineering/typography.md` §7.
+
+### `no-pagination` / `with-pagination`
+
+Page-number pair. Front matter `paginate:` numbers the deck and is on unless it
+says `false`. `no-pagination` hides one slide's number; `with-pagination` shows
+it, even on a component that opts out. A component opts its slides out in its
+manifest with `"chrome": { "pagination": false }` (title, divider and closing
+do), so a bookend needs no token. The class wins over the manifest, and the
+manifest wins over the deck. A `<!-- paginate: -->` or `<!-- _paginate: -->`
+comment is ignored, and `lint:deck` says what to write instead.
+
+```markdown
+<!-- _class: content no-pagination -->
+<!-- _class: divider with-pagination -->
+```
 
 ### `with-period` / `no-period`
 

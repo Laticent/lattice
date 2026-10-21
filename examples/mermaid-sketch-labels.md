@@ -8,7 +8,6 @@ header: "Meridian Freight · platform review"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Diagram type · engine`
 

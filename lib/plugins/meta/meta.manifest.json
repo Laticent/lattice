@@ -29,7 +29,7 @@
     "meta": {
       "fields": {
         "theme": { "type": "text", "scope": "deck", "applied": true, "describe": "The theme name. Deck-only: it picks the CSS bundle before any slide is read." },
-        "paginate": { "type": "enum", "values": ["true", "false", "skip", "hold"], "scope": "slide", "local": true, "applied": true, "complete": true, "describe": "Page numbers on or off; `skip` and `hold` are Marp's pagination extensions. Front matter sets it for every slide; on a slide, either spelling sets that slide only." },
+        "paginate": { "type": "enum", "values": ["true", "false", "skip", "hold"], "local": true, "applied": true, "describe": "Front matter only: page numbers for the whole deck, on unless `false`. A slide comment is ignored; one slide opts out with the `no-pagination` class and back in with `with-pagination`. `skip` and `hold` are Marp extensions the engine does not honor." },
         "header": { "type": "text", "scope": "slide", "local": true, "applied": true, "complete": true, "describe": "The slide's header. Front matter sets it for every slide; on a slide, either spelling sets that slide only." },
         "footer": { "type": "text", "scope": "slide", "local": true, "applied": true, "complete": true, "describe": "The slide's footer. Front matter sets it for every slide; on a slide, either spelling sets that slide only." },
         "class": { "type": "classes", "local": true, "applied": true, "complete": true, "describe": "The slide's component and modifier words." },

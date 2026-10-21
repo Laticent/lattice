@@ -7,7 +7,6 @@ header: "Lattice · State chart follow-ups"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Feature deck`
 

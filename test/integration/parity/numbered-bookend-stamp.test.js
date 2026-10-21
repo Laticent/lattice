@@ -11,7 +11,7 @@
  *     bundle, so the counter was stripped from the stylesheet the docs Playground, the
  *     Studio and lib/runtime load — while the unpacked emulator/CLI path kept it. One
  *     modifier, two render paths, two different pictures.
- *  2. `silent` / `no-paginate` null the same pseudo with
+ *  2. `silent` / `no-pagination` null the same pseudo with
  *     `section.silent.silent::after { content: none }` at an equal (0,2,2) specificity
  *     from a later file, so `divider silent numbered` — the sample shipped in
  *     `divider.docs.md`, in the manifest and in `divider.gallery.md` — stamped nothing

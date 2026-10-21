@@ -90,7 +90,6 @@ One line of front matter, and every backtick span goes back to being text.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 
 # Your text, as you typed it.
