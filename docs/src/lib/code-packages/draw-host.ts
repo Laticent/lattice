@@ -102,11 +102,18 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 	}
 
 	async function openFrame(kind: DrawKind): Promise<Frame> {
-		let html = await esmDocument(kind);
-		if (html === null) {
-			const script = drawFrameScript({ kind, library: await library(kind), ...(kind === 'function-plot' ? { hydrateSource: deps.hydrateSource() } : {}) });
-			const hash = b64(await subtle.digest('SHA-256', new TextEncoder().encode(script)));
-			html = drawFrameDocument({ kind, script, hash });
+		let html: string | null;
+		try {
+			html = await esmDocument(kind);
+			if (html === null) {
+				const script = drawFrameScript({ kind, library: await library(kind), ...(kind === 'function-plot' ? { hydrateSource: deps.hydrateSource() } : {}) });
+				const hash = b64(await subtle.digest('SHA-256', new TextEncoder().encode(script)));
+				html = drawFrameDocument({ kind, script, hash });
+			}
+		} catch (e) {
+			// A library that could not be fetched or did not match its pin leaves the kind to the page itself, as a frame that could not open does.
+			if (e instanceof Error) (e as Error & { drawUnavailable?: boolean }).drawUnavailable = true;
+			throw e;
 		}
 		mark('script-hashed');
 		const frame = doc.createElement('iframe');

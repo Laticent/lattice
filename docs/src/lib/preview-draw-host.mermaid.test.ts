@@ -33,6 +33,8 @@ const figure = (over: Record<string, unknown> = {}) =>
 			['d3', 'data:text/html,<script>1</script>'],
 			['d4', '/relative/path'],
 			['d5', 'mailto:a@b.test'],
+			['d6', '//evil.example/x'],
+			['d7', '/\t/evil.example/x'],
 		],
 		...over,
 	});

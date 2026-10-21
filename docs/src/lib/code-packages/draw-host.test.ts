@@ -169,4 +169,33 @@ describe('the draw host', () => {
 		expect(frames[0].removed).toBe(true);
 		await expect(host.draw(JOB)).rejects.toThrow(/closed/);
 	});
+
+	it('says a kind is unavailable when its library cannot be fetched or its frame says it failed to load', async () => {
+		const down = rig({ fetchText: async () => 'alert(1)' });
+		opened.push(down.host.close);
+		await expect(down.host.draw(JOB)).rejects.toMatchObject({ drawUnavailable: true });
+		const { host, frames } = rig({ autoReady: false });
+		opened.push(host.close);
+		const drawing = host.draw(JOB).catch((e) => e);
+		await new Promise((r) => setTimeout(r, 10));
+		frames[0].reply({ t: 'failed' });
+		expect(await drawing).toMatchObject({ drawUnavailable: true });
+	});
+
+	it('closes a frame whose lazy module failed to load, and sends a draw that never reached a closed frame to a fresh one', async () => {
+		const { host, frames } = rig();
+		opened.push(host.close);
+		const first = host.draw(JOB, 5_000);
+		await new Promise((r) => setTimeout(r, 10));
+		const queued = host.draw(JOB, 5_000);
+		await new Promise((r) => setTimeout(r, 10));
+		// The first draw's frame reports a module that could not load: it is closed, and the queued draw (never sent) goes to a new frame.
+		frames[0].reply({ t: 'result', id: 1, error: 'Failed to fetch dynamically imported module: x', loadFailed: true });
+		await expect(first).rejects.toThrow(/dynamically imported/);
+		await new Promise((r) => setTimeout(r, 20));
+		expect(frames[0].removed).toBe(true);
+		expect(frames.length).toBe(2);
+		frames[1].reply({ t: 'result', id: 1, out: '<svg/>' });
+		await expect(queued).resolves.toBe('<svg/>');
+	});
 });

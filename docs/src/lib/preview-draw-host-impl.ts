@@ -75,7 +75,11 @@ async function drawMermaid(job: Job): Promise<string> {
 	mark('sanitize-start');
 	const svg = sanitizeDiagramSvg(fig.svg);
 	mark('sanitize-done');
-	const links = (Array.isArray(fig.links) ? fig.links : []).filter((l) => Array.isArray(l) && typeof l[0] === 'string' && typeof l[1] === 'string' && SAFE_LINK.test(l[1]));
+	// A URL parser drops tabs and newlines, so `/<tab>/host` is a link to another site: they leave before the check, and the cleaned link is the one kept.
+	const links = (Array.isArray(fig.links) ? fig.links : [])
+		.filter((l) => Array.isArray(l) && typeof l[0] === 'string' && typeof l[1] === 'string')
+		.map((l): [string, string] => [l[0], l[1].replace(/[\t\n\r]/g, '')])
+		.filter((l) => SAFE_LINK.test(l[1]));
 	return JSON.stringify({ svg, type: String(fig.type || ''), links });
 }
 

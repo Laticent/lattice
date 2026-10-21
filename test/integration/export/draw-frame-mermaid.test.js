@@ -301,6 +301,7 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
         sheet: run('<svg><style>@import url(http://evil.example/x.css); .a{fill:red}</style><rect class="a"/></svg>'),
         terminator: run('<svg><style>/* </style><img src=x onerror="window.__x=3"> */ .a{fill:red}</style></svg>'),
         href: run('<svg><a href="javascript:window.__x=4"><text>t</text></a></svg>'),
+        decoy: run('<svg><style>/*@import;*/@\\69mport url(http://evil.example/d.css); .a{fill:red}</style><rect class="a"/></svg>'),
         escaped: run('<svg><style>@\\69mport url(http://evil.example/i.css); .a{fill:red}</style><rect class="a"/></svg>'),
         target: run('<svg><a href="https://example.com/" target="_top"><text>t</text></a><a href="https://example.com/" target="_blank"><text>u</text></a></svg>'),
       };
@@ -315,6 +316,7 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
     assert.doesNotMatch(out.href, /javascript:/i);
     assert.match(out.escaped, /fill:\s*red/);
     assert.doesNotMatch(out.escaped, /mport|evil\.example/i, 'an @import spelled with a CSS escape is dropped too');
+    assert.doesNotMatch(out.decoy, /mport\s+url|evil\.example/i, 'a literal @import beside an escaped one does not turn the check off');
     assert.doesNotMatch(out.target, /_top/);
     assert.match(out.target, /target="_blank"/);
   } finally {
