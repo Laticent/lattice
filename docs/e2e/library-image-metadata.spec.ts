@@ -59,7 +59,8 @@ async function openLibraryImages(page: Page, width: number) {
 		await page.getByRole('button', { name: /^Library/ }).click();
 	}
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 }
 
 /** Open the Old names section if it is shut (it opens itself only while a deck still writes an old name). */
@@ -403,7 +404,8 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	if (!(await mediaPill.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
 	await mediaPill.click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await page.locator('[data-media-card="shared-probe"]').getByRole('button', { name: 'Details for shared-probe' }).click();
 	const dialog = page.locator('[data-media-detail="shared-probe"]');
 	await dialog.getByLabel('Name', { exact: true }).fill('team-probe');
@@ -623,7 +625,8 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 		if (!(await mediaPill.isVisible())) await page.getByRole('button', { name: CHROME.library }).click();
 		await expect(mediaPill).toBeVisible({ timeout: 2_000 });
 		await mediaPill.click({ timeout: 2_000 });
-		await page.getByRole('tab', { name: 'Images' }).click({ timeout: 2_000 });
+		await page.getByRole('button', { name: 'Filter' }).click();
+		await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	}).toPass({ timeout: 15_000 });
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');

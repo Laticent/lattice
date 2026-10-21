@@ -46,7 +46,8 @@ test('@smoke a Library photo paints in the live preview, and deleting it falls b
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await addPng(page, 'Probe Photo.png');
 	await expect(page.locator('[data-media-card="probe-photo"]')).toBeVisible();
 
@@ -95,8 +96,10 @@ test('@smoke a deck-only photo renders in its own deck, and flipping it to share
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
-	await page.getByRole('button', { name: /^New media goes to all decks/ }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'This deck' }).click();
 	await addPng(page, 'Mine.png');
 	const card = page.locator('[data-media-card="mine"]');
 	await expect(card.getByText('This deck', { exact: true })).toBeVisible();
@@ -122,7 +125,8 @@ test('@smoke a collage of Library photos paints every tile and fills its frame @
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	const shapes = [
 		{ n: 'tall', w: 600, h: 900, color: '#d02828' },
 		{ n: 'wide', w: 1200, h: 600, color: '#2840d0' },
@@ -152,7 +156,8 @@ test('@smoke a Library photo paints in the Present overlay @crosswidth @webkit-t
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await addPng(page, 'Stage.png', { w: 800, h: 450, color: '#2840d0' });
 	await expect(page.locator('[data-media-card="stage"]')).toBeVisible();
 	await setEditorContent(page, '# On stage\n\n![on stage](asset:stage)\n');

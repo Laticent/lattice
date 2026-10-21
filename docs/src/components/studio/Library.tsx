@@ -1,6 +1,7 @@
-import { Check, Download, FileBox, FileText, Package, Pencil, Plus,  Share2, Upload } from 'lucide-react';
+import { Check, Download, FileBox, FileText, ListFilter, Package, Pencil, Plus,  Share2, Upload } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
@@ -357,6 +358,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// Media holds photos and clips; Images and Videos narrow it, and "All" shows both.
 	const mediaTab = filter === 'media' || filter === 'image' || filter === 'video';
 	const vMedia = filter === 'all' || mediaTab ? shownMedia.filter((a) => (filter === 'all' || filter === 'media' || a.kind === (filter === 'video' ? 'video' : 'image')) && (!q || a.name.includes(q) || a.sourceName.toLowerCase().includes(q))) : [];
+	const section = sectionOf(filter);
+	const kinds = LIBRARY_KINDS[section];
+	// A dot on the button while the list is narrowed to one kind.
+	const narrowed = !!kinds && filter !== sectionFilter(section);
 	const mediaWord = filter === 'video' ? 'videos' : filter === 'image' ? 'images' : 'photos or videos';
 	const videoCount = shownMedia.filter((a) => a.kind === 'video').length;
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
@@ -1154,7 +1159,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		<LibraryFrame docked={docked} open={open} onOpenChange={onOpenChange} dropProps={dropProps}>
 			{header}
 
-				<div className={cn('flex items-center gap-2 bg-card px-4', LIBRARY_KINDS[sectionOf(filter)] ? 'pb-1.5 pt-2.5' : 'border-b border-border py-2.5')}>
+				<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 					{/* `PillTabs`, not a hand-rolled segmented track. This forked the shared
 					    primitive: same job (pick one section of the panel), different shape, and
 					    — because it was `aria-pressed` buttons rather than a `role="tablist"` —
@@ -1169,6 +1174,35 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						onValueChange={(v) => React.startTransition(() => setFilter(sectionFilter(v as LibrarySection)))}
 						tabs={LIBRARY_SECTIONS}
 					/>
+					{/* ONE row. What used to be a second row of kinds (and a third for where new media goes) lives in
+					    this menu, and the menu follows the section: Design offers its four kinds, Media offers photos,
+					    videos and where new media goes, All and Files have nothing to narrow so show no button. */}
+					{kinds && (
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="outline" size="icon-sm" className="relative shrink-0" aria-label="Filter">
+									<ListFilter className="size-4" />
+									{narrowed && <span aria-hidden className="absolute right-1 top-1 size-2 rounded-full bg-[var(--accent)]" />}
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end">
+								<DropdownMenuLabel>Show</DropdownMenuLabel>
+								<DropdownMenuRadioGroup value={filter} onValueChange={(v) => React.startTransition(() => setFilter(v as LibraryFilter))}>
+									{kinds.map((k) => <DropdownMenuRadioItem key={k.value} value={k.value}>{k.label}</DropdownMenuRadioItem>)}
+								</DropdownMenuRadioGroup>
+								{mediaTab && activeDeckId && (
+									<>
+										<DropdownMenuSeparator />
+										<DropdownMenuLabel>Add new media to</DropdownMenuLabel>
+										<DropdownMenuRadioGroup value={addScope} onValueChange={(v) => setAddScope(v as 'library' | 'deck')}>
+											<DropdownMenuRadioItem value="library">All decks</DropdownMenuRadioItem>
+											<DropdownMenuRadioItem value="deck">This deck</DropdownMenuRadioItem>
+										</DropdownMenuRadioGroup>
+									</>
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					)}
 					{/* The count MOVED to the status bar at the foot of the panel (#1655). It sat
 					    here competing with the filters for the same row, which is why it had to
 					    hide on a narrow pane and on a phone at all — five pills need ~340px, and
@@ -1177,20 +1211,6 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					    count is legible at every width instead of disappearing at the two where a
 					    shelf is hardest to read. */}
 				</div>
-				{LIBRARY_KINDS[sectionOf(filter)] && (
-					// The sections and their kinds are ONE block with one rule under it: three stacked bands
-					// each with its own divider read as a ladder of lines on a phone.
-					<div className="flex items-center gap-2 border-b border-border bg-card px-4 pb-2.5 pt-1">
-						<PillTabs className="min-w-0 flex-1" ariaLabel={`${sectionOf(filter) === 'design' ? 'Design' : 'Media'} kinds`} value={filter} onValueChange={(v) => React.startTransition(() => setFilter(v as LibraryFilter))} tabs={LIBRARY_KINDS[sectionOf(filter)] ?? []} />
-						{/* Where new media goes. It was its own labeled row with two more pills; now one small toggle on
-						    the kinds row, and only when a deck is open (with none open, media always goes to all decks). */}
-						{mediaTab && activeDeckId && (
-							<Button variant="outline" size="sm" className="shrink-0" aria-label={`New media goes to ${addScope === 'deck' ? 'this deck' : 'all decks'}. Change`} onClick={() => setAddScope((v) => (v === 'deck' ? 'library' : 'deck'))}>
-								{addScope === 'deck' ? 'This deck' : 'All decks'}
-							</Button>
-						)}
-					</div>
-				)}
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
 					{total === 0 && vShipped.length === 0 && !mediaTab ? (

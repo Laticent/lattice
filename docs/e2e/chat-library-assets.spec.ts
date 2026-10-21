@@ -69,7 +69,8 @@ async function mockModel(page: Page, vision: boolean, rounds: Round[]): Promise<
 async function addPhotos(page: Page, files: { name: string; width: number; height: number }[]) {
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await page.evaluate(async (specs) => {
 		const dt = new DataTransfer();
 		for (const s of specs) {

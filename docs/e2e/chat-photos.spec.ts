@@ -297,11 +297,12 @@ test('a sent clip lives in Library → Videos, survives a reload, and Regenerate
 	// And it is a Library asset: on the Videos tab, with a length, and playable.
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Videos' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Videos' }).click();
 	const card = page.locator('[data-media-card^="walkthrough-"]');
 	await expect(card).toBeVisible();
 	await expect(card).toContainText(/0:0[1-3]/);
-	await expect(page.getByRole('tab', { name: 'Images' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Filter' })).toBeVisible();
 	await card.getByRole('button', { name: /^Play walkthrough-/ }).click();
 	await expect(card.locator('video')).toBeVisible();
 	// A playing clip is not the 88px still strip: it takes its own proportions (a portrait phone clip was a sliver).
@@ -316,11 +317,13 @@ test('the Library adds a clip from its own picker, and the Images tab does not l
 	const clip = await recordClip(page, 2);
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Videos' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Videos' }).click();
 	await page.locator('input[type=file][accept*="video"]').first().setInputFiles({ name: 'Site Visit.webm', mimeType: 'video/webm', buffer: clip });
 	await expect(page.locator('[data-media-card="site-visit"]')).toBeVisible({ timeout: 20_000 });
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await expect(page.locator('[data-media-card="site-visit"]')).toHaveCount(0);
 	await page.getByRole('tab', { name: 'All', exact: true }).click();
 	await expect(page.locator('[data-media-card="site-visit"]')).toBeVisible();
@@ -339,7 +342,8 @@ test('a clip taken out of the strip before it is sent is not left in the Library
 	await expect(strip).toHaveCount(0);
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Videos' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Videos' }).click();
 	await expect(page.getByText('No videos yet')).toBeVisible();
 	await expect(page.locator('[data-media-card^="draft-"]')).toHaveCount(0);
 });
@@ -414,7 +418,8 @@ test("a clip's location data is overwritten before it is stored, and the clip st
 
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
-	await page.getByRole('tab', { name: 'Videos' }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Videos' }).click();
 	await page.locator('input[type=file][accept*="video"]').first().setInputFiles({ name: 'Site Visit.mp4', mimeType: 'video/mp4', buffer: dirty });
 	// It was probed after cleaning: a card with a length means the cleaned clip still decodes.
 	const card = page.locator('[data-media-card="site-visit"]');

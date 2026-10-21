@@ -15,7 +15,8 @@ test('the Library lists the shipped scenes on its Motion tab, and Insert places 
 	await openLibrary(page);
 	const tabs = page.getByRole('tablist', { name: 'Library sections' });
 	await tabs.getByRole('tab', { name: 'Design', exact: true }).click();
-	await page.getByRole('tablist', { name: 'Design kinds' }).getByRole('tab', { name: 'Motions', exact: true }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Motions' }).click();
 
 	await expect(page.getByRole('heading', { name: 'Shipped with Lattice' })).toBeVisible();
 	for (const label of ['Rotor', 'Pipeline, beat by beat', 'Arrivals', 'Ring and marker']) {
@@ -27,7 +28,8 @@ test('the Library lists the shipped scenes on its Motion tab, and Insert places 
 	await expect(page.getByRole('heading', { name: 'Shipped with Lattice' })).toHaveCount(0);
 	await expect(page.getByRole('button', { name: 'Insert Rotor', exact: true })).toHaveCount(0);
 	await tabs.getByRole('tab', { name: 'Design', exact: true }).click();
-	await page.getByRole('tablist', { name: 'Design kinds' }).getByRole('tab', { name: 'Motions', exact: true }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Motions' }).click();
 
 	await page.getByRole('button', { name: 'Insert Pipeline, beat by beat', exact: true }).click();
 	await expect.poll(() => persistedSource(page), { timeout: 10_000 }).toContain('## Pipeline, beat by beat');

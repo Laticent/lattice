@@ -51,6 +51,13 @@ async function addPhotos(page: Page) {
 	await dialog.getByRole('button', { name: /^Add photo/ }).click();
 }
 
+/** The kind the Filter menu is set to, read the way a person reads it: open the menu and look. */
+async function filterIs(page: Page, label: string) {
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await expect(page.getByRole('menuitemradio', { name: label })).toHaveAttribute('aria-checked', 'true');
+	await page.keyboard.press('Escape');
+}
+
 const selected = (page: Page, name: string, label: string) => expect(page.getByRole('tablist', { name }).getByRole('tab', { name: label, exact: true })).toHaveAttribute('aria-selected', 'true');
 
 for (const vw of [1440, 820, 390]) {
@@ -73,7 +80,7 @@ for (const vw of [1440, 820, 390]) {
 			await addPhotos(page);
 			await expect(page.locator('[data-media-card="one"]')).toBeVisible({ timeout: 20_000 });
 			await selected(page, 'Library sections', 'Media');
-			await selected(page, 'Media kinds', 'Images');
+			await filterIs(page, 'Images');
 
 			// A reference file, imported from Images: it opens Files.
 			await importFiles(page, [{ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n') }]);
