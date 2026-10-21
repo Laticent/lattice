@@ -33,8 +33,8 @@ function idFor(code: string): string {
 	return `lattice-mmd-check-${h.toString(36)}`;
 }
 
-/** What the frame says when the drawing, not the diagram, is the trouble: that says nothing about the author's text. */
-const NOT_A_VERDICT = /past the \d+ limit|is not text|returned null|resolved without producing/i;
+/** What the frame says when the drawing, not the diagram, is the trouble: that says nothing about the author's text. Anchored at the start: Mermaid's own messages quote the author's text, which can hold these words. */
+const NOT_A_VERDICT = /^(?:the drawing is |the frame returned |mermaid resolved without |mermaid did not load|a mermaid draw needs )/i;
 
 /**
  * Mermaid's thrown error, reduced to the part that helps. Its parse errors look like:

@@ -225,7 +225,15 @@ test('a Studio export draws Mermaid itself, never through the preview draw frame
 	await setEditorContent(page, FLOW_DECK);
 	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toBeAttached({ timeout: 90_000 });
 	// Every draw the host takes leaves a mark. The preview's draw and the deck-wide check's draw (900 ms after the deck settles) both come first, so wait for both before clearing: any mark after that comes from the export.
-	await expect.poll(() => page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+	const marks = () => page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length);
+	// Settled: at least the preview's and the check's draw are in, and the count has not moved for a full check interval.
+	await expect
+		.poll(async () => {
+			const before = await marks();
+			await new Promise((r) => setTimeout(r, 1500));
+			return before >= 2 && before === (await marks());
+		}, { timeout: 60_000 })
+		.toBe(true);
 	await page.evaluate(() => performance.clearMarks('lattice-draw:draw-called'));
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
 	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).first().click();

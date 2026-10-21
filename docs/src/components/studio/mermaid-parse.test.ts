@@ -56,6 +56,33 @@ describe('checkDiagrams: the sandboxed frame answers, the page loads no Mermaid'
 		expect(out?.[0].slide).toBe(2);
 	});
 
+	it("does not read the author's own words as the frame's trouble", async () => {
+		const { checkDiagrams } = await import('./mermaid-parse');
+		withHost({
+			kinds: ['mermaid'],
+			draw: async (job: Record<string, unknown>) => {
+				if (String(job.definition).includes('bad')) throw Object.assign(new Error('Parse error on line 3:\n...the API returned null --> B\nExpecting X'), { drawRefused: true });
+				return '{}';
+			},
+		});
+		const out = await checkDiagrams([diagram(1, 'graph TD\n A'), diagram(2, 'bad the API returned null')]);
+		expect(out).toHaveLength(1);
+		expect(out?.[0].slide).toBe(2);
+		for (const m of ['the frame returned undefined, not text', 'mermaid did not load', 'the drawing is not text']) {
+			withHost({ kinds: ['mermaid'], draw: async () => { throw Object.assign(new Error(m), { drawRefused: true }); } });
+			expect(await checkDiagrams([diagram(1, 'graph TD\n A')]), m).toBeNull();
+		}
+	});
+
+	it('stops between diagrams when the deck moves on', async () => {
+		const { checkDiagrams } = await import('./mermaid-parse');
+		let drawn = 0;
+		let stop = false;
+		withHost({ kinds: ['mermaid'], draw: async () => { drawn++; stop = true; return '{}'; } });
+		expect(await checkDiagrams([diagram(1, 'graph TD\n A'), diagram(2, 'graph TD\n B')], '', () => stop)).toBeNull();
+		expect(drawn).toBe(1);
+	});
+
 	it("does not call the drawing's own trouble a diagram error, and stops when the deck moved on", async () => {
 		const { checkDiagrams } = await import('./mermaid-parse');
 		withHost({ kinds: ['mermaid'], draw: async () => { throw Object.assign(new Error('the drawing is past the 8000000 limit'), { drawRefused: true }); } });
