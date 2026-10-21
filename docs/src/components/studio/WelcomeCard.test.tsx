@@ -35,6 +35,20 @@ describe('WelcomeCard', () => {
 		expect(await screen.findByText(/could not load/)).toBeTruthy();
 	});
 
+	it('end card with a next tour offers it by name, and Go further starts it after closing', async () => {
+		const onNext = vi.fn();
+		const onClose = vi.fn();
+		const onLessons = vi.fn();
+		const user = userEvent.setup();
+		render(<WelcomeCard {...base} mode="end" onClose={onClose} onNext={onNext} onLessons={onLessons} end={{ title: 'That’s Read', next: { label: 'Craft tour', description: 'The full workshop: every panel, one by one.' } }} />);
+		expect(screen.getByText('That’s Read')).toBeTruthy();
+		expect(screen.getByText(/Next is the craft tour: the full workshop/)).toBeTruthy();
+		await user.click(screen.getByRole('button', { name: 'Go further: craft tour' }));
+		expect(onClose).toHaveBeenCalledTimes(1);
+		expect(onNext).toHaveBeenCalledTimes(1);
+		expect(onLessons).not.toHaveBeenCalled();
+	});
+
 	it('end card: Go further closes and opens the lessons; Start building only closes', async () => {
 		const onLessons = vi.fn();
 		const onClose = vi.fn();

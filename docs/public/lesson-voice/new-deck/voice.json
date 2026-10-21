@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 59040,
+	"bytes": 69840,
 	"lines": [
 		{
-			"key": "2a81465367d1",
+			"key": "3429ae4a5c2a",
 			"text": "Your decks live under the deck name at the top left. Click it.",
-			"file": "2a81465367d1.mp3",
-			"bytes": 20016,
-			"speechMs": 3266,
+			"file": "3429ae4a5c2a.mp3",
+			"bytes": 21744,
+			"speechMs": 3570,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,82 +24,82 @@
 								"display": "Your",
 								"spoken": "Your",
 								"startMs": 0,
-								"endMs": 173,
+								"endMs": 189,
 								"charOffset": 0
 							},
 							{
 								"display": "decks",
 								"spoken": "decks",
-								"startMs": 173,
-								"endMs": 346,
+								"startMs": 189,
+								"endMs": 379,
 								"charOffset": 5
 							},
 							{
 								"display": "live",
 								"spoken": "live",
-								"startMs": 346,
-								"endMs": 520,
+								"startMs": 379,
+								"endMs": 568,
 								"charOffset": 11
 							},
 							{
 								"display": "under",
 								"spoken": "under",
-								"startMs": 520,
-								"endMs": 866,
+								"startMs": 568,
+								"endMs": 947,
 								"charOffset": 16
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 866,
-								"endMs": 1039,
+								"startMs": 947,
+								"endMs": 1136,
 								"charOffset": 22
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 1039,
-								"endMs": 1213,
+								"startMs": 1136,
+								"endMs": 1325,
 								"charOffset": 26
 							},
 							{
 								"display": "name",
 								"spoken": "name",
-								"startMs": 1213,
-								"endMs": 1386,
+								"startMs": 1325,
+								"endMs": 1515,
 								"charOffset": 31
 							},
 							{
 								"display": "at",
 								"spoken": "at",
-								"startMs": 1386,
-								"endMs": 1559,
+								"startMs": 1515,
+								"endMs": 1704,
 								"charOffset": 36
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1559,
-								"endMs": 1732,
+								"startMs": 1704,
+								"endMs": 1894,
 								"charOffset": 39
 							},
 							{
 								"display": "top",
 								"spoken": "top",
-								"startMs": 1732,
-								"endMs": 1906,
+								"startMs": 1894,
+								"endMs": 2083,
 								"charOffset": 43
 							},
 							{
 								"display": "left.",
 								"spoken": "left.",
-								"startMs": 1906,
-								"endMs": 2104,
+								"startMs": 2083,
+								"endMs": 2300,
 								"charOffset": 47
 							}
 						],
 						"startMs": 0,
-						"endMs": 2429,
+						"endMs": 2656,
 						"charOffset": 0
 					},
 					{
@@ -109,32 +108,32 @@
 							{
 								"display": "Click",
 								"spoken": "Click",
-								"startMs": 2569,
-								"endMs": 2742,
+								"startMs": 2808,
+								"endMs": 2997,
 								"charOffset": 53
 							},
 							{
 								"display": "it.",
 								"spoken": "it.",
-								"startMs": 2742,
-								"endMs": 2941,
+								"startMs": 2997,
+								"endMs": 3214,
 								"charOffset": 59
 							}
 						],
-						"startMs": 2569,
-						"endMs": 3266,
+						"startMs": 2808,
+						"endMs": 3570,
 						"charOffset": 53
 					}
 				],
-				"durationMs": 3266
+				"durationMs": 3570
 			}
 		},
 		{
-			"key": "c8913311389c",
+			"key": "a30cdefb6da6",
 			"text": "Choose New deck.",
-			"file": "c8913311389c.mp3",
-			"bytes": 5760,
-			"speechMs": 903,
+			"file": "a30cdefb6da6.mp3",
+			"bytes": 9072,
+			"speechMs": 1452,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -145,38 +144,38 @@
 								"display": "Choose",
 								"spoken": "Choose",
 								"startMs": 0,
-								"endMs": 180,
+								"endMs": 289,
 								"charOffset": 0
 							},
 							{
 								"display": "New",
 								"spoken": "New",
-								"startMs": 180,
-								"endMs": 359,
+								"startMs": 289,
+								"endMs": 578,
 								"charOffset": 7
 							},
 							{
 								"display": "deck.",
 								"spoken": "deck.",
-								"startMs": 359,
-								"endMs": 565,
+								"startMs": 578,
+								"endMs": 909,
 								"charOffset": 11
 							}
 						],
 						"startMs": 0,
-						"endMs": 903,
+						"endMs": 1452,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 903
+				"durationMs": 1452
 			}
 		},
 		{
-			"key": "aa63d142db64",
+			"key": "da1db52f0157",
 			"text": "I’ll start a new deck for you.",
-			"file": "aa63d142db64.mp3",
-			"bytes": 8640,
-			"speechMs": 1370,
+			"file": "da1db52f0157.mp3",
+			"bytes": 8928,
+			"speechMs": 1428,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -187,66 +186,66 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 152,
+								"endMs": 158,
 								"charOffset": 0
 							},
 							{
 								"display": "start",
 								"spoken": "start",
-								"startMs": 152,
-								"endMs": 304,
+								"startMs": 158,
+								"endMs": 316,
 								"charOffset": 5
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 304,
-								"endMs": 455,
+								"startMs": 316,
+								"endMs": 475,
 								"charOffset": 11
 							},
 							{
 								"display": "new",
 								"spoken": "new",
-								"startMs": 455,
-								"endMs": 607,
+								"startMs": 475,
+								"endMs": 633,
 								"charOffset": 13
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 607,
-								"endMs": 759,
+								"startMs": 633,
+								"endMs": 791,
 								"charOffset": 17
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 759,
-								"endMs": 911,
+								"startMs": 791,
+								"endMs": 949,
 								"charOffset": 22
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 911,
-								"endMs": 1085,
+								"startMs": 949,
+								"endMs": 1131,
 								"charOffset": 26
 							}
 						],
 						"startMs": 0,
-						"endMs": 1370,
+						"endMs": 1428,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1370
+				"durationMs": 1428
 			}
 		},
 		{
-			"key": "28cc62a4c5eb",
+			"key": "04a72a5f8ee3",
 			"text": "A blank deck, saved as you type. Your other decks are in that same menu.",
-			"file": "28cc62a4c5eb.mp3",
-			"bytes": 24624,
-			"speechMs": 4035,
+			"file": "04a72a5f8ee3.mp3",
+			"bytes": 30096,
+			"speechMs": 4967,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -257,54 +256,54 @@
 								"display": "A",
 								"spoken": "A",
 								"startMs": 0,
-								"endMs": 168,
+								"endMs": 207,
 								"charOffset": 0
 							},
 							{
 								"display": "blank",
 								"spoken": "blank",
-								"startMs": 168,
-								"endMs": 337,
+								"startMs": 207,
+								"endMs": 414,
 								"charOffset": 2
 							},
 							{
 								"display": "deck,",
 								"spoken": "deck,",
-								"startMs": 337,
-								"endMs": 530,
+								"startMs": 414,
+								"endMs": 652,
 								"charOffset": 8
 							},
 							{
 								"display": "saved",
 								"spoken": "saved",
-								"startMs": 694,
-								"endMs": 1030,
+								"startMs": 854,
+								"endMs": 1268,
 								"charOffset": 14
 							},
 							{
 								"display": "as",
 								"spoken": "as",
-								"startMs": 1030,
-								"endMs": 1199,
+								"startMs": 1268,
+								"endMs": 1475,
 								"charOffset": 20
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 1199,
-								"endMs": 1367,
+								"startMs": 1475,
+								"endMs": 1683,
 								"charOffset": 23
 							},
 							{
 								"display": "type.",
 								"spoken": "type.",
-								"startMs": 1367,
-								"endMs": 1560,
+								"startMs": 1683,
+								"endMs": 1920,
 								"charOffset": 27
 							}
 						],
 						"startMs": 0,
-						"endMs": 1876,
+						"endMs": 2309,
 						"charOffset": 0
 					},
 					{
@@ -313,66 +312,66 @@
 							{
 								"display": "Your",
 								"spoken": "Your",
-								"startMs": 2011,
-								"endMs": 2180,
+								"startMs": 2476,
+								"endMs": 2683,
 								"charOffset": 33
 							},
 							{
 								"display": "other",
 								"spoken": "other",
-								"startMs": 2180,
-								"endMs": 2516,
+								"startMs": 2683,
+								"endMs": 3097,
 								"charOffset": 38
 							},
 							{
 								"display": "decks",
 								"spoken": "decks",
-								"startMs": 2516,
-								"endMs": 2685,
+								"startMs": 3097,
+								"endMs": 3305,
 								"charOffset": 44
 							},
 							{
 								"display": "are",
 								"spoken": "are",
-								"startMs": 2685,
-								"endMs": 2853,
+								"startMs": 3305,
+								"endMs": 3512,
 								"charOffset": 50
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 2853,
-								"endMs": 3021,
+								"startMs": 3512,
+								"endMs": 3719,
 								"charOffset": 54
 							},
 							{
 								"display": "that",
 								"spoken": "that",
-								"startMs": 3021,
-								"endMs": 3189,
+								"startMs": 3719,
+								"endMs": 3926,
 								"charOffset": 57
 							},
 							{
 								"display": "same",
 								"spoken": "same",
-								"startMs": 3189,
-								"endMs": 3358,
+								"startMs": 3926,
+								"endMs": 4133,
 								"charOffset": 62
 							},
 							{
 								"display": "menu.",
 								"spoken": "menu.",
-								"startMs": 3358,
-								"endMs": 3719,
+								"startMs": 4133,
+								"endMs": 4578,
 								"charOffset": 67
 							}
 						],
-						"startMs": 2011,
-						"endMs": 4035,
+						"startMs": 2476,
+						"endMs": 4967,
 						"charOffset": 33
 					}
 				],
-				"durationMs": 4035
+				"durationMs": 4967
 			}
 		}
 	]

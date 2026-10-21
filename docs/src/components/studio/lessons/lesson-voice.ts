@@ -1,7 +1,8 @@
 // LESSON VOICE — a narrator that plays the clips recorded for each lesson line.
 //
 // Lessons speak from clips recorded ahead of time by tools/record-lesson-voice.mjs (owner ruling
-// 2026-10-05: one voice on every device, no key, no model download, no `speechSynthesis`). This is
+// 2026-10-05: one voice on every device, no key, no model download, no `speechSynthesis`). Since
+// 2026-10-20 that voice is the tour voice, Gemini `Schedar`, for lessons and tours alike. This is
 // the other half: Vetrina's `Narrator` port, playing those clips through Suono.
 //
 // A LINE IS FOUND BY ITS EXACT TEXT. Each lesson folder's `voice.json` maps text → clip. A line

@@ -145,7 +145,7 @@ import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryP
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
-import { DEFAULT_TOUR, TOURS } from './tours';
+import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
@@ -3073,6 +3073,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	// The first-run welcome cards: `start` before the narrated tour, `end` when it finishes on its own.
 	const [welcomeMode, setWelcomeMode] = React.useState<'start' | 'end' | null>(null);
+	// Which tour just ended, so the end card can offer the one after it.
+	const [endTour, setEndTour] = React.useState<string>(DEFAULT_TOUR);
 	const livePracticeRef = React.useRef<{ start: () => void; end: () => boolean } | null>(null);
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
@@ -3110,7 +3112,52 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setFocus: setQuietened,
 		setPosture: changePosture,
 		posture,
-		onTourComplete: () => setWelcomeMode('end'),
+		onTourComplete: (id) => {
+			setEndTour(id);
+			setWelcomeMode('end');
+		},
+		layout: {
+			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
+			reset: (want, { keepPresent }) => {
+				// The layout every tour is written against: this stop, no panel or sheet open, the Markdown
+				// editor and the preview both showing, the first slide. The editor's own mode (Markdown or Compose) is left
+				// alone: every tour works in either, and a tour that types follows whichever one is mounted. A first run on a phone has no split.
+				changePosture(want);
+				setActiveAssistant(null);
+				setActiveSettings(null);
+				setView('compose');
+				setShareOpen(false);
+				setWorkspaceOpen(false);
+				setHistoryOpen(false);
+				setCmdOpen(false);
+				setDeckMenuOpen(false);
+				if (!keepPresent) setPresentOpen(false);
+				const folded = splitApiRef.current.collapsed;
+				if (folded) splitApiRef.current.expand(folded);
+				setActiveSlide(0);
+			},
+			restore: (raw, { slide }) => {
+				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
+				changePosture(was.posture);
+				setActiveAssistant(was.assistant);
+				setActiveSettings(was.settings);
+				setView(was.view);
+				setEditMode(was.editMode);
+				setShareOpen(false);
+				setWorkspaceOpen(false);
+				setHistoryOpen(false);
+				setCmdOpen(false);
+				setDeckMenuOpen(false);
+				setPresentOpen(false);
+				const folded = splitApiRef.current.collapsed;
+				if (folded !== was.collapsed) {
+					if (folded) splitApiRef.current.expand(folded);
+					if (was.collapsed) splitApiRef.current.collapse(was.collapsed);
+				}
+				if (slide) setActiveSlide(was.slide);
+				setQuietened(was.quietened);
+			},
+		},
 		setCmdOpen,
 		setMobilePane,
 		mobile,
@@ -3220,8 +3267,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		}, 2500);
 		return () => window.clearTimeout(t);
 	}, []);
+	// Both cards preload the voice: Start and Next build the narrator inside their click.
 	React.useEffect(() => {
-		if (welcomeMode === 'start') loadTourVoice().catch(() => {});
+		if (welcomeMode) loadTourVoice().catch(() => {});
 	}, [welcomeMode, loadTourVoice]);
 	const closeWelcome = React.useCallback(() => {
 		markWelcomed();
@@ -3237,6 +3285,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		[closeWelcome, startDemo],
 	);
 	const testWelcomeSound = React.useCallback(async () => (await (tourVoiceRef.current ?? loadTourVoice())).testTourSound(), [loadTourVoice]);
+	// The end card for the tour that just ended: its heading, and the tour after it (none = the lessons).
+	const endCard = React.useMemo(() => {
+		const m = tourMeta(endTour);
+		const next = m.next ? tourMeta(m.next) : null;
+		return { title: m.endTitle ?? 'That’s the tour', next: next ? { label: next.label, description: next.description } : null };
+	}, [endTour]);
+	const startNextTour = React.useCallback(() => {
+		const next = tourMeta(endTour).next;
+		if (!next) return;
+		// Inside the click: build the narrator for the next tour's folder now, so this gesture unlocks audio.
+		tourVoiceRef.current?.prepareTourVoice(tourMeta(next).dir);
+		startDemo(next);
+	}, [endTour, startDemo]);
 	const openLessonsAfterTour = React.useCallback(() => {
 		const done = doneLessons();
 		const next = LESSONS.find((l) => !done.has(l.id)) ?? LESSONS[0];
@@ -6426,7 +6487,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<>
 							<DropdownMenuSeparator />
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
-							{TOURS.map((t) => (
+							{TOURS.filter((t) => !t.desktopOnly).map((t) => (
 								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => showMe(t.id))} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
@@ -6979,7 +7040,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onLenses={() => setLensesOpen(true)}
 						onLive={openLive}
 						demoActive={demoActive}
-						tours={TOURS}
+						tours={TOURS.filter((t) => !t.desktopOnly)}
 						onStartDemo={showMe}
 						onLibrary={() => setLibraryOpen(true)}
 						onSearch={() => setCmdOpen(true)}
@@ -7473,7 +7534,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{welcomeMode && (
 				<React.Suspense fallback={null}>
-					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} />
+					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} end={endCard} onNext={startNextTour} />
 				</React.Suspense>
 			)}
 			<Toaster />

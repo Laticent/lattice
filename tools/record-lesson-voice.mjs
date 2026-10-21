@@ -12,10 +12,12 @@
  *
  * with lines any lesson may say (the take-over line) once under `shared/`.
  *
- * THE VOICE IS THE STUDIO'S, BY REUSE. Kokoro runs through lib/export/narrate-kokoro.mjs — the
- * loader `lattice video` already uses, with the Studio's model, voice and quantization — and the
- * clip is encoded by lib/core/narration-encode.mjs's `compressClip`, the bake's encoder (HARD RULE
- * #15). kokoro-js is optional, so the first run says how to install it.
+ * THE VOICE IS GEMINI, FOR EVERY FOLDER. One voice across the Studio (owner ruling 2026-10-20): the
+ * tour voice `Schedar`, through OpenRouter's speech endpoint, as raw PCM that is trimmed and
+ * compressed by lib/core/narration-encode.mjs's `compressClip`, the bake's encoder (HARD RULE #15).
+ * Recording SPENDS OUR OPEN_ROUTER_KEY (HARD RULE #24): it is opt-in (OPENROUTER_ALLOW_SPEND=1),
+ * prints its plan first, and `--limit N` bounds it. Lessons were Kokoro until 2026-10-20; the
+ * on-device model download that needed is gone with it.
  *
  * A LINE IS KEYED BY ITS TEXT. `<key>` hashes the text with the voice settings, so a reworded line
  * gets a new clip and its old one is deleted; the narrator looks clips up by exact text and plays
@@ -28,7 +30,6 @@
  * word cue (`Step.at`) land on the clip rather than on the estimate.
  *
  * Usage:
- *   npm i --no-save kokoro-js@1.2.1        # once; the first run downloads the ~80 MB model
  *   node tools/record-lesson-voice.mjs     # record what is missing or stale, prune the rest
  *   node tools/record-lesson-voice.mjs --check   # report only; exit 1 if anything is missing,
  *                                                # stale or orphaned (no model needed)
@@ -61,16 +62,17 @@ const CHECK = args.includes('--check');
 const only = args.includes('--lesson') ? args[args.indexOf('--lesson') + 1] : null;
 const LIMIT = args.includes('--limit') ? Math.max(1, Number(args[args.indexOf('--limit') + 1]) || 1) : null;
 
-/** The tour folders and their (Gemini) voice, set by plan(); every other folder speaks in Kokoro. */
+/** The one voice every folder speaks in, set by plan(). */
 let tourVoice = null;
 
 /** Lines per folder: each lesson's own, and `shared` for the lines every lesson may say. */
 async function plan() {
 	const { LESSON_LINES, SHARED_LINES, SHARED_VOICE_DIR } = await import(pathToFileURL(LINES_TS).href);
-	const { TOUR_LINES, TOUR_VOICE, TOUR_VOICE_DIR, PLAYGROUND_LINES, PLAYGROUND_VOICE_DIR } = await import(pathToFileURL(TOUR_LINES_TS).href);
-	const dirs = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), [TOUR_VOICE_DIR]: Object.values(TOUR_LINES), [PLAYGROUND_VOICE_DIR]: Object.values(PLAYGROUND_LINES) };
+	const { TOUR_FOLDERS, TOUR_VOICE } = await import(pathToFileURL(TOUR_LINES_TS).href);
+	const dirs = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), ...Object.fromEntries(Object.entries(TOUR_FOLDERS).map(([d, l]) => [d, [...l]])) };
 	for (const [id, lines] of Object.entries(LESSON_LINES)) dirs[id] = Object.values(lines);
-	tourVoice = { dirs: new Set([TOUR_VOICE_DIR, PLAYGROUND_VOICE_DIR]), voice: TOUR_VOICE };
+	// One voice for the whole Studio: every folder, lessons included, speaks in the tour's Gemini voice.
+	tourVoice = { voice: TOUR_VOICE };
 	if (only && !(only in dirs)) throw new Error(`no lesson "${only}" in lines.ts`);
 	return only ? { [SHARED_VOICE_DIR]: dirs[SHARED_VOICE_DIR], [only]: dirs[only] } : dirs;
 }
@@ -151,10 +153,8 @@ async function geminiSpeak(text, voice) {
 }
 
 async function main() {
-	const { KOKORO } = await import('../lib/export/kokoro-voice.mjs');
-	const kokoroVoice = { model: KOKORO.model, voice: KOKORO.voice, dtype: KOKORO.dtype, speed: KOKORO.speed };
 	const dirs = await plan();
-	const voiceOf = (dir) => (tourVoice.dirs.has(dir) ? tourVoice.voice : kokoroVoice);
+	const voiceOf = () => tourVoice.voice;
 
 	// What each folder needs, what it already has, and what is left over.
 	const work = [];
@@ -190,20 +190,13 @@ async function main() {
 	const { wavBlob, speechOnsetMs } = await import('../lib/core/speech-pcm.mjs');
 	const { compressClip } = await import('../lib/core/narration-encode.mjs');
 
-	let tts = null;
-	const kokoroWork = work.filter((w) => !tourVoice.dirs.has(w.dir));
-	const geminiWork = work.filter((w) => tourVoice.dirs.has(w.dir)).slice(0, LIMIT ?? Infinity);
-	if (kokoroWork.length) {
-		const { loadKokoro } = await import('../lib/export/narrate-kokoro.mjs');
-		tts = await loadKokoro((m) => console.log(m));
-	}
-	if (geminiWork.length) requireSpendConsent(geminiWork);
-	const todo = [...kokoroWork, ...geminiWork];
+	const todo = work.slice(0, LIMIT ?? Infinity);
+	if (todo.length) requireSpendConsent(todo);
 
 	const recorded = new Map();
 	for (const [i, w] of todo.entries()) {
 		const voice = voiceOf(w.dir);
-		const a = tourVoice.dirs.has(w.dir) ? await geminiSpeak(w.text, voice) : await tts.generate(w.text, { voice: voice.voice, ...(voice.speed !== 1 ? { speed: voice.speed } : {}) });
+		const a = await geminiSpeak(w.text, voice);
 		const pcm = trimSilence(a.audio, a.sampling_rate, speechOnsetMs);
 		const mp3 = await compressClip(wavBlob(pcm, a.sampling_rate), KBPS);
 		if (!mp3) throw new Error('the mp3 encoder did not load (npm i --no-save @breezystack/lamejs@1.2.7)');

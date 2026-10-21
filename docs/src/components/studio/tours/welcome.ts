@@ -8,9 +8,8 @@
 // from the left and the Share button from the right without any script here saying so.
 
 import { TOUR_LINES as L } from './lines';
-import { SEL, type TourBuild, type TourStep, toWalkthrough } from './tour-kit';
+import { buttonLabeled, q, SEL, type TourBuild, type TourStep, toWalkthrough } from './tour-kit';
 
-const q = (sel: string) => (): HTMLElement | null => document.querySelector<HTMLElement>(sel);
 /** The slide strip, or the slide map that replaces it beside a slide. */
 const rail = (): HTMLElement | null => document.querySelector<HTMLElement>(SEL.rail) ?? document.querySelector<HTMLElement>('[data-map-rail]');
 const addSlide = (): HTMLElement | null => document.querySelector<HTMLElement>(`${SEL.editor} [aria-label="Add slide"]`) ?? document.querySelector<HTMLElement>('[aria-label="Add slide"]');
@@ -19,8 +18,6 @@ const fixAll = (): HTMLElement | null => document.querySelector<HTMLElement>('[a
 /** The nth slide button in the strip (1-based), so the tour can show that a click jumps there. */
 const railSlide = (n: number) => (): HTMLElement | null => document.querySelector<HTMLElement>(`${SEL.rail} button:nth-child(${n})`);
 const reshape = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Reshape slide"]');
-/** A visible button by its text: the phone's pane bar has no stable hook of its own. */
-const buttonLabeled = (label: string) => (): HTMLElement | null => [...document.querySelectorAll<HTMLElement>('button')].find((b) => b.textContent?.trim() === label && b.getBoundingClientRect().width > 0) ?? null;
 /** The Read · Write · Craft control as one thing: the group that holds the Write button. */
 const posture = (): HTMLElement | null => document.querySelector<HTMLElement>('[aria-label="Write — editor + preview"]')?.parentElement ?? null;
 

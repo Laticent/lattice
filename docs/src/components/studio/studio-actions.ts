@@ -14,4 +14,14 @@ export type StudioActions = {
 	setMobilePane: (pane: 'edit' | 'preview') => void;
 	/** Flip light/dark. The tour flips it and flips it back; a stopped tour restores the look it found. */
 	toggleMode: () => void;
+	/** Click the real control a selector (or a lookup) names, so the app does exactly what a click does.
+	 *  A tour's cursor draws the click; this makes it happen. A control that is not there is skipped. */
+	press: (target: string | (() => HTMLElement | null)) => void;
+	/** Close every panel, sheet and overlay a tour may have opened, leaving the page itself as it is. */
+	closeAll: () => void;
+	setPresent: (open: boolean) => void;
+	setShare: (open: boolean) => void;
+	setPosture: (p: 'read' | 'write' | 'craft') => void;
+	/** Move the caption bar to the other edge for the beats that point at a control it would cover. */
+	captionEdge: (edge: 'top' | 'bottom') => void;
 };

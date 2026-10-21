@@ -1,0 +1,1898 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 516672,
+	"lines": [
+		{
+			"key": "4631db68bc4e",
+			"text": "This is Craft, the full workshop. Every panel lives in the bar on the left.",
+			"file": "4631db68bc4e.mp3",
+			"bytes": 33696,
+			"speechMs": 5563,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This is Craft, the full workshop.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 214,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 214,
+								"endMs": 428,
+								"charOffset": 5
+							},
+							{
+								"display": "Craft,",
+								"spoken": "Craft,",
+								"startMs": 428,
+								"endMs": 674,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 883,
+								"endMs": 1097,
+								"charOffset": 15
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 1097,
+								"endMs": 1311,
+								"charOffset": 19
+							},
+							{
+								"display": "workshop.",
+								"spoken": "workshop.",
+								"startMs": 1311,
+								"endMs": 1771,
+								"charOffset": 24
+							}
+						],
+						"startMs": 0,
+						"endMs": 2173,
+						"charOffset": 0
+					},
+					{
+						"display": "Every panel lives in the bar on the left.",
+						"words": [
+							{
+								"display": "Every",
+								"spoken": "Every",
+								"startMs": 2345,
+								"endMs": 2988,
+								"charOffset": 34
+							},
+							{
+								"display": "panel",
+								"spoken": "panel",
+								"startMs": 2988,
+								"endMs": 3416,
+								"charOffset": 40
+							},
+							{
+								"display": "lives",
+								"spoken": "lives",
+								"startMs": 3416,
+								"endMs": 3844,
+								"charOffset": 46
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 3844,
+								"endMs": 4059,
+								"charOffset": 52
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4059,
+								"endMs": 4273,
+								"charOffset": 55
+							},
+							{
+								"display": "bar",
+								"spoken": "bar",
+								"startMs": 4273,
+								"endMs": 4487,
+								"charOffset": 59
+							},
+							{
+								"display": "on",
+								"spoken": "on",
+								"startMs": 4487,
+								"endMs": 4701,
+								"charOffset": 63
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4701,
+								"endMs": 4915,
+								"charOffset": 66
+							},
+							{
+								"display": "left.",
+								"spoken": "left.",
+								"startMs": 4915,
+								"endMs": 5161,
+								"charOffset": 70
+							}
+						],
+						"startMs": 2345,
+						"endMs": 5563,
+						"charOffset": 34
+					}
+				],
+				"durationMs": 5563
+			}
+		},
+		{
+			"key": "c866bbd653b0",
+			"text": "Coach reads your deck and grades it. Structure, writing, contrast and style, with the weakest slide and the top fixes.",
+			"file": "c866bbd653b0.mp3",
+			"bytes": 53568,
+			"speechMs": 8877,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Coach reads your deck and grades it.",
+						"words": [
+							{
+								"display": "Coach",
+								"spoken": "Coach",
+								"startMs": 0,
+								"endMs": 259,
+								"charOffset": 0
+							},
+							{
+								"display": "reads",
+								"spoken": "reads",
+								"startMs": 259,
+								"endMs": 519,
+								"charOffset": 6
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 519,
+								"endMs": 778,
+								"charOffset": 12
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 778,
+								"endMs": 1038,
+								"charOffset": 17
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1038,
+								"endMs": 1297,
+								"charOffset": 22
+							},
+							{
+								"display": "grades",
+								"spoken": "grades",
+								"startMs": 1297,
+								"endMs": 1816,
+								"charOffset": 26
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 1816,
+								"endMs": 2113,
+								"charOffset": 33
+							}
+						],
+						"startMs": 0,
+						"endMs": 2600,
+						"charOffset": 0
+					},
+					{
+						"display": "Structure, writing, contrast and style, with the weakest slide and the top fixes.",
+						"words": [
+							{
+								"display": "Structure,",
+								"spoken": "Structure,",
+								"startMs": 2809,
+								"endMs": 3366,
+								"charOffset": 37
+							},
+							{
+								"display": "writing,",
+								"spoken": "writing,",
+								"startMs": 3619,
+								"endMs": 4176,
+								"charOffset": 48
+							},
+							{
+								"display": "contrast",
+								"spoken": "contrast",
+								"startMs": 4429,
+								"endMs": 4948,
+								"charOffset": 57
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4948,
+								"endMs": 5207,
+								"charOffset": 66
+							},
+							{
+								"display": "style,",
+								"spoken": "style,",
+								"startMs": 5207,
+								"endMs": 5505,
+								"charOffset": 70
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 5758,
+								"endMs": 6017,
+								"charOffset": 77
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 6017,
+								"endMs": 6277,
+								"charOffset": 82
+							},
+							{
+								"display": "weakest",
+								"spoken": "weakest",
+								"startMs": 6277,
+								"endMs": 6795,
+								"charOffset": 86
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 6795,
+								"endMs": 7055,
+								"charOffset": 94
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 7055,
+								"endMs": 7314,
+								"charOffset": 100
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 7314,
+								"endMs": 7574,
+								"charOffset": 104
+							},
+							{
+								"display": "top",
+								"spoken": "top",
+								"startMs": 7574,
+								"endMs": 7833,
+								"charOffset": 108
+							},
+							{
+								"display": "fixes.",
+								"spoken": "fixes.",
+								"startMs": 7833,
+								"endMs": 8390,
+								"charOffset": 112
+							}
+						],
+						"startMs": 2809,
+						"endMs": 8877,
+						"charOffset": 37
+					}
+				],
+				"durationMs": 8877
+			}
+		},
+		{
+			"key": "b657911a1583",
+			"text": "Chat is the assistant. Ask for a change in plain words, and the edit arrives as a diff you can apply or discard. It needs a model, which you connect in Workspace settings.",
+			"file": "b657911a1583.mp3",
+			"bytes": 64512,
+			"speechMs": 10697,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Chat is the assistant.",
+						"words": [
+							{
+								"display": "Chat",
+								"spoken": "Chat",
+								"startMs": 0,
+								"endMs": 198,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 198,
+								"endMs": 397,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 397,
+								"endMs": 595,
+								"charOffset": 8
+							},
+							{
+								"display": "assistant.",
+								"spoken": "assistant.",
+								"startMs": 595,
+								"endMs": 1219,
+								"charOffset": 12
+							}
+						],
+						"startMs": 0,
+						"endMs": 1592,
+						"charOffset": 0
+					},
+					{
+						"display": "Ask for a change in plain words, and the edit arrives as a diff you can apply or discard.",
+						"words": [
+							{
+								"display": "Ask",
+								"spoken": "Ask",
+								"startMs": 1751,
+								"endMs": 1950,
+								"charOffset": 23
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1950,
+								"endMs": 2148,
+								"charOffset": 27
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2148,
+								"endMs": 2346,
+								"charOffset": 31
+							},
+							{
+								"display": "change",
+								"spoken": "change",
+								"startMs": 2346,
+								"endMs": 2545,
+								"charOffset": 33
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 2545,
+								"endMs": 2743,
+								"charOffset": 40
+							},
+							{
+								"display": "plain",
+								"spoken": "plain",
+								"startMs": 2743,
+								"endMs": 2942,
+								"charOffset": 43
+							},
+							{
+								"display": "words,",
+								"spoken": "words,",
+								"startMs": 2942,
+								"endMs": 3169,
+								"charOffset": 49
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3362,
+								"endMs": 3561,
+								"charOffset": 56
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3561,
+								"endMs": 3759,
+								"charOffset": 60
+							},
+							{
+								"display": "edit",
+								"spoken": "edit",
+								"startMs": 3759,
+								"endMs": 4156,
+								"charOffset": 64
+							},
+							{
+								"display": "arrives",
+								"spoken": "arrives",
+								"startMs": 4156,
+								"endMs": 4751,
+								"charOffset": 69
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 4751,
+								"endMs": 4949,
+								"charOffset": 77
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4949,
+								"endMs": 5148,
+								"charOffset": 80
+							},
+							{
+								"display": "diff",
+								"spoken": "diff",
+								"startMs": 5148,
+								"endMs": 5346,
+								"charOffset": 82
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 5346,
+								"endMs": 5544,
+								"charOffset": 87
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 5544,
+								"endMs": 5743,
+								"charOffset": 91
+							},
+							{
+								"display": "apply",
+								"spoken": "apply",
+								"startMs": 5743,
+								"endMs": 6140,
+								"charOffset": 95
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 6140,
+								"endMs": 6338,
+								"charOffset": 101
+							},
+							{
+								"display": "discard.",
+								"spoken": "discard.",
+								"startMs": 6338,
+								"endMs": 6764,
+								"charOffset": 104
+							}
+						],
+						"startMs": 1751,
+						"endMs": 7136,
+						"charOffset": 23
+					},
+					{
+						"display": "It needs a model, which you connect in Workspace settings.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 7296,
+								"endMs": 7494,
+								"charOffset": 113
+							},
+							{
+								"display": "needs",
+								"spoken": "needs",
+								"startMs": 7494,
+								"endMs": 7693,
+								"charOffset": 116
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 7693,
+								"endMs": 7891,
+								"charOffset": 122
+							},
+							{
+								"display": "model,",
+								"spoken": "model,",
+								"startMs": 7891,
+								"endMs": 8317,
+								"charOffset": 124
+							},
+							{
+								"display": "which",
+								"spoken": "which",
+								"startMs": 8510,
+								"endMs": 8709,
+								"charOffset": 131
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 8709,
+								"endMs": 8907,
+								"charOffset": 137
+							},
+							{
+								"display": "connect",
+								"spoken": "connect",
+								"startMs": 8907,
+								"endMs": 9304,
+								"charOffset": 141
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 9304,
+								"endMs": 9502,
+								"charOffset": 149
+							},
+							{
+								"display": "Workspace",
+								"spoken": "Workspace",
+								"startMs": 9502,
+								"endMs": 9899,
+								"charOffset": 152
+							},
+							{
+								"display": "settings.",
+								"spoken": "settings.",
+								"startMs": 9899,
+								"endMs": 10324,
+								"charOffset": 162
+							}
+						],
+						"startMs": 7296,
+						"endMs": 10697,
+						"charOffset": 113
+					}
+				],
+				"durationMs": 10697
+			}
+		},
+		{
+			"key": "11dd0dc2a67f",
+			"text": "Live lets you edit this deck together. Share a link, let people in, and up to four of you work in the same deck.",
+			"file": "11dd0dc2a67f.mp3",
+			"bytes": 41184,
+			"speechMs": 6805,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Live lets you edit this deck together.",
+						"words": [
+							{
+								"display": "Live",
+								"spoken": "Live",
+								"startMs": 0,
+								"endMs": 194,
+								"charOffset": 0
+							},
+							{
+								"display": "lets",
+								"spoken": "lets",
+								"startMs": 194,
+								"endMs": 388,
+								"charOffset": 5
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 388,
+								"endMs": 582,
+								"charOffset": 10
+							},
+							{
+								"display": "edit",
+								"spoken": "edit",
+								"startMs": 582,
+								"endMs": 969,
+								"charOffset": 14
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 969,
+								"endMs": 1163,
+								"charOffset": 19
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1163,
+								"endMs": 1357,
+								"charOffset": 24
+							},
+							{
+								"display": "together.",
+								"spoken": "together.",
+								"startMs": 1357,
+								"endMs": 1967,
+								"charOffset": 29
+							}
+						],
+						"startMs": 0,
+						"endMs": 2331,
+						"charOffset": 0
+					},
+					{
+						"display": "Share a link, let people in, and up to four of you work in the same deck.",
+						"words": [
+							{
+								"display": "Share",
+								"spoken": "Share",
+								"startMs": 2487,
+								"endMs": 2681,
+								"charOffset": 39
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2681,
+								"endMs": 2875,
+								"charOffset": 45
+							},
+							{
+								"display": "link,",
+								"spoken": "link,",
+								"startMs": 2875,
+								"endMs": 3097,
+								"charOffset": 47
+							},
+							{
+								"display": "let",
+								"spoken": "let",
+								"startMs": 3287,
+								"endMs": 3481,
+								"charOffset": 53
+							},
+							{
+								"display": "people",
+								"spoken": "people",
+								"startMs": 3481,
+								"endMs": 3868,
+								"charOffset": 57
+							},
+							{
+								"display": "in,",
+								"spoken": "in,",
+								"startMs": 3868,
+								"endMs": 4091,
+								"charOffset": 64
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4280,
+								"endMs": 4474,
+								"charOffset": 68
+							},
+							{
+								"display": "up",
+								"spoken": "up",
+								"startMs": 4474,
+								"endMs": 4668,
+								"charOffset": 72
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4668,
+								"endMs": 4861,
+								"charOffset": 75
+							},
+							{
+								"display": "four",
+								"spoken": "four",
+								"startMs": 4861,
+								"endMs": 5055,
+								"charOffset": 78
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 5055,
+								"endMs": 5249,
+								"charOffset": 83
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 5249,
+								"endMs": 5443,
+								"charOffset": 86
+							},
+							{
+								"display": "work",
+								"spoken": "work",
+								"startMs": 5443,
+								"endMs": 5637,
+								"charOffset": 90
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 5637,
+								"endMs": 5831,
+								"charOffset": 95
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 5831,
+								"endMs": 6025,
+								"charOffset": 98
+							},
+							{
+								"display": "same",
+								"spoken": "same",
+								"startMs": 6025,
+								"endMs": 6219,
+								"charOffset": 102
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 6219,
+								"endMs": 6441,
+								"charOffset": 107
+							}
+						],
+						"startMs": 2487,
+						"endMs": 6805,
+						"charOffset": 39
+					}
+				],
+				"durationMs": 6805
+			}
+		},
+		{
+			"key": "1c795c843613",
+			"text": "Library holds what you reuse: themes, components, finishes, motions, images, videos and files. You can import a zip to add more.",
+			"file": "1c795c843613.mp3",
+			"bytes": 60336,
+			"speechMs": 9984,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Library holds what you reuse: themes, components, finishes, motions, images, videos and files.",
+						"words": [
+							{
+								"display": "Library",
+								"spoken": "Library",
+								"startMs": 0,
+								"endMs": 647,
+								"charOffset": 0
+							},
+							{
+								"display": "holds",
+								"spoken": "holds",
+								"startMs": 647,
+								"endMs": 862,
+								"charOffset": 8
+							},
+							{
+								"display": "what",
+								"spoken": "what",
+								"startMs": 862,
+								"endMs": 1078,
+								"charOffset": 14
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1078,
+								"endMs": 1293,
+								"charOffset": 19
+							},
+							{
+								"display": "reuse:",
+								"spoken": "reuse,",
+								"startMs": 1293,
+								"endMs": 1540,
+								"charOffset": 23
+							},
+							{
+								"display": "themes,",
+								"spoken": "themes,",
+								"startMs": 1908,
+								"endMs": 2371,
+								"charOffset": 30
+							},
+							{
+								"display": "components,",
+								"spoken": "components,",
+								"startMs": 2581,
+								"endMs": 3260,
+								"charOffset": 38
+							},
+							{
+								"display": "finishes,",
+								"spoken": "finishes,",
+								"startMs": 3470,
+								"endMs": 4148,
+								"charOffset": 50
+							},
+							{
+								"display": "motions,",
+								"spoken": "motions,",
+								"startMs": 4358,
+								"endMs": 4821,
+								"charOffset": 60
+							},
+							{
+								"display": "images,",
+								"spoken": "images,",
+								"startMs": 5031,
+								"endMs": 5710,
+								"charOffset": 69
+							},
+							{
+								"display": "videos",
+								"spoken": "videos",
+								"startMs": 5920,
+								"endMs": 6351,
+								"charOffset": 77
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 6351,
+								"endMs": 6567,
+								"charOffset": 84
+							},
+							{
+								"display": "files.",
+								"spoken": "files.",
+								"startMs": 6567,
+								"endMs": 7029,
+								"charOffset": 88
+							}
+						],
+						"startMs": 0,
+						"endMs": 7434,
+						"charOffset": 0
+					},
+					{
+						"display": "You can import a zip to add more.",
+						"words": [
+							{
+								"display": "You",
+								"spoken": "You",
+								"startMs": 7608,
+								"endMs": 7823,
+								"charOffset": 95
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 7823,
+								"endMs": 8039,
+								"charOffset": 99
+							},
+							{
+								"display": "import",
+								"spoken": "import",
+								"startMs": 8039,
+								"endMs": 8470,
+								"charOffset": 103
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 8470,
+								"endMs": 8685,
+								"charOffset": 110
+							},
+							{
+								"display": "zip",
+								"spoken": "zip",
+								"startMs": 8685,
+								"endMs": 8901,
+								"charOffset": 112
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 8901,
+								"endMs": 9117,
+								"charOffset": 116
+							},
+							{
+								"display": "add",
+								"spoken": "add",
+								"startMs": 9117,
+								"endMs": 9332,
+								"charOffset": 119
+							},
+							{
+								"display": "more.",
+								"spoken": "more.",
+								"startMs": 9332,
+								"endMs": 9579,
+								"charOffset": 123
+							}
+						],
+						"startMs": 7608,
+						"endMs": 9984,
+						"charOffset": 95
+					}
+				],
+				"durationMs": 9984
+			}
+		},
+		{
+			"key": "8ad137c10586",
+			"text": "Views are for particular readers. A reader view is a subset of the deck, and you approve exactly what that reader sees.",
+			"file": "8ad137c10586.mp3",
+			"bytes": 48528,
+			"speechMs": 8030,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Views are for particular readers.",
+						"words": [
+							{
+								"display": "Views",
+								"spoken": "Views",
+								"startMs": 0,
+								"endMs": 211,
+								"charOffset": 0
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 211,
+								"endMs": 423,
+								"charOffset": 6
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 423,
+								"endMs": 634,
+								"charOffset": 10
+							},
+							{
+								"display": "particular",
+								"spoken": "particular",
+								"startMs": 634,
+								"endMs": 1480,
+								"charOffset": 14
+							},
+							{
+								"display": "readers.",
+								"spoken": "readers.",
+								"startMs": 1480,
+								"endMs": 1934,
+								"charOffset": 25
+							}
+						],
+						"startMs": 0,
+						"endMs": 2331,
+						"charOffset": 0
+					},
+					{
+						"display": "A reader view is a subset of the deck, and you approve exactly what that reader sees.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 2501,
+								"endMs": 2713,
+								"charOffset": 34
+							},
+							{
+								"display": "reader",
+								"spoken": "reader",
+								"startMs": 2713,
+								"endMs": 3136,
+								"charOffset": 36
+							},
+							{
+								"display": "view",
+								"spoken": "view",
+								"startMs": 3136,
+								"endMs": 3347,
+								"charOffset": 43
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 3347,
+								"endMs": 3559,
+								"charOffset": 48
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3559,
+								"endMs": 3770,
+								"charOffset": 51
+							},
+							{
+								"display": "subset",
+								"spoken": "subset",
+								"startMs": 3770,
+								"endMs": 4193,
+								"charOffset": 53
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 4193,
+								"endMs": 4404,
+								"charOffset": 60
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4404,
+								"endMs": 4616,
+								"charOffset": 63
+							},
+							{
+								"display": "deck,",
+								"spoken": "deck,",
+								"startMs": 4616,
+								"endMs": 4858,
+								"charOffset": 67
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 5065,
+								"endMs": 5276,
+								"charOffset": 73
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 5276,
+								"endMs": 5487,
+								"charOffset": 77
+							},
+							{
+								"display": "approve",
+								"spoken": "approve",
+								"startMs": 5487,
+								"endMs": 5910,
+								"charOffset": 81
+							},
+							{
+								"display": "exactly",
+								"spoken": "exactly",
+								"startMs": 5910,
+								"endMs": 6545,
+								"charOffset": 89
+							},
+							{
+								"display": "what",
+								"spoken": "what",
+								"startMs": 6545,
+								"endMs": 6756,
+								"charOffset": 97
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 6756,
+								"endMs": 6968,
+								"charOffset": 102
+							},
+							{
+								"display": "reader",
+								"spoken": "reader",
+								"startMs": 6968,
+								"endMs": 7390,
+								"charOffset": 107
+							},
+							{
+								"display": "sees.",
+								"spoken": "sees.",
+								"startMs": 7390,
+								"endMs": 7633,
+								"charOffset": 114
+							}
+						],
+						"startMs": 2501,
+						"endMs": 8030,
+						"charOffset": 34
+					}
+				],
+				"durationMs": 8030
+			}
+		},
+		{
+			"key": "7fd8ed454073",
+			"text": "Slide settings change the slide you are on: its canvas, type size, and speaker notes.",
+			"file": "7fd8ed454073.mp3",
+			"bytes": 32688,
+			"speechMs": 5397,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Slide settings change the slide you are on: its canvas, type size, and speaker notes.",
+						"words": [
+							{
+								"display": "Slide",
+								"spoken": "Slide",
+								"startMs": 0,
+								"endMs": 215,
+								"charOffset": 0
+							},
+							{
+								"display": "settings",
+								"spoken": "settings",
+								"startMs": 215,
+								"endMs": 644,
+								"charOffset": 6
+							},
+							{
+								"display": "change",
+								"spoken": "change",
+								"startMs": 644,
+								"endMs": 859,
+								"charOffset": 15
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 859,
+								"endMs": 1074,
+								"charOffset": 22
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 1074,
+								"endMs": 1289,
+								"charOffset": 26
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1289,
+								"endMs": 1504,
+								"charOffset": 32
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 1504,
+								"endMs": 1719,
+								"charOffset": 36
+							},
+							{
+								"display": "on:",
+								"spoken": "on,",
+								"startMs": 1719,
+								"endMs": 1965,
+								"charOffset": 40
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 2332,
+								"endMs": 2547,
+								"charOffset": 44
+							},
+							{
+								"display": "canvas,",
+								"spoken": "canvas,",
+								"startMs": 2547,
+								"endMs": 3008,
+								"charOffset": 48
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 3217,
+								"endMs": 3432,
+								"charOffset": 56
+							},
+							{
+								"display": "size,",
+								"spoken": "size,",
+								"startMs": 3432,
+								"endMs": 3678,
+								"charOffset": 61
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3888,
+								"endMs": 4103,
+								"charOffset": 67
+							},
+							{
+								"display": "speaker",
+								"spoken": "speaker",
+								"startMs": 4103,
+								"endMs": 4532,
+								"charOffset": 71
+							},
+							{
+								"display": "notes.",
+								"spoken": "notes.",
+								"startMs": 4532,
+								"endMs": 4994,
+								"charOffset": 79
+							}
+						],
+						"startMs": 0,
+						"endMs": 5397,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5397
+			}
+		},
+		{
+			"key": "c0edbda3fae7",
+			"text": "Deck settings change the whole deck at once: theme, preset, color mode, size, venue, page numbers and logo.",
+			"file": "c0edbda3fae7.mp3",
+			"bytes": 55584,
+			"speechMs": 9213,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Deck settings change the whole deck at once: theme, preset, color mode, size, venue, page numbers and logo.",
+						"words": [
+							{
+								"display": "Deck",
+								"spoken": "Deck",
+								"startMs": 0,
+								"endMs": 275,
+								"charOffset": 0
+							},
+							{
+								"display": "settings",
+								"spoken": "settings",
+								"startMs": 275,
+								"endMs": 825,
+								"charOffset": 5
+							},
+							{
+								"display": "change",
+								"spoken": "change",
+								"startMs": 825,
+								"endMs": 1100,
+								"charOffset": 14
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1100,
+								"endMs": 1376,
+								"charOffset": 21
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 1376,
+								"endMs": 1651,
+								"charOffset": 25
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1651,
+								"endMs": 1926,
+								"charOffset": 31
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 1926,
+								"endMs": 2201,
+								"charOffset": 36
+							},
+							{
+								"display": "once:",
+								"spoken": "once,",
+								"startMs": 2201,
+								"endMs": 2516,
+								"charOffset": 39
+							},
+							{
+								"display": "theme,",
+								"spoken": "theme,",
+								"startMs": 2986,
+								"endMs": 3301,
+								"charOffset": 45
+							},
+							{
+								"display": "preset,",
+								"spoken": "preset,",
+								"startMs": 3570,
+								"endMs": 4160,
+								"charOffset": 52
+							},
+							{
+								"display": "color",
+								"spoken": "color",
+								"startMs": 4429,
+								"endMs": 4979,
+								"charOffset": 60
+							},
+							{
+								"display": "mode,",
+								"spoken": "mode,",
+								"startMs": 4979,
+								"endMs": 5294,
+								"charOffset": 66
+							},
+							{
+								"display": "size,",
+								"spoken": "size,",
+								"startMs": 5563,
+								"endMs": 5878,
+								"charOffset": 72
+							},
+							{
+								"display": "venue,",
+								"spoken": "venue,",
+								"startMs": 6146,
+								"endMs": 6737,
+								"charOffset": 78
+							},
+							{
+								"display": "page",
+								"spoken": "page",
+								"startMs": 7005,
+								"endMs": 7280,
+								"charOffset": 85
+							},
+							{
+								"display": "numbers",
+								"spoken": "numbers",
+								"startMs": 7280,
+								"endMs": 7831,
+								"charOffset": 90
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 7831,
+								"endMs": 8106,
+								"charOffset": 98
+							},
+							{
+								"display": "logo.",
+								"spoken": "logo.",
+								"startMs": 8106,
+								"endMs": 8696,
+								"charOffset": 102
+							}
+						],
+						"startMs": 0,
+						"endMs": 9213,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 9213
+			}
+		},
+		{
+			"key": "3029f9492fa8",
+			"text": "Version history keeps snapshots of your deck. One is saved before every assistant edit, and you can save your own.",
+			"file": "3029f9492fa8.mp3",
+			"bytes": 41184,
+			"speechMs": 6795,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Version history keeps snapshots of your deck.",
+						"words": [
+							{
+								"display": "Version",
+								"spoken": "Version",
+								"startMs": 0,
+								"endMs": 368,
+								"charOffset": 0
+							},
+							{
+								"display": "history",
+								"spoken": "history",
+								"startMs": 368,
+								"endMs": 919,
+								"charOffset": 8
+							},
+							{
+								"display": "keeps",
+								"spoken": "keeps",
+								"startMs": 919,
+								"endMs": 1103,
+								"charOffset": 16
+							},
+							{
+								"display": "snapshots",
+								"spoken": "snapshots",
+								"startMs": 1103,
+								"endMs": 1470,
+								"charOffset": 22
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 1470,
+								"endMs": 1654,
+								"charOffset": 32
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1654,
+								"endMs": 1838,
+								"charOffset": 35
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 1838,
+								"endMs": 2048,
+								"charOffset": 40
+							}
+						],
+						"startMs": 0,
+						"endMs": 2393,
+						"charOffset": 0
+					},
+					{
+						"display": "One is saved before every assistant edit, and you can save your own.",
+						"words": [
+							{
+								"display": "One",
+								"spoken": "One",
+								"startMs": 2541,
+								"endMs": 2725,
+								"charOffset": 46
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 2725,
+								"endMs": 2909,
+								"charOffset": 50
+							},
+							{
+								"display": "saved",
+								"spoken": "saved",
+								"startMs": 2909,
+								"endMs": 3276,
+								"charOffset": 53
+							},
+							{
+								"display": "before",
+								"spoken": "before",
+								"startMs": 3276,
+								"endMs": 3644,
+								"charOffset": 59
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 3644,
+								"endMs": 4195,
+								"charOffset": 66
+							},
+							{
+								"display": "assistant",
+								"spoken": "assistant",
+								"startMs": 4195,
+								"endMs": 4747,
+								"charOffset": 72
+							},
+							{
+								"display": "edit,",
+								"spoken": "edit,",
+								"startMs": 4747,
+								"endMs": 5141,
+								"charOffset": 82
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 5320,
+								"endMs": 5504,
+								"charOffset": 88
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 5504,
+								"endMs": 5688,
+								"charOffset": 92
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 5688,
+								"endMs": 5872,
+								"charOffset": 96
+							},
+							{
+								"display": "save",
+								"spoken": "save",
+								"startMs": 5872,
+								"endMs": 6055,
+								"charOffset": 100
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 6055,
+								"endMs": 6239,
+								"charOffset": 105
+							},
+							{
+								"display": "own.",
+								"spoken": "own.",
+								"startMs": 6239,
+								"endMs": 6450,
+								"charOffset": 110
+							}
+						],
+						"startMs": 2541,
+						"endMs": 6795,
+						"charOffset": 46
+					}
+				],
+				"durationMs": 6795
+			}
+		},
+		{
+			"key": "0e6decaed8c5",
+			"text": "And Setup is your workspace: general options, AI models, your data, and the cloud and on-device voices.",
+			"file": "0e6decaed8c5.mp3",
+			"bytes": 44208,
+			"speechMs": 7305,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "And Setup is your workspace: general options, AI models, your data, and the cloud and on-device voices.",
+						"words": [
+							{
+								"display": "And",
+								"spoken": "And",
+								"startMs": 0,
+								"endMs": 213,
+								"charOffset": 0
+							},
+							{
+								"display": "Setup",
+								"spoken": "Setup",
+								"startMs": 213,
+								"endMs": 640,
+								"charOffset": 4
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 640,
+								"endMs": 853,
+								"charOffset": 10
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 853,
+								"endMs": 1067,
+								"charOffset": 13
+							},
+							{
+								"display": "workspace:",
+								"spoken": "workspace,",
+								"startMs": 1067,
+								"endMs": 1524,
+								"charOffset": 18
+							},
+							{
+								"display": "general",
+								"spoken": "general",
+								"startMs": 1889,
+								"endMs": 2529,
+								"charOffset": 29
+							},
+							{
+								"display": "options,",
+								"spoken": "options,",
+								"startMs": 2529,
+								"endMs": 2987,
+								"charOffset": 37
+							},
+							{
+								"display": "AI",
+								"spoken": "AI",
+								"startMs": 3195,
+								"endMs": 3408,
+								"charOffset": 46
+							},
+							{
+								"display": "models,",
+								"spoken": "models,",
+								"startMs": 3408,
+								"endMs": 3866,
+								"charOffset": 49
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 4074,
+								"endMs": 4287,
+								"charOffset": 57
+							},
+							{
+								"display": "data,",
+								"spoken": "data,",
+								"startMs": 4287,
+								"endMs": 4745,
+								"charOffset": 62
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4953,
+								"endMs": 5167,
+								"charOffset": 68
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 5167,
+								"endMs": 5380,
+								"charOffset": 72
+							},
+							{
+								"display": "cloud",
+								"spoken": "cloud",
+								"startMs": 5380,
+								"endMs": 5593,
+								"charOffset": 76
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 5593,
+								"endMs": 5807,
+								"charOffset": 82
+							},
+							{
+								"display": "on-device",
+								"spoken": "on-device",
+								"startMs": 5807,
+								"endMs": 6447,
+								"charOffset": 86
+							},
+							{
+								"display": "voices.",
+								"spoken": "voices.",
+								"startMs": 6447,
+								"endMs": 6904,
+								"charOffset": 96
+							}
+						],
+						"startMs": 0,
+						"endMs": 7305,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 7305
+			}
+		},
+		{
+			"key": "9cc320b9d3fc",
+			"text": "That is every panel. Craft is where a deck gets polished. Next, let me show you how to present it.",
+			"file": "9cc320b9d3fc.mp3",
+			"bytes": 41184,
+			"speechMs": 6794,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That is every panel.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 195,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 195,
+								"endMs": 390,
+								"charOffset": 5
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 390,
+								"endMs": 976,
+								"charOffset": 8
+							},
+							{
+								"display": "panel.",
+								"spoken": "panel.",
+								"startMs": 976,
+								"endMs": 1395,
+								"charOffset": 14
+							}
+						],
+						"startMs": 0,
+						"endMs": 1762,
+						"charOffset": 0
+					},
+					{
+						"display": "Craft is where a deck gets polished.",
+						"words": [
+							{
+								"display": "Craft",
+								"spoken": "Craft",
+								"startMs": 1919,
+								"endMs": 2114,
+								"charOffset": 21
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 2114,
+								"endMs": 2309,
+								"charOffset": 27
+							},
+							{
+								"display": "where",
+								"spoken": "where",
+								"startMs": 2309,
+								"endMs": 2504,
+								"charOffset": 30
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2504,
+								"endMs": 2700,
+								"charOffset": 36
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 2700,
+								"endMs": 2895,
+								"charOffset": 38
+							},
+							{
+								"display": "gets",
+								"spoken": "gets",
+								"startMs": 2895,
+								"endMs": 3090,
+								"charOffset": 43
+							},
+							{
+								"display": "polished.",
+								"spoken": "polished.",
+								"startMs": 3090,
+								"endMs": 3704,
+								"charOffset": 48
+							}
+						],
+						"startMs": 1919,
+						"endMs": 4071,
+						"charOffset": 21
+					},
+					{
+						"display": "Next, let me show you how to present it.",
+						"words": [
+							{
+								"display": "Next,",
+								"spoken": "Next,",
+								"startMs": 4228,
+								"endMs": 4452,
+								"charOffset": 58
+							},
+							{
+								"display": "let",
+								"spoken": "let",
+								"startMs": 4642,
+								"endMs": 4837,
+								"charOffset": 64
+							},
+							{
+								"display": "me",
+								"spoken": "me",
+								"startMs": 4837,
+								"endMs": 5032,
+								"charOffset": 68
+							},
+							{
+								"display": "show",
+								"spoken": "show",
+								"startMs": 5032,
+								"endMs": 5228,
+								"charOffset": 71
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 5228,
+								"endMs": 5423,
+								"charOffset": 76
+							},
+							{
+								"display": "how",
+								"spoken": "how",
+								"startMs": 5423,
+								"endMs": 5618,
+								"charOffset": 80
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 5618,
+								"endMs": 5813,
+								"charOffset": 84
+							},
+							{
+								"display": "present",
+								"spoken": "present",
+								"startMs": 5813,
+								"endMs": 6204,
+								"charOffset": 87
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 6204,
+								"endMs": 6427,
+								"charOffset": 95
+							}
+						],
+						"startMs": 4228,
+						"endMs": 6794,
+						"charOffset": 58
+					}
+				],
+				"durationMs": 6794
+			}
+		}
+	]
+}

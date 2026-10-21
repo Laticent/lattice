@@ -106,6 +106,8 @@ making the engine itself lazy is a later slice (see below), measured then.
 
 ## Voice (slice 2)
 
+> **Superseded 2026-10-20.** The lessons were recorded in Kokoro. They now speak in the tour voice, Gemini `Schedar`, so the whole Studio has one voice; see `2026-10-20-first-run-onboarding.md` §The course. The mechanism below (clips recorded ahead, found by exact text, silent fallback) is unchanged.
+
 Lessons speak. Every line is a clip recorded ahead of time with Kokoro, the Studio's own voice, and
 shipped under `docs/public/lesson-voice/<lesson-id>/`. The caption still shows every line, for anyone
 with sound off.

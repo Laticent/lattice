@@ -87,3 +87,57 @@ The Playground tour moved to Vetrina in the same change, and `driver.js` left th
 - Measured at 1440×900 and 390×844 against the dev server: 10 clips played; pans -0.46 (mode toggle),
   -0.35 (picker), 0 (the walk bar, centered), -0.21, -0.27 (editor), +0.45 (Galleries), +0.37
   (Deck settings), +0.34 (Theme). About 95 seconds. The phone tour switched to the editor pane on its own.
+
+## The course (added the same day, on the owner's review)
+
+The owner tried the welcome tour and asked for four things, all shipped in the same PR.
+
+**1. The layout is saved and restored.** Every tour now takes a snapshot of the screen (stop, open
+panels, which pane is folded, the slide, quiet mode), resets to the layout it is written against
+(its own stop, no panel or sheet open, both panes showing, the first slide), and puts the visitor's
+back when it ends, however it ends: finished, Exit, or a click that takes over. `layout.snapshot /
+reset / restore` live in `StudioShell.tsx` beside the setters they drive; `use-studio-demo.ts` calls
+them around every run. The editor's own mode (Markdown or Compose) is deliberately not reset: every
+tour works in either, and a tour that types follows whichever is mounted (the mobile Compose-tail
+spec guards it). A tour that builds a deck (`first-look`) keeps the new deck and so does not restore the slide.
+
+**2. One voice, everywhere.** The 94 lesson lines were re-recorded in `Schedar`, and the recorder no
+longer has a Kokoro path. Lessons and tours share one folder format, and `TOUR_FOLDERS` in
+`tours/lines.ts` is the one table the recorder and the tests walk.
+
+**3. The course.** Welcome → Read → Craft → Present → Share, each ending on the go-further card for the
+next, the last offering the lessons. `first-look` stands apart (it builds a deck) but is spoken too.
+All six are in the Show me menu; Read and Craft need the desktop chrome and are hidden on a phone or tablet.
+
+| Tour | Spoken lines | Measured on a 1440×900 desktop |
+|---|---|---|
+| Welcome | 15 | 121 s |
+| Read | 8 | 76 s |
+| Craft (every panel) | 11 | about 120 s |
+| Present | 10 | 76 s |
+| Share | 11 | 76 s |
+
+Craft opens each panel by pressing the real bar button: Coach, Chat, Live, Library, Views, Slide and
+Deck settings, Version history, Setup. Present opens the real overlay and walks its controls, and
+Share opens the real sheet and points at each row, top to bottom, without pressing one.
+
+**4. Pace.** A beat that opens something uses a word cue (`at`), so the cursor arrives and the click
+lands on the word that names it; the panel opens as it is said instead of two seconds after. The
+sound-test card is first-run only; a tour started from the menu or from "Go further" starts at once,
+inside that click, so audio is unlocked.
+
+**Why the start card may not show.** It opens by itself only for a first-time visitor on the
+production site, once (`lattice-studio-welcomed`), and never on a PR preview, a dev server or under
+test automation. `/studio/?welcome=1` forces it anywhere. Show me → Welcome tour runs the tour
+without the card.
+
+Measured pans (the voice follows the target): Craft's bar buttons -0.48, Present's top row +0.2…0.46,
+Share's rows +0.35, Read's article and Edit buttons -0.36…-0.45.
+
+## Not verified (additions)
+
+- Listening, still.
+- The phone versions of Present and Share are short (about 30 s and 77 s); Read and Craft are
+  desktop-only by design.
+- The mobile Compose-tail spec (`demo-mobile.spec.ts`) failed once in four runs under load, with the same
+  code that passed the other three. It samples frames while typing, so it is timing-sensitive.

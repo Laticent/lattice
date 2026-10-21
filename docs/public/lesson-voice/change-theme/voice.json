@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 101664,
+	"bytes": 117936,
 	"lines": [
 		{
-			"key": "ed21b8cea23a",
+			"key": "de25262f82d4",
 			"text": "A theme sets the colors and type for the whole deck. Your words and layouts stay as they are.",
-			"file": "ed21b8cea23a.mp3",
-			"bytes": 30240,
-			"speechMs": 4980,
+			"file": "de25262f82d4.mp3",
+			"bytes": 33696,
+			"speechMs": 5549,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,82 +24,82 @@
 								"display": "A",
 								"spoken": "A",
 								"startMs": 0,
-								"endMs": 200,
+								"endMs": 223,
 								"charOffset": 0
 							},
 							{
 								"display": "theme",
 								"spoken": "theme",
-								"startMs": 200,
-								"endMs": 401,
+								"startMs": 223,
+								"endMs": 447,
 								"charOffset": 2
 							},
 							{
 								"display": "sets",
 								"spoken": "sets",
-								"startMs": 401,
-								"endMs": 601,
+								"startMs": 447,
+								"endMs": 670,
 								"charOffset": 8
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 601,
-								"endMs": 801,
+								"startMs": 670,
+								"endMs": 893,
 								"charOffset": 13
 							},
 							{
 								"display": "colors",
 								"spoken": "colors",
-								"startMs": 801,
-								"endMs": 1202,
+								"startMs": 893,
+								"endMs": 1340,
 								"charOffset": 17
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 1202,
-								"endMs": 1403,
+								"startMs": 1340,
+								"endMs": 1563,
 								"charOffset": 24
 							},
 							{
 								"display": "type",
 								"spoken": "type",
-								"startMs": 1403,
-								"endMs": 1603,
+								"startMs": 1563,
+								"endMs": 1786,
 								"charOffset": 28
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1603,
-								"endMs": 1803,
+								"startMs": 1786,
+								"endMs": 2009,
 								"charOffset": 33
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1803,
-								"endMs": 2004,
+								"startMs": 2009,
+								"endMs": 2233,
 								"charOffset": 37
 							},
 							{
 								"display": "whole",
 								"spoken": "whole",
-								"startMs": 2004,
-								"endMs": 2204,
+								"startMs": 2233,
+								"endMs": 2456,
 								"charOffset": 41
 							},
 							{
 								"display": "deck.",
 								"spoken": "deck.",
-								"startMs": 2204,
-								"endMs": 2434,
+								"startMs": 2456,
+								"endMs": 2712,
 								"charOffset": 47
 							}
 						],
 						"startMs": 0,
-						"endMs": 2810,
+						"endMs": 3131,
 						"charOffset": 0
 					},
 					{
@@ -109,74 +108,74 @@
 							{
 								"display": "Your",
 								"spoken": "Your",
-								"startMs": 2971,
-								"endMs": 3172,
+								"startMs": 3311,
+								"endMs": 3534,
 								"charOffset": 53
 							},
 							{
 								"display": "words",
 								"spoken": "words",
-								"startMs": 3172,
-								"endMs": 3372,
+								"startMs": 3534,
+								"endMs": 3757,
 								"charOffset": 58
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 3372,
-								"endMs": 3573,
+								"startMs": 3757,
+								"endMs": 3981,
 								"charOffset": 64
 							},
 							{
 								"display": "layouts",
 								"spoken": "layouts",
-								"startMs": 3573,
-								"endMs": 3773,
+								"startMs": 3981,
+								"endMs": 4204,
 								"charOffset": 68
 							},
 							{
 								"display": "stay",
 								"spoken": "stay",
-								"startMs": 3773,
-								"endMs": 3973,
+								"startMs": 4204,
+								"endMs": 4427,
 								"charOffset": 76
 							},
 							{
 								"display": "as",
 								"spoken": "as",
-								"startMs": 3973,
-								"endMs": 4174,
+								"startMs": 4427,
+								"endMs": 4650,
 								"charOffset": 81
 							},
 							{
 								"display": "they",
 								"spoken": "they",
-								"startMs": 4174,
-								"endMs": 4374,
+								"startMs": 4650,
+								"endMs": 4874,
 								"charOffset": 84
 							},
 							{
 								"display": "are.",
 								"spoken": "are.",
-								"startMs": 4374,
-								"endMs": 4604,
+								"startMs": 4874,
+								"endMs": 5130,
 								"charOffset": 89
 							}
 						],
-						"startMs": 2971,
-						"endMs": 4980,
+						"startMs": 3311,
+						"endMs": 5549,
 						"charOffset": 53
 					}
 				],
-				"durationMs": 4980
+				"durationMs": 5549
 			}
 		},
 		{
-			"key": "14f9700a00cf",
+			"key": "1c035429b286",
 			"text": "Click the palette icon to see every theme.",
-			"file": "14f9700a00cf.mp3",
-			"bytes": 14688,
-			"speechMs": 2396,
+			"file": "1c035429b286.mp3",
+			"bytes": 16704,
+			"speechMs": 2730,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -187,73 +186,73 @@
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 171,
+								"endMs": 195,
 								"charOffset": 0
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 171,
-								"endMs": 342,
+								"startMs": 195,
+								"endMs": 389,
 								"charOffset": 6
 							},
 							{
 								"display": "palette",
 								"spoken": "palette",
-								"startMs": 342,
-								"endMs": 683,
+								"startMs": 389,
+								"endMs": 779,
 								"charOffset": 10
 							},
 							{
 								"display": "icon",
 								"spoken": "icon",
-								"startMs": 683,
-								"endMs": 1025,
+								"startMs": 779,
+								"endMs": 1168,
 								"charOffset": 18
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 1025,
-								"endMs": 1196,
+								"startMs": 1168,
+								"endMs": 1363,
 								"charOffset": 23
 							},
 							{
 								"display": "see",
 								"spoken": "see",
-								"startMs": 1196,
-								"endMs": 1367,
+								"startMs": 1363,
+								"endMs": 1557,
 								"charOffset": 26
 							},
 							{
 								"display": "every",
 								"spoken": "every",
-								"startMs": 1367,
-								"endMs": 1879,
+								"startMs": 1557,
+								"endMs": 2141,
 								"charOffset": 30
 							},
 							{
 								"display": "theme.",
 								"spoken": "theme.",
-								"startMs": 1879,
-								"endMs": 2075,
+								"startMs": 2141,
+								"endMs": 2364,
 								"charOffset": 36
 							}
 						],
 						"startMs": 0,
-						"endMs": 2396,
+						"endMs": 2730,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 2396
+				"durationMs": 2730
 			}
 		},
 		{
-			"key": "9125725caa89",
+			"key": "c807bb69fc6a",
 			"text": "On this screen, themes are in the menu at the top right. I’ll switch one for you.",
-			"file": "9125725caa89.mp3",
-			"bytes": 26208,
-			"speechMs": 4301,
+			"file": "c807bb69fc6a.mp3",
+			"bytes": 27360,
+			"speechMs": 4510,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -264,89 +263,89 @@
 								"display": "On",
 								"spoken": "On",
 								"startMs": 0,
-								"endMs": 172,
+								"endMs": 181,
 								"charOffset": 0
 							},
 							{
 								"display": "this",
 								"spoken": "this",
-								"startMs": 172,
-								"endMs": 344,
+								"startMs": 181,
+								"endMs": 361,
 								"charOffset": 3
 							},
 							{
 								"display": "screen,",
 								"spoken": "screen,",
-								"startMs": 344,
-								"endMs": 542,
+								"startMs": 361,
+								"endMs": 568,
 								"charOffset": 8
 							},
 							{
 								"display": "themes",
 								"spoken": "themes",
-								"startMs": 710,
-								"endMs": 1054,
+								"startMs": 744,
+								"endMs": 1105,
 								"charOffset": 16
 							},
 							{
 								"display": "are",
 								"spoken": "are",
-								"startMs": 1054,
-								"endMs": 1226,
+								"startMs": 1105,
+								"endMs": 1286,
 								"charOffset": 23
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 1226,
-								"endMs": 1399,
+								"startMs": 1286,
+								"endMs": 1467,
 								"charOffset": 27
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1399,
-								"endMs": 1571,
+								"startMs": 1467,
+								"endMs": 1647,
 								"charOffset": 30
 							},
 							{
 								"display": "menu",
 								"spoken": "menu",
-								"startMs": 1571,
-								"endMs": 1915,
+								"startMs": 1647,
+								"endMs": 2008,
 								"charOffset": 34
 							},
 							{
 								"display": "at",
 								"spoken": "at",
-								"startMs": 1915,
-								"endMs": 2087,
+								"startMs": 2008,
+								"endMs": 2189,
 								"charOffset": 39
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2087,
-								"endMs": 2260,
+								"startMs": 2189,
+								"endMs": 2370,
 								"charOffset": 42
 							},
 							{
 								"display": "top",
 								"spoken": "top",
-								"startMs": 2260,
-								"endMs": 2432,
+								"startMs": 2370,
+								"endMs": 2550,
 								"charOffset": 46
 							},
 							{
 								"display": "right.",
 								"spoken": "right.",
-								"startMs": 2432,
-								"endMs": 2629,
+								"startMs": 2550,
+								"endMs": 2757,
 								"charOffset": 50
 							}
 						],
 						"startMs": 0,
-						"endMs": 2953,
+						"endMs": 3096,
 						"charOffset": 0
 					},
 					{
@@ -355,53 +354,53 @@
 							{
 								"display": "I’ll",
 								"spoken": "I’ll",
-								"startMs": 3091,
-								"endMs": 3264,
+								"startMs": 3242,
+								"endMs": 3422,
 								"charOffset": 57
 							},
 							{
 								"display": "switch",
 								"spoken": "switch",
-								"startMs": 3264,
-								"endMs": 3436,
+								"startMs": 3422,
+								"endMs": 3603,
 								"charOffset": 62
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 3436,
-								"endMs": 3608,
+								"startMs": 3603,
+								"endMs": 3783,
 								"charOffset": 69
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 3608,
-								"endMs": 3780,
+								"startMs": 3783,
+								"endMs": 3964,
 								"charOffset": 73
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 3780,
-								"endMs": 3978,
+								"startMs": 3964,
+								"endMs": 4171,
 								"charOffset": 77
 							}
 						],
-						"startMs": 3091,
-						"endMs": 4301,
+						"startMs": 3242,
+						"endMs": 4510,
 						"charOffset": 57
 					}
 				],
-				"durationMs": 4301
+				"durationMs": 4510
 			}
 		},
 		{
-			"key": "ce6b7a4368b0",
+			"key": "2d8890734b09",
 			"text": "Pick a theme and watch the slides.",
-			"file": "ce6b7a4368b0.mp3",
-			"bytes": 10656,
-			"speechMs": 1725,
+			"file": "2d8890734b09.mp3",
+			"bytes": 13248,
+			"speechMs": 2146,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -412,66 +411,66 @@
 								"display": "Pick",
 								"spoken": "Pick",
 								"startMs": 0,
-								"endMs": 172,
+								"endMs": 214,
 								"charOffset": 0
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 172,
-								"endMs": 344,
+								"startMs": 214,
+								"endMs": 428,
 								"charOffset": 5
 							},
 							{
 								"display": "theme",
 								"spoken": "theme",
-								"startMs": 344,
-								"endMs": 516,
+								"startMs": 428,
+								"endMs": 642,
 								"charOffset": 7
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 516,
-								"endMs": 688,
+								"startMs": 642,
+								"endMs": 856,
 								"charOffset": 13
 							},
 							{
 								"display": "watch",
 								"spoken": "watch",
-								"startMs": 688,
-								"endMs": 860,
+								"startMs": 856,
+								"endMs": 1070,
 								"charOffset": 17
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 860,
-								"endMs": 1032,
+								"startMs": 1070,
+								"endMs": 1284,
 								"charOffset": 23
 							},
 							{
 								"display": "slides.",
 								"spoken": "slides.",
-								"startMs": 1032,
-								"endMs": 1402,
+								"startMs": 1284,
+								"endMs": 1744,
 								"charOffset": 27
 							}
 						],
 						"startMs": 0,
-						"endMs": 1725,
+						"endMs": 2146,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1725
+				"durationMs": 2146
 			}
 		},
 		{
-			"key": "5aceb513860f",
+			"key": "2a3a286c8453",
 			"text": "Same slides, new look. Search “theme” to change it again.",
-			"file": "5aceb513860f.mp3",
-			"bytes": 19872,
-			"speechMs": 3264,
+			"file": "2a3a286c8453.mp3",
+			"bytes": 26928,
+			"speechMs": 4419,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -482,33 +481,33 @@
 								"display": "Same",
 								"spoken": "Same",
 								"startMs": 0,
-								"endMs": 182,
+								"endMs": 246,
 								"charOffset": 0
 							},
 							{
 								"display": "slides,",
 								"spoken": "slides,",
-								"startMs": 182,
-								"endMs": 571,
+								"startMs": 246,
+								"endMs": 773,
 								"charOffset": 5
 							},
 							{
 								"display": "new",
 								"spoken": "new",
-								"startMs": 748,
-								"endMs": 930,
+								"startMs": 1013,
+								"endMs": 1259,
 								"charOffset": 13
 							},
 							{
 								"display": "look.",
 								"spoken": "look.",
-								"startMs": 930,
-								"endMs": 1138,
+								"startMs": 1259,
+								"endMs": 1541,
 								"charOffset": 17
 							}
 						],
 						"startMs": 0,
-						"endMs": 1479,
+						"endMs": 2003,
 						"charOffset": 0
 					},
 					{
@@ -517,52 +516,52 @@
 							{
 								"display": "Search",
 								"spoken": "Search",
-								"startMs": 1625,
-								"endMs": 1807,
+								"startMs": 2201,
+								"endMs": 2446,
 								"charOffset": 23
 							},
 							{
 								"display": "“theme”",
 								"spoken": "theme",
-								"startMs": 1807,
-								"endMs": 1989,
+								"startMs": 2446,
+								"endMs": 2692,
 								"charOffset": 30
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 1989,
-								"endMs": 2170,
+								"startMs": 2692,
+								"endMs": 2938,
 								"charOffset": 38
 							},
 							{
 								"display": "change",
 								"spoken": "change",
-								"startMs": 2170,
-								"endMs": 2352,
+								"startMs": 2938,
+								"endMs": 3184,
 								"charOffset": 41
 							},
 							{
 								"display": "it",
 								"spoken": "it",
-								"startMs": 2352,
-								"endMs": 2533,
+								"startMs": 3184,
+								"endMs": 3430,
 								"charOffset": 48
 							},
 							{
 								"display": "again.",
 								"spoken": "again.",
-								"startMs": 2533,
-								"endMs": 2923,
+								"startMs": 3430,
+								"endMs": 3957,
 								"charOffset": 51
 							}
 						],
-						"startMs": 1625,
-						"endMs": 3264,
+						"startMs": 2201,
+						"endMs": 4419,
 						"charOffset": 23
 					}
 				],
-				"durationMs": 3264
+				"durationMs": 4419
 			}
 		}
 	]

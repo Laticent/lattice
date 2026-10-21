@@ -2,9 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { KOKORO } from '../../../../../lib/export/kokoro-voice.mjs';
 import { lineKey } from '../../../../../tools/lib/lesson-voice-key.mjs';
-import { PLAYGROUND_LINES, PLAYGROUND_VOICE_DIR, TOUR_LINES, TOUR_VOICE, TOUR_VOICE_DIR } from '../tours/lines';
+import { TOUR_FOLDERS, TOUR_VOICE } from '../tours/lines';
 import { clipNarrator, type VoiceManifest } from './lesson-voice';
 import { LESSON_LINES, SHARED_LINES, SHARED_VOICE_DIR } from './lines';
 
@@ -14,12 +13,12 @@ import { LESSON_LINES, SHARED_LINES, SHARED_VOICE_DIR } from './lines';
 // plays the silent caption, never a wrong clip, for any line it has no clip for.
 
 const VOICE_DIR = path.resolve(__dirname, '../../../../public/lesson-voice');
-const voice = { model: KOKORO.model, voice: KOKORO.voice, dtype: KOKORO.dtype, speed: KOKORO.speed };
 const RECORD = 'Run: node tools/record-lesson-voice.mjs';
 
-const folders: Record<string, readonly string[]> = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), [TOUR_VOICE_DIR]: Object.values(TOUR_LINES), [PLAYGROUND_VOICE_DIR]: Object.values(PLAYGROUND_LINES) };
-/** The first-run tour speaks in Gemini; every lesson folder speaks in Kokoro. */
-const voiceOf = (dir: string) => ([TOUR_VOICE_DIR, PLAYGROUND_VOICE_DIR].includes(dir) ? TOUR_VOICE : voice);
+const folders: Record<string, readonly string[]> = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), ...TOUR_FOLDERS };
+/** One voice for the whole Studio: every folder, tours and lessons alike, is recorded in the tour voice. */
+const voice = TOUR_VOICE;
+const voiceOf = (_dir: string) => voice;
 for (const [id, lines] of Object.entries(LESSON_LINES)) folders[id] = Object.values(lines);
 
 describe('the recorded lesson voice', () => {
@@ -34,7 +33,7 @@ describe('the recorded lesson voice', () => {
 				expect(entry, `no clip for "${text}". ${RECORD}`).toBeDefined();
 				// The key hashes the text with the voice settings: a mismatch is a clip recorded for
 				// other words or another voice.
-				expect(entry?.key, `stale clip for "${text}". ${RECORD}`).toBe(lineKey(text, voiceOf(dir) as typeof voice));
+				expect(entry?.key, `stale clip for "${text}". ${RECORD}`).toBe(lineKey(text, voiceOf(dir) as never));
 				expect(fs.existsSync(path.join(VOICE_DIR, dir, entry?.file ?? '')), `${entry?.file} is missing. ${RECORD}`).toBe(true);
 			}
 			const used = new Set(lines.map((t) => byText.get(t)?.file));
