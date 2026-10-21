@@ -18,6 +18,7 @@
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame } from './layout.js';
 import { isPosition, planMasters, withoutHoisted } from './masters.js';
+import { imageExt, imageMime } from './picture.js';
 import { renameFace } from './sfnt.js';
 import { drawOrder, type Insets, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
@@ -283,7 +284,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	// "Default" master page, as before.
 	const useLayouts = !!deck.backgrounds?.length || deck.slides.some((sl) => sl.frames.some((f) => f.role));
 	const masters = useLayouts ? planMasters(deck) : null;
-	const bgPath = (b: number) => `Pictures/background${pad3(b)}.png`;
+	const bgPath = (b: number, bytes: Uint8Array) => `Pictures/background${pad3(b)}.${imageExt(bytes)}`;
 	const masterName = (li: number) => `Layout${li + 1}`;
 	const nameOf = (f: TextFrame, n: string | number, k: number) => (f.role ? `${ROLE_NAMES[f.role]} ${n}` : `Text ${n}.${k + 1}`);
 	// The picture over the master page is the slide's own content; it stays put unless a reader unlocks it.
@@ -328,7 +329,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		return (
 			`<draw:page draw:name="Slide ${n}" draw:master-page-name="${masters ? masterName(masters.layoutOf[i]) : 'Default'}">` +
 			`<draw:frame${masters ? ' draw:style-name="grPic"' : ''} draw:name="Slide ${n}" svg:x="0cm" svg:y="0cm" svg:width="${page.w}cm" svg:height="${page.h}cm">` +
-			`<draw:image xlink:href="Pictures/slide${pad3(i)}.png" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
+			`<draw:image xlink:href="Pictures/slide${pad3(i)}.${imageExt(slide.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
 			// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
 			`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
 			`</draw:frame>${boxes}${notesXml}</draw:page>`
@@ -343,7 +344,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		})
 		.join('');
 	const fillImages = (deck.backgrounds || [])
-		.map((b, bi) => (b.image && masters?.layouts.some((l) => l.background === bi) ? `<draw:fill-image draw:name="Bg${bi}" xlink:href="${bgPath(bi)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` : ''))
+		.map((b, bi) => (b.image && masters?.layouts.some((l) => l.background === bi) ? `<draw:fill-image draw:name="Bg${bi}" xlink:href="${bgPath(bi, b.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` : ''))
 		.join('');
 
 	const content = `<?xml version="1.0" encoding="UTF-8"?>
@@ -385,8 +386,8 @@ ${masterXml}
 		['styles.xml', 'text/xml'],
 		['meta.xml', 'text/xml'],
 		['settings.xml', 'text/xml'],
-		...deck.slides.map((_s, i): [string, string] => [`Pictures/slide${pad3(i)}.png`, 'image/png']),
-		...(deck.backgrounds || []).flatMap((b, bi): Array<[string, string]> => (b.image && masters?.layouts.some((l) => l.background === bi) ? [[bgPath(bi), 'image/png']] : [])),
+		...deck.slides.map((s, i): [string, string] => [`Pictures/slide${pad3(i)}.${imageExt(s.image)}`, imageMime(s.image)]),
+		...(deck.backgrounds || []).flatMap((b, bi): Array<[string, string]> => (b.image && masters?.layouts.some((l) => l.background === bi) ? [[bgPath(bi, b.image), imageMime(b.image)]] : [])),
 		...used.map((_f, i): [string, string] => [fontPath(i), 'application/x-font-ttf']),
 	];
 	const manifest = `<?xml version="1.0" encoding="UTF-8"?>
@@ -406,10 +407,10 @@ ${parts.map(([p, t]) => `<manifest:file-entry manifest:full-path="${p}" manifest
 	deck.slides.forEach((slide, i) => {
 		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		// PNG is compressed already; deflating it again costs time and saves nothing.
-		zip.file(`Pictures/slide${pad3(i)}.png`, slide.image, { ...NO_DIRS, compression: 'STORE' });
+		zip.file(`Pictures/slide${pad3(i)}.${imageExt(slide.image)}`, slide.image, { ...NO_DIRS, compression: 'STORE' });
 	});
 	(deck.backgrounds || []).forEach((b, bi) => {
-		if (b.image && masters?.layouts.some((l) => l.background === bi)) zip.file(bgPath(bi), b.image, { ...NO_DIRS, compression: 'STORE' });
+		if (b.image && masters?.layouts.some((l) => l.background === bi)) zip.file(bgPath(bi, b.image), b.image, { ...NO_DIRS, compression: 'STORE' });
 	});
 	embedded.forEach((e, i) => {
 		zip.file(fontPath(i), e.bytes, NO_DIRS);

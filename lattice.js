@@ -4852,7 +4852,8 @@ async function renderBody(browser, g, closeBrowser) {
     } else {
       const pngBuffers = [];
       for (const h of handles) {
-        pngBuffers.push(await g(() => h.screenshot(pngShot), 'screenshot slide'));
+        // A `.pptx` slide picture is opaque, so a photographic one is stored as a JPEG (lib/export/slide-picture.js).
+        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot) : h.screenshot(pngShot)), 'screenshot slide'));
       }
       await closeBrowser();
 

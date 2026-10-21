@@ -13,6 +13,7 @@ export { applyTransform, placeFrame, spacingMultiple } from './layout.js';
 export type { ChromeRole, Layout, MasterPlan } from './masters.js';
 export { CHROME_ROLES, planMasters, withoutHoisted } from './masters.js';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp.js';
+export { imageExt, imageMime, isContinuousTone, jpegWins, PICTURE_FLAT_BYTES, PICTURE_JPEG_QUALITY, PICTURE_JPEG_SHARE, PICTURE_TONE_JPEG_BYTES, worthTryingJpeg } from './picture.js';
 
 export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx.js';
 export { applyRoles, buildPptx, embedPptxFonts, groupShapes, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, writePptx, xmlSafe } from './pptx.js';

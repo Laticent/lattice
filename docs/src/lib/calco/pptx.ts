@@ -36,6 +36,7 @@
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
 import { isPosition, planMasters, withoutHoisted } from './masters.js';
+import { imageMime } from './picture.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
@@ -244,7 +245,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	if (masters) {
 		masters.layouts.forEach((layout, li) => {
 			const paint = layout.paint;
-			const background = paint?.color ? { color: bareHex(paint.color) } : paint?.image ? { data: `image/png;base64,${toBase64(paint.image)}` } : undefined;
+			const background = paint?.color ? { color: bareHex(paint.color) } : paint?.image ? { data: `${imageMime(paint.image)};base64,${toBase64(paint.image)}` } : undefined;
 			// The title placeholder sits where the first slide on this layout put its title.
 			const first = deck.slides.findIndex((sl, i) => masters.layoutOf[i] === li && sl.frames.some((f) => f.role === 'title' && f.group === undefined));
 			const titleFrame = first < 0 ? null : (deck.slides[first].frames.find((f) => f.role === 'title') as TextFrame);
@@ -273,7 +274,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const s = pptx.addSlide(masters ? { masterName: layoutName(masters.layoutOf[i]) } : undefined);
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}`, ...(options?.groups && masters ? { objectName: `${LOCK_TAG}Slide ${i + 1}` } : {}) });
+		s.addImage({ data: `${imageMime(slide.image)};base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}`, ...(options?.groups && masters ? { objectName: `${LOCK_TAG}Slide ${i + 1}` } : {}) });
 		const n = i + 1;
 		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
 			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.
