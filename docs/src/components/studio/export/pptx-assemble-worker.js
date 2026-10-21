@@ -24,13 +24,14 @@
 //   out : {type:'done', bytes}                    (ArrayBuffer, transferred)
 //   out : {type:'error', message}
 //
-// The slide images arrive as raw PNG BYTES and are base64'd here. That is deliberate:
+// The slide images arrive as raw PNG (or, for a photographic slide, JPEG) BYTES and are base64'd here. That is deliberate:
 // pptxgenjs validates its `data` for a `base64,` marker, so SOMEBODY has to encode
 // 56 multi-megabyte images, and an ArrayBuffer transfers to this thread for free
 // while a data-URL string would be copied whole.
 
 import JSZip from 'jszip';
 import PptxGenJS from 'pptxgenjs';
+import { imageMime } from '@/lib/calco/picture';
 import { tidyPptxPackage, xmlSafe } from '@/lib/calco/pptx';
 
 let pptx = null;
@@ -66,7 +67,7 @@ async function handle(m) {
 		return;
 	}
 	if (m.type === 'slide') {
-		slides[m.index] = { data: `image/png;base64,${toBase64(new Uint8Array(m.bytes))}`, altText: xmlSafe(m.altText).trim() || `Slide ${m.index + 1}` };
+		slides[m.index] = { data: `${imageMime(new Uint8Array(m.bytes))};base64,${toBase64(new Uint8Array(m.bytes))}`, altText: xmlSafe(m.altText).trim() || `Slide ${m.index + 1}` };
 		self.postMessage({ type: 'progress', index: m.index });
 		return;
 	}

@@ -19,7 +19,7 @@ describe('calco — serialization', () => {
   });
 
   test('readSlide and restoreSlide compile from their own source', () => {
-    for (const fn of [calco.readSlide, calco.restoreSlide]) {
+    for (const fn of [calco.readSlide, calco.restoreSlide, calco.isContinuousTone]) {
       assert.doesNotThrow(() => new Function(`return (${fn.toString()})`), fn.name);
     }
   });
@@ -29,8 +29,8 @@ describe('calco — serialization', () => {
     const helpers = [...src.matchAll(/^var (__\w+) = /gm)].map((m) => m[1]).filter((h) => !['__defProp', '__getOwnPropDesc', '__getOwnPropNames', '__hasOwnProp', '__export', '__copyProps', '__toCommonJS'].includes(h));
     assert.deepEqual(helpers, [], 'a helper the shipped functions could reach');
     // Every top-level binding in the bundle, by name: none may appear inside the reader.
-    const topLevel = [...src.matchAll(/^(?:var|let|const|function|async function) (\w+)/gm)].map((m) => m[1]).filter((n) => !['readSlide', 'restoreSlide'].includes(n));
-    for (const fn of [calco.readSlide, calco.restoreSlide]) {
+    const topLevel = [...src.matchAll(/^(?:var|let|const|function|async function) (\w+)/gm)].map((m) => m[1]).filter((n) => !['readSlide', 'restoreSlide', 'isContinuousTone'].includes(n));
+    for (const fn of [calco.readSlide, calco.restoreSlide, calco.isContinuousTone]) {
       const body = fn.toString();
       for (const name of topLevel) assert.ok(!new RegExp(`\\b${name}\\b`).test(body), `${fn.name} references the module-scope ${name}`);
     }
