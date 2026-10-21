@@ -33,14 +33,16 @@ export function prepareTourVoice(dir?: string): ClipNarrator {
 	} else {
 		voice.unlock();
 	}
-	for (const d of dir && dir !== TOUR_VOICE_DIR ? [TOUR_VOICE_DIR, dir] : [TOUR_VOICE_DIR]) {
-		if (!folders.has(d)) folders.set(d, voice.load(d));
-	}
+	// Only the folder asked for. The welcome folder holds the sound-test line and the welcome tour; a tour
+	// that is not the welcome tour must not fetch its 16 clips (about 600 KB) to speak. The sound test asks
+	// for that folder itself (`tourVoiceReady()` with no folder).
+	const d = dir ?? TOUR_VOICE_DIR;
+	if (!folders.has(d)) folders.set(d, voice.load(d));
 	return voice;
 }
 
-/** Resolves once the clip lists have been read (never rejects). */
-export const tourVoiceReady = (dir?: string): Promise<void> => (prepareTourVoice(dir), Promise.all(folders.values()).then(() => {}));
+/** Resolves once the clip list of `dir` (the welcome folder when omitted) has been read. Never rejects. */
+export const tourVoiceReady = (dir?: string): Promise<void> => (prepareTourVoice(dir), folders.get(dir ?? TOUR_VOICE_DIR) ?? Promise.resolve());
 
 /** The narrator the tour runs with: the recorded voice, or the silent one (captions and timing only). */
 export function tourNarrator(sound: boolean, dir?: string) {
