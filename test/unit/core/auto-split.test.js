@@ -586,3 +586,15 @@ describe('auto-split: data-split-label names the page, over the first-list heuri
     assert.doesNotMatch(hostile, /<img/i, 'a stamped tag became live markup');
   });
 });
+
+describe('core: a split run gives each page its own logo tint filter id', () => {
+	const { repaginate } = require('../../../lib/core/auto-split');
+	const page = (k, extra = '') => `<section data-lattice-slide="3" data-split-run="r3" style="--deck-logo-filter:url(#deck-logo-tint-3);--deck-logo-opacity:1;"${extra}><svg class="deck-logo-tint"><filter id="deck-logo-tint-3"></filter></svg>p${k}</section>`;
+	test('page 1 keeps the authored id; later pages get -k in the filter and the url()', () => {
+		const out = repaginate(page(1) + page(2) + page(3));
+		const ids = [...out.matchAll(/<filter id="([^"]+)"/g)].map((m) => m[1]);
+		assert.deepEqual(ids, ['deck-logo-tint-3', 'deck-logo-tint-3-2', 'deck-logo-tint-3-3']);
+		const refs = [...out.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]);
+		assert.deepEqual(refs, ids, 'every page points at its own filter');
+	});
+});
