@@ -2,7 +2,7 @@
 origin: 2824
 priority: P2
 recorded: 2026-10-21
-area: image
+area: imagery
 severity: low
 swimlane: lib/components/imagery/image/image.docs.md
 source: https://github.com/Laticent/lattice/pull/2824
