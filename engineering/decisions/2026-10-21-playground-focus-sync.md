@@ -247,3 +247,27 @@ Not changed, and why: per-key cost grows with the size of the slide being typed 
 lines; the hub re-parses the slide between two separators), the second parse of the deck per render, and the
 map's own index on every render. All three are small below a thousand lines; the typing delay the owner may
 feel is the render pipeline and `remoteCssRefs` (followup `2840-p3`), which are level with the merge-base.
+
+## Edit and Explore keep your place (owner decisions, 2026-10-21)
+
+On a phone Edit and Explore are two tabs of one pane, not two panes. Nothing unmounts on a switch (the inactive pane is
+`display:none`, and veduta only windows slide mounting inside the preview frame). Measured on a 390 px viewport, two
+things lost the reader's place:
+
+- Edit to Explore rendered the deck fresh and opened it at slide 1, whatever slide the caret was in.
+- Explore to Edit copied the Explore source over the editor even when it was the same text, which replaced the whole
+  document: the caret and the scroll went to the top, and a backup of an unchanged deck was pushed.
+
+The rules the owner chose:
+
+- **Edit to Explore:** the caret stays; Explore opens on the caret's slide (`enterExplore`, then the walk lands on the
+  page the render's index gives for that slide).
+- **Explore to Edit:** the editor is left alone when the text is the same. A click in Explore on a slide other than the
+  caret's puts the caret at the end of that slide's title (`exploreClicked`, `leaveExplore`); scrolling in Explore
+  without a click moves nothing.
+- **Reload:** the caret is saved on Fuoco's idle lane (`playground-focus.ts`), keyed by a fingerprint of the deck text,
+  and restored only when the text is the same. Fuoco itself still persists nothing; the Playground owns the key
+  (`lattice-docs-pg-caret`). The first cut reused `lattice-docs-pg-focus`, which is the Focus-mode toggle's key: the
+  e2e spec caught it reading back `0`, and a saved caret would have broken Focus mode on the next load.
+
+Verified on Chromium and WebKit at phone width (emulation: `e2e/playground-tab-switch.spec.ts`); a real iPhone is UNVERIFIED.

@@ -95,6 +95,14 @@ export interface PlaygroundSync {
 	 *  document. A full write has not replaced it yet (the frame still shows the outgoing one), so nothing may
 	 *  scroll until `loaded()`. */
 	rendered(source: string, getIndex: (() => Promise<RenderedIndex> | null) | null, patched: boolean): void;
+	/** The reader is leaving Edit for Explore. Returns the slide (flat part number) Explore should open on, the one the
+	 *  caret is in, or -1 when there is none. The caret stays where it is. */
+	enterExplore(): number;
+	/** The reader clicked page `page` of the Explore preview. */
+	exploreClicked(page: number): void;
+	/** The reader is back in Edit. A click in Explore on a slide other than the caret's puts the caret at the end of
+	 *  that slide's title; without one the caret and the editor stay exactly as they were. */
+	leaveExplore(): void;
 	/** The preview scrolled. */
 	previewScrolled(): void;
 	/** The editor scrolled. */
@@ -152,6 +160,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let lastEdit = -Infinity;
 	/** When the caret last centered the preview. The editor scrolling right after is CodeMirror following the same caret. */
 	let lastCenter = -Infinity;
+	/** The slide the caret was in when Explore opened, and the page the reader last clicked there (-1: none). */
+	let caretFlat = -1;
+	let exploreClick = -1;
 	/** When the last scroll frame ran and when the last follower move happened (see `followNow`). */
 	let lastDrive = -Infinity;
 	let lastFollow = -Infinity;
@@ -437,6 +448,23 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		},
 		remark() {
 			if (!dead) paintMark();
+		},
+		enterExplore() {
+			const f = hub.get();
+			caretFlat = f.unitIndex >= 0 ? f.flat : -1;
+			exploreClick = -1;
+			return caretFlat;
+		},
+		exploreClicked(page) {
+			exploreClick = page;
+		},
+		leaveExplore() {
+			const page = exploreClick;
+			exploreClick = -1;
+			const ix = usable();
+			if (page < 0 || !ix) return;
+			const flat = flatOfPage(ix, page);
+			if (flat >= 0 && flat !== caretFlat) hub.go('preview-pick', { flat, grab: false });
 		},
 		previewScrolled() {
 			noteScroll();

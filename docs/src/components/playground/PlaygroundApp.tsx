@@ -771,6 +771,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  `renderDeck` reads it off the old document), so the new one opens there. */
 	const anchorRef = React.useRef<{ index: number; frac: number; slide?: string } | null>(null);
 	const showPageRef = React.useRef<SyncPorts['show']>(() => false);
+	/** The slide Explore should open on (the caret's, from `enterExplore`), until the render that shows it lands. */
+	const exploreFlatRef = React.useRef(-1);
 	React.useEffect(() => {
 		let dead = false;
 		let off: (() => void) | null = null;
@@ -838,6 +840,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const secs = frameRef.current.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]');
 		const hit = target.closest('.lattice > section, .lattice > div[data-lv-ph]');
 		const page = hit && secs ? Array.prototype.indexOf.call(secs, hit) : -1;
+		// In Explore a click only names a slide: it moves the caret when the reader goes back to Edit.
+		if (page >= 0 && viewRef.current === 'read') {
+			syncRef.current?.exploreClicked(page);
+			return;
+		}
 		// Not a touch: a touch pick would raise the software keyboard.
 		if (page >= 0) syncRef.current?.picked(page, { grab: ((e as PointerEvent).pointerType ?? (window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse')) !== 'touch' });
 	}, []);
@@ -943,6 +950,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// written against pre-FIT offsets is thrown away when it does (#2124).
 				bindDeckInputRef.current();
 				if (viewRef.current === 'read') landWalkRef.current();
+				// Explore was opened from Edit: open it on the slide the caret is in, once the render says which page that is.
+				const openOn = exploreFlatRef.current;
+				if (openOn >= 0 && viewRef.current === 'read' && w?.kind === 'deck') {
+					exploreFlatRef.current = -1;
+					void (async () => {
+						const ix = await r.index?.();
+						if (!ix) return;
+						const { pageOfFlat } = await import('@/lib/rendered-index');
+						const page = pageOfFlat(ix, openOn);
+						const cur = walkRef.current;
+						if (page < 0 || viewRef.current !== 'read' || cur?.kind !== 'deck' || cur.index === page) return;
+						const moved: Walk = { ...cur, index: page };
+						walkRef.current = moved;
+						setWalk(moved);
+						landWalkRef.current();
+					})();
+				}
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -1360,6 +1384,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} catch {
 				/* private mode */
 			}
+			// A reload of the same deck puts the caret back where it was left (saved by the focus module, on Fuoco's idle
+			// lane). A caret the reader has already moved, or a different text, is left alone.
+			void import('@/lib/playground-focus').then(({ savedCaret }) => {
+				if (viewRef.current !== 'edit' || adapter.getCaret().head !== 0) return;
+				const at = savedCaret(adapter.getValue());
+				if (at) adapter.revealSlide({ from: at, to: at, caret: at, frame: true, grab: false });
+			});
 			syncRef.current?.edited(adapter.getValue());
 			// Where the caret opens is a place too: the band marks its slide from the start.
 			syncRef.current?.selected({ ...adapter.getCaret(), line: '', user: false });
@@ -1977,6 +2008,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			}
 			document.body.setAttribute('data-view', v);
 			if (v === 'read') {
+				// The caret stays where it is; Explore opens on its slide.
+				if (changing) exploreFlatRef.current = syncRef.current?.enterExplore() ?? -1;
 				// Leaving Edit: save the edited deck back so Explore renders the edits
 				// (the unified view/source model — 2026-07-06 simplification).
 				//
@@ -2018,13 +2051,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// Entering Edit: open the current deck's markdown in the editor. Flipping
 				// back to Explore renders whatever you changed. (Whole-deck edit; Explore
 				// is the preview, so there is no separate preview pane on mobile.)
-				if (changing && exploreSourceRef.current != null) {
+				// ONLY WHEN THE TEXT IS DIFFERENT. Explore normally shows what the editor holds, and copying it back
+				// replaced the whole document: the caret and the scroll went to the top and a backup of an
+				// unchanged deck was pushed. A gallery or a plan step is different text, and that still lands here.
+				if (changing && exploreSourceRef.current != null && lf(exploreSourceRef.current) !== lf(getSource())) {
 					backupDraft('Opened the deck in the editor');
 					setSource(exploreSourceRef.current);
 				}
 				setPane('edit');
 				document.body.setAttribute('data-pane', 'edit');
 				freshRender();
+				// A click in Explore on another slide puts the caret at the end of its title.
+				if (changing) syncRef.current?.leaveExplore();
 			}
 			// The pane the frame lives in changed width (Explore is single-pane) —
 			// re-fit after layout so the filmstrip scales to the new box.

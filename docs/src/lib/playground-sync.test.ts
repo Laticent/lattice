@@ -270,6 +270,52 @@ describe('the slide in focus is marked in both panes', () => {
 	});
 });
 
+describe('Explore and Edit are two views of one deck', () => {
+	it('opens Explore on the slide the caret is in, and leaves the caret alone', async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.sync.selected({ head: at('delta'), anchor: at('delta'), line: 'delta', user: true });
+		r.frame();
+		r.log.length = 0;
+		expect(r.sync.enterExplore()).toBe(3);
+		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
+	});
+
+	it('a click on another slide in Explore puts the caret at the end of its title when the reader goes back', async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
+		r.frame();
+		r.sync.enterExplore();
+		r.state.editing = false;
+		r.sync.exploreClicked(4);
+		r.state.editing = true;
+		r.log.length = 0;
+		r.sync.leaveExplore();
+		r.frame();
+		const title = at('# Five') + '# Five'.length;
+		expect(r.log.some((l) => l.startsWith(`reveal caret=${title}`))).toBe(true);
+	});
+
+	it('going back without a click, or after a click on the caret slide, moves nothing', async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.sync.selected({ head: at('beta'), anchor: at('beta'), line: 'beta', user: true });
+		r.frame();
+		r.sync.enterExplore();
+		r.log.length = 0;
+		r.sync.leaveExplore();
+		r.sync.enterExplore();
+		r.sync.exploreClicked(1);
+		r.sync.leaveExplore();
+		r.frame();
+		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
+	});
+});
+
 describe('a pick moves the caret', () => {
 	it('a click on a slide puts the caret at the end of its title, centers it in the preview and brings the editor level', async () => {
 		const r = rig();
