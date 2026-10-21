@@ -39,7 +39,7 @@ import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { imageMime } from './picture.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
-import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
+import type { Deck, EmbeddedFont, FrameRole, Gradient, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
 
 /** The family name PowerPoint sees for an embedded face (`faceFamilyName`, with the PPTX-safe family). */
 export function pptxFaceName(face: { family: string; weight: number; italic: boolean }): string {
@@ -55,6 +55,9 @@ const SUB_TAG = 'calco-sub-';
 const ROLE_TAG = 'calco-role-';
 /** The name marker for a path whose stroke ends and corners are round, until tidyPptx writes them. */
 const ROUND_TAG = 'calco-round|';
+/** The name marker for a gradient fill, `calco-grad-<css angle>~<pos>:<rrggbb>:<alpha>~…|`, until tidyPptx writes it. */
+const GRAD_TAG = 'calco-grad-';
+const gradTag = (g: Gradient | undefined) => (g ? `${GRAD_TAG}${g.angle}~${g.stops.map((st) => `${st.pos}:${st.color.replace('#', '')}:${st.alpha}`).join('~')}|` : '');
 /** The name prefix that marks a slide's content picture until tidyPptx locks it. */
 const LOCK_TAG = 'calco-lock|';
 /** What a role is called in the file, so a reader finds it in the selection pane. */
@@ -298,7 +301,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				}
 				const geom = shapeGeometry(item.shape);
 				const { kind, options: shapeOptions } = shapeOf(item.shape, geom);
-				const name = `${tag}${subTag(item.shape.sub)}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
+				const name = `${tag}${subTag(item.shape.sub)}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${gradTag(item.shape.gradient)}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
 				if (!item.label) {
 					s.addShape(kind, { ...shapeOptions, objectName: name });
 					continue;
@@ -546,6 +549,29 @@ function posixRelative(fromDir: string, to: string): string {
 	return [...a.map(() => '..'), ...b].join('/');
 }
 
+/** Swap a tagged shape's flat fill for the gradient its name carries. */
+function withGradient(sp: string): string {
+	const m = sp.match(new RegExp(`${GRAD_TAG}(-?[\\d.]+)((?:~[\\d.]+:[0-9a-f]{6}:[\\d.]+)+)\\|`));
+	if (!m) return sp;
+	const ang = Math.round((((Number(m[1]) - 90) % 360) + 360) % 360 * 60000);
+	const stops = m[2]
+		.slice(1)
+		.split('~')
+		.map((t) => {
+			const [pos, rgb, alpha] = t.split(':');
+			const a = Math.round(Number(alpha) * 100000);
+			return `<a:gs pos="${Math.round(Number(pos) * 100000)}"><a:srgbClr val="${rgb.toUpperCase()}">${a < 100000 ? `<a:alpha val="${a}"/>` : ''}</a:srgbClr></a:gs>`;
+		})
+		.join('');
+	const fill = `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst><a:lin ang="${ang}" scaled="0"/></a:gradFill>`;
+	const named = sp.replace(m[0], '');
+	// The shape's own fill is the first one before its outline.
+	const ln = named.indexOf('<a:ln');
+	const head = ln < 0 ? named : named.slice(0, ln);
+	const swapped = head.replace(/<a:solidFill>[\s\S]*?<\/a:solidFill>/, fill);
+	return swapped + (ln < 0 ? '' : named.slice(ln));
+}
+
 /**
  * Make each tagged text box what its tag says: a title becomes the slide's title placeholder
  * (its position and runs stay its own, so it draws where the browser drew it, and the layout's
@@ -556,16 +582,19 @@ function posixRelative(fromDir: string, to: string): string {
  * PptxGenJS copies from the layout onto every slide.
  */
 export function applyRoles(xml: string): string {
-	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes('hasCustomPrompt')) return xml;
+	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes(GRAD_TAG) && !xml.includes('hasCustomPrompt')) return xml;
 	// The slide's content picture stays where it is unless a reader unlocks it: it is the one
 	// object nobody means to drag, and the first one a stray touch grabs.
 	xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) =>
 		pic.includes(`name="${LOCK_TAG}`) ? pic.replace(`name="${LOCK_TAG}`, 'name="').replace(/<a:picLocks[^>]*\/>/, '<a:picLocks noChangeAspect="1" noMove="1" noResize="1"/>') : pic,
 	);
-	return xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, (sp) => {
+	return xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, (spIn) => {
+		let sp = spIn;
 		// PptxGenJS copies each of the layout's placeholders onto every slide, empty, with a
 		// prompt. A slide that used one has written its own; the rest would show "Click to add".
 		if (sp.includes('hasCustomPrompt="1"') && sp.includes('<a:endParaRPr') && !sp.includes('<a:t>')) return '';
+		// A gradient fill: PptxGenJS writes a flat color only, so the name carries the gradient.
+		if (sp.includes(GRAD_TAG)) sp = withGradient(sp);
 		// A path's stroke ends and corners: PptxGenJS cannot write them, so the name carries a marker.
 		if (sp.includes(ROUND_TAG)) {
 			return sp

@@ -82,6 +82,18 @@ export interface Paint {
 	alpha: number;
 }
 
+/** One color stop of a linear gradient. */
+export interface GradientStop extends Paint {
+	/** 0–1 along the gradient line. */
+	pos: number;
+}
+
+/** A linear gradient fill: the CSS angle in degrees (0 is toward the top, 90 toward the right) and its stops. */
+export interface Gradient {
+	angle: number;
+	stops: GradientStop[];
+}
+
 /** An outer shadow, in px. */
 export interface Shadow extends Paint {
 	x: number;
@@ -118,6 +130,8 @@ export interface Shape {
 	h: number;
 	radii?: [number, number, number, number];
 	fill?: Paint;
+	/** A linear gradient the box is filled with. `fill` then holds a stand-in color for a reader that ignores it. */
+	gradient?: Gradient;
 	stroke?: Paint & { width: number };
 	shadow?: Shadow;
 	/** A line: the side of its box it was. */

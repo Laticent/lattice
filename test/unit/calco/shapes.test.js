@@ -162,3 +162,27 @@ describe('calco shapes — odp', () => {
     assert.match(xml, /fo:wrap-option="no-wrap"/);
   });
 });
+
+describe('calco shapes — gradient fills', () => {
+  const grad = { angle: 90, stops: [{ pos: 0, color: '#e11d48', alpha: 1 }, { pos: 0.5, color: '#facc15', alpha: 0.5 }, { pos: 1, color: '#2563eb', alpha: 0 }] };
+  const gradDeck = () => ({ width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [], shapes: [{ kind: 'box', x: 100, y: 100, w: 400, h: 100, radii: [8, 8, 8, 8], fill: { color: '#facc15', alpha: 1 }, gradient: grad }] }] });
+
+  test('pptx writes a gradFill with every stop, its alpha, and an OOXML angle; no tag is left in a name', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, gradDeck(), 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.match(xml, /<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:srgbClr val="E11D48">/);
+    assert.equal(xml.match(/<a:gs /g).length, 3);
+    assert.match(xml, /<a:gs pos="100000"><a:srgbClr val="2563EB"><a:alpha val="0"\/>/);
+    assert.match(xml, /<a:lin ang="0" scaled="0"\/>/, 'CSS 90deg (toward the right) is OOXML 0');
+    assert.doesNotMatch(xml, /calco-grad-/);
+  });
+
+  test('odp writes a named gradient with its stops, and an opacity gradient when the alpha varies', async () => {
+    const zip = await JSZip.loadAsync(await writeOdp(JSZip, gradDeck(), 'nodebuffer'));
+    const styles = await zip.file('styles.xml').async('string');
+    const content = await zip.file('content.xml').async('string');
+    assert.match(styles, /<draw:gradient [^>]*draw:angle="90deg"[^>]*>(<loext:gradient-stop [^>]*\/>){3}<\/draw:gradient>/);
+    assert.match(styles, /<draw:opacity [^>]*>(<loext:opacity-stop [^>]*\/>){3}<\/draw:opacity>/);
+    assert.match(content, /draw:fill="gradient" draw:fill-gradient-name="Gr1" draw:opacity-name="Op2"/);
+  });
+});

@@ -225,3 +225,70 @@ describe('calco lifts pseudo-elements in Chromium', () => {
     assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before, 'no probe, attribute or rule left behind');
   });
 });
+
+const PAINT = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; }
+  .a { position: absolute; left: 40px; top: 40px; width: 300px; height: 80px; border-radius: 12px; box-sizing: border-box; }
+  .rule { position: absolute; left: 40px; top: 160px; width: 300px; height: 40px; background: #eef; box-sizing: border-box; }
+  .rule::before { content: ''; position: absolute; left: 0; top: 0; width: 60px; height: 4px; background: linear-gradient(#c00, #c00); }
+  .solid { background: linear-gradient(#036, #036) left top / 80px 6px no-repeat; left: 400px; top: 160px; height: 40px; }
+  .rep { background: linear-gradient(#036, #036) left top / 20px 6px repeat-x; left: 400px; top: 240px; height: 40px; }
+  .corner { background: linear-gradient(to bottom right, #fff, #000); left: 700px; top: 40px; }
+</style></head><body><section id="s">
+  <div class="a" id="two" style="background: linear-gradient(90deg, #e11d48, #2563eb)"></div>
+  <div class="a" id="three" style="top: 140px; left: 700px; background: linear-gradient(to bottom, #16a34a 0%, #facc15 50%, #dc2626 100%)"></div>
+  <div class="a" id="fade" style="top: 240px; left: 700px; background: linear-gradient(135deg, rgba(37,99,235,0), #2563eb)"></div>
+  <div class="a solid" id="solid"></div>
+  <div class="a rep" id="rep"></div>
+  <div class="a corner" id="corner"></div>
+  <div class="rule" id="rule"></div>
+</section></body></html>`;
+
+describe('calco lifts linear gradients and sized one-color layers into native fills', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(PAINT, { waitUntil: 'load' });
+    res = await (await page.$('#s')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const at = (x, y) => res.shapes.find((s) => Math.abs(s.x - x) < 1 && Math.abs(s.y - y) < 1);
+
+  test('a two-stop and a three-stop gradient keep their angle, stops and radius', () => {
+    const two = at(40, 40);
+    assert.equal(two.gradient.angle, 90);
+    assert.deepEqual(two.gradient.stops.map((st) => [st.pos, st.color]), [[0, '#e11d48'], [1, '#2563eb']]);
+    assert.equal(two.radii[0], 12);
+    const three = at(700, 140);
+    assert.equal(three.gradient.angle, 180);
+    assert.deepEqual(three.gradient.stops.map((st) => st.pos), [0, 0.5, 1]);
+  });
+
+  test('a fade to transparent keeps its neighbor color on the clear stop, so it cannot fade through black', () => {
+    const fade = at(700, 240);
+    assert.equal(fade.gradient.stops[0].alpha, 0);
+    assert.equal(fade.gradient.stops[0].color, '#2563eb');
+  });
+
+  test('a one-color gradient layer is a flat fill of its tile; a tiled or corner one stays a picture', () => {
+    const solid = at(400, 160);
+    assert.ok(solid && !solid.gradient, 'a solid fill');
+    assert.deepEqual([solid.w, solid.h], [80, 6]);
+    assert.equal(solid.fill.color, '#003366');
+    assert.equal(at(400, 240), undefined, 'a repeating tile is many shapes');
+    assert.equal(at(700, 40), undefined, 'a corner direction has no OOXML equivalent here');
+    assert.ok(res.refused.some((r) => /linear-gradient/.test(r.reason)));
+  });
+
+  test('a ::before painted as a solid gradient lifts', () => {
+    const bar = at(40, 160 + 0);
+    assert.ok(res.shapes.some((s) => s.pseudo && s.w === 60 && s.h === 4), JSON.stringify(res.shapes.map((s) => [s.x, s.y, s.w, s.h, !!s.pseudo])));
+    assert.ok(bar);
+  });
+});

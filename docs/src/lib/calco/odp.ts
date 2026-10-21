@@ -21,7 +21,7 @@ import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { imageExt, imageMime } from './picture.js';
 import { renameFace } from './sfnt.js';
 import { drawOrder, type Insets, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
-import type { Deck, EmbeddedFont, FrameRole, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
+import type { Deck, EmbeddedFont, FrameRole, Gradient, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 
@@ -217,11 +217,38 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const pct = (a: number) => `${Math.round(a * 1000) / 10}%`;
 	// One graphic style per distinct paint (and, for a label, text placement).
 	const shapeStyles = new Map<string, string>();
+	// Named gradients (colors) and opacity gradients (alpha), written once each to styles.xml.
+	const gradients = new Map<string, string>();
+	const gradientNamed = (g: Gradient, kind: 'color' | 'opacity'): string => {
+		// The CSS angle (0 toward the top, 90 toward the right) is the ODF angle turned the other way from the vertical.
+		const angle = (((180 - g.angle) % 360) + 360) % 360;
+		const key = `${kind}|${angle}|${g.stops.map((st) => (kind === 'color' ? `${st.pos}:${st.color}` : `${st.pos}:${st.alpha}`)).join(',')}`;
+		const hit = gradients.get(key);
+		if (hit) return hit.match(/draw:name="([^"]+)"/)?.[1] as string;
+		const name = `${kind === 'color' ? 'Gr' : 'Op'}${gradients.size + 1}`;
+		const first = g.stops[0];
+		const last = g.stops[g.stops.length - 1];
+		const stops = g.stops
+			.map((st) => (kind === 'color' ? `<loext:gradient-stop svg:offset="${st.pos}" loext:color-type="rgb" loext:color-value="${st.color}"/>` : `<loext:opacity-stop svg:offset="${st.pos}" svg:stop-opacity="${st.alpha}"/>`))
+			.join('');
+		gradients.set(
+			key,
+			kind === 'color'
+				? `<draw:gradient draw:name="${name}" draw:display-name="${name}" draw:style="linear" draw:start-color="${first.color}" draw:end-color="${last.color}" draw:start-intensity="100%" draw:end-intensity="100%" draw:angle="${angle}deg" draw:border="0%">${stops}</draw:gradient>`
+				: `<draw:opacity draw:name="${name}" draw:display-name="${name}" draw:style="linear" draw:start="${pct(first.alpha)}" draw:end="${pct(last.alpha)}" draw:angle="${angle}deg" draw:border="0%">${stops}</draw:opacity>`,
+		);
+		return name;
+	};
 	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align'] }): string => {
 		const attrs: string[] = [];
 		const stroke = shape.stroke;
 		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="${shape.cap || 'butt'}"${shape.join ? ` draw:stroke-linejoin="${shape.join}"` : ''}` : 'draw:stroke="none"');
-		attrs.push(shape.fill && closed ? `draw:fill="solid" draw:fill-color="${shape.fill.color}" draw:opacity="${pct(shape.fill.alpha)}"` : 'draw:fill="none"');
+		if (shape.gradient && closed) {
+			const g = shape.gradient;
+			const varies = g.stops.some((st) => st.alpha !== g.stops[0].alpha);
+			attrs.push(`draw:fill="gradient" draw:fill-gradient-name="${gradientNamed(g, 'color')}"`);
+			attrs.push(varies ? `draw:opacity-name="${gradientNamed(g, 'opacity')}"` : `draw:opacity="${pct(g.stops[0].alpha)}"`);
+		} else attrs.push(shape.fill && closed ? `draw:fill="solid" draw:fill-color="${shape.fill.color}" draw:opacity="${pct(shape.fill.alpha)}"` : 'draw:fill="none"');
 		if (shape.shadow) {
 			const sh = shape.shadow;
 			attrs.push(`draw:shadow="visible" draw:shadow-offset-x="${cm(sh.x)}" draw:shadow-offset-y="${cm(sh.y)}" draw:shadow-color="${sh.color}" draw:shadow-opacity="${pct(sh.alpha)}" loext:shadow-blur="${cm(sh.blur)}"`);
@@ -366,7 +393,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const styles = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles ${NS} office:version="1.3">${faceDecls}
 <office:styles>
-<style:default-style style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:default-style>${masters ? '<style:style style:name="Default-title" style:family="presentation"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>' : ''}${fillImages}
+<style:default-style style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:default-style>${masters ? '<style:style style:name="Default-title" style:family="presentation"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>' : ''}${[...gradients.values()].join('')}${fillImages}
 </office:styles>
 <office:automatic-styles>
 <style:page-layout style:name="PM1"><style:page-layout-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm" fo:page-width="${page.w}cm" fo:page-height="${page.h}cm" style:print-orientation="${page.w >= page.h ? 'landscape' : 'portrait'}"/></style:page-layout>

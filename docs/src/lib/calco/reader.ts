@@ -36,7 +36,7 @@
  * restored with it. See the SHAPES block below and
  * engineering/decisions/2026-10-07-calco-native-shapes.md §7.
  */
-import type { Paint, Shadow, Shape, TextFrame, TextRun, TextStyle } from './types.js';
+import type { Gradient, Paint, Shadow, Shape, TextFrame, TextRun, TextStyle } from './types.js';
 
 /** What `readSlide` returns. */
 export interface ReadResult {
@@ -895,6 +895,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			rect: Rect;
 			alpha: number;
 			fill: Paint | null;
+			gradient?: Gradient;
+			/** A sized layer drawn as a second shape above this box (a stripe over a colored panel). */
+			extra?: { rect: Rect; fill: Paint; gradient?: Gradient };
 			radii: [number, number, number, number];
 			sides: Array<(Paint & { width: number }) | null>;
 			shadow: Shadow | null;
@@ -979,9 +982,176 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		};
 
 
+		// ── A background layer a page paints as a flat color or a gradient, sized and placed: `linear-gradient(C, C)`
+		// is how a page draws a flat color it can size (an accent rule, a short underline), and a wide-and-short
+		// gradient is a stripe. The TILE is the box the layer covers inside the element.
+		const splitArgs = (inner: string): string[] => {
+			const out: string[] = [];
+			let depth = 0;
+			let at = 0;
+			for (let i = 0; i < inner.length; i++) {
+				const ch = inner[i];
+				if (ch === '(') depth++;
+				else if (ch === ')') depth--;
+				else if (ch === ',' && depth === 0) {
+					out.push(inner.slice(at, i).trim());
+					at = i + 1;
+				}
+			}
+			out.push(inner.slice(at).trim());
+			return out;
+		};
+		const tileOf = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect): Rect | null => {
+			// The origin box: padding box unless the page says otherwise. A gradient under an OPAQUE or clear
+			// border covers the border box as far as anyone can see, and its stops are at most the border's
+			// width off.
+			const bleeds =
+				cs.backgroundClip === 'border-box' && (cs.backgroundSize || 'auto') === 'auto' && SIDES.every((sd) => {
+					const edge = px(cs[`border${sd}Width`]) > 0 && cs[`border${sd}Style`] !== 'none' ? paintOf(cs[`border${sd}Color`], 1) : null;
+					return !edge || edge.alpha >= 1;
+				});
+			const originInset = (sd: 'Top' | 'Right' | 'Bottom' | 'Left') => (cs.backgroundOrigin === 'border-box' || bleeds ? 0 : px(cs[`border${sd}Width`]) + (cs.backgroundOrigin === 'content-box' ? px(cs[`padding${sd}`]) : 0));
+			const o = { x: rect.x + originInset('Left'), y: rect.y + originInset('Top'), w: 0, h: 0 };
+			o.w = rect.w - originInset('Left') - originInset('Right');
+			o.h = rect.h - originInset('Top') - originInset('Bottom');
+			if (!(o.w > 0 && o.h > 0)) return null;
+			const dim = (v: string | undefined, whole: number): number | null => {
+				if (!v || v === 'auto') return whole;
+				const c = v.match(/^calc\((-?[\d.]+)% ([+-]) ([\d.]+)px\)$/);
+				if (c) return (Number(c[1]) / 100) * whole + (c[2] === '-' ? -1 : 1) * Number(c[3]);
+				const n = Number.parseFloat(v);
+				if (!Number.isFinite(n)) return null;
+				return v.endsWith('%') ? (n / 100) * whole : v.endsWith('px') ? n : null;
+			};
+			// A size is two values, and a calc() holds spaces: split on the spaces outside parentheses.
+			const pair = (v: string) => v.split(/\s+(?![^(]*\))/);
+			const size = pair(cs.backgroundSize || 'auto');
+			const tw = dim(size[0], o.w);
+			const th = dim(size.length > 1 ? size[1] : size[0], o.h);
+			if (tw === null || th === null || !(tw > 0 && th > 0)) return null;
+			const pos = pair(cs.backgroundPosition || '0% 0%');
+			const at = (v: string | undefined, whole: number, tile: number): number | null => {
+				if (!v) return 0;
+				const n = Number.parseFloat(v);
+				if (!Number.isFinite(n)) return null;
+				return v.endsWith('%') ? (n / 100) * (whole - tile) : v.endsWith('px') ? n : null;
+			};
+			const tx = at(pos[0], o.w, tw);
+			const ty = at(pos[1], o.h, th);
+			if (tx === null || ty === null) return null;
+			const rep = (cs.backgroundRepeat || 'repeat').split(/\s+/);
+			const [rx, ry] = rep[0] === 'repeat-x' ? ['repeat', 'no-repeat'] : rep[0] === 'repeat-y' ? ['no-repeat', 'repeat'] : [rep[0], rep[1] || rep[0]];
+			// A tile smaller than the box that repeats would paint many; that stays a picture.
+			if ((rx !== 'no-repeat' && tw < o.w - 0.5) || (ry !== 'no-repeat' && th < o.h - 0.5)) return null;
+			// A tile wider than the box is cut to it (a stripe sized for a wider slide).
+			const wx = tw >= o.w - 0.5 ? 0 : tx;
+			const wy = th >= o.h - 0.5 ? 0 : ty;
+			const x0 = o.x + Math.max(0, wx);
+			const y0 = o.y + Math.max(0, wy);
+			const x1 = o.x + Math.min(o.w, wx + tw);
+			const y1 = o.y + Math.min(o.h, wy + th);
+			return x1 - x0 > 0 && y1 - y0 > 0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+		};
+		// The one-color layer's paint, or null when the layer is anything else.
+		const solidLayer = (cs: CSSStyleDeclaration & Record<string, string>, op: number): Paint | null => {
+			const m = (cs.backgroundImage || '').match(/^linear-gradient\((.*)\)$/);
+			if (!m || splitArgs(cs.backgroundImage).length !== 1) return null;
+			let args = splitArgs(m[1]);
+			if (args.length === 3 && /^(to |-?[\d.]+(deg|turn|rad|grad))/.test(args[0])) args = args.slice(1);
+			if (args.length !== 2) return null;
+			const stop = (x: string) => x.replace(/\s+-?[\d.]+(%|px)$/, '').trim();
+			return stop(args[0]) === stop(args[1]) ? paintOf(stop(args[0]), op) : null;
+		};
+		// A linear gradient over the tile, in the shape a writer can draw: an angle and stops. Corner
+		// directions, radial and repeating gradients stay pictures.
+		const gradientOf = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect, op: number): Gradient | null => {
+			const m = (cs.backgroundImage || '').match(/^linear-gradient\((.*)\)$/);
+			if (!m || splitArgs(cs.backgroundImage).length !== 1) return null;
+			let args = splitArgs(m[1]);
+			let angle = 180;
+			const first = args[0];
+			if (/^to /.test(first)) {
+				const dir: Record<string, number> = { 'to top': 0, 'to right': 90, 'to bottom': 180, 'to left': 270 };
+				if (dir[first] === undefined) return null;
+				angle = dir[first];
+				args = args.slice(1);
+			} else if (/^-?[\d.]+deg$/.test(first)) {
+				angle = ((Number.parseFloat(first) % 360) + 360) % 360;
+				args = args.slice(1);
+			} else if (/^-?[\d.]+(turn|rad|grad)$/.test(first)) return null;
+			if (args.length < 2) return null;
+			const rad = (angle * Math.PI) / 180;
+			const line = Math.abs(rect.w * Math.sin(rad)) + Math.abs(rect.h * Math.cos(rad));
+			if (!(line > 0)) return null;
+			const raw: Array<{ c: { r: number; g: number; b: number; a: number }; pos: number | null }> = [];
+			for (const a of args) {
+				const t = a.match(/^((?:[a-z-]+)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*(.*)$/i);
+				if (!t) return null;
+				const c = parseColor(t[1]);
+				if (!c) return null;
+				const places = t[2] ? t[2].split(/\s+/) : [];
+				if (places.length > 2) return null;
+				const at = (v: string): number | null => {
+					const n = Number.parseFloat(v);
+					return !Number.isFinite(n) ? null : v.endsWith('%') ? n / 100 : v.endsWith('px') ? n / line : null;
+				};
+				if (!places.length) raw.push({ c, pos: null });
+				for (const v of places) {
+					const pos = at(v);
+					if (pos === null) return null;
+					raw.push({ c, pos });
+				}
+			}
+			if (raw.length < 2) return null;
+			// Missing positions: the ends are 0 and 1, the rest spread evenly between their neighbors.
+			if (raw[0].pos === null) raw[0].pos = 0;
+			if (raw[raw.length - 1].pos === null) raw[raw.length - 1].pos = 1;
+			for (let i = 1; i < raw.length - 1; i++) {
+				if (raw[i].pos !== null) continue;
+				let j = i;
+				while (raw[j].pos === null) j++;
+				const a0 = raw[i - 1].pos as number;
+				const a1 = raw[j].pos as number;
+				for (let k = i; k < j; k++) raw[k].pos = a0 + ((a1 - a0) * (k - i + 1)) / (j - i + 1);
+				i = j;
+			}
+			let prev = 0;
+			const stops = raw.map(({ c, pos }) => {
+				prev = Math.min(1, Math.max(prev, pos as number));
+				return { c, pos: prev };
+			});
+			// A fully transparent stop carries the color of its neighbor, so an office suite that blends the
+			// channels apart does not fade through black.
+			const solid = stops.find((st) => st.c.a > 0);
+			if (!solid) return null;
+			const out = stops.map((st, i) => {
+				let c = st.c;
+				if (c.a === 0) {
+					const near = [stops[i - 1], stops[i + 1]].find((o) => o && o.c.a > 0) || solid;
+					c = { ...near.c, a: 0 };
+				}
+				return { color: hex(c), alpha: Math.round(c.a * op * 1000) / 1000, pos: Math.round(st.pos * 10000) / 10000 };
+			});
+			return { angle, stops: out };
+		};
+
 		// ── A box's paint, as one candidate. Shared by an element and a pseudo-element.
 		const analyze = (cs: CSSStyleDeclaration & Record<string, string>, rect: Rect, op: number, owner: Element, tag: string): { plain: boolean; box: Candidate; why: string } | null => {
-			const fill = paintOf(cs.backgroundColor, op);
+			let fill = paintOf(cs.backgroundColor, op);
+			// A one-color or gradient layer, sized and placed, over the box. With no background color under it, it IS the
+			// box's fill (cut to its tile); over a color, it is a second shape above the box.
+			const tile = (!cs.borderImageSource || cs.borderImageSource === 'none') && cs.backgroundImage && cs.backgroundImage !== 'none' ? tileOf(cs, rect) : null;
+			const solid = tile ? solidLayer(cs, op) : null;
+			const gradient = tile && !solid ? gradientOf(cs, tile, op) : null;
+			const layer = tile && (solid || gradient) ? { tile, paint: solid, gradient } : null;
+			// The stand-in color of a gradient is its most opaque stop; it also tells `covers` the box paints its area.
+			const standIn = (g: Gradient): Paint => {
+				const top = g.stops.reduce((x, y) => (y.alpha > x.alpha ? y : x));
+				return { color: top.color, alpha: top.alpha };
+			};
+			let extra: Candidate['extra'];
+			if (layer && fill) extra = { rect: layer.tile, fill: layer.paint || standIn(layer.gradient as Gradient), gradient: layer.gradient || undefined };
+			else if (layer) fill = layer.paint || standIn(layer.gradient as Gradient);
 			let sides = SIDES.map((sd) => {
 				const width = px(cs[`border${sd}Width`]);
 				const st = cs[`border${sd}Style`];
@@ -1006,7 +1176,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			// A shadow under a translucent fill or no fill would show THROUGH it in an office
 			// suite, where CSS clips it to outside the box.
 			if (shadow && !(fill && fill.alpha >= 1)) shadow = false;
-			const image = (cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
+			const image = (!layer && cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
 			const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
 			if (!(fill || image || outline || shadow !== null || outerRing || sides.some(Boolean))) return null;
 			// Corner radii: circular only, `%` resolved, scaled down as CSS scales them.
@@ -1035,6 +1205,35 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					if (!(shape.w > 0 && shape.h > 0)) clipBad = true;
 				}
 			}
+			// With no color under it, a sized layer paints only its tile: the shape is the tile cut to the clip box.
+			// Borders or a shadow belong to the whole box, so they keep it a picture.
+			if (layer && !extra) {
+				const x0 = Math.max(shape.x, layer.tile.x);
+				const y0 = Math.max(shape.y, layer.tile.y);
+				const x1 = Math.min(shape.x + shape.w, layer.tile.x + layer.tile.w);
+				const y1 = Math.min(shape.y + shape.h, layer.tile.y + layer.tile.h);
+				if (!(x1 - x0 > 0 && y1 - y0 > 0)) clipBad = true;
+				else if (Math.abs(x1 - x0 - shape.w) > 0.5 || Math.abs(y1 - y0 - shape.h) > 0.5) {
+					if (sides.some(Boolean) || shadow) clipBad = true;
+					shape = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+					radii = [0, 0, 0, 0];
+				}
+			}
+			// A second shape above a colored box is cut to the box's painted area, and must not poke out of its
+			// rounded corners.
+			if (extra) {
+				const x0 = Math.max(shape.x, extra.rect.x);
+				const y0 = Math.max(shape.y, extra.rect.y);
+				const x1 = Math.min(shape.x + shape.w, extra.rect.x + extra.rect.w);
+				const y1 = Math.min(shape.y + shape.h, extra.rect.y + extra.rect.h);
+				if (!(x1 - x0 > 0 && y1 - y0 > 0)) clipBad = true;
+				else {
+					extra.rect = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+					const e = extra.rect;
+					const corners: Array<[number, number, number]> = [[shape.x, shape.y, radii[0]], [shape.x + shape.w, shape.y, radii[1]], [shape.x + shape.w, shape.y + shape.h, radii[2]], [shape.x, shape.y + shape.h, radii[3]]];
+					if (corners.some(([cx, cy, r]) => r > 0 && e.x < cx + r && e.x + e.w > cx - r && e.y < cy + r && e.y + e.h > cy - r)) clipBad = true;
+				}
+			}
 			const plain =
 				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
 				cs.backgroundClip !== 'text' && !effected(owner) && unclipped(owner, rect) && tag !== 'html' && tag !== 'body';
@@ -1053,7 +1252,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					]
 						.filter(Boolean)
 						.join('+') || 'other';
-			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
+			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
 			box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
 			if (outerRing) box.outerRing = outerRing;
 			return { plain, box, why };
@@ -1538,10 +1737,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (c.fill || stroke || c.shadow) {
 				const box: Shape = { kind: 'box', x, y, w, h, radii: c.radii };
 				if (c.fill) box.fill = c.fill;
+				if (c.gradient) box.gradient = c.gradient;
 				if (stroke) box.stroke = stroke;
 				if (c.shadow) box.shadow = c.shadow;
 				shapes.push(box);
 				shapeEls.push(c.el);
+				if (c.extra) {
+					const e = c.extra;
+					const tileShape: Shape = { kind: 'box', x: e.rect.x, y: e.rect.y, w: e.rect.w, h: e.rect.h, radii: [0, 0, 0, 0], fill: e.fill };
+					if (e.gradient) tileShape.gradient = e.gradient;
+					shapes.push(tileShape);
+					shapeEls.push(c.el);
+				}
 			}
 			// An outline drawn outside the box: a stroke-only box one ring wider, whose band is exactly the ring.
 			if (c.outerRing) {

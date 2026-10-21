@@ -346,7 +346,7 @@ const SHAPES = `<!doctype html><html><head><style>
   #ring { position: absolute; left: 1060px; top: 40px; padding: 4px 8px; background: #fff; box-shadow: inset 0 0 0 1px #6b7f9a; font-size: 12px; }
   h2 { position: absolute; left: 40px; top: 470px; width: 600px; margin: 0; font-size: 28px; line-height: 40px; border-bottom: 2px solid #898e95; }
   #under { position: absolute; left: 720px; top: 470px; width: 200px; height: 80px; background: #eef; }
-  #over { position: absolute; left: 700px; top: 460px; width: 300px; height: 120px; background: linear-gradient(90deg, rgba(255,0,0,.2), transparent); }
+  #over { position: absolute; left: 700px; top: 460px; width: 300px; height: 120px; background: radial-gradient(circle, rgba(255,0,0,.2), transparent); }
   #back { position: absolute; left: 1000px; top: 450px; width: 260px; height: 200px; z-index: -1; background: radial-gradient(circle, #ddd, transparent); }
   #onback { position: absolute; left: 1040px; top: 500px; width: 180px; height: 100px; background: #eef; }
   #seg { position: absolute; left: 40px; top: 560px; width: 100px; height: 2.5px; padding-top: 16px; background: #006fa8; background-clip: content-box; }
