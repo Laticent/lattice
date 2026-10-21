@@ -8,7 +8,6 @@ footer: "Copy this folder. Edit this file."
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -200,7 +199,6 @@ $$ \sigma(z)_i = \frac{e^{z_i}}{\sum_{j=1}^{K} e^{z_j}} $$
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

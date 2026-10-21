@@ -43,7 +43,7 @@ import { PresentRail } from './PresentRail';
 import { cueDisplayText, guideAimFor, guideAimIn, guideCueFor, guideCueInDoc, POINTER_BOX, type SceneRef, type SceneStyle, sceneCue, shownSection as shownSlideSection } from './present-guide';
 import { isSectionBoundary, sectionsFromSlides } from './present-sections';
 import ReadAloudOverlay from './ReadAloudOverlay';
-import { narrationLatencyKey, narrationReadiness, prefetchFrontOf, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
+import { narrationCanSynthesize, narrationLatencyKey, narrationReadiness, narrationStage, prefetchFrontOf, sentenceHash, setRoomClipSource, slideToSpeech, spokenSentencesPerSlide, useReadAloud, warmNarrationWindow } from './read-aloud';
 import { sizeFromSource, sizeRatio } from './slide-size';
 import { deckVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 
@@ -140,7 +140,16 @@ function slideHash(text: string): string {
 /** Present together in a live session (engineering/decisions/2026-10-20-live-uniform-experience.md §7.2). */
 export type PresentLive = {
 	/** This browser presents to everyone: where its Present is, as it moves. */
-	onTransport?: (t: { idx: number; page: number; lens: string; hash: string }) => void;
+	onTransport?: (t: { idx: number; page: number; lens: string; hash: string; voice: boolean }) => void;
+	/** Where this Present is, as it moves; null when it closes or this person is following someone else's. Lets a
+	 *  member who follows this person open Present at the same place. */
+	onPlace?: (p: { idx: number; page: number; lens: string; hash: string } | null) => void;
+	/** This browser presents to everyone with Voice on: how it answers a member's request for one sentence's clip.
+	 *  It serves only what this device already holds. Called with null when it stops. */
+	serveClips?: (serve: ((hash: string) => Promise<{ bytes: Uint8Array; mime: string; lead?: number } | null>) | null) => void;
+	/** This browser follows a presentation that has narration and is not hearing it on the call: the presenter's
+	 *  clip for a sentence, by the hash of its text. While set, this Present's voice is the presenter's, never its own. */
+	clips?: ((hash: string, textLen: number, signal?: AbortSignal) => Promise<{ bytes: Uint8Array; mime: string } | null>) | null;
 	presentingToAll?: boolean;
 	onStopPresentingToAll?: () => void;
 	/** This browser follows someone's presentation: where they are. */
@@ -337,9 +346,32 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const page = pageAt.idx === clamped && pageAt.slide === cur ? Math.min(pageAt.page, pages - 1) : 0;
 	// Live (§7.2). Presenting to everyone: say where this Present is whenever it moves.
 	const onTransport = live?.onTransport;
+	// Members are told to listen only when this Present's voice can produce clips for them: a read on the
+	// silent rung (no key, an on-device model still downloading) has nothing to send.
+	const [voiceMakesClips, setVoiceMakesClips] = React.useState(false);
 	React.useEffect(() => {
-		if (open && onTransport) onTransport({ idx: clamped, page, lens, hash: slideHash(cur ?? '') });
-	}, [open, onTransport, clamped, page, lens, cur]);
+		if (!open || !onTransport || muted) return;
+		let alive = true;
+		void narrationCanSynthesize().then((ok) => alive && setVoiceMakesClips(ok));
+		return () => {
+			alive = false;
+		};
+	}, [open, onTransport, muted]);
+	React.useEffect(() => {
+		if (open && onTransport) onTransport({ idx: clamped, page, lens, hash: slideHash(cur ?? ''), voice: !muted && voiceMakesClips });
+	}, [open, onTransport, clamped, page, lens, cur, muted, voiceMakesClips]);
+	// Live: say where this Present is, for anyone who follows this person. Not while following someone else (the
+	// place is theirs), and cleared when Present closes.
+	const onPlace = live?.onPlace;
+	const followsSomeone = !!live?.follow && !detached;
+	React.useEffect(() => {
+		if (!open || !onPlace) return;
+		onPlace(followsSomeone ? null : { idx: clamped, page, lens, hash: slideHash(cur ?? '') });
+	}, [open, onPlace, followsSomeone, clamped, page, lens, cur]);
+	React.useEffect(() => {
+		if (!open || !onPlace) return;
+		return () => onPlace(null);
+	}, [open, onPlace]);
 	// Following a presentation: go where the presenter is, until this person moves on their own. A lens
 	// this deck does not offer is not followed (the slide index would mean another slide).
 	const follow = live?.follow ?? null;
@@ -449,7 +481,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
-			// The deck's switches (`legend: off`, the host's plugin switch) live in its front matter, which
+			// The deck's switches (`callout: off`, the host's plugin switch) live in its front matter, which
 			// `set[i]` does not carry; the narrator reads them from here (narration-resolve.ts `narrationDeck`).
 			const script = narrateChartScript(md, chartDeck);
 			const text = resolveNarration({
@@ -813,6 +845,29 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 	const startClosingRef = React.useRef(startClosing);
 	startClosingRef.current = startClosing;
 
+	// The presenter's voice, for a member who is following and not hearing it on the call. Set in a layout effect,
+	// before the reader's own effects run, so a read never captures this member's own voice and bills their key
+	// (§6 rule 7). Detaching hands the voice back, muted.
+	const roomClipAsk = live?.clips ?? null;
+	const following = !!live?.follow && !detached;
+	const roomVoiceOn = open && !!roomClipAsk && following;
+	// Following with no room voice (the narration comes through the call, or the presenter has none) means
+	// this member's own voice stays off: the Voice button is disabled, so it could not be turned off again.
+	React.useEffect(() => {
+		if (following && !roomVoiceOn) setMuted(true);
+	}, [following, roomVoiceOn]);
+	React.useLayoutEffect(() => {
+		if (!roomVoiceOn || !roomClipAsk) return;
+		setRoomClipSource(async (spoken, signal) => {
+			const c = await roomClipAsk(await sentenceHash(spoken), spoken.length, signal);
+			return c ? new Blob([c.bytes as BlobPart], { type: c.mime }) : null;
+		});
+		return () => {
+			setRoomClipSource(null);
+			setMuted(true);
+		};
+	}, [roomVoiceOn, roomClipAsk]);
+
 	const reader = useReadAloud(
 		narrationText,
 		{
@@ -846,6 +901,31 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			},
 		},
 	);
+	// A member listening to the presenter's narration reads whichever slide the presenter is on, as it comes
+	// up. This is not autoplay: it never advances (the presenter moves everyone), so it cannot detach them.
+	// Each slide is started once; a slide that has finished is not read again, and a stop (mute) forgets it.
+	const listenedRef = React.useRef(-1);
+	const arrivedRef = React.useRef(-1);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the reader is read through its ref; its track and playing flag are the triggers.
+	React.useEffect(() => {
+		if (!roomVoiceOn || muted) {
+			listenedRef.current = -1;
+			return;
+		}
+		if (bookend || narration.idx !== clamped || listenedRef.current === clamped) return;
+		const r = readerRef.current;
+		if (r.track.cues.length === 0) return;
+		// On the render that brings a new slide, a playing flag is the old slide's, still winding down. On any
+		// later render of the same slide it is a read the member started by hand: theirs, not to be read again.
+		const arrived = arrivedRef.current !== clamped;
+		arrivedRef.current = clamped;
+		if (r.playing) {
+			if (!arrived) listenedRef.current = clamped;
+			return;
+		}
+		listenedRef.current = clamped;
+		r.play();
+	}, [roomVoiceOn, muted, bookend, narration.idx, clamped, reader.track, reader.playing]);
 	// After an autoplay advance, start the NEW slide's reader. Keyed on the NARRATION RECORD,
 	// NOT on `clamped` and no longer on `reader.track`.
 	//
@@ -1110,7 +1190,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		};
 	}, [open, reader.rung]);
 	React.useEffect(() => {
-		if (!open || muted) return; // never synth (bill) TTS the user won't hear while Voice is muted
+		if (!open || muted || roomClipAsk || following) return; // never synth (bill) TTS the user won't hear while Voice is muted, or one the room's clips replace, or while following (the presenter's voice is not theirs to pay for)
 		// Nearest-first: the slide being spoken now, then the ones after it. Order matters —
 		// voice-model's prefetch queue is FIFO at a small fixed concurrency, so whatever is
 		// enqueued first is what wins the race that is actually about to happen.
@@ -1127,7 +1207,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		const ctl = new AbortController();
 		warmNarrationWindow(texts, ctl.signal, acronyms, lang, lexicon);
 		return () => ctl.abort();
-	}, [open, muted, clamped, lookahead, set, narrationAt, acronyms, lang, lexicon]);
+	}, [open, muted, roomClipAsk, following, clamped, lookahead, set, narrationAt, acronyms, lang, lexicon]);
 	// Per-slide narration readiness for the rail's "ready" band.
 	//
 	// Split into an EXPENSIVE part and a CHEAP part, because this has to be polled. The
@@ -1150,6 +1230,25 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		() => (open ? spokenSentencesPerSlide(set.map((_, i) => narrationAt(i).text), { acronyms, lang, lexicon }) : EMPTY_SENTENCES),
 		[open, set, narrationAt, acronyms, lang, lexicon],
 	);
+	// The presenter answers a member's request for a sentence's clip from what it already holds. It names the
+	// run's sentences by hash, so a request for anything else (another deck's text) finds nothing (§7.3).
+	const serveClips = live?.serveClips;
+	const presentingToAll = !!live?.presentingToAll;
+	React.useEffect(() => {
+		if (!open || !presentingToAll || muted || !serveClips) return;
+		const byHash = new Map<string, string>();
+		// Only the slides around where the presenter is: a request for a sentence far off (an attacker's walk
+		// through the deck) is not answered, and the clips a member needs are always inside this window.
+		const near = readinessSentences.slice(Math.max(0, clamped - 1), clamped + 5).flat();
+		const ready = Promise.all(near.map(async (sentence) => void byHash.set(await sentenceHash(sentence), sentence)));
+		serveClips(async (hash) => {
+			await ready;
+			const sentence = byHash.get(hash);
+			// The encoder loads only for a presenter that is serving, never with the first paint.
+			return sentence ? (await import('./narration-bake')).narrationClipForRoom(sentence) : null;
+		});
+		return () => serveClips(null);
+	}, [open, presentingToAll, muted, serveClips, readinessSentences, clamped]);
 	const [readyFractions, setReadyFractions] = React.useState<number[]>([]);
 	// WINDOWED, from the playhead forward (#1392). The poll used to ask about every sentence in
 	// the deck, every 2s, on the same main thread as `decodeAudioData` — the surface a whole
@@ -1575,7 +1674,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 			readerRef.current.play();
 		}
 	}, [advanceFrom]);
-	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
+	const rungLabel = reader.rung && reader.rung !== 'silent' ? (reader.rung === 'room' ? 'Presenter' : reader.rung === 'kokoro' ? 'Aria · local' : 'Aria · cloud') : 'Captions';
 
 
 	// REAL rehearsal plan — the deterministic planner the Drawing Board ships
@@ -2523,11 +2622,21 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 					{!rehearse && (
 						<div className={cn('flex items-center gap-2 transition-opacity duration-300 motion-reduce:!opacity-100 motion-reduce:transition-none', revealed ? 'opacity-100' : 'opacity-50')}>
 							<Tip label="Captions — show the narration as text"><button type="button" onClick={() => setCaptionsOn((v) => !v)} aria-pressed={captionsOn} aria-label="Captions" className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-2 text-[12px] font-extrabold tracking-wide', captionsOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border bg-card text-muted-foreground hover:text-foreground')}>CC</button></Tip>
-							<Tip label={follow && !detached ? `${follow.by}'s voice comes through the call` : 'Voice — speak the narration aloud'}><button type="button" disabled={!!follow && !detached} onClick={() => setMuted((v) => !v)} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
+							<Tip label={roomVoiceOn ? `Tap to hear ${follow?.by ?? 'the presenter'}'s narration` : follow && !detached ? `${follow.by}'s voice comes through the call` : 'Voice — speak the narration aloud'}><button type="button" disabled={!!follow && !detached && !roomVoiceOn} onClick={() => {
+								// An iPhone starts sound only from inside a tap: this one is the member's "Tap to listen".
+								if (roomVoiceOn && muted) {
+									try {
+										narrationStage().unlock();
+									} catch {
+										/* best-effort */
+									}
+								}
+								setMuted((v) => !v);
+							}} aria-pressed={!muted} aria-label={muted ? 'Voice off — turn on to speak the narration' : 'Voice on — turn off to mute'} className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-2 text-[12px] font-semibold', muted ? 'border-border bg-card text-muted-foreground hover:text-foreground' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]')}>{muted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}{/* The label NEVER changes with transport state. Swapping it to a
 							    status string mid-delivery is jarring, and for a screen reader it
 							    reads as the control itself becoming a different control. Buffering
 							    is reported on the rail, where it belongs. */}
-							<span className="hidden sm:inline">{muted ? 'Muted' : rungLabel}</span></button></Tip>
+							<span className="hidden sm:inline">{muted ? (roomVoiceOn ? 'Tap to listen' : 'Muted') : rungLabel}</span></button></Tip>
 							{/* NOTES — only where the side column is not carrying them. A note is the
 							    presenter's and the console owes it at every width; what it cannot afford
 							    on a narrow screen is keeping it permanently on top of the slide. */}

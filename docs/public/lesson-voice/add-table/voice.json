@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 94896,
+	"bytes": 108432,
 	"lines": [
 		{
-			"key": "27a53fc9c558",
+			"key": "9a129c4d81d7",
 			"text": "A table slide lays out rows and columns for you, with the house style already applied.",
-			"file": "27a53fc9c558.mp3",
-			"bytes": 30096,
-			"speechMs": 4956,
+			"file": "9a129c4d81d7.mp3",
+			"bytes": 32832,
+			"speechMs": 5407,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,129 +24,129 @@
 								"display": "A",
 								"spoken": "A",
 								"startMs": 0,
-								"endMs": 205,
+								"endMs": 224,
 								"charOffset": 0
 							},
 							{
 								"display": "table",
 								"spoken": "table",
-								"startMs": 205,
-								"endMs": 616,
+								"startMs": 224,
+								"endMs": 672,
 								"charOffset": 2
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 616,
-								"endMs": 821,
+								"startMs": 672,
+								"endMs": 896,
 								"charOffset": 8
 							},
 							{
 								"display": "lays",
 								"spoken": "lays",
-								"startMs": 821,
-								"endMs": 1026,
+								"startMs": 896,
+								"endMs": 1120,
 								"charOffset": 14
 							},
 							{
 								"display": "out",
 								"spoken": "out",
-								"startMs": 1026,
-								"endMs": 1231,
+								"startMs": 1120,
+								"endMs": 1344,
 								"charOffset": 19
 							},
 							{
 								"display": "rows",
 								"spoken": "rows",
-								"startMs": 1231,
-								"endMs": 1437,
+								"startMs": 1344,
+								"endMs": 1567,
 								"charOffset": 23
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 1437,
-								"endMs": 1642,
+								"startMs": 1567,
+								"endMs": 1791,
 								"charOffset": 28
 							},
 							{
 								"display": "columns",
 								"spoken": "columns",
-								"startMs": 1642,
-								"endMs": 2052,
+								"startMs": 1791,
+								"endMs": 2239,
 								"charOffset": 32
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 2052,
-								"endMs": 2258,
+								"startMs": 2239,
+								"endMs": 2463,
 								"charOffset": 40
 							},
 							{
 								"display": "you,",
 								"spoken": "you,",
-								"startMs": 2258,
-								"endMs": 2493,
+								"startMs": 2463,
+								"endMs": 2720,
 								"charOffset": 44
 							},
 							{
 								"display": "with",
 								"spoken": "with",
-								"startMs": 2693,
-								"endMs": 2899,
+								"startMs": 2938,
+								"endMs": 3162,
 								"charOffset": 49
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2899,
-								"endMs": 3104,
+								"startMs": 3162,
+								"endMs": 3386,
 								"charOffset": 54
 							},
 							{
 								"display": "house",
 								"spoken": "house",
-								"startMs": 3104,
-								"endMs": 3309,
+								"startMs": 3386,
+								"endMs": 3610,
 								"charOffset": 58
 							},
 							{
 								"display": "style",
 								"spoken": "style",
-								"startMs": 3309,
-								"endMs": 3514,
+								"startMs": 3610,
+								"endMs": 3834,
 								"charOffset": 64
 							},
 							{
 								"display": "already",
 								"spoken": "already",
-								"startMs": 3514,
-								"endMs": 4130,
+								"startMs": 3834,
+								"endMs": 4506,
 								"charOffset": 70
 							},
 							{
 								"display": "applied.",
 								"spoken": "applied.",
-								"startMs": 4130,
-								"endMs": 4571,
+								"startMs": 4506,
+								"endMs": 4986,
 								"charOffset": 78
 							}
 						],
 						"startMs": 0,
-						"endMs": 4956,
+						"endMs": 5407,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 4956
+				"durationMs": 5407
 			}
 		},
 		{
-			"key": "dd4adc973399",
+			"key": "aa85f5a80e50",
 			"text": "Click Add slide.",
-			"file": "dd4adc973399.mp3",
-			"bytes": 6336,
-			"speechMs": 1006,
+			"file": "aa85f5a80e50.mp3",
+			"bytes": 9504,
+			"speechMs": 1519,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -158,38 +157,38 @@
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 200,
+								"endMs": 302,
 								"charOffset": 0
 							},
 							{
 								"display": "Add",
 								"spoken": "Add",
-								"startMs": 200,
-								"endMs": 400,
+								"startMs": 302,
+								"endMs": 605,
 								"charOffset": 6
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 400,
-								"endMs": 630,
+								"startMs": 605,
+								"endMs": 951,
 								"charOffset": 10
 							}
 						],
 						"startMs": 0,
-						"endMs": 1006,
+						"endMs": 1519,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1006
+				"durationMs": 1519
 			}
 		},
 		{
-			"key": "d7aede9b9439",
+			"key": "65a93ee54706",
 			"text": "I’ll open the slide gallery for you.",
-			"file": "d7aede9b9439.mp3",
-			"bytes": 11520,
-			"speechMs": 1858,
+			"file": "65a93ee54706.mp3",
+			"bytes": 10800,
+			"speechMs": 1752,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -200,66 +199,66 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 155,
+								"endMs": 146,
 								"charOffset": 0
 							},
 							{
 								"display": "open",
 								"spoken": "open",
-								"startMs": 155,
-								"endMs": 464,
+								"startMs": 146,
+								"endMs": 437,
 								"charOffset": 5
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 464,
-								"endMs": 618,
+								"startMs": 437,
+								"endMs": 583,
 								"charOffset": 10
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 618,
-								"endMs": 773,
+								"startMs": 583,
+								"endMs": 729,
 								"charOffset": 14
 							},
 							{
 								"display": "gallery",
 								"spoken": "gallery",
-								"startMs": 773,
-								"endMs": 1236,
+								"startMs": 729,
+								"endMs": 1166,
 								"charOffset": 20
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1236,
-								"endMs": 1391,
+								"startMs": 1166,
+								"endMs": 1311,
 								"charOffset": 28
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1391,
-								"endMs": 1568,
+								"startMs": 1311,
+								"endMs": 1478,
 								"charOffset": 32
 							}
 						],
 						"startMs": 0,
-						"endMs": 1858,
+						"endMs": 1752,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1858
+				"durationMs": 1752
 			}
 		},
 		{
-			"key": "7d21b9d6ae3a",
+			"key": "e03117d120eb",
 			"text": "I’ll type table in the search box.",
-			"file": "7d21b9d6ae3a.mp3",
-			"bytes": 11376,
-			"speechMs": 1841,
+			"file": "e03117d120eb.mp3",
+			"bytes": 14544,
+			"speechMs": 2369,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -270,66 +269,66 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 184,
+								"endMs": 236,
 								"charOffset": 0
 							},
 							{
 								"display": "type",
 								"spoken": "type",
-								"startMs": 184,
-								"endMs": 367,
+								"startMs": 236,
+								"endMs": 473,
 								"charOffset": 5
 							},
 							{
 								"display": "table",
 								"spoken": "table",
-								"startMs": 367,
-								"endMs": 735,
+								"startMs": 473,
+								"endMs": 945,
 								"charOffset": 10
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 735,
-								"endMs": 918,
+								"startMs": 945,
+								"endMs": 1182,
 								"charOffset": 16
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 918,
-								"endMs": 1102,
+								"startMs": 1182,
+								"endMs": 1418,
 								"charOffset": 19
 							},
 							{
 								"display": "search",
 								"spoken": "search",
-								"startMs": 1102,
-								"endMs": 1286,
+								"startMs": 1418,
+								"endMs": 1654,
 								"charOffset": 23
 							},
 							{
 								"display": "box.",
 								"spoken": "box.",
-								"startMs": 1286,
-								"endMs": 1496,
+								"startMs": 1654,
+								"endMs": 1925,
 								"charOffset": 30
 							}
 						],
 						"startMs": 0,
-						"endMs": 1841,
+						"endMs": 2369,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1841
+				"durationMs": 2369
 			}
 		},
 		{
-			"key": "7e75a9c2bf7b",
+			"key": "00d65c08df5f",
 			"text": "Pick the table.",
-			"file": "7e75a9c2bf7b.mp3",
-			"bytes": 5616,
-			"speechMs": 870,
+			"file": "00d65c08df5f.mp3",
+			"bytes": 6336,
+			"speechMs": 985,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -340,38 +339,38 @@
 								"display": "Pick",
 								"spoken": "Pick",
 								"startMs": 0,
-								"endMs": 144,
+								"endMs": 164,
 								"charOffset": 0
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 144,
-								"endMs": 289,
+								"startMs": 164,
+								"endMs": 327,
 								"charOffset": 5
 							},
 							{
 								"display": "table.",
 								"spoken": "table.",
-								"startMs": 289,
-								"endMs": 599,
+								"startMs": 327,
+								"endMs": 678,
 								"charOffset": 9
 							}
 						],
 						"startMs": 0,
-						"endMs": 870,
+						"endMs": 985,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 870
+				"durationMs": 985
 			}
 		},
 		{
-			"key": "6b3d9af221da",
+			"key": "d3e3c91d96fe",
 			"text": "Each row is a line of text, with a bar between the cells. Add a line to add a row.",
-			"file": "6b3d9af221da.mp3",
-			"bytes": 29952,
-			"speechMs": 4925,
+			"file": "d3e3c91d96fe.mp3",
+			"bytes": 34416,
+			"speechMs": 5682,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -382,96 +381,96 @@
 								"display": "Each",
 								"spoken": "Each",
 								"startMs": 0,
-								"endMs": 183,
+								"endMs": 211,
 								"charOffset": 0
 							},
 							{
 								"display": "row",
 								"spoken": "row",
-								"startMs": 183,
-								"endMs": 365,
+								"startMs": 211,
+								"endMs": 421,
 								"charOffset": 5
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 365,
-								"endMs": 548,
+								"startMs": 421,
+								"endMs": 632,
 								"charOffset": 9
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 548,
-								"endMs": 730,
+								"startMs": 632,
+								"endMs": 843,
 								"charOffset": 12
 							},
 							{
 								"display": "line",
 								"spoken": "line",
-								"startMs": 730,
-								"endMs": 913,
+								"startMs": 843,
+								"endMs": 1053,
 								"charOffset": 14
 							},
 							{
 								"display": "of",
 								"spoken": "of",
-								"startMs": 913,
-								"endMs": 1095,
+								"startMs": 1053,
+								"endMs": 1264,
 								"charOffset": 19
 							},
 							{
 								"display": "text,",
 								"spoken": "text,",
-								"startMs": 1095,
-								"endMs": 1305,
+								"startMs": 1264,
+								"endMs": 1505,
 								"charOffset": 22
 							},
 							{
 								"display": "with",
 								"spoken": "with",
-								"startMs": 1483,
-								"endMs": 1665,
+								"startMs": 1711,
+								"endMs": 1921,
 								"charOffset": 28
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 1665,
-								"endMs": 1848,
+								"startMs": 1921,
+								"endMs": 2132,
 								"charOffset": 33
 							},
 							{
 								"display": "bar",
 								"spoken": "bar",
-								"startMs": 1848,
-								"endMs": 2031,
+								"startMs": 2132,
+								"endMs": 2343,
 								"charOffset": 35
 							},
 							{
 								"display": "between",
 								"spoken": "between",
-								"startMs": 2031,
-								"endMs": 2396,
+								"startMs": 2343,
+								"endMs": 2764,
 								"charOffset": 39
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2396,
-								"endMs": 2578,
+								"startMs": 2764,
+								"endMs": 2975,
 								"charOffset": 47
 							},
 							{
 								"display": "cells.",
 								"spoken": "cells.",
-								"startMs": 2578,
-								"endMs": 2788,
+								"startMs": 2975,
+								"endMs": 3216,
 								"charOffset": 51
 							}
 						],
 						"startMs": 0,
-						"endMs": 3130,
+						"endMs": 3612,
 						"charOffset": 0
 					},
 					{
@@ -480,59 +479,59 @@
 							{
 								"display": "Add",
 								"spoken": "Add",
-								"startMs": 3277,
-								"endMs": 3460,
+								"startMs": 3781,
+								"endMs": 3992,
 								"charOffset": 58
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 3460,
-								"endMs": 3643,
+								"startMs": 3992,
+								"endMs": 4202,
 								"charOffset": 62
 							},
 							{
 								"display": "line",
 								"spoken": "line",
-								"startMs": 3643,
-								"endMs": 3825,
+								"startMs": 4202,
+								"endMs": 4413,
 								"charOffset": 64
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 3825,
-								"endMs": 4008,
+								"startMs": 4413,
+								"endMs": 4624,
 								"charOffset": 69
 							},
 							{
 								"display": "add",
 								"spoken": "add",
-								"startMs": 4008,
-								"endMs": 4190,
+								"startMs": 4624,
+								"endMs": 4834,
 								"charOffset": 72
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 4190,
-								"endMs": 4373,
+								"startMs": 4834,
+								"endMs": 5045,
 								"charOffset": 76
 							},
 							{
 								"display": "row.",
 								"spoken": "row.",
-								"startMs": 4373,
-								"endMs": 4582,
+								"startMs": 5045,
+								"endMs": 5286,
 								"charOffset": 78
 							}
 						],
-						"startMs": 3277,
-						"endMs": 4925,
+						"startMs": 3781,
+						"endMs": 5682,
 						"charOffset": 58
 					}
 				],
-				"durationMs": 4925
+				"durationMs": 5682
 			}
 		}
 	]

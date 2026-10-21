@@ -155,7 +155,6 @@ Northstar delivers a single CRM with a unified account model, migrated history, 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

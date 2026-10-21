@@ -6,7 +6,6 @@ header: "Lattice · one slide frame"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 
 # The engine draws the slide's edge.
@@ -96,7 +95,6 @@ Think deeper, plan longer, decide once — the mandate fit on a napkin, so the v
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 
 # One frame, owned by the engine.

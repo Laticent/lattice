@@ -1528,7 +1528,7 @@ function instructionsSolo(cat) {
     'with real content. Never ship the example words.',
     '',
     'On the `title` and `closing` slides, `<!-- _class: title silent -->` is a shorter way',
-    'to write the three `_paginate` / `_header` / `_footer` lines. Either form works; pick one',
+    'to write the `_header` / `_footer` lines and `no-pagination`. Either form works; pick one',
     'and keep it.',
     '',
     '## The rules',

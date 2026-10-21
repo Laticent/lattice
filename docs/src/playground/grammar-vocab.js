@@ -1,6 +1,6 @@
 // Static, editor-intrinsic vocabularies for deck-grammar autocomplete.
 //
-// Pure. The slide-directive names and the enum values of `_focusStyle` / `_paginate` come from the
+// Pure. The slide-directive names and the enum values of `_focusStyle` come from the
 // shared vocabulary (lib/core/meta-keys.mjs, derived from the `meta` plugin's manifest), so a key
 // added there is completable the day it lands; the rest are closed token sets the editor owns. These are the closed token sets the editor itself
 // defines (Marp slide directives, the fence languages it highlights, the
@@ -25,11 +25,9 @@ export const FOCUS_STYLE_VALUES = enumValues('focusStyle');
 // SUPPORTED_AXES (lib/transformers/focus.js), asserted by the completion test.
 export const FOCUS_AXIS_VALUES = ['item', 'row', 'col', 'cell', 'line', 'mark', 'series'];
 
-// Value vocabulary for `_paginate:` (Marp accepts the booleans; `skip`/`hold`
-// are Marp's pagination extensions). The other directives take free strings or
-// colors — not completable.
-export const PAGINATE_VALUES = enumValues('paginate');
-
+// Page numbers are not a slide directive: front matter `paginate:` sets the deck, and the
+// `no-pagination` / `with-pagination` classes set one slide, so `_paginate:` is not offered.
+// The other directives take free strings or colors — not completable.
 
 // Value vocabulary for the Lattice `split:` front-matter directive, which picks
 // how the body divides into slides: `rule` (split on `---`, the default) or

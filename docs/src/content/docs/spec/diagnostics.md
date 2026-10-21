@@ -188,8 +188,9 @@ distinct, stable ID.
 | Rule ID | Severity | Autofix | What it catches |
 |---|---|---|---|
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
-| `legend-span` | warning | — | A `@legend{…}` span that does not read, has an anchored label with no `for=`, reads `{1, lg}` as a styled label, or sits on a slide where no component reads a legend. |
-| `legend-off` | info | — | A `@legend{…}` callout on a slide where the author switched the legend off (`legend: off`, `legend-off`): it is hidden, and its detail still reaches the speaker note. |
+| `legend-span` | warning | — | A `@callout{…}` or `@legend{…}` span that does not read, has a callout with no target, reads `{1, lg}` as a styled label, or sits on a slide where no component reads one. |
+| `callout-spelling` | info | — | A `@legend{…}` span that pins a mark: a callout written the way it was before callouts had a plugin of their own. It still draws; `@callout{…}` is the spelling now. |
+| `legend-off` | info | — | A callout on a slide where the author switched callouts off (`callout: off`, `callout-off`): it is hidden, and its detail still reaches the speaker note. |
 | `bare-row-pill` | warning | — | A bare code span where a component used to draw a pill from one (cards, kpi, actors, a register, a roadmap header and the others): it is plain inline code now, and the pills plugin's `{…}` draws the pill. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |
@@ -250,7 +251,8 @@ distinct, stable ID.
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
 | `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |
 | `asset-missing` | warning | — | An `asset:<name>` picture reference that names no file in `assets/` beside the deck (or whose file is a symlink out of the deck folder), so the CLI draws the missing-picture stand-in. Checked by `tools/lint-deck.js`, which has the file system; the linter core does not. |
-| `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold`, Marp values Lattice treats as `false`. |
+| `paginate-unsupported-value` | suggestion | — | `paginate: skip` or `paginate: hold` in front matter, Marp values Lattice treats as `false`. |
+| `paginate-comment-retired` | warning | ✓ | A `paginate:` or `_paginate:` slide comment, which does nothing: front matter, the `no-pagination` / `with-pagination` classes and the component manifest set page numbers. Autofixable only where deleting it changes nothing. |
 | `stray-overflow-marker` | warning | — | `overflow-marker:` in the deck; it is an export setting, so the line does nothing. |
 | `stray-export-settings` | warning | — | An export-settings block copied in from another export. |
 

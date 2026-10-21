@@ -225,7 +225,7 @@ export async function importedThemeNames(css) {
 // staged static assets (minified stylesheet / runtime / mermaid) + the
 // palette CSS, then zip + download. The bundle spec (templates + the asset
 // manifest) and the split baker come from the playground engine
-// (window.LatticePlayground.marp), shared with the CLI so the two can't drift.
+// (window.LatticePlayground.loadMarp()), shared with the CLI so the two can't drift.
 // `themeBase` is the hashed `…/playground/v/<hash>/themes/` URL the Drawing Board
 // already fetches palettes from; the static assets sit beside it under export/.
 /**
@@ -249,7 +249,8 @@ export async function importedThemeNames(css) {
  */
 export async function exportMarp(source, name, palette, themeBase, { includeAgent = true, version, overflowMarker, extraTheme, components = [], pluginsOff = [], files = {} } = {}) {
 	const PG = typeof window !== 'undefined' ? window.LatticePlayground : undefined;
-	const marp = PG?.marp;
+	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
+	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
 	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
@@ -311,7 +312,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// The Marp bundle ships Markdown, so it keeps the SOURCE lift of `![bg]`; every render lifts on the engine's tokens.
 	// Imported here, not at the top: Node's unit tests import this module, and the loader names `@/` paths.
 	const { liftImageBgImages } = await (await import('../../../playground/bg-image-lift-source.js')).loadBgImageLift();
-	// Lattice scopes a plain `<!-- header: H -->` (and `footer:`, `paginate:`) to its own slide; Marp carries it onto
+	// Lattice scopes a plain `<!-- header: H -->` (and `footer:`) to its own slide; Marp carries it onto
 	// every later slide, so it is written as `_header:` first. Imported here, on demand, and not from the engine: the
 	// engine ships on every route and the rewrite put one over its ceiling (lib/core/marp-slide-only.mjs).
 	const { withSlideOnlySpotted } = await import('../../../../../lib/core/marp-slide-only.mjs');

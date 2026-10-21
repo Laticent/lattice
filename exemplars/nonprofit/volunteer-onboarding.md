@@ -213,7 +213,6 @@ We're heading into our busiest adoption season, and a few gaps would make an out
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

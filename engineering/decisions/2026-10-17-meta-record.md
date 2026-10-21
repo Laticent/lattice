@@ -208,9 +208,11 @@ cleanly; the rest are mostly `finish-*` tokens and flagged for review):
 
 A record applies to **its own slide only**. Of roughly 5,900 directive comments in the corpus, 5 use the carry-forward
 form (`<!-- class: … -->`). Deck-wide values live in front matter, which already holds them. A record that needs the old
-carry-forward behavior says so: `{footer="Q3 review", carry}`. *(2026-10-20: `header`, `footer` and `paginate` no
-longer carry in any form: the owner ruled that a slide sets them for itself only and front matter for every slide, so
-`carry` does not apply to them. `engineering/decisions/2026-10-16-preview-as-library-audit.md` §11r.)*
+carry-forward behavior says so: `{footer="Q3 review", carry}`. *(2026-10-20: `header` and `footer` no longer
+carry in any form: the owner ruled that a slide sets them for itself only and front matter for every slide, so `carry`
+does not apply to them, §11r. A `paginate` slide comment does nothing at all: front matter, the slide's classes and the
+component manifest decide page numbers, §11s. Both in
+`engineering/decisions/2026-10-16-preview-as-library-audit.md`.)*
 
 `theme`, `size`, `lang` and `marp` are front-matter only. **Today nothing enforces that**: `GLOBAL_ONLY`
 (`lib/engine/directives.js:90`) is defined and exported with no caller, and `theme` and `lang` apply per slide. Corpus

@@ -1,7 +1,7 @@
 {
   "name": "@laticent/tavola",
   "version": "0.1.0",
-  "description": "Live collaboration on one document, browser to browser: an invite link in the URL fragment, a knock-and-admit handshake, a roster gate that sends and accepts the document only for admitted members (and document edits only from members who may edit), a cap, and rejoin by token. The transport and the document are passed in, so the core has no dependencies; a Trystero adapter (public Nostr relays, then WebRTC) ships beside it.",
+  "description": "Live collaboration on one document, browser to browser: an invite link in the URL fragment, a knock-and-admit handshake, a roster gate that sends and accepts the document only for admitted members (and document edits only from members who may edit), a cap, and rejoin by token. The transport and the document are passed in, so the core has no dependencies; a Trystero adapter (public Nostr relays, then WebRTC) and a Yjs adapter (the awareness gate and a typed view of where each member is) ship beside it.",
   "license": "AGPL-3.0-only",
   "author": "Sharmarke Aden (Laticent) <sharmarke.aden@gmail.com>",
   "repository": {
@@ -41,13 +41,36 @@
         "default": "./dist/trystero.cjs"
       }
     },
+    "./yjs": {
+      "@laticent/source": "./adapters/yjs.ts",
+      "import": {
+        "types": "./dist/adapters/yjs.d.ts",
+        "default": "./dist/yjs.mjs"
+      },
+      "require": {
+        "types": "./dist/adapters/yjs.d.ts",
+        "default": "./dist/yjs.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "peerDependencies": {
-    "trystero": "0.26.0"
+    "lib0": "0.2.119",
+    "trystero": "0.26.0",
+    "y-protocols": "1.0.7",
+    "yjs": "13.6.33"
   },
   "peerDependenciesMeta": {
+    "lib0": {
+      "optional": true
+    },
     "trystero": {
+      "optional": true
+    },
+    "y-protocols": {
+      "optional": true
+    },
+    "yjs": {
       "optional": true
     }
   },

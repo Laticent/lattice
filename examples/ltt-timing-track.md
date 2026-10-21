@@ -7,7 +7,6 @@ header: "Lattice · the timing track, step 2"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -46,7 +45,6 @@ The exported deck plays from the same timing file that video export will read.
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -82,7 +80,6 @@ The exported deck plays from the same timing file that video export will read.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

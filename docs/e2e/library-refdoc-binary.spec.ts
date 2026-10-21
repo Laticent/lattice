@@ -38,7 +38,7 @@ test('a PDF added in the Library is stored as a Blob of its own size, and an old
 	for (let i = 0; i < buffer.length; i++) buffer[i] = (i * 2654435761) >>> 24;
 	buffer.write('%PDF-1.4\n', 0, 'latin1');
 	const chooser = page.waitForEvent('filechooser');
-	await page.getByRole('button', { name: 'Add a reference doc' }).click();
+	await page.getByRole('button', { name: 'Import files', exact: true }).click();
 	// A file with no type: the browser reads it as octet-stream, and it is still stored as the PDF's bytes.
 	await (await chooser).setFiles({ name: 'Brand Guide.pdf', mimeType: '', buffer });
 	await expect(page.getByText('Brand Guide.pdf')).toBeVisible({ timeout: 20_000 });

@@ -66,6 +66,8 @@ function resolveChrome() {
 //
 // `silent` is deliberately absent: it SUPPRESSES the number, and the bookends carry it on
 // every deck we ship, so a silent slide would assert the opposite invariant.
+// The bookends carry `with-pagination`: their manifests drop the number
+// (`chrome.pagination: false`), and this suite asks every frame kind to paint one.
 const DECK = `---
 marp: true
 theme: indaco
@@ -73,7 +75,7 @@ paginate: true
 footer: "Footer Text"
 ---
 
-<!-- _class: title -->
+<!-- _class: title with-pagination -->
 # Title frame
 \`ONE MARK\`
 
@@ -85,7 +87,7 @@ A plain Form slide takes the root frame, which holds the number in its footer Ce
 
 ---
 
-<!-- _class: divider -->
+<!-- _class: divider with-pagination -->
 ## Divider frame
 
 ---
@@ -108,7 +110,7 @@ A plain Form slide takes the root frame, which holds the number in its footer Ce
 
 ---
 
-<!-- _class: closing -->
+<!-- _class: closing with-pagination -->
 # Closing frame
 \`END\`
 

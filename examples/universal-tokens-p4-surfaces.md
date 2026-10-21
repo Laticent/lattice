@@ -8,7 +8,6 @@ footer: "Phase 4 — surfaces / scheme"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -61,7 +60,6 @@ function panel(scheme) {
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

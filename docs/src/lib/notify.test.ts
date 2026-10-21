@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const toast = Object.assign(vi.fn(), { dismiss: vi.fn() });
 vi.mock('sonner', () => ({ toast: Object.assign((...args: unknown[]) => toast(...args), { dismiss: (id: unknown) => toast.dismiss(id) }) }));
 
-const { ACTION_DURATION, NOTICE_ID_PREFIX, STATUS_DURATION, __resetNotify, dismissNotice, notify, notifyAction, notifySticky } = await import('./notify');
+const { ACTION_DURATION, NOTICE_ID_PREFIX, STATUS_DURATION, __resetNotify, actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } = await import('./notify');
 
 /** The options object from the nth call (0-based). */
 function opts(n: number): Record<string, unknown> {
@@ -132,5 +132,55 @@ describe('the kinds are separate slots', () => {
 		const h = notifyAction('Deleted.', { label: 'Undo', onClick: () => {} });
 		dismissNotice(h);
 		expect(toast.dismiss).toHaveBeenCalledWith(h);
+	});
+});
+
+describe('actionLive — is this action pill still on screen', () => {
+	beforeEach(() => {
+		toast.mockClear();
+		__resetNotify();
+	});
+
+	it('is true while it shows, false once it closes or a later pill replaces it', () => {
+		notifyAction('Theme changed', { label: 'Undo', onClick: () => {} });
+		const raise = actionRaise();
+		expect(actionLive(raise)).toBe(true);
+		notifyAction('Amina wants to join', { label: 'Admit', onClick: () => {} });
+		expect(actionLive(raise)).toBe(false);
+		const later = actionRaise();
+		expect(actionLive(later)).toBe(true);
+		(opts(1).onAutoClose as () => void)();
+		expect(actionLive(later)).toBe(false);
+	});
+});
+
+describe('dismissActionNotice — withdraw only your own action pill', () => {
+	beforeEach(() => {
+		toast.mockClear();
+		toast.dismiss.mockClear();
+		__resetNotify();
+	});
+
+	it('closes the pill while it is still the one on screen', () => {
+		const id = notifyAction('Amina wants to join', { label: 'Admit', onClick: () => {} });
+		dismissActionNotice(id, actionRaise());
+		expect(toast.dismiss).toHaveBeenCalledWith(id);
+	});
+
+	it('leaves a LATER action pill alone, though it reuses the live id', () => {
+		const id = notifyAction('Amina wants to join', { label: 'Admit', onClick: () => {} });
+		const raise = actionRaise();
+		const undo = notifyAction('Theme changed', { label: 'Undo', onClick: () => {} });
+		expect(undo).toBe(id);
+		dismissActionNotice(id, raise);
+		expect(toast.dismiss).not.toHaveBeenCalled();
+	});
+
+	it('does nothing once the pill has already closed', () => {
+		const id = notifyAction('Amina wants to join', { label: 'Admit', onClick: () => {} });
+		const raise = actionRaise();
+		(opts(0).onAutoClose as () => void)();
+		dismissActionNotice(id, raise);
+		expect(toast.dismiss).not.toHaveBeenCalled();
 	});
 });

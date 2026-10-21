@@ -16,7 +16,6 @@ You hand it any rectangle. It reads the asset's shape, weighs the deck it's on, 
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

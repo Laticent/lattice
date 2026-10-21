@@ -19,7 +19,6 @@ lexicon:
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -146,7 +145,6 @@ Three findings from the cohort review.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

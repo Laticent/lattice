@@ -66,6 +66,8 @@ export type LiveHost = {
 	followDoing?: (d: { panel: 'coach' | 'lenses' | 'library' | 'live' | null; view: 'compose' | 'fabricate' | 'article' }) => void;
 	/** Whether this shell mirrors a panel and view at its current width (a phone or tablet does not). */
 	canFollowDoing?: () => boolean;
+	/** Whether the one action toast slot holds something Follow must not replace (an Undo the person just earned). */
+	actionBusy?: () => boolean;
 	/** Present together (§7.2): open Present following the presenter, or close a Present the room opened. */
 	openRoomPresent?: () => void;
 	closeRoomPresent?: () => void;

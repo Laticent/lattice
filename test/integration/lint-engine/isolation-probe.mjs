@@ -15,10 +15,12 @@ globalThis.window = globalThis;
 globalThis.self = globalThis;
 await import(pathToFileURL(path.join(dir, 'engine.js')).href);
 const PG = globalThis.LatticePlayground;
+// Export to Marp's building blocks load on demand (lib/playground/index.js `loadMarp`).
+const marp = PG.marp ?? (await PG.loadMarp());
 const out = (src) => {
 	try {
 		const r = PG.render(src, 'indaco');
-		return JSON.stringify([r.html, PG.splitForPreview(r.html, src, r.width, r.height, {}), PG.marp.bakeSplits(src)]);
+		return JSON.stringify([r.html, PG.splitForPreview(r.html, src, r.width, r.height, {}), marp.bakeSplits(src)]);
 	} catch (e) {
 		return `ERR ${e.message}`;
 	}

@@ -9,7 +9,6 @@ header: "Lattice · The slide's corner"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 # The slide has a corner
@@ -86,7 +85,6 @@ One register, one token, and the brand bar comes with it.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: "Closing slide · closing" -->
 
 ## Square is still the default

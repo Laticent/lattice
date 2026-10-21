@@ -165,7 +165,6 @@
     "prefix": "lattice-closing",
     "body": [
       "<!-- _class: closing -->",
-      "<!-- _paginate: false -->",
       "<!-- _header: '' -->",
       "<!-- _footer: '' -->",
       "",
@@ -352,7 +351,6 @@
     "prefix": "lattice-divider",
     "body": [
       "<!-- _class: divider -->",
-      "<!-- _paginate: false -->",
       "<!-- _header: '' -->",
       "<!-- _footer: '' -->",
       "",
@@ -1260,7 +1258,6 @@
     "prefix": "lattice-title",
     "body": [
       "<!-- _class: title -->",
-      "<!-- _paginate: false -->",
       "<!-- _header: '' -->",
       "<!-- _footer: '' -->",
       "",

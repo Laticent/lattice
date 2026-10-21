@@ -58,7 +58,9 @@ async function openLibraryImages(page: Page, width: number) {
 		await page.getByRole('button', { name: CHROME.moreControls, exact: true }).click();
 		await page.getByRole('button', { name: /^Library/ }).click();
 	}
-	await page.getByRole('tab', { name: 'Images' }).click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 }
 
 /** Open the Old names section if it is shut (it opens itself only while a deck still writes an old name). */
@@ -398,9 +400,12 @@ test('@smoke "Use new name" also rewrites a deck that is not open, and says how 
 	await savedDeckWith(page, 'Deck B');
 
 	// The docked Library may already be open from the first deck: the toolbar button toggles it, so only press it when closed.
-	const imagesTab = page.getByRole('tab', { name: 'Images' });
-	if (!(await imagesTab.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
-	await imagesTab.click();
+	const mediaPill = page.getByRole('tab', { name: 'Media', exact: true });
+	if (!(await mediaPill.isVisible().catch(() => false))) await page.getByRole('button', { name: CHROME.library }).click();
+	await mediaPill.click();
+	await page.getByRole('tab', { name: 'Media', exact: true }).click();
+	await page.getByRole('button', { name: 'Filter' }).click();
+	await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	await page.locator('[data-media-card="shared-probe"]').getByRole('button', { name: 'Details for shared-probe' }).click();
 	const dialog = page.locator('[data-media-detail="shared-probe"]');
 	await dialog.getByLabel('Name', { exact: true }).fill('team-probe');
@@ -615,11 +620,13 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	// after their clicks return. A one-shot `isVisible()` read mid-re-render chose wrong on a CI
 	// runner (#2739: the tab was never found, twice) while passing every local run, so open it until
 	// the tab is really there. A Library that cannot open still fails here, after 15 s.
-	const imagesTab = page.getByRole('tab', { name: 'Images' });
+	const mediaPill = page.getByRole('tab', { name: 'Media', exact: true });
 	await expect(async () => {
-		if (!(await imagesTab.isVisible())) await page.getByRole('button', { name: CHROME.library }).click();
-		await expect(imagesTab).toBeVisible({ timeout: 2_000 });
-		await imagesTab.click({ timeout: 2_000 });
+		if (!(await mediaPill.isVisible())) await page.getByRole('button', { name: CHROME.library }).click();
+		await expect(mediaPill).toBeVisible({ timeout: 2_000 });
+		await mediaPill.click({ timeout: 2_000 });
+		await page.getByRole('button', { name: 'Filter' }).click();
+		await page.getByRole('menuitemradio', { name: 'Images' }).click();
 	}).toPass({ timeout: 15_000 });
 	await page.locator('[data-media-card="full-disk"]').getByRole('button', { name: 'Details for full-disk' }).click();
 	const first = page.locator('[data-media-detail="full-disk"]');

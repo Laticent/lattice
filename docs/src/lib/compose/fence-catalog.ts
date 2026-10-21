@@ -47,6 +47,11 @@ export type FenceOption = {
 	 * records exactly that as each fence's `body`.
 	 */
 	highlight?: string;
+	/**
+	 * What the Insert menu puts in a new fence of this tag, so the figure draws the moment it lands and the author edits
+	 * a working one instead of an empty box (an empty Mermaid fence is an error figure). Only an engine fence has one.
+	 */
+	starter?: string;
 };
 
 export type FenceGroup = { key: 'lattice' | 'deck' | 'all'; label: string; options: FenceOption[] };
@@ -71,10 +76,10 @@ export type HljsManifest = {
  * ship without the picker learning it and cannot arrive uncolored.
  */
 export const LATTICE_FENCES: readonly FenceOption[] = Object.freeze([
-	{ tag: 'mermaid', label: 'Diagram', highlight: 'mermaid', note: 'Mermaid — flowcharts, sequences, state charts. Pairs with `_class: diagram`.' },
+	{ tag: 'mermaid', label: 'Diagram', highlight: 'mermaid', starter: 'flowchart LR\n  A[Plan] --> B[Build] --> C[Ship]', note: 'Mermaid — flowcharts, sequences, state charts. Pairs with `_class: diagram`.' },
 	{ tag: 'anima', label: 'Motion', highlight: 'json', note: 'An Anima scene spec (JSON). Pairs with `_class: scene`.' },
-	{ tag: 'functionplot', label: 'Plot', highlight: 'json', aliases: ['latticeplot'], note: 'A function-plot config (JSON). Pairs with `_class: math`.' },
-	{ tag: 'math', label: 'Equation', highlight: 'tex', note: 'Display math in TeX, typeset by KaTeX — the same as a `$$` block.' },
+	{ tag: 'functionplot', label: 'Plot', highlight: 'json', aliases: ['latticeplot'], starter: '{ "data": [{ "fn": "x^2" }] }', note: 'A function-plot config (JSON). Pairs with `_class: math`.' },
+	{ tag: 'math', label: 'Equation', highlight: 'tex', starter: 'E = mc^2', note: 'Display math in TeX, typeset by KaTeX — the same as a `$$` block.' },
 ]);
 
 /** Deliberately uncolored. Offered, not implied — twelve shipped fences ask for it. */

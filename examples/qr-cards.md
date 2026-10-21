@@ -7,7 +7,6 @@ header: "Lattice · QR cards"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 `Lattice · connect`

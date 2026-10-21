@@ -41,6 +41,11 @@ const DEFAULT_KEEPALIVE_IDLE_MS = 30000;
 
 const hasWindow = typeof window !== 'undefined';
 
+/** A pan is -1 (left) … 1 (right); anything else is clamped, NaN is centre. */
+function clampPan(p: number): number {
+	return Number.isFinite(p) ? Math.max(-1, Math.min(1, p)) : 0;
+}
+
 /** The declared byte size of an input WITHOUT reading it — so an oversized payload is rejected
  *  before it's materialized (an `ArrayBuffer.slice(0)` doubles memory; a huge `Blob.arrayBuffer()`
  *  OOMs during the read). 0 when unknowable. */
@@ -305,6 +310,11 @@ export function createStage(opts: StageOptions = {}): Stage {
 		const fadeSec = clampFadeMs(clip.durationMs, fadeMs) / 1000;
 		let src: AudioBufferSourceNode | null = null;
 		let gainNode: GainNode | null = null;
+		// Stereo placement: -1 hard left … 0 centre … 1 hard right. Kept across pause/resume so a re-armed
+		// source leans where the voice was leaning. The panner is optional — an engine without
+		// createStereoPanner plays centred, never silent.
+		let panValue = clampPan(playOpts.pan ?? 0);
+		let panNode: StereoPannerNode | null = null;
 		let settled = false;
 		let paused = false;
 		// Did THIS handle freeze the shared play-clock (via its own pause())? The clock-pause state is
@@ -341,6 +351,12 @@ export function createStage(opts: StageOptions = {}): Stage {
 			} catch {
 				/* best-effort */
 			}
+			try {
+				panNode?.disconnect();
+			} catch {
+				/* best-effort */
+			}
+			panNode = null;
 			if (src) activeSources.delete(src);
 			src = null;
 			gainNode = null;
@@ -362,13 +378,13 @@ export function createStage(opts: StageOptions = {}): Stage {
 		const maybeCtx = getCtx();
 		if (!maybeCtx) {
 			finish({ ok: false, error: 'no AudioContext' });
-			return { stop: onAbort, done, pause: noop, resume: noop };
+			return { stop: onAbort, done, pause: noop, resume: noop, setPan: noop };
 		}
 		const ctx: AudioContext = maybeCtx; // non-null for the closures below (a nested fn wouldn't keep the guard's narrowing)
 		if (signal) {
 			if (signal.aborted) {
 				finish({ ok: true, aborted: true });
-				return { stop: onAbort, done, pause: noop, resume: noop };
+				return { stop: onAbort, done, pause: noop, resume: noop, setPan: noop };
 			}
 			signal.addEventListener('abort', onAbort, { once: true });
 		}
@@ -413,7 +429,25 @@ export function createStage(opts: StageOptions = {}): Stage {
 						node = s;
 					}
 				}
-				node.connect(ctx.destination);
+				try {
+					panNode?.disconnect();
+				} catch {
+					/* best-effort */
+				}
+				panNode = null;
+				let out: AudioNode = node;
+				if (typeof ctx.createStereoPanner === 'function') {
+					try {
+						const p = ctx.createStereoPanner();
+						p.pan.value = panValue;
+						node.connect(p);
+						panNode = p;
+						out = p;
+					} catch {
+						panNode = null; // a partial engine: play centred
+					}
+				}
+				out.connect(ctx.destination);
 				// And to every tap: a copy of what this stage plays, for a call to send (`tapPlayback`).
 				for (const t of taps) {
 					try {
@@ -553,7 +587,20 @@ export function createStage(opts: StageOptions = {}): Stage {
 
 		ensureKeepAlive(); // fallback if the caller played without a separate unlock() gesture
 		armSource(0);
-		return { stop: onAbort, done, pause, resume };
+		function setPan(pan: number, glideMs = 0): void {
+			panValue = clampPan(pan);
+			const p = panNode;
+			if (!p || settled) return;
+			try {
+				const t = ctx.currentTime;
+				p.pan.cancelScheduledValues?.(t);
+				if (glideMs > 0) p.pan.setTargetAtTime(panValue, t, glideMs / 3000); // time constant: ~95% there at glideMs
+				else p.pan.setValueAtTime(panValue, t);
+			} catch {
+				/* panning is cosmetic — never break playback */
+			}
+		}
+		return { stop: onAbort, done, pause, resume, setPan };
 	}
 
 	function clockMs(): number {

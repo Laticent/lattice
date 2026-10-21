@@ -228,7 +228,7 @@ const TABLE_UNSUITED = new Set([
 ]);
 
 /**
- * Does Compose offer the "Insert table" door on the caret's slide?
+ * Does Compose offer the Insert menu's Table item on the caret's slide?
  *
  * PERMISSIVE BY DEFAULT, on the same guards `rendersBlock` carries: an unclassed slide and
  * an unrecognized `_class` both say yes, so a new or custom component is never silently

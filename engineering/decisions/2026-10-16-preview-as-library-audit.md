@@ -1232,6 +1232,27 @@ default §11n pinned.
   of its eight go red (run, not reasoned). `test/unit/core/marp-slide-only.test.js` pins the export rewrite and its
   exclusions, and the bundled deck rendered by real `marp-cli` is in the PR's export sign-off, in dark and light.
 
+## 11s. Ruled on 2026-10-20 and 10-21 (#2826): page numbers by class and manifest, one picker in the strip
+
+Two later rulings supersede parts of §11p and §11r. Two sessions built overlapping work; the owner kept §11r's header
+and footer scope (`SLIDE_ONLY_KEYS`, `marp-slide-only.mjs`) and these.
+
+- **Page numbers are not a slide directive.** Front matter `paginate:` numbers the deck and is ON unless it says
+  `false` (lib/engine/index.js). One slide opts out with the `no-pagination` class (renamed from `no-paginate`) and back
+  in with `with-pagination`. A component opts its slides out in its manifest, `"chrome": { "pagination": false }`
+  (title, divider and closing, compiled to lib/packages/chrome.generated.js; collage hides the number in its CSS, and `with-pagination` overrides that). A `paginate:` / `_paginate:`
+  comment is ignored, and the lint rule `paginate-comment-retired` says what to write. One rule decides it for the
+  engine, Export to Marp, the lint and the Studio: lib/core/pagination.js (`paginateOn`, `slidePaginates`). So
+  `paginate` left `SLIDE_ONLY_KEYS`, which is `header` and `footer` now. Export to Marp writes Marp's own pagination
+  directives per slide (lib/core/marp-bundle-scope.js), checked against marp-cli@4.
+- **One picker, in the strip, at every width** (2026-10-21, superseding §11p's "the map sits beside the slide"). The
+  map takes the pills' place under the slide on every tier, so no column takes width from the slide when panels are
+  open, and a divider separates it from the slide actions. The tiles keep §11p's captions and Live dots, now on every
+  tier, and §11q's posters. The slide actions are one group that reads the height beside it: one row beside the pills,
+  two beside the map, in one order (add, duplicate, delete, then the two moves, centered when they wrap).
+- **The preview bar** carries one navigator pill (previous, count, next) and the map toggle beside it
+  (chrome-parts.tsx `SlideNavigator`, shared with the pre-paint skeleton).
+
 ## 12. Next step
 
 Ruling on §9, then P0. The decision doc is the deliverable for now; no code changes with it.

@@ -1,7 +1,8 @@
 // LESSON VOICE — a narrator that plays the clips recorded for each lesson line.
 //
 // Lessons speak from clips recorded ahead of time by tools/record-lesson-voice.mjs (owner ruling
-// 2026-10-05: one voice on every device, no key, no model download, no `speechSynthesis`). This is
+// 2026-10-05: one voice on every device, no key, no model download, no `speechSynthesis`). Since
+// 2026-10-20 that voice is the tour voice, Gemini `Schedar`, for lessons and tours alike. This is
 // the other half: Vetrina's `Narrator` port, playing those clips through Suono.
 //
 // A LINE IS FOUND BY ITS EXACT TEXT. Each lesson folder's `voice.json` maps text → clip. A line
@@ -36,11 +37,20 @@ export type ClipNarrator = Narrator & {
 	load(dir: string): Promise<void>;
 	/** Re-run the iOS unlock. Call it synchronously inside a user gesture. */
 	unlock(): void;
+	/** Lean the voice (-1 … 1, before `setPanStrength` scales it). */
+	setPan(pan: number, glideMs?: number): void;
+	/** True when a recorded clip is loaded for this exact line. */
+	has(text: string): boolean;
+	/** Scale every pan the host sets (1 = as given, 0.5 = half way to the centre). */
+	setPanStrength(strength: number): void;
 };
 
 type Fetch = (url: string, init?: { signal?: AbortSignal }) => Promise<{ ok: boolean; json(): Promise<unknown>; arrayBuffer(): Promise<ArrayBuffer> }>;
 
-export function clipNarrator(opts: { base?: string; fetch?: Fetch; audio?: Stage } = {}): ClipNarrator {
+export function clipNarrator(opts: { base?: string; fetch?: Fetch; audio?: Stage; panStrength?: number } = {}): ClipNarrator {
+	// How far the voice may lean toward what the cursor points at: 0.5 is a lean you can hear on
+	// headphones and never one ear, which is also what a laptop's two close speakers can carry.
+	let panStrength = opts.panStrength ?? 0.5;
 	// The stage is ours unless the host passed one, and only ours is closed on dispose.
 	const ownsAudio = opts.audio == null;
 	const audio = opts.audio ?? createStage();
@@ -107,6 +117,13 @@ export function clipNarrator(opts: { base?: string; fetch?: Fetch; audio?: Stage
 				folders.set(dir, p);
 			}
 			return p;
+		},
+		has: (text: string) => lines.has(text),
+		setPanStrength(strength: number) {
+			panStrength = Math.max(0, Math.min(1, strength));
+		},
+		setPan(pan: number, glideMs?: number) {
+			voiced.setPan?.(pan * panStrength, glideMs);
 		},
 		plan(text: string): CaptionTrack | null {
 			// The recorded track is timed to the clip, so a word cue lands on the clip, not on the

@@ -36,7 +36,7 @@ test('frontMatterOf returns the block verbatim, or empty', () => {
 });
 
 // ── synthesizePrelude ────────────────────────────────────────────────────────
-const VOCAB = { known: new Set(['header', 'footer', 'class']), flags: new Set(['build']), slide: new Set(['header', 'footer']) };
+const VOCAB = { known: new Set(['header', 'footer', 'class', 'paginate']), flags: new Set(['build']), slide: new Set(['header', 'footer']) };
 
 test('synthesizePrelude carries a running global forward', () => {
   const slides = ['<!-- class: dense -->\n# One', '# Two'];
@@ -44,7 +44,7 @@ test('synthesizePrelude carries a running global forward', () => {
 });
 
 test('synthesizePrelude does not carry a slide-only key, in either spelling', () => {
-  // `header`, `footer` and `paginate` set their own slide only (audit §11r), so a later slice inherits none of them.
+  // `header` and `footer` set their own slide only (audit §11r), so a later slice inherits neither.
   const slides = ['<!-- header: Q3 -->\n<!-- _footer: F -->\n# One', '# Two'];
   assert.equal(core.synthesizePrelude(slides, 1, VOCAB), '');
 });

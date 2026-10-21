@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 11664,
+	"bytes": 12384,
 	"lines": [
 		{
-			"key": "2ce6d67b28bb",
+			"key": "07e1f6ca00f4",
 			"text": "No rush — I’ll do this one for you.",
-			"file": "2ce6d67b28bb.mp3",
-			"bytes": 11664,
-			"speechMs": 1875,
+			"file": "07e1f6ca00f4.mp3",
+			"bytes": 12384,
+			"speechMs": 2010,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,72 +24,72 @@
 								"display": "No",
 								"spoken": "No",
 								"startMs": 0,
-								"endMs": 170,
+								"endMs": 182,
 								"charOffset": 0
 							},
 							{
 								"display": "rush",
 								"spoken": "rush",
-								"startMs": 170,
-								"endMs": 340,
+								"startMs": 182,
+								"endMs": 365,
 								"charOffset": 3
 							},
 							{
 								"display": "—",
 								"spoken": "—",
-								"startMs": 340,
-								"endMs": 510,
+								"startMs": 365,
+								"endMs": 547,
 								"charOffset": 8
 							},
 							{
 								"display": "I’ll",
 								"spoken": "I’ll",
-								"startMs": 510,
-								"endMs": 680,
+								"startMs": 547,
+								"endMs": 729,
 								"charOffset": 10
 							},
 							{
 								"display": "do",
 								"spoken": "do",
-								"startMs": 680,
-								"endMs": 850,
+								"startMs": 729,
+								"endMs": 912,
 								"charOffset": 15
 							},
 							{
 								"display": "this",
 								"spoken": "this",
-								"startMs": 850,
-								"endMs": 1020,
+								"startMs": 912,
+								"endMs": 1094,
 								"charOffset": 18
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 1020,
-								"endMs": 1191,
+								"startMs": 1094,
+								"endMs": 1276,
 								"charOffset": 23
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1191,
-								"endMs": 1361,
+								"startMs": 1276,
+								"endMs": 1459,
 								"charOffset": 27
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1361,
-								"endMs": 1556,
+								"startMs": 1459,
+								"endMs": 1668,
 								"charOffset": 31
 							}
 						],
 						"startMs": 0,
-						"endMs": 1875,
+						"endMs": 2010,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1875
+				"durationMs": 2010
 			}
 		}
 	]

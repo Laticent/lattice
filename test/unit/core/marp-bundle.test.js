@@ -135,6 +135,10 @@ describe('marp-bundle spec', () => {
       + '<script src="mermaid-v11-min.js"></script>\n'
       + '<script src="lattice-dagre-min.js"></script>\n'
       + '<script src="lattice-runtime-min.js"></script>\n'
+      // A deck with no front matter gains `paginate: true` on the way to Marp, which numbers nothing by default
+      // (lib/core/marp-bundle-scope.js), and the snapshot records the front matter the bundle carries.
+      + '<!-- Lattice: generated snapshot of the front matter above. Edit the front matter AND re-export — editing it alone will not change this. -->\n'
+      + '<script type="application/lattice-front-matter">"paginate: true"</script>\n'
       + `<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n`,
     );
   });

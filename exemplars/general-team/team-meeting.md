@@ -120,7 +120,6 @@ The growth team has asked design research to support a full onboarding redesign 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

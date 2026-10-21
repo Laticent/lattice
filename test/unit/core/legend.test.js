@@ -11,7 +11,7 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { readLegend, readEntry, gridTarget, targetText, LEGEND_READERS } = require('../../../lib/core/legend');
+const { readLegend, readEntry, gridTarget, targetText, CALLOUT_READERS, spanKind, calloutsOff } = require('../../../lib/core/legend');
 const { legendHtml } = require('../../../lib/core/legend-html');
 const { colorAttr } = require('../../../lib/core/legend-key');
 const { MARKS, markHtml, markSvg } = require('../../../lib/core/legend-mark');
@@ -85,6 +85,48 @@ describe('readLegend', () => {
   test('a span that is not a record is a syntax diagnostic, never a throw', () => {
     for (const bad of ['@legend{', '@legend{{a}', '', null]) assert.equal(readLegend(bad).ok, false);
   });
+});
+
+describe('the split: @callout is a callout, @legend is the key (2026-10-20-callout-placement.md § 2)', () => {
+  test('spanKind names the prefix the author wrote, and nothing else', () => {
+    assert.equal(spanKind('@callout{{A, for=1}}'), 'callout');
+    assert.equal(spanKind(' @legend{[{A, c1}], key}'), 'legend');
+    assert.equal(spanKind('@legends{x}'), null);
+    assert.equal(spanKind('{A}'), null);
+    assert.equal(spanKind(null), null);
+  });
+  test('a @callout span is always anchored, with or without a target, and carries its kind', () => {
+    const r = readLegend('@callout{{Dip, row=Feb, col=M2}}');
+    assert.equal(r.legend.layout, 'anchored');
+    assert.equal(r.kind, 'callout');
+    assert.equal(readLegend('@callout{[{A}, {B}]}').legend.layout, 'anchored');
+    assert.equal(readLegend('@callout{[{A}]}').diagnostics[0].code, 'legend/no-target');
+  });
+  test('a layout word in a @callout span is ignored by the reader; lint:deck reports it', () => {
+    const r = readLegend('@callout{{A, for=1}, key}');
+    assert.equal(r.legend.layout, 'anchored');
+    assert.deepEqual(r.diagnostics, []);
+  });
+
+  test('a pinned @legend span still reads as a callout: the pre-split spelling', () => {
+    const r = readLegend('@legend{{Dip, row=Feb, col=M2}}');
+    assert.equal(r.legend.layout, 'anchored');
+    assert.equal(r.kind, 'legend');
+  });
+  test('callouts are off by the callout switches, and the pre-split legend ones are not read', () => {
+    assert.equal(calloutsOff(), false);
+    assert.equal(calloutsOff({ tokens: ['callout-off'] }), true);
+    assert.equal(calloutsOff({ pluginsOff: ['callout'] }), true);
+    assert.equal(calloutsOff({ pluginsOff: ['math'] }), false);
+    assert.equal(calloutsOff({ frontMatter: 'callout: off' }), true);
+    assert.equal(calloutsOff({ frontMatter: 'callout: on' }), false);
+    assert.equal(calloutsOff({ tokens: ['callout-on'], frontMatter: 'callout: off' }), false);
+    // Dropped with the owner's ruling (decision note § 2): the pre-split switches do nothing now.
+    assert.equal(calloutsOff({ tokens: ['legend-off'] }), false);
+    assert.equal(calloutsOff({ frontMatter: 'legend: off' }), false);
+    assert.equal(calloutsOff({ pluginsOff: ['legend'] }), false);
+  });
+
 });
 
 describe('gridTarget: a label\'s target on a grid', () => {
@@ -176,10 +218,10 @@ describe('legend-mark: the mark slot', () => {
   });
 });
 
-test('LEGEND_READERS names only real slide classes', () => {
+test('CALLOUT_READERS names only real slide classes', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  for (const name of LEGEND_READERS) {
+  for (const name of CALLOUT_READERS) {
     assert.ok(fs.existsSync(path.join(__dirname, `../../../lib/components/chart/${name}/${name}.manifest.json`)), name);
   }
 });
@@ -187,10 +229,10 @@ test('LEGEND_READERS names only real slide classes', () => {
 describe('legend-messages: every code the reader emits has words', () => {
   const cases = [
     ['@legend{{1, lg}}', 'legend/ambiguous-pair', /reads as the label "1" with the style word `lg`/],
-    ['@legend{', 'legend/syntax', /is not a legend: write/],
+    ['@legend{', 'legend/syntax', /is not a callout or a legend: write/],
     ['@legend{{A}, layout=sideways}', 'legend/layout', /`sideways` is not a legend layout/],
     ['@legend{x}', 'legend/item', /`x` is not a legend entry/],
-    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is an anchored label with nothing to anchor to: add `row=` and `col=`/],
+    ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is a callout with nothing to point at: add `row=` and `col=`/],
     ['@legend{{Peak, row=Jan}}', 'legend/half-target', /"Peak" names only its row: add `col=` too/],
     ['@legend{{Peak, col=M2}}', 'legend/half-target', /"Peak" names only its column: add `row=` too/],
     ['@legend{{Peak, row=Jan, col=M2, for=3}}', 'legend/two-targets', /"Peak" names its cell twice.*pair is the one drawn/],
@@ -203,6 +245,9 @@ describe('legend-messages: every code the reader emits has words', () => {
       assert.match(legendMessage(d), words);
     });
   }
+  test('callout/layout (said by the linter, not the reader)', () => {
+    assert.match(legendMessage({ code: 'callout/layout', args: { word: 'key' } }), /`key` is not a callout layout: a callout is always anchored/);
+  });
   test('legend/empty', () => {
     assert.equal(legendMessage(readLegend('@legend{x}').diagnostics[1]), 'The legend has no entries it can draw.');
   });

@@ -22,7 +22,7 @@ test('a paginated deck paints its true page number on the slice path', async ({ 
 	await page.getByLabel('Deck source').click();
 	await page.keyboard.press('ControlOrMeta+End');
 	await page.keyboard.insertText(
-		`\n\n---\n\n<!-- _paginate: true -->\n\n## Alpha.\n\n---\n\n<!-- _paginate: true -->\n\n## Beta.\n\n---\n\n<!-- _paginate: true -->\n\n## Gamma.\n`,
+		`\n\n---\n\n## Alpha.\n\n---\n\n## Beta.\n\n---\n\n## Gamma.\n`,
 	);
 	await expect.poll(() => slideCount(page), { timeout: 20000 }).toBe(before + 3);
 	const first = before + 1;

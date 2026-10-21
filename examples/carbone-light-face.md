@@ -8,7 +8,6 @@ header: "Carbone · the light face"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Carbone light · title" -->
 
 # Carbone, in daylight
@@ -126,7 +125,6 @@ flowchart LR
 <!-- _class: closing -->
 <!-- _header: '' -->
 <!-- _footer: "Carbone light · closing" -->
-<!-- _paginate: false -->
 
 `What this face is for`
 

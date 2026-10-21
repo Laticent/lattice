@@ -281,8 +281,17 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 
 	const { trackFor, clear: clearTracks } = trackCache(options);
 
+	// Where the voice sits in the stereo field (-1 … 1). The host sets it per beat from where the
+	// cursor is pointing; the live clip glides there and the next clip starts there.
+	let pan = 0;
+	let live: { setPan(p: number, glideMs?: number): void } | null = null;
+
 	return {
 		voiced: true,
+		setPan(next: number, glideMs = 450): void {
+			pan = Number.isFinite(next) ? Math.max(-1, Math.min(1, next)) : 0;
+			live?.setPan(pan, glideMs);
+		},
 		plan(text: string): CaptionTrack | null {
 			if (!text.trim()) return null;
 			// A copy: the track is cached, and a caller that re-times its plan (the tour recorder
@@ -342,6 +351,7 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 					let base: number | null = null;
 					const handle = audio.play(clip, {
 						signal: ac.signal,
+						pan,
 						onStart: ({ onsetMs, durationMs }) => {
 							base = onsetMs;
 							// THE RE-ANCHOR. One clip per LINE, so the measurement is the whole line's span and
@@ -368,7 +378,9 @@ export function voicedNarrator(options: VoicedNarratorOptions): Narrator {
 						raf = requestAnimationFrame(frame);
 					};
 					raf = requestAnimationFrame(frame);
+					live = handle;
 					await handle.done;
+					if (live === handle) live = null;
 				} catch {
 					// A voice that fails must not take the tour down: the beat plays on, silently, and the
 					// caption is still on screen for the whole reading budget the storyboard holds it for.

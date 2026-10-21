@@ -49,7 +49,6 @@ Last slide of every deck. Restates the takeaway or call-to-action. Like title, s
 
 ```markdown
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

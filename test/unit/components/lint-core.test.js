@@ -932,52 +932,92 @@ describe('lint-core: a deck finish on a bookend is not a finding', () => {
   });
 });
 
-// `paginate: skip` / `hold` are Marp values Lattice does NOT implement — `truthy()` rejects
-// all three of false/skip/hold identically, so each merely hides the badge while the slide
-// keeps its place in the numbering. For `false` that is the intent; for the other two the
-// author asked for a renumbering they will not get, and the deck still renders, so nothing
-// told them. Same "silence reads as it works" reasoning as the retired-autosplit rule.
-describe('paginate: skip / hold are flagged rather than silently downgraded', () => {
+// `paginate: skip` / `hold` are Marp values Lattice does NOT implement: `truthy()` reads both as
+// `false`, so the deck shows no page numbers at all. Front matter is the only place `paginate:`
+// still means anything; a slide comment is `paginate-comment-retired` (below).
+describe('paginate: skip / hold in front matter are flagged rather than silently downgraded', () => {
   const find = (src) => ruleFor(src, 'paginate-unsupported-value');
 
-  test('a spot `_paginate: skip` is flagged, on the right slide', () => {
-    const f = find('---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n');
+  test('`skip` is flagged against slide 1, as a suggestion', () => {
+    const f = find('---\npaginate: skip\n---\n\n# A\n\n---\n\n## B.\n');
     assert.ok(f, 'expected paginate-unsupported-value');
-    assert.equal(f.severity, 'suggestion'); // the render is legitimate; only the renumbering is absent
-    assert.equal(f.slide, 2);
-    assert.match(f.message, /later slides still count it/);
-    assert.match(f.fix, /_paginate: false/);
+    assert.equal(f.severity, 'suggestion');
+    assert.equal(f.slide, 1);
+    assert.match(f.message, /paginate: skip/);
+    assert.match(f.fix, /paginate: false/);
   });
 
-  test('`hold` gets its own message — it is a different unmet promise from `skip`', () => {
+  test('`hold` names its own value', () => {
     const f = find('---\npaginate: hold\n---\n\n# A\n');
     assert.ok(f);
-    assert.equal(f.slide, 1); // front matter is deck-level, so it reports against slide 1
-    assert.match(f.message, /does not repeat the previous one/);
+    assert.match(f.message, /paginate: hold/);
   });
 
-  test('`false` is NOT flagged — hiding the badge is exactly what it means', () => {
+  test('`false` and `true` are NOT flagged', () => {
     assert.equal(find('---\npaginate: false\n---\n\n# A\n'), undefined);
-    assert.equal(find('---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _paginate: false -->\n\n## B.\n'), undefined);
+    assert.equal(find('---\npaginate: true\n---\n\n# A\n'), undefined);
   });
 
-  test('a value inside a FENCED code block is documentation, not a directive', () => {
-    // This rule's own docs entry is a fenced sample, so a whole-source scan would flag it.
-    assert.equal(find('---\npaginate: true\n---\n\n# A\n\n```\n<!-- _paginate: skip -->\n```\n'), undefined);
+  test('a slide comment is not this rule: it is the retired-comment rule', () => {
+    const src = '---\npaginate: true\n---\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n';
+    assert.equal(find(src), undefined);
+    assert.equal(ruleFor(src, 'paginate-comment-retired')?.slide, 2);
+  });
+});
+
+// The owner's ruling (2026-10-20): page numbers are front matter plus the `no-pagination` /
+// `with-pagination` classes plus the component manifest. A comment does nothing, so it is named.
+describe('paginate-comment-retired', () => {
+  const find = (src) => ruleFor(src, 'paginate-comment-retired');
+  const deck = (body) => `---\nmarp: true\n---\n\n# A\n\n---\n\n${body}\n\n## B.\n`;
+
+  test('`_paginate: true` is autofixable: on is the default', () => {
+    const f = find(deck('<!-- _paginate: true -->'));
+    assert.equal(f.severity, 'warning');
+    assert.equal(f.slide, 2);
+    assert.equal(f.autofixable, true);
   });
 
-  test('the slide number counts slides, not front-matter fences', () => {
-    // Counting bare `---` reported two too high, because front matter's own fences split too.
-    const f = find('---\npaginate: true\n---\n\n# A\n\n---\n\n## B.\n\n---\n\n<!-- _paginate: skip -->\n\n## C.\n');
-    assert.equal(f.slide, 3);
+  test('`_paginate: false` on a bookend is autofixable: its manifest already hides the number', () => {
+    const f = find(deck('<!-- _class: closing -->\n<!-- _paginate: false -->'));
+    assert.equal(f.autofixable, true);
+    assert.match(f.fix, /already shows no page number/);
   });
 
-  test('one finding per distinct directive+value, not one per slide', () => {
-    const all = core.lintTextWith(
-      '---\npaginate: true\n---\n\n<!-- _paginate: skip -->\n\n# A\n\n---\n\n<!-- _paginate: skip -->\n\n## B.\n',
-      vocab,
-    ).filter((x) => x.rule === 'paginate-unsupported-value');
-    assert.equal(all.length, 1);
+  test('`_paginate: false` on a content slide is NOT autofixable: the class must be added', () => {
+    const f = find(deck('<!-- _class: content -->\n<!-- _paginate: false -->'));
+    assert.equal(f.autofixable, undefined);
+    assert.match(f.fix, /no-pagination/);
+  });
+
+  test('a copy quoted in a code sample on the same slide blocks the autofix, which would delete the copy', () => {
+    const f = find(deck('<!-- _paginate: true -->\n\n```md\n<!-- _paginate: true -->\n```'));
+    assert.ok(f);
+    assert.equal(f.autofixable, undefined);
+  });
+
+  test('on a deck numbered off, `_paginate: true` is the author asking for a number: add the class, no autofix', () => {
+    const f = find('---\nmarp: true\npaginate: false\n---\n\n# A\n\n---\n\n<!-- _paginate: true -->\n\n## B.\n');
+    assert.equal(f.autofixable, undefined);
+    assert.match(f.fix, /with-pagination/);
+  });
+
+  test('`_paginate: true` on a bookend asks for the number its manifest drops: add with-pagination, no autofix', () => {
+    const f = find(deck('<!-- _class: closing -->\n<!-- _paginate: true -->'));
+    assert.equal(f.autofixable, undefined);
+    assert.match(f.fix, /with-pagination/);
+    assert.match(f.message, /drops its number/);
+  });
+
+  test('the retired `no-paginate` class names its new spelling', () => {
+    const f = core.lintTextWith(deck('<!-- _class: big-number no-paginate -->'), vocab).find((x) => x.classToken === 'no-paginate');
+    assert.ok(f, 'the old class is reported');
+    assert.match(`${f.message} ${f.fix ?? ''}`, /no-pagination/);
+  });
+
+  test('a plain `paginate:` comment is caught too, and a fenced one is not', () => {
+    assert.ok(find(deck('<!-- paginate: false -->')));
+    assert.equal(find(deck('```\n<!-- _paginate: false -->\n```')), undefined);
   });
 });
 

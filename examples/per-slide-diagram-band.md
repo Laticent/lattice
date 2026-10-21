@@ -8,7 +8,6 @@ footer: "Feature deck"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 # A diagram is baked for its own slide
 

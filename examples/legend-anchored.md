@@ -2,14 +2,14 @@
 marp: true
 theme: indaco
 paginate: true
-header: "Lattice · legend plugin · anchored labels"
+header: "Lattice · callout plugin · anchored labels"
 ---
 
 <!-- _class: title silent -->
 
 # Labels a chart did not have
 
-`Legend plugin · Wave 0`
+`Callout plugin`
 
 One model for every key, value label and callout. First capability: a heatmap callout, written in one line.
 
@@ -45,7 +45,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{{Onboarding change, row="Feb 2026", col=M2}}`
+`@callout{{Onboarding change, row="Feb 2026", col=M2}}`
 
 ---
 
@@ -63,7 +63,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{{Onboarding change, tag, c4, row="Feb 2026", col=M2, detail="The new flow shipped on Feb 9 and skipped the setup call."}}`
+`@callout{{Onboarding change, tag, c4, row="Feb 2026", col=M2, detail="The new flow shipped on Feb 9 and skipped the setup call."}}`
 
 ---
 
@@ -81,12 +81,12 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{[{Onboarding change, c4, row="Feb 2026", col=M2}, {Setup call cut, c2, row="Feb 2026", col=M1}]}`
+`@callout{[{Onboarding change, c4, row="Feb 2026", col=M2}, {Setup call cut, c2, row="Feb 2026", col=M1}]}`
 
 ---
 
 <!-- _class: heatmap scale -->
-<!-- _footer: "With the band key. The callout takes its lane beside the grid and the key keeps its rail beyond it." -->
+<!-- _footer: "With the band key. The key and the callout each sit on the side that leaves the grid largest." -->
 
 `Retention · 2026 cohorts`
 
@@ -99,7 +99,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Mar 2026 | 100 | 71 | 59 | 55 |
 | Apr 2026 | 100 | 69 | 57 |  |
 
-`@legend{{Onboarding change, tag, c4, row="Feb 2026", col=M2}}`
+`@callout{{Onboarding change, tag, c4, row="Feb 2026", col=M2}}`
 
 ---
 
@@ -121,7 +121,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Sat | 4 | 6 | 9 | 14 | 18 | 21 | 22 | 20 | 17 | 13 | 9 | 6 |
 | Sun | 3 | 5 | 8 | 12 | 15 | 18 | 19 | 18 | 15 | 11 | 8 | 5 |
 
-`@legend{[{All-hands, tag, c4, row=Wed, col=10a}, {Friday fade, row=Fri, col=3p}, {Weekend floor, row=Sun, col=7a}]}`
+`@callout{[{All-hands, tag, c4, row=Wed, col=10a}, {Friday fade, row=Fri, col=3p}, {Weekend floor, row=Sun, col=7a}]}`
 
 ---
 
@@ -146,7 +146,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 | Metro | 5236 | 2855 | 1379 | 2181 | 8817 | 9176 | 4111 | 4286 | 8530 |
 | Rural | 9537 | 4324 | 3345 | 8068 | 7487 | 3108 | 7669 | 8093 | 4687 |
 
-`@legend{[{Audit, row=North, col=Jan}, {Price change, row=South, col=Jun}, {Launch, row=East, col=Mar}, {Promo, row=Central, col=Jul}, {Outage, row=Metro, col=Aug}, {Recovery, row=Rural, col=Sep}]}`
+`@callout{[{Audit, row=North, col=Jan}, {Price change, row=South, col=Jun}, {Launch, row=East, col=Mar}, {Promo, row=Central, col=Jul}, {Outage, row=Metro, col=Aug}, {Recovery, row=Rural, col=Sep}]}`
 
 ---
 
@@ -154,4 +154,4 @@ One model for every key, value label and callout. First capability: a heatmap ca
 
 ## One line of Markdown, every surface: the slide, the hover card, the speaker note, narration.
 
-A heatmap callout is the legend plugin's first capability. The other charts' keys move onto the same model one at a time.
+A heatmap callout is the callout plugin's first capability. The other charts take callouts one family at a time.

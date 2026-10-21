@@ -9,7 +9,6 @@ header: "Lattice · the deck-wide class register"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Fix deck`
 

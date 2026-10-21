@@ -416,11 +416,11 @@ function narrowToSlide(html: string, index: number, slideCount?: number, deck = 
 // ── Does this deck need a whole-deck render at all? ──────────────────────────
 // The deck-context render exists to get three things right, and EVERY ONE of them requires the
 // deck to actually carry deck-scoped state:
-//   · the page NUMBER — only rendered when `paginate` is truthy, which in the Studio is a
-//     default-OFF toggle that none of the three shipped decks sets;
-//   · inherited RUNNING-GLOBAL directives — a bare `<!-- class: … -->` mid-deck (`header`, `footer` and
-//     `paginate` set only their own slide, audit §11r, so the probe below over-triggers on them, the cheap
-//     direction). The Studio's own
+//   · the page NUMBER — on by default since 2026-10-20 and decided per slide by its classes and its component's
+//     manifest (lib/core/pagination.js), all of which the slice carries, so it needs no deck context;
+//   · inherited RUNNING-GLOBAL directives — a bare `<!-- class: … -->` mid-deck (`header` and `footer` set only
+//     their own slide, audit §11r, and a `paginate` comment changes nothing, so the probe below over-triggers on
+//     them, the cheap direction). The Studio's own
 //     header/footer controls write FRONT MATTER, which the caller already prepends to the slice, so
 //     this is reachable only by hand-authoring directive comments;
 //   · the deck-scoped PROGRESS RAIL and watermark glyph — both derived from divider slides, and both
@@ -491,7 +491,7 @@ export const DECK_DERIVED_FACTS: ReadonlyArray<{
 	},
 	{
 		fact: 'running-global directive',
-		why: 'a directive comment without the `_` spot prefix (other than header, footer and paginate) applies to its slide AND every one after, so a slice loses what it inherited',
+		why: 'a directive comment without the `_` spot prefix (other than header and footer, and a paginate comment, which does nothing) applies to its slide AND every one after, so a slice loses what it inherited',
 		probes: [/<!--\s*(?!_)[a-zA-Z][\w-]*\s*:/],
 	},
 

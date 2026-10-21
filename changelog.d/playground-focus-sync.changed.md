@@ -1,0 +1,15 @@
+- The Playground's editor, preview and slide map now move together. Scrolling the preview scrolls the
+  editor to that slide and marks it with a faint wash and a gutter bar, `---` fences included, and leaves
+  your caret and selection where they were; the next key you press in the editor brings the preview back
+  to the caret. Clicking a slide in the preview puts the caret at the end of its title and brings the whole
+  slide into view in the editor; clicking inside the marked slide places the caret where you clicked. The
+  map no longer has to be open for any of this.
+- The preview and the editor have the same thin, quiet scrollbar as the rest of the page instead of the
+  browser's default.
+- The Playground no longer finds the caret's slide by matching words against the preview, so a repeated
+  heading or a slide with no text can no longer land the preview on the wrong slide.
+- In the Playground, the editor and the preview now scroll together from either side: scrolling the editor scrolls the preview and marks the same slide there with an accent bar down its left edge. Slides are kept level section for section: the first at the top, the last at the bottom, every slide between centered in both panes. The preview's scrollbar is also the same color as the editor's in every palette and mode.
+- The Playground editor now scrolls past its last line, as the Studio editor does, so the end of a deck is not pinned to the bottom edge.
+- In the Playground, clicking a slide in the preview, or clicking a line in the editor that sits in another slide, brings that slide to the middle of the preview (the first slide stays at the top and the last at the bottom). A click in the editor leaves the editor where it is, so the text does not move under the pointer; a click on a slide also brings the editor level with it. Typing never re-centers the preview.
+- The Playground's two-pane scroll sync is lighter and steadier: the slide highlight no longer redraws the editor's lines at each slide boundary, a slide picked on the map always lands on its slide, and wheeling or dragging either pane no longer jerks back or gets pulled by the other. On a slow page the other pane follows every other frame instead of dropping frames.
+- On a phone, switching between Edit and Explore no longer loses your place. Explore opens on the slide your caret is in, and your caret does not move. Going back to Edit leaves the editor exactly as it was (it used to jump to the first line and save a backup of a deck you had not changed); if you clicked a different slide in Explore, the caret goes to the end of that slide's title. The Playground also remembers where your caret was across a reload of the same deck.

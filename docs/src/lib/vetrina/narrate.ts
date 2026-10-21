@@ -71,6 +71,11 @@ export interface Narrator {
 	 *  a presenter's hand is already moving before they say the word. A narrator that cannot
 	 *  see its own future returns null, and the cue degrades to "narrate, then act". */
 	plan?(text: string): CaptionTrack | null;
+	/** OPTIONAL: lean the voice toward where the viewer should look. `pan` runs from -1 (left)
+	 *  through 0 (centre) to 1 (right). The storyboard sets it before each line from the horizontal
+	 *  position of the beat's target, and back to 0 for a beat that points at nothing. A narrator
+	 *  that cannot place its voice in space simply omits this; nothing else depends on it. */
+	setPan?(pan: number, glideMs?: number): void;
 	/** OPTIONAL: release whatever this narrator owns — an `AudioContext`, a decoded-clip
 	 *  cache, a worker.
 	 *

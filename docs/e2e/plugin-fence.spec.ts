@@ -89,7 +89,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		try {
 			await gotoStudio(page);
 			await openLibrary(page);
-			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(RENDERER(origin, udpPort)) });
+			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'gantt-plugin.zip', mimeType: 'application/zip', buffer: await ganttZip(RENDERER(origin, udpPort)) });
 			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 			await page.keyboard.press('Escape');
 			const preview = livePreview(page);

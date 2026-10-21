@@ -1081,7 +1081,7 @@ describe('component-manifest', () => {
         'treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette',
         'tint-edge at-right', 'mark-threads', // decoration
         'with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl', // typography
-        'silent', 'no-header', 'no-footer', 'no-paginate', 'no-progress', 'no-logo', // chrome
+        'silent', 'no-header', 'no-footer', 'no-pagination', 'with-pagination', 'no-progress', 'no-logo', // chrome
         'no-note', 'note-warn', // note
         'safe', // social
         'table-plain', 'table-fill', 'state-cells', 'row-label', 'no-row-label', // table
@@ -1165,7 +1165,7 @@ describe('component-manifest', () => {
       // model, not a chrome control an author toggles. The retired-form lint rules
       // coach a deck still carrying either token; the vocabulary no longer blesses it.
       assert.deepEqual([...UNIVERSAL_GROUPS.chrome].sort(), [
-        'no-footer', 'no-header', 'no-logo', 'no-paginate', 'no-progress', 'silent',
+        'no-footer', 'no-header', 'no-logo', 'no-pagination', 'no-progress', 'silent', 'with-pagination',
       ]);
     });
   });

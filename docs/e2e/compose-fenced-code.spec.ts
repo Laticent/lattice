@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { insertVia } from './compose-insert';
 import { expect, gotoStudio, persistedSource, test } from './studio-fixture';
 
 // ── Fenced code in Compose, driven on the REAL Studio ──────────────────────────
@@ -248,7 +249,7 @@ test('the insert door writes a TAGGED fence, defaulted from the slide layout', a
 
 	// Caret in the prose, then the door.
 	await page.locator('.cs-slide-content p').first().click();
-	await page.getByRole('button', { name: 'Insert code', exact: true }).first().click();
+	await insertVia(page, 'Code');
 
 	await expect.poll(() => deckSource(page)).toContain('```mermaid');
 	// Never a BARE fence — `code.docs.md` says three times that an untagged one renders

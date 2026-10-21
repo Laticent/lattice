@@ -184,7 +184,6 @@ Our model is proven, our school partnerships are signed, and our volunteer pipel
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

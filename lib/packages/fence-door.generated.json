@@ -200,6 +200,12 @@
       ]
     },
     {
+      "pass": "cycle",
+      "classes": [
+        "cycle"
+      ]
+    },
+    {
       "pass": "logo-marks",
       "classes": [
         "logo-wall"

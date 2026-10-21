@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 54432,
+	"bytes": 68544,
 	"lines": [
 		{
-			"key": "b39e6dcc8044",
+			"key": "30d1736d4cc6",
 			"text": "Present plays your deck full screen. Click Present.",
-			"file": "b39e6dcc8044.mp3",
-			"bytes": 16416,
-			"speechMs": 2688,
+			"file": "30d1736d4cc6.mp3",
+			"bytes": 24192,
+			"speechMs": 3973,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,47 +24,47 @@
 								"display": "Present",
 								"spoken": "Present",
 								"startMs": 0,
-								"endMs": 362,
+								"endMs": 535,
 								"charOffset": 0
 							},
 							{
 								"display": "plays",
 								"spoken": "plays",
-								"startMs": 362,
-								"endMs": 543,
+								"startMs": 535,
+								"endMs": 802,
 								"charOffset": 8
 							},
 							{
 								"display": "your",
 								"spoken": "your",
-								"startMs": 543,
-								"endMs": 724,
+								"startMs": 802,
+								"endMs": 1070,
 								"charOffset": 14
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 724,
-								"endMs": 905,
+								"startMs": 1070,
+								"endMs": 1337,
 								"charOffset": 19
 							},
 							{
 								"display": "full",
 								"spoken": "full",
-								"startMs": 905,
-								"endMs": 1086,
+								"startMs": 1337,
+								"endMs": 1605,
 								"charOffset": 24
 							},
 							{
 								"display": "screen.",
 								"spoken": "screen.",
-								"startMs": 1086,
-								"endMs": 1293,
+								"startMs": 1605,
+								"endMs": 1911,
 								"charOffset": 29
 							}
 						],
 						"startMs": 0,
-						"endMs": 1633,
+						"endMs": 2414,
 						"charOffset": 0
 					},
 					{
@@ -74,32 +73,32 @@
 							{
 								"display": "Click",
 								"spoken": "Click",
-								"startMs": 1779,
-								"endMs": 1960,
+								"startMs": 2629,
+								"endMs": 2897,
 								"charOffset": 37
 							},
 							{
 								"display": "Present.",
 								"spoken": "Present.",
-								"startMs": 1960,
-								"endMs": 2348,
+								"startMs": 2897,
+								"endMs": 3471,
 								"charOffset": 43
 							}
 						],
-						"startMs": 1779,
-						"endMs": 2688,
+						"startMs": 2629,
+						"endMs": 3973,
 						"charOffset": 37
 					}
 				],
-				"durationMs": 2688
+				"durationMs": 3973
 			}
 		},
 		{
-			"key": "ca82316ff7eb",
+			"key": "95596d6a69a5",
 			"text": "I’ll start the presentation for you.",
-			"file": "ca82316ff7eb.mp3",
-			"bytes": 11376,
-			"speechMs": 1835,
+			"file": "95596d6a69a5.mp3",
+			"bytes": 10800,
+			"speechMs": 1745,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -110,59 +109,59 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 166,
+								"endMs": 158,
 								"charOffset": 0
 							},
 							{
 								"display": "start",
 								"spoken": "start",
-								"startMs": 166,
-								"endMs": 333,
+								"startMs": 158,
+								"endMs": 317,
 								"charOffset": 5
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 333,
-								"endMs": 499,
+								"startMs": 317,
+								"endMs": 475,
 								"charOffset": 11
 							},
 							{
 								"display": "presentation",
 								"spoken": "presentation",
-								"startMs": 499,
-								"endMs": 1165,
+								"startMs": 475,
+								"endMs": 1108,
 								"charOffset": 15
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1165,
-								"endMs": 1332,
+								"startMs": 1108,
+								"endMs": 1266,
 								"charOffset": 28
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1332,
-								"endMs": 1522,
+								"startMs": 1266,
+								"endMs": 1448,
 								"charOffset": 32
 							}
 						],
 						"startMs": 0,
-						"endMs": 1835,
+						"endMs": 1745,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1835
+				"durationMs": 1745
 			}
 		},
 		{
-			"key": "94f249ffc74c",
+			"key": "bd0f46129254",
 			"text": "Use the arrow keys, or click, to move through the slides. Press Esc to stop.",
-			"file": "94f249ffc74c.mp3",
-			"bytes": 26640,
-			"speechMs": 4379,
+			"file": "bd0f46129254.mp3",
+			"bytes": 33552,
+			"speechMs": 5544,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -173,82 +172,82 @@
 								"display": "Use",
 								"spoken": "Use",
 								"startMs": 0,
-								"endMs": 182,
+								"endMs": 230,
 								"charOffset": 0
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 182,
-								"endMs": 363,
+								"startMs": 230,
+								"endMs": 460,
 								"charOffset": 4
 							},
 							{
 								"display": "arrow",
 								"spoken": "arrow",
-								"startMs": 363,
-								"endMs": 727,
+								"startMs": 460,
+								"endMs": 920,
 								"charOffset": 8
 							},
 							{
 								"display": "keys,",
 								"spoken": "keys,",
-								"startMs": 727,
-								"endMs": 935,
+								"startMs": 920,
+								"endMs": 1184,
 								"charOffset": 14
 							},
 							{
 								"display": "or",
 								"spoken": "or",
-								"startMs": 1112,
-								"endMs": 1294,
+								"startMs": 1408,
+								"endMs": 1639,
 								"charOffset": 20
 							},
 							{
 								"display": "click,",
 								"spoken": "click,",
-								"startMs": 1294,
-								"endMs": 1503,
+								"startMs": 1639,
+								"endMs": 1902,
 								"charOffset": 23
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 1680,
-								"endMs": 1862,
+								"startMs": 2127,
+								"endMs": 2357,
 								"charOffset": 30
 							},
 							{
 								"display": "move",
 								"spoken": "move",
-								"startMs": 1862,
-								"endMs": 2043,
+								"startMs": 2357,
+								"endMs": 2587,
 								"charOffset": 33
 							},
 							{
 								"display": "through",
 								"spoken": "through",
-								"startMs": 2043,
-								"endMs": 2225,
+								"startMs": 2587,
+								"endMs": 2817,
 								"charOffset": 38
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2225,
-								"endMs": 2407,
+								"startMs": 2817,
+								"endMs": 3047,
 								"charOffset": 46
 							},
 							{
 								"display": "slides.",
 								"spoken": "slides.",
-								"startMs": 2407,
-								"endMs": 2797,
+								"startMs": 3047,
+								"endMs": 3541,
 								"charOffset": 50
 							}
 						],
 						"startMs": 0,
-						"endMs": 3138,
+						"endMs": 3973,
 						"charOffset": 0
 					},
 					{
@@ -257,38 +256,38 @@
 							{
 								"display": "Press",
 								"spoken": "Press",
-								"startMs": 3284,
-								"endMs": 3466,
+								"startMs": 4158,
+								"endMs": 4388,
 								"charOffset": 58
 							},
 							{
 								"display": "Esc",
 								"spoken": "Esc",
-								"startMs": 3466,
-								"endMs": 3648,
+								"startMs": 4388,
+								"endMs": 4618,
 								"charOffset": 64
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 3648,
-								"endMs": 3829,
+								"startMs": 4618,
+								"endMs": 4848,
 								"charOffset": 68
 							},
 							{
 								"display": "stop.",
 								"spoken": "stop.",
-								"startMs": 3829,
-								"endMs": 4038,
+								"startMs": 4848,
+								"endMs": 5112,
 								"charOffset": 71
 							}
 						],
-						"startMs": 3284,
-						"endMs": 4379,
+						"startMs": 4158,
+						"endMs": 5544,
 						"charOffset": 58
 					}
 				],
-				"durationMs": 4379
+				"durationMs": 5544
 			}
 		}
 	]

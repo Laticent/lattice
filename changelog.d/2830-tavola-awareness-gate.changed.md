@@ -1,0 +1,1 @@
+- Live: awareness (presence) is now filtered by Tavola's Yjs adapter instead of a hand-written gate in the Studio. It bounds an update's size and entry count, ignores a forged clock, and rate-limits changes per member. A caret at the end of a deck keeps working, and a declared view key that fails its check is dropped by name without turning other fields off.

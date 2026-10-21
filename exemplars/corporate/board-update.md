@@ -164,7 +164,6 @@ Carriers will commit Q4 capacity at today's rates in exchange for a guaranteed m
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

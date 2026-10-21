@@ -144,7 +144,6 @@ Here's a billing ticket that came in yesterday: "I was charged twice this month.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

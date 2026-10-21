@@ -1,41 +1,33 @@
-// Shared guided-tour helper for the docs workspaces (Playground · Workbench ·
-// Drawing Board). Wraps driver.js (MIT, ~5 KB, zero-dep) so every page gets the
-// same behavior from one place: a "Tour" button in the topbar, a one-time
-// auto-start on a visitor's first arrival, a global on/off honored everywhere
-// (the Drawing Board settings drawer writes it), and palette-blind popover
-// styling that reads the same design tokens as the rest of the site.
+// Shared guided-tour launcher for the docs workspaces (today the Playground). It owns the parts a
+// tour needs that are not the tour: a "Tour" button in the topbar, a one-time offer on a visitor's
+// first arrival, a global on/off honored everywhere (the Workspace settings write it), and the
+// rule that tours only run on the production site.
 //
-// driver.js was chosen over intro.js / Shepherd.js: MIT-licensed and
-// framework-agnostic, which matches this site's vanilla-JS / plain-CSS
-// stack exactly.
+// It no longer draws anything. The tour itself is a Vetrina walkthrough (playground-tour.js), and
+// the offer is a card the page's React shell shows: a browser plays no sound until the visitor
+// clicks, so the card is where they test their audio before a narrated tour speaks. This module
+// only asks for it, by calling `onStart`.
 //
-// Per-page step decks live beside this file (today playground-tour.js; the
-// workbench and drawing-board decks went with their routes); they describe WHICH elements to
-// spotlight and, via `onReveal`, how to bring a target on screen — the
-// workspaces show one pane at a time on mobile, so a step's target may sit in
-// an inactive tab. This module owns HOW the tour runs.
-import { driver } from 'driver.js';
-import 'driver.js/dist/driver.css';
+// (It used to wrap driver.js, a spotlight-and-popover library. driver.js was picked over intro.js
+// and Shepherd for being MIT and framework-free; Vetrina replaced it in
+// engineering/decisions/2026-10-20-first-run-onboarding.md.)
 import '../styles/guided-tour.css';
 import { isPreviewHost } from './preview-host.js';
 import { onToursEnabledChange, toursEnabled } from './tour-prefs.js';
 
 const SEEN_PREFIX = 'lattice-tour-seen-';
 
-// Tours ship to every build but only ACTIVATE on the production site. The page
-// build stamps `data-tours="on"` on <html> for production (GitHub Pages / a
-// main-branch Cloudflare deploy) and "off" for local dev and the Cloudflare
-// *.pages.dev PR previews (see docs/src/lib/deploy-env.mjs). Fail closed: only
-// an explicit "on" runs them.
+// Tours ship to every build but only ACTIVATE on the production site. The page build stamps
+// `data-tours="on"` on <html> for production (GitHub Pages / a main-branch Cloudflare deploy) and
+// "off" for local dev and the Cloudflare *.pages.dev PR previews (docs/src/lib/deploy-env.mjs).
+// Fail closed: only an explicit "on" runs them. Belt-and-suspenders: also fail closed at RUNTIME on
+// any preview host, regardless of the build stamp, because a tour overlay over a PR preview blocks
+// the very controls a reviewer came to test.
 //
-// The build-time stamp depends on `CF_PAGES` reaching the build; when a preview
-// is built without it the stamp wrongly reads "on", and the tour's full-screen
-// overlay then TRAPS POINTER EVENTS over the whole workspace — blocking the
-// editor, preview, present AND practice, so no interactive feature can be
-// reviewed on the PR preview. Belt-and-suspenders: also fail closed at RUNTIME on
-// any preview host, regardless of the build stamp.
+// `?tour=1` forces the offer on any host, for support and QA.
 export function toursAllowedHere() {
 	try {
+		if (new URLSearchParams(location.search).get('tour') === '1') return true;
 		if (isPreviewHost(location.hostname)) return false;
 		return document.documentElement.dataset.tours === 'on';
 	} catch {
@@ -43,59 +35,27 @@ export function toursAllowedHere() {
 	}
 }
 
-function prefersReducedMotion() {
-	try {
-		return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-	} catch {
-		return false;
-	}
-}
-
-// A step is kept when it has no element (a centered modal card) or its target
-// exists in the DOM. Existence — not current visibility — is the test on
-// purpose: on a phone the target may be in a tab-hidden pane, and `onReveal`
-// switches to that pane before the spotlight lands. Steps whose selector
-// resolves to nothing are dropped so the tour never strands on empty space.
-function isStepLive(step) {
-	if (!step?.element) return true;
-	if (typeof step.element !== 'string') return Boolean(step.element);
-	return Boolean(document.querySelector(step.element));
-}
-
 /**
  * Wire a guided tour into the current page.
  *
  * @param {object} opts
  * @param {string} opts.key        Stable id for the localStorage "seen" flag.
- * @param {Array}  opts.steps      driver.js step objects (element + popover).
- * @param {(el: Element, step: object) => void} [opts.onReveal]  Bring a step's
- *        target on screen (e.g. switch the active mobile tab). Runs before each
- *        spotlight; a no-op on desktop where every pane is already visible.
+ * @param {() => void} opts.onStart  Offer the tour (the page shows its start card). Called on the
+ *        Tour button and once, automatically, on a first visit.
  * @param {string} [opts.buttonLabel='Tour']
  * @param {string} [opts.buttonTitle='Take a guided tour of this page']
- * @param {boolean}[opts.autoStart=true]  Auto-run once on a first visit.
+ * @param {boolean}[opts.autoStart=true]  Offer once on a first visit.
  * @param {number} [opts.autoStartDelay=550]  ms to let controllers mount first.
- * @param {string|Element|null} [opts.mountTarget='.sh-actions']  Where to
- *        place the replay "?" button (the shared <SiteHeader> action cluster).
- *        Pass `null` for a tour the caller drives itself (e.g. an overlay that
- *        owns its own trigger) — no button is mounted.
+ * @param {string|Element|null} [opts.mountTarget='.sh-actions']  Where to place the replay button
+ *        (the shared <SiteHeader> action cluster). `null` mounts no button.
  * @returns {{ start: () => void, seen: () => boolean, markSeen: () => void }}
  */
 export function initGuidedTour(opts) {
-	const {
-		key,
-		steps,
-		onReveal,
-		buttonLabel = 'Tour',
-		buttonTitle = 'Take a guided tour of this page',
-		autoStart = true,
-		autoStartDelay = 550,
-		mountTarget = '.sh-actions',
-	} = opts || {};
+	const { key, onStart, buttonLabel = 'Tour', buttonTitle = 'Take a guided tour of this page', autoStart = true, autoStartDelay = 550, mountTarget = '.sh-actions' } = opts || {};
 
 	const noop = { start() {}, seen: () => true, markSeen() {} };
-	if (!key || !Array.isArray(steps) || steps.length === 0) return noop;
-	// Production-only: no button, no auto-run on dev / preview deploys.
+	if (!key || typeof onStart !== 'function') return noop;
+	// Production-only: no button, no offer on dev / preview deploys.
 	if (!toursAllowedHere()) return noop;
 
 	const seenKey = SEEN_PREFIX + key;
@@ -112,54 +72,11 @@ export function initGuidedTour(opts) {
 		} catch {}
 	};
 
-	// Resolve the step's element and hand it to the page's reveal hook so the
-	// right tab is showing before driver measures and positions the popover.
-	const reveal = (element, step) => {
-		if (typeof onReveal !== 'function') return;
-		const el =
-			element ||
-			(typeof step?.element === 'string'
-				? document.querySelector(step.element)
-				: step?.element);
-		if (!el) return;
-		try {
-			onReveal(el, step);
-		} catch {}
-	};
+	const start = () => onStart();
 
-	const start = () => {
-		const live = steps.filter(isStepLive);
-		if (live.length === 0) return;
-		const tour = driver({
-			showProgress: true,
-			allowClose: true,
-			animate: !prefersReducedMotion(),
-			smoothScroll: !prefersReducedMotion(),
-			overlayColor: 'rgba(16, 18, 22, 0.62)',
-			overlayOpacity: 1,
-			stagePadding: 6,
-			stageRadius: 8,
-			popoverClass: 'lattice-tour',
-			nextBtnText: 'Next',
-			prevBtnText: 'Back',
-			doneBtnText: 'Done',
-			progressText: '{{current}} of {{total}}',
-			// Switch to the target's pane before each spotlight (mobile tabs).
-			onHighlightStarted: (element, step) => reveal(element, step),
-			steps: live,
-		});
-		tour.drive();
-	};
-
-	// Topbar button — created and torn down on demand so the Drawing Board's
-	// "Guided tours" setting can flip it without a reload. `mountTarget: null`
-	// skips it entirely for a caller-driven tour (the overlay owns its trigger).
-	const actions =
-		mountTarget == null
-			? null
-			: typeof mountTarget === 'string'
-				? document.querySelector(mountTarget)
-				: mountTarget;
+	// Topbar button — created and torn down on demand so the Workspace "Guided tours" setting can
+	// flip it without a reload.
+	const actions = mountTarget == null ? null : typeof mountTarget === 'string' ? document.querySelector(mountTarget) : mountTarget;
 	let btn = null;
 	const mountButton = () => {
 		if (!actions || btn) return;
@@ -182,18 +99,13 @@ export function initGuidedTour(opts) {
 		}
 	};
 
-	// Honor the global flag, and react to it live on this page (the Drawing
-	// Board settings toggle dispatches through tour-prefs).
-	const applyEnabled = (on) => {
-		if (on) mountButton();
-		else unmountButton();
-	};
-	onToursEnabledChange(applyEnabled);
+	// Honor the global flag, and react to it live on this page.
+	onToursEnabledChange((on) => (on ? mountButton() : unmountButton()));
 
 	if (toursEnabled()) {
 		mountButton();
-		// First-visit auto-run. Marked seen the moment it fires so a reload or an
-		// early close never re-interrupts the same visitor.
+		// First-visit offer. Marked seen the moment it fires so a reload or an early close never
+		// re-interrupts the same visitor.
 		if (autoStart && !seen()) {
 			window.setTimeout(() => {
 				if (seen() || !toursEnabled()) return;

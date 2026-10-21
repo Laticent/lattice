@@ -449,7 +449,7 @@ categories:
 | Mood (1) | `dark` |
 | Decoration (6) | `treatment-none`, `tint-corner at-tl`, `mark-orbit`, `tint-vignette`, `tint-edge at-right`, `mark-threads` |
 | Typography (5) | `with-period`, `no-period`, `scale-l`, `scale-xl`, `scale-2xl` |
-| Chrome (5) | `silent`, `no-header`, `no-footer`, `no-paginate`, `no-progress` |
+| Chrome (5) | `silent`, `no-header`, `no-footer`, `no-pagination`, `no-progress` |
 | Social (1) | `safe` |
 | State (8) | `wip`, `draft`, `tbd`, `confidential`, `redacted`, `archived`, `pinned`, `revised` |
 | Tone (4) | `tone-pass`, `tone-warn`, `tone-fail`, `tone-skip` |
@@ -493,7 +493,7 @@ and opt individual slides out:
 |---|---|---|---|
 | Running header | `no-header` | `header: "…"` (text present) | off |
 | Running footer | `no-footer` | `footer: "…"` (text present) | off |
-| Page number | `no-paginate` | `paginate: true` | on (Form) |
+| Page number | `no-pagination` | `paginate: true` | on (Form) |
 | Section rail | `no-progress` | `class: no-progress` (propagated) | on (Form) |
 
 Header / footer / pagination ride native Marp directives; the rail has no native

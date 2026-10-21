@@ -76,6 +76,18 @@ export const previewShowsSlide = (k: number) => (): boolean => {
 	return !!m && Number(m[1]) === k && previewPainted();
 };
 
+// ── Lookups the course's tours share ───────────────────────────────────────────────────────────
+// A tour points at the REAL control, so these find it the way a person would: by its accessible name
+// or its words. Each returns null when the control is not on screen, and a beat whose target is null
+// is skipped by Vetrina rather than stranded on.
+/** The first element a selector names, as a lookup a beat can hold (resolved when the beat runs). */
+export const q = (sel: string) => (): HTMLElement | null => document.querySelector<HTMLElement>(sel);
+const shown = (el: Element): boolean => el.getBoundingClientRect().width > 0;
+/** A visible button whose whole text is `label` ("Rehearse", "Share"). */
+export const buttonLabeled = (label: string) => (): HTMLElement | null => [...document.querySelectorAll<HTMLElement>('button')].find((b) => shown(b) && b.textContent?.trim() === label) ?? null;
+/** A visible button whose text STARTS with `text` — the Share sheet's rows read "PDFOne slide per page…". */
+export const buttonStarting = (text: string) => (): HTMLElement | null => [...document.querySelectorAll<HTMLElement>('button')].find((b) => shown(b) && (b.textContent ?? '').trim().startsWith(text)) ?? null;
+
 const mkType = (target: string, text: string, cadence: number): TourStep['type'] => ({ target, text, cadence });
 
 // ── Beat builders — every taught beat is a Teaching Beat (read the caption, then act) ────────────

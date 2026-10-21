@@ -7,7 +7,6 @@ header: "Lattice · Venue is a fixed size"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -109,7 +108,6 @@ This slide clips on purpose: it is the one the demo is about. Without the stress
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Pick the room, then write for it`
 

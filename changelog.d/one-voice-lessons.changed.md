@@ -1,0 +1,1 @@
+- **The lessons speak in the same voice as the tours.** All of the "How do I…?" lessons were re-recorded in Gemini `Schedar`, so the Studio has one voice. `tools/record-lesson-voice.mjs` no longer needs the on-device model; it needs `OPEN_ROUTER_KEY` and `OPENROUTER_ALLOW_SPEND=1`.

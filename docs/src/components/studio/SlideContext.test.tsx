@@ -33,7 +33,7 @@ const lintVocab = {
 		mood: ['dark'],
 		decoration: ['treatment-none', 'tint-corner at-tl', 'mark-orbit', 'tint-vignette', 'tint-edge at-right', 'mark-threads'],
 		typography: ['with-period', 'no-period', 'scale-l', 'scale-xl', 'scale-2xl'],
-		chrome: ['silent', 'no-header', 'no-footer', 'no-paginate', 'no-progress'],
+		chrome: ['silent', 'no-header', 'no-footer', 'no-pagination', 'no-progress'],
 		state: ['wip', 'draft', 'confidential'],
 		tone: ['tone-pass', 'tone-warn', 'tone-fail', 'tone-skip'],
 	},

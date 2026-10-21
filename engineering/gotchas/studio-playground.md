@@ -1686,3 +1686,21 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any e2e spec that presses Enter or Tab on a CodeMirror completion menu.
 - **Removable when** — never, while the Studio keeps CodeMirror's interaction delay (it is what stops a menu that pops up under a fast typist's Enter from eating the newline).
 - **Commits** — the PR that added `acceptCompletion` (followups.d/2649-p3).
+
+## A kernel change does nothing in the built Studio, and every pill is a code chip
+
+- **Symptom** — after a change under `lib/plugins/` or `lib/authoring/`, the built Studio draws no pill, spark, avatar or icon in Compose, and the console says `[compose] the pill editor could not load its kernels` with `Cannot read properties of undefined (reading 'read')`. Unit tests pass, because they load the kernels from source.
+- **Cause** — Compose loads its kernels from `esm/lint.js`, an entry of the playground engine build in `docs/public/playground/` (`docs/src/playground/lint-core-source.js`). `npm run build:e2e` and `astro build` copy that build; they do not rebuild it. A stale bundle holds the old kernel set, so a kind the code asks for (`kernels.avatar`) is undefined.
+- **Mitigation** — rebuild in this order before the site: `npm run authoring-core:build` (vitest's copy) and `npm run playground:build` (the browser's copy), then `npm run build:e2e`. Both outputs are git-ignored, so nothing in a diff shows the stale one.
+- **Triggered by** — any e2e or screenshot run after editing a kernel without the two builds; a fresh sandbox is fine because the SessionStart hook builds them.
+- **Removable when** — `build:e2e` runs `playground:build` first.
+- **Commits** — the PR that added the avatar and icon editors (`engineering/decisions/2026-10-21-compose-point-and-click.md` §2).
+
+## An editor opened from a menu item closes within a frame of opening
+
+- **Symptom** — a Compose menu item that opens a popover (the Insert menu's Pill, Avatar or Icon) writes its change, and the popover is on screen for about 23 ms, then gone. The deck is right and the author never sees the editor. A mouse test sees `[data-slot="popover-content"]` missing.
+- **Cause** — a Radix dropdown stays mounted through its exit animation and moves focus while it closes (to the trigger, to the text). The inline-object editor treats focus landing outside it as the author leaving and closes (`onOpenChange` in `InlineObjectEditor.tsx`). Opening the editor in the same tick as the item's `onSelect` puts it in the middle of that focus traffic. A focus-and-event trace on the real Studio showed the sequence: item click at 142 ms, editor mounted at 173 ms, gone at 196 ms.
+- **Mitigation** — `InsertControls.tsx` keeps the chosen item in a ref and runs it from the menu's `onCloseAutoFocus`, after the menu has let go of focus, with the text focused first. The menu has `animate-none!` on its closed state, so the wait is one frame and the object appears about 30 ms after the click. `compose-pill-editor.spec.ts` ("a pill inserted right after another") fails without it.
+- **Triggered by** — any menu item that opens an editor, sheet or popover of its own.
+- **Removable when** — the object editor stops closing on focus-outside, or the menu stops moving focus.
+- **Commits** — the PR that added the Insert menu.

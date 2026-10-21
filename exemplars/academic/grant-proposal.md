@@ -143,7 +143,6 @@ Today each phage treatment is hand-matched to a patient over weeks. This program
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

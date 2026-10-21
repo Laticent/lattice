@@ -131,7 +131,6 @@ We tested introductory biology; transfer to writing-heavy or skills-based course
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

@@ -30,7 +30,7 @@ for (const [label, width, height] of [
 		await gotoStudio(page);
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
-		await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'chip-plugin.zip', mimeType: 'application/zip', buffer: await chipZip() });
+		await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'chip-plugin.zip', mimeType: 'application/zip', buffer: await chipZip() });
 		await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
 		await page.keyboard.press('Escape');
 		await setEditorContent(page, DECK);

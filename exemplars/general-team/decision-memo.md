@@ -142,7 +142,6 @@ We compared staying self-hosted, moving to Managed-A, and moving to Managed-B. T
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

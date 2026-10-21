@@ -1,0 +1,78 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "callout",
+  "api": 1,
+  "title": "Callout",
+  "description": "A note pinned to one mark on a chart: written `@callout{{Month 2 drop-off, tag, c4, row=\"Feb 2026\", col=M2}}`, it draws a marker on the mark it names and the note beside the figure, the two tied by one of six shapes and one color. A chart draws at most six. On by default; an author turns callouts off for the deck with `callout: off` in the front matter, or for one slide with the `callout-off` class (`callout-on` turns them back on), and a host with `--disable-plugin callout`. Off, a callout is not drawn or narrated, and its detail still reaches the speaker note. Split from the legend plugin by engineering/decisions/2026-10-20-callout-placement.md: a `@legend{\u2026}` span that pins a mark is the pre-split spelling and still draws. The heatmap reads callouts today.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "accent",
+        "d": "M30 30H60V60H30Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M60 60L84 84",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M84 74H108V98H84Z",
+        "width": 7
+      }
+    ]
+  },
+  "contributes": {
+    "registers": {
+      "callout": {
+        "axes": {
+          "show": [
+            "on",
+            "off"
+          ]
+        }
+      }
+    },
+    "styles": true
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  },
+  "tokens": [
+    "--bg",
+    "--cat-1-fill",
+    "--cat-1-mark",
+    "--cat-10-fill",
+    "--cat-10-mark",
+    "--cat-11-fill",
+    "--cat-11-mark",
+    "--cat-12-fill",
+    "--cat-12-mark",
+    "--cat-2-fill",
+    "--cat-2-mark",
+    "--cat-3-fill",
+    "--cat-3-mark",
+    "--cat-4-fill",
+    "--cat-4-mark",
+    "--cat-5-fill",
+    "--cat-5-mark",
+    "--cat-6-fill",
+    "--cat-6-mark",
+    "--cat-7-fill",
+    "--cat-7-mark",
+    "--cat-8-fill",
+    "--cat-8-mark",
+    "--cat-9-fill",
+    "--cat-9-mark",
+    "--cat-on-fill",
+    "--cat-on-mark",
+    "--font-body",
+    "--font-label",
+    "--text-body"
+  ]
+}

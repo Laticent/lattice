@@ -7,7 +7,6 @@ header: "Lattice · Mermaid labels fit their boxes"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 # Mermaid labels fit their boxes
 

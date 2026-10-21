@@ -109,7 +109,7 @@ describe('the plugins: register — every YAML spelling, and no orphaned lines (
 
 describe('admitPlugins — the three routes', () => {
   it('the default set is every shipped plugin, and a deck that lists nothing loads all of it', () => {
-    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'meta', 'pills', 'sparks']);
+    assert.deepEqual([...DEFAULT_PLUGINS].sort(), ['anima', 'avatars', 'callout', 'chart-family', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'meta', 'pills', 'sparks']);
     const a = admitPlugins('# Hi\n');
     assert.deepEqual(a.off, []);
     assert.deepEqual(a.active.map((g) => g.name).sort(), [...DEFAULT_PLUGINS].sort());
@@ -136,7 +136,7 @@ describe('admitPlugins — the three routes', () => {
 
   it('the usage probe admits nothing: a deck that USES a plugin it never loads keeps it off', () => {
     const a = admitPlugins('# Hi\n\n```mermaid\ngraph LR; A-->B\n```\n', { defaults: [] });
-    assert.deepEqual(a.off, ['anima', 'avatars', 'chart-family', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'sparks']);
+    assert.deepEqual(a.off, ['anima', 'avatars', 'callout', 'chart-family', 'code', 'function-plot', 'icons', 'legend', 'math', 'mermaid', 'sparks']);
   });
 
   it('a loaded plugin loads what it requires, transitively; optional loads nothing', () => {

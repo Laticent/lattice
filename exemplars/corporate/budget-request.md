@@ -143,7 +143,6 @@ Beyond the run cost, the platform throttles every product launch and depends on 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

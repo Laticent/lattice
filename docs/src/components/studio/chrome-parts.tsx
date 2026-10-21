@@ -11,7 +11,7 @@
 // Keep these PURE and browser-API-free: they are rendered at build time, where there is no
 // `window`. Props only, no hooks that read the DOM.
 
-import { BookOpen, FileBox, FileSliders, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, UsersRound } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, FileBox, FileSliders, GalleryVerticalEnd, Gauge, Layers, PencilLine, Settings as SettingsCog, SlidersHorizontal, UsersRound } from 'lucide-react';
 import type * as React from 'react';
 import { Separator } from '@/components/ui/separator';
 import { Tip } from '@/components/ui/tooltip';
@@ -58,9 +58,17 @@ export const HOME_HREF = joinBase(import.meta.env.BASE_URL || '/', '');
  * The counter's 80px is measured, not fitted: in Outfit 12px semibold the widest count in range,
  * "Slide 999 / 999", draws 78.95px ("Slide 100 / 999" 78.75px). The slot was 78px until
  * 2026-10-15, so any deck past 99 slides widened it and shifted the row by up to a pixel.
+ *
+ * A reader with a minimum font size (24px, the `minfont` project) sees the count drawn at 24px while
+ * `px` and `em` both stay at the 12px the CSS asked for, so the app's count outgrew the slot and
+ * moved the arrows 18px, while the skeleton's bar did not. So the counter's cell also holds
+ * `SLIDE_COUNTER_SIZER`: the widest count in range, drawn invisibly in the SAME cell, in the font the
+ * reader actually gets. The cell is never narrower than that text on either surface, whatever the
+ * font size. It sits beside the slot, not in it, and draws in `content`, so it is not page text.
  */
 export const DECK_META_SLOT = 'min-w-[70px] shrink-0 text-right';
-export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[80px] text-center';
+export const SLIDE_COUNTER_SLOT = 'min-w-[56px] justify-self-stretch text-center [grid-area:1/1] @[30rem]:min-w-[80px]';
+const SLIDE_COUNTER_SIZER = "invisible [grid-area:1/1] before:content-['999_/_999'] @[30rem]:before:content-['Slide_999_/_999']";
 
 // The top bar's band rule. ONE constant because the app header and the pre-paint
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two
@@ -96,6 +104,80 @@ export const BAR_RULE = 'h-6 bg-[var(--muted-mark)]';
 // the dial or the appearance box lands flush inside a 32px container.
 export const BAR_CONTROL = 'h-8';
 export const BAR_SEGMENT = 'h-[26px]';
+
+// THE PREVIEW BAR'S NAVIGATOR — one pill holding the previous arrow, the slide counter and the
+// next arrow, then the slide-map toggle at the same height (the owner's pick, 2026-10-20, option A
+// of three scored for touch size, grouping, phone fit and stability). The app and the pre-paint
+// skeleton both draw it from here, so `studio-shell-parity.spec.ts` compares one shape, not two
+// hand-kept copies.
+//
+// HEIGHT is the row's own on each tier, so the band does not grow. On the two-pane tiers (>=700px)
+// it is 32px, the "Collapse preview" button that already sets that row's height. On a phone it is
+// the lens pill's 25.2px (`PILL_H`, the same expression lens-picker.tsx `DENSE_PILL` uses), so the
+// phone header stays at its measured 38.2px (preview-rect.ts `headerWriteMobile`) and the slide
+// keeps that height. A coarse pointer gets 44px of HIT area instead, from a transparent `::after`
+// that reaches past the control (`TOUCH_HIT`): the target Apple asks for, at no cost in height.
+//
+// The word "Slide" drops when the PANE is narrow (`@[30rem]`, a container query: a phone, or a
+// splitter dragged in), leaving "5 / 7". The full words stay in the accessibility tree (`SlideCount`),
+// so a screen reader still says "Slide 5 / 7", and so do the tests that find the counter by its text.
+const TOUCH_HIT = 'relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-[9.4px] pointer-coarse:after:inset-x-0 pointer-coarse:after:content-[""] min-[700px]:pointer-coarse:after:-inset-y-1.5';
+const PILL_H = 'h-[calc(1lh_+_0.25rem_+_2px)] min-[700px]:h-8';
+// The arrows sit INSIDE the pill's 1px border, so each is 2px shorter than the pill; their hit area reaches 1px
+// further each way than the toggle's to land on the same 44px (23.2 + 2 x 10.4 on a phone, 30 + 2 x 7 above).
+const NAV_ARROW = cn('grid w-8 pointer-coarse:w-11 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:pointer-events-none disabled:opacity-40', TOUCH_HIT, 'pointer-coarse:after:-inset-y-[10.5px] min-[700px]:pointer-coarse:after:-inset-y-[7px]');
+
+export function SlideNavigator({ counter, onPrev, onNext, mapOn, onToggleMap }: {
+	/** The count, or the skeleton's neutral bar. The slot reserves its width either way. */
+	counter: React.ReactNode;
+	onPrev?: () => void;
+	onNext?: () => void;
+	/** Omit to draw the navigator without the map toggle. */
+	mapOn?: boolean;
+	onToggleMap?: () => void;
+}) {
+	return (
+		<>
+			<div className={cn('inline-flex shrink-0 items-stretch rounded-full border border-border bg-card font-sans text-[12px] font-semibold normal-case tracking-normal', PILL_H)}>
+				<button type="button" onClick={onPrev} className={cn(NAV_ARROW, 'rounded-l-full')} aria-label="Previous slide"><ChevronLeft className="size-3.5" aria-hidden /></button>
+				<span className="grid place-items-center whitespace-nowrap border-x border-border px-2 text-[var(--text-heading)]"><span aria-hidden="true" className={SLIDE_COUNTER_SIZER} /><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}>{counter}</span></span>
+				<button type="button" onClick={onNext} className={cn(NAV_ARROW, 'rounded-r-full')} aria-label="Next slide"><ChevronRight className="size-3.5" aria-hidden /></button>
+			</div>
+			{onToggleMap && (
+				<button
+					type="button"
+					aria-label="Slide map"
+					aria-pressed={!!mapOn}
+					title="Slide map — every slide as a thumbnail, in place of the slide pills"
+					onClick={onToggleMap}
+					className={cn('grid aspect-square shrink-0 place-items-center rounded-lg border bg-card font-sans text-[12px] transition-colors', PILL_H, TOUCH_HIT, 'pointer-coarse:after:-inset-x-[9.4px] min-[700px]:pointer-coarse:after:-inset-x-1.5', mapOn ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-border text-muted-foreground hover:text-[var(--text-heading)]')}
+				>
+					<GalleryVerticalEnd className="size-4" aria-hidden />
+				</button>
+			)}
+		</>
+	);
+}
+
+/**
+ * The counter's words. The full "Slide 5 / 7" is ONE text node, visually hidden, so a screen reader
+ * says it and a test that finds the counter by its text finds exactly one match. What the eye sees
+ * is "5 / 7", and a wide pane adds "Slide " in CSS (`content`), never as a second copy in the DOM.
+ */
+export function SlideCount({ n, total }: { n: number; total: number }) {
+	return (
+		<>
+			<span className="sr-only">
+				Slide {n} / {total}
+			</span>
+			{/* A space between the two, so text read off the page ("Slide 5 / 7 5 / 7") never runs the
+			    numbers together; at the start of the line the browser drops it, so nothing shows. */}{' '}
+			<span aria-hidden="true" className="@[30rem]:before:content-['Slide_']">
+				{n} / {total}
+			</span>
+		</>
+	);
+}
 
 // The posture dial — the one always-visible, reversible control that replaced the
 // one-way graduation ratchet (2026-07-17-studio-persona-dial.md). Stops are named for

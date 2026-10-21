@@ -7,7 +7,6 @@ header: "Lattice · Chart family coverage"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

@@ -8,7 +8,6 @@ footer: "Phase 6 — chart categorical"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -71,7 +70,6 @@ footer: "Phase 6 — chart categorical"
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

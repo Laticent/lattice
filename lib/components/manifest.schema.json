@@ -216,6 +216,17 @@
       ],
       "description": "How this component's stage Cell is sized under the Form default (design/forms.md; engineering/decisions/2026-07-14-one-frame-model.md). `flow` = a flowing prose/structure body that the masthead kernel wraps in a bounded `.cell-stage` clip cell (the overflow probe walls it). `canvas` = a self-sizing body (a chart's `.chart-body`, a Mermaid SVG, a QR/poster card) that measures against its own box and keeps a direct-child body — the stage Cell is that box, not a generic wrapper. OMITTED for the SOVEREIGN frames, whose stage is their own grid and which are chrome-exempt (frame.kind:sovereign, derived from lib/forms/frame/*). This sentence NO LONGER NAMES THEM, and that is the fix: it has drifted twice while carrying its own warning not to re-derive the list by hand — first naming `math` after math left the set in 2026-09 and omitting `premise` and `scene`, then, in the very edit that corrected those, omitting `topic`. A sentence that must be re-counted whenever a folder is added will be wrong again. The set is `exemptFromChrome: true` in lib/forms/frame/*, read at runtime by `sovereignFrames()` and baked into lib/forms/cell/masthead/stage-catalog.generated.js; ask one of those. The three-way {flow, canvas, sovereign} classification is the single source the stage-catalog generator composes; masthead.transform.js derives its wrap decision from it."
     },
+    "chrome": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The slide chrome this component's slides show by default. `pagination: false` keeps the page number off every slide of this component (title, divider, closing), unless the slide asks for it with the `with-pagination` class. Read by the engine from lib/packages/chrome.generated.js, which tools/build-packages-index.js writes from these fields, so adding the field is the whole registration: nothing names a component in code. Omit the object for the common case (the deck's front matter decides).",
+      "properties": {
+        "pagination": {
+          "type": "boolean",
+          "description": "false: this component's slides show no page number unless the slide carries `with-pagination`. Omit for true."
+        }
+      }
+    },
     "coda": {
       "type": "object",
       "additionalProperties": false,

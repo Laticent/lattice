@@ -223,7 +223,6 @@ Construction bids are firm for 90 days. With $2.8M committed by September, we po
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

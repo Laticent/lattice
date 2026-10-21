@@ -27,25 +27,23 @@ import { PooledThumbFace, PreviewPool } from '@/components/studio/preview-pool';
 import { hasDrawnFence } from '@/components/studio/slide-thumb';
 import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { resolveDeckTheme } from '@/lib/deck-theme';
-import { createFocusHub } from '@/lib/fuoco/hub';
+import type { FocusHub } from '@/lib/fuoco/hub';
 import { partOfFlat, partText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
-import { flatOfPage, pageOfFlat, type RenderedIndex } from '@/lib/rendered-index';
+import { flatOfPage, type RenderedIndex } from '@/lib/rendered-index';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 
 export interface PlaygroundMapProps {
+	/** The Playground's one focus hub (lib/playground-sync.ts): the editor feeds it, the preview and the map read it. */
+	hub: FocusHub;
 	/** The source the preview rendered, and a counter that bumps with each render of it. */
 	rendered: { source: string; key: number };
 	/** The index of the latest render (rendered-index.ts), lazily computed. */
 	getIndex: () => Promise<RenderedIndex> | null;
 	/** The deck's slide box. */
 	geom: { w: number; h: number };
-	/** The frame the preview runs in, for the reading position in Edit. */
-	getFrame: () => HTMLIFrameElement | null;
 	/** Explore's current page, or null when the walk has none (Edit, or no render yet). */
 	walkPage: number | null;
-	/** Move the preview to a page. The host decides how (the walk in Explore, a scroll in Edit). */
-	onPickPage: (page: number) => void;
 	/** Palette names a deck's own `theme:` may use. */
 	palettes: string[];
 	options: SingleSlideOptions;
@@ -54,62 +52,20 @@ export interface PlaygroundMapProps {
 	portal?: HTMLElement | null;
 }
 
-/**
- * The page the reader is on: the slide with the most of itself in the view, the lower one on a tie.
- * This is `readingSlideIndex`'s rule (playground-controller.ts), computed from the first two sections'
- * geometry rather than every band, because the filmstrip's slides are one size and one pitch apart
- * and a scroll event is not the moment to measure five hundred of them.
- *
- * `current` is the page the focus already names. Like the walk's rule, it is kept while at least half
- * as much of it is in view as of the best page: a pick near the end of a deck cannot scroll its slide
- * to the top, and without this the preview would report the slide below it and overrule the pick.
- */
-function readingPage(frame: HTMLIFrameElement | null, count: number, current = -1): number | null {
-	const win = frame?.contentWindow;
-	const secs = frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]');
-	if (!win || !secs?.length || !count) return null;
-	const r0 = secs[0].getBoundingClientRect();
-	const pitch = secs.length > 1 ? secs[1].getBoundingClientRect().top - r0.top : r0.height;
-	if (!(pitch > 0) || !(r0.height > 0)) return null;
-	const top = win.scrollY + r0.top;
-	const from = Math.max(0, Math.floor((win.scrollY - top) / pitch));
-	const to = Math.min(count - 1, Math.floor((win.scrollY + win.innerHeight - top) / pitch));
-	const seenOf = (i: number) => {
-		const start = top + i * pitch;
-		return Math.max(0, Math.min(win.scrollY + win.innerHeight, start + r0.height) - Math.max(win.scrollY, start));
-	};
-	let best = from;
-	let bestSeen = -1;
-	for (let i = from; i <= to; i++) {
-		const seen = seenOf(i);
-		if (seen > bestSeen) {
-			bestSeen = seen;
-			best = i;
-		}
-	}
-	if (current >= 0 && current < count && seenOf(current) * 2 >= bestSeen) return current;
-	return Math.min(count - 1, best);
-}
-
-export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walkPage, onPickPage, palettes, options, orientation, portal }: PlaygroundMapProps) {
-	const hub = React.useMemo(() => createFocusHub({ outliner: deckOutliner }), []);
+export default function PlaygroundMap({ hub, rendered, getIndex, geom, walkPage, palettes, options, orientation, portal }: PlaygroundMapProps) {
 	const [ix, setIx] = React.useState<RenderedIndex | null>(null);
 	const ixRef = React.useRef<RenderedIndex | null>(null);
 	ixRef.current = ix;
-	// A pick scrolls the preview, and a scroll in flight passes through every slide on the way. Until it
-	// has been still for a moment (or this much time has gone by) the preview does not report, so it
-	// cannot move the focus off the slide the reader just asked for. The walk's own guard does this in
-	// Explore (walkScrollRef); this is the same idea for the scroll Edit reads.
-	const pickUntil = React.useRef(0);
-	const SETTLE_MS = 160;
-	const MAX_PICK_MS = 1500;
+	// What the map draws is the deck the preview RENDERED, so its labels, pictures and count agree with the
+	// rendered index below. The hub holds the editor's live text, which runs ahead of a render by a
+	// debounce, and answers only "which slide is the reader on".
+	const deck = React.useMemo(() => deckOutliner.update(null, rendered.source) as DeckIndex, [rendered]);
 
-	// The hub learns the deck the preview shows, and the index of that render. They are one pair: the
-	// hub is fed first, so by the time the index resolves its outline is the one the index describes.
+	// The index of the render. A chunk that fails to load leaves the previous index in place; the next
+	// render asks again.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new render is the trigger; `getIndex` reads the latest one.
 	React.useEffect(() => {
-		hub.update(rendered.source, { by: 'preview' });
 		let live = true;
-		// A chunk that fails to load leaves the previous index in place; the next render asks again.
 		getIndex()
 			?.then((next) => {
 				if (live) setIx(next);
@@ -118,86 +74,21 @@ export default function PlaygroundMap({ rendered, getIndex, geom, getFrame, walk
 		return () => {
 			live = false;
 		};
-	}, [hub, rendered, getIndex]);
+	}, [rendered, getIndex]);
 
-	// The preview REPORTS where the reader is. Explore knows (the walk); Edit reads the slide with most of the view.
-	const report = React.useCallback(
-		(page: number | null) => {
-			const index = ixRef.current;
-			if (page == null || !index || !index.pages.length) return;
-			const flat = flatOfPage(index, page);
-			if (flat >= 0 && flat !== hub.get().flat) hub.go('preview', { flat });
-		},
-		[hub],
-	);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the index is a trigger (the walk reports again once it lands); report reads it through a ref.
+	// Explore REPORTS the walk's page. (In Edit the focus sync reads the preview's scroll itself, so the
+	// editor hears it even with the map closed.)
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the index is a trigger (the walk reports again once it lands); the report reads it through a ref.
 	React.useEffect(() => {
-		if (walkPage != null) report(walkPage);
-	}, [walkPage, ix, report]);
-	React.useEffect(() => {
-		if (walkPage != null) return; // Explore reports through the walk
-		const frame = getFrame();
-		if (!frame) return;
-		let raf = 0;
-		let timer = 0;
-		let lastScroll = 0;
-		const read = () => {
-			raf = 0;
-			if (performance.now() < pickUntil.current && performance.now() - lastScroll < SETTLE_MS) {
-				timer = window.setTimeout(schedule, SETTLE_MS / 2);
-				return;
-			}
-			const index = ixRef.current;
-			const at = index ? pageOfFlat(index, hub.get().flat) : -1;
-			report(readingPage(frame, index?.pages.length ?? 0, at));
-		};
-		const schedule = () => {
-			timer = 0;
-			if (!raf) raf = frame.contentWindow?.requestAnimationFrame(read) ?? 0;
-		};
-		const onScroll = () => {
-			lastScroll = performance.now();
-			schedule();
-		};
-		// A full srcdoc write replaces the frame's document and drops every listener on it, while the
-		// WindowProxy keeps its identity, so bind to whatever window the frame holds at each load.
-		const bind = () => {
-			const win = frame.contentWindow;
-			win?.removeEventListener('scroll', onScroll);
-			win?.addEventListener('scroll', onScroll, { passive: true });
-			schedule();
-		};
-		frame.addEventListener('load', bind);
-		bind();
-		return () => {
-			frame.removeEventListener('load', bind);
-			frame.contentWindow?.removeEventListener('scroll', onScroll);
-			if (timer) window.clearTimeout(timer);
-			if (raf) frame.contentWindow?.cancelAnimationFrame(raf);
-		};
-	}, [getFrame, hub, report, walkPage]);
-
-	// The rail ASKS for moves; the preview follows them, and only the rail's own (a move the preview
-	// reported would scroll the preview to where it already is).
-	React.useEffect(
-		() =>
-			hub.subscribe(
-				(f) => f.seq,
-				(_seq, f) => {
-					const index = ixRef.current;
-					if (f.origin !== 'rail' || !index) return;
-					const page = pageOfFlat(index, f.flat);
-					if (page < 0) return;
-					pickUntil.current = performance.now() + MAX_PICK_MS;
-					onPickPage(page);
-				},
-			),
-		[hub, onPickPage],
-	);
+		const index = ixRef.current;
+		if (walkPage == null || !index || !index.pages.length) return;
+		const flat = flatOfPage(index, walkPage);
+		if (flat >= 0 && flat !== hub.get().flat) hub.go('preview', { flat });
+	}, [walkPage, ix, hub]);
 
 	const flat = useFocus(hub, (f) => f.flat);
 	const count = ix ? ix.byFlat.length : 0;
-	const outline = hub.outline() as DeckIndex | null;
+	const outline = deck;
 	const textOf = React.useCallback(
 		(i: number) => {
 			const at = outline ? partOfFlat(outline, i) : null;

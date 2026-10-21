@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { insertEntry, insertVia, openInsertMenu } from './compose-insert';
 import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
@@ -49,7 +50,6 @@ async function openDeckInCompose(page: Page, source = DECK): Promise<void> {
 
 const editor = (page: Page) => page.locator('[data-slot="popover-content"]');
 const drawn = (page: Page) => page.locator('.cs-npill .lat-spark');
-const bar = (page: Page) => page.locator('.cs-slide-active');
 
 test.describe('compose spark editor', () => {
 	test('@smoke Compose shows the sparks, not their grammar, and opening the deck writes nothing', async ({ page }) => {
@@ -96,7 +96,7 @@ test.describe('compose spark editor', () => {
 		await openDeckInCompose(page);
 		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
 		await page.keyboard.press('End');
-		await bar(page).getByRole('button', { name: 'Insert spark' }).click();
+		await insertVia(page, 'Spark');
 		await expect(editor(page)).toBeVisible();
 		await expect.poll(() => savedDeck(page)).toContain('Nothing here yet. `~{12 14 13 17 21}`');
 		await editor(page).getByRole('radio', { name: 'Chart: Area' }).click();
@@ -131,7 +131,7 @@ test.describe('compose spark editor', () => {
 		await page.keyboard.press('Home');
 		// "Revenue gr|ew": the caret is mid-word.
 		for (let i = 0; i < 'Revenue gr'.length; i++) await page.keyboard.press('ArrowRight');
-		await bar(page).getByRole('button', { name: 'Insert spark' }).click();
+		await insertVia(page, 'Spark');
 		await expect.poll(() => savedDeck(page)).toContain('Revenue grew `~{12 14 13 17 21}` `foo` fast.');
 		await editor(page).getByRole('button', { name: 'Done' }).click();
 
@@ -142,7 +142,10 @@ test.describe('compose spark editor', () => {
 		await page.keyboard.down('Shift');
 		for (let i = 0; i < 'Revenue grew  '.length + 2; i++) await page.keyboard.press('ArrowRight');
 		await page.keyboard.up('Shift');
-		await bar(page).getByRole('button', { name: 'Insert spark' }).click();
+		// The menu says why, and nothing is written.
+		await openInsertMenu(page);
+		await expect(insertEntry(page, 'Spark')).toHaveAttribute('data-disabled', '');
+		await expect(insertEntry(page, 'Spark')).toContainText('inside a code span');
 		await expect(editor(page)).toHaveCount(0);
 		await expect.poll(() => savedDeck(page)).toBe(before);
 	});

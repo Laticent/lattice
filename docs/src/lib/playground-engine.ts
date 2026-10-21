@@ -214,9 +214,9 @@ styles = createStyleLoader(options.stylesBase, { indexName: options.stylesIndex,
 				backstopArmed = true;
 				setTimeout(() => void themes.backstop(), BACKSTOP_MS);
 			}
-			// Which authored slide and part each page of this render is: read later and once, when a map
-			// asks (rendered-index.ts). The outline too is built there, so a Playground with no map does
-			// not parse the deck a second time per keystroke.
+			// Which authored slide and part each page of this render is: built once per render, and only when
+			// asked (rendered-index.ts). The focus sync asks after every render, so the outline is parsed a second
+			// time per keystroke (about 2-4 ms on a 120-slide deck; the hub's own copy is incremental).
 			let indexed: Promise<RenderedIndex> | null = null;
 			const index = () =>
 				(indexed ??= (async () => {

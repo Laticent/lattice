@@ -151,7 +151,6 @@ The vendor pulls security patches for the legacy stack at the end of July. Migra
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

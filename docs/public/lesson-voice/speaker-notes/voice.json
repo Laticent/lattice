@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 100224,
+	"bytes": 119088,
 	"lines": [
 		{
-			"key": "0445943ff94f",
+			"key": "fb92da20eb60",
 			"text": "Speaker notes are for you. Present shows them to you, and the audience never sees them.",
-			"file": "0445943ff94f.mp3",
-			"bytes": 30384,
-			"speechMs": 5012,
+			"file": "fb92da20eb60.mp3",
+			"bytes": 32688,
+			"speechMs": 5394,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,40 +24,40 @@
 								"display": "Speaker",
 								"spoken": "Speaker",
 								"startMs": 0,
-								"endMs": 372,
+								"endMs": 400,
 								"charOffset": 0
 							},
 							{
 								"display": "notes",
 								"spoken": "notes",
-								"startMs": 372,
-								"endMs": 743,
+								"startMs": 400,
+								"endMs": 800,
 								"charOffset": 8
 							},
 							{
 								"display": "are",
 								"spoken": "are",
-								"startMs": 743,
-								"endMs": 929,
+								"startMs": 800,
+								"endMs": 1000,
 								"charOffset": 14
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 929,
-								"endMs": 1115,
+								"startMs": 1000,
+								"endMs": 1200,
 								"charOffset": 18
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1115,
-								"endMs": 1328,
+								"startMs": 1200,
+								"endMs": 1429,
 								"charOffset": 22
 							}
 						],
 						"startMs": 0,
-						"endMs": 1677,
+						"endMs": 1805,
 						"charOffset": 0
 					},
 					{
@@ -67,95 +66,95 @@
 							{
 								"display": "Present",
 								"spoken": "Present",
-								"startMs": 1826,
-								"endMs": 2198,
+								"startMs": 1965,
+								"endMs": 2365,
 								"charOffset": 27
 							},
 							{
 								"display": "shows",
 								"spoken": "shows",
-								"startMs": 2198,
-								"endMs": 2384,
+								"startMs": 2365,
+								"endMs": 2565,
 								"charOffset": 35
 							},
 							{
 								"display": "them",
 								"spoken": "them",
-								"startMs": 2384,
-								"endMs": 2569,
+								"startMs": 2565,
+								"endMs": 2765,
 								"charOffset": 41
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 2569,
-								"endMs": 2755,
+								"startMs": 2765,
+								"endMs": 2965,
 								"charOffset": 46
 							},
 							{
 								"display": "you,",
 								"spoken": "you,",
-								"startMs": 2755,
-								"endMs": 2968,
+								"startMs": 2965,
+								"endMs": 3194,
 								"charOffset": 49
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 3149,
-								"endMs": 3335,
+								"startMs": 3390,
+								"endMs": 3589,
 								"charOffset": 54
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 3335,
-								"endMs": 3521,
+								"startMs": 3589,
+								"endMs": 3789,
 								"charOffset": 58
 							},
 							{
 								"display": "audience",
 								"spoken": "audience",
-								"startMs": 3521,
-								"endMs": 3893,
+								"startMs": 3789,
+								"endMs": 4189,
 								"charOffset": 62
 							},
 							{
 								"display": "never",
 								"spoken": "never",
-								"startMs": 3893,
-								"endMs": 4264,
+								"startMs": 4189,
+								"endMs": 4589,
 								"charOffset": 71
 							},
 							{
 								"display": "sees",
 								"spoken": "sees",
-								"startMs": 4264,
-								"endMs": 4450,
+								"startMs": 4589,
+								"endMs": 4789,
 								"charOffset": 77
 							},
 							{
 								"display": "them.",
 								"spoken": "them.",
-								"startMs": 4450,
-								"endMs": 4663,
+								"startMs": 4789,
+								"endMs": 5018,
 								"charOffset": 82
 							}
 						],
-						"startMs": 1826,
-						"endMs": 5012,
+						"startMs": 1965,
+						"endMs": 5394,
 						"charOffset": 27
 					}
 				],
-				"durationMs": 5012
+				"durationMs": 5394
 			}
 		},
 		{
-			"key": "b6367e6e1032",
+			"key": "6a6def7ccb09",
 			"text": "Notes live in Slide settings. Click it.",
-			"file": "b6367e6e1032.mp3",
-			"bytes": 14400,
-			"speechMs": 2344,
+			"file": "6a6def7ccb09.mp3",
+			"bytes": 18432,
+			"speechMs": 3010,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -166,40 +165,40 @@
 								"display": "Notes",
 								"spoken": "Notes",
 								"startMs": 0,
-								"endMs": 338,
+								"endMs": 435,
 								"charOffset": 0
 							},
 							{
 								"display": "live",
 								"spoken": "live",
-								"startMs": 338,
-								"endMs": 508,
+								"startMs": 435,
+								"endMs": 652,
 								"charOffset": 6
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 508,
-								"endMs": 677,
+								"startMs": 652,
+								"endMs": 869,
 								"charOffset": 11
 							},
 							{
 								"display": "Slide",
 								"spoken": "Slide",
-								"startMs": 677,
-								"endMs": 846,
+								"startMs": 869,
+								"endMs": 1086,
 								"charOffset": 14
 							},
 							{
 								"display": "settings.",
 								"spoken": "settings.",
-								"startMs": 846,
-								"endMs": 1209,
+								"startMs": 1086,
+								"endMs": 1553,
 								"charOffset": 20
 							}
 						],
 						"startMs": 0,
-						"endMs": 1527,
+						"endMs": 1961,
 						"charOffset": 0
 					},
 					{
@@ -208,32 +207,32 @@
 							{
 								"display": "Click",
 								"spoken": "Click",
-								"startMs": 1663,
-								"endMs": 1832,
+								"startMs": 2136,
+								"endMs": 2353,
 								"charOffset": 30
 							},
 							{
 								"display": "it.",
 								"spoken": "it.",
-								"startMs": 1832,
-								"endMs": 2026,
+								"startMs": 2353,
+								"endMs": 2602,
 								"charOffset": 36
 							}
 						],
-						"startMs": 1663,
-						"endMs": 2344,
+						"startMs": 2136,
+						"endMs": 3010,
 						"charOffset": 30
 					}
 				],
-				"durationMs": 2344
+				"durationMs": 3010
 			}
 		},
 		{
-			"key": "876638517577",
+			"key": "b1d0d5521ced",
 			"text": "I’ll open this slide’s settings for you.",
-			"file": "876638517577.mp3",
-			"bytes": 11520,
-			"speechMs": 1849,
+			"file": "b1d0d5521ced.mp3",
+			"bytes": 12672,
+			"speechMs": 2063,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -244,66 +243,66 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 154,
+								"endMs": 172,
 								"charOffset": 0
 							},
 							{
 								"display": "open",
 								"spoken": "open",
-								"startMs": 154,
-								"endMs": 461,
+								"startMs": 172,
+								"endMs": 515,
 								"charOffset": 5
 							},
 							{
 								"display": "this",
 								"spoken": "this",
-								"startMs": 461,
-								"endMs": 615,
+								"startMs": 515,
+								"endMs": 686,
 								"charOffset": 10
 							},
 							{
 								"display": "slide’s",
 								"spoken": "slide’s",
-								"startMs": 615,
-								"endMs": 923,
+								"startMs": 686,
+								"endMs": 1029,
 								"charOffset": 15
 							},
 							{
 								"display": "settings",
 								"spoken": "settings",
-								"startMs": 923,
-								"endMs": 1230,
+								"startMs": 1029,
+								"endMs": 1373,
 								"charOffset": 23
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1230,
-								"endMs": 1384,
+								"startMs": 1373,
+								"endMs": 1544,
 								"charOffset": 32
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1384,
-								"endMs": 1560,
+								"startMs": 1544,
+								"endMs": 1741,
 								"charOffset": 36
 							}
 						],
 						"startMs": 0,
-						"endMs": 1849,
+						"endMs": 2063,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1849
+				"durationMs": 2063
 			}
 		},
 		{
-			"key": "1158a8c560ec",
+			"key": "9a0f29d26d53",
 			"text": "Choose the Notes tab.",
-			"file": "1158a8c560ec.mp3",
-			"bytes": 7488,
-			"speechMs": 1199,
+			"file": "9a0f29d26d53.mp3",
+			"bytes": 9792,
+			"speechMs": 1562,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -314,45 +313,45 @@
 								"display": "Choose",
 								"spoken": "Choose",
 								"startMs": 0,
-								"endMs": 171,
+								"endMs": 222,
 								"charOffset": 0
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 171,
-								"endMs": 341,
+								"startMs": 222,
+								"endMs": 445,
 								"charOffset": 7
 							},
 							{
 								"display": "Notes",
 								"spoken": "Notes",
-								"startMs": 341,
-								"endMs": 683,
+								"startMs": 445,
+								"endMs": 889,
 								"charOffset": 11
 							},
 							{
 								"display": "tab.",
 								"spoken": "tab.",
-								"startMs": 683,
-								"endMs": 878,
+								"startMs": 889,
+								"endMs": 1144,
 								"charOffset": 17
 							}
 						],
 						"startMs": 0,
-						"endMs": 1199,
+						"endMs": 1562,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1199
+				"durationMs": 1562
 			}
 		},
 		{
-			"key": "71e5953c1e0d",
+			"key": "7e0c4f312b4c",
 			"text": "Write what you want to remember here. It saves with the deck.",
-			"file": "71e5953c1e0d.mp3",
-			"bytes": 18144,
-			"speechMs": 2974,
+			"file": "7e0c4f312b4c.mp3",
+			"bytes": 24048,
+			"speechMs": 3941,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -363,54 +362,54 @@
 								"display": "Write",
 								"spoken": "Write",
 								"startMs": 0,
-								"endMs": 150,
+								"endMs": 199,
 								"charOffset": 0
 							},
 							{
 								"display": "what",
 								"spoken": "what",
-								"startMs": 150,
-								"endMs": 300,
+								"startMs": 199,
+								"endMs": 397,
 								"charOffset": 6
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 300,
-								"endMs": 449,
+								"startMs": 397,
+								"endMs": 596,
 								"charOffset": 11
 							},
 							{
 								"display": "want",
 								"spoken": "want",
-								"startMs": 449,
-								"endMs": 599,
+								"startMs": 596,
+								"endMs": 794,
 								"charOffset": 15
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 599,
-								"endMs": 749,
+								"startMs": 794,
+								"endMs": 993,
 								"charOffset": 20
 							},
 							{
 								"display": "remember",
 								"spoken": "remember",
-								"startMs": 749,
-								"endMs": 1198,
+								"startMs": 993,
+								"endMs": 1588,
 								"charOffset": 23
 							},
 							{
 								"display": "here.",
 								"spoken": "here.",
-								"startMs": 1198,
-								"endMs": 1370,
+								"startMs": 1588,
+								"endMs": 1816,
 								"charOffset": 32
 							}
 						],
 						"startMs": 0,
-						"endMs": 1651,
+						"endMs": 2188,
 						"charOffset": 0
 					},
 					{
@@ -419,53 +418,53 @@
 							{
 								"display": "It",
 								"spoken": "It",
-								"startMs": 1772,
-								"endMs": 1922,
+								"startMs": 2348,
+								"endMs": 2547,
 								"charOffset": 38
 							},
 							{
 								"display": "saves",
 								"spoken": "saves",
-								"startMs": 1922,
-								"endMs": 2221,
+								"startMs": 2547,
+								"endMs": 2944,
 								"charOffset": 41
 							},
 							{
 								"display": "with",
 								"spoken": "with",
-								"startMs": 2221,
-								"endMs": 2371,
+								"startMs": 2944,
+								"endMs": 3142,
 								"charOffset": 47
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2371,
-								"endMs": 2521,
+								"startMs": 3142,
+								"endMs": 3341,
 								"charOffset": 52
 							},
 							{
 								"display": "deck.",
 								"spoken": "deck.",
-								"startMs": 2521,
-								"endMs": 2693,
+								"startMs": 3341,
+								"endMs": 3568,
 								"charOffset": 56
 							}
 						],
-						"startMs": 1772,
-						"endMs": 2974,
+						"startMs": 2348,
+						"endMs": 3941,
 						"charOffset": 38
 					}
 				],
-				"durationMs": 2974
+				"durationMs": 3941
 			}
 		},
 		{
-			"key": "e8a6e11e5097",
+			"key": "8ea2c290c615",
 			"text": "This slide’s notes are in the Notes tab of Slide settings.",
-			"file": "e8a6e11e5097.mp3",
-			"bytes": 18288,
-			"speechMs": 2977,
+			"file": "8ea2c290c615.mp3",
+			"bytes": 21456,
+			"speechMs": 3516,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -476,86 +475,86 @@
 								"display": "This",
 								"spoken": "This",
 								"startMs": 0,
-								"endMs": 175,
+								"endMs": 207,
 								"charOffset": 0
 							},
 							{
 								"display": "slide’s",
 								"spoken": "slide’s",
-								"startMs": 175,
-								"endMs": 525,
+								"startMs": 207,
+								"endMs": 620,
 								"charOffset": 5
 							},
 							{
 								"display": "notes",
 								"spoken": "notes",
-								"startMs": 525,
-								"endMs": 874,
+								"startMs": 620,
+								"endMs": 1033,
 								"charOffset": 13
 							},
 							{
 								"display": "are",
 								"spoken": "are",
-								"startMs": 874,
-								"endMs": 1049,
+								"startMs": 1033,
+								"endMs": 1239,
 								"charOffset": 19
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 1049,
-								"endMs": 1224,
+								"startMs": 1239,
+								"endMs": 1446,
 								"charOffset": 23
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1224,
-								"endMs": 1399,
+								"startMs": 1446,
+								"endMs": 1652,
 								"charOffset": 26
 							},
 							{
 								"display": "Notes",
 								"spoken": "Notes",
-								"startMs": 1399,
-								"endMs": 1749,
+								"startMs": 1652,
+								"endMs": 2065,
 								"charOffset": 30
 							},
 							{
 								"display": "tab",
 								"spoken": "tab",
-								"startMs": 1749,
-								"endMs": 1924,
+								"startMs": 2065,
+								"endMs": 2272,
 								"charOffset": 36
 							},
 							{
 								"display": "of",
 								"spoken": "of",
-								"startMs": 1924,
-								"endMs": 2098,
+								"startMs": 2272,
+								"endMs": 2478,
 								"charOffset": 40
 							},
 							{
 								"display": "Slide",
 								"spoken": "Slide",
-								"startMs": 2098,
-								"endMs": 2273,
+								"startMs": 2478,
+								"endMs": 2685,
 								"charOffset": 43
 							},
 							{
 								"display": "settings.",
 								"spoken": "settings.",
-								"startMs": 2273,
-								"endMs": 2649,
+								"startMs": 2685,
+								"endMs": 3128,
 								"charOffset": 49
 							}
 						],
 						"startMs": 0,
-						"endMs": 2977,
+						"endMs": 3516,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 2977
+				"durationMs": 3516
 			}
 		}
 	]

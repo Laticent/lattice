@@ -75,3 +75,23 @@ What it proves is the trigger, the plan job's full-registry selection on a sched
 prove is the four-suite matrix on a schedule: the dispatch run 39297285443 is the only evidence for that so far, and the next cron run
 is the first scheduled one to carry it.
 
+### The first run that carried every suite (2026-10-20)
+
+Run 39401817610 (https://github.com/Laticent/lattice/actions/runs/39401817610) is the first `schedule` run with the full matrix. Due at
+04:41 UTC, it started at 09:35 UTC (4 h 54 m late) on 23073cb and went green: `plan` and all six suite jobs passed, and `alert` was
+skipped. The registry had grown since the follow-up was written: an `os-sandbox-measure` job now runs on both macOS and Windows, so this run
+carries more than the four jobs the follow-up counted. Whole-job times, from the job list:
+
+| Job | Runner | Time |
+|---|---|---|
+| `plan` | ubuntu | 22 s |
+| `export-confine` | macOS | 2 m 49 s |
+| `wait-for-macos` | macOS | 2 m 35 s |
+| `os-sandbox-measure` | macOS | 3 m 06 s |
+| `build-windows` | Windows | 3 m 40 s |
+| `export-confine-windows` | Windows | 3 m 36 s |
+| `os-sandbox-measure` | Windows | 4 m 14 s |
+
+These match the dispatch-run times (within about 45 s each), so a scheduled run costs the same as a manual one. The whole run took
+under 5 minutes of wall-clock time once it started. Two scheduled runs have now been late by about five hours, so treat a nightly as
+"some time before midday UTC", not 04:41.

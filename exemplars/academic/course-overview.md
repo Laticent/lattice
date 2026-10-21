@@ -143,7 +143,6 @@ I hold office hours Tuesdays and Thursdays, and the TA runs a lab clinic before 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

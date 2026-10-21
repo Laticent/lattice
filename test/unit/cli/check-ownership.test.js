@@ -1652,6 +1652,7 @@ describe('check-ownership', () => {
       assert.deepEqual(SANCTIONED_OPENROUTER_SPENDERS, [
         'tools/component-gen-eval.mjs',
         'tools/generate-voice-samples.mjs',
+        'tools/record-lesson-voice.mjs',
         'tools/intent-bakeoff/judge-eval.mjs',
         'tools/probe-picture-tokens.mjs', // measures per-model picture cost for the Studio chat's budget gate; opt-in, capped, prints its call count first
       ]);
@@ -2107,9 +2108,10 @@ describe('check-ownership', () => {
       }
     });
 
-    // Tavola: the core takes its transport and document as arguments, and ONE file — the Trystero
-    // adapter — may import `trystero/nostr` (2026-10-06-studio-live-collaboration.md §7.1).
-    const tavola = (errors, dir) => checkTavolaBoundary(errors, dir, path.join(dir, 'adapters', 'trystero.ts'));
+    // Tavola: the core takes its transport and document as arguments, and each adapter may import its own
+    // third-party names (`trystero/nostr` in the transport adapter; Yjs's awareness protocol and lib0 in the
+    // Yjs adapter) and nobody else's (2026-10-06-studio-live-collaboration.md §7.1, 2026-10-21-follow-over-tavola.md §5).
+    const tavola = (errors, dir) => checkTavolaBoundary(errors, dir, { 'adapters/trystero.ts': ['trystero/nostr'], 'adapters/yjs.ts': ['yjs', 'y-protocols/awareness', 'lib0/decoding', 'lib0/encoding'] });
 
     test('Tavola: the live tree is clean', () => {
       const errors = [];
@@ -2117,14 +2119,32 @@ describe('check-ownership', () => {
       assert.deepEqual(errors, [], errors.join('\n'));
     });
 
-    test('Tavola admits trystero/nostr in the adapter only, and nothing else anywhere', () => {
+    test('Tavola admits trystero/nostr in the transport adapter only, and nothing else anywhere', () => {
       assert.deepEqual(run(tavola, { 'adapters/trystero.ts': "import { joinRoom } from 'trystero/nostr';", 'session.ts': "import { frame } from './protocol';" }), []);
       assert.equal(run(tavola, { 'session.ts': "import { joinRoom } from 'trystero/nostr';" }).length, 1, 'the core may not import the transport');
-      for (const src of ["import * as Y from 'yjs';", "import { x } from '../vetrina';", "import 'trystero';", "const t = await import('trystero/torrent');", "import { readFileSync } from 'node:fs';"]) {
+      assert.equal(run(tavola, { 'adapters/yjs.ts': "import { joinRoom } from 'trystero/nostr';" }).length, 1, 'the Yjs adapter may not import the transport');
+      for (const src of ["import { x } from '../vetrina';", "import 'trystero';", "const t = await import('trystero/torrent');", "import { readFileSync } from 'node:fs';"]) {
         assert.equal(run(tavola, { 'session.ts': src }).length, 1, `not caught: ${src}`);
       }
       // A test file may use its runner and Yjs.
       assert.deepEqual(run(tavola, { 'session.test.ts': "import * as Y from 'yjs';\nimport { it } from 'vitest';" }), []);
+    });
+
+    test('Tavola admits Yjs, its awareness protocol and lib0 in the Yjs adapter only', () => {
+      const yjs = "import * as Y from 'yjs';\nimport { Awareness } from 'y-protocols/awareness';\nimport * as decoding from 'lib0/decoding';\nimport * as encoding from 'lib0/encoding';";
+      assert.deepEqual(run(tavola, { 'adapters/yjs.ts': yjs, 'view.ts': 'export const x = 1;' }), []);
+      for (const [file, src] of [
+        ['session.ts', "import * as Y from 'yjs';"],
+        ['view.ts', "import { Awareness } from 'y-protocols/awareness';"],
+        ['adapters/trystero.ts', "import * as decoding from 'lib0/decoding';"],
+        ['session.ts', "const d = await import('lib0/encoding');"],
+      ]) {
+        assert.equal(run(tavola, { [file]: src }).length, 1, `not caught in ${file}: ${src}`);
+      }
+      // Only the sanctioned names: another y-protocols subpath, or any other lib0 module, is a violation even there.
+      for (const src of ["import { x } from 'y-protocols/sync';", "import { x } from 'lib0/observable';", "import 'y-codemirror.next';"]) {
+        assert.equal(run(tavola, { 'adapters/yjs.ts': src }).length, 1, `not caught: ${src}`);
+      }
     });
   });
 

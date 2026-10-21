@@ -9,7 +9,6 @@ acronyms:
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 # The stage ribbon takes the canvas it is painted on
@@ -112,7 +111,6 @@ The stage bar fills `--bg-alt` deepened toward `--surface-inverse`, so it follow
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Closing bookend · closing" -->
 
 `What This Change Leaves Behind`

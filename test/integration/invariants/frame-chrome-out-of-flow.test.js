@@ -128,9 +128,10 @@ const PAIRS = [
 
 // The k-of-N split rail is the fourth piece of section-level chrome, and it needs a deck
 // of its own because it only exists on a SPLIT RUN — and only docks at section level when
-// the frame builds no footer Cell. `buildFooterCell` returns nothing when a deck declares
-// neither `footer:` nor `paginate:` (lib/forms/cell/masthead/masthead.transform.js), so
-// this front matter is the ordinary way to reach that path, not a contrived one.
+// the frame builds no footer Cell. `buildFooterCell` returns nothing when a deck has no
+// `footer:` and no page numbers (lib/forms/cell/masthead/masthead.transform.js). Page numbers
+// are on by default, so this front matter turns them off with `paginate: false`, the
+// ordinary way to reach that path, not a contrived one.
 //
 // It is here because the first cut of the exclusion list MISSED it: that list was built
 // from an empirical sweep over a probe deck with no split run, so the sweep could not see
@@ -147,6 +148,7 @@ theme: indaco
 size: portrait
 autosplit: on
 finish: atrium
+paginate: false
 ---
 
 <!-- _class: checklist -->

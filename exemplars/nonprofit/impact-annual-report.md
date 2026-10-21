@@ -224,7 +224,6 @@ Two more kitchens take us from 412,000 meals to 600,000. Each new site needs a l
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

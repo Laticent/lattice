@@ -224,8 +224,9 @@ test('failing arm: the same six-bullet list in a splittable component DOES split
 
 test('the collage hides the page number with the doubled-class arms', () => {
   const css = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'components', 'imagery', 'collage', 'collage.styles.css'), 'utf8');
-  assert.match(css, /section\.collage\.collage::after\s*\{\s*content:\s*none;\s*\}/, 'the pagination pseudo is suppressed at doubled-class specificity');
-  assert.match(css, /section\.collage\.collage\s*>\s*\.lat-pagination\s*\{\s*display:\s*none;\s*\}/, 'the page-number element is hidden');
+  // Both arms yield to `with-pagination`, which wins over every opt-out (lib/core/pagination.js).
+  assert.match(css, /section\.collage\.collage:not\(\.with-pagination\)::after\s*\{\s*content:\s*none;\s*\}/, 'the pagination pseudo is suppressed at doubled-class specificity');
+  assert.match(css, /section\.collage\.collage:not\(\.with-pagination\)\s*>\s*\.lat-pagination\s*\{\s*display:\s*none;\s*\}/, 'the page-number element is hidden');
 });
 
 test('the description is a plain paragraph under the header rule: no hairline above it, no bottom-aligned gap', () => {

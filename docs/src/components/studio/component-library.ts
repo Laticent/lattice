@@ -41,9 +41,15 @@ export type StudioComponent = {
 	/** What an imported package carried that this record does not model (its full
 	 *  manifest, a `docs.md`), so exporting it again writes the same files. */
 	pkg?: PackageCarry;
+	/** When the record was last saved: the Library's sort key. */
+	addedAt?: number;
+	/** `'imported'` when the record arrived from a package (.zip / .lattice), absent when it was
+	 *  made here. Absent also on a record saved before this field existed, so the Library only
+	 *  ever claims "Imported", never "made here". */
+	origin?: 'imported';
 };
 
-type ComponentAssetRecord = { id: string; name: string; bucket?: string | null; text?: string; skeleton?: string; manifest?: Record<string, unknown>; pkg?: PackageCarry };
+type ComponentAssetRecord = { id: string; name: string; bucket?: string | null; text?: string; skeleton?: string; manifest?: Record<string, unknown>; pkg?: PackageCarry; addedAt?: number; origin?: 'imported' };
 
 /** The manifest fields worth carrying back, in the shape `saveStudioComponent` takes. */
 export function toMeta(manifest: Record<string, unknown> | undefined): ComponentMeta {
@@ -60,7 +66,7 @@ export function toMeta(manifest: Record<string, unknown> | undefined): Component
 }
 
 function toStudioComponent(a: ComponentAssetRecord): StudioComponent {
-	return { id: a.id, name: a.name, bucket: a.bucket ?? null, css: a.text || '', skeleton: a.skeleton || '', meta: toMeta(a.manifest), ...(a.pkg ? { pkg: a.pkg } : {}) };
+	return { id: a.id, name: a.name, bucket: a.bucket ?? null, css: a.text || '', skeleton: a.skeleton || '', meta: toMeta(a.manifest), ...(a.pkg ? { pkg: a.pkg } : {}), ...(a.addedAt ? { addedAt: a.addedAt } : {}), ...(a.origin ? { origin: a.origin } : {}) };
 }
 
 /** The full component contract the Studio captures (manifest minus name/skeleton). */
@@ -90,7 +96,7 @@ export type ComponentMeta = {
  * Pass the id you loaded and the same record is rewritten whatever the name becomes.
  * Omit it and the name-keyed behavior above is unchanged.
  */
-export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta; pkg?: PackageCarry }, opts?: { historyLabel?: string }): Promise<StudioComponent> {
+export async function saveStudioComponent(input: { id?: string; name: string; css: string; skeleton: string; meta?: ComponentMeta; pkg?: PackageCarry; origin?: 'imported' }, opts?: { historyLabel?: string }): Promise<StudioComponent> {
 	const meta = input.meta || {};
 	// A SHIPPED name is reserved: a saved `kpi` would restyle every shipped `kpi` slide
 	// in a deck that also used it. The clash saves as `kpi-custom`, with its selectors
@@ -121,7 +127,7 @@ export async function saveStudioComponent(input: { id?: string; name: string; cs
 		const transform = before?.pkg?.files?.['transform.js'];
 		if (typeof transform === 'string' && before?.name === name) pkg = { ...(before.pkg?.manifest ? { manifest: before.pkg.manifest } : {}), files: { 'transform.js': transform } };
 	}
-	const withPkg = pkg ? { ...asset, pkg } : asset;
+	const withPkg = { ...asset, ...(pkg ? { pkg } : {}), ...(input.origin ? { origin: input.origin } : {}) };
 	const stored = (await putAsset(input.id ? { ...withPkg, id: input.id } : withPkg, opts)) as ComponentAssetRecord;
 	return toStudioComponent(stored);
 }

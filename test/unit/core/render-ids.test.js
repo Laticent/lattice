@@ -271,3 +271,21 @@ test('enterSlideIds: one slide alone mints the ids its deck render gave it, unde
 	}
 	resetRenderIds();
 });
+
+test('trialIds: a trial mints ids and leaves every sequence where it found it', () => {
+  const { trialIds } = require('../../../lib/core/render-ids');
+  resetRenderIds('');
+  assert.equal(nextRenderSeq('chart-spine'), '1');
+  const inside = trialIds(() => [nextRenderSeq('chart-spine'), nextRenderSeq('pie-wedge')]);
+  assert.deepEqual(inside, ['2', '1']);
+  // Neither the family the trial advanced nor the one it started is changed by it.
+  assert.equal(nextRenderSeq('chart-spine'), '2');
+  assert.equal(nextRenderSeq('pie-wedge'), '1');
+});
+
+test('trialIds: a trial that throws still restores the sequences', () => {
+  const { trialIds } = require('../../../lib/core/render-ids');
+  resetRenderIds('');
+  assert.throws(() => trialIds(() => { nextRenderSeq('chart-spine'); throw new Error('x'); }), /x/);
+  assert.equal(nextRenderSeq('chart-spine'), '1');
+});

@@ -71,3 +71,16 @@ describe('theme-library — a shipped name saves as <name>-custom', () => {
 		expect((putSpy.mock.calls.at(-1)?.[0] as { text: string }).text).toBe(own);
 	});
 });
+
+describe('theme-library — origin', () => {
+	const essentials = { bg: '#ffffff' } as Record<string, string>;
+	it('stamps an imported theme, so the Library can tell it from one made here', async () => {
+		const st = await saveStudioTheme({ name: 'from-zip', label: 'From zip', essentials, css: '/* @theme from-zip */', origin: 'imported' });
+		expect(st.origin).toBe('imported');
+		expect((putSpy.mock.calls.at(-1)?.[0] as { origin?: string }).origin).toBe('imported');
+	});
+	it('leaves a theme made here unmarked', async () => {
+		const st = await saveStudioTheme({ name: 'made-here', label: 'Made here', essentials, css: '/* @theme made-here */' });
+		expect(st.origin).toBeUndefined();
+	});
+});
