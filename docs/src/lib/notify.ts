@@ -257,6 +257,11 @@ export function actionRaise(): number {
 	return slots.action.raise;
 }
 
+/** True while the action pill raised as `raise` is still on screen (not replaced, not closed). */
+export function actionLive(raise: number): boolean {
+	return slots.action.live && slots.action.raise === raise;
+}
+
 /**
  * Retire an ACTION notice only if it is still the one on screen. The action kind has one
  * slot and a rewrite reuses the live id, so after a later `notifyAction` the old handle
@@ -265,7 +270,7 @@ export function actionRaise(): number {
  * something else was raised or the pill is gone.
  */
 export function dismissActionNotice(handle: NoticeHandle, raise: number): void {
-	if (slots.action.live && slots.action.raise === raise) toast.dismiss(handle);
+	if (actionLive(raise)) toast.dismiss(handle);
 }
 
 /** Retire a notice early. Safe to call on one already gone. */

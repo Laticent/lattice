@@ -306,7 +306,12 @@ already dropped on removal it only tidies a map, so no test can tell the two apa
 the fixes and found four more, fixed in the same pass with tests: a section id both panels share (`look`) was treated
 as already applied when the leader moved from Deck to Slide; a stale absence timestamp could reopen a Present the person
 just closed; the "Undo is showing" test outlived the toast (so Go and Join prompts could stay silent); and the 3 s,
-1.5 s and new-follow rules had no test that set them off.
+1.5 s and new-follow rules had no test that set them off. A third checker found that the replacement test, a 6 s
+clock, was still wrong: the toast pauses on hover and in a hidden tab, so a prompt could replace an Undo still on
+screen. `actionBusy` now asks the notify kernel (`actionLive(raise)`), which tracks the pill itself; `notify.test.ts`
+pins that it is true while the pill shows and false once it closes or is replaced. The shell's wiring of that call
+has no test of its own. The three `presentGoneAt = 0` resets are belt and braces (no path reaches them with a stale
+value), and the Present tests set the controller's private fields directly rather than driving a real close.
 
 - **A removal left a forged clock behind** (red team, reproduced): a hostile host or a re-knocking member could mute a
   client for the session by sending removals that stepped its clock. The adapter now drops the clock record when it

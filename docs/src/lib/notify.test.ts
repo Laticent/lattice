@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const toast = Object.assign(vi.fn(), { dismiss: vi.fn() });
 vi.mock('sonner', () => ({ toast: Object.assign((...args: unknown[]) => toast(...args), { dismiss: (id: unknown) => toast.dismiss(id) }) }));
 
-const { ACTION_DURATION, NOTICE_ID_PREFIX, STATUS_DURATION, __resetNotify, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } = await import('./notify');
+const { ACTION_DURATION, NOTICE_ID_PREFIX, STATUS_DURATION, __resetNotify, actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } = await import('./notify');
 
 /** The options object from the nth call (0-based). */
 function opts(n: number): Record<string, unknown> {
@@ -132,6 +132,25 @@ describe('the kinds are separate slots', () => {
 		const h = notifyAction('Deleted.', { label: 'Undo', onClick: () => {} });
 		dismissNotice(h);
 		expect(toast.dismiss).toHaveBeenCalledWith(h);
+	});
+});
+
+describe('actionLive — is this action pill still on screen', () => {
+	beforeEach(() => {
+		toast.mockClear();
+		__resetNotify();
+	});
+
+	it('is true while it shows, false once it closes or a later pill replaces it', () => {
+		notifyAction('Theme changed', { label: 'Undo', onClick: () => {} });
+		const raise = actionRaise();
+		expect(actionLive(raise)).toBe(true);
+		notifyAction('Amina wants to join', { label: 'Admit', onClick: () => {} });
+		expect(actionLive(raise)).toBe(false);
+		const later = actionRaise();
+		expect(actionLive(later)).toBe(true);
+		(opts(1).onAutoClose as () => void)();
+		expect(actionLive(later)).toBe(false);
 	});
 });
 
