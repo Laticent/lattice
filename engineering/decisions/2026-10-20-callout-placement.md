@@ -16,7 +16,8 @@ builds-on: 2026-10-19-universal-legend.md
 
 **2026-10-20.** Status: in progress. The owner's rulings are in § 2; the audit behind the
 placement rule is in §§ 3 and 4. The split (P1) is built; § 6 records the owner's one row style for
-the key and the callouts. The work plan is § 7.
+the key and the callouts. The placement rule (P2) is built on the heatmap and measured in § 5; the
+work plan is § 7.
 
 ## 1. The ask
 
@@ -120,14 +121,59 @@ For each chart with callouts, a key or both, the engine tries the callouts on th
 below, and the key on the right or below, and keeps the combination that leaves the plot largest
 at the slide's real stage size. Ties put callouts on the right, beside the marks they name.
 
-- **A hairline only where they stack.** When callouts and the key both go below, a hairline in
-  the `--border` token parts them. Side by side, the key's own spine already separates them, so
-  nothing is added.
+- **A hairline only where they stack.** When callouts and the key both go below, something parts
+  them. As built, that is the key's own portrait rule (the accent fade the family already draws
+  between a diagram and a key below it), which sits between the notes and the key, so no second
+  `--border` hairline is added: two rules in a row read as clutter. Side by side, the key's own
+  spine already separates them.
 - **SVG-native.** The callouts, markers, hairline and key are drawn inside the chart's SVG, so
   every export carries them: PDF, PPTX, PNG, and the HTML player.
 - **The same rule with one part.** A chart with only callouts or only a key runs the same
   choice.
 - **HTML charts.** Journey, roadmap and matrix-grid run the same choice with CSS layout.
+
+**As built on the heatmap (P2).** `buildHeatmap` lays the figure out once per candidate
+(`layoutHeatmap`), in a trial that restores the render's id sequences (`trialIds`, `lib/core/render-ids.js`)
+and swallows the label-drop report, so the losing layouts leave no trace and a winner's ids match a
+single render's. Four details the rule above leaves open:
+
+1. **The score is the plot's area once the whole viewBox is fitted into the chart's box.** The box's
+   shape is not the slide's: it is the chart area under the title, measured in Chromium as 2.72 wide
+   at 16:9, 1.74 at 4:3, 1.26 at 1:1, 1.09 at 4:5 and 0.67 at 9:16.
+2. **The transform is told an orientation name, not the shape.** `landscape` covers 16:9 and 4:3,
+   `portrait` covers 4:5 and 9:16, and those pairs want different layouts (on the demo deck's notes-and-key slide
+   the best layout at 16:9 has the key beside the grid, and at 4:3 it has the key below). Portrait is scored at both of its shapes and
+   the pick gives up least at the worse one. Landscape is scored at 16:9 alone: scoring 4:3 too moved
+   16:9 slides off today's layout (81% of the best grid, against 100% for 16:9 alone). Passing the slide's
+   real aspect down to the transform is the proper fix and is filed in `followups.d/`.
+3. **A challenger must keep 10% more plot** (`PLACEMENT_MARGIN`). A layout that grows the figure's
+   height also scales its type down, so on a 3 by 2 grid at 16:9 notes below keep 5% more plot than
+   notes beside and set every label 10% smaller. Ties keep today's layout.
+4. **A note is never dropped for a bigger grid.** Among layouts, only those that draw the most
+   callouts compete. Beside the grid the lane cannot hold a long stack and drops from the bottom; under
+   the grid the figure grows to hold every note, so six long notes at 4:5 now draw all six where the
+   lane drew five.
+
+**Measured on the real engine** (`2026-10-20-callout-placement/real.js`; the grid's area in pixels,
+this branch as a share of `main`, on `examples/callout-placement.md`):
+
+| Slide | 16:9 | 4:3 | 1:1 | 4:5 | 9:16 |
+|---|---|---|---|---|---|
+| 3 notes | 100% | 100% | 140% | 82% | 143% |
+| 3 notes + key | 100% | 100% | 237% | 100% | 100% |
+| key only | 100% | 100% | 246% | 100% | 100% |
+| 6 long notes | 100% | 100% | 100% | 100% | 100% |
+| 6 long notes + key | 100% | 100% | 206% | 62% | 78% |
+
+Nothing moves at 16:9 or 4:3 on this deck: the lane there already keeps the plot. It is not true of every
+slide: a keyed heatmap with one short note (`examples/legend-anchored.md`, slide 6) moves its note under the
+grid at 16:9, because the grid then keeps 11% more plot (the type scales down about 10%; the margin in item 3 is
+what stops smaller gains). The wins are at 1:1 (the key and
+the notes under the grid, 1.4 to 2.5 times the grid) and at 9:16. The two losses are the price of the
+rules above: at 4:5, three notes under the grid keep 82% of the grid `main` kept with notes beside it,
+because the pick is the one that gives up least across 4:5 and 9:16 (it wins 143% at 9:16); and six
+long notes with a key keep 62% at 4:5, because `main` drew only five of them there. These are the
+cases the real aspect would settle.
 
 ## 6. One row style for the key and the callouts (owner, 2026-10-21)
 
@@ -159,7 +205,7 @@ mean to change a render; an item that does stops for the owner's light and dark 
 | P | Item | Evidence |
 |---|---|---|
 | P1 | Split: `@callout` and `@legend` plugins over shared kernels (marker shapes, plate, color slots, mark vocabulary); the heatmap moves to `@callout`; old pinned `@legend` spans keep working with a lint hint | `diff -r` of every tracked deck before and after, byte-identical |
-| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs |
+| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first — **built on the heatmap**, in `buildHeatmap`/`layoutHeatmap`; the shared emitter waits for the second chart | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs (§ 5) |
 | P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke | a demo deck per family, four slide shapes |
 | P4 | Journey task callouts; risk-matrix onto the callout plugin | both galleries, light and dark, owner sign-off |
 | P5 | Keys through `@legend` on every component that already draws one, so authors can rename and reorder entries | `diff -r` where untouched; demo deck |

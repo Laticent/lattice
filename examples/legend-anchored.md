@@ -86,7 +86,7 @@ One model for every key, value label and callout. First capability: a heatmap ca
 ---
 
 <!-- _class: heatmap scale -->
-<!-- _footer: "With the band key. The callout takes its lane beside the grid and the key keeps its rail beyond it." -->
+<!-- _footer: "With the band key. The key and the callout each sit on the side that leaves the grid largest." -->
 
 `Retention · 2026 cohorts`
 

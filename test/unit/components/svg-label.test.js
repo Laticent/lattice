@@ -97,6 +97,25 @@ describe('measureLabel', () => {
     assert.ok(m.lines[1].endsWith('…'), `expected an ellipsis, got: ${m.lines[1]}`);
   });
 
+  test('the ellipsis follows a whole word, never half of one', () => {
+    const text = 'Support backlog peaked after the migration';
+    for (const width of [20, 23, 26, 28, 30, 34]) {
+      const m = measureLabel(text, { width, fontSize: 3, maxLines: 2 });
+      if (!m.truncated) continue;
+      const last = m.lines[1].replace(/…$/, '');
+      const words = text.split(' ');
+      // Every word before the ellipsis is a word of the source, whole.
+      assert.ok(last.split(' ').every((w) => words.includes(w)), `width ${width}: "${m.lines[1]}"`);
+    }
+    const cut = measureLabel(text, { width: 34, fontSize: 3, maxLines: 2 });
+    assert.equal(cut.lines.at(-1).endsWith('…'), true);
+  });
+
+  test('one word too long for its line still ellipsizes by characters', () => {
+    const m = measureLabel('Supercalifragilisticexpialidocious and more', { width: 24, fontSize: 8, maxLines: 1 });
+    assert.match(m.lines[0], /^Supe+…$|^Sup.*…$/);
+  });
+
   test('empty text yields one empty line, not a crash', () => {
     assert.deepEqual(measureLabel('', { width: 50, fontSize: 9 }).lines, ['']);
     assert.deepEqual(measureLabel(null, { width: 50, fontSize: 9 }).lines, ['']);
