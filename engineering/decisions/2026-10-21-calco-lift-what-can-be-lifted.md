@@ -164,6 +164,12 @@ work and is a decision about how weight is named per target app.
 PowerPoint, Google Slides and Collabora Office on iOS. They run different engines than the one
 measured here.
 
+What was added to narrow that: the Studio exports were also rendered in LibreOffice 26.2.6, a much newer core than the 24.2
+above and the closest engine to Collabora's that runs here. Mean abs diff to Chrome (24.2 / 26.2): `accent-finishes` `.pptx`
+5.1 / 3.9, `.odp` 2.0 / 2.1; `card-tags` `.pptx` 4.8 / 3.5, `.odp` 2.4 / 2.3; `sample-images` `.pptx` 3.6 / 3.0; `chart-finish`
+`.pptx` 4.0 / 3.9; the 35-slide photo deck `.pptx` 12.4 / 11.7, `.odp` 6.4 / 6.3. Nothing regressed on the newer core. python-pptx,
+an independent reader, opens every Studio `.pptx` with the expected slide, shape and layout counts. None of this is PowerPoint.
+
 The Studio (`docs/src/components/studio/export/deck-export.js`) and the CLI run one capture:
 `captureOfficeSlides` (`docs/src/lib/calco/capture.ts`) decides what each photograph is (the shared
 background, the foreground, the cropped pictures) and a host gives it two verbs, `run` and `shoot`.
