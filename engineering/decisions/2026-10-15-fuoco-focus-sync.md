@@ -415,7 +415,7 @@ authored slides; the rendered count lives in the outliner, which every count con
 **Left for phases 3 and 4** (`followups.d/2704-p1` to `p6`): Compose reports a chunk, not a
 section, so a Compose caret under a heading shows the chunk's first section; Compose keeps its
 internal `lastSlideRef`; Present seeds from a chunk index and does not follow; Live awareness
-and the persisted boot slide are chunk indices, not ids; the Playground keeps its own scanner;
+and the persisted boot slide are chunk indices, not ids; the Playground keeps its own scanner (removed in `2026-10-21-playground-focus-sync.md`);
 preview element addresses (5.5) are not built.
 
 ## 12. A generic core, and Lattice as one adapter

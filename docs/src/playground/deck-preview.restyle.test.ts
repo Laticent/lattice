@@ -51,7 +51,8 @@ describe('renderDeck restyles in place when only the theme moved', () => {
 		expect(r.patched).toBe(true);
 		expect(frame.srcdoc).toBe('');
 		const sheet = frame.contentDocument?.getElementById('lattice-doc')?.textContent ?? '';
-		expect(sheet).toBe(docStyleText({ css: '.x{color:red}', mode: 'light', geom: base.geom }));
+		// The live preview is scrolled by a person, so renderDeck asks for the thin scrollbar.
+		expect(sheet).toBe(docStyleText({ css: '.x{color:red}', mode: 'light', geom: base.geom, scrollbar: true }));
 		expect(frame.contentDocument?.querySelector('.lattice')?.getAttribute('data-lattice-swap')).toBe('reflow');
 	});
 

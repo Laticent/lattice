@@ -419,7 +419,32 @@ function readAnchor(frame) {
 // `sig` must capture everything baked into the document outside the <section>s
 // (theme/mode/size, and for the studios the live token/component CSS). `fresh`
 // forces a full write (deck swap → reset runtime/Mermaid state).
-export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, ...opts }) {
+/** The scrollbar color the PAGE resolves on its root (native-widgets.css: the palette's muted mark), as the
+ *  "thumb track" pair CSS takes back. The frame cannot read the page's tokens, so it is handed the result and
+ *  matches the editor's scrollbar in every palette and mode. True when the page has none to give. */
+function hostScrollbarColor() {
+	try {
+		const c = getComputedStyle(document.documentElement).scrollbarColor;
+		return c && c !== 'auto' ? c : true;
+	} catch {
+		return true;
+	}
+}
+
+/** The page's accent as a color the frame can use (it cannot read the page's tokens): the root's caret color is
+ *  `var(--accent)` already resolved (native-widgets.css). Null when there is none, and then nothing is outlined. */
+function hostAccent() {
+	try {
+		const c = getComputedStyle(document.documentElement).caretColor;
+		return c && c !== 'auto' ? c : null;
+	} catch {
+		return null;
+	}
+}
+
+export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, scrollbar = true, activeBar = true, ...rest }) {
+	// The live preview is scrolled by a person, so its frame gets the thin scrollbar (docStyleText).
+	const opts = { scrollbar: scrollbar === true ? hostScrollbarColor() : scrollbar, activeBar: activeBar === true ? hostAccent() : activeBar, ...rest };
 	const st = state || { frameSig: '', lastSections: null };
 	// A VIRTUAL filmstrip's placeholder: the slide's own box, empty, until the slide mounts. A
 	// faint wash of the frame's text color reads as "a slide is here" in light and dark alike,

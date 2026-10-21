@@ -1,0 +1,296 @@
+---
+status: shipped
+summary: >
+  The Playground's editor, preview and slide map now share one Fuoco hub (lib/playground-sync.ts).
+  Scrolling the preview marks and shows that slide in the editor and leaves the caret parked; the next key
+  brings the preview back to it. A click on a slide puts the caret at the end of its title and frames the
+  slide, `---` fences included. Fuoco gains lines, columns and the host's section words (place.ts). The
+  regex scanner `caretSlideIndex` and its 140 ms timer are deleted; the preview iframe and the editor
+  scroller get the thin, palette-quiet scrollbar the page already had.
+---
+
+# The Playground's one focus (2026-10-21)
+
+## 1. The symptom
+
+The owner, on the Playground: the preview scrollbar is unstyled; scrolling the preview does not
+highlight the slide in the editor; the caret should keep its line and column, or be remembered, so an
+arrow key returns to it; a click on the highlighted slide should land where it was clicked; a click on a
+slide in the preview should put the caret at the end of its title with the slide, `---` included, in
+full view; and Fuoco should know lines and sections, not only offsets.
+
+## 2. Cause
+
+The Playground answered "which slide is the reader on" twice, and the answers never met.
+
+- **Caret to preview** ran through `onCaret`, a 140 ms timer and `caretSlideIndex`
+  (`playground-controller.ts`), a regex scanner that matched the caret line's words against the
+  preview's own text. `engineering/gotchas/studio-playground.md` says not to write one; the Studio
+  dropped its copy in #2704 and `followups.d/2704-p4-playground-scanner.md` recorded this one.
+- **Preview to map** ran through a Fuoco hub that lived inside `PlaygroundMap.tsx`, was fed the
+  rendered text, and only existed once the map was opened. The editor never heard it.
+
+So a scroll moved the map and nothing else, and with the map closed it moved nothing. The scrollbar
+was a separate defect: the page's thin tinted scrollbar (`native-widgets.css`) sits on `:root`, and the
+preview is its own document and the editor its own scroller, so both painted the browser default.
+
+## 3. Decisions
+
+Chosen with the owner on 2026-10-21, each against the alternative it beat.
+
+| Question | Chosen | Beaten by it |
+|---|---|---|
+| What does a preview scroll do to the caret? | **Park it.** The editor shows and marks the viewed slide; caret and selection stay. | Move the caret and remember the old one: loses the selection on every scroll, adds a stored position to keep consistent, and each programmatic caret move can echo into the preview. |
+| How far does the wiring go? | **One shared hub; delete the scanner.** | Subscribe the editor to the map's hub and keep the scanner: two paths that can still disagree. |
+| What marks the slide? | **A wash over its lines plus a bar in the gutter**, `---` fences included. | A gutter bar alone: it does not show where the slide's text ends, which is what must be on screen. |
+
+**Why parking needs no stored caret.** CodeMirror already holds the caret and selection. The hub
+learns of them again on the next caret report. If that report names a different slide than the one
+the preview is on, the hub publishes it and the preview and band follow. An arrow key does exactly
+that, and CodeMirror scrolls its own caret into view on the key, so "go back to where I was" costs no
+state and no extra scroll code.
+
+## 4. What shipped
+
+`docs/src/lib/playground-sync.ts` holds the rules; `PlaygroundApp.tsx` wires its ports. Origins say
+who moved, and the editor never reacts to itself nor the preview to itself:
+
+| Event | Hub call | Editor | Preview |
+|---|---|---|---|
+| Caret moves or text is typed | `report('editor')` | band follows | follows the slide, gently (a slide already 60% in view stays) |
+| Preview scrolls | `reportUnit('preview')` | scrolls to and marks the slide, **caret untouched** | none |
+| Click on a slide in the preview | `go('preview-pick')` | caret to the end of the title, slide framed, keyboard focus on a mouse pick | none |
+| Click on a map tile | `go('rail')` | as a preview click | scrolls to the slide |
+
+- **The frame the editor shows** is `deckFrame` (`deck-outline.ts`): the part's lines plus the `---`
+  that opens and closes it (slide 1 opens on the front matter's closing fence). A page inside a
+  heading-split slide has no separator of its own, so its frame is its text. When the frame fits the
+  editor it is centered (a pick) or nudged into view (a scroll); when it does not, its start is put at
+  the top so the opening `---` and the title are what is on screen.
+- **The caret lands** at `deckTitleEnd`: the end of the first content line, past any directive comment.
+- **Click in the band** needs no code: the band is line decorations, which are paint and never a hit
+  target, so a click lands where it was made.
+- **Touch** picks do not take keyboard focus (it raises the software keyboard), and a pick does
+  nothing where the editor is not on screen (a phone shows one pane at a time).
+- **Scrollbars:** `.cm-scroller` and the frame's `html` carry `scrollbar-width: thin` and a
+  `scrollbar-color` wash. The frame's is opt-in (`scrollbar` in `docStyleText`), switched on only by
+  `renderDeck`, so a frame built for export is byte-identical to before. `::-webkit-scrollbar` stays
+  unused, for the reason `native-widgets.css` gives.
+
+## 4b. Follow-up (2026-10-21): the panes scroll together
+
+The owner found two gaps: scrolling the editor did not mark or show the slide in the preview, and the
+slide's text was not level with its picture. Chosen against the alternatives: **a continuous section map in
+Fuoco** (over a jump per slide boundary, and over a whole-document ratio) and **a generic Fuoco module** (over
+Playground-only maths).
+
+- **The rule is one rule.** `docs/src/lib/fuoco/align.ts`: a section's centered scroll position, clamped into
+  the pane's scroll range. The first and last sections cannot be centered, so they land at the top and the
+  bottom; the ones between are centered in both panes. The pairs are anchors joined by straight lines:
+  continuous (no jump at a boundary), monotone and exact at both ends. A property test holds those, and a
+  mutation of the end anchor fails it.
+- **Either pane drives the other** (`playground-sync.ts`). A scroll in the preview moves the editor through the
+  map and the slide it is on becomes the focus; a scroll in the editor does the same the other way, under the
+  origin `editor-view`. The slide in focus is marked in **both**: the editor's band, and the preview's
+  `db-active` mark (the Drawing Board's existing class), drawn as an accent bar down the slide's left edge. It
+  was an outline first; slides are scaled to the frame's width, so the outline's left and right sides fell outside
+  the frame and only the top and bottom showed. An inset `box-shadow` on the section fixed the clipping but
+  replaced the shadow the engine already puts on a section (the overflow ring, the tone rails, the finish frame), so
+  the slide being edited lost its warning. The bar is now its own element, `.db-bar`, which `markPreviewPages` places
+  over the marked pages and re-places when the frame resizes, so it takes nothing from the slide. The Drawing Board keeps its outline (`activeOutline`); this is the
+  separate `activeBar` option.
+- **What "current slide" means** is the section centered nearest (`sectionAt`), so a slide centered in one pane is
+  current in both. An earlier cut used a focal line that slid from the top of the window to the bottom; it named
+  the next slide when a slide near the end was centered, and the e2e spec caught it.
+- **The caret still parks.** A scroll names the slide in focus and never moves the caret. An editor scroll
+  within 400 ms of a caret move is CodeMirror bringing the caret into view, so it moves the preview but does not
+  take the focus from the caret.
+- **Echoes.** Each move records where it landed; the scroll event that arrives there within 250 ms is its own
+  and is dropped (`ECHO_PX`, `ECHO_MS`).
+- **Gone with it:** the 60%-visible follow, `slideTop`/`alignY`/`alignTop`, `showRange`, and the focal-line
+  reading of the preview. After a full srcdoc write the new document opens at the top, so it is realigned to the
+  editor once it has loaded.
+- **Space after the last line.** The Playground editor now has CodeMirror's `scrollPastEnd()`, as the Studio
+  editor does.
+- **Limits:** the editor's layout comes from CodeMirror's line positions, which are estimates for lines not
+  drawn yet; the map is rebuilt on every scroll frame, so it corrects as CodeMirror measures. The preview's
+  pages are assumed one size and one pitch apart, as `readingPage` already assumes.
+
+### Cost (measured 2026-10-21, 120-slide deck, dev build, headless Chromium, same machine)
+
+| Per 60 wheel events | `main` script | this branch |
+|---|---|---|
+| preview scroll | 63-72 ms | 161-172 ms |
+| editor scroll | 68-77 ms | 175-187 ms |
+| typing, 40 keys | 221-227 ms | 236-251 ms |
+
+No frame is dropped on either branch (every frame 16.7 ms). **This table counted script time only, and the claims
+around it were too strong; see "Performance review" below for the measured correction.** Typing is within noise of
+`main` unthrottled, and about 9% higher in script at 4x CPU.
+
+## 5. Fuoco: lines, columns and sections
+
+`docs/src/lib/fuoco/place.ts` (generic, zero imports beyond the outline):
+
+- `lineAt(outline, offset)`, `offsetAt(outline, line, col)`, `lineEnd`, `lineCount`: 1-based lines,
+  0-based columns, over a line table built lazily once per outline snapshot.
+- `placeAt(outline, offset)`: line, column, unit, part, flat and the host's section words.
+- `extentOf` and `rangeOf(outline, unit, part)`: offsets and lines, with `toLine` the last line that
+  holds text.
+- `Outline.kinds` names the two levels. A deck says `{ unit: 'slide', part: 'page' }`
+  (`DECK_KINDS`); `createTextOutliner({ kinds })` takes the host's own ("chapter", "paragraph").
+- `focusPlace(hub)` answers "where is the focus" in those words. It is a function, not a hub method, so the Studio's eager bundle does not carry the line table.
+
+## 6. Two texts, one rule
+
+The hub holds the editor's live text; the rendered index describes the text last rendered, which trails
+typing by a debounce. **A flat slide number means the same in both only when the two texts are equal**, so
+the sync uses the index only when `index source === hub text`; otherwise the move waits and the render
+that lands asks again. A full srcdoc write waits for `onFrameLoad` before anything scrolls, because until
+then the frame still holds the outgoing document.
+
+**Outside Edit the render is the text of record.** Explore can show a component's gallery or a plan step,
+which the editor does not hold. There the sync feeds the hub the rendered source, ignores editor edits, and
+does not touch the editor at all: its offsets would be the gallery's, not the editor's. Returning to Edit
+feeds the editor's text back. An early version revealed into the hidden editor from Explore and took
+keyboard focus off the map rail (`playground-map.spec.ts`, Home and End on the rail); the guard is the fix
+and `playground-sync.test.ts` pins it.
+
+## 7. Evidence
+
+- `docs/e2e/playground-focus-sync.spec.ts` drives the real Playground: scroll marks and shows the slide
+  with the caret unchanged; an arrow key returns the band and the preview; a click on a slide puts the
+  caret at the end of `# Slide 6 title` with the band on screen and typing lands there; a click in the
+  band lands at the click; both scrollers carry a non-default scrollbar. Run on Chromium, Firefox and
+  WebKit (iPad-landscape), five of five on each.
+- `playground-sync.test.ts` (12 cases) runs the rules against fake ports; `place.test.ts` and
+  `deck-frame.test.ts` cover the Fuoco additions.
+- `caretSlideIndex` had 70 lines of tests; the cases it covered (fences, setext headings, heading
+  splits) are the deck outliner's, which `deck-outline.test.ts` holds to the engine on every committed deck.
+
+## 8. Not done here
+
+- **Preview element addresses** (click a rendered element to select its source span): still
+  `followups.d/2704-p5-preview-element-addresses.md`. A click selects the slide's title, not an element.
+- **Touch picks** reach the editor but are not exercised by a touch e2e.
+- **Compose** (the Studio's second editor) is untouched; this note is the Playground only.
+
+## Review fixes (checker on the final diff)
+
+An independent checker reviewed the later commits and found five defects, all fixed with a test that fails on the old code:
+
+- Scrolling the preview to its very bottom threw the editor to the end of its padding. The preview's end is a flat
+  run in the map (its last slide clamps while the editor scrolls through `scrollPastEnd`), and the end resolved to the
+  run's far side. It now resolves to the run's start, so the map is continuous there (`align.ts`).
+- A paste or typing that scrolled the editor left the preview behind when the render landed; the editor scroll now
+  marks the alignment as owed.
+- The focus bar blinked off on every keystroke while the index trailed the text; the mark now stays until the render.
+- The focus bar hid the section's own `box-shadow` (see above).
+- `SETTLE_MS` never ran, so for 1.5 s after a map tile pick the reader's own preview scroll could not change the
+  focus. A settle loop now names the slide the preview stopped on.
+
+Also: a failed load of the focus chunk is caught and logged, and the Playground works without the sync.
+Not changed: CodeMirror re-measuring line heights after `setScroll` could defeat the echo guard on long decks
+(plausible, not reproduced).
+
+## Clicks center the preview
+
+Owner decision after the review: a click puts its slide in the middle of the preview, by the same rule as the scroll
+alignment (first slide at the top, last at the bottom, every one between centered).
+
+- A click on a preview slide centers it in the preview, then brings the editor level with it (`centerPreview`,
+  then `alignEditor`). Both moves are instant, and each records its echo so neither drives the other back.
+- A caret move into another slide (a click or a key) centers that slide in the preview and leaves the editor alone:
+  re-centering the pane the reader just clicked in would move the text under the pointer. Moves inside the slide in
+  focus, and anything within `CARET_SCROLL_MS` of typing, scroll nothing.
+- For `CARET_SCROLL_MS` after the caret centered the preview, the editor's own scroll (CodeMirror following the same
+  caret) does not drive the preview, or the two moves would fight and land the preview on the wrong slide.
+
+## Performance review (adversarial trio, 2026-10-21)
+
+The owner sensed delays and jank, so the red team, the inversion and an independent checker measured the branch on
+the real Playground (headless Chromium at 1x and 4x CPU throttle, and WebKit; 200-slide decks, plus wrapped-prose
+and 10,000-line cases), against the merge-base. What they found, and what changed:
+
+- **The cost claim was understated.** Script, layout and style together, per 60 wheel events, merge-base to branch:
+  preview 112 to 269 ms, editor 109 to 385 ms (2-3x, +2.6 and +4.6 ms per frame). No frame dropped at 1x, but at 4x
+  CPU and in WebKit the branch dropped frames the merge-base did not.
+- **The marks were most of the avoidable part.** The editor band was a CodeMirror line decoration: a transaction, a
+  redraw of every line of the slide, and a forced style recalc (CodeMirror reads the DOM selection after any DOM
+  change) at every slide boundary. The preview bar read a rect per page right after toggling a class, forcing the
+  frame to lay out. Now the band is two drawn boxes placed from CodeMirror's line heights (`bandPlugin`,
+  `editor.js`) and the bar is placed from the geometry `previewLayout` already caches (`placeBar`,
+  `reading-page.ts`); neither reads the DOM. Turning the marks off entirely now changes nothing measurable at 4x.
+- **The echo guard had holes.** Position matching broke when CodeMirror re-anchored after our write, and consuming
+  an echo on the first event let a stale event eat a newer move's. Measured on a deck with wrapped prose: map picks
+  landed on the wrong slide 7 times in 8; wheeling the editor stepped backward 6-7 times; a large preview move
+  was yanked 4 of 80 (a 1500 px notch: 39 of 40). Echoes are now attributed by time and kept for their whole window,
+  and a pick's smooth scroll is not cancelled by the editor re-anchoring. After the fix: 8 of 8 picks land,
+  0 reversals, 0 yanks.
+- **The follow is the rest, and it is the feature.** Moving the other pane each frame costs the follower's own
+  redraw (CodeMirror lines, the filmstrip's virtualization; one editor wheel moves the preview about 2.7 times as far).
+  A page that is already dropping frames now moves the follower at most every 33 ms, and always catches up on the
+  frame where the reader stops (`followNow`). Following only when the scroll settles would remove most of the rest
+  but contradicts the owner's choice of a continuous map; that is the owner's call and was not made here.
+- Eager JS: the drawn band (`editor-band.js`) and the preview-frame helpers (`reading-page.ts`) load with the focus
+  chunk, not with the route; the first cut of the band cost the Playground +2,259 B gz of eager JS, over the 2,048 B a PR may add.
+- `rangesOf` was quadratic in slide count (`seps.find` per page: 16 ms per edit at 3,000 slides); it is a binary
+  search now.
+
+Measured after (4x CPU throttle, 200 slides, per 60 wheel events; two runs each): preview wheel 6-7 frames over
+34 ms (the branch before: 5-16; merge-base 0-2), editor wheel 10-12 (before 8-11; merge-base 0-3), style
+655-676 ms (before 717-763). WebKit (Linux, software rendering): editor wheel 23 frames over 34 ms (before 53-96;
+merge-base 11-13), preview wheel p50 24 ms (before 32-40; merge-base 22-30). Real Safari, an iPad and touch are
+UNVERIFIED.
+
+Not changed, and why: per-key cost grows with the size of the slide being typed in (+15 ms per key at 10,000
+lines; the hub re-parses the slide between two separators), the second parse of the deck per render, and the
+map's own index on every render. All three are small below a thousand lines; the typing delay the owner may
+feel is the render pipeline and `remoteCssRefs` (followup `2840-p3`), which are level with the merge-base.
+
+## Edit and Explore keep your place (owner decisions, 2026-10-21)
+
+On a phone Edit and Explore are two tabs of one pane, not two panes. Nothing unmounts on a switch (the inactive pane is
+`display:none`, and veduta only windows slide mounting inside the preview frame). Measured on a 390 px viewport, two
+things lost the reader's place:
+
+- Edit to Explore rendered the deck fresh and opened it at slide 1, whatever slide the caret was in.
+- Explore to Edit copied the Explore source over the editor even when it was the same text, which replaced the whole
+  document: the caret and the scroll went to the top, and a backup of an unchanged deck was pushed.
+
+The rules the owner chose:
+
+- **Edit to Explore:** the caret stays; Explore opens on the caret's slide (`enterExplore`, then the walk lands on the
+  page the render's index gives for that slide).
+- **Explore to Edit:** the editor is left alone when the text is the same. A click in Explore on a slide other than the
+  caret's puts the caret at the end of that slide's title (`exploreClicked`, `leaveExplore`); scrolling in Explore
+  without a click moves nothing.
+- **Reload:** the caret is saved on Fuoco's idle lane (`playground-focus.ts`), keyed by a fingerprint of the deck text,
+  and restored only when the text is the same. Fuoco itself still persists nothing; the Playground owns the key
+  (`lattice-docs-pg-caret`). The first cut reused `lattice-docs-pg-focus`, which is the Focus-mode toggle's key: the
+  e2e spec caught it reading back `0`, and a saved caret would have broken Focus mode on the next load.
+
+Verified on Chromium and WebKit at phone width (emulation: `e2e/playground-tab-switch.spec.ts`); a real iPhone is UNVERIFIED.
+
+## Review of the later rewrites (independent checker, 2026-10-21)
+
+A checker reviewed everything after the trio (`fddab54..a84c42e`). The drawn band, the focus bar's geometry, the
+`deckFrame` binary searches and the caret restore held. It found five defects, all fixed with a test that fails on the old code:
+
+- **Explore to Edit at a wide width scrolled both panes to the end of the deck.** The outgoing document, still Explore's
+  at the new narrower split width, scrolled before the fresh one loaded, and its stale `scrollY` drove the editor.
+  `leaveExplore` now holds the preview (`loading()`) until the fresh write loads, and the editor leads (`owed`).
+  A real-browser case at 1440 px is in `e2e/playground-tab-switch.spec.ts` (the editor moved 821 px without the fix).
+- **A stale Explore target made a later gallery open on the wrong slide.** The target is spent by the first Explore
+  render whatever the walk kind (it was spent only for a deck walk), and a plan walk now opens on the caret's slide too.
+- **`enterExplore` returned the hub's focus, not the caret's slide.** Any scroll moves the focus without moving the
+  caret. It now returns the slide of the last caret move, which is also what `leaveExplore` compares a click against.
+  A click recorded on one Explore deck is forgotten when the deck changes.
+- **A reader switching panes within the echo window was ignored.** The window is 120 ms now (it was 250), which
+  covers the follower's echo events and leaves a human pane switch outside it. The checker suggested re-checking the
+  dropped frame once the window ended; measured on the real Playground that was worse: when the follower had not
+  converged, the re-check took the lagging pane for the leader and dragged the preview back. It was removed.
+- **The adaptive follow rate barely engaged**, because the follower's own scroll event fed the frame-gap clock. Only
+  scrolls that are not the sync's echo count now.
+
+Also: each editor holds its own band slot, and the latest requested range is what is drawn when the module arrives.

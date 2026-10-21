@@ -7,7 +7,27 @@ export type EditorAdapter = {
 	getValue: () => string;
 	setValue: (text: string) => void;
 	focus: () => void;
+	/** Mark a range of the document (offsets): the slide the preview is showing. Null clears it. */
+	setBand: (range: { from: number; to: number } | null) => void;
+	/** Put the caret at `caret`; with `frame` (the default) also put `[from, to]` on screen. */
+	revealSlide: (at: { from: number; to: number; caret: number; grab?: boolean; frame?: boolean }) => void;
+	/** Where each range sits in the editor's scroll coordinates, with its window and content sizes and scroll. */
+	getLayout: (ranges: ReadonlyArray<{ from: number; to: number }>) => EditorLayout;
+	/** Where the editor is scrolled. */
+	getScroll: () => number;
+	/** Scroll to `y`; returns where it landed. */
+	setScroll: (y: number) => number;
+	getCaret: () => { head: number; anchor: number };
 };
+
+/** An editor's measurements for the section alignment: see `ViewLayout` in lib/fuoco/align.ts. */
+export type EditorLayout = { tops: number[]; bottoms: number[]; viewport: number; content: number; scroll: number };
+
+/** The editor's own account of one edit: the span it replaced, in the old and the new text. */
+export type EditSpan = { from: number; toA: number; toB: number };
+
+/** The caret or selection moved (or the text changed under it). `user`: the reader did it. */
+export type EditorSelection = { head: number; anchor: number; line: string; user: boolean };
 
 /**
  * Wraps the vanilla CodeMirror editor (createEditor → editor.js) in React
@@ -25,13 +45,19 @@ export function EditorHost({
 	onChange,
 	onReady,
 	onCursor,
+	onSelection,
+	onScroll,
 	vocab,
 }: {
 	initialDoc: string;
-	onChange: (value: string) => void;
+	onChange: (value: string, span?: EditSpan) => void;
 	onReady: (adapter: EditorAdapter) => void;
 	/** The caret's 1-based line, on every edit and every caret move. */
 	onCursor?: (line: number) => void;
+	/** The caret's offsets and line text, on every edit and caret move, and whether the reader made it. */
+	onSelection?: (at: EditorSelection) => void;
+	/** The editor's scroller scrolled (the reader's or the host's own). */
+	onScroll?: () => void;
 	// The deck-grammar lint vocabulary. When supplied, the editor runs inline
 	// validation (underlines, governed per deck by the `validate:` front-matter
 	// key); autocomplete stays off here (the playground's picker owns templates).
@@ -52,6 +78,10 @@ export function EditorHost({
 	onChangeRef.current = onChange;
 	onReadyRef.current = onReady;
 	onCursorRef.current = onCursor;
+	const onSelectionRef = React.useRef(onSelection);
+	onSelectionRef.current = onSelection;
+	const onScrollRef = React.useRef(onScroll);
+	onScrollRef.current = onScroll;
 	// Vocab is static (page-build data); read it from a ref so the mount effect
 	// stays [] (one init) without taking a reactive dependency on the prop.
 	const vocabRef = React.useRef(vocab);
@@ -83,13 +113,17 @@ export function EditorHost({
 			doc: placeholderRef.current,
 			vocab: vocabRef.current,
 			autocomplete: false, // validation only on this surface; the picker owns templates
-			onChange: (v: string) => onChangeRef.current(v),
+			onChange: (v: string, span?: EditSpan) => onChangeRef.current(v, span),
 			// Not while `setValue` is replacing the document: a Deck settings change, a component
 			// pick and a gallery load all rewrite the whole text, which puts the caret on line 1 —
 			// the author did not move it there, so the preview must not follow it there.
 			onCursor: (line: number) => {
 				if (!replacing) onCursorRef.current?.(line);
 			},
+			// A whole-document replace puts the caret on line 1; that is not a move the reader made, so it
+			// is reported as the host's own, and nothing follows it.
+			onScroll: () => onScrollRef.current?.(),
+			onSelection: (at: EditorSelection) => onSelectionRef.current?.(replacing ? { ...at, user: false } : at),
 		});
 		viewRef.current = ed;
 		setMounted(true); // drop the placeholder now that the real editor is up
@@ -104,6 +138,12 @@ export function EditorHost({
 				}
 			},
 			focus: () => ed.focus(),
+			setBand: (range) => ed.setBand(range),
+			revealSlide: (at) => ed.revealSlide(at),
+			getLayout: (ranges) => ed.getLayout(ranges),
+			getScroll: () => ed.getScroll(),
+			setScroll: (y) => ed.setScroll(y),
+			getCaret: () => ed.getCaret(),
 		});
 		return () => {
 			ed.destroy();

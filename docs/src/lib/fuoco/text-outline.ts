@@ -15,7 +15,7 @@
 // heavier parser, or a document too large to rescan per keystroke, writes its own outliner
 // against ./outline.ts, as Lattice does for slides (docs/src/lib/deck-outline).
 
-import { carryIds, diffSpan, type EditSpan, nextRevision, type Outline, type Outliner, partBaseOf, spanHolds, type Unit } from './outline.js';
+import { carryIds, diffSpan, type EditSpan, type Kinds, nextRevision, type Outline, type Outliner, partBaseOf, spanHolds, type Unit } from './outline.js';
 
 export interface TextOutlinerOptions {
 	/** Offsets where units begin, ascending. Text before the first one belongs to unit 0. */
@@ -25,6 +25,8 @@ export interface TextOutlinerOptions {
 	parts?: (unitText: string) => readonly number[];
 	/** Drop units with nothing but whitespace (default true). */
 	dropEmpty?: boolean;
+	/** The host's words for a unit and a part ("chapter", "paragraph"); they travel on every outline. */
+	kinds?: Kinds;
 }
 
 export function createTextOutliner(opts: TextOutlinerOptions): Outliner {
@@ -50,7 +52,7 @@ export function createTextOutliner(opts: TextOutlinerOptions): Outliner {
 			for (const n of extra) if (n > parts[parts.length - 1]) parts.push(n);
 			return { id: ids[i], from: r.from, start: r.start, end: r.end, parts };
 		});
-		return { rev: nextRevision(), source: text, units, partBase: partBaseOf(units) };
+		return { rev: nextRevision(), ...(opts.kinds ? { kinds: opts.kinds } : {}), source: text, units, partBase: partBaseOf(units) };
 	};
 	return {
 		update(prev, text, o) {

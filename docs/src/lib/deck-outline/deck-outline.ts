@@ -45,7 +45,7 @@ import { resolveSplitMode as resolveSplitModeJs } from '../../../../lib/core/res
 import { parseSlideBoundaries, slideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';
 import { FORWARD_SCAN_LINES } from '../../../../lib/plugins/blocks.generated.mjs';
 import { frontMatterBlock } from '../../components/studio/front-matter';
-import { diffSpan, type EditSpan, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
+import { diffSpan, type EditSpan, type Kinds, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
 import { normalizeSourceText } from '../normalize-source-text';
 
 const headingSplitPoints = headingSplitPointsJs as (tokens: unknown[]) => number[];
@@ -91,6 +91,9 @@ export function deckEditableOffset(ix: Outline, c: number, k = 0): number {
 	}
 	return start;
 }
+
+/** What a deck calls its two levels: an authored slide, and the page each one renders as. */
+export const DECK_KINDS: Kinds = { unit: 'slide', part: 'page' };
 
 // ── Building ───────────────────────────────────────────────────────────────────
 
@@ -183,7 +186,7 @@ function rawChunks(source: string, bodyStart: number, seps: readonly { index: nu
 }
 
 function finish(source: string, bodyStart: number, mode: 'rule' | 'headings', units: Unit[], seps: { index: number; length: number }[]): DeckIndex {
-	return { rev: nextRevision(), source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration() };
+	return { rev: nextRevision(), kinds: DECK_KINDS, source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration() };
 }
 
 /** Build an index of `source` from nothing. `prev`, when given, lends its ids to units that
