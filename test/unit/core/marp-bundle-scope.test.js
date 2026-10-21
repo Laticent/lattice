@@ -9,6 +9,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { withMarpScope } = require('../../../lib/core/marp-bundle-scope');
 const { withRuntimeScriptsReport } = require('../../../lib/core/marp-bundle');
+const { render } = require('../../../lib/engine');
 
 test('Marp numbers the deck as Lattice does: on by default, a manifest or a class opts a slide out or in', () => {
   const deck = '---\nmarp: true\n---\n\n<!-- _class: title -->\n\n# T\n\n---\n\n# B\n\n---\n\n<!-- _class: content no-pagination -->\n\n# N\n\n---\n\n<!-- _class: closing with-pagination -->\n\n# C\n';
@@ -47,7 +48,7 @@ test('a BOM is kept and stepped over: the front matter stays front matter', () =
   assert.ok(out.startsWith('\uFEFF---\npaginate: false\ntheme: indaco\n---'));
 });
 
-test('front-matter class, a running plain class, the last of two _class lines and a quoted class all count', () => {
+test('front-matter class, a running plain class, two _class lines and a quoted class all count', () => {
   assert.deepEqual(pages('---\nclass: no-pagination\n---\n\n# A\n\n---\n\n# B\n'), [false, false]);
   assert.deepEqual(pages('---\nmarp: true\n---\n\n# A\n\n---\n\n<!-- class: title -->\n\n# B\n\n---\n\n# C\n'), [true, false, false]);
   assert.deepEqual(pages('---\nmarp: true\n---\n\n<!-- _class: title -->\n<!-- _class: big-number -->\n\n# A\n'), [true]);
@@ -87,4 +88,21 @@ test('the bundle step writes the page numbers and leaves a plain header for the 
   assert.doesNotMatch(out, /<!-- paginate: false -->/);
   assert.match(out, /<!-- header: Appendix -->/);
   assert.match(out, /^header: Deck$/m);
+});
+
+// The checker's case (2026-10-21): two comments on ONE line. The engine reads the line as one directive whose value runs
+// on through the second comment, and a comment followed by text as none; the bundle used to read each comment alone.
+// So this compares the bundle with the engine itself, not with a hand-written answer.
+test('a line with two comments, or a comment and text, is numbered as the engine numbers it', () => {
+  const engine = (deck) => [...String(render(deck, {}).html).matchAll(/<section\b[^>]*>/g)].map((m) => /data-lattice-pagination="\d+"/.test(m[0]));
+  for (const line of [
+    '<!-- _class: title --> <!-- _class: big-number -->',
+    '<!-- _class: big-number --> <!-- _class: title -->',
+    '<!-- header: H --> <!-- _class: no-pagination -->',
+    '<!-- _class: title --> trailing',
+    '<!-- _class: a --> <!-- _paginate: false -->',
+  ]) {
+    const deck = `---\nmarp: true\n---\n\n# A\n\n---\n\n${line}\n\n# B\n`;
+    assert.deepEqual(pages(deck), engine(deck), line);
+  }
 });

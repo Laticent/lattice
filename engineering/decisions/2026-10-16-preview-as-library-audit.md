@@ -1240,7 +1240,7 @@ and footer scope (`SLIDE_ONLY_KEYS`, `marp-slide-only.mjs`) and these.
 - **Page numbers are not a slide directive.** Front matter `paginate:` numbers the deck and is ON unless it says
   `false` (lib/engine/index.js). One slide opts out with the `no-pagination` class (renamed from `no-paginate`) and back
   in with `with-pagination`. A component opts its slides out in its manifest, `"chrome": { "pagination": false }`
-  (title, divider, closing, collage; compiled to lib/packages/chrome.generated.js). A `paginate:` / `_paginate:`
+  (title, divider and closing, compiled to lib/packages/chrome.generated.js; collage hides the number in its CSS, and `with-pagination` overrides that). A `paginate:` / `_paginate:`
   comment is ignored, and the lint rule `paginate-comment-retired` says what to write. One rule decides it for the
   engine, Export to Marp, the lint and the Studio: lib/core/pagination.js (`paginateOn`, `slidePaginates`). So
   `paginate` left `SLIDE_ONLY_KEYS`, which is `header` and `footer` now. Export to Marp writes Marp's own pagination

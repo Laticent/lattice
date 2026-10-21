@@ -63,6 +63,10 @@ test('@crosswidth the map is off until asked, and then lists one tile per slide 
 	const pills = await pillsBefore(page);
 	expect(pills).toBeGreaterThan(2);
 	await mapOn(page);
+	// The map replaces the pills, so what a pill labeled a slide with outside Read, its component class, rides on the
+	// tile instead (audit §11p, kept in the strip by §11s). The fixture's stop is Craft, which is outside Read.
+	await expect(railButtons(page)).toHaveCount(0);
+	await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toContainText('title');
 	// One tile per pill: the rail's last tile is the pills' last slide, and there is none after it.
 	await page.locator(`${RAIL} button[aria-current="true"]`).focus();
 	await page.keyboard.press('End');
