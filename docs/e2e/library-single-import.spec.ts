@@ -1,0 +1,79 @@
+import type { Page } from '@playwright/test';
+import { CHROME, expect, gotoStudio, test } from './studio-fixture';
+
+// The Library's ONE Import button, driven on the real Studio. What a file is decides where it goes, and
+// the Library opens on what was just added; a mixed batch opens All with the new items first.
+// A real file chooser, not a stand-in: the button must open the browser's own picker for every kind.
+
+// A 1×1 PNG.
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+async function openLibrary(page: Page, width: number) {
+	if (width >= 1100) await page.getByRole('button', { name: CHROME.library }).click();
+	else if (width >= 700) {
+		await page.getByRole('button', { name: CHROME.searchOverflow, exact: true }).click();
+		await page.getByRole('menuitem', { name: /^Library/ }).click();
+	} else {
+		await page.getByRole('button', { name: CHROME.moreControls, exact: true }).click();
+		await page.getByRole('button', { name: /^Library/ }).click();
+	}
+}
+
+async function importFiles(page: Page, files: { name: string; mimeType: string; buffer: Buffer }[]) {
+	const chooser = page.waitForEvent('filechooser');
+	await page.getByRole('button', { name: 'Import files', exact: true }).click();
+	await (await chooser).setFiles(files);
+}
+
+async function addPhotos(page: Page) {
+	const dialog = page.getByRole('dialog', { name: /^Add \d+ photo/ });
+	await dialog.getByRole('radio', { name: 'Keep original' }).click();
+	await dialog.getByRole('button', { name: /^Add photo/ }).click();
+}
+
+const selected = (page: Page, name: string, label: string) => expect(page.getByRole('tablist', { name }).getByRole('tab', { name: label, exact: true })).toHaveAttribute('aria-selected', 'true');
+
+for (const vw of [1440, 820, 390]) {
+	test.describe(`at ${vw}px`, () => {
+		test.use({ viewport: { width: vw, height: vw === 1440 ? 900 : 1000 } });
+
+		test(`one Import button: a photo opens Images, a note opens Files, a mix opens All newest first @smoke`, async ({ page }, testInfo) => {
+			test.slow();
+			await gotoStudio(page);
+			await openLibrary(page, vw);
+			// The same control on every section.
+			for (const label of ['All', 'Design', 'Media', 'Files']) {
+				await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: label, exact: true }).click();
+				await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeVisible();
+			}
+			await expect(page.getByRole('button', { name: /^Add (image|video|file)/ })).toHaveCount(0);
+
+			// A photo, imported from the Files section: it opens Media → Images.
+			await importFiles(page, [{ name: 'one.png', mimeType: 'image/png', buffer: PNG }]);
+			await addPhotos(page);
+			await expect(page.locator('[data-media-card="one"]')).toBeVisible({ timeout: 20_000 });
+			await selected(page, 'Library sections', 'Media');
+			await selected(page, 'Media kinds', 'Images');
+
+			// A reference file, imported from Images: it opens Files.
+			await importFiles(page, [{ name: 'notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Notes\n') }]);
+			await expect(page.getByText('notes.md')).toBeVisible({ timeout: 20_000 });
+			await selected(page, 'Library sections', 'Files');
+
+			// A mix opens All, and what just landed sorts above what was already there.
+			await importFiles(page, [
+				{ name: 'two.png', mimeType: 'image/png', buffer: PNG },
+				{ name: 'brief.md', mimeType: 'text/markdown', buffer: Buffer.from('# Brief\n') },
+			]);
+			await addPhotos(page);
+			await expect(page.locator('[data-media-card="two"]')).toBeVisible({ timeout: 20_000 });
+			await expect(page.getByText('brief.md')).toBeVisible();
+			await selected(page, 'Library sections', 'All');
+			const text = await page.locator('.grid.grid-cols-1').first().innerText();
+			expect(text.indexOf('two'), 'two.png sorts above one.png').toBeGreaterThan(-1);
+			expect(text.indexOf('brief.md'), 'brief.md sorts above notes.md').toBeLessThan(text.indexOf('notes.md'));
+			expect(text.indexOf('notes.md'), 'notes.md sorts above one.png').toBeLessThan(text.indexOf('one'));
+			await page.screenshot({ path: testInfo.outputPath(`library-import-${vw}.png`) });
+		});
+	});
+}

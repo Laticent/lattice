@@ -340,7 +340,7 @@ test('a clip taken out of the strip before it is sent is not left in the Library
 	await page.getByRole('button', { name: CHROME.library }).click();
 	await page.getByRole('tab', { name: 'Media', exact: true }).click();
 	await page.getByRole('tab', { name: 'Videos' }).click();
-	await expect(page.getByText('No saved assets yet')).toBeVisible();
+	await expect(page.getByText('No videos yet')).toBeVisible();
 	await expect(page.locator('[data-media-card^="draft-"]')).toHaveCount(0);
 });
 
