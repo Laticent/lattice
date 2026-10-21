@@ -113,3 +113,13 @@ test('a layout word in a @callout span is reported and the callout still reads a
   assert.ok(!messages.some((m) => /legend is not drawn/.test(m)));
 });
 
+
+test('a @callout span with no layout word gets no layout note, even when its entry names no mark', () => {
+  // The reader defaults an untargeted record to `key`; only a word the author wrote is reported.
+  for (const span of ['@callout{{Peak}}', '@callout{{Peak, row=r, col=A}}', '@callout{{Peak, row=r, col=A}, anchored}', '@callout{{Peak, row=r, col=A}, layout=anchored}']) {
+    const messages = findLegendSpans(heatmap(span)).map((x) => x.message);
+    assert.ok(!messages.some((m) => /is not a callout layout/.test(m)), `${span}: ${messages.join(' | ')}`);
+  }
+  const named = findLegendSpans(heatmap('@callout{{Peak, row=r, col=A}, layout=along-path}')).map((x) => x.message);
+  assert.ok(named.some((m) => /`along-path` is not a callout layout/.test(m)));
+});
