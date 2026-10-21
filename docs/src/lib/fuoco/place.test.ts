@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createFocusHub } from './hub';
-import { extentOf, lineAt, lineCount, lineEnd, offsetAt, placeAt, rangeOf } from './place';
+import { extentOf, focusPlace, lineAt, lineCount, lineEnd, offsetAt, placeAt, rangeOf } from './place';
 import { byHeadings, createTextOutliner } from './text-outline';
 
 const kinds = { unit: 'chapter', part: 'section' };
@@ -52,15 +52,15 @@ describe('places and extents', () => {
 	});
 });
 
-describe('hub.place()', () => {
+describe('focusPlace(hub)', () => {
 	it('reports the caret, then the part start after a move', () => {
 		const hub = createFocusHub({ outliner });
 		hub.update(text);
 		hub.report('editor', { head: text.indexOf('beta') + 2 });
 		hub.flush();
-		expect(hub.place()).toMatchObject({ line: 4, col: 2, unit: 0, part: 1, flat: 1 });
+		expect(focusPlace(hub)).toMatchObject({ line: 4, col: 2, unit: 0, part: 1, flat: 1 });
 		hub.go('rail', { flat: 2 });
 		hub.flush();
-		expect(hub.place()).toMatchObject({ line: 6, col: 0, unit: 1, part: 0, flat: 2 });
+		expect(focusPlace(hub)).toMatchObject({ line: 6, col: 0, unit: 1, part: 0, flat: 2 });
 	});
 });

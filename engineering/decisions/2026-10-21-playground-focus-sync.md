@@ -88,7 +88,7 @@ who moved, and the editor never reacts to itself nor the preview to itself:
   holds text.
 - `Outline.kinds` names the two levels. A deck says `{ unit: 'slide', part: 'page' }`
   (`DECK_KINDS`); `createTextOutliner({ kinds })` takes the host's own ("chapter", "paragraph").
-- `hub.place()` answers "where is the focus" in those words.
+- `focusPlace(hub)` answers "where is the focus" in those words. It is a function, not a hub method, so the Studio's eager bundle does not carry the line table.
 
 ## 6. Two texts, one rule
 

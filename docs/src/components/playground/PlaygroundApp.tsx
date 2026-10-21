@@ -17,9 +17,8 @@ import { Toaster } from '@/components/ui/sonner';
 import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
-import { deckOutliner } from '@/lib/deck-outline';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
-import { createFocusHub } from '@/lib/fuoco/hub';
+import type { FocusHub } from '@/lib/fuoco/hub';
 import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {
 	adjacentComponent,
@@ -53,7 +52,7 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
-import { createPlaygroundSync, type PlaygroundSync, type SyncPorts } from '@/lib/playground-sync';
+import type { PlaygroundSync, SyncPorts } from '@/lib/playground-sync';
 import type { RenderedIndex } from '@/lib/rendered-index';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
@@ -763,7 +762,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// One hub (docs/src/lib/fuoco) holds which slide the reader is on; `playground-sync.ts` has the rules
 	// for who moves whom (the caret parks while the preview is scrolled, a pick moves it, the preview
 	// follows the caret). This is only the wiring: the ports hand it the real editor and preview.
-	const hub = React.useMemo(() => createFocusHub({ outliner: deckOutliner }), []);
+	// Loaded after first paint (lib/playground-focus.ts): the deck outliner it reads is not worth the route's eager JS.
+	const [hub, setHub] = React.useState<FocusHub | null>(null);
 	const syncRef = React.useRef<PlaygroundSync | null>(null);
 	/** Where the reader was when a full write replaced the document (deck-preview.js
 	 *  `renderDeck` reads it off the old document), so the new one opens there. */
@@ -790,19 +790,28 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			timeout: (cb, ms) => window.setTimeout(cb, ms),
 			clearTimeout: (id) => window.clearTimeout(id),
 		};
-		const sync = createPlaygroundSync(hub, ports);
-		syncRef.current = sync;
-		// The editor may have mounted first (its `onReady` runs before this parent effect): feed it the text.
-		const text = editorRef.current?.getValue();
-		if (text !== undefined) {
-			sync.edited(text);
-			sync.selected({ ...(editorRef.current as EditorAdapter).getCaret(), line: '', user: false });
-		}
+		let dead = false;
+		let off: (() => void) | null = null;
+		import('@/lib/playground-focus').then(({ createPlaygroundFocus }) => {
+			if (dead) return;
+			const { hub: made, sync } = createPlaygroundFocus(ports);
+			syncRef.current = sync;
+			off = () => sync.destroy();
+			// Everything that happened before this arrived: the editor's text and caret, and the last render.
+			const ed = editorRef.current;
+			if (ed && viewRef.current === 'edit') {
+				sync.edited(ed.getValue());
+				sync.selected({ ...ed.getCaret(), line: '', user: false });
+			}
+			if (lastRenderedSourceRef.current != null) sync.rendered(lastRenderedSourceRef.current, lastIndexRef.current, true);
+			setHub(made);
+		});
 		return () => {
-			sync.destroy();
+			dead = true;
+			off?.();
 			syncRef.current = null;
 		};
-	}, [hub]);
+	}, []);
 	// Back in Edit the editor's text is the deck again; Explore may have been showing a gallery or a plan.
 	React.useEffect(() => {
 		if (view !== 'edit') return;
@@ -3128,7 +3137,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							/>
 							<iframe id="preview" ref={frameRef} title="Rendered slides preview" onLoad={onFrameLoad} data-stage={stage ? '' : undefined} />
 						</div>
-						{mapEver && mapRendered && (!mapStacked || walkMapEl) && (
+						{mapEver && mapRendered && hub && (!mapStacked || walkMapEl) && (
 							<div className="pg-map" hidden={!mapOn}>
 								<Frozen active={mapOn}>
 								<React.Suspense fallback={null}>

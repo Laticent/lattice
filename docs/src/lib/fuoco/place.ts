@@ -13,6 +13,7 @@
 // table never goes stale), and a lookup is a binary search. An outline nobody asks about a line in
 // never pays for one.
 
+import type { Focus, FocusHub } from './hub.js';
 import { flatPart, type Kinds, type Outline, partAt, partEnd, partStart } from './outline.js';
 
 const tables = new WeakMap<Outline, readonly number[]>();
@@ -110,4 +111,13 @@ export function rangeOf(o: Outline, u: number, k = 0): Extent | null {
 	if (!unit) return null;
 	const from = k <= 0 ? unit.from : partStart(o, u, k);
 	return extentOf(o, from, partEnd(o, u, k));
+}
+
+/** Where the hub's focus is, as line, column, unit, part and the host's section words: the caret when a view
+ *  with offsets reported one, else the start of the focused part. Null for an empty document. A function and
+ *  not a hub method, so a host that never asks for lines (the Studio) does not carry the line table. */
+export function focusPlace(hub: Pick<FocusHub, 'get' | 'outline'>): Place | null {
+	const ol = hub.outline();
+	const f: Focus = hub.get();
+	return ol && f.unitIndex >= 0 ? placeAt(ol, f.head ?? partStart(ol, f.unitIndex, f.part)) : null;
 }

@@ -34,7 +34,7 @@
 // This file imports no DOM and no React: everything it touches comes in through `SyncPorts`, so
 // the rules above run under a fake in a unit test (playground-sync.test.ts).
 
-import { deckFrame, deckTitleEnd } from './deck-outline';
+import { deckFrame, deckTitleEnd } from './deck-outline/deck-frame';
 import type { FocusHub } from './fuoco/hub';
 import { partOfFlat } from './fuoco/outline';
 import { flatOfPage, pageOfFlat, type RenderedIndex } from './rendered-index';

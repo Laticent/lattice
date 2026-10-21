@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lineAt, placeAt } from '../fuoco/place';
-import { buildDeckIndex, DECK_KINDS, deckFrame, deckTitleEnd } from './deck-outline';
+import { deckFrame, deckTitleEnd } from './deck-frame';
+import { buildDeckIndex, DECK_KINDS } from './deck-outline';
 
 const deck = ['---', 'theme: indaco', '---', '', '<!-- _class: title -->', '# First', 'body', '', '---', '', '## Second', 'text', '', '---', '', '# Third', 'x', '## Third b', 'y', ''].join('\n');
 const ix = buildDeckIndex(deck);

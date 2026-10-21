@@ -118,7 +118,7 @@ per outline snapshot (lines split on `\n`; 1-based lines, 0-based columns):
 | `lineAt(outline, offset)` · `offsetAt(outline, line, col?)` · `lineEnd(outline, line)` · `lineCount(outline)` | Offset ↔ line and column, clamped into the text. |
 | `placeAt(outline, offset)` | `{ offset, line, col, unit, part, flat, kinds }`, or null for an empty outline. |
 | `rangeOf(outline, unit, part?)` · `extentOf(outline, from, to)` | A section's `{ from, to, fromLine, toLine }`; `toLine` is the last line that holds text. |
-| `hub.place()` | The focus as a `Place`: the caret when a view reported one, else the start of the focused part. |
+| `focusPlace(hub)` | The focus as a `Place`: the caret when a view reported one, else the start of the focused part. A function, not a hub method, so a host that never asks for lines does not carry the line table. |
 
 `Outline.kinds` is the host's name for its two levels (`{ unit: 'slide', part: 'page' }`; pass `kinds` to
 `createTextOutliner` for `'chapter'` and `'paragraph'`). Without it a place says `unit` and `part`.

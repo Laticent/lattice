@@ -40,7 +40,6 @@
 // requestAnimationFrame / requestIdleCallback, both of which can be replaced.
 
 import { diffSpan, type EditSpan, flatPart, mapOffset, type Outline, type Outliner, partAt, partOfFlat, partStart, type UnitId, unitIndexOf } from './outline.js';
-import { type Place, placeAt } from './place.js';
 
 export type Origin = string;
 
@@ -133,9 +132,6 @@ export interface Scheduler {
 export interface FocusHub {
 	get(): Focus;
 	outline(): Outline | null;
-	/** Where the focus is, as line, column, unit, part and the host's section words: the caret when a
-	 *  view with offsets reported one, else the start of the focused part. Null for an empty document. */
-	place(): Place | null;
 	/** Feed the document text. Returns the outline revision for it; idempotent for equal text.
 	 *  `span` is the editor's own account of the change (a text diff cannot tell which of two
 	 *  equal-looking edits was made, and stable ids depend on it). `by` names who changed it.
@@ -447,7 +443,6 @@ export function createFocusHub(opts: FocusHubOptions): FocusHub {
 	const hub: FocusHub = {
 		get: () => focus,
 		outline: () => ol,
-		place: () => (ol && focus.unitIndex >= 0 ? placeAt(ol, focus.head ?? partStart(ol, focus.unitIndex, focus.part)) : null),
 		stats,
 
 		update(text, o = {}) {
