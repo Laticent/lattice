@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 79056,
+	"bytes": 91152,
 	"lines": [
 		{
-			"key": "4851c430c5dd",
+			"key": "c81fd9fdcaca",
 			"text": "Light or dark changes the Studio and your slides with it, unless a deck sets its own.",
-			"file": "4851c430c5dd.mp3",
-			"bytes": 30240,
-			"speechMs": 4978,
+			"file": "c81fd9fdcaca.mp3",
+			"bytes": 35856,
+			"speechMs": 5907,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,136 +24,136 @@
 								"display": "Light",
 								"spoken": "Light",
 								"startMs": 0,
-								"endMs": 206,
+								"endMs": 245,
 								"charOffset": 0
 							},
 							{
 								"display": "or",
 								"spoken": "or",
-								"startMs": 206,
-								"endMs": 412,
+								"startMs": 245,
+								"endMs": 489,
 								"charOffset": 6
 							},
 							{
 								"display": "dark",
 								"spoken": "dark",
-								"startMs": 412,
-								"endMs": 618,
+								"startMs": 489,
+								"endMs": 734,
 								"charOffset": 9
 							},
 							{
 								"display": "changes",
 								"spoken": "changes",
-								"startMs": 618,
-								"endMs": 1031,
+								"startMs": 734,
+								"endMs": 1223,
 								"charOffset": 14
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1031,
-								"endMs": 1237,
+								"startMs": 1223,
+								"endMs": 1468,
 								"charOffset": 22
 							},
 							{
 								"display": "Studio",
 								"spoken": "Studio",
-								"startMs": 1237,
-								"endMs": 1649,
+								"startMs": 1468,
+								"endMs": 1957,
 								"charOffset": 26
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 1649,
-								"endMs": 1855,
+								"startMs": 1957,
+								"endMs": 2202,
 								"charOffset": 33
 							},
 							{
 								"display": "your",
 								"spoken": "your",
-								"startMs": 1855,
-								"endMs": 2062,
+								"startMs": 2202,
+								"endMs": 2446,
 								"charOffset": 37
 							},
 							{
 								"display": "slides",
 								"spoken": "slides",
-								"startMs": 2062,
-								"endMs": 2474,
+								"startMs": 2446,
+								"endMs": 2936,
 								"charOffset": 42
 							},
 							{
 								"display": "with",
 								"spoken": "with",
-								"startMs": 2474,
-								"endMs": 2680,
+								"startMs": 2936,
+								"endMs": 3180,
 								"charOffset": 49
 							},
 							{
 								"display": "it,",
 								"spoken": "it,",
-								"startMs": 2680,
-								"endMs": 2916,
+								"startMs": 3180,
+								"endMs": 3461,
 								"charOffset": 54
 							},
 							{
 								"display": "unless",
 								"spoken": "unless",
-								"startMs": 3118,
-								"endMs": 3530,
+								"startMs": 3699,
+								"endMs": 4189,
 								"charOffset": 58
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 3530,
-								"endMs": 3736,
+								"startMs": 4189,
+								"endMs": 4433,
 								"charOffset": 65
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 3736,
-								"endMs": 3942,
+								"startMs": 4433,
+								"endMs": 4678,
 								"charOffset": 67
 							},
 							{
 								"display": "sets",
 								"spoken": "sets",
-								"startMs": 3942,
-								"endMs": 4148,
+								"startMs": 4678,
+								"endMs": 4923,
 								"charOffset": 72
 							},
 							{
 								"display": "its",
 								"spoken": "its",
-								"startMs": 4148,
-								"endMs": 4354,
+								"startMs": 4923,
+								"endMs": 5167,
 								"charOffset": 77
 							},
 							{
 								"display": "own.",
 								"spoken": "own.",
-								"startMs": 4354,
-								"endMs": 4591,
+								"startMs": 5167,
+								"endMs": 5448,
 								"charOffset": 81
 							}
 						],
 						"startMs": 0,
-						"endMs": 4978,
+						"endMs": 5907,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 4978
+				"durationMs": 5907
 			}
 		},
 		{
-			"key": "d5a31bea67a1",
+			"key": "75b4efa6bae5",
 			"text": "Click the light and dark switch.",
-			"file": "d5a31bea67a1.mp3",
-			"bytes": 10080,
-			"speechMs": 1630,
+			"file": "75b4efa6bae5.mp3",
+			"bytes": 12384,
+			"speechMs": 2010,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -165,59 +164,59 @@
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 203,
+								"endMs": 250,
 								"charOffset": 0
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 203,
-								"endMs": 406,
+								"startMs": 250,
+								"endMs": 501,
 								"charOffset": 6
 							},
 							{
 								"display": "light",
 								"spoken": "light",
-								"startMs": 406,
-								"endMs": 609,
+								"startMs": 501,
+								"endMs": 751,
 								"charOffset": 10
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 609,
-								"endMs": 813,
+								"startMs": 751,
+								"endMs": 1002,
 								"charOffset": 16
 							},
 							{
 								"display": "dark",
 								"spoken": "dark",
-								"startMs": 813,
-								"endMs": 1016,
+								"startMs": 1002,
+								"endMs": 1252,
 								"charOffset": 20
 							},
 							{
 								"display": "switch.",
 								"spoken": "switch.",
-								"startMs": 1016,
-								"endMs": 1249,
+								"startMs": 1252,
+								"endMs": 1540,
 								"charOffset": 25
 							}
 						],
 						"startMs": 0,
-						"endMs": 1630,
+						"endMs": 2010,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1630
+				"durationMs": 2010
 			}
 		},
 		{
-			"key": "eb13789cf9e7",
+			"key": "aa19b0a28f3a",
 			"text": "On this screen the switch is in the menu. I’ll flip it for you.",
-			"file": "eb13789cf9e7.mp3",
-			"bytes": 19584,
-			"speechMs": 3196,
+			"file": "aa19b0a28f3a.mp3",
+			"bytes": 21600,
+			"speechMs": 3539,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -228,68 +227,68 @@
 								"display": "On",
 								"spoken": "On",
 								"startMs": 0,
-								"endMs": 161,
+								"endMs": 178,
 								"charOffset": 0
 							},
 							{
 								"display": "this",
 								"spoken": "this",
-								"startMs": 161,
-								"endMs": 322,
+								"startMs": 178,
+								"endMs": 357,
 								"charOffset": 3
 							},
 							{
 								"display": "screen",
 								"spoken": "screen",
-								"startMs": 322,
-								"endMs": 483,
+								"startMs": 357,
+								"endMs": 535,
 								"charOffset": 8
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 483,
-								"endMs": 644,
+								"startMs": 535,
+								"endMs": 713,
 								"charOffset": 15
 							},
 							{
 								"display": "switch",
 								"spoken": "switch",
-								"startMs": 644,
-								"endMs": 805,
+								"startMs": 713,
+								"endMs": 891,
 								"charOffset": 19
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 805,
-								"endMs": 966,
+								"startMs": 891,
+								"endMs": 1070,
 								"charOffset": 26
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 966,
-								"endMs": 1127,
+								"startMs": 1070,
+								"endMs": 1248,
 								"charOffset": 29
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1127,
-								"endMs": 1288,
+								"startMs": 1248,
+								"endMs": 1426,
 								"charOffset": 32
 							},
 							{
 								"display": "menu.",
 								"spoken": "menu.",
-								"startMs": 1288,
-								"endMs": 1633,
+								"startMs": 1426,
+								"endMs": 1809,
 								"charOffset": 36
 							}
 						],
 						"startMs": 0,
-						"endMs": 1936,
+						"endMs": 2143,
 						"charOffset": 0
 					},
 					{
@@ -298,53 +297,53 @@
 							{
 								"display": "I’ll",
 								"spoken": "I’ll",
-								"startMs": 2065,
-								"endMs": 2226,
+								"startMs": 2287,
+								"endMs": 2465,
 								"charOffset": 42
 							},
 							{
 								"display": "flip",
 								"spoken": "flip",
-								"startMs": 2226,
-								"endMs": 2387,
+								"startMs": 2465,
+								"endMs": 2643,
 								"charOffset": 47
 							},
 							{
 								"display": "it",
 								"spoken": "it",
-								"startMs": 2387,
-								"endMs": 2548,
+								"startMs": 2643,
+								"endMs": 2822,
 								"charOffset": 52
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 2548,
-								"endMs": 2709,
+								"startMs": 2822,
+								"endMs": 3000,
 								"charOffset": 55
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 2709,
-								"endMs": 2894,
+								"startMs": 3000,
+								"endMs": 3204,
 								"charOffset": 59
 							}
 						],
-						"startMs": 2065,
-						"endMs": 3196,
+						"startMs": 2287,
+						"endMs": 3539,
 						"charOffset": 42
 					}
 				],
-				"durationMs": 3196
+				"durationMs": 3539
 			}
 		},
 		{
-			"key": "0bb29cf99f70",
+			"key": "46ee84c90d26",
 			"text": "Only the colors changed. Press it again to switch back.",
-			"file": "0bb29cf99f70.mp3",
-			"bytes": 19152,
-			"speechMs": 3136,
+			"file": "46ee84c90d26.mp3",
+			"bytes": 21312,
+			"speechMs": 3483,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -355,33 +354,33 @@
 								"display": "Only",
 								"spoken": "Only",
 								"startMs": 0,
-								"endMs": 333,
+								"endMs": 369,
 								"charOffset": 0
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 333,
-								"endMs": 499,
+								"startMs": 369,
+								"endMs": 554,
 								"charOffset": 5
 							},
 							{
 								"display": "colors",
 								"spoken": "colors",
-								"startMs": 499,
-								"endMs": 832,
+								"startMs": 554,
+								"endMs": 924,
 								"charOffset": 9
 							},
 							{
 								"display": "changed.",
 								"spoken": "changed.",
-								"startMs": 832,
-								"endMs": 1189,
+								"startMs": 924,
+								"endMs": 1320,
 								"charOffset": 16
 							}
 						],
 						"startMs": 0,
-						"endMs": 1501,
+						"endMs": 1667,
 						"charOffset": 0
 					},
 					{
@@ -390,52 +389,52 @@
 							{
 								"display": "Press",
 								"spoken": "Press",
-								"startMs": 1635,
-								"endMs": 1801,
+								"startMs": 1816,
+								"endMs": 2001,
 								"charOffset": 25
 							},
 							{
 								"display": "it",
 								"spoken": "it",
-								"startMs": 1801,
-								"endMs": 1968,
+								"startMs": 2001,
+								"endMs": 2185,
 								"charOffset": 31
 							},
 							{
 								"display": "again",
 								"spoken": "again",
-								"startMs": 1968,
-								"endMs": 2300,
+								"startMs": 2185,
+								"endMs": 2555,
 								"charOffset": 34
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 2300,
-								"endMs": 2467,
+								"startMs": 2555,
+								"endMs": 2740,
 								"charOffset": 40
 							},
 							{
 								"display": "switch",
 								"spoken": "switch",
-								"startMs": 2467,
-								"endMs": 2633,
+								"startMs": 2740,
+								"endMs": 2924,
 								"charOffset": 43
 							},
 							{
 								"display": "back.",
 								"spoken": "back.",
-								"startMs": 2633,
-								"endMs": 2824,
+								"startMs": 2924,
+								"endMs": 3136,
 								"charOffset": 50
 							}
 						],
-						"startMs": 1635,
-						"endMs": 3136,
+						"startMs": 1816,
+						"endMs": 3483,
 						"charOffset": 25
 					}
 				],
-				"durationMs": 3136
+				"durationMs": 3483
 			}
 		}
 	]

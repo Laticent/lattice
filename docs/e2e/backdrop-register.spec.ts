@@ -1,5 +1,4 @@
-import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openInspector, persistedSource, setEditorContent, test } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openDeckSettingsAt, openInspector, persistedSource, setEditorContent, test } from './studio-fixture';
 
 // The `backdrop:` register's two Studio surfaces (engineering/decisions/2026-09-26-backdrop-register.md):
 // the deck Backdrop row under Finish, and the per-slide strength + mask rows in Slide settings.
@@ -55,16 +54,6 @@ for (const tag of ['', ' @webkit-tablet']) {
 
 // Screenshot evidence at the three shipped widths (QUALITY BAR). Not a golden diff: the shots
 // land in test-results for a human to look at.
-async function openDeckSettingsAt(page: Page, width: number): Promise<void> {
-	if (width >= 1200) return openInspector(page);
-	if (width > 500) {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.tabletMenu }).first().click();
-		await page.locator('[role=menuitem],[role=menuitemradio],button,[role=button]').filter({ hasText: CHROME.deckSettingsAt.tabletItem }).first().click();
-	} else {
-		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
-	}
-}
-
 for (const [label, width, height] of [
 	['desktop', 1440, 900],
 	['tablet', 820, 1180],

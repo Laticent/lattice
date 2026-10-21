@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-21 — measured on the cycle connector (#2839) built on top of main at 405c145
+
+Raises the getting-started route's engine ceiling by about 1KB (321241 → 322300 bytes), soft target unchanged; the owner chose this on 2026-10-21 (#2839). The cycle connector is now a real SVG element inserted by `cycle.transform.js`, which ships in the engine bundle; the transform adds about 0.6KB gzipped after the trim in `e64cb9a`, and the route measured 314.0KB against a 313.7KB ceiling. Set by hand at the owner's direction because `route-budget:rebaseline` resets `engineJsGz` on all five routes (about +45KB on four that did not fail). No eager-JS raise, so no explanation file is owed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| getting-started | engineJsGz | 288314 | 288314 | +0 | 322300 |
+
 ### 2026-10-20 — measured on the image card band (#2824) rebased onto main
 
 Raises the lint core's ceiling by 2,500 bytes (109500 → 112000), soft target unchanged; the owner chose this on 2026-10-20 (#2824). The PR adds the `thin-card-no-ink` rule and the class-reading policy it shares with the Studio (`lib/core/card-ink-policy.mjs`) to the lint core, and the image-card register gains the `shape` axis and 17 backing levels. Measured at 110,100 bytes with the rebased tree, about 600 over the old ceiling. Before asking, it gave back what it could: the policy is split from the photo-sampling maths so the lint core takes only the class reading (about 750 bytes), the composition reader is restated in the policy instead of pulling in `image-aspect` (about 1,000 bytes), the level lists are formulas, and the finding's text is shorter. The one remaining option, dropping the rule, would leave hand-written decks without a warning for the thin cards the Studio fixes automatically. The owner then asked for more room than the measurement needs (112000, about 1.9KB of headroom), so the next lint rule does not trip it at once.

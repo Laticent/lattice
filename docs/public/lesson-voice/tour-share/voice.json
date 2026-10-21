@@ -1,0 +1,1347 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 358704,
+	"lines": [
+		{
+			"key": "2e47c7d9420c",
+			"text": "Share is where a deck leaves the building. Everything you can send lives in this one panel.",
+			"file": "2e47c7d9420c.mp3",
+			"bytes": 36720,
+			"speechMs": 6060,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Share is where a deck leaves the building.",
+						"words": [
+							{
+								"display": "Share",
+								"spoken": "Share",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 210,
+								"endMs": 420,
+								"charOffset": 6
+							},
+							{
+								"display": "where",
+								"spoken": "where",
+								"startMs": 420,
+								"endMs": 630,
+								"charOffset": 9
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 630,
+								"endMs": 840,
+								"charOffset": 15
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 840,
+								"endMs": 1050,
+								"charOffset": 17
+							},
+							{
+								"display": "leaves",
+								"spoken": "leaves",
+								"startMs": 1050,
+								"endMs": 1470,
+								"charOffset": 22
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1470,
+								"endMs": 1680,
+								"charOffset": 29
+							},
+							{
+								"display": "building.",
+								"spoken": "building.",
+								"startMs": 1680,
+								"endMs": 2131,
+								"charOffset": 33
+							}
+						],
+						"startMs": 0,
+						"endMs": 2525,
+						"charOffset": 0
+					},
+					{
+						"display": "Everything you can send lives in this one panel.",
+						"words": [
+							{
+								"display": "Everything",
+								"spoken": "Everything",
+								"startMs": 2694,
+								"endMs": 3535,
+								"charOffset": 43
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 3535,
+								"endMs": 3745,
+								"charOffset": 54
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 3745,
+								"endMs": 3955,
+								"charOffset": 58
+							},
+							{
+								"display": "send",
+								"spoken": "send",
+								"startMs": 3955,
+								"endMs": 4165,
+								"charOffset": 62
+							},
+							{
+								"display": "lives",
+								"spoken": "lives",
+								"startMs": 4165,
+								"endMs": 4585,
+								"charOffset": 67
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 4585,
+								"endMs": 4795,
+								"charOffset": 73
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 4795,
+								"endMs": 5005,
+								"charOffset": 76
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 5005,
+								"endMs": 5215,
+								"charOffset": 81
+							},
+							{
+								"display": "panel.",
+								"spoken": "panel.",
+								"startMs": 5215,
+								"endMs": 5666,
+								"charOffset": 85
+							}
+						],
+						"startMs": 2694,
+						"endMs": 6060,
+						"charOffset": 43
+					}
+				],
+				"durationMs": 6060
+			}
+		},
+		{
+			"key": "95d372553674",
+			"text": "Collaborate live shares a link. People knock, you let them in, and you edit together.",
+			"file": "95d372553674.mp3",
+			"bytes": 35136,
+			"speechMs": 5803,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Collaborate live shares a link.",
+						"words": [
+							{
+								"display": "Collaborate",
+								"spoken": "Collaborate",
+								"startMs": 0,
+								"endMs": 771,
+								"charOffset": 0
+							},
+							{
+								"display": "live",
+								"spoken": "live",
+								"startMs": 771,
+								"endMs": 964,
+								"charOffset": 12
+							},
+							{
+								"display": "shares",
+								"spoken": "shares",
+								"startMs": 964,
+								"endMs": 1350,
+								"charOffset": 17
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 1350,
+								"endMs": 1542,
+								"charOffset": 24
+							},
+							{
+								"display": "link.",
+								"spoken": "link.",
+								"startMs": 1542,
+								"endMs": 1763,
+								"charOffset": 26
+							}
+						],
+						"startMs": 0,
+						"endMs": 2126,
+						"charOffset": 0
+					},
+					{
+						"display": "People knock, you let them in, and you edit together.",
+						"words": [
+							{
+								"display": "People",
+								"spoken": "People",
+								"startMs": 2281,
+								"endMs": 2666,
+								"charOffset": 32
+							},
+							{
+								"display": "knock,",
+								"spoken": "knock,",
+								"startMs": 2666,
+								"endMs": 2887,
+								"charOffset": 39
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 3075,
+								"endMs": 3268,
+								"charOffset": 46
+							},
+							{
+								"display": "let",
+								"spoken": "let",
+								"startMs": 3268,
+								"endMs": 3461,
+								"charOffset": 50
+							},
+							{
+								"display": "them",
+								"spoken": "them",
+								"startMs": 3461,
+								"endMs": 3654,
+								"charOffset": 54
+							},
+							{
+								"display": "in,",
+								"spoken": "in,",
+								"startMs": 3654,
+								"endMs": 3875,
+								"charOffset": 59
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4063,
+								"endMs": 4256,
+								"charOffset": 63
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 4256,
+								"endMs": 4449,
+								"charOffset": 67
+							},
+							{
+								"display": "edit",
+								"spoken": "edit",
+								"startMs": 4449,
+								"endMs": 4834,
+								"charOffset": 71
+							},
+							{
+								"display": "together.",
+								"spoken": "together.",
+								"startMs": 4834,
+								"endMs": 5441,
+								"charOffset": 76
+							}
+						],
+						"startMs": 2281,
+						"endMs": 5803,
+						"charOffset": 32
+					}
+				],
+				"durationMs": 5803
+			}
+		},
+		{
+			"key": "00786f442e02",
+			"text": "Present link is a live, themed link that opens straight into Present.",
+			"file": "00786f442e02.mp3",
+			"bytes": 28944,
+			"speechMs": 4755,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Present link is a live, themed link that opens straight into Present.",
+						"words": [
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 0,
+								"endMs": 472,
+								"charOffset": 0
+							},
+							{
+								"display": "link",
+								"spoken": "link",
+								"startMs": 472,
+								"endMs": 708,
+								"charOffset": 8
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 708,
+								"endMs": 944,
+								"charOffset": 13
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 944,
+								"endMs": 1180,
+								"charOffset": 16
+							},
+							{
+								"display": "live,",
+								"spoken": "live,",
+								"startMs": 1180,
+								"endMs": 1451,
+								"charOffset": 18
+							},
+							{
+								"display": "themed",
+								"spoken": "themed",
+								"startMs": 1681,
+								"endMs": 2153,
+								"charOffset": 24
+							},
+							{
+								"display": "link",
+								"spoken": "link",
+								"startMs": 2153,
+								"endMs": 2389,
+								"charOffset": 31
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 2389,
+								"endMs": 2625,
+								"charOffset": 36
+							},
+							{
+								"display": "opens",
+								"spoken": "opens",
+								"startMs": 2625,
+								"endMs": 3097,
+								"charOffset": 41
+							},
+							{
+								"display": "straight",
+								"spoken": "straight",
+								"startMs": 3097,
+								"endMs": 3333,
+								"charOffset": 47
+							},
+							{
+								"display": "into",
+								"spoken": "into",
+								"startMs": 3333,
+								"endMs": 3805,
+								"charOffset": 56
+							},
+							{
+								"display": "Present.",
+								"spoken": "Present.",
+								"startMs": 3805,
+								"endMs": 4312,
+								"charOffset": 61
+							}
+						],
+						"startMs": 0,
+						"endMs": 4755,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4755
+			}
+		},
+		{
+			"key": "05dd7542f768",
+			"text": "PDF gives you one slide per page, and you choose what rides along.",
+			"file": "05dd7542f768.mp3",
+			"bytes": 26496,
+			"speechMs": 4344,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "PDF gives you one slide per page, and you choose what rides along.",
+						"words": [
+							{
+								"display": "PDF",
+								"spoken": "PDF",
+								"startMs": 0,
+								"endMs": 616,
+								"charOffset": 0
+							},
+							{
+								"display": "gives",
+								"spoken": "gives",
+								"startMs": 616,
+								"endMs": 1027,
+								"charOffset": 4
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1027,
+								"endMs": 1233,
+								"charOffset": 10
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 1233,
+								"endMs": 1438,
+								"charOffset": 14
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 1438,
+								"endMs": 1643,
+								"charOffset": 18
+							},
+							{
+								"display": "per",
+								"spoken": "per",
+								"startMs": 1643,
+								"endMs": 1849,
+								"charOffset": 24
+							},
+							{
+								"display": "page,",
+								"spoken": "page,",
+								"startMs": 1849,
+								"endMs": 2084,
+								"charOffset": 28
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2285,
+								"endMs": 2490,
+								"charOffset": 34
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 2490,
+								"endMs": 2696,
+								"charOffset": 38
+							},
+							{
+								"display": "choose",
+								"spoken": "choose",
+								"startMs": 2696,
+								"endMs": 2901,
+								"charOffset": 42
+							},
+							{
+								"display": "what",
+								"spoken": "what",
+								"startMs": 2901,
+								"endMs": 3106,
+								"charOffset": 49
+							},
+							{
+								"display": "rides",
+								"spoken": "rides",
+								"startMs": 3106,
+								"endMs": 3517,
+								"charOffset": 54
+							},
+							{
+								"display": "along.",
+								"spoken": "along.",
+								"startMs": 3517,
+								"endMs": 3958,
+								"charOffset": 60
+							}
+						],
+						"startMs": 0,
+						"endMs": 4344,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4344
+			}
+		},
+		{
+			"key": "7596b9d97f9e",
+			"text": "PowerPoint and LibreOffice export either pictures or editable text.",
+			"file": "7596b9d97f9e.mp3",
+			"bytes": 29088,
+			"speechMs": 4789,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "PowerPoint and LibreOffice export either pictures or editable text.",
+						"words": [
+							{
+								"display": "PowerPoint",
+								"spoken": "PowerPoint",
+								"startMs": 0,
+								"endMs": 652,
+								"charOffset": 0
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 652,
+								"endMs": 870,
+								"charOffset": 11
+							},
+							{
+								"display": "LibreOffice",
+								"spoken": "LibreOffice",
+								"startMs": 870,
+								"endMs": 1522,
+								"charOffset": 15
+							},
+							{
+								"display": "export",
+								"spoken": "export",
+								"startMs": 1522,
+								"endMs": 1957,
+								"charOffset": 27
+							},
+							{
+								"display": "either",
+								"spoken": "either",
+								"startMs": 1957,
+								"endMs": 2392,
+								"charOffset": 34
+							},
+							{
+								"display": "pictures",
+								"spoken": "pictures",
+								"startMs": 2392,
+								"endMs": 3044,
+								"charOffset": 41
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 3044,
+								"endMs": 3262,
+								"charOffset": 50
+							},
+							{
+								"display": "editable",
+								"spoken": "editable",
+								"startMs": 3262,
+								"endMs": 4131,
+								"charOffset": 53
+							},
+							{
+								"display": "text.",
+								"spoken": "text.",
+								"startMs": 4131,
+								"endMs": 4381,
+								"charOffset": 62
+							}
+						],
+						"startMs": 0,
+						"endMs": 4789,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4789
+			}
+		},
+		{
+			"key": "e9ef2fc868b8",
+			"text": "Images gives you one picture per slide, as PNG, JPEG or WebP.",
+			"file": "e9ef2fc868b8.mp3",
+			"bytes": 32544,
+			"speechMs": 5360,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Images gives you one picture per slide, as PNG, JPEG or WebP.",
+						"words": [
+							{
+								"display": "Images",
+								"spoken": "Images",
+								"startMs": 0,
+								"endMs": 722,
+								"charOffset": 0
+							},
+							{
+								"display": "gives",
+								"spoken": "gives",
+								"startMs": 722,
+								"endMs": 1204,
+								"charOffset": 7
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1204,
+								"endMs": 1444,
+								"charOffset": 13
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 1444,
+								"endMs": 1685,
+								"charOffset": 17
+							},
+							{
+								"display": "picture",
+								"spoken": "picture",
+								"startMs": 1685,
+								"endMs": 2166,
+								"charOffset": 21
+							},
+							{
+								"display": "per",
+								"spoken": "per",
+								"startMs": 2166,
+								"endMs": 2407,
+								"charOffset": 29
+							},
+							{
+								"display": "slide,",
+								"spoken": "slide,",
+								"startMs": 2407,
+								"endMs": 2683,
+								"charOffset": 33
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 2918,
+								"endMs": 3158,
+								"charOffset": 40
+							},
+							{
+								"display": "PNG,",
+								"spoken": "PNG,",
+								"startMs": 3158,
+								"endMs": 3916,
+								"charOffset": 43
+							},
+							{
+								"display": "JPEG",
+								"spoken": "JPEG",
+								"startMs": 4151,
+								"endMs": 4391,
+								"charOffset": 48
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 4391,
+								"endMs": 4632,
+								"charOffset": 53
+							},
+							{
+								"display": "WebP.",
+								"spoken": "WebP.",
+								"startMs": 4632,
+								"endMs": 4908,
+								"charOffset": 56
+							}
+						],
+						"startMs": 0,
+						"endMs": 5360,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5360
+			}
+		},
+		{
+			"key": "4672f36debda",
+			"text": "Print deck lets you pick paper and color, preview, then print or save.",
+			"file": "4672f36debda.mp3",
+			"bytes": 30816,
+			"speechMs": 5069,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Print deck lets you pick paper and color, preview, then print or save.",
+						"words": [
+							{
+								"display": "Print",
+								"spoken": "Print",
+								"startMs": 0,
+								"endMs": 250,
+								"charOffset": 0
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 250,
+								"endMs": 500,
+								"charOffset": 6
+							},
+							{
+								"display": "lets",
+								"spoken": "lets",
+								"startMs": 500,
+								"endMs": 750,
+								"charOffset": 11
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 750,
+								"endMs": 1000,
+								"charOffset": 16
+							},
+							{
+								"display": "pick",
+								"spoken": "pick",
+								"startMs": 1000,
+								"endMs": 1250,
+								"charOffset": 20
+							},
+							{
+								"display": "paper",
+								"spoken": "paper",
+								"startMs": 1250,
+								"endMs": 1751,
+								"charOffset": 25
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1751,
+								"endMs": 2001,
+								"charOffset": 31
+							},
+							{
+								"display": "color,",
+								"spoken": "color,",
+								"startMs": 2001,
+								"endMs": 2538,
+								"charOffset": 35
+							},
+							{
+								"display": "preview,",
+								"spoken": "preview,",
+								"startMs": 2782,
+								"endMs": 3318,
+								"charOffset": 42
+							},
+							{
+								"display": "then",
+								"spoken": "then",
+								"startMs": 3562,
+								"endMs": 3812,
+								"charOffset": 51
+							},
+							{
+								"display": "print",
+								"spoken": "print",
+								"startMs": 3812,
+								"endMs": 4063,
+								"charOffset": 56
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 4063,
+								"endMs": 4313,
+								"charOffset": 62
+							},
+							{
+								"display": "save.",
+								"spoken": "save.",
+								"startMs": 4313,
+								"endMs": 4599,
+								"charOffset": 65
+							}
+						],
+						"startMs": 0,
+						"endMs": 5069,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5069
+			}
+		},
+		{
+			"key": "f7ade5114735",
+			"text": "Webpage is a single self-contained file. It opens in any browser, even offline.",
+			"file": "f7ade5114735.mp3",
+			"bytes": 35280,
+			"speechMs": 5814,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Webpage is a single self-contained file.",
+						"words": [
+							{
+								"display": "Webpage",
+								"spoken": "Webpage",
+								"startMs": 0,
+								"endMs": 401,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 401,
+								"endMs": 602,
+								"charOffset": 8
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 602,
+								"endMs": 803,
+								"charOffset": 11
+							},
+							{
+								"display": "single",
+								"spoken": "single",
+								"startMs": 803,
+								"endMs": 1204,
+								"charOffset": 13
+							},
+							{
+								"display": "self-contained",
+								"spoken": "self-contained",
+								"startMs": 1204,
+								"endMs": 2007,
+								"charOffset": 20
+							},
+							{
+								"display": "file.",
+								"spoken": "file.",
+								"startMs": 2007,
+								"endMs": 2237,
+								"charOffset": 35
+							}
+						],
+						"startMs": 0,
+						"endMs": 2613,
+						"charOffset": 0
+					},
+					{
+						"display": "It opens in any browser, even offline.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 2775,
+								"endMs": 2976,
+								"charOffset": 41
+							},
+							{
+								"display": "opens",
+								"spoken": "opens",
+								"startMs": 2976,
+								"endMs": 3377,
+								"charOffset": 44
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 3377,
+								"endMs": 3577,
+								"charOffset": 50
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 3577,
+								"endMs": 3979,
+								"charOffset": 53
+							},
+							{
+								"display": "browser,",
+								"spoken": "browser,",
+								"startMs": 3979,
+								"endMs": 4409,
+								"charOffset": 57
+							},
+							{
+								"display": "even",
+								"spoken": "even",
+								"startMs": 4605,
+								"endMs": 5007,
+								"charOffset": 66
+							},
+							{
+								"display": "offline.",
+								"spoken": "offline.",
+								"startMs": 5007,
+								"endMs": 5437,
+								"charOffset": 71
+							}
+						],
+						"startMs": 2775,
+						"endMs": 5814,
+						"charOffset": 41
+					}
+				],
+				"durationMs": 5814
+			}
+		},
+		{
+			"key": "6101ec4066ae",
+			"text": "Captions makes a read-along file from your slide text, with no audio needed.",
+			"file": "6101ec4066ae.mp3",
+			"bytes": 30096,
+			"speechMs": 4950,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Captions makes a read-along file from your slide text, with no audio needed.",
+						"words": [
+							{
+								"display": "Captions",
+								"spoken": "Captions",
+								"startMs": 0,
+								"endMs": 447,
+								"charOffset": 0
+							},
+							{
+								"display": "makes",
+								"spoken": "makes",
+								"startMs": 447,
+								"endMs": 894,
+								"charOffset": 9
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 894,
+								"endMs": 1118,
+								"charOffset": 15
+							},
+							{
+								"display": "read-along",
+								"spoken": "read-along",
+								"startMs": 1118,
+								"endMs": 1788,
+								"charOffset": 17
+							},
+							{
+								"display": "file",
+								"spoken": "file",
+								"startMs": 1788,
+								"endMs": 2012,
+								"charOffset": 28
+							},
+							{
+								"display": "from",
+								"spoken": "from",
+								"startMs": 2012,
+								"endMs": 2235,
+								"charOffset": 33
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 2235,
+								"endMs": 2459,
+								"charOffset": 38
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2459,
+								"endMs": 2682,
+								"charOffset": 43
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 2682,
+								"endMs": 2938,
+								"charOffset": 49
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 3156,
+								"endMs": 3380,
+								"charOffset": 55
+							},
+							{
+								"display": "no",
+								"spoken": "no",
+								"startMs": 3380,
+								"endMs": 3603,
+								"charOffset": 60
+							},
+							{
+								"display": "audio",
+								"spoken": "audio",
+								"startMs": 3603,
+								"endMs": 4050,
+								"charOffset": 63
+							},
+							{
+								"display": "needed.",
+								"spoken": "needed.",
+								"startMs": 4050,
+								"endMs": 4530,
+								"charOffset": 69
+							}
+						],
+						"startMs": 0,
+						"endMs": 4950,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4950
+			}
+		},
+		{
+			"key": "6ed37373fef5",
+			"text": "Below that is the source: the Markdown itself, a Lattice project file, and a Marp bundle.",
+			"file": "6ed37373fef5.mp3",
+			"bytes": 36144,
+			"speechMs": 5958,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Below that is the source: the Markdown itself, a Lattice project file, and a Marp bundle.",
+						"words": [
+							{
+								"display": "Below",
+								"spoken": "Below",
+								"startMs": 0,
+								"endMs": 424,
+								"charOffset": 0
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 424,
+								"endMs": 636,
+								"charOffset": 6
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 636,
+								"endMs": 847,
+								"charOffset": 11
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 847,
+								"endMs": 1059,
+								"charOffset": 14
+							},
+							{
+								"display": "source:",
+								"spoken": "source,",
+								"startMs": 1059,
+								"endMs": 1302,
+								"charOffset": 18
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1664,
+								"endMs": 1876,
+								"charOffset": 26
+							},
+							{
+								"display": "Markdown",
+								"spoken": "Markdown",
+								"startMs": 1876,
+								"endMs": 2299,
+								"charOffset": 30
+							},
+							{
+								"display": "itself,",
+								"spoken": "itself,",
+								"startMs": 2299,
+								"endMs": 2754,
+								"charOffset": 39
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2961,
+								"endMs": 3173,
+								"charOffset": 47
+							},
+							{
+								"display": "Lattice",
+								"spoken": "Lattice",
+								"startMs": 3173,
+								"endMs": 3597,
+								"charOffset": 49
+							},
+							{
+								"display": "project",
+								"spoken": "project",
+								"startMs": 3597,
+								"endMs": 4020,
+								"charOffset": 57
+							},
+							{
+								"display": "file,",
+								"spoken": "file,",
+								"startMs": 4020,
+								"endMs": 4263,
+								"charOffset": 65
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4470,
+								"endMs": 4682,
+								"charOffset": 71
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4682,
+								"endMs": 4894,
+								"charOffset": 75
+							},
+							{
+								"display": "Marp",
+								"spoken": "Marp",
+								"startMs": 4894,
+								"endMs": 5105,
+								"charOffset": 77
+							},
+							{
+								"display": "bundle.",
+								"spoken": "bundle.",
+								"startMs": 5105,
+								"endMs": 5560,
+								"charOffset": 82
+							}
+						],
+						"startMs": 0,
+						"endMs": 5958,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5958
+			}
+		},
+		{
+			"key": "7c72831625ed",
+			"text": "That is everything you need. Now go make something. Or let me teach you by doing, in the lessons.",
+			"file": "7c72831625ed.mp3",
+			"bytes": 37440,
+			"speechMs": 6183,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That is everything you need.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 183,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 183,
+								"endMs": 366,
+								"charOffset": 5
+							},
+							{
+								"display": "everything",
+								"spoken": "everything",
+								"startMs": 366,
+								"endMs": 1097,
+								"charOffset": 8
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1097,
+								"endMs": 1280,
+								"charOffset": 19
+							},
+							{
+								"display": "need.",
+								"spoken": "need.",
+								"startMs": 1280,
+								"endMs": 1490,
+								"charOffset": 23
+							}
+						],
+						"startMs": 0,
+						"endMs": 1833,
+						"charOffset": 0
+					},
+					{
+						"display": "Now go make something.",
+						"words": [
+							{
+								"display": "Now",
+								"spoken": "Now",
+								"startMs": 1981,
+								"endMs": 2164,
+								"charOffset": 29
+							},
+							{
+								"display": "go",
+								"spoken": "go",
+								"startMs": 2164,
+								"endMs": 2347,
+								"charOffset": 33
+							},
+							{
+								"display": "make",
+								"spoken": "make",
+								"startMs": 2347,
+								"endMs": 2529,
+								"charOffset": 36
+							},
+							{
+								"display": "something.",
+								"spoken": "something.",
+								"startMs": 2529,
+								"endMs": 3105,
+								"charOffset": 41
+							}
+						],
+						"startMs": 1981,
+						"endMs": 3448,
+						"charOffset": 29
+					},
+					{
+						"display": "Or let me teach you by doing, in the lessons.",
+						"words": [
+							{
+								"display": "Or",
+								"spoken": "Or",
+								"startMs": 3596,
+								"endMs": 3779,
+								"charOffset": 52
+							},
+							{
+								"display": "let",
+								"spoken": "let",
+								"startMs": 3779,
+								"endMs": 3961,
+								"charOffset": 55
+							},
+							{
+								"display": "me",
+								"spoken": "me",
+								"startMs": 3961,
+								"endMs": 4144,
+								"charOffset": 59
+							},
+							{
+								"display": "teach",
+								"spoken": "teach",
+								"startMs": 4144,
+								"endMs": 4327,
+								"charOffset": 62
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 4327,
+								"endMs": 4510,
+								"charOffset": 68
+							},
+							{
+								"display": "by",
+								"spoken": "by",
+								"startMs": 4510,
+								"endMs": 4693,
+								"charOffset": 72
+							},
+							{
+								"display": "doing,",
+								"spoken": "doing,",
+								"startMs": 4693,
+								"endMs": 4903,
+								"charOffset": 75
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 5081,
+								"endMs": 5264,
+								"charOffset": 82
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 5264,
+								"endMs": 5447,
+								"charOffset": 85
+							},
+							{
+								"display": "lessons.",
+								"spoken": "lessons.",
+								"startMs": 5447,
+								"endMs": 5840,
+								"charOffset": 89
+							}
+						],
+						"startMs": 3596,
+						"endMs": 6183,
+						"charOffset": 52
+					}
+				],
+				"durationMs": 6183
+			}
+		}
+	]
+}

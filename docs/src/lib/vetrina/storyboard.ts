@@ -248,6 +248,10 @@ export function storyboard<A>(seed: string, steps: Step<A>[]): Walkthrough<A> {
 								const say = step.say as string;
 								recorder.line(i, say, planFor(narrator, say), cuePlan, step.click ? 'click' : step.point != null ? 'point' : 'act', typeof step.point === 'string' ? step.point : undefined);
 							}
+							// Lean the voice toward what the cursor is about to point at; a beat that points at
+							// nothing speaks from the centre.
+							const target = step.point ?? (step.drag != null ? step.drag.from : null);
+							narrator.setPan?.((target != null ? stage.panOf?.(target) : 0) ?? 0);
 							const handle: NarrationHandle = narrator.speak(step.say as string, { signal });
 							await handle.done;
 							// An aborted line resolves early; its length is not a measurement.

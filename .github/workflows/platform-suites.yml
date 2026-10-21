@@ -27,7 +27,10 @@ name: Platform suites (macOS / Windows)
 # 3 m 29 s (`npm ci` is about 75 s of each Windows job, the full build about 75 s). All four suites green. The cron trigger has
 # fired once (run 39235883310, 2026-10-19): due 04:41 UTC, it started 10:13 UTC, 5 h 32 m late (GitHub delays scheduled runs under
 # load, and can drop one), and went green. It ran at 2e2755d, before the Windows and wait-for suites landed, so it ran only
-# `export-confine` (plan 19 s, macOS job 2 m 20 s). The first cron run of all four suites is the next one: re-measure from it.
+# `export-confine` (plan 19 s, macOS job 2 m 20 s). The first cron run of every suite is
+# 2026-10-20 (run 39401817610 at 23073cb): due 04:41 UTC, started 09:35 UTC (4 h 54 m late), all six suite jobs green, `alert` skipped.
+# Whole-job times: `plan` 22 s; macOS `export-confine` 2 m 49 s, `wait-for-macos` 2 m 35 s, `os-sandbox-measure` 3 m 06 s; Windows
+# `build-windows` 3 m 40 s, `export-confine-windows` 3 m 36 s, `os-sandbox-measure` 4 m 14 s.
 
 on:
   schedule:

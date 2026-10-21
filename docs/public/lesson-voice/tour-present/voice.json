@@ -1,0 +1,1227 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 295488,
+	"lines": [
+		{
+			"key": "ad4587cdf673",
+			"text": "Present plays your deck full screen. Click Present to begin.",
+			"file": "ad4587cdf673.mp3",
+			"bytes": 24480,
+			"speechMs": 4027,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Present plays your deck full screen.",
+						"words": [
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 0,
+								"endMs": 451,
+								"charOffset": 0
+							},
+							{
+								"display": "plays",
+								"spoken": "plays",
+								"startMs": 451,
+								"endMs": 677,
+								"charOffset": 8
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 677,
+								"endMs": 902,
+								"charOffset": 14
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 902,
+								"endMs": 1128,
+								"charOffset": 19
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 1128,
+								"endMs": 1353,
+								"charOffset": 24
+							},
+							{
+								"display": "screen.",
+								"spoken": "screen.",
+								"startMs": 1353,
+								"endMs": 1612,
+								"charOffset": 29
+							}
+						],
+						"startMs": 0,
+						"endMs": 2036,
+						"charOffset": 0
+					},
+					{
+						"display": "Click Present to begin.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 2217,
+								"endMs": 2443,
+								"charOffset": 37
+							},
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 2443,
+								"endMs": 2894,
+								"charOffset": 43
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2894,
+								"endMs": 3119,
+								"charOffset": 51
+							},
+							{
+								"display": "begin.",
+								"spoken": "begin.",
+								"startMs": 3119,
+								"endMs": 3603,
+								"charOffset": 54
+							}
+						],
+						"startMs": 2217,
+						"endMs": 4027,
+						"charOffset": 37
+					}
+				],
+				"durationMs": 4027
+			}
+		},
+		{
+			"key": "fe69f9be272a",
+			"text": "Move with the arrow keys, or swipe. Escape leaves at any time.",
+			"file": "fe69f9be272a.mp3",
+			"bytes": 29376,
+			"speechMs": 4829,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Move with the arrow keys, or swipe.",
+						"words": [
+							{
+								"display": "Move",
+								"spoken": "Move",
+								"startMs": 0,
+								"endMs": 220,
+								"charOffset": 0
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 220,
+								"endMs": 439,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 439,
+								"endMs": 659,
+								"charOffset": 10
+							},
+							{
+								"display": "arrow",
+								"spoken": "arrow",
+								"startMs": 659,
+								"endMs": 1099,
+								"charOffset": 14
+							},
+							{
+								"display": "keys,",
+								"spoken": "keys,",
+								"startMs": 1099,
+								"endMs": 1351,
+								"charOffset": 20
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 1565,
+								"endMs": 1785,
+								"charOffset": 26
+							},
+							{
+								"display": "swipe.",
+								"spoken": "swipe.",
+								"startMs": 1785,
+								"endMs": 2037,
+								"charOffset": 29
+							}
+						],
+						"startMs": 0,
+						"endMs": 2449,
+						"charOffset": 0
+					},
+					{
+						"display": "Escape leaves at any time.",
+						"words": [
+							{
+								"display": "Escape",
+								"spoken": "Escape",
+								"startMs": 2626,
+								"endMs": 3066,
+								"charOffset": 36
+							},
+							{
+								"display": "leaves",
+								"spoken": "leaves",
+								"startMs": 3066,
+								"endMs": 3505,
+								"charOffset": 43
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 3505,
+								"endMs": 3725,
+								"charOffset": 50
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 3725,
+								"endMs": 4164,
+								"charOffset": 53
+							},
+							{
+								"display": "time.",
+								"spoken": "time.",
+								"startMs": 4164,
+								"endMs": 4416,
+								"charOffset": 57
+							}
+						],
+						"startMs": 2626,
+						"endMs": 4829,
+						"charOffset": 36
+					}
+				],
+				"durationMs": 4829
+			}
+		},
+		{
+			"key": "305387267122",
+			"text": "Slides, or the G key, shows every slide so you can jump anywhere.",
+			"file": "305387267122.mp3",
+			"bytes": 30096,
+			"speechMs": 4961,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Slides, or the G key, shows every slide so you can jump anywhere.",
+						"words": [
+							{
+								"display": "Slides,",
+								"spoken": "Slides,",
+								"startMs": 0,
+								"endMs": 478,
+								"charOffset": 0
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 696,
+								"endMs": 918,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 918,
+								"endMs": 1141,
+								"charOffset": 11
+							},
+							{
+								"display": "G",
+								"spoken": "G",
+								"startMs": 1141,
+								"endMs": 1364,
+								"charOffset": 15
+							},
+							{
+								"display": "key,",
+								"spoken": "key,",
+								"startMs": 1364,
+								"endMs": 1619,
+								"charOffset": 17
+							},
+							{
+								"display": "shows",
+								"spoken": "shows",
+								"startMs": 1837,
+								"endMs": 2059,
+								"charOffset": 22
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 2059,
+								"endMs": 2728,
+								"charOffset": 28
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2728,
+								"endMs": 2951,
+								"charOffset": 34
+							},
+							{
+								"display": "so",
+								"spoken": "so",
+								"startMs": 2951,
+								"endMs": 3173,
+								"charOffset": 40
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 3173,
+								"endMs": 3396,
+								"charOffset": 43
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 3396,
+								"endMs": 3619,
+								"charOffset": 47
+							},
+							{
+								"display": "jump",
+								"spoken": "jump",
+								"startMs": 3619,
+								"endMs": 3842,
+								"charOffset": 51
+							},
+							{
+								"display": "anywhere.",
+								"spoken": "anywhere.",
+								"startMs": 3842,
+								"endMs": 4543,
+								"charOffset": 56
+							}
+						],
+						"startMs": 0,
+						"endMs": 4961,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4961
+			}
+		},
+		{
+			"key": "3d8b45913f82",
+			"text": "Venue sets the size of the room, for this showing only.",
+			"file": "3d8b45913f82.mp3",
+			"bytes": 22608,
+			"speechMs": 3719,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Venue sets the size of the room, for this showing only.",
+						"words": [
+							{
+								"display": "Venue",
+								"spoken": "Venue",
+								"startMs": 0,
+								"endMs": 434,
+								"charOffset": 0
+							},
+							{
+								"display": "sets",
+								"spoken": "sets",
+								"startMs": 434,
+								"endMs": 651,
+								"charOffset": 6
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 651,
+								"endMs": 868,
+								"charOffset": 11
+							},
+							{
+								"display": "size",
+								"spoken": "size",
+								"startMs": 868,
+								"endMs": 1084,
+								"charOffset": 15
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 1084,
+								"endMs": 1301,
+								"charOffset": 20
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1301,
+								"endMs": 1518,
+								"charOffset": 23
+							},
+							{
+								"display": "room,",
+								"spoken": "room,",
+								"startMs": 1518,
+								"endMs": 1767,
+								"charOffset": 27
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1979,
+								"endMs": 2195,
+								"charOffset": 33
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 2195,
+								"endMs": 2412,
+								"charOffset": 37
+							},
+							{
+								"display": "showing",
+								"spoken": "showing",
+								"startMs": 2412,
+								"endMs": 2846,
+								"charOffset": 42
+							},
+							{
+								"display": "only.",
+								"spoken": "only.",
+								"startMs": 2846,
+								"endMs": 3312,
+								"charOffset": 50
+							}
+						],
+						"startMs": 0,
+						"endMs": 3719,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3719
+			}
+		},
+		{
+			"key": "95003b6b2c1a",
+			"text": "Rehearse is a practice run with a talk clock, so you can time yourself before the real thing.",
+			"file": "95003b6b2c1a.mp3",
+			"bytes": 32688,
+			"speechMs": 5389,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Rehearse is a practice run with a talk clock, so you can time yourself before the real thing.",
+						"words": [
+							{
+								"display": "Rehearse",
+								"spoken": "Rehearse",
+								"startMs": 0,
+								"endMs": 429,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 429,
+								"endMs": 643,
+								"charOffset": 9
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 643,
+								"endMs": 857,
+								"charOffset": 12
+							},
+							{
+								"display": "practice",
+								"spoken": "practice",
+								"startMs": 857,
+								"endMs": 1286,
+								"charOffset": 14
+							},
+							{
+								"display": "run",
+								"spoken": "run",
+								"startMs": 1286,
+								"endMs": 1500,
+								"charOffset": 23
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 1500,
+								"endMs": 1714,
+								"charOffset": 27
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 1714,
+								"endMs": 1929,
+								"charOffset": 32
+							},
+							{
+								"display": "talk",
+								"spoken": "talk",
+								"startMs": 1929,
+								"endMs": 2143,
+								"charOffset": 34
+							},
+							{
+								"display": "clock,",
+								"spoken": "clock,",
+								"startMs": 2143,
+								"endMs": 2389,
+								"charOffset": 39
+							},
+							{
+								"display": "so",
+								"spoken": "so",
+								"startMs": 2598,
+								"endMs": 2812,
+								"charOffset": 46
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 2812,
+								"endMs": 3026,
+								"charOffset": 49
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 3026,
+								"endMs": 3241,
+								"charOffset": 53
+							},
+							{
+								"display": "time",
+								"spoken": "time",
+								"startMs": 3241,
+								"endMs": 3455,
+								"charOffset": 57
+							},
+							{
+								"display": "yourself",
+								"spoken": "yourself",
+								"startMs": 3455,
+								"endMs": 3884,
+								"charOffset": 62
+							},
+							{
+								"display": "before",
+								"spoken": "before",
+								"startMs": 3884,
+								"endMs": 4312,
+								"charOffset": 71
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4312,
+								"endMs": 4527,
+								"charOffset": 78
+							},
+							{
+								"display": "real",
+								"spoken": "real",
+								"startMs": 4527,
+								"endMs": 4741,
+								"charOffset": 82
+							},
+							{
+								"display": "thing.",
+								"spoken": "thing.",
+								"startMs": 4741,
+								"endMs": 4987,
+								"charOffset": 87
+							}
+						],
+						"startMs": 0,
+						"endMs": 5389,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5389
+			}
+		},
+		{
+			"key": "d844e24e7023",
+			"text": "Fullscreen, or F, hides the browser. Stage sends a clean copy of the deck to your second screen.",
+			"file": "d844e24e7023.mp3",
+			"bytes": 40176,
+			"speechMs": 6634,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Fullscreen, or F, hides the browser.",
+						"words": [
+							{
+								"display": "Fullscreen,",
+								"spoken": "Fullscreen,",
+								"startMs": 0,
+								"endMs": 473,
+								"charOffset": 0
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 688,
+								"endMs": 909,
+								"charOffset": 12
+							},
+							{
+								"display": "F,",
+								"spoken": "F,",
+								"startMs": 909,
+								"endMs": 1161,
+								"charOffset": 15
+							},
+							{
+								"display": "hides",
+								"spoken": "hides",
+								"startMs": 1376,
+								"endMs": 1817,
+								"charOffset": 18
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1817,
+								"endMs": 2038,
+								"charOffset": 24
+							},
+							{
+								"display": "browser.",
+								"spoken": "browser.",
+								"startMs": 2038,
+								"endMs": 2511,
+								"charOffset": 28
+							}
+						],
+						"startMs": 0,
+						"endMs": 2925,
+						"charOffset": 0
+					},
+					{
+						"display": "Stage sends a clean copy of the deck to your second screen.",
+						"words": [
+							{
+								"display": "Stage",
+								"spoken": "Stage",
+								"startMs": 3102,
+								"endMs": 3322,
+								"charOffset": 37
+							},
+							{
+								"display": "sends",
+								"spoken": "sends",
+								"startMs": 3322,
+								"endMs": 3543,
+								"charOffset": 43
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3543,
+								"endMs": 3763,
+								"charOffset": 49
+							},
+							{
+								"display": "clean",
+								"spoken": "clean",
+								"startMs": 3763,
+								"endMs": 3984,
+								"charOffset": 51
+							},
+							{
+								"display": "copy",
+								"spoken": "copy",
+								"startMs": 3984,
+								"endMs": 4424,
+								"charOffset": 57
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 4424,
+								"endMs": 4645,
+								"charOffset": 62
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4645,
+								"endMs": 4865,
+								"charOffset": 65
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 4865,
+								"endMs": 5086,
+								"charOffset": 69
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 5086,
+								"endMs": 5306,
+								"charOffset": 74
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 5306,
+								"endMs": 5527,
+								"charOffset": 77
+							},
+							{
+								"display": "second",
+								"spoken": "second",
+								"startMs": 5527,
+								"endMs": 5967,
+								"charOffset": 82
+							},
+							{
+								"display": "screen.",
+								"spoken": "screen.",
+								"startMs": 5967,
+								"endMs": 6220,
+								"charOffset": 89
+							}
+						],
+						"startMs": 3102,
+						"endMs": 6634,
+						"charOffset": 37
+					}
+				],
+				"durationMs": 6634
+			}
+		},
+		{
+			"key": "4bb526a85aad",
+			"text": "Captions show the narration as text, and Voice speaks it aloud.",
+			"file": "4bb526a85aad.mp3",
+			"bytes": 25488,
+			"speechMs": 4177,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Captions show the narration as text, and Voice speaks it aloud.",
+						"words": [
+							{
+								"display": "Captions",
+								"spoken": "Captions",
+								"startMs": 0,
+								"endMs": 460,
+								"charOffset": 0
+							},
+							{
+								"display": "show",
+								"spoken": "show",
+								"startMs": 460,
+								"endMs": 691,
+								"charOffset": 9
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 691,
+								"endMs": 921,
+								"charOffset": 14
+							},
+							{
+								"display": "narration",
+								"spoken": "narration",
+								"startMs": 921,
+								"endMs": 1611,
+								"charOffset": 18
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 1611,
+								"endMs": 1841,
+								"charOffset": 28
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 1841,
+								"endMs": 2105,
+								"charOffset": 31
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2330,
+								"endMs": 2560,
+								"charOffset": 37
+							},
+							{
+								"display": "Voice",
+								"spoken": "Voice",
+								"startMs": 2560,
+								"endMs": 2790,
+								"charOffset": 41
+							},
+							{
+								"display": "speaks",
+								"spoken": "speaks",
+								"startMs": 2790,
+								"endMs": 3020,
+								"charOffset": 47
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 3020,
+								"endMs": 3251,
+								"charOffset": 54
+							},
+							{
+								"display": "aloud.",
+								"spoken": "aloud.",
+								"startMs": 3251,
+								"endMs": 3745,
+								"charOffset": 57
+							}
+						],
+						"startMs": 0,
+						"endMs": 4177,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4177
+			}
+		},
+		{
+			"key": "7f46002c942a",
+			"text": "The rail shows the room how far along you are, and Guide points at whatever is being narrated.",
+			"file": "7f46002c942a.mp3",
+			"bytes": 33408,
+			"speechMs": 5500,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The rail shows the room how far along you are, and Guide points at whatever is being narrated.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "rail",
+								"spoken": "rail",
+								"startMs": 210,
+								"endMs": 421,
+								"charOffset": 4
+							},
+							{
+								"display": "shows",
+								"spoken": "shows",
+								"startMs": 421,
+								"endMs": 631,
+								"charOffset": 9
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 631,
+								"endMs": 841,
+								"charOffset": 15
+							},
+							{
+								"display": "room",
+								"spoken": "room",
+								"startMs": 841,
+								"endMs": 1052,
+								"charOffset": 19
+							},
+							{
+								"display": "how",
+								"spoken": "how",
+								"startMs": 1052,
+								"endMs": 1262,
+								"charOffset": 24
+							},
+							{
+								"display": "far",
+								"spoken": "far",
+								"startMs": 1262,
+								"endMs": 1472,
+								"charOffset": 28
+							},
+							{
+								"display": "along",
+								"spoken": "along",
+								"startMs": 1472,
+								"endMs": 1893,
+								"charOffset": 32
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1893,
+								"endMs": 2104,
+								"charOffset": 38
+							},
+							{
+								"display": "are,",
+								"spoken": "are,",
+								"startMs": 2104,
+								"endMs": 2345,
+								"charOffset": 42
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2550,
+								"endMs": 2760,
+								"charOffset": 47
+							},
+							{
+								"display": "Guide",
+								"spoken": "Guide",
+								"startMs": 2760,
+								"endMs": 2971,
+								"charOffset": 51
+							},
+							{
+								"display": "points",
+								"spoken": "points",
+								"startMs": 2971,
+								"endMs": 3181,
+								"charOffset": 57
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 3181,
+								"endMs": 3391,
+								"charOffset": 64
+							},
+							{
+								"display": "whatever",
+								"spoken": "whatever",
+								"startMs": 3391,
+								"endMs": 4022,
+								"charOffset": 67
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 4022,
+								"endMs": 4233,
+								"charOffset": 76
+							},
+							{
+								"display": "being",
+								"spoken": "being",
+								"startMs": 4233,
+								"endMs": 4443,
+								"charOffset": 79
+							},
+							{
+								"display": "narrated.",
+								"spoken": "narrated.",
+								"startMs": 4443,
+								"endMs": 5105,
+								"charOffset": 85
+							}
+						],
+						"startMs": 0,
+						"endMs": 5500,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 5500
+			}
+		},
+		{
+			"key": "d1a0a6406c88",
+			"text": "Click the X, or press Escape, and you are back in the Studio.",
+			"file": "d1a0a6406c88.mp3",
+			"bytes": 26064,
+			"speechMs": 4291,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Click the X, or press Escape, and you are back in the Studio.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 0,
+								"endMs": 223,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 223,
+								"endMs": 445,
+								"charOffset": 6
+							},
+							{
+								"display": "X,",
+								"spoken": "X,",
+								"startMs": 445,
+								"endMs": 701,
+								"charOffset": 10
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 918,
+								"endMs": 1141,
+								"charOffset": 13
+							},
+							{
+								"display": "press",
+								"spoken": "press",
+								"startMs": 1141,
+								"endMs": 1363,
+								"charOffset": 16
+							},
+							{
+								"display": "Escape,",
+								"spoken": "Escape,",
+								"startMs": 1363,
+								"endMs": 1841,
+								"charOffset": 22
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2059,
+								"endMs": 2281,
+								"charOffset": 30
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 2281,
+								"endMs": 2504,
+								"charOffset": 34
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 2504,
+								"endMs": 2727,
+								"charOffset": 38
+							},
+							{
+								"display": "back",
+								"spoken": "back",
+								"startMs": 2727,
+								"endMs": 2949,
+								"charOffset": 42
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 2949,
+								"endMs": 3172,
+								"charOffset": 47
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3172,
+								"endMs": 3395,
+								"charOffset": 50
+							},
+							{
+								"display": "Studio.",
+								"spoken": "Studio.",
+								"startMs": 3395,
+								"endMs": 3873,
+								"charOffset": 54
+							}
+						],
+						"startMs": 0,
+						"endMs": 4291,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4291
+			}
+		},
+		{
+			"key": "eb77da51be29",
+			"text": "That is Present. One more thing: how to get your deck out to other people.",
+			"file": "eb77da51be29.mp3",
+			"bytes": 31104,
+			"speechMs": 5125,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That is Present.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 207,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 207,
+								"endMs": 415,
+								"charOffset": 5
+							},
+							{
+								"display": "Present.",
+								"spoken": "Present.",
+								"startMs": 415,
+								"endMs": 860,
+								"charOffset": 8
+							}
+						],
+						"startMs": 0,
+						"endMs": 1250,
+						"charOffset": 0
+					},
+					{
+						"display": "One more thing: how to get your deck out to other people.",
+						"words": [
+							{
+								"display": "One",
+								"spoken": "One",
+								"startMs": 1417,
+								"endMs": 1624,
+								"charOffset": 17
+							},
+							{
+								"display": "more",
+								"spoken": "more",
+								"startMs": 1624,
+								"endMs": 1831,
+								"charOffset": 21
+							},
+							{
+								"display": "thing:",
+								"spoken": "thing,",
+								"startMs": 1831,
+								"endMs": 2069,
+								"charOffset": 26
+							},
+							{
+								"display": "how",
+								"spoken": "how",
+								"startMs": 2423,
+								"endMs": 2631,
+								"charOffset": 33
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2631,
+								"endMs": 2838,
+								"charOffset": 37
+							},
+							{
+								"display": "get",
+								"spoken": "get",
+								"startMs": 2838,
+								"endMs": 3046,
+								"charOffset": 40
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 3046,
+								"endMs": 3253,
+								"charOffset": 44
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 3253,
+								"endMs": 3461,
+								"charOffset": 49
+							},
+							{
+								"display": "out",
+								"spoken": "out",
+								"startMs": 3461,
+								"endMs": 3668,
+								"charOffset": 54
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 3668,
+								"endMs": 3875,
+								"charOffset": 58
+							},
+							{
+								"display": "other",
+								"spoken": "other",
+								"startMs": 3875,
+								"endMs": 4290,
+								"charOffset": 61
+							},
+							{
+								"display": "people.",
+								"spoken": "people.",
+								"startMs": 4290,
+								"endMs": 4735,
+								"charOffset": 67
+							}
+						],
+						"startMs": 1417,
+						"endMs": 5125,
+						"charOffset": 17
+					}
+				],
+				"durationMs": 5125
+			}
+		}
+	]
+}

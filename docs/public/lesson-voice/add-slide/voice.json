@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 137376,
+	"bytes": 156528,
 	"lines": [
 		{
-			"key": "cfff976536d4",
+			"key": "cfdf6351eab2",
 			"text": "To add a ready-made slide (a chart, a big number, a comparison), click Add slide.",
-			"file": "cfff976536d4.mp3",
-			"bytes": 28800,
-			"speechMs": 4731,
+			"file": "cfdf6351eab2.mp3",
+			"bytes": 39312,
+			"speechMs": 6488,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,122 +24,122 @@
 								"display": "To",
 								"spoken": "To",
 								"startMs": 0,
-								"endMs": 179,
+								"endMs": 246,
 								"charOffset": 0
 							},
 							{
 								"display": "add",
 								"spoken": "add",
-								"startMs": 179,
-								"endMs": 359,
+								"startMs": 246,
+								"endMs": 492,
 								"charOffset": 3
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 359,
-								"endMs": 538,
+								"startMs": 492,
+								"endMs": 738,
 								"charOffset": 7
 							},
 							{
 								"display": "ready-made",
 								"spoken": "ready-made",
-								"startMs": 538,
-								"endMs": 1076,
+								"startMs": 738,
+								"endMs": 1475,
 								"charOffset": 9
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 1076,
-								"endMs": 1255,
+								"startMs": 1475,
+								"endMs": 1721,
 								"charOffset": 20
 							},
 							{
 								"display": "(a",
 								"spoken": "a",
-								"startMs": 1255,
-								"endMs": 1434,
+								"startMs": 1721,
+								"endMs": 1967,
 								"charOffset": 26
 							},
 							{
 								"display": "chart,",
 								"spoken": "chart,",
-								"startMs": 1434,
-								"endMs": 1640,
+								"startMs": 1967,
+								"endMs": 2249,
 								"charOffset": 29
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 1815,
-								"endMs": 1994,
+								"startMs": 2488,
+								"endMs": 2734,
 								"charOffset": 36
 							},
 							{
 								"display": "big",
 								"spoken": "big",
-								"startMs": 1994,
-								"endMs": 2173,
+								"startMs": 2734,
+								"endMs": 2980,
 								"charOffset": 38
 							},
 							{
 								"display": "number,",
 								"spoken": "number,",
-								"startMs": 2173,
-								"endMs": 2558,
+								"startMs": 2980,
+								"endMs": 3508,
 								"charOffset": 42
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 2733,
-								"endMs": 2912,
+								"startMs": 3748,
+								"endMs": 3994,
 								"charOffset": 50
 							},
 							{
 								"display": "comparison),",
 								"spoken": "comparison,",
-								"startMs": 2912,
-								"endMs": 3655,
+								"startMs": 3994,
+								"endMs": 5013,
 								"charOffset": 52
 							},
 							{
 								"display": "click",
 								"spoken": "click",
-								"startMs": 3830,
-								"endMs": 4010,
+								"startMs": 5253,
+								"endMs": 5499,
 								"charOffset": 65
 							},
 							{
 								"display": "Add",
 								"spoken": "Add",
-								"startMs": 4010,
-								"endMs": 4189,
+								"startMs": 5499,
+								"endMs": 5744,
 								"charOffset": 71
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 4189,
-								"endMs": 4394,
+								"startMs": 5744,
+								"endMs": 6026,
 								"charOffset": 75
 							}
 						],
 						"startMs": 0,
-						"endMs": 4731,
+						"endMs": 6488,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 4731
+				"durationMs": 6488
 			}
 		},
 		{
-			"key": "d7aede9b9439",
+			"key": "65a93ee54706",
 			"text": "I’ll open the slide gallery for you.",
-			"file": "d7aede9b9439.mp3",
-			"bytes": 11520,
-			"speechMs": 1858,
+			"file": "65a93ee54706.mp3",
+			"bytes": 10080,
+			"speechMs": 1630,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -151,66 +150,66 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 155,
+								"endMs": 136,
 								"charOffset": 0
 							},
 							{
 								"display": "open",
 								"spoken": "open",
-								"startMs": 155,
-								"endMs": 464,
+								"startMs": 136,
+								"endMs": 407,
 								"charOffset": 5
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 464,
-								"endMs": 618,
+								"startMs": 407,
+								"endMs": 542,
 								"charOffset": 10
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 618,
-								"endMs": 773,
+								"startMs": 542,
+								"endMs": 678,
 								"charOffset": 14
 							},
 							{
 								"display": "gallery",
 								"spoken": "gallery",
-								"startMs": 773,
-								"endMs": 1236,
+								"startMs": 678,
+								"endMs": 1084,
 								"charOffset": 20
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1236,
-								"endMs": 1391,
+								"startMs": 1084,
+								"endMs": 1220,
 								"charOffset": 28
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1391,
-								"endMs": 1568,
+								"startMs": 1220,
+								"endMs": 1375,
 								"charOffset": 32
 							}
 						],
 						"startMs": 0,
-						"endMs": 1858,
+						"endMs": 1630,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1858
+				"durationMs": 1630
 			}
 		},
 		{
-			"key": "e663155e4978",
+			"key": "9896c65fb518",
 			"text": "The slide gallery isn’t ready yet. Try this lesson again in a moment.",
-			"file": "e663155e4978.mp3",
-			"bytes": 23472,
-			"speechMs": 3857,
+			"file": "9896c65fb518.mp3",
+			"bytes": 25776,
+			"speechMs": 4248,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -221,47 +220,47 @@
 								"display": "The",
 								"spoken": "The",
 								"startMs": 0,
-								"endMs": 162,
+								"endMs": 178,
 								"charOffset": 0
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 162,
-								"endMs": 323,
+								"startMs": 178,
+								"endMs": 356,
 								"charOffset": 4
 							},
 							{
 								"display": "gallery",
 								"spoken": "gallery",
-								"startMs": 323,
-								"endMs": 808,
+								"startMs": 356,
+								"endMs": 890,
 								"charOffset": 10
 							},
 							{
 								"display": "isn’t",
 								"spoken": "isn’t",
-								"startMs": 808,
-								"endMs": 970,
+								"startMs": 890,
+								"endMs": 1069,
 								"charOffset": 18
 							},
 							{
 								"display": "ready",
 								"spoken": "ready",
-								"startMs": 970,
-								"endMs": 1294,
+								"startMs": 1069,
+								"endMs": 1425,
 								"charOffset": 24
 							},
 							{
 								"display": "yet.",
 								"spoken": "yet.",
-								"startMs": 1294,
-								"endMs": 1479,
+								"startMs": 1425,
+								"endMs": 1629,
 								"charOffset": 30
 							}
 						],
 						"startMs": 0,
-						"endMs": 1783,
+						"endMs": 1963,
 						"charOffset": 0
 					},
 					{
@@ -270,67 +269,67 @@
 							{
 								"display": "Try",
 								"spoken": "Try",
-								"startMs": 1913,
-								"endMs": 2074,
+								"startMs": 2107,
+								"endMs": 2285,
 								"charOffset": 35
 							},
 							{
 								"display": "this",
 								"spoken": "this",
-								"startMs": 2074,
-								"endMs": 2236,
+								"startMs": 2285,
+								"endMs": 2463,
 								"charOffset": 39
 							},
 							{
 								"display": "lesson",
 								"spoken": "lesson",
-								"startMs": 2236,
-								"endMs": 2560,
+								"startMs": 2463,
+								"endMs": 2819,
 								"charOffset": 44
 							},
 							{
 								"display": "again",
 								"spoken": "again",
-								"startMs": 2560,
-								"endMs": 2883,
+								"startMs": 2819,
+								"endMs": 3175,
 								"charOffset": 51
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 2883,
-								"endMs": 3045,
+								"startMs": 3175,
+								"endMs": 3353,
 								"charOffset": 57
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 3045,
-								"endMs": 3206,
+								"startMs": 3353,
+								"endMs": 3531,
 								"charOffset": 60
 							},
 							{
 								"display": "moment.",
 								"spoken": "moment.",
-								"startMs": 3206,
-								"endMs": 3553,
+								"startMs": 3531,
+								"endMs": 3914,
 								"charOffset": 62
 							}
 						],
-						"startMs": 1913,
-						"endMs": 3857,
+						"startMs": 2107,
+						"endMs": 4248,
 						"charOffset": 35
 					}
 				],
-				"durationMs": 3857
+				"durationMs": 4248
 			}
 		},
 		{
-			"key": "2ef8fe4455cd",
+			"key": "639e2d3e29a2",
 			"text": "Each card is one kind of slide. Type in the search box to find one by name.",
-			"file": "2ef8fe4455cd.mp3",
-			"bytes": 27936,
-			"speechMs": 4590,
+			"file": "639e2d3e29a2.mp3",
+			"bytes": 30960,
+			"speechMs": 5111,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -341,54 +340,54 @@
 								"display": "Each",
 								"spoken": "Each",
 								"startMs": 0,
-								"endMs": 210,
+								"endMs": 234,
 								"charOffset": 0
 							},
 							{
 								"display": "card",
 								"spoken": "card",
-								"startMs": 210,
-								"endMs": 420,
+								"startMs": 234,
+								"endMs": 468,
 								"charOffset": 5
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 420,
-								"endMs": 630,
+								"startMs": 468,
+								"endMs": 702,
 								"charOffset": 10
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 630,
-								"endMs": 840,
+								"startMs": 702,
+								"endMs": 935,
 								"charOffset": 13
 							},
 							{
 								"display": "kind",
 								"spoken": "kind",
-								"startMs": 840,
-								"endMs": 1050,
+								"startMs": 935,
+								"endMs": 1169,
 								"charOffset": 17
 							},
 							{
 								"display": "of",
 								"spoken": "of",
-								"startMs": 1050,
-								"endMs": 1260,
+								"startMs": 1169,
+								"endMs": 1403,
 								"charOffset": 22
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 1260,
-								"endMs": 1501,
+								"startMs": 1403,
+								"endMs": 1671,
 								"charOffset": 25
 							}
 						],
 						"startMs": 0,
-						"endMs": 1895,
+						"endMs": 2111,
 						"charOffset": 0
 					},
 					{
@@ -397,88 +396,88 @@
 							{
 								"display": "Type",
 								"spoken": "Type",
-								"startMs": 2064,
-								"endMs": 2275,
+								"startMs": 2299,
+								"endMs": 2533,
 								"charOffset": 32
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 2275,
-								"endMs": 2485,
+								"startMs": 2533,
+								"endMs": 2767,
 								"charOffset": 37
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2485,
-								"endMs": 2695,
+								"startMs": 2767,
+								"endMs": 3000,
 								"charOffset": 40
 							},
 							{
 								"display": "search",
 								"spoken": "search",
-								"startMs": 2695,
-								"endMs": 2905,
+								"startMs": 3000,
+								"endMs": 3234,
 								"charOffset": 44
 							},
 							{
 								"display": "box",
 								"spoken": "box",
-								"startMs": 2905,
-								"endMs": 3115,
+								"startMs": 3234,
+								"endMs": 3468,
 								"charOffset": 51
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 3115,
-								"endMs": 3325,
+								"startMs": 3468,
+								"endMs": 3702,
 								"charOffset": 55
 							},
 							{
 								"display": "find",
 								"spoken": "find",
-								"startMs": 3325,
-								"endMs": 3535,
+								"startMs": 3702,
+								"endMs": 3936,
 								"charOffset": 58
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 3535,
-								"endMs": 3745,
+								"startMs": 3936,
+								"endMs": 4170,
 								"charOffset": 63
 							},
 							{
 								"display": "by",
 								"spoken": "by",
-								"startMs": 3745,
-								"endMs": 3955,
+								"startMs": 4170,
+								"endMs": 4404,
 								"charOffset": 67
 							},
 							{
 								"display": "name.",
 								"spoken": "name.",
-								"startMs": 3955,
-								"endMs": 4196,
+								"startMs": 4404,
+								"endMs": 4672,
 								"charOffset": 70
 							}
 						],
-						"startMs": 2064,
-						"endMs": 4590,
+						"startMs": 2299,
+						"endMs": 5111,
 						"charOffset": 32
 					}
 				],
-				"durationMs": 4590
+				"durationMs": 5111
 			}
 		},
 		{
-			"key": "cb09a825c202",
+			"key": "23bdc7d079b2",
 			"text": "Pick a card. Blank is the simplest place to start.",
-			"file": "cb09a825c202.mp3",
-			"bytes": 18576,
-			"speechMs": 3025,
+			"file": "23bdc7d079b2.mp3",
+			"bytes": 22464,
+			"speechMs": 3684,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -489,26 +488,26 @@
 								"display": "Pick",
 								"spoken": "Pick",
 								"startMs": 0,
-								"endMs": 191,
+								"endMs": 232,
 								"charOffset": 0
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 191,
-								"endMs": 382,
+								"startMs": 232,
+								"endMs": 465,
 								"charOffset": 5
 							},
 							{
 								"display": "card.",
 								"spoken": "card.",
-								"startMs": 382,
-								"endMs": 600,
+								"startMs": 465,
+								"endMs": 731,
 								"charOffset": 7
 							}
 						],
 						"startMs": 0,
-						"endMs": 959,
+						"endMs": 1168,
 						"charOffset": 0
 					},
 					{
@@ -517,67 +516,67 @@
 							{
 								"display": "Blank",
 								"spoken": "Blank",
-								"startMs": 1112,
-								"endMs": 1303,
+								"startMs": 1355,
+								"endMs": 1587,
 								"charOffset": 13
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 1303,
-								"endMs": 1494,
+								"startMs": 1587,
+								"endMs": 1819,
 								"charOffset": 19
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1494,
-								"endMs": 1685,
+								"startMs": 1819,
+								"endMs": 2052,
 								"charOffset": 22
 							},
 							{
 								"display": "simplest",
 								"spoken": "simplest",
-								"startMs": 1685,
-								"endMs": 2066,
+								"startMs": 2052,
+								"endMs": 2516,
 								"charOffset": 26
 							},
 							{
 								"display": "place",
 								"spoken": "place",
-								"startMs": 2066,
-								"endMs": 2257,
+								"startMs": 2516,
+								"endMs": 2749,
 								"charOffset": 35
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 2257,
-								"endMs": 2448,
+								"startMs": 2749,
+								"endMs": 2981,
 								"charOffset": 41
 							},
 							{
 								"display": "start.",
 								"spoken": "start.",
-								"startMs": 2448,
-								"endMs": 2667,
+								"startMs": 2981,
+								"endMs": 3248,
 								"charOffset": 44
 							}
 						],
-						"startMs": 1112,
-						"endMs": 3025,
+						"startMs": 1355,
+						"endMs": 3684,
 						"charOffset": 13
 					}
 				],
-				"durationMs": 3025
+				"durationMs": 3684
 			}
 		},
 		{
-			"key": "6baa1784d364",
+			"key": "d4d75c8e9ed1",
 			"text": "The new slide goes after the one you were on, with sample text ready to replace.",
-			"file": "6baa1784d364.mp3",
-			"bytes": 27072,
-			"speechMs": 4451,
+			"file": "d4d75c8e9ed1.mp3",
+			"bytes": 27936,
+			"speechMs": 4600,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -588,121 +587,121 @@
 								"display": "The",
 								"spoken": "The",
 								"startMs": 0,
-								"endMs": 192,
+								"endMs": 199,
 								"charOffset": 0
 							},
 							{
 								"display": "new",
 								"spoken": "new",
-								"startMs": 192,
-								"endMs": 385,
+								"startMs": 199,
+								"endMs": 397,
 								"charOffset": 4
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 385,
-								"endMs": 577,
+								"startMs": 397,
+								"endMs": 596,
 								"charOffset": 8
 							},
 							{
 								"display": "goes",
 								"spoken": "goes",
-								"startMs": 577,
-								"endMs": 769,
+								"startMs": 596,
+								"endMs": 795,
 								"charOffset": 14
 							},
 							{
 								"display": "after",
 								"spoken": "after",
-								"startMs": 769,
-								"endMs": 1154,
+								"startMs": 795,
+								"endMs": 1192,
 								"charOffset": 19
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 1154,
-								"endMs": 1346,
+								"startMs": 1192,
+								"endMs": 1391,
 								"charOffset": 25
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 1346,
-								"endMs": 1538,
+								"startMs": 1391,
+								"endMs": 1590,
 								"charOffset": 29
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 1538,
-								"endMs": 1731,
+								"startMs": 1590,
+								"endMs": 1789,
 								"charOffset": 33
 							},
 							{
 								"display": "were",
 								"spoken": "were",
-								"startMs": 1731,
-								"endMs": 1923,
+								"startMs": 1789,
+								"endMs": 1987,
 								"charOffset": 37
 							},
 							{
 								"display": "on,",
 								"spoken": "on,",
-								"startMs": 1923,
-								"endMs": 2143,
+								"startMs": 1987,
+								"endMs": 2215,
 								"charOffset": 42
 							},
 							{
 								"display": "with",
 								"spoken": "with",
-								"startMs": 2331,
-								"endMs": 2523,
+								"startMs": 2409,
+								"endMs": 2608,
 								"charOffset": 46
 							},
 							{
 								"display": "sample",
 								"spoken": "sample",
-								"startMs": 2523,
-								"endMs": 2908,
+								"startMs": 2608,
+								"endMs": 3005,
 								"charOffset": 51
 							},
 							{
 								"display": "text",
 								"spoken": "text",
-								"startMs": 2908,
-								"endMs": 3100,
+								"startMs": 3005,
+								"endMs": 3204,
 								"charOffset": 58
 							},
 							{
 								"display": "ready",
 								"spoken": "ready",
-								"startMs": 3100,
-								"endMs": 3485,
+								"startMs": 3204,
+								"endMs": 3601,
 								"charOffset": 63
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 3485,
-								"endMs": 3677,
+								"startMs": 3601,
+								"endMs": 3800,
 								"charOffset": 69
 							},
 							{
 								"display": "replace.",
 								"spoken": "replace.",
-								"startMs": 3677,
-								"endMs": 4090,
+								"startMs": 3800,
+								"endMs": 4227,
 								"charOffset": 72
 							}
 						],
 						"startMs": 0,
-						"endMs": 4451,
+						"endMs": 4600,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 4451
+				"durationMs": 4600
 			}
 		}
 	]

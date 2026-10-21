@@ -8760,7 +8760,9 @@ const OPENROUTER_SCAN_EXEMPT = new Set(['test/unit/cli/check-ownership.test.js']
 // The ONLY paths allowed to spend our key — on-demand, opt-in, cost-printing (rule #24).
 // tools/probe-picture-tokens.mjs: measures what one picture costs per vision model (the Studio chat's budget gate table);
 // opt-in (OPENROUTER_ALLOW_SPEND=1), prints its planned call count first, --limit and --cap bound it; ~$1.4 for the whole catalog.
-const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
+// tools/record-lesson-voice.mjs: records the first-run tour's Gemini voice (14 short lines, ~1.5k characters, pennies); opt-in
+// (OPENROUTER_ALLOW_SPEND=1), prints its plan first, --limit bounds it. The lesson folders it also records use local Kokoro, no key.
+const SANCTIONED_OPENROUTER_SPENDERS = ['tools/component-gen-eval.mjs', 'tools/generate-voice-samples.mjs', 'tools/record-lesson-voice.mjs', 'tools/intent-bakeoff/judge-eval.mjs', 'tools/probe-picture-tokens.mjs'];
 
 // Workflows allowed to spend the key: sanctioned, budgeted, self-skipping when the secret is
 // unset, and — critically — OFF the PR/commit critical path (nightly schedule / workflow_dispatch,
@@ -13478,13 +13480,6 @@ const SANCTIONED_DANGLING_TOKEN_READS = [
       'nothing degrades when no theme names one. The engine\'s font vocabulary is --font-body / ' +
       '-display / -label / -mono; whether Compose should adopt one of those is a typography decision, ' +
       'not a token defect.',
-  },
-  {
-    token: '--font-heading',
-    why:
-      'guided-tour.css reads `var(--font-heading, var(--font-body, inherit))` — the chain terminates ' +
-      'on --font-body, which the ENGINE does declare, so this degrades onto a real token rather than ' +
-      'onto a literal. Same optional-hook shape as --font-serif, one rung safer.',
   },
   {
     token: '--pg-deck-aspect',

@@ -707,6 +707,21 @@ export async function openInspector(page: Page): Promise<void> {
 }
 
 /**
+ * Open the deck settings at ANY shipped width: the scope rail at desktop, the overflow menu at
+ * tablet, the bottom-bar button at mobile (see `CHROME.deckSettingsAt`). `openInspector` alone
+ * only finds the desktop route, so a spec built on it covers one width.
+ */
+export async function openDeckSettingsAt(page: Page, width: number): Promise<void> {
+	if (width >= 1200) return openInspector(page);
+	if (width > 500) {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.tabletMenu }).first().click();
+		await page.locator('[role=menuitem],[role=menuitemradio],button,[role=button]').filter({ hasText: CHROME.deckSettingsAt.tabletItem }).first().click();
+	} else {
+		await page.getByRole('button', { name: CHROME.deckSettingsAt.mobileButton, exact: true }).first().click();
+	}
+}
+
+/**
  * Open the Deck inspector AND select one of its tabs. The panel always opens on Look,
  * so a spec that wants a control in another tab owes the click — two specs were silently
  * red for want of exactly that (see the note above `openChromeTab` in inspector.spec.ts).

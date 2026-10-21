@@ -146,13 +146,14 @@ import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryP
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
-import { DEFAULT_TOUR, TOURS } from './tours';
+import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
 import { useStudioDemo } from './use-studio-demo';
 import { useStudioLesson } from './use-studio-lesson';
 import { deckVenue as readDeckVenue, smallerVenue, VENUES, type VenueName, venueOption, withVenue } from './venue';
 import { WebImagesNotice } from './WebImagesNotice';
 import { mayReferenceWebImage } from './web-image-hint';
 import type { WebImageSummary } from './web-images';
+import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
 
@@ -189,6 +190,8 @@ const Fabricate = React.lazy(() => {
 // lazy, so they load when the tab is shown rather than in the Studio's startup JavaScript
 // (docs/route-budget.json — eagerly it cost the studio route 7.6 KB gz).
 const PluginsSettings = React.lazy(() => import('./PluginsSettings').then((m) => ({ default: m.PluginsSettings })));
+// Shown once on a first visit and once at the end of the welcome tour, so it rides its own chunk.
+const WelcomeCard = React.lazy(() => import('./WelcomeCard').then((m) => ({ default: m.WelcomeCard })));
 const ClipNotice = React.lazy(() => import('./ClipNotice').then((m) => ({ default: m.ClipNotice })));
 // The slide map is loaded when the reader first turns it on (the eager bundle is budgeted).
 const StudioMap = React.lazy(() => import('./StudioMap'));
@@ -3069,6 +3072,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			off();
 		};
 	}, []);
+	// The first-run welcome cards: `start` before the narrated tour, `end` when it finishes on its own.
+	const [welcomeMode, setWelcomeMode] = React.useState<'start' | 'end' | null>(null);
+	// Which tour just ended, so the end card can offer the one after it.
+	const [endTour, setEndTour] = React.useState<string>(DEFAULT_TOUR);
 	const livePracticeRef = React.useRef<{ start: () => void; end: () => boolean } | null>(null);
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
@@ -3105,6 +3112,53 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setActiveSlide,
 		setFocus: setQuietened,
 		setPosture: changePosture,
+		posture,
+		onTourComplete: (id) => {
+			setEndTour(id);
+			setWelcomeMode('end');
+		},
+		layout: {
+			snapshot: () => ({ posture, assistant: activeAssistant, settings: activeSettings, view, editMode, slide: viewIndex, collapsed: splitApiRef.current.collapsed, quietened }),
+			reset: (want, { keepPresent }) => {
+				// The layout every tour is written against: this stop, no panel or sheet open, the Markdown
+				// editor and the preview both showing, the first slide. The editor's own mode (Markdown or Compose) is left
+				// alone: every tour works in either, and a tour that types follows whichever one is mounted. A first run on a phone has no split.
+				changePosture(want);
+				setActiveAssistant(null);
+				setActiveSettings(null);
+				setView('compose');
+				setShareOpen(false);
+				setWorkspaceOpen(false);
+				setHistoryOpen(false);
+				setCmdOpen(false);
+				setDeckMenuOpen(false);
+				if (!keepPresent) setPresentOpen(false);
+				const folded = splitApiRef.current.collapsed;
+				if (folded) splitApiRef.current.expand(folded);
+				setActiveSlide(0);
+			},
+			restore: (raw, { slide }) => {
+				const was = raw as { posture: Posture; assistant: typeof activeAssistant; settings: typeof activeSettings; view: typeof view; editMode: typeof editMode; slide: number; collapsed: SplitSide | null; quietened: boolean };
+				changePosture(was.posture);
+				setActiveAssistant(was.assistant);
+				setActiveSettings(was.settings);
+				setView(was.view);
+				setEditMode(was.editMode);
+				setShareOpen(false);
+				setWorkspaceOpen(false);
+				setHistoryOpen(false);
+				setCmdOpen(false);
+				setDeckMenuOpen(false);
+				setPresentOpen(false);
+				const folded = splitApiRef.current.collapsed;
+				if (folded !== was.collapsed) {
+					if (folded) splitApiRef.current.expand(folded);
+					if (was.collapsed) splitApiRef.current.collapse(was.collapsed);
+				}
+				if (slide) setActiveSlide(was.slide);
+				setQuietened(was.quietened);
+			},
+		},
 		setCmdOpen,
 		setMobilePane,
 		mobile,
@@ -3198,6 +3252,58 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		if (cmdOpen) warmLessons();
 	}, [cmdOpen, warmLessons]);
+	// ── First-run welcome (2026-10-20-first-run-onboarding.md) ─────────────
+	// A first-time visitor on the production site gets the start card once, a moment after the Studio
+	// settles. It is the click that unlocks audio and the place to test sound before anything speaks.
+	// The voice module is fetched when the card opens, so the Start click can build its narrator
+	// synchronously inside the gesture.
+	type TourVoice = typeof import('./tours/tour-voice');
+	const tourVoiceRef = React.useRef<TourVoice | null>(null);
+	const loadTourVoice = React.useCallback(() => import('./tours/tour-voice').then((m) => (tourVoiceRef.current = m)), []);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once per page load, by design.
+	React.useEffect(() => {
+		const t = window.setTimeout(() => {
+			if (demoActiveRef.current || lessonActiveRef.current) return;
+			if (shouldAutoWelcome({ toursOn: toursEnabled(), search: window.location.search, toursStamp: document.documentElement.dataset.tours, automated: navigator.webdriver })) setWelcomeMode('start');
+		}, 2500);
+		return () => window.clearTimeout(t);
+	}, []);
+	// Both cards preload the voice: Start and Next build the narrator inside their click.
+	React.useEffect(() => {
+		if (welcomeMode) loadTourVoice().catch(() => {});
+	}, [welcomeMode, loadTourVoice]);
+	const closeWelcome = React.useCallback(() => {
+		markWelcomed();
+		setWelcomeMode(null);
+	}, []);
+	const startWelcomeTour = React.useCallback(
+		(sound: boolean) => {
+			// Inside the click: build the narrator now so audio is unlocked by this very gesture.
+			if (sound) tourVoiceRef.current?.prepareTourVoice();
+			closeWelcome();
+			startDemo('welcome', { sound });
+		},
+		[closeWelcome, startDemo],
+	);
+	const testWelcomeSound = React.useCallback(async () => (await (tourVoiceRef.current ?? loadTourVoice())).testTourSound(), [loadTourVoice]);
+	// The end card for the tour that just ended: its heading, and the tour after it (none = the lessons).
+	const endCard = React.useMemo(() => {
+		const m = tourMeta(endTour);
+		const next = m.next ? tourMeta(m.next) : null;
+		return { title: m.endTitle ?? 'That’s the tour', next: next ? { label: next.label, description: next.description } : null };
+	}, [endTour]);
+	const startNextTour = React.useCallback(() => {
+		const next = tourMeta(endTour).next;
+		if (!next) return;
+		// Inside the click: build the narrator for the next tour's folder now, so this gesture unlocks audio.
+		tourVoiceRef.current?.prepareTourVoice(tourMeta(next).dir);
+		startDemo(next);
+	}, [endTour, startDemo]);
+	const openLessonsAfterTour = React.useCallback(() => {
+		const done = doneLessons();
+		const next = LESSONS.find((l) => !done.has(l.id)) ?? LESSONS[0];
+		if (next) startLesson(next.id);
+	}, [startLesson]);
 	React.useEffect(() => {
 		if (lessonActive) setChromeCollapsed(false);
 	}, [lessonActive]);
@@ -6392,7 +6498,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<>
 							<DropdownMenuSeparator />
 							<DropdownMenuLabel>Show me…</DropdownMenuLabel>
-							{TOURS.map((t) => (
+							{TOURS.filter((t) => !t.desktopOnly).map((t) => (
 								<DropdownMenuItem key={t.id} data-tour={t.id} onSelect={fromOverflow(() => showMe(t.id))} className="flex-col items-start gap-0.5 py-2">
 									<span className="font-medium">{t.label}</span>
 									<span className="text-[12px] text-muted-foreground">{t.description}</span>
@@ -6945,7 +7051,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onLenses={() => setLensesOpen(true)}
 						onLive={openLive}
 						demoActive={demoActive}
-						tours={TOURS}
+						tours={TOURS.filter((t) => !t.desktopOnly)}
 						onStartDemo={showMe}
 						onLibrary={() => setLibraryOpen(true)}
 						onSearch={() => setCmdOpen(true)}
@@ -7436,6 +7542,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<PanelLoader panel={liveLobbyPanel} shell={() => <div className="fixed inset-0 z-50 bg-background/85 backdrop-blur-sm" aria-hidden />}>
 					{(LiveLobby) => <LiveLobby view={live.lobby as NonNullable<typeof live.lobby>} actions={live.lobbyActions} />}
 				</PanelLoader>
+			)}
+			{welcomeMode && (
+				<React.Suspense fallback={null}>
+					<WelcomeCard mode={welcomeMode} onClose={closeWelcome} onStart={startWelcomeTour} onTest={testWelcomeSound} onLessons={openLessonsAfterTour} end={endCard} onNext={startNextTour} />
+				</React.Suspense>
 			)}
 			<Toaster />
 		</div>
