@@ -73,6 +73,30 @@ describe('cycle connector — string arm', () => {
   });
 });
 
+describe('cycle connector — one list, both arms', () => {
+  const makeDoc = (html) => new JSDOM(`<!doctype html><body>${html}</body>`).window.document;
+  const both = (html) => {
+    const d = makeDoc(cycle.applyToHtml(html));
+    cycle.applyToDom(d);
+    return d.querySelectorAll('.cycle-link').length;
+  };
+
+  test('prose that mentions the class name does not switch the connectors off', () => {
+    const body = `<p>see <code>cycle-link</code></p>${STAGES}`;
+    assert.equal(count(cycle.applyToHtml(slide('cycle', body)), 'class="cycle-link"'), 2);
+  });
+
+  test('a trailing second list gets no connectors on either arm', () => {
+    const body = `${STAGES}<ul><li>c1</li><li>c2</li></ul>`;
+    assert.equal(count(cycle.applyToHtml(slide('cycle', body)), 'class="cycle-link"'), 2);
+    assert.equal(both(slide('cycle', body)), 2);
+  });
+
+  test('the split check is the exact class token', () => {
+    assert.equal(count(cycle.applyToHtml(slide('cycle flat-split')), 'class="cycle-link"'), 2);
+  });
+});
+
 describe('cycle connector — DOM arm', () => {
   const makeDoc = (html) => new JSDOM(`<!doctype html><body>${html}</body>`).window.document;
 
