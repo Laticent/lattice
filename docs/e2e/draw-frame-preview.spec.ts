@@ -263,8 +263,7 @@ test('when the Mermaid frame cannot load its modules, the host says so at once a
 	expect(await page.locator('iframe[data-lattice-draw-frame="mermaid"]').count(), 'the failed frame is gone').toBe(0);
 });
 
-test("the Studio's deck-wide diagram check draws through the frame and never loads Mermaid into the page @smoke", async ({ page, browserName }) => {
-	test.skip(browserName !== 'chromium', 'the check is the same code on every engine; one engine pins that the page loads no Mermaid');
+test("the Studio's deck-wide diagram check draws through the frame and never loads Mermaid into the page @smoke @gecko @webkit-tablet", async ({ page, browserName }) => {
 	test.setTimeout(240_000);
 	const pageLibrary: string[] = [];
 	page.on('request', (r) => {
