@@ -1,4 +1,4 @@
-studio: +438
-playground: +364
+studio: +428
+playground: +365
 home: +375
 The Studio hands each plugin's stylesheet to its door (`StudioShell.tsx` passes `css`, `door.ts` adds it to the stamp), which is the +44 in `StudioIsland`. The rest is in `theme-fetch`, which the startup bundle shares with the preview draw host's stub (`preview-draw-host.ts`: the host's name defined on `window` with its list of offered kinds, plus the warm-up call that `render-engine.ts` makes for a deck holding a plot); that is +302 on all three routes (the stub now also lists the kinds it stopped offering when a frame cannot load), with +4 in `sanitize-slide-html`. The preview builders (`deck-preview`, `single-slide-render`) grew +35 each because they skip the library preload when the host offers Mermaid. The host itself (`preview-draw-host-impl.ts`, the frame code, the library pins, the Mermaid stand-in and the diagram sanitizer) loads on first use and is not in any route's startup bundle. A first cut that kept the loading logic in the stub cost +393 on three routes, so it was taken out. The Mermaid-offered check in the builders is back now that the host draws Mermaid.
