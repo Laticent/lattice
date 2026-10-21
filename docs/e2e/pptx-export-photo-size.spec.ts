@@ -27,7 +27,7 @@ function mediaEntries(zip: Uint8Array) {
 
 test('a photographic slide exports as a small JPEG and a flat slide stays a PNG', async ({ page }) => {
 	await gotoStudio(page);
-	// A photograph-like picture: smooth colour plus noise, which is what makes PNG expensive.
+	// A photograph-like picture: smooth color plus noise, which is what makes PNG expensive.
 	const photo = await page.evaluate(() => {
 		const c = document.createElement('canvas');
 		c.width = 1600;
