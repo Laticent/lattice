@@ -449,7 +449,7 @@ export function PresentOverlay({ open, onClose, onReady, options, slides, frontM
 		(i: number): { text: string; emphasis?: EmphasisSpans; refs?: readonly SceneRef[] } => {
 			const md = set[i] ?? '';
 			const aligned = projected.set === set;
-			// The deck's switches (`legend: off`, the host's plugin switch) live in its front matter, which
+			// The deck's switches (`callout: off`, the host's plugin switch) live in its front matter, which
 			// `set[i]` does not carry; the narrator reads them from here (narration-resolve.ts `narrationDeck`).
 			const script = narrateChartScript(md, chartDeck);
 			const text = resolveNarration({

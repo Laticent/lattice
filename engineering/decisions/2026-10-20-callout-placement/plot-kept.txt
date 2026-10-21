@@ -1,0 +1,27 @@
+# Plot area each option keeps, % of the same chart with no callouts (mock.js + mockrun.js, 3 callouts)
+
+B notes right, key where it is · A notes right, key below · C one column with NOTES/KEY headings · D notes and key below.
+
+chart        key | 16:9 B A C D         | 1:1 B A C D          | 4:5 B A C D          | 9:16 B A C D
+bar          yes |   88   80   50   45  |   73  106  106  170  |   80   82   43   83  |   46   47   25  102 
+line         no  | no target            | no target            | no target            | no target           
+stacked-bar  yes |   75   69   51   41  |   74  146  107  157  |  100  116   69   73  |   47   52   27   79 
+heatmap      yes |   99   80   53   46  |   72  102  102  155  |   82   82   47   71  |   47   47   27  100 
+piechart     yes |  100   32   38   21  |   66   66   80   44  |  100  132  103   81  |   55   68   33   81 
+radar        yes |   98   80   43   44  |   63  111   88   89  |   82   82   44  104  |   47   47   25  100 
+map          yes |   78   81   74   50  |   78  137  107  209  |   66   66   44   96  |   66   66   44  100 
+scatter      yes |  100   71   75   45  |   62   80   80   92  |   62   80   80   60  |   62   80   80  132 
+quadrant     yes |   90   69   48   33  |   76  168  117  126  |   72   72   40   73  |   51   51   29  100 
+tower        yes |   97   69   51   41  |   73  120  109  123  |  100  174   90  110  |   59   66   34  110 
+word-cloud   yes | no target            | no target            | no target            | no target           
+funnel       no  |  100  100  100   49  |   52   52   52   61  |  100  100  100   72  |   60   60   60   72 
+waterfall    no  |  100  100  100   53  |   60   60   60  100  |   63   63   63   66  |   60   60   60  100 
+slope        no  |  100  100  100   58  |   63   63   63   88  |   74   74   74   71  |   63   63   63  100 
+histogram    no  |  100  100  100   54  |   61   61   61   96  |   74   74   74   68  |   61   61   61  100 
+ep-curve     no  |  100  100  100   57  |   65   65   65  100  |   76   76   76   70  |   65   65   65  100 
+bullet       no  |  100  100  100   59  |   66   66   66  100  |   66   66   66   75  |   66   66   66  100 
+gantt        yes |   70   70   50  100  |   70   70   49  100  |   64   64   38  100  |   64   64   38  100 
+flowchart    no  |   80   80   80   43  |   46   46   46   64  |   45   45   45   62  |   43   43   43   60 
+state-chart  no  |   81   81   81   46  |   80   80   80   32  |   66   66   66   55  |   40   40   40   64 
+hub-spoke    yes |   85   85   46   57  |   61   61   29   81  |   70   70   32   69  |   60   60   27  100 
+risk-matrix  yes |  100   72  100   43  |   65   90  102   54  |   65  111  102   69  |   65  111  102  197 

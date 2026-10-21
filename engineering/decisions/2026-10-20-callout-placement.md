@@ -1,0 +1,169 @@
+---
+status: in-progress
+summary: >
+  The owner split the legend plugin in two, `@callout` for notes pinned to a mark and `@legend`
+  for the key, and asked for both on every chart where they fit, placed responsively. An audit
+  measured every chart gallery slide at five slide shapes (1,163 measurements) and mocked four
+  placements on 22 charts at four shapes. No fixed layout wins: notes on the right keep 99% of the
+  plot at 16:9 but 60% at 9:16, and notes below keep 100% at 9:16 but 46% at 16:9. So the engine
+  picks each chart's placement by measure, keeping the plot largest, with a hairline only where
+  notes and key stack below. Journey gains task callouts; risk-matrix's numbered list moves onto
+  the callout plugin.
+builds-on: 2026-10-19-universal-legend.md
+---
+
+# Callouts and the key: two plugins, placed by measure
+
+**2026-10-20.** Status: in progress. The owner's rulings are in § 2; the audit behind the
+placement rule is in §§ 3 and 4. The split (P1) is built; § 6 records the owner's one row style for
+the key and the callouts. The work plan is § 7.
+
+## 1. The ask
+
+After #2816 the owner asked for four things:
+
+1. Make callouts and the key independent plugins.
+2. Give callouts to every chart where they make sense, and the key to every component where it
+   makes sense.
+3. Move components that hand-roll callout-like notes onto the callout plugin. The owner named
+   journey.
+4. Make charts with callouts, with a key, and with both responsive and refined, and decide
+   whether a divider belongs between them.
+
+## 2. The owner's rulings
+
+| # | Question | Ruling |
+|---|---|---|
+| 1 | What authors type | `@callout{…}` for a note pinned to a mark, `@legend{…}` for the key. Old `@legend{…}` spans that pin a mark (`row=`/`col=`/`for=`) are callouts written the old way. |
+| 2 | Journey's callouts | Add task callouts: an author pins a note to a task. Mood and actor stay encodings, and their keys move onto the key plugin. |
+| 3 | Risk-matrix's numbered list | Port it onto the callout plugin. This reverses decision 3 of the universal-legend note (§ 14). |
+| 4 | Where callouts and the key go | The engine picks, by measure (§ 5), after the audit in §§ 3 and 4. |
+
+Ruling 1 keeps the name `legend` for the key. That contradicts § 4 of the universal-legend note,
+which made a plain label "a one-entry legend in `anchored`" with "no second plugin for it". The
+owner's split supersedes that sentence. The rest of that note's model (label, mark, plate, tone,
+`for`) stays.
+
+**Old spellings.** Every heatmap deck written since Wave 0 uses `@legend{{…, row=…, col=…}}` for
+a callout. Breaking them is not on the table. The callout reader keeps accepting a pinned
+`@legend` span, and `lint:deck` suggests `@callout`. An unpinned `@legend` span is a key.
+
+**The old switches are dropped (owner, 2026-10-21).** P1 first kept `legend: off`, the
+`legend-off` and `legend-on` classes and `--disable-plugin legend` working as callout switches,
+through two manifest fields (`aliasOf` on a register, `alsoDisables` on a plugin). That added about
+0.3KB gzipped to the preview runtime, and the `getting-started` route's engine bundle sat 0.1KB under
+its hard ceiling (313.7KB). The owner chose to drop the old switches rather than raise the ceiling
+or hunt for bytes elsewhere. No release ever shipped them (the fragment that introduced them was
+still in `changelog.d/`), so no released deck breaks. What stays: a pinned `@legend{…}` span still
+draws a callout (it costs a regex), and the legend plugin still `requires` callout, which costs no
+runtime bytes, so a host or deck that loads `legend` gets callouts.
+
+## 3. Today, measured
+
+`audit.js` (in `2026-10-20-callout-placement/`) renders every chart gallery at 16:9, 4:3, 1:1,
+4:5 and 9:16 and measures each chart slide in Chromium. Full table:
+`2026-10-20-callout-placement/today.txt`. Findings:
+
+- **SVG charts draw in only two shapes.** Every SVG chart has a landscape viewBox (about 1.8:1)
+  and a portrait one (about 1.07:1). The CLI's `portrait` size is 4:5 (1080 × 1350); 9:16 is
+  `story`. Both use the portrait shape, and 4:3 and 1:1 use the landscape one.
+- **At 16:9 a typical chart leaves a third of the stage's width empty.** bar, line, heatmap,
+  histogram, waterfall, ep-curve, bullet and scatter leave 33 to 38% free at the sides; pie,
+  radar and slope leave 41 to 42%; quadrant 57%.
+- **At 9:16 the free space moves below,** 15 to 22% of the stage height for those same charts.
+- **Some charts are wide at every shape** and leave almost no room at the sides: gantt (5.2:1),
+  flowchart (6.2:1 at 16:9), journey, kanban, roadmap, matrix-grid, progress, timeline-list.
+  Map, hub-spoke and word-cloud fill most of the width too.
+- **Where keys sit today:** on the right in landscape and below in portrait (bar, heatmap, map,
+  pie, radar, stacked-bar, tower, word-cloud). Risk-matrix and scatter keep theirs on the right in
+  both. Gantt, flowchart, state-chart, matrix-grid, journey and roadmap put theirs below in both.
+
+## 4. Four placements, mocked and measured
+
+`mock.js` adds three callouts to a rendered chart inside its own SVG: real marker shapes pinned to
+real data marks, a callout column, and the key moved. `mockrun.js` screenshots each and measures
+how much plot area survives against the same chart with no callouts. Full table:
+`2026-10-20-callout-placement/plot-kept.txt`.
+
+| Option | What it is |
+|---|---|
+| B | Notes on the right; the key stays where it is |
+| A | Notes on the right; the key as a caption row below |
+| C | One right column: a NOTES heading, a hairline, a KEY heading |
+| D | Notes, a hairline, then the key, all below |
+
+Median plot area kept, 20 charts (line and word-cloud gave the mock no target):
+
+| Slide | B | A | C | D | Best |
+|---|---|---|---|---|---|
+| 16:9 | **99%** | 80% | 75% | 46% | B on 18 of 20 |
+| 1:1 | 65% | 75% | 80% | **98%** | D on 15 of 20 |
+| 4:5 | 73% | 75% | 66% | 72% | B 7, A 5, D 8 |
+| 9:16 | 60% | 61% | 42% | **100%** | D on 20 of 20 |
+
+- No single option wins everywhere. Each loses 35 to 55% of the plot at some shape.
+- C never wins and costs the most at most shapes. It is dropped.
+- At 4:5 the winner depends on the chart. A fixed table by slide shape would give up as much
+  as 25% of the plot on the charts where the other side wins.
+- A pie's key carries its values. Moving it below at 16:9 leaves 32% of the plot.
+- Gantt, flowchart, state-chart and hub-spoke lose 20 to 55% under every option: they have no
+  free space. They are the charts where six callouts cost most.
+
+**Limits.** The mock approximates the layout: the real lane wraps labels with the shared
+kernels, the real key reflows through `keySvg`, and font sizes follow the figure. The plot-area
+numbers are good for ranking options, not as final figures. The shipped placement is measured
+again on the real engine (§ 7, P2).
+
+## 5. The rule: the engine picks by measure
+
+For each chart with callouts, a key or both, the engine tries the callouts on the right or
+below, and the key on the right or below, and keeps the combination that leaves the plot largest
+at the slide's real stage size. Ties put callouts on the right, beside the marks they name.
+
+- **A hairline only where they stack.** When callouts and the key both go below, a hairline in
+  the `--border` token parts them. Side by side, the key's own spine already separates them, so
+  nothing is added.
+- **SVG-native.** The callouts, markers, hairline and key are drawn inside the chart's SVG, so
+  every export carries them: PDF, PPTX, PNG, and the HTML player.
+- **The same rule with one part.** A chart with only callouts or only a key runs the same
+  choice.
+- **HTML charts.** Journey, roadmap and matrix-grid run the same choice with CSS layout.
+
+## 6. One row style for the key and the callouts (owner, 2026-10-21)
+
+The owner found callouts "huge relative to legends". Measured on the demo heatmap: a key swatch was
+1.04 times its label and a callout's marker 1.84 times, about 1.8 times the swatch, and the callout's
+words were the body face at 600 while the key's were the label face at 400. The owner ruled out any
+visual inconsistency between the two and asked for a happy medium.
+
+Rendered at a shared size of 1.3, 1.45 and 1.6 times the label, the owner picked **1.45**: the
+key's swatch grew by about a third and the callout's marker shrank by a fifth, to one size
+(`svg-legend.js` `MARK_OF_LABEL`). The callout's digit is then 0.79 of the label. The callout's words
+take the key's face, weight and size. Asked which face both should use, the owner kept the key's
+(the label face, a monospace), so no existing key changes face; the digit inside a marker stays in
+the body face, whose figures center in a shape. Every SVG key in the catalog changes size with this,
+so it went to the owner as light and dark renders of the chart gallery and the callout demo deck.
+
+**Beside a key the callout holds the key's size.** Without a key, the heatmap's callout lane steps a
+long label down from the key's size (8.1 on a 16:9 slide) toward 7.5 so it sets whole in three
+lines. Beside a band key that put the two at different sizes side by side, which this ruling rules
+out; a stress deck of long sketch-mode labels found it before merge. With a key the lane now holds
+the key's size, and a label too long for three lines ends in an ellipsis
+(`heatmap.transform.js` `calloutLane`, `keyed`).
+
+## 7. Work plan
+
+One PR, one commit per item. HTML and SVG emitters stay byte-identical where an item does not
+mean to change a render; an item that does stops for the owner's light and dark sign-off.
+
+| P | Item | Evidence |
+|---|---|---|
+| P1 | Split: `@callout` and `@legend` plugins over shared kernels (marker shapes, plate, color slots, mark vocabulary); the heatmap moves to `@callout`; old pinned `@legend` spans keep working with a lint hint | `diff -r` of every tracked deck before and after, byte-identical |
+| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs |
+| P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke | a demo deck per family, four slide shapes |
+| P4 | Journey task callouts; risk-matrix onto the callout plugin | both galleries, light and dark, owner sign-off |
+| P5 | Keys through `@legend` on every component that already draws one, so authors can rename and reorder entries | `diff -r` where untouched; demo deck |
+
+Charts the scout ruled out for callouts: kanban, timeline-list and progress (their items are
+already text rows), and Mermaid diagrams (Mermaid owns the layout and has no stable mark hooks).
+Word-cloud is weak: its marks are words that are already labeled.

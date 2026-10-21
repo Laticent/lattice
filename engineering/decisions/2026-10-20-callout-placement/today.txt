@@ -1,0 +1,35 @@
+# Today, measured: every chart gallery slide at five slide shapes (Chromium, audit.js)
+
+plot aspect = width/height of the chart's drawing without its key; side = free stage width left+right of everything drawn, % of stage width; below = free stage height under it, % of stage height; key = where the key sits (count of slides).
+
+chart         medium | plot aspect: 16:9 4:3 1:1 4:5 9:16   | side % 16:9 / 9:16 | below % 16:9 / 9:16 | key at 16:9 / 9:16
+bar           svg    |  1.82  1.83  1.82  1.06  1.06        |    37 /     6     |     7 /    21      | right 1 of 8 / below 1 of 8
+bullet        svg    |  1.83  1.83  1.83  1.12  1.12        |    35 /     3     |     1 /    20      | none of 7 / none of 7
+ep-curve      svg    |  1.83  1.84  1.83  1.08  1.08        |    33 /     2     |     1 /    18      | none of 5 / none of 5
+flowchart     svg    |  6.23  6.27  0.82  0.77  0.80        |     1 /    37     |     0 /     0      | below 8 of 9 / below 8 of 9
+funnel        svg    |  1.49  1.49  1.49  0.60  0.60        |    50 /    27     |     4 /    10      | none of 5 / none of 5
+gantt         svg    |  5.17  5.17  5.17  2.01  2.01        |     0 /     0     |    17 /    28      | below 5 of 5 / below 5 of 5
+heatmap       svg    |  1.83  1.83  1.83  1.08  1.08        |    36 /     2     |     2 /    19      | right 1 of 6 / below 1 of 6
+histogram     svg    |  1.79  1.79  1.79  1.06  1.06        |    33 /     2     |     1 /    18      | none of 5 / none of 5
+hub-spoke     svg    |  3.43  3.43  2.13  1.53  1.53        |     5 /     3     |    10 /    28      | below 1 of 10 / below 1 of 10
+journey       html   |  4.01  4.00  3.14  1.27  0.92        |     0 /     0     |     2 /     0      | below 9 of 9 / inside 20,below 9 of 29
+kanban        html   | 13.07 12.88  6.13  5.03  4.85        |     0 /     0     |    40 /    43      | none of 7 / none of 28
+line          svg    |  1.88  1.88  1.88  1.12  1.12        |    35 /     5     |     1 /    20      | none of 8 / none of 8
+map           svg    |  2.30  2.30  2.30  1.94  1.94        |     2 /     1     |     9 /    22      | right 10 of 10 / below 10 of 10
+matrix-grid   html   |  4.18  4.18  2.52  1.92  1.89        |     3 /     6     |     5 /    25      | below 5 of 5 / below 5 of 5
+piechart      svg    |  1.20  1.20  1.20  1.03  1.03        |    41 /    16     |    10 /     2      | right 5,inside 1 of 6 / below 5,inside 1 of 6
+progress      html   |  5.98  5.98  1.91  1.40  1.38        |     0 /     0     |    25 /    23      | none of 5 / none of 5
+quadrant      svg    |  1.17  1.17  1.17  1.17  1.17        |    57 /     8     |     1 /    22      | right 1 of 11 / below 1 of 11
+radar         svg    |  1.41  1.42  1.41  1.01  1.01        |    41 /    26     |    15 /    20      | right 10 of 11 / below 10 of 11
+risk-matrix   svg    |  1.08  1.08  1.08  1.08  1.08        |    46 /    18     |     1 /    31      | right 5 of 5 / right 5 of 5
+roadmap       html   |  5.32  5.30  1.84  1.11  0.68        |     0 /     0     |    15 /     0      | below 6 of 9 / inside 13,below 6 of 28
+scatter       svg    |  1.76  1.77  1.77  1.04  1.04        |    38 /     4     |     1 /    15      | right 1 of 7 / right 1 of 7
+slope         svg    |  1.64  1.64  1.64  0.97  0.97        |    42 /    15     |     5 /    22      | none of 7 / none of 7
+stacked-bar   svg    |  2.20  2.20  2.20  1.27  1.27        |    23 /     5     |     4 /    25      | right 1 of 7 / below 1 of 7
+state-chart   svg    |  3.15  2.36  1.81  1.21  0.74        |     3 /    23     |     0 /     0      | below 6,inside 4 of 11 / below 6,inside 4 of 11
+timeline-list html   |  5.84  5.79  2.21  1.29  1.25        |    17 /     6     |    23 /    22      | none of 5 / none of 5
+tower         svg    |  1.88  1.88  1.88  0.96  0.96        |    17 /    17     |     5 /     2      | right 5 of 5 / below 5 of 5
+waterfall     svg    |  1.78  1.78  1.78  1.06  1.06        |    40 /     8     |     1 /    19      | none of 7 / none of 7
+word-cloud    svg    |  1.78  1.77  1.78  1.37  1.37        |    12 /    11     |    14 /    24      | right 9 of 9 / below 9 of 9
+
+1163 slide measurements; slides that are not the gallery's own chart (cards, prose) are left out.

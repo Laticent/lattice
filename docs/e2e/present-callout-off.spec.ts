@@ -1,9 +1,9 @@
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
-// The legend plugin's off switch on the real Present overlay (lib/plugins/legend/legend.docs.md,
-// "Turning it off"). The kernel (lib/core/legend.js `legendOff`) and the narrator's deck plumbing are
+// The callout plugin's off switch on the real Present overlay (lib/plugins/callout/callout.docs.md).
+// The kernel (lib/core/legend.js `calloutsOff`) and the narrator's deck plumbing are
 // unit-tested; this pins the surface a presenter sees and hears. Present narrates one slide at a
-// time, split from the deck, so the deck's `legend: off` reaches the narrator only through
+// time, split from the deck, so the deck's `callout: off` reaches the narrator only through
 // PresentOverlay's `chartDeck`. With it, the callout is neither drawn nor read; without it, the
 // caption band would still say "Callout at …". No voice and no key: with the voice off, Present
 // runs the estimate clock and still builds the caption band.
@@ -21,7 +21,7 @@ theme: indaco${frontMatter}
 | Jan 2026 | 100 | 62 | 48 |
 | Feb 2026 | 100 | 58 | 31 |
 
-\`@legend{{Onboarding change, row="Feb 2026", col=M2}}\`
+\`@callout{{Onboarding change, row="Feb 2026", col=M2}}\`
 `;
 
 async function present(page: import('@playwright/test').Page, source: string) {
@@ -39,17 +39,17 @@ async function present(page: import('@playwright/test').Page, source: string) {
 // Run twice, as card-tag-register.spec.ts does: untagged for the Chromium desktop project, and tagged
 // for WebKit (the tablet project, where the editor is on screen) and Firefox (playwright.config.ts).
 for (const tag of ['', ' @webkit-tablet @gecko']) {
-	test(`with the legend on, Present draws the callout and reads it aloud${tag}`, async ({ page }, testInfo) => {
+	test(`with callouts on, Present draws the callout and reads it aloud${tag}`, async ({ page }, testInfo) => {
 		const dialog = await present(page, deck(''));
 		await expect(dialog.locator('.latt-cc-track')).toContainText('Callout at Feb 2026, M2: Onboarding change', { timeout: 15000 });
 		const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
 		await expect(slide.locator('svg .legend--anchored').first()).toBeAttached();
 		await expect(slide.locator('svg text.legend-number').first()).toBeAttached();
-		await page.screenshot({ path: testInfo.outputPath('present-legend-on.png') });
+		await page.screenshot({ path: testInfo.outputPath('present-callout-on.png') });
 	});
 
-	test(`with legend: off in the front matter, Present neither draws the callout nor reads it${tag}`, async ({ page }, testInfo) => {
-		const dialog = await present(page, deck('\nlegend: off'));
+	test(`with callout: off in the front matter, Present neither draws the callout nor reads it${tag}`, async ({ page }, testInfo) => {
+		const dialog = await present(page, deck('\ncallout: off'));
 		const band = dialog.locator('.latt-cc-track');
 		// The rows are read, so the band is live; the callout sentence is not among them.
 		await expect(band).toContainText('Feb 2026', { timeout: 15000 });
@@ -58,7 +58,7 @@ for (const tag of ['', ' @webkit-tablet @gecko']) {
 		const slide = dialog.frameLocator('[aria-label="Presented slide"] iframe.live');
 		await expect(slide.locator('svg.heatmap-svg').first()).toBeAttached();
 		await expect(slide.locator('svg .legend--anchored')).toHaveCount(0);
-		await expect(slide.locator('code', { hasText: '@legend' })).toHaveCount(0);
-		await page.screenshot({ path: testInfo.outputPath('present-legend-off.png') });
+		await expect(slide.locator('code', { hasText: '@callout' })).toHaveCount(0);
+		await page.screenshot({ path: testInfo.outputPath('present-callout-off.png') });
 	});
 }

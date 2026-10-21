@@ -1,146 +1,18 @@
 /* ═══════════════════════════════════════════════════════════════════════════
- * LEGEND — the paint side of the legend plugin.
+ * LEGEND — the paint side of the legend plugin: the key.
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Design: engineering/decisions/2026-10-19-universal-legend.md. The kernels (lib/core/legend.js,
  * lib/core/legend-mark.js, lib/components/chart/_chart-family/legend-svg.js) write geometry, a class
- * and a `data-c` color slot; this file is the only place a legend gets a color (HARD RULE #3). Every
- * color is a theme token, so a legend follows a palette and a light or dark canvas with no code.
+ * and a `data-c` color slot; this file is the only place a key gets a color (HARD RULE #3). Every
+ * color is a theme token, so a legend follows a palette and a light or dark canvas with no code. A
+ * callout's paint is the callout plugin's (lib/plugins/callout/callout.styles.css, split off by
+ * engineering/decisions/2026-10-20-callout-placement.md).
  *
  * Sizes inside an SVG are viewBox user units: the kernel emits a label's `font-size` as an attribute
  * so its wrap math and the painted glyphs cannot disagree (svg-label.js "WHO OWNS THE FONT SIZE"),
  * and this file sets none.
  */
-
-/* ── SVG: anchored labels ─────────────────────────────────────────────────── */
-
-/* A BARE label (the default): body ink, or its color slot's mark ink. It sits on the canvas (the
- * heatmap's callout lane, legend-svg.js), so it needs no halo: the CLI's vector PDF writer would drop
- * one anyway. */
-text.legend-text {
-  fill: var(--text-body);
-  font-family: var(--font-body);
-  font-weight: 600;
-}
-
-text.legend-text--bare[data-c='c1']  { fill: var(--cat-1-mark); }
-text.legend-text--bare[data-c='c2']  { fill: var(--cat-2-mark); }
-text.legend-text--bare[data-c='c3']  { fill: var(--cat-3-mark); }
-text.legend-text--bare[data-c='c4']  { fill: var(--cat-4-mark); }
-text.legend-text--bare[data-c='c5']  { fill: var(--cat-5-mark); }
-text.legend-text--bare[data-c='c6']  { fill: var(--cat-6-mark); }
-text.legend-text--bare[data-c='c7']  { fill: var(--cat-7-mark); }
-text.legend-text--bare[data-c='c8']  { fill: var(--cat-8-mark); }
-text.legend-text--bare[data-c='c9']  { fill: var(--cat-9-mark); }
-text.legend-text--bare[data-c='c10'] { fill: var(--cat-10-mark); }
-text.legend-text--bare[data-c='c11'] { fill: var(--cat-11-mark); }
-text.legend-text--bare[data-c='c12'] { fill: var(--cat-12-mark); }
-
-/* A label ON A PLATE takes the pill's ink rule: on a color slot the plate is that slot's fill and the
- * words are the on-fill ink; with no slot the plate is the canvas with an ink edge. */
-text.legend-text--plated[data-c] {
-  fill: var(--cat-on-fill);
-}
-
-/* A callout's marker (legend-svg.js `markerSvg`): one of six shapes in a color slot, painted by the
- * `.legend-plate` rules below, with its digit inside when the mark has room. The numeral is bold so a
- * single digit reads at marker size, and the shape sits on a KNOCKOUT, the same shape a little larger
- * in the canvas color, which parts it from whatever cell fill lies under it in either mode. */
-text.legend-number {
-  font-weight: 700;
-}
-
-.legend-knockout {
-  fill: var(--bg);
-  stroke: none;
-}
-
-.legend-plate {
-  fill: var(--bg);
-  stroke: var(--text-body);
-  stroke-width: 1;
-}
-
-.legend-plate--tag-bordered {
-  stroke-width: 1.2;
-}
-
-.legend-plate[data-c='c1']  { fill: var(--cat-1-fill); stroke: var(--cat-1-mark); }
-.legend-plate[data-c='c2']  { fill: var(--cat-2-fill); stroke: var(--cat-2-mark); }
-.legend-plate[data-c='c3']  { fill: var(--cat-3-fill); stroke: var(--cat-3-mark); }
-.legend-plate[data-c='c4']  { fill: var(--cat-4-fill); stroke: var(--cat-4-mark); }
-.legend-plate[data-c='c5']  { fill: var(--cat-5-fill); stroke: var(--cat-5-mark); }
-.legend-plate[data-c='c6']  { fill: var(--cat-6-fill); stroke: var(--cat-6-mark); }
-.legend-plate[data-c='c7']  { fill: var(--cat-7-fill); stroke: var(--cat-7-mark); }
-.legend-plate[data-c='c8']  { fill: var(--cat-8-fill); stroke: var(--cat-8-mark); }
-.legend-plate[data-c='c9']  { fill: var(--cat-9-fill); stroke: var(--cat-9-mark); }
-.legend-plate[data-c='c10'] { fill: var(--cat-10-fill); stroke: var(--cat-10-mark); }
-.legend-plate[data-c='c11'] { fill: var(--cat-11-fill); stroke: var(--cat-11-mark); }
-.legend-plate[data-c='c12'] { fill: var(--cat-12-fill); stroke: var(--cat-12-mark); }
-
-/* A callout marker (legend-svg.js `markerSvg`, `data-shape`), on its mark and in the lane alike, is ONE
- * solid shape in its slot's STRONG tone, so a cell's marker and its label's marker are the same color
- * (owner, design note § 18). A slot's two tiers are not always one hue (base.tokens.css: `fill` is
- * pale in light and jewel in dark, `mark` the reverse, and a theme may pick a different hue for each),
- * so one tier is chosen per mode, the strong one: `mark` in light, `fill` in dark. Its digit takes that
- * tier's paired ink. No edge: on a solid fill an edge is invisible or a rim, and the knockout parts
- * the shape from whatever lies under it. */
-.legend-plate[data-shape][data-c],
-.legend-plate[data-shape] {
-  stroke: none;
-}
-
-.legend-plate[data-shape][data-c='c1']  { fill: light-dark(var(--cat-1-mark), var(--cat-1-fill)); }
-.legend-plate[data-shape][data-c='c2']  { fill: light-dark(var(--cat-2-mark), var(--cat-2-fill)); }
-.legend-plate[data-shape][data-c='c3']  { fill: light-dark(var(--cat-3-mark), var(--cat-3-fill)); }
-.legend-plate[data-shape][data-c='c4']  { fill: light-dark(var(--cat-4-mark), var(--cat-4-fill)); }
-.legend-plate[data-shape][data-c='c5']  { fill: light-dark(var(--cat-5-mark), var(--cat-5-fill)); }
-.legend-plate[data-shape][data-c='c6']  { fill: light-dark(var(--cat-6-mark), var(--cat-6-fill)); }
-.legend-plate[data-shape][data-c='c7']  { fill: light-dark(var(--cat-7-mark), var(--cat-7-fill)); }
-.legend-plate[data-shape][data-c='c8']  { fill: light-dark(var(--cat-8-mark), var(--cat-8-fill)); }
-.legend-plate[data-shape][data-c='c9']  { fill: light-dark(var(--cat-9-mark), var(--cat-9-fill)); }
-.legend-plate[data-shape][data-c='c10'] { fill: light-dark(var(--cat-10-mark), var(--cat-10-fill)); }
-.legend-plate[data-shape][data-c='c11'] { fill: light-dark(var(--cat-11-mark), var(--cat-11-fill)); }
-.legend-plate[data-shape][data-c='c12'] { fill: light-dark(var(--cat-12-mark), var(--cat-12-fill)); }
-
-/* `!important`, and on the tspan too, because the Mermaid plugin's stylesheet paints every `text` and
- * `tspan` under ANY `.legend` group with `--cat-on-fill !important` (mermaid.styles.css, its journey
- * and venn legends), and this lane is a `.legend` group: in light mode that set a dark digit on a
- * deep fill, measured at 1.7:1. Scoping the Mermaid rules to Mermaid's own diagrams is logged as
- * followups.d/2816-p2-mermaid-legend-rules-leak.md. */
-text.legend-text.legend-number[data-c],
-text.legend-text.legend-number[data-c] tspan {
-  fill: light-dark(var(--cat-on-mark), var(--cat-on-fill)) !important;
-}
-
-/* The named mark's ring: drawn inside the mark's own box, in body ink, so the cell a callout names
- * reads at a glance in a field of near-identical cells. Not a color: an edge. */
-.legend-target {
-  fill: none;
-  stroke: var(--text-body);
-  stroke-width: 1;
-}
-
-/* The ring in its callout's color, the marker's strong tone, over a halo of the canvas color that
- * parts it from whatever fill the cell has (a slot's tone can be the ramp's own hue). */
-.legend-target-halo {
-  fill: none;
-  stroke: var(--bg);
-  stroke-width: 2.6;
-}
-
-.legend-target[data-c='c1']  { stroke: light-dark(var(--cat-1-mark), var(--cat-1-fill)); }
-.legend-target[data-c='c2']  { stroke: light-dark(var(--cat-2-mark), var(--cat-2-fill)); }
-.legend-target[data-c='c3']  { stroke: light-dark(var(--cat-3-mark), var(--cat-3-fill)); }
-.legend-target[data-c='c4']  { stroke: light-dark(var(--cat-4-mark), var(--cat-4-fill)); }
-.legend-target[data-c='c5']  { stroke: light-dark(var(--cat-5-mark), var(--cat-5-fill)); }
-.legend-target[data-c='c6']  { stroke: light-dark(var(--cat-6-mark), var(--cat-6-fill)); }
-.legend-target[data-c='c7']  { stroke: light-dark(var(--cat-7-mark), var(--cat-7-fill)); }
-.legend-target[data-c='c8']  { stroke: light-dark(var(--cat-8-mark), var(--cat-8-fill)); }
-.legend-target[data-c='c9']  { stroke: light-dark(var(--cat-9-mark), var(--cat-9-fill)); }
-.legend-target[data-c='c10'] { stroke: light-dark(var(--cat-10-mark), var(--cat-10-fill)); }
-.legend-target[data-c='c11'] { stroke: light-dark(var(--cat-11-mark), var(--cat-11-fill)); }
-.legend-target[data-c='c12'] { stroke: light-dark(var(--cat-12-mark), var(--cat-12-fill)); }
 
 /* ── HTML: the key ───────────────────────────────────────────────────────── */
 

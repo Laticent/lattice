@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 12
+    "plugin": 13
   },
   "packages": [
     {
@@ -1399,6 +1399,17 @@
         "vocab.generated.js"
       ],
       "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "callout",
+      "path": "lib/plugins/callout",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "manifest.json",
+        "styles.css"
+      ]
     },
     {
       "type": "plugin",
