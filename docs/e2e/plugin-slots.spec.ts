@@ -30,11 +30,13 @@ async function demoZip(): Promise<Buffer> {
 
 async function importZip(page: Parameters<typeof gotoStudio>[0], buffer: Buffer) {
 	const input = page.locator('input[type="file"][accept=".zip"]');
-	// The Library may still be opening (or already open from an earlier visit): give the input a moment before clicking, because a click on an open Library closes it.
-	const present = await input.waitFor({ state: 'attached', timeout: 3000 }).then(() => true, () => false);
-	if (!present) {
+	// The Library may still be opening, or already open from an earlier visit, and its button toggles: look for the input first, click only
+	// when it is absent, then give the panel time to mount; try again a few times, because a slow runner can lose the first click.
+	for (let attempt = 0; attempt < 3; attempt++) {
+		if (await input.waitFor({ state: 'attached', timeout: attempt === 0 ? 3000 : 1500 }).then(() => true, () => false)) break;
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+		if (await input.waitFor({ state: 'attached', timeout: 8000 }).then(() => true, () => false)) break;
 	}
 	await input.setInputFiles({ name: `${NAME}.zip`, mimeType: 'application/zip', buffer });
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: '1 plugin(s)' }).first()).toBeVisible();
