@@ -816,7 +816,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const hit = target.closest('.lattice > section, .lattice > div[data-lv-ph]');
 		const page = hit && secs ? Array.prototype.indexOf.call(secs, hit) : -1;
 		// Not a touch: a touch pick would raise the software keyboard.
-		if (page >= 0) syncRef.current?.picked(page, { grab: (e as PointerEvent).pointerType !== 'touch' });
+		if (page >= 0) syncRef.current?.picked(page, { grab: ((e as PointerEvent).pointerType ?? (window.matchMedia?.('(pointer: coarse)').matches ? 'touch' : 'mouse')) !== 'touch' });
 	}, []);
 
 	// ── The render loop (wraps the engine; never reimplements it) ───────────────

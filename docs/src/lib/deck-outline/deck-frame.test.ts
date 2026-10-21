@@ -49,3 +49,18 @@ describe('deckFrame', () => {
 		expect(deckFrame(ix, 99)).toBeNull();
 	});
 });
+
+describe('deckTitleEnd never lands on a separator it can avoid', () => {
+	it('an empty slide takes its blank line, not the --- that closes it', () => {
+		const src = '# A\n\n---\n\n---\n\n# C\n';
+		const at = deckTitleEnd(buildDeckIndex(src), 1);
+		expect(src.slice(at, at + 3)).not.toBe('---');
+		expect(src[at]).toBe('\n');
+		// A slide with no line at all (`---` straight onto `---`) has nowhere safe to put a caret.
+	});
+	it('a directive-only slide lands at its start, never inside the directive', () => {
+		const src = '# A\n\n---\n\n<!-- _class: x -->\n\n---\n\n# C\n';
+		const at = deckTitleEnd(buildDeckIndex(src), 1);
+		expect(at).toBeLessThan(src.indexOf('<!--') + 1);
+	});
+});

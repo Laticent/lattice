@@ -93,7 +93,7 @@ const bandOnScreen = (page: Page) =>
 		return first.top >= scroller.top - 1 && last.bottom <= scroller.bottom + 1;
 	});
 
-test(`the preview and editor scrollbars are thin and quiet ${TAGS}`, async ({ page }) => {
+test(`the preview and editor scrollbars are thin and quiet ${TAGS}`, async ({ page, browserName }) => {
 	await open(page);
 	const bars = await page.evaluate(() => {
 		const f = document.getElementById('preview') as HTMLIFrameElement;
@@ -103,6 +103,10 @@ test(`the preview and editor scrollbars are thin and quiet ${TAGS}`, async ({ pa
 	});
 	// Firefox resolves `thin` to `none` under the headless runner's overlay scrollbars, so the width is
 	// only asserted to be ours (not the browser's `auto`); the colour is the claim that never varies.
+	if (browserName === 'chromium') {
+		expect(bars.frame[0]).toBe('thin');
+		expect(bars.editor[0]).toBe('thin');
+	}
 	for (const [width, color] of [bars.frame, bars.editor]) {
 		expect(width).not.toBe('auto');
 		expect(color).not.toBe('auto');

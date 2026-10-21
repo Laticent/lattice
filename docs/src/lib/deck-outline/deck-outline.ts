@@ -96,14 +96,24 @@ export function deckEditableOffset(ix: Outline, c: number, k = 0): number {
 /** What a deck calls its two levels: an authored slide, and the page each one renders as. */
 export const DECK_KINDS: Kinds = { unit: 'slide', part: 'page' };
 
-/** Where a reader expects the caret when a slide is picked: the end of its title, the first line
- *  of content (`deckEditableOffset`, so a directive comment never counts). A slide with no text
- *  lands on its start. */
+/** Where a reader expects the caret when a slide is picked: the end of its title, the first line of
+ *  content (a directive comment never counts, as in `deckEditableOffset`). A page with no content line
+ *  (empty, or directives only) lands where `deckEditableOffset` puts it, pulled back inside the page so
+ *  it does not sit on the `---` that closes it when the page has a blank line to rest on. */
 export function deckTitleEnd(ix: Outline, c: number, k = 0): number {
-	const at = deckEditableOffset(ix, c, k);
-	const nl = ix.source.indexOf('\n', at);
-	const end = nl === -1 ? ix.source.length : nl;
-	return Math.min(end, Math.max(at, partEnd(ix, c, k)));
+	const src = ix.source;
+	const start = partStart(ix, c, k);
+	const end = partEnd(ix, c, k);
+	for (let at = start; at < end; ) {
+		const nl = src.indexOf('\n', at);
+		const lineEnd = nl === -1 || nl > end ? end : nl;
+		const line = src.slice(at, lineEnd).trim();
+		if (line && !/^<!--(?:(?!-->).)*-->$/.test(line)) return lineEnd;
+		if (nl === -1) break;
+		at = nl + 1;
+	}
+	const from = k <= 0 ? (ix.units[c]?.from ?? start) : start;
+	return Math.min(start, Math.max(from, end - 1));
 }
 
 /** The lines a page occupies in the editor, INCLUDING the `---` that opens and closes it. Slide 1

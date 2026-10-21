@@ -224,6 +224,24 @@ describe('outside Edit the render is the text of record', () => {
 	});
 });
 
+describe('a whole-document replace', () => {
+	it('moves nothing the reader did not move: no follow, the preview stays on its slide', async () => {
+		const r = rig();
+		await r.land();
+		r.sync.selected({ head: at('gamma'), anchor: at('gamma'), line: 'gamma', user: true });
+		r.frame();
+		r.tick(120);
+		r.log.length = 0;
+		// Deck settings rewrites the whole text; the editor then reports a caret at the top, not as the reader's.
+		const next = deck.replace('indaco', 'cuoio');
+		r.sync.edited(next, { from: 0, toA: deck.length, toB: next.length });
+		r.sync.selected({ head: 0, anchor: 0, line: '---', user: false });
+		r.frame();
+		r.tick(300);
+		expect(r.log.some((l) => l.startsWith('page '))).toBe(false);
+	});
+});
+
 describe('the band', () => {
 	it('marks the focused slide including its fences, and follows an edit that moves them', async () => {
 		const r = rig();

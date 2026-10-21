@@ -115,6 +115,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let bandKey = '';
 	let epoch = 0;
 	let dead = false;
+	/** The reader moved the caret or typed since the last follow. A replace of the whole document (Deck
+	 *  settings, a component pick, a gallery) moves the caret to the top, and the reader did not do that. */
+	let userActed = false;
 
 	/** The index, when it describes the text the hub holds. */
 	function usable(): RenderedIndex | null {
@@ -174,15 +177,17 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 				const ext = deckFrame(ol as Parameters<typeof deckFrame>[0], f.unitIndex, f.part);
 				if (ed && ext) {
 					if ((f.cause === 'nav' || f.cause === 'pick') && f.origin !== 'preview') {
-						if (f.origin !== 'preview-pick' || ports.canPick()) ed.revealSlide({ from: ext.from, to: lastChar(ext), caret: deckTitleEnd(ol, f.unitIndex, f.part), grab: f.grab });
+						if (ports.canPick()) ed.revealSlide({ from: ext.from, to: lastChar(ext), caret: deckTitleEnd(ol, f.unitIndex, f.part), grab: f.grab });
 					} else if (f.origin === 'preview') ed.showRange({ from: ext.from, to: lastChar(ext) });
 				}
 			}
 			// The preview follows everyone but itself: a tile asks for an exact move, the caret for a
 			// gentle one.
 			if (!fromPreview) {
-				if (f.origin === 'editor') followSoon();
-				else follow(false, false);
+				if (f.origin === 'editor') {
+					if (userActed) followSoon();
+					userActed = false;
+				} else follow(false, false);
 			}
 		},
 		{ equals: (a, b) => a.seq === b.seq },
@@ -229,6 +234,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			}
 		},
 		selected(at) {
+			if (at.user) userActed = true;
 			hub.report('editor', { head: at.head, anchor: at.anchor, line: at.line, quiet: !at.user });
 		},
 		rendered(source, getIndex, patched) {
