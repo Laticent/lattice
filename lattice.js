@@ -131,6 +131,15 @@ function listAvailablePalettes() {
 }
 
 /** Every option: `lattice --help all`. */
+// The export log's "approximated" clause: what an editable export drew as the nearest thing an
+// office suite has (`stacked-shadow`: two outer shadows as one; `backdrop-blur`: a frosted fill as its
+// translucent color). Empty when nothing was approximated.
+function approximatedNote(tally) {
+  const label = { 'stacked-shadow': 'stacked shadow', 'backdrop-blur': 'frosted fill' };
+  const parts = Object.entries(tally || {}).map(([kind, n]) => `${n} ${label[kind] || kind}${n === 1 ? '' : 's'}`);
+  return parts.length ? `; approximated: ${parts.join(', ')}` : '';
+}
+
 function showFullHelp() {
   console.log(`lattice — turn a Markdown deck into PDF / PPTX / ODP / PNG / HTML (every option)
 
@@ -4845,7 +4854,7 @@ async function renderBody(browser, g, closeBrowser) {
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
-        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
+        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
       }

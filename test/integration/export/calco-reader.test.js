@@ -456,7 +456,7 @@ describe('calco reader: native shapes', () => {
     assert.ok(boxAt(1040, 500), 'the backdrop paints below it');
   });
 
-  test('a fill clipped to its content box is that box; border-image and two shadows stay; a parent\'s positioned ::before and its child both lift, in paint order', () => {
+  test('a fill clipped to its content box is that box; border-image stays and two shadows lift as one; a parent\'s positioned ::before and its child both lift, in paint order', () => {
     const seg = res.shapes.find((s) => s.kind === 'box' && s.fill?.color === '#006fa8' && Math.abs(s.x - 40) < 1);
     assert.ok(seg, 'the padded accent segment lifts');
     assert.ok(Math.abs(seg.y - 576) < 0.5 && Math.abs(seg.h - 2.5) < 0.1, `the fill is the content box: ${JSON.stringify(seg)}`);
@@ -467,7 +467,9 @@ describe('calco reader: native shapes', () => {
     const pseudo = res.shapes.findIndex((s) => s.kind === 'box' && s.pseudo && Math.abs(s.x - 340) < 1 && Math.abs(s.y - 560) < 1 && s.w === 60);
     assert.ok(child >= 0 && pseudo >= 0, 'the child and the pseudo are both shapes');
     assert.ok(pseudo > child, 'the positioned pseudo is drawn after (above) the static child');
-    assert.equal(boxAt(500, 560), undefined, 'two outer shadow layers');
+    const stacked = boxAt(500, 560);
+    assert.ok(stacked && stacked.shadow, 'two outer shadow layers are drawn as the widest one');
+    assert.ok(res.approximated.includes('stacked-shadow'), 'and the read says it approximated');
   });
 
   test('hiding takes the paint out without moving anything, and restore is exact', async () => {

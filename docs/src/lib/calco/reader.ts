@@ -49,6 +49,8 @@ export interface ReadResult {
 	hidden: boolean;
 	/** With `diagnose`: each painted box or pseudo-element that stayed in the picture, and why. */
 	refused?: Refusal[];
+	/** What lifted shapes only approximate, one entry per shape and kind: `stacked-shadow` (two outer shadows drawn as one) or `backdrop-blur` (a frosted fill drawn as its translucent color). */
+	approximated: string[];
 }
 
 /** A box that stayed in the picture. `reason` names the test it failed: `paint:...`, `pseudo:...` or `covered`. */
@@ -787,6 +789,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// Elements whose OWN paint was lifted into shapes, so the capture hides it (a pseudo's is hidden apart).
 	const paintHidden = new Set<Element>();
 	let refusedOut: Refusal[] | undefined;
+	const approximated: string[] = [];
 	if (options?.shapes) {
 		const keptNodes = new Set<Node>(kept.map((wd) => wd.node));
 		const px = (v: string) => Number.parseFloat(v) || 0;
@@ -812,7 +815,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return v;
 		};
 		// Anything that changes how a subtree LOOKS beyond its boxes — a transform, a filter, a
-		// mask, a clip, a blend — keeps every box in it in the picture.
+		// mask, a clip, a blend — keeps every box in it in the picture. A backdrop blur is not one: it
+		// changes what shows THROUGH a box, and the box keeps its translucent fill (an approximation, counted).
 		const fxCache = new Map<Element, boolean>();
 		const effected = (el: Element | null): boolean => {
 			if (!el || el === section) return false;
@@ -821,7 +825,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
 			const set = (v: string | undefined) => !!v && v !== 'none' && v !== 'auto' && v !== 'normal';
 			const v =
-				set(cs.transform) || set(cs.rotate) || set(cs.scale) || set(cs.translate) || set(cs.filter) || set(cs.backdropFilter) || set(cs.webkitBackdropFilter) ||
+				set(cs.transform) || set(cs.rotate) || set(cs.scale) || set(cs.translate) || set(cs.filter) ||
 				set(cs.maskImage) || set(cs.webkitMaskImage) || set(cs.clipPath) || (cs.clip !== '' && set(cs.clip)) || set(cs.mixBlendMode) || effected(el.parentElement);
 			fxCache.set(el, v);
 			return v;
@@ -896,6 +900,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			alpha: number;
 			fill: Paint | null;
 			gradient?: Gradient;
+			/** What the lifted shape only approximates (`stacked-shadow`, `backdrop-blur`). */
+			approx: string[];
 			/** A sized layer drawn as a second shape above this box (a stripe over a colored panel). */
 			extra?: { rect: Rect; fill: Paint; gradient?: Gradient };
 			radii: [number, number, number, number];
@@ -932,8 +938,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// inset ring (no offset, no blur, a spread) is a border drawn inside the edge, which is
 		// how a tag outlines itself without moving its text: it comes back as `ring`. `false`
 		// when a layer is neither (an inner glow, an outer spread).
-		const shadowOf = (v: string, opacity: number): { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null } | false => {
-			const out: { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null } = { outer: null, ring: null, outerRing: null };
+		const shadowOf = (v: string, opacity: number): { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null; stacked?: boolean } | false => {
+			const out: { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null; stacked?: boolean } = { outer: null, ring: null, outerRing: null };
 			if (!v || v === 'none') return out;
 			for (const layer of splitTop(v)) {
 				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
@@ -954,9 +960,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					out.outerRing = { ...paint, width: spread };
 					continue;
 				}
-				// Two outer layers (a tight shadow under a soft one) are not one office shadow.
-				if (out.outer) return false;
-				out.outer = { ...paint, x, y, blur };
+				// Two outer layers (a tight shadow under a soft one) are not one office shadow: the one with the
+				// widest blur (then the stronger) stands for both, and the read says it approximated.
+				const next = { ...paint, x, y, blur };
+				if (out.outer) {
+					out.stacked = true;
+					if (blur > out.outer.blur || (blur === out.outer.blur && paint.alpha > out.outer.alpha)) out.outer = next;
+					continue;
+				}
+				out.outer = next;
 			}
 			return out;
 		};
@@ -1159,6 +1171,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const p = paintOf(cs[`border${sd}Color`], op);
 				return p ? { ...p, width, style: st } : null;
 			});
+			const approx: string[] = [];
+			if (fill && [cs.backdropFilter, cs.webkitBackdropFilter].some((v) => v && v !== 'none')) approx.push('backdrop-blur');
 			let shadow: Shadow | null | false = null;
 			let outerRing: (Paint & { width: number }) | null = null;
 			const shadows = shadowOf(cs.boxShadow, op);
@@ -1166,6 +1180,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			else {
 				shadow = shadows.outer;
 				outerRing = shadows.outerRing;
+				if (shadows.stacked) approx.push('stacked-shadow');
 				// A ring inside a border would be a second outline: that box stays a picture.
 				if (shadows.ring && sides.some(Boolean)) shadow = false;
 				else if (shadows.ring) {
@@ -1252,7 +1267,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					]
 						.filter(Boolean)
 						.join('+') || 'other';
-			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
+			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, approx, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
 			box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
 			if (outerRing) box.outerRing = outerRing;
 			return { plain, box, why };
@@ -1572,7 +1587,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (masked) {
 				const mark = markOf(ps, r, op);
 				if (!mark || !effectless(el) || !unclipped(el, r)) return no(!mark ? 'pseudo:mask-not-a-path' : 'pseudo:mask-effect-or-clip');
-				return { el, rect: r, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, pseudo: side, mark };
+				return { el, rect: r, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, approx: [], pseudo: side, mark };
 			}
 			const a = analyze(ps, r, op, el, 'pseudo');
 			if (!a?.plain) return no(a ? `pseudo:paint:${a.why}` : 'pseudo:no-paint');
@@ -1740,6 +1755,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (c.gradient) box.gradient = c.gradient;
 				if (stroke) box.stroke = stroke;
 				if (c.shadow) box.shadow = c.shadow;
+				approximated.push(...c.approx);
 				shapes.push(box);
 				shapeEls.push(c.el);
 				if (c.extra) {
@@ -2066,7 +2082,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			};
 		} else unmaterialize();
 	}
-	return { width: boxW, height: boxH, frames, shapes, hidden, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}) };
+	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */

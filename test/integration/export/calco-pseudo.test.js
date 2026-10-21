@@ -292,3 +292,41 @@ describe('calco lifts linear gradients and sized one-color layers into native fi
     assert.ok(bar);
   });
 });
+
+const APPROX = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; }
+  .c { position: absolute; width: 300px; height: 80px; background: #f2f5fa; border-radius: 8px; box-sizing: border-box; }
+</style></head><body><section id="s">
+  <div class="c" id="two" style="left: 40px; top: 40px; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.2)"></div>
+  <div class="c" id="glass" style="left: 400px; top: 40px; background: rgba(255,255,255,.4); backdrop-filter: blur(8px)"></div>
+  <div class="c" id="glow" style="left: 40px; top: 200px; box-shadow: inset 0 0 12px rgba(0,0,0,.4)"></div>
+</section></body></html>`;
+
+describe('calco says what it approximated', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(APPROX, { waitUntil: 'load' });
+    res = await (await page.$('#s')).evaluate(readSlide, { shapes: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const at = (x, y) => res.shapes.find((s) => Math.abs(s.x - x) < 1 && Math.abs(s.y - y) < 1);
+
+  test('two outer shadows become the widest one, and a frosted box keeps its translucent fill', () => {
+    assert.equal(at(40, 40).shadow.blur, 24);
+    assert.equal(at(40, 40).shadow.y, 8);
+    const glass = at(400, 40);
+    assert.ok(glass && glass.fill.alpha === 0.4);
+    assert.deepEqual([...res.approximated].sort(), ['backdrop-blur', 'stacked-shadow']);
+  });
+
+  test('an inner glow is still not drawn, and nothing is claimed for it', () => {
+    assert.equal(at(40, 200), undefined);
+  });
+});
