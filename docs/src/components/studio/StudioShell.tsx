@@ -3473,7 +3473,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				.catch(() => {
 					if (live) setDiagramErrors(null);
 				});
-		}, 900);
+		}, 3000);
 		return () => {
 			live = false;
 			clearTimeout(id);

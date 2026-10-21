@@ -26,7 +26,7 @@ import { splitTopLevel } from '@/components/studio/ai/architect-edits.js';
 
 // THE CHECK HALF LIVES IN `mermaid-parse.ts`, loaded on demand. This file — the diagram
 // extraction the Studio's signature memo reads on every render — is in the Studio's startup
-// JavaScript; the draw loop runs only 900ms after a deck with a diagram
+// JavaScript; the draw loop runs only 3 s after a deck with a diagram
 // settles, so it stays out of it (docs/route-budget.json).
 
 /** One diagram that failed to parse, addressed by the same 1-based slide number the
