@@ -68,7 +68,7 @@ import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
 import { type EditorAdapter, EditorHost, type EditSpan } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
-import { readingPage } from './reading-page';
+import { markPreviewPages, previewLayout } from './reading-page';
 import { WalkBar } from './WalkBar';
 
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
@@ -681,6 +681,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		videoOverlayRef.current?.rebind();
 		collageOverlayRef.current?.rebind();
 		animaScenesRef.current?.rebind();
+		// A slide that mounts replaces its empty placeholder, and the focus mark was on the placeholder.
+		syncRef.current?.remark();
 	}, []);
 	/** Mount the slides around section `index` before scrolling to it, so the reader lands on a
 	 *  real slide rather than a placeholder that fills in a frame later. */
@@ -772,13 +774,15 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	React.useEffect(() => {
 		const ports: SyncPorts = {
 			editor: () => editorRef.current,
-			reading: (current, count) => readingPage(frameRef.current, count, current),
-			show: (page, opts) => showPageRef.current(page, opts),
-			slideTop: (page) => {
-				const frame = frameRef.current;
-				const sec = frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]')[page];
-				return frame && sec ? frame.getBoundingClientRect().top + sec.getBoundingClientRect().top : null;
+			previewLayout: (groups) => previewLayout(frameRef.current, groups),
+			setPreviewScroll: (y) => {
+				const win = frameRef.current?.contentWindow;
+				if (!win) return 0;
+				win.scrollTo({ top: y, behavior: 'auto' });
+				return win.scrollY;
 			},
+			markPages: (pages) => markPreviewPages(frameRef.current, pages),
+			show: (page, opts) => showPageRef.current(page, opts),
 			editing: () => viewRef.current === 'edit',
 			active: () => viewRef.current === 'edit' && !previewCollapsedRef.current,
 			// A phone shows one pane at a time; a pick that placed a caret in a hidden editor would only
@@ -787,8 +791,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			now: () => performance.now(),
 			raf: (cb) => requestAnimationFrame(cb),
 			cancelRaf: (id) => cancelAnimationFrame(id),
-			timeout: (cb, ms) => window.setTimeout(cb, ms),
-			clearTimeout: (id) => window.clearTimeout(id),
 		};
 		let dead = false;
 		let off: (() => void) | null = null;
@@ -818,6 +820,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const text = editorRef.current?.getValue();
 		if (text !== undefined) syncRef.current?.edited(text);
 	}, [view]);
+	const onEditorScroll = React.useCallback(() => syncRef.current?.editorScrolled(), []);
 	const onEditorSelection = React.useCallback((at: { head: number; anchor: number; line: string; user: boolean }) => syncRef.current?.selected(at), []);
 	// A click on a slide in the preview is a pick: the caret goes to the end of its title and the editor frames it.
 	const onFrameClick = React.useCallback((e: MouseEvent) => {
@@ -2548,7 +2551,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!doc || !win || boundFrameDocRef.current === doc) return;
 		boundFrameDocRef.current = doc;
 		win.addEventListener('scroll', onDeckScroll, { passive: true });
-		win.addEventListener('scroll', () => syncRef.current?.scrolled(), { passive: true });
+		win.addEventListener('scroll', () => syncRef.current?.previewScrolled(), { passive: true });
 		doc.addEventListener('click', onFrameClick as EventListener);
 		win.addEventListener('wheel', onDeckDrive, { passive: true });
 		// The frame's OWN ResizeObserver, on the filmstrip the fit agent rescales. Created
@@ -2778,8 +2781,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			if (!frame) return false;
 			const w = walkRef.current;
 			if (viewRef.current === 'read' && w) {
-				// The caret is not what moves Explore.
-				if (opts.follow) return true;
 				if (w.kind === 'deck') gotoIndex(page);
 				else {
 					const el = walkUnits(frame, false)[page]?.[0];
@@ -2788,7 +2789,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				}
 				return true;
 			}
-			if (opts.follow && viewRef.current !== 'edit') return true;
 			if (previewCollapsedRef.current) return false;
 			const win = frame.contentWindow;
 			if (!win || frame.clientHeight === 0) return false;
@@ -2796,14 +2796,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			mountAroundIndex(page);
 			const band = frameBands(frame)[page];
 			if (!band) return false;
-			if (opts.follow) {
-				// Already readable: at least 60% of the slide, or the whole viewport's worth of it.
-				const seen = Math.max(0, Math.min(win.scrollY + win.innerHeight, band.top + band.height) - Math.max(win.scrollY, band.top));
-				if (seen >= Math.min(band.height, win.innerHeight) * 0.6) return true;
-			}
 			const inset = Math.max(0, (win.innerHeight - band.height) / 2);
 			const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-			win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: opts.instant || reduce ? 'auto' : 'smooth' });
+			win.scrollTo({ top: Math.max(0, band.top - inset), behavior: opts.instant || reduce ? 'auto' : 'smooth' });
 			return true;
 		},
 		[gotoIndex, mountAroundIndex],
@@ -3078,7 +3073,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								</button>
 							)}
 						</div>
-						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} onSelection={onEditorSelection} />
+						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} onSelection={onEditorSelection} onScroll={onEditorScroll} />
 					</section>
 					<button
 						type="button"

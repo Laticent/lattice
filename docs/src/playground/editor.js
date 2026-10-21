@@ -570,25 +570,6 @@ function slideFits(view, from, to) {
 	return bottom - top <= view.scrollDOM.clientHeight - 24;
 }
 
-/** Scroll the editor so the first line of [from, to] sits at screen height `y`: the top of the slide the
- *  preview is showing, so the text and its picture start level. A whole slide's text can never match its
- *  picture line for line (a slide is a fixed box and its source is as long as it is), so the tops are what
- *  can line up. `y` is clamped so the whole range stays on screen when it fits, and its first line when it
- *  does not. Lines CodeMirror has not drawn yet have estimated heights, so it re-aims once next frame. */
-function alignTop(view, from, to, y) {
-	const scroller = view.scrollDOM;
-	const box = scroller.getBoundingClientRect();
-	const height = view.lineBlockAt(to).bottom - view.lineBlockAt(from).top;
-	const minY = box.top + 8;
-	const maxY = Math.max(minY, box.bottom - Math.min(height, box.height - 16) - 8);
-	const at = Math.max(minY, Math.min(y, maxY));
-	const aim = () => {
-		scroller.scrollTop += view.documentTop + view.lineBlockAt(from).top - at;
-	};
-	aim();
-	requestAnimationFrame(aim);
-}
-
 /** One span covering every change in a transaction: the editor's own account of an edit, which lets a
  *  consumer re-parse the region an edit touched instead of the document. Undefined when nothing changed. */
 function changedSpan(changes) {
@@ -609,6 +590,7 @@ function changedSpan(changes) {
  *   onChange: (value: string, span?: { from: number, toA: number, toB: number }) => void,
  *   onCursor?: (line: number) => void,
  *   onSelection?: (at: { head: number, anchor: number, line: string, user: boolean }) => void,
+ *   onScroll?: () => void,
  *   autoHeight?: boolean,
  *   vocab?: unknown,
  *   catalog?: unknown,
@@ -618,7 +600,7 @@ function changedSpan(changes) {
  *   typeahead?: string,
  * }} opts
  */
-export function createEditor({ parent, doc = '', onChange, onCursor, onSelection, autoHeight = false, vocab, catalog, themes, finishes, autocomplete = true, typeahead = 'class' }) {
+export function createEditor({ parent, doc = '', onChange, onCursor, onSelection, onScroll, autoHeight = false, vocab, catalog, themes, finishes, autocomplete = true, typeahead = 'class' }) {
 	ensureTooltipTheme(); // global popup theme (reaches CM's detached tooltip layer)
 	// The autocomplete extension lives in a Compartment so the on/off preference
 	// can reconfigure it live (built once with the vocab; toggled to [] when off).
@@ -833,6 +815,9 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			],
 		}),
 	});
+	// The reader scrolling the editor (a wheel, the scrollbar, a key) and a host scrolling it both arrive here;
+	// the host tells them apart by where the scroll landed (`setScroll`).
+	if (onScroll) view.scrollDOM.addEventListener('scroll', () => onScroll(), { passive: true });
 	// (A `requestAnimationFrame` reflow used to sit here, on the belief that iOS
 	// Safari painted a "system lavender" selection tint before CodeMirror's theme
 	// landed. The lavender was `#d7d4f0` — @codemirror/view's own base-theme
@@ -868,29 +853,36 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		},
 		// Mark a range of the document: the slide the preview is showing (offsets; null clears it).
 		setBand: (range) => view.dispatch({ effects: setBandEffect.of(range ? { from: range.from, to: range.to } : null) }),
-		// Land on a slide the reader picked: the caret at `caret`, and the whole of [from, to] on screen when
-		// it fits (centered), else its start at the top, which keeps the opening `---` and the title in view.
-		// `grab` takes keyboard focus; a touch pick leaves it, because focus raises the software keyboard.
-		revealSlide: ({ from, to, caret, grab = false, alignY = /** @type {number | null} */ (null) }) => {
+		// Land on a slide the reader picked: the caret at `caret`. `frame`: also put [from, to] on screen, centered
+		// when it fits and from its start when it does not. A host that keeps the editor and the preview scrolled
+		// together leaves `frame` off and lets the alignment place it. `grab` takes keyboard focus; a touch pick
+		// leaves it, because focus raises the software keyboard.
+		revealSlide: ({ from, to, caret, grab = false, frame = true }) => {
 			const len = view.state.doc.length;
 			const a = Math.min(Math.max(0, from), len);
 			const b = Math.min(Math.max(a, to), len);
 			const selection = { anchor: Math.min(Math.max(0, caret), len) };
-			if (alignY === null) view.dispatch({ selection, effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'center' : 'start', yMargin: 12 }) });
-			else {
-				view.dispatch({ selection });
-				alignTop(view, a, b, alignY);
-			}
+			view.dispatch(frame ? { selection, effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'center' : 'start', yMargin: 12 }) } : { selection });
 			if (grab) view.focus();
 		},
-		// Bring a slide into view WITHOUT touching the caret or the selection: the preview was scrolled, and the
-		// reader's place in the text is theirs. Nearest, so a slide already on screen does not move.
-		showRange: ({ from, to, alignY = /** @type {number | null} */ (null) }) => {
-			const len = view.state.doc.length;
-			const a = Math.min(Math.max(0, from), len);
-			const b = Math.min(Math.max(a, to), len);
-			if (alignY !== null) return alignTop(view, a, b, alignY);
-			view.dispatch({ effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'nearest' : 'start', yMargin: 12 }) });
+		// Where each range sits in the editor's own scroll coordinates, and how big its window and content are:
+		// what the section alignment (fuoco/align.ts) needs. Heights of lines not drawn yet are CodeMirror's
+		// estimates, which is why a host asks again as the reader scrolls.
+		getLayout: (ranges) => {
+			const scroller = view.scrollDOM;
+			const base = view.documentTop - scroller.getBoundingClientRect().top + scroller.scrollTop;
+			const tops = [];
+			const bottoms = [];
+			for (const r of ranges) {
+				tops.push(base + view.lineBlockAt(r.from).top);
+				bottoms.push(base + view.lineBlockAt(r.to).bottom);
+			}
+			return { tops, bottoms, viewport: scroller.clientHeight, content: scroller.scrollHeight, scroll: scroller.scrollTop };
+		},
+		// Scroll to `y` and say where it landed (the browser clamps), so a host can tell its own scroll from the reader's.
+		setScroll: (y) => {
+			view.scrollDOM.scrollTop = y;
+			return view.scrollDOM.scrollTop;
 		},
 		// The primary selection's ends, in offsets.
 		getCaret: () => {

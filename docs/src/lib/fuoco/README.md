@@ -123,6 +123,26 @@ per outline snapshot (lines split on `\n`; 1-based lines, 0-based columns):
 `Outline.kinds` is the host's name for its two levels (`{ unit: 'slide', part: 'page' }`; pass `kinds` to
 `createTextOutliner` for `'chapter'` and `'paragraph'`). Without it a place says `unit` and `part`.
 
+## Aligning two views
+
+An editor and a preview show the same sections at different sizes, so a ratio of their scroll positions
+drifts and a jump at each section boundary is jarring. `align.ts` is a map between the two scroll positions
+that keeps the **sections** level: the first at the top, the last at the bottom, every one between centered in
+both. That is one rule: each section's centered scroll position, clamped into the view's scroll range (the first
+and last cannot be centered, so they clamp to the ends). The pairs are anchors, joined by straight lines, so
+the map is continuous, monotone and exact at both ends. Text and picture are level section for section, never
+line for line.
+
+| Call | What it does |
+|---|---|
+| `ViewLayout` | One view: `tops` and `bottoms` of each section in its scroll coordinates, its `viewport` and `content` size. Both views describe the same sections in the same order. |
+| `createScrollMap(a, b)` | `{ toB(scrollA), toA(scrollB) }`. |
+| `sectionAt(layout, scroll)` | The section a view is on: the one centered nearest, the first at the top, the last at the end. |
+| `anchorsOf(a, b)` · `centeredAt(layout, i)` · `maxScroll(layout)` | The pairs, a section's centered position, the furthest a view scrolls. |
+
+A host that scrolls two panes with it also needs an echo guard: setting a pane's scroll makes that pane
+scroll, so remember where the move landed and drop the event that arrives there.
+
 ## The guarantees
 
 | Guarantee | Mechanism |

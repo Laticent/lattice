@@ -1,35 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import { buildDeckIndex, deckOutliner } from './deck-outline';
+import { createScrollMap, sectionAt } from './fuoco/align';
 import { createFocusHub } from './fuoco/hub';
-import { createPlaygroundSync, type SyncPorts } from './playground-sync';
+import { createPlaygroundSync, type ScrolledLayout, type SyncPorts } from './playground-sync';
 import { buildRenderedIndex } from './rendered-index';
 
-const deck = ['---', 'theme: indaco', '---', '', '# One', 'alpha', '', '---', '', '# Two', 'beta', '', '---', '', '# Three', 'gamma', ''].join('\n');
+const deck = ['---', 'theme: indaco', '---', '', '# One', 'alpha', '', '---', '', '# Two', 'beta', '', '---', '', '# Three', 'gamma', '', '---', '', '# Four', 'delta', '', '---', '', '# Five', 'epsilon', ''].join('\n');
+const SLIDES = 5;
 const pageOf = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1));
+const at = (needle: string, from = 0) => deck.indexOf(needle, from);
+
+/** Editor sections are 300px apart in a 500px window; preview pages are 400px apart in a 700px window. */
+function layoutOf(n: number, pitch: number, height: number, viewport: number, scroll: number, lead: number): ScrolledLayout {
+	const tops = Array.from({ length: n }, (_, i) => lead + i * pitch);
+	return { tops, bottoms: tops.map((t) => t + height), viewport, content: lead + n * pitch + 200, scroll };
+}
 
 function rig(source = deck) {
 	const log: string[] = [];
-	const state = { top: 120 as number | null, editing: true, editor: true, active: true, canPick: true, reading: null as number | null, showOk: true, now: 0 };
-	const timers: Array<{ id: number; at: number; cb: () => void }> = [];
+	const state = { editing: true, editor: true, active: true, canPick: true, now: 0, ed: 0, pv: 0, previewOk: true };
 	const rafs: Array<{ id: number; cb: () => void }> = [];
 	let ids = 0;
+	const clamp = (y: number, l: ScrolledLayout) => Math.max(0, Math.min(y, l.content - l.viewport));
+	const edLayout = (n: number) => layoutOf(n, 300, 260, 500, state.ed, 40);
+	const pvLayout = (n: number) => layoutOf(n, 400, 380, 700, state.pv, 18);
+	let parts = SLIDES;
 	const ports: SyncPorts = {
 		editor: () =>
 			state.editor
 				? {
 						setBand: (r) => log.push(`band ${r ? `${r.from}-${r.to}` : 'none'}`),
-						revealSlide: (a) => log.push(`reveal caret=${a.caret} from=${a.from} to=${a.to} grab=${!!a.grab}${a.alignY != null ? ` y=${a.alignY}` : ''}`),
-						showRange: (a) => log.push(`show ${a.from}-${a.to}${a.alignY != null ? ` y=${a.alignY}` : ''}`),
+						revealSlide: (a) => log.push(`reveal caret=${a.caret} grab=${!!a.grab} frame=${a.frame}`),
+						getLayout: (ranges) => ({ ...edLayout(ranges.length), scroll: state.ed }),
+						setScroll: (y) => {
+							state.ed = clamp(y, edLayout(parts));
+							log.push(`editor-scroll ${Math.round(state.ed)}`);
+							return state.ed;
+						},
 					}
 				: null,
-		reading: (_c, _n) => state.reading,
-		show: (page, o) => {
-			log.push(`page ${page} follow=${o.follow} instant=${o.instant}`);
-			return state.showOk;
+		previewLayout: (groups) => (state.previewOk ? { ...pvLayout(groups.length), scroll: state.pv } : null),
+		setPreviewScroll: (y) => {
+			state.pv = clamp(y, pvLayout(parts));
+			log.push(`preview-scroll ${Math.round(state.pv)}`);
+			return state.pv;
 		},
-		active: () => state.active,
+		markPages: (p) => log.push(`mark ${p ? p.join(',') : 'none'}`),
+		show: (page, o) => {
+			log.push(`page ${page} instant=${o.instant}`);
+			return true;
+		},
 		editing: () => state.editing,
-		slideTop: (page) => (state.top === null ? null : state.top + page * 400),
+		active: () => state.active,
 		canPick: () => state.canPick,
 		now: () => state.now,
 		raf: (cb) => {
@@ -37,11 +59,6 @@ function rig(source = deck) {
 			return ids;
 		},
 		cancelRaf: (id) => void rafs.splice(0, rafs.length, ...rafs.filter((r) => r.id !== id)),
-		timeout: (cb, ms) => {
-			timers.push({ id: ++ids, at: state.now + ms, cb });
-			return ids;
-		},
-		clearTimeout: (id) => void timers.splice(0, timers.length, ...timers.filter((t) => t.id !== id)),
 	};
 	const hub = createFocusHub({ outliner: deckOutliner });
 	hub.update(source, { by: 'editor' });
@@ -50,138 +67,174 @@ function rig(source = deck) {
 		await Promise.resolve();
 		await Promise.resolve();
 	};
-	const land = async (src = source, n = 3, patched = true) => {
+	const land = async (src = source, n = SLIDES, patched = true) => {
+		parts = n;
 		const ix = buildRenderedIndex(pageOf(n), buildDeckIndex(src));
 		sync.rendered(src, () => Promise.resolve(ix), patched);
 		await settle();
 	};
-	const tick = (ms: number) => {
-		state.now += ms;
-		for (const t of timers.splice(0).sort((a, b) => a.at - b.at)) {
-			if (t.at <= state.now) t.cb();
-			else timers.push(t);
-		}
-	};
 	const frame = () => {
 		for (const r of rafs.splice(0)) r.cb();
 		hub.flush();
+		for (const r of rafs.splice(0)) r.cb();
+		hub.flush();
 	};
-	return { hub, sync, log, state, land, tick, frame, settle, ports };
+	const map = () => createScrollMap(edLayout(parts), pvLayout(parts));
+	/** The reader scrolls the preview to `y`. */
+	const scrollPreview = (y: number) => {
+		state.pv = clamp(y, pvLayout(parts));
+		sync.previewScrolled();
+		frame();
+	};
+	/** The reader scrolls the editor to `y`. */
+	const scrollEditor = (y: number) => {
+		state.ed = clamp(y, edLayout(parts));
+		sync.editorScrolled();
+		frame();
+	};
+	return { hub, sync, log, state, land, frame, settle, map, scrollPreview, scrollEditor, edLayout, pvLayout };
 }
 
-const at = (needle: string, from = 0) => deck.indexOf(needle, from);
-
-describe('the caret parks while the preview is scrolled', () => {
-  it('a scroll marks and shows the viewed slide and never moves the caret', async () => {
+describe('either pane drives the other', () => {
+	it('scrolling the preview scrolls the editor to the mapped place and names the slide it is on', async () => {
 		const r = rig();
 		await r.land();
-		r.state.reading = 1;
-		r.sync.scrolled();
-		r.frame();
-		r.frame();
-		expect(r.hub.get()).toMatchObject({ origin: 'preview', flat: 1 });
-		expect(r.log.some((l) => l.startsWith('show '))).toBe(true);
-		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
-		// The preview does not chase its own report.
-		expect(r.log.some((l) => l.startsWith('page '))).toBe(false);
+		r.scrollPreview(1000);
+		expect(r.state.ed).toBeCloseTo(r.map().toA(r.state.pv), 6);
+		expect(r.state.ed).toBeGreaterThan(0);
+		expect(r.hub.get().origin).toBe('preview');
+		expect(r.hub.get().flat).toBe(sectionAt(r.pvLayout(SLIDES), r.state.pv));
 	});
 
-	it('the next caret report returns the band and the preview to the caret slide', async () => {
+	it('scrolling the editor scrolls the preview to the mapped place and names the slide it is on', async () => {
 		const r = rig();
 		await r.land();
+		r.scrollEditor(700);
+		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
+		expect(r.state.pv).toBeGreaterThan(0);
+		expect(r.hub.get().origin).toBe('editor-view');
+		expect(r.hub.get().flat).toBe(sectionAt(r.edLayout(SLIDES), r.state.ed));
+	});
+
+	it('a scroll never moves the caret', async () => {
+		const r = rig();
+		await r.land();
+		r.scrollPreview(1100);
+		r.scrollEditor(300);
+		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
+	});
+
+	it('a scroll that is the caret being brought into view does not take the focus from the caret', async () => {
+		const r = rig();
+		await r.land();
+		r.scrollEditor(900);
+		r.state.now += 1000;
+		// An arrow key: the caret is on slide 1, and CodeMirror scrolls the editor to it.
 		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
-		r.frame();
-		r.state.reading = 2;
-		r.sync.scrolled();
-		r.frame();
-		r.frame();
-		expect(r.hub.get().flat).toBe(2);
-		r.log.length = 0;
-		r.sync.selected({ head: at('alpha') + 1, anchor: at('alpha') + 1, line: 'alpha', user: true });
-		r.frame();
-		r.tick(120);
+		r.scrollEditor(0);
 		expect(r.hub.get()).toMatchObject({ origin: 'editor', flat: 0 });
-		expect(r.log.some((l) => /^band/.test(l))).toBe(true);
-		expect(r.log).toContain('page 0 follow=true instant=false');
-		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
+		// A moment later the reader scrolls the editor themselves, and that names the slide again.
+		r.state.now += 1000;
+		r.scrollEditor(900);
+		expect(r.hub.get().origin).toBe('editor-view');
 	});
 
-	it('a scroll that is our own follow does not report back', async () => {
+	it('ends meet: the top is the first slide in both, the bottom the last', async () => {
 		const r = rig();
 		await r.land();
-		r.sync.selected({ head: at('gamma'), anchor: at('gamma'), line: 'gamma', user: true });
+		r.scrollPreview(1e9);
+		expect(r.state.ed).toBeCloseTo(r.edLayout(SLIDES).content - 500, 6);
+		expect(r.hub.get().flat).toBe(SLIDES - 1);
+		r.scrollPreview(0);
+		expect(r.state.ed).toBe(0);
+		expect(r.hub.get().flat).toBe(0);
+	});
+
+	it("a move's own echo does not drive the other pane back", async () => {
+		const r = rig();
+		await r.land();
+		r.scrollPreview(1000);
+		const moved = r.log.filter((l) => l.startsWith('editor-scroll')).length;
+		// The editor's scroll event for the move the sync just made arrives at the position it set.
+		r.log.length = 0;
+		r.sync.editorScrolled();
 		r.frame();
-		r.tick(120);
-		r.state.reading = 1; // the preview passes through slide 2 on the way
-		r.sync.scrolled();
-		r.frame();
-		expect(r.hub.get().flat).toBe(2);
-		r.tick(400);
-		r.state.reading = 2;
-		r.sync.scrolled();
-		r.frame();
-		expect(r.hub.get().flat).toBe(2);
+		expect(r.log.filter((l) => l.startsWith('preview-scroll')).length).toBe(0);
+		expect(moved).toBe(1);
 	});
 });
 
-describe('the editor lines the slide up with its picture', () => {
-	it('a scroll to another slide aims the editor at that slide\'s top on screen', async () => {
+describe('the slide in focus is marked in both panes', () => {
+	it('marks the focused slide in the preview and the band in the editor, whoever moved', async () => {
 		const r = rig();
 		await r.land();
-		r.state.reading = 1;
-		r.sync.scrolled();
-		r.frame();
-		r.frame();
-		expect(r.log.some((l) => /^show \d+-\d+ y=520$/.test(l))).toBe(true);
-	});
-	it('keeps following while the same slide scrolls, so the two tops stay level', async () => {
-		const r = rig();
-		await r.land();
-		r.state.reading = 0;
-		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
-		r.frame();
 		r.log.length = 0;
-		r.state.top = 60;
-		r.sync.scrolled();
+		r.sync.selected({ head: at('gamma'), anchor: at('gamma'), line: 'gamma', user: true });
 		r.frame();
-		expect(r.log.some((l) => /^show \d+-\d+ y=60$/.test(l))).toBe(true);
+		expect(r.log).toContain('mark 2');
+		expect(r.log.some((l) => l.startsWith('band'))).toBe(true);
+		r.log.length = 0;
+		r.state.now += 1000;
+		r.scrollEditor(0);
+		expect(r.log).toContain('mark 0');
 	});
-	it('a pick carries the slide top too, and without an index it falls back to plain framing', async () => {
+
+	it('puts the mark back when the filmstrip mounts the slide', async () => {
 		const r = rig();
 		await r.land();
-		r.hub.go('rail', { flat: 2 });
-		r.frame();
-		expect(r.log.find((l) => l.startsWith('reveal'))).toMatch('y=920');
-		r.state.top = null;
+		r.scrollEditor(700);
 		r.log.length = 0;
-		r.hub.go('rail', { flat: 1 });
+		r.sync.remark();
+		expect(r.log.some((l) => /^mark \d/.test(l))).toBe(true);
+	});
+
+	it('moving the caret marks its slide but leaves both panes where they are: the scroll comes from the editor', async () => {
+		const r = rig();
+		await r.land();
+		r.log.length = 0;
+		r.sync.selected({ head: at('delta'), anchor: at('delta'), line: 'delta', user: true });
 		r.frame();
-		expect(r.log.find((l) => l.startsWith('reveal'))).not.toMatch('y=');
+		expect(r.log.some((l) => l.startsWith('preview-scroll') || l.startsWith('editor-scroll') || l.startsWith('page '))).toBe(false);
+		expect(r.hub.get()).toMatchObject({ origin: 'editor', flat: 3 });
 	});
 });
 
 describe('a pick moves the caret', () => {
-	it('a map tile reveals the slide, caret at the end of its title, and scrolls the preview', async () => {
+	it('a click on a slide puts the caret at the end of its title and brings the editor level with the preview', async () => {
 		const r = rig();
 		await r.land();
-		r.hub.go('rail', { flat: 1 });
-		r.frame();
-		const title = at('# Two') + '# Two'.length;
-		const frameFrom = at('---', at('alpha'));
-		const frameTo = at('---', at('beta')) + 3;
-		expect(r.log).toContain(`reveal caret=${title} from=${frameFrom} to=${frameTo} grab=false y=520`);
-		expect(r.log).toContain('page 1 follow=false instant=false');
-	});
-
-	it('a click on a slide in the preview reveals it, grabs focus, and does not scroll the preview', async () => {
-		const r = rig();
-		await r.land();
+		r.state.pv = 900;
 		r.sync.picked(2, { grab: true });
 		r.frame();
 		const title = at('# Three') + '# Three'.length;
-		expect(r.log.find((l) => l.startsWith('reveal'))).toMatch(`caret=${title}`);
-		expect(r.log.find((l) => l.startsWith('reveal'))).toMatch('grab=true');
+		expect(r.log).toContain(`reveal caret=${title} grab=true frame=false`);
+		expect(r.state.ed).toBeCloseTo(r.map().toA(900), 6);
 		expect(r.log.some((l) => l.startsWith('page '))).toBe(false);
+	});
+
+	it('a map tile asks the preview to scroll and the editor follows it, without naming a focus on the way', async () => {
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 3 });
+		r.frame();
+		const title = at('# Four') + '# Four'.length;
+		expect(r.log).toContain(`reveal caret=${title} grab=false frame=false`);
+		expect(r.log).toContain('page 3 instant=false');
+		// The preview's smooth scroll passes through slide 2 and 3: the editor moves along, the focus stays the tile's.
+		r.state.now += 20;
+		r.scrollPreview(600);
+		expect(r.hub.get()).toMatchObject({ origin: 'rail', flat: 3 });
+		expect(r.state.ed).toBeCloseTo(r.map().toA(600), 6);
+	});
+
+	it('frames the slide itself when the panes cannot be aligned yet', async () => {
+		const r = rig();
+		r.state.previewOk = false;
+		await r.land();
+		r.sync.picked(1, { grab: false });
+		r.frame();
+		// Nothing to align with yet, so the editor frames the slide itself.
+		expect(r.log.find((l) => l.startsWith('reveal'))).toMatch(/frame=true$/);
 	});
 
 	it('a click while the editor is off screen places nothing', async () => {
@@ -193,56 +246,69 @@ describe('a pick moves the caret', () => {
 		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
 	});
 
-	it('a walk step (origin preview, a go) shows the slide and never takes the caret', async () => {
+	it('a walk step (origin preview) shows the slide and never takes the caret', async () => {
 		const r = rig();
 		await r.land();
 		r.hub.go('preview', { flat: 2 });
 		r.frame();
 		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
-		expect(r.log.some((l) => l.startsWith('show '))).toBe(true);
 	});
 });
 
 describe('two texts', () => {
-	it('waits for the render of what was typed, then follows once, instantly after a full write', async () => {
+	it('leaves the panes alone while typing runs ahead of the render, and the render realigns nothing it did not owe', async () => {
 		const r = rig();
 		await r.land();
-		const typed = `${deck}\n---\n\n# Four\n`;
+		const typed = `${deck}\n---\n\n# Six\n`;
 		r.sync.edited(typed);
 		r.sync.selected({ head: typed.length, anchor: typed.length, line: '', user: true });
 		r.frame();
-		r.tick(120);
-		expect(r.log.some((l) => l.startsWith('page '))).toBe(false);
-		expect(r.sync.pending()).toBe(true);
-		await r.land(typed, 4);
-		expect(r.log).toContain('page 3 follow=true instant=false');
+		r.log.length = 0;
+		r.scrollPreview(1000);
+		expect(r.log.some((l) => l.startsWith('editor-scroll'))).toBe(false);
+		await r.land(typed, SLIDES + 1);
 		expect(r.sync.pending()).toBe(false);
 	});
 
-	it('does not read the preview while the text it shows is stale', async () => {
+	it('a full write opens its document at the top, so it is realigned with the editor once it has loaded', async () => {
 		const r = rig();
 		await r.land();
-		r.sync.edited(`${deck}x`);
-		r.state.reading = 2;
-		r.sync.scrolled();
-		r.frame();
-		expect(r.hub.get().origin).not.toBe('preview');
+		r.state.ed = 700;
+		r.state.pv = 0;
+		await r.land(deck, SLIDES, false);
+		expect(r.sync.pending()).toBe(true);
+		expect(r.log.some((l) => l.startsWith('preview-scroll'))).toBe(false);
+		expect(r.sync.loaded()).toBe(true);
+		expect(r.state.pv).toBeCloseTo(r.map().toB(700), 6);
+		expect(r.sync.pending()).toBe(false);
 	});
 
-	it('loaded() follows when a follow was owed, and says so', async () => {
+	it('a full write that lands before its index waits for the index', async () => {
 		const r = rig();
-		expect(r.sync.loaded()).toBe(false);
-		r.sync.selected({ head: at('gamma'), anchor: at('gamma'), line: 'gamma', user: true });
-		r.frame();
-		r.tick(120);
+		r.state.ed = 700;
+		r.sync.rendered(deck, null, false);
+		expect(r.sync.loaded()).toBe(true);
 		expect(r.sync.pending()).toBe(true);
+		await r.land(deck, SLIDES, true);
+		expect(r.state.pv).toBeCloseTo(r.map().toB(700), 6);
+		expect(r.sync.pending()).toBe(false);
+	});
+
+	it('a whole-document replace moves nothing the reader did not move', async () => {
+		const r = rig();
 		await r.land();
-		expect(r.sync.loaded()).toBe(false);
+		r.scrollEditor(900);
+		r.log.length = 0;
+		const next = deck.replace('indaco', 'cuoio');
+		r.sync.edited(next, { from: 0, toA: deck.length, toB: next.length });
+		r.sync.selected({ head: 0, anchor: 0, line: '---', user: false });
+		r.frame();
+		expect(r.log.some((l) => l.startsWith('preview-scroll') || l.startsWith('editor-scroll'))).toBe(false);
 	});
 });
 
 describe('outside Edit the render is the text of record', () => {
-	it('feeds the hub the rendered source, and ignores the editor, until Edit returns', async () => {
+	it('feeds the hub the rendered source, ignores the editor, and leaves the hidden editor alone', async () => {
 		const r = rig();
 		r.state.editing = false;
 		const gallery = '# Only\n\n---\n\n# Two\n';
@@ -252,30 +318,11 @@ describe('outside Edit the render is the text of record', () => {
 		expect(r.hub.outline()?.source).toBe(gallery);
 		r.hub.go('rail', { flat: 1 });
 		r.frame();
-		expect(r.log).toContain('page 1 follow=false instant=false');
-		// The hidden editor holds other text: nothing is revealed, shown or marked in it.
-		expect(r.log.some((l) => /^(band|reveal|show )/.test(l))).toBe(false);
+		expect(r.log).toContain('page 1 instant=false');
+		expect(r.log.some((l) => /^(band|reveal|editor-scroll)/.test(l))).toBe(false);
 		r.state.editing = true;
 		r.sync.edited(deck);
 		expect(r.hub.outline()?.source).toBe(deck);
-	});
-});
-
-describe('a whole-document replace', () => {
-	it('moves nothing the reader did not move: no follow, the preview stays on its slide', async () => {
-		const r = rig();
-		await r.land();
-		r.sync.selected({ head: at('gamma'), anchor: at('gamma'), line: 'gamma', user: true });
-		r.frame();
-		r.tick(120);
-		r.log.length = 0;
-		// Deck settings rewrites the whole text; the editor then reports a caret at the top, not as the reader's.
-		const next = deck.replace('indaco', 'cuoio');
-		r.sync.edited(next, { from: 0, toA: deck.length, toB: next.length });
-		r.sync.selected({ head: 0, anchor: 0, line: '---', user: false });
-		r.frame();
-		r.tick(300);
-		expect(r.log.some((l) => l.startsWith('page '))).toBe(false);
 	});
 });
 

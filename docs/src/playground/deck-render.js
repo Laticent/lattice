@@ -431,9 +431,20 @@ function hostScrollbarColor() {
 	}
 }
 
-export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, scrollbar = true, ...rest }) {
+/** The page's accent as a colour the frame can use (it cannot read the page's tokens): the root's caret colour is
+ *  `var(--accent)` already resolved (native-widgets.css). Null when there is none, and then nothing is outlined. */
+function hostAccent() {
+	try {
+		const c = getComputedStyle(document.documentElement).caretColor;
+		return c && c !== 'auto' ? c : null;
+	} catch {
+		return null;
+	}
+}
+
+export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, scrollbar = true, activeOutline = true, ...rest }) {
 	// The live preview is scrolled by a person, so its frame gets the thin scrollbar (docStyleText).
-	const opts = { scrollbar: scrollbar === true ? hostScrollbarColor() : scrollbar, ...rest };
+	const opts = { scrollbar: scrollbar === true ? hostScrollbarColor() : scrollbar, activeOutline: activeOutline === true ? hostAccent() : activeOutline, ...rest };
 	const st = state || { frameSig: '', lastSections: null };
 	// A VIRTUAL filmstrip's placeholder: the slide's own box, empty, until the slide mounts. A
 	// faint wash of the frame's text color reads as "a slide is here" in light and dark alike,

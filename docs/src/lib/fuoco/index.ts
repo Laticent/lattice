@@ -5,6 +5,8 @@
 // OUTLINER: ./text-outline.ts covers plain text and Markdown; Lattice's slide outliner lives in
 // docs/src/lib/deck-outline. The React adapter is `fuoco/react`.
 
+export type { ScrollMap, ViewLayout } from './align.js';
+export { anchorsOf, centeredAt, createScrollMap, maxScroll, sectionAt } from './align.js';
 export type { Cause, ElementAddr, Focus, FocusHub, FocusHubOptions, HubStats, Lane, Origin, Scheduler, StepAction, StepOptions, SubscribeOptions, Target } from './hub.js';
 export { createFocusHub, revealOffset } from './hub.js';
 export type { EditSpan, Kinds, Outline, Outliner, PartRef, Unit, UnitId } from './outline.js';

@@ -57,12 +57,15 @@ const caret = (page: Page) =>
 		return { line: line.textContent ?? '', col: r.toString().length };
 	});
 
-/** Scroll the preview until slide `n` (1-based) is the one in view. */
+/** Scroll the preview until slide `n` (1-based) is centered in it (the first and last come as near as the ends allow). */
 const scrollPreviewTo = (page: Page, n: number) =>
 	page.evaluate((i) => {
 		const f = document.getElementById('preview') as HTMLIFrameElement;
+		const win = f.contentWindow as Window;
 		const el = f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]')[i - 1] as HTMLElement | undefined;
-		if (el) f.contentWindow?.scrollTo({ top: el.getBoundingClientRect().top + (f.contentWindow?.scrollY ?? 0) - 12, behavior: 'auto' });
+		if (!el) return;
+		const r = el.getBoundingClientRect();
+		win.scrollTo({ top: r.top + win.scrollY - (win.innerHeight - r.height) / 2, behavior: 'auto' });
 	}, n);
 
 /** The page of the preview the reader sees most of. */
@@ -137,7 +140,8 @@ test(`the next key in the editor brings the preview and the band back to the car
 	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 6 title'))).toBe(true);
 	await page.keyboard.press('ArrowDown');
 	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 1 title'))).toBe(true);
-	await expect.poll(() => previewSlide(page)).toBe(1);
+	// …and the preview marks slide 1 again too.
+	await expect.poll(() => markedSlide(page)).toBe('1');
 });
 
 test(`a click on a slide in the preview puts the caret at the end of its title and frames the slide ${TAGS}`, async ({ page }) => {
@@ -169,26 +173,60 @@ test(`a click inside the band lands where it was made ${TAGS}`, async ({ page })
 	expect(at?.col).toBeLessThan('- point 3.4'.length);
 });
 
-test(`the editor starts a slide level with its picture ${TAGS}`, async ({ page }) => {
+/** The preview slide carrying the focus mark, as its stamp (`data-lattice-slide`), or ''. */
+const markedSlide = (page: Page) =>
+	page.evaluate(() => {
+		const f = document.getElementById('preview') as HTMLIFrameElement;
+		return Array.from(f.contentDocument?.querySelectorAll('.lattice > section.db-active') ?? []).map((el) => el.getAttribute('data-lattice-slide')).join(',');
+	});
+
+test(`scrolling the editor marks and shows the same slide in the preview ${TAGS}`, async ({ page }) => {
 	await open(page);
-	await scrollPreviewTo(page, 5);
-	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 5 title'))).toBe(true);
-	// The marked slide's first line sits at the screen height of the slide's top in the preview.
+	await page.locator('.cm-content').focus();
+	const before = await caret(page);
+	// Wheel the editor down the way a reader does.
+	await page.locator('.cm-scroller').hover();
+	await page.mouse.wheel(0, 900);
+	// The slide marked in the preview and the one the editor's band names agree, and it is not the first: a wheel
+	// can keep scrolling for a moment, so compare the two at the same instant until they settle.
+	await expect
+		.poll(async () => {
+			const marked = await markedSlide(page);
+			const named = (await band(page)).map((l) => /^# Slide (\d+) title/.exec(l)?.[1]).find(Boolean);
+			return marked !== '' && marked !== '1' && marked === named;
+		})
+		.toBe(true);
+	// …and the preview has scrolled along with it.
+	await expect.poll(async () => Math.abs((await previewSlide(page)) - Number(await markedSlide(page)))).toBeLessThanOrEqual(1);
+	// The caret did not move.
+	expect(await caret(page)).toEqual(before);
+});
+
+test(`a middle slide is centered in both panes, the first at the top, the last at the bottom ${TAGS}`, async ({ page }) => {
+	await open(page);
+	await scrollPreviewTo(page, 4);
+	// Centre of the marked slide's band in the editor and of the slide in the preview, as heights in each pane.
+	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 4 title'))).toBe(true);
 	await expect
 		.poll(() =>
 			page.evaluate(() => {
 				const f = document.getElementById('preview') as HTMLIFrameElement;
-				const secs = f.contentDocument?.querySelectorAll('section[data-lattice-slide="5"]');
+				const sec = f.contentDocument?.querySelector('section[data-lattice-slide="4"]')?.getBoundingClientRect();
 				const first = document.querySelector('.cm-slide-band-first')?.getBoundingClientRect();
-				const scroller = document.querySelector('.cm-scroller')?.getBoundingClientRect();
-				if (!secs?.length || !first || !scroller) return 999;
-				const slideTop = f.getBoundingClientRect().top + secs[0].getBoundingClientRect().top;
-				// The aim is clamped into the editor's own box, so compare against the clamped target.
-				const want = Math.max(scroller.top + 8, Math.min(slideTop, scroller.bottom - 8));
-				return Math.abs(first.top - want);
+				const last = document.querySelector('.cm-slide-band-last')?.getBoundingClientRect();
+				const ed = document.querySelector('.cm-scroller')?.getBoundingClientRect();
+				if (!sec || !first || !last || !ed) return 999;
+				const pvCentre = sec.top + sec.height / 2 - f.contentWindow!.innerHeight / 2;
+				const edCentre = (first.top + last.bottom) / 2 - (ed.top + ed.height / 2);
+				// Both are offsets from the middle of their own window: centred slides are both near zero.
+				return Math.max(Math.abs(pvCentre), Math.abs(edCentre));
 			}),
 		)
-		.toBeLessThan(6);
+		.toBeLessThan(60);
+	// The ends: the first slide's band starts at the top of the editor, the last slide's ends at the bottom of the document.
+	await scrollPreviewTo(page, 1);
+	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 1 title'))).toBe(true);
+	expect(await page.evaluate(() => (document.querySelector('.cm-scroller') as HTMLElement).scrollTop)).toBeLessThan(4);
 });
 
 test(`the editor scrolls past its last line, as the Studio editor does ${TAGS}`, async ({ page }) => {

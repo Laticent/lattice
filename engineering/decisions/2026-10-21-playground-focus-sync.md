@@ -77,6 +77,39 @@ who moved, and the editor never reacts to itself nor the preview to itself:
   `renderDeck`, so a frame built for export is byte-identical to before. `::-webkit-scrollbar` stays
   unused, for the reason `native-widgets.css` gives.
 
+## 4b. Follow-up (2026-10-21): the panes scroll together
+
+The owner found two gaps: scrolling the editor did not mark or show the slide in the preview, and the
+slide's text was not level with its picture. Chosen against the alternatives: **a continuous section map in
+Fuoco** (over a jump per slide boundary, and over a whole-document ratio) and **a generic Fuoco module** (over
+Playground-only maths).
+
+- **The rule is one rule.** `docs/src/lib/fuoco/align.ts`: a section's centered scroll position, clamped into
+  the pane's scroll range. The first and last sections cannot be centered, so they land at the top and the
+  bottom; the ones between are centered in both panes. The pairs are anchors joined by straight lines:
+  continuous (no jump at a boundary), monotone and exact at both ends. A property test holds those, and a
+  mutation of the end anchor fails it.
+- **Either pane drives the other** (`playground-sync.ts`). A scroll in the preview moves the editor through the
+  map and the slide it is on becomes the focus; a scroll in the editor does the same the other way, under the
+  origin `editor-view`. The slide in focus is marked in **both**: the editor's band, and the preview's
+  `db-active` outline (the Drawing Board's existing mark, now given the page's accent).
+- **What "current slide" means** is the section centered nearest (`sectionAt`), so a slide centered in one pane is
+  current in both. An earlier cut used a focal line that slid from the top of the window to the bottom; it named
+  the next slide when a slide near the end was centered, and the e2e spec caught it.
+- **The caret still parks.** A scroll names the slide in focus and never moves the caret. An editor scroll
+  within 400 ms of a caret move is CodeMirror bringing the caret into view, so it moves the preview but does not
+  take the focus from the caret.
+- **Echoes.** Each move records where it landed; the scroll event that arrives there within 250 ms is its own
+  and is dropped (`ECHO_PX`, `ECHO_MS`).
+- **Gone with it:** the 60%-visible follow, `slideTop`/`alignY`/`alignTop`, `showRange`, and the focal-line
+  reading of the preview. After a full srcdoc write the new document opens at the top, so it is realigned to the
+  editor once it has loaded.
+- **Space after the last line.** The Playground editor now has CodeMirror's `scrollPastEnd()`, as the Studio
+  editor does.
+- **Limits:** the editor's layout comes from CodeMirror's line positions, which are estimates for lines not
+  drawn yet; the map is rebuilt on every scroll frame, so it corrects as CodeMirror measures. The preview's
+  pages are assumed one size and one pitch apart, as `readingPage` already assumes.
+
 ## 5. Fuoco: lines, columns and sections
 
 `docs/src/lib/fuoco/place.ts` (generic, zero imports beyond the outline):
