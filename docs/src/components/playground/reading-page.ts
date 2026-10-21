@@ -1,0 +1,39 @@
+// THE PAGE THE READER IS ON, read from the preview frame: the slide with the most of itself in view.
+// Shared by the focus sync (a scroll in Edit) and nothing else; the slide map no longer reads the frame.
+
+/**
+ * The page the reader is on: the slide with the most of itself in the view, the lower one on a tie.
+ * This is `readingSlideIndex`'s rule (playground-controller.ts), computed from the first two sections'
+ * geometry rather than every band, because the filmstrip's slides are one size and one pitch apart
+ * and a scroll event is not the moment to measure five hundred of them.
+ *
+ * `current` is the page the focus already names. Like the walk's rule, it is kept while at least half
+ * as much of it is in view as of the best page: a pick near the end of a deck cannot scroll its slide
+ * to the top, and without this the preview would report the slide below it and overrule the pick.
+ */
+export function readingPage(frame: HTMLIFrameElement | null, count: number, current = -1): number | null {
+	const win = frame?.contentWindow;
+	const secs = frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]');
+	if (!win || !secs?.length || !count) return null;
+	const r0 = secs[0].getBoundingClientRect();
+	const pitch = secs.length > 1 ? secs[1].getBoundingClientRect().top - r0.top : r0.height;
+	if (!(pitch > 0) || !(r0.height > 0)) return null;
+	const top = win.scrollY + r0.top;
+	const from = Math.max(0, Math.floor((win.scrollY - top) / pitch));
+	const to = Math.min(count - 1, Math.floor((win.scrollY + win.innerHeight - top) / pitch));
+	const seenOf = (i: number) => {
+		const start = top + i * pitch;
+		return Math.max(0, Math.min(win.scrollY + win.innerHeight, start + r0.height) - Math.max(win.scrollY, start));
+	};
+	let best = from;
+	let bestSeen = -1;
+	for (let i = from; i <= to; i++) {
+		const seen = seenOf(i);
+		if (seen > bestSeen) {
+			bestSeen = seen;
+			best = i;
+		}
+	}
+	if (current >= 0 && current < count && seenOf(current) * 2 >= bestSeen) return current;
+	return Math.min(count - 1, best);
+}

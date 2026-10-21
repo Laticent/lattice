@@ -21,8 +21,8 @@ import { yaml } from '@codemirror/lang-yaml';
 import { bracketMatching, HighlightStyle, indentOnInput, LanguageDescription, LanguageSupport, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { linter, lintGutter, lintKeymap } from '@codemirror/lint';
-import { Compartment, EditorState, StateEffect } from '@codemirror/state';
-import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
+import { Compartment, EditorSelection, EditorState, RangeSet, StateEffect, StateField, Transaction } from '@codemirror/state';
+import { Decoration, EditorView, GutterMarker, gutterLineClass, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { editorChrome, editorChromeCoarse } from '../lib/editor-chrome.js';
 import { lintTheme, lintThemeCoarse, tooltipShell } from '../lib/lint-theme.js';
@@ -284,6 +284,9 @@ const latticeTheme = EditorView.theme({
 			// alone cannot separate the states.
 			'--cm-active-line': 'color-mix(in srgb, var(--accent) 12%, transparent)',
 			'--cm-active-gutter': 'color-mix(in srgb, var(--accent) 22%, transparent)',
+			// The slide the preview is showing: a faint wash over its lines, and a bar in the gutter.
+			'--cm-band': 'color-mix(in srgb, var(--accent) 7%, transparent)',
+			'--cm-band-edge': 'color-mix(in srgb, var(--accent) 38%, transparent)',
 			'--cm-match': 'var(--accent)',
 			'--cm-nonmatch': 'var(--fail)',
 			// Autocomplete popup. The panel reused --bg (identical to the editor) with a
@@ -301,7 +304,18 @@ const latticeTheme = EditorView.theme({
 	// pointers so tapping in doesn't zoom; desktop keeps the denser 13.5px.
 	// (Coarse-pointer rules live in the `@media` block at the END of this object —
 	// its position is load-bearing; see the note there.)
-	'.cm-scroller': { overflow: 'auto' },
+	// The editor scrolls on its own scroller, so the page's thin palette-tinted scrollbar (native-widgets.css,
+	// on :root) does not reach it: `scrollbar-color` inherits, but a scroller with an overflow of its own
+	// paints the UA default unless it is told. Same mix as the page's thumb.
+	'.cm-scroller': { overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'color-mix(in srgb, var(--text-muted) 38%, transparent) transparent' },
+	// THE SLIDE BAND. Line decorations, so the text stays selectable and a click anywhere in the band
+	// puts the caret exactly where it landed: the band is paint, never a hit target. The first and
+	// last line carry an edge, which frames the slide including its `---` fences.
+	'.cm-slide-band': { backgroundColor: 'var(--cm-band)' },
+	'.cm-slide-band-first': { boxShadow: 'inset 0 1px 0 var(--cm-band-edge)' },
+	'.cm-slide-band-last': { boxShadow: 'inset 0 -1px 0 var(--cm-band-edge)' },
+	'.cm-slide-band-first.cm-slide-band-last': { boxShadow: 'inset 0 1px 0 var(--cm-band-edge), inset 0 -1px 0 var(--cm-band-edge)' },
+	'.cm-gutterElement.cm-slide-band-gutter': { boxShadow: 'inset 3px 0 0 var(--accent)' },
 	// The active line is this surface's own — the Studio installs no
 	// `highlightActiveLine()`, so it renders no `.cm-activeLine` at all (measured:
 	// zero such elements on the real Studio). Sharing it would have moved a dead
@@ -512,12 +526,70 @@ const autoHeightTheme = EditorView.theme({
 // on) — so the setting travels with the deck and is toggled from the deck-setup
 // drawer, not a per-user preference. An editor with no `vocab` (e.g. a fragment
 // sub-editor) never validates.
+
+// ── The slide band ──────────────────────────────────────────────────────────
+// A range of the document the host wants marked: the slide the preview is showing. Held in a state
+// field so it survives typing (offsets map through each change) and paints as line decorations plus
+// a gutter class, both derived from the one range.
+const setBandEffect = StateEffect.define();
+class BandGutterMarker extends GutterMarker {
+	elementClass = 'cm-slide-band-gutter';
+}
+const bandGutterMarker = new BandGutterMarker();
+
+function bandOf(state, from, to) {
+	const doc = state.doc;
+	const a = doc.lineAt(Math.max(0, Math.min(from, doc.length)));
+	const b = doc.lineAt(Math.max(0, Math.min(to, doc.length)));
+	const lines = [];
+	const marks = [];
+	for (let n = a.number; n <= b.number; n++) {
+		const line = doc.line(n);
+		const edge = (n === a.number ? ' cm-slide-band-first' : '') + (n === b.number ? ' cm-slide-band-last' : '');
+		lines.push(Decoration.line({ class: `cm-slide-band${edge}` }).range(line.from));
+		marks.push(bandGutterMarker.range(line.from));
+	}
+	return { from: a.from, to: b.to, deco: Decoration.set(lines), gutter: RangeSet.of(marks) };
+}
+
+const bandField = StateField.define({
+	create: () => null,
+	update(value, tr) {
+		for (const e of tr.effects) if (e.is(setBandEffect)) return e.value ? bandOf(tr.state, e.value.from, e.value.to) : null;
+		if (value && tr.docChanged) return bandOf(tr.state, tr.changes.mapPos(value.from, -1), tr.changes.mapPos(value.to, 1));
+		return value;
+	},
+	provide: (f) => [EditorView.decorations.from(f, (v) => (v ? v.deco : Decoration.none)), gutterLineClass.from(f, (v) => (v ? v.gutter : RangeSet.empty))],
+});
+
+/** Whether [from, to] is shorter than the editor's viewport. Heights of lines not yet drawn are
+ *  CodeMirror's estimates, which is what a reveal has to decide by. */
+function slideFits(view, from, to) {
+	const top = view.lineBlockAt(from).top;
+	const bottom = view.lineBlockAt(to).bottom;
+	return bottom - top <= view.scrollDOM.clientHeight - 24;
+}
+
+/** One span covering every change in a transaction: the editor's own account of an edit, which lets a
+ *  consumer re-parse the region an edit touched instead of the document. Undefined when nothing changed. */
+function changedSpan(changes) {
+	let from = Number.POSITIVE_INFINITY;
+	let toA = -1;
+	changes.iterChangedRanges((fA, tA) => {
+		if (fA < from) from = fA;
+		if (tA > toA) toA = tA;
+	});
+	if (toA < 0) return undefined;
+	return { from, toA, toB: toA + (changes.newLength - changes.length) };
+}
+
 /**
  * @param {{
  *   parent: HTMLElement,
  *   doc?: string,
- *   onChange: (value: string) => void,
+ *   onChange: (value: string, span?: { from: number, toA: number, toB: number }) => void,
  *   onCursor?: (line: number) => void,
+ *   onSelection?: (at: { head: number, anchor: number, line: string, user: boolean }) => void,
  *   autoHeight?: boolean,
  *   vocab?: unknown,
  *   catalog?: unknown,
@@ -527,7 +599,7 @@ const autoHeightTheme = EditorView.theme({
  *   typeahead?: string,
  * }} opts
  */
-export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight = false, vocab, catalog, themes, finishes, autocomplete = true, typeahead = 'class' }) {
+export function createEditor({ parent, doc = '', onChange, onCursor, onSelection, autoHeight = false, vocab, catalog, themes, finishes, autocomplete = true, typeahead = 'class' }) {
 	ensureTooltipTheme(); // global popup theme (reaches CM's detached tooltip layer)
 	// The autocomplete extension lives in a Compartment so the on/off preference
 	// can reconfigure it live (built once with the vocab; toggled to [] when off).
@@ -621,9 +693,14 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 		return true;
 	};
 	const listener = EditorView.updateListener.of((u) => {
-		if (u.docChanged && onChange) onChange(u.state.doc.toString());
-		if (onCursor && (u.docChanged || u.selectionSet)) {
-			onCursor(u.state.doc.lineAt(u.state.selection.main.head).number);
+		if (u.docChanged && onChange) onChange(u.state.doc.toString(), changedSpan(u.changes));
+		if (u.docChanged || u.selectionSet) {
+			const sel = u.state.selection.main;
+			const line = u.state.doc.lineAt(sel.head);
+			if (onCursor) onCursor(line.number);
+			// `user`: the reader moved or typed (a key, a click, a paste). A transaction the host made
+			// (a reveal, a value replace) carries no user event, and the host must not follow its own move.
+			if (onSelection) onSelection({ head: sel.head, anchor: sel.anchor, line: line.text, user: u.transactions.some((tr) => tr.annotation(Transaction.userEvent) !== undefined) });
 		}
 	});
 
@@ -715,6 +792,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 				vocab
 					? [linter(lintSource, { delay: 350, needsRefresh: (u) => u.transactions.some((tr) => tr.effects.some((e) => e.is(admissionChanged))) }), lintGutter()]
 					: [],
+				bandField,
 				latticeTheme,
 				...(autoHeight ? [autoHeightTheme] : []),
 				// lintKeymap: F8 / Shift-F8 cycle findings, Ctrl-Shift-M opens the lint
@@ -764,6 +842,34 @@ export function createEditor({ parent, doc = '', onChange, onCursor, autoHeight 
 		setTypeahead: (mode) => {
 			typeaheadMode = normalizeTypeahead(mode);
 			prevKind = null; // re-arm: the next entry into a context fires fresh
+		},
+		// Mark a range of the document: the slide the preview is showing (offsets; null clears it).
+		setBand: (range) => view.dispatch({ effects: setBandEffect.of(range ? { from: range.from, to: range.to } : null) }),
+		// Land on a slide the reader picked: the caret at `caret`, and the whole of [from, to] on screen when
+		// it fits (centered), else its start at the top, which keeps the opening `---` and the title in view.
+		// `grab` takes keyboard focus; a touch pick leaves it, because focus raises the software keyboard.
+		revealSlide: ({ from, to, caret, grab = false }) => {
+			const len = view.state.doc.length;
+			const a = Math.min(Math.max(0, from), len);
+			const b = Math.min(Math.max(a, to), len);
+			view.dispatch({
+				selection: { anchor: Math.min(Math.max(0, caret), len) },
+				effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'center' : 'start', yMargin: 12 }),
+			});
+			if (grab) view.focus();
+		},
+		// Bring a slide into view WITHOUT touching the caret or the selection: the preview was scrolled, and the
+		// reader's place in the text is theirs. Nearest, so a slide already on screen does not move.
+		showRange: ({ from, to }) => {
+			const len = view.state.doc.length;
+			const a = Math.min(Math.max(0, from), len);
+			const b = Math.min(Math.max(a, to), len);
+			view.dispatch({ effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'nearest' : 'start', yMargin: 12 }) });
+		},
+		// The primary selection's ends, in offsets.
+		getCaret: () => {
+			const s = view.state.selection.main;
+			return { head: s.head, anchor: s.anchor };
 		},
 		// Move the cursor to (1-based) line `n` and scroll it into view. Clamped
 		// to the document. Used by the Drawing Board's preview->editor sync.

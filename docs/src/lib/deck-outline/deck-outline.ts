@@ -45,7 +45,8 @@ import { resolveSplitMode as resolveSplitModeJs } from '../../../../lib/core/res
 import { parseSlideBoundaries, slideBoundaries } from '../../../../lib/core/slide-boundaries.mjs';
 import { FORWARD_SCAN_LINES } from '../../../../lib/plugins/blocks.generated.mjs';
 import { frontMatterBlock } from '../../components/studio/front-matter';
-import { diffSpan, type EditSpan, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
+import { diffSpan, type EditSpan, type Kinds, nextRevision, nextUnitId, type Outline, type Outliner, partBaseOf, partEnd, partStart, spanHolds, type Unit, type UnitId } from '../fuoco/outline';
+import { type Extent, extentOf } from '../fuoco/place';
 import { normalizeSourceText } from '../normalize-source-text';
 
 const headingSplitPoints = headingSplitPointsJs as (tokens: unknown[]) => number[];
@@ -90,6 +91,45 @@ export function deckEditableOffset(ix: Outline, c: number, k = 0): number {
 		at = nl + 1;
 	}
 	return start;
+}
+
+/** What a deck calls its two levels: an authored slide, and the page each one renders as. */
+export const DECK_KINDS: Kinds = { unit: 'slide', part: 'page' };
+
+/** Where a reader expects the caret when a slide is picked: the end of its title, the first line
+ *  of content (`deckEditableOffset`, so a directive comment never counts). A slide with no text
+ *  lands on its start. */
+export function deckTitleEnd(ix: Outline, c: number, k = 0): number {
+	const at = deckEditableOffset(ix, c, k);
+	const nl = ix.source.indexOf('\n', at);
+	const end = nl === -1 ? ix.source.length : nl;
+	return Math.min(end, Math.max(at, partEnd(ix, c, k)));
+}
+
+/** The lines a page occupies in the editor, INCLUDING the `---` that opens and closes it. Slide 1
+ *  opens on the front matter's closing fence; a page inside a heading-split slide has no
+ *  separator of its own, so its frame is its text. This is the extent a view highlights, and the
+ *  one it must keep on screen when the page is picked. */
+export function deckFrame(ix: DeckIndex, c: number, k = 0): Extent | null {
+	const unit = ix.units[c];
+	if (!unit) return null;
+	let from = k <= 0 ? unit.from : partStart(ix, c, k);
+	let to = partEnd(ix, c, k);
+	if (k <= 0) {
+		const open = ix.seps.find((s) => s.index + s.length === unit.from);
+		if (open) from = open.index;
+		else if (c === 0 && ix.bodyStart > 0) {
+			// The front matter's closing fence: the last non-blank line before the body.
+			let at = ix.bodyStart;
+			while (at > 0 && /\s/.test(ix.source[at - 1])) at--;
+			from = ix.source.lastIndexOf('\n', at - 1) + 1;
+		}
+	}
+	if (k >= unit.parts.length - 1) {
+		const close = ix.seps.find((s) => s.index === unit.end);
+		if (close) to = close.index + close.length;
+	}
+	return extentOf(ix, from, to);
 }
 
 // ── Building ───────────────────────────────────────────────────────────────────
@@ -183,7 +223,7 @@ function rawChunks(source: string, bodyStart: number, seps: readonly { index: nu
 }
 
 function finish(source: string, bodyStart: number, mode: 'rule' | 'headings', units: Unit[], seps: { index: number; length: number }[]): DeckIndex {
-	return { rev: nextRevision(), source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration() };
+	return { rev: nextRevision(), kinds: DECK_KINDS, source, bodyStart, mode, units, partBase: partBaseOf(units), seps, rulesGeneration: boundaryRulesGeneration() };
 }
 
 /** Build an index of `source` from nothing. `prev`, when given, lends its ids to units that

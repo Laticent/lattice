@@ -7,7 +7,20 @@ export type EditorAdapter = {
 	getValue: () => string;
 	setValue: (text: string) => void;
 	focus: () => void;
+	/** Mark a range of the document (offsets): the slide the preview is showing. Null clears it. */
+	setBand: (range: { from: number; to: number } | null) => void;
+	/** Land on a slide the reader picked: caret at `caret`, `[from, to]` on screen. */
+	revealSlide: (at: { from: number; to: number; caret: number; grab?: boolean }) => void;
+	/** Bring `[from, to]` into view without moving the caret or the selection. */
+	showRange: (at: { from: number; to: number }) => void;
+	getCaret: () => { head: number; anchor: number };
 };
+
+/** The editor's own account of one edit: the span it replaced, in the old and the new text. */
+export type EditSpan = { from: number; toA: number; toB: number };
+
+/** The caret or selection moved (or the text changed under it). `user`: the reader did it. */
+export type EditorSelection = { head: number; anchor: number; line: string; user: boolean };
 
 /**
  * Wraps the vanilla CodeMirror editor (createEditor → editor.js) in React
@@ -25,13 +38,16 @@ export function EditorHost({
 	onChange,
 	onReady,
 	onCursor,
+	onSelection,
 	vocab,
 }: {
 	initialDoc: string;
-	onChange: (value: string) => void;
+	onChange: (value: string, span?: EditSpan) => void;
 	onReady: (adapter: EditorAdapter) => void;
 	/** The caret's 1-based line, on every edit and every caret move. */
 	onCursor?: (line: number) => void;
+	/** The caret's offsets and line text, on every edit and caret move, and whether the reader made it. */
+	onSelection?: (at: EditorSelection) => void;
 	// The deck-grammar lint vocabulary. When supplied, the editor runs inline
 	// validation (underlines, governed per deck by the `validate:` front-matter
 	// key); autocomplete stays off here (the playground's picker owns templates).
@@ -52,6 +68,8 @@ export function EditorHost({
 	onChangeRef.current = onChange;
 	onReadyRef.current = onReady;
 	onCursorRef.current = onCursor;
+	const onSelectionRef = React.useRef(onSelection);
+	onSelectionRef.current = onSelection;
 	// Vocab is static (page-build data); read it from a ref so the mount effect
 	// stays [] (one init) without taking a reactive dependency on the prop.
 	const vocabRef = React.useRef(vocab);
@@ -83,13 +101,16 @@ export function EditorHost({
 			doc: placeholderRef.current,
 			vocab: vocabRef.current,
 			autocomplete: false, // validation only on this surface; the picker owns templates
-			onChange: (v: string) => onChangeRef.current(v),
+			onChange: (v: string, span?: EditSpan) => onChangeRef.current(v, span),
 			// Not while `setValue` is replacing the document: a Deck settings change, a component
 			// pick and a gallery load all rewrite the whole text, which puts the caret on line 1 —
 			// the author did not move it there, so the preview must not follow it there.
 			onCursor: (line: number) => {
 				if (!replacing) onCursorRef.current?.(line);
 			},
+			// A whole-document replace puts the caret on line 1; that is not a move the reader made, so it
+			// is reported as the host's own, and nothing follows it.
+			onSelection: (at: EditorSelection) => onSelectionRef.current?.(replacing ? { ...at, user: false } : at),
 		});
 		viewRef.current = ed;
 		setMounted(true); // drop the placeholder now that the real editor is up
@@ -104,6 +125,10 @@ export function EditorHost({
 				}
 			},
 			focus: () => ed.focus(),
+			setBand: (range) => ed.setBand(range),
+			revealSlide: (at) => ed.revealSlide(at),
+			showRange: (at) => ed.showRange(at),
+			getCaret: () => ed.getCaret(),
 		});
 		return () => {
 			ed.destroy();

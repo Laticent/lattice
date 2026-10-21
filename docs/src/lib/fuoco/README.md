@@ -108,6 +108,21 @@ once per animation frame, for DOM work: a held key that crosses three parts in a
 view once. `idle` delivers when the browser is idle, for saving and presence. Pass a
 `scheduler` to `createFocusHub` to run the lanes somewhere other than a browser.
 
+## Lines, columns and section names
+
+Offsets are what the hub speaks; editors speak lines. `place.ts` converts, over a line table built once
+per outline snapshot (lines split on `\n`; 1-based lines, 0-based columns):
+
+| Call | What it does |
+|---|---|
+| `lineAt(outline, offset)` · `offsetAt(outline, line, col?)` · `lineEnd(outline, line)` · `lineCount(outline)` | Offset ↔ line and column, clamped into the text. |
+| `placeAt(outline, offset)` | `{ offset, line, col, unit, part, flat, kinds }`, or null for an empty outline. |
+| `rangeOf(outline, unit, part?)` · `extentOf(outline, from, to)` | A section's `{ from, to, fromLine, toLine }`; `toLine` is the last line that holds text. |
+| `hub.place()` | The focus as a `Place`: the caret when a view reported one, else the start of the focused part. |
+
+`Outline.kinds` is the host's name for its two levels (`{ unit: 'slide', part: 'page' }`; pass `kinds` to
+`createTextOutliner` for `'chapter'` and `'paragraph'`). Without it a place says `unit` and `part`.
+
 ## The guarantees
 
 | Guarantee | Mechanism |

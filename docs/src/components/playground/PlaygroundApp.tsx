@@ -17,14 +17,15 @@ import { Toaster } from '@/components/ui/sonner';
 import { useResizableSplit } from '@/components/ui/use-resizable-split';
 import type { CatalogItem, Lens } from '@/lib/component-search';
 import { isTypingTarget, shellKeyAction } from '@/lib/deck-nav';
+import { deckOutliner } from '@/lib/deck-outline';
 import { createFrameScheduler } from '@/lib/frame-scheduler';
+import { createFocusHub } from '@/lib/fuoco/hub';
 import { notify, notifyAction, notifySticky } from '@/lib/notify';
 import {
 	adjacentComponent,
 	BACKUP_KEY,
 	type Catalog,
 	COMPONENT_KEY,
-	caretSlideIndex,
 	classTokenLine,
 	detectComponent,
 	FOCUS_KEY,
@@ -52,6 +53,7 @@ import {
 	walkChipLabel,
 } from '@/lib/playground-controller';
 import { createEngineBridge, type EngineBridge, type PreviewState } from '@/lib/playground-engine';
+import { createPlaygroundSync, type PlaygroundSync, type SyncPorts } from '@/lib/playground-sync';
 import type { RenderedIndex } from '@/lib/rendered-index';
 import { parseDeckMotion } from '@/playground/anima-host-sel';
 import { createAnimaScenes } from '@/playground/anima-scenes.ts';
@@ -65,8 +67,9 @@ import { createVideoOverlay } from '@/playground/video-overlay.js';
 import { swipeAction } from '../../../../lib/core/present-transport.mjs';
 import { ComponentPicker } from './ComponentPicker';
 import { DeckSetupSheet } from './DeckSetupSheet';
-import { type EditorAdapter, EditorHost } from './EditorHost';
+import { type EditorAdapter, EditorHost, type EditSpan } from './EditorHost';
 import { type ExampleDeck, GalleriesSheet, type GalleryGroup } from './GalleriesSheet';
+import { readingPage } from './reading-page';
 import { WalkBar } from './WalkBar';
 
 // The slide map is loaded when the reader first turns it on: the hub, the preview pool and the
@@ -732,8 +735,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// are editing if they just edited; otherwise back where they were reading.
 		const anchor = anchorRef.current;
 		anchorRef.current = null;
-		if (followPendingRef.current) followCaretRef.current(true);
-		else if (anchor && viewRef.current === 'edit') {
+		if (syncRef.current?.loaded()) {
+			// The caret's slide is owed the preview: the sync follows it as soon as it can.
+		} else if (anchor && viewRef.current === 'edit') {
 			const frame = frameRef.current;
 			if (frame?.contentWindow) {
 				// By AUTHORED slide when the frame numbers them: a size change can split one slide
@@ -755,68 +759,65 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	const previewCollapsedRef = React.useRef(false);
 	const pendingWhileCollapsedRef = React.useRef(false);
 
-	// ── Edit view: the preview follows the caret ────────────────────────────────
-	// Typing on slide 6 while the preview sat on slide 1 meant editing blind — the change
-	// landed off screen. The caret's slide is found from the words on screen
-	// (`caretSlideIndex`), and the preview moves only when that slide is not already the
-	// one mostly in view, so a reader who scrolled the preview to look at something keeps
-	// it until they type or move the caret again.
-	const caretLineRef = React.useRef<number | null>(null);
-	const followTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-	/** The author typed or moved the caret since the preview last followed. ONLY that moves
-	 *  the preview: a palette flip, a mode flip or a resize re-renders too, and following on
-	 *  those pulled a reader who had scrolled the preview to slide 3 back to the caret. */
-	const followPendingRef = React.useRef(false);
+	// ── Edit view: the preview and the editor follow one focus ───────────────────
+	// One hub (docs/src/lib/fuoco) holds which slide the reader is on; `playground-sync.ts` has the rules
+	// for who moves whom (the caret parks while the preview is scrolled, a pick moves it, the preview
+	// follows the caret). This is only the wiring: the ports hand it the real editor and preview.
+	const hub = React.useMemo(() => createFocusHub({ outliner: deckOutliner }), []);
+	const syncRef = React.useRef<PlaygroundSync | null>(null);
 	/** Where the reader was when a full write replaced the document (deck-preview.js
 	 *  `renderDeck` reads it off the old document), so the new one opens there. */
 	const anchorRef = React.useRef<{ index: number; frac: number; slide?: string } | null>(null);
-	const followCaret = React.useCallback((instant = false) => {
-		const frame = frameRef.current;
-		const line = caretLineRef.current;
-		if (!followPendingRef.current || !frame || line == null || viewRef.current !== 'edit' || previewCollapsedRef.current) return;
-		const win = frame.contentWindow;
-		if (!win || frame.clientHeight === 0) return;
-		const units = walkUnits(frame, false);
-		if (!units.length) return;
-		// Texts from the RENDER, not the frame: in the virtual filmstrip most sections are empty
-		// placeholders, and the caret's slide is usually one of them.
-		const rendered = previewStateRef.current?.lastSections;
-		const texts = Array.isArray(rendered) && rendered.length === units.length ? (rendered as string[]) : units.map((u) => u[0].textContent || '');
-		const i = caretSlideIndex(getSource(), line, texts);
-		// Not found YET is not "not found": a heading being typed has not rendered. Stay
-		// pending, and the render that lands it asks again.
-		if (i < 0) return;
-		followPendingRef.current = false;
-		mountAroundIndex(i);
-		const band = frameBands(frame)[i];
-		if (!band) return;
-		const top = win.scrollY;
-		const bottom = top + win.innerHeight;
-		const seen = Math.max(0, Math.min(bottom, band.top + band.height) - Math.max(top, band.top));
-		// Already readable: at least 60% of the slide, or the whole viewport's worth of it.
-		if (seen >= Math.min(band.height, win.innerHeight) * 0.6) return;
-		const inset = Math.max(0, (win.innerHeight - band.height) / 2);
-		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-		win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: instant || reduce ? 'auto' : 'smooth' });
-	}, [getSource, mountAroundIndex]);
-	const followCaretRef = React.useRef(followCaret);
-	followCaretRef.current = followCaret;
-	const onCaret = React.useCallback((line: number) => {
-		caretLineRef.current = line;
-		followPendingRef.current = true;
-		if (followTimerRef.current) clearTimeout(followTimerRef.current);
-		followTimerRef.current = setTimeout(() => {
-			followTimerRef.current = null;
-			followCaretRef.current();
-		}, 140);
+	const showPageRef = React.useRef<SyncPorts['show']>(() => false);
+	React.useEffect(() => {
+		const ports: SyncPorts = {
+			editor: () => editorRef.current,
+			reading: (current, count) => readingPage(frameRef.current, count, current),
+			show: (page, opts) => showPageRef.current(page, opts),
+			editing: () => viewRef.current === 'edit',
+			active: () => viewRef.current === 'edit' && !previewCollapsedRef.current,
+			// A phone shows one pane at a time; a pick that placed a caret in a hidden editor would only
+			// surprise the reader later.
+			canPick: () => (document.getElementById('editor-host')?.getClientRects().length ?? 0) > 0,
+			now: () => performance.now(),
+			raf: (cb) => requestAnimationFrame(cb),
+			cancelRaf: (id) => cancelAnimationFrame(id),
+			timeout: (cb, ms) => window.setTimeout(cb, ms),
+			clearTimeout: (id) => window.clearTimeout(id),
+		};
+		const sync = createPlaygroundSync(hub, ports);
+		syncRef.current = sync;
+		// The editor may have mounted first (its `onReady` runs before this parent effect): feed it the text.
+		const text = editorRef.current?.getValue();
+		if (text !== undefined) {
+			sync.edited(text);
+			sync.selected({ ...(editorRef.current as EditorAdapter).getCaret(), line: '', user: false });
+		}
+		return () => {
+			sync.destroy();
+			syncRef.current = null;
+		};
+	}, [hub]);
+	// Back in Edit the editor's text is the deck again; Explore may have been showing a gallery or a plan.
+	React.useEffect(() => {
+		if (view !== 'edit') return;
+		const text = editorRef.current?.getValue();
+		if (text !== undefined) syncRef.current?.edited(text);
+	}, [view]);
+	const onEditorSelection = React.useCallback((at: { head: number; anchor: number; line: string; user: boolean }) => syncRef.current?.selected(at), []);
+	// A click on a slide in the preview is a pick: the caret goes to the end of its title and the editor frames it.
+	const onFrameClick = React.useCallback((e: MouseEvent) => {
+		if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+		const target = e.target as Element | null;
+		// A control inside a slide keeps its own meaning, and a drag-select is not a pick.
+		if (!target?.closest || target.closest('a[href], button, input, select, textarea, summary, video, audio, [contenteditable], [data-no-pick]')) return;
+		if (!frameRef.current?.contentWindow?.getSelection()?.isCollapsed) return;
+		const secs = frameRef.current.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]');
+		const hit = target.closest('.lattice > section, .lattice > div[data-lv-ph]');
+		const page = hit && secs ? Array.prototype.indexOf.call(secs, hit) : -1;
+		// Not a touch: a touch pick would raise the software keyboard.
+		if (page >= 0) syncRef.current?.picked(page, { grab: (e as PointerEvent).pointerType !== 'touch' });
 	}, []);
-	React.useEffect(
-		() => () => {
-			if (followTimerRef.current) clearTimeout(followTimerRef.current);
-		},
-		[],
-	);
-
 
 	// ── The render loop (wraps the engine; never reimplements it) ───────────────
 	const render = React.useCallback(
@@ -894,6 +895,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				lastGeomRef.current = r.geom;
 				lastIndexRef.current = r.index;
 				lastRenderedSourceRef.current = src;
+				syncRef.current?.rendered(src, r.index, r.patched === true);
 				if (mapOnRef.current) setMapRendered({ source: src, key: ++mapKeyRef.current });
 				// A document of the app's own replaced the bake: from here the frame shows only
 				// once `is-live` says it has fitted.
@@ -918,10 +920,6 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// written against pre-FIT offsets is thrown away when it does (#2124).
 				bindDeckInputRef.current();
 				if (viewRef.current === 'read') landWalkRef.current();
-				// After a PATCH only. On a full write the frame still holds the outgoing document
-				// here; following now would scroll that one and clear the pending follow, and the
-				// new document would open on slide 1. `onFrameLoad` follows once it has loaded.
-				else if (r.patched) followCaretRef.current();
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -1309,7 +1307,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		},
 		[],
 	);
-	const onEdit = React.useCallback(() => {
+	const onEdit = React.useCallback(
+		(value?: string, span?: EditSpan) => {
+		if (value !== undefined) syncRef.current?.edited(value, span);
 		saveSource();
 		if (versionTimerRef.current) clearTimeout(versionTimerRef.current);
 		versionTimerRef.current = setTimeout(() => {
@@ -1318,7 +1318,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		}, 250);
 		syncPickers();
 		scheduleRender();
-	}, [saveSource, syncPickers, scheduleRender]);
+		},
+		[saveSource, syncPickers, scheduleRender],
+	);
 
 	// ── Editor ready: restore persisted source, then first render ───────────────
 	const onEditorReady = React.useCallback(
@@ -1335,6 +1337,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} catch {
 				/* private mode */
 			}
+			syncRef.current?.edited(adapter.getValue());
+			// Where the caret opens is a place too: the band marks its slide from the start.
+			syncRef.current?.selected({ ...adapter.getCaret(), line: '', user: false });
 			syncPickers();
 			setSourceVersion((v) => v + 1);
 			// An arriving handoff supersedes the restored draft when pristine; when
@@ -2529,6 +2534,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		if (!doc || !win || boundFrameDocRef.current === doc) return;
 		boundFrameDocRef.current = doc;
 		win.addEventListener('scroll', onDeckScroll, { passive: true });
+		win.addEventListener('scroll', () => syncRef.current?.scrolled(), { passive: true });
+		doc.addEventListener('click', onFrameClick as EventListener);
 		win.addEventListener('wheel', onDeckDrive, { passive: true });
 		// The frame's OWN ResizeObserver, on the filmstrip the fit agent rescales. Created
 		// from the frame's window so it belongs to that document and dies with it — there is
@@ -2543,7 +2550,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		doc.addEventListener('touchend', onDeckTouchEnd as EventListener, { passive: true });
 		// No teardown: the listeners die with the document they are on. The parent-side
 		// copies below are the ones with a lifetime worth managing.
-	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd, onDeckDrive, onDeckGeometry]);
+	}, [onDeckScroll, onDeckKey, onDeckTouchStart, onDeckTouchEnd, onDeckDrive, onDeckGeometry, onFrameClick]);
 	bindDeckInputRef.current = bindDeckInput;
 
 	// The parent-side half of the same three verbs: a reader who has not touched the deck
@@ -2747,30 +2754,47 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const page = walkUnits(frame, false).findIndex((u) => u[0] === first);
 		return page >= 0 ? page : null;
 	}, [mapOn, view, walk, mapRendered]);
-	const onPickMapPage = React.useCallback(
-		(page: number) => {
+	// Bring the preview to a page. The one mover for every pick (a map tile) and for the caret's follow:
+	// Explore goes through the walk (so its scroll guards hold), Edit scrolls the filmstrip. `follow` is the
+	// caret asking, which a page already mostly on screen does not need. False means "not yet" (the preview is
+	// collapsed or not laid out), and the sync tries again.
+	const showPreviewPage = React.useCallback<SyncPorts['show']>(
+		(page, opts) => {
 			const frame = frameRef.current;
-			if (!frame) return;
+			if (!frame) return false;
 			const w = walkRef.current;
 			if (viewRef.current === 'read' && w) {
-				if (w.kind === 'deck') return gotoIndex(page);
-				const el = walkUnits(frame, false)[page]?.[0];
-				const group = walkUnits(frame, true).findIndex((u) => el && u.includes(el));
-				if (group >= 0) gotoIndex(group);
-				return;
+				// The caret is not what moves Explore.
+				if (opts.follow) return true;
+				if (w.kind === 'deck') gotoIndex(page);
+				else {
+					const el = walkUnits(frame, false)[page]?.[0];
+					const group = walkUnits(frame, true).findIndex((u) => el && u.includes(el));
+					if (group >= 0) gotoIndex(group);
+				}
+				return true;
 			}
-			// Edit: bring the page's slides in, then scroll to it the way the caret follow does.
+			if (opts.follow && viewRef.current !== 'edit') return true;
+			if (previewCollapsedRef.current) return false;
 			const win = frame.contentWindow;
-			const band = frameBands(frame)[page];
+			if (!win || frame.clientHeight === 0) return false;
+			// Edit: bring the page's slides in, then scroll to it.
 			mountAroundIndex(page);
-			if (!win || !band) return;
+			const band = frameBands(frame)[page];
+			if (!band) return false;
+			if (opts.follow) {
+				// Already readable: at least 60% of the slide, or the whole viewport's worth of it.
+				const seen = Math.max(0, Math.min(win.scrollY + win.innerHeight, band.top + band.height) - Math.max(win.scrollY, band.top));
+				if (seen >= Math.min(band.height, win.innerHeight) * 0.6) return true;
+			}
 			const inset = Math.max(0, (win.innerHeight - band.height) / 2);
 			const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-			win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: reduce ? 'auto' : 'smooth' });
+			win.scrollTo({ top: Math.max(0, band.top - Math.min(inset, 24)), behavior: opts.instant || reduce ? 'auto' : 'smooth' });
+			return true;
 		},
 		[gotoIndex, mountAroundIndex],
 	);
-	const getPreviewFrame = React.useCallback(() => frameRef.current, []);
+	showPageRef.current = showPreviewPage;
 	const mapOptions = React.useMemo(() => ({ themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl }), [themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl]);
 
 	// <main>, not <div>: this island IS the page body under the site header, so without
@@ -3040,7 +3064,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								</button>
 							)}
 						</div>
-						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} onCursor={onCaret} />
+						<EditorHost initialDoc={starter} vocab={lintVocab} onChange={onEdit} onReady={onEditorReady} onSelection={onEditorSelection} />
 					</section>
 					<button
 						type="button"
@@ -3104,12 +3128,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 								<Frozen active={mapOn}>
 								<React.Suspense fallback={null}>
 									<PlaygroundMap
+										hub={hub}
 										rendered={mapRendered}
 										getIndex={getMapIndex}
 										geom={lastGeomRef.current}
-										getFrame={getPreviewFrame}
 										walkPage={mapWalkPage}
-										onPickPage={onPickMapPage}
 										palettes={palettes}
 										options={mapOptions}
 										orientation={mapStacked ? 'horizontal' : 'vertical'}

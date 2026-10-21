@@ -419,7 +419,9 @@ function readAnchor(frame) {
 // `sig` must capture everything baked into the document outside the <section>s
 // (theme/mode/size, and for the studios the live token/component CSS). `fresh`
 // forces a full write (deck swap → reset runtime/Mermaid state).
-export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, ...opts }) {
+export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, scrollbar = true, ...rest }) {
+	// The live preview is scrolled by a person, so its frame gets the thin scrollbar (docStyleText).
+	const opts = { scrollbar, ...rest };
 	const st = state || { frameSig: '', lastSections: null };
 	// A VIRTUAL filmstrip's placeholder: the slide's own box, empty, until the slide mounts. A
 	// faint wash of the frame's text color reads as "a slide is here" in light and dark alike,

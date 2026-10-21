@@ -351,11 +351,16 @@ export { buildPrintCss, fitSlideOnSheet, handoutRegions, nUpCells, nUpGrid, PRIN
  * document, no new realm, no hidden reveal, and the reader keeps their scroll position.
  * The same function builds both, so a restyled document cannot drift from a written one.
  */
-export function docStyleText({ css, mode, geom, padding = 18, background = null, colorScheme = null, contentVisibility = false, cursor = false, activeOutline = null, printRules = false, printOpts = undefined, center = false }) {
+export function docStyleText({ css, mode, geom, padding = 18, background = null, colorScheme = null, contentVisibility = false, cursor = false, activeOutline = null, printRules = false, printOpts = undefined, center = false, scrollbar = false }) {
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;
 	const bg = background ? background(mode) : (mode === 'dark' ? DARK_BG : LIGHT_BG);
 	const scheme = colorScheme ? ':root{color-scheme:' + colorScheme + ';}' : '';
+	// A thin, quiet scrollbar for a frame a person scrolls (the live preview). The frame is its own
+	// document, so the page's palette-tinted scrollbar (native-widgets.css) does not reach it and the
+	// browser paints its default one, a wide gray bar beside a slide. The thumb is a wash of the
+	// mode's ink; the track stays clear. Off by default: an exported or printed frame is not scrolled.
+	const bar = scrollbar ? 'html{scrollbar-width:thin;scrollbar-color:' + (mode === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.28)') + ' transparent;}' : '';
 	const sectionRule =
 		'.lattice>section{display:block;transform-origin:top left;' +
 		(cursor ? 'cursor:pointer;' : '') +
@@ -383,6 +388,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// assumes slide 0 sits at the top.
 		(center ? 'body{box-sizing:border-box;min-height:100vh;display:flex;flex-direction:column;justify-content:safe center;}' : '') +
 		scheme +
+		bar +
 		// Hidden until the FIT agent scales the 1280px sections to the container
 		// width (it flips this to visible). Prevents the full-size first-paint flash.
 		'.lattice{visibility:hidden;}' +
@@ -436,6 +442,7 @@ export function buildSrcdoc({
 	background = null, // optional `(mode) => cssColor`; null → the mode default (DARK_BG/LIGHT_BG) below
 	colorScheme = null, // 'light' | 'dark' | null — forced :root color-scheme
 	contentVisibility = false,
+	scrollbar = false,
 	cursor = false,
 	activeOutline = null, // accent color string, or null
 	// A 1px EDGE ON EVERY SLIDE, opt-in. The ENGINE draws it (base.modifiers.css, "The slide's
@@ -521,7 +528,7 @@ export function buildSrcdoc({
 	html = sanitizeSlideHtml(web.html);
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;
-	const docCss = docStyleText({ css, mode, geom, padding, background, colorScheme, contentVisibility, cursor, activeOutline, printRules, printOpts, center });
+	const docCss = docStyleText({ css, mode, geom, padding, background, colorScheme, contentVisibility, cursor, activeOutline, printRules, printOpts, center, scrollbar });
 	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';' + (slideEdge ? 'window.__SLIDE_EDGE=1;' : '');
 	// srcdoc (a fresh browsing context per write), NOT doc.open()/write()/close():
 	// the latter keeps the iframe window, so lattice-runtime.js's one-shot Mermaid

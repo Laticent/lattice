@@ -7,7 +7,9 @@
 
 export type { Cause, ElementAddr, Focus, FocusHub, FocusHubOptions, HubStats, Lane, Origin, Scheduler, StepAction, StepOptions, SubscribeOptions, Target } from './hub.js';
 export { createFocusHub, revealOffset } from './hub.js';
-export type { EditSpan, Outline, Outliner, PartRef, Unit, UnitId } from './outline.js';
+export type { EditSpan, Kinds, Outline, Outliner, PartRef, Unit, UnitId } from './outline.js';
 export { carryIds, diffSpan, flatPart, mapOffset, nextRevision, nextUnitId, partAt, partBaseOf, partCount, partEnd, partOfFlat, partStart, partText, spanHolds, unitAt, unitIndexOf, unitText } from './outline.js';
+export type { Extent, Place } from './place.js';
+export { extentOf, lineAt, lineCount, lineEnd, offsetAt, placeAt, rangeOf } from './place.js';
 export type { TextOutlinerOptions } from './text-outline.js';
 export { byBlankLines, byHeadings, byPattern, createTextOutliner } from './text-outline.js';
