@@ -12,7 +12,8 @@ import { RESERVED_FINISH_NAMES } from '../finish-library';
 import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
-import { placeOf, VIEW_KEYS, viewOf } from './follow-keys';
+import { followBus } from './follow-bus';
+import { describeMove, type FollowMove, placeOf, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
 import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
@@ -620,13 +621,36 @@ export class LiveController {
 	private slideAsked = -1;
 	private followWho: { name: string; color: LiveColor } | null = null;
 	private followLostAt = 0;
-	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
-	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view'] }) {
+	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean } | null = null;
+	private lastApplyAt = 0;
+	private applying = false;
+	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean }) {
 		if (!this.following) return;
 		this.followAsked = -1;
 		this.followPending = null;
-		this.followedDoing = target;
-		this.host.followDoing?.(target);
+		this.lastApplyAt = Date.now();
+		if (target.panelMoves) {
+			this.followedDoing = { panel: target.panel, view: target.view };
+			this.host.followDoing?.({ panel: target.panel, view: target.view });
+		}
+		// A screen that moves reports where it is, and that report is awareness again: do not follow our own echo.
+		this.applying = true;
+		try {
+			for (const [key, value] of target.moves) followBus.apply(key, value);
+		} finally {
+			this.applying = false;
+		}
+	}
+	/** Show the settings panel's place beside the rest of the view (a screen reports it through the bus). */
+	private publishBus() {
+		const r = this.rt;
+		if (!r) return;
+		for (const key of ['inspector', 'section'] as const) {
+			const v = followBus.getLocal(key);
+			if (v === null) r.view.clear(key);
+			else r.view.set(key, v);
+		}
+		r.view.flush();
 	}
 	/** Member (and an heir): the host's records, validated, held in memory for the session only. */
 	private received: LiveRecords = NO_RECORDS;
@@ -914,6 +938,17 @@ export class LiveController {
 		if (!(this.share.cursor && this.share.slide && this.share.typing && this.share.doing)) this.applyShare();
 		else this.publishDoing(d);
 		const r = rt;
+		// A screen reports where it is (the settings panel and its section); show that, and tell a change a person made
+		// from one Follow made (a value just applied is not theirs).
+		r.disposers.push(
+			followBus.onLocal((key, value) => {
+				this.publishBus();
+				if (value !== null && this.following && Date.now() - this.lastApplyAt > 800 && value !== followBus.lastApplied(key)) {
+					this.following = null;
+					this.host.rerender();
+				}
+			}),
+		);
 
 		let prev: SessionState = session.getState();
 		r.disposers.push(
@@ -1385,7 +1420,7 @@ export class LiveController {
 		const v = viewOf(doingOf(d));
 		for (const k of Object.keys(v)) r.view.set(k, v[k]);
 		if (!d.asking) r.view.clear('asking');
-		r.view.flush();
+		this.publishBus();
 	}
 
 	private endCall() {
@@ -1627,7 +1662,7 @@ export class LiveController {
 		const s = r?.session.getState();
 		if (!r || !s || s.stage !== 'live') return;
 		const byPeer = this.awByPeer();
-		if (this.following) {
+		if (this.following && !this.applying) {
 			const slide = byPeer.get(this.following)?.slide;
 			if (!s.members.some((m) => m.id === this.following)) {
 				// A leader who reconnects comes back under a new id: keep following the same name and color for a
@@ -1675,8 +1710,11 @@ export class LiveController {
 			const doing = this.following ? placeOf(r.view.of(this.following).all(), byPeer.get(this.following)?.doing) : undefined;
 			// Fabricate is a workspace of one's own, never mirrored: leaving it would throw away the follower's work.
 			const view = doing && doing.view !== 'fabricate' && this.deps.view !== 'fabricate' ? doing.view : this.deps.view;
-			if (doing && this.host.followDoing && this.host.canFollowDoing?.() && (doing.panel !== this.deps.panel || view !== this.deps.view)) {
-				const target = { panel: doing.panel, view };
+			const mirrors = !!this.host.canFollowDoing?.();
+			const moves = mirrors && this.following ? settingsMoves(r.view.of(this.following).all(), { inspector: followBus.getLocal('inspector'), section: followBus.getLocal('section') }) : [];
+			const panelMoves = !!(doing && this.host.followDoing && mirrors && (doing.panel !== this.deps.panel || view !== this.deps.view));
+			if (doing && (panelMoves || moves.length)) {
+				const target = { panel: doing.panel, view, moves, panelMoves };
 				const name = s.members.find((m) => m.id === this.following)?.name ?? 'They';
 				// Nobody is moved while typing (design note §5.3, §12.3), in the editor or any other field: say where
 				// they went, once per burst of typing, with a Go that takes you to wherever they are when you press it.
@@ -1685,7 +1723,7 @@ export class LiveController {
 					if (this.followAsked !== this.myEditAt) {
 						this.followAsked = this.myEditAt;
 						const who = this.following;
-						this.host.notifyAction(`${name} opened ${target.panel ? { coach: 'Coach', lenses: 'Views', library: 'Library', live: 'Live' }[target.panel] : target.view === 'article' ? 'Read' : 'the editor'}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) });
+						this.host.notifyAction(`${name} ${describeMove(target, moves)}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) });
 					}
 				} else this.followTo(target);
 			}

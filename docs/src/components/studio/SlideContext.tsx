@@ -33,6 +33,7 @@ import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from '
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
+import { followBus, useAppliedKey, useViewKey } from './live/follow-bus';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -62,6 +63,8 @@ type LintVocab = {
 } | null;
 
 export type SlideContextBodyProps = {
+	/** True while this is the panel the person is looking at, so Live can say which section is open. */
+	reportSection?: boolean;
 	/** Kept only as an extra baseline-recapture trigger; the baseline also recaptures on
 	 *  `slideNumber`, so a persistently-mounted body (open held true) still resets per slide. */
 	open: boolean;
@@ -276,7 +279,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef, reportSection = false } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -1043,6 +1046,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const [tab, setTab] = React.useState('look');
 	const tabValues = tabDefs.map((t) => t.value);
 	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
+	// Live: say which section is open while this panel is the one showing, and open the one a person we follow is
+	// in (the session decides when; this only decides how).
+	useViewKey('section', reportSection ? activeTab : null);
+	useAppliedKey('section', (v) => {
+		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');
+		if (scope === 'slide' && tabValues.includes(v)) setTab(v);
+	});
 
 	return (
 		<>

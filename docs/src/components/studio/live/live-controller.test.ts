@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryNetwork, type MemoryNetwork } from '@/lib/tavola/memory';
 import type { Transport } from '@/lib/tavola/types';
+import { followBus } from './follow-bus';
 import type { LiveDeps, LiveFinish, LiveHost, LiveTheme } from './live-store';
 import { NO_RECORDS, takeLiveIntent } from './live-store';
 
@@ -89,6 +90,7 @@ beforeEach(() => {
 	Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true });
 });
 afterEach(() => {
+	followBus.reset();
 	location.hash = '';
 });
 
@@ -1129,6 +1131,58 @@ describe('LiveController: activity, Follow and pointers', () => {
 		aw.setLocalState({ ...aw.getLocalState(), view: undefined, doing: { panel: 'live', view: 'compose', presenting: false } });
 		delete aw.getLocalState().view;
 		await until(() => moves.some((m) => m.panel === 'live'), h, g);
+	});
+
+	it('Follow opens the settings panel and section the leader has open; a typist is asked; a section of your own ends it', async () => {
+		const { h } = await hostSession();
+		const sh = shell();
+		const asks: string[] = [];
+		sh.host.followDoing = () => {};
+		sh.host.canFollowDoing = () => true;
+		sh.host.notifyAction = (m) => asks.push(m);
+		localStorage.removeItem('lattice-live-links');
+		sessionStorage.removeItem('lattice-live-sids');
+		location.hash = `#live=${(h.view().link ?? '').split('#live=')[1]}`;
+		takeLiveIntent();
+		const g = new LiveController(sh.host, deps('g-deck'));
+		await g.resume();
+		await until(() => g.lobby()?.stage === 'ready', h, g);
+		g.lobbyActions.setName('Amina');
+		g.lobbyActions.knock();
+		await until(() => h.view().waiting.length > 0, h, g);
+		h.actions.admit(h.view().waiting[0].id);
+		await until(() => g.view().status === 'live', h, g);
+		const hostId = g.view().people.find((p) => p.role === 'host')?.id as string;
+		// This browser shows its own settings panel closed, as the Studio would report it.
+		followBus.setLocal('inspector', 'none');
+		const applied: string[] = [];
+		// A screen does what the Studio's would: it moves, then reports where it is.
+		const off = followBus.onApply((k, v) => {
+			if (v === null) return;
+			applied.push(`${k}:${v}`);
+			followBus.setLocal(k, v);
+		});
+		g.actions.follow(hostId);
+		// biome-ignore lint/suspicious/noExplicitAny: the leader's screen reports its settings panel and section.
+		const lead = (h as any).rt.view;
+		lead.set('inspector', 'deck');
+		lead.set('section', 'brand');
+		lead.flush();
+		await until(() => applied.includes('section:brand'), h, g);
+		expect(applied).toEqual(['inspector:deck', 'section:brand']);
+		expect(g.view().following).toBe(hostId);
+		// The screen is now where it was told; the leader moves on while this person types: a Go, not a move.
+		// biome-ignore lint/suspicious/noExplicitAny: a local keystroke on the shared text.
+		(g as any).rt.ytext.insert(0, 'x');
+		lead.set('section', 'motion');
+		lead.flush();
+		await until(() => asks.some((a) => a.includes('is in Motion')), h, g);
+		expect(applied).toEqual(['inspector:deck', 'section:brand']);
+		// Choosing another section yourself, well after the last move, stops following.
+		(g as unknown as { lastApplyAt: number }).lastApplyAt = 0;
+		followBus.setLocal('section', 'look');
+		expect(g.view().following).toBeNull();
+		off();
 	});
 
 	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {

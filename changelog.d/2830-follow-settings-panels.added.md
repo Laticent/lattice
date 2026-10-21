@@ -1,0 +1,1 @@
+- Live: following someone now also opens the Slide or Deck settings panel they have open, and the section inside it (Look, Brand, Notes and so on). It follows the same rules as a panel: never while you are typing (you get a "Go" instead), desktop only, and opening a section of your own ends the follow.

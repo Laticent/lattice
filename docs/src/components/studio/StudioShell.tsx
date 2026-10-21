@@ -105,6 +105,7 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
+import { followBus, useAppliedKey, useViewKey } from './live/follow-bus';
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
@@ -940,6 +941,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
 	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
 	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
+	// Live: say which settings panel and section are open, and open the ones a person we follow is in.
+	// The Live session decides when (one typing gate); these only decide how.
+	const deckSectionIdsRef = React.useRef<string[]>([]);
+	useViewKey('inspector', activeSettings ?? 'none');
+	useViewKey('section', activeSettings === 'deck' ? deckTab : null);
+	useAppliedKey('inspector', (v) => {
+		if (v === 'deck' || v === 'slide') revealCraftDock();
+		setActiveSettings(v === 'deck' || v === 'slide' ? v : null);
+	});
+	useAppliedKey('section', (v) => {
+		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');
+		if (scope === 'deck' && deckSectionIdsRef.current.includes(v)) setDeckTab(v as DeckTab);
+	});
 	// ── Find + browse, shared by both Inspector scopes ────────────────────────
 	// VIEW is one preference for deck AND slide (studio-store's `settings-view` key):
 	// someone who wants the flat list wants it for settings, not for half of settings.
@@ -5553,6 +5567,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			),
 		},
 	];
+	deckSectionIdsRef.current = deckSections.map((d) => d.value);
 
 	// THE SETTINGS PANEL IS KEPT MOUNTED once shown (settings-dock.tsx; the phone's persistent
 	// sheet), because its preset tiles are live previews and WebKit never frees a preview document
@@ -5761,7 +5776,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{panelScope === 'slide' && (
 				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
-					{(SlideContextBody) => <SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
+					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
 				</PanelLoader>
 			)}
 		</>
