@@ -74,6 +74,13 @@ for (const vw of [1440, 820, 390]) {
 				await expect(page.getByRole('button', { name: 'Import files', exact: true })).toBeVisible();
 			}
 			await expect(page.getByRole('button', { name: /^Add (image|video|file)/ })).toHaveCount(0);
+			// What iOS and Android build their picker from: `image/*` and `video/*` in `accept` and NO `capture`
+			// (a `capture` skips the choice and opens the camera). With these, a phone offers Take Photo, Photo Library
+			// and Choose Files. The sheet itself is the phone's and is not reachable from here (UNVERIFIED on a device).
+			const input = page.getByTestId('library-import-input');
+			const accept = (await input.getAttribute('accept')) ?? '';
+			for (const t of ['image/*', 'video/*', '.zip', '.pdf']) expect(accept.split(','), `accept lists ${t}`).toContain(t);
+			await expect(input).not.toHaveAttribute('capture', /.*/);
 
 			// A photo, imported from the Files section: it opens Media → Images.
 			await importFiles(page, [{ name: 'one.png', mimeType: 'image/png', buffer: PNG }]);
