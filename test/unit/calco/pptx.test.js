@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
 const { writePptx, pptxPageSize } = require('@laticent/calco');
-const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+const { ONE_PX_PNG, ONE_PX_JPEG, style, frame } = require('./_fixtures');
 
 async function slideXml(deck, n = 1) {
   const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer'));
@@ -238,5 +238,30 @@ describe('calco pptx — every master has its own theme', () => {
     raw.addSlide().addNotes('Say this');
     const bytes = await tidyPptxPackage(JSZip, await raw.write({ outputType: 'uint8array' }), 'nodebuffer');
     await check(await JSZip.loadAsync(bytes));
+  });
+});
+
+describe('calco pptx — media are named by what their bytes are', () => {
+  // PptxGenJS 3.12 writes a layout's background image as <layout>-image-1.png whatever it holds.
+  test('a JPEG layout background is a .jpeg part, and its relationship follows the rename', async () => {
+    const deck = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ image: ONE_PX_JPEG }],
+      slides: [{ image: ONE_PX_PNG, background: 0, frames: [frame([[{ text: 'Hi', style: style() }]], { role: 'title' })] }],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/[^/]+\.\w+$/.test(n));
+    const jpeg = media.filter((n) => /\.jpe?g$/.test(n));
+    assert.equal(jpeg.length, 1, 'the background is a .jpeg');
+    assert.deepEqual(media.filter((n) => /\.png$/.test(n)).length, 1, 'the slide picture stays a .png');
+    for (const n of media) {
+      const head = await zip.file(n).async('uint8array');
+      const isJpeg = head[0] === 0xff && head[1] === 0xd8;
+      assert.equal(/\.jpe?g$/.test(n), isJpeg, `${n} is named by its bytes`);
+    }
+    const rels = (await Promise.all(Object.keys(zip.files).filter((n) => n.endsWith('.rels')).map((n) => zip.file(n).async('string')))).join('');
+    assert.match(rels, new RegExp(jpeg[0].split('/').pop().replace('.', '\\.')), 'a relationship names the renamed part');
+    assert.doesNotMatch(rels, /Layout-\d+-image-1\.png/, 'none still names the old .png');
   });
 });

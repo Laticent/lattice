@@ -343,6 +343,7 @@ type ZipLike = {
 	file(name: string, data?: unknown, options?: unknown): { async(type: string): Promise<string> } | null;
 	generateAsync(options: Record<string, unknown>): Promise<unknown>;
 	files: Record<string, unknown>;
+	remove(name: string): unknown;
 };
 
 /** Keep the first `<a:pPr>` of each paragraph; PptxGenJS repeats the same one before every run. */
@@ -419,6 +420,36 @@ export function groupShapes(xml: string): string {
 	}
 	flush();
 	return out + xml.slice(at);
+}
+
+/**
+ * Name every media part by what its bytes are. PptxGenJS 3.12 writes a layout's background image
+ * as `ppt/media/<layout>-image-1.png` whatever it holds, so a JPEG background sat under a `.png`
+ * name and a `png` content type, which desktop PowerPoint may refuse. A JPEG found under `.png` is
+ * renamed `.jpeg` (a content type the package already declares) and every relationship that
+ * names it follows.
+ */
+async function nameMediaByContent(zip: ZipLike): Promise<void> {
+	const renames = new Map<string, string>();
+	for (const name of Object.keys(zip.files)) {
+		const m = name.match(/^ppt\/media\/([^/]+)\.png$/);
+		const file = m && zip.file(name);
+		if (!m || !file) continue;
+		const head = (await (file as unknown as { async(type: string): Promise<Uint8Array> }).async('uint8array')).subarray(0, 2);
+		if (head[0] === 0xff && head[1] === 0xd8) renames.set(name, `ppt/media/${m[1]}.jpeg`);
+	}
+	if (!renames.size) return;
+	for (const [from, to] of renames) {
+		const data = await (zip.file(from) as unknown as { async(type: string): Promise<Uint8Array> }).async('uint8array');
+		zip.file(to, data);
+		zip.remove(from);
+	}
+	for (const rels of Object.keys(zip.files).filter((n) => n.endsWith('.rels'))) {
+		let xml = await (zip.file(rels) as { async(type: string): Promise<string> }).async('string');
+		const before = xml;
+		for (const [from, to] of renames) xml = xml.split(`media/${from.split('/').pop()}`).join(`media/${to.split('/').pop()}`);
+		if (xml !== before) zip.file(rels, xml);
+	}
 }
 
 const THEME_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
@@ -558,6 +589,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 		if (tidy !== types) zip.file('[Content_Types].xml', tidy);
 	}
 	await giveMastersOwnThemes(zip);
+	await nameMediaByContent(zip);
 }
 
 /**
