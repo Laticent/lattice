@@ -73,7 +73,7 @@ export async function describeBackground(section: HTMLElement, { bg, tol, reset 
   const win = section.ownerDocument.defaultView as unknown as { __calcoBackgrounds?: Uint8ClampedArray[] };
   if (reset || !win.__calcoBackgrounds) win.__calcoBackgrounds = [];
   const held = win.__calcoBackgrounds;
-  const bmp = await createImageBitmap(await (await fetch('data:image/png;base64,' + bg)).blob());
+  const bmp = await createImageBitmap(await (await fetch(`data:${bg.startsWith('/9j/') ? 'image/jpeg' : 'image/png'};base64,` + bg)).blob());
   const w = Math.round(bmp.width / 2);
   const h = Math.round(bmp.height / 2);
   const ctx = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D;
@@ -119,7 +119,7 @@ export function readsBackdrop(section: HTMLElement): boolean {
  */
 export async function splitError(_section: HTMLElement, { bg, fg, full, tol }: { bg: string; fg: string; full: string; tol: number }): Promise<number> {
   const load = async (b64: string) => {
-    const bmp = await createImageBitmap(await (await fetch('data:image/png;base64,' + b64)).blob());
+    const bmp = await createImageBitmap(await (await fetch(`data:${b64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'};base64,` + b64)).blob());
     const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D;
     ctx.drawImage(bmp, 0, 0);
     return ctx.getImageData(0, 0, bmp.width, bmp.height).data;
@@ -145,7 +145,7 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
   // Layout size, not the transformed box: the reader's coordinates are in layout px.
   const w = section.offsetWidth;
   const h = section.offsetHeight;
-  const bmp = await createImageBitmap(await (await fetch('data:image/png;base64,' + fg)).blob());
+  const bmp = await createImageBitmap(await (await fetch(`data:${fg.startsWith('/9j/') ? 'image/jpeg' : 'image/png'};base64,` + fg)).blob());
   // Inspect at slide-px resolution: the question is whether anything is uncovered, and the full capture is
   // four times the pixels for the same answer.
   const small = new OffscreenCanvas(w, h).getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D;

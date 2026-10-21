@@ -360,12 +360,17 @@ export function planEmbedding(deck: Deck): EmbeddingPlan {
 	const slotted = new Map<EmbeddedFont, { name: string; slot: FaceSlot }>();
 	const taken = new Set<string>();
 	const others: EmbeddedFont[] = [];
-	for (const [key, face] of exact) {
+	const parsed = [...exact].map(([key, face]) => {
 		const parts = key.split('|');
-		const w = parts[parts.length - 2];
+		return { face, weight: Number(parts[parts.length - 2]) };
+	});
+	// An italic face is slotted only beside the upright face of its weight: a family with a bold italic and no bold
+	// would let a reader that weighs boldness over slant draw an upright bold run in italic.
+	const hasUpright = (family: string, weight: number) => parsed.some((x) => x.face.family === family && x.weight === weight && !x.face.italic);
+	for (const { face, weight } of parsed) {
 		if (slotted.has(face) || others.includes(face)) continue;
-		const bold = Number(w) === 700;
-		if (Number(w) !== 400 && !bold) {
+		const bold = weight === 700;
+		if ((weight !== 400 && !bold) || (face.italic && !hasUpright(face.family, weight))) {
 			others.push(face);
 			continue;
 		}
@@ -378,10 +383,13 @@ export function planEmbedding(deck: Deck): EmbeddingPlan {
 		}
 	}
 	for (const [face, { name, slot }] of slotted) plan.faces.push({ face, name, slot });
+	// Full names too: "Outfit" in the bold slot is "Outfit Bold", so a family of its own may not be called that.
+	const fullNames = new Set(plan.faces.map((f) => (f.slot === 'regular' ? f.name : `${f.name} ${{ bold: 'Bold', italic: 'Italic', boldItalic: 'Bold Italic', regular: '' }[f.slot]}`)));
 	const names = uniqueFaceNames(others.map((face) => ({ ...face, family: safeFamily(face.family), face })));
 	for (const [entry, name] of names) {
 		let unique = name;
-		while (taken.has(`${unique}|regular`)) unique = `${unique} ${entry.weight}`;
+		while (fullNames.has(unique) || taken.has(`${unique}|regular`)) unique = `${unique} ${entry.weight}`;
+		fullNames.add(unique);
 		taken.add(`${unique}|regular`);
 		plan.faces.push({ face: entry.face, name: unique, slot: 'regular' });
 	}

@@ -2406,7 +2406,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					const canvas = await toCanvas(sections[i], captureOptions(now.w, now.h, now.pixelRatio, fontEmbedCSS, log));
 					// A background is a picture to store, and so is the whole slide a slide falls back to: a photograph is a JPEG.
 					// The foreground carries transparency, which only a PNG keeps.
-					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas);
+					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined);
 					return new Uint8Array(await blob.arrayBuffer());
 				},
 				guard: async (i, fn) => {

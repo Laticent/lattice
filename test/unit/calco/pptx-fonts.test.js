@@ -177,8 +177,8 @@ describe('calco pptx — embedded fonts', () => {
     const face = await ttf();
     const deck = await deckWith([{ family: 'Outfit', weight: 700, italic: false, bytes: face }, { family: 'Outfit', weight: 720, italic: false, bytes: face.slice() }], [700, 720]);
     const names = planEmbedding(deck).faces.map((f) => f.name);
-    // 700 takes the bold slot of "Outfit"; 720 has no slot, so it is a family of its own ("Outfit Bold").
-    assert.deepEqual(names, ['Outfit', 'Outfit Bold']);
+    // 700 takes the bold slot of "Outfit"; 720 has no slot, so it is a family of its own; "Outfit Bold" is already the full name of the 700 face, so it is numbered.
+    assert.deepEqual(names, ['Outfit', 'Outfit Bold 720']);
   });
 
   test('regular, bold and italic share one family in their slots, and the runs flag them', async () => {
@@ -195,6 +195,18 @@ describe('calco pptx — embedded fonts', () => {
     const slide = await zip.file('ppt/slides/slide1.xml').async('string');
     const runs = [...slide.matchAll(/<a:rPr([^>]*)>[\s\S]*?<a:latin typeface="([^"]+)"/g)].map((m) => `${m[2]}${/ b="1"/.test(m[1]) ? ' b' : ''}${/ i="1"/.test(m[1]) ? ' i' : ''}`);
     assert.deepEqual(runs, ['Playfair Display', 'Playfair Display b', 'Playfair Display b i']);
+  });
+
+  test('an italic face is slotted only beside its upright twin', async () => {
+    const face = await ttf();
+    const mk = (weight, italic) => ({ family: 'Playfair Display', weight, italic, bytes: face.slice() });
+    const deck = await deckWith([mk(400, false), mk(700, true)], []);
+    deck.slides[0].frames.push(
+      frame([[{ text: 'a', style: style({ family: 'Playfair Display', weight: 400 }) }]], { y: 100 }),
+      frame([[{ text: 'b', style: style({ family: 'Playfair Display', weight: 700, italic: true }) }]], { y: 160 }),
+    );
+    // Bold italic with no bold upright would let a reader draw an upright bold run in italic: it is a family of its own.
+    assert.deepEqual(planEmbedding(deck).faces.map((f) => `${f.name}/${f.slot}`), ['Playfair Display/regular', 'Playfair Display Bold Italic/regular']);
   });
 
   test('every PptxGenJS output type still works with fonts embedded', async () => {

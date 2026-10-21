@@ -192,10 +192,14 @@ cut by a clip, an ellipsized footer among them. A box cannot reproduce a cut wor
 The editable `.pptx` places the same boxes through PptxGenJS, then Calco adds the fonts to
 the package itself (`embedPptxFonts`, `pptx.ts`; `sfnt.ts`):
 
-- **Embedded OpenType, one family per weight.** PowerPoint's font model has four slots per
-  family (regular, bold, italic, bold italic), so Outfit 300, 500 and 600 have nowhere to go.
-  `renameFace` gives each pinned face its own family ("Outfit SemiBold"), as that family's
-  regular face, and its runs ask for it by that name with no synthetic bold or italic.
+- **Embedded OpenType; 400 and 700 in their slots, other weights a family each.** PowerPoint's font
+  model has four slots per family (regular, bold, italic, bold italic), so Outfit 300, 500 and 600
+  have nowhere to go. A regular or bold face (an italic one only beside its upright twin) is
+  embedded in its slot of the family's own name ("Playfair Display"), and its runs carry the bold
+  or italic flag, so LibreOffice and Google Slides, which ignore the embedded copy, find the font
+  by name (2026-10-21 update; before it, "Playfair Display Bold" matched nothing and fell back to
+  a sans). `renameFace` gives every other pinned face its own family ("Outfit SemiBold"), as that
+  family's regular face, and its runs ask for it by that name with no synthetic bold or italic.
   `toEot` wraps it as EOT 2.1, uncompressed and not XOR-ed, in `ppt/fonts/*.fntdata`, listed
   in `p:embeddedFontLst` with `embedTrueTypeFonts="1"`, related by the `font` relationship
   and typed `application/x-fontdata`. This is the shape PowerPoint itself writes.

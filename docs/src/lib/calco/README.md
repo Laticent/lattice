@@ -78,8 +78,9 @@ resizing; pictures of single objects are not, so a photo can be replaced or move
   does this (`hb_subset_input_pin_axis_location` plus an inverted, empty Unicode set).
 
 Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
-Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; each
-weight becomes a family of its own ("Outfit SemiBold"), because PowerPoint's font slots are only
+Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; a regular or
+bold face goes in its slot of the family's own name ("Playfair Display", flagged bold or italic by the run), and any
+other weight becomes a family of its own ("Outfit SemiBold"), because PowerPoint's font slots are only
 regular, bold, italic and bold italic. Only TrueType-outline faces are embedded in a `.pptx`; a
 CFF face, or a call without JSZip, is named instead, so a reader without it sees a substitute.
 
