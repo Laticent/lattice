@@ -198,3 +198,15 @@ test('no engine CSS reintroduces an @container aspect-ratio query', () => {
     'aspect-ratio container queries are retired — select the `data-family` stamp instead (lib/adaptive/families.js).',
   );
 });
+
+test('aspectStamp: the exact shape to two decimals, nothing for 16:9 or a bad measure', () => {
+  const { aspectStamp } = require('../../../lib/adaptive/families.js');
+  assert.strictEqual(aspectStamp(4 / 3), '1.33');
+  assert.strictEqual(aspectStamp(1), '1.00');
+  assert.strictEqual(aspectStamp(4 / 5), '0.80');
+  assert.strictEqual(aspectStamp(9 / 16), '0.56');
+  assert.strictEqual(aspectStamp(16 / 9), null);
+  assert.strictEqual(aspectStamp(1.777), null, 'a measured 16:9 slide, a pixel off, is still 16:9');
+  assert.strictEqual(aspectStamp(NaN), null);
+  assert.strictEqual(aspectStamp(0), null);
+});

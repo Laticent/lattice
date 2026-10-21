@@ -140,12 +140,15 @@ single render's. Four details the rule above leaves open:
 1. **The score is the plot's area once the whole viewBox is fitted into the chart's box.** The box's
    shape is not the slide's: it is the chart area under the title, measured in Chromium as 2.72 wide
    at 16:9, 1.74 at 4:3, 1.26 at 1:1, 1.09 at 4:5 and 0.67 at 9:16.
-2. **The transform is told an orientation name, not the shape.** `landscape` covers 16:9 and 4:3,
-   `portrait` covers 4:5 and 9:16, and those pairs want different layouts (on the demo deck's notes-and-key slide
-   the best layout at 16:9 has the key beside the grid, and at 4:3 it has the key below). Portrait is scored at both of its shapes and
-   the pick gives up least at the worse one. Landscape is scored at 16:9 alone: scoring 4:3 too moved
-   16:9 slides off today's layout (81% of the best grid, against 100% for 16:9 alone). Passing the slide's
-   real aspect down to the transform is the proper fix and is filed in `followups.d/`.
+2. **The transform is told the slide's shape.** An orientation name covers shapes that want different
+   layouts (`landscape` is 16:9 and 4:3, `portrait` is 4:5 and 9:16; on the demo deck's notes-and-key slide the
+   best layout at 16:9 has the key beside the grid and at 4:3 it has the key below). The engine
+   (`lib/engine/slides.js`) and the runtime (`stampOrientation`) now stamp each section's `data-aspect`
+   (`aspectStamp`, `lib/adaptive/families.js`; absent at 16:9 so the common deck's markup does not move),
+   `transformChartSection` hands it to the kernel as `ctx.aspect`, and the runtime's rebuild key includes it. The heatmap
+   reads the chart box's aspect off the slide's by interpolating the five measured points (`chartBoxAspect`)
+   and scores every layout at that one shape. `STAGE_ASPECTS` (landscape 16:9; portrait scored at both 4:5
+   and 9:16) is the fallback for a caller that passes only an orientation name.
 3. **A challenger must keep 10% more plot** (`PLACEMENT_MARGIN`). A layout that grows the figure's
    height also scales its type down, so on a 3 by 2 grid at 16:9 notes below keep 5% more plot than
    notes beside and set every label 10% smaller. Ties keep today's layout.
@@ -173,7 +176,18 @@ the notes under the grid, 1.4 to 2.5 times the grid) and at 9:16. The two losses
 rules above: at 4:5, three notes under the grid keep 82% of the grid `main` kept with notes beside it,
 because the pick is the one that gives up least across 4:5 and 9:16 (it wins 143% at 9:16); and six
 long notes with a key keep 62% at 4:5, because `main` drew only five of them there. These are the
-cases the real aspect would settle.
+cases the real aspect settles (§ 5, item 2): with the stamp, the grid's area against the tree before it:
+
+| Slide | 16:9 | 4:3 | 1:1 | 4:5 | 9:16 |
+|---|---|---|---|---|---|
+| 3 notes | 100% | 100% | 100% | 122% | 116% |
+| 3 notes + key | 100% | 146% | 100% | 100% | 141% |
+| key only | 100% | 146% | 100% | 100% | 100% |
+| 6 long notes | 100% | 100% | 100% | 100% | 100% |
+| 6 long notes + key | 100% | 127% | 100% | 124% | 100% |
+
+(`real.js`, this commit against the commit before it. At 4:5 the three notes now sit beside the grid again,
+which is where `main` had them, so the 82% loss above is gone.)
 
 ## 6. One row style for the key and the callouts (owner, 2026-10-21)
 
