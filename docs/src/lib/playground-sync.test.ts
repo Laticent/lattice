@@ -9,7 +9,7 @@ const pageOf = (n: number) => Array.from({ length: n }, (_, i) => String(i + 1))
 
 function rig(source = deck) {
 	const log: string[] = [];
-	const state = { editing: true, editor: true, active: true, canPick: true, reading: null as number | null, showOk: true, now: 0 };
+	const state = { top: 120 as number | null, editing: true, editor: true, active: true, canPick: true, reading: null as number | null, showOk: true, now: 0 };
 	const timers: Array<{ id: number; at: number; cb: () => void }> = [];
 	const rafs: Array<{ id: number; cb: () => void }> = [];
 	let ids = 0;
@@ -18,8 +18,8 @@ function rig(source = deck) {
 			state.editor
 				? {
 						setBand: (r) => log.push(`band ${r ? `${r.from}-${r.to}` : 'none'}`),
-						revealSlide: (a) => log.push(`reveal caret=${a.caret} from=${a.from} to=${a.to} grab=${!!a.grab}`),
-						showRange: (a) => log.push(`show ${a.from}-${a.to}`),
+						revealSlide: (a) => log.push(`reveal caret=${a.caret} from=${a.from} to=${a.to} grab=${!!a.grab}${a.alignY != null ? ` y=${a.alignY}` : ''}`),
+						showRange: (a) => log.push(`show ${a.from}-${a.to}${a.alignY != null ? ` y=${a.alignY}` : ''}`),
 					}
 				: null,
 		reading: (_c, _n) => state.reading,
@@ -29,6 +29,7 @@ function rig(source = deck) {
 		},
 		active: () => state.active,
 		editing: () => state.editing,
+		slideTop: (page) => (state.top === null ? null : state.top + page * 400),
 		canPick: () => state.canPick,
 		now: () => state.now,
 		raf: (cb) => {
@@ -123,6 +124,42 @@ describe('the caret parks while the preview is scrolled', () => {
 	});
 });
 
+describe('the editor lines the slide up with its picture', () => {
+	it('a scroll to another slide aims the editor at that slide\'s top on screen', async () => {
+		const r = rig();
+		await r.land();
+		r.state.reading = 1;
+		r.sync.scrolled();
+		r.frame();
+		r.frame();
+		expect(r.log.some((l) => /^show \d+-\d+ y=520$/.test(l))).toBe(true);
+	});
+	it('keeps following while the same slide scrolls, so the two tops stay level', async () => {
+		const r = rig();
+		await r.land();
+		r.state.reading = 0;
+		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
+		r.frame();
+		r.log.length = 0;
+		r.state.top = 60;
+		r.sync.scrolled();
+		r.frame();
+		expect(r.log.some((l) => /^show \d+-\d+ y=60$/.test(l))).toBe(true);
+	});
+	it('a pick carries the slide top too, and without an index it falls back to plain framing', async () => {
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 2 });
+		r.frame();
+		expect(r.log.find((l) => l.startsWith('reveal'))).toMatch('y=920');
+		r.state.top = null;
+		r.log.length = 0;
+		r.hub.go('rail', { flat: 1 });
+		r.frame();
+		expect(r.log.find((l) => l.startsWith('reveal'))).not.toMatch('y=');
+	});
+});
+
 describe('a pick moves the caret', () => {
 	it('a map tile reveals the slide, caret at the end of its title, and scrolls the preview', async () => {
 		const r = rig();
@@ -132,7 +169,7 @@ describe('a pick moves the caret', () => {
 		const title = at('# Two') + '# Two'.length;
 		const frameFrom = at('---', at('alpha'));
 		const frameTo = at('---', at('beta')) + 3;
-		expect(r.log).toContain(`reveal caret=${title} from=${frameFrom} to=${frameTo} grab=false`);
+		expect(r.log).toContain(`reveal caret=${title} from=${frameFrom} to=${frameTo} grab=false y=520`);
 		expect(r.log).toContain('page 1 follow=false instant=false');
 	});
 

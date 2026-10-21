@@ -774,6 +774,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			editor: () => editorRef.current,
 			reading: (current, count) => readingPage(frameRef.current, count, current),
 			show: (page, opts) => showPageRef.current(page, opts),
+			slideTop: (page) => {
+				const frame = frameRef.current;
+				const sec = frame?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]')[page];
+				return frame && sec ? frame.getBoundingClientRect().top + sec.getBoundingClientRect().top : null;
+			},
 			editing: () => viewRef.current === 'edit',
 			active: () => viewRef.current === 'edit' && !previewCollapsedRef.current,
 			// A phone shows one pane at a time; a pick that placed a caret in a hidden editor would only

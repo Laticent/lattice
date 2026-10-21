@@ -9,10 +9,11 @@ export type EditorAdapter = {
 	focus: () => void;
 	/** Mark a range of the document (offsets): the slide the preview is showing. Null clears it. */
 	setBand: (range: { from: number; to: number } | null) => void;
-	/** Land on a slide the reader picked: caret at `caret`, `[from, to]` on screen. */
-	revealSlide: (at: { from: number; to: number; caret: number; grab?: boolean }) => void;
+	/** Land on a slide the reader picked: caret at `caret`, `[from, to]` on screen. `alignY`: the screen height
+	 *  the range's first line should sit at (the top of the slide in the preview). */
+	revealSlide: (at: { from: number; to: number; caret: number; grab?: boolean; alignY?: number | null }) => void;
 	/** Bring `[from, to]` into view without moving the caret or the selection. */
-	showRange: (at: { from: number; to: number }) => void;
+	showRange: (at: { from: number; to: number; alignY?: number | null }) => void;
 	getCaret: () => { head: number; anchor: number };
 };
 

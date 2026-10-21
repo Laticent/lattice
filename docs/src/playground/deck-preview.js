@@ -360,7 +360,10 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 	// document, so the page's palette-tinted scrollbar (native-widgets.css) does not reach it and the
 	// browser paints its default one, a wide gray bar beside a slide. The thumb is a wash of the
 	// mode's ink; the track stays clear. Off by default: an exported or printed frame is not scrolled.
-	const bar = scrollbar ? 'html{scrollbar-width:thin;scrollbar-color:' + (mode === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.28)') + ' transparent;}' : '';
+	// `scrollbar` is true (a default wash of the mode's ink) or the CSS value the host page itself resolved
+	// (`getComputedStyle(root).scrollbarColor`, a "thumb track" pair), which is how the frame matches the editor's.
+	const barColor = typeof scrollbar === 'string' && scrollbar !== 'auto' ? scrollbar : (mode === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(0,0,0,.28)') + ' transparent';
+	const bar = scrollbar ? 'html{scrollbar-width:thin;scrollbar-color:' + barColor + ';}' : '';
 	const sectionRule =
 		'.lattice>section{display:block;transform-origin:top left;' +
 		(cursor ? 'cursor:pointer;' : '') +

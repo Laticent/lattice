@@ -42,8 +42,8 @@ import { flatOfPage, pageOfFlat, type RenderedIndex } from './rendered-index';
 /** What the sync asks of the editor. A subset of `EditorAdapter` (components/playground/EditorHost.tsx). */
 export interface SyncEditor {
 	setBand(range: { from: number; to: number } | null): void;
-	revealSlide(at: { from: number; to: number; caret: number; grab?: boolean }): void;
-	showRange(at: { from: number; to: number }): void;
+	revealSlide(at: { from: number; to: number; caret: number; grab?: boolean; alignY?: number | null }): void;
+	showRange(at: { from: number; to: number; alignY?: number | null }): void;
 }
 
 export interface SyncPorts {
@@ -53,6 +53,9 @@ export interface SyncPorts {
 	/** Bring the preview to `page`. `follow`: the caret asked, so a page already mostly in view stays
 	 *  put. Returns false when the preview cannot move yet (collapsed, not laid out): the sync tries again. */
 	show(page: number, opts: { follow: boolean; instant: boolean }): boolean;
+	/** The screen height of the top of the preview's `page`, or null when it cannot say. The editor puts the
+	 *  slide's text level with it. */
+	slideTop(page: number): number | null;
 	/** The Edit view is showing: the editor's text IS the deck. In Explore the preview can show something the
 	 *  editor does not hold (a component's gallery, a plan step), so the render is the text of record. */
 	editing(): boolean;
@@ -137,6 +140,14 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		ed.setBand({ from: ext.from, to: lastChar(ext) });
 	}
 
+	/** Where the preview's copy of the focused slide starts on screen, when the index describes this text. */
+	function alignY(f = hub.get()): number | null {
+		const ix = usable();
+		if (!ix || f.unitIndex < 0) return null;
+		const page = pageOfFlat(ix, f.flat);
+		return page < 0 ? null : ports.slideTop(page);
+	}
+
 	/** Move the preview to the focused slide. Waits (owed) when the index is not for this text yet. */
 	function follow(instant: boolean, caret: boolean) {
 		const f = hub.get();
@@ -177,8 +188,8 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 				const ext = deckFrame(ol as Parameters<typeof deckFrame>[0], f.unitIndex, f.part);
 				if (ed && ext) {
 					if ((f.cause === 'nav' || f.cause === 'pick') && f.origin !== 'preview') {
-						if (ports.canPick()) ed.revealSlide({ from: ext.from, to: lastChar(ext), caret: deckTitleEnd(ol, f.unitIndex, f.part), grab: f.grab });
-					} else if (f.origin === 'preview') ed.showRange({ from: ext.from, to: lastChar(ext) });
+						if (ports.canPick()) ed.revealSlide({ from: ext.from, to: lastChar(ext), caret: deckTitleEnd(ol, f.unitIndex, f.part), grab: f.grab, alignY: alignY(f) });
+					} else if (f.origin === 'preview') ed.showRange({ from: ext.from, to: lastChar(ext), alignY: alignY(f) });
 				}
 			}
 			// The preview follows everyone but itself: a tile asks for an exact move, the caret for a
@@ -211,9 +222,16 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const page = ports.reading(pageOfFlat(ix, here.flat), ix.pages.length);
 		if (page === null) return;
 		const flat = flatOfPage(ix, page);
-		if (flat < 0 || flat === here.flat) return;
+		if (flat < 0) return;
 		const at = partOfFlat(ol, flat);
-		if (at) hub.reportUnit('preview', { unitIndex: at.unit, part: at.part });
+		if (at && flat !== here.flat) hub.reportUnit('preview', { unitIndex: at.unit, part: at.part });
+		else if (ports.editing()) {
+			// Still on the same slide: the editor follows the scroll, so the two tops stay level.
+			const ed = ports.editor();
+			const ext = deckFrame(ol as Parameters<typeof deckFrame>[0], here.unitIndex, here.part);
+			const y = alignY(here);
+			if (ed && ext && y !== null && here.unitIndex >= 0) ed.showRange({ from: ext.from, to: lastChar(ext), alignY: y });
+		}
 	}
 
 	function scrolled() {

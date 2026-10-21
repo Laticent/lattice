@@ -107,6 +107,8 @@ test(`the preview and editor scrollbars are thin and quiet ${TAGS}`, async ({ pa
 		expect(bars.frame[0]).toBe('thin');
 		expect(bars.editor[0]).toBe('thin');
 	}
+	// One scrollbar, two scrollers: the frame is handed the colour the page resolves, so they are identical.
+	expect(bars.frame[1]).toBe(bars.editor[1]);
 	for (const [width, color] of [bars.frame, bars.editor]) {
 		expect(width).not.toBe('auto');
 		expect(color).not.toBe('auto');
@@ -165,4 +167,26 @@ test(`a click inside the band lands where it was made ${TAGS}`, async ({ page })
 	expect(at?.line).toBe('- point 3.4');
 	expect(at?.col).toBeGreaterThan(0);
 	expect(at?.col).toBeLessThan('- point 3.4'.length);
+});
+
+test(`the editor starts a slide level with its picture ${TAGS}`, async ({ page }) => {
+	await open(page);
+	await scrollPreviewTo(page, 5);
+	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 5 title'))).toBe(true);
+	// The marked slide's first line sits at the screen height of the slide's top in the preview.
+	await expect
+		.poll(() =>
+			page.evaluate(() => {
+				const f = document.getElementById('preview') as HTMLIFrameElement;
+				const secs = f.contentDocument?.querySelectorAll('section[data-lattice-slide="5"]');
+				const first = document.querySelector('.cm-slide-band-first')?.getBoundingClientRect();
+				const scroller = document.querySelector('.cm-scroller')?.getBoundingClientRect();
+				if (!secs?.length || !first || !scroller) return 999;
+				const slideTop = f.getBoundingClientRect().top + secs[0].getBoundingClientRect().top;
+				// The aim is clamped into the editor's own box, so compare against the clamped target.
+				const want = Math.max(scroller.top + 8, Math.min(slideTop, scroller.bottom - 8));
+				return Math.abs(first.top - want);
+			}),
+		)
+		.toBeLessThan(6);
 });

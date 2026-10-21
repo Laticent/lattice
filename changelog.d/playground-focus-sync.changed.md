@@ -8,3 +8,4 @@
   browser's default.
 - The Playground no longer finds the caret's slide by matching words against the preview, so a repeated
   heading or a slide with no text can no longer land the preview on the wrong slide.
+- In the Playground, the slide marked in the editor now starts level with its slide in the preview and follows the preview as it scrolls, and the preview's scrollbar is the same colour as the editor's in every palette and mode.

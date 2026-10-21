@@ -304,10 +304,10 @@ const latticeTheme = EditorView.theme({
 	// pointers so tapping in doesn't zoom; desktop keeps the denser 13.5px.
 	// (Coarse-pointer rules live in the `@media` block at the END of this object —
 	// its position is load-bearing; see the note there.)
-	// The editor scrolls on its own scroller, so the page's thin palette-tinted scrollbar (native-widgets.css,
-	// on :root) does not reach it: `scrollbar-color` inherits, but a scroller with an overflow of its own
-	// paints the UA default unless it is told. Same mix as the page's thumb.
-	'.cm-scroller': { overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'color-mix(in srgb, var(--text-muted) 38%, transparent) transparent' },
+	// The editor's own scroller does not inherit the page's thin scrollbar (an ancestor resets it), so it is
+	// stated here, with the SAME mix native-widgets.css puts on :root: the preview frame is handed the page's
+	// resolved value, and the e2e spec holds the two equal.
+	'.cm-scroller': { overflow: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'color-mix(in srgb, var(--muted-mark) 38%, transparent) transparent' },
 	// THE SLIDE BAND. Line decorations, so the text stays selectable and a click anywhere in the band
 	// puts the caret exactly where it landed: the band is paint, never a hit target. The first and
 	// last line carry an edge, which frames the slide including its `---` fences.
@@ -568,6 +568,25 @@ function slideFits(view, from, to) {
 	const top = view.lineBlockAt(from).top;
 	const bottom = view.lineBlockAt(to).bottom;
 	return bottom - top <= view.scrollDOM.clientHeight - 24;
+}
+
+/** Scroll the editor so the first line of [from, to] sits at screen height `y`: the top of the slide the
+ *  preview is showing, so the text and its picture start level. A whole slide's text can never match its
+ *  picture line for line (a slide is a fixed box and its source is as long as it is), so the tops are what
+ *  can line up. `y` is clamped so the whole range stays on screen when it fits, and its first line when it
+ *  does not. Lines CodeMirror has not drawn yet have estimated heights, so it re-aims once next frame. */
+function alignTop(view, from, to, y) {
+	const scroller = view.scrollDOM;
+	const box = scroller.getBoundingClientRect();
+	const height = view.lineBlockAt(to).bottom - view.lineBlockAt(from).top;
+	const minY = box.top + 8;
+	const maxY = Math.max(minY, box.bottom - Math.min(height, box.height - 16) - 8);
+	const at = Math.max(minY, Math.min(y, maxY));
+	const aim = () => {
+		scroller.scrollTop += view.documentTop + view.lineBlockAt(from).top - at;
+	};
+	aim();
+	requestAnimationFrame(aim);
 }
 
 /** One span covering every change in a transaction: the editor's own account of an edit, which lets a
@@ -848,22 +867,25 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		// Land on a slide the reader picked: the caret at `caret`, and the whole of [from, to] on screen when
 		// it fits (centered), else its start at the top, which keeps the opening `---` and the title in view.
 		// `grab` takes keyboard focus; a touch pick leaves it, because focus raises the software keyboard.
-		revealSlide: ({ from, to, caret, grab = false }) => {
+		revealSlide: ({ from, to, caret, grab = false, alignY = /** @type {number | null} */ (null) }) => {
 			const len = view.state.doc.length;
 			const a = Math.min(Math.max(0, from), len);
 			const b = Math.min(Math.max(a, to), len);
-			view.dispatch({
-				selection: { anchor: Math.min(Math.max(0, caret), len) },
-				effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'center' : 'start', yMargin: 12 }),
-			});
+			const selection = { anchor: Math.min(Math.max(0, caret), len) };
+			if (alignY === null) view.dispatch({ selection, effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'center' : 'start', yMargin: 12 }) });
+			else {
+				view.dispatch({ selection });
+				alignTop(view, a, b, alignY);
+			}
 			if (grab) view.focus();
 		},
 		// Bring a slide into view WITHOUT touching the caret or the selection: the preview was scrolled, and the
 		// reader's place in the text is theirs. Nearest, so a slide already on screen does not move.
-		showRange: ({ from, to }) => {
+		showRange: ({ from, to, alignY = /** @type {number | null} */ (null) }) => {
 			const len = view.state.doc.length;
 			const a = Math.min(Math.max(0, from), len);
 			const b = Math.min(Math.max(a, to), len);
+			if (alignY !== null) return alignTop(view, a, b, alignY);
 			view.dispatch({ effects: EditorView.scrollIntoView(EditorSelection.range(a, b), { y: slideFits(view, a, b) ? 'nearest' : 'start', yMargin: 12 }) });
 		},
 		// The primary selection's ends, in offsets.
