@@ -220,7 +220,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align'] }): string => {
 		const attrs: string[] = [];
 		const stroke = shape.stroke;
-		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="butt"` : 'draw:stroke="none"');
+		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="${shape.cap || 'butt'}"${shape.join ? ` draw:stroke-linejoin="${shape.join}"` : ''}` : 'draw:stroke="none"');
 		attrs.push(shape.fill && closed ? `draw:fill="solid" draw:fill-color="${shape.fill.color}" draw:opacity="${pct(shape.fill.alpha)}"` : 'draw:fill="none"');
 		if (shape.shadow) {
 			const sh = shape.shadow;
@@ -315,7 +315,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 					.map((item) =>
 						'frame' in item
 							? frameXml(item.frame, nameOf(item.frame, n, item.index), group === undefined, n)
-							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`, item.label),
+							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`, item.label),
 					)
 					.join('');
 				return group === undefined ? xml : `<draw:g draw:name="Group ${group + 1}">${xml}</draw:g>`;

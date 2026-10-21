@@ -51,6 +51,8 @@ const PX_PER_IN = 96;
 const GROUP_TAG = 'calco-group-';
 /** The name prefix that marks a title or a page number until tidyPptx makes it one (never page text). */
 const ROLE_TAG = 'calco-role-';
+/** The name marker for a path whose stroke ends and corners are round, until tidyPptx writes them. */
+const ROUND_TAG = 'calco-round|';
 /** The name prefix that marks a slide's content picture until tidyPptx locks it. */
 const LOCK_TAG = 'calco-lock|';
 /** What a role is called in the file, so a reader finds it in the selection pane. */
@@ -292,7 +294,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				}
 				const geom = shapeGeometry(item.shape);
 				const { kind, options: shapeOptions } = shapeOf(item.shape, geom);
-				const name = `${tag}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`;
+				const name = `${tag}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
 				if (!item.label) {
 					s.addShape(kind, { ...shapeOptions, objectName: name });
 					continue;
@@ -537,7 +539,7 @@ function posixRelative(fromDir: string, to: string): string {
  * PptxGenJS copies from the layout onto every slide.
  */
 export function applyRoles(xml: string): string {
-	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes('hasCustomPrompt')) return xml;
+	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes('hasCustomPrompt')) return xml;
 	// The slide's content picture stays where it is unless a reader unlocks it: it is the one
 	// object nobody means to drag, and the first one a stray touch grabs.
 	xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) =>
@@ -547,6 +549,13 @@ export function applyRoles(xml: string): string {
 		// PptxGenJS copies each of the layout's placeholders onto every slide, empty, with a
 		// prompt. A slide that used one has written its own; the rest would show "Click to add".
 		if (sp.includes('hasCustomPrompt="1"') && sp.includes('<a:endParaRPr') && !sp.includes('<a:t>')) return '';
+		// A path's stroke ends and corners: PptxGenJS cannot write them, so the name carries a marker.
+		if (sp.includes(ROUND_TAG)) {
+			return sp
+				.replace(ROUND_TAG, '')
+				.replace(/<a:ln( [^>]*)?>/, (m, attrs) => (attrs?.includes('cap=') ? m : `<a:ln${attrs || ''} cap="rnd">`))
+				.replace('</a:ln>', '<a:round/></a:ln>');
+		}
 		const m = sp.match(/<p:cNvPr id="\d+" name="calco-role-(title|number)\|/);
 		if (!m) return sp;
 		const out = sp.replace(`name="${ROLE_TAG}${m[1]}|`, 'name="');

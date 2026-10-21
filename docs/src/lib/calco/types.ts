@@ -89,6 +89,9 @@ export interface Shadow extends Paint {
 	blur: number;
 }
 
+/** One step of a path: move, line, cubic Bézier, close. */
+export type PathCmd = ['M', number, number] | ['L', number, number] | ['C', number, number, number, number, number, number] | ['Z'];
+
 /**
  * A box or a rule the reader lifted out of the slide picture, so it can be drawn as a
  * native office shape (engineering/decisions/2026-10-07-calco-native-shapes.md).
@@ -101,9 +104,14 @@ export interface Shadow extends Paint {
  * A `line` is one side of a border: a straight stroke from `(x, y)` to `(x + w, y + h)`
  * along the middle of the border band, so `h` is 0 for a horizontal rule and `w` for a
  * vertical one.
+ *
+ * A `path` is a drawn mark (a check, a cross, a dash): `x, y, w, h` the bounding box of its
+ * `path`, which is relative to that box. It is stroked (`stroke`, with `cap` and `join`) and/or
+ * filled (`fill`), and a writer draws it as the format's freeform shape, so it stays a real,
+ * recolorable object. The reader lifts it from a pseudo-element that paints a CSS mask.
  */
 export interface Shape {
-	kind: 'box' | 'line';
+	kind: 'box' | 'line' | 'path';
 	x: number;
 	y: number;
 	w: number;
@@ -120,6 +128,15 @@ export interface Shape {
 	 * the corner to the next side there. Absent when both corners are square.
 	 */
 	wrap?: [number, number];
+	/** A path: its outline, relative to the box `x, y`. */
+	path?: PathCmd[];
+	/** A path: whether it is closed (a filled mark) or open (a stroked one). */
+	closed?: boolean;
+	/** A path's stroke ends and corners. */
+	cap?: 'butt' | 'round' | 'square';
+	join?: 'miter' | 'round' | 'bevel';
+	/** Drawn by a pseudo-element of the box it groups with (a pill's dot or mark), not by an element. */
+	pseudo?: boolean;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */

@@ -7,10 +7,9 @@
  * Design: engineering/decisions/2026-10-07-calco-native-shapes.md.
  */
 import type { PlacedBox } from './layout.js';
-import type { Shape, Slide, TextFrame } from './types.js';
+import type { PathCmd, Shape, Slide, TextFrame } from './types.js';
 
-/** One step of a path: move, line, cubic Bézier, close. */
-export type PathCmd = ['M', number, number] | ['L', number, number] | ['C', number, number, number, number, number, number] | ['Z'];
+export type { PathCmd };
 
 /** A shape's outline, ready to write. */
 export interface ShapeGeometry {
@@ -65,6 +64,10 @@ function shift(path: PathCmd[], dx: number, dy: number): PathCmd[] {
  * radii shrunk by as much. A rule's path is the middle of its band already.
  */
 export function shapeGeometry(shape: Shape): ShapeGeometry {
+	if (shape.kind === 'path') {
+		const { x, y, w, h } = shape;
+		return { x, y, w, h, path: shape.path || [], closed: !!shape.closed };
+	}
 	if (shape.kind === 'line') {
 		const half = (shape.stroke?.width || 0) / 2;
 		const [r0, r1] = (shape.wrap || [0, 0]).map((r) => Math.max(0, r - half));
