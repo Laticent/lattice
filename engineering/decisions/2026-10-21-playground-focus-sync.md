@@ -326,3 +326,15 @@ What changed (`PlaygroundApp.tsx`):
 Verified in `e2e/playground-tab-switch.spec.ts`: every frame the reader can see across the switch shows the caret's
 slide, and the document is the same one (a marker set on its window survives); the case fails on the old code. Chromium,
 Firefox and WebKit at wide width; Chromium and WebKit at phone width. A real iPhone is UNVERIFIED.
+
+The checker on that PR found three defects, each fixed with a test that fails on the code before the fix:
+
+- **Explore to Edit still showed the wrong slide for a frame or two** on a wide screen: nothing made the reveal wait for the
+  editor-slide realign, so the preview became visible at Explore's scroll and snapped a frame later. The reveal now waits
+  for `realignPendingRef`, set at the switch and cleared once the sync has realigned (the load event, or the re-fit on the
+  reuse path).
+- **A second switch before the first render landed left the cover on for the 5 s backstop.** The flag that holds the reveal
+  for Explore's target (`openOnPendingRef`) was cleared only when a render landed in Explore. It is cleared when the render
+  lands anywhere else, on the error path, and at the switch back to Edit.
+- **The backstop was shorter than the landing budget it backs up.** It is `REVEAL_CAP_MS + 1000` now, and every switch
+  re-arms it (a second switch used to inherit the first one's nearly spent timer).

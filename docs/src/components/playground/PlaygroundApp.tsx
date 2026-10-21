@@ -152,7 +152,7 @@ const LAND_ATTEMPTS = 2;
  *  independent checker. */
 const REVEAL_CAP_MS = LAND_SETTLE_MS * (1 + LAND_ATTEMPTS) + 500;
 /** How long a cover over the preview may last with no render to lift it. */
-const COVER_BACKSTOP_MS = 5000;
+const COVER_BACKSTOP_MS = REVEAL_CAP_MS + 1000;
 
 /** The filmstrip's slide bands in the frame document's own coordinates. One reader, used
  *  by BOTH directions of the walk↔scroll loop, so the index the observer reports and the
@@ -584,6 +584,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// A fallback timeout guarantees a stuck/again-0-width FIT can't hide the preview forever.
 	/** True from the switch until the walk has been pointed at that slide: the reveal waits for it (see `markLiveWhenSlidesVisible`). */
 	const openOnPendingRef = React.useRef(false);
+	/** True from a switch to Edit until the sync has put the preview on the editor's slide: the reveal waits for it too. */
+	const realignPendingRef = React.useRef(false);
 	const coverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const markLiveWhenSlidesVisible = React.useCallback((frame: HTMLIFrameElement) => {
 		const wrap = frame.parentElement;
@@ -623,7 +625,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// …and the deck is on the slide the chrome names. Both halves are capped (this
 			// timeout, and `landWalk`'s own settle + retry budget), so neither can wedge the
 			// reveal shut on a frame whose FIT never settles.
-			if ((ready && !landPendingRef.current && !openOnPendingRef.current) || Date.now() - start > REVEAL_CAP_MS) goLive();
+			if ((ready && !landPendingRef.current && !openOnPendingRef.current && !realignPendingRef.current) || Date.now() - start > REVEAL_CAP_MS) goLive();
 			else requestAnimationFrame(check);
 		};
 		check();
@@ -637,8 +639,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	 *  error, a collapsed pane): the old document is better than a frame that stays hidden. */
 	const coverPreview = React.useCallback(() => {
 		const wrap = frameRef.current?.parentElement;
-		if (!wrap || !wrap.classList.contains('is-live')) return;
+		if (!wrap) return;
 		wrap.classList.remove('is-live');
+		// Every switch re-arms the backstop: a second one must not inherit the first one's nearly spent timer.
 		if (coverTimerRef.current) clearTimeout(coverTimerRef.current);
 		coverTimerRef.current = setTimeout(() => {
 			coverTimerRef.current = null;
@@ -762,7 +765,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// are editing if they just edited; otherwise back where they were reading.
 		const anchor = anchorRef.current;
 		anchorRef.current = null;
-		if (syncRef.current?.loaded()) {
+		const owedRealign = syncRef.current?.loaded();
+		realignPendingRef.current = false;
+		if (owedRealign) {
 			// The caret's slide is owed the preview: the sync follows it as soon as it can.
 		} else if (anchor && viewRef.current === 'edit') {
 			const frame = frameRef.current;
@@ -947,6 +952,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			} else if (r.status === 'error') {
 				setStatusLine(r.message, true);
 				// A cover with nothing coming to lift it would hide the old document for nothing.
+				openOnPendingRef.current = false;
+				realignPendingRef.current = false;
+				exploreFlatRef.current = -1;
 				frame.parentElement?.classList.add('is-live');
 			} else {
 				previewStateRef.current = r.state;
@@ -1008,7 +1016,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 							openOnPendingRef.current = false;
 						}
 					})();
-				} else if (viewRef.current === 'read') openOnPendingRef.current = false;
+				} else openOnPendingRef.current = false;
+				// A render that lands after the reader has gone back to Edit must not leave Explore's target behind.
+				if (viewRef.current !== 'read') exploreFlatRef.current = -1;
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -2114,7 +2124,13 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					backupDraft('Opened the deck in the editor');
 					setSource(exploreSourceRef.current);
 				}
-				if (changing) coverPreview();
+				if (changing) {
+					// Back in Edit: Explore's target means nothing now, and the preview is owed the editor's slide before it shows.
+					exploreFlatRef.current = -1;
+					openOnPendingRef.current = false;
+					realignPendingRef.current = true;
+					coverPreview();
+				}
 				setPane('edit');
 				document.body.setAttribute('data-pane', 'edit');
 				// Same text as the frame already shows: patch it, do not rewrite it.
@@ -2126,6 +2142,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						requestAnimationFrame(() => {
 							frameRef.current?.contentWindow?.__latticeFit?.();
 							syncRef.current?.loaded();
+							realignPendingRef.current = false;
 						}),
 					);
 				} else freshRender();

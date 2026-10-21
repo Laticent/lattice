@@ -213,3 +213,41 @@ for (const [name, wide, tags] of [
 		expect(frames.every((f) => f.same)).toBe(true);
 	});
 }
+
+test(`switching back to Edit never shows a wrong slide for a frame ${WIDE}`, async ({ page }) => {
+	await open(page, true);
+	await editLine(page, 'point 9.2');
+	await page.getByRole('tab', { name: 'Explore' }).click();
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(9);
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await watchSwitch(page, () => page.getByRole('tab', { name: 'Edit' }).click());
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 20_000 });
+	// Let the realign and any fade finish, then take what the reader saw.
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBeGreaterThan(0);
+	const frames = await stopWatching(page);
+	const seen = frames.filter((f) => f.seen);
+	expect(seen.length).toBeGreaterThan(0);
+	// One slide, from the first frame the preview was on screen to the last: no flash of Explore's position first.
+	const last = seen[seen.length - 1].slide;
+	expect(seen.filter((f) => f.slide !== last)).toEqual([]);
+	expect(frames.every((f) => f.same)).toBe(true);
+});
+
+for (const [name, wide, tags] of [
+	['phone', false, TAGS],
+	['wide', true, WIDE],
+] as const) {
+	test(`a second switch before the first has finished never leaves the preview covered (${name}) ${tags}`, async ({ page }) => {
+		await open(page, wide);
+		await editLine(page, 'point 7.2');
+		await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+		// Explore, then straight back: the first switch's render lands after the reader has already left.
+		await page.getByRole('tab', { name: 'Explore' }).click();
+		await page.getByRole('tab', { name: 'Edit' }).click();
+		await page.getByRole('tab', { name: 'Explore' }).click();
+		await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 4000 });
+		await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
+		await page.getByRole('tab', { name: 'Edit' }).click();
+		await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 4000 });
+	});
+}
