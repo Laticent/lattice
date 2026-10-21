@@ -72,7 +72,7 @@ export const CRAFT_VOICE_DIR = 'tour-craft';
 export const CRAFT_LINES = {
 	intro: 'This is Craft, the full workshop. Every panel lives in the bar on the left.',
 	coach: 'Coach reads your deck and grades it. Structure, writing, contrast and style, with the weakest slide and the top fixes.',
-	chat: 'Chat is the assistant. Ask for a change in plain words, and the edit arrives as a diff you can apply or discard. It needs a model, which you connect in Workspace settings.',
+	chat: 'Chat is the assistant. Ask for a change in plain words, and the edit arrives as a diff you can apply or discard. It needs a model, which you connect in Setup. I will show you that last.',
 	live: 'Live lets you edit this deck together. Share a link, let people in, and up to four of you work in the same deck.',
 	library: 'Library holds what you reuse: themes, components, finishes, motions, images, videos and files. You can import a zip to add more.',
 	views: 'Views are for particular readers. A reader view is a subset of the deck, and you approve exactly what that reader sees.',

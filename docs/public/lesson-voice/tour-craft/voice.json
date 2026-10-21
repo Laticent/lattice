@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 516672,
+	"bytes": 523728,
 	"lines": [
 		{
 			"key": "4631db68bc4e",
@@ -312,11 +312,11 @@
 			}
 		},
 		{
-			"key": "b657911a1583",
-			"text": "Chat is the assistant. Ask for a change in plain words, and the edit arrives as a diff you can apply or discard. It needs a model, which you connect in Workspace settings.",
-			"file": "b657911a1583.mp3",
-			"bytes": 64512,
-			"speechMs": 10697,
+			"key": "50588610881f",
+			"text": "Chat is the assistant. Ask for a change in plain words, and the edit arrives as a diff you can apply or discard. It needs a model, which you connect in Setup. I will show you that last.",
+			"file": "50588610881f.mp3",
+			"bytes": 71568,
+			"speechMs": 11861,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -327,33 +327,33 @@
 								"display": "Chat",
 								"spoken": "Chat",
 								"startMs": 0,
-								"endMs": 198,
+								"endMs": 195,
 								"charOffset": 0
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 198,
-								"endMs": 397,
+								"startMs": 195,
+								"endMs": 390,
 								"charOffset": 5
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 397,
-								"endMs": 595,
+								"startMs": 390,
+								"endMs": 586,
 								"charOffset": 8
 							},
 							{
 								"display": "assistant.",
 								"spoken": "assistant.",
-								"startMs": 595,
-								"endMs": 1219,
+								"startMs": 586,
+								"endMs": 1200,
 								"charOffset": 12
 							}
 						],
 						"startMs": 0,
-						"endMs": 1592,
+						"endMs": 1567,
 						"charOffset": 0
 					},
 					{
@@ -362,221 +362,264 @@
 							{
 								"display": "Ask",
 								"spoken": "Ask",
-								"startMs": 1751,
-								"endMs": 1950,
+								"startMs": 1724,
+								"endMs": 1919,
 								"charOffset": 23
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1950,
-								"endMs": 2148,
+								"startMs": 1919,
+								"endMs": 2114,
 								"charOffset": 27
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 2148,
-								"endMs": 2346,
+								"startMs": 2114,
+								"endMs": 2309,
 								"charOffset": 31
 							},
 							{
 								"display": "change",
 								"spoken": "change",
-								"startMs": 2346,
-								"endMs": 2545,
+								"startMs": 2309,
+								"endMs": 2505,
 								"charOffset": 33
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 2545,
-								"endMs": 2743,
+								"startMs": 2505,
+								"endMs": 2700,
 								"charOffset": 40
 							},
 							{
 								"display": "plain",
 								"spoken": "plain",
-								"startMs": 2743,
-								"endMs": 2942,
+								"startMs": 2700,
+								"endMs": 2895,
 								"charOffset": 43
 							},
 							{
 								"display": "words,",
 								"spoken": "words,",
-								"startMs": 2942,
-								"endMs": 3169,
+								"startMs": 2895,
+								"endMs": 3119,
 								"charOffset": 49
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 3362,
-								"endMs": 3561,
+								"startMs": 3309,
+								"endMs": 3504,
 								"charOffset": 56
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 3561,
-								"endMs": 3759,
+								"startMs": 3504,
+								"endMs": 3700,
 								"charOffset": 60
 							},
 							{
 								"display": "edit",
 								"spoken": "edit",
-								"startMs": 3759,
-								"endMs": 4156,
+								"startMs": 3700,
+								"endMs": 4090,
 								"charOffset": 64
 							},
 							{
 								"display": "arrives",
 								"spoken": "arrives",
-								"startMs": 4156,
-								"endMs": 4751,
+								"startMs": 4090,
+								"endMs": 4676,
 								"charOffset": 69
 							},
 							{
 								"display": "as",
 								"spoken": "as",
-								"startMs": 4751,
-								"endMs": 4949,
+								"startMs": 4676,
+								"endMs": 4871,
 								"charOffset": 77
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 4949,
-								"endMs": 5148,
+								"startMs": 4871,
+								"endMs": 5066,
 								"charOffset": 80
 							},
 							{
 								"display": "diff",
 								"spoken": "diff",
-								"startMs": 5148,
-								"endMs": 5346,
+								"startMs": 5066,
+								"endMs": 5262,
 								"charOffset": 82
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 5346,
-								"endMs": 5544,
+								"startMs": 5262,
+								"endMs": 5457,
 								"charOffset": 87
 							},
 							{
 								"display": "can",
 								"spoken": "can",
-								"startMs": 5544,
-								"endMs": 5743,
+								"startMs": 5457,
+								"endMs": 5652,
 								"charOffset": 91
 							},
 							{
 								"display": "apply",
 								"spoken": "apply",
-								"startMs": 5743,
-								"endMs": 6140,
+								"startMs": 5652,
+								"endMs": 6042,
 								"charOffset": 95
 							},
 							{
 								"display": "or",
 								"spoken": "or",
-								"startMs": 6140,
-								"endMs": 6338,
+								"startMs": 6042,
+								"endMs": 6238,
 								"charOffset": 101
 							},
 							{
 								"display": "discard.",
 								"spoken": "discard.",
-								"startMs": 6338,
-								"endMs": 6764,
+								"startMs": 6238,
+								"endMs": 6657,
 								"charOffset": 104
 							}
 						],
-						"startMs": 1751,
-						"endMs": 7136,
+						"startMs": 1724,
+						"endMs": 7023,
 						"charOffset": 23
 					},
 					{
-						"display": "It needs a model, which you connect in Workspace settings.",
+						"display": "It needs a model, which you connect in Setup.",
 						"words": [
 							{
 								"display": "It",
 								"spoken": "It",
-								"startMs": 7296,
-								"endMs": 7494,
+								"startMs": 7180,
+								"endMs": 7376,
 								"charOffset": 113
 							},
 							{
 								"display": "needs",
 								"spoken": "needs",
-								"startMs": 7494,
-								"endMs": 7693,
+								"startMs": 7376,
+								"endMs": 7571,
 								"charOffset": 116
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 7693,
-								"endMs": 7891,
+								"startMs": 7571,
+								"endMs": 7766,
 								"charOffset": 122
 							},
 							{
 								"display": "model,",
 								"spoken": "model,",
-								"startMs": 7891,
-								"endMs": 8317,
+								"startMs": 7766,
+								"endMs": 8185,
 								"charOffset": 124
 							},
 							{
 								"display": "which",
 								"spoken": "which",
-								"startMs": 8510,
-								"endMs": 8709,
+								"startMs": 8376,
+								"endMs": 8571,
 								"charOffset": 131
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 8709,
-								"endMs": 8907,
+								"startMs": 8571,
+								"endMs": 8766,
 								"charOffset": 137
 							},
 							{
 								"display": "connect",
 								"spoken": "connect",
-								"startMs": 8907,
-								"endMs": 9304,
+								"startMs": 8766,
+								"endMs": 9156,
 								"charOffset": 141
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 9304,
-								"endMs": 9502,
+								"startMs": 9156,
+								"endMs": 9352,
 								"charOffset": 149
 							},
 							{
-								"display": "Workspace",
-								"spoken": "Workspace",
-								"startMs": 9502,
-								"endMs": 9899,
+								"display": "Setup.",
+								"spoken": "Setup.",
+								"startMs": 9352,
+								"endMs": 9771,
 								"charOffset": 152
-							},
-							{
-								"display": "settings.",
-								"spoken": "settings.",
-								"startMs": 9899,
-								"endMs": 10324,
-								"charOffset": 162
 							}
 						],
-						"startMs": 7296,
-						"endMs": 10697,
+						"startMs": 7180,
+						"endMs": 10137,
 						"charOffset": 113
+					},
+					{
+						"display": "I will show you that last.",
+						"words": [
+							{
+								"display": "I",
+								"spoken": "I",
+								"startMs": 10294,
+								"endMs": 10490,
+								"charOffset": 159
+							},
+							{
+								"display": "will",
+								"spoken": "will",
+								"startMs": 10490,
+								"endMs": 10685,
+								"charOffset": 161
+							},
+							{
+								"display": "show",
+								"spoken": "show",
+								"startMs": 10685,
+								"endMs": 10880,
+								"charOffset": 166
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 10880,
+								"endMs": 11075,
+								"charOffset": 171
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 11075,
+								"endMs": 11271,
+								"charOffset": 175
+							},
+							{
+								"display": "last.",
+								"spoken": "last.",
+								"startMs": 11271,
+								"endMs": 11494,
+								"charOffset": 180
+							}
+						],
+						"startMs": 10294,
+						"endMs": 11861,
+						"charOffset": 159
 					}
 				],
-				"durationMs": 10697
+				"durationMs": 11861
 			}
 		},
 		{
