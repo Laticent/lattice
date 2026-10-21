@@ -56,6 +56,7 @@ export interface SyncEditor {
 	setBand(range: { from: number; to: number } | null): void;
 	revealSlide(at: { from: number; to: number; caret: number; grab?: boolean; frame?: boolean }): void;
 	getLayout(ranges: ReadonlyArray<{ from: number; to: number }>): ScrolledLayout;
+	getScroll(): number;
 	setScroll(y: number): number;
 }
 
@@ -64,6 +65,8 @@ export interface SyncPorts {
 	/** The preview's pages grouped by deck part (`RenderedIndex.byFlat`): one section per part, from its first
 	 *  page's top to its last page's bottom. Null when the preview cannot be measured (collapsed, not laid out). */
 	previewLayout(groups: readonly (readonly number[])[]): ScrolledLayout | null;
+	/** Where the preview is scrolled, without measuring anything else. */
+	previewScroll(): number;
 	/** Scroll the preview to `y`, at once. Returns where it landed. */
 	setPreviewScroll(y: number): number;
 	/** Mark these pages of the preview as the slide in focus (none: clear the mark). */
@@ -179,7 +182,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const ix = usable();
 		const ed = ports.editor();
 		const rs = rangesOf();
-		if (!ix || !ed || !rs || !rs.length || ix.byFlat.length !== rs.length) return null;
+		if (!ix || !ed || !rs?.length || ix.byFlat.length !== rs.length) return null;
 		const pv = ports.previewLayout(ix.byFlat);
 		if (!pv || pv.tops.length !== rs.length) return null;
 		const el = ed.getLayout(rs);
@@ -218,12 +221,13 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	function drivenByPreview() {
 		previewRaf = 0;
 		if (dead || !ports.active()) return;
-		const L = pair();
-		if (!L) return;
-		if (isEcho(echo.preview, L.pv.scroll)) {
+		// The echo of our own move is the common case, and the cheap one to recognize: do it before measuring anything.
+		if (isEcho(echo.preview, ports.previewScroll())) {
 			echo.preview = null;
 			return;
 		}
+		const L = pair();
+		if (!L) return;
 		const ed = ports.editor();
 		const target = L.map.toA(L.pv.scroll);
 		if (ed && Math.abs(target - L.ed.scroll) >= 1) echo.editor = { y: ed.setScroll(target), at: ports.now() };
@@ -237,12 +241,13 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	function drivenByEditor() {
 		editorRaf = 0;
 		if (dead || !ports.editing()) return;
-		const L = pair();
-		if (!L) return;
-		if (isEcho(echo.editor, L.ed.scroll)) {
+		const ed = ports.editor();
+		if (ed && isEcho(echo.editor, ed.getScroll())) {
 			echo.editor = null;
 			return;
 		}
+		const L = pair();
+		if (!L) return;
 		const target = L.map.toB(L.ed.scroll);
 		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
 		if (ports.now() - lastCaretMove < CARET_SCROLL_MS) return;

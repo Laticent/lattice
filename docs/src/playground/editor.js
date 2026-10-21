@@ -815,6 +815,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			],
 		}),
 	});
+	let layoutMemo = null;
 	// The reader scrolling the editor (a wheel, the scrollbar, a key) and a host scrolling it both arrive here;
 	// the host tells them apart by where the scroll landed (`setScroll`).
 	if (onScroll) view.scrollDOM.addEventListener('scroll', () => onScroll(), { passive: true });
@@ -852,7 +853,18 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 			prevKind = null; // re-arm: the next entry into a context fires fresh
 		},
 		// Mark a range of the document: the slide the preview is showing (offsets; null clears it).
-		setBand: (range) => view.dispatch({ effects: setBandEffect.of(range ? { from: range.from, to: range.to } : null) }),
+		setBand: (range) => {
+			// A typed character moves the band's edges with the text (the field maps them), so a host that asks
+			// again after each edit asks for what is already there: skip the update that would redraw it.
+			const cur = view.state.field(bandField);
+			if (range && cur) {
+				const doc = view.state.doc;
+				const len = doc.length;
+				if (cur.from === doc.lineAt(Math.min(Math.max(0, range.from), len)).from && cur.to === doc.lineAt(Math.min(Math.max(0, range.to), len)).to) return;
+			}
+			if (!range && !cur) return;
+			view.dispatch({ effects: setBandEffect.of(range ? { from: range.from, to: range.to } : null) });
+		},
 		// Land on a slide the reader picked: the caret at `caret`. `frame`: also put [from, to] on screen, centered
 		// when it fits and from its start when it does not. A host that keeps the editor and the preview scrolled
 		// together leaves `frame` off and lets the alignment place it. `grab` takes keyboard focus; a touch pick
@@ -870,6 +882,11 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		// estimates, which is why a host asks again as the reader scrolls.
 		getLayout: (ranges) => {
 			const scroller = view.scrollDOM;
+			// Where the ranges sit changes only when the text or the measured heights change, never when the editor
+			// scrolls, so a scroll event reuses the last answer: this runs on every scroll frame of either pane.
+			const key = `${view.contentHeight}|${scroller.clientHeight}|${scroller.scrollHeight}`;
+			const memo = layoutMemo;
+			if (memo && memo.ranges === ranges && memo.doc === view.state.doc && memo.key === key) return { ...memo.layout, scroll: scroller.scrollTop };
 			const base = view.documentTop - scroller.getBoundingClientRect().top + scroller.scrollTop;
 			const tops = [];
 			const bottoms = [];
@@ -877,8 +894,12 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 				tops.push(base + view.lineBlockAt(r.from).top);
 				bottoms.push(base + view.lineBlockAt(r.to).bottom);
 			}
-			return { tops, bottoms, viewport: scroller.clientHeight, content: scroller.scrollHeight, scroll: scroller.scrollTop };
+			const layout = { tops, bottoms, viewport: scroller.clientHeight, content: scroller.scrollHeight };
+			layoutMemo = { ranges, doc: view.state.doc, key, layout };
+			return { ...layout, scroll: scroller.scrollTop };
 		},
+		// Where the editor is scrolled, without measuring anything else.
+		getScroll: () => view.scrollDOM.scrollTop,
 		// Scroll to `y` and say where it landed (the browser clamps), so a host can tell its own scroll from the reader's.
 		setScroll: (y) => {
 			view.scrollDOM.scrollTop = y;

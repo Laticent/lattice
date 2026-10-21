@@ -13,6 +13,8 @@ export type EditorAdapter = {
 	revealSlide: (at: { from: number; to: number; caret: number; grab?: boolean; frame?: boolean }) => void;
 	/** Where each range sits in the editor's scroll coordinates, with its window and content sizes and scroll. */
 	getLayout: (ranges: ReadonlyArray<{ from: number; to: number }>) => EditorLayout;
+	/** Where the editor is scrolled. */
+	getScroll: () => number;
 	/** Scroll to `y`; returns where it landed. */
 	setScroll: (y: number) => number;
 	getCaret: () => { head: number; anchor: number };
@@ -139,6 +141,7 @@ export function EditorHost({
 			setBand: (range) => ed.setBand(range),
 			revealSlide: (at) => ed.revealSlide(at),
 			getLayout: (ranges) => ed.getLayout(ranges),
+			getScroll: () => ed.getScroll(),
 			setScroll: (y) => ed.setScroll(y),
 			getCaret: () => ed.getCaret(),
 		});

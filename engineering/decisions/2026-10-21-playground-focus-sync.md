@@ -92,7 +92,11 @@ Playground-only maths).
 - **Either pane drives the other** (`playground-sync.ts`). A scroll in the preview moves the editor through the
   map and the slide it is on becomes the focus; a scroll in the editor does the same the other way, under the
   origin `editor-view`. The slide in focus is marked in **both**: the editor's band, and the preview's
-  `db-active` outline (the Drawing Board's existing mark, now given the page's accent).
+  `db-active` mark (the Drawing Board's existing class), drawn as an accent bar down the slide's left edge. It
+  was an outline first; slides are scaled to the frame's width, so the outline's left and right sides fell outside
+  the frame and only the top and bottom showed. An inset shadow lives inside the slide's box, so no frame edge and
+  no rounded-corner `clip-path` can cut it. The Drawing Board keeps its outline (`activeOutline`); this is the
+  separate `activeBar` option.
 - **What "current slide" means** is the section centered nearest (`sectionAt`), so a slide centered in one pane is
   current in both. An earlier cut used a focal line that slid from the top of the window to the bottom; it named
   the next slide when a slide near the end was centered, and the e2e spec caught it.
@@ -109,6 +113,19 @@ Playground-only maths).
 - **Limits:** the editor's layout comes from CodeMirror's line positions, which are estimates for lines not
   drawn yet; the map is rebuilt on every scroll frame, so it corrects as CodeMirror measures. The preview's
   pages are assumed one size and one pitch apart, as `readingPage` already assumes.
+
+### Cost (measured 2026-10-21, 120-slide deck, dev build, headless Chromium, same machine)
+
+| Per 60 wheel events | `main` script | this branch |
+|---|---|---|
+| preview scroll | 63-72 ms | 161-172 ms |
+| editor scroll | 68-77 ms | 175-187 ms |
+| typing, 40 keys | 221-227 ms | 236-251 ms |
+
+No frame is dropped on either branch (every frame 16.7 ms). The extra 1.5-2 ms per scroll frame is the editor band
+redraw (about 4 ms per slide change, inherent to marking the slide) and the forced layout of reading the scrolled
+frame's position; the layouts are memoized per size, and the echo of a move is recognized before anything is
+measured. Typing is level with `main`.
 
 ## 5. Fuoco: lines, columns and sections
 

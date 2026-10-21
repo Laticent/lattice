@@ -442,9 +442,9 @@ function hostAccent() {
 	}
 }
 
-export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, scrollbar = true, activeOutline = true, ...rest }) {
+export function renderDeck({ frame, html, css, mode, geom, sig, state, fresh = false, restyleKey = /** @type {string|null} */ (null), virtual = false, scrollbar = true, activeBar = true, ...rest }) {
 	// The live preview is scrolled by a person, so its frame gets the thin scrollbar (docStyleText).
-	const opts = { scrollbar: scrollbar === true ? hostScrollbarColor() : scrollbar, activeOutline: activeOutline === true ? hostAccent() : activeOutline, ...rest };
+	const opts = { scrollbar: scrollbar === true ? hostScrollbarColor() : scrollbar, activeBar: activeBar === true ? hostAccent() : activeBar, ...rest };
 	const st = state || { frameSig: '', lastSections: null };
 	// A VIRTUAL filmstrip's placeholder: the slide's own box, empty, until the slide mounts. A
 	// faint wash of the frame's text color reads as "a slide is here" in light and dark alike,

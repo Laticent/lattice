@@ -242,3 +242,19 @@ test(`the editor scrolls past its last line, as the Studio editor does ${TAGS}`,
 	// Pinned to the edge it would be a few pixels; scrolled past, a good part of the pane is left under it.
 	expect(room).toBeGreaterThan(150);
 });
+
+test(`the slide in focus carries a bar down its left edge, not an outline ${TAGS}`, async ({ page }) => {
+	await open(page);
+	await scrollPreviewTo(page, 3);
+	await expect.poll(() => markedSlide(page)).toBe('3');
+	const look = await page.evaluate(() => {
+		const f = document.getElementById('preview') as HTMLIFrameElement;
+		const sec = f.contentDocument?.querySelector('.lattice > section.db-active') as HTMLElement;
+		const cs = getComputedStyle(sec);
+		// The shadow is `inset <x> 0 0 0`: a bar of width x on the left, none on the other three sides.
+		return { shadow: cs.boxShadow, outline: cs.outlineStyle };
+	});
+	expect(look.outline).toBe('none');
+	expect(look.shadow).toMatch(/inset/);
+	expect(look.shadow).toMatch(/\s6px 0px 0px 0px/);
+});

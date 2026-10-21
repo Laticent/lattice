@@ -351,7 +351,7 @@ export { buildPrintCss, fitSlideOnSheet, handoutRegions, nUpCells, nUpGrid, PRIN
  * document, no new realm, no hidden reveal, and the reader keeps their scroll position.
  * The same function builds both, so a restyled document cannot drift from a written one.
  */
-export function docStyleText({ css, mode, geom, padding = 18, background = null, colorScheme = null, contentVisibility = false, cursor = false, activeOutline = null, printRules = false, printOpts = undefined, center = false, scrollbar = false }) {
+export function docStyleText({ css, mode, geom, padding = 18, background = null, colorScheme = null, contentVisibility = false, cursor = false, activeOutline = null, printRules = false, printOpts = undefined, center = false, scrollbar = false, activeBar = null }) {
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;
 	const bg = background ? background(mode) : (mode === 'dark' ? DARK_BG : LIGHT_BG);
@@ -377,6 +377,11 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		// `clip-path` clips its own box-shadow away. A drop-shadow on `.lattice` traces each
 		// slide's painted outline instead, square or rounded.
 		'.lattice{filter:' + slideFrameFilter('card') + ';}';
+	// The slide in focus, marked by a bar down its LEFT edge, inside the slide (the editor marks the same slide with
+	// a bar in its gutter). Not an outline: slides are scaled to the frame's width, so an outline's left and right
+	// sides fall outside the frame and are clipped, leaving two lines across the top and bottom. An inset shadow is
+	// painted inside the slide's own box, so no frame edge and no `clip-path` (rounded corners) can cut it.
+	const barRule = activeBar ? '.lattice>section.db-active{box-shadow:inset 6px 0 0 0 ' + activeBar + ';}' : '';
 	const activeRule = activeOutline
 		? '.lattice>section.db-active{outline:3px solid ' + activeOutline + ';outline-offset:4px;}'
 		: '';
@@ -401,6 +406,7 @@ export function docStyleText({ css, mode, geom, padding = 18, background = null,
 		slideBox(gw, gh) +
 		sectionRule +
 		activeRule +
+		barRule +
 		// HARD RULE #22, stylesheet channel. The engine sheet carries a theme's own
 		// comment header, and a Studio theme's label/description ride in it — so this
 		// string is caller-influenced. A `</style>` anywhere in it would end the element
@@ -448,6 +454,7 @@ export function buildSrcdoc({
 	scrollbar = false,
 	cursor = false,
 	activeOutline = null, // accent color string, or null
+	activeBar = null, // accent color string for the focus bar down the slide's left edge, or null
 	// A 1px EDGE ON EVERY SLIDE, opt-in. The ENGINE draws it (base.modifiers.css, "The slide's
 	// EDGE") in the deck's own --border, so it tracks palette and mode and leaves the spectrum
 	// whole; this flag only makes the FIT agent tell the engine the on-screen scale.
@@ -531,7 +538,7 @@ export function buildSrcdoc({
 	html = sanitizeSlideHtml(web.html);
 	const gw = (geom?.w) || 1280;
 	const gh = (geom?.h) || 720;
-	const docCss = docStyleText({ css, mode, geom, padding, background, colorScheme, contentVisibility, cursor, activeOutline, printRules, printOpts, center, scrollbar });
+	const docCss = docStyleText({ css, mode, geom, padding, background, colorScheme, contentVisibility, cursor, activeOutline, printRules, printOpts, center, scrollbar, activeBar });
 	const GEOM_GLOBALS = 'window.__SLIDE_W=' + gw + ';window.__SLIDE_H=' + gh + ';' + (slideEdge ? 'window.__SLIDE_EDGE=1;' : '');
 	// srcdoc (a fresh browsing context per write), NOT doc.open()/write()/close():
 	// the latter keeps the iframe window, so lattice-runtime.js's one-shot Mermaid

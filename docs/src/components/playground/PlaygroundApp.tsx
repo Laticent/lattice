@@ -775,6 +775,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		const ports: SyncPorts = {
 			editor: () => editorRef.current,
 			previewLayout: (groups) => previewLayout(frameRef.current, groups),
+			previewScroll: () => frameRef.current?.contentWindow?.scrollY ?? 0,
 			setPreviewScroll: (y) => {
 				const win = frameRef.current?.contentWindow;
 				if (!win) return 0;

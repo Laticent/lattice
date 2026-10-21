@@ -32,6 +32,7 @@ function rig(source = deck) {
 						setBand: (r) => log.push(`band ${r ? `${r.from}-${r.to}` : 'none'}`),
 						revealSlide: (a) => log.push(`reveal caret=${a.caret} grab=${!!a.grab} frame=${a.frame}`),
 						getLayout: (ranges) => ({ ...edLayout(ranges.length), scroll: state.ed }),
+						getScroll: () => state.ed,
 						setScroll: (y) => {
 							state.ed = clamp(y, edLayout(parts));
 							log.push(`editor-scroll ${Math.round(state.ed)}`);
@@ -39,6 +40,7 @@ function rig(source = deck) {
 						},
 					}
 				: null,
+		previewScroll: () => state.pv,
 		previewLayout: (groups) => (state.previewOk ? { ...pvLayout(groups.length), scroll: state.pv } : null),
 		setPreviewScroll: (y) => {
 			state.pv = clamp(y, pvLayout(parts));
