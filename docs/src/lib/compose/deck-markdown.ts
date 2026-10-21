@@ -116,12 +116,58 @@ function withTightDefault(spec: NodeSpec): NodeSpec {
 	return { ...spec, attrs: { ...spec.attrs, tight: { default: true } } };
 }
 
+// IMAGES ARE A PASTE AND SERIALIZER SURFACE (HARD RULE #22's threat model, found by the red team on the Compose images slice).
+// prosemirror-markdown's `image` takes `src`, `alt` and `title` raw from pasted HTML, and its serializer escapes only parentheses
+// and a quote, never a line break. A pasted `<img alt="a&#10;&#10;---&#10;&#10;b">` therefore wrote a slide boundary into the deck, and a
+// title carrying `<!-- _backgroundImage: url(https://…) -->` wrote a directive the export would fetch. Two guards: a pasted image takes
+// only a source with no whitespace, quote, bracket or control character (anything else is not an image), and the serializer keeps every
+// attribute on one line whatever built the node.
+/** A control character, a line break or a Unicode line separator: none can sit in a one-line attribute. A tab is ordinary space. */
+const isBreakOrControl = (c: string): boolean => {
+	const n = c.charCodeAt(0);
+	return (n < 0x20 && n !== 0x09) || n === 0x7f || n === 0x85 || n === 0x2028 || n === 0x2029;
+};
+/** `s` on one line: every run of line breaks and control characters becomes one space. */
+const oneLine = (s: unknown): string => {
+	let out = '';
+	let inRun = false;
+	for (const c of String(s ?? '')) {
+		if (isBreakOrControl(c)) {
+			if (!inRun) out += ' ';
+			inRun = true;
+		} else {
+			out += c;
+			inRun = false;
+		}
+	}
+	return out;
+};
+/** A source with no whitespace, control character, quote, angle bracket, backtick or parenthesis: one token a link destination can hold. */
+export const isSafeImageSrc = (src: string): boolean => /^[^\s<>"'`()\\]+$/.test(src) && !Array.from(src).some(isBreakOrControl);
+
+const imageSpec: NodeSpec = {
+	...(mdSchema.spec.nodes.get('image') as NodeSpec),
+	parseDOM: [
+		{
+			tag: 'img[src]',
+			getAttrs: (dom) => {
+				const el = dom as HTMLElement;
+				const src = el.getAttribute('src') ?? '';
+				if (!isSafeImageSrc(src)) return false;
+				const title = el.getAttribute('title');
+				return { src, alt: oneLine(el.getAttribute('alt')) || null, title: title ? oneLine(title) : null };
+			},
+		},
+	],
+};
+
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
  *  authoring-comment atom and the inline-object atom (`inline-object.ts`). `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
 export const proseSchema = new Schema({
 	nodes: mdSchema.spec.nodes
 		.update('code_block', codeBlockSpec)
+		.update('image', imageSpec)
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
@@ -271,6 +317,13 @@ function interruptsParagraph(node: PMNode): boolean {
 
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
+	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
+	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
+	image(state: SerializerState, node: PMNode) {
+		const src = Array.from(String(node.attrs.src ?? ''), (c) => (/\s/.test(c) || isBreakOrControl(c) ? encodeURIComponent(c) : c)).join('');
+		const title = oneLine(node.attrs.title);
+		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[()]/g, '\\$&')}${title ? ` "${title.replace(/"/g, '\\"')}"` : ''})`);
+	},
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)

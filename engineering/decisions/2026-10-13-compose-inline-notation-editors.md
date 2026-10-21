@@ -418,6 +418,9 @@ chart and diagram doors therefore cannot each take a button. Recommendation for 
 holds pills, sparks, avatars, charts and diagrams, so the bar keeps only the doors used every day. That is a
 decision for the owner, recorded in `followups.d/`.
 
+**Update 2026-10-21.** The Insert menu recommended here is built, with the avatar and icon kinds, images and the diagram, equation
+and plot doors: `engineering/decisions/2026-10-21-compose-point-and-click.md`. The avatar designer (phase 4 below) shipped there.
+
 **Known fidelity gaps.** A number-cell edit writes the series with single spaces (`~{12  14  17}` becomes
 `~{12 14 18}`), and the ratio boxes show parsed numbers, so `72.50/80` is written back as `72.5/80` on an edit.
 Every other word keeps its bytes.

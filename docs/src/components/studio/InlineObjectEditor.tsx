@@ -12,19 +12,25 @@
 // Lazy: ComposeView loads this with React.lazy, as IconGrid is, so none of it is in the Studio's
 // startup JavaScript.
 
-import { ChartLine, Tag } from 'lucide-react';
+import { ChartLine, Image as ImageIcon, Shapes, Tag, UserRound } from 'lucide-react';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { editImage, isImage, removeImage } from '@/lib/compose/image-objects';
 import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
+import { AvatarPanel } from './AvatarPanel';
+import { IconPanel } from './IconPanel';
+import { ImagePanel } from './ImagePanel';
 import { PillPanel, readSlotColors } from './PillEditor';
 import { SparkPanel } from './SparkPanel';
 
 /** What a panel is handed. It reports one edit per change and never writes the document itself. */
 export interface ObjectPanelProps {
 	fields: unknown;
+	/** The object's source as the document has it now: a panel that draws the object larger needs it. */
+	src: string;
 	kernels: InlineKernels;
 	slotColors: (string | null)[];
 	/** Returns whether the edit was written. A refusal is shown by the panel, never swallowed. */
@@ -53,7 +59,27 @@ const PANELS: Record<string, PanelEntry> = {
 		describe: "Change this spark's numbers, chart type, color, size and marks.",
 		Panel: (p) => <SparkPanel {...(p as unknown as React.ComponentProps<typeof SparkPanel>)} />,
 	},
+	avatar: {
+		title: 'Edit avatar',
+		describe: "Change this avatar's name, tile, size, shape and face.",
+		Panel: (p) => <AvatarPanel {...(p as unknown as React.ComponentProps<typeof AvatarPanel>)} />,
+	},
+	icon: {
+		title: 'Edit icon',
+		describe: "Change this icon's shape, color, size, frame and look.",
+		Panel: (p) => <IconPanel {...(p as unknown as React.ComponentProps<typeof IconPanel>)} />,
+	},
 };
+
+/** The image's entry: its panel is not an inline object's, so the host renders it itself (the `image` branch below). */
+const IMAGE_ENTRY: PanelEntry = {
+	title: 'Edit image',
+	describe: "Change this image's photo, description and placement.",
+	Panel: () => <></>,
+};
+
+/** The header icon of each kind's sheet. */
+const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <ChartLine />, avatar: <UserRound />, icon: <Shapes />, image: <ImageIcon /> };
 
 /** A virtual anchor that finds the object's place in the page again on every measurement. */
 type Anchor = { getBoundingClientRect: () => DOMRect; contextElement?: Element };
@@ -63,18 +89,24 @@ export function InlineObjectEditorHost({
 	kernels,
 	open,
 	onClose,
+	onOpenLibrary,
 }: {
 	view: EditorView;
 	kernels: InlineKernels;
 	/** The object as the document stands NOW: the plugin maps it through every edit. */
 	open: OpenObject;
 	onClose: () => void;
+	/** Open the Library panel, for an image whose photo is not there yet. */
+	onOpenLibrary?: () => void;
 }) {
 	const phone = useIsPhone();
 	// The preview frame is read once per open: the theme can differ between two opens.
 	const slotColors = React.useMemo(() => readSlotColors(), []);
-	const owner = kindOf(open.src, kernels);
-	const entry = owner ? PANELS[owner.kind.id] : undefined;
+	// An image is not an inline object: it has no source text, and its panel is its own (ImagePanel.tsx).
+	const imageNode = view.state.doc.nodeAt(open.pos);
+	const image = isImage(imageNode);
+	const owner = image ? null : kindOf(open.src, kernels);
+	const entry = image ? IMAGE_ENTRY : owner ? PANELS[owner.kind.id] : undefined;
 	const held = React.useRef(false);
 	const holdOpen = React.useCallback((v: boolean) => {
 		held.current = v;
@@ -127,13 +159,32 @@ export function InlineObjectEditorHost({
 		editObjectAsText(view, openRef.current.pos);
 	}, [onClose, view]);
 
-	if (!owner || !entry) return null;
-	const panel = <entry.Panel fields={owner.fields} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />;
+	if (!entry || (!owner && !image)) return null;
+	const panel =
+		image && imageNode ? (
+			<ImagePanel
+				fields={{ src: imageNode.attrs.src as string, alt: (imageNode.attrs.alt as string | null) ?? null }}
+				onEdit={(edit) => editImage(view, openRef.current.pos, edit)}
+				onRemove={() => {
+					const removed = removeImage(view, openRef.current.pos);
+					if (!removed) return false;
+					onClose();
+					if (hasFinePointer()) view.focus();
+					return true;
+				}}
+				onDone={close}
+				holdOpen={holdOpen}
+				onOpenLibrary={onOpenLibrary}
+			/>
+		) : owner ? (
+			<entry.Panel fields={owner.fields} src={open.src} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />
+		) : null;
+	const kindId = image ? 'image' : (owner?.kind.id ?? 'pill');
 
 	if (phone) {
 		return (
 			<PanelSheet open onOpenChange={(o) => !o && !held.current && close()} width="md">
-				<PanelHeader icon={owner.kind.id === 'spark' ? <ChartLine /> : <Tag />} title={entry.title} srDescription={entry.describe} />
+				<PanelHeader icon={KIND_ICON[kindId]} title={entry.title} srDescription={entry.describe} />
 				<PanelBody>{panel}</PanelBody>
 			</PanelSheet>
 		);
