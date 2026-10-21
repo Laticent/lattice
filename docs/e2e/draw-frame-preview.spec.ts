@@ -237,16 +237,27 @@ test('a Studio export draws Mermaid itself, never through the preview draw frame
 test('when the Mermaid frame cannot load its modules, the host says so at once and the next preview draws in the page @smoke', async ({ page, browserName }) => {
 	test.skip(browserName !== 'chromium', 'the fallback is engine-independent code; one engine pins it');
 	test.setTimeout(240_000);
-	// The page is offline for the frame's modules (a stale deploy, a dropped link): every request under frames/mermaid/ fails.
-	await page.route(/\/frames\/mermaid\//, (route) => route.abort());
+	// The frame's modules fail (a stale deploy, a dropped link), but only AFTER the preview frame has installed its stand-in for Mermaid:
+	// the hard case, where the page must take the figure back from a stand-in it already holds. The gate holds every request under
+	// frames/mermaid/ until the test lets it fail.
+	let release: () => void = () => {};
+	const gate = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	await page.route(/\/frames\/mermaid\//, async (route) => {
+		await gate;
+		await route.abort();
+	});
 	await gotoStudio(page);
 	const preview = livePreview(page);
 	await setEditorContent(page, FLOW_DECK);
+	await expect.poll(() => preview.locator('html').evaluate(() => typeof (window as unknown as { mermaid?: { render?: unknown } }).mermaid?.render), { timeout: 60_000 }).toBe('function');
+	release();
 	// The host learns of the failure from the frame at once, not after its 30 s open timeout.
 	await expect
 		.poll(() => page.evaluate(() => (window as unknown as { __latticeDrawHost?: { kinds?: string[] } }).__latticeDrawHost?.kinds?.includes('mermaid') ?? false), { timeout: 20_000 })
 		.toBe(false);
-	// The next preview frame finds no offer and loads the library itself.
+	// The next edit finds a stand-in that is stale and loads the library into the page.
 	await setEditorContent(page, FLOW_DECK.replace('Draft', 'Drafted'));
 	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toContainText('Drafted', { timeout: 90_000 });
 	expect(await page.locator('iframe[data-lattice-draw-frame="mermaid"]').count(), 'the failed frame is gone').toBe(0);

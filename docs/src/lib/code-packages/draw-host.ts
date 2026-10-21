@@ -49,6 +49,8 @@ const mark = (name: string) => {
 	}
 };
 const OPEN_MS = 30_000;
+/** An error for an address the page has not recorded yet: that is a timing gap, not a failed load, so the kind stays offered. */
+const notStaged = (message: string) => Object.assign(new Error(message), { notStaged: true });
 /** A draw that never reached its frame because the frame was closed first (an earlier draw overran): it is safe to send again to a fresh one. */
 class NotSent extends Error {}
 
@@ -74,7 +76,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			p = (async () => {
 				if (!pin) throw new Error(`no library is pinned for ${kind}`);
 				const url = deps.libraryUrl(pin.file);
-				if (!url) throw new Error(`${pin.file} has no staged address yet`);
+				if (!url) throw notStaged(`${pin.file} has no staged address yet`);
 				mark('library-fetch-start');
 				const text = await fetchText(url);
 				mark('library-fetched');
@@ -95,7 +97,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		const esm = (DRAW_FRAME_LIBRARIES as Record<string, { esm?: { dir: string; entry: string; integrity: Record<string, string>; preload: string[] } }>)[kind]?.esm;
 		if (!esm) return null;
 		const base = deps.folderUrl?.(esm.dir);
-		if (!base) throw new Error(`${esm.dir} has no staged address yet`);
+		if (!base) throw notStaged(`${esm.dir} has no staged address yet`);
 		const { boot, importMap } = drawFrameEsmScripts({ kind, base, entry: esm.entry, integrity: esm.integrity });
 		const [bootHash, mapHash] = await Promise.all([boot, importMap].map(async (t) => b64(await subtle.digest('SHA-256', new TextEncoder().encode(t)))));
 		return drawFrameEsmDocument({ kind, base, entry: esm.entry, integrity: esm.integrity, boot, importMap, bootHash, mapHash, preload: esm.preload, fontBases: deps.fontFolders?.() ?? [] });
@@ -112,7 +114,7 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			}
 		} catch (e) {
 			// A library that could not be fetched or did not match its pin leaves the kind to the page itself, as a frame that could not open does.
-			if (e instanceof Error) (e as Error & { drawUnavailable?: boolean }).drawUnavailable = true;
+			if (e instanceof Error && !(e as Error & { notStaged?: boolean }).notStaged) (e as Error & { drawUnavailable?: boolean }).drawUnavailable = true;
 			throw e;
 		}
 		mark('script-hashed');
@@ -157,7 +159,8 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 			clearTimeout(w.timer);
 			mark('draw-answered');
 			if ('error' in r) {
-				w.reject(new Error(r.error));
+				// A module that fails to load after the frame is ready leaves the kind to the page, as a frame that never opened does.
+				w.reject('loadFailed' in r ? Object.assign(new Error(r.error), { drawUnavailable: true }) : new Error(r.error));
 				// A module that failed to load (offline, a stale deploy) stays failed for the frame's life, because a browser keeps the failed import: the next draw opens a fresh frame.
 				if ('loadFailed' in r) f.close();
 			} else w.resolve(r.out);

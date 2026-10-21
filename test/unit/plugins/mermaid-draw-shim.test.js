@@ -149,3 +149,14 @@ describe('the plugin host installs the stand-in where the library would have lan
     }
   });
 });
+
+test('the stand-in says it is stale once its host stops offering Mermaid, so the Mermaid pass loads the real library', () => {
+  const w = new JSDOM('<!doctype html><body></body>').window;
+  const host = { kinds: ['function-plot', 'mermaid'], draw: async () => '{}' };
+  const shim = createMermaidShim(host, w.document);
+  assert.equal(shim.__latticeStale, false);
+  host.kinds = ['function-plot'];
+  assert.equal(shim.__latticeStale, true);
+  host.kinds = undefined;
+  assert.equal(shim.__latticeStale, false, 'a host that lists no kinds is not claiming to have dropped one');
+});
