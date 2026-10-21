@@ -46,7 +46,14 @@ export const newDeckItem = (): HTMLElement | null => document.querySelector<HTML
 
 // ── Readiness gates (parent-DOM; the same signals the e2e trusts) ───────────────────────────────
 /** True once the deck has PARSED into ≥ `k` slides — the desktop rail shows one button per slide. */
-export const railReady = (k: number) => (): boolean => document.querySelectorAll(`${SEL.rail} button`).length >= k;
+/** The deck has `k` slides, read from whichever navigator is showing: the pills, or the slide map that replaces them
+ *  where it sits beside the slide. The map mounts a window of tiles, so its count is its highest tile's number. */
+export const railReady = (k: number) => (): boolean => {
+	if (document.querySelectorAll(`${SEL.rail} button`).length >= k) return true;
+	let last = 0;
+	for (const b of document.querySelectorAll<HTMLElement>('[data-map-rail] button[data-unit]')) last = Math.max(last, Number(b.dataset.unit) + 1);
+	return last >= k;
+};
 /** True once the editor's content node is live (both mobile panes stay mounted, so effectively
  *  always true — a cheap guard kept in case the layout ever reverts to conditional).
  *

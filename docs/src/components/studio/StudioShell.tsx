@@ -92,6 +92,7 @@ import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
 import { IntentTag } from './IntentTag';
 import { ChatIcon, FeedbackIcon, LensIcon, PreviewIcon } from './icons';
+import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { LANG_AUTO, LanguageSelect } from './LanguageSelect';
 import { LatticeMark } from './LatticeMark';
@@ -110,6 +111,7 @@ import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
+import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
@@ -1004,8 +1006,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// hydration so the server and the client agree. `mapStacked` puts the rail under the slide when the
 	// pane is narrow, measured on the wrapper (which the rail does not resize) so it cannot flip-flop.
 	const [mapOn, setMapOn] = React.useState(false);
-	const [mapStacked, setMapStacked] = React.useState(false);
-	const mapWrapRef = React.useRef<HTMLDivElement>(null);
+	// `null` until the wrapper has been measured with the map on: the pills hide only once the map is KNOWN to sit beside.
+	const [mapStacked, setMapStacked] = React.useState<boolean | null>(null);
+	// A CALLBACK REF in state, not a ref object: the Article and Fabricate views unmount the preview pane and mount a
+	// new wrapper on the way back, and an observer left on the detached one read width 0 and stuck the map as a strip.
+	const [mapWrap, setMapWrap] = React.useState<HTMLDivElement | null>(null);
+	// The map has mounted (its chunk loaded): until then the pills stay, so there is never a moment with no navigator.
+	const [mapReady, setMapReady] = React.useState(false);
+	const onMapReady = React.useCallback(() => setMapReady(true), []);
 	// Once opened the map stays mounted and is only hidden: WebKit never gives back a preview frame that is
 	// destroyed, so closing it must not tear its pool down (ui/keep-mounted.tsx).
 	const mapEver = useEverTrue(mapOn);
@@ -1579,6 +1587,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// single-pane shell, then lock that pane to PREVIEW below — a full-bleed, read-only
 	// deck with no editor and therefore no keyboard (2026-07-20 landscape-phone salvage).
 	const landscapePhone = useLandscapePhone();
+	// The map is a column beside the slide (not a strip under it, and not dropped by the phone's cinema morph).
+	const mapBeside = mapOn && mapReady && mapStacked === false && !landscapePhone;
 	// The overflow fix is the forced fit-by-height on the previewBox (see its className) — a
 	// landscape phone is always wider than a 16:9 slide, so height binds; the container was
 	// never the problem (`100dvh` already equals the visible height). The on-device geometry
@@ -1588,18 +1598,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	renderedLayoutRef.current = { bp, landscapePhone };
 	const compact = bp !== 'desktop'; // tablet + mobile: panels become sheets
 	const mobile = bp === 'mobile' || landscapePhone; // single swappable pane
-	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), so the wrapper this
-	// observes is looked up again then.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `mobile` is the trigger (the wrapper element changes with the tree); the body reads the ref.
-	React.useEffect(() => {
-		const el = mapWrapRef.current;
+	// The pane can change trees when the breakpoint crosses (mobile, tablet, desktop), or be unmounted by a view
+	// round trip, so the effect follows the wrapper element itself.
+	// A layout effect, so the first paint with the map on already knows whether it stacks, and the pills (hidden only
+	// beside it) are never dropped and remounted on a phone. A later resize across 560 px (a split drag, a window
+	// resize that keeps the tree) reaches it through the observer, a frame later.
+	React.useLayoutEffect(() => {
+		const el = mapWrap;
 		if (!mapOn || !el || typeof ResizeObserver === 'undefined') return;
 		const read = () => setMapStacked(el.clientWidth < 560);
 		read();
 		const ro = new ResizeObserver(read);
 		ro.observe(el);
-		return () => ro.disconnect();
-	}, [mapOn, mobile]);
+		return () => {
+			ro.disconnect();
+			setMapStacked(null);
+		};
+	}, [mapOn, mapWrap]);
 	// …and reset it whenever we stop being MOBILE. It is a phone-only state: only
 	// `ComposeView`'s `onTypingCollapse` sets it, and that prop is `undefined` off mobile, so
 	// nothing on the other side of the breakpoint could ever clear it. That was survivable
@@ -2343,17 +2358,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// mean anything once it is set, so the Inspector hides them until then.
 	const logo = getFrontMatter(source, 'logo') || '';
 	const setLogo = (v: string) => settingsWrite('Logo', (s) => writeFrontMatterLine(s, 'logo', v.trim() || null));
-	const logoOn = getFrontMatter(source, 'logo-on') || 'all';
-	const setLogoOn = (value: string) => settingsWrite(`Logo on → ${value}`, (s) => writeFrontMatterLine(s, 'logo-on', value === 'all' ? null : value));
-	const logoStyle = getFrontMatter(source, 'logo-style') || 'auto';
-	const setLogoStyle = (value: string) => settingsWrite(`Logo style → ${value}`, (s) => writeFrontMatterLine(s, 'logo-style', value === 'auto' ? null : value));
-	// Placement + size ride as free numbers (the engine clamps: x/y 0–100 as the logo
-	// CENTER in %, scale 0.2–3). A blank field clears the key back to the default spot.
-	const logoX = getFrontMatter(source, 'logo-x') || '';
-	const logoY = getFrontMatter(source, 'logo-y') || '';
-	const logoScale = getFrontMatter(source, 'logo-scale') || '';
-	const setLogoNum = (key: 'logo-x' | 'logo-y' | 'logo-scale', label: string) => (v: string) =>
-		settingsWrite(label, (s) => writeFrontMatterLine(s, key, v.trim() || null));
+	// ONE line styles it (`logo-finish:`, lib/core/resolve-logo-finish.js): placement, color, size, scope.
+	// A default word is left out and the key goes once every axis is default, like `image-card:`.
+	const logoWords = parseLogoFinish(getFrontMatter(source, 'logo-finish') || '');
+	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
+	const setLogoWord = (axis: LogoFinishAxis, v: string) =>
+		settingsWrite('Logo style', (s) => {
+			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === '__default__' ? undefined : v };
+			return writeFrontMatterLine(s, 'logo-finish', logoFinishValue(next) || null);
+		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
 	const metaLine = getFrontMatter(source, 'meta') || '';
 	const setMetaLine = (v: string) => settingsWrite('Meta line', (s) => writeFrontMatterLine(s, 'meta', v.trim() || null));
@@ -5321,24 +5334,32 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{pageNumbersField}
 				<Field label="Section rail" desc="Progress dots down the edge." find="progress no-progress" help={<>The rail that tracks where you are in the deck. On by default; turning it off stamps <code>class: no-progress</code> on the deck.</>}><Toggle label="Section rail" on={deckRail} onClick={toggleDeckRail} /></Field>
 				{logoField}
-				{/* The five logo modifiers mean nothing without a logo, so they stay hidden
-				    until one is set — otherwise the tab opens with five dead rows. */}
+				{/* The logo modifiers mean nothing without a logo, so they stay hidden
+				    until one is set — otherwise the tab opens with dead rows. */}
 				{logo.trim() !== '' && (
-					// A SCOPE, not a bare marked div: these five rows are `Show on`, `Treatment`,
-					// `Size`, `Across` and `Down`, and not one of them says "logo" — so before
-					// this was a scope, searching the word that is the entire reason they exist
-					// hid all five and left the path field standing alone. A scope also takes the
-					// indent rule with them when they do filter out, which the marked div did.
+					// A SCOPE, not a bare marked div: these rows are `Position`, `Color`, `Size` and
+					// `Show on`, and not one of them says "logo" — so searching the word that is the
+					// entire reason they exist must keep all four.
 					<SettingsScope label="Logo" keywords="brand mark image" className="mt-1 space-y-0.5 border-l-2 border-border pl-2.5">
-						<Field label="Show on" desc="Every slide, or just the cover.">
-							<CatalogSelect ariaLabel="Choose which slides carry the logo" value={logoOn} onValueChange={setLogoOn} className="w-full" groups={[{ options: [{ value: 'all', label: 'All slides' }, { value: 'title', label: 'Title slide only' }] }] } />
-						</Field>
-						<Field label="Treatment" desc="Auto, or the brand mark." help={<><strong>Auto</strong> lets the mark sit as drawn. <strong>Brand</strong> treats it as a brand mark — the masthead gives it the placement and weight a logo expects rather than treating it as an image.</>}>
-							<CatalogSelect ariaLabel="Choose logo treatment" value={logoStyle} onValueChange={setLogoStyle} className="w-full" groups={[{ options: [{ value: 'auto', label: 'Auto' }, { value: 'brand', label: 'Brand mark' }] }] } />
-						</Field>
-						<TextRow label="Size" desc="A multiplier. Blank is default." help={<>Scales the mark — <code>1</code> is its default size. A value outside 0.2–3 is clamped to the nearest end.</>} value={logoScale} placeholder="e.g. 1.2" onCommit={setLogoNum('logo-scale', 'Logo size')} />
-						<TextRow label="Across" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits horizontally, as a percentage of the slide — <code>0</code> is the left edge, <code>100</code> the right. Set both Across and Down to move it off the masthead entirely.</>} value={logoX} placeholder="e.g. 92" onCommit={setLogoNum('logo-x', 'Logo across')} />
-						<TextRow label="Down" desc="0–100. Blank keeps the default spot." help={<>Where the logo's <strong>center</strong> sits vertically, as a percentage of the slide — <code>0</code> is the top edge, <code>100</code> the bottom.</>} value={logoY} placeholder="e.g. 8" onCommit={setLogoNum('logo-y', 'Logo down')} />
+						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
+							const meta = {
+								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-finish:</code> line.</> },
+								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors on a soft plate.</> },
+								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
+								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
+							}[axis];
+							return (
+								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
+									<CatalogSelect
+										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
+										onValueChange={(v) => setLogoWord(axis, v)}
+										className="w-full"
+										groups={[{ options: [{ value: '__default__', label: `${logoFinishLabel(logoFinishWords(axis)[0])} (default)` }, ...logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w) }))] }]}
+									/>
+								</Field>
+							);
+						})}
 					</SettingsScope>
 				)}
 				<TextRow label="Meta line" desc="Small print in the masthead bay." help={<>The status line beside the heading — a date, a document number, a review stage. Distinct from the footer: it belongs to the masthead, so it sits with the title rather than at the foot of the slide.</>} value={metaLine} placeholder="e.g. Q3 FY26 · Board review" onCommit={setMetaLine} />
@@ -5508,6 +5529,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<TabNote>The text card on every photo slide that floats its words over the picture (<code>image spotlight</code>, <code>image statement</code>). A slide can change any one of these in its own Image tab.</TabNote>
 				{IMAGE_CARD_ROWS.map((row) => (
 					<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
+						{row.axis === 'backing' ? (
+							<CardBackingControl
+								ariaLabel={row.label}
+								word={deckImage.backing}
+								inheritedWord={undefined}
+								autoLabel={`Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
+								onChange={(w) => setDeckImage('backing', w ?? '__auto__')}
+							/>
+						) : (
 						<CatalogSelect
 							ariaLabel={row.label}
 							value={deckImage[row.axis] && (row.axis === 'ink' || deckImage[row.axis] !== imageCardWords(row.axis)[0]) ? (deckImage[row.axis] as string) : '__auto__'}
@@ -5515,6 +5545,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							className="w-full"
 							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)` }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w) }))] }]}
 						/>
+						)}
 					</Field>
 				))}
 			</div>
@@ -6033,7 +6064,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    NOT as React props, whose synthetic touch/wheel listeners are passive and
 			    so cannot preventDefault the browser's own page zoom. The card's aspect
 			    ratio follows the deck's selected Size, not a fixed 16:9. */}
-			<div ref={mapWrapRef} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
+			<div ref={setMapWrap} className={mapOn && !landscapePhone ? cn('flex min-h-0 flex-1', mapStacked ? 'flex-col' : 'flex-row') : 'contents'}>
 			<div ref={previewHolderRef} className={cn('flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden', landscapePhone ? 'bg-muted px-0 py-3' : 'bg-card p-4 sm:p-5')}>
 				{/* pointer-events-none so a swipe over the slide (an engine iframe, which
 				    would otherwise swallow the touch) reaches the swipe container. The debug
@@ -6100,7 +6131,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<div className={cn('shrink-0', (!mapOn || landscapePhone) && 'hidden', mapStacked ? 'h-[96px]' : 'w-[148px]')} hidden={!mapOn || landscapePhone}>
 					<Frozen active={mapOn && !landscapePhone}>
 					<React.Suspense fallback={null}>
-						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} />
+						<StudioMap hub={hub} index={deckIndex} view={viewChunks} onPick={onMapPick} options={deckOptions} sample={editorSample} front={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} aspect={previewRatioValue} orientation={mapStacked ? 'horizontal' : 'vertical'} people={mapBeside ? liveBySlide : undefined} classLabels={effectiveStop !== 'read'} onReady={onMapReady} />
 					</React.Suspense>
 					</Frozen>
 				</div>
@@ -6160,7 +6191,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
 					</div>
 				)}
-			<SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />
+			{/* Where the map sits BESIDE the slide it is the navigator: its tiles carry the number, the position, first to
+			    last, the Live dots and (outside Read) the component class, so a second list of the same slides under them is only noise. Where it stacks
+			    under the slide (a narrow pane, a phone) the strip has no labels or steps, so the pills stay. */}
+			{!mapBeside && <SlideRail hub={hub} index={deckIndex} view={viewChunks} readLabels={effectiveStop === 'read'} liveBySlide={liveBySlide} onPick={onRailPick} />}
 				<button
 					type="button"
 					aria-label="Slide map"

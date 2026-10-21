@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "list-steps",
+  "inlineRun": { "depths": [1], "slots": ["strong"] },
   "focusAxes": [
     "item"
   ],

@@ -322,7 +322,7 @@ test('a share below a pane minimum at a narrower window is clamped BEFORE paint,
 	// keyboard resize lands on settled geometry rather than on the pre-hydration one.
 	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 40_000 });
 
-	// Shrink the preview to roughly a quarter of the pair — comfortably above its 320px
+	// Shrink the preview to roughly a quarter of the pair — comfortably above its 300px
 	// minimum at 1920, and below it at 1194.
 	const separator = page.locator('#pg-split [data-slot="resizable-handle"]').first();
 	await separator.focus();

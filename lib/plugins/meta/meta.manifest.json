@@ -29,9 +29,9 @@
     "meta": {
       "fields": {
         "theme": { "type": "text", "scope": "deck", "applied": true, "describe": "The theme name. Deck-only: it picks the CSS bundle before any slide is read." },
-        "paginate": { "type": "enum", "values": ["true", "false", "skip", "hold"], "local": true, "applied": true, "complete": true, "describe": "Page numbers on or off; `skip` and `hold` are Marp's pagination extensions." },
-        "header": { "type": "text", "local": true, "applied": true, "complete": true, "describe": "A running header." },
-        "footer": { "type": "text", "local": true, "applied": true, "complete": true, "describe": "A running footer." },
+        "paginate": { "type": "enum", "values": ["true", "false", "skip", "hold"], "scope": "slide", "local": true, "applied": true, "complete": true, "describe": "Page numbers on or off; `skip` and `hold` are Marp's pagination extensions. Front matter sets it for every slide; on a slide, either spelling sets that slide only." },
+        "header": { "type": "text", "scope": "slide", "local": true, "applied": true, "complete": true, "describe": "The slide's header. Front matter sets it for every slide; on a slide, either spelling sets that slide only." },
+        "footer": { "type": "text", "scope": "slide", "local": true, "applied": true, "complete": true, "describe": "The slide's footer. Front matter sets it for every slide; on a slide, either spelling sets that slide only." },
         "class": { "type": "classes", "local": true, "applied": true, "complete": true, "describe": "The slide's component and modifier words." },
         "backgroundColor": { "type": "css", "local": true, "applied": true, "complete": true, "describe": "A background color for the slide." },
         "backgroundImage": { "type": "url", "local": true, "applied": true, "describe": "A background image for the slide." },

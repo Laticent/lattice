@@ -184,7 +184,13 @@ const SHARED_SELECTORS = new Set([]);
 // that every root modifier is a declared variant.
 const VARIANT_DECL_IGNORE = new Map([
   ['kpi', new Set(['briefing'])],            // bare default appearance, documented as such
-  ['image', new Set(['left'])],              // legacy alias of `mirror` (base.modifiers.css)
+  // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
+  // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
+  // so it follows the deck's and the slide's own settings; they are not image variants.
+  // `card-o5` … `card-o95` are the in-between backing levels (resolve-image-card.js BACKING_LEVELS):
+  // one axis, documented once under `card-solid`/`soft`/`sheer`/`clear`. Declaring each would add
+  // seventeen identical gallery slides.
+  ['image', new Set(['left', 'rule-none', 'spectrum-trim', 'spectrum-trim-restrained', ...require('../lib/core/resolve-image-card.js').BACKING_LEVELS.map((n) => `card-o${n}`)])],
   ['state-chart', new Set(['horizontal'])],  // documented back-compat alias of `lr inline`
   ['word-cloud', new Set(['canvas'])],        // chart-family-wide surface modifier, not a word-cloud-specific variant
 ]);
@@ -5531,7 +5537,7 @@ function writesClass(src, cls) {
 //   `lib/core/matrix-grid-cells.js`, through the `matrixGridCells` plugin — the
 //   transform's own header says so and then does not emit them.
 //
-//   `chart-key-swatch` comes from the shared `_chart-family/svg-legend.js` and is
+//   `chart-key-swatch` comes from the shared `_chart-family/legend-svg-key.js` and is
 //   emitted inside six different members' sections, and `chart-status` is a
 //   family class two members reuse. (An earlier revision named
 //   `gantt-legend-swatch` as the second example. That was wrong — gantt writes it
@@ -6163,6 +6169,14 @@ function listSourceFiles(dir, out = []) {
 //   · a STALE entry whose sleep is gone — the allowlist rotting into fiction;
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
+  {
+    file: 'docs/e2e/studio-dock-sizing.spec.ts', ms: 4000, count: 1,
+    why: 'ONE ABSENCE ASSERTION: a reload that restores the person\'s stored editor collapse must NOT '
+       + 'show the "Editor collapsed." toast (the restore used to be read as a fresh collapse). There '
+       + 'is no signal for a toast that must not appear. 4000ms outlasts the restore\'s two-rAF settle '
+       + 'and the toast\'s ~1.5s life; the same test\'s POSITIVE arm (their own collapse sets the same '
+       + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
+  },
   {
     file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
     why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log: a player file opened with a declared '

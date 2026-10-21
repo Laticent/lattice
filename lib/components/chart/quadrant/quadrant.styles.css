@@ -351,7 +351,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-/* The cohort key is now SVG-native (svg-legend.js → `.chart-key-*`, styled in
+/* The cohort key is now SVG-native (legend-svg-key.js → `.chart-key-*`, styled in
  * lib/plugins/chart-family/chart-family.styles.css); the old HTML `.quadrant-legend` rules are
  * retired with it. See 2026-06-13-svg-native-legend.md. */
 

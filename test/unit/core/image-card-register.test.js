@@ -1,7 +1,7 @@
 /**
  * The `image-card:` register — the text card on every image slide (lib/core/resolve-image-card.js).
  *
- *   1. the kernel sorts words onto five axes, maps each to the class image.styles.css paints,
+ *   1. the kernel sorts words onto six axes, maps each to the class image.styles.css paints,
  *      and drops what it does not know;
  *   2. BOTH render paths (the engine here, the real runtime bundle below) stamp the classes on
  *      IMAGE slides only, and a slide's class evicts the deck's word on its own axis only;
@@ -32,10 +32,30 @@ test('kernel: words map to the classes the image CSS paints; order and case do n
   assert.deepEqual(imageCardClasses('Compact, LG center'), ['at-center', 'card-lg', 'compact']);
   assert.deepEqual(imageCardClasses('bottom dark clear'), ['at-bottom', 'card-clear', 'ink-dark']);
   assert.deepEqual(imageCardClasses('top'), ['at-top']);
+  assert.deepEqual(imageCardClasses('bottom band soft'), ['at-bottom', 'card-soft', 'band']);
+});
+
+test('kernel: the backing is a 0–100% level — four names, and every other 5% step as `NN%`', () => {
+  assert.deepEqual(imageCardClasses('65% light'), ['card-o65', 'ink-light']);
+  assert.deepEqual(imageCardClasses('bottom band 5%'), ['at-bottom', 'card-o5', 'band']);
+  assert.equal(parseImageCard('65 soft').unknown[0], '65', 'a bare number is not a word; the percent sign is');
+  assert.equal(parseImageCard('55%').unknown[0], '55%', '55 and 80 are the names `sheer` and `soft`');
+  const css = fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.styles.css'), 'utf8');
+  const levels = IMAGE_CARD_REGISTER.AXES.find((a) => a.axis === 'backing').tokens.filter((t) => /^card-o\d+$/.test(t));
+  assert.equal(levels.length, 17, 'every 5% step from 5 to 95 except the two a name already holds');
+  // A level class written FIRST in `_class` has no space before it in the class attribute, so the
+  // translucent-card rules match it twice over: `^=` for the first class, `*=" "` for the rest.
+  assert.ok(css.includes('[class^="card-o"], [class*=" card-o"]'), 'the hairline rule matches a card-o class in any position');
+  assert.ok(css.includes(':not([class^="card-o"]):not([class*=" card-o"])'), 'the solid-card text-shadow rule excludes it in any position');
+  for (const t of levels) {
+    const pct = Number(t.slice('card-o'.length));
+    assert.ok(css.includes(`.${t} { --_card-mix: ${pct}%; --_card-alpha: ${pct / 100}; }`), `image.styles.css paints ${t}`);
+  }
 });
 
 test('kernel: a deck `regular` stamps nothing; unknown and doubled words are reported, not stamped', () => {
   assert.deepEqual(imageCardClasses('regular'), [], 'no deck-wide compact is the same as regular');
+  assert.deepEqual(imageCardClasses('float'), [], 'a deck `float` is the default shape, so it stamps nothing');
   const p = parseImageCard('top-left top sm huge soft solid');
   assert.equal(p.placement, 'top-left');
   assert.equal(p.size, 'sm');
@@ -51,7 +71,8 @@ test('kernel: every class sits on exactly one axis, and every class is a declare
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'lib/components/imagery/image/image.manifest.json'), 'utf8'));
   for (const t of IMAGE_CARD_TOKENS) {
     assert.ok(imageCardTokenAxis(t), t);
-    assert.ok(t === 'compact' || manifest.variants.includes(t), `${t} is not an image variant`);
+    // `card-o5` … `card-o95` are declared by VARIANT_DECL_IGNORE, not one by one (see check-ownership.js).
+    assert.ok(t === 'compact' || /^card-o\d+$/.test(t) || manifest.variants.includes(t), `${t} is not an image variant`);
   }
   const all = IMAGE_CARD_REGISTER.AXES.flatMap((a) => a.tokens);
   assert.equal(new Set(all).size, all.length, 'no class on two axes');
@@ -63,6 +84,8 @@ test('kernel: deck classes ride image slides only, and never an axis the slide f
   assert.deepEqual(imageCardDeckTokens(['image', 'spotlight'], deckTokens), deckTokens);
   assert.deepEqual(imageCardDeckTokens(['image', 'at-bl'], deckTokens), ['card-soft', 'compact']);
   assert.deepEqual(imageCardDeckTokens(['image', 'card-regular'], deckTokens), ['at-tr', 'card-soft'], 'card-regular opts out of compact');
+  assert.deepEqual(imageCardDeckTokens(['image', 'card-float'], ['at-bottom', 'band']), ['at-bottom'], 'card-float opts out of a deck-wide band');
+  assert.deepEqual(imageCardDeckTokens(['content', 'tint-corner'], ['at-bottom', 'band']), [], 'a band never rides a non-image slide');
   assert.deepEqual(imageCardDeckTokens(['image', 'at-tr', 'card-soft', 'compact'], deckTokens), [], 'idempotent');
 });
 

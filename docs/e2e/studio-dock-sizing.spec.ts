@@ -110,3 +110,23 @@ test('desktop: a fold and unfold from resizing returns both docks to the contrac
 	expect(Math.round(s['studio-assistant'])).toBe(320);
 	expect(s['studio-editor'] / (s['studio-editor'] + s['studio-preview'])).toBeCloseTo(0.46, 2);
 });
+
+test('desktop: a reload restores the person\'s editor collapse without re-showing the toast', async ({ page }) => {
+	// A MutationObserver, not a polled count: the toast lives ~1.5s and a poll can miss it.
+	await page.addInitScript(() => {
+		(window as unknown as { __toasted: boolean }).__toasted = false;
+		new MutationObserver(() => {
+			if (document.body?.innerText.includes('Editor collapsed.')) (window as unknown as { __toasted: boolean }).__toasted = true;
+		}).observe(document, { subtree: true, childList: true, characterData: true });
+	});
+	const toasted = () => page.evaluate(() => (window as unknown as { __toasted: boolean }).__toasted);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await page.getByRole('button', { name: /Collapse editor/ }).first().click();
+	await expect.poll(toasted).toBe(true); // their own collapse still says so
+	await page.reload();
+	await expect.poll(async () => (await widths(page))['studio-editor']).toBeLessThan(60);
+	await page.waitForTimeout(4000);
+	expect(await toasted()).toBe(false);
+	expect(await page.evaluate(() => sessionStorage.getItem('lattice-docs-split-studio-collapsed'))).toBe('a');
+});

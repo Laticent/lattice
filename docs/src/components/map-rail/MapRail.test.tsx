@@ -1,9 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import * as React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { PreviewPool } from '../studio/preview-pool';
+import { PooledThumbFace, PreviewPool } from '../studio/preview-pool';
+
 import { geometryFor, MapRail, type MapRailProps } from './MapRail';
 import type { Wire } from './wireframe';
+
+const OPTIONS = { themeBase: '/t/', runtimeUrl: '/r.js', engineUrl: '/e.js' } as unknown as React.ComponentProps<typeof PooledThumbFace>['options'];
 
 // jsdom lays nothing out, so the rail's thickness and view length are stated here.
 beforeAll(() => {
@@ -84,6 +87,57 @@ describe('MapRail', () => {
 		expect(liveTiles()).toBe(4);
 	});
 
+	it('with the stage priced, the tiles over a real pool\'s ceiling fall to sketches before they reach the pool', () => {
+		// The rail wants 9 live tiles plus the stage; the pool holds 4. The live tiles are real pooled faces, so every one
+		// the rail mounts registers with the pool. Veduta drops the extra tiles to `wireframe` first, so only 4 faces ever
+		// register and the pool holds at most 4, and the stage's price takes none of the four.
+		let held = 0;
+		const wrap: MapRailProps['wrap'] = (tiles, report) => (
+			<PreviewPool
+				maxSlots={4}
+				onSettle={(r) => {
+					held = Math.max(held, r.held);
+					report(r);
+				}}
+			>
+				{tiles}
+			</PreviewPool>
+		);
+		const face = (i: number) => <PooledThumbFace options={OPTIONS} sample={`# ${i}`} className="size-full" />;
+		vi.useFakeTimers();
+		try {
+			render(<MapRail {...props({ count: 100, live: face, stage: { cost: 1 }, wrap })} />);
+			act(() => {
+				vi.advanceTimersByTime(1000);
+			});
+			expect(liveTiles()).toBe(4);
+			expect(held, 'the pool never held a tile, so this test proves nothing').toBeGreaterThan(0);
+			expect(held, 'the pool was handed more tiles than its ceiling').toBeLessThanOrEqual(4);
+			expect(tiers().filter(([, t]) => t === 'wireframe').length).toBeGreaterThan(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('draws a host\'s mark on mounted tiles only, hidden from assistive tech', () => {
+		const mark = vi.fn((i: number) => (i === 2 ? <i data-mark={i} /> : null));
+		render(<MapRail {...props({ count: 100, mark })} />);
+		const dot = document.querySelector('[data-mark="2"]');
+		expect(dot).not.toBeNull();
+		expect(dot?.parentElement?.getAttribute('aria-hidden')).toBe('true');
+		const mounted = new Set(tiers().map(([u]) => u));
+		for (const [u] of mark.mock.calls) expect(mounted.has(u), `mark asked for unmounted tile ${u}`).toBe(true);
+		expect(screen.getByRole('button', { name: 'Slide 3' })).toBeTruthy();
+	});
+
+	it('captions a mounted tile beside its number, and not at all without a caption', () => {
+		const { rerender } = render(<MapRail {...props({ count: 100, caption: (i) => (i === 1 ? 'cards-grid' : '') })} />);
+		expect(document.querySelector('button[data-unit="1"]')?.textContent).toBe('2cards-grid');
+		expect(document.querySelector('button[data-unit="0"]')?.textContent).toBe('1');
+		rerender(<MapRail {...props({ count: 100 })} />);
+		expect(document.querySelector('button[data-unit="1"]')?.textContent).toBe('2');
+	});
+
 	it('asks for no poster unless the host gives a poster budget, and then fills the tiles past the live cap with them', () => {
 		const live = (i: number) => <i data-live={i} />;
 		const poster = (i: number) => <b data-poster={i} />;
@@ -97,9 +151,19 @@ describe('MapRail', () => {
 		rerender(<MapRail {...props({ count: 100, live, poster, posterBudget: 4, wrap })} />);
 		expect(liveTiles()).toBe(3);
 		expect(tiers().filter(([, t]) => t === 'poster').length).toBe(4);
-		expect(document.querySelectorAll('[data-poster]').length).toBe(4);
+		// The 4 poster tiles show theirs, and so do the 3 live tiles, as the floor under a frame not yet re-pointed to them.
+		expect(document.querySelectorAll('[data-poster]').length).toBe(7);
+		for (const b of document.querySelectorAll<HTMLElement>('button[data-tier="live"]')) expect(b.querySelector('[data-poster]'), `live tile ${b.dataset.unit} has no poster floor`).not.toBeNull();
 		// The posters go to the tiles nearest the rail's view after the live ones, never past the budget.
 		expect(tiers().filter(([, t]) => t === 'wireframe').length).toBeGreaterThan(0);
+	});
+
+	it('puts no poster under a live tile without a poster budget, and reports the mounted window', () => {
+		const onWindow = vi.fn();
+		render(<MapRail {...props({ count: 100, live: (i) => <i data-live={i} />, poster: (i) => <b data-poster={i} />, onWindow })} />);
+		expect(document.querySelectorAll('[data-poster]').length).toBe(0);
+		const last = onWindow.mock.calls.at(-1)?.[0] as number[];
+		expect(last).toEqual(tiers().map(([u]) => u));
 	});
 
 	it('a host with no pictures gets no live tiles whatever its pool reports', () => {

@@ -303,6 +303,30 @@ In a deck that sets `image-card: compact`, this slide keeps the roomier card.
 
 ---
 
+<!-- _class: image spotlight at-bottom band -->
+<!-- _footer: "Full-width band · image band — Stretches the card across the slide along the top or bottom edge, so the middle of the photo stays clear." -->
+
+## band keeps the middle of the photo clear.
+
+The heading takes the left column and the text the right, in one short strip along the edge.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
+<!-- _class: image spotlight at-bottom card-float -->
+<!-- _footer: "Floating card · image card-float — The default floating card, so one slide can step out of a deck-wide band." -->
+
+## card-float keeps the card a card.
+
+In a deck that sets `image-card: bottom band`, this slide keeps the floating card.
+
+![bg](sample:photo-wide.svg)
+
+
+---
+
 <!-- _class: image dark -->
 <!-- _footer: "Composition: dark · image dark" -->
 

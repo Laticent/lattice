@@ -207,14 +207,10 @@ describe('the stress-slide specimen marker keeps a slide whole', () => {
 //     block scalar. A deck carrying `style: |` / `  header:hover { … }` read its "deck header"
 //     as `hover { … }` and stripped nothing. `front-matter-key.js` already exports
 //     `topLevelFrontMatterValue` for exactly this hazard — `class:` and `color-mode:` use it.
-//   · A RUNNING-GLOBAL comment directive is the other declaration site Lattice supports, and it
-//     is deck chrome as much as the front-matter form. Reading front matter alone left the deck
-//     band repeating on every page of every run — the thing the strip exists to remove.
-//
-// The underscore is the whole discriminator, and it is the same conflation that made reading the
-// section's `data-footer` wrong: a running-global `header:` is the deck's, a spot `_header:` is
-// this slide's. `deckChromeFrom` asks the shared grammar rather than re-spelling it.
-describe('deckChromeFrom finds the deck\'s own chrome, at either declaration site', () => {
+//   · A slide comment is never the deck's chrome, in either spelling. `header` and `footer` are
+//     slide-only keys (the owner's ruling, audit §11r): `<!-- header: H -->` sets its own slide, as
+//     `<!-- _header: H -->` does, so stripping it from a split run would delete the slide's own text.
+describe('deckChromeFrom finds the deck\'s own chrome, in front matter only', () => {
   const { deckChromeFrom } = require('../../../lib/core/auto-split');
   const fm = (body) => `---\n${body}\n---\n\n# slide`;
 
@@ -229,9 +225,10 @@ describe('deckChromeFrom finds the deck\'s own chrome, at either declaration sit
       'an indented `header:` inside a block scalar was read as the deck header');
   });
 
-  test('a running-global comment directive is the deck\'s chrome', () => {
-    const md = `${fm('theme: indaco')}\n\n<!-- header: "Global H" -->\n<!-- footer: "Global F" -->\n\n# x`;
-    assert.deepEqual(deckChromeFrom(md), { header: 'Global H', footer: 'Global F' });
+  test('a plain comment directive is its slide\'s chrome, not the deck\'s', () => {
+    const md = `${fm('theme: indaco')}\n\n<!-- header: "Slide H" -->\n<!-- footer: "Slide F" -->\n\n# x`;
+    assert.deepEqual(deckChromeFrom(md), { header: null, footer: null },
+      'a slide-only comment was taken as the deck band; the strip would delete that slide\'s own text');
   });
 
   test('a per-slide `_footer:` override is NOT the deck\'s chrome', () => {
@@ -240,9 +237,9 @@ describe('deckChromeFrom finds the deck\'s own chrome, at either declaration sit
       'a spot directive was taken as the deck band — the strip would delete the slide\'s caption');
   });
 
-  test('a global carries forward and a later spot does not replace it', () => {
-    const md = `${fm('theme: indaco')}\n\n<!-- footer: "Global F" -->\n\n# a\n\n---\n\n<!-- _footer: "Caption" -->\n\n# b`;
-    assert.equal(deckChromeFrom(md).footer, 'Global F');
+  test('front matter stays the deck band whatever a slide sets', () => {
+    const md = `---\nfooter: "Deck F"\n---\n\n<!-- footer: "Slide F" -->\n\n# a\n\n---\n\n<!-- _footer: "Caption" -->\n\n# b`;
+    assert.equal(deckChromeFrom(md).footer, 'Deck F');
   });
 
   test('a prose comment mentioning a directive word is not a directive', () => {

@@ -231,10 +231,11 @@ distinct, stable ID.
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
 | `unknown-<axis register>` | warning | ✓ | A family: one ID per axis register (`unknown-spark`, and one per register a plugin declares, such as `unknown-icon`). An unknown word, or a second word for an axis already set. |
-| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-logo-on`, `unknown-logo-style`. A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
+| `unknown-<setting>` | warning | ✓ | A family: one ID per key whose value list the deck-settings table holds (`lib/core/deck-settings.js`, `generic: true`): `unknown-theme`, `unknown-size`, `unknown-motion`, `unknown-motion-style`, `unknown-motion-speed`, `unknown-player-motion`, `unknown-glossary`, `unknown-logo-finish` (an axis register: a word outside the vocabulary, or two words on one axis). A value the key's reader does not accept; the deck uses the default (for `theme:`, the command line refuses it). |
 | `unknown-key` | warning | ✓ | A top-level front-matter key that no reader reads and no plugin declares; the deck ignores the whole line. Carries a did-you-mean. |
 | `unknown-treatment` | warning | ✓ | A `tint-*` or `mark-*` class token that `lib/base/base.treatments.css` does not paint. |
 | `treatment-placement` | warning | — | `tint-corner` or `tint-edge` without a placement it accepts (`at-tl` … for a corner, `at-top` … for an edge), so it paints nothing. |
+| `thin-card-no-ink` | warning | — | An `image spotlight` card under 60% opaque with no `ink-light` or `ink-dark` on the slide or the deck's `image-card:` line, so the theme's own ink is read against the photo and can vanish. Raise the backing or name an ink; the Studio's Card backing slider picks one from the photo. |
 | `unknown-color-mode` | warning | ✓ | A `color-mode:` value the engine does not know; the deck uses the theme's default colors. |
 | `unknown-delivery` | warning | ✓ | A `delivery:` value the engine does not know; the deck uses `restrained`. |
 | `unknown-pace` | warning | ✓ | A `pace:` value the engine does not know; playback uses each viewer's own setting. |
@@ -244,6 +245,7 @@ distinct, stable ID.
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
 | `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
+| `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |
 | `retired-form-key` | warning | — | `form: off`, which no longer works; slides now show the title band and progress bar. |
 | `retired-form-token` | warning | — | The retired `no-form` class token. |
 | `autosplit-retired` | error / suggestion | — | `autosplit:`, which no longer controls splitting. An error for `off` at a size that splits anyway; otherwise a suggestion (the line is stale). |

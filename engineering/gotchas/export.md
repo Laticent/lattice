@@ -3,6 +3,21 @@
 One topic of the gotchas. Find a symptom in the generated index, `dist/engineering/gotchas.md`;
 this file is the detail. Entry shape and the rule for adding one are in the [guide](../gotchas.md).
 
+## An html-to-image capture in Chromium fills the whole slide with the spectrum ribbon's rainbow
+
+- **Symptom:** A capture of a live slide (the Studio map's posters) shows a left-to-right rainbow over the whole slide in
+  Chromium, where the slide has a solid background and a thin ribbon on top. WebKit captures the same slide correctly.
+  Overriding `borderImageSource: 'none'` in html-to-image's `style` option changes nothing.
+- **Cause:** Chromium lists `-webkit-border-image` among a node's computed properties. Its value is the shorthand alias
+  with the slice's `fill` implied, and html-to-image copies every listed property onto the clone, so the ribbon's
+  gradient border image paints the middle of the box too. WebKit's clone path copies `cssText` instead. The export
+  never meets it: `withCaptureFixups` writes the live (offscreen) node, whose computed alias then reads `none` as well.
+- **Fix:** when a capture styles the CLONE rather than the node, override `webkitBorderImage: 'none'` before the ribbon
+  strip (`docs/src/components/studio/pool-capture.ts`, with `ribbonCaptureStyle` from `export/capture-ribbon.js`).
+- **Triggered by:** the poster capture's right-slide e2e (`docs/e2e/studio-map-posters.spec.ts`), which samples each
+  poster's pixels; the first capture draft passed only an existence check.
+- **Removable when:** html-to-image stops copying vendor-prefixed shorthand aliases.
+
 ## Chromium PDF output of CSS `mask-image` renders inconsistently across viewers
 
 - **Symptom:** A `::before` with `mask: url("data:image/svg+xml,…") center / contain no-repeat` renders correctly in the browser AND in the owned engine's headless-Chromium PDF render, but the resulting PDF, when opened in Apple PDFKit (macOS Preview, iOS), Skia (Chrome's built-in PDF viewer), or PDFium (Edge / VS Code), sometimes drops the mask entirely — the `::before` rectangle appears as a solid tinted block the size of its bounding box, filled with the paint color, with no shape clipping. Failure is viewer-specific and shape-specific: identical CSS, one mask drops on one viewer and renders fine on another, or the same mask drops only on certain `::before` sizes.

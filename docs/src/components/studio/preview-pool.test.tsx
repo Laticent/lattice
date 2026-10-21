@@ -33,6 +33,7 @@ vi.mock('@/components/DeckPreview', async () => {
 	};
 });
 
+import { slotShows } from './pool-capture';
 import { APPLY_MS, BASE_SLOTS, FRAME_BLEED, HARD_MAX_SLOTS, PooledThumbFace, type PoolReport, PreviewPool, RELEASE_GRACE } from './preview-pool';
 
 // A controllable IntersectionObserver: jsdom has none, and the pool's no-IO fallback treats
@@ -787,5 +788,34 @@ describe('PreviewPool — a tile of another shape', () => {
 		settle();
 		expect(showing(container)).toContain(samples[BASE_SLOTS]);
 		expect(reshapes, 'a full pool rewrote a plain slot for the one Mermaid tile').toBe(0);
+	});
+});
+
+describe('slotShows, the frame-side check before a poster capture', () => {
+	const props = { options: {} as never, sample: '# A', slideIndex: 2 };
+	function slot(host: Record<string, unknown>, lattice = true) {
+		const outer = document.createElement('div');
+		const s = document.createElement('div');
+		const h = document.createElement('figure');
+		Object.assign(h, host);
+		const f = document.createElement('iframe');
+		h.appendChild(f);
+		s.appendChild(h);
+		outer.appendChild(s);
+		document.body.appendChild(outer);
+		if (lattice) f.contentDocument?.body.insertAdjacentHTML('beforeend', '<div class="lattice"><section></section></div>');
+		return s;
+	}
+	it('is true for a painted frame on the asked slide', () => {
+		expect(slotShows(slot({ __latticeShownSlide: { index: 2 } }), props)).toBe(true);
+	});
+	it('is false while a full write is still loading: the old document is still in the frame', () => {
+		expect(slotShows(slot({ __latticePendingLoad: true, __latticeShownSlide: { index: 2 } }), props)).toBe(false);
+	});
+	it('is false when the frame shows another slide (a deferred render of the tile the slot left)', () => {
+		expect(slotShows(slot({ __latticeShownSlide: { index: 1 } }), props)).toBe(false);
+	});
+	it('is false with no slide in the frame', () => {
+		expect(slotShows(slot({}, false), props)).toBe(false);
 	});
 });

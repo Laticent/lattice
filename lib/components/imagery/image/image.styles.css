@@ -541,20 +541,23 @@ section.image[data-img-composition="statement"][data-orientation="square"] .imag
 /* ════════════════════════════════════════════════════════════════════
  * CARD CONTROLS — the text card on the two full-bleed compositions,
  * `spotlight` and `statement`, where the photo fills the slide and the words
- * float over it. Four axes, one class each; leave an axis unset and the card
+ * float over it. Five axes, one class each; leave an axis unset and the card
  * keeps the look above. The other compositions place their text beside the
  * photo, not on it, so these classes do nothing there.
  *
  *   placement  at-tl · at-top · at-tr · at-center · at-bl · at-bottom · at-br
  *              (default bottom-left; `mirror` still means bottom-right)
- *   backing    card-solid · card-soft · card-sheer · card-clear
- *              how much of what sits behind the words survives: spotlight's
- *              panel, statement's scrim. 100% · 80% · 55% · none.
+ *   backing    card-solid · card-soft · card-sheer · card-clear, or any 5% step
+ *              between (`card-o5` … `card-o95`): how much of what sits behind the
+ *              words survives, spotlight's panel and statement's scrim. The four
+ *              names are 100% · 80% · 55% · none.
  *   ink        ink-light · ink-dark — white or near-black words, and the
  *              backing flips to match (dark under light ink, light under dark)
  *   size       card-sm · card-md · card-lg — the card's width, padding and
  *              type step together; `card-sm` is the discreet one that lets
  *              the photo carry the slide
+ *   shape      `band` stretches the card across the slide on `at-top` / `at-bottom`;
+ *              `card-float` restates the default floating card
  *   density    `compact` (the universal modifier) tightens the card's padding
  *              and its inset from the slide edge, at any size; `card-regular`
  *              restates the default, to step out of a deck-wide compact
@@ -646,15 +649,123 @@ section.image[data-img-composition="statement"].at-center .image-scrim {
     rgb(var(--_scrim-rgb, 8 14 24) / 0) 100%);
 }
 
+/* ── Shape · band ── `band` stretches the card across the slide's width on `at-top` or
+ * `at-bottom`: the heading takes the left column, everything else the right, so the strip stays
+ * short and the middle of the photo stays clear. It keeps the card's inset, so spotlight's panel
+ * still floats with rounded corners. Portrait and square decks already span the width, so `band`
+ * does nothing there; on any other placement it does nothing either. `card-float` restates the
+ * default, so one slide can step out of a deck-wide `band`. Written before the Size block so
+ * `card-sm`/`card-lg` still step the type; the width they set loses on specificity. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text {
+  inset-inline-start: var(--_card-ix); inset-inline-end: var(--_card-ix); --_card-tx: 0;
+  width: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  --_band-gap: calc(4cqi * var(--_card-density, 1));
+  column-gap: var(--_band-gap);
+  align-items: center;
+  text-align: start;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text > h2 {
+  grid-column: 1; grid-row: 1 / span 20;
+  padding: 0; max-width: none;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text > :not(h2) {
+  grid-column: 2; padding-top: 0; max-width: none;
+}
+/* A one-element body (the usual case) shares row 1 with the heading, so `align-items: center` lines
+ * the two up whichever is taller. A longer body (a paragraph and a list) keeps the heading spanning
+ * its rows instead, so the body's own rows stay as tall as their content. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> :not(h2) ~ :not(h2))) > * {
+  grid-row: 1;
+}
+/* No heading, or no body: one column, not a half-empty strip. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> h2)),
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> :not(h2))) {
+  grid-template-columns: minmax(0, 1fr);
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text:not(:has(> h2)) > :not(h2) {
+  grid-column: 1;
+}
+section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text h2 {
+  font-size: var(--fs-h2);
+}
+/* The statement scrim is shorter to match: it only has to hold a strip, not a corner. */
+section.image[data-img-composition="statement"]:not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-scrim {
+  background-image: linear-gradient(var(--_scrim-edge, to top),
+    rgb(var(--_scrim-rgb, 8 14 24) / calc(0.86 * var(--_card-alpha, 1))) 0%,
+    rgb(var(--_scrim-rgb, 8 14 24) / calc(0.5 * var(--_card-alpha, 1))) 26%,
+    rgb(var(--_scrim-rgb, 8 14 24) / 0) 48%);
+}
+
+/* ── Dividers ── Two hairlines, both drawn by a pseudo-element and neither one takes space,
+ * so adding or removing one moves nothing. Both paint `--spectrum-structure`, the token every
+ * other structural rule reads: a quiet accent tint by default, the deck's full spectrum under
+ * `spectrum-trim: on`. A deck or a slide that sets `spectrum-trim` restyles them with no rule
+ * here. `rule: none` drops them.
+ *   · a stacked card (heading above body) gets a line in the heading's own bottom padding;
+ *   · a band gets a vertical line down the gap between its two columns. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) {
+  --_divider-v: var(--spectrum-structure);
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).spectrum-trim { --_divider-v: var(--spectrum-bar-vertical); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).spectrum-trim-restrained { --_divider-v: var(--sp-fill-mono-v); }
+
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text h2 { position: relative; --_line-gap: var(--sp-md); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]) .image-text h2:has(+ *)::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(var(--_line-gap) / 2);
+  height: 1px;
+  background: var(--spectrum-structure);
+  pointer-events: none;
+}
+section.image[data-img-composition="spotlight"].card-sm .image-text h2 { --_line-gap: var(--sp-xs); }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band .image-text h2::after,
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).rule-none .image-text h2::after {
+  content: none;
+}
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]):not([data-orientation="portrait"]):not([data-orientation="square"]):is(.at-top, .at-bottom).band:not(.rule-none) .image-text:has(> h2):has(> :not(h2))::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  width: 1px;
+  top: var(--_card-pad-y, 0cqi); bottom: var(--_card-pad-y, 0cqi);
+  /* The boundary between the 5fr and 7fr columns, written from the card's own width:
+   * its padding, then 5/12 of what the padding and the gap leave, then half the gap. */
+  inset-inline-start: calc(var(--_card-pad-x, 0cqi) + (100% - 2 * var(--_card-pad-x, 0cqi) - var(--_band-gap)) * 5 / 12 + var(--_band-gap) / 2);
+  background: var(--_divider-v);
+}
+
 /* ── Backing ── `card-solid` restates the default so a slide can return to it. */
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-solid { --_card-mix: 100%; --_card-alpha: 1; }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-soft  { --_card-mix: 80%;  --_card-alpha: 0.8; }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-sheer { --_card-mix: 55%;  --_card-alpha: 0.55; }
 section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-clear { --_card-mix: 0%;   --_card-alpha: 0; }
+/* The levels between: `card-o5` … `card-o95`, every 5% the four names skip. The Studio slider
+ * writes them; `image-card: 65%` is the same word on the deck line. */
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o5 { --_card-mix: 5%; --_card-alpha: 0.05; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o10 { --_card-mix: 10%; --_card-alpha: 0.1; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o15 { --_card-mix: 15%; --_card-alpha: 0.15; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o20 { --_card-mix: 20%; --_card-alpha: 0.2; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o25 { --_card-mix: 25%; --_card-alpha: 0.25; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o30 { --_card-mix: 30%; --_card-alpha: 0.3; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o35 { --_card-mix: 35%; --_card-alpha: 0.35; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o40 { --_card-mix: 40%; --_card-alpha: 0.4; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o45 { --_card-mix: 45%; --_card-alpha: 0.45; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o50 { --_card-mix: 50%; --_card-alpha: 0.5; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o60 { --_card-mix: 60%; --_card-alpha: 0.6; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o65 { --_card-mix: 65%; --_card-alpha: 0.65; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o70 { --_card-mix: 70%; --_card-alpha: 0.7; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o75 { --_card-mix: 75%; --_card-alpha: 0.75; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o85 { --_card-mix: 85%; --_card-alpha: 0.85; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o90 { --_card-mix: 90%; --_card-alpha: 0.9; }
+section.image:is([data-img-composition="spotlight"], [data-img-composition="statement"]).card-o95 { --_card-mix: 95%; --_card-alpha: 0.95; }
 /* The hard lift is a shadow UNDER an opaque card; under a see-through one it
  * shows through as a gray slab. Only the solid card keeps it, and a clear card
  * drops the hairline too, since it has no edge left to draw. */
-section.image[data-img-composition="spotlight"]:is(.card-soft, .card-sheer) .image-text { box-shadow: var(--img-hairline); }
+section.image[data-img-composition="spotlight"]:is(.card-soft, .card-sheer, [class^="card-o"], [class*=" card-o"]) .image-text { box-shadow: var(--img-hairline); }
 section.image[data-img-composition="spotlight"].card-clear .image-text { box-shadow: none; }
 
 /* ── Ink ── */
@@ -683,7 +794,7 @@ section.image[data-img-composition="spotlight"]:is(.ink-light, .ink-dark) .image
 }
 /* On spotlight's solid card the words sit on an opaque panel, so they need no
  * shadow; the shadow is for a backing the photo shows through. */
-section.image[data-img-composition="spotlight"]:not(.card-soft):not(.card-sheer):not(.card-clear) { --_card-shadow: none; }
+section.image[data-img-composition="spotlight"]:not(.card-soft):not(.card-sheer):not(.card-clear):not([class^="card-o"]):not([class*=" card-o"]) { --_card-shadow: none; }
 
 /* ── Size ── `card-md` restates the default. Width steps in landscape only (a
  * portrait card is already full width); padding and type step everywhere. */

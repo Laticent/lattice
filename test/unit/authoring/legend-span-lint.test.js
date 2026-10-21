@@ -82,3 +82,19 @@ test('row= and col= are the taught form: a clean pair says nothing, a half or a 
   const miss = findLegendSpans(heatmap('@legend{{Peak, row=q, col=A}}'));
   assert.match(miss[0].message, /`row=q, col=A` names no cell\. The rows are r; the columns are A\./);
 });
+
+test('past six callouts on one slide, each extra one is told it is not drawn, across spans', () => {
+  const six = Array.from({ length: 6 }, (_, i) => `{C${i + 1}, for=0}`).join(', ');
+  assert.deepEqual(findLegendSpans(heatmap(`@legend{[${six}]}`)), []);
+  const deck = heatmap(`@legend{[${six}]}`).replace(/\n$/, '\n\n`@legend{{C7, for=0}}`\n');
+  const f = findLegendSpans(deck);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].severity, 'warning');
+  assert.match(f[0].message, /"C7" is not drawn: a chart draws at most 6 callouts, one marker shape each, and this is callout 7\./);
+});
+
+test('a legend inside a sentence is not counted toward the six: the chart does not draw it', () => {
+  const six = Array.from({ length: 6 }, (_, i) => `{C${i + 1}, for=0}`).join(', ');
+  const deck = heatmap(`@legend{[${six}]}`).replace('\n\n`@legend', '\n\nSee `@legend{{Inline, for=0}}` here.\n\n`@legend');
+  assert.equal(findLegendSpans(deck).filter((f) => /at most 6 callouts/.test(f.message)).length, 0);
+});

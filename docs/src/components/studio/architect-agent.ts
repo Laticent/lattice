@@ -656,9 +656,10 @@ export function createToolbox(opts: {
 		// The check that rides an edit measures fit on the slides the turn changed only: the verdict
 		// below already charges nothing else to the turn, and a real render costs the page ~2 s on a
 		// 40-slide deck (decisions/2026-10-19-studio-main-thread-jank.md). `check_deck` measures all.
-		// Not when a slide the turn wrote or removed holds a bare directive comment: `<!-- class: x -->`,
-		// `header:`, `footer:` and the rest carry forward to every later slide, so the edit can change
-		// slides whose text it never touched (checker). An empty deck has nothing to scope.
+		// Not when a slide the turn wrote or removed holds a bare directive comment: `<!-- class: x -->`
+		// and the rest carry forward to every later slide, so the edit can change slides whose text it
+		// never touched (checker). `header:`, `footer:` and `paginate:` no longer carry (audit §11r), so
+		// the probe over-triggers on them, the safe direction. An empty deck has nothing to scope.
 		const nowText = new Set(now);
 		const touchedText = [...now.filter((t) => !originalSlides.has(t)), ...[...originalSlides].filter((t) => !nowText.has(t))];
 		const fitScope = scoped && fmTouched.size === 0 && now.length > 0 && !touchedText.some((t) => CARRY_FORWARD_DIRECTIVE.test(t)) ? { only: now.map((_, i) => i + 1).filter((n) => mine(n)), slideCount: now.length } : undefined;

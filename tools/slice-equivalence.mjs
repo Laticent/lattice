@@ -133,7 +133,7 @@ import engine from '../lib/engine/index.js';
 
 const { createEngine } = engine;
 // The engine's own directive vocabulary, injected into the (import-free) core — see its header.
-const VOCAB = { known: directives.KNOWN_DIRECTIVES, flags: directives.FLAG_DIRECTIVES };
+const VOCAB = { known: directives.KNOWN_DIRECTIVES, flags: directives.FLAG_DIRECTIVES, slide: directives.SLIDE_ONLY_DIRECTIVES };
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINE = path.join(ROOT, 'test/benchmark/slice-equivalence.json');
 /** How far the equivalence rate may fall before `--check` fails. Corpus edits move it a little. */

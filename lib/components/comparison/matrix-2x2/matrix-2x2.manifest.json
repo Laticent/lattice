@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "matrix-2x2",
+  "inlineRun": { "depths": [1], "slots": ["strong"] },
   "cards": {
     "default": "stretch",
     "withCoda": "stretch"

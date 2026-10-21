@@ -87,9 +87,6 @@ theme: indaco
 header: "Running Header"
 footer: "Footer Text"
 logo: sample:logo-acme-mark.svg
-logo-on: all
-logo-x: 50
-logo-y: 82
 ---
 
 <!-- _class: content -->
@@ -246,13 +243,14 @@ describe('frame chrome stays out of flow under a slide finish (real render)', ()
       });
     }
 
-    test(`${shape}: deck logo honors logo-x / logo-y under a finish`, async () => {
-      // The directive's whole contract: the mark's CENTER, as a % of the slide. It read
-      // 92.2% x — and a y that drifted with content height — while decks declared 50 / 82.
+    test(`${shape}: deck logo keeps its default berth under a finish`, async () => {
+      // The default berth's contract: the top-right corner, on the frame insets. A `logo-finish`
+      // placement word would hide the header or footer this deck also exercises, so the deck names
+      // none; the placement words are covered by the unit tests and the examples.
       const subject = await chromeBox(page, subjectSlide, 'img.deck-logo');
       assert.ok(subject, 'logo should be present');
-      assert.ok(Math.abs(subject.centerXPct - 50) < 1, `logo-x: 50 must center the mark at ~50%, got ${subject.centerXPct}%`);
-      assert.ok(Math.abs(subject.centerYPct - 82) < 1, `logo-y: 82 must place the mark at ~82%, got ${subject.centerYPct}%`);
+      assert.ok(subject.centerXPct > 88, `the default berth is the right edge, got ${subject.centerXPct}%`);
+      assert.ok(subject.centerYPct < 14, `the default berth is the top edge, got ${subject.centerYPct}%`);
       assert.equal(subject.withinFrame, true, 'the logo must not be pushed outside the slide frame');
     });
   }
@@ -273,7 +271,6 @@ header: "Sweep"
 footer: "Sweep"
 paginate: true
 logo: sample:logo-acme-mark.svg
-logo-on: all
 ---
 
 ${['image clean', 'image spotlight', 'image statement', 'image gallery', 'image split']

@@ -15,7 +15,7 @@ and inject `:root{--deck-logo:url("./acme-logo.svg")}` into the deck CSS.
 
 # Slide Two
 
-Body slide — also tagged because the default is `logo-on: all`.
+Body slide — also tagged because every slide carries the logo by default.
 
 ---
 

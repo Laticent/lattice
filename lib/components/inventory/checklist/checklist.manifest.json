@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "checklist",
+  "inlineRun": { "depths": [1] },
   "adapt": {
     "mode": "native",
     "priority": [

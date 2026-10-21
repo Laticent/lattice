@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-20 — measured on the image card band (#2824) rebased onto main
+
+Raises the lint core's ceiling by 2,500 bytes (109500 → 112000), soft target unchanged; the owner chose this on 2026-10-20 (#2824). The PR adds the `thin-card-no-ink` rule and the class-reading policy it shares with the Studio (`lib/core/card-ink-policy.mjs`) to the lint core, and the image-card register gains the `shape` axis and 17 backing levels. Measured at 110,100 bytes with the rebased tree, about 600 over the old ceiling. Before asking, it gave back what it could: the policy is split from the photo-sampling maths so the lint core takes only the class reading (about 750 bytes), the composition reader is restated in the policy instead of pulling in `image-aspect` (about 1,000 bytes), the level lists are formulas, and the finding's text is shorter. The one remaining option, dropping the rule, would leave hand-written decks without a warning for the thin cards the Studio fixes automatically. The owner then asked for more room than the measurement needs (112000, about 1.9KB of headroom), so the next lint rule does not trip it at once.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 92465 | 92465 | +0 | 112000 |
+
 ### 2026-10-19 — measured on the legend plugin (#2798) built on top of main at b9cb419
 
 Raises the getting-started route's engine ceiling by 4KB (317145 → 321241 bytes), soft target unchanged; the owner chose this on 2026-10-19 (#2798, decision D1). The route's engine is the preview runtime, which ships the heatmap transform and the roadmap, matrix-grid and obligation-matrix keys, so the legend plugin's reader, lane emitter and key emitter ride along: heatmap callouts draw on the runtime's surfaces too (the Marp export, the VS Code preview), which the other choice, leaving them out of the runtime, would have broken. Before asking, #2798 gave back what the runtime never calls: the reader's diagnostic sentences moved to the linter (`lib/authoring/legend-messages.js`), and the key emitter split from the legend's own-class key and the mark vocabulary (`lib/core/legend-key.js`). That took the growth over main from 4,364 to 3,634 bytes gzipped on `dist/lattice-runtime-min.js`, and CI measured the route at 311.4KB against the old 309.7KB ceiling. 321241 leaves about 2.3KB over that measurement.

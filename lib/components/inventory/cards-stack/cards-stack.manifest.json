@@ -1,6 +1,7 @@
 {
   "$schema": "../../manifest.schema.json",
   "name": "cards-stack",
+  "inlineRun": { "depths": [1], "slots": ["strong"] },
   "focusAxes": [
     "item"
   ],
