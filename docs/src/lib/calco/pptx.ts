@@ -666,14 +666,41 @@ function withGradient(sp: string): string {
  * inside a slide's own text box, as it cannot group. It also drops the empty placeholders
  * PptxGenJS copies from the layout onto every slide.
  */
+/**
+ * Rewrite each `<open>…</close>` block of `xml` with `fn`. A scan with `indexOf`, not a lazy
+ * `[\s\S]*?` regex: on input with many openers and no closer a regex rescans to the end for each
+ * one (quadratic), and the XML here is the library's input.
+ */
+function mapBlocks(xml: string, open: string, close: string, fn: (block: string) => string): string {
+	let out = '';
+	let at = 0;
+	for (;;) {
+		const start = xml.indexOf(open, at);
+		if (start < 0) break;
+		const end = xml.indexOf(close, start + open.length);
+		if (end < 0) break;
+		out += xml.slice(at, start) + fn(xml.slice(start, end + close.length));
+		at = end + close.length;
+	}
+	return out + xml.slice(at);
+}
+
+/** Replace the first self-closing `<tag …/>` in `xml` with `replacement` (no regex: the tag's attributes are input). */
+function replaceSelfClosing(xml: string, tag: string, replacement: string): string {
+	const start = xml.indexOf(tag);
+	if (start < 0) return xml;
+	const end = xml.indexOf('>', start);
+	return end > start && xml[end - 1] === '/' ? xml.slice(0, start) + replacement + xml.slice(end + 1) : xml;
+}
+
 export function applyRoles(xml: string): string {
 	if (!xml.includes(ROLE_TAG) && !xml.includes(LOCK_TAG) && !xml.includes(ROUND_TAG) && !xml.includes(GRAD_TAG) && !xml.includes('hasCustomPrompt')) return xml;
 	// The slide's content picture stays where it is unless a reader unlocks it: it is the one
 	// object nobody means to drag, and the first one a stray touch grabs.
-	xml = xml.replace(/<p:pic>[\s\S]*?<\/p:pic>/g, (pic) =>
-		pic.includes(`name="${LOCK_TAG}`) ? pic.replace(`name="${LOCK_TAG}`, 'name="').replace(/<a:picLocks[^>]*\/>/, '<a:picLocks noChangeAspect="1" noMove="1" noResize="1"/>') : pic,
+	xml = mapBlocks(xml, '<p:pic>', '</p:pic>', (pic) =>
+		pic.includes(`name="${LOCK_TAG}`) ? replaceSelfClosing(pic.replace(`name="${LOCK_TAG}`, 'name="'), '<a:picLocks', '<a:picLocks noChangeAspect="1" noMove="1" noResize="1"/>') : pic,
 	);
-	return xml.replace(/<p:sp>[\s\S]*?<\/p:sp>/g, (spIn) => {
+	return mapBlocks(xml, '<p:sp>', '</p:sp>', (spIn) => {
 		let sp = spIn;
 		// PptxGenJS copies each of the layout's placeholders onto every slide, empty, with a
 		// prompt. A slide that used one has written its own; the rest would show "Click to add".
