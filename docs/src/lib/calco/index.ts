@@ -16,7 +16,7 @@ export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape
 export { imageExt, imageMime, isContinuousTone, jpegWins, PICTURE_FLAT_BYTES, PICTURE_JPEG_QUALITY, PICTURE_JPEG_SHARE, PICTURE_TONE_JPEG_BYTES, worthTryingJpeg } from './picture.js';
 
 export type { EmbeddingPlan, PptxGenJSClass, PptxGenJSLike } from './pptx.js';
-export { applyRoles, buildPptx, embedPptxFonts, groupShapes, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, writePptx, xmlSafe } from './pptx.js';
+export { applyRoles, buildPptx, embedPptxFonts, groupShapes, PPTX_MIMETYPE, planEmbedding, pptxFaceName, pptxPageSize, tidyPptxPackage, uniqueShapeIds, writePptx, xmlSafe } from './pptx.js';
 export type { ReadOptions, ReadResult, Refusal } from './reader.js';
 export { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './reader.js';
 export { canEmbedAsEot, familyNameOf, renameFace, toEot } from './sfnt.js';

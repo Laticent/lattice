@@ -572,6 +572,28 @@ function posixRelative(fromDir: string, to: string): string {
 	return [...a.map(() => '..'), ...b].join('/');
 }
 
+/**
+ * Give every shape on a part its own id. PptxGenJS 3.12 writes a fixed id (25) for the slide-number
+ * placeholder it adds to each slide that uses a layout number, so a slide with that placeholder and an
+ * object of its own with that id carries the id twice. A repeated id is a repair prompt in some
+ * readers; the first holder keeps its id and every later one takes the next free number.
+ */
+export function uniqueShapeIds(xml: string): string {
+	const re = /(<p:cNvPr id=")(\d+)(")/g;
+	let max = 0;
+	for (const m of xml.matchAll(re)) max = Math.max(max, Number(m[2]));
+	const seen = new Set<string>();
+	return xml.replace(re, (_all, a: string, id: string, c: string) => {
+		if (!seen.has(id)) {
+			seen.add(id);
+			return `${a}${id}${c}`;
+		}
+		max += 1;
+		seen.add(String(max));
+		return `${a}${max}${c}`;
+	});
+}
+
 /** Swap a tagged shape's flat fill for the gradient its name carries. */
 function withGradient(sp: string): string {
 	const m = sp.match(new RegExp(`${GRAD_TAG}(-?[\\d.]+)((?:~[\\d.]+:[0-9a-f]{6}:[\\d.]+)+)\\|`));
@@ -647,7 +669,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
 	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/(slides|notesSlides)\/[^/]+\.xml$/.test(n))) {
 		const xml = await text(name);
-		const tidy = groupShapes(applyRoles(onePPrPerParagraph(xml)));
+		const tidy = uniqueShapeIds(groupShapes(applyRoles(onePPrPerParagraph(xml))));
 		if (tidy !== xml) zip.file(name, tidy);
 	}
 	if (zip.file('ppt/presentation.xml')) {

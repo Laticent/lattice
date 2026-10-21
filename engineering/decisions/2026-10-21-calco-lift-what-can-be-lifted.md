@@ -77,7 +77,7 @@ layer, which the background capture already draws; the reader skips it, so it no
 | Before pseudo lifting | 447 | | 2.61 |
 | After pseudo lifting + counters | 112 | 1,723 | 2.54 |
 | After gradients and sized layers | 68 | 1,778 | 2.53 |
-| After the review fixes (§6) | | 1,717 | 2.52 |
+| After the review fixes (§6) | | 1,717 | 2.53 |
 
 A 5-shape gradient test (two stops, three stops, a 135° fade, a tall box and a 6 px bar) went from
 5.40 to 2.48 in the `.odp` once multi-stop gradients drew, and matches Chrome in the `.pptx`. The
@@ -122,12 +122,13 @@ Measured:
 | | Before | After |
 |---|---:|---:|
 | Gallery `.odp` size | 10.8 MB | 8.3 MB (an independent run in another sandbox measured 10.2 MB; the cause is not found) |
-| Gallery pictures / slides on a whole-slide picture | 120 / 120 | 209 / 0 |
+| Gallery pictures / slides on a whole-slide picture | 120 / 120 | 121 / 0 |
 | Gallery `.odp` vs Chrome | 2.53 | 2.54 |
 | 35-slide photo deck `.pptx` (owner's) | 15.0 MB, 35 slides on a whole-slide picture | 13.5 MB, 44 pictures, 0 whole |
-| Cost per slide (CLI) | | about +0.15 s |
+| Export time, editable (independent runs) | `accent-finishes` 5.2 s; gallery 127 s | 11 to 15 s; 321 s (2 to 2.5 times; +0.5 to +1.6 s a slide) |
+| A deck of small photos (`sample-images`, `.pptx`) | 877 KB | 1.38 MB: a crop is an RGBA PNG at 2x and stays PNG under 600 KB |
 
-The photo deck's media is mostly its 21 layout backgrounds (a photo per slide, shared where equal);
+The size win holds for large photos; a small photo crop is a lossless PNG and can be larger than the one slide picture it replaced. The photo deck's media is mostly its 21 layout backgrounds (a photo per slide, shared where equal);
 its pictures are two photos at 330 KB each as JPEG (they were 2.4 MB PNGs while a thin rule beside
 each made the crop non-opaque).
 
@@ -167,3 +168,25 @@ The Studio's browser export (`docs/src/components/studio/export/deck-export.js`)
 html-to-image and still writes one foreground picture per slide. It shares the reader, so it gets
 every shape above (gradients, pseudo-elements, groups); making pictures there needs the same crop
 from its canvas.
+
+## 10. What the validators prove, and what they do not
+
+`validate.py` (the PowerPoint-rules check used for this branch) validates, by an independent reading of its source, against the XSD only the parts
+whose folder it maps (`ppt/`), and checks slides, layouts and masters with a short denylist; it passed a file
+whose `a:rPr` children were out of order, which the full ISO 29500 transitional XSD rejects. The branch's output
+passes the FULL XSD on every slide, layout and master part of 24 decks (an independent run), so the schema claim
+holds, but not because of `validate.py`. Neither check opens PowerPoint. Two things are only inferred: that
+PowerPoint tolerates the constructs LibreOffice reads (gradient angle on non-square boxes, `a:highlight`, a
+`p:pic` inside a nested `p:grpSp`, a layout image background, slide-number fields), and that Collabora's newer
+engine reads the `loext:` gradient and opacity stops. The shape ids on a slide are now unique (PptxGenJS wrote
+id 25 on every slide-number placeholder).
+
+## 11. Known gaps found in review, not fixed
+
+- Hidden text under an opaque box, and text under a picture, is still read as live text (the same hole `main` has
+  for ordinary text).
+- An opaque highlight hides a backdrop layer's grid or glow behind a chip (`backdrop-register` slide 8).
+- Two backgrounds that differ only by a very faint watermark may share one master page (tolerance 3 per channel).
+- A shape reaching into a thick rounded border can pass the rounded-clip test (it measures the outer radius).
+- When a positioned `::before` with a z-index and a static `::after` of the same element are both candidates,
+  `above()` orders them by side, not by z-index.

@@ -269,12 +269,12 @@ carries a `role` read from the page (`h1`/`h2`, the eyebrow and subtitle inline-
 paragraphs, `<header>`, `<footer>`, `.lat-pagination`): the title is a title placeholder, the
 page number is a slide-number field when it equals the slide's position (a split run's "2.2" stays text), and a header, footer or page number that two or more
 slides share on one background moves to the layout. The foreground picture is locked against moving
-and resizing in the `.odp` (honored by LibreOffice and Collabora) and in the `.pptx` markup
+and resizing in the `.odp` (honored by LibreOffice; Collabora is untested) and in the `.pptx` markup
 (LibreOffice ignores it). In the CLI, what cannot be a shape is then cropped from the foreground
 capture as pictures of its own, in paint order among the shapes (`captureSlides`, `cropPictures`;
 `2026-10-21-calco-lift-what-can-be-lifted.md` §6); the whole-slide picture remains only for a slide
 that reads its backdrop (ink no crop covers becomes one more picture). The cost is one more screenshot per
-distinct background and one for the foreground: about +0.16 s per slide on `accent-finishes` (12 slides: 6.2 s → 8.1 s), with
+distinct background and one for the foreground: about +0.16 s per slide for the shared backgrounds alone (`accent-finishes`, 12 slides: 6.2 s → 8.1 s). The whole editable export, with shapes, pictures and chips, takes 2 to 2.5 times what `main` does (independent runs: `accent-finishes` 5.2 s → 11 to 15 s, the 120-slide gallery 127 s → 321 s), with
 slides that draw the same background photographed once. Design, measurements and what is not
 verified: `engineering/decisions/2026-10-17-calco-shared-backgrounds.md`.
 

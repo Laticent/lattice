@@ -301,9 +301,11 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const frameXml = (f: TextFrame, name: string, placeholder = false, position?: number): string => {
 		const { box, para } = textOf(f, position);
 		// A title is the slide's title object, so Navigator and the outline list it.
-		const cls = placeholder && f.role === 'title' ? ' draw:layer="layout" presentation:style-name="prTitle" presentation:class="title" presentation:user-transformed="true"' : '';
+		const title = placeholder && f.role === 'title';
+		const cls = title ? ' draw:layer="layout" presentation:style-name="prTitle" presentation:class="title" presentation:user-transformed="true"' : '';
+		// A presentation object takes its style from `presentation:style-name` alone (the ODF 1.3 schema refuses both).
 		return (
-			`<draw:frame draw:style-name="gr1"${cls} draw:name="${xmlEscape(name)}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
+			`<draw:frame${title ? '' : ' draw:style-name="gr1"'}${cls} draw:name="${xmlEscape(name)}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
 			`<draw:text-box>${para}</draw:text-box></draw:frame>`
 		);
 	};
@@ -316,7 +318,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const masterName = (li: number) => `Layout${li + 1}`;
 	const nameOf = (f: TextFrame, n: string | number, k: number) => (f.role ? `${ROLE_NAMES[f.role]} ${n}` : `Text ${n}.${k + 1}`);
 	// The picture over the master page is the slide's own content; it stays put unless a reader unlocks it.
-	if (masters) automatic.push('<style:style style:name="prTitle" style:family="presentation" style:parent-style-name="Default-title"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>');
+	if (masters) automatic.push('<style:style style:name="prTitle" style:family="presentation" style:parent-style-name="Default-title"><style:graphic-properties draw:stroke="none" draw:fill="none" draw:auto-grow-height="false" draw:auto-grow-width="false" draw:textarea-vertical-align="top" fo:padding-top="0cm" fo:padding-bottom="0cm" fo:padding-left="0cm" fo:padding-right="0cm"/></style:style>');
 	if (masters) automatic.push('<style:style style:name="grPic" style:family="graphic"><style:graphic-properties style:protect="position size"/></style:style>');
 	const masterXml = masters
 		? masters.layouts

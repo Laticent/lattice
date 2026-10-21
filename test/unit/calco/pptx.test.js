@@ -278,3 +278,16 @@ describe('calco pptx — a text highlight', () => {
     assert.match(xml, /<a:highlight><a:srgbClr val="E6F0F5"\/><\/a:highlight>/);
   });
 });
+
+describe('calco pptx — unique shape ids', () => {
+  test('a repeated cNvPr id on a slide is renumbered; the first holder keeps it', () => {
+    const { uniqueShapeIds } = require('@laticent/calco');
+    const xml = '<p:spTree><p:cNvPr id="1" name=""/><p:cNvPr id="25" name="Slide Number Placeholder 0"/><p:cNvPr id="25" name="Text"/><p:cNvPr id="26" name="Shape"/></p:spTree>';
+    const out = uniqueShapeIds(xml);
+    const ids = [...out.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1]);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.equal(ids[1], '25');
+    assert.ok(out.includes('name="Text"') && out.includes('name="Shape"'));
+    assert.equal(uniqueShapeIds('<p:cNvPr id="2"/><p:cNvPr id="3"/>'), '<p:cNvPr id="2"/><p:cNvPr id="3"/>', 'unique ids are left alone');
+  });
+});
