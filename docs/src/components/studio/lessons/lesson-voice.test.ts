@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { KOKORO } from '../../../../../lib/export/kokoro-voice.mjs';
 import { lineKey } from '../../../../../tools/lib/lesson-voice-key.mjs';
+import { TOUR_LINES, TOUR_VOICE, TOUR_VOICE_DIR } from '../tours/lines';
 import { clipNarrator, type VoiceManifest } from './lesson-voice';
 import { LESSON_LINES, SHARED_LINES, SHARED_VOICE_DIR } from './lines';
 
@@ -16,7 +17,9 @@ const VOICE_DIR = path.resolve(__dirname, '../../../../public/lesson-voice');
 const voice = { model: KOKORO.model, voice: KOKORO.voice, dtype: KOKORO.dtype, speed: KOKORO.speed };
 const RECORD = 'Run: node tools/record-lesson-voice.mjs';
 
-const folders: Record<string, readonly string[]> = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES) };
+const folders: Record<string, readonly string[]> = { [SHARED_VOICE_DIR]: Object.values(SHARED_LINES), [TOUR_VOICE_DIR]: Object.values(TOUR_LINES) };
+/** The first-run tour speaks in Gemini; every lesson folder speaks in Kokoro. */
+const voiceOf = (dir: string) => (dir === TOUR_VOICE_DIR ? TOUR_VOICE : voice);
 for (const [id, lines] of Object.entries(LESSON_LINES)) folders[id] = Object.values(lines);
 
 describe('the recorded lesson voice', () => {
@@ -31,7 +34,7 @@ describe('the recorded lesson voice', () => {
 				expect(entry, `no clip for "${text}". ${RECORD}`).toBeDefined();
 				// The key hashes the text with the voice settings: a mismatch is a clip recorded for
 				// other words or another voice.
-				expect(entry?.key, `stale clip for "${text}". ${RECORD}`).toBe(lineKey(text, voice));
+				expect(entry?.key, `stale clip for "${text}". ${RECORD}`).toBe(lineKey(text, voiceOf(dir)));
 				expect(fs.existsSync(path.join(VOICE_DIR, dir, entry?.file ?? '')), `${entry?.file} is missing. ${RECORD}`).toBe(true);
 			}
 			const used = new Set(lines.map((t) => byText.get(t)?.file));

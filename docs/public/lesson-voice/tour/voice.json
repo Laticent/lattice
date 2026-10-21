@@ -1,0 +1,2066 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 522576,
+	"lines": [
+		{
+			"key": "5c17444a73e0",
+			"text": "This is how the tour will sound. Left, and now right.",
+			"file": "5c17444a73e0.mp3",
+			"bytes": 23760,
+			"speechMs": 3900,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This is how the tour will sound.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 230,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 230,
+								"endMs": 459,
+								"charOffset": 5
+							},
+							{
+								"display": "how",
+								"spoken": "how",
+								"startMs": 459,
+								"endMs": 689,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 689,
+								"endMs": 919,
+								"charOffset": 12
+							},
+							{
+								"display": "tour",
+								"spoken": "tour",
+								"startMs": 919,
+								"endMs": 1149,
+								"charOffset": 16
+							},
+							{
+								"display": "will",
+								"spoken": "will",
+								"startMs": 1149,
+								"endMs": 1378,
+								"charOffset": 21
+							},
+							{
+								"display": "sound.",
+								"spoken": "sound.",
+								"startMs": 1378,
+								"endMs": 1642,
+								"charOffset": 26
+							}
+						],
+						"startMs": 0,
+						"endMs": 2073,
+						"charOffset": 0
+					},
+					{
+						"display": "Left, and now right.",
+						"words": [
+							{
+								"display": "Left,",
+								"spoken": "Left,",
+								"startMs": 2258,
+								"endMs": 2522,
+								"charOffset": 33
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2746,
+								"endMs": 2975,
+								"charOffset": 39
+							},
+							{
+								"display": "now",
+								"spoken": "now",
+								"startMs": 2975,
+								"endMs": 3205,
+								"charOffset": 43
+							},
+							{
+								"display": "right.",
+								"spoken": "right.",
+								"startMs": 3205,
+								"endMs": 3469,
+								"charOffset": 47
+							}
+						],
+						"startMs": 2258,
+						"endMs": 3900,
+						"charOffset": 33
+					}
+				],
+				"durationMs": 3900
+			}
+		},
+		{
+			"key": "e8dd49a295ec",
+			"text": "Welcome to Lattice. I’ll show you around. It takes about three minutes, and you can take over at any moment.",
+			"file": "e8dd49a295ec.mp3",
+			"bytes": 34992,
+			"speechMs": 5772,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Welcome to Lattice.",
+						"words": [
+							{
+								"display": "Welcome",
+								"spoken": "Welcome",
+								"startMs": 0,
+								"endMs": 297,
+								"charOffset": 0
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 297,
+								"endMs": 446,
+								"charOffset": 8
+							},
+							{
+								"display": "Lattice.",
+								"spoken": "Lattice.",
+								"startMs": 446,
+								"endMs": 765,
+								"charOffset": 11
+							}
+						],
+						"startMs": 0,
+						"endMs": 1045,
+						"charOffset": 0
+					},
+					{
+						"display": "I’ll show you around.",
+						"words": [
+							{
+								"display": "I’ll",
+								"spoken": "I’ll",
+								"startMs": 1165,
+								"endMs": 1313,
+								"charOffset": 20
+							},
+							{
+								"display": "show",
+								"spoken": "show",
+								"startMs": 1313,
+								"endMs": 1462,
+								"charOffset": 25
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1462,
+								"endMs": 1611,
+								"charOffset": 30
+							},
+							{
+								"display": "around.",
+								"spoken": "around.",
+								"startMs": 1611,
+								"endMs": 1930,
+								"charOffset": 34
+							}
+						],
+						"startMs": 1165,
+						"endMs": 2209,
+						"charOffset": 20
+					},
+					{
+						"display": "It takes about three minutes, and you can take over at any moment.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 2329,
+								"endMs": 2478,
+								"charOffset": 42
+							},
+							{
+								"display": "takes",
+								"spoken": "takes",
+								"startMs": 2478,
+								"endMs": 2775,
+								"charOffset": 45
+							},
+							{
+								"display": "about",
+								"spoken": "about",
+								"startMs": 2775,
+								"endMs": 3073,
+								"charOffset": 51
+							},
+							{
+								"display": "three",
+								"spoken": "three",
+								"startMs": 3073,
+								"endMs": 3222,
+								"charOffset": 57
+							},
+							{
+								"display": "minutes,",
+								"spoken": "minutes,",
+								"startMs": 3222,
+								"endMs": 3690,
+								"charOffset": 63
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3835,
+								"endMs": 3983,
+								"charOffset": 72
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 3983,
+								"endMs": 4132,
+								"charOffset": 76
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 4132,
+								"endMs": 4281,
+								"charOffset": 80
+							},
+							{
+								"display": "take",
+								"spoken": "take",
+								"startMs": 4281,
+								"endMs": 4430,
+								"charOffset": 84
+							},
+							{
+								"display": "over",
+								"spoken": "over",
+								"startMs": 4430,
+								"endMs": 4727,
+								"charOffset": 89
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 4727,
+								"endMs": 4876,
+								"charOffset": 94
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 4876,
+								"endMs": 5173,
+								"charOffset": 97
+							},
+							{
+								"display": "moment.",
+								"spoken": "moment.",
+								"startMs": 5173,
+								"endMs": 5493,
+								"charOffset": 101
+							}
+						],
+						"startMs": 2329,
+						"endMs": 5772,
+						"charOffset": 42
+					}
+				],
+				"durationMs": 5772
+			}
+		},
+		{
+			"key": "31bb75e234da",
+			"text": "This is where you write. Plain text, nothing else. A line of three dashes starts a new slide, and a line that starts with a hash is a heading.",
+			"file": "31bb75e234da.mp3",
+			"bytes": 56160,
+			"speechMs": 9296,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This is where you write.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 222,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 222,
+								"endMs": 443,
+								"charOffset": 5
+							},
+							{
+								"display": "where",
+								"spoken": "where",
+								"startMs": 443,
+								"endMs": 665,
+								"charOffset": 8
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 665,
+								"endMs": 887,
+								"charOffset": 14
+							},
+							{
+								"display": "write.",
+								"spoken": "write.",
+								"startMs": 887,
+								"endMs": 1141,
+								"charOffset": 18
+							}
+						],
+						"startMs": 0,
+						"endMs": 1557,
+						"charOffset": 0
+					},
+					{
+						"display": "Plain text, nothing else.",
+						"words": [
+							{
+								"display": "Plain",
+								"spoken": "Plain",
+								"startMs": 1736,
+								"endMs": 1958,
+								"charOffset": 25
+							},
+							{
+								"display": "text,",
+								"spoken": "text,",
+								"startMs": 1958,
+								"endMs": 2212,
+								"charOffset": 31
+							},
+							{
+								"display": "nothing",
+								"spoken": "nothing",
+								"startMs": 2428,
+								"endMs": 2872,
+								"charOffset": 37
+							},
+							{
+								"display": "else.",
+								"spoken": "else.",
+								"startMs": 2872,
+								"endMs": 3126,
+								"charOffset": 45
+							}
+						],
+						"startMs": 1736,
+						"endMs": 3542,
+						"charOffset": 25
+					},
+					{
+						"display": "A line of three dashes starts a new slide, and a line that starts with a hash is a heading.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 3721,
+								"endMs": 3942,
+								"charOffset": 51
+							},
+							{
+								"display": "line",
+								"spoken": "line",
+								"startMs": 3942,
+								"endMs": 4164,
+								"charOffset": 53
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 4164,
+								"endMs": 4386,
+								"charOffset": 58
+							},
+							{
+								"display": "three",
+								"spoken": "three",
+								"startMs": 4386,
+								"endMs": 4607,
+								"charOffset": 61
+							},
+							{
+								"display": "dashes",
+								"spoken": "dashes",
+								"startMs": 4607,
+								"endMs": 5051,
+								"charOffset": 67
+							},
+							{
+								"display": "starts",
+								"spoken": "starts",
+								"startMs": 5051,
+								"endMs": 5273,
+								"charOffset": 74
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 5273,
+								"endMs": 5494,
+								"charOffset": 81
+							},
+							{
+								"display": "new",
+								"spoken": "new",
+								"startMs": 5494,
+								"endMs": 5716,
+								"charOffset": 83
+							},
+							{
+								"display": "slide,",
+								"spoken": "slide,",
+								"startMs": 5716,
+								"endMs": 5970,
+								"charOffset": 87
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 6187,
+								"endMs": 6408,
+								"charOffset": 94
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 6408,
+								"endMs": 6630,
+								"charOffset": 98
+							},
+							{
+								"display": "line",
+								"spoken": "line",
+								"startMs": 6630,
+								"endMs": 6852,
+								"charOffset": 100
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 6852,
+								"endMs": 7073,
+								"charOffset": 105
+							},
+							{
+								"display": "starts",
+								"spoken": "starts",
+								"startMs": 7073,
+								"endMs": 7295,
+								"charOffset": 110
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 7295,
+								"endMs": 7517,
+								"charOffset": 117
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 7517,
+								"endMs": 7739,
+								"charOffset": 122
+							},
+							{
+								"display": "hash",
+								"spoken": "hash",
+								"startMs": 7739,
+								"endMs": 7960,
+								"charOffset": 124
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 7960,
+								"endMs": 8182,
+								"charOffset": 129
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 8182,
+								"endMs": 8404,
+								"charOffset": 132
+							},
+							{
+								"display": "heading.",
+								"spoken": "heading.",
+								"startMs": 8404,
+								"endMs": 8880,
+								"charOffset": 134
+							}
+						],
+						"startMs": 3721,
+						"endMs": 9296,
+						"charOffset": 51
+					}
+				],
+				"durationMs": 9296
+			}
+		},
+		{
+			"key": "e1759757235d",
+			"text": "And here is the result. Every slide draws itself as you type. No export, no waiting.",
+			"file": "e1759757235d.mp3",
+			"bytes": 39024,
+			"speechMs": 6452,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "And here is the result.",
+						"words": [
+							{
+								"display": "And",
+								"spoken": "And",
+								"startMs": 0,
+								"endMs": 209,
+								"charOffset": 0
+							},
+							{
+								"display": "here",
+								"spoken": "here",
+								"startMs": 209,
+								"endMs": 419,
+								"charOffset": 4
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 419,
+								"endMs": 628,
+								"charOffset": 9
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 628,
+								"endMs": 838,
+								"charOffset": 12
+							},
+							{
+								"display": "result.",
+								"spoken": "result.",
+								"startMs": 838,
+								"endMs": 1287,
+								"charOffset": 16
+							}
+						],
+						"startMs": 0,
+						"endMs": 1681,
+						"charOffset": 0
+					},
+					{
+						"display": "Every slide draws itself as you type.",
+						"words": [
+							{
+								"display": "Every",
+								"spoken": "Every",
+								"startMs": 1849,
+								"endMs": 2478,
+								"charOffset": 24
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2478,
+								"endMs": 2687,
+								"charOffset": 30
+							},
+							{
+								"display": "draws",
+								"spoken": "draws",
+								"startMs": 2687,
+								"endMs": 2897,
+								"charOffset": 36
+							},
+							{
+								"display": "itself",
+								"spoken": "itself",
+								"startMs": 2897,
+								"endMs": 3315,
+								"charOffset": 42
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 3315,
+								"endMs": 3525,
+								"charOffset": 49
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 3525,
+								"endMs": 3734,
+								"charOffset": 52
+							},
+							{
+								"display": "type.",
+								"spoken": "type.",
+								"startMs": 3734,
+								"endMs": 3974,
+								"charOffset": 56
+							}
+						],
+						"startMs": 1849,
+						"endMs": 4368,
+						"charOffset": 24
+					},
+					{
+						"display": "No export, no waiting.",
+						"words": [
+							{
+								"display": "No",
+								"spoken": "No",
+								"startMs": 4536,
+								"endMs": 4746,
+								"charOffset": 62
+							},
+							{
+								"display": "export,",
+								"spoken": "export,",
+								"startMs": 4746,
+								"endMs": 5195,
+								"charOffset": 65
+							},
+							{
+								"display": "no",
+								"spoken": "no",
+								"startMs": 5400,
+								"endMs": 5609,
+								"charOffset": 73
+							},
+							{
+								"display": "waiting.",
+								"spoken": "waiting.",
+								"startMs": 5609,
+								"endMs": 6059,
+								"charOffset": 76
+							}
+						],
+						"startMs": 4536,
+						"endMs": 6452,
+						"charOffset": 62
+					}
+				],
+				"durationMs": 6452
+			}
+		},
+		{
+			"key": "8d5ce5ad85ca",
+			"text": "Every slide in your deck lives in this strip. Click one to jump straight to it.",
+			"file": "8d5ce5ad85ca.mp3",
+			"bytes": 31248,
+			"speechMs": 5160,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Every slide in your deck lives in this strip.",
+						"words": [
+							{
+								"display": "Every",
+								"spoken": "Every",
+								"startMs": 0,
+								"endMs": 649,
+								"charOffset": 0
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 649,
+								"endMs": 865,
+								"charOffset": 6
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 865,
+								"endMs": 1082,
+								"charOffset": 12
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 1082,
+								"endMs": 1298,
+								"charOffset": 15
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1298,
+								"endMs": 1514,
+								"charOffset": 20
+							},
+							{
+								"display": "lives",
+								"spoken": "lives",
+								"startMs": 1514,
+								"endMs": 1947,
+								"charOffset": 25
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1947,
+								"endMs": 2163,
+								"charOffset": 31
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 2163,
+								"endMs": 2380,
+								"charOffset": 34
+							},
+							{
+								"display": "strip.",
+								"spoken": "strip.",
+								"startMs": 2380,
+								"endMs": 2627,
+								"charOffset": 39
+							}
+						],
+						"startMs": 0,
+						"endMs": 3034,
+						"charOffset": 0
+					},
+					{
+						"display": "Click one to jump straight to it.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 3208,
+								"endMs": 3424,
+								"charOffset": 46
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 3424,
+								"endMs": 3640,
+								"charOffset": 52
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 3640,
+								"endMs": 3857,
+								"charOffset": 56
+							},
+							{
+								"display": "jump",
+								"spoken": "jump",
+								"startMs": 3857,
+								"endMs": 4073,
+								"charOffset": 59
+							},
+							{
+								"display": "straight",
+								"spoken": "straight",
+								"startMs": 4073,
+								"endMs": 4289,
+								"charOffset": 64
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4289,
+								"endMs": 4506,
+								"charOffset": 73
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 4506,
+								"endMs": 4754,
+								"charOffset": 76
+							}
+						],
+						"startMs": 3208,
+						"endMs": 5160,
+						"charOffset": 46
+					}
+				],
+				"durationMs": 5160
+			}
+		},
+		{
+			"key": "39f7ea46d25b",
+			"text": "Add brings you a ready-made slide. A chart, a big number, a side-by-side comparison. Pick one, and the sample text is yours to replace.",
+			"file": "39f7ea46d25b.mp3",
+			"bytes": 56160,
+			"speechMs": 9297,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Add brings you a ready-made slide.",
+						"words": [
+							{
+								"display": "Add",
+								"spoken": "Add",
+								"startMs": 0,
+								"endMs": 206,
+								"charOffset": 0
+							},
+							{
+								"display": "brings",
+								"spoken": "brings",
+								"startMs": 206,
+								"endMs": 413,
+								"charOffset": 4
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 413,
+								"endMs": 619,
+								"charOffset": 11
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 619,
+								"endMs": 826,
+								"charOffset": 15
+							},
+							{
+								"display": "ready-made",
+								"spoken": "ready-made",
+								"startMs": 826,
+								"endMs": 1445,
+								"charOffset": 17
+							},
+							{
+								"display": "slide.",
+								"spoken": "slide.",
+								"startMs": 1445,
+								"endMs": 1681,
+								"charOffset": 28
+							}
+						],
+						"startMs": 0,
+						"endMs": 2069,
+						"charOffset": 0
+					},
+					{
+						"display": "A chart, a big number, a side-by-side comparison.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 2235,
+								"endMs": 2441,
+								"charOffset": 35
+							},
+							{
+								"display": "chart,",
+								"spoken": "chart,",
+								"startMs": 2441,
+								"endMs": 2678,
+								"charOffset": 37
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2879,
+								"endMs": 3086,
+								"charOffset": 44
+							},
+							{
+								"display": "big",
+								"spoken": "big",
+								"startMs": 3086,
+								"endMs": 3292,
+								"charOffset": 46
+							},
+							{
+								"display": "number,",
+								"spoken": "number,",
+								"startMs": 3292,
+								"endMs": 3735,
+								"charOffset": 50
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3936,
+								"endMs": 4143,
+								"charOffset": 58
+							},
+							{
+								"display": "side-by-side",
+								"spoken": "side-by-side",
+								"startMs": 4143,
+								"endMs": 4762,
+								"charOffset": 60
+							},
+							{
+								"display": "comparison.",
+								"spoken": "comparison.",
+								"startMs": 4762,
+								"endMs": 5617,
+								"charOffset": 73
+							}
+						],
+						"startMs": 2235,
+						"endMs": 6005,
+						"charOffset": 35
+					},
+					{
+						"display": "Pick one, and the sample text is yours to replace.",
+						"words": [
+							{
+								"display": "Pick",
+								"spoken": "Pick",
+								"startMs": 6171,
+								"endMs": 6378,
+								"charOffset": 85
+							},
+							{
+								"display": "one,",
+								"spoken": "one,",
+								"startMs": 6378,
+								"endMs": 6614,
+								"charOffset": 90
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 6815,
+								"endMs": 7022,
+								"charOffset": 95
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 7022,
+								"endMs": 7228,
+								"charOffset": 99
+							},
+							{
+								"display": "sample",
+								"spoken": "sample",
+								"startMs": 7228,
+								"endMs": 7641,
+								"charOffset": 103
+							},
+							{
+								"display": "text",
+								"spoken": "text",
+								"startMs": 7641,
+								"endMs": 7847,
+								"charOffset": 110
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 7847,
+								"endMs": 8054,
+								"charOffset": 115
+							},
+							{
+								"display": "yours",
+								"spoken": "yours",
+								"startMs": 8054,
+								"endMs": 8260,
+								"charOffset": 118
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 8260,
+								"endMs": 8466,
+								"charOffset": 124
+							},
+							{
+								"display": "replace.",
+								"spoken": "replace.",
+								"startMs": 8466,
+								"endMs": 8909,
+								"charOffset": 127
+							}
+						],
+						"startMs": 6171,
+						"endMs": 9297,
+						"charOffset": 85
+					}
+				],
+				"durationMs": 9297
+			}
+		},
+		{
+			"key": "4de7d36c6f1b",
+			"text": "Reshape shows the slide you wrote in a different layout. Same words, a new arrangement.",
+			"file": "4de7d36c6f1b.mp3",
+			"bytes": 35424,
+			"speechMs": 5832,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Reshape shows the slide you wrote in a different layout.",
+						"words": [
+							{
+								"display": "Reshape",
+								"spoken": "Reshape",
+								"startMs": 0,
+								"endMs": 432,
+								"charOffset": 0
+							},
+							{
+								"display": "shows",
+								"spoken": "shows",
+								"startMs": 432,
+								"endMs": 649,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 649,
+								"endMs": 865,
+								"charOffset": 14
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 865,
+								"endMs": 1081,
+								"charOffset": 18
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1081,
+								"endMs": 1297,
+								"charOffset": 24
+							},
+							{
+								"display": "wrote",
+								"spoken": "wrote",
+								"startMs": 1297,
+								"endMs": 1513,
+								"charOffset": 28
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 1513,
+								"endMs": 1730,
+								"charOffset": 34
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 1730,
+								"endMs": 1946,
+								"charOffset": 37
+							},
+							{
+								"display": "different",
+								"spoken": "different",
+								"startMs": 1946,
+								"endMs": 2594,
+								"charOffset": 39
+							},
+							{
+								"display": "layout.",
+								"spoken": "layout.",
+								"startMs": 2594,
+								"endMs": 2842,
+								"charOffset": 49
+							}
+						],
+						"startMs": 0,
+						"endMs": 3248,
+						"charOffset": 0
+					},
+					{
+						"display": "Same words, a new arrangement.",
+						"words": [
+							{
+								"display": "Same",
+								"spoken": "Same",
+								"startMs": 3422,
+								"endMs": 3638,
+								"charOffset": 57
+							},
+							{
+								"display": "words,",
+								"spoken": "words,",
+								"startMs": 3638,
+								"endMs": 3886,
+								"charOffset": 62
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4097,
+								"endMs": 4313,
+								"charOffset": 69
+							},
+							{
+								"display": "new",
+								"spoken": "new",
+								"startMs": 4313,
+								"endMs": 4530,
+								"charOffset": 71
+							},
+							{
+								"display": "arrangement.",
+								"spoken": "arrangement.",
+								"startMs": 4530,
+								"endMs": 5426,
+								"charOffset": 75
+							}
+						],
+						"startMs": 3422,
+						"endMs": 5832,
+						"charOffset": 57
+					}
+				],
+				"durationMs": 5832
+			}
+		},
+		{
+			"key": "6ab35f5de873",
+			"text": "A theme sets the colors and type for the whole deck. Your words stay exactly where they are.",
+			"file": "6ab35f5de873.mp3",
+			"bytes": 35424,
+			"speechMs": 5839,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A theme sets the colors and type for the whole deck.",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 226,
+								"charOffset": 0
+							},
+							{
+								"display": "theme",
+								"spoken": "theme",
+								"startMs": 226,
+								"endMs": 452,
+								"charOffset": 2
+							},
+							{
+								"display": "sets",
+								"spoken": "sets",
+								"startMs": 452,
+								"endMs": 678,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 678,
+								"endMs": 903,
+								"charOffset": 13
+							},
+							{
+								"display": "colors",
+								"spoken": "colors",
+								"startMs": 903,
+								"endMs": 1355,
+								"charOffset": 17
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 1355,
+								"endMs": 1581,
+								"charOffset": 24
+							},
+							{
+								"display": "type",
+								"spoken": "type",
+								"startMs": 1581,
+								"endMs": 1807,
+								"charOffset": 28
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 1807,
+								"endMs": 2033,
+								"charOffset": 33
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2033,
+								"endMs": 2258,
+								"charOffset": 37
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 2258,
+								"endMs": 2484,
+								"charOffset": 41
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 2484,
+								"endMs": 2743,
+								"charOffset": 47
+							}
+						],
+						"startMs": 0,
+						"endMs": 3167,
+						"charOffset": 0
+					},
+					{
+						"display": "Your words stay exactly where they are.",
+						"words": [
+							{
+								"display": "Your",
+								"spoken": "Your",
+								"startMs": 3349,
+								"endMs": 3575,
+								"charOffset": 53
+							},
+							{
+								"display": "words",
+								"spoken": "words",
+								"startMs": 3575,
+								"endMs": 3801,
+								"charOffset": 58
+							},
+							{
+								"display": "stay",
+								"spoken": "stay",
+								"startMs": 3801,
+								"endMs": 4027,
+								"charOffset": 64
+							},
+							{
+								"display": "exactly",
+								"spoken": "exactly",
+								"startMs": 4027,
+								"endMs": 4704,
+								"charOffset": 69
+							},
+							{
+								"display": "where",
+								"spoken": "where",
+								"startMs": 4704,
+								"endMs": 4930,
+								"charOffset": 77
+							},
+							{
+								"display": "they",
+								"spoken": "they",
+								"startMs": 4930,
+								"endMs": 5156,
+								"charOffset": 83
+							},
+							{
+								"display": "are.",
+								"spoken": "are.",
+								"startMs": 5156,
+								"endMs": 5415,
+								"charOffset": 88
+							}
+						],
+						"startMs": 3349,
+						"endMs": 5839,
+						"charOffset": 53
+					}
+				],
+				"durationMs": 5839
+			}
+		},
+		{
+			"key": "4aa968ef0e43",
+			"text": "And light or dark is one click.",
+			"file": "4aa968ef0e43.mp3",
+			"bytes": 16272,
+			"speechMs": 2652,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "And light or dark is one click.",
+						"words": [
+							{
+								"display": "And",
+								"spoken": "And",
+								"startMs": 0,
+								"endMs": 294,
+								"charOffset": 0
+							},
+							{
+								"display": "light",
+								"spoken": "light",
+								"startMs": 294,
+								"endMs": 588,
+								"charOffset": 4
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 588,
+								"endMs": 882,
+								"charOffset": 10
+							},
+							{
+								"display": "dark",
+								"spoken": "dark",
+								"startMs": 882,
+								"endMs": 1175,
+								"charOffset": 13
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 1175,
+								"endMs": 1469,
+								"charOffset": 18
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 1469,
+								"endMs": 1763,
+								"charOffset": 21
+							},
+							{
+								"display": "click.",
+								"spoken": "click.",
+								"startMs": 1763,
+								"endMs": 2100,
+								"charOffset": 25
+							}
+						],
+						"startMs": 0,
+						"endMs": 2652,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 2652
+			}
+		},
+		{
+			"key": "4cce24ccedbc",
+			"text": "Read shows only the slides. Write is what you see now. Craft opens every panel, including the coach and the assistant.",
+			"file": "4cce24ccedbc.mp3",
+			"bytes": 53712,
+			"speechMs": 8895,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Read shows only the slides.",
+						"words": [
+							{
+								"display": "Read",
+								"spoken": "Read",
+								"startMs": 0,
+								"endMs": 223,
+								"charOffset": 0
+							},
+							{
+								"display": "shows",
+								"spoken": "shows",
+								"startMs": 223,
+								"endMs": 447,
+								"charOffset": 5
+							},
+							{
+								"display": "only",
+								"spoken": "only",
+								"startMs": 447,
+								"endMs": 894,
+								"charOffset": 11
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 894,
+								"endMs": 1117,
+								"charOffset": 16
+							},
+							{
+								"display": "slides.",
+								"spoken": "slides.",
+								"startMs": 1117,
+								"endMs": 1597,
+								"charOffset": 20
+							}
+						],
+						"startMs": 0,
+						"endMs": 2017,
+						"charOffset": 0
+					},
+					{
+						"display": "Write is what you see now.",
+						"words": [
+							{
+								"display": "Write",
+								"spoken": "Write",
+								"startMs": 2196,
+								"endMs": 2420,
+								"charOffset": 28
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 2420,
+								"endMs": 2643,
+								"charOffset": 34
+							},
+							{
+								"display": "what",
+								"spoken": "what",
+								"startMs": 2643,
+								"endMs": 2867,
+								"charOffset": 37
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 2867,
+								"endMs": 3090,
+								"charOffset": 42
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 3090,
+								"endMs": 3314,
+								"charOffset": 46
+							},
+							{
+								"display": "now.",
+								"spoken": "now.",
+								"startMs": 3314,
+								"endMs": 3570,
+								"charOffset": 50
+							}
+						],
+						"startMs": 2196,
+						"endMs": 3990,
+						"charOffset": 28
+					},
+					{
+						"display": "Craft opens every panel, including the coach and the assistant.",
+						"words": [
+							{
+								"display": "Craft",
+								"spoken": "Craft",
+								"startMs": 4170,
+								"endMs": 4393,
+								"charOffset": 55
+							},
+							{
+								"display": "opens",
+								"spoken": "opens",
+								"startMs": 4393,
+								"endMs": 4840,
+								"charOffset": 61
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 4840,
+								"endMs": 5510,
+								"charOffset": 67
+							},
+							{
+								"display": "panel,",
+								"spoken": "panel,",
+								"startMs": 5510,
+								"endMs": 5990,
+								"charOffset": 73
+							},
+							{
+								"display": "including",
+								"spoken": "including",
+								"startMs": 6208,
+								"endMs": 6878,
+								"charOffset": 80
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 6878,
+								"endMs": 7102,
+								"charOffset": 90
+							},
+							{
+								"display": "coach",
+								"spoken": "coach",
+								"startMs": 7102,
+								"endMs": 7325,
+								"charOffset": 94
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 7325,
+								"endMs": 7549,
+								"charOffset": 100
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 7549,
+								"endMs": 7772,
+								"charOffset": 104
+							},
+							{
+								"display": "assistant.",
+								"spoken": "assistant.",
+								"startMs": 7772,
+								"endMs": 8475,
+								"charOffset": 108
+							}
+						],
+						"startMs": 4170,
+						"endMs": 8895,
+						"charOffset": 55
+					}
+				],
+				"durationMs": 8895
+			}
+		},
+		{
+			"key": "28dc1038c79b",
+			"text": "Press command K, or click here, to search everything. Every command, every slide, every lesson.",
+			"file": "28dc1038c79b.mp3",
+			"bytes": 47664,
+			"speechMs": 7895,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Press command K, or click here, to search everything.",
+						"words": [
+							{
+								"display": "Press",
+								"spoken": "Press",
+								"startMs": 0,
+								"endMs": 217,
+								"charOffset": 0
+							},
+							{
+								"display": "command",
+								"spoken": "command",
+								"startMs": 217,
+								"endMs": 652,
+								"charOffset": 6
+							},
+							{
+								"display": "K,",
+								"spoken": "K,",
+								"startMs": 652,
+								"endMs": 901,
+								"charOffset": 14
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 1113,
+								"endMs": 1330,
+								"charOffset": 17
+							},
+							{
+								"display": "click",
+								"spoken": "click",
+								"startMs": 1330,
+								"endMs": 1547,
+								"charOffset": 20
+							},
+							{
+								"display": "here,",
+								"spoken": "here,",
+								"startMs": 1547,
+								"endMs": 1796,
+								"charOffset": 26
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2008,
+								"endMs": 2225,
+								"charOffset": 32
+							},
+							{
+								"display": "search",
+								"spoken": "search",
+								"startMs": 2225,
+								"endMs": 2443,
+								"charOffset": 35
+							},
+							{
+								"display": "everything.",
+								"spoken": "everything.",
+								"startMs": 2443,
+								"endMs": 3343,
+								"charOffset": 42
+							}
+						],
+						"startMs": 0,
+						"endMs": 3751,
+						"charOffset": 0
+					},
+					{
+						"display": "Every command, every slide, every lesson.",
+						"words": [
+							{
+								"display": "Every",
+								"spoken": "Every",
+								"startMs": 3926,
+								"endMs": 4578,
+								"charOffset": 54
+							},
+							{
+								"display": "command,",
+								"spoken": "command,",
+								"startMs": 4578,
+								"endMs": 5044,
+								"charOffset": 60
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 5256,
+								"endMs": 5908,
+								"charOffset": 69
+							},
+							{
+								"display": "slide,",
+								"spoken": "slide,",
+								"startMs": 5908,
+								"endMs": 6157,
+								"charOffset": 75
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 6369,
+								"endMs": 7021,
+								"charOffset": 82
+							},
+							{
+								"display": "lesson.",
+								"spoken": "lesson.",
+								"startMs": 7021,
+								"endMs": 7487,
+								"charOffset": 88
+							}
+						],
+						"startMs": 3926,
+						"endMs": 7895,
+						"charOffset": 54
+					}
+				],
+				"durationMs": 7895
+			}
+		},
+		{
+			"key": "3b3e95fc5c7b",
+			"text": "When you’re ready, Present plays the deck full screen.",
+			"file": "3b3e95fc5c7b.mp3",
+			"bytes": 18864,
+			"speechMs": 3080,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "When you’re ready, Present plays the deck full screen.",
+						"words": [
+							{
+								"display": "When",
+								"spoken": "When",
+								"startMs": 0,
+								"endMs": 218,
+								"charOffset": 0
+							},
+							{
+								"display": "you’re",
+								"spoken": "you’re",
+								"startMs": 218,
+								"endMs": 435,
+								"charOffset": 5
+							},
+							{
+								"display": "ready,",
+								"spoken": "ready,",
+								"startMs": 435,
+								"endMs": 903,
+								"charOffset": 12
+							},
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 1115,
+								"endMs": 1551,
+								"charOffset": 19
+							},
+							{
+								"display": "plays",
+								"spoken": "plays",
+								"startMs": 1551,
+								"endMs": 1768,
+								"charOffset": 27
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1768,
+								"endMs": 1986,
+								"charOffset": 33
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1986,
+								"endMs": 2204,
+								"charOffset": 37
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 2204,
+								"endMs": 2422,
+								"charOffset": 42
+							},
+							{
+								"display": "screen.",
+								"spoken": "screen.",
+								"startMs": 2422,
+								"endMs": 2671,
+								"charOffset": 47
+							}
+						],
+						"startMs": 0,
+						"endMs": 3080,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3080
+			}
+		},
+		{
+			"key": "ec64bb821efc",
+			"text": "Everything you can send someone lives under Share, including a PDF.",
+			"file": "ec64bb821efc.mp3",
+			"bytes": 27648,
+			"speechMs": 4555,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Everything you can send someone lives under Share, including a PDF.",
+						"words": [
+							{
+								"display": "Everything",
+								"spoken": "Everything",
+								"startMs": 0,
+								"endMs": 755,
+								"charOffset": 0
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 755,
+								"endMs": 943,
+								"charOffset": 11
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 943,
+								"endMs": 1132,
+								"charOffset": 15
+							},
+							{
+								"display": "send",
+								"spoken": "send",
+								"startMs": 1132,
+								"endMs": 1320,
+								"charOffset": 19
+							},
+							{
+								"display": "someone",
+								"spoken": "someone",
+								"startMs": 1320,
+								"endMs": 1698,
+								"charOffset": 24
+							},
+							{
+								"display": "lives",
+								"spoken": "lives",
+								"startMs": 1698,
+								"endMs": 2075,
+								"charOffset": 32
+							},
+							{
+								"display": "under",
+								"spoken": "under",
+								"startMs": 2075,
+								"endMs": 2452,
+								"charOffset": 38
+							},
+							{
+								"display": "Share,",
+								"spoken": "Share,",
+								"startMs": 2452,
+								"endMs": 2669,
+								"charOffset": 44
+							},
+							{
+								"display": "including",
+								"spoken": "including",
+								"startMs": 2853,
+								"endMs": 3419,
+								"charOffset": 51
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3419,
+								"endMs": 3607,
+								"charOffset": 61
+							},
+							{
+								"display": "PDF.",
+								"spoken": "PDF.",
+								"startMs": 3607,
+								"endMs": 4201,
+								"charOffset": 63
+							}
+						],
+						"startMs": 0,
+						"endMs": 4555,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 4555
+			}
+		},
+		{
+			"key": "34a233e4de2c",
+			"text": "That is the whole shape of it. You write, Lattice designs, and you present. Would you like to go further?",
+			"file": "34a233e4de2c.mp3",
+			"bytes": 46224,
+			"speechMs": 7649,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That is the whole shape of it.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 225,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 225,
+								"endMs": 451,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 451,
+								"endMs": 676,
+								"charOffset": 8
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 676,
+								"endMs": 902,
+								"charOffset": 12
+							},
+							{
+								"display": "shape",
+								"spoken": "shape",
+								"startMs": 902,
+								"endMs": 1127,
+								"charOffset": 18
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 1127,
+								"endMs": 1353,
+								"charOffset": 24
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 1353,
+								"endMs": 1611,
+								"charOffset": 27
+							}
+						],
+						"startMs": 0,
+						"endMs": 2035,
+						"charOffset": 0
+					},
+					{
+						"display": "You write, Lattice designs, and you present.",
+						"words": [
+							{
+								"display": "You",
+								"spoken": "You",
+								"startMs": 2216,
+								"endMs": 2442,
+								"charOffset": 31
+							},
+							{
+								"display": "write,",
+								"spoken": "write,",
+								"startMs": 2442,
+								"endMs": 2700,
+								"charOffset": 35
+							},
+							{
+								"display": "Lattice",
+								"spoken": "Lattice",
+								"startMs": 2920,
+								"endMs": 3371,
+								"charOffset": 42
+							},
+							{
+								"display": "designs,",
+								"spoken": "designs,",
+								"startMs": 3371,
+								"endMs": 3855,
+								"charOffset": 50
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4075,
+								"endMs": 4300,
+								"charOffset": 59
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 4300,
+								"endMs": 4526,
+								"charOffset": 63
+							},
+							{
+								"display": "present.",
+								"spoken": "present.",
+								"startMs": 4526,
+								"endMs": 5010,
+								"charOffset": 67
+							}
+						],
+						"startMs": 2216,
+						"endMs": 5433,
+						"charOffset": 31
+					},
+					{
+						"display": "Would you like to go further?",
+						"words": [
+							{
+								"display": "Would",
+								"spoken": "Would",
+								"startMs": 5614,
+								"endMs": 5840,
+								"charOffset": 76
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 5840,
+								"endMs": 6065,
+								"charOffset": 82
+							},
+							{
+								"display": "like",
+								"spoken": "like",
+								"startMs": 6065,
+								"endMs": 6291,
+								"charOffset": 86
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 6291,
+								"endMs": 6516,
+								"charOffset": 91
+							},
+							{
+								"display": "go",
+								"spoken": "go",
+								"startMs": 6516,
+								"endMs": 6742,
+								"charOffset": 94
+							},
+							{
+								"display": "further?",
+								"spoken": "further?",
+								"startMs": 6742,
+								"endMs": 7226,
+								"charOffset": 97
+							}
+						],
+						"startMs": 5614,
+						"endMs": 7649,
+						"charOffset": 76
+					}
+				],
+				"durationMs": 7649
+			}
+		}
+	]
+}
