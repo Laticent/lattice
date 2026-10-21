@@ -110,6 +110,15 @@ section.cycle > .cell-stage > ul > .cycle-link > svg {
   width: 100%;
   height: 100%;
 }
+/* The stroke lives here, not on the path's attributes: the transform ships in the engine
+ * bundle, and every attribute it does not write is a byte it does not cost. */
+section.cycle > .cell-stage > ul > .cycle-link path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 /* the return arc — a U beneath the row joining the last stage back to the
  * first; the repeat mark, seated in a gap in the arc, names the loop. Both are

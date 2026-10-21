@@ -43,10 +43,9 @@ describe('cycle connector — string arm', () => {
     assert.match(out, /<ul><li>Decide\.<\/li><\/ul>/);
   });
 
-  test('draws with currentColor and carries no palette', () => {
+  test('carries no palette — the stroke color comes from the stylesheet', () => {
     const out = cycle.applyToHtml(slide('cycle'));
-    assert.match(out, /stroke="currentColor"/);
-    assert.doesNotMatch(out, /#[0-9a-f]{3,8}\b/i);
+    assert.doesNotMatch(out, /#[0-9a-f]{3,8}\b|stroke=|fill=/i);
   });
 
   test('is idempotent', () => {
