@@ -950,9 +950,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// written against pre-FIT offsets is thrown away when it does (#2124).
 				bindDeckInputRef.current();
 				if (viewRef.current === 'read') landWalkRef.current();
-				// Explore was opened from Edit: open it on the slide the caret is in, once the render says which page that is.
+				// Explore was opened from Edit: open it on the slide the caret is in, once the render says which page that
+				// is. The target is spent by the first render of Explore, whatever kind of walk it shows.
 				const openOn = exploreFlatRef.current;
-				if (openOn >= 0 && viewRef.current === 'read' && w?.kind === 'deck') {
+				if (openOn >= 0 && viewRef.current === 'read') {
 					exploreFlatRef.current = -1;
 					void (async () => {
 						const ix = await r.index?.();
@@ -960,8 +961,16 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 						const { pageOfFlat } = await import('@/lib/rendered-index');
 						const page = pageOfFlat(ix, openOn);
 						const cur = walkRef.current;
-						if (page < 0 || viewRef.current !== 'read' || cur?.kind !== 'deck' || cur.index === page) return;
-						const moved: Walk = { ...cur, index: page };
+						const f = frameRef.current;
+						if (page < 0 || viewRef.current !== 'read' || !cur || !f) return;
+						// A deck walk's index is the page; a plan walk's is the slide group that page belongs to.
+						let at = page;
+						if (cur.kind === 'plan') {
+							const el = walkUnits(f, false)[page]?.[0];
+							at = el ? walkUnits(f, true).findIndex((u) => u.includes(el)) : -1;
+						}
+						if (at < 0 || at === cur.index) return;
+						const moved: Walk = { ...cur, index: at };
 						walkRef.current = moved;
 						setWalk(moved);
 						landWalkRef.current();

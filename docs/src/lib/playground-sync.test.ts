@@ -316,6 +316,108 @@ describe('Explore and Edit are two views of one deck', () => {
 	});
 });
 
+describe('review findings on the tab switch and the follow', () => {
+	it('enterExplore names the caret\'s slide, not wherever a scroll put the focus', async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
+		r.frame();
+		r.state.now += 1000;
+		r.scrollEditor(900);
+		expect(r.hub.get().flat).toBeGreaterThan(0);
+		expect(r.sync.enterExplore()).toBe(0);
+		// A click on the slide the focus drifted to is not the caret's slide, so it places the caret there.
+		r.state.editing = false;
+		r.sync.exploreClicked(r.hub.get().flat);
+		r.state.editing = true;
+		r.log.length = 0;
+		r.sync.leaveExplore();
+		r.frame();
+		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(true);
+	});
+
+	it("the outgoing document's scroll does not drive the editor while the fresh one loads", async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.sync.selected({ head: at('beta'), anchor: at('beta'), line: 'beta', user: true });
+		r.frame();
+		r.state.now += 1000;
+		r.sync.enterExplore();
+		r.sync.leaveExplore();
+		r.log.length = 0;
+		const ed = r.state.ed;
+		// The old document, still Explore's, scrolls (at the new width) before the fresh write has loaded.
+		r.state.now += 150;
+		r.scrollPreview(2500);
+		expect(r.state.ed).toBe(ed);
+		expect(r.hub.get().flat).toBe(1);
+		// The fresh document loads and the preview follows the editor.
+		await r.land(deck, SLIDES, false);
+		r.sync.loaded();
+		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
+	});
+
+	it('a click recorded on one Explore deck is not replayed on another', async () => {
+		const r = rig();
+		await r.land();
+		r.sync.enterExplore();
+		r.state.editing = false;
+		await r.land();
+		r.sync.exploreClicked(4);
+		const other = `${deck}\n---\n\n# Six\n`;
+		await r.land(other, SLIDES + 1, false);
+		r.state.editing = true;
+		r.log.length = 0;
+		r.sync.leaveExplore();
+		r.frame();
+		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
+	});
+
+	it('a reader who switches panes once the echo window is over is followed at once', async () => {
+		const r = rig();
+		await r.land();
+		for (let k = 1; k <= 4; k++) {
+			r.state.now += 16;
+			r.scrollPreview(200 * k);
+		}
+		// Past the window of the editor moves above, the reader wheels the editor: that is theirs, not an echo.
+		r.state.now += 200;
+		r.scrollEditor(r.state.ed + 400);
+		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
+	});
+
+	it('the follower lagging behind the leader is never pulled the other way by its own echo', async () => {
+		const r = rig();
+		await r.land();
+		r.state.now += 1000;
+		r.scrollPreview(1200);
+		const pv = r.state.pv;
+		// The editor's own scroll event (our move) arrives, and nothing else happens for a long while.
+		r.sync.editorScrolled();
+		for (let k = 0; k < 40; k++) {
+			r.state.now += 16;
+			r.frame();
+		}
+		expect(r.state.pv).toBe(pv);
+	});
+
+	it('the follower pane keeps its own echo events from hiding a slow page', async () => {
+		const r = rig();
+		await r.land();
+		r.log.length = 0;
+		for (let k = 1; k <= 12; k++) {
+			r.state.now += 28;
+			r.scrollPreview(100 * k);
+			// The editor's own scroll event (the echo of the move) lands in the same frame as the reader's next one.
+			r.sync.editorScrolled();
+			r.frame();
+		}
+		expect(r.log.filter((l) => l.startsWith('editor-scroll')).length).toBeLessThan(12);
+	});
+});
+
 describe('a pick moves the caret', () => {
 	it('a click on a slide puts the caret at the end of its title, centers it in the preview and brings the editor level', async () => {
 		const r = rig();

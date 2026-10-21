@@ -528,10 +528,9 @@ const autoHeightTheme = EditorView.theme({
 
 // ── The slide band ──────────────────────────────────────────────────────────
 // The slide the preview is showing, drawn as two boxes beside the content (`editor-band.js`, loaded on the first
-// `setBand` so the route's eager JS does not carry it). The theme rules for the boxes are below.
-const bandSlot = new Compartment();
-let bandModule = null;
-let bandLoading = null;
+// `setBand` so the route's eager JS does not carry it). The theme rules for the boxes are below. The module is
+// fetched once for the page; each editor installs the plugin in its own compartment.
+let bandImport = null;
 
 /** Whether [from, to] is shorter than the editor's viewport. Heights of lines not yet drawn are
  *  CodeMirror's estimates, which is what a reveal has to decide by. */
@@ -722,6 +721,11 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		}
 		prevKind = kind;
 	});
+	// This editor's own slot for the slide band, filled once the band module has loaded.
+	const bandSlot = new Compartment();
+	/** The module's plugin once this editor has it, and the range the host last asked for (the latest request wins). */
+	let bandPlugin = null;
+	let bandWanted = null;
 	const view = new EditorView({
 		parent,
 		state: EditorState.create({
@@ -825,28 +829,38 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		},
 		// Mark a range of the document: the slide the preview is showing (offsets; null clears it).
 		setBand: (range) => {
+			bandWanted = range ? { from: range.from, to: range.to } : null;
 			const apply = () => {
-				const band = view.plugin(bandModule.bandPlugin);
+				if (!bandPlugin || !view.dom.isConnected) return;
+				const band = view.plugin(bandPlugin);
 				if (!band) return;
+				const want = bandWanted;
 				// A typed character moves the band's edges with the text, so a host that asks again after each edit asks
 				// for what is already there: skip the measure that would place it where it already is.
 				const cur = band.range();
-				if (range && cur) {
+				if (want && cur) {
 					const doc = view.state.doc;
 					const len = doc.length;
-					if (cur.from === doc.lineAt(Math.min(Math.max(0, range.from), len)).from && cur.to === doc.lineAt(Math.min(Math.max(0, range.to), len)).to) return;
+					if (cur.from === doc.lineAt(Math.min(Math.max(0, want.from), len)).from && cur.to === doc.lineAt(Math.min(Math.max(0, want.to), len)).to) return;
 				}
-				if (!range && !cur) return;
-				band.set(range);
+				if (!want && !cur) return;
+				band.set(want);
 			};
-			if (bandModule) return apply();
-			if (!range) return;
-			// The first call loads the band and installs it; later calls queue behind that load, in order.
-			bandLoading ??= import('./editor-band.js').then((m) => {
-				bandModule = m;
-				if (view.dom.isConnected) view.dispatch({ effects: bandSlot.reconfigure(m.bandPlugin) });
-			});
-			bandLoading.then(() => view.dom.isConnected && apply()).catch(() => {});
+			if (bandPlugin) return apply();
+			if (!bandWanted) return;
+			// The first request loads the band (once for the page) and installs it here; whatever was asked for LAST is
+			// what gets drawn when it arrives.
+			bandImport ??= import('./editor-band.js');
+			bandImport
+				.then((m) => {
+					if (!view.dom.isConnected) return;
+					if (!bandPlugin) {
+						bandPlugin = m.bandPlugin;
+						view.dispatch({ effects: bandSlot.reconfigure(m.bandPlugin) });
+					}
+					apply();
+				})
+				.catch(() => {});
 		},
 		// Land on a slide the reader picked: the caret at `caret`. `frame`: also put [from, to] on screen, centered
 		// when it fits and from its start when it does not. A host that keeps the editor and the preview scrolled

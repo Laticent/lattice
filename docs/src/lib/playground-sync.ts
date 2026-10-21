@@ -124,13 +124,15 @@ export interface PlaygroundSync {
 const SETTLE_MS = 160;
 const MAX_OWN_MS = 1500;
 /** A scroll on a pane this soon after the sync moved it is that move's own (see `isEcho`). */
-const ECHO_MS = 250;
+const ECHO_MS = 120;
 /** Frames this far apart mean the page is dropping them; following on every one of those is what drops them. */
 const FRAME_SLOW_MS = 24;
 /** Gaps longer than this are a reader who stopped and started again, not a struggling page. */
 const FRAME_IDLE_MS = 250;
 /** While frames are slow, the follower pane is moved at most this often (about 30 per second). */
 const FOLLOW_GAP_MS = 33;
+/** A full write that has not loaded within this long is not coming (the render failed or was deferred): stop holding the panes. */
+const LOAD_MAX_MS = 3000;
 /** An editor scroll this soon after a caret move is the caret being scrolled into view, not the reader scrolling. */
 const CARET_SCROLL_MS = 400;
 
@@ -151,6 +153,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let renderedSource: string | null = null;
 	let owed = false;
 	let awaitingLoad = false;
+	let awaitingAt = -Infinity;
+	/** The slide the caret is in (the last focus an editor move reported), apart from where a scroll has put the focus. */
+	let caretSlide = -1;
 	let ownUntil = 0;
 	let lastPreviewScroll = 0;
 	/** When the reader last moved the caret or typed. The editor scrolling right after is CodeMirror bringing the
@@ -261,6 +266,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		slow = dt > FRAME_SLOW_MS && dt < FRAME_IDLE_MS;
 	}
 
+	/** A full write is on its way: the frame still shows the outgoing document, whose scroll means nothing. */
+	const loading = () => awaitingLoad && ports.now() - awaitingAt < LOAD_MAX_MS;
+
 	/** Whether this scroll frame should move the follower pane. A follower redraw (CodeMirror re-rendering lines, the
 	 *  filmstrip mounting slides) is the cost of the whole feature, and it is paid on every frame. While frames are
 	 *  already coming slowly the follower moves at most every `FOLLOW_GAP_MS` instead, so the page gets its frame
@@ -276,7 +284,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	/** The preview scrolled: the editor follows, and the slide it is on becomes the focus. */
 	function drivenByPreview() {
 		previewRaf = 0;
-		if (dead || !ports.active()) return;
+		if (dead || !ports.active() || loading()) return;
 		// The echo of our own move is the common case, and the cheap one to recognize: do it before measuring anything.
 		if (isEcho(echo.preview)) return;
 		if (!followNow()) {
@@ -315,6 +323,10 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	function drivenByEditor() {
 		editorRaf = 0;
 		if (dead || !ports.editing()) return;
+		if (loading()) {
+			owed = true;
+			return;
+		}
 		if (isEcho(echo.editor)) return;
 		// A pick's smooth scroll is still carrying the preview: whatever the editor does meanwhile is a follower
 		// re-anchoring, and driving the preview from it cancels the pick halfway.
@@ -373,6 +385,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			const before = lastFlat;
 			if (f.unitIndex >= 0) lastFlat = f.flat;
 			if (dead || !ol || f.unitIndex < 0) return;
+			if (f.origin === 'editor') caretSlide = f.flat;
 			paintBand(f);
 			paintMark(f);
 			// A click or key that puts the caret in another slide brings that slide to the middle of the preview; the
@@ -425,6 +438,8 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			hub.report('editor', { head: at.head, anchor: at.anchor, line: at.line, quiet: !at.user });
 		},
 		rendered(source, getIndex, patched) {
+			// A click recorded on one Explore deck means nothing on another.
+			if (!ports.editing() && source !== renderedSource) exploreClick = -1;
 			renderedSource = source;
 			// Outside Edit the render is the text of record: a Playground gallery or a plan walk renders
 			// something other than what the editor holds, and the map and the walk speak about that.
@@ -432,8 +447,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			// A full write: the next document opens at the top, not on the editor's slide, and is not on screen yet.
 			if (!patched) {
 				awaitingLoad = true;
+				awaitingAt = ports.now();
 				owed = ports.editing();
-			}
+			} else awaitingLoad = false;
 			const mine = ++epoch;
 			const p = getIndex?.();
 			if (!p) return;
@@ -450,8 +466,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (!dead) paintMark();
 		},
 		enterExplore() {
+			// The caret's slide, not wherever a scroll last put the focus.
 			const f = hub.get();
-			caretFlat = f.unitIndex >= 0 ? f.flat : -1;
+			caretFlat = caretSlide >= 0 ? caretSlide : f.unitIndex >= 0 ? f.flat : -1;
 			exploreClick = -1;
 			return caretFlat;
 		},
@@ -459,6 +476,11 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			exploreClick = page;
 		},
 		leaveExplore() {
+			// Edit's preview is about to be written afresh. Until it has loaded, the outgoing document's scroll (still
+			// Explore's, at another width) means nothing, and the editor is the one to follow.
+			awaitingLoad = true;
+			awaitingAt = ports.now();
+			owed = ports.editing();
 			const page = exploreClick;
 			exploreClick = -1;
 			const ix = usable();
@@ -467,12 +489,13 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (flat >= 0 && flat !== caretFlat) hub.go('preview-pick', { flat, grab: false });
 		},
 		previewScrolled() {
-			noteScroll();
+			// Only the reader's scrolls say whether the page keeps up: the follower's own echo lands in the same frame.
+			if (!isEcho(echo.preview)) noteScroll();
 			lastPreviewScroll = ports.now();
 			if (!previewRaf) previewRaf = ports.raf(drivenByPreview);
 		},
 		editorScrolled() {
-			noteScroll();
+			if (!isEcho(echo.editor)) noteScroll();
 			if (!editorRaf) editorRaf = ports.raf(drivenByEditor);
 		},
 		picked(page, opts) {

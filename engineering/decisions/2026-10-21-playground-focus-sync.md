@@ -271,3 +271,26 @@ The rules the owner chose:
   e2e spec caught it reading back `0`, and a saved caret would have broken Focus mode on the next load.
 
 Verified on Chromium and WebKit at phone width (emulation: `e2e/playground-tab-switch.spec.ts`); a real iPhone is UNVERIFIED.
+
+## Review of the later rewrites (independent checker, 2026-10-21)
+
+A checker reviewed everything after the trio (`fddab54..a84c42e`). The drawn band, the focus bar's geometry, the
+`deckFrame` binary searches and the caret restore held. It found five defects, all fixed with a test that fails on the old code:
+
+- **Explore to Edit at a wide width scrolled both panes to the end of the deck.** The outgoing document, still Explore's
+  at the new narrower split width, scrolled before the fresh one loaded, and its stale `scrollY` drove the editor.
+  `leaveExplore` now holds the preview (`loading()`) until the fresh write loads, and the editor leads (`owed`).
+  A real-browser case at 1440 px is in `e2e/playground-tab-switch.spec.ts` (the editor moved 821 px without the fix).
+- **A stale Explore target made a later gallery open on the wrong slide.** The target is spent by the first Explore
+  render whatever the walk kind (it was spent only for a deck walk), and a plan walk now opens on the caret's slide too.
+- **`enterExplore` returned the hub's focus, not the caret's slide.** Any scroll moves the focus without moving the
+  caret. It now returns the slide of the last caret move, which is also what `leaveExplore` compares a click against.
+  A click recorded on one Explore deck is forgotten when the deck changes.
+- **A reader switching panes within the echo window was ignored.** The window is 120 ms now (it was 250), which
+  covers the follower's echo events and leaves a human pane switch outside it. The checker suggested re-checking the
+  dropped frame once the window ended; measured on the real Playground that was worse: when the follower had not
+  converged, the re-check took the lagging pane for the leader and dragged the preview back. It was removed.
+- **The adaptive follow rate barely engaged**, because the follower's own scroll event fed the frame-gap clock. Only
+  scrolls that are not the sync's echo count now.
+
+Also: each editor holds its own band slot, and the latest requested range is what is drawn when the module arrives.

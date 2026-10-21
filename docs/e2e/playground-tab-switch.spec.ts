@@ -15,6 +15,7 @@ const SOURCE_KEY = 'lattice-docs-pg-source';
 const FOCUS_KEY = 'lattice-docs-pg-caret';
 const SLIDES = 10;
 const TAGS = '@mobile @webkit-phone';
+const WIDE = '@crosswidth @gecko @webkit-tablet';
 
 const deck = (() => {
 	const out = ['---', 'theme: cuoio', '---', ''];
@@ -22,8 +23,9 @@ const deck = (() => {
 	return out.join('\n');
 })();
 
-async function open(page: Page) {
-	test.skip((page.viewportSize()?.width ?? 0) > 820, 'the tabbed single-pane layout only');
+async function open(page: Page, wide = false) {
+	const w = page.viewportSize()?.width ?? 0;
+	test.skip(wide ? w <= 820 : w > 820, wide ? 'the two-pane layout only' : 'the tabbed single-pane layout only');
 	await page.addInitScript(
 		([key, src]) => {
 			if (!localStorage.getItem(key)) localStorage.setItem(key, src);
@@ -122,4 +124,20 @@ test(`a reload of the same deck puts the caret back ${TAGS}`, async ({ page }) =
 	await page.reload({ waitUntil: 'domcontentloaded' });
 	await page.locator('.cm-content').waitFor({ timeout: 60_000 });
 	await expect.poll(() => caretLine(page), { timeout: 20_000 }).toBe(line);
+});
+
+test(`on a wide screen, Explore and back leaves the editor where it was and the caret's slide in view ${WIDE}`, async ({ page }) => {
+	await open(page, true);
+	await editLine(page, 'point 7.2');
+	// Let the preview follow the caret's slide before leaving.
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
+	const line = await caretLine(page);
+	const scroll = await editorScroll(page);
+	await page.getByRole('tab', { name: 'Explore' }).click();
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
+	await page.getByRole('tab', { name: 'Edit' }).click();
+	// The outgoing document scrolls at the new width before the fresh one loads: it must not drag the editor.
+	await expect.poll(() => caretLine(page)).toBe(line);
+	await expect.poll(async () => Math.abs((await editorScroll(page)) - scroll), { timeout: 10_000 }).toBeLessThan(4);
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
 });
