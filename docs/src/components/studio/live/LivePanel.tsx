@@ -44,7 +44,7 @@ function doingLabel(p: LivePerson): string | null {
 function whereLabel(p: LivePerson): string {
 	if (p.away) return 'Reconnecting…';
 	const doing = doingLabel(p);
-	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}`;
+	const tail = `${p.editing ? ' · editing' : ''}${doing ? ` · ${doing}` : ''}${p.at ? ` · ${p.at}` : ''}`;
 	if (p.slideHidden) return `Slide hidden${tail}`;
 	if (p.slide === null) return doing ? `Arriving… · ${doing}` : 'Arriving…';
 	return `Slide ${p.slide + 1}${tail}`;
@@ -282,7 +282,7 @@ function YourSettings({ view, actions }: { view: LiveView; actions: LiveActions 
 					<ShareRow id="live-share-cursor" label="Show my cursor" note="Others see where you are in the editor. That shows roughly where you are working even when your slide is hidden." checked={sh.cursor} onChange={(on) => actions.setShare({ cursor: on })} />
 					<ShareRow id="live-share-slide" label="Show my slide" note="Others see which slide you are on, and can jump to it." checked={sh.slide} onChange={(on) => actions.setShare({ slide: on })} />
 					<ShareRow id="live-share-typing" label="Show when I'm typing" note="Others see when you type in the editor and in the chat." checked={sh.typing} onChange={(on) => actions.setShare({ typing: on })} />
-					<ShareRow id="live-share-doing" label="Show what I'm doing" note="Others see the panel or view you have open, whether you are presenting, and when you are asking the AI. What you ask never shows unless you share it. On a desktop, someone following you opens the same panel and view (never Fabricate, and never while they type)." checked={sh.doing} onChange={(on) => actions.setShare({ doing: on })} />
+					<ShareRow id="live-share-doing" label="Show what I'm doing" note="Others see the panel or view you have open, the settings panel and section, the settings row you are in, whether you are presenting, and when you are asking the AI. What you type or pick there, and what you ask, never shows unless you share it. On a desktop, someone following you opens the same panels and Present (never Fabricate or Setup, and never while they type)." checked={sh.doing} onChange={(on) => actions.setShare({ doing: on })} />
 					<ShareRow id="live-share-pointer" label="Show my pointer" note="Others on your slide see your mouse pointer over it, and where you click. It can never click anything of theirs. Hiding your slide hides it too." checked={sh.pointer} onChange={(on) => actions.setShare({ pointer: on })} />
 				</div>
 				<div className="mt-3 flex flex-col gap-3 border-t border-border pt-3" data-live-connection>
@@ -314,6 +314,7 @@ function PersonRow({ p, view, actions }: { p: LivePerson; view: LiveView; action
 					<span className="truncate">{p.me ? `You · ${whereLabel(p)}` : following ? `Following · ${whereLabel(p)}` : whereLabel(p)}</span>
 					{LinkGlyph && p.link && <LinkGlyph className="size-3 shrink-0 text-muted-foreground/70" role="img" aria-label={`${LINK_LABEL[p.link.kind]} (${p.link.detail})`} data-live-link={p.link.kind} />}
 				</div>
+				{p.changed && <div className="truncate text-[11px] font-medium text-[var(--accent)]">{p.changed}</div>}
 			</div>
 			{view.audio && p.me && <CallControls view={view} actions={actions} />}
 			{p.me && <YourSettings view={view} actions={actions} />}

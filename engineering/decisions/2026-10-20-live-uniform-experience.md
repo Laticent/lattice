@@ -103,7 +103,7 @@ moves people who did not ask to move. So every piece of state gets exactly one t
 |---|---|---|
 | **1. Deck truth** | Identical for everyone; no opt-out | Source (done); the session's look (§5.1); the saved themes and finishes the deck uses |
 | **2. Activity** | Everyone can see it; it moves no one; withholdable like the cursor | Panel open ("in Coach"), view, presenting, the Coach card they read, "asking the AI", pointer (§7.6) |
-| **3. Follow** | You opt in to mirror one person | Slide (today), panel, view |
+| **3. Follow** | You opt in to mirror one person | Slide, panel, view, the Slide and Deck settings panels and their section, and the leader's Present (amended 2026-10-21, `2026-10-21-follow-over-tavola.md`). A settings row the leader is in is *marked* on your screen, never filled with their value |
 | **4. Room events** | Started by the host (or a member the host allows); every idle member joins; anyone can leave | Present together (§7.2), Show me (§7.5) |
 | **5. Shared on purpose** | The owner shares each item | An AI chat turn; comments (slice 6); checkpoints (not planned) |
 | **6. Never** | Private by construction | API keys and AI cost, unsent drafts, settings (including CC, Voice and Guide switches), devices, crash reports, Library records the deck does not use |
@@ -140,8 +140,11 @@ an earlier answer, only the final one is listed, with what changed.
    built). A turn reaches the room only when its owner presses Share, as a read-only card in the
    people chat.
 4. **Follow goes wide.** Following someone mirrors their slide, panel (Coach, Lenses, Library,
-   never their Chat) and view. Any action of your own stops following. On a width where their
-   panel does not exist, you follow the slide and see a label.
+   never their Chat), view, the Slide or Deck settings panel with its section, and their Present
+   (amended 2026-10-21: owner decisions D1 to D3 in `2026-10-21-follow-over-tavola.md`). Any action of
+   your own stops following. On a width where their panel does not exist, you follow the slide and see a
+   label. Inputs, dropdowns and sliders are followed as a *marker on the row*, not as a replayed value;
+   Setup (workspace settings) is shown as open, with its tab, and is never opened for the follower.
 5. **Present together is host-started; idle members join.** Only the host, or a member the host
    allows, can press "Present to everyone", and it is rate-limited. A member who has not typed in
    the last few seconds joins at once; a member who is typing gets a "Join" toast, by the same
@@ -296,6 +299,14 @@ in the editor in the last 2.5 s or has focus in another text field: they get one
 burst of typing, and Go takes them wherever the person is when it is pressed, and only if they still follow
 the same person. A panel or view change the follower makes stops following, as a slide change does.
 
+*Amended 2026-10-21 (`2026-10-21-follow-over-tavola.md`).* Where a member is now travels as a declared **view**
+beside `doing`: Tavola's Yjs adapter rebuilds awareness from a closed list of keys (panel, view, presenting,
+asking, inspector, section, present, focus, shown, setupTab, changed), each a place from a fixed list, an
+integer in a range, or a flag. `doing` is still written for one release so a tab that has not updated follows
+as before. The slide now goes through the same typing gate as the panel (it did not before: a leader changing
+slides moved a follower mid-sentence). A follow ends, with a notice, when the person followed leaves; it does not
+rebind to whoever takes their name and color (follow note §14).
+
 Pointers ride a `ptr` post in slide coordinates. At most about ten a second leave a browser (the last
 position wins); a held pointer is said again every 2 s; one arriving faster than 30 ms after the last move,
 or a click faster than 150 ms after the last click, is dropped; a value outside 0..1 or a slide past 10,000 is
@@ -400,12 +411,48 @@ can neither add to the presenter's bill nor shift slide indices under the follow
 Measured on two real headless Chromium browsers on a call (Chromium's fake microphone), with the host's mic
 muted: the guest's inbound audio energy read 0.31/s with the host unmuted (the control), 0.0000/s muted with
 no narration, 0.2404/s while a 3 s tone played through the narration stage, and 0.0000/s after it ended.
-Not built yet, and tracked: compressed clips straight from the presenter to members off the call
-(`followups.d/2810-p2-live-present-together-with-narration.md`), captions on a member's Present in step with
-the presenter, and "Tap to listen" on an iPhone (a member hears the narration through the call, which their
-own tap on Join audio already unlocked). UNVERIFIED: whether browser echo cancellation removes the
+Compressed clips straight from the presenter to members off the call, and "Tap to listen", are built (step 3,
+below). UNVERIFIED: whether browser echo cancellation removes the
 presenter's local narration from their microphone; while the presenter is unmuted the others may hear it
 twice, faintly.
+
+**Slice 3, step 3 as built (2026-10-20): narration for members off the call.** A member hears the presenter's
+voice from clips when the presenter has Voice on (the `present` post carries `v`) and the narration is not
+reaching them on the call: they are off the call, or the presenter is. The member never calls TTS.
+- **The member asks, the presenter answers.** A member's Present reads each sentence through `setRoomClipSource`
+  (`read-aloud.ts`), which swaps the voice a read sees for a "room" voice: the real model's config surface with
+  the read-along's routes to a synthesizer replaced (`synthOne`, `warm`, `summonDefaultVoice`; the export bake and the voice preview, which a person starts on purpose, keep their own). It asks the host (`cw`) for the
+  clip named by the first 16 hex digits of the SHA-256 of the sentence's spoken text, asks again every 1.5 s up to
+  ten times, and plays what comes back (`clip`). The source is set in a layout effect before the reader's own
+  effects, so a read never captures the member's own key.
+- **The host serves only what it holds.** `peekClip` (`voice-model.js`) returns a clip from memory or the clip
+  store and never synthesizes, so a request cannot spend the presenter's key (§6 rule 7). The Present of a host
+  presenting with Voice on registers a serve function that knows only the frozen deck's sentences by hash, so a
+  hash from anywhere else, or a plaintext store key, finds nothing (§7.3's note on `voice-model.js:273-275`). It
+  compresses (`compressClip`, mp3 at 64 kbps) once per hash and keeps the answer for the run. A hash the presenter
+  has not made yet gets "not yet", and its own read-ahead usually has it by the next ask. The greeting and closing
+  bookends are not in the set, so members read them as captions only.
+- **Bounds (§6 rules 5 and 8).** A request is answered only while the host presents to everyone, only for the
+  sentences of the slides around where the presenter is (one back, five ahead), one at a time, at most 4 a second
+  per member, and a clip already sent to a member is not sent again for 8 s. A member accepts a clip only for a
+  hash it asked about, only from the presenter, and only if its base64 is under what the sentence's length allows
+  (24 KB plus 2 KB a character, at most 1.5 MB) before it is decoded. Then it reads the mp3's first frame header:
+  layer III at 22.05 kHz or more and 24 kbps or more, and a length (bytes over bitrate) of at most a fifth of a
+  second a character plus 4 s. The header check exists because a clip is bounded by its bitrate, not its bytes:
+  1.5 MB at 8 kbps decoded to 25 minutes, about 265 MB, in a real Chromium. The type must be mp3 (the presenter
+  never serves raw WAV, which is about 3 KB a character). A member keeps at most 96 clips and 24 MB, in memory,
+  and drops them when the presentation ends; the decoded-clip cache key carries a per-run number, so audio from one
+  run is never replayed in another.
+- **Own channel: not built, and the note's premise was wrong.** Trystero 0.26 sends every action over one data
+  channel per peer, already applies `bufferedAmount` backpressure to each frame, and the receiver takes one large
+  transfer per sender at a time across all actions. A second action would not have stopped a clip from queuing
+  an edit behind it. What bounds the stall instead is that clips go one at a time, on request, a sentence ahead of
+  where the member is (about 40 KB each).
+- **Tap to listen.** A member who joined mid-slide has Voice muted; the Voice button reads "Tap to listen", and the
+  tap unlocks the audio stage inside the gesture (the iPhone rule). A listening member's Present starts each slide
+  the presenter reaches, once, and never advances, so it cannot detach them.
+- **Captions** follow the member's own audio sentence by sentence, as the note's sync rule says. A caption
+  transport on the session clock is not needed for that and is not built.
 
 **Slice 3 hardened by its trio (2026-10-20).** The checker reproduced one real defect in a test: a member's
 Present stays mounted after its first open, and the open transition moved through the detaching setter, so
@@ -687,8 +734,31 @@ Still unverified:
   only; slice 1b's test reproduces them with a saved theme.
 - The call mix (§7.3), the iPhone tap (§7.2), and a Present opened by a room event on a phone have
   not run on a real device.
-- The slice 3 browser runs used scratch scripts and a test tone on the narration stage, not narration
-  synthesized from a deck. The scripts are not committed, so a reviewer cannot rerun them from the tree.
+- The slice 3 call-mix runs used scratch scripts and a test tone on the narration stage. Narration for members off
+  the call is run by `tools/live-narration-check.mjs`, which is committed: two real browsers over the public
+  relays (Chromium, Firefox and WebKit, plus a 390 px guest in Chromium), the voice endpoint answered by a
+  generated tone, narration synthesized from the shipped sample deck. The guest decoded non-silent audio from the
+  presenter, followed to slide 2 and decoded its clips, and made no call to the voice endpoint. An analyser on the
+  guest's audio destination read a peak of about 0.28 at the speakers in all three engines (the tone's own peak is
+  0.277); Firefox needs a sound device, so the sandbox ran a PulseAudio null sink.
+- The phone path, by emulation. `--iphone` runs the guest as WebKit with Playwright's iPhone 13 profile and takes the
+  tap as a touch event; it passes. Playwright's WebKit does not enforce iOS's rule that sound starts only from inside a
+  tap, so `--ios-gate` adds a page-side stand-in for the rule as `stage.ts` documents it: until a source is started
+  inside a gesture, every started source is dropped. On the shipped code nothing is dropped and the output reads
+  0.278 (the first in-gesture start is `unlock` called from the overlay's tap handler). With `unlock()` delayed in the
+  built Suono file, 5 starts are dropped and the output reads 0.000, so the check can fail. This shows our code
+  starts sound inside the tap under that rule. It is not Safari on a device.
+- On the call. `tools/live-narration-call-check.mjs`: two real Chromium browsers (fake microphone) both on the
+  call, the host muted (a muted sender keeps its track open, so the mix still goes out). The guest's inbound call
+  audio energy was 0.0001 a second before the host played and 0.0524 a second while it narrated; the guest's Voice
+  button was disabled (no second copy), and it decoded no clips and never called the voice endpoint. It does not
+  hear:
+  echo, the call mix and a real iPhone stay open (`followups.d/2810-p2-live-present-together-with-narration.md`).
+- Known limits of the clip path, from the 2026-10-20 trio: it follows the presenter's position, not their
+  playback, so a presenter who pauses does not pause a member, a replay of the same slide is not replayed, and
+  a member re-syncs at slides, not at sentences, and a member who keeps their own key is never billed (a follower's warm-ahead is off, and its voice is muted unless it listens to the room); the greeting and closing are not narrated to members; a presenter
+  who changes voice mid-run is heard in the old voice on slides a member revisits; two browsers must derive the
+  same spoken text from the frozen deck (a locally missing theme can split it).
 - The red team's findings on keys (§7.2), theme fetches (§5.2) and scrolling (§7.6) are reasoned
   from code, not run in a browser.
 - Sending a deck's Library records costs bandwidth once per join; not measured.

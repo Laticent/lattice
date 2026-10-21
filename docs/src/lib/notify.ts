@@ -249,6 +249,30 @@ export function notifySticky(message: string, opts: ActionOptions): NoticeHandle
 	);
 }
 
+/**
+ * Which raise of the action kind is on screen now. Read it right after `notifyAction`
+ * and keep it with the handle; `dismissActionNotice` compares against it.
+ */
+export function actionRaise(): number {
+	return slots.action.raise;
+}
+
+/** True while the action pill raised as `raise` is still on screen (not replaced, not closed). */
+export function actionLive(raise: number): boolean {
+	return slots.action.live && slots.action.raise === raise;
+}
+
+/**
+ * Retire an ACTION notice only if it is still the one on screen. The action kind has one
+ * slot and a rewrite reuses the live id, so after a later `notifyAction` the old handle
+ * names that newer message; a bare `dismissNotice` would close it. Pass the handle
+ * `notifyAction` returned and the `actionRaise()` read right after it. No-op once
+ * something else was raised or the pill is gone.
+ */
+export function dismissActionNotice(handle: NoticeHandle, raise: number): void {
+	if (actionLive(raise)) toast.dismiss(handle);
+}
+
 /** Retire a notice early. Safe to call on one already gone. */
 export function dismissNotice(handle: NoticeHandle): void {
 	toast.dismiss(handle);

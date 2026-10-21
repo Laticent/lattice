@@ -226,6 +226,8 @@ type VoiceModel = {
 	/** Background-prefetch these spoken sentences into the shared audio cache — no playback, best-effort. `signal` stops any FURTHER requests once aborted (already-started ones finish; see voice-model.js). */
 	warm: (sentences: string[], opts?: { signal?: AbortSignal }) => void;
 	rung: () => string;
+	/** A clip this device already holds for the sentence under the active voice, or null. Never synthesizes. */
+	peekClip?: (text: string) => Promise<Bytes | null>;
 	// The config surface the Workspace TTS settings panel drives (below) — same
 	// instance as playback, so a pick there takes effect immediately.
 	availability: () => VoiceAvailability;
@@ -268,7 +270,43 @@ export type VoiceAvailability = {
 export type VoiceLoadProgress = { progress: number; text?: string; status?: string };
 export type OrVoiceModel = { id: string; name: string; promptPerM: number | null; completionPerM: number | null; voices: string[] };
 let voicePromise: Promise<VoiceModel | null> | null = null;
+
+/** Where a member's Present gets its audio while it follows a presentation with narration. */
+export type RoomClipSource = (spoken: string, signal?: AbortSignal) => Promise<Bytes | null>;
+let roomClips: RoomClipSource | null = null;
+/** Which presentation the source belongs to: it is in the decoded-clip cache key, so audio from one run is
+ *  never replayed in another (the stage's cache outlives a presentation). */
+let roomRun = 0;
+/** While set, every read on this page takes its sentences' audio from the room instead of a voice engine:
+ *  no synthesis, no warm-ahead, no key use (live-uniform note §6 rule 7). `null` puts the member's own voice back. */
+export function setRoomClipSource(src: RoomClipSource | null): void {
+	if (src) roomRun++;
+	roomClips = src;
+}
+/** The voice a read sees while `roomClips` is set: the real model's config surface, with every route to
+ *  a synthesizer replaced. It reports the rung 'room', which `startClocked` plays like any clocked voice. */
+function roomVoice(real: VoiceModel | null, src: RoomClipSource): VoiceModel {
+	const none = () => {};
+	const room: Partial<VoiceModel> = {
+		rung: () => 'room',
+		synthOne: async ({ text, signal }) => ({ rung: 'room', bytes: await src(text, signal), key: `room|${text}` }),
+		clipKey: (text) => `room|${text}`,
+		latencyKey: () => 'room',
+		warm: none,
+		peekClip: undefined,
+		summonDefaultVoice: undefined,
+		speakThis: none,
+		stop: none,
+		pause: none,
+		resume: none,
+	};
+	return Object.assign(Object.create(real ?? null), room) as VoiceModel;
+}
 function getVoice(): Promise<VoiceModel | null> {
+	const src = roomClips;
+	return src ? getRealVoice().then((real) => roomVoice(real, src)) : getRealVoice();
+}
+function getRealVoice(): Promise<VoiceModel | null> {
 	if (!voicePromise) {
 		voicePromise = import('@/playground/voice-model.js')
 			.then((m) =>
@@ -313,6 +351,33 @@ let previewHandle: { stop(): void } | null = null;
 
 function nowMs(): number {
 	return typeof performance !== 'undefined' ? performance.now() : 0;
+}
+
+/** The presenter's clip for one spoken sentence, if this device already holds it: from memory or the clip
+ *  store, never synthesized. What Present together serves a member's request from. */
+export async function narrationClipFor(spoken: string): Promise<Bytes | null> {
+	if (roomClips) return null;
+	const v = await getVoice();
+	return (await v?.peekClip?.(spoken)) ?? null;
+}
+
+/** Whether this device's own voice is a clocked one (a key, or on-device Kokoro) that can make clips. */
+export async function narrationCanSynthesize(): Promise<boolean> {
+	const v = await getRealVoice();
+	try {
+		const r = v?.rung();
+		return r === 'openrouter-tts' || r === 'kokoro';
+	} catch {
+		return false;
+	}
+}
+
+/** What a sentence is called on the wire: the first 16 hex digits of the SHA-256 of its spoken text. A member
+ *  and the presenter hash the same sentence of the same frozen deck, so they name the same clip; nothing
+ *  else about the presenter's store (its keys hold plain text) is ever addressable (§7.3). */
+export async function sentenceHash(spoken: string): Promise<string> {
+	const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(spoken));
+	return [...new Uint8Array(d, 0, 8)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
@@ -937,7 +1002,18 @@ export function useReadAloud(
 		} catch {
 			r = 'silent';
 		}
-		if (r !== 'openrouter-tts' && r !== 'kokoro') return false; // not a clocked voice — stay on the estimate
+		if (r !== 'openrouter-tts' && r !== 'kokoro' && r !== 'room') return false; // not a clocked voice — stay on the estimate
+		// A read that began on one voice resumes on whichever voice the room now calls for: a member's own key is
+		// never what a read in the room's voice resumes on, and the room's voice is never what a detached
+		// member's own read resumes on. (Play and unmute both come through here.)
+		if (!!roomClips !== (r === 'room')) {
+			void getVoice().then((v) => {
+				if (!v || mutedRef.current || !!roomClips !== (v.rung() === 'room')) return;
+				voiceRef.current = v;
+				resumeClockedFromCurrentRef.current();
+			});
+			return true;
+		}
 		audioSuppressedRef.current = false;
 		// Resume from the CURRENT sentence, holding the highlight at that cue's live (aligned) start.
 		// current() is null in a between-words gap — fall back to the last highlighted cue, never cue 0.
@@ -1060,7 +1136,7 @@ export function useReadAloud(
 			}
 			// A BLOB voice (measured onsets) drives the audio clock; browser voice stays on the estimate
 			// (it speaks in parallel but reports no onsets).
-			const clocked = r === 'openrouter-tts' || r === 'kokoro';
+			const clocked = r === 'openrouter-tts' || r === 'kokoro' || r === 'room';
 			// Resolve the concrete model/voice behind the rung — a multi-model device trace self-labels
 			// which voice produced each slide, AND it keys per-voice pace calibration (so `k` is fit per
 			// model·voice). Resolved for ANY clocked voice REGARDLESS of mute (before the muted branch
@@ -1072,7 +1148,9 @@ export function useReadAloud(
 					voiceLabelRef.current =
 						r === 'openrouter-tts'
 							? `${voice.orModel?.() || '?'} · ${voice.orVoice?.() || '?'}`
-							: `kokoro · ${voice.kokoroVoice?.() || '?'}`;
+							: r === 'room'
+								? `room · ${roomRun}`
+								: `kokoro · ${voice.kokoroVoice?.() || '?'}`;
 				} catch {
 					voiceLabelRef.current = r;
 				}
@@ -1212,7 +1290,31 @@ export function useReadAloud(
 		// UNMUTE while PLAYING → resume the clocked audio now. While PAUSED, `audioSuppressedRef` stays
 		// set and the resume is DEFERRED to the next play() (see the resume branch) — so a
 		// mute → pause → unmute → play still brings the audio back on this slide.
-		if (playingRef.current) resumeClockedFromCurrentRef.current();
+		if (!playingRef.current) return;
+		// A read that began before the room's narration was on this page holds the member's own voice (silent
+		// without a key, which never became "suppressed"). Unmuting into the room's voice must pick that voice
+		// up now, never resume on the old one: the old one is the member's own key.
+		const onRoom = voiceRef.current?.rung() === 'room';
+		// The mirror case: a member who detached still holds the room's voice; unmuting must take their own.
+		if (!roomClips && onRoom) {
+			void getVoice().then((v) => {
+				if (!v || mutedRef.current || roomClips) return;
+				voiceRef.current = v;
+				audioSuppressedRef.current = true;
+				resumeClockedFromCurrentRef.current();
+			});
+			return;
+		}
+		if (roomClips && !onRoom) {
+			void getVoice().then((v) => {
+				if (!v || mutedRef.current || !roomClips) return;
+				voiceRef.current = v;
+				audioSuppressedRef.current = true;
+				resumeClockedFromCurrentRef.current();
+			});
+			return;
+		}
+		resumeClockedFromCurrentRef.current();
 	}, [mutedProp, clearBuffering]);
 
 	return { playing, track, active, guideCue, reportGuidePaint, progress, rung, buffering, debugEvents, debugLive, play, pause, toggle, stop };

@@ -1,21 +1,22 @@
 import type { Extension } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
-import * as decoding from 'lib0/decoding';
-import * as encoding from 'lib0/encoding';
 import { yCollab, yUndoManagerKeymap } from 'y-codemirror.next';
-import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate, removeAwarenessStates } from 'y-protocols/awareness';
+import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
 import { type AudioStats, cleanName, createHostKey, createSession, formatFragment, formatLink, fromBase64Url, type HostKey, hostKeyFrom, type LinkEvent, type LinkPath, linkKind, mintLink, parseFragment, type Session, type SessionState, type Succession, type TokenEntry, toBase64Url, tokenId } from '@/lib/tavola';
 import { trysteroTransport } from '@/lib/tavola/adapters/trystero';
+import { type FieldCleaner, sanitizeAwarenessUpdate, type YjsAwareness, yjsAwareness } from '@/lib/tavola/adapters/yjs';
 import { BUILTIN_PALETTES } from '@/lib/theme-catalog.generated';
 import { coerceRecipe } from '../finish-generate';
 import { RESERVED_FINISH_NAMES } from '../finish-library';
 import { refuseImportedTheme } from '../import-gate';
 import { RESERVED_THEME_NAMES } from '../library/reserved-names';
 import { TOURS } from '../tours';
+import { followBus, type PresentPlace } from './follow-bus';
+import { changedWords, describeMove, type FollowMove, placeOf, placeWords, settingsMoves, VIEW_KEYS, viewOf } from './follow-keys';
 import { CALL_BITRATE, HIGH_FIDELITY_BITRATE, LiveAudio } from './live-audio';
 import { LIVE_TURN } from './live-ice';
-import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
+import { IDLE_VIEW, type LiveActions, type LiveChatLine, type LiveClip, type LiveColor, type LiveDoing, type LiveNote, type LivePerson, type LivePointer, type LivePointerSource, type LivePresent, type LiveShare, type LiveTransport, type LiveUnshared, type LiveView, type LobbyActions, type LobbyView, liveColor, liveColorLight } from './live-model';
 import { clearJoinIntent, HOST_KEY, hasFreshJoin, type LiveCollab, type LiveDeps, type LiveFinish, type LiveHost, type LiveLook, type LiveRecords, type LiveTheme, NO_RECORDS, readSealedJoin, saveName, scrubLiveFragment, storedLiveName, storeSealedJoin, takeFreshJoin } from './live-store';
 import { WakeKeeper } from './live-wake';
 import { deleteHostPrivateKey, getHostPrivateKey, putHostPrivateKey, seal, unseal } from './secret-box';
@@ -167,6 +168,10 @@ type Post =
 	| { k: 'bye' }
 	/** host → all: presenting to everyone (`on`) and where (rendered slide `i`, page `p`, lens `l`), or stopped */
 	| { k: 'present'; on: boolean; i?: number; p?: number; l?: string; h?: string }
+	/** Narration clips (§7.3). Member → host: the clip of the sentence whose text hashes to `h`. Host → that
+	 *  member: the clip (`d` base64 of compressed audio, `m` its type, `l` its lead-in) or, with no `d`, "not yet". */
+	| { k: 'cw'; h: string }
+	| { k: 'clip'; h: string; m?: string; l?: number; d?: string }
 	/** Show me together (§7.5): a shipped tour's id and when to start it, on the session clock. */
 	| { k: 'tour'; id: string; at: number }
 	/** Comments (slice 6). Member → host: an operation the host checks against who may do it. Host → all:
@@ -329,7 +334,7 @@ type AwState = { peer?: string; user?: { name: string; color: string; colorLight
 const LIVE_PANELS: readonly LiveDoing['panel'][] = ['coach', 'lenses', 'library', 'live'];
 const LIVE_VIEWS: readonly LiveDoing['view'][] = ['compose', 'fabricate', 'article'];
 /** A `doing` field as a peer sent it, or undefined: a panel and a view from the fixed lists, and a boolean. */
-const cleanDoing = (v: unknown): LiveDoing | undefined => {
+export const cleanDoing = (v: unknown): LiveDoing | undefined => {
 	if (!v || typeof v !== 'object') return undefined;
 	const { panel, view, presenting } = v as Record<string, unknown>;
 	if (panel !== null && !(LIVE_PANELS as readonly unknown[]).includes(panel)) return undefined;
@@ -338,6 +343,12 @@ const cleanDoing = (v: unknown): LiveDoing | undefined => {
 };
 /** This browser's activity from its Studio state. */
 const doingOf = (d: LiveDeps): LiveDoing => ({ panel: d.panel, view: d.view, presenting: d.presenting, ...(d.asking ? { asking: true } : {}) });
+/** A settings report counts as this person's own move only within this long of a press, tap or key. */
+const GESTURE_MS = 700;
+/** A Present the person closed stays closed until the leader's Present has been gone this long (then a new one is a new one). */
+const PRESENT_GONE_MS = 3000;
+/** How long "Amina changed Theme" stays on her row. */
+const CHANGED_SHOW_MS = 20_000;
 /** Pointers: at most this many a second leave this browser; one arriving faster from a peer is dropped,
  *  and one that has not moved for this long disappears. */
 const POINTER_EVERY_MS = 100;
@@ -356,13 +367,58 @@ const PRESENT_START_WAIT_MS = 600;
 /** A host stepping fast sends its position at most this often (the last one always goes). */
 const PRESENT_EVERY_MS = 100;
 /** A transport as a host sent it, or null. */
-const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown }): LiveTransport | null => {
+const cleanTransport = (p: { i?: unknown; p?: unknown; l?: unknown; h?: unknown; v?: unknown }): LiveTransport | null => {
 	const ok = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 10_000;
 	if (!ok(p.i) || !ok(p.p) || typeof p.l !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(p.l)) return null;
-	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}) };
+	return { idx: p.i, page: p.p, lens: p.l, ...(typeof p.h === 'string' && /^[0-9a-f]{1,8}$/.test(p.h) ? { hash: p.h } : {}), ...(p.v === 1 ? { voice: true } : {}) };
 };
 /** A transport as a `present` post carries it. */
-const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}) });
+const transportPost = (t: LiveTransport) => ({ i: t.idx, p: t.page, l: t.lens, ...(t.hash ? { h: t.hash } : {}), ...(t.voice ? { v: 1 } : {}) });
+/** Narration clips a member holds for one presentation, and the most one clip may carry. A clip is mp3 at
+ *  64 kbps, about 8 KB a second of speech, so these are a few minutes of talk and several times a
+ *  sentence's real size. The size a clip may be for its text is `clipLimit`. */
+const CLIP_KEEP = 96;
+const CLIP_BYTES_KEEP = 24 * 1024 * 1024;
+const CLIP_MAX_BYTES = 1536 * 1024;
+const CLIP_HASH = /^[0-9a-f]{16}$/;
+/** A member asks again this often while a clip has not come (the presenter may not have made it yet), and gives up after. */
+const CLIP_RETRY_MS = 1500;
+const CLIP_TRIES = 10;
+/** The host answers one member at most this many requests in CLIP_WINDOW_MS; a flood of asks buys no flood of bytes. */
+const CLIP_RATE = 4;
+const CLIP_WINDOW_MS = 1000;
+/** The host keeps this many answered clips for the run, so four members asking costs one compression. */
+const CLIP_SERVED_KEEP = 128;
+/** What an mp3's first frame header says, or null for anything that is not MPEG audio layer III at a rate a
+ *  voice clip has. A member reads this before it decodes: a clip is bounded by its bitrate and length, not by its
+ *  bytes, and 1.5 MB at 8 kbps decodes to 25 minutes of audio (about 265 MB). */
+const mp3Header = (b: Uint8Array): { kbps: number } | null => {
+	let i = 0;
+	// An ID3v2 tag may come first: skip it, bounded.
+	if (b.length > 10 && b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) i = 10 + (((b[6] & 0x7f) << 21) | ((b[7] & 0x7f) << 14) | ((b[8] & 0x7f) << 7) | (b[9] & 0x7f));
+	if (i > 4096 || i + 4 > b.length) return null;
+	if (b[i] !== 0xff || (b[i + 1] & 0xe0) !== 0xe0) return null;
+	const version = (b[i + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2 (0 is 2.5, 1 reserved)
+	const layer = (b[i + 1] >> 1) & 3; // 1 = layer III
+	const bitrate = b[i + 2] >> 4;
+	const rate = (b[i + 2] >> 2) & 3;
+	if ((version !== 3 && version !== 2) || layer !== 1 || bitrate === 0 || bitrate === 15 || rate === 3) return null;
+	const kbpsV1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+	const kbpsV2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+	const hz = (version === 3 ? [44100, 48000, 32000] : [22050, 24000, 16000])[rate];
+	const kbps = (version === 3 ? kbpsV1 : kbpsV2)[bitrate];
+	return hz >= 22050 && kbps >= 24 ? { kbps } : null;
+};
+/** The longest a sentence's clip may run: speech is about 15 characters a second, so this is three times that
+ *  pace and a few seconds over. */
+const clipSeconds = (chars: number) => chars / 5 + 4;
+/** A clip already sent to a member is not sent to them again this soon: a retry on a slow link must not
+ *  queue a second copy behind the first on the one channel everything shares. */
+const CLIP_RESEND_MS = 8000;
+/** Speech is about 15 characters a second, so a sentence's clip of that many characters should be about
+ *  540 bytes a character at 64 kbps; allow ample slack, and a floor for a short one. A clip far over
+ *  this is not that sentence (a 4 MB clip decodes to about 800 MB, §6 rule 8). */
+const clipLimit = (chars: number) => Math.min(CLIP_MAX_BYTES, 24_000 + chars * 2000);
 /** A click is drawn at most this often per member; a flood of clicks is dropped like a flood of moves. */
 const POINTER_CLICK_GAP_MS = 150;
 /** No deck has this many slides; a pointer naming a slide past it is dropped. */
@@ -372,11 +428,14 @@ const typingInAField = (): boolean => {
 	if (typeof document === 'undefined') return false;
 	const el = document.activeElement as HTMLElement | null;
 	if (!el || el.closest('.cm-editor')) return false;
-	return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && /^(text|search|email|url|)$/.test(el.type)) || el.isContentEditable;
+	// Any input that takes typed characters (number and password too: a half-typed value is lost when the panel moves).
+	return el instanceof HTMLTextAreaElement || (el instanceof HTMLInputElement && !/^(checkbox|radio|range|button|submit|reset|file|color|image|hidden)$/.test(el.type)) || el.isContentEditable;
 };
 
 type Runtime = {
 	session: Session;
+	/** What this browser shows about where it is, and what the others show (Tavola's view over awareness). */
+	view: YjsAwareness['view'];
 	doc: Y.Doc;
 	ytext: Y.Text;
 	aw: Awareness;
@@ -387,7 +446,7 @@ type Runtime = {
 	ext: Extension;
 	key: HostKey | null;
 	/** Awareness client id → the peer whose state we accepted for it (the roster bound them). */
-	owner: Map<number, string>;
+	owner: ReadonlyMap<number, string>;
 	/** This browser's chat counter; a line's id is `<sid>:<n>`, `sid` random per session. */
 	chatN: number;
 	sid: string;
@@ -437,99 +496,88 @@ export function rebase(base: string, next: string, cur: string): { from: number;
 
 /** A y-codemirror caret position, kept only in the shape y-codemirror can read: one bad field there
  *  throws inside CodeMirror and turns off everyone's remote carets (red-team round 2, finding 5). */
-function cleanRelPos(x: unknown): Record<string, unknown> | null {
+export function cleanRelPos(x: unknown): Record<string, unknown> | null {
 	if (!x || typeof x !== 'object') return null;
 	const p = x as Record<string, unknown>;
 	const id = (v: unknown): { client: number; clock: number } | null => {
 		const o = v as { client?: unknown; clock?: unknown } | null;
 		return o && typeof o === 'object' && Number.isSafeInteger(o.client) && Number.isSafeInteger(o.clock) ? { client: o.client as number, clock: o.clock as number } : null;
 	};
-	const out: Record<string, unknown> = {};
 	const item = id(p.item);
 	const type = id(p.type);
-	if (item) out.item = item;
-	if (type) out.type = type;
-	if (typeof p.tname === 'string') out.tname = p.tname.slice(0, 64);
-	if (!item && !type && out.tname === undefined) return null;
-	if (Number.isInteger(p.assoc)) out.assoc = p.assoc;
-	return out;
-}
-
-/** The client ids in an awareness update (one this file encoded, so it decodes). */
-function awarenessClients(u: Uint8Array): number[] {
-	const d = decoding.createDecoder(u);
-	const n = decoding.readVarUint(d);
-	const out: number[] = [];
-	for (let i = 0; i < n; i++) {
-		out.push(decoding.readVarUint(d));
-		decoding.readVarUint(d);
-		decoding.readVarString(d);
-	}
-	return out;
+	const tname = typeof p.tname === 'string' ? p.tname.slice(0, 64) : null;
+	if (!item && !type && tname === null) return null;
+	// Yjs reads an absent id as `null` and throws on `undefined`: a caret at the end of the document has
+	// `item: null`, and a viewer that dropped the key lost every remote caret to the thrown TypeError.
+	return { type, tname, item, assoc: Number.isInteger(p.assoc) ? p.assoc : 0 };
 }
 
 /**
- * Rewrite an incoming awareness update so it says only what `from` may say: an entry is kept only
- * for a client id the host's roster binds to `from` (`ownerOf`), and each state's `peer`, `user`
- * (name and color, from the roster), `summon` (host only) and `cursor` (shape-checked) are rebuilt
- * rather than believed. Returns null when nothing survives or the bytes do not decode.
+ * What this app lets a member say about itself in awareness, one cleaner per field. Tavola's Yjs adapter
+ * (`@/lib/tavola/adapters/yjs`) owns the rest of the gate: it refuses a message over 8 KB, an entry over 4 KB
+ * or more than 64 entries before any parse, keeps only the one client the host's roster binds to the sender,
+ * writes `peer` and `user` itself (a cleaner cannot name them), handles the clock and the rate, and drops a
+ * field no cleaner names. A cleaner sees who sent the value, so a `summon` counts only from the host.
  */
+const AWARENESS_FIELDS: Readonly<Record<string, FieldCleaner>> = {
+	slide: (v) => (Number.isInteger(v) && (v as number) >= 0 ? v : undefined),
+	slideHidden: (v) => (v === true ? true : undefined),
+	editingAt: (v) => (typeof v === 'number' ? v : undefined),
+	summon: (v, sender) => {
+		const sm = v as { slide?: unknown; n?: unknown } | undefined;
+		return sender.role === 'host' && sm && Number.isInteger(sm.slide) && Number.isInteger(sm.n) ? { slide: sm.slide as number, n: sm.n as number } : undefined;
+	},
+	cursor: (v) => {
+		const cur = v as { anchor?: unknown; head?: unknown } | undefined;
+		const anchor = cleanRelPos(cur?.anchor);
+		const head = cleanRelPos(cur?.head);
+		return anchor && head ? { anchor, head } : undefined;
+	},
+	doing: (v) => cleanDoing(v),
+};
+/** The name and color a member shows under, from the roster: never from what the peer sent. */
+const awarenessIdentity = (m: { name: string; color: LiveColor }) => ({ user: { name: m.name, color: liveColor(m.color), colorLight: liveColorLight(m.color) } });
+
+/** Rewrite an incoming awareness update so it says only what `from` may say (the gate above, as bytes). */
 export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (client: number) => string | undefined, member: { name: string; color: LiveColor; role: string } | undefined): Uint8Array | null {
 	if (!member) return null;
-	const entries: Array<[number, number, string]> = [];
-	try {
-		const dec = decoding.createDecoder(update);
-		const n = decoding.readVarUint(dec);
-		for (let i = 0; i < n; i++) {
-			const client = decoding.readVarUint(dec);
-			const clock = decoding.readVarUint(dec);
-			const raw = decoding.readVarString(dec);
-			if (ownerOf(client) === from) entries.push([client, clock, raw]);
-		}
-	} catch {
-		return null;
-	}
-	const out: Array<[number, number, string]> = [];
-	for (const [client, clock, raw] of entries) {
-		let state: AwState | null = null;
-		try {
-			state = JSON.parse(raw);
-		} catch {
-			continue;
-		}
-		if (state !== null && typeof state === 'object') {
-			const clean: AwState = { peer: from, user: { name: member.name, color: liveColor(member.color), colorLight: liveColorLight(member.color) } };
-			const st = state as Record<string, unknown>;
-			if (Number.isInteger(st.slide) && (st.slide as number) >= 0) clean.slide = st.slide as number;
-			if (st.slideHidden === true) clean.slideHidden = true;
-			if (typeof st.editingAt === 'number') clean.editingAt = st.editingAt;
-			const sm = st.summon as { slide?: unknown; n?: unknown } | undefined;
-			if (member.role === 'host' && sm && Number.isInteger(sm.slide) && Number.isInteger(sm.n)) clean.summon = { slide: sm.slide as number, n: sm.n as number };
-			const cur = st.cursor as { anchor?: unknown; head?: unknown } | undefined;
-			const anchor = cleanRelPos(cur?.anchor);
-			const head = cleanRelPos(cur?.head);
-			if (anchor && head) clean.cursor = { anchor, head };
-			const doing = cleanDoing(st.doing);
-			if (doing) clean.doing = doing;
-			state = clean;
-		}
-		out.push([client, clock, JSON.stringify(state)]);
-	}
-	if (out.length === 0) return null;
-	const enc = encoding.createEncoder();
-	encoding.writeVarUint(enc, out.length);
-	for (const [client, clock, json] of out) {
-		encoding.writeVarUint(enc, client);
-		encoding.writeVarUint(enc, clock);
-		encoding.writeVarString(enc, json);
-	}
-	return encoding.toUint8Array(enc);
+	return sanitizeAwarenessUpdate(update, from, { ownerOf, member: { id: from, name: member.name, color: member.color, role: member.role as 'host' | 'edit' | 'view' }, identity: awarenessIdentity, fields: AWARENESS_FIELDS });
 }
 
 export class LiveController {
 	private rt: Runtime | null = null;
 	private deps: LiveDeps;
-	private following: string | null = null;
+	/** View keys the gate dropped because a value failed its list, by key. A schema mistake must be visible, not a quiet "Follow does not do that". */
+	private viewDrops = new Map<string, number>();
+	private followingId: string | null = null;
+	/** Whoever this browser follows. Setting it tells screens who they should mark (`syncLeader`). */
+	private get following(): string | null {
+		return this.followingId;
+	}
+	private set following(id: string | null) {
+		if (this.followingId !== id && this.presentFollow === 'open') followBus.apply('present', null);
+		if (this.followingId !== id) {
+			this.presentFollow = 'idle';
+			this.presentGoneAt = 0;
+		}
+		this.followingId = id;
+		this.followName = (id && this.rt?.session.getState().members.find((m) => m.id === id)?.name) || '';
+		this.syncLeader();
+	}
+	/** Raise a Go or Join prompt, unless the one action slot holds something the person just earned (their Undo):
+	 *  it is raised at the next awareness change once the slot is free, and returns whether it was raised. */
+	private prompt(message: string, action: { label: string; onClick: () => void }): boolean {
+		if (this.host.actionBusy?.()) return false;
+		this.host.notifyAction(message, action);
+		return true;
+	}
+	/** A follow that ends other than by the person pressing Stop says so: it must never just stop. */
+	private endFollow(why: 'moved' | 'left') {
+		if (!this.following) return;
+		const name = this.followName || 'them';
+		this.following = null;
+		this.host.notify(why === 'left' ? `${name} left, so you stopped following.` : `You stopped following ${name}.`);
+	}
 	private lobbyName = storedLiveName();
 	private lobbyOpen = false;
 	private bound = false;
@@ -571,6 +619,17 @@ export class LiveController {
 	private roomPresent: LivePresent | null = null;
 	private roomPresentHost: string | null = null;
 	private roomPresentAt = 0;
+	/** Narration clips (§7.3). Host: how to answer a request, what it answered for this run, and each member's
+	 *  recent request times. Member: the clips held for this presentation, and the sentences it waits on. */
+	private clipServer: ((hash: string) => Promise<LiveClip | null>) | null = null;
+	private clipServed = new Map<string, Promise<Extract<Post, { k: 'clip' }> | null>>();
+	private clipAsks = new Map<string, number[]>();
+	private clipSentAt = new Map<string, number>();
+	/** Serving is one at a time: an encode is synchronous work on the presenter's own thread. */
+	private clipBusy = false;
+	private clipHave = new Map<string, LiveClip>();
+	private clipHaveBytes = 0;
+	private clipWait = new Map<string, { len: number; subs: Array<(c: LiveClip | null) => void>; tries: number; timer: ReturnType<typeof setTimeout> | null }>();
 	/** Comments shared in this session (slice 6), by id. Every member holds them all, so an heir has them. */
 	private cmts = new Map<string, SessionComment>();
 	/** Comment actions taken while the host was away, sent when it is back. */
@@ -594,13 +653,153 @@ export class LiveController {
 	/** Follow: the panel and view this browser was moved to, so a change it made itself stops following. */
 	private followedDoing: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
 	private followAsked = -1;
-	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view'] } | null = null;
-	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view'] }) {
+	private slideAsked = -1;
+	/** Who we follow, by name, for the notice when a follow ends. */
+	private followName = '';
+	/** When this person last pressed, tapped or typed anywhere: a report from a screen is theirs only just after one. */
+	private lastGestureAt = 0;
+	private presentOpenedAt = 0;
+	private presentGoneAt = 0;
+	private followPending: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean } | null = null;
+	private lastApplyAt = 0;
+	private applying = false;
+	private presentAsked = -1;
+	/** Following into Present: no Present of ours opened by Follow, one we opened that way, or one we closed ourselves
+	 *  (not reopened until the leader's Present ends and a new one starts). */
+	private presentFollow: 'idle' | 'open' | 'declined' = 'idle';
+	private followTo(target: { panel: LiveDoing['panel']; view: LiveDoing['view']; moves: FollowMove[]; panelMoves: boolean }) {
 		if (!this.following) return;
 		this.followAsked = -1;
 		this.followPending = null;
-		this.followedDoing = target;
-		this.host.followDoing?.(target);
+		this.lastApplyAt = Date.now();
+		if (target.panelMoves) {
+			this.followedDoing = { panel: target.panel, view: target.view };
+			this.host.followDoing?.({ panel: target.panel, view: target.view });
+		}
+		// A screen that moves reports where it is, and that report is awareness again: do not follow our own echo.
+		this.applying = true;
+		try {
+			for (const [key, value] of target.moves) followBus.apply(key, value);
+		} finally {
+			this.applying = false;
+		}
+	}
+	/** Show the settings panel's place beside the rest of the view (a screen reports it through the bus). */
+	private publishBus() {
+		const r = this.rt;
+		if (!r) return;
+		for (const key of ['inspector', 'section', 'present', 'focus', 'shown', 'setupTab', 'changed'] as const) {
+			const v = followBus.getLocal(key);
+			if (v === null) r.view.clear(key);
+			else if (!r.view.set(key, v)) this.viewDrops.set(key, (this.viewDrops.get(key) ?? 0) + 1);
+		}
+	}
+	/** Settings rows other people changed lately, by peer: the counter last seen, when, and which row. A counter seen
+	 *  for the first time is history (a late joiner), not news. */
+	private changedSeen = new Map<string, { n: number; at: number; what: string | null }>();
+	private changedTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Look at everyone's `changed` counter after an awareness change: a new count is news, the first one seen is not. */
+	private scanChanged(peers: Iterable<string>) {
+		const r = this.rt;
+		if (!r) return;
+		let news = false;
+		for (const peer of peers) {
+			const view = r.view.of(peer).all();
+			const c = view.changed as { n?: number } | undefined;
+			const n = c && typeof c.n === 'number' ? c.n : 0;
+			const seen = this.changedSeen.get(peer);
+			// A person first seen with a counter already running is history (a late joiner); one first seen without
+			// any has a counter of 0, so their first change is news.
+			if (!seen) this.changedSeen.set(peer, { n, at: 0, what: null });
+			else if (seen.n !== n && n > 0) {
+				this.changedSeen.set(peer, { n, at: Date.now(), what: changedWords(view) });
+				news = true;
+			}
+		}
+		if (!news) return;
+		this.host.rerender();
+		if (this.changedTimer) clearTimeout(this.changedTimer);
+		this.changedTimer = setTimeout(() => this.host.rerender(), CHANGED_SHOW_MS + 100);
+	}
+	/** Where a person is in the settings, and the row they changed lately, from the view they show. */
+	private placeOfPeer(peer: string): { at?: string; changed?: string } {
+		const r = this.rt;
+		if (!r) return {};
+		const at = placeWords(r.view.of(peer).all());
+		const seen = this.changedSeen.get(peer);
+		const changed = seen?.what && Date.now() - seen.at < CHANGED_SHOW_MS ? seen.what : undefined;
+		return { ...(at ? { at } : {}), ...(changed ? { changed } : {}) };
+	}
+	/** Tell screens where the person we follow is looking, so a settings row can mark it. */
+	private syncLeader() {
+		const r = this.rt;
+		const who = this.followingId;
+		if (!r || !who) {
+			followBus.setLeader(null);
+			return;
+		}
+		const name = r.session.getState().members.find((m) => m.id === who)?.name;
+		const lead = r.view.of(who);
+		const focus = lead.get('focus');
+		const inspector = lead.get('inspector');
+		const theirSlide = (r.aw.getStates().get([...r.owner].find(([, p]) => p === who)?.[0] ?? -1) as AwState | undefined)?.slide;
+		followBus.setLeader(name ? { name, focus: typeof focus === 'string' ? focus : null, inspector: inspector === 'deck' || inspector === 'slide' ? inspector : null, sameSlide: theirSlide !== undefined && theirSlide === this.deps.activeSlide } : null);
+	}
+	/** Follow into Present (design note 2026-10-21 §7.4). The leader's Present is a place; ours opens at it, quietly,
+	 *  unless we are typing (then a Join), already in a Present of our own, or the room is presenting (that wins). */
+	private followPresent(r: Runtime, s: SessionState, mirrors: boolean) {
+		const who = this.following;
+		if (!who) return;
+		const place = r.view.of(who).get('present') as PresentPlace | undefined;
+		const name = s.members.find((m) => m.id === who)?.name ?? 'They';
+		if (!place || !mirrors || this.roomPresent) {
+			if (this.presentFollow === 'open') {
+				followBus.apply('present', null);
+				this.presentFollow = 'idle';
+			}
+			// A Present the person closed stays closed through a short absence (a throttled tab, a share switch, a width
+			// change); only a leader who has been gone for a while and comes back is starting a new one.
+			if (this.presentFollow === 'declined') this.presentGoneAt ||= Date.now();
+			else this.presentFollow = 'idle';
+			return;
+		}
+		if (this.presentFollow === 'declined') {
+			if (!this.presentGoneAt || Date.now() - this.presentGoneAt < PRESENT_GONE_MS) {
+				this.presentGoneAt = 0;
+				return;
+			}
+			this.presentFollow = 'idle';
+			this.presentGoneAt = 0;
+		}
+		// We opened it and it is no longer open, though no render has said so yet: the person closed it.
+		if (this.presentFollow === 'open' && !this.deps.presenting && Date.now() - this.presentOpenedAt > 1500) {
+			this.presentFollow = 'declined';
+			this.presentGoneAt = 0;
+			return;
+		}
+		if (this.presentFollow === 'idle' && this.deps.presenting) return;
+		const next = { ...place, by: name };
+		if (this.presentFollow === 'open') {
+			if (JSON.stringify(followBus.lastApplied('present')) !== JSON.stringify(next)) followBus.apply('present', next);
+			return;
+		}
+		const open = () => {
+			if (this.following !== who || this.deps.presenting || this.roomPresent) return;
+			const now = r.view.of(who).get('present') as PresentPlace | undefined;
+			if (!now) return;
+			this.presentFollow = 'open';
+			this.presentOpenedAt = Date.now();
+			this.lastApplyAt = Date.now();
+			this.applying = true;
+			try {
+				followBus.apply('present', { ...now, by: name });
+			} finally {
+				this.applying = false;
+			}
+		};
+		if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+			if (this.presentAsked !== this.myEditAt && this.prompt(`${name} is presenting`, { label: 'Join', onClick: open })) this.presentAsked = this.myEditAt;
+		} else open();
 	}
 	/** Member (and an heir): the host's records, validated, held in memory for the session only. */
 	private received: LiveRecords = NO_RECORDS;
@@ -816,10 +1015,10 @@ export class LiveController {
 			if (field === 'editingAt' && !this.share.typing) return;
 			if (field === 'slide' && !this.share.slide) return;
 			if (field === 'doing' && !this.share.doing) return;
+			if (field === 'view' && !this.share.doing) return;
 			setField(field, value);
 		};
 		const REMOTE = Symbol('tavola-remote');
-		const owner = new Map<number, string>();
 		let rt: Runtime | null = null;
 		const memberOf = (peer: string) => rt?.session.getState().members.find((m) => m.id === peer);
 		const ownerOf = (client: number) => {
@@ -843,29 +1042,11 @@ export class LiveController {
 				return () => doc.off('update', h);
 			},
 		};
-		const awStream = {
-			encodeAll: () => encodeAwarenessUpdate(aw, [aw.clientID]),
-			applyRemote: (u: Uint8Array, from: string) => {
-				const clean = sanitizeAwareness(u, from, ownerOf, memberOf(from));
-				if (!clean) return;
-				for (const c of awarenessClients(clean)) owner.set(c, from);
-				applyAwarenessUpdate(aw, clean, from);
-			},
-			onLocal(cb: (u: Uint8Array) => void) {
-				const h = ({ added, updated, removed }: { added: number[]; updated: number[]; removed: number[] }, origin: unknown) => {
-					if (origin !== 'local') return;
-					const mine = [...added, ...updated, ...removed].filter((c) => c === aw.clientID);
-					if (mine.length) cb(encodeAwarenessUpdate(aw, mine));
-				};
-				aw.on('update', h);
-				return () => aw.off('update', h);
-			},
-			forget(peer: string) {
-				const ids = [...owner].filter(([, p]) => p === peer).map(([c]) => c);
-				for (const c of ids) owner.delete(c);
-				if (ids.length) removeAwarenessStates(aw, ids, 'tavola');
-			},
-		};
+		// Awareness goes through Tavola's Yjs adapter: the one hardened gate (bounds before the parse, identity from
+		// the roster, the clock, the rate) with this app's field cleaners.
+		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS, view: { keys: VIEW_KEYS }, allow: (k) => this.share.doing && (k !== 'present' || this.share.slide), onDrop: (_from, keys) => { for (const k of keys) this.viewDrops.set(k, (this.viewDrops.get(k) ?? 0) + 1); } });
+		const awStream = presence.stream;
+		const owner = presence.owner;
 		const key = args.key ?? null;
 		const audio = new LiveAudio(() => this.host.rerender());
 		this.audio = audio;
@@ -896,7 +1077,7 @@ export class LiveController {
 		const fingerprint = args.host?.succession?.fingerprint ?? key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
+		rt = { session, view: presence.view, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
 		rt.disposers.push(() => {
 			rt?.release?.();
 			if (rt) rt.release = null;
@@ -904,8 +1085,32 @@ export class LiveController {
 		this.rt = rt;
 		// A session started in a tab that already chose what to hide (a reload, or a second session): make the presence match.
 		if (!(this.share.cursor && this.share.slide && this.share.typing && this.share.doing)) this.applyShare();
-		else aw.setLocalStateField('doing', doingOf(d));
+		else this.publishDoing(d);
 		const r = rt;
+		// A screen reports where it is (the settings panel and its section); show that, and tell a change a person made
+		// from one Follow made (a value just applied is not theirs).
+		r.disposers.push(
+			followBus.onLocal((key, value) => {
+				this.publishBus();
+				// A screen reports a new value for many reasons (a panel finishing its lazy load, a tab falling back); only one
+				// that comes just after a press, tap or key, and not right after Follow moved it, is this person's own move.
+				if ((key === 'inspector' || key === 'section') && value !== null && this.following && Date.now() - this.lastApplyAt > 800 && Date.now() - this.lastGestureAt < GESTURE_MS && value !== followBus.lastApplied(key)) {
+					this.endFollow('moved');
+					this.host.rerender();
+				}
+			}),
+		);
+
+		const gesture = () => {
+			this.lastGestureAt = Date.now();
+		};
+		if (typeof window !== 'undefined') {
+			const events = ['pointerdown', 'keydown', 'touchstart'] as const;
+			for (const ev of events) window.addEventListener(ev, gesture, true);
+			r.disposers.push(() => {
+				for (const ev of events) window.removeEventListener(ev, gesture, true);
+			});
+		}
 
 		let prev: SessionState = session.getState();
 		r.disposers.push(
@@ -1019,6 +1224,7 @@ export class LiveController {
 				if (this.roomPresentHost && s.members.some((m) => m.role === 'host' && m.id !== this.roomPresentHost)) {
 					const by = this.roomPresent?.by;
 					this.roomPresent = null;
+					this.resetClips();
 					this.roomPresentHost = null;
 					this.host.closeRoomPresent?.();
 					if (by) this.host.notify(`${by}'s presentation ended: they are no longer hosting.`);
@@ -1157,12 +1363,18 @@ export class LiveController {
 		this.pointerLater = null;
 		this.pointerNext = null;
 		this.followedDoing = null;
+		if (this.presentFollow === 'open') followBus.apply('present', null);
+		this.presentFollow = 'idle';
+		this.presentGoneAt = 0;
+		followBus.forgetApplied();
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.presentingToAll = false;
+		this.resetClips();
 		this.clearPresentTimers();
 		if (this.tourLater) clearTimeout(this.tourLater);
 		this.tourLater = null;
 		this.roomPresent = null;
+		this.resetClips();
 		this.roomPresentHost = null;
 		this.transport = { idx: 0, page: 0, lens: 'full' };
 		this.callMix = null;
@@ -1348,7 +1560,10 @@ export class LiveController {
 		if (!this.share.cursor) delete st.cursor;
 		if (!this.share.typing) delete st.editingAt;
 		if (this.share.doing) st.doing = doingOf(this.deps);
-		else delete st.doing;
+		else {
+			delete st.doing;
+			delete st.view;
+		}
 		if (this.share.slide) {
 			delete st.slideHidden;
 			st.slide = this.deps.activeSlide;
@@ -1357,6 +1572,22 @@ export class LiveController {
 			st.slideHidden = true;
 		}
 		r.aw.setLocalState(st);
+		// On: show it again. Off: let the view forget what it last sent, so turning it back on writes it afresh.
+		if (this.share.doing) this.publishDoing(this.deps);
+		else r.view.flush();
+	}
+
+	/** Show where this browser is: the declared view, and `doing` beside it for one release so a tab that
+	 *  has not updated still follows (it reads only `doing`). */
+	private publishDoing(d: LiveDeps) {
+		const r = this.rt;
+		if (!r) return;
+		r.aw.setLocalStateField('doing', doingOf(d));
+		const v = viewOf(doingOf(d));
+		for (const k of Object.keys(v)) r.view.set(k, v[k]);
+		if (!d.asking) r.view.clear('asking');
+		this.publishBus();
+		r.view.flush();
 	}
 
 	private endCall() {
@@ -1417,6 +1648,7 @@ export class LiveController {
 		// The presentation was the old host's: it has stopped.
 		if (this.roomPresent) this.host.closeRoomPresent?.();
 		this.roomPresent = null;
+		this.resetClips();
 		this.roomPresentHost = null;
 		// The heir relays the records it received; none of its OWN until it agrees to each (§6 rule 6).
 		this.shared = new Set();
@@ -1441,6 +1673,7 @@ export class LiveController {
 	 *  same deck, instead of resuming as host. */
 	private onSteppedDown(r: Runtime) {
 		this.presentingToAll = false;
+		this.resetClips();
 		this.clearPresentTimers();
 		r.release?.();
 		r.release = null;
@@ -1555,16 +1788,22 @@ export class LiveController {
 		// My own navigation stops following; a follow jump does not.
 		if (prev.activeSlide !== deps.activeSlide) {
 			if (this.followJump) this.followJump = false;
-			else if (this.following) this.following = null;
+			else if (this.following) this.endFollow('moved');
 		}
 		// So does opening another panel or view of my own; following there does not.
 		if (prev.panel !== deps.panel || prev.view !== deps.view) {
 			const moved = this.followedDoing;
-			if (this.following && !(moved && moved.panel === deps.panel && moved.view === deps.view)) this.following = null;
+			if (this.following && !(moved && moved.panel === deps.panel && moved.view === deps.view)) this.endFollow('moved');
 			this.followedDoing = null;
 		}
+		// Closing a Present that Follow opened is a choice: it stays closed until the leader's Present ends and another starts.
+		// (Or a Present of our own: closing it while the leader still presents is not a request to open theirs.)
+		if (prev.presenting && !deps.presenting && this.following && this.presentFollow !== 'declined') {
+			this.presentFollow = 'declined';
+			this.presentGoneAt = 0;
+		}
 		// Activity: what I am doing, when I share it.
-		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) r.aw.setLocalStateField('doing', doingOf(deps));
+		if (s.me && (prev.panel !== deps.panel || prev.view !== deps.view || prev.presenting !== deps.presenting || prev.asking !== deps.asking)) this.publishDoing(deps);
 		// The host keeps the lobby invite current.
 		if (s.isHost && (prev.deckTitle !== deps.deckTitle || prev.slideCount !== deps.slideCount || prev.theme !== deps.theme || this.invitedAs !== s.me?.name)) {
 			this.invitedAs = s.me?.name;
@@ -1596,30 +1835,64 @@ export class LiveController {
 		const s = r?.session.getState();
 		if (!r || !s || s.stage !== 'live') return;
 		const byPeer = this.awByPeer();
-		if (this.following) {
+		this.scanChanged(byPeer.keys());
+		this.syncLeader();
+		if (this.following && !this.applying) {
 			const slide = byPeer.get(this.following)?.slide;
-			if (!s.members.some((m) => m.id === this.following)) this.following = null;
-			else if (slide !== undefined && slide !== this.deps.activeSlide) {
-				this.followJump = true;
-				this.host.goToSlide(slide);
+			if (!s.members.some((m) => m.id === this.following)) {
+				// A leader who reconnects comes back under a new id, and nothing here can tell that member from another
+				// who takes the same name and color, so the follow ends, and says so (design note §13).
+				this.endFollow('left');
+				return;
 			}
-			const doing = this.following ? byPeer.get(this.following)?.doing : undefined;
+			if (!this.following) return;
+			else if (slide !== undefined && slide !== this.deps.activeSlide) {
+				// The same typing gate as every other thing Follow applies (design note §7.1): a typist is told
+				// where the leader went, once per burst, and keeps their place.
+				if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
+					if (this.slideAsked !== this.myEditAt) {
+						const who = this.following;
+						const name = s.members.find((m) => m.id === who)?.name ?? 'They';
+						const asked = this.prompt(`${name} is on slide ${slide + 1}`, {
+							label: 'Go',
+							onClick: () => {
+								const now = who ? this.awByPeer().get(who)?.slide : undefined;
+								if (this.following === who && now !== undefined) {
+									this.followJump = true;
+									this.host.goToSlide(now);
+								}
+							},
+						});
+						if (asked) this.slideAsked = this.myEditAt;
+					}
+				} else {
+					this.followJump = true;
+					this.host.goToSlide(slide);
+				}
+			}
+			const doing = this.following ? placeOf(r.view.of(this.following).all(), byPeer.get(this.following)?.doing) : undefined;
 			// Fabricate is a workspace of one's own, never mirrored: leaving it would throw away the follower's work.
 			const view = doing && doing.view !== 'fabricate' && this.deps.view !== 'fabricate' ? doing.view : this.deps.view;
-			if (doing && this.host.followDoing && this.host.canFollowDoing?.() && (doing.panel !== this.deps.panel || view !== this.deps.view)) {
-				const target = { panel: doing.panel, view };
+			const mirrors = !!this.host.canFollowDoing?.();
+			const rawMoves = mirrors && this.following ? settingsMoves(r.view.of(this.following).all(), { inspector: followBus.getLocal('inspector'), section: followBus.getLocal('section') }) : [];
+			// A move is applied once per value; but a section id both panels have (`look`) rides along with a panel change.
+			const panelChanges = rawMoves.some(([k, v]) => k === 'inspector' && followBus.lastApplied('inspector') !== v);
+			const moves = rawMoves.filter(([k, v]) => (k === 'section' && panelChanges) || followBus.lastApplied(k) !== v);
+			const panelMoves = !!(doing && this.host.followDoing && mirrors && (doing.panel !== this.deps.panel || view !== this.deps.view));
+			if (doing && (panelMoves || moves.length)) {
+				const target = { panel: doing.panel, view, moves, panelMoves };
 				const name = s.members.find((m) => m.id === this.following)?.name ?? 'They';
 				// Nobody is moved while typing (design note §5.3, §12.3), in the editor or any other field: say where
 				// they went, once per burst of typing, with a Go that takes you to wherever they are when you press it.
 				if (r.session.now() - this.myEditAt < TYPING_MS || typingInAField()) {
 					this.followPending = target;
 					if (this.followAsked !== this.myEditAt) {
-						this.followAsked = this.myEditAt;
 						const who = this.following;
-						this.host.notifyAction(`${name} opened ${target.panel ? { coach: 'Coach', lenses: 'Views', library: 'Library', live: 'Live' }[target.panel] : target.view === 'article' ? 'Read' : 'the editor'}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) });
+						if (this.prompt(`${name} ${describeMove(target, moves)}`, { label: 'Go', onClick: () => this.following === who && this.followPending && this.followTo(this.followPending) })) this.followAsked = this.myEditAt;
 					}
 				} else this.followTo(target);
 			}
+			this.followPresent(r, s, mirrors);
 		}
 		if (!s.isHost) {
 			const hostId = s.members.find((m) => m.role === 'host')?.id;
@@ -1631,7 +1904,7 @@ export class LiveController {
 				if (first && !this.bound) return;
 				const myEdit = this.myEditAt;
 				const slide = summon.slide;
-				if (r.session.now() - myEdit < TYPING_MS) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
+				if (r.session.now() - myEdit < TYPING_MS || typingInAField()) this.host.notifyAction(`The host is on slide ${slide + 1}`, { label: 'Go', onClick: () => this.host.goToSlide(slide) });
 				else {
 					this.host.goToSlide(slide);
 					this.host.notify(`The host brought everyone to slide ${slide + 1}.`);
@@ -2044,6 +2317,7 @@ export class LiveController {
 		if (!p.on) {
 			if (!this.roomPresent) return;
 			this.roomPresent = null;
+			this.resetClips();
 			this.roomPresentHost = null;
 			this.host.closeRoomPresent?.();
 			// A host toggling fast says nothing: a stop right after a start is not news.
@@ -2194,6 +2468,110 @@ export class LiveController {
 		}, wait);
 	}
 
+	/** Forget every narration clip, and tell anyone still waiting on one that none is coming. The presentation
+	 *  they belonged to has ended (§6 rule 5: clips are held in memory for the run only). */
+	private resetClips() {
+		this.clipServed.clear();
+		this.clipAsks.clear();
+		this.clipSentAt.clear();
+		this.clipHave.clear();
+		this.clipHaveBytes = 0;
+		const waits = [...this.clipWait.values()];
+		this.clipWait.clear();
+		for (const w of waits) {
+			if (w.timer) clearTimeout(w.timer);
+			for (const f of w.subs) f(null);
+		}
+	}
+
+	/** Member: send the host a request for this clip, and ask again until it comes or the tries run out. */
+	private askClipNow(h: string) {
+		const w = this.clipWait.get(h);
+		const host = this.roomPresentHost;
+		if (!w) return;
+		if (!this.roomPresent || !host || w.tries >= CLIP_TRIES) {
+			this.clipWait.delete(h);
+			for (const f of w.subs) f(null);
+			return;
+		}
+		w.tries++;
+		this.post({ k: 'cw', h }, host);
+		w.timer = setTimeout(() => this.askClipNow(h), CLIP_RETRY_MS);
+	}
+
+	/** Member: the host's answer to a request. Only what was asked for, from the presenter, bounded. */
+	private takeClip(p: Extract<Post, { k: 'clip' }>) {
+		if (typeof p.h !== 'string' || !CLIP_HASH.test(p.h) || typeof p.d !== 'string') return;
+		const w = this.clipWait.get(p.h);
+		if (!w || typeof p.m !== 'string' || !/^audio\/(mpeg|mp3)$/.test(p.m)) return;
+		// The text's length bounds the base64 before it is decoded: nothing larger than the limit is parsed.
+		const limit = clipLimit(w.len);
+		if (p.d.length > Math.ceil(limit / 3) * 4 + 4) return;
+		let bytes: Uint8Array;
+		try {
+			bytes = fromB64(p.d);
+		} catch {
+			return;
+		}
+		if (bytes.length === 0 || bytes.length > limit) return;
+		// Its own header decides how long it will play, before any decoder sees it.
+		const head = mp3Header(bytes);
+		if (!head || (bytes.length * 8) / (head.kbps * 1000) > clipSeconds(w.len)) return;
+		const lead = Number.isFinite(p.l) && (p.l as number) >= 0 && (p.l as number) <= 2000 ? (p.l as number) : undefined;
+		const clip: LiveClip = { bytes, mime: p.m, ...(lead !== undefined ? { lead } : {}) };
+		while (this.clipHave.size && (this.clipHave.size >= CLIP_KEEP || this.clipHaveBytes + bytes.length > CLIP_BYTES_KEEP)) {
+			const oldest = this.clipHave.keys().next().value as string;
+			this.clipHaveBytes -= this.clipHave.get(oldest)?.bytes.length ?? 0;
+			this.clipHave.delete(oldest);
+		}
+		this.clipHave.set(p.h, clip);
+		this.clipHaveBytes += bytes.length;
+		this.clipWait.delete(p.h);
+		if (w.timer) clearTimeout(w.timer);
+		for (const f of w.subs) f(clip);
+	}
+
+	/** Host: a member asks for the clip of one sentence. Answered only while presenting to everyone, only from
+	 *  what this device already holds (the serve function never synthesizes), and at a bounded rate. */
+	private serveClip(from: string, h: unknown) {
+		if (typeof h !== 'string' || !CLIP_HASH.test(h) || !this.presentingToAll || !this.clipServer) return;
+		const now = Date.now();
+		const recent = (this.clipAsks.get(from) ?? []).filter((t) => now - t < CLIP_WINDOW_MS);
+		if (recent.length >= CLIP_RATE) return;
+		recent.push(now);
+		this.clipAsks.set(from, recent);
+		let answer = this.clipServed.get(h);
+		if (!answer && this.clipBusy) return;
+		if (!answer) {
+			const serve = this.clipServer;
+			this.clipBusy = true;
+			answer = serve(h)
+				.then((c): Extract<Post, { k: 'clip' }> | null => (c && c.bytes.length > 0 && c.bytes.length <= CLIP_MAX_BYTES ? { k: 'clip', h, m: c.mime, ...(c.lead !== undefined ? { l: c.lead } : {}), d: toB64(c.bytes) } : null))
+				.catch(() => null);
+			this.clipServed.set(h, answer);
+			void answer.finally(() => {
+				this.clipBusy = false;
+			});
+			// A miss is not remembered: the presenter may have the clip a moment later.
+			void answer.then((a) => {
+				if (!a && this.clipServed.get(h) === answer) this.clipServed.delete(h);
+			});
+			while (this.clipServed.size > CLIP_SERVED_KEEP) this.clipServed.delete(this.clipServed.keys().next().value as string);
+		}
+		const to = from;
+		void answer.then((a) => {
+			if (!this.presentingToAll || !this.rt?.session.getState().members.some((m) => m.id === to)) return;
+			if (a) {
+				const key = `${to}|${h}`;
+				const sent = this.clipSentAt.get(key);
+				if (sent !== undefined && Date.now() - sent < CLIP_RESEND_MS) return;
+				this.clipSentAt.set(key, Date.now());
+				if (this.clipSentAt.size > CLIP_SERVED_KEEP * 8) this.clipSentAt.delete(this.clipSentAt.keys().next().value as string);
+			}
+			this.post(a ?? { k: 'clip', h }, to);
+		});
+	}
+
 	/** Host: the start, once; then the same again just past a member's restart window, so one who dropped
 	 *  the first (the host stopped and started again quickly) still joins. */
 	private sendPresentStart() {
@@ -2281,6 +2659,8 @@ export class LiveController {
 				const note = cleanNote(p.note);
 				if (note === null) return;
 				this.hostTake(p.id, from, sender, p.text, note);
+			} else if (p.k === 'cw') {
+				this.serveClip(from, p.h);
 			} else if (p.k === 'cmt') {
 				this.hostComment(p, from, sender, r);
 			} else if (p.k === 'since' && Number.isSafeInteger(p.seq)) {
@@ -2325,6 +2705,8 @@ export class LiveController {
 				this.heirSids = p.sids.filter((e): e is [string, string] => Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string').slice(0, 2000);
 			} else if (p.k === 'present' && typeof p.on === 'boolean') {
 				this.takePresent(p, from, sender.name, r);
+			} else if (p.k === 'clip' && from === this.roomPresentHost && this.roomPresent) {
+				this.takeClip(p);
 			} else if (p.k === 'tour') {
 				this.takeTour(p, sender.name, r);
 			} else if (p.k === 'cmtset') {
@@ -2354,7 +2736,7 @@ export class LiveController {
 		const people: LivePerson[] = s.members.map((m) => {
 			const st = byPeer.get(m.id);
 			const me = m.id === s.selfId;
-			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), ...(!me && st?.doing ? { doing: st.doing } : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
+			return { id: m.id, name: m.name, color: m.color, role: m.role, me, slide: me ? this.deps.activeSlide : (st?.slide ?? null), ...(!me && st?.slideHidden ? { slideHidden: true } : {}), ...(!me && st?.doing ? { doing: st.doing } : {}), ...(!me && this.rt ? this.placeOfPeer(m.id) : {}), editing: !!st?.editingAt && this.now - st.editingAt < TYPING_MS && st.editingAt < this.now + 5000, mic: this.micOf(m.id, me), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) ? { volume: this.audio.volume(m.id) } : {}), ...(!me && this.audio?.inCall && this.audio.hasStream(m.id) && Object.keys(this.quality[m.id] ?? {}).length ? { quality: this.quality[m.id] } : {}), ...(!me && this.paths[m.id] ? { link: { kind: linkKind(this.paths[m.id]), detail: `${this.paths[m.id].local}→${this.paths[m.id].remote} (${this.paths[m.id].protocol})` } } : {}) };
 		});
 		for (const [k, a] of this.away) {
 			if (!people.some((p) => p.name === a.name && p.color === a.color)) people.push({ id: `away:${k}`, name: a.name, color: a.color, role: a.role === 'host' && s.members.some((m) => m.role === 'host') ? 'edit' : a.role, slide: null, editing: false, mic: 'off', away: true });
@@ -2403,6 +2785,7 @@ export class LiveController {
 		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `screen wake lock: ${this.wake.state}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
 		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
 		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
+		if (this.viewDrops.size) lines.push(`dropped view values: ${[...this.viewDrops].map(([k, n]) => `${k} ${n}`).join(', ')}`);
 		const pairs = await this.pairs();
 		if (pairs.length) lines.push('candidate pairs (every connection check each link tried):', ...pairs.map((p) => `  ${p}`));
 		for (const e of this.timeline()) lines.push(`${(e.at / 1000).toFixed(1).padStart(7)}s  ${e.peer.padEnd(6)}  ${e.what}`);
@@ -2462,7 +2845,10 @@ export class LiveController {
 				// (it may be opening now) rather than send where the last presentation ended.
 				this.presentStartDue = true;
 				this.presentTimers.push(setTimeout(() => this.sendPresentStart(), PRESENT_START_WAIT_MS));
-			} else this.post({ k: 'present', on: false });
+			} else {
+				this.post({ k: 'present', on: false });
+				this.resetClips();
+			}
 			this.host.rerender();
 		},
 		commentAdded: (c: { id: string; slide: number; body: string; createdAt: number }) => this.commentOp({ k: 'cmt', op: 'add', id: c.id, slide: c.slide, body: c.body, at: c.createdAt }),
@@ -2496,6 +2882,39 @@ export class LiveController {
 			}, TOUR_LEAD_MS);
 			return 'sent';
 		},
+		serveClips: (serve) => {
+			this.clipServer = serve;
+			if (!serve) this.clipServed.clear();
+		},
+		askClip: (hash: string, textLen: number, signal?: AbortSignal) => {
+			if (!CLIP_HASH.test(hash) || !this.roomPresent || !Number.isFinite(textLen) || textLen <= 0) return Promise.resolve(null);
+			const have = this.clipHave.get(hash);
+			if (have) return Promise.resolve(have);
+			if (signal?.aborted) return Promise.resolve(null);
+			return new Promise<LiveClip | null>((resolve) => {
+				let w = this.clipWait.get(hash);
+				if (!w) {
+					w = { len: Math.floor(textLen), subs: [], tries: 0, timer: null };
+					this.clipWait.set(hash, w);
+					w.subs.push(resolve);
+					this.askClipNow(hash);
+				} else w.subs.push(resolve);
+				signal?.addEventListener(
+					'abort',
+					() => {
+						const cur = this.clipWait.get(hash);
+						if (!cur) return;
+						cur.subs = cur.subs.filter((f) => f !== resolve);
+						if (!cur.subs.length) {
+							if (cur.timer) clearTimeout(cur.timer);
+							this.clipWait.delete(hash);
+						}
+						resolve(null);
+					},
+					{ once: true },
+				);
+			});
+		},
 		mixIntoCall: (stream: MediaStream | null) => {
 			if (this.callMix && this.callMix !== stream) this.audio?.unmix(this.callMix);
 			this.callMix = stream;
@@ -2504,7 +2923,7 @@ export class LiveController {
 		presentTransport: (t: LiveTransport) => {
 			const clean = cleanTransport(transportPost(t));
 			if (!clean) return;
-			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash;
+			const same = clean.idx === this.transport.idx && clean.page === this.transport.page && clean.lens === this.transport.lens && clean.hash === this.transport.hash && clean.voice === this.transport.voice;
 			this.transport = clean;
 			if (!this.presentingToAll || !this.rt?.session.getState().isHost) return;
 			if (this.presentStartDue) this.sendPresentStart();
@@ -2566,6 +2985,8 @@ export class LiveController {
 		setRole: (id, role) => this.rt?.session.setRole(id, role),
 		rename: (name) => this.rt?.session.rename(name),
 		follow: (id) => {
+			// A new follow starts from nothing applied, so the first sync moves this screen to where they are.
+			followBus.forgetApplied();
 			this.following = id;
 			this.onAwareness();
 			this.host.rerender();

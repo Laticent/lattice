@@ -38,7 +38,7 @@ import { unitText } from '@/lib/fuoco/outline';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
-import { dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
+import { actionLive, actionRaise, dismissActionNotice, dismissNotice, notify, notifyAction, notifySticky } from '@/lib/notify';
 import { followDeckAdmission, PLUGIN_DEFAULTS_EVENT } from '@/lib/plugin-admission';
 import { acronymEntries, lexiconMap } from '@/lib/resolve-narration';
 import { DEFAULT_PACE, PACE_NAMES } from '@/lib/resolve-pace';
@@ -106,6 +106,8 @@ import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
 import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
+import { followBus, type PresentPlace, rowIdOf, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
+import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { liveColor } from './live/live-model';
 import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
@@ -809,6 +811,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const livePresentRef = React.useRef(false);
 	// Live (§7.2): a Present opened by the room follows the presenter; one this person opened does not.
 	const [presentByRoom, setPresentByRoom] = React.useState(false);
+	const [presentFollow, setPresentFollow] = React.useState<(PresentPlace & { by: string }) | null>(null);
+	const reportPresentPlace = React.useCallback((p: PresentPlace | null) => followBus.setLocal('present', p), []);
 	const presentByRoomRef = React.useRef(false);
 	presentByRoomRef.current = presentByRoom;
 	// #1751 (engineering/decisions/2026-08-23-studio-shell-decomposition.md):
@@ -945,6 +949,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// isn't a wall of five stacked groups. (Supersedes 2026-07-03-slide-settings-pill-tabs
 	// §"Deck inspector: NOT tabbed" — see 2026-07-17-panel-drawer-cohesion.)
 	const [deckTab, setDeckTab] = React.useState<DeckTab>('look');
+	// Live: say which settings panel and section are open, and open the ones a person we follow is in.
+	// The Live session decides when (one typing gate); these only decide how.
+	const deckSectionIdsRef = React.useRef<string[]>([]);
+	useViewKey('shown', workspaceOpen ? 'setup' : null);
+	useAppliedKey('inspector', (v) => {
+		if (v === null) return;
+		if (v === 'deck' || v === 'slide') revealCraftDock();
+		setActiveSettings(v === 'deck' || v === 'slide' ? v : null);
+	});
+	useAppliedKey('section', (v) => {
+		if (v === null) return;
+		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');
+		if (scope === 'deck' && deckSectionIdsRef.current.includes(v)) setDeckTab(v as DeckTab);
+	});
 	// ── Find + browse, shared by both Inspector scopes ────────────────────────
 	// VIEW is one preference for deck AND slide (studio-store's `settings-view` key):
 	// someone who wants the flat list wants it for settings, not for half of settings.
@@ -977,6 +995,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// below can dismiss it the instant the source moves on its own. `next` is the
 	// source right after the write; `id` is Sonner's handle for dismiss().
 	const [undo, setUndo] = React.useState<{ next: string; id: string | number } | null>(null);
+	const undoRaiseRef = React.useRef(-1);
+	const undoRef = React.useRef(undo);
+	undoRef.current = undo;
 	const [palette, setPalette] = React.useState(() => {
 		try {
 			return localStorage.getItem('lattice-studio-palette') || DEFAULT_PALETTE;
@@ -1542,12 +1563,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				if (sourceRef.current === next) setSource(prev);
 			},
 		});
+		undoRaiseRef.current = actionRaise();
 		setUndo({ next, id });
 	}, [setSource]);
+	const changedCountRef = React.useRef(0);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
 		const next = updater(prev); // updaters are pure string→string; compute once
 		if (next === prev) return; // no-op (e.g. re-picking the current value) → no toast
+		// Live: say which row changed (its name only, never the value) so people following us can see it.
+		// A Slide-panel edit is labelled "This slide", not by row: the row in focus is the one being edited.
+		const changedRow = rowIdOf(label.split(' → ')[0]) ?? (label === 'This slide' ? followBus.getLocal('focus') : null);
+		if (changedRow) followBus.setLocal('changed', { what: changedRow, n: ++changedCountRef.current });
 		// Apply the precomputed result; fall back to re-running on the freshest source
 		// only if an editor flush landed between snapshot and commit.
 		setSource((s) => (s === prev ? next : updater(s)));
@@ -4019,6 +4046,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		applyComments: (deckId, set, del, me) => mergeSessionComments(deckId, set, del, me),
 		// Follow mirrors a panel and a view only where the rail exists; elsewhere it follows the slide.
 		canFollowDoing: () => desktop,
+		// An Undo the person just earned keeps the action slot; Follow's prompts wait.
+		// (Asks the notify kernel whether that pill is still on screen: it pauses on hover and a hidden tab, so a clock would be wrong.)
+		actionBusy: () => undoRef.current !== null && actionLive(undoRaiseRef.current),
 		// Show me together (§7.5): the host's tour starts here too, on a practice deck. A tour or lesson
 		// already running is left alone.
 		startTour: (tourId) => {
@@ -4175,13 +4205,39 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		else if (sent === 'wait') notify('A tour just started for everyone. Give it a moment before starting another.');
 		else startDemo(tourId);
 	};
+	// A member hears the presenter's narration from clips when the presenter has Voice on and it is not coming
+	// through the call: this browser is off the call, or the presenter is (§7.3, off the call). A member on the
+	// call with the presenter hears it there, so a second copy would only echo.
+	const hostMic = live.view.people.find((p) => p.role === 'host')?.mic ?? 'off';
+	const roomClips = presentByRoom && live.view.present?.voice && (!liveInCall || hostMic === 'off') ? live.actions.askClip : null;
 	const liveForPresent = React.useMemo(
 		() =>
 			live.view.status === 'live'
-				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), follow: presentByRoom ? live.view.present : null, inertKeys: presentByRoom }
+				? { onTransport: livePresentingToAll ? live.actions.presentTransport : undefined, presentingToAll: livePresentingToAll, onStopPresentingToAll: () => live.actions.presentToEveryone(false), serveClips: livePresentingToAll ? live.actions.serveClips : undefined, follow: presentByRoom ? live.view.present : presentFollow, clips: roomClips, inertKeys: presentByRoom || !!presentFollow, onPlace: reportPresentPlace }
 				: undefined,
-		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom],
+		[live.view.status, live.view.present, livePresentingToAll, live.actions, presentByRoom, presentFollow, roomClips, reportPresentPlace],
 	);
+	// Follow into Present (design note 2026-10-21 §7.4): a Present opened because we follow someone is a third kind,
+	// after one we opened ourselves and one the room opened. It is quiet (the keyboard does nothing until a click,
+	// muted, no narration of our own) and a Present the room opened wins over it.
+	const presentFollowRef = React.useRef(presentFollow);
+	presentFollowRef.current = presentFollow;
+	useAppliedKey('present', (v) => {
+		if (v === null) {
+			if (presentFollowRef.current) {
+				setPresentFollow(null);
+				setPresentOpen(false);
+			}
+			return;
+		}
+		if (presentByRoomRef.current) return;
+		if (presentOpenRef.current && !presentFollowRef.current) return;
+		setPresentFollow(v);
+		setPresentOpen(true);
+	});
+	React.useEffect(() => {
+		if (!presentOpen) setPresentFollow(null);
+	}, [presentOpen]);
 	// Open the Live panel from anywhere (the header pill, the Share sheet): below Craft the docked
 	// slot does not exist, so reveal the Craft dock first, the way Reader views does.
 	const openLive = () => {
@@ -4204,14 +4260,24 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [live.view.people]);
 
 	// The knock (§4.3): a toast with Admit that never steals focus from the editor; Deny lives on
-	// the panel row. One toast per new knock.
+	// the panel row. One toast per new knock, withdrawn the moment that knock resolves by any
+	// path (the panel's Admit or Deny, auto-admit, or the guest giving up), so it never offers
+	// to admit someone already in.
 	const knocksSeen = React.useRef(new Set<string>());
+	const knockToasts = React.useRef(new Map<string, { handle: string | number; raise: number }>());
 	React.useEffect(() => {
 		if (!live.view.isHost) return;
+		const waiting = new Set(live.view.waiting.map((k) => k.id));
+		for (const [id, t] of knockToasts.current) {
+			if (waiting.has(id)) continue;
+			dismissActionNotice(t.handle, t.raise);
+			knockToasts.current.delete(id);
+		}
 		for (const k of live.view.waiting) {
 			if (knocksSeen.current.has(k.id)) continue;
 			knocksSeen.current.add(k.id);
-			notifyAction(`${k.name} wants to join`, { label: 'Admit', description: 'Deny from the Live panel.', onClick: () => live.actions.admit(k.id) });
+			const handle = notifyAction(`${k.name} wants to join`, { label: 'Admit', description: 'Deny from the Live panel.', onClick: () => live.actions.admit(k.id) });
+			knockToasts.current.set(k.id, { handle, raise: actionRaise() });
 		}
 	}, [live.view.waiting, live.view.isHost, live.actions]);
 
@@ -5675,6 +5741,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			),
 		},
 	];
+	deckSectionIdsRef.current = deckSections.map((d) => d.value);
 
 	// THE SETTINGS PANEL IS KEPT MOUNTED once shown (settings-dock.tsx; the phone's persistent
 	// sheet), because its preset tiles are live previews and WebKit never frees a preview document
@@ -5682,6 +5749,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// show counters below key the content, and the deck scroller returns to the top
 	// (`ScrollTopOnMount`, keyed on the same counter).
 	const settingsShown = inspectorOpen && (mobile ? view === 'compose' : effectiveStop === 'craft');
+	// Live: say which settings panel is open and in view, and which section is showing. Only what a person can SEE is
+	// reported: a section tab is not on screen in the Basic tier or the flat list, and a panel kept mounted behind
+	// another is not open to them.
+	useViewKey('inspector', settingsShown ? (activeSettings ?? 'none') : 'none');
+	useViewKey('section', settingsShown && activeSettings === 'deck' && settingsTier === 'advanced' && settingsView === 'group' ? deckTab : null);
 	const settingsShows = useShowCount(settingsShown);
 	const deckShows = useShowCount(settingsShown && inspectorScope === 'deck');
 	const slideShows = useShowCount(settingsShown && inspectorScope === 'slide');
@@ -5883,7 +5955,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{panelScope === 'slide' && (
 				<PanelLoader key={slideShows} panel={slideSettingsPanel} shell={(body) => <SlideSettingsShell tier={settingsTier} baseline={slideBaseline} slideNumber={activeFullIndex + 1} chunk={slides[activeFullIndex] ?? ''}>{body}</SlideSettingsShell>}>
-					{(SlideContextBody) => <SlideContextBody open deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
+					{(SlideContextBody) => <SlideContextBody open reportSection={settingsShown && inspectorScope === 'slide'} deckId={deck.id} chunk={slides[activeFullIndex] ?? ''} source={source} slideNumber={activeFullIndex + 1} lintVocab={lintVocab} catalog={components} savedFinish={savedFinishMenu} onMutate={mutateSlideFromPanel} view={settingsView} tier={settingsTier} onTierChange={setSettingsTier} query={slideQuery} baselineRef={slideBaseline} />}
 				</PanelLoader>
 			)}
 		</>
@@ -7688,9 +7760,12 @@ function Field({ label, desc, help, find, htmlFor, descId, after, children }: { 
 	// `help` is deliberately NOT searched: it is a paragraph of prose per row, so folding
 	// it in would match nearly every row on nearly every word.
 	const hit = useSettingsHit(label, desc, find);
+	// Live: which row has focus is shown to the people following us, and a row the person we follow is in wears a ring.
+	const row = useFollowRow(label, 'deck');
 	if (!hit) return null;
 	return (
-		<div {...hit} className="my-2">
+		<div {...hit} {...row.props} data-follow-ghost={row.ghost ?? undefined} className={cn('my-2', row.ghost && FOLLOW_GHOST)}>
+			{row.ghost && <FollowChip name={row.ghost} />}
 			{/* `PINNED_FIELD_ROW` holds the row you are TYPING in above the keyboard — the
 			    position the command palette's docked field occupies, borrowed rather than
 			    recomputed. It goes on the LABEL+CONTROL row, not the whole block: the help

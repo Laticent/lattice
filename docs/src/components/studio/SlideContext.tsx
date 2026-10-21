@@ -34,6 +34,8 @@ import { activeHeadline, HEADLINES } from './headline-catalog';
 import { SrDescriptionIcon } from './icons';
 import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
+import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
+import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -63,6 +65,8 @@ type LintVocab = {
 } | null;
 
 export type SlideContextBodyProps = {
+	/** True while this is the panel the person is looking at, so Live can say which section is open. */
+	reportSection?: boolean;
 	/** Kept only as an extra baseline-recapture trigger; the baseline also recaptures on
 	 *  `slideNumber`, so a persistently-mounted body (open held true) still resets per slide. */
 	open: boolean;
@@ -123,9 +127,12 @@ function Row({ label, hint, desc, help, find, children }: { label: string; hint?
 	// currently inheriting and none you had overridden, and a row vanished from the results
 	// the moment you changed it. A search whose answers move when you edit is not learnable.
 	const hit = useSettingsHit(label, desc, find);
+	// Live: see Field in StudioShell.
+	const row = useFollowRow(label, 'slide');
 	if (!hit) return null;
 	return (
-		<div {...hit} className="my-1.5">
+		<div {...hit} {...row.props} data-follow-ghost={row.ghost ?? undefined} className={cn('my-1.5', row.ghost && FOLLOW_GHOST)}>
+			{row.ghost && <FollowChip name={row.ghost} />}
 			{/* The SAME 45/45 geometry the deck Inspector uses (SETTING_ROW in ui/panel) —
 			    every control in the column starts at one x, whatever its label's length, and
 			    a filling control truncates rather than growing. It still wraps: if a control's
@@ -277,7 +284,7 @@ const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)'
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
  *  (desktop/tablet) OR inside a Sheet (mobile). */
 export function SlideContextBody(props: SlideContextBodyProps) {
-	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef } = props;
+	const { open, deckId, chunk, source, slideNumber, lintVocab, catalog, savedFinish = [], onMutate, view, tier, onTierChange, query, baselineRef, reportSection = false } = props;
 	const vocab = lintVocab || {};
 	const groups = vocab.universalGroups || {};
 	const axes = vocab.exclusiveAxes || {};
@@ -1147,6 +1154,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const [tab, setTab] = React.useState('look');
 	const tabValues = tabDefs.map((t) => t.value);
 	const activeTab = tabValues.includes(tab) ? tab : (tabValues[0] ?? 'notes');
+	// Live: say which section is open while this panel is the one showing, and open the one a person we follow is
+	// in (the session decides when; this only decides how).
+	useViewKey('section', reportSection && tier === 'advanced' && view === 'group' ? activeTab : null);
+	useAppliedKey('section', (v) => {
+		if (v === null) return;
+		const scope = followBus.freshApplied('inspector') ?? followBus.getLocal('inspector');
+		if (scope === 'slide' && tabValues.includes(v)) setTab(v);
+	});
 
 	return (
 		<>

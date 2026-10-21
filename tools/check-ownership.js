@@ -9276,32 +9276,44 @@ function checkCalcoBoundary(errors, dir = CALCO_DIR) {
 // ── Tavola (docs/src/lib/tavola) — the live-collaboration engine ────────────
 // Tavola knows peers and bytes; the Studio knows screens. The transport and the document are
 // passed in, the way Trama takes dagre, so the core imports nothing outside its folder
-// (engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1). ONE sanctioned third-party
-// import, by exact name and exact file: the Trystero adapter's `trystero/nostr`. Anywhere else in the
-// folder that specifier is a violation too, or the core would quietly grow a network dependency.
+// (engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1). Third-party imports are
+// sanctioned by exact name AND exact file, one adapter each:
+//   adapters/trystero.ts  `trystero/nostr`  the transport (so the core stays transport-free)
+//   adapters/yjs.ts       `yjs`, `y-protocols/awareness`, `lib0/decoding`, `lib0/encoding`  the awareness
+//                         gate. Tavola's core must not replicate Yjs, so the bridge is the one production file
+//                         that reads Yjs's awareness bytes, and `yjs` and `y-protocols` are optional peer
+//                         dependencies of the package (2026-10-21-follow-over-tavola.md §5).
+// Anywhere else in the folder those specifiers are violations too (test files may use them).
 const TAVOLA_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'tavola');
-const TAVOLA_ADAPTER = path.join(TAVOLA_DIR, 'adapters', 'trystero.ts');
-const TAVOLA_SANCTIONED_BARE = 'trystero/nostr';
-function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapter = TAVOLA_ADAPTER) {
+const TAVOLA_ADAPTERS = {
+  'adapters/trystero.ts': ['trystero/nostr'],
+  'adapters/yjs.ts': ['yjs', 'y-protocols/awareness', 'lib0/decoding', 'lib0/encoding'],
+};
+function checkTavolaBoundary(errors, dir = TAVOLA_DIR, adapters = TAVOLA_ADAPTERS) {
+  const sanctioned = new Set(Object.values(adapters).flat());
   checkStrictPackageImports(errors, dir, {
     allowNode: false,
-    allowBare: new Set([TAVOLA_SANCTIONED_BARE]),
+    allowBare: sanctioned,
     describe: (rel, spec) =>
       `${rel} imports '${spec}', which escapes the Tavola folder. Tavola takes its transport and ` +
       `document as arguments, so every import must resolve inside docs/src/lib/tavola/ ` +
       `(engineering/decisions/2026-10-06-studio-live-collaboration.md §7.1).`,
   });
   if (!fs.existsSync(dir)) return;
-  for (const file of listPackageSources(path.resolve(dir))) {
-    if (TEST_FILE.test(file) || path.resolve(file) === path.resolve(adapter)) continue;
+  const root = path.resolve(dir);
+  for (const file of listPackageSources(root)) {
+    if (TEST_FILE.test(file)) continue;
+    const mine = new Set(adapters[path.relative(root, file).split(path.sep).join('/')] ?? []);
     const src = stripJsComments(fs.readFileSync(file, 'utf8'));
     for (const pattern of SUONO_SPEC_PATTERNS) {
       for (const m of src.matchAll(pattern)) {
-        if (m[1] !== TAVOLA_SANCTIONED_BARE) continue;
+        const spec = m[1];
+        if (!sanctioned.has(spec) || mine.has(spec)) continue;
+        const owners = Object.entries(adapters).filter(([, names]) => names.includes(spec)).map(([f]) => f);
         errors.push(
-          `${relPosix(ROOT, file)} imports '${TAVOLA_SANCTIONED_BARE}'. Only ` +
-          `${relPosix(ROOT, adapter)} may: the Tavola core stays transport-free, and the adapter ` +
-          `is the one sanctioned exception (2026-10-06-studio-live-collaboration.md §7.1).`,
+          `${relPosix(ROOT, file)} imports '${spec}'. Only ${owners.join(' and ')} may: ` +
+          `the Tavola core stays free of the transport and of Yjs, and each adapter is the one ` +
+          `sanctioned exception for its names (2026-10-06-studio-live-collaboration.md §7.1).`,
         );
       }
     }
