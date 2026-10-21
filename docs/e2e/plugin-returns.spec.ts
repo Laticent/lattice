@@ -40,7 +40,9 @@ async function returnsZip(words: string[]): Promise<Buffer> {
 async function importZip(page: Parameters<typeof gotoStudio>[0], buffer: Buffer) {
 	const input = page.locator('input[type="file"][accept=".zip"]');
 	// The Library button toggles, and the panel can still be open from the last import.
-	if (!(await input.count())) {
+	// The Library may still be opening (or already open from an earlier visit): give the input a moment before clicking, because a click on an open Library closes it.
+	const present = await input.waitFor({ state: 'attached', timeout: 3000 }).then(() => true, () => false);
+	if (!present) {
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
 	}
