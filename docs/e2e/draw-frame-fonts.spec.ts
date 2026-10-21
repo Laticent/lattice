@@ -55,7 +55,7 @@ async function widths(page: import('@playwright/test').Page): Promise<number[]> 
 	return preview.locator('svg[id^="lattice-mmd-"] g.node > rect').evaluateAll((rects) => rects.map((r) => Number(r.getAttribute('width'))));
 }
 
-test("a deck's own embedded font sizes the frame's diagram labels as the page sizes them @gecko @webkit-tablet", async ({ browser, browserName }) => {
+test("a deck's own embedded font sizes the frame's diagram labels as the page sizes them @gecko @webkit-tablet", async ({ browser }) => {
 	test.setTimeout(240_000);
 
 	const inPage = await browser.newContext({ viewport: { width: 1440, height: 900 } });

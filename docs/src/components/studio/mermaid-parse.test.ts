@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+// The page has recorded its engine's address (the frame cannot open before that).
+vi.mock('../../lib/engine-base', () => ({ engineBase: () => 'https://x.test/engine/' }));
+
 // The check draws each diagram through the page's draw host and reads the library's refusal as the diagnosis.
 const diagram = (slide: number, code: string) => ({ slide, code });
 
@@ -26,6 +29,44 @@ describe('checkDiagrams: the sandboxed frame answers, the page loads no Mermaid'
 		expect(out).toEqual([{ slide: 4, message: 'Parse error on line 2: Expecting X, got Y' }]);
 		expect(jobs.every((j) => j.kind === 'mermaid' && typeof j.svgId === 'string')).toBe(true);
 		expect(new Set(jobs.map((j) => j.svgId)).size).toBe(jobs.length);
+	});
+
+	it('gives an unchanged diagram the same job id on the next check, so the host can remember it', async () => {
+		const ids: unknown[] = [];
+		withHost({ kinds: ['mermaid'], draw: async (job: Record<string, unknown>) => {
+			ids.push(job.svgId);
+			return '{}';
+		} });
+		const { checkDiagrams } = await import('./mermaid-parse');
+		await checkDiagrams([diagram(1, 'graph TD\n A')]);
+		await checkDiagrams([diagram(1, 'graph TD\n A')]);
+		expect(ids[0]).toBe(ids[1]);
+	});
+
+	it('refuses an over-long label the way the preview does, without drawing it', async () => {
+		const jobs: unknown[] = [];
+		withHost({ kinds: ['mermaid'], draw: async (job: unknown) => {
+			jobs.push(job);
+			return '{}';
+		} });
+		const { checkDiagrams } = await import('./mermaid-parse');
+		const out = await checkDiagrams([diagram(2, `flowchart TD\n A["${'x'.repeat(600)}"] --> B`)]);
+		expect(jobs).toHaveLength(0);
+		expect(out).toHaveLength(1);
+		expect(out?.[0].slide).toBe(2);
+	});
+
+	it("does not call the drawing's own trouble a diagram error, and stops when the deck moved on", async () => {
+		const { checkDiagrams } = await import('./mermaid-parse');
+		withHost({ kinds: ['mermaid'], draw: async () => { throw Object.assign(new Error('the drawing is past the 8000000 limit'), { drawRefused: true }); } });
+		expect(await checkDiagrams([diagram(1, 'graph TD\n A')])).toBeNull();
+		const jobs: unknown[] = [];
+		withHost({ kinds: ['mermaid'], draw: async (job: unknown) => {
+			jobs.push(job);
+			return '{}';
+		} });
+		expect(await checkDiagrams([diagram(1, 'graph TD\n A')], '', () => true)).toBeNull();
+		expect(jobs).toHaveLength(0);
 	});
 
 	it('returns [] only when every diagram drew', async () => {

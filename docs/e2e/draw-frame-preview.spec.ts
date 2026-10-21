@@ -224,7 +224,8 @@ test('a Studio export draws Mermaid itself, never through the preview draw frame
 	const preview = livePreview(page);
 	await setEditorContent(page, FLOW_DECK);
 	await expect(preview.locator('svg[id^="lattice-mmd-"]').first()).toBeAttached({ timeout: 90_000 });
-	// Every draw the host takes leaves a mark; the preview's own are behind us, so any new one comes from the export.
+	// Every draw the host takes leaves a mark. The preview's draw and the deck-wide check's draw (900 ms after the deck settles) both come first, so wait for both before clearing: any mark after that comes from the export.
+	await expect.poll(() => page.evaluate(() => performance.getEntriesByName('lattice-draw:draw-called').length), { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
 	await page.evaluate(() => performance.clearMarks('lattice-draw:draw-called'));
 	await page.getByRole('button', { name: 'Share', exact: true }).first().click();
 	await page.getByRole('dialog').getByRole('button', { name: /^PDF/ }).first().click();
@@ -263,7 +264,7 @@ test('when the Mermaid frame cannot load its modules, the host says so at once a
 	expect(await page.locator('iframe[data-lattice-draw-frame="mermaid"]').count(), 'the failed frame is gone').toBe(0);
 });
 
-test("the Studio's deck-wide diagram check draws through the frame and never loads Mermaid into the page @smoke @gecko @webkit-tablet", async ({ page, browserName }) => {
+test("the Studio's deck-wide diagram check draws through the frame and never loads Mermaid into the page @smoke @gecko @webkit-tablet", async ({ page }) => {
 	test.setTimeout(240_000);
 	const pageLibrary: string[] = [];
 	page.on('request', (r) => {

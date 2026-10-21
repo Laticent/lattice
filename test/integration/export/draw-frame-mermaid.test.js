@@ -330,3 +330,23 @@ test('HOSTILE: what a hostile frame could say is taken out, and the labels and s
     await browser.close();
   }
 });
+
+test('REFUSAL: a diagram with a syntax error comes back as the library\'s own error, and the frame keeps drawing after it', { timeout: TIMEOUT }, async () => {
+  const server = await serve();
+  const browser = await open();
+  try {
+    const defs = ['flowchart TD\n  A[Start --> B', 'classDiagram\n  class Order {\n    +id', 'flowcharrt TD\n  A --> B', 'flowchart TD\n  A --> B'];
+    const { ready, replies } = await drawAll(browser, `${server.origin}/parent.html`, await esmFrameHtml(server.base), defs, CONFIG);
+    assert.equal(ready, true, 'the frame started');
+    for (const i of [0, 1, 2]) {
+      assert.ok(replies[i]?.error, `diagram ${i} is refused with an error`);
+      assert.equal(replies[i].out, undefined, `diagram ${i} drew nothing`);
+    }
+    assert.match(replies[0].error + replies[1].error, /Parse error|Expecting/i, 'the message is the library\'s own');
+    assert.match(replies[2].error, /No diagram type detected/i);
+    assert.match(JSON.parse(replies[3].out).svg, /^<svg[\s>]/, 'the next diagram still draws');
+  } finally {
+    await browser.close();
+    server.close?.();
+  }
+});

@@ -3445,8 +3445,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
-	// no diagrams never loads the (~1MB) library at all. Debounced past the assessment so
-	// a burst of typing settles first. A failure to load reports `[]` rather than a guess.
+	// no diagrams never draws anything. Each diagram is drawn in the sandboxed preview frame; the page loads no Mermaid.
+	// Debounced past the assessment so a burst of typing settles first. A check that cannot answer reports `null`, never a guess.
 	const diagramSignature = React.useMemo(() => extractDiagrams(source).map((d) => d.code).join('\u0000'), [source]);
 	React.useEffect(() => {
 		let live = true;
@@ -3466,7 +3466,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const id = setTimeout(() => {
 			// On demand: the parse half (and its library loader) is not startup JavaScript.
 			import('./mermaid-parse')
-				.then((m) => m.checkDiagrams(extractDiagrams(sourceRef.current), options?.runtimeUrl ?? ''))
+				.then((m) => m.checkDiagrams(extractDiagrams(sourceRef.current), options?.runtimeUrl ?? '', () => !live))
 				.then((errs) => {
 					if (live) setDiagramErrors(errs);
 				})

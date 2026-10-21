@@ -3,6 +3,8 @@
 // lazily). Why it exists, and why the return type is the contract: mermaid-check.ts and the
 // docblock on `checkDiagrams` below.
 
+import { overlongLabelText, overlongMessage } from '../../../../lib/plugins/mermaid/shared/label-length.js';
+import { engineBase } from '../../lib/engine-base';
 import { installPreviewDrawHost } from '../../lib/preview-draw-host';
 // Types only: a value import of mermaid-check.ts from this lazy chunk would make that module a
 // shared chunk of its own, and the re-chunking costs the Studio's startup more than this saves.
@@ -16,9 +18,20 @@ const host = (): DrawHost | null => {
 	if (typeof window === 'undefined') return null;
 	installPreviewDrawHost(window);
 	const h = (window as { __latticeDrawHost?: DrawHost }).__latticeDrawHost;
+	// Before a page has recorded the engine's address the frame cannot open, and that failure would switch the kind off for the whole session.
+	if (!engineBase()) return null;
 	return h && Array.isArray(h.kinds) && h.kinds.includes('mermaid') ? h : null;
 };
-let ordinal = 0;
+
+/** A short, stable id for a diagram's text, so an unchanged diagram is the same draw job on the next check (and the host remembers its answer). */
+function idFor(code: string): string {
+	let h = 2166136261;
+	for (let i = 0; i < code.length; i++) h = Math.imul(h ^ code.charCodeAt(i), 16777619) >>> 0;
+	return `lattice-mmd-check-${h.toString(36)}`;
+}
+
+/** What the frame says when the drawing, not the diagram, is the trouble: that says nothing about the author's text. */
+const NOT_A_VERDICT = /past the \d+ limit|is not text|returned null|resolved without producing/i;
 
 /**
  * Mermaid's thrown error, reduced to the part that helps. Its parse errors look like:
@@ -64,20 +77,27 @@ export function parseErrorMessage(e: unknown): string {
  * instead of the model and impossible for the author to challenge. A frame that cannot answer
  * (stopped, timed out, could not load) therefore returns `null`, never `[]`.
  */
-export async function checkDiagrams(diagrams: Diagram[], _runtimeUrl = ''): Promise<DiagramError[] | null> {
+export async function checkDiagrams(diagrams: Diagram[], _runtimeUrl = '', stale: () => boolean = () => false): Promise<DiagramError[] | null> {
 	const draw = !diagrams.length ? null : host();
 	if (!draw) return null;
 	const errors: DiagramError[] = [];
 	// Bounded on purpose: each diagram is a full draw in the frame, one at a time. Past the cap we report what we have
 	// rather than what we wish we had, and the caller states only what was actually checked.
 	for (const d of diagrams.slice(0, MAX_DIAGRAMS)) {
+		if (stale()) return null; // the deck moved on: stop taking turns in the frame the preview shares
 		if (d.code.length > MAX_DIAGRAM_CHARS) continue;
+		// The preview refuses an over-long label before Mermaid sees it, because rendering one can hold the frame for many seconds; the check says the same.
+		const overlong = overlongLabelText(d.code);
+		if (overlong) {
+			errors.push({ slide: d.slide, message: parseErrorMessage(new Error(overlongMessage(overlong))) });
+			continue;
+		}
 		try {
-			await draw.draw({ kind: 'mermaid', definition: d.code, svgId: `lattice-mmd-check-${++ordinal}`, config: { startOnLoad: false, securityLevel: 'strict' }, stage: 1200, fonts: [] });
+			await draw.draw({ kind: 'mermaid', definition: d.code, svgId: idFor(d.code), config: { startOnLoad: false, securityLevel: 'strict' }, stage: 1200, fonts: [] });
 		} catch (e) {
 			// Only the library's own refusal is a diagnosis. A frame that stopped, timed out or could not open says nothing about the diagram,
 			// so the whole check gives no answer (`null`) instead of claiming a result it did not get.
-			if (!(e as { drawRefused?: boolean })?.drawRefused) return null;
+			if (!(e as { drawRefused?: boolean })?.drawRefused || NOT_A_VERDICT.test(String((e as Error).message))) return null;
 			errors.push({ slide: d.slide, message: parseErrorMessage(e) });
 		}
 	}
