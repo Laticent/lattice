@@ -38,7 +38,7 @@ export function PlaygroundTourCard() {
 	return (
 		<React.Suspense fallback={null}>
 		<WelcomeCard
-			mode={open ? 'start' : null}
+			mode="start"
 			onClose={() => setOpen(false)}
 			onStart={start}
 			onTest={async () => (await (voice.current ?? loadVoice())).testTourSound()}
