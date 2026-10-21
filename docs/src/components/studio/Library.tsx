@@ -985,6 +985,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					<input
 						ref={importRef}
 						type="file"
+						data-testid="library-import-input"
 						accept={IMPORT_ACCEPT}
 						multiple
 						hidden

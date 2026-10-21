@@ -56,7 +56,7 @@ test('a remote reference in a gallery or in motion art never leaves the Studio',
 	await expect.poll(() => hits.length).toBe(1);
 	const control = hits.splice(0);
 	await openLibrary(page);
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'probes.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'probes.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
 	const toast = page.locator('[data-sonner-toast]').first();
 	await expect(toast).toContainText('probe-beacon');
 	await expect(toast).toContainText('sample slide loads');

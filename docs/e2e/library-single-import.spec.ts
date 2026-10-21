@@ -1,9 +1,29 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import type { Page } from '@playwright/test';
+import JSZip from 'jszip';
 import { CHROME, expect, gotoStudio, test } from './studio-fixture';
 
 // The Library's ONE Import button, driven on the real Studio. What a file is decides where it goes, and
 // the Library opens on what was just added; a mixed batch opens All with the new items first.
 // A real file chooser, not a stand-in: the button must open the browser's own picker for every kind.
+
+const require = createRequire(import.meta.url);
+const spine = require('../../lib/packages/index.js');
+const ROOT = path.resolve(import.meta.dirname, '../..');
+
+/** A repo component written by the spine as `probe-content` (a shipped name would import as -custom). */
+async function probeZip(): Promise<Buffer> {
+	const dir = path.join(ROOT, 'lib/components/statement/content');
+	const files: Record<string, string> = {};
+	for (const f of ['content.manifest.json', 'content.styles.css', 'content.gallery.md', 'content.docs.md']) files[f] = fs.readFileSync(path.join(dir, f), 'utf8');
+	const r = spine.readPackage(files, { type: 'component', strict: true });
+	const out = spine.writePackage({ ...r.pkg, name: 'probe-content', manifest: { ...r.pkg.manifest, name: 'probe-content' } });
+	const zip = new JSZip();
+	for (const [f, text] of Object.entries(out)) zip.file(`probe-content/${f}`, text as string);
+	return zip.generateAsync({ type: 'nodebuffer' });
+}
 
 // A 1×1 PNG.
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
@@ -77,3 +97,27 @@ for (const vw of [1440, 820, 390]) {
 		});
 	});
 }
+
+test('a package .zip opens Design and wears the Imported tag; a photo beside it opens All', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await openLibrary(page, 1440);
+	await importFiles(page, [{ name: 'probe-content.zip', mimeType: 'application/zip', buffer: await probeZip() }]);
+	await expect(page.getByRole('button', { name: 'Share .probe-content' })).toBeVisible({ timeout: 20_000 });
+	await selected(page, 'Library sections', 'Design');
+	const card = page.locator('div.rounded-xl', { hasText: '.probe-content' }).first();
+	await expect(card.getByText('Imported', { exact: true })).toBeVisible();
+	// It survives a reload as imported: the tag is stored on the record, not held in memory.
+	await page.reload();
+	await openLibrary(page, 1440);
+	await page.getByRole('tablist', { name: 'Library sections' }).getByRole('tab', { name: 'Design', exact: true }).click();
+	await expect(page.locator('div.rounded-xl', { hasText: '.probe-content' }).first().getByText('Imported', { exact: true })).toBeVisible();
+
+	await importFiles(page, [
+		{ name: 'probe-content.zip', mimeType: 'application/zip', buffer: await probeZip() },
+		{ name: 'three.png', mimeType: 'image/png', buffer: PNG },
+	]);
+	await addPhotos(page);
+	await expect(page.locator('[data-media-card="three"]')).toBeVisible({ timeout: 20_000 });
+	await selected(page, 'Library sections', 'All');
+});
