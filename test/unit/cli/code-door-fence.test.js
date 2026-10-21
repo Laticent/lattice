@@ -309,8 +309,19 @@ describe('through the real engine: capture, then substitute', () => {
     for (const t of TRANSFORMERS) {
       const named = String(t.selector || '').split(',').some((s) => /\.[A-Za-z]/.test(s.trim().split(/\s/)[0].replace(/:not\([^)]*\)/g, '')));
       if (!named) continue;
+      if (t.readsText === false) {
+        assert.ok(!alt.some((a) => a.pass === t.name), `${t.name} says it reads no text, so it denies nothing`);
+        continue;
+      }
       assert.ok(alt.some((a) => a.pass === t.name) || ['masthead-lift', 'image-adaptive', 'image-scrim', 'split-panels'].includes(t.name), `${t.name} names a slide class and is neither denied nor generic`);
     }
+  });
+
+  test('a slide the inline-run pass serves is not denied: it wraps a label, it reads no address', () => {
+    // #2831 registered inline-run on 12 components, and the list derived from the registry then denied a plugin's
+    // span on every one of them (docs/e2e/plugin-inline-ui.spec.ts, the cards-grid slide).
+    for (const c of ['cards-grid', 'agenda', 'cards-stack']) assert.equal(rebuiltBy([c]), null, `${c} is not rebuilt from its text`);
+    assert.ok(!rebuiltAlternatives().some((a) => a.pass === 'inline-run'));
   });
 
   test('two panes of one slide, each with a fence, get two ids; the same text twice gets two', () => {
