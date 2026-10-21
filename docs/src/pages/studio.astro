@@ -716,7 +716,10 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 							probe.parentNode.removeChild(probe);
 						} catch (eF) {}
 						var lhGrow = bpMobile ? 0 : Math.max(0, lhNow - lhBase);
-						var footerH = cinema ? 0 : (chromeless ? C.footerRead : C.footerWrite + 2 * lhGrow);
+						// The remembered slide map swaps the strip's pills for its taller thumbnail row.
+						var mapOn = false;
+						try { mapOn = localStorage.getItem('lattice-studio-map') === '1'; } catch (e11) {}
+						var footerH = cinema ? 0 : (chromeless ? (mapOn ? C.footerReadMap : C.footerRead) : (mapOn ? C.footerWriteMap : C.footerWrite) + 2 * lhGrow);
 						// No width cap — the app stopped capping the preview box (#1283), so a cap
 						// here would paint a narrower skeleton than the box the hydrated app
 						// measures, and the hand-off would show as a jump.
