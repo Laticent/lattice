@@ -42,6 +42,15 @@ const F2 = page(
   '<svg class="empty" viewBox="0 0 10 10"></svg><div class="card"><p>First paragraph</p><p>Second paragraph</p></div><div class="label">Loose label</div>',
 );
 
+const PHOTO = page(
+  '.photo{position:absolute;left:64px;top:100px;width:600px;height:300px;border-radius:18px;overflow:hidden;background:#234}.photo svg{position:absolute;inset:0;width:100%;height:100%}.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,0) 60%)}',
+  '<div class="photo"><svg viewBox="0 0 10 10" preserveAspectRatio="none"><rect width="10" height="10" fill="#38a"/></svg></div>',
+);
+const WRAP = page(
+  '.note{position:absolute;left:64px;top:100px;width:300px;font-size:20px;line-height:1.6}code{background:#dde;border-radius:4px;padding:0 4px}',
+  '<div class="note">Short <code>chip</code> then <code>a-very-long-inline-code-token-that-wraps-onto-a-second-line</code> end.</div>',
+);
+
 describe('calco sprites: order, opacity, leftovers and indexes', () => {
   let browser;
   let tab;
@@ -122,5 +131,19 @@ describe('calco sprites: order, opacity, leftovers and indexes', () => {
     assert.notEqual(slide.shapes[label].group, card, 'the loose label is not in the card\'s group');
     for (const f of slide.frames) if (f.group !== undefined) assert.equal(slide.shapes[f.group]?.kind, 'box', 'a frame\'s group is a card');
     assert.ok(slide.frames.some((f) => f.group === card), 'the card\'s text is in its group');
+  });
+
+  test('a scrim inside a rounded, overflow-hidden photo is baked into the photo, above it', async () => {
+    const res = await read(PHOTO);
+    const photo = index(res, (s) => s.kind === 'picture');
+    assert.ok(photo >= 0);
+    assert.equal(res.shapes.some((s) => s.kind === 'box' && s.gradient), false, 'the scrim would poke out of the rounded corners as a square shape');
+  });
+
+  test('a wrapped inline chip is not one rectangle; a one-line chip still is', async () => {
+    const res = await read(WRAP);
+    const chips = res.shapes.filter((s) => s.kind === 'box' && s.fill && s.h < 40);
+    assert.equal(chips.length, 1, JSON.stringify(res.shapes.map((s) => [s.kind, s.x, s.y, s.w, s.h])));
+    assert.ok(chips[0].w < 80, 'the short chip');
   });
 });

@@ -888,13 +888,30 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const grow = (r: Rect, by: number): Rect => (by > 0 ? { x: r.x - by, y: r.y - by, w: r.w + 2 * by, h: r.h + 2 * by } : r);
 		const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5;
 		// Inside every box that clips it, and on the slide: a clipped box is not a shape.
-		const unclipped = (el: Element, r: Rect): boolean => {
+		// `inside`: `el` is the box that holds `r` (a pseudo-element's own element), so its own clip counts too.
+		const unclipped = (el: Element, r: Rect, inside = false): boolean => {
 			if (r.x < -0.5 || r.y < -0.5 || r.x + r.w > boxW + 0.5 || r.y + r.h > boxH + 0.5) return false;
-			for (let p = el.parentElement; p && p !== section; p = p.parentElement) {
+			for (let p: Element | null = inside ? el : el.parentElement; p && p !== section; p = p.parentElement) {
 				const cs = win.getComputedStyle(p);
 				if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
 				const c = relRect(p.getBoundingClientRect());
 				if (r.x < c.x - 0.5 || r.y < c.y - 0.5 || r.x + r.w > c.x + c.w + 0.5 || r.y + r.h > c.y + c.h + 0.5) return false;
+				// A rounded clip cuts the corners: a shape whose own corner lies outside the arc would poke out of it.
+				const radius = (v: string) => Number.parseFloat(v) || 0;
+				const arcs: Array<[number, number, number, number, number]> = [
+					[c.x, c.y, radius(cs.borderTopLeftRadius), r.x, r.y],
+					[c.x + c.w, c.y, radius(cs.borderTopRightRadius), r.x + r.w, r.y],
+					[c.x + c.w, c.y + c.h, radius(cs.borderBottomRightRadius), r.x + r.w, r.y + r.h],
+					[c.x, c.y + c.h, radius(cs.borderBottomLeftRadius), r.x, r.y + r.h],
+				];
+				for (const [cx, cy, rad, px_, py_] of arcs) {
+					if (rad <= 0.5) continue;
+					// The arc's center sits `rad` in from the corner, toward the box.
+					const ox = cx + (cx === c.x ? rad : -rad);
+					const oy = cy + (cy === c.y ? rad : -rad);
+					const inSquare = (cx === c.x ? px_ < ox : px_ > ox) && (cy === c.y ? py_ < oy : py_ > oy);
+					if (inSquare && Math.hypot(px_ - ox, py_ - oy) > rad + 0.5) return false;
+				}
 			}
 			return true;
 		};
@@ -1279,7 +1296,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			const plain =
 				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
-				cs.backgroundClip !== 'text' && !effected(owner) && unclipped(owner, rect) && tag !== 'html' && tag !== 'body';
+				cs.backgroundClip !== 'text' && !effected(owner) && unclipped(owner, rect, tag === 'pseudo') && tag !== 'html' && tag !== 'body';
 			const why = plain
 				? ''
 				: [
@@ -1291,7 +1308,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 						!sides.every((sd) => !sd || sd.style === 'solid') && 'border-style',
 						cs.backgroundClip === 'text' && 'clip-text',
 						effected(owner) && 'effect',
-						!unclipped(owner, rect) && 'overflow-clipped',
+						!unclipped(owner, rect, tag === 'pseudo') && 'overflow-clipped',
 					]
 						.filter(Boolean)
 						.join('+') || 'other';
@@ -1614,7 +1631,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const masked = (ps.maskImage && ps.maskImage !== 'none') || (ps.webkitMaskImage && ps.webkitMaskImage !== 'none');
 			if (masked) {
 				const mark = markOf(ps, r, op);
-				if (!mark || !effectless(el) || !unclipped(el, r)) return no(!mark ? 'pseudo:mask-not-a-path' : 'pseudo:mask-effect-or-clip');
+				if (!mark || !effectless(el) || !unclipped(el, r, true)) return no(!mark ? 'pseudo:mask-not-a-path' : 'pseudo:mask-effect-or-clip');
 				return { el, rect: r, alpha: op, fill: null, radii: [0, 0, 0, 0], sides: [null, null, null, null], shadow: null, covers: true, approx: [], pseudo: side, mark };
 			}
 			const a = analyze(ps, r, op, el, 'pseudo');
@@ -1660,6 +1677,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					items.push({ node: el, owner: el, rect: { x: rect.x - em, y: rect.y, w: em, h: Math.min(rect.h, line) }, pseudo: 'before', bleed: bleedOf(cs), kind: 'list-marker' });
 				}
 				const found = analyze(cs, rect, opacityOf(el), el, tag);
+				// An inline box that wraps is several boxes, one a line: its one bounding rectangle would paint the gap
+				// between them too.
+				if (found?.plain && cs.display === 'inline' && el.getClientRects().length > 1) {
+					found.plain = false;
+					found.why = 'wrapped-inline';
+				}
 				if (found) {
 					if (found.plain) candidates.push(found.box);
 					else {
@@ -1730,6 +1753,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (p.text) return true; // inline content paints after every block background in its level
 			if (p.node === el) return true; // the box's own pseudo-element or marker
 			if (p.pseudo && p.node.contains(el)) return p.pseudo === 'after';
+			// A candidate that is the `::before`/`::after` of an element that holds the item: the pseudo paints first or last.
+			if (cand?.pseudo && el.contains(p.node)) return cand.pseudo === 'before';
 			return !!(p.node.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING);
 		};
 		// Back to front: a parent before its children, else by painting level below their common
