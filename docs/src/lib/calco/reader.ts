@@ -74,6 +74,11 @@ export interface ReadOptions {
 	shapes?: boolean;
 	/** Record, for audit, every box that stayed in the picture and why (`ReadResult.refused`). Default false. */
 	diagnose?: boolean;
+	/**
+	 * Read text a pseudo-element generates (a counter, a label, a quote mark) as real text, by standing
+	 * a real element in for it during the read. Default true.
+	 */
+	pseudoText?: boolean;
 }
 
 /**
@@ -366,6 +371,230 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 		}
 	};
+
+	// ── GENERATED TEXT: a counter ("01", "STEP 02"), a label ("KEY INSIGHT"), a quote mark. The DOM
+	// has no text node for `::before` content, so it is MATERIALIZED for the read: a real element
+	// takes the pseudo's place with the pseudo's computed style copied onto it, and the pseudo is
+	// switched off. The words below then read ordinary text, and the shapes pass sees an ordinary
+	// box (a numbered badge is a label). The swap is checked: if it moves anything else, it is
+	// undone and the pseudo stays in the picture. Undone when the read ends, or by `restoreSlide`
+	// after a `hide`.
+	const materialized: Array<{ probe: Element; el: Element; before: string | null }> = [];
+	const tpStyle = doc.createElement('style');
+	tpStyle.textContent = '[data-calco-tp~="before"]::before{content:none!important}[data-calco-tp~="after"]::after{content:none!important}';
+	const numberText = (n: number, style: string): string | null => {
+		const alpha = (k: number, up: boolean) => {
+			let out = '';
+			for (let v = k; v > 0; v = Math.floor((v - 1) / 26)) out = String.fromCharCode(97 + ((v - 1) % 26)) + out;
+			return up ? out.toUpperCase() : out;
+		};
+		const roman = (k: number, up: boolean) => {
+			const t: Array<[number, string]> = [[1000, 'm'], [900, 'cm'], [500, 'd'], [400, 'cd'], [100, 'c'], [90, 'xc'], [50, 'l'], [40, 'xl'], [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']];
+			let out = '';
+			let v = k;
+			for (const [val, sym] of t) while (v >= val) {
+				out += sym;
+				v -= val;
+			}
+			return up ? out.toUpperCase() : out;
+		};
+		if (style === 'decimal' || !style) return String(n);
+		if (style === 'decimal-leading-zero') return `${n < 0 ? '-' : ''}${String(Math.abs(n)).padStart(2, '0')}`;
+		if (n < 1 && /alpha|latin|roman/.test(style)) return String(n);
+		if (style === 'lower-alpha' || style === 'lower-latin') return alpha(n, false);
+		if (style === 'upper-alpha' || style === 'upper-latin') return alpha(n, true);
+		if (style === 'lower-roman') return roman(n, false);
+		if (style === 'upper-roman') return roman(n, true);
+		if (style === 'none') return '';
+		return null; // a marker style (disc, a language's digits) is not read
+	};
+	const unescapeCss = (v: string) =>
+		v
+			.slice(1, -1)
+			.replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_m, h: string) => String.fromCodePoint(Number.parseInt(h, 16)))
+			.replace(/\\(.)/g, '$1');
+	type ContentToken = { t: 'str'; v: string } | { t: 'counter'; name: string; style: string } | { t: 'counters'; name: string; sep: string; style: string } | { t: 'attr'; name: string } | { t: 'quote'; open: boolean };
+	const parseContent = (content: string): ContentToken[] | null => {
+		const out: ContentToken[] = [];
+		const re = /\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|counters\([^)]*\)|counter\([^)]*\)|attr\([^)]*\)|open-quote|close-quote)/gy;
+		let pos = 0;
+		for (let m = re.exec(content); m; m = re.exec(content)) {
+			pos = re.lastIndex;
+			const tok = m[1];
+			if (tok[0] === '"' || tok[0] === "'") out.push({ t: 'str', v: unescapeCss(tok) });
+			else if (tok.startsWith('counters(')) {
+				const a = tok.slice(9, -1).split(',').map((x) => x.trim());
+				if (a.length < 2) return null;
+				out.push({ t: 'counters', name: a[0], sep: unescapeCss(a[1]), style: a[2] || 'decimal' });
+			} else if (tok.startsWith('counter(')) {
+				const a = tok.slice(8, -1).split(',').map((x) => x.trim());
+				out.push({ t: 'counter', name: a[0], style: a[1] || 'decimal' });
+			} else if (tok.startsWith('attr(')) out.push({ t: 'attr', name: tok.slice(5, -1).trim() });
+			else out.push({ t: 'quote', open: tok === 'open-quote' });
+		}
+		return pos >= content.trim().length && out.length ? out : null;
+	};
+	// CSS counters, evaluated: the computed `content` keeps `counter(x)` unresolved, so the values
+	// are worked out by walking the tree as the cascade does (reset, set, increment; a reset on an
+	// element whose earlier sibling reset the same counter replaces it).
+	const counterSnapshots = (wanted: Array<{ el: Element; side: 'before' | 'after'; snap?: Map<string, number[]> }>) => {
+		const stacks = new Map<string, Array<{ v: number; parent: Element | null }>>();
+		const read = (v: string, dflt: number): Array<[string, number]> => {
+			if (!v || v === 'none') return [];
+			const t = v.trim().split(/\s+/);
+			const out: Array<[string, number]> = [];
+			for (let i = 0; i < t.length; ) {
+				const name = t[i++];
+				let n = dflt;
+				if (i < t.length && /^-?\d+$/.test(t[i])) n = Number(t[i++]);
+				out.push([name, n]);
+			}
+			return out;
+		};
+		const stack = (n: string) => {
+			let st = stacks.get(n);
+			if (!st) stacks.set(n, (st = []));
+			return st;
+		};
+		const apply = (cs: CSSStyleDeclaration & Record<string, string>, owner: Element, created: string[]) => {
+			for (const [n, v] of read(cs.counterReset, 0)) {
+				const st = stack(n);
+				const top = st[st.length - 1];
+				if (top && top.parent === owner.parentElement) top.v = v;
+				else {
+					st.push({ v, parent: owner.parentElement });
+					created.push(n);
+				}
+			}
+			for (const [n, v] of read(cs.counterSet, 0)) {
+				const st = stack(n);
+				if (!st.length) {
+					st.push({ v, parent: owner.parentElement });
+					created.push(n);
+				} else st[st.length - 1].v = v;
+			}
+			for (const [n, by] of read(cs.counterIncrement, 1)) {
+				const st = stack(n);
+				if (!st.length) {
+					st.push({ v: 0, parent: owner.parentElement });
+					created.push(n);
+				}
+				st[st.length - 1].v += by;
+			}
+		};
+		const snap = (el: Element, side: 'before' | 'after') => {
+			const hit = wanted.find((w) => w.el === el && w.side === side);
+			if (hit) hit.snap = new Map([...stacks].map(([n, st]) => [n, st.map((x) => x.v)]));
+		};
+		// One element: its own counters, then its `::before`'s, then its children, then its `::after`'s.
+		const enter = (el: Element, created: string[]) => {
+			const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
+			if (cs.display === 'none') return;
+			apply(cs, el, created);
+			const kids: string[] = [];
+			for (const side of ['before', 'after'] as const) {
+				if (side === 'after') {
+					const inner: string[] = [];
+					for (let c = el.firstElementChild; c; c = c.nextElementSibling) if (!SKIP.has(String(c.localName).toLowerCase())) enter(c, inner);
+					for (const n of inner) stack(n).pop();
+				}
+				const ps = win.getComputedStyle(el, side === 'before' ? '::before' : '::after') as CSSStyleDeclaration & Record<string, string>;
+				if (ps.content && ps.content !== 'none' && ps.content !== 'normal' && ps.display !== 'none') {
+					apply(ps, el, kids);
+					snap(el, side);
+				}
+			}
+			for (const n of kids) stack(n).pop();
+		};
+		// A counter reset on the section (or an ancestor) is in scope for the whole slide.
+		const outer: string[] = [];
+		enter(section, outer);
+		for (const n of outer) stack(n).pop();
+	};
+	const contentText = (el: Element, tokens: ContentToken[], snap: Map<string, number[]> | undefined): string | null => {
+		let out = '';
+		for (const t of tokens) {
+			if (t.t === 'str') out += t.v;
+			else if (t.t === 'attr') out += el.getAttribute(t.name) || '';
+			else if (t.t === 'quote') out += t.open ? '“' : '”';
+			else {
+				const st = snap?.get(t.name);
+				const vals = st && st.length ? st : [0];
+				if (t.t === 'counter') {
+					const x = numberText(vals[vals.length - 1], t.style);
+					if (x === null) return null;
+					out += x;
+				} else {
+					const xs = vals.map((v) => numberText(v, t.style));
+					if (xs.some((x) => x === null)) return null;
+					out += xs.join(t.sep);
+				}
+			}
+		}
+		return out;
+	};
+	const materializeTextPseudos = () => {
+		type Cand = { el: Element; side: 'before' | 'after'; tokens: ContentToken[]; snap?: Map<string, number[]> };
+		const cands: Cand[] = [];
+		for (const el of [section, ...Array.from(section.querySelectorAll('*'))]) {
+			if (el !== section && SKIP.has(String(el.localName).toLowerCase())) continue;
+			for (const side of ['before', 'after'] as const) {
+				const ps = win.getComputedStyle(el, side === 'before' ? '::before' : '::after');
+				const c = ps.content;
+				if (!c || c === 'none' || c === 'normal' || c === '""' || c === "''" || ps.display === 'none' || ps.visibility !== 'visible') continue;
+				const tokens = parseContent(c);
+				if (!tokens || el === section) continue;
+				// Inside something that is not drawn (display: none up the tree), there is nothing to read.
+				if (!el.getClientRects().length) continue;
+				cands.push({ el, side, tokens });
+			}
+		}
+		if (!cands.length) return;
+		if (cands.some((c) => c.tokens.some((t) => t.t === 'counter' || t.t === 'counters'))) counterSnapshots(cands);
+		doc.head.appendChild(tpStyle);
+		for (const c of cands) {
+			const ps = win.getComputedStyle(c.el, c.side === 'before' ? '::before' : '::after') as CSSStyleDeclaration & Record<string, string>;
+			const text = contentText(c.el, c.tokens, c.snap);
+			if (text === null || text === '') continue;
+			const watch = [c.el, c.el.parentElement, ...Array.from(c.el.children)].filter(Boolean).slice(0, 24) as Element[];
+			const snap = () => watch.map((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; });
+			const before = snap();
+			const probe = doc.createElement('calco-pseudo') as HTMLElement;
+			probe.setAttribute('data-calco-pseudo', c.side);
+			for (let i = 0; i < ps.length; i++) {
+				const k = ps[i];
+				if (k === 'content' || k.startsWith('animation') || k.startsWith('transition')) continue;
+				probe.style.setProperty(k, ps.getPropertyValue(k), ps.getPropertyPriority(k));
+			}
+			probe.style.setProperty('animation', 'none');
+			probe.style.setProperty('transition', 'none');
+			probe.textContent = text;
+			const had = c.el.getAttribute('data-calco-tp');
+			c.el.setAttribute('data-calco-tp', `${had || ''} ${c.side}`.trim());
+			if (c.side === 'before') c.el.insertBefore(probe, c.el.firstChild);
+			else c.el.appendChild(probe);
+			const after = snap();
+			const moved = before.some((b, i) => b.some((v, j) => Math.abs(v - after[i][j]) > 0.5));
+			if (moved) {
+				probe.remove();
+				if (had === null) c.el.removeAttribute('data-calco-tp');
+				else c.el.setAttribute('data-calco-tp', had);
+				continue;
+			}
+			materialized.push({ probe, el: c.el, before: had });
+		}
+	};
+	const unmaterialize = () => {
+		for (const { probe, el, before } of materialized.reverse()) {
+			probe.remove();
+			if (before === null) el.removeAttribute('data-calco-tp');
+			else el.setAttribute('data-calco-tp', before);
+		}
+		materialized.length = 0;
+		tpStyle.remove();
+	};
+	if (options?.pseudoText !== false) materializeTextPseudos();
+
 	visit(section, 1, sectionRect);
 	range.detach();
 
@@ -1393,6 +1622,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 		});
 		for (const g of groups) shapes[g].group = g;
+		// SUB-GROUPS: a box inside a card that also has accessories of its own (a pill's dot, ring and
+		// mark) is one object, and it is one member of the card: its shapes nest inside the card's group.
+		shapes.forEach((sh, i) => {
+			if (!sh.pseudo) return;
+			const owner = shapes.findIndex((o, j) => j !== i && !o.pseudo && o.kind === 'box' && shapeEls[j] === shapeEls[i]);
+			if (owner < 0 || shapes[owner].group === undefined || shapes[owner].group === owner) return;
+			shapes.forEach((m, k) => {
+				if (shapeEls[k] === shapeEls[owner]) m.sub = owner;
+			});
+		});
 		refusedOut = refused;
 	}
 
@@ -1609,6 +1848,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (typeof text === 'function') text();
 		};
 		hidden = true;
+	}
+	// The stand-ins for generated text come out with the read, or, after a hide, with the restore.
+	if (materialized.length) {
+		if (hidden) {
+			const prev = host.__calcoRestore;
+			host.__calcoRestore = () => {
+				if (typeof prev === 'function') prev();
+				unmaterialize();
+			};
+		} else unmaterialize();
 	}
 	return { width: boxW, height: boxH, frames, shapes, hidden, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}) };
 }

@@ -47,6 +47,79 @@ const FIXTURE = `<!doctype html><html><head><style>
   <div class="rot" id="rot"></div>
 </section></body></html>`;
 
+const COUNTERS = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; color: #112233; }
+  .steps { position: absolute; left: 40px; margin: 0; padding: 0; list-style: none; counter-reset: step; width: 300px; }
+  #s1 { top: 20px; } #s2 { top: 200px; }
+  .steps li { counter-increment: step; }
+  .steps li::before { content: "STEP " counter(step, decimal-leading-zero); display: block; font-size: 12px; line-height: 14px; }
+  .nest { position: absolute; left: 400px; top: 20px; margin: 0; padding: 0 0 0 20px; list-style: none; width: 300px; }
+  .nest ul { counter-reset: n; margin: 0; padding-left: 20px; list-style: none; }
+  .nest { counter-reset: n; }
+  .nest li { counter-increment: n; }
+  .nest li::before { content: counters(n, ".") " "; display: inline; }
+  .alpha { position: absolute; left: 800px; top: 20px; margin: 0; padding: 0; list-style: none; counter-reset: k; }
+  .alpha li { counter-increment: k; }
+  .alpha li::before { content: counter(k, lower-alpha) ") "; display: inline-block; width: 20px; }
+  .roman::before { content: counter(r, upper-roman); }
+  .quote { position: absolute; left: 800px; top: 200px; width: 300px; }
+  .quote::before { content: open-quote; }
+  .quote::after { content: close-quote; }
+</style></head><body>
+<section id="s">
+  <ol class="steps" id="s1"><li>One</li><li>Two</li><li>Three</li></ol>
+  <ol class="steps" id="s2"><li>Again</li></ol>
+  <ul class="nest"><li>x<ul><li>y</li><li>z</li></ul></li><li>w</li></ul>
+  <ul class="alpha"><li>first</li><li>second</li></ul>
+  <p class="quote">spoken</p>
+</section></body></html>`;
+
+describe('calco reads generated text, with CSS counters worked out', () => {
+  let browser;
+  let page;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(COUNTERS, { waitUntil: 'load' });
+    res = await (await page.$('#s')).evaluate(readSlide, { shapes: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const texts = () => res.frames.map((f) => f.lines.map((l) => l.map((r) => r.text).join('')).join('|'));
+
+  test('a counter is numbered in its list and restarts in the next one', () => {
+    const t = texts();
+    assert.deepEqual(t.filter((x) => /^STEP/.test(x)), ['STEP 01', 'STEP 02', 'STEP 03', 'STEP 01']);
+  });
+
+  test('counters() joins the nested values, and alpha and quote content are written out', () => {
+    const t = texts().join('\n');
+    assert.match(t, /1 x/);
+    assert.match(t, /1\.1 y/);
+    assert.match(t, /1\.2 z/);
+    assert.match(t, /2 w/);
+    assert.match(t, /a\) {1,}first|a\)\s*first/);
+    assert.match(t, /b\)\s*second/);
+    assert.match(t, /\u201Cspoken\u201D/, 'open-quote and close-quote');
+  });
+
+  test('the page is exactly as found after a hide and a restore', async () => {
+    const s = await page.$('#s');
+    const before = await page.evaluate(() => document.documentElement.outerHTML);
+    await s.evaluate(readSlide, { hide: true, shapes: true });
+    assert.ok(await page.evaluate(() => document.querySelectorAll('calco-pseudo').length > 0), 'stand-ins are in place while hidden');
+    await s.evaluate(restoreSlide);
+    assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before, 'no stand-in, attribute or rule left');
+    // And a plain read cleans up after itself.
+    await s.evaluate(readSlide, {});
+    assert.equal(await page.evaluate(() => document.documentElement.outerHTML), before);
+  });
+});
+
 describe('calco lifts pseudo-elements in Chromium', () => {
   let browser;
   let page;
@@ -118,9 +191,10 @@ describe('calco lifts pseudo-elements in Chromium', () => {
     assert.ok(near(res.shapes[rule].w, 260 - 24), 'as wide as the content box');
   });
 
-  test('generated text, a mask that is not a path, and a rotated pseudo stay in the picture', async () => {
+  test('a mask that is not a path, and a rotated pseudo, stay in the picture; generated text is read', async () => {
     const counted = await rectOf('#counted');
-    assert.equal(at(counted.x, counted.y, 'box'), -1, 'a box under a counter ::before stays: the text is picture content above it');
+    assert.ok(at(counted.x, counted.y, 'box') >= 0, 'a box under generated text lifts: the text is read as text now');
+    assert.ok(res.frames.some((f) => f.lines.map((l) => l.map((r) => r.text).join('')).join('') === '01'), 'the "01" is a text frame');
     const odd = await rectOf('#oddmask');
     assert.equal(at(odd.x, odd.y, 'box'), -1, 'a box under a circle-mask overlay stays');
     assert.equal(res.shapes.some((s) => s.pseudo && near(s.x, odd.x + 8)), false, 'a <circle> mask is not lifted');

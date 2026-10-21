@@ -137,6 +137,11 @@ export interface Shape {
 	join?: 'miter' | 'round' | 'bevel';
 	/** Drawn by a pseudo-element of the box it groups with (a pill's dot or mark), not by an element. */
 	pseudo?: boolean;
+	/**
+	 * A group inside its card's group: the index of the shape that owns it. A pill inside a card is
+	 * one object (its box, its dot, its ring, its mark), and that object is one member of the card.
+	 */
+	sub?: number;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */

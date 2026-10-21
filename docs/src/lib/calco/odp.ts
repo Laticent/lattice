@@ -311,13 +311,24 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		const carries = (shape: Shape, f: TextFrame) => !!labelInsets(shapeGeometry(shape), textOf(f).box, f.align);
 		const boxes = drawOrder(slide, carries)
 			.map(({ group, items }) => {
-				const xml = items
-					.map((item) =>
+				const parts = items.map((item) => ({
+					sub: 'shape' in item ? item.shape.sub : undefined,
+					xml:
 						'frame' in item
 							? frameXml(item.frame, nameOf(item.frame, n, item.index), group === undefined, n)
 							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`, item.label),
-					)
-					.join('');
+				}));
+				// A pill inside a card is a group inside the card's group: each contiguous run of one
+				// owner's shapes nests.
+				let xml = '';
+				for (let a = 0; a < parts.length; ) {
+					const sub = parts[a].sub;
+					let b = a + 1;
+					while (group !== undefined && sub !== undefined && b < parts.length && parts[b].sub === sub) b++;
+					const run = parts.slice(a, b).map((x) => x.xml).join('');
+					xml += sub !== undefined && b - a > 1 ? `<draw:g draw:name="Group ${(group as number) + 1}.${sub + 1}">${run}</draw:g>` : run;
+					a = b;
+				}
 				return group === undefined ? xml : `<draw:g draw:name="Group ${group + 1}">${xml}</draw:g>`;
 			})
 			.join('');

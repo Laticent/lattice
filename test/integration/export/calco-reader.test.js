@@ -238,9 +238,15 @@ describe('calco reader: the review cases', () => {
     assert.equal(plain(find(/bold/)).replace(/ /g, ''), 'bold italic');
   });
 
-  test('a line pushed right by a ::before marker starts after the marker', () => {
+  test('generated text is read in line: the "01" a ::before draws, a spacer for the 60px it takes, then the word', () => {
+    // The marker is no longer picture content: a real element stands in for it during the read.
     const why = find(/Why/);
-    assert.ok(why.x >= 40 + 55, `the box starts at ${why.x}, on top of the 60px marker`);
+    assert.equal(why.x, 40, 'the frame starts at the marker');
+    const runs = why.lines[0];
+    assert.equal(runs[0].text, '01');
+    assert.equal(runs[runs.length - 1].text, 'Why');
+    const gap = runs.find((r) => /^\s+$/.test(r.text));
+    assert.ok(gap && gap.style.letterSpacing > 30, 'a spacer carries the rest of the 60px');
   });
 
   test('a padded inline pill keeps its room as a spacer run', () => {
@@ -414,11 +420,20 @@ describe('calco reader: native shapes', () => {
     assert.equal(res.frames[tag.text].group, undefined, 'the carried text is the label, not a group member');
   });
 
-  test('a card stays in the picture when something it would cover stays there: an icon, a ::before tag, list markers', () => {
+  test('a card stays in the picture when something it would cover stays there: an icon, list markers', () => {
     assert.equal(boxAt(380, 40), undefined, 'the card with an SVG icon');
-    assert.equal(boxAt(720, 40), undefined, 'the card with a counted ::before tag');
+    // (a counted ::before tag is generated TEXT, which is read as text now: see the next test)
     assert.equal(boxAt(40, 260), undefined, 'the card holding a bulleted list');
     assert.equal(res.frames.find((f) => textOf(f) === 'Has an icon.').group, undefined);
+  });
+
+  test('a counted ::before tag is a label with real text, and its card lifts and groups it', () => {
+    const card = boxAt(720, 40);
+    assert.ok(card, 'the card lifts: nothing the picture keeps is above it');
+    const tag = res.shapes.find((s) => s.text !== undefined && textOf(res.frames[s.text]) === '1');
+    assert.ok(tag, 'the tag is a label carrying its number');
+    assert.deepEqual(tag.fill, { color: '#006fa8', alpha: 1 });
+    assert.equal(tag.group, res.shapes.indexOf(card));
   });
 
   test('elliptical corners stay in the picture; a shadow and an inset ring are carried', () => {

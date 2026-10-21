@@ -49,6 +49,8 @@ export function pptxFaceName(face: { family: string; weight: number; italic: boo
 const PX_PER_IN = 96;
 /** The name prefix that marks a group's members until tidyPptx groups them (never page text). */
 const GROUP_TAG = 'calco-group-';
+/** The name marker for a sub-group (a pill inside a card) until tidyPptx nests it. */
+const SUB_TAG = 'calco-sub-';
 /** The name prefix that marks a title or a page number until tidyPptx makes it one (never page text). */
 const ROLE_TAG = 'calco-role-';
 /** The name marker for a path whose stroke ends and corners are round, until tidyPptx writes them. */
@@ -282,6 +284,8 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.
 			// Only when the package will be tidied (`groups`); otherwise the members stay loose.
 			const tag = group === undefined || !options?.groups ? '' : `${GROUP_TAG}${group + 1}|`;
+			// A pill inside a card is a group inside the card's group.
+			const subTag = (sub: number | undefined) => (tag && sub !== undefined ? `${SUB_TAG}${sub + 1}|` : '');
 			for (const item of items) {
 				if ('frame' in item) {
 					const { runs, box, options: textOptions } = textOf(item.frame);
@@ -294,7 +298,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				}
 				const geom = shapeGeometry(item.shape);
 				const { kind, options: shapeOptions } = shapeOf(item.shape, geom);
-				const name = `${tag}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
+				const name = `${tag}${subTag(item.shape.sub)}${item.shape.kind === 'path' && item.shape.cap === 'round' ? ROUND_TAG : ''}${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`;
 				if (!item.label) {
 					s.addShape(kind, { ...shapeOptions, objectName: name });
 					continue;
@@ -370,7 +374,7 @@ function onePPrPerParagraph(xml: string): string {
 export function groupShapes(xml: string): string {
 	if (!xml.includes(GROUP_TAG)) return xml;
 	let nextId = Math.max(1, ...Array.from(xml.matchAll(/<p:cNvPr id="(\d+)"/g), (m) => Number(m[1]))) + 1;
-	const tagged = new RegExp(`(<p:cNvPr id="\\d+" name=")${GROUP_TAG}(\\d+)\\|`);
+	const tagged = new RegExp(`(<p:cNvPr id="\\d+" name=")${GROUP_TAG}(\\d+)\\|(?:${SUB_TAG}(\\d+)\\|)?`);
 	const wrap = (group: string, members: string[]) => {
 		const boxes = members.map((sp) => {
 			const off = sp.match(/<a:off x="(-?\d+)" y="(-?\d+)"\/>/);
@@ -388,6 +392,19 @@ export function groupShapes(xml: string): string {
 			`<p:grpSpPr><a:xfrm>${frame}</a:xfrm></p:grpSpPr>${members.join('')}</p:grpSp>`
 		);
 	};
+	// A card's members, with each run of one sub-group's shapes nested into a group of its own.
+	const wrapCard = (group: string, members: Array<{ sub: string | null; sp: string }>) => {
+		const parts: string[] = [];
+		for (let i = 0; i < members.length; ) {
+			const { sub } = members[i];
+			let j = i + 1;
+			while (sub !== null && j < members.length && members[j].sub === sub) j++;
+			const run = members.slice(i, j).map((m) => m.sp);
+			parts.push(sub !== null && run.length > 1 ? wrap(`${group}.${sub}`, run) : run.join(''));
+			i = j;
+		}
+		return wrap(group, parts);
+	};
 	// One linear scan with indexOf, not a regex over runs of `<p:sp>`: a backtracking pattern
 	// there is polynomial in the number of adjacent shapes (CodeQL).
 	const OPEN = '<p:sp>';
@@ -395,9 +412,9 @@ export function groupShapes(xml: string): string {
 	let out = '';
 	let at = 0;
 	let current: string | null = null;
-	let members: string[] = [];
+	let members: Array<{ sub: string | null; sp: string }> = [];
 	const flush = () => {
-		if (current !== null) out += wrap(current, members);
+		if (current !== null) out += wrapCard(current, members);
 		current = null;
 		members = [];
 	};
@@ -416,7 +433,7 @@ export function groupShapes(xml: string): string {
 		if (group !== current) flush();
 		if (m) {
 			current = group;
-			members.push(sp.replace(tagged, '$1'));
+			members.push({ sub: m[3] ?? null, sp: sp.replace(tagged, '$1') });
 		} else out += sp;
 		at = end + CLOSE.length;
 	}
