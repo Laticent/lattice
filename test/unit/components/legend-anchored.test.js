@@ -300,12 +300,15 @@ describe('heatmap: authored callouts', () => {
     }
   });
 
-  test('a label the lane cannot hold is listed as not drawn, never as a callout', () => {
-    const many = Array.from({ length: 8 }, (_, i) => `{Callout number ${i} that wraps over lines, for=${i % 6}}`).join(', ');
-    const desc = doc(render(`\`@legend{[${many}]}\``)).querySelector('desc').textContent;
-    assert.match(desc, /no room beside the grid/);
-    const shown = (desc.match(/Callouts: ([\s\S]*?)\. Not drawn/) || ['', ''])[1];
-    assert.ok(!/no room/.test(shown));
+  test('notes that will not fit beside the grid move below it rather than be dropped', () => {
+    const many = Array.from({ length: 6 }, (_, i) => `{Callout number ${i} that wraps over lines, for=${i % 6}}`).join(', ');
+    const out = render(`\`@legend{[${many}]}\``);
+    const d = doc(out);
+    assert.equal(d.querySelectorAll('text.legend-text--bare').length, 6);
+    assert.doesNotMatch(d.querySelector('desc').textContent, /Not drawn/);
+    // Below the grid: every label starts under the lowest cell.
+    const cellBottom = Math.max(...[...d.querySelectorAll('rect.heatmap-cell')].map((r) => Number(r.getAttribute('y')) + Number(r.getAttribute('height'))));
+    for (const t of d.querySelectorAll('text.legend-text--bare tspan')) assert.ok(Number(t.getAttribute('y')) > cellBottom);
   });
 
   test('every marker shape in the lane stays inside the figure and off the grid', () => {

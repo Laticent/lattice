@@ -76,13 +76,24 @@ callout "1" in size lg. `lint:deck` warns on it; quote the word to keep it as te
 |---|---|---|
 | `heatmap` | `anchored` | A cell, by its row and column labels as the chart prints them, `row="Feb 2026", col=M2` (case and extra spaces do not matter); or the short form `for=`, its index counted row by row from 0 (`for=14`) or `Row/Column` (`for=Feb 2026/M2`) |
 
-On a heatmap a callout sits in a lane to the right of the grid, level with its cell, and a
-**marker** ties the two: the cell is ringed and carries a marker on its corner, and the same marker
+On a heatmap the notes sit in a lane to the right of the grid, each level with its cell, or in a
+column under the grid, whichever leaves the grid larger (see **Placement** below), and a
+**marker** ties a note to its cell: the cell is ringed and carries a marker on its corner, and the same marker
 leads the label's words in the lane. A marker is a **shape and a color**: callouts take six shapes in
 reading order, one each (circle, square, triangle, diamond, hexagon, star), and a color slot each, so
 a reader matches a cell to its label by shape as well as by color, never by color or position alone.
 The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
 the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
+
+**Placement.** The engine lays the heatmap out both ways, with the notes beside the grid and under
+it, and keeps the one that leaves the grid larger at the slide's shape. Where a band key is also on
+the slide, the key's two sides are tried with each: four layouts in all. A wide slide (16:9) keeps the notes beside the grid unless
+the key makes the figure wide and the notes are few, when it may set them under it; a squarer one (1:1, 4:5) usually sets them under it, where each runs
+the grid's width and sets whole. A layout that would drop a note never beats one that draws it, and a
+challenger must keep at least 10% more of the grid, because a taller figure also scales its type down.
+Ties keep the notes beside the grid. When the notes and the key are both under the grid, the key's own
+rule parts them. Notes under the grid read in the same order and set in the key's size.
+(`engineering/decisions/2026-10-20-callout-placement.md` § 5.)
 
 The label's pill words choose its marker: `circle`, `tag` (the square) and `diamond` pick that shape
 when no earlier callout has it, and a color word (`c4`) picks the color; the words themselves stay in
@@ -115,9 +126,8 @@ marker. Only where even the smallest shape finds no clear spot does a cell keep 
 glance, and a chart with more callouts than that is making more points than one slide should. The
 chart draws the first six as written; the rest are not drawn, its description lists them as not
 drawn, their details still reach the cell's hover card and the speaker note, and `lint:deck` warns on
-each one. Numbers run row by row, then left to right, and the lane lists the labels in that order; one
-the lane cannot hold is dropped rather than drawn over another, with its marker, and the chart's
-description lists it as not drawn. A `@legend{…}` key on a
+each one. Numbers run row by row, then left to right, and the lane lists the labels in that order.
+Under the grid the column grows to hold every note, so the engine prefers it to dropping one. A `@legend{…}` key on a
 heatmap is not drawn, and is reported the same way.
 
 A row or column whose name holds `/` cannot be named by the `for=Row/Column` short form, because the
