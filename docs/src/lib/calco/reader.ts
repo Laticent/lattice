@@ -767,7 +767,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				// box with no inline padding reproduces the room a padded pill or a marker took.
 				const spacer = (px: number, like: TextStyle) => {
 					const width = px - advance(' ', { ...like, size: 2, letterSpacing: 0 });
-					if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none' } });
+					// A spacer is 2px tall: a highlight on it would be a speck, so the chip's padding is left clear.
+					if (width > 0) runs.push({ text: '\u00A0', style: { ...like, size: 2, letterSpacing: width, underline: false, strike: false, transform: 'none', highlight: undefined } });
 				};
 				// Below this a gap is kerning or rounding, not room something else took. Where the
 				// style changes (a padded code chip, a pill), the padding is often smaller than
