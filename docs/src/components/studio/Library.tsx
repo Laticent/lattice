@@ -1,7 +1,7 @@
-import { Check, Download, FileBox, FileText, ListFilter, Package, Pencil, Plus,  Share2, Upload } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, Pencil, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
@@ -188,6 +188,35 @@ function LibraryFrame({ docked, open, onOpenChange, dropProps, children }: { doc
 	);
 }
 
+// What each kind in the filter menu is, in plain words, with its glyph. The glyphs are Lucide shapes drawn
+// by us, never typed characters (HARD RULE #29).
+const KIND_META: Record<string, { icon: React.ReactNode; desc: string }> = {
+	design: { icon: <Shapes className="size-3.5" />, desc: 'Themes, components, finishes and motions' },
+	theme: { icon: <Palette className="size-3.5" />, desc: 'Color and type for a whole deck' },
+	component: { icon: <LayoutGrid className="size-3.5" />, desc: 'Slide layouts you built or imported' },
+	finish: { icon: <Layers className="size-3.5" />, desc: 'Textures and layers over a slide' },
+	motion: { icon: <Clapperboard className="size-3.5" />, desc: 'Animated drawings' },
+	media: { icon: <Images className="size-3.5" />, desc: 'Photos and videos together' },
+	image: { icon: <ImageIcon className="size-3.5" />, desc: 'Photos and pictures' },
+	video: { icon: <VideoIcon className="size-3.5" />, desc: 'Clips from your camera or files' },
+};
+
+/** One choosable row of the filter menu. It is a radio in meaning (`menuitemradio` + `aria-checked`) and a
+ *  menu item in look, so it matches the Studio's other rich menus. */
+function FilterRow({ icon, label, desc, count, on, onPick }: { icon: React.ReactNode; label: string; desc: string; count?: number; on: boolean; onPick: () => void }) {
+	return (
+		<DropdownMenuItem role="menuitemradio" aria-checked={on} onSelect={onPick} className="flex-col items-start gap-0.5">
+			<span className="flex w-full items-center gap-2 text-[12.5px] font-semibold text-[var(--text-heading)]">
+				<span className="shrink-0 text-muted-foreground">{icon}</span>
+				{label}
+				{count != null && <span className="ml-auto font-mono text-[10.5px] font-normal text-muted-foreground">{count}</span>}
+				{on && <Check className={cn('size-3.5 shrink-0 text-[var(--accent)]', count == null && 'ml-auto')} />}
+			</span>
+			<span className="pl-[22px] text-[11px] font-normal text-muted-foreground">{desc}</span>
+		</DropdownMenuItem>
+	);
+}
+
 export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
@@ -362,6 +391,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const kinds = LIBRARY_KINDS[section];
 	// A dot on the button while the list is narrowed to one kind.
 	const narrowed = !!kinds && filter !== sectionFilter(section);
+	const kindCount = (k: LibraryFilter) => ({ design: themes.length + components.length + finishes.length + scenes.length, theme: themes.length, component: components.length, finish: finishes.length, motion: scenes.length, media: shownMedia.length, image: shownMedia.length - videoCount, video: videoCount } as Partial<Record<LibraryFilter, number>>)[k];
 	const mediaWord = filter === 'video' ? 'videos' : filter === 'image' ? 'images' : 'photos or videos';
 	const videoCount = shownMedia.filter((a) => a.kind === 'video').length;
 	const vDocs = filter === 'all' || filter === 'refdoc' ? docs.filter((d) => !q || d.name.toLowerCase().includes(q)) : [];
@@ -1185,19 +1215,20 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 									{narrowed && <span aria-hidden className="absolute right-1 top-1 size-2 rounded-full bg-[var(--accent)]" />}
 								</Button>
 							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end">
-								<DropdownMenuLabel>Show</DropdownMenuLabel>
-								<DropdownMenuRadioGroup value={filter} onValueChange={(v) => React.startTransition(() => setFilter(v as LibraryFilter))}>
-									{kinds.map((k) => <DropdownMenuRadioItem key={k.value} value={k.value}>{k.label}</DropdownMenuRadioItem>)}
-								</DropdownMenuRadioGroup>
+							{/* The same shape as the reader-view picker: a muted heading, an icon and a bold label with a
+							    line of plain words under it, and the chosen row ticked in the accent. The count sits at the
+							    right so a person sees what a kind holds before choosing it. */}
+							<DropdownMenuContent align="end" className="w-64">
+								<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Show</DropdownMenuLabel>
+								{kinds.map((k) => (
+									<FilterRow key={k.value} icon={KIND_META[k.value].icon} label={k.label} desc={KIND_META[k.value].desc} count={kindCount(k.value)} on={filter === k.value} onPick={() => React.startTransition(() => setFilter(k.value))} />
+								))}
 								{mediaTab && activeDeckId && (
 									<>
 										<DropdownMenuSeparator />
-										<DropdownMenuLabel>Add new media to</DropdownMenuLabel>
-										<DropdownMenuRadioGroup value={addScope} onValueChange={(v) => setAddScope(v as 'library' | 'deck')}>
-											<DropdownMenuRadioItem value="library">All decks</DropdownMenuRadioItem>
-											<DropdownMenuRadioItem value="deck">This deck</DropdownMenuRadioItem>
-										</DropdownMenuRadioGroup>
+										<DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Add new media to</DropdownMenuLabel>
+										<FilterRow icon={<Images className="size-3.5" />} label="All decks" desc="Shared: any deck can use it" on={addScope === 'library'} onPick={() => setAddScope('library')} />
+										<FilterRow icon={<FileText className="size-3.5" />} label="This deck" desc="Kept to the deck you have open" on={addScope === 'deck'} onPick={() => setAddScope('deck')} />
 									</>
 								)}
 							</DropdownMenuContent>
