@@ -294,3 +294,35 @@ A checker reviewed everything after the trio (`fddab54..a84c42e`). The drawn ban
   scrolls that are not the sync's echo count now.
 
 Also: each editor holds its own band slot, and the latest requested range is what is drawn when the module arrives.
+
+## The switch no longer flickers (2026-10-21, its own PR after #2840)
+
+Measured with a probe that samples every animation frame (pane, document readiness, scroll, slide shown, whether the
+frame is on screen), Chromium, 390 px viewport, a deck edited on slide 7 (42 of 60 at 4x CPU):
+
+| | Before | After |
+|---|---|---|
+| Frames showing the wrong slide | four states: the old preview at scroll 0, a blank, the new document at slide 1, then a hard jump | none: the frame is hidden until the deck is on its slide |
+| Document | rewritten (`srcdoc`, a full load) | patched (the same document) |
+| Pane flip to the right slide on screen, 10 slides, 1x | about 217 ms | about 129 ms |
+| Same, 60 slides, 4x CPU | about 905 ms | about 384 ms |
+| Desktop, 10 slides, 1x | about 178 ms (with a reflow of the old preview first) | about 119 ms |
+
+What changed (`PlaygroundApp.tsx`):
+
+- **A cover for the switch.** `coverPreview` takes `is-live` off the preview wrap (the class that shows the frame,
+  `playground.css`), and the existing `markLiveWhenSlidesVisible` puts it back once the deck is fitted and the walk has
+  landed. The reveal also waits for the Explore target (`openOnPendingRef`): the slide index it needs resolves after
+  the render, and a reveal that did not wait showed slide 1 for a moment on the heavy case (found by the probe). A 5 s
+  backstop and the render's error path lift a cover that has nothing coming to lift it.
+- **No rewrite when nothing changed.** `reusableFrame` is true when the frame already holds the text Explore (or Edit)
+  is about to show, and the switch calls `render(false)`, which the engine turns into a patch (its signature depends on
+  the deck size, theme and mode, not the pane width). A different text, or a plan walk (a component gallery), still
+  takes the forced rewrite, behind the same cover.
+- **The sync holds the preview until it has re-fitted.** The reused document has no load event to say it has settled at
+  Edit's width, and its own reflow scroll used to drive the editor (the 821 px bug again, found by the wide-screen spec).
+  `leaveExplore` sets a hold, `loaded()` clears it, and the switch calls `loaded()` after the re-fit.
+
+Verified in `e2e/playground-tab-switch.spec.ts`: every frame the reader can see across the switch shows the caret's
+slide, and the document is the same one (a marker set on its window survives); the case fails on the old code. Chromium,
+Firefox and WebKit at wide width; Chromium and WebKit at phone width. A real iPhone is UNVERIFIED.
