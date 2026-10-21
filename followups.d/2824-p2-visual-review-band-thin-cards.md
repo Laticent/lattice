@@ -13,7 +13,7 @@ source: https://github.com/Laticent/lattice/pull/2824
 Both were noted as open on #2824's PR body.
 
 ```text
-  P2 · [followups.d/2824-p2-visual-review-of-the-band-and-thin-cards.md]
+  P2 · [followups.d/2824-p2-visual-review-band-thin-cards.md]
        why now   — the band is new, and these are the two things a reviewer's eye lands on first.
        where     — lib/components/imagery/image/image.styles.css (band block, statement scrim);
                    examples/image-band.md slides with `ink-dark` and `spotlight band`.
