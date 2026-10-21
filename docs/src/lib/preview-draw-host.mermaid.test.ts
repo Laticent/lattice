@@ -74,25 +74,23 @@ describe('the previews\' draw host: Mermaid', () => {
 		await expect(draw({ kind: 'math', source: 'x' })).rejects.toThrow(/does not draw math/);
 	});
 
-	it('fetches a face only from the engine\'s font directories, once, and sends it as a data: URL', async () => {
+	it("forwards a face only when it names a file directly inside one of the engine's font folders, and fetches nothing itself", async () => {
 		const { draw } = await impl();
 		const ok = `${BASE}themes/fonts/outfit-400.woff2`;
+		const katex = `${BASE}katex/fonts/KaTeX_Main-Regular.woff2`;
 		const asks = [
 			{ family: 'Outfit', weight: '400', style: 'normal', url: ok },
+			{ family: 'KaTeX_Main', weight: '400', style: 'normal', url: katex },
 			{ family: 'Evil', weight: '400', style: 'normal', url: 'https://evil.example/fonts/x.woff2' },
 			{ family: 'Evil', weight: '400', style: 'normal', url: `${BASE}../../secret/fonts/x.woff2` },
+			{ family: 'Evil', weight: '400', style: 'normal', url: `${BASE}themes/fonts/sub/dir.woff2` },
 			{ family: 'Evil', weight: '400', style: 'normal', url: `${BASE}themes/fonts/not-a-font.js` },
 			{ family: 'Outfit', weight: 'bold', style: 'normal', url: ok },
 		];
 		await draw({ ...JOB, fonts: asks });
-		const sent = (jobs[0].fonts as Array<{ family: string; data: string }>) ?? [];
-		expect(sent).toHaveLength(1);
-		expect(sent[0].family).toBe('Outfit');
-		expect(sent[0].data).toMatch(/^data:font\/woff2;base64,[A-Za-z0-9+/=]+$/);
-		expect((fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => c[0])).toEqual([ok]);
-		// the same face again is not fetched again
-		await draw({ ...JOB, definition: 'gantt\n other :d9, 2026-02-01, 1d', fonts: asks });
-		expect((fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(1);
+		const sent = (jobs[0].fonts as Array<{ family: string; url: string }>) ?? [];
+		expect(sent.map((f) => f.url)).toEqual([ok, katex]);
+		expect((fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls).toHaveLength(0);
 	});
 
 	it('remembers a figure by its whole job, so an edit elsewhere in the deck draws nothing again', async () => {

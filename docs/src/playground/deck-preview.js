@@ -576,7 +576,8 @@ export function buildSrcdoc({
 		// the order at every call site for exactly that reason.
 		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
-		(needsDrawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
+		// A page whose draw host offers Mermaid draws the diagram in its own sandboxed frame, so the preview frame loads no library.
+		(needsDrawn && runtimeUrl && !(typeof window !== 'undefined' && window.__latticeDrawHost?.kinds?.includes('mermaid')) ? drawnLibraryPreload(runtimeUrl) : '') +
 		'</head><body>' +
 		a11yDefs +
 		html +

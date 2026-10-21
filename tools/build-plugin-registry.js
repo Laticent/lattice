@@ -62,6 +62,7 @@
  */
 
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -590,16 +591,53 @@ export const DRAWN_LIBRARY_FILES = Object.freeze(${JSON.stringify(files)});
 /**
  * The libraries a sandboxed DRAW FRAME runs (lib/packages/draw-frame-core.mjs): every plugin that draws in a browser, a
  * runtime pass's (Mermaid) or a hydrator's (function-plot), with the SHA-256 of its vendored copy. The frame runs a
- * library by the hash of its text, so the pin rides with the file name: the host checks the staged bytes against it before
- * they are inlined. Its own module, apart from drawn-library.generated.mjs, which the preview frame builders import
+ * small library by the hash of its text, so the pin rides with the file name: the host checks the staged bytes against it before
+ * they are inlined. A library with a vendored ESM build (Mermaid) also carries `esm`: the staged folder, the entry, and the SHA-256 of
+ * every module, which the frame's import map enforces. Its own module, apart from drawn-library.generated.mjs, which the preview frame builders import
  * EAGERLY: sharing a module put these pins in the Studio's startup bundle (measured: +171 bytes gz on three routes), and
  * only the lazily loaded draw host (docs/src/lib/code-packages/draw-host.ts) reads them.
  */
+/** The diagram chunks whose static imports a draw frame fetches when it opens (the one most first drawings use). */
+const ESM_PRELOAD_DIAGRAMS = ['flowDiagram'];
+
 function renderDrawFrameLibraries(ordered) {
   const frameLibraries = {};
   for (const p of ordered.filter((q) => ['pass', 'browser'].includes(q.manifest.render?.exec?.hydrate))) {
     const [payload] = Object.values(p.manifest.payload || {});
     if (payload?.vendored?.sha256) frameLibraries[p.manifest.name] = { file: payload.from.split('/').pop(), global: payload.global, sha256: payload.vendored.sha256 };
+    // A library that vendors its ESM build (`vendor.esm`: the entry; `vendor.esm-chunks`: the modules it loads lazily) is LOADED by the
+    // frame as a module graph, not inlined: the frame needs the entry's name and the SHA-256 of every file under the vendored folder.
+    // The per-file digests are computed here, from the committed copy, whose tree is pinned by its manifest (resolve.js refuses a
+    // copy that stops matching), so these can only change when the pinned copy does.
+    const esm = p.manifest.vendor?.esm;
+    if (frameLibraries[p.manifest.name] && esm) {
+      const root = path.join(PLUGINS_DIR, p.folder, path.dirname(esm.file));
+      const integrity = {};
+      const walkEsm = (dir, rel) => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((x, y) => x.name.localeCompare(y.name))) {
+          if (e.isDirectory()) walkEsm(path.join(dir, e.name), `${rel}${e.name}/`);
+          else if (e.name.endsWith('.mjs')) integrity[`${rel}${e.name}`] = `sha256-${crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, e.name))).digest('base64')}`;
+        }
+      };
+      walkEsm(root, '');
+      // What to fetch at once when the frame opens: the entry's STATIC import closure (everything it needs before it can run, so the
+      // browser sees the whole depth of it up front instead of one level per round trip) and the closure of the most common diagram's
+      // chunk, which the first drawing of most decks loads next. Other diagram types load when they are drawn.
+      const entry = path.basename(esm.file);
+      const closure = (file, seen = new Set()) => {
+        if (seen.has(file)) return seen;
+        seen.add(file);
+        const text = fs.readFileSync(path.join(root, file), 'utf8');
+        for (const m of text.matchAll(/(?:from|import)\s*"\.\/([^"]+\.mjs)"/g)) closure(m[1].startsWith('chunks/') ? m[1] : path.posix.join(path.posix.dirname(file), m[1]), seen);
+        return seen;
+      };
+      const preload = new Set(closure(entry));
+      for (const name of ESM_PRELOAD_DIAGRAMS) {
+        const file = Object.keys(integrity).find((f) => new RegExp(`/${name}-[A-Z0-9]+\\.mjs$`).test(f));
+        if (file) for (const f of closure(file)) preload.add(f);
+      }
+      frameLibraries[p.manifest.name].esm = { dir: `frames/${p.manifest.name}/`, entry, integrity, preload: [...preload].sort() };
+    }
   }
   return `${HEADER('The libraries a sandboxed draw frame runs, with the SHA-256 of each vendored copy (the staged file must match it).')}
 export const DRAW_FRAME_LIBRARIES = Object.freeze(${JSON.stringify(frameLibraries)});

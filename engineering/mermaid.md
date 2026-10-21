@@ -653,42 +653,56 @@ Mermaid can (#1674).
 
 ## 5.3f Where the preview draws a diagram (the sandboxed draw frame)
 
-**Status: built, tested and NOT offered.** A preview in the Studio or the Playground still draws Mermaid in the page, because the
-frame costs a fresh page's first diagram about 1.0 s (below). The host offers a kind only if it lists it in `KINDS`
-(`docs/src/lib/preview-draw-host.ts`); to turn the path below on, add `'mermaid'` there and make the two preview builders (`single-slide-render.ts`, `deck-preview.js`) skip `drawnLibraryPreload` when the host offers it (they carry no such check today, to keep the startup bytes).
-
-With it on, a live preview does not run Mermaid in the page that holds your deck. The preview frame
+A live preview in the Studio or the Playground does not run Mermaid in the page that holds your deck. The preview frame
 holds a **stand-in for `window.mermaid`** (`lib/plugins/mermaid/shared/draw-shim.mjs`) and the runtime's Mermaid pass
 (`mermaid.hydrate.js`) runs unchanged on top of it: same render queue, same per-palette `initialize`, same SVG cache, same
 gantt turn, same settle cap. The stand-in answers the three calls the pass makes (`initialize`, `render`,
 `mermaidAPI.getDiagramFromText`) by sending the definition, the config for its palette and the page width to the embedding
-page's draw host (`docs/src/lib/preview-draw-host.ts`), which hands them to a **sandboxed frame** that holds the pinned
-library (`lib/packages/draw-frame-core.mjs`; `sandbox="allow-scripts"`, an opaque origin, `connect-src 'none'`, the one script
-allowed by hash).
+page's draw host (`docs/src/lib/preview-draw-host.ts`, which lists the kinds it offers), which hands them to a **sandboxed frame**
+(`lib/packages/draw-frame-core.mjs`; `sandbox="allow-scripts"`, an opaque origin, `connect-src 'none'`).
+
+**The frame loads Mermaid's ES modules by URL; it does not inline the library.** The first cut inlined the 3.1 MB single file into the
+frame's `srcdoc` and cost a fresh page's first diagram about 1.0 s more than drawing in the page (2.3 s to 3.4 s). A CPU trace named the
+cause: the page's HTML parser tokenized 3 MB of script text (`ParseHTML` 591 ms against 8 ms) and the bundle then evaluated as one 350 to
+500 ms task, which also blocked the main thread in the in-page path. Mermaid's own ES build (`mermaid.esm.min.mjs`) evaluates a 28 KB core
+and imports the chunks a diagram type needs when it draws one (a flowchart, a sequence and a gantt: about 30 requests and 400 KB). The
+frame is a small `srcdoc` (two inline scripts: a boot module that imports the entry by its absolute URL, and an import map), its policy
+names the ONE directory the modules come from (not `'self'`, which is the whole site) and the engine's font folders, and the import map's
+`integrity` carries the SHA-256 of every module, which a browser that supports it enforces. The files are vendored
+(`lib/plugins/mermaid/vendor/esm/`, 82 files, 3.2 MB, pinned by tree hash in the manifest like every other copy) and staged under
+`frames/mermaid/` (`docs/scripts/sync-playground-assets.mjs`); the per-file digests and the first drawing's `modulepreload` list are
+generated into `lib/plugins/draw-frame-libraries.generated.mjs`. A module loaded by an opaque-origin frame is a cross-origin fetch and needs
+CORS: GitHub Pages (production) sends `Access-Control-Allow-Origin: *` itself, the Cloudflare previews read `docs/public/_headers`, and the
+local dev and preview servers are set in `docs/astro.config.mjs` (with Vite's own CORS middleware off, which otherwise rewrites the
+header on a 304 and breaks the next request from the frame).
 
 What comes back is text from a frame that ran a library over an author's definition, so it is untrusted. The host sanitizes
 it with the **diagram profile** (`lib/core/sanitize-diagram-svg.mjs`): the slide profile's rules, but `<style>` and
 `<foreignObject>` admitted, because every Mermaid figure is made of them. Each `<style>` that survives passes
-`sanitizeStyleText` and loses any `@import`. `test/integration/export/draw-frame-mermaid.test.js` draws 48 diagrams
-(the system-design deck, the plugin fixtures and the diagram gallery) and requires the sanitizer to change none of them.
+`sanitizeStyleText` and loses any `@import`. `test/integration/export/draw-frame-mermaid.test.js` draws 48 diagrams through the real
+module-loaded frame (the system-design deck, the plugin fixtures and the diagram gallery), requires the sanitizer to change none of them,
+requires the answer to equal the single-file bundle's byte for byte (random ids and an `<img>` label aside), refuses a changed module, and
+shows a module outside the policy's directory is never even requested.
 
 **What the stand-in replaces.**
 
 | In the page, the library did | In a preview with a draw host, the stand-in does |
 |---|---|
-| measure text in the deck's fonts | the host fetches the font faces named in the config's `fontFamily` from the engine's own font directories (and nowhere else), sends them as `data:` URLs, and the frame loads them before it draws |
+| measure text in the deck's fonts | the frame loads the font faces named in the config's `fontFamily` itself, from the engine's own font folders its policy names (the preview page has already filled the HTTP cache) |
 | bind a flowchart's or class diagram's tooltip | a plain hover binder over the `title` the library puts on each `g.clickable`; the tooltip takes the diagram's own palette rule |
 | bind a gantt's `click` link | the frame sends the chart's links with its drawing (`db.getLinks()`), the host keeps `http(s)`, `mailto:`, `#`, `/` and `.` targets, and the binder opens one in place |
 | run a click CALLBACK | nothing: at `securityLevel: 'strict'` the library's own callback path returned early |
 
 **What does not change.** The CLI export, the plain `.html`, the player, `--fluid` and Export-to-Marp have no host page, so
-they load the library as always. The Studio's Webpage bake frame draws in-page as well (`playerBake`), so its bytes stay the
+they load the single-file library as always. The Studio's Webpage bake frame draws in-page as well (`playerBake`), so its bytes stay the
 CLI's.
 
-**What it costs.** A frame is a document of its own and costs about 0.8 s to start (a 3 MB script). The page warms it when a
-deck holds a fence, so it overlaps the preview's own start, but a diagram's first draw in a fresh page still runs about 1.0 s
-longer than the in-page path (2.3 s to 3.4 s, headless Chromium, `docs/e2e/draw-frame-preview.spec.ts`). A later edit is
-within noise of the old path (about 0.7 s to 0.8 s), because the frame stays open.
+**What it costs and what it saves** (CPU trace of the real Studio, headless Chromium, three runs each, editor change to first diagram):
+1779 ms drawing in the page, 1366 ms in the frame, against 885 ms for a prose deck; main-thread time 1652 ms and 1257 ms. The page
+warms the frame when a deck holds a fence, so it overlaps the preview's own start. A later edit is within noise of the old path.
+What is left over the prose floor (about 480 ms) is the preview's own start and the first draw, all on the one main thread: only a frame
+in another process would run in parallel (a frame served from a different site is isolated by the browser; measured 13 to 48 ms of
+parent-thread blocking against 330 to 590 ms for a same-site frame), which needs a second host and is a decision for the owner.
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 

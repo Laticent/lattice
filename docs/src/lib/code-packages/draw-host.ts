@@ -1,8 +1,9 @@
 // THE STUDIO'S DRAW HOST: it owns the sandboxed frames that draw Mermaid and function-plot for the previews, so neither
 // library runs in the page that holds the deck (owner decisions 14 and 15; D1 A, 2026-10-20).
 //
-// A frame is the pool's sandbox (`sandbox="allow-scripts"`, no `allow-same-origin`, no network) around ONE script: the
-// library, pinned by SHA-256, then the bootstrap in lib/packages/draw-frame-core.mjs. A frame needs a screen, which the pool's
+// A frame is the pool's sandbox (`sandbox="allow-scripts"`, no `allow-same-origin`, no network) around the library and the
+// bootstrap in lib/packages/draw-frame-core.mjs: ONE inline script for a small library (pinned by SHA-256, checked here before it
+// is inlined), or a MODULE GRAPH for a big one (Mermaid: a boot module and an import map whose `integrity` pins every file). A frame needs a screen, which the pool's
 // worker has not, so it is a document of its own and not a worker. Frames are opened on the first draw of their kind and
 // STAY OPEN: Mermaid's script costs about 2 s to open and about 50 ms per draw after that. A frame that times out is
 // spent and replaced on the next draw.
@@ -10,12 +11,12 @@
 // Loaded lazily, by whoever installs the host (the previews, in the next step), so the Studio's first load does not pay
 // for it (docs/route-budget.json).
 
-import { checkDrawReply, DRAW_KINDS, drawFrameDocument, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
+import { checkDrawReply, DRAW_KINDS, drawFrameDocument, drawFrameEsmDocument, drawFrameEsmScripts, drawFrameScript } from '../../../../lib/packages/draw-frame-core.mjs';
 import { DRAW_FRAME_LIBRARIES } from '../../../../lib/plugins/draw-frame-libraries.generated.mjs';
 
 export type DrawKind = keyof typeof DRAW_KINDS;
 export type DrawJob =
-	| { kind: 'mermaid'; definition: string; svgId: string; config: Record<string, unknown>; stage?: number; fonts?: Array<{ family: string; weight: string; style: string; data: string }> }
+	| { kind: 'mermaid'; definition: string; svgId: string; config: Record<string, unknown>; stage?: number; fonts?: Array<{ family: string; weight: string; style: string; url: string }> }
 	| { kind: 'function-plot'; configB64: string; configText: string; width: number; height: number; index: number };
 export type DrawHost = {
 	/** Draw one figure, answering its SVG as text, or rejecting with why it did not draw. */
@@ -28,6 +29,10 @@ export type DrawHost = {
 export type DrawHostDeps = {
 	/** Where a library's staged file is, or null when no asset directory is known yet. */
 	libraryUrl: (file: string) => string | null;
+	/** The absolute URL of a staged folder (a kind's module graph, `frames/<plugin>/`), ending in a slash, or null when it is not known yet. */
+	folderUrl?: (dir: string) => string | null;
+	/** The absolute URLs of the folders a module-loaded frame may load fonts from (the engine's own), each ending in a slash. */
+	fontFolders?: () => string[];
 	/** function-plot's `hydrate` function as text (the registry's own, so the plot is the one every surface draws). */
 	hydrateSource: () => string;
 	fetchText?: (url: string) => Promise<string>;
@@ -82,10 +87,24 @@ export function createDrawHost(deps: DrawHostDeps): DrawHost {
 		return p;
 	}
 
+	/** The document of a kind whose library is a module graph: two small inline scripts and the directory the modules load from. */
+	async function esmDocument(kind: DrawKind): Promise<string | null> {
+		const esm = (DRAW_FRAME_LIBRARIES as Record<string, { esm?: { dir: string; entry: string; integrity: Record<string, string>; preload: string[] } }>)[kind]?.esm;
+		if (!esm) return null;
+		const base = deps.folderUrl?.(esm.dir);
+		if (!base) throw new Error(`${esm.dir} has no staged address yet`);
+		const { boot, importMap } = drawFrameEsmScripts({ kind, base, entry: esm.entry, integrity: esm.integrity });
+		const [bootHash, mapHash] = await Promise.all([boot, importMap].map(async (t) => b64(await subtle.digest('SHA-256', new TextEncoder().encode(t)))));
+		return drawFrameEsmDocument({ kind, base, entry: esm.entry, integrity: esm.integrity, boot, importMap, bootHash, mapHash, preload: esm.preload, fontBases: deps.fontFolders?.() ?? [] });
+	}
+
 	async function openFrame(kind: DrawKind): Promise<Frame> {
-		const script = drawFrameScript({ kind, library: await library(kind), ...(kind === 'function-plot' ? { hydrateSource: deps.hydrateSource() } : {}) });
-		const hash = b64(await subtle.digest('SHA-256', new TextEncoder().encode(script)));
-		const html = drawFrameDocument({ kind, script, hash });
+		let html = await esmDocument(kind);
+		if (html === null) {
+			const script = drawFrameScript({ kind, library: await library(kind), ...(kind === 'function-plot' ? { hydrateSource: deps.hydrateSource() } : {}) });
+			const hash = b64(await subtle.digest('SHA-256', new TextEncoder().encode(script)));
+			html = drawFrameDocument({ kind, script, hash });
+		}
 		mark('script-hashed');
 		const frame = doc.createElement('iframe');
 		frame.setAttribute('sandbox', 'allow-scripts');

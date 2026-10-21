@@ -237,6 +237,17 @@ assets.push(['katex/katex.min.css', vendorPath('math', 'katex-css')]);
 for (const file of readdirSync(katexFonts)) {
   if (file.endsWith('.woff2')) assets.push([`katex/fonts/${file}`, join(katexFonts, file)]);
 }
+// A DRAW FRAME'S MODULE GRAPH (Mermaid's ESM build, `vendor.esm` in its manifest): the files a sandboxed preview frame imports by URL,
+// staged under frames/<plugin>/ with the layout the entry's own relative imports expect. The list is the generated registry's, which
+// carries the SHA-256 of each file for the frame's import map (lib/packages/draw-frame-core.mjs), so only what the registry names is served.
+// An ES module loaded by a sandboxed (opaque-origin) frame is fetched cross-origin and needs CORS: docs/public/_headers for the previews
+// on Cloudflare, GitHub Pages for production, and astro.config.mjs for the local servers.
+const { DRAW_FRAME_LIBRARIES } = await import(pathToFileURL(join(repoRoot, 'lib', 'plugins', 'draw-frame-libraries.generated.mjs')).href);
+for (const [name, lib] of Object.entries(DRAW_FRAME_LIBRARIES)) {
+  if (!lib.esm) continue;
+  const root = dirname(vendorPath(name, 'esm'));
+  for (const rel of Object.keys(lib.esm.integrity)) assets.push([`${lib.esm.dir}${rel}`, join(root, rel)]);
+}
 // The worked exemplar decks (exemplars/<bucket>/<slug>.md) — fetched on demand by
 // the Drawing Board's Drafting picker, trimmed to the chosen tier in the browser
 // (lib/exemplars/tier-filter.js). Staged hashed like every other fetched asset so

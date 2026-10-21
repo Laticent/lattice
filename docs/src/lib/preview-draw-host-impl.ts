@@ -30,50 +30,37 @@ const mark = (name: string) => {
 
 // ── MERMAID ──────────────────────────────────────────────────────────────────────────────────────────────────────
 // The preview frame's stand-in for `window.mermaid` (lib/plugins/mermaid/shared/draw-shim.mjs) sends a definition, the
-// config for its palette and the font faces its text is measured in, as URLs. A frame has no network, so the faces go
-// in as `data:` URLs this host fetches, and ONLY from the engine's own font directories: a figure cannot name a
-// font anywhere else. What comes back is the library's svg text, which is sanitized here (the diagram profile) and
-// whose gantt links are held to the schemes a link in a deck may use.
-const FONT_PATH = /\/(?:themes|katex)\/fonts\/[A-Za-z0-9_.-]+\.woff2?$/;
-const fontData = new Map<string, Promise<string | null>>();
+// config for its palette and the font faces its text is measured in, as URLs. The frame's policy lets it load fonts from the
+// engine's own font folders and nowhere else (`fontFolders` below), so it fetches the faces itself, from the HTTP cache the preview page
+// has already filled; this host only checks that each URL it forwards names a file in one of those folders. What comes back is the
+// library's svg text, which is sanitized here (the diagram profile) and whose gantt links are held to the schemes a link in a deck may use.
+const FONT_FOLDERS = ['themes/fonts/', 'katex/fonts/'];
+const FONT_FILE = /^[A-Za-z0-9_.-]+\.woff2?$/;
 
-function engineFontUrl(raw: unknown): string | null {
+function fontFolders(): string[] {
 	const base = engineBase();
-	if (typeof raw !== 'string' || !base) return null;
-	try {
-		const dir = sameOriginAsset(base, '.');
-		const url = new URL(raw);
-		return dir && url.origin === dir.origin && url.href.startsWith(dir.href) && FONT_PATH.test(url.pathname) ? url.href : null;
-	} catch {
-		return null;
-	}
+	return base ? FONT_FOLDERS.map((dir) => sameOriginAsset(base, dir)?.href).filter((href): href is string => !!href) : [];
 }
 
-function fetchFont(url: string): Promise<string | null> {
-	let p = fontData.get(url);
-	if (!p) {
-		p = fetch(url, { credentials: 'omit' })
-			.then(async (r) => {
-				if (!r.ok) return null;
-				const bytes = new Uint8Array(await r.arrayBuffer());
-				let bin = '';
-				for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-				return `data:font/${url.endsWith('.woff') ? 'woff' : 'woff2'};base64,${btoa(bin)}`;
-			})
-			.catch(() => null);
-		fontData.set(url, p);
+/** The URL of a face when it names a file directly inside one of the engine's font folders, else null. */
+function engineFontUrl(raw: unknown): string | null {
+	if (typeof raw !== 'string') return null;
+	try {
+		const url = new URL(raw);
+		for (const dir of fontFolders()) if (url.href.startsWith(dir) && FONT_FILE.test(url.href.slice(dir.length))) return url.href;
+	} catch {
+		/* not a URL */
 	}
-	return p;
+	return null;
 }
 
 type FontAsk = { family?: unknown; weight?: unknown; style?: unknown; url?: unknown };
-async function framesFonts(asks: unknown) {
-	const out: Array<{ family: string; weight: string; style: string; data: string }> = [];
+function framesFonts(asks: unknown) {
+	const out: Array<{ family: string; weight: string; style: string; url: string }> = [];
 	if (!Array.isArray(asks)) return out;
 	for (const f of (asks as FontAsk[]).slice(0, 32)) {
 		const url = engineFontUrl(f?.url);
-		const data = url ? await fetchFont(url) : null;
-		if (data && typeof f.family === 'string' && typeof f.weight === 'string' && /^[1-9]00$/.test(f.weight) && (f.style === 'normal' || f.style === 'italic')) out.push({ family: f.family, weight: f.weight, style: f.style, data });
+		if (url && typeof f.family === 'string' && typeof f.weight === 'string' && /^[1-9]00$/.test(f.weight) && (f.style === 'normal' || f.style === 'italic')) out.push({ family: f.family, weight: f.weight, style: f.style, url });
 	}
 	return out;
 }
@@ -81,9 +68,7 @@ async function framesFonts(asks: unknown) {
 const SAFE_LINK = /^(?:https?:|mailto:|#|\/|\.)/i;
 
 async function drawMermaid(job: Job): Promise<string> {
-	// The faces are fetched while the frame opens, not before: they are independent, and the frame's start is the long pole.
-	const [fonts] = await Promise.all([framesFonts(job.fonts), host.warm('mermaid').catch(() => {})]);
-	const frameJob = { ...job, fonts } as Parameters<typeof host.draw>[0];
+	const frameJob = { ...job, fonts: framesFonts(job.fonts) } as Parameters<typeof host.draw>[0];
 	const fig = JSON.parse(await host.draw(frameJob)) as { svg: string; type: string; links: Array<[string, string]> };
 	mark('sanitize-start');
 	const svg = sanitizeDiagramSvg(fig.svg);
@@ -96,6 +81,12 @@ const host = createDrawHost({
 	libraryUrl: (file) => {
 		const base = engineBase();
 		return (base && sameOriginAsset(base, file)?.href) || null;
+	},
+	fontFolders,
+	folderUrl: (dir) => {
+		const base = engineBase();
+		const url = base && sameOriginAsset(base, dir);
+		return url ? url.href : null;
 	},
 	hydrateSource: () => String((hydrateMod as unknown as { hydrate: unknown }).hydrate),
 });

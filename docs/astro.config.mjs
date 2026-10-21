@@ -113,6 +113,12 @@ export default defineConfig({
 	// has its own connection-first policy (src/lib/prefetch-engine.ts, wired via
 	// <EngineWarm>) so we never speculatively spend it on a constrained link.
 	prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
+	// A sandboxed (opaque-origin) preview frame loads Mermaid's ES modules from this site, and a module is always fetched with CORS, so the
+	// files must answer with an `Access-Control-Allow-Origin`. GitHub Pages (production) sends `*` on everything it serves, and the
+	// Cloudflare previews read it from public/_headers; these are the LOCAL dev and preview servers (the e2e runs on `astro preview`).
+	server: { headers: { 'Access-Control-Allow-Origin': '*' } },
+	// Vite's own CORS middleware would ALSO answer, echoing the page's origin, and on a 304 revalidation of a font it replaces the cached `*` with
+	// that origin, so the frame's next request (origin `null`) fails CORS against the cache. One header, one value, on every response.
 	// `server.fs.allow: ['..']` lets the dev server resolve repo files above the
 	// docs root (e.g. map-complete.js's lib/components basemap JSON). The pure
 	// authoring engines (lint-core/review-core/scorecard) and the Theme/Layout
@@ -130,7 +136,8 @@ export default defineConfig({
 	// dev-only shim for exactly that shape — see its header for why `optimizeDeps.include`
 	// does not do the job.
 	vite: {
-		server: { fs: { allow: ['..'] } },
+		server: { fs: { allow: ['..'] }, cors: false },
+		preview: { cors: false },
 		// The versioned asset directory, for a module that needs an engine asset before the page has
 		// loaded the engine: the lint core (src/playground/lint-core-source.js) loads `esm/lint.js` from
 		// it. The build runs `sync:playground` first, so it names this build's hash. assetVersion(), not
