@@ -208,3 +208,35 @@ describe('calco pptx — layouts, roles and the locked picture', () => {
     assert.equal(Object.keys(zip.files).filter((n) => /slideLayout\d+\.xml$/.test(n)).length, 1);
   });
 });
+
+describe('calco pptx — every master has its own theme', () => {
+  // PptxGenJS 3.12 writes one theme1.xml for the slide master AND the notes master. PowerPoint refuses
+  // ("Sorry, PowerPoint can't read") a package like that once p:notesMasterIdLst is in its schema position.
+  const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hi', style: style() }]])], notes: 'Say this' }] };
+  const themeOf = async (zip, rels) => {
+    const xml = await zip.file(rels).async('string');
+    return xml.match(/Type="[^"]*\/theme"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Type="[^"]*\/theme"/).slice(1).find(Boolean);
+  };
+  const check = async (zip) => {
+    const slide = await themeOf(zip, 'ppt/slideMasters/_rels/slideMaster1.xml.rels');
+    const notes = await themeOf(zip, 'ppt/notesMasters/_rels/notesMaster1.xml.rels');
+    assert.notEqual(slide, notes, 'the notes master must not share the slide master theme');
+    assert.ok(zip.file(`ppt/theme/${notes.split('/').pop()}`), 'the notes theme part exists');
+    const types = await zip.file('[Content_Types].xml').async('string');
+    assert.match(types, new RegExp(`PartName="/ppt/theme/${notes.split('/').pop()}"`), 'and has a content type');
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    assert.ok(pres.indexOf('<p:notesMasterIdLst>') < pres.indexOf('<p:sldIdLst>'), 'the schema order is kept');
+  };
+
+  test('the editable writer gives the notes master a theme of its own', async () => {
+    await check(await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip)));
+  });
+
+  test('the picture-only package, tidied through tidyPptxPackage, does too', async () => {
+    const { tidyPptxPackage } = require('@laticent/calco');
+    const raw = new PptxGenJS();
+    raw.addSlide().addNotes('Say this');
+    const bytes = await tidyPptxPackage(JSZip, await raw.write({ outputType: 'uint8array' }), 'nodebuffer');
+    await check(await JSZip.loadAsync(bytes));
+  });
+});
