@@ -13,7 +13,7 @@ summary: >
 
 # Follow, everywhere: one mechanism, built on Tavola
 
-**Status:** proposed, revision 2 (2026-10-21), after a red team, a Munger inversion and an independent
+**Status:** built in #2830 (slices 1 to 5; see "As built" at the end), revision 2 (2026-10-21), after a red team, a Munger inversion and an independent
 checker reviewed revision 1. Builds on `2026-10-20-live-uniform-experience.md` (§4 tiers, §5 decisions 4
 and 5, §6 safety model).
 
@@ -268,3 +268,32 @@ framing and encryption); an old-and-new tab session.
   treats absence as no information, so the consequence is a stale marker, not a closed panel).
 - The mobile sheet variant of the inspector; the ghost on a phone is untested.
 - Tavola ships as its own package; whether the new `./yjs` export needs a version note is a release question.
+
+## 13. As built (2026-10-21)
+
+Built in #2830, one commit per slice. Where the build differs from the plan above, and why:
+
+- **`inspector` is its own key, not a value of `panel`.** The left assistant panel (Coach, Views, Library, Live)
+  and the right settings panel (Deck, Slide) are open at the same time in the Studio, so one `panel` value could
+  not say both. `inspector` is `none | deck | slide`; `section` is the tab inside it.
+- **A small bus carries a screen's part, so nothing is plumbed through the Studio's props.** `live/follow-bus.ts`
+  (always loaded) has `useViewKey(key, value)` to say where a screen is and `useAppliedKey(key, handler)` to be
+  moved. The Live session decides *when* (one typing gate for the slide, the panel, the settings panel, the
+  section and Present); the screen decides *how*. A new thing to follow is one hook call in the component that
+  owns it, plus a key in `follow-keys.ts`.
+- **The ring is on the row wrappers (`Field` in the Studio shell and `Row` in the Slide panel), not on four
+  separate widgets.** `CatalogSelect`, `Toggle` and `TextRow` all sit inside one of those two, so one ring and
+  one focus report per row covers them without a prop on each. Rows are identified by the slug of the label
+  written in the code, and only labels on `FOCUS_ROWS` take part; `follow-keys.test.ts` re-reads the source and
+  fails when a row is added without joining the list (the build check of §10 as a unit test, not a CI step). Two
+  rows with the same label (the page `Size` and the logo `Size`) both ring; the limit is real and small.
+- **`VIEW_MAX_BYTES` is 512, not 256**, because the eleven keys with their longest values come to about 330
+  bytes (pinned by a test).
+- **Present follow reuses the room Present's follower path** (`follow` on `PresentLive`, the hash lookup, the
+  detach on the follower's own move). A Present opened by Follow is `inertKeys`, starts muted and never
+  synthesizes; closing it keeps it closed until the leader's Present ends and another starts. A room Present
+  and a Present the follower opened themselves both win over it.
+- **Silent drops are counted.** The adapter reports each key whose value failed its list; the connection log
+  prints them ("dropped view values: panel 1, section 1").
+- **Not done:** raw `<input>` elements outside the two row wrappers have no ring (§11 item 1); the phone cases
+  of §7.7 are covered by tests of the gate and are UNVERIFIED on a real phone.

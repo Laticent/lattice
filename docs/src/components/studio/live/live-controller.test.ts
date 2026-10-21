@@ -1327,6 +1327,24 @@ describe('LiveController: activity, Follow and pointers', () => {
 		expect(followBus.getLeader()).toBeNull();
 	});
 
+	it('a view value outside its list is dropped, counted by key, and named in the connection log', async () => {
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: a modified client putting values outside the lists into its view.
+		(g as any).rt.aw.setLocalStateField('view', { panel: 'chat', section: '<img src=x>', focus: 'not-a-row', inspector: 'deck' });
+		// biome-ignore lint/suspicious/noExplicitAny: the host's view of the guest, as the gate left it.
+		const guestId = h.view().people.find((p) => p.name === 'Amina')?.id as string;
+		// biome-ignore lint/suspicious/noExplicitAny: reads the view the gate kept.
+		const kept = () => (h as any).rt.view.of(guestId).all() as Record<string, unknown>;
+		await until(() => kept().inspector === 'deck', h, g);
+		expect(kept()).toEqual({ inspector: 'deck' });
+		// biome-ignore lint/suspicious/noExplicitAny: the drops the gate counted.
+		const drops = (h as any).viewDrops as Map<string, number>;
+		expect([...drops.keys()].sort()).toEqual(['focus', 'panel', 'section']);
+		// biome-ignore lint/suspicious/noExplicitAny: the log text a maintainer would be sent.
+		expect(await (h as any).logText()).toContain('dropped view values: panel 1, section 1, focus 1');
+	});
+
 	it('a slide change moves nobody who is typing: they get a Go that takes them to where the leader is', async () => {
 		const { h } = await hostSession();
 		const sh = shell();

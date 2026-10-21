@@ -544,6 +544,8 @@ export function sanitizeAwareness(update: Uint8Array, from: string, ownerOf: (cl
 export class LiveController {
 	private rt: Runtime | null = null;
 	private deps: LiveDeps;
+	/** View keys the gate dropped because a value failed its list, by key. A schema mistake must be visible, not a quiet "Follow does not do that". */
+	private viewDrops = new Map<string, number>();
 	private followingId: string | null = null;
 	/** Whoever this browser follows. Setting it tells screens who they should mark (`syncLeader`). */
 	private get following(): string | null {
@@ -994,7 +996,7 @@ export class LiveController {
 		};
 		// Awareness goes through Tavola's Yjs adapter: the one hardened gate (bounds before the parse, identity from
 		// the roster, the clock, the rate) with this app's field cleaners.
-		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS, view: { keys: VIEW_KEYS }, allow: () => this.share.doing });
+		const presence = yjsAwareness(aw, { ownerOf, memberOf: (peer) => memberOf(peer), identity: awarenessIdentity, fields: AWARENESS_FIELDS, view: { keys: VIEW_KEYS }, allow: () => this.share.doing, onDrop: (_from, keys) => { for (const k of keys) this.viewDrops.set(k, (this.viewDrops.get(k) ?? 0) + 1); } });
 		const awStream = presence.stream;
 		const owner = presence.owner;
 		const key = args.key ?? null;
@@ -2725,6 +2727,7 @@ export class LiveController {
 		const lines = [`Lattice Live connection log · ${new Date().toISOString()}`, `browser: ${navigator.userAgent}`, `role: ${this.rt?.session.getState().isHost ? 'host' : 'guest'}`, `screen wake lock: ${this.wake.state}`, `online: ${navigator.onLine} · visible: ${document.visibilityState}`];
 		const paths: Record<string, LinkPath> = (await this.rt?.session.paths().catch(() => ({}))) ?? {};
 		for (const [id, p] of Object.entries(paths)) lines.push(`path ${id.slice(0, 6)}: ${p.local}→${p.remote} (${p.protocol})`);
+		if (this.viewDrops.size) lines.push(`dropped view values: ${[...this.viewDrops].map(([k, n]) => `${k} ${n}`).join(', ')}`);
 		const pairs = await this.pairs();
 		if (pairs.length) lines.push('candidate pairs (every connection check each link tried):', ...pairs.map((p) => `  ${p}`));
 		for (const e of this.timeline()) lines.push(`${(e.at / 1000).toFixed(1).padStart(7)}s  ${e.peer.padEnd(6)}  ${e.what}`);

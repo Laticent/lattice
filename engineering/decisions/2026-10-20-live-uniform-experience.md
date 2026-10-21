@@ -103,7 +103,7 @@ moves people who did not ask to move. So every piece of state gets exactly one t
 |---|---|---|
 | **1. Deck truth** | Identical for everyone; no opt-out | Source (done); the session's look (§5.1); the saved themes and finishes the deck uses |
 | **2. Activity** | Everyone can see it; it moves no one; withholdable like the cursor | Panel open ("in Coach"), view, presenting, the Coach card they read, "asking the AI", pointer (§7.6) |
-| **3. Follow** | You opt in to mirror one person | Slide (today), panel, view |
+| **3. Follow** | You opt in to mirror one person | Slide, panel, view, the Slide and Deck settings panels and their section, and the leader's Present (amended 2026-10-21, `2026-10-21-follow-over-tavola.md`). A settings row the leader is in is *marked* on your screen, never filled with their value |
 | **4. Room events** | Started by the host (or a member the host allows); every idle member joins; anyone can leave | Present together (§7.2), Show me (§7.5) |
 | **5. Shared on purpose** | The owner shares each item | An AI chat turn; comments (slice 6); checkpoints (not planned) |
 | **6. Never** | Private by construction | API keys and AI cost, unsent drafts, settings (including CC, Voice and Guide switches), devices, crash reports, Library records the deck does not use |
@@ -140,8 +140,11 @@ an earlier answer, only the final one is listed, with what changed.
    built). A turn reaches the room only when its owner presses Share, as a read-only card in the
    people chat.
 4. **Follow goes wide.** Following someone mirrors their slide, panel (Coach, Lenses, Library,
-   never their Chat) and view. Any action of your own stops following. On a width where their
-   panel does not exist, you follow the slide and see a label.
+   never their Chat), view, the Slide or Deck settings panel with its section, and their Present
+   (amended 2026-10-21: owner decisions D1 to D3 in `2026-10-21-follow-over-tavola.md`). Any action of
+   your own stops following. On a width where their panel does not exist, you follow the slide and see a
+   label. Inputs, dropdowns and sliders are followed as a *marker on the row*, not as a replayed value;
+   Setup (workspace settings) is shown as open, with its tab, and is never opened for the follower.
 5. **Present together is host-started; idle members join.** Only the host, or a member the host
    allows, can press "Present to everyone", and it is rate-limited. A member who has not typed in
    the last few seconds joins at once; a member who is typing gets a "Join" toast, by the same
@@ -295,6 +298,14 @@ cannot use). It never mirrors Fabricate, which is a workspace of one's own. It n
 in the editor in the last 2.5 s or has focus in another text field: they get one "X opened Coach · Go" per
 burst of typing, and Go takes them wherever the person is when it is pressed, and only if they still follow
 the same person. A panel or view change the follower makes stops following, as a slide change does.
+
+*Amended 2026-10-21 (`2026-10-21-follow-over-tavola.md`).* Where a member is now travels as a declared **view**
+beside `doing`: Tavola's Yjs adapter rebuilds awareness from a closed list of keys (panel, view, presenting,
+asking, inspector, section, present, focus, shown, setupTab, changed), each a place from a fixed list, an
+integer in a range, or a flag. `doing` is still written for one release so a tab that has not updated follows
+as before. The slide now goes through the same typing gate as the panel (it did not before: a leader changing
+slides moved a follower mid-sentence). Following survives the leader reconnecting under a new id (same name and
+color, within 20 s).
 
 Pointers ride a `ptr` post in slide coordinates. At most about ten a second leave a browser (the last
 position wins); a held pointer is said again every 2 s; one arriving faster than 30 ms after the last move,
