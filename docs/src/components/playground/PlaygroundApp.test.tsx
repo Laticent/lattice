@@ -23,6 +23,10 @@ vi.mock('@/playground/editor.js', () => ({
 				value = t;
 			},
 			focus: () => {},
+			setBand: () => {},
+			revealSlide: () => {},
+			showRange: () => {},
+			getCaret: () => ({ head: 0, anchor: 0 }),
 			destroy: () => {},
 			__fireChange: (t: string) => onChange?.(t),
 		};
