@@ -26,6 +26,36 @@ export function deckTitleEnd(ix: Outline, c: number, k = 0): number {
 	return Math.min(start, Math.max(from, end - 1));
 }
 
+type Sep = { index: number; length: number };
+
+/** The separator that ends exactly at `at`. The list is sorted and its separators do not overlap, so this is a
+ *  binary search: `deckFrame` runs once per page and a linear `find` made the whole deck quadratic. */
+function sepEndingAt(seps: readonly Sep[], at: number): Sep | undefined {
+	let lo = 0;
+	let hi = seps.length - 1;
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1;
+		const end = seps[mid].index + seps[mid].length;
+		if (end === at) return seps[mid];
+		if (end < at) lo = mid + 1;
+		else hi = mid - 1;
+	}
+	return undefined;
+}
+
+/** The separator that starts exactly at `at`. */
+function sepStartingAt(seps: readonly Sep[], at: number): Sep | undefined {
+	let lo = 0;
+	let hi = seps.length - 1;
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1;
+		if (seps[mid].index === at) return seps[mid];
+		if (seps[mid].index < at) lo = mid + 1;
+		else hi = mid - 1;
+	}
+	return undefined;
+}
+
 /** The lines a page occupies in the editor, INCLUDING the `---` that opens and closes it. Slide 1
  *  opens on the front matter's closing fence; a page inside a heading-split slide has no
  *  separator of its own, so its frame is its text. This is the extent a view highlights, and the
@@ -36,7 +66,7 @@ export function deckFrame(ix: DeckIndex, c: number, k = 0): Extent | null {
 	let from = k <= 0 ? unit.from : partStart(ix, c, k);
 	let to = partEnd(ix, c, k);
 	if (k <= 0) {
-		const open = ix.seps.find((s) => s.index + s.length === unit.from);
+		const open = sepEndingAt(ix.seps, unit.from);
 		if (open) from = open.index;
 		else if (c === 0 && ix.bodyStart > 0) {
 			// The front matter's closing fence: the last non-blank line before the body.
@@ -46,7 +76,7 @@ export function deckFrame(ix: DeckIndex, c: number, k = 0): Extent | null {
 		}
 	}
 	if (k >= unit.parts.length - 1) {
-		const close = ix.seps.find((s) => s.index === unit.end);
+		const close = sepStartingAt(ix.seps, unit.end);
 		if (close) to = close.index + close.length;
 	}
 	return extentOf(ix, from, to);

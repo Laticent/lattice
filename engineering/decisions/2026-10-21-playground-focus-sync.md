@@ -124,10 +124,9 @@ Playground-only maths).
 | editor scroll | 68-77 ms | 175-187 ms |
 | typing, 40 keys | 221-227 ms | 236-251 ms |
 
-No frame is dropped on either branch (every frame 16.7 ms). The extra 1.5-2 ms per scroll frame is the editor band
-redraw (about 4 ms per slide change, inherent to marking the slide) and the forced layout of reading the scrolled
-frame's position; the layouts are memoized per size, and the echo of a move is recognized before anything is
-measured. Typing is level with `main`.
+No frame is dropped on either branch (every frame 16.7 ms). **This table counted script time only, and the claims
+around it were too strong; see "Performance review" below for the measured correction.** Typing is within noise of
+`main` unthrottled, and about 9% higher in script at 4x CPU.
 
 ## 5. Fuoco: lines, columns and sections
 
@@ -206,3 +205,43 @@ alignment (first slide at the top, last at the bottom, every one between centere
   focus, and anything within `CARET_SCROLL_MS` of typing, scroll nothing.
 - For `CARET_SCROLL_MS` after the caret centered the preview, the editor's own scroll (CodeMirror following the same
   caret) does not drive the preview, or the two moves would fight and land the preview on the wrong slide.
+
+## Performance review (adversarial trio, 2026-10-21)
+
+The owner sensed delays and jank, so the red team, the inversion and an independent checker measured the branch on
+the real Playground (headless Chromium at 1x and 4x CPU throttle, and WebKit; 200-slide decks, plus wrapped-prose
+and 10,000-line cases), against the merge-base. What they found, and what changed:
+
+- **The cost claim was understated.** Script, layout and style together, per 60 wheel events, merge-base to branch:
+  preview 112 to 269 ms, editor 109 to 385 ms (2-3x, +2.6 and +4.6 ms per frame). No frame dropped at 1x, but at 4x
+  CPU and in WebKit the branch dropped frames the merge-base did not.
+- **The marks were most of the avoidable part.** The editor band was a CodeMirror line decoration: a transaction, a
+  redraw of every line of the slide, and a forced style recalc (CodeMirror reads the DOM selection after any DOM
+  change) at every slide boundary. The preview bar read a rect per page right after toggling a class, forcing the
+  frame to lay out. Now the band is two drawn boxes placed from CodeMirror's line heights (`bandPlugin`,
+  `editor.js`) and the bar is placed from the geometry `previewLayout` already caches (`placeBar`,
+  `reading-page.ts`); neither reads the DOM. Turning the marks off entirely now changes nothing measurable at 4x.
+- **The echo guard had holes.** Position matching broke when CodeMirror re-anchored after our write, and consuming
+  an echo on the first event let a stale event eat a newer move's. Measured on a deck with wrapped prose: map picks
+  landed on the wrong slide 7 times in 8; wheeling the editor stepped backward 6-7 times; a large preview move
+  was yanked 4 of 80 (a 1500 px notch: 39 of 40). Echoes are now attributed by time and kept for their whole window,
+  and a pick's smooth scroll is not cancelled by the editor re-anchoring. After the fix: 8 of 8 picks land,
+  0 reversals, 0 yanks.
+- **The follow is the rest, and it is the feature.** Moving the other pane each frame costs the follower's own
+  redraw (CodeMirror lines, the filmstrip's virtualization; one editor wheel moves the preview about 2.7 times as far).
+  A page that is already dropping frames now moves the follower at most every 33 ms, and always catches up on the
+  frame where the reader stops (`followNow`). Following only when the scroll settles would remove most of the rest
+  but contradicts the owner's choice of a continuous map; that is the owner's call and was not made here.
+- `rangesOf` was quadratic in slide count (`seps.find` per page: 16 ms per edit at 3,000 slides); it is a binary
+  search now.
+
+Measured after (4x CPU throttle, 200 slides, per 60 wheel events; two runs each): preview wheel 6-7 frames over
+34 ms (the branch before: 5-16; merge-base 0-2), editor wheel 10-12 (before 8-11; merge-base 0-3), style
+655-676 ms (before 717-763). WebKit (Linux, software rendering): editor wheel 23 frames over 34 ms (before 53-96;
+merge-base 11-13), preview wheel p50 24 ms (before 32-40; merge-base 22-30). Real Safari, an iPad and touch are
+UNVERIFIED.
+
+Not changed, and why: per-key cost grows with the size of the slide being typed in (+15 ms per key at 10,000
+lines; the hub re-parses the slide between two separators), the second parse of the deck per render, and the
+map's own index on every render. All three are small below a thousand lines; the typing delay the owner may
+feel is the render pipeline and `remoteCssRefs` (followup `2840-p3`), which are level with the merge-base.

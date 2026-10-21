@@ -43,7 +43,18 @@ async function open(page: Page) {
 const sectionCount = (page: Page) => page.evaluate(() => (document.getElementById('preview') as HTMLIFrameElement | null)?.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').length ?? 0);
 
 /** The text of the lines the band covers, in order. */
-const band = (page: Page) => page.locator('.cm-line.cm-slide-band').allTextContents();
+const band = (page: Page) =>
+	page.evaluate(() => {
+		const wash = document.querySelector('.cm-slide-band')?.getBoundingClientRect();
+		if (!wash || wash.height === 0) return [] as string[];
+		const out: string[] = [];
+		for (const line of Array.from(document.querySelectorAll('.cm-line'))) {
+			const r = line.getBoundingClientRect();
+			const mid = (r.top + r.bottom) / 2;
+			if (mid >= wash.top && mid <= wash.bottom) out.push(line.textContent ?? '');
+		}
+		return out;
+	});
 
 /** The caret: its line's text and its column in that line. */
 const caret = (page: Page) =>
@@ -100,10 +111,9 @@ const offCenter = (page: Page, n: number) =>
 const bandOnScreen = (page: Page) =>
 	page.evaluate(() => {
 		const scroller = document.querySelector('.cm-scroller')?.getBoundingClientRect();
-		const first = document.querySelector('.cm-slide-band-first')?.getBoundingClientRect();
-		const last = document.querySelector('.cm-slide-band-last')?.getBoundingClientRect();
-		if (!scroller || !first || !last) return false;
-		return first.top >= scroller.top - 1 && last.bottom <= scroller.bottom + 1;
+		const wash = document.querySelector('.cm-slide-band')?.getBoundingClientRect();
+		if (!scroller || !wash) return false;
+		return wash.top >= scroller.top - 1 && wash.bottom <= scroller.bottom + 1;
 	});
 
 test(`the preview and editor scrollbars are thin and quiet ${TAGS}`, async ({ page, browserName }) => {
@@ -173,7 +183,7 @@ test(`a click inside the band lands where it was made ${TAGS}`, async ({ page })
 	await scrollPreviewTo(page, 3);
 	await frame.locator('section[data-lattice-slide="3"]').click();
 	await expect.poll(async () => (await band(page)).some((l) => l.includes('Slide 3 title'))).toBe(true);
-	const point = page.locator('.cm-line.cm-slide-band', { hasText: 'point 3.4' });
+	const point = page.locator('.cm-line', { hasText: 'point 3.4' });
 	const box = await point.boundingBox();
 	if (!box) throw new Error('the band line is not on screen');
 	await page.mouse.click(box.x + 28, box.y + box.height / 2);
@@ -243,12 +253,11 @@ test(`a middle slide is centered in both panes, the first at the top, the last a
 			page.evaluate(() => {
 				const f = document.getElementById('preview') as HTMLIFrameElement;
 				const sec = f.contentDocument?.querySelector('section[data-lattice-slide="4"]')?.getBoundingClientRect();
-				const first = document.querySelector('.cm-slide-band-first')?.getBoundingClientRect();
-				const last = document.querySelector('.cm-slide-band-last')?.getBoundingClientRect();
+				const wash = document.querySelector('.cm-slide-band')?.getBoundingClientRect();
 				const ed = document.querySelector('.cm-scroller')?.getBoundingClientRect();
-				if (!sec || !first || !last || !ed) return 999;
+				if (!sec || !wash || !ed) return 999;
 				const pvCenter = sec.top + sec.height / 2 - f.contentWindow!.innerHeight / 2;
-				const edCenter = (first.top + last.bottom) / 2 - (ed.top + ed.height / 2);
+				const edCenter = (wash.top + wash.bottom) / 2 - (ed.top + ed.height / 2);
 				// Both are offsets from the middle of their own window: centered slides are both near zero.
 				return Math.max(Math.abs(pvCenter), Math.abs(edCenter));
 			}),

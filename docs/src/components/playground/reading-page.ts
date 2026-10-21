@@ -10,6 +10,11 @@ interface PageGeometry {
 	top0: number;
 	pitch: number;
 	height: number;
+	/** The first page's left edge, and the body's top and left, in the frame's document coordinates: what the focus bar
+	 *  needs to place itself without asking the browser again. */
+	left: number;
+	bodyTop: number;
+	bodyLeft: number;
 }
 const geometry = new WeakMap<HTMLIFrameElement, PageGeometry>();
 
@@ -37,7 +42,8 @@ export function previewLayout(frame: HTMLIFrameElement | null, groups: readonly 
 		const r0 = lattice.children[0].getBoundingClientRect();
 		const pitch = count > 1 ? lattice.children[1].getBoundingClientRect().top - r0.top : r0.height;
 		if (!(pitch > 0) || !(r0.height > 0)) return null;
-		g = { key, top0: win.scrollY + r0.top, pitch, height: r0.height };
+		const body = doc.body.getBoundingClientRect();
+		g = { key, top0: win.scrollY + r0.top, pitch, height: r0.height, left: win.scrollX + r0.left, bodyTop: win.scrollY + body.top, bodyLeft: win.scrollX + body.left };
 		geometry.set(frame, g);
 	}
 	const tops: number[] = [];
@@ -59,10 +65,23 @@ export function previewLayout(frame: HTMLIFrameElement | null, groups: readonly 
 /** The pages marked last in each frame, so a new mark touches those and the new ones, not every page. */
 const marked = new WeakMap<HTMLIFrameElement, { doc: Document; pages: readonly number[]; watch: ResizeObserver | null }>();
 
-/** Stretch the focus bar (`.db-bar`, styled by deck-preview.js) down the left edge of the marked pages. */
-function placeBar(doc: Document, lattice: Element, pages: readonly number[]): void {
+/** Stretch the focus bar (`.db-bar`, styled by deck-preview.js) down the left edge of the marked pages. It is placed from
+ *  the geometry `previewLayout` measured (the filmstrip's pages are one size and one pitch apart), so a mark reads
+ *  nothing from the browser: the mark used to ask each page for its rect right after toggling a class, which forced
+ *  the frame to lay out at every slide boundary a scroll crossed. `fresh` measures again (the frame was resized). */
+function placeBar(frame: HTMLIFrameElement, doc: Document, pages: readonly number[], fresh = false): void {
 	let bar = doc.querySelector<HTMLElement>('.db-bar');
 	if (!pages.length) {
+		if (bar) bar.style.display = 'none';
+		return;
+	}
+	if (fresh) geometry.delete(frame);
+	let g = geometry.get(frame);
+	if (!g) {
+		previewLayout(frame, [[0]]);
+		g = geometry.get(frame);
+	}
+	if (!g) {
 		if (bar) bar.style.display = 'none';
 		return;
 	}
@@ -72,24 +91,10 @@ function placeBar(doc: Document, lattice: Element, pages: readonly number[]): vo
 		bar.setAttribute('aria-hidden', 'true');
 		doc.body.appendChild(bar);
 	}
+	const first = Math.min(...pages);
+	const last = Math.max(...pages);
 	// `.db-bar` is positioned against the body (`body{position:relative}`), which the frame pads in from the page edge.
-	const origin = doc.body.getBoundingClientRect();
-	let top = Number.POSITIVE_INFINITY;
-	let bottom = Number.NEGATIVE_INFINITY;
-	let left = 0;
-	for (const i of pages) {
-		const el = lattice.children[i];
-		if (!el) continue;
-		const r = el.getBoundingClientRect();
-		top = Math.min(top, r.top);
-		bottom = Math.max(bottom, r.bottom);
-		left = r.left;
-	}
-	if (top > bottom) {
-		bar.style.display = 'none';
-		return;
-	}
-	bar.style.cssText = `display:block;left:${left - origin.left}px;top:${top - origin.top}px;height:${bottom - top}px;`;
+	bar.style.cssText = `display:block;left:${g.left - g.bodyLeft}px;top:${g.top0 + first * g.pitch - g.bodyTop}px;height:${(last - first) * g.pitch + g.height}px;`;
 }
 
 /** Mark the preview pages `pages` as the slide in focus (`db-active`, a bar down its left edge); none clears it. */
@@ -106,11 +111,11 @@ export function markPreviewPages(frame: HTMLIFrameElement | null, pages: readonl
 	// The bar follows the slides when the frame is resized or the deck is rescaled to fit it.
 	let watch = last && last.doc === doc ? last.watch : null;
 	if (!watch && typeof ResizeObserver !== 'undefined') {
-		watch = new ResizeObserver(() => placeBar(doc, lattice, marked.get(frame)?.pages ?? []));
+		watch = new ResizeObserver(() => placeBar(frame, doc, marked.get(frame)?.pages ?? [], true));
 		watch.observe(lattice);
 		watch.observe(doc.documentElement);
 	}
 	if (last && last.doc !== doc) last.watch?.disconnect();
 	marked.set(frame, { doc, pages: next, watch });
-	placeBar(doc, lattice, next);
+	placeBar(frame, doc, next, !last || last.doc !== doc);
 }

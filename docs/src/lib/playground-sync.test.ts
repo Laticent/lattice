@@ -166,6 +166,38 @@ describe('either pane drives the other', () => {
 	});
 });
 
+describe('a page that is dropping frames', () => {
+	it('moves the follower every other frame and still lands where the reader stopped', async () => {
+		const r = rig();
+		await r.land();
+		r.log.length = 0;
+		for (let k = 1; k <= 8; k++) {
+			r.state.now += 28;
+			r.scrollPreview(150 * k);
+		}
+		const moves = r.log.filter((l) => l.startsWith('editor-scroll')).length;
+		expect(moves).toBeLessThan(8);
+		expect(moves).toBeGreaterThan(0);
+		// The reader stops: the frame that was skipped runs, and the editor ends level with the preview.
+		for (let k = 0; k < 4; k++) {
+			r.state.now += 40;
+			r.frame();
+		}
+		expect(r.state.ed).toBeCloseTo(r.map().toA(r.state.pv), 6);
+	});
+
+	it('follows on every frame while frames are on time', async () => {
+		const r = rig();
+		await r.land();
+		r.log.length = 0;
+		for (let k = 1; k <= 8; k++) {
+			r.state.now += 16;
+			r.scrollPreview(150 * k);
+		}
+		expect(r.log.filter((l) => l.startsWith('editor-scroll')).length).toBe(8);
+	});
+});
+
 describe('the slide in focus is marked in both panes', () => {
 	it('marks the focused slide in the preview and the band in the editor, whoever moved', async () => {
 		const r = rig();
@@ -309,6 +341,40 @@ describe('a pick moves the caret', () => {
 		r.hub.go('preview', { flat: 2 });
 		r.frame();
 		expect(r.log.some((l) => l.startsWith('reveal'))).toBe(false);
+	});
+});
+
+describe('feedback between the panes', () => {
+	it("a stale event on the pane being moved does not eat the next move's echo", async () => {
+		const r = rig();
+		await r.land();
+		// The reader wheels the editor; each frame moves the preview and records its echo.
+		r.scrollEditor(300);
+		const pv1 = r.state.pv;
+		r.state.now += 16;
+		r.scrollEditor(340);
+		const pv2 = r.state.pv;
+		expect(pv2).toBeGreaterThan(pv1);
+		// The preview's scroll events for both moves arrive late: neither drives the editor back.
+		r.sync.previewScrolled();
+		r.frame();
+		r.sync.previewScrolled();
+		r.frame();
+		expect(r.state.ed).toBe(340);
+	});
+
+	it("the editor re-anchoring itself while a pick's smooth scroll is in flight does not cancel the pick", async () => {
+		const r = rig();
+		await r.land();
+		r.hub.go('rail', { flat: 4 });
+		r.frame();
+		r.state.now += 20;
+		r.scrollPreview(500);
+		const before = r.log.filter((l) => l.startsWith('preview-scroll')).length;
+		// CodeMirror measures the lines it had only estimated and moves its own scroll.
+		r.state.now += 20;
+		r.scrollEditor(r.state.ed + 600);
+		expect(r.log.filter((l) => l.startsWith('preview-scroll')).length).toBe(before);
 	});
 });
 

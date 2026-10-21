@@ -115,10 +115,14 @@ export interface PlaygroundSync {
  *  not report a new focus, so it cannot move the focus off the slide the reader just asked for. */
 const SETTLE_MS = 160;
 const MAX_OWN_MS = 1500;
-/** A scroll that lands within this many pixels of where a move put the other pane is that move's echo. */
-const ECHO_PX = 2;
-/** An echo not seen within this long was never coming (the pane was already there). */
+/** A scroll on a pane this soon after the sync moved it is that move's own (see `isEcho`). */
 const ECHO_MS = 250;
+/** Frames this far apart mean the page is dropping them; following on every one of those is what drops them. */
+const FRAME_SLOW_MS = 24;
+/** Gaps longer than this are a reader who stopped and started again, not a struggling page. */
+const FRAME_IDLE_MS = 250;
+/** While frames are slow, the follower pane is moved at most this often (about 30 per second). */
+const FOLLOW_GAP_MS = 33;
 /** An editor scroll this soon after a caret move is the caret being scrolled into view, not the reader scrolling. */
 const CARET_SCROLL_MS = 400;
 
@@ -148,6 +152,10 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let lastEdit = -Infinity;
 	/** When the caret last centered the preview. The editor scrolling right after is CodeMirror following the same caret. */
 	let lastCenter = -Infinity;
+	/** When the last scroll frame ran and when the last follower move happened (see `followNow`). */
+	let lastDrive = -Infinity;
+	let lastFollow = -Infinity;
+	let slow = false;
 	let lastFlat = -1;
 	let previewRaf = 0;
 	let settleRaf = 0;
@@ -187,8 +195,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		if (!ports.editing()) return null;
 		const ix = usable();
 		const ed = ports.editor();
+		if (!ix || !ed) return null;
 		const rs = rangesOf();
-		if (!ix || !ed || !rs?.length || ix.byFlat.length !== rs.length) return null;
+		if (!rs?.length || ix.byFlat.length !== rs.length) return null;
 		const pv = ports.previewLayout(ix.byFlat);
 		if (!pv || pv.tops.length !== rs.length) return null;
 		const el = ed.getLayout(rs);
@@ -224,15 +233,43 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		if (at && flat !== hub.get().flat) hub.reportUnit(origin, { unitIndex: at.unit, part: at.part });
 	}
 
-	const isEcho = (e: { y: number; at: number } | null, y: number) => e !== null && ports.now() - e.at < ECHO_MS && Math.abs(y - e.y) <= ECHO_PX;
+	/** A scroll on a pane within a moment of this sync scrolling it is the move's own: the browser's scroll event,
+	 *  or CodeMirror re-anchoring after it measured lines it had only estimated. Attributed by TIME, not position, and
+	 *  kept for the whole window: a position match breaks when CodeMirror moves `scrollTop` after our write, and
+	 *  consuming it on the first event let a stale event eat a newer move's echo (the editor stepped backward under a
+	 *  wheel, and a big jump yanked the preview). A reader scrolls one pane at a time, so the pane we just moved is
+	 *  not the one they are scrolling. */
+	const isEcho = (e: { y: number; at: number } | null) => e !== null && ports.now() - e.at < ECHO_MS;
+
+	/** Note that a scroll event arrived. A scroll event comes once per frame, so the gap between two of them says
+	 *  whether the page is keeping up: a gap over a frame and a half means it is dropping frames. */
+	function noteScroll() {
+		const t = ports.now();
+		const dt = t - lastDrive;
+		lastDrive = t;
+		slow = dt > FRAME_SLOW_MS && dt < FRAME_IDLE_MS;
+	}
+
+	/** Whether this scroll frame should move the follower pane. A follower redraw (CodeMirror re-rendering lines, the
+	 *  filmstrip mounting slides) is the cost of the whole feature, and it is paid on every frame. While frames are
+	 *  already coming slowly the follower moves at most every `FOLLOW_GAP_MS` instead, so the page gets its frame
+	 *  budget back; the caller runs the skipped frame again on the next one, so the follower always lands where the
+	 *  reader stopped. */
+	function followNow(): boolean {
+		const t = ports.now();
+		if (slow && t - lastFollow < FOLLOW_GAP_MS) return false;
+		lastFollow = t;
+		return true;
+	}
 
 	/** The preview scrolled: the editor follows, and the slide it is on becomes the focus. */
 	function drivenByPreview() {
 		previewRaf = 0;
 		if (dead || !ports.active()) return;
 		// The echo of our own move is the common case, and the cheap one to recognize: do it before measuring anything.
-		if (isEcho(echo.preview, ports.previewScroll())) {
-			echo.preview = null;
+		if (isEcho(echo.preview)) return;
+		if (!followNow()) {
+			if (!previewRaf) previewRaf = ports.raf(drivenByPreview);
 			return;
 		}
 		const L = pair();
@@ -267,9 +304,12 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	function drivenByEditor() {
 		editorRaf = 0;
 		if (dead || !ports.editing()) return;
-		const ed = ports.editor();
-		if (ed && isEcho(echo.editor, ed.getScroll())) {
-			echo.editor = null;
+		if (isEcho(echo.editor)) return;
+		// A pick's smooth scroll is still carrying the preview: whatever the editor does meanwhile is a follower
+		// re-anchoring, and driving the preview from it cancels the pick halfway.
+		if (settling()) return;
+		if (!followNow()) {
+			if (!editorRaf) editorRaf = ports.raf(drivenByEditor);
 			return;
 		}
 		// The caret just centered the preview; the editor scrolling to show that caret must not pull it elsewhere.
@@ -399,10 +439,12 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (!dead) paintMark();
 		},
 		previewScrolled() {
+			noteScroll();
 			lastPreviewScroll = ports.now();
 			if (!previewRaf) previewRaf = ports.raf(drivenByPreview);
 		},
 		editorScrolled() {
+			noteScroll();
 			if (!editorRaf) editorRaf = ports.raf(drivenByEditor);
 		},
 		picked(page, opts) {
