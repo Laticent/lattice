@@ -592,9 +592,9 @@ const pgData = {
 			})();
 		</script>
 
-		<!-- Guided tour: first-visit walkthrough + replay button (driver.js). The
-		     tour targets the live DOM by selector, so it runs after the island
-		     hydrates; it's unchanged from the vanilla surface. -->
+		<!-- Guided tour: the Tour button and the first-visit offer. The offer is a card
+		     in the island (PlaygroundTourCard); the tour itself is a narrated Vetrina
+		     run that targets the live DOM by selector, so it starts after hydration. -->
 		<script>
 			import { initPlaygroundTour } from '../playground/playground-tour.js';
 			initPlaygroundTour();

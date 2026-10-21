@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 127872,
+	"bytes": 149472,
 	"lines": [
 		{
-			"key": "c87fc6fd0a1d",
+			"key": "cd01a1dabcf0",
 			"text": "Some problems have one sure fix, like a slide with no heading. Fix all applies every one of them.",
-			"file": "c87fc6fd0a1d.mp3",
-			"bytes": 37008,
-			"speechMs": 6113,
+			"file": "cd01a1dabcf0.mp3",
+			"bytes": 43776,
+			"speechMs": 7237,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,89 +24,89 @@
 								"display": "Some",
 								"spoken": "Some",
 								"startMs": 0,
-								"endMs": 204,
+								"endMs": 241,
 								"charOffset": 0
 							},
 							{
 								"display": "problems",
 								"spoken": "problems",
-								"startMs": 204,
-								"endMs": 612,
+								"startMs": 241,
+								"endMs": 724,
 								"charOffset": 5
 							},
 							{
 								"display": "have",
 								"spoken": "have",
-								"startMs": 612,
-								"endMs": 816,
+								"startMs": 724,
+								"endMs": 966,
 								"charOffset": 14
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 816,
-								"endMs": 1020,
+								"startMs": 966,
+								"endMs": 1207,
 								"charOffset": 19
 							},
 							{
 								"display": "sure",
 								"spoken": "sure",
-								"startMs": 1020,
-								"endMs": 1224,
+								"startMs": 1207,
+								"endMs": 1449,
 								"charOffset": 23
 							},
 							{
 								"display": "fix,",
 								"spoken": "fix,",
-								"startMs": 1224,
-								"endMs": 1457,
+								"startMs": 1449,
+								"endMs": 1725,
 								"charOffset": 28
 							},
 							{
 								"display": "like",
 								"spoken": "like",
-								"startMs": 1656,
-								"endMs": 1860,
+								"startMs": 1961,
+								"endMs": 2202,
 								"charOffset": 33
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 1860,
-								"endMs": 2064,
+								"startMs": 2202,
+								"endMs": 2444,
 								"charOffset": 38
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 2064,
-								"endMs": 2268,
+								"startMs": 2444,
+								"endMs": 2685,
 								"charOffset": 40
 							},
 							{
 								"display": "with",
 								"spoken": "with",
-								"startMs": 2268,
-								"endMs": 2472,
+								"startMs": 2685,
+								"endMs": 2927,
 								"charOffset": 46
 							},
 							{
 								"display": "no",
 								"spoken": "no",
-								"startMs": 2472,
-								"endMs": 2676,
+								"startMs": 2927,
+								"endMs": 3168,
 								"charOffset": 51
 							},
 							{
 								"display": "heading.",
 								"spoken": "heading.",
-								"startMs": 2676,
-								"endMs": 3114,
+								"startMs": 3168,
+								"endMs": 3686,
 								"charOffset": 54
 							}
 						],
 						"startMs": 0,
-						"endMs": 3497,
+						"endMs": 4140,
 						"charOffset": 0
 					},
 					{
@@ -116,67 +115,67 @@
 							{
 								"display": "Fix",
 								"spoken": "Fix",
-								"startMs": 3661,
-								"endMs": 3865,
+								"startMs": 4334,
+								"endMs": 4575,
 								"charOffset": 63
 							},
 							{
 								"display": "all",
 								"spoken": "all",
-								"startMs": 3865,
-								"endMs": 4069,
+								"startMs": 4575,
+								"endMs": 4817,
 								"charOffset": 67
 							},
 							{
 								"display": "applies",
 								"spoken": "applies",
-								"startMs": 4069,
-								"endMs": 4477,
+								"startMs": 4817,
+								"endMs": 5300,
 								"charOffset": 71
 							},
 							{
 								"display": "every",
 								"spoken": "every",
-								"startMs": 4477,
-								"endMs": 5088,
+								"startMs": 5300,
+								"endMs": 6024,
 								"charOffset": 79
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 5088,
-								"endMs": 5292,
+								"startMs": 6024,
+								"endMs": 6265,
 								"charOffset": 85
 							},
 							{
 								"display": "of",
 								"spoken": "of",
-								"startMs": 5292,
-								"endMs": 5496,
+								"startMs": 6265,
+								"endMs": 6507,
 								"charOffset": 89
 							},
 							{
 								"display": "them.",
 								"spoken": "them.",
-								"startMs": 5496,
-								"endMs": 5730,
+								"startMs": 6507,
+								"endMs": 6784,
 								"charOffset": 92
 							}
 						],
-						"startMs": 3661,
-						"endMs": 6113,
+						"startMs": 4334,
+						"endMs": 7237,
 						"charOffset": 63
 					}
 				],
-				"durationMs": 6113
+				"durationMs": 7237
 			}
 		},
 		{
-			"key": "8d2419b2f330",
+			"key": "06e31e09fdd7",
 			"text": "This is Fix all. Your deck has nothing Coach can fix on its own right now, which is a good sign.",
-			"file": "8d2419b2f330.mp3",
-			"bytes": 33696,
-			"speechMs": 5562,
+			"file": "06e31e09fdd7.mp3",
+			"bytes": 36576,
+			"speechMs": 6044,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -187,33 +186,33 @@
 								"display": "This",
 								"spoken": "This",
 								"startMs": 0,
-								"endMs": 199,
+								"endMs": 216,
 								"charOffset": 0
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 199,
-								"endMs": 398,
+								"startMs": 216,
+								"endMs": 432,
 								"charOffset": 5
 							},
 							{
 								"display": "Fix",
 								"spoken": "Fix",
-								"startMs": 398,
-								"endMs": 596,
+								"startMs": 432,
+								"endMs": 648,
 								"charOffset": 8
 							},
 							{
 								"display": "all.",
 								"spoken": "all.",
-								"startMs": 596,
-								"endMs": 824,
+								"startMs": 648,
+								"endMs": 896,
 								"charOffset": 12
 							}
 						],
 						"startMs": 0,
-						"endMs": 1198,
+						"endMs": 1302,
 						"charOffset": 0
 					},
 					{
@@ -222,137 +221,137 @@
 							{
 								"display": "Your",
 								"spoken": "Your",
-								"startMs": 1358,
-								"endMs": 1557,
+								"startMs": 1475,
+								"endMs": 1691,
 								"charOffset": 17
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 1557,
-								"endMs": 1755,
+								"startMs": 1691,
+								"endMs": 1908,
 								"charOffset": 22
 							},
 							{
 								"display": "has",
 								"spoken": "has",
-								"startMs": 1755,
-								"endMs": 1954,
+								"startMs": 1908,
+								"endMs": 2124,
 								"charOffset": 27
 							},
 							{
 								"display": "nothing",
 								"spoken": "nothing",
-								"startMs": 1954,
-								"endMs": 2352,
+								"startMs": 2124,
+								"endMs": 2556,
 								"charOffset": 31
 							},
 							{
 								"display": "Coach",
 								"spoken": "Coach",
-								"startMs": 2352,
-								"endMs": 2551,
+								"startMs": 2556,
+								"endMs": 2772,
 								"charOffset": 39
 							},
 							{
 								"display": "can",
 								"spoken": "can",
-								"startMs": 2551,
-								"endMs": 2749,
+								"startMs": 2772,
+								"endMs": 2988,
 								"charOffset": 45
 							},
 							{
 								"display": "fix",
 								"spoken": "fix",
-								"startMs": 2749,
-								"endMs": 2948,
+								"startMs": 2988,
+								"endMs": 3204,
 								"charOffset": 49
 							},
 							{
 								"display": "on",
 								"spoken": "on",
-								"startMs": 2948,
-								"endMs": 3147,
+								"startMs": 3204,
+								"endMs": 3420,
 								"charOffset": 53
 							},
 							{
 								"display": "its",
 								"spoken": "its",
-								"startMs": 3147,
-								"endMs": 3346,
+								"startMs": 3420,
+								"endMs": 3636,
 								"charOffset": 56
 							},
 							{
 								"display": "own",
 								"spoken": "own",
-								"startMs": 3346,
-								"endMs": 3545,
+								"startMs": 3636,
+								"endMs": 3852,
 								"charOffset": 60
 							},
 							{
 								"display": "right",
 								"spoken": "right",
-								"startMs": 3545,
-								"endMs": 3744,
+								"startMs": 3852,
+								"endMs": 4068,
 								"charOffset": 64
 							},
 							{
 								"display": "now,",
 								"spoken": "now,",
-								"startMs": 3744,
-								"endMs": 3971,
+								"startMs": 4068,
+								"endMs": 4316,
 								"charOffset": 70
 							},
 							{
 								"display": "which",
 								"spoken": "which",
-								"startMs": 4165,
-								"endMs": 4364,
+								"startMs": 4526,
+								"endMs": 4742,
 								"charOffset": 75
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 4364,
-								"endMs": 4563,
+								"startMs": 4742,
+								"endMs": 4959,
 								"charOffset": 81
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 4563,
-								"endMs": 4762,
+								"startMs": 4959,
+								"endMs": 5175,
 								"charOffset": 84
 							},
 							{
 								"display": "good",
 								"spoken": "good",
-								"startMs": 4762,
-								"endMs": 4961,
+								"startMs": 5175,
+								"endMs": 5391,
 								"charOffset": 86
 							},
 							{
 								"display": "sign.",
 								"spoken": "sign.",
-								"startMs": 4961,
-								"endMs": 5189,
+								"startMs": 5391,
+								"endMs": 5638,
 								"charOffset": 91
 							}
 						],
-						"startMs": 1358,
-						"endMs": 5562,
+						"startMs": 1475,
+						"endMs": 6044,
 						"charOffset": 17
 					}
 				],
-				"durationMs": 5562
+				"durationMs": 6044
 			}
 		},
 		{
-			"key": "52e3426fb119",
+			"key": "858066d414f4",
 			"text": "Click Fix all.",
-			"file": "52e3426fb119.mp3",
-			"bytes": 5904,
-			"speechMs": 924,
+			"file": "858066d414f4.mp3",
+			"bytes": 8784,
+			"speechMs": 1396,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -363,38 +362,38 @@
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 184,
+								"endMs": 278,
 								"charOffset": 0
 							},
 							{
 								"display": "Fix",
 								"spoken": "Fix",
-								"startMs": 184,
-								"endMs": 368,
+								"startMs": 278,
+								"endMs": 556,
 								"charOffset": 6
 							},
 							{
 								"display": "all.",
 								"spoken": "all.",
-								"startMs": 368,
-								"endMs": 579,
+								"startMs": 556,
+								"endMs": 874,
 								"charOffset": 10
 							}
 						],
 						"startMs": 0,
-						"endMs": 924,
+						"endMs": 1396,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 924
+				"durationMs": 1396
 			}
 		},
 		{
-			"key": "0c3fdaa30435",
+			"key": "428833d9b7d6",
 			"text": "Fix all sits in the bar above your text, and in the menu on a phone. Open your text to use it.",
-			"file": "0c3fdaa30435.mp3",
-			"bytes": 34416,
-			"speechMs": 5672,
+			"file": "428833d9b7d6.mp3",
+			"bytes": 38160,
+			"speechMs": 6310,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -405,117 +404,117 @@
 								"display": "Fix",
 								"spoken": "Fix",
 								"startMs": 0,
-								"endMs": 183,
+								"endMs": 204,
 								"charOffset": 0
 							},
 							{
 								"display": "all",
 								"spoken": "all",
-								"startMs": 183,
-								"endMs": 366,
+								"startMs": 204,
+								"endMs": 407,
 								"charOffset": 4
 							},
 							{
 								"display": "sits",
 								"spoken": "sits",
-								"startMs": 366,
-								"endMs": 549,
+								"startMs": 407,
+								"endMs": 611,
 								"charOffset": 8
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 549,
-								"endMs": 732,
+								"startMs": 611,
+								"endMs": 815,
 								"charOffset": 13
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 732,
-								"endMs": 916,
+								"startMs": 815,
+								"endMs": 1019,
 								"charOffset": 16
 							},
 							{
 								"display": "bar",
 								"spoken": "bar",
-								"startMs": 916,
-								"endMs": 1099,
+								"startMs": 1019,
+								"endMs": 1222,
 								"charOffset": 20
 							},
 							{
 								"display": "above",
 								"spoken": "above",
-								"startMs": 1099,
-								"endMs": 1465,
+								"startMs": 1222,
+								"endMs": 1630,
 								"charOffset": 24
 							},
 							{
 								"display": "your",
 								"spoken": "your",
-								"startMs": 1465,
-								"endMs": 1648,
+								"startMs": 1630,
+								"endMs": 1833,
 								"charOffset": 30
 							},
 							{
 								"display": "text,",
 								"spoken": "text,",
-								"startMs": 1648,
-								"endMs": 1858,
+								"startMs": 1833,
+								"endMs": 2067,
 								"charOffset": 35
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 2037,
-								"endMs": 2220,
+								"startMs": 2266,
+								"endMs": 2469,
 								"charOffset": 41
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 2220,
-								"endMs": 2403,
+								"startMs": 2469,
+								"endMs": 2673,
 								"charOffset": 45
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 2403,
-								"endMs": 2586,
+								"startMs": 2673,
+								"endMs": 2877,
 								"charOffset": 48
 							},
 							{
 								"display": "menu",
 								"spoken": "menu",
-								"startMs": 2586,
-								"endMs": 2952,
+								"startMs": 2877,
+								"endMs": 3284,
 								"charOffset": 52
 							},
 							{
 								"display": "on",
 								"spoken": "on",
-								"startMs": 2952,
-								"endMs": 3135,
+								"startMs": 3284,
+								"endMs": 3488,
 								"charOffset": 57
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 3135,
-								"endMs": 3318,
+								"startMs": 3488,
+								"endMs": 3692,
 								"charOffset": 60
 							},
 							{
 								"display": "phone.",
 								"spoken": "phone.",
-								"startMs": 3318,
-								"endMs": 3528,
+								"startMs": 3692,
+								"endMs": 3925,
 								"charOffset": 62
 							}
 						],
 						"startMs": 0,
-						"endMs": 3872,
+						"endMs": 4308,
 						"charOffset": 0
 					},
 					{
@@ -524,60 +523,60 @@
 							{
 								"display": "Open",
 								"spoken": "Open",
-								"startMs": 4020,
-								"endMs": 4386,
+								"startMs": 4472,
+								"endMs": 4879,
 								"charOffset": 69
 							},
 							{
 								"display": "your",
 								"spoken": "your",
-								"startMs": 4386,
-								"endMs": 4569,
+								"startMs": 4879,
+								"endMs": 5083,
 								"charOffset": 74
 							},
 							{
 								"display": "text",
 								"spoken": "text",
-								"startMs": 4569,
-								"endMs": 4752,
+								"startMs": 5083,
+								"endMs": 5286,
 								"charOffset": 79
 							},
 							{
 								"display": "to",
 								"spoken": "to",
-								"startMs": 4752,
-								"endMs": 4935,
+								"startMs": 5286,
+								"endMs": 5490,
 								"charOffset": 84
 							},
 							{
 								"display": "use",
 								"spoken": "use",
-								"startMs": 4935,
-								"endMs": 5118,
+								"startMs": 5490,
+								"endMs": 5694,
 								"charOffset": 87
 							},
 							{
 								"display": "it.",
 								"spoken": "it.",
-								"startMs": 5118,
-								"endMs": 5328,
+								"startMs": 5694,
+								"endMs": 5927,
 								"charOffset": 91
 							}
 						],
-						"startMs": 4020,
-						"endMs": 5672,
+						"startMs": 4472,
+						"endMs": 6310,
 						"charOffset": 69
 					}
 				],
-				"durationMs": 5672
+				"durationMs": 6310
 			}
 		},
 		{
-			"key": "2224bf7e6b10",
+			"key": "4980ecbd5dd3",
 			"text": "Each fix is in your text, and Undo takes it back.",
-			"file": "2224bf7e6b10.mp3",
-			"bytes": 16848,
-			"speechMs": 2739,
+			"file": "4980ecbd5dd3.mp3",
+			"bytes": 22176,
+			"speechMs": 3639,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -588,86 +587,86 @@
 								"display": "Each",
 								"spoken": "Each",
 								"startMs": 0,
-								"endMs": 170,
+								"endMs": 225,
 								"charOffset": 0
 							},
 							{
 								"display": "fix",
 								"spoken": "fix",
-								"startMs": 170,
-								"endMs": 339,
+								"startMs": 225,
+								"endMs": 451,
 								"charOffset": 5
 							},
 							{
 								"display": "is",
 								"spoken": "is",
-								"startMs": 339,
-								"endMs": 509,
+								"startMs": 451,
+								"endMs": 676,
 								"charOffset": 9
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 509,
-								"endMs": 679,
+								"startMs": 676,
+								"endMs": 902,
 								"charOffset": 12
 							},
 							{
 								"display": "your",
 								"spoken": "your",
-								"startMs": 679,
-								"endMs": 848,
+								"startMs": 902,
+								"endMs": 1127,
 								"charOffset": 15
 							},
 							{
 								"display": "text,",
 								"spoken": "text,",
-								"startMs": 848,
-								"endMs": 1043,
+								"startMs": 1127,
+								"endMs": 1385,
 								"charOffset": 20
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 1208,
-								"endMs": 1378,
+								"startMs": 1605,
+								"endMs": 1830,
 								"charOffset": 26
 							},
 							{
 								"display": "Undo",
 								"spoken": "Undo",
-								"startMs": 1378,
-								"endMs": 1717,
+								"startMs": 1830,
+								"endMs": 2281,
 								"charOffset": 30
 							},
 							{
 								"display": "takes",
 								"spoken": "takes",
-								"startMs": 1717,
-								"endMs": 2056,
+								"startMs": 2281,
+								"endMs": 2732,
 								"charOffset": 35
 							},
 							{
 								"display": "it",
 								"spoken": "it",
-								"startMs": 2056,
-								"endMs": 2226,
+								"startMs": 2732,
+								"endMs": 2957,
 								"charOffset": 41
 							},
 							{
 								"display": "back.",
 								"spoken": "back.",
-								"startMs": 2226,
-								"endMs": 2420,
+								"startMs": 2957,
+								"endMs": 3216,
 								"charOffset": 44
 							}
 						],
 						"startMs": 0,
-						"endMs": 2739,
+						"endMs": 3639,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 2739
+				"durationMs": 3639
 			}
 		}
 	]

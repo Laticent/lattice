@@ -1435,10 +1435,11 @@ describe('StudioShell — Show me has ONE launcher per tier', () => {
 		expect(screen.queryByRole('button', { name: 'Show me — guided tours' })).toBeNull();
 		await user.click(screen.getByRole('button', { name: 'More controls' }));
 		await screen.findByRole('menuitem', { name: 'Workspace settings' });
-		// Every tour the desktop picker lists is reachable here — asserted against the
-		// live TOURS table, so adding a tour can't silently skip the tablet.
+		// Every tour the desktop picker lists is reachable here, except the ones that need the desktop's
+		// own chrome (Read and Craft: the posture control and the activity bar). Asserted against the live
+		// TOURS table, so adding a tour can't silently skip the tablet.
 		const rows = screen.getAllByRole('menuitem').filter((el) => el.hasAttribute('data-tour'));
-		expect(rows.map((el) => el.getAttribute('data-tour')).sort()).toEqual(TOURS.map((t) => t.id).sort());
+		expect(rows.map((el) => el.getAttribute('data-tour')).sort()).toEqual(TOURS.filter((t) => !t.desktopOnly).map((t) => t.id).sort());
 	});
 
 	it('a tablet tour row actually starts the tour', async () => {

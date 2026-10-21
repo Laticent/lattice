@@ -1652,6 +1652,7 @@ describe('check-ownership', () => {
       assert.deepEqual(SANCTIONED_OPENROUTER_SPENDERS, [
         'tools/component-gen-eval.mjs',
         'tools/generate-voice-samples.mjs',
+        'tools/record-lesson-voice.mjs',
         'tools/intent-bakeoff/judge-eval.mjs',
         'tools/probe-picture-tokens.mjs', // measures per-model picture cost for the Studio chat's budget gate; opt-in, capped, prints its call count first
       ]);

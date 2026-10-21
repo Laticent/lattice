@@ -1,0 +1,1 @@
+- **Vetrina narration can lean left or right.** Suono's `play()` takes a `pan` (-1 left … 1 right) and a live clip glides with `setPan`; the storyboard sets it from where each beat's target sits on screen, so the voice follows the cursor. Narrators without `setPan` are unaffected.

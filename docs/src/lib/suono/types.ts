@@ -79,6 +79,9 @@ export interface PlayOptions {
 	onStart?: (o: Onset) => void;
 	/** Abort playback (barge-in / nav). */
 	signal?: AbortSignal;
+	/** Stereo placement, -1 (left) … 0 (centre, default) … 1 (right). Needs a mono-or-stereo clip and an
+	 *  engine with `createStereoPanner`; elsewhere the clip plays centred. */
+	pan?: number;
 }
 
 export interface PlayResult {
@@ -97,6 +100,8 @@ export interface PlayHandle {
 	/** Pause this clip: fade it out (declick), stop it, and remember the offset. `done` stays pending.
 	 *  Idempotent; a no-op once the clip has ended. */
 	pause(): void;
+	/** Move the clip's stereo placement now, gliding over `glideMs` (0 = jump). Survives pause/resume. */
+	setPan(pan: number, glideMs?: number): void;
 	/** Resume a paused clip from where it left off — plays a FRESH source from the remembered offset
 	 *  (fading back in), rather than relying on the context to un-freeze a suspended source (which is
 	 *  unreliable on iOS/Safari). Idempotent; a no-op if not paused. */

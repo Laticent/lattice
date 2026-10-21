@@ -1,20 +1,19 @@
 {
 	"voice": {
-		"model": "onnx-community/Kokoro-82M-v1.0-ONNX",
-		"voice": "af_heart",
-		"dtype": "q8",
-		"speed": 1,
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 124416,
+	"bytes": 141264,
 	"lines": [
 		{
-			"key": "ad8a45d6942c",
+			"key": "2be3035f1301",
 			"text": "Lattice can save your deck as a PowerPoint file, one slide per page.",
-			"file": "ad8a45d6942c.mp3",
-			"bytes": 24336,
-			"speechMs": 3998,
+			"file": "2be3035f1301.mp3",
+			"bytes": 27360,
+			"speechMs": 4508,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -25,108 +24,108 @@
 								"display": "Lattice",
 								"spoken": "Lattice",
 								"startMs": 0,
-								"endMs": 418,
+								"endMs": 471,
 								"charOffset": 0
 							},
 							{
 								"display": "can",
 								"spoken": "can",
-								"startMs": 418,
-								"endMs": 626,
+								"startMs": 471,
+								"endMs": 706,
 								"charOffset": 8
 							},
 							{
 								"display": "save",
 								"spoken": "save",
-								"startMs": 626,
-								"endMs": 835,
+								"startMs": 706,
+								"endMs": 942,
 								"charOffset": 12
 							},
 							{
 								"display": "your",
 								"spoken": "your",
-								"startMs": 835,
-								"endMs": 1044,
+								"startMs": 942,
+								"endMs": 1177,
 								"charOffset": 17
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 1044,
-								"endMs": 1253,
+								"startMs": 1177,
+								"endMs": 1413,
 								"charOffset": 22
 							},
 							{
 								"display": "as",
 								"spoken": "as",
-								"startMs": 1253,
-								"endMs": 1462,
+								"startMs": 1413,
+								"endMs": 1648,
 								"charOffset": 27
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 1462,
-								"endMs": 1671,
+								"startMs": 1648,
+								"endMs": 1884,
 								"charOffset": 30
 							},
 							{
 								"display": "PowerPoint",
 								"spoken": "PowerPoint",
-								"startMs": 1671,
-								"endMs": 2297,
+								"startMs": 1884,
+								"endMs": 2590,
 								"charOffset": 32
 							},
 							{
 								"display": "file,",
 								"spoken": "file,",
-								"startMs": 2297,
-								"endMs": 2536,
+								"startMs": 2590,
+								"endMs": 2860,
 								"charOffset": 43
 							},
 							{
 								"display": "one",
 								"spoken": "one",
-								"startMs": 2740,
-								"endMs": 2949,
+								"startMs": 3090,
+								"endMs": 3325,
 								"charOffset": 49
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 2949,
-								"endMs": 3158,
+								"startMs": 3325,
+								"endMs": 3560,
 								"charOffset": 53
 							},
 							{
 								"display": "per",
 								"spoken": "per",
-								"startMs": 3158,
-								"endMs": 3366,
+								"startMs": 3560,
+								"endMs": 3796,
 								"charOffset": 59
 							},
 							{
 								"display": "page.",
 								"spoken": "page.",
-								"startMs": 3366,
-								"endMs": 3606,
+								"startMs": 3796,
+								"endMs": 4066,
 								"charOffset": 63
 							}
 						],
 						"startMs": 0,
-						"endMs": 3998,
+						"endMs": 4508,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 3998
+				"durationMs": 4508
 			}
 		},
 		{
-			"key": "a4017336ff8c",
+			"key": "831ee2020042",
 			"text": "It lives under Share. Click Share.",
-			"file": "a4017336ff8c.mp3",
-			"bytes": 11088,
-			"speechMs": 1789,
+			"file": "831ee2020042.mp3",
+			"bytes": 18000,
+			"speechMs": 2938,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -137,33 +136,33 @@
 								"display": "It",
 								"spoken": "It",
 								"startMs": 0,
-								"endMs": 139,
+								"endMs": 229,
 								"charOffset": 0
 							},
 							{
 								"display": "lives",
 								"spoken": "lives",
-								"startMs": 139,
-								"endMs": 418,
+								"startMs": 229,
+								"endMs": 686,
 								"charOffset": 3
 							},
 							{
 								"display": "under",
 								"spoken": "under",
-								"startMs": 418,
-								"endMs": 696,
+								"startMs": 686,
+								"endMs": 1143,
 								"charOffset": 9
 							},
 							{
 								"display": "Share.",
 								"spoken": "Share.",
-								"startMs": 696,
-								"endMs": 855,
+								"startMs": 1143,
+								"endMs": 1405,
 								"charOffset": 15
 							}
 						],
 						"startMs": 0,
-						"endMs": 1117,
+						"endMs": 1834,
 						"charOffset": 0
 					},
 					{
@@ -172,32 +171,32 @@
 							{
 								"display": "Click",
 								"spoken": "Click",
-								"startMs": 1229,
-								"endMs": 1368,
+								"startMs": 2018,
+								"endMs": 2247,
 								"charOffset": 22
 							},
 							{
 								"display": "Share.",
 								"spoken": "Share.",
-								"startMs": 1368,
-								"endMs": 1528,
+								"startMs": 2247,
+								"endMs": 2509,
 								"charOffset": 28
 							}
 						],
-						"startMs": 1229,
-						"endMs": 1789,
+						"startMs": 2018,
+						"endMs": 2938,
 						"charOffset": 22
 					}
 				],
-				"durationMs": 1789
+				"durationMs": 2938
 			}
 		},
 		{
-			"key": "d24c94c20592",
+			"key": "9767febb7847",
 			"text": "I’ll open Share for you.",
-			"file": "d24c94c20592.mp3",
-			"bytes": 8064,
-			"speechMs": 1278,
+			"file": "9767febb7847.mp3",
+			"bytes": 8640,
+			"speechMs": 1370,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -208,52 +207,52 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 159,
+								"endMs": 171,
 								"charOffset": 0
 							},
 							{
 								"display": "open",
 								"spoken": "open",
-								"startMs": 159,
-								"endMs": 478,
+								"startMs": 171,
+								"endMs": 512,
 								"charOffset": 5
 							},
 							{
 								"display": "Share",
 								"spoken": "Share",
-								"startMs": 478,
-								"endMs": 637,
+								"startMs": 512,
+								"endMs": 683,
 								"charOffset": 10
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 637,
-								"endMs": 796,
+								"startMs": 683,
+								"endMs": 854,
 								"charOffset": 16
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 796,
-								"endMs": 979,
+								"startMs": 854,
+								"endMs": 1049,
 								"charOffset": 20
 							}
 						],
 						"startMs": 0,
-						"endMs": 1278,
+						"endMs": 1370,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1278
+				"durationMs": 1370
 			}
 		},
 		{
-			"key": "0af0f03ae9a4",
+			"key": "825a4a370941",
 			"text": "Click PowerPoint.",
-			"file": "0af0f03ae9a4.mp3",
-			"bytes": 6768,
-			"speechMs": 1077,
+			"file": "825a4a370941.mp3",
+			"bytes": 8208,
+			"speechMs": 1307,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -264,31 +263,31 @@
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 179,
+								"endMs": 217,
 								"charOffset": 0
 							},
 							{
 								"display": "PowerPoint.",
 								"spoken": "PowerPoint.",
-								"startMs": 179,
-								"endMs": 741,
+								"startMs": 217,
+								"endMs": 900,
 								"charOffset": 6
 							}
 						],
 						"startMs": 0,
-						"endMs": 1077,
+						"endMs": 1307,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1077
+				"durationMs": 1307
 			}
 		},
 		{
-			"key": "a4f3a9eb187a",
+			"key": "61a43decbedc",
 			"text": "I’ll open the PowerPoint options for you.",
-			"file": "a4f3a9eb187a.mp3",
-			"bytes": 13104,
-			"speechMs": 2124,
+			"file": "61a43decbedc.mp3",
+			"bytes": 12672,
+			"speechMs": 2059,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -299,66 +298,66 @@
 								"display": "I’ll",
 								"spoken": "I’ll",
 								"startMs": 0,
-								"endMs": 163,
+								"endMs": 158,
 								"charOffset": 0
 							},
 							{
 								"display": "open",
 								"spoken": "open",
-								"startMs": 163,
-								"endMs": 489,
+								"startMs": 158,
+								"endMs": 474,
 								"charOffset": 5
 							},
 							{
 								"display": "the",
 								"spoken": "the",
-								"startMs": 489,
-								"endMs": 652,
+								"startMs": 474,
+								"endMs": 632,
 								"charOffset": 10
 							},
 							{
 								"display": "PowerPoint",
 								"spoken": "PowerPoint",
-								"startMs": 652,
-								"endMs": 1142,
+								"startMs": 632,
+								"endMs": 1107,
 								"charOffset": 14
 							},
 							{
 								"display": "options",
 								"spoken": "options",
-								"startMs": 1142,
-								"endMs": 1468,
+								"startMs": 1107,
+								"endMs": 1423,
 								"charOffset": 25
 							},
 							{
 								"display": "for",
 								"spoken": "for",
-								"startMs": 1468,
-								"endMs": 1631,
+								"startMs": 1423,
+								"endMs": 1581,
 								"charOffset": 33
 							},
 							{
 								"display": "you.",
 								"spoken": "you.",
-								"startMs": 1631,
-								"endMs": 1818,
+								"startMs": 1581,
+								"endMs": 1762,
 								"charOffset": 37
 							}
 						],
 						"startMs": 0,
-						"endMs": 2124,
+						"endMs": 2059,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 2124
+				"durationMs": 2059
 			}
 		},
 		{
-			"key": "2421eb13642a",
+			"key": "2db8dc3706e0",
 			"text": "Re-openable in Lattice lets you edit this deck here again later. Then click Download PowerPoint.",
-			"file": "2421eb13642a.mp3",
-			"bytes": 35568,
-			"speechMs": 5873,
+			"file": "2db8dc3706e0.mp3",
+			"bytes": 38736,
+			"speechMs": 6395,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -369,82 +368,82 @@
 								"display": "Re-openable",
 								"spoken": "Re-openable",
 								"startMs": 0,
-								"endMs": 952,
+								"endMs": 1036,
 								"charOffset": 0
 							},
 							{
 								"display": "in",
 								"spoken": "in",
-								"startMs": 952,
-								"endMs": 1142,
+								"startMs": 1036,
+								"endMs": 1244,
 								"charOffset": 12
 							},
 							{
 								"display": "Lattice",
 								"spoken": "Lattice",
-								"startMs": 1142,
-								"endMs": 1523,
+								"startMs": 1244,
+								"endMs": 1658,
 								"charOffset": 15
 							},
 							{
 								"display": "lets",
 								"spoken": "lets",
-								"startMs": 1523,
-								"endMs": 1713,
+								"startMs": 1658,
+								"endMs": 1865,
 								"charOffset": 23
 							},
 							{
 								"display": "you",
 								"spoken": "you",
-								"startMs": 1713,
-								"endMs": 1904,
+								"startMs": 1865,
+								"endMs": 2073,
 								"charOffset": 28
 							},
 							{
 								"display": "edit",
 								"spoken": "edit",
-								"startMs": 1904,
-								"endMs": 2284,
+								"startMs": 2073,
+								"endMs": 2487,
 								"charOffset": 32
 							},
 							{
 								"display": "this",
 								"spoken": "this",
-								"startMs": 2284,
-								"endMs": 2475,
+								"startMs": 2487,
+								"endMs": 2694,
 								"charOffset": 37
 							},
 							{
 								"display": "deck",
 								"spoken": "deck",
-								"startMs": 2475,
-								"endMs": 2665,
+								"startMs": 2694,
+								"endMs": 2902,
 								"charOffset": 42
 							},
 							{
 								"display": "here",
 								"spoken": "here",
-								"startMs": 2665,
-								"endMs": 2855,
+								"startMs": 2902,
+								"endMs": 3109,
 								"charOffset": 47
 							},
 							{
 								"display": "again",
 								"spoken": "again",
-								"startMs": 2855,
-								"endMs": 3236,
+								"startMs": 3109,
+								"endMs": 3524,
 								"charOffset": 52
 							},
 							{
 								"display": "later.",
 								"spoken": "later.",
-								"startMs": 3236,
-								"endMs": 3645,
+								"startMs": 3524,
+								"endMs": 3968,
 								"charOffset": 58
 							}
 						],
 						"startMs": 0,
-						"endMs": 4002,
+						"endMs": 4358,
 						"charOffset": 0
 					},
 					{
@@ -453,46 +452,46 @@
 							{
 								"display": "Then",
 								"spoken": "Then",
-								"startMs": 4155,
-								"endMs": 4346,
+								"startMs": 4525,
+								"endMs": 4732,
 								"charOffset": 65
 							},
 							{
 								"display": "click",
 								"spoken": "click",
-								"startMs": 4346,
-								"endMs": 4536,
+								"startMs": 4732,
+								"endMs": 4939,
 								"charOffset": 70
 							},
 							{
 								"display": "Download",
 								"spoken": "Download",
-								"startMs": 4536,
-								"endMs": 4917,
+								"startMs": 4939,
+								"endMs": 5354,
 								"charOffset": 76
 							},
 							{
 								"display": "PowerPoint.",
 								"spoken": "PowerPoint.",
-								"startMs": 4917,
-								"endMs": 5516,
+								"startMs": 5354,
+								"endMs": 6006,
 								"charOffset": 85
 							}
 						],
-						"startMs": 4155,
-						"endMs": 5873,
+						"startMs": 4525,
+						"endMs": 6395,
 						"charOffset": 65
 					}
 				],
-				"durationMs": 5873
+				"durationMs": 6395
 			}
 		},
 		{
-			"key": "c66a7fdbd8c8",
+			"key": "8fb8680ac61e",
 			"text": "Each slide arrives as a picture, so make changes here and export again.",
-			"file": "c66a7fdbd8c8.mp3",
-			"bytes": 25488,
-			"speechMs": 4191,
+			"file": "8fb8680ac61e.mp3",
+			"bytes": 27648,
+			"speechMs": 4558,
 			"leadMs": 46,
 			"track": {
 				"cues": [
@@ -503,100 +502,100 @@
 								"display": "Each",
 								"spoken": "Each",
 								"startMs": 0,
-								"endMs": 189,
+								"endMs": 206,
 								"charOffset": 0
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 189,
-								"endMs": 378,
+								"startMs": 206,
+								"endMs": 412,
 								"charOffset": 5
 							},
 							{
 								"display": "arrives",
 								"spoken": "arrives",
-								"startMs": 378,
-								"endMs": 946,
+								"startMs": 412,
+								"endMs": 1029,
 								"charOffset": 11
 							},
 							{
 								"display": "as",
 								"spoken": "as",
-								"startMs": 946,
-								"endMs": 1135,
+								"startMs": 1029,
+								"endMs": 1235,
 								"charOffset": 19
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 1135,
-								"endMs": 1325,
+								"startMs": 1235,
+								"endMs": 1441,
 								"charOffset": 22
 							},
 							{
 								"display": "picture,",
 								"spoken": "picture,",
-								"startMs": 1325,
-								"endMs": 1731,
+								"startMs": 1441,
+								"endMs": 1882,
 								"charOffset": 24
 							},
 							{
 								"display": "so",
 								"spoken": "so",
-								"startMs": 1915,
-								"endMs": 2105,
+								"startMs": 2083,
+								"endMs": 2289,
 								"charOffset": 33
 							},
 							{
 								"display": "make",
 								"spoken": "make",
-								"startMs": 2105,
-								"endMs": 2294,
+								"startMs": 2289,
+								"endMs": 2495,
 								"charOffset": 36
 							},
 							{
 								"display": "changes",
 								"spoken": "changes",
-								"startMs": 2294,
-								"endMs": 2672,
+								"startMs": 2495,
+								"endMs": 2906,
 								"charOffset": 41
 							},
 							{
 								"display": "here",
 								"spoken": "here",
-								"startMs": 2672,
-								"endMs": 2862,
+								"startMs": 2906,
+								"endMs": 3112,
 								"charOffset": 49
 							},
 							{
 								"display": "and",
 								"spoken": "and",
-								"startMs": 2862,
-								"endMs": 3051,
+								"startMs": 3112,
+								"endMs": 3318,
 								"charOffset": 54
 							},
 							{
 								"display": "export",
 								"spoken": "export",
-								"startMs": 3051,
-								"endMs": 3429,
+								"startMs": 3318,
+								"endMs": 3730,
 								"charOffset": 58
 							},
 							{
 								"display": "again.",
 								"spoken": "again.",
-								"startMs": 3429,
-								"endMs": 3836,
+								"startMs": 3730,
+								"endMs": 4171,
 								"charOffset": 65
 							}
 						],
 						"startMs": 0,
-						"endMs": 4191,
+						"endMs": 4558,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 4191
+				"durationMs": 4558
 			}
 		}
 	]

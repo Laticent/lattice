@@ -8,7 +8,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 async function load() {
-  // Pure, import-free module (guided-tour.js itself pulls in driver.js + CSS).
+  // Pure, import-free module (guided-tour.js itself imports CSS).
   return import('../../../docs/src/playground/preview-host.js');
 }
 
