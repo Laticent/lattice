@@ -23,15 +23,33 @@ async function open(page: Page, deck = FORTY) {
 	await page.evaluate(() => {
 		const w = window as unknown as { __scrolls: number[] };
 		w.__scrolls = [];
-		const sc = document.querySelector('[data-map-rail] .overflow-y-scroll');
+		const sc = document.querySelector('[data-map-rail] .overflow-y-scroll, [data-map-rail] .overflow-x-scroll');
 		sc?.addEventListener('scroll', () => w.__scrolls.push(performance.now()), { passive: true });
 	});
 }
+// The map sits in the slide strip, so it scrolls sideways; a rail beside the slide would scroll down. Both read the
+// same: an offset along the rail, its visible length and its full length.
 const scrollRail = (page: Page, to: number) =>
 	page.evaluate((y) => {
-		const sc = document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll');
-		if (sc) sc.scrollTop = y === -1 ? sc.scrollHeight : y;
+		const sc = document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll, [data-map-rail] .overflow-x-scroll');
+		if (!sc) return;
+		const across = sc.classList.contains('overflow-x-scroll');
+		const at = y === -1 ? (across ? sc.scrollWidth : sc.scrollHeight) : y;
+		if (across) sc.scrollLeft = at;
+		else sc.scrollTop = at;
 	}, to);
+const railLength = (page: Page) =>
+	page.evaluate(() => {
+		const sc = document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll, [data-map-rail] .overflow-x-scroll');
+		const across = !!sc?.classList.contains('overflow-x-scroll');
+		return { view: (across ? sc?.clientWidth : sc?.clientHeight) ?? 600, full: (across ? sc?.scrollWidth : sc?.scrollHeight) ?? 4000 };
+	});
+// Focus the first slide: bring the start of the rail into view and pick its tile, as a reader would.
+async function focusFirst(page: Page) {
+	await scrollRail(page, 0);
+	await page.locator(`${RAIL} button[data-unit="0"]`).click();
+	await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toHaveAttribute('aria-current', 'true');
+}
 const captures = (page: Page) => page.evaluate(() => performance.getEntriesByName('lattice-poster-capture').map((e) => ({ start: e.startTime, ms: e.duration, kept: (e as PerformanceMeasure).detail?.kept === true })));
 
 async function postersPastTheCap(page: Page) {
@@ -39,11 +57,10 @@ async function postersPastTheCap(page: Page) {
 	await open(page);
 	// Focus the first slide: on screen, Veduta gives the live budget to the tiles nearest the focus, so each stop of the
 	// walk below makes its top tiles live (typing the deck leaves the focus on the last slide).
-	await page.locator(RAIL).getByRole('button', { name: 'Map, first slide' }).click();
-	await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toHaveAttribute('aria-current', 'true');
+	await focusFirst(page);
 	// Walk the rail down slowly, so each stop's live tiles render and are captured once the rail is still.
-	const height = await page.evaluate(() => document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll')?.clientHeight ?? 600);
-	for (let y = 0; y < 40 * 90; y += Math.round(height / 3)) {
+	const { view: height, full: walk } = await railLength(page);
+	for (let y = 0; y < walk; y += Math.round(height / 3)) {
 		await scrollRail(page, y);
 		// The stop is done when every live tile on screen has been captured: its poster then sits under its frame.
 		await expect
@@ -131,10 +148,8 @@ const posterSlides = (page: Page) =>
 async function postersShowTheirSlide(page: Page) {
 	test.setTimeout(240_000);
 	await open(page, COLORED);
-	await page.locator(RAIL).getByRole('button', { name: 'Map, first slide' }).click();
-	await expect(page.locator(`${RAIL} button[data-unit="0"]`)).toHaveAttribute('aria-current', 'true');
-	const height = await page.evaluate(() => document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll')?.clientHeight ?? 600);
-	const full = await page.evaluate(() => document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll')?.scrollHeight ?? 4000);
+	await focusFirst(page);
+	const { view: height, full } = await railLength(page);
 	const seen: Array<{ unit: number; nearest: number; distance: number }> = [];
 	const sample = async () => {
 		for (const p of await posterSlides(page)) seen.push(p);
@@ -151,10 +166,13 @@ async function postersShowTheirSlide(page: Page) {
 	// Paced in animation frames in the page (about 6 and 27 frames, a flick and a pause), not by a wall-clock sleep:
 	// this is how fast a reader scrolls, not a guess at when something has finished.
 	await page.evaluate(async (h) => {
-		const sc = document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll');
+		const sc = document.querySelector<HTMLElement>('[data-map-rail] .overflow-y-scroll, [data-map-rail] .overflow-x-scroll');
+		const across = !!sc?.classList.contains('overflow-x-scroll');
 		const frames = (n: number) => new Promise<void>((r) => { const tick = (k: number) => (k <= 0 ? r() : requestAnimationFrame(() => tick(k - 1))); tick(n); });
 		for (let n = 0; n < 24 && sc; n++) {
-			sc.scrollTop = Math.round((((n * 7919) % 97) / 97) * h);
+			const at = Math.round((((n * 7919) % 97) / 97) * h);
+			if (across) sc.scrollLeft = at;
+			else sc.scrollTop = at;
 			await frames(n % 3 === 0 ? 27 : 6);
 		}
 	}, full);

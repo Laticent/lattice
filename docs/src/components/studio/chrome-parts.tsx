@@ -58,9 +58,17 @@ export const HOME_HREF = joinBase(import.meta.env.BASE_URL || '/', '');
  * The counter's 80px is measured, not fitted: in Outfit 12px semibold the widest count in range,
  * "Slide 999 / 999", draws 78.95px ("Slide 100 / 999" 78.75px). The slot was 78px until
  * 2026-10-15, so any deck past 99 slides widened it and shifted the row by up to a pixel.
+ *
+ * A reader with a minimum font size (24px, the `minfont` project) sees the count drawn at 24px while
+ * `px` and `em` both stay at the 12px the CSS asked for, so the app's count outgrew the slot and
+ * moved the arrows 18px, while the skeleton's bar did not. So the counter's cell also holds
+ * `SLIDE_COUNTER_SIZER`: the widest count in range, drawn invisibly in the SAME cell, in the font the
+ * reader actually gets. The cell is never narrower than that text on either surface, whatever the
+ * font size. It sits beside the slot, not in it, and draws in `content`, so it is not page text.
  */
 export const DECK_META_SLOT = 'min-w-[70px] shrink-0 text-right';
-export const SLIDE_COUNTER_SLOT = 'inline-block min-w-[56px] text-center @[30rem]:min-w-[80px]';
+export const SLIDE_COUNTER_SLOT = 'min-w-[56px] justify-self-stretch text-center [grid-area:1/1] @[30rem]:min-w-[80px]';
+const SLIDE_COUNTER_SIZER = "invisible [grid-area:1/1] before:content-['999_/_999'] @[30rem]:before:content-['Slide_999_/_999']";
 
 // The top bar's band rule. ONE constant because the app header and the pre-paint
 // skeleton both draw it and `studio-shell-parity.spec.ts` compares their boxes — two
@@ -132,7 +140,7 @@ export function SlideNavigator({ counter, onPrev, onNext, mapOn, onToggleMap }: 
 		<>
 			<div className={cn('inline-flex shrink-0 items-stretch rounded-full border border-border bg-card font-sans text-[12px] font-semibold normal-case tracking-normal', PILL_H)}>
 				<button type="button" onClick={onPrev} className={cn(NAV_ARROW, 'rounded-l-full')} aria-label="Previous slide"><ChevronLeft className="size-3.5" aria-hidden /></button>
-				<span className="grid place-items-center whitespace-nowrap border-x border-border px-2 text-[var(--text-heading)]"><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}>{counter}</span></span>
+				<span className="grid place-items-center whitespace-nowrap border-x border-border px-2 text-[var(--text-heading)]"><span aria-hidden="true" className={SLIDE_COUNTER_SIZER} /><span data-shell-unknowable="slide-counter" className={SLIDE_COUNTER_SLOT}>{counter}</span></span>
 				<button type="button" onClick={onNext} className={cn(NAV_ARROW, 'rounded-r-full')} aria-label="Next slide"><ChevronRight className="size-3.5" aria-hidden /></button>
 			</div>
 			{onToggleMap && (

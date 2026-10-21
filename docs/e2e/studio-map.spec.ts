@@ -271,9 +271,9 @@ test('THE ARM: the same deck without the ceiling asks for more than 3 live tiles
 	test.info().annotations.push({ type: 'uncapped', description: `live ${await liveTiles(page)}, frames ${await railFrames(page)}` });
 });
 
-// The Article view unmounts the preview pane, and the way back mounts a new map wrapper. The stack measure follows
-// the wrapper element (a callback ref), so the map is still beside the slide afterwards and still restacks.
-test('after a round trip to the Article view the map still sits beside the slide and restacks', async ({ page }) => {
+// The Article view unmounts the preview pane, and the way back mounts a new one. The map comes back in the slide
+// strip, still in place of the pills, and stays there at every width.
+test('after a round trip to the Article view the map is back in the strip, in place of the pills', async ({ page }) => {
 	await gotoStudio(page);
 	// The fixture seeds the Craft stop on every load, so the Read stop (where "Read as an article" lives) goes in after it.
 	await page.addInitScript(() => {
@@ -286,12 +286,11 @@ test('after a round trip to the Article view the map still sits beside the slide
 	await page.getByRole('button', { name: 'Read as an article' }).click();
 	await page.getByRole('button', { name: 'Back to the deck' }).click();
 	await expect(page.locator(`${RAIL} button[data-unit]`).first()).toBeVisible({ timeout: 40_000 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
-	await expect(railButtons(page)).toHaveCount(0);
-	await page.setViewportSize({ width: 390, height: 844 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('vertical');
+	for (const [width, height] of [[1440, 900], [390, 844], [1440, 900]] as const) {
+		await page.setViewportSize({ width, height });
+		await expect.poll(() => page.locator(RAIL).getAttribute('data-map-rail')).toBe('horizontal');
+		await expect(railButtons(page)).toHaveCount(0);
+	}
 });
 
 // The map mounts a window of a long deck, so each tile says where it sits in the whole list, as the pills did by
