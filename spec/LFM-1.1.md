@@ -123,7 +123,6 @@ specify them, and `split:` and `preset:` have none.
 | `corners:` | `square` · `rounded` | The corners of the slide itself. | `unknown-corners` |
 | `chart-finish:` | `off` · `pigment` · `etching` · `tone` | How every chart spends its color. | `unknown-chart-finish` |
 | `callout:` | `on` · `off` | Whether the callout plugin draws the callouts an author pins to a chart's marks (`@callout{…}`); `off` hides them. | `unknown-callout` |
-| `legend:` | `on` · `off` | The pre-split spelling of `callout:`, kept so decks written before the split still switch their callouts. | `unknown-legend` |
 | `spark:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline sparks (§3.6). | `unknown-spark` |
 | `icon:` | up to one word per axis: frame (`framed` `bare`), look (`pigment` `etching` `tone`), corners (`square` `rounded`) | The deck's default for inline icons (§3.6). | `unknown-icon` |
 | `avatar:` | up to one word per axis: shape (`circle` `rounded` `square`), frame (`framed` `bare`) | The deck's default for avatars. | `unknown-avatar` |

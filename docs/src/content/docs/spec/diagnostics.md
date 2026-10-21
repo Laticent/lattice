@@ -190,7 +190,7 @@ distinct, stable ID.
 | `pill-literal` | warning | — | A span that opens like a pill (`{…}`) but does not parse, so it renders as code. |
 | `legend-span` | warning | — | A `@callout{…}` or `@legend{…}` span that does not read, has a callout with no target, reads `{1, lg}` as a styled label, or sits on a slide where no component reads one. |
 | `callout-spelling` | info | — | A `@legend{…}` span that pins a mark: a callout written the way it was before callouts had a plugin of their own. It still draws; `@callout{…}` is the spelling now. |
-| `legend-off` | info | — | A callout on a slide where the author switched callouts off (`callout: off`, `callout-off`, or the pre-split `legend: off`, `legend-off`): it is hidden, and its detail still reaches the speaker note. |
+| `legend-off` | info | — | A callout on a slide where the author switched callouts off (`callout: off`, `callout-off`): it is hidden, and its detail still reaches the speaker note. |
 | `bare-row-pill` | warning | — | A bare code span where a component used to draw a pill from one (cards, kpi, actors, a register, a roadmap header and the others): it is plain inline code now, and the pills plugin's `{…}` draws the pill. |
 | `spark-literal` | warning | — | A span that opens like a spark (`~{…}`) but does not parse, so it renders as code. |
 | `<inline kind>-literal` | warning | — | A family: one ID per plugin inline kind (for example `icon-literal`). A span that opens like the kind but renders as code; the plugin supplies the reason. |

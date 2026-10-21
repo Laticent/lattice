@@ -47,8 +47,8 @@ one component at a time (`2026-10-20-callout-placement.md` § 7). Until a compon
 `@legend{…}` key is not drawn: a heatmap lists it under "Not drawn" in its description, and on other
 slides it renders as code and `lint:deck` says no component on the slide reads it.
 
-The `legend:` register (`legend: off` in the front matter) still switches callouts off, as it did
-before the split; `callout: off` is the spelling now.
+The legend plugin has no front-matter setting. `legend: off` switched callouts off before the split;
+it no longer does, and `callout: off` is the switch now.
 
 ## For components
 

@@ -5,7 +5,7 @@
   "name": "callout",
   "api": 1,
   "title": "Callout",
-  "description": "A note pinned to one mark on a chart: written `@callout{{Month 2 drop-off, tag, c4, row=\"Feb 2026\", col=M2}}`, it draws a marker on the mark it names and the note beside the figure, the two tied by one of six shapes and one color. A chart draws at most six. On by default; an author turns callouts off for the deck with `callout: off` in the front matter, or for one slide with the `callout-off` class (`callout-on` turns them back on), and a host with `--disable-plugin callout`. Off, a callout is not drawn or narrated, and its detail still reaches the speaker note. Split from the legend plugin by engineering/decisions/2026-10-20-callout-placement.md: a `@legend{\u2026}` span that pins a mark, and the `legend: off` and `legend-off` switches, are the pre-split spellings and still work. The heatmap reads callouts today.",
+  "description": "A note pinned to one mark on a chart: written `@callout{{Month 2 drop-off, tag, c4, row=\"Feb 2026\", col=M2}}`, it draws a marker on the mark it names and the note beside the figure, the two tied by one of six shapes and one color. A chart draws at most six. On by default; an author turns callouts off for the deck with `callout: off` in the front matter, or for one slide with the `callout-off` class (`callout-on` turns them back on), and a host with `--disable-plugin callout`. Off, a callout is not drawn or narrated, and its detail still reaches the speaker note. Split from the legend plugin by engineering/decisions/2026-10-20-callout-placement.md: a `@legend{\u2026}` span that pins a mark is the pre-split spelling and still draws. The heatmap reads callouts today.",
   "icon": {
     "viewBox": "0 0 128 128",
     "paths": [

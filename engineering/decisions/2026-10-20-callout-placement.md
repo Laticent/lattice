@@ -48,22 +48,15 @@ owner's split supersedes that sentence. The rest of that note's model (label, ma
 a callout. Breaking them is not on the table. The callout reader keeps accepting a pinned
 `@legend` span, and `lint:deck` suggests `@callout`. An unpinned `@legend` span is a key.
 
-The switches stay one switch with two spellings, through two manifest fields the plugin schema
-gained for this:
-
-- **`aliasOf`** on a register. The legend plugin's `legend:` register is `aliasOf: "callout"`, so
-  `legend: off` stamps `callout-off`, the class `callout: off` stamps. A slide's word in either
-  spelling then evicts the deck's in either, and the render, the narrator and the linter read one
-  answer (`lib/core/legend.js` `calloutsOff`). A slide's own `legend-off` or `legend-on` is never
-  stamped, so it is always the author's word, and it wins over the deck.
-- **`alsoDisables`** on a plugin. The legend plugin `requires` callout and `alsoDisables` it: a host
-  or deck that loads `legend` gets callouts, and a host that switches `legend` off switches callouts
-  off. Admission expands only the host's explicit switch (`lib/plugins/host-grammar.mjs`
-  `withAlsoDisabled`), so a deck that loads `callout` without `legend` keeps its callouts.
-
-The first cut read the two spellings as two switches. The checker found a host default set that
-listed `legend` hid every callout, and `legend: off` with a slide's `callout-on` made the render,
-the narrator and the linter disagree. Both are pinned by tests in `legend-anchored.test.js`.
+**The old switches are dropped (owner, 2026-10-21).** P1 first kept `legend: off`, the
+`legend-off` and `legend-on` classes and `--disable-plugin legend` working as callout switches,
+through two manifest fields (`aliasOf` on a register, `alsoDisables` on a plugin). That added about
+0.3KB gzipped to the preview runtime, and the `getting-started` route's engine bundle sat 0.1KB under
+its hard ceiling (313.7KB). The owner chose to drop the old switches rather than raise the ceiling
+or hunt for bytes elsewhere. No release ever shipped them (the fragment that introduced them was
+still in `changelog.d/`), so no released deck breaks. What stays: a pinned `@legend{…}` span still
+draws a callout (it costs a regex), and the legend plugin still `requires` callout, which costs no
+runtime bytes, so a host or deck that loads `legend` gets callouts.
 
 ## 3. Today, measured
 

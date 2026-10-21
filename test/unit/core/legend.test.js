@@ -102,37 +102,31 @@ describe('the split: @callout is a callout, @legend is the key (2026-10-20-callo
     assert.equal(readLegend('@callout{[{A}, {B}]}').legend.layout, 'anchored');
     assert.equal(readLegend('@callout{[{A}]}').diagnostics[0].code, 'legend/no-target');
   });
-  test('a layout word in a @callout span is reported and ignored', () => {
+  test('a layout word in a @callout span is ignored by the reader; lint:deck reports it', () => {
     const r = readLegend('@callout{{A, for=1}, key}');
     assert.equal(r.legend.layout, 'anchored');
-    assert.deepEqual(r.diagnostics.map((d) => d.code), ['callout/layout']);
-    assert.deepEqual(readLegend('@callout{{A, for=1}, anchored}').diagnostics, []);
+    assert.deepEqual(r.diagnostics, []);
   });
+
   test('a pinned @legend span still reads as a callout: the pre-split spelling', () => {
     const r = readLegend('@legend{{Dip, row=Feb, col=M2}}');
     assert.equal(r.legend.layout, 'anchored');
     assert.equal(r.kind, 'legend');
   });
-  test('callouts are off by the new switches and by the pre-split ones', () => {
+  test('callouts are off by the callout switches, and the pre-split legend ones are not read', () => {
     assert.equal(calloutsOff(), false);
-    for (const tokens of [['callout-off'], ['legend-off']]) assert.equal(calloutsOff({ tokens }), true, tokens[0]);
-    // The off list comes from admission, which puts `callout` in it whenever the host switches `legend`
-    // off (`alsoDisables`). `legend` alone there means callout was loaded without it: callouts stay on.
+    assert.equal(calloutsOff({ tokens: ['callout-off'] }), true);
     assert.equal(calloutsOff({ pluginsOff: ['callout'] }), true);
-    assert.equal(calloutsOff({ pluginsOff: ['legend'] }), false);
     assert.equal(calloutsOff({ pluginsOff: ['math'] }), false);
     assert.equal(calloutsOff({ frontMatter: 'callout: off' }), true);
-    assert.equal(calloutsOff({ frontMatter: 'legend: off' }), true);
     assert.equal(calloutsOff({ frontMatter: 'callout: on' }), false);
     assert.equal(calloutsOff({ tokens: ['callout-on'], frontMatter: 'callout: off' }), false);
-    assert.equal(calloutsOff({ tokens: ['legend-on'], frontMatter: 'legend: off' }), false);
-    // Mixed spellings: the slide's word wins over the deck's, whichever spelling each uses.
-    assert.equal(calloutsOff({ tokens: ['callout-on'], frontMatter: 'legend: off' }), false);
-    assert.equal(calloutsOff({ tokens: ['legend-on'], frontMatter: 'callout: off' }), false);
-    assert.equal(calloutsOff({ tokens: ['legend-off'], frontMatter: 'callout: on' }), true);
-    // Rendered, the deck's word arrives as a stamped `callout-*` class, and the slide's pre-split word wins.
-    assert.equal(calloutsOff({ tokens: ['legend-on', 'callout-off'] }), false);
+    // Dropped with the owner's ruling (decision note § 2): the pre-split switches do nothing now.
+    assert.equal(calloutsOff({ tokens: ['legend-off'] }), false);
+    assert.equal(calloutsOff({ frontMatter: 'legend: off' }), false);
+    assert.equal(calloutsOff({ pluginsOff: ['legend'] }), false);
   });
+
 });
 
 describe('gridTarget: a label\'s target on a grid', () => {
@@ -236,7 +230,6 @@ describe('legend-messages: every code the reader emits has words', () => {
   const cases = [
     ['@legend{{1, lg}}', 'legend/ambiguous-pair', /reads as the label "1" with the style word `lg`/],
     ['@legend{', 'legend/syntax', /is not a callout or a legend: write/],
-    ['@callout{{Peak, for=1}, key}', 'callout/layout', /`key` is not a callout layout: a callout is always anchored/],
     ['@legend{{A}, layout=sideways}', 'legend/layout', /`sideways` is not a legend layout/],
     ['@legend{x}', 'legend/item', /`x` is not a legend entry/],
     ['@legend{{Peak}, anchored}', 'legend/no-target', /"Peak" is a callout with nothing to point at: add `row=` and `col=`/],
@@ -252,6 +245,9 @@ describe('legend-messages: every code the reader emits has words', () => {
       assert.match(legendMessage(d), words);
     });
   }
+  test('callout/layout (said by the linter, not the reader)', () => {
+    assert.match(legendMessage({ code: 'callout/layout', args: { word: 'key' } }), /`key` is not a callout layout: a callout is always anchored/);
+  });
   test('legend/empty', () => {
     assert.equal(legendMessage(readLegend('@legend{x}').diagnostics[1]), 'The legend has no entries it can draw.');
   });

@@ -7,11 +7,8 @@
   "requires": [
     "callout"
   ],
-  "alsoDisables": [
-    "callout"
-  ],
   "title": "Legend",
-  "description": "The key: what each color, swatch or line on a figure means. Written `@legend{[{Poor, c1}, {Good, c3}], key}`; a label is text with an optional mark (a swatch or a stroke) and an optional plate (a pill's shape), and a bare label is the default. The charts' own keys draw through the legend's key kernels (lib/core/legend-key.js, legend-svg-key.js); authoring them through `@legend{\u2026}` lands one adopter at a time (engineering/decisions/2026-10-20-callout-placement.md \u00a7 6). Notes pinned to a mark are the callout plugin's: a `@legend{\u2026}` span that pins one, and `legend: off`, still reach callouts as their pre-split spellings.",
+  "description": "The key: what each color, swatch or line on a figure means. Written `@legend{[{Poor, c1}, {Good, c3}], key}`; a label is text with an optional mark (a swatch or a stroke) and an optional plate (a pill's shape), and a bare label is the default. The charts' own keys draw through the legend's key kernels (lib/core/legend-key.js, legend-svg-key.js); authoring them through `@legend{\u2026}` lands one adopter at a time (engineering/decisions/2026-10-20-callout-placement.md \u00a7 7). Notes pinned to a mark are the callout plugin's; a `@legend{\u2026}` span that pins one still draws as a callout, its pre-split spelling.",
   "icon": {
     "viewBox": "0 0 128 128",
     "paths": [
@@ -38,17 +35,6 @@
     ]
   },
   "contributes": {
-    "registers": {
-      "legend": {
-        "aliasOf": "callout",
-        "axes": {
-          "show": [
-            "on",
-            "off"
-          ]
-        }
-      }
-    },
     "styles": true
   },
   "render": {

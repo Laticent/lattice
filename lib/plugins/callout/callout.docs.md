@@ -30,8 +30,9 @@ The plugin is **on by default** and an author can turn it off:
 | One slide, in a deck that is off | `callout-on` in the slide's class | That slide shows its callouts again |
 | A host | `--disable-plugin callout` | The same as `callout: off`, for every deck it renders |
 
-The spellings from before the split, `legend: off`, `legend-off`, `legend-on` and
-`--disable-plugin legend`, do the same.
+The switches from before the split, `legend: off`, `legend-off`, `legend-on` and
+`--disable-plugin legend`, no longer switch callouts: write the `callout` ones. `lint:deck` flags
+`legend:` as an unknown setting.
 
 A hidden callout is not drawn, not described and not read aloud, so the slide reads as if the line
 were not there. Its `detail` still joins the cell's hover card and the speaker note, and `lint:deck`

@@ -48,7 +48,7 @@ model, see `design/concepts.md`.
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
 | [`corners:`](#the-slides-corner--corners) | Whether the slide's own surface is square or rounded | `square` |
 | [`fit:`](#the-fit-front-matter-register-what-the-engine-may-do-to-make-a-slide-fit) | What the engine may do to make a slide fit (was `guards:`) | `heal` |
-| [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn (`legend:` is the pre-split spelling) | `on` |
+| [`callout:`](#the-callout-front-matter-register-chart-callouts) | Whether the callout plugin's callouts are drawn | `on` |
 | [`plugins:`](#the-plugins-front-matter-import-list) | Plugins this deck needs loaded — an import list that only adds | *(the default set: every shipped plugin)* |
 
 ## The `plugins:` front-matter import list
@@ -1177,11 +1177,10 @@ speaker note, so the words the author wrote reach the PDF. `lint:deck` notes eac
 (`legend-off`, info) so a callout that vanished is never a mystery. A host turns the plugin off
 outright with `--disable-plugin callout`, with the same result.
 
-**The pre-split spelling.** Before callouts had a plugin of their own they were the legend
-plugin's, and `legend:` switched them. It still does: `legend: off`, the `legend-off` and
-`legend-on` classes and `--disable-plugin legend` work as `callout:` does
-(`engineering/decisions/2026-10-20-callout-placement.md` § 2). The legend plugin declares `legend:`
-in `legend.manifest.json`.
+**The pre-split switch.** Before callouts had a plugin of their own they were the legend plugin's,
+and `legend:` switched them. It no longer exists: `lint:deck` flags it as unknown, and
+`legend-off` and `legend-on` on a slide do nothing. Write `callout:`
+(`engineering/decisions/2026-10-20-callout-placement.md` § 2).
 
 ## The slide's corner — `corners:`
 

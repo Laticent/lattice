@@ -57,10 +57,6 @@
       "$ref": "#/$defs/pluginNames",
       "description": "Plugins this one uses when present and must work without."
     },
-    "alsoDisables": {
-      "$ref": "#/$defs/pluginNames",
-      "description": "Plugins switched off with this one. For a plugin whose job was split off into another: a host's switch written before the split keeps meaning what it meant (`--disable-plugin legend` still hides callouts, engineering/decisions/2026-10-20-callout-placement.md § 2). Each must also be in `requires`, so whatever loads this plugin loads them."
-    },
     "contributes": {
       "type": "object",
       "additionalProperties": false,
@@ -192,11 +188,6 @@
             "additionalProperties": false,
             "required": ["axes"],
             "properties": {
-              "aliasOf": {
-                "type": "string",
-                "pattern": "^[a-z][a-z0-9-]*$",
-                "description": "This register is another register's older spelling: it stamps that register's classes (`legend: off` stamps `callout-off`), so a slide's word in either spelling evicts the deck's in either. Its axes must be that register's, word for word, and that register's plugin must be one this plugin requires."
-              },
               "axes": {
                 "type": "object",
                 "minProperties": 1,

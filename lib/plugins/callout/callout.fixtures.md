@@ -114,29 +114,6 @@ bullet is an assertion about that render:
 
 - omits `legend`
 
-## the pre-split `legend: off` still hides a callout and keeps its detail
-
-```markdown
----
-legend: off
----
-
-<!-- _class: heatmap -->
-
-## Retention
-
-| Cohort | M0  | M1 |
-| ------ | --: | -: |
-| Jan    | 100 | 62 |
-
-`@callout{{Dip, row=Jan, col=M1, detail="Pricing change"}}`
-```
-
-- renders `callout-off`
-- renders `Dip: Pricing change`
-- omits `legend--anchored`
-- omits `<code>@callout`
-
 ## callout: off hides a callout and keeps its detail
 
 ```markdown
