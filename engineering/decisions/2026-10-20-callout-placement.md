@@ -15,7 +15,8 @@ builds-on: 2026-10-19-universal-legend.md
 # Callouts and the key: two plugins, placed by measure
 
 **2026-10-20.** Status: in progress. The owner's rulings are in § 2; the audit behind the
-placement rule is in §§ 3 and 4. No engine code has changed yet. The work plan is § 6.
+placement rule is in §§ 3 and 4. The split (P1) is built; § 6 records the owner's one row style for
+the key and the callouts. The work plan is § 7.
 
 ## 1. The ask
 
@@ -118,7 +119,7 @@ Median plot area kept, 20 charts (line and word-cloud gave the mock no target):
 **Limits.** The mock approximates the layout: the real lane wraps labels with the shared
 kernels, the real key reflows through `keySvg`, and font sizes follow the figure. The plot-area
 numbers are good for ranking options, not as final figures. The shipped placement is measured
-again on the real engine (§ 6, P2).
+again on the real engine (§ 7, P2).
 
 ## 5. The rule: the engine picks by measure
 
@@ -135,7 +136,22 @@ at the slide's real stage size. Ties put callouts on the right, beside the marks
   choice.
 - **HTML charts.** Journey, roadmap and matrix-grid run the same choice with CSS layout.
 
-## 6. Work plan
+## 6. One row style for the key and the callouts (owner, 2026-10-21)
+
+The owner found callouts "huge relative to legends". Measured on the demo heatmap: a key swatch was
+1.04 times its label and a callout's marker 1.84 times, about 1.8 times the swatch, and the callout's
+words were the body face at 600 while the key's were the label face at 400. The owner ruled out any
+visual inconsistency between the two and asked for a happy medium.
+
+Rendered at a shared size of 1.3, 1.45 and 1.6 times the label, the owner picked **1.45**: the
+key's swatch grew by about a third and the callout's marker shrank by a fifth, to one size
+(`svg-legend.js` `MARK_OF_LABEL`). The callout's digit is then 0.79 of the label. The callout's words
+take the key's face, weight and size. Asked which face both should use, the owner kept the key's
+(the label face, a monospace), so no existing key changes face; the digit inside a marker stays in
+the body face, whose figures center in a shape. Every SVG key in the catalog changes size with this,
+so it went to the owner as light and dark renders of the chart gallery and the callout demo deck.
+
+## 7. Work plan
 
 One PR, one commit per item. HTML and SVG emitters stay byte-identical where an item does not
 mean to change a render; an item that does stops for the owner's light and dark sign-off.

@@ -90,8 +90,13 @@ plain ink. With no words, a callout takes the next free shape and the color slot
 
 The marker on a cell is sized from the cell: its height is a share of the cell's shorter side, so a
 dense grid gets small markers and a roomy one larger, never larger than the marker in the lane. The
-marker in the lane carries a digit as large as the label beside it, centered on the digit's own
-height. A callout's words are never smaller than the band key's labels when the chart has one.
+marker in the lane carries a digit, centered on the digit's own height.
+
+**A callout row is styled like a key row**, so the two read as one family beside a chart. The marker
+in the lane is the key's swatch size, 1.45 times the label, and its digit is about four-fifths of the
+label. The words take the key's typeface (the label face), weight and size; the digit inside a
+marker stays in the body face, whose figures center in a shape. Where every word would not set
+whole at the key's size, the words step down until they do.
 
 The cell's ring takes its callout's color too, over a thin halo of the canvas color, so the ring, its
 marker and the label's marker read as one color on any cell.
@@ -120,7 +125,7 @@ resolve to the first.
 
 On every other slide a `@callout{…}` span still renders as code, and `lint:deck` says that no
 component on the slide reads it. Callouts reach the other charts one family at a time
-(`2026-10-20-callout-placement.md` § 6).
+(`2026-10-20-callout-placement.md` § 7).
 
 ## Narration, the PDF and screen readers
 

@@ -43,7 +43,7 @@ The charts draw their own keys through the legend's key kernels: `keySvg`
 (`lib/components/chart/_chart-family/legend-svg-key.js`) for bar, stacked-bar, tower, piechart, map,
 quadrant, radar, heatmap and line, and `keyHtml` (`lib/core/legend-key.js`) for roadmap, matrix-grid
 and obligation-matrix. Authoring a key through `@legend{…}`, to rename or reorder its entries, lands
-one component at a time (`2026-10-20-callout-placement.md` § 6). Until a component reads it, a
+one component at a time (`2026-10-20-callout-placement.md` § 7). Until a component reads it, a
 `@legend{…}` key is not drawn: a heatmap lists it under "Not drawn" in its description, and on other
 slides it renders as code and `lint:deck` says no component on the slide reads it.
 

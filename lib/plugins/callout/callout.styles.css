@@ -21,8 +21,9 @@
  * one anyway. */
 text.legend-text {
   fill: var(--text-body);
-  font-family: var(--font-body);
-  font-weight: 600;
+  /* The key's face and weight (chart-family.styles.css `.chart-key-label`): a callout row and a key row
+   * read as one family (owner, 2026-10-21; decision note 2026-10-20-callout-placement.md § 6). */
+  font-family: var(--font-label);
 }
 
 text.legend-text--bare[data-c='c1']  { fill: var(--cat-1-mark); }
@@ -49,6 +50,9 @@ text.legend-text--plated[data-c] {
  * single digit reads at marker size, and the shape sits on a KNOCKOUT, the same shape a little larger
  * in the canvas color, which parts it from whatever cell fill lies under it in either mode. */
 text.legend-number {
+  /* The digit inside a marker stays in the body face, Outfit, whose figures center in a shape (owner,
+   * § 18): the label face is for the words beside it. */
+  font-family: var(--font-body);
   font-weight: 700;
 }
 

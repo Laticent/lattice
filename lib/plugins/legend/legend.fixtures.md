@@ -8,7 +8,7 @@ bullet is an assertion about that render:
 - `omits` — the HTML does not contain it
 
 The key's authoring lands one adopter at a time (engineering/decisions/2026-10-20-callout-placement.md
-§ 6). Until a component reads `@legend{…}` as its key, the case below pins what happens today: the
+§ 7). Until a component reads `@legend{…}` as its key, the case below pins what happens today: the
 heatmap does not draw it and says so.
 
 ## a heatmap reports a key legend it does not draw

@@ -72,6 +72,7 @@
     "--cat-on-fill",
     "--cat-on-mark",
     "--font-body",
+    "--font-label",
     "--text-body"
   ]
 }

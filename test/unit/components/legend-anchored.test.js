@@ -68,10 +68,10 @@ describe('laneSvg', () => {
     assert.deepEqual(used, ['c2', 'c1']);
   });
 
-  test('the marker on a mark takes the caller\'s height; the one in the lane carries a digit as large as its label', () => {
+  test('the marker on a mark takes the caller\'s height; the one in the lane is the key\'s swatch size', () => {
     const { svg } = laneSvg([{ text: 'A', target: { cx: 30, cy: 30, w: 60, h: 60, mark: 0 } }], { ...opts, markerHeight: 14 });
     const sizes = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number')].map((t) => Number(t.getAttribute('font-size')));
-    assert.deepEqual(sizes, [Math.round(14 * DIGIT_OF_HEIGHT * 100) / 100, opts.fontSize]);
+    assert.deepEqual(sizes, [Math.round(14 * DIGIT_OF_HEIGHT * 100) / 100, Math.round(laneHeight(opts.fontSize) * DIGIT_OF_HEIGHT * 100) / 100]);
   });
 
   test('numbers run in reading order: row by row, then left to right', () => {
@@ -168,13 +168,16 @@ describe('laneSvg', () => {
     assert.deepEqual(markerShapes([{ plate: 'chevron-right' }, { plate: 'tag' }]), ['circle', 'square']);
   });
 
-  test('every shape is drawn about as tall as asked, and the lane digit is as large as the label', () => {
+  test('every shape is drawn about as tall as asked, and a lane marker is the key\'s swatch, its digit four-fifths of the label', () => {
     for (const shape of MARKER_SHAPES) {
       const body = outline(doc(`<svg>${markerSvg(1, 0, 0, shape, 10, 0, 1).svg}</svg>`).querySelector('.legend-plate'));
       const h = body.b - body.t;
       assert.ok(h > 8.5 && h < 11, `${shape}: ${h}`);
     }
-    assert.equal(laneHeight(7.5) * DIGIT_OF_HEIGHT, 7.5);
+    // One row style (owner, 2026-10-21): the lane marker is the key's swatch, MARK_OF_LABEL of the label.
+    const { MARK_OF_LABEL } = require('../../../lib/components/chart/_chart-family/svg-legend');
+    assert.equal(laneHeight(7.5), 7.5 * MARK_OF_LABEL);
+    assert.ok(Math.abs(laneHeight(7.5) * DIGIT_OF_HEIGHT - 7.5 * 0.79) < 0.05);
     // With or without its digit, a marker is the same shape element with the same slot: no attribute
     // may tell the stylesheet to paint the two copies of one callout differently.
     const plate = (svg) => /<\w+ class="legend-plate"[^>]*>/.exec(svg)[0].replace(/ (cx|cy|r|x|y|width|height|points)="[^"]*"/g, '');
