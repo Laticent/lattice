@@ -290,15 +290,39 @@ test("the Studio's deck-wide diagram check draws through the frame and never loa
 	expect(pageLibrary, 'the Studio page loaded the Mermaid library').toEqual([]);
 });
 
-// A diagram that arrives in a frame that has never held one is tagged (hidden) within a beat, not seconds later. The frame answers the
-// runtime's library request on the spot (it installs the stand-in), so no load is coming to run the pass again; the pass has to run
-// itself, or the fence's source stays on screen until some later edit does (measured before the fix: 99 painted frames, 6 s).
-test('the first diagram a preview gains is hidden under its tag at once, not left as source @gecko @webkit-tablet', async ({ page }) => {
+// A diagram that arrives in a frame that has never held one is hidden under its tag within a beat, not left as source for seconds. The
+// frame answers the runtime's library request on the spot (it installs the stand-in), so no load is coming to run the pass again; the
+// pass has to run itself, or the fence's source stays on screen until some later edit does (measured before the fix: 99 painted frames).
+// Counts the frames the preview PAINTS with the source visible, as docs/scripts/diagram-flash-bench.mjs does, from a sampler installed at
+// document start in every preview frame (a document the Studio replaces would lose one installed later).
+test('the first diagram a preview gains does not paint its source @gecko @webkit-tablet', async ({ page }) => {
 	test.setTimeout(240_000);
+	await page.addInitScript(() => {
+		if (window === window.top) return;
+		const w = window as unknown as { __srcFrames: number };
+		w.__srcFrames = 0;
+		const tick = () => {
+			const code = [...document.querySelectorAll('pre > code')].find((c) => (c.textContent || '').includes('flowchart LR')) as HTMLElement | undefined;
+			if (code) {
+				const r = code.getBoundingClientRect();
+				if (r.width > 2 && r.height > 2 && getComputedStyle(code).visibility !== 'hidden') w.__srcFrames++;
+			}
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
 	await gotoStudio(page);
 	const preview = livePreview(page);
-	await setEditorContent(page, '---\ntheme: indaco\n---\n\n## Prose\n\nNo diagram yet.\n\n---\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Draft] --> B[Ship]\n```\n');
+	const frameCount = () => preview.locator('.lattice').first().evaluate(() => (window as unknown as { __srcFrames: number }).__srcFrames);
+	// The caret ends on the last (prose) slide, so the diagram slide has never been shown when the test opens it.
+	await setEditorContent(page, '---\ntheme: lattice\npalette: indaco\n---\n\n# Prose\n\nNo diagram yet.\n\n---\n\n<!-- _class: diagram -->\n\n## Signals move from input to decision.\n\n```mermaid\nflowchart LR\n  A[Input] --> B[Process]\n  B --> C{Decision}\n  C -->|yes| D[Ship]\n```\n\n---\n\n# Last\n\nThe caret ends here.\n');
 	await expect(preview.locator('.lattice').first()).toBeAttached({ timeout: 60_000 });
+	await expect(preview.locator('section').first()).toContainText('The caret ends here', { timeout: 60_000 });
+	const before = await frameCount();
 	await page.getByRole('button', { name: /^Slide 2/ }).click();
-	await expect(preview.locator('pre[data-lattice-hydrate="mermaid"]')).toHaveAttribute('data-lattice-settle', /.+/, { timeout: 1500 });
+	await expect(preview.locator('pre[data-lattice-hydrate="mermaid"]')).toHaveAttribute('data-lattice-settle', 'rendered', { timeout: 60_000 });
+	const frames = (await frameCount()) - before;
+	test.info().annotations.push({ type: 'source-frames', description: String(frames) });
+	// The page's own slow path is about ten frames (the 150 ms debounce); the bug was around a hundred.
+	expect(frames, `${frames} painted frames showed the diagram's source`).toBeLessThan(40);
 });
