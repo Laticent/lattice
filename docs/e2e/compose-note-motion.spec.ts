@@ -122,6 +122,33 @@ test.describe('notes and motion in Compose', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('a plain note.', 'abcdef'));
 	});
 
+	test('@crosswidth @gecko @webkit-tablet Escape returns to the slide at the note, so the next keys go there and not to the top of the deck', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		await page.keyboard.press('Escape');
+		await page.keyboard.type('QQ');
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('Second paragraph.', 'QQSecond paragraph.'));
+	});
+
+	test('@crosswidth @gecko @webkit-tablet an undo pressed on Remove cannot make the field and the deck disagree', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		await page.keyboard.press('End');
+		await page.keyboard.type(' more words');
+		await page.keyboard.press('Tab');
+		await expect(page.getByRole('button', { name: 'Remove' })).toBeFocused();
+		await page.keyboard.press('ControlOrMeta+z');
+		await page.getByText('Second paragraph.').click();
+		const field = page.getByRole('textbox', { name: 'note text' });
+		// Whatever the undo did, an open field and the saved note never disagree.
+		await expect
+			.poll(async () => {
+				const note = (await savedDeck(page)).match(/<!-- (a plain note\.[^>]*?) -->/)?.[1] ?? '';
+				return (await field.count()) ? (await field.inputValue()) === note : true;
+			})
+			.toBe(true);
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

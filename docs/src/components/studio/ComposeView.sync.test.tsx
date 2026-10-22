@@ -249,4 +249,18 @@ describe('ComposeView: an outside change while a note is being written', () => {
 		expect(v.container.querySelector('h1')?.textContent).toBe('One');
 		expect(v.container.querySelector('.cs-comment-field')).not.toBeNull();
 	});
+
+	it('an outside change that arrives while the caret is on Remove waits for it to leave', async () => {
+		const v = render(<ComposeView source={NOTE_DECK} onChange={() => {}} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const remove = v.container.querySelector('.cs-comment-remove') as HTMLButtonElement;
+		remove.focus();
+		v.rerender(<ComposeView source={CHANGED} onChange={() => {}} />);
+		expect(v.container.querySelector('h1')?.textContent).toBe('One');
+		remove.blur();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(v.container.querySelector('h1')?.textContent).toBe('One changed');
+	});
 });

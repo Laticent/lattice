@@ -1461,6 +1461,9 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			const $c = view.state.doc.resolve(at);
 			const liftParent = $c.depth >= 2 && $c.parent.childCount === 1;
 			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(at, at + n.nodeSize);
+			// The caret goes to where the note was: a click on a pill never moved the editor's selection, so refocusing without this puts
+			// the next keys at the old caret, which can be the top of the deck.
+			tr.setSelection(Selection.near(tr.doc.resolve(Math.min(at, tr.doc.content.size)), 1));
 			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
 			view.focus();
 		});
@@ -1508,6 +1511,9 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				e.stopPropagation();
 				field.value = original;
 				why.hidden = true;
+				// Back to the slide, at the note: the editor's own selection may be anywhere else in the deck.
+				const open = isCurrent() ? openNote(view) : null;
+				if (open) view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(open.at + open.node.nodeSize), 1)));
 				view.focus();
 			} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
@@ -1521,7 +1527,17 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				left();
 			}),
 		);
-		remove.addEventListener('blur', () => queueMicrotask(left));
+		// Leaving the panel from Remove writes whatever the field holds, so the field and the deck cannot disagree.
+		remove.addEventListener('blur', () =>
+			queueMicrotask(() => {
+				commit();
+				left();
+			}),
+		);
+		// A native undo or redo pressed on Remove would reach into the field and change it without writing; it does nothing here.
+		remove.addEventListener('keydown', (e) => {
+			if ((e.metaKey || e.ctrlKey) && ['z', 'y'].includes(e.key.toLowerCase())) e.preventDefault();
+		});
 		// Opening a note is the author choosing to write in it: the caret is in the field. The panel is built once per opening, so this
 		// never fires for a panel that is merely redrawn.
 		queueMicrotask(() => {
@@ -2436,8 +2452,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// OWN echo without the old `docToDeck(doc) === source` guard — which compared through
 		// the LOSSY serializer and so never matched a rich deck (dead code, per the trio).
 		if (source === lastEmittedRef.current) return;
-		// A note being written is the author mid-type too: its field is inside the editor but is not the editor's own focus.
-		if (view.hasFocus() || (document.activeElement instanceof HTMLTextAreaElement && view.dom.contains(document.activeElement))) {
+		// A note being written is the author mid-type too: its field and its Remove button are inside the editor but are not the editor's own focus.
+		if (view.hasFocus() || (document.activeElement instanceof Element && view.dom.contains(document.activeElement) && document.activeElement.closest('.cs-comment-panel'))) {
 			pendingResyncRef.current = source;
 			return;
 		}

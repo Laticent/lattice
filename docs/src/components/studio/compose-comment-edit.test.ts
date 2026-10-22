@@ -309,6 +309,37 @@ describe('a panel is built once per opening', () => {
 	});
 });
 
+describe('leaving the panel', () => {
+	it('writes what the field holds when the caret leaves from Remove', async () => {
+		mount();
+		pills()[1].click();
+		const f = field() as HTMLTextAreaElement;
+		f.value = 'changed without a blur of the field';
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(saved()).toContain('<!-- changed without a blur of the field -->');
+	});
+
+	it('an undo or redo pressed on Remove does nothing to the field', () => {
+		mount();
+		pills()[1].click();
+		const e = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true });
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).dispatchEvent(e);
+		expect(e.defaultPrevented).toBe(true);
+	});
+
+	it('Escape and Remove put the caret at the note, not at the old selection', () => {
+		const v = mount(['<!-- _class: content -->', '', '## Plan', '', 'First paragraph.', '', '---', '', '<!-- _class: content -->', '', '## Two', '', 'Slide two text.', '', '<!-- a plain note. -->', '', 'After the note.'].join('\n'));
+		pills()[0].click();
+		(field() as HTMLTextAreaElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		expect(v.state.doc.textBetween(v.state.selection.from, v.state.selection.to + 5, ' ')).toMatch(/^After/);
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		const at = v.state.selection.from;
+		expect(v.state.doc.resolve(at).parent.textContent).toMatch(/After the note|Slide two text/);
+	});
+});
+
 describe('the pill icons', () => {
 	it('say, describe and note each draw their own shape', () => {
 		mount(DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
