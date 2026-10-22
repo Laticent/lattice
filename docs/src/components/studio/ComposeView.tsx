@@ -348,17 +348,51 @@ function stateMarkerPlugin() {
 	let cached: DecorationSet = DecorationSet.empty;
 	return new Plugin({
 		props: {
+			// A click on a list item's marker chip flips `[ ]` and `[x]` (any other marker goes to `[x]`);
+			// the other four are typed. One change, one undo step, and only the three marker bytes move.
+			handleClick(view, pos, event) {
+				const el = event.target instanceof Element ? event.target.closest('[data-listmark]') : null;
+				if (!el) return false;
+				const $pos = view.state.doc.resolve(pos);
+				const para = $pos.parent;
+				if ($pos.depth < 2 || $pos.node($pos.depth - 1).type.name !== 'list_item' || !para.firstChild?.isText) return false;
+				const start = $pos.start();
+				const m = readEditMarker(para.firstChild.text ?? '');
+				if (!m) return false;
+				const next = m.marker === 'x' ? ' ' : 'x';
+				view.dispatch(view.state.tr.insertText(`[${next}]`, start, start + 3));
+				return true;
+			},
 			decorations(state) {
 				if (state.doc === cachedDoc) return cached;
 				const decos: Decoration[] = [];
+				let stateful = false;
 				state.doc.descendants((node, pos) => {
 					// Only paint where the ENGINE renders a stoplight chip: a marker-bearing pipe-table
 					// component's BODY cell. Descend stateful slides only (skip the rest wholesale — also
 					// faster), and decorate `table_cell`, never `table_header` (headers carry column labels,
 					// not statuses — `obligationMatrixBadges`/roadmap gate on `<td>`). Anything else the
 					// author typed stays literal, matching what the export produces (no WYSIWYG lie).
-					if (node.type.name === 'slide') return isStatefulClass(node);
+					// A slide is entered whatever its class (list items carry markers in any layout); only its table
+					// cells wait on the stateful classes, tracked here because `descendants` walks in document order.
+					if (node.type.name === 'slide') {
+						stateful = isStatefulClass(node);
+						return true;
+					}
+					if (node.type.name === 'list_item') {
+						// A list item's leading marker (`- [x] done`): painted wherever it leads, because every layout
+						// reads it through the same list-text grammar, and a click toggles it (below).
+						const para = node.firstChild;
+						const lead = para?.type.name === 'paragraph' ? para.firstChild : null;
+						const lm = lead?.isText ? readEditMarker(lead.text ?? '') : null;
+						if (lm) {
+							const from = pos + 2; // list_item open + paragraph open
+							decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(lm.marker)?.sem}`, 'data-listmark': '' }));
+						}
+						return true;
+					}
 					if (node.type.name !== 'table_cell') return true;
+					if (!stateful) return false;
 					// Measure off the leading TEXT node: a leading inline atom (image) would offset the range.
 					const first = node.firstChild;
 					if (!first?.isText) return true;

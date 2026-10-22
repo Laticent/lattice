@@ -181,7 +181,7 @@ bare `<img src="asset:harbor">` the browser cannot load.
 
 | Gap | Measured or known | Cost to close | Recommendation |
 |---|---|---|---|
-| State-marker lists lock the slide | 40 of 96 locked slides | The serializer escapes `[` (`\[x\]`); a list-item marker needs its own node or an escape exception, a toggle control, and the checklist and roadmap layouts' behavior checked | Next slice. Highest count |
+| ~~State-marker lists lock the slide~~ | 40 of 96 locked slides | **Shipped 2026-10-22.** No new node was needed: the serializer's `paragraph` rule un-escapes a list item's leading marker (the table cell's `unescapeLeadingMarker`), the lock keeps only `[X]`, and a click on the chip flips `[ ]` and `[x]`. A corpus test holds every shipped marker slide to the same marker count and no escaped marker | Done |
 | Inline math `$…$` locks the slide | 30 of 96 | The Compose parser has no math rule; needs the engine's rule (`sourceHasMath`) as an inline atom, drawn by KaTeX, with a TeX panel | Second. Also the `$$` block |
 | Block HTML locks the slide | 21 of 96 | An atom that carries the HTML verbatim, shown as a labeled block | Third. Cheap |
 | Plugins installed from a package | no shipped example yet; the canary harness only | A kind's `slot` is data, so the writer and a generic panel work. The missing seam is drawing: the host cannot run the plugin's code to draw a span, so the node shows a placeholder | When the first inline package ships; `editRecord` plus a generic panel built from `slot` |

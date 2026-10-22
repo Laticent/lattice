@@ -2,14 +2,12 @@
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
-import stateMarks from '../../../../lib/core/state-marks.js';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
 import { normalizeSourceText } from '../normalize-source-text';
 
-const { MARKER_CLASS } = stateMarks;
 
 // Pure deck-source helpers — the fence-aware split/join between a Lattice deck's
 // canonical markdown and its parts (front-matter, per-slide directives, prose).
@@ -118,10 +116,10 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	// into LIVE markup in the export on the next edit. Lock it everywhere (also closes the same
 	// pre-existing gap in plain prose). Harmless entities (`&amp;`, `&copy;`) don't match.
 	/&(?:lt|#0*60|#x0*3c);\/?[a-zA-Z]/i,
-	// A state-marker list item — any of the six (lib/core/state-marks.js), not just GFM's `[ ]`
-	// and `[x]`: the editor escapes a `[!]` or `[?]` it does not know into `\[!\]`, which the
-	// engine then prints as literal brackets instead of the drawn mark.
-	new RegExp(`^\\s*(?:[-*+]|\\d+[.)])\\s+\\[(?:${MARKER_CLASS}|X)\\]`, 'm'), // GFM also takes `[X]`
+	// A list item led by `[X]`. The six markers (lib/core/state-marks.js) round-trip now: the
+	// serializer keeps a list item's leading marker unescaped, as it does in a table cell. `[X]` is
+	// not one of the six (GFM reads it as a checked box, the opposite of a cross), so it stays locked.
+	/^\s*(?:[-*+]|\d+[.)])\s+\[X\]/m,
 	/\[\^[^\]]+\]/, // footnote reference / definition
 ];
 

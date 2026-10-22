@@ -325,6 +325,23 @@ const latticeNodes = {
 		// A backslash is escaped with the parenthesis or quote it could otherwise cancel: `a\\` + `)` must not read as an escaped `)`.
 		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[\\()]/g, '\\$&')}${title ? ` "${title.replace(/[\\"]/g, '\\$&')}"` : ''})`);
 	},
+	// A list item's first paragraph gets the table cell's treatment (serializeCell): a leading LFM state
+	// marker keeps its brackets, so `- [x] done` writes back as it was read and not as `- \\[x\\] done`.
+	// Every other paragraph is the upstream serializer, byte for byte.
+	paragraph(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
+			const sub = new SubState(state.nodes, state.marks, state.options);
+			sub.renderInline(node);
+			const out = unescapeLeadingMarker(sub.out);
+			if (out !== sub.out) {
+				state.text(out, false);
+				state.closeBlock(node);
+				return;
+			}
+		}
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
+		(defaultMarkdownSerializer.nodes.paragraph as any)(state, node, parent, index);
+	},
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)

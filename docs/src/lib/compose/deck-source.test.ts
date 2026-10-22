@@ -44,17 +44,17 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 	it('fires on a block-level HTML tag', () => {
 		expect(hasLossyConstruct('<figure>\n  <img src="x">\n</figure>')).toBe(true);
 	});
-	it('fires on a task list', () => {
-		expect(hasLossyConstruct('- [ ] todo\n- [x] done')).toBe(true);
+	it('does not fire on a task list: the six markers round-trip', () => {
+		// The serializer keeps a list item's leading marker unescaped (deck-markdown paragraph),
+		// as it does in a table cell, so a checklist edits in place.
+		expect(hasLossyConstruct('- [ ] todo\n- [x] done')).toBe(false);
 	});
-
-	it('fires on every one of the six state markers, not only the GFM two', () => {
-		// The editor does not know `[!]` or `[?]`; left unlocked it escaped them to `\[!\]`
-		// and the engine printed literal brackets instead of the drawn mark.
-		for (const m of ['x', 'X', '-', '!', '?', ' ', '/']) {
-			expect(hasLossyConstruct(`- Card\n  - [${m}] item`)).toBe(true);
+	it('fires only on `[X]`, the GFM checked box that is not one of the six', () => {
+		for (const m of ['x', '-', '!', '?', ' ', '/']) {
+			expect(hasLossyConstruct(`- Card\n  - [${m}] item`)).toBe(false);
 		}
-		expect(hasLossyConstruct('1. [!] failed')).toBe(true);
+		expect(hasLossyConstruct('1. [!] failed')).toBe(false);
+		expect(hasLossyConstruct('- Card\n  - [X] item')).toBe(true);
 		expect(hasLossyConstruct('- [~] not a marker')).toBe(false);
 	});
 	it('fires on a footnote reference', () => {
