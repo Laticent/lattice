@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { history, redo, undo } from 'prosemirror-history';
-import { Fragment, DOMParser as PMDOMParser } from 'prosemirror-model';
+import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
