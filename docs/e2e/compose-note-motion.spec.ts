@@ -237,7 +237,7 @@ test.describe('notes and motion in Compose', () => {
 		expect(saved).not.toContain('## ZZ');
 	});
 
-	test('@crosswidth @gecko @webkit-tablet a note selected with the arrow key is not replaced by typing, and is still removed by Delete', async ({ page }) => {
+	test('@crosswidth @gecko @webkit-tablet a note selected with the arrow key is not replaced by typing', async ({ page }) => {
 		await openDeckInCompose(page, DECK);
 		await page.getByText('Second paragraph.').click();
 		await page.keyboard.press('Home');
@@ -245,6 +245,16 @@ test.describe('notes and motion in Compose', () => {
 		await page.keyboard.type('x');
 		await expect.poll(() => savedDeck(page)).toContain('x');
 		expect(await savedDeck(page)).toContain('<!-- a plain note. -->');
+	});
+
+	test('@crosswidth @gecko @webkit-tablet folding a slide while a note is half typed keeps the words', async ({ page }) => {
+		await openDeckInCompose(page, '## A\n\n<!-- old words. -->\n\nPara a.\n\n---\n\n## B\n\nPara b.');
+		await pill(page, /note/).click();
+		const field = page.getByRole('textbox', { name: 'note text' });
+		await field.press('Control+a');
+		await field.pressSequentially('HALF TYPED');
+		await page.getByRole('button', { name: /Collapse slide/ }).last().click();
+		await expect.poll(() => savedDeck(page)).toContain('<!-- HALF TYPED -->');
 	});
 
 	test('the three channels draw three different icons', async ({ page }) => {

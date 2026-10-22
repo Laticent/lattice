@@ -990,9 +990,13 @@ class SlideView {
 		this.commit(nodes, i);
 	}
 	private toggleCollapse() {
-		const pos = this.getPos();
 		// Folding or unfolding closes an open note: its pill may be one the fold hides, and a panel with no visible pill is a dead end.
-		this.view.dispatch(this.view.state.tr.setMeta(collapseKey, { pos }).setMeta(commentOpenKey, { open: null }));
+		// Its words are written first, because the panel leaves the page before its field blurs. Words the note refuses stay open.
+		const state = { dirty: false };
+		this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: state }));
+		const pos = this.getPos();
+		const tr = this.view.state.tr.setMeta(collapseKey, { pos });
+		this.view.dispatch(state.dirty ? tr : tr.setMeta(commentOpenKey, { open: null }));
 		this.view.focus();
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
@@ -1398,15 +1402,18 @@ function caretNear(doc: PMNode, pos: number): Selection | null {
 
 /** A selection that is never a note selected by accident. A note is a selectable atom, so a selection helper that lands on one (the first block of a
  *  deck or slide, a slide picked in the rail) leaves the editor with the note selected, and the next replacing key (a paste, an input method, Backspace,
- *  Delete) removes it. A text position near it is used when there is one. Selecting a note on purpose (an arrow key onto it) does not come through here. */
+ *  Delete) removes it. A text position on the same slide is used when there is one, else the note stays selected (typing is swallowed). Selecting a note on purpose (an arrow key onto it) does not come through here. */
 function noteSafe(doc: PMNode, sel: Selection): Selection {
 	if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return sel;
-	return caretNear(doc, sel.to) ?? Selection.findFrom(doc.resolve(0), 1, true) ?? sel;
+	return caretNear(doc, sel.to) ?? sel;
 }
 
 /** Where a new editor state starts: the first text of the deck when the deck opens with a note. */
 function startSelection(doc: PMNode): Selection {
-	return noteSafe(doc, Selection.atStart(doc));
+	const start = Selection.atStart(doc);
+	const safe = noteSafe(doc, start);
+	// A first slide that is only a note has no text to put a caret in; the start of the deck may be the first text of a later slide.
+	return safe === start && start instanceof NodeSelection ? (Selection.findFrom(doc.resolve(0), 1, true) ?? start) : safe;
 }
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
@@ -1528,6 +1535,10 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			view.dispatch(view.state.tr.setNodeMarkup(open.at, undefined, { ...open.node.attrs, text: next }).setMeta(commentOpenKey, { open: open.at }));
 			original = readableNote(next);
 		};
+		field.addEventListener('cs-note-commit', (e) => {
+			commit();
+			(e as CustomEvent<{ dirty: boolean }>).detail.dirty = field.value !== original;
+		});
 		// Tell the editor the caret has left the note, so an outside change it parked while the author wrote can land.
 		const left = () => {
 			if (!view.isDestroyed) view.dom.dispatchEvent(new CustomEvent('cs-note-left'));
@@ -1642,7 +1653,8 @@ export function commentRunPlugin() {
 			// Backspace at the start of the block after a note, or Delete at the end of the block before one, SELECTS the note instead of removing it:
 			// the next press removes it, so a caret that merely sits beside a note (a slide picked in the rail) never costs the author one.
 			handleKeyDown(view, event) {
-				if ((event.key !== 'Backspace' && event.key !== 'Delete') || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
+				// Held modifiers do not matter: Shift-, Ctrl- and Mod-Backspace are bound to join commands that delete a note outright.
+			if (event.key !== 'Backspace' && event.key !== 'Delete') return false;
 				const { selection } = view.state;
 				// A note that is selected on purpose is removed by the next press (said here, not left to the engine's default, which Firefox does not run).
 				if (selection instanceof NodeSelection && selection.node.type.name === 'comment') {
@@ -1789,7 +1801,7 @@ export class CommentView {
 	// Reading must never arm a delete, so removal has its own control in the panel.
 	//
 	// `selectable: true` still earns its place on the spec: an arrow key, or a Backspace or Delete at the edge of the next block, selects a note
-	// (`handleKeyDown` in `commentRunPlugin`), and a second Backspace or Delete removes it, on purpose.
+	// (`handleKeyDown` in `commentRunPlugin`), and a second Backspace or Delete removes it, on purpose (not on a slide that is only that note: the structural guard refuses an empty slide, so Remove in the panel is the way).
 	stopEvent(e: Event) {
 		return this.dom.contains(e.target as Node);
 	}

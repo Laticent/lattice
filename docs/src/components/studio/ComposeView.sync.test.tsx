@@ -269,6 +269,16 @@ describe('ComposeView: an outside change while a note is being written', () => {
 		expect(theView().state.selection.toJSON().type).not.toBe('node');
 	});
 
+	it('picking a slide that is only a note stays on that slide and does not echo another slide', () => {
+		const ref = React.createRef<ComposeHandle>();
+		const seen: number[] = [];
+		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- only. -->\n\n---\n\n## C\n\nPara c.'} onChange={() => {}} onCursorSlide={(i: number) => seen.push(i)} />);
+		seen.length = 0;
+		ref.current?.revealSlide(1);
+		expect(theView().state.selection.$from.index(0)).toBe(1);
+		expect(seen).not.toContain(0);
+	});
+
 	it('picking a slide whose first block is a note puts the caret on text, not on the note', () => {
 		const ref = React.createRef<ComposeHandle>();
 		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.'} onChange={() => {}} />);

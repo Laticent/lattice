@@ -511,6 +511,16 @@ describe('Backspace and Delete beside a note select it first', () => {
 		expect(v.state.selection instanceof NodeSelection).toBe(true);
 	});
 
+	it('selects first even with Shift or Ctrl held, which the base keymap would turn into a join that deletes the note', () => {
+		const v = mount('Para a.\n\n<!-- a note. -->\n\nPara b.');
+		for (const mods of [{ shiftKey: true }, { ctrlKey: true }]) {
+			caretAt(v, 'Para b.', 0);
+			expect(v.someProp('handleKeyDown', (f) => f(v, new KeyboardEvent('keydown', { key: 'Backspace', ...mods })))).toBe(true);
+			expect(v.state.selection instanceof NodeSelection).toBe(true);
+			expect(saved()).toContain('<!-- a note. -->');
+		}
+	});
+
 	it('does nothing in the middle of a block or beside text', () => {
 		const v = mount('Para a.\n\n<!-- a note. -->\n\nPara b.');
 		caretAt(v, 'Para b.', 3);
