@@ -360,6 +360,8 @@ const latticeNodes = {
 	},
 	// A heading is one line, so a break inside it (a setext heading over two lines) writes a space, as it always did.
 	soft_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
+		// Two breaks in a row (the text between them was deleted) write one line break, not a blank line that splits the paragraph.
+		if (index > 0 && parent.child(index - 1).type.name === 'soft_break') return;
 		for (let i = index + 1; i < parent.childCount; i++)
 			if (parent.child(i).type.name !== 'soft_break') {
 				state.write(parent.type.name === 'heading' ? ' ' : '\n');

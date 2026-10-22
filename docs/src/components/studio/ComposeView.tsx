@@ -1471,7 +1471,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				if (!n || n.type.name !== 'comment' || field.value === original) return finish();
 				// A comment inside a quote or a list item is written with that container's prefix on every line, so a note there stays one line.
 				const nested = view.state.doc.resolve(pos).depth >= 2;
-				const next = nested && field.value.includes('\n') ? null : writeNote(n.attrs.text as string, field.value);
+				const next = nested && field.value.trim().includes('\n') ? null : writeNote(n.attrs.text as string, field.value);
 				if (next === null) {
 					why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
 					why.hidden = false;

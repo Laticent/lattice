@@ -1,6 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
-import { isDescriptionBody, isDirectiveBody, isSayBody } from '../../components/studio/slide-directives';
+import { isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody } from '../../components/studio/slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
@@ -199,7 +199,8 @@ export function writeNote(text: string, words: string): string | null {
 	const body = String(words).trim();
 	if (!body || body.includes('<!--')) return null;
 	// The engine also obeys the bare spelling (`footer: …`, `class: lead`), not only `_class:`: those words are a directive, not a note.
-	if (isDirectiveBody(body)) return null;
+	// On the say and describe channels the comment's first key is `say`/`describe`, so only a plain note can open with a directive word.
+	if (commentKind(text) === 'note' && (isDirectiveBody(body) || isPaneMarkerBody(body))) return null;
 	const opener = /^<!-{2,}/.exec(text)?.[0];
 	const closer = /-*!?>$/.exec(text)?.[0];
 	if (!opener || closer === undefined) return null;

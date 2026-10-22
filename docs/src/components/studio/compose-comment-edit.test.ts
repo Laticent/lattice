@@ -38,6 +38,20 @@ function type(value: string) {
 	f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
 }
 
+describe('writeNote, by channel', () => {
+	it('say and describe text may open with a directive word, because their own key leads', () => {
+		expect(writeNote('<!-- say: hi -->', 'footer: the end')).toBe('<!-- say: footer: the end -->');
+		expect(writeNote('<!-- describe: a chart -->', 'color: red bars over blue')).toBe('<!-- describe: color: red bars over blue -->');
+	});
+	it('a plain note may not become a directive or a panes marker', () => {
+		expect(writeNote('<!-- old note -->', 'panes: 40/60')).toBeNull();
+		expect(writeNote('<!-- old note -->', 'pane: list')).toBeNull();
+	});
+	it('legitimate prose that only looks close is kept', () => {
+		expect(writeNote('<!-- old note -->', 'Footer is too long')).toBe('<!-- Footer is too long -->');
+	});
+});
+
 describe('writeNote', () => {
 	it('replaces the words and keeps the opener, closer and channel', () => {
 		expect(writeNote('<!-- a plain note. -->', 'new words')).toBe('<!-- new words -->');

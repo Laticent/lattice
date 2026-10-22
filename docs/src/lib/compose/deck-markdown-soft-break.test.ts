@@ -98,4 +98,8 @@ describe('soft break edge cases', () => {
 		const back = PMDOMParser.fromSchema(proseSchema).parse(host);
 		expect(serializeSlideProse(back).trimEnd()).toBe('one\ntwo');
 	});
+	it('two breaks in a row write one line break', () => {
+		const doc = proseSchema.node('doc', null, [proseSchema.node('paragraph', null, [proseSchema.text('a'), proseSchema.node('soft_break'), proseSchema.node('soft_break'), proseSchema.text('c')])]);
+		expect(serializeSlideProse(doc).trimEnd()).toBe('a\nc');
+	});
 });
