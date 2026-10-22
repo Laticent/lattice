@@ -146,4 +146,16 @@ describe('soft break edge cases', () => {
 			expect([back.childCount, back.child(0).type.name], md).toEqual([1, 'paragraph']);
 		}
 	});
+	it('two breaks in a row inside a setext heading still write a setext heading with one break', () => {
+		const doc = proseSchema.node('doc', null, [
+			proseSchema.node('heading', { level: 2 }, [proseSchema.text('Alpha'), proseSchema.node('soft_break'), proseSchema.node('soft_break'), proseSchema.text('Charlie')]),
+		]);
+		expect(serializeSlideProse(doc).trimEnd()).toBe('Alpha\nCharlie\n---');
+	});
+	it('a later line indented four spaces is a continuation, so the setext form stays', () => {
+		const doc = proseSchema.node('doc', null, [proseSchema.node('heading', { level: 2 }, [proseSchema.text('a'), proseSchema.node('soft_break'), proseSchema.text('    b')])]);
+		const back = parseSlideProse(serializeSlideProse(doc));
+		expect([back.childCount, back.child(0).type.name]).toEqual([1, 'heading']);
+		expect(back.child(0).childCount).toBe(3);
+	});
 });

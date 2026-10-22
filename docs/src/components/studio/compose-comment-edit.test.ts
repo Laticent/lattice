@@ -229,6 +229,26 @@ describe('a panel that is rebuilt by an edit elsewhere', () => {
 		expect(saved()).toContain('<!-- saved once -->');
 	});
 
+	it('a write that changes nothing but spacing leaves a working panel', async () => {
+		mount();
+		pills()[1].click();
+		const f = field() as HTMLTextAreaElement;
+		f.value = 'a plain note.\n';
+		f.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(saved()).toBe(DECK);
+		// The same panel still writes, and still removes.
+		const same = field() as HTMLTextAreaElement;
+		same.value = 'changed words';
+		same.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(saved()).toContain('<!-- changed words -->');
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(saved()).not.toContain('changed words');
+	});
+
 	it('Remove after typing removes the note and does not write the typing first', () => {
 		mount();
 		pills()[1].click();

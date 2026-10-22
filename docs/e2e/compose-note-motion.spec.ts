@@ -63,6 +63,38 @@ test.describe('notes and motion in Compose', () => {
 			.toBe(DECK.replace('First paragraph.', 'First paragraph.abc').replace('a plain note.', 'half typed words').replace('Second paragraph.', 'Second paragraph.Z'));
 	});
 
+	test('@crosswidth @gecko @webkit-tablet Tab from an edited note lands on Remove, and Enter on it removes the note', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		const field = page.getByRole('textbox', { name: 'note text' });
+		await expect(field).toBeFocused();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type('tabbed words');
+		await page.keyboard.press('Tab');
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('a plain note.', 'tabbed words'));
+		await expect(page.getByRole('button', { name: 'Remove' })).toBeFocused();
+		await page.keyboard.press('Enter');
+		await expect.poll(() => savedDeck(page)).not.toContain('tabbed words');
+	});
+
+	test('@crosswidth @gecko @webkit-tablet a note whose edit only added a trailing line break keeps a working panel', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		const field = page.getByRole('textbox', { name: 'note text' });
+		await page.keyboard.press('ControlOrMeta+End');
+		await page.keyboard.press('Enter');
+		await page.getByText('Second paragraph.').click();
+		expect(await savedDeck(page)).toBe(DECK);
+		await field.click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type('changed words');
+		await page.getByText('Second paragraph.').click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('a plain note.', 'changed words'));
+		await field.click();
+		await page.getByRole('button', { name: 'Remove' }).click();
+		await expect.poll(() => savedDeck(page)).not.toContain('changed words');
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

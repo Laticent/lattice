@@ -352,12 +352,18 @@ function lineStartEscape(text: string): { head: string; length: number } | null 
 	return null;
 }
 
-/** The text of each line of a heading, split at its soft breaks. */
+/** The text of each line of a heading, split at its soft breaks. Two breaks in a row write one (the serializer collapses them), so they are one split. */
 function setextLines(heading: PMNode): string[] {
 	const lines = [''];
+	let afterBreak = false;
 	heading.forEach((child) => {
-		if (child.type.name === 'soft_break') lines.push('');
-		else lines[lines.length - 1] += child.textContent;
+		if (child.type.name === 'soft_break') {
+			if (!afterBreak) lines.push('');
+			afterBreak = true;
+		} else {
+			lines[lines.length - 1] += child.textContent;
+			afterBreak = false;
+		}
 	});
 	return lines;
 }
@@ -405,8 +411,8 @@ const latticeNodes = {
 			if (child.type.name === 'soft_break') hasBreak = true;
 		});
 		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form, and only when every line is
-		// real text. A blank line would end the heading and a line indented four spaces is code, so those fall back to one ATX line.
-		if (hasBreak && node.attrs.level <= 2 && setextLines(node).every((l) => l.trim() !== '' && !/^ {4,}/.test(l))) {
+		// real text. A blank line would end the heading and a first line indented four spaces is code (a later one is a continuation), so those fall back to one ATX line.
+		if (hasBreak && node.attrs.level <= 2 && setextLines(node).every((l, i) => l.trim() !== '' && !(i === 0 && /^ {4,}/.test(l)))) {
 			state.setext = true;
 			state.renderInline(node);
 			state.setext = false;

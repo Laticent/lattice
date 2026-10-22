@@ -1384,9 +1384,21 @@ function locateComment(view: EditorView, node: PMNode): number | null {
 	return at;
 }
 
+/** A number for each comment node object, so a panel is keyed to the note it was built for: a write that changes nothing still replaces the
+ *  node, and a panel keyed by position and text would then keep a closure over a node that is gone. */
+const noteIds = new WeakMap<PMNode, number>();
+let noteSeq = 0;
+const noteId = (node: PMNode): number => {
+	let id = noteIds.get(node);
+	if (id === undefined) noteIds.set(node, (id = ++noteSeq));
+	return id;
+};
+
 /** Set by the pill's click and read once by the panel that click opens, so the caret goes into the field when the author opens a note and
  *  never when the panel is only rebuilt (an edit above the note, a sync). */
 let focusNextNote = false;
+/** Likewise for the Remove button: Tab from a note being written moves the caret to it, and the write that follows rebuilds the panel. */
+let focusNextRemove = false;
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
@@ -1493,6 +1505,8 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				why.hidden = false;
 				return;
 			}
+			// Words that differ only by spacing write the same comment; there is nothing to replace, and the panel stays as it is.
+			if (next === node.attrs.text) return;
 			view.dispatch(view.state.tr.setNodeMarkup(at, undefined, { ...node.attrs, text: next }).setMeta(commentOpenKey, { open: at }));
 		};
 		field.addEventListener('keydown', (e) => {
@@ -1514,7 +1528,14 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 		});
 		// A blur also fires when an edit elsewhere rebuilds the panel and the browser removes the focused field, in the middle of the view's
 		// own update. Writing then would dispatch from inside that update, so the write waits for it to finish.
-		field.addEventListener('blur', () => queueMicrotask(commit));
+		field.addEventListener('blur', (e) => {
+			if (e.relatedTarget === remove) focusNextRemove = true;
+			queueMicrotask(() => {
+				commit();
+				// The editor parks an outside change while a note is being written; the field leaving is when it may land.
+				view.dom.dispatchEvent(new CustomEvent('cs-note-left'));
+			});
+		});
 		// Opening a note is the author choosing to write in it: the caret is in the field. A rebuilt panel never takes the caret.
 		if (focusNextNote) {
 			focusNextNote = false;
@@ -1525,6 +1546,12 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	}
 	actions.append(remove);
 	wrap.append(why, actions);
+	if (focusNextRemove) {
+		focusNextRemove = false;
+		queueMicrotask(() => {
+			if (remove.isConnected) remove.focus();
+		});
+	}
 	return wrap;
 }
 
@@ -1573,9 +1600,9 @@ export function commentRunPlugin() {
 						decos.push(
 							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked), panelId), {
 								side: 1,
-								key: `cs-panel-${pos}-${node.attrs.text}`,
-								// Keys typed in the note field are the field's, not the document's (Enter would split a block, Mod-z undo the deck).
-								stopEvent: (e: Event) => e.target instanceof HTMLTextAreaElement,
+								key: `cs-panel-${noteId(node)}`,
+								// Keys and clicks inside the panel are the panel's, not the document's (Enter in the field would split a block, Mod-z would undo the deck, Enter on Remove would be cancelled).
+								stopEvent: (e: Event) => e.target instanceof Element && e.target.closest('.cs-comment-panel') !== null,
 								ignoreSelection: true,
 							}),
 						);
@@ -2282,6 +2309,17 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		if (!hostRef.current) return;
 		setFailed(false); // D3: a prior deck's parse failure must not stick to this one.
 		let view: EditorView;
+		// Apply an outside change that arrived while the editor, or a note field in it, had the caret.
+		const flushParkedResync = () => {
+			const pending = pendingResyncRef.current;
+			if (pending != null && viewRef.current) {
+				try {
+					resyncFrom(viewRef.current, pending);
+				} catch (e) {
+					console.error('[compose] blur resync', e);
+				}
+			}
+		};
 		try {
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
@@ -2371,14 +2409,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
 						setSelBar(null); // the selection bar never outlives focus
-						const pending = pendingResyncRef.current;
-						if (pending != null && viewRef.current) {
-							try {
-								resyncFrom(viewRef.current, pending);
-							} catch (e) {
-								console.error('[compose] blur resync', e);
-							}
-						}
+						flushParkedResync();
+						return false;
+					},
+					// The same, when the caret leaves a note field (the note panel announces it after writing its words).
+					'cs-note-left': () => {
+						flushParkedResync();
 						return false;
 					},
 				},
@@ -2421,7 +2457,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// OWN echo without the old `docToDeck(doc) === source` guard — which compared through
 		// the LOSSY serializer and so never matched a rich deck (dead code, per the trio).
 		if (source === lastEmittedRef.current) return;
-		if (view.hasFocus()) {
+		// A note being written is the author mid-type too: its field is inside the editor but is not the editor's own focus.
+		if (view.hasFocus() || (document.activeElement instanceof HTMLTextAreaElement && view.dom.contains(document.activeElement))) {
 			pendingResyncRef.current = source;
 			return;
 		}

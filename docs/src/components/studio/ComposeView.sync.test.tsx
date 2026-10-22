@@ -211,3 +211,27 @@ describe('revealTail — following what a tour types into Compose', () => {
 		expect(() => handle?.revealTail()).not.toThrow();
 	});
 });
+
+describe('ComposeView: an outside change while a note is being written', () => {
+	const NOTE_DECK = '<!-- _class: content -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
+	const CHANGED = '<!-- _class: content -->\n\n# One changed\n\nbody one\n\n<!-- a plain note. -->';
+
+	it('waits until the caret leaves the note field, then lands', async () => {
+		const { view } = (() => {
+			const v = render(<ComposeView source={NOTE_DECK} onChange={() => {}} />);
+			return { view: v };
+		})();
+		(view.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const field = view.container.querySelector('.cs-comment-field') as HTMLTextAreaElement;
+		field.focus();
+		expect(document.activeElement).toBe(field);
+		view.rerender(<ComposeView source={CHANGED} onChange={() => {}} />);
+		// Not applied while the author is writing in the note.
+		expect(view.container.querySelector('h1')?.textContent).toBe('One');
+		field.blur();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(view.container.querySelector('h1')?.textContent).toBe('One changed');
+	});
+});
