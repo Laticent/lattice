@@ -1,4 +1,4 @@
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { writeNote } from '@/lib/compose/comment-block';
@@ -405,6 +405,40 @@ describe('where the caret goes when the slide has little or no text', () => {
 		expect(v.state.selection instanceof TextSelection).toBe(true);
 		expect(v.state.selection.$from.index(0)).toBe(0);
 	});
+});
+
+describe('typed text never replaces a selected note', () => {
+	const SELECTED = '<!-- first note. -->\n\n---\n\n## B\n\nPara b.';
+	const select = (v: EditorView) => {
+		let at = 0;
+		v.state.doc.descendants((n, p) => {
+			if (n.type.name === 'comment' && !at) at = p;
+		});
+		v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, at)));
+	};
+	const typeKey = (v: EditorView, text: string) => v.someProp('handleTextInput', (f) => f(v, v.state.selection.from, v.state.selection.to, text, () => v.state.tr));
+
+	it('keeps the note and swallows the key when the slide has no text to receive it', () => {
+		const v = mount(SELECTED);
+		select(v);
+		expect(typeKey(v, 'x')).toBe(true);
+		expect(saved()).toContain('<!-- first note. -->');
+		expect(saved()).not.toContain('x');
+	});
+
+	it('puts the text at a caret in the note slide when there is one', () => {
+		const v = mount('Para a.\n\n<!-- a note. -->');
+		select(v);
+		expect(typeKey(v, 'x')).toBe(true);
+		expect(saved()).toContain('<!-- a note. -->');
+		expect(saved()).toContain('x');
+	});
+
+	it('does not touch ordinary typing', () => {
+		const v = mount(DECK);
+		expect(typeKey(v, 'x')).toBeFalsy();
+	});
+
 });
 
 describe('an undo from another button', () => {

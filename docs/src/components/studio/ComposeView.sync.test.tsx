@@ -263,4 +263,9 @@ describe('ComposeView: an outside change while a note is being written', () => {
 		await Promise.resolve();
 		expect(v.container.querySelector('h1')?.textContent).toBe('One changed');
 	});
+
+	it('opens a deck that starts with a note without the note selected, so the first key cannot replace it', () => {
+		render(<ComposeView source={'<!-- first note. -->\n\n---\n\n## B\n\nPara b.'} onChange={() => {}} />);
+		expect(theView().state.selection.toJSON().type).not.toBe('node');
+	});
 });

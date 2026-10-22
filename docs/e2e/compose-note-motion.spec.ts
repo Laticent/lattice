@@ -193,6 +193,14 @@ test.describe('notes and motion in Compose', () => {
 		expect(await savedDeck(page)).not.toContain('## QQB');
 	});
 
+	test('@crosswidth @gecko @webkit-tablet a note at the top of the deck is not deleted by typing after a slide control refocuses the editor', async ({ page }) => {
+		await openDeckInCompose(page, '<!-- first note. -->\n\n---\n\n## B\n\nPara b.');
+		await page.getByRole('button', { name: /Collapse slide/ }).last().click();
+		await page.keyboard.type('x');
+		await expect.poll(() => savedDeck(page)).toContain('first note.');
+		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(1);
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

@@ -4,7 +4,7 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
@@ -1395,6 +1395,14 @@ function caretNear(doc: PMNode, pos: number): Selection | null {
 	return null;
 }
 
+/** Where a new editor state starts. The default is the first selectable thing, which for a deck that opens with a note is that note, selected:
+ *  the first key typed would replace it. A text position is used when the deck has one. */
+function startSelection(doc: PMNode): Selection {
+	const start = Selection.atStart(doc);
+	if (start instanceof NodeSelection && start.node.type.name === 'comment') return Selection.findFrom(doc.resolve(0), 1, true) ?? start;
+	return start;
+}
+
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
  *  reading a note must never arm a delete (see `stopEvent` on CommentView). */
@@ -1598,6 +1606,16 @@ export function commentRunPlugin() {
 			},
 		},
 		props: {
+			// A selected note is a deliberate gesture (Backspace at the start of the next block), never something typed text may replace:
+			// the editor can hold a node selection on a note it never meant to (a deck that opens with one, a slide-control refocus), and the
+			// next printed character would delete it. The text goes to the nearest caret in the note's slide instead, or nowhere.
+			handleTextInput(view, _from, _to, text) {
+				const sel = view.state.selection;
+				if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
+				const caret = caretNear(view.state.doc, sel.to);
+				if (caret) view.dispatch(view.state.tr.setSelection(caret).insertText(text));
+				return true;
+			},
 			decorations(state) {
 				const open = commentOpenKey.getState(state);
 				const decos: Decoration[] = [];
@@ -2305,7 +2323,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the new one.
 		const folded = collapsedKeys(view.state);
 		const doc = deckToDoc(src);
-		view.updateState(EditorState.create({ doc, plugins: view.state.plugins }));
+		view.updateState(EditorState.create({ doc, selection: startSelection(doc), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
 		// logs, so a throw from the restore below would leave `updateState` already landed on
 		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
@@ -2349,6 +2367,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
+					selection: startSelection(doc),
 					plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined), {
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
