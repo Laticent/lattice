@@ -123,7 +123,7 @@ test('a chart kernel that will not load says so, rather than drawing the chart a
 const BAR_DECK = '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n';
 const CALLOUT = '\n`@callout{[{South led, for=South}]}`\n';
 
-test('@smoke a chart with no callout does not fetch the callout layer, and one with a callout does and draws it', async ({ page }) => {
+test('@smoke @webkit-tablet @gecko a chart with no callout does not fetch the callout layer, and one with a callout does and draws it', async ({ page }) => {
 	const requests = engineRequests(page);
 	await gotoStudio(page);
 	await typeDeck(page, BAR_DECK);

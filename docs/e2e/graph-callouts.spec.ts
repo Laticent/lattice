@@ -22,7 +22,7 @@ for (const [name, svg, deck, notes, shape] of [
 	['flowchart', 'svg.flowchart-svg', FLOW, '`@callout{[{Pages the secondary after five minutes, for=Page on-call}, {The slowest step, for=Mitigate}]}`', 'Page on-call'],
 	['state chart', 'svg.state-chart-edges', STATE, '`@callout{[{Two reviewers sign off here, for=Approved}, {Rollback is one click, for=Live}]}`', 'Approved'],
 ] as const) {
-	test(`@smoke a ${name} callout rings its shape and sets its note under the figure, in the live preview`, async ({ page }) => {
+	test(`@smoke @webkit-tablet @gecko a ${name} callout rings its shape and sets its note under the figure, in the live preview`, async ({ page }) => {
 		await gotoStudio(page);
 		await setEditorContent(page, deck);
 		await expect(live(page).locator(`${svg} [data-mark]`).first()).toBeAttached({ timeout: 30_000 });
