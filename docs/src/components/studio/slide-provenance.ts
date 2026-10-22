@@ -10,6 +10,7 @@
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
+import { DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 import { registerValue } from './deck-preset';
 import { getFrontMatter } from './front-matter';
 import { getClassTokens, setClassTokens } from './slide-directives';
@@ -257,11 +258,12 @@ export function setRule(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'rule-', RULE_VALUES, name);
 }
 
-// The chart finish (resolve-chart-finish.js). `off` is a real per-slide token here — it takes
-// one slide back to the shipped paint inside a finished deck — and also the deck default.
-const CHART_FINISH_VALUES = ['pigment', 'etch', 'tone', 'off'];
+// The chart finish (resolve-chart-finish.js). A look with no absent state, so the deck default is
+// `pigment` (DEFAULT_CHART_FINISH) and every value, the default included, is a real per-slide token:
+// a slide inside a `tone` deck can ask for `pigment`.
+const CHART_FINISH_VALUES = ['pigment', 'etch', 'tone'];
 export function chartFinishProvenance(chunk: string, source: string): Provenance {
-	return overrideProvenance(chunk, source, 'chart-finish', 'chart-finish-', CHART_FINISH_VALUES, 'off');
+	return overrideProvenance(chunk, source, 'chart-finish', 'chart-finish-', CHART_FINISH_VALUES, DEFAULT_CHART_FINISH);
 }
 export function setChartFinish(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'chart-finish-', CHART_FINISH_VALUES, name);

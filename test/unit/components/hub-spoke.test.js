@@ -777,7 +777,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
     const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
     for (const finish of ['pigment', 'etch', 'tone']) {
       for (let n = 1; n <= 8; n++) {
-        const re = new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.565 - l\\)`);
+        const re = new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.1791 - y\\)`);
         assert.match(css, re, `${finish} slot ${n}`);
       }
       assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*var\\(--hs-state-hue\\)`), `${finish} status`);
@@ -786,7 +786,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
 
   test('the icon picks its ink from the very body the finish gives its disc', () => {
     // Read both rules out of the generated sheet: the disc's `fill` and the icon's ink. Each arm of
-    // the disc's body must appear as the `oklch(from <arm> …)` the ink is computed from, so an edit
+    // the disc's body must appear as the `color(from <arm> xyz-d65 …)` the ink is computed from, so an edit
     // to a finish's disc level that forgets the icon fails here.
     const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
     const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -812,7 +812,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
       for (const [disc, icon] of pairs) {
         const body = decl(disc, 'fill');
         const ink = decl(icon, '--hs-icon-ink');
-        for (const arm of arms(body)) assert.ok(ink.includes(`oklch(from ${arm} clamp(`), `${icon}: ${ink} does not derive from ${arm}`);
+        for (const arm of arms(body)) assert.ok(ink.includes(`color(from ${arm} xyz-d65`), `${icon}: ${ink} does not derive from ${arm}`);
       }
     }
   });

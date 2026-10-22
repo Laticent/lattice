@@ -64,7 +64,13 @@ const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
 
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
-  pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[16, 0.54], [16, 0.37]], layered: 0.35, edge: 1, edgeBackdrop: 1 },
+  // `rampText` is the member's own span, [0, 1] (`--mix` as shipped, 18%→92% on a heatmap). Pigment is
+  // the DEFAULT finish, so it may not take a ramp's magnitude channel away: the earlier [16, 0.54] /
+  // [16, 0.37] band was cut when a cell's text ink was a fixed color and had to clear the top step, and
+  // it halved the top-to-empty contrast (3.54 → 1.92 light, 3.03 → 1.51 dark on indaco). The ink is
+  // now picked per cell (`inkOn`, behind the @supports below), so the band no longer has to protect it.
+  // tools/chart-finish-reach.mjs measures the span against the unfinished paint on every theme.
+  pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.14, edge: 1, edgeBackdrop: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
@@ -93,15 +99,35 @@ const F = {
 // `fill-opacity`, which a finish does not touch, so the shape keeps `deferred`).
 const STATUS_MARKS = [
   { sel: '.gantt-bar[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
+  // An UNSTATED gantt mark is the neutral mute ramp (gantt.styles.css: "no status means no status"),
+  // and it still wears the finish: a bar with no status beside bars that have one must not keep the
+  // member's own vertical gradient while its neighbors go flat.
+  { sel: '.gantt-bar:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
+  { sel: '.gantt-milestone:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false },
+  { sel: '.gantt-legend-swatch:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
   { sel: '.gantt-milestone[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false },
   { sel: '.gantt-legend-swatch[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
   { sel: ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
+  // An UNSTATED state tile is the neutral `--muted-mark` tile (state-chart.styles.css), and it keeps
+  // pace with the stated tiles beside it for the same reason as the gantt marks above. Its KEY has no
+  // unstated row on purpose: the only key swatches without a status are the SVG edge-style lines, and
+  // a `bg` rule would paint a box behind a line.
+  { sel: ':is(.state-node, .state-node-row):not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true, indexInk: true },
+  // The SVG shape the state chart's layout pass draws is the tile people see; the `<li>` above is its
+  // harness. An unstated shape keeps the member's `url(#sc-fill-0)` gradient unless a finish owns it too.
+  { sel: '.state-node-shape:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
   { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
   // A state chart's key is the shared graph key (`_chart-family/graph-key.js`, state chart v2):
   // its status swatch follows the state tiles it keys. Scoped to the state chart's figure, since
   // a flowchart's status shapes keep their paint under a finish and so must its key.
   { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
-  { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
+  // The progress fill's readout sits on its OWN plate (`.progress-pct`, progress.styles.css), so the
+  // text never lands on the body and the fill does not need a text level: `bears: false`. As `true`
+  // it took pigment's 40%/46% text level, which in dark mode is near-black against the slide. An
+  // UNSTATED bar is the categorical slot (cat 1) and wears the same finish as a stated one, so a
+  // chart never has one gradient bar among flat siblings.
+  { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false },
+  { sel: '.progress-fill:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false },
   { sel: '.chart-status[data-s]', hue: 'var(--chart-status-hue)', ink: 'var(--chart-status-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
   { sel: '.waterfall-bar[data-s="down"]', hue: 'var(--state-fail-hue)', ink: 'var(--state-fail-ink)', paint: 'fill', bears: false },
@@ -126,17 +152,30 @@ const ld = (a, b) => (a === b ? a : `light-dark(${a}, ${b})`);
 const pair = (hue, [l, d]) => ld(mix(hue, `${l}%`), mix(hue, `${d}%`));
 /**
  * The ink that clears a body, picked by the browser from the body's own color: black above
- * OKLCH L 0.565, white below it. At that lightness the two meet (relative luminance ~0.18), so
- * either side clears ~4.5:1 on ANY body — the only guarantee that holds across 33 themes, where
- * a fixed ink failed on some (--text-body on a 40% cuoio body read 2.62:1).
+ * CIE relative luminance Y 0.1791, white below it. That is the exact point where the two inks give
+ * the same contrast (both 4.58:1), so on ANY body the worse of the two is at least that. It is
+ * the only guarantee that holds across 33 themes, where a fixed ink failed on some (--text-body
+ * on a 40% cuoio body read 2.62:1).
+ *
+ * It switches on LUMINANCE, not OKLCH lightness. The first version used OKLCH L 0.565 as the
+ * midpoint, and L is not luminance for a saturated hue: a red body at L 0.571 took black ink at
+ * 4.31:1 where white gave 4.87:1 (onyx, heatmap top step), and the `* 999` blend zone around the
+ * switch returned a mid-grey ink on a body of about the same lightness: 1.003:1 on rgb(210 40 70).
+ * The slope is 1e6 so that zone is a rounding error of Y. Measured over a 52-per-channel sRGB grid
+ * (140,608 bodies): worst 4.582:1 here, 1.003:1 for the OKLCH form. The ink is grey, written as xyz
+ * (white is x 0.95047, y 1, z 1.08883 in D65) scaled by the switch.
  */
-const inkOn = (cell) => `oklch(from ${cell} clamp(0, (0.565 - l) * 999, 1) 0 0)`;
+const inkOn = (cell) => {
+  const k = 'clamp(0, (0.1791 - y) * 1000000, 1)';
+  return `color(from ${cell} xyz-d65 calc(0.95047 * ${k}) ${k} calc(1.08883 * ${k}))`;
+};
 /**
  * A rule that needs relative color, behind the @supports that proves the engine has it. The
- * condition is the ink's own expression, channel math included, not a bare `oklch(from red l c
- * h)`: an engine that parsed relative color but not the clamp on a channel would pass a bare
- * guard, apply the body and drop the ink (checker finding). Chrome 131 and WebKit 26 pass it;
- * Chrome 118 fails it.
+ * condition is the ink's own expression, channel math included, not a bare `color(from red xyz-d65
+ * x y z)`: an engine that parsed relative color but not the clamp on a channel would pass a bare
+ * guard, apply the body and drop the ink (checker finding). Checked in the real engines:
+ * Chromium 131, Firefox 142 and WebKit 26 pass it and pick white on rgb(205 60 63); Chrome 118
+ * predates relative color and fails it.
  */
 const SUPPORTS = `@supports (color: ${inkOn('red')})`;
 const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
@@ -363,10 +402,26 @@ function build() {
       if (s.bears && s.paint === 'bg') {
         const [l, d] = tone || name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
         decls.push(`color: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
+        // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
+        // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
+        // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
+        // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
+        if (s.indexInk) decls.push(`--state-index-ink: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
       }
       // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
       // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
       w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
+    }
+
+    // The SVG twin of the unstated tile's index numeral (the HTML one is set in the status row above). A
+    // numeral is a sibling <text> of its shape inside `.state-node-group`, so it cannot inherit from the
+    // shape: it is reached through its group, and picks its ink from the body the finish gave the tile.
+    {
+      const [l, d] = tone || name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+      const neutral = 'var(--muted-mark)';
+      w(supports(rule(name, '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t', [
+        `fill: ${ld(inkOn(mix(neutral, `${l}%`)), inkOn(mix(neutral, `${d}%`)))}`,
+      ])));
     }
 
     // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
@@ -377,6 +432,11 @@ function build() {
     const rampStroke = name === 'etch'
       ? [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke']
       : [];
+    // A finish whose text band IS the member's own span ([0, 1]: `--mix` as shipped) changes nothing about
+    // the cells, so it emits nothing for them and nothing for their values: the theme-solved ink
+    // (--heatmap-stepN-ink, ~100 hand-tuned declarations) keeps the cell it was solved for. Only pigment
+    // is the identity, and it is the default, so most decks never see a heatmap rule from a finish.
+    const memberSpan = f.rampText.every(([lo, k]) => lo === 0 && k === 1);
     for (const m of ramps) {
       // A ramp that prints its value takes the shorter text band (see `rampText`), as two
       // whole colors inside light-dark(), never a percentage.
@@ -385,6 +445,7 @@ function build() {
         [m.text, ld(rampAt(f.rampText[0], m.base), rampAt(f.rampText[1], m.base))],
       ]) {
         if (!classes.length) continue;
+        if (memberSpan && classes === m.text) continue;
         const cls = `:is(${classes.map((c) => `.${c}`).join(', ')})`;
         // A ramp that prints its value waits with its text (TEXT WAITS, above).
         const wrap = classes === m.text ? supports : (css) => css;
@@ -407,7 +468,7 @@ function build() {
     // shipped fill and the ink the theme solved for it.
     const STEP_MIX = [18, 36.5, 55, 73.5, 92];
     const textBand = f.rampText;
-    STEP_MIX.forEach((pct, i) => {
+    if (!memberSpan) STEP_MIX.forEach((pct, i) => {
       const at = ([lo, k]) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--heatmap-step${i + 1}, ${pct}%) * ${k}), var(--heatmap-base))`;
       w(supports(rule(name, `.heatmap-value[data-step="${i + 1}"]`, [
         `fill: ${ld(inkOn(at(textBand[0])), inkOn(at(textBand[1])))}`,
@@ -452,11 +513,23 @@ function build() {
     w('\n/* LAYERED — a flat alpha of the series body; the edge carries the series. */');
     for (const n of SLOTS) {
       const body = tone ? mix(ONE, `${TONE[n - 1]}%`) : pair(hueOf(n), f.body);
-      const alpha = tone ? String(Math.round((0.2 + 0.4 * (TONE[n - 1] / 92)) * 1000) / 1000) : String(f.layered);
+      // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
+      // translucent polygons at that strength stack to a mid-tone center that no ink can read a scale tick on
+      // (near-black on concrete's overlap measured 3.73:1, the unfinished paint 4.67:1). tools/chart-finish-reach.mjs
+      // RUNS holds it: no theme or mode may push a text run under its threshold that the unfinished paint cleared.
+      const alpha = tone ? String(Math.round((0.08 + 0.24 * (TONE[n - 1] / 92)) * 1000) / 1000) : String(f.layered);
       w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${tone ? notLeft : ''}`, [
         `fill: ${body}`, `fill-opacity: ${alpha}`, `stroke: ${tone ? ONE_INK : inkOf(n)}`,
       ]));
     }
+    // The radar's scale ticks sit in the CENTER, where every series polygon overlaps, and they are small
+    // muted text (`--text-muted`, 9px). The member's own fill is a gradient that is nearly clear there
+    // (stop-opacity 0.10 at the center); a finish's fill is FLAT, so the overlap builds up and the tick
+    // fell from 5.13:1 to 3.20:1 (pigment), 4.18:1 (etch) and 1.60:1 (tone) on indaco. Lowering the alpha
+    // enough to hold the tick would erase the polygons, so the tick takes the strongest ink instead.
+    // tools/chart-finish-reach.mjs RUNS measures it on every theme and mode.
+    w('\n/* The radar scale ticks sit on the overlap of every series, so they take the heading ink. */');
+    w(rule(name, '.radar-tick', ['fill: var(--text-heading)']));
 
     // ── the quadrant's zone tints ────────────────────────────────────────────
     // Furniture, not marks — but colored, so a finish that left them alone would leave four

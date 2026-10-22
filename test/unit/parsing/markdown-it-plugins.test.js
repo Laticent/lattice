@@ -28,6 +28,13 @@ const fitBerth = require('../../../lib/core/fit-berth');
 // Derived, not typed, so a fourth berth or a second rail cannot silently pass this.
 const BERTHS_PER_SLIDE = fitBerth.BERTHS.length + 1;
 
+/**
+ * The chart finish is stamped on EVERY section by deckClassPropagate's own pass (a look with no
+ * absent state: lib/core/resolve-chart-finish.js), so it is not one of the DECK class tokens the
+ * "adds nothing" cases below count. They assert the deck-wide registers, not that stamp.
+ */
+const noFinishStamp = (c) => !c.startsWith('chart-finish-');
+
 describe('markdown-it-plugins', () => {
   // Apply ONE plugin in isolation on the owned slide pipeline (markdown-it +
   // lib/engine/slides — the slide/directive tokenizer the
@@ -102,7 +109,7 @@ describe('markdown-it-plugins', () => {
     ].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.deepEqual(cls, ['title'], `expected only 'title'; got [${cls.join(', ')}]`);
+    assert.deepEqual(cls.filter(noFinishStamp), ['title'], `expected only 'title'; got [${cls.join(', ')}]`);
   });
 
   test('deckClassPropagate: handles space-separated multi-token deck class', () => {
@@ -251,7 +258,7 @@ describe('markdown-it-plugins', () => {
     const md = ['---', 'finish: sketchh', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.deepEqual(cls, ['title'], `unknown finish should add nothing; got [${cls.join(', ')}]`);
+    assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown finish should add nothing; got [${cls.join(', ')}]`);
   });
 
   test('deckClassPropagate: a per-slide finish-* OVERRIDES the deck finish (no two presets stacked)', () => {
@@ -330,7 +337,7 @@ describe('markdown-it-plugins', () => {
       const md = ['---', `claim: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
       const { html } = m.render(md);
       const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-      assert.deepEqual(cls, ['title'], `claim: ${v} should add nothing; got [${cls.join(', ')}]`);
+      assert.deepEqual(cls.filter(noFinishStamp), ['title'], `claim: ${v} should add nothing; got [${cls.join(', ')}]`);
     }
   });
 
@@ -395,7 +402,7 @@ describe('markdown-it-plugins', () => {
     const md = ['---', 'stamp: sael', 'tone: raill', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.deepEqual(cls, ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
+    assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
   });
 
   // ── deck-wide `spectrum:` register (white-label brand bar) ─────────────
@@ -411,7 +418,7 @@ describe('markdown-it-plugins', () => {
     }
     for (const v of ['on', 'nonsense']) {
       const cls = m.render(['---', `spectrum: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n')).html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-      assert.deepEqual(cls, ['title'], `spectrum: ${v} should add nothing; got [${cls.join(', ')}]`);
+      assert.deepEqual(cls.filter(noFinishStamp), ['title'], `spectrum: ${v} should add nothing; got [${cls.join(', ')}]`);
     }
   });
 
