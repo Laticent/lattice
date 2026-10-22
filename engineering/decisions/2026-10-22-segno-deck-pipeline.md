@@ -21,8 +21,14 @@ This note is the audit and the proposed design. Four decisions in § Decisions a
 
 ## What the audit measured
 
-All figures from this sandbox on 2026-10-22, Node 22, best of several runs. Reproduce with the
-scripts named in each row.
+All figures from this sandbox on 2026-10-22, Node 22, best of several runs. The method, to
+reproduce them: time `new MarkdownIt('commonmark', { html: true, breaks: true })` with `table`
+and `strikethrough` enabled, `parse(src, {})`, against `createEngine().render(src)` and
+`lintText(src)` (lib/authoring/lint.js) after three warm-up renders; count `parse` calls by
+wrapping `MarkdownIt.prototype.parse`, and normalizations by wrapping `String.prototype.replace`
+for the regex source `\r\n?`; profile lint with `node --cpu-prof` over 30 runs. The decks are
+`test/integration/baseline-decks/gallery.md` (59 KB), `examples/data-viz-gallery.md` (12 KB)
+and `examples/card-tags.md` (3 KB). P0 commits this as `parser:bakeoff:deck`.
 
 | Question | Answer |
 |---|---|
