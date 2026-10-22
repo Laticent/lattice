@@ -35,6 +35,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import MarkdownIt from 'markdown-it';
 import { Bench } from 'tinybench';
+import remoteRef from '../../lib/core/remote-ref.js';
 import latticeEngine from '../../lib/engine/index.js';
 import api from '../../lib/playground/index.js';
 
@@ -432,6 +433,7 @@ async function editTier() {
     // the engine re-parses and re-renders the whole document either way, so the
     // work measured is the same.
     const single = [];
+    const scans = [];
     let singleTypesets = 0;
     for (let i = 0; i < 15; i++) {
       const src = `${d.src}\n<!-- ${'e'.repeat(i + 1)} -->`;
@@ -439,10 +441,20 @@ async function editTier() {
       const t = process.hrtime.bigint();
       rawEngine.render(src, d.theme);
       single.push(Number(process.hrtime.bigint() - t) / 1e6);
+      // The Playground's other per-render cost: `renderDeck` scans the theme sheet for remote
+      // references (docs/src/playground/deck-render.js `webRefsInCss`). The sheet is the one the
+      // Playground hands it (`api.render`'s `css`, rebuilt as a new string each render), so a
+      // scan that is not memoized pays full price here on every key.
+      const sheet = api.render(src, d.theme).css;
+      const ts = process.hrtime.bigint();
+      remoteRef.webRefsInCss(sheet);
+      scans.push(Number(process.hrtime.bigint() - ts) / 1e6);
       if (i >= 5 && HAS_MATH_MEMO) singleTypesets += mathMemoStats().typesets - before; // skip warmup
     }
     single.sort((a, b) => a - b);
     const singleMs = single[Math.floor(single.length / 2)];
+    scans.sort((a, b) => a - b);
+    const scanMs = scans[Math.floor(scans.length / 2)];
     const typesetsPerKey = HAS_MATH_MEMO ? singleTypesets / 10 : null;
 
     // A burst: EDIT_BURST successive edits with no settle between them, the way a
@@ -458,18 +470,19 @@ async function editTier() {
       slides: d.slides,
       typesets: typesetsPerKey === null ? null : round2(typesetsPerKey),
       ms: singleMs,
+      scanMs,
       burstMs,
       burstTypesets,
     });
   }
 
   console.log('\n=== EDIT \u00b7 warm re-render per keystroke ===');
-  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}`);
+  console.log(`${'dataset'.padEnd(28)}${'ms/key'.padStart(9)}${'scan ms/key'.padStart(13)}${'typesets/key'.padStart(14)}${`burst ${EDIT_BURST} ms`.padStart(13)}${'burst typesets'.padStart(16)}`);
   for (const r of summary) {
     const tps = r.typesets === null ? 'n/a' : r.typesets.toFixed(1);
     const burst = r.burstTypesets === null ? 'n/a' : String(r.burstTypesets);
     console.log(
-      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}`,
+      `${r.dataset.padEnd(28)}${r.ms.toFixed(2).padStart(9)}${r.scanMs.toFixed(2).padStart(13)}${tps.padStart(14)}${r.burstMs.toFixed(1).padStart(13)}${burst.padStart(16)}`,
     );
   }
   return { summary };
@@ -1425,6 +1438,7 @@ function blessBaseline(summary, render, opts = {}) {
     typesets: s.typesets,
     burstTypesets: s.burstTypesets,
     ms: round2(s.ms),
+    scanMs: round2(s.scanMs),
     burstMs: round2(s.burstMs),
   }));
   // THE FLOWCHART TIER BLESSES ITS WORK COUNTS; `ms` is commentary, as in the edit tier.

@@ -350,3 +350,29 @@ after typing, took the reuse path while the full write was still loading, patche
 left the preview at an end of the deck. `reusableFrame` now also requires that the frame's document is the latest write
 and fully loaded. Measured on 200 slides, caret on 140: the preview ends at 70% of the deck beside the caret (before, it
 was pinned at the last slide).
+
+## Typing no longer rescans the theme CSS (2026-10-22, followup `2840-p3`)
+
+`renderDeck` asks `webRefsInCss(css)` which web hosts the engine sheet reaches, on every render, to decide whether a restyle
+needs a new document. The sheet is the same theme and engine CSS between keystrokes, but it arrives as a new string each
+render, and the tokenizer behind the answer (`remoteCssRefs`) read all of it every time.
+
+`webRefsInCss` (`lib/core/remote-ref.js`) now remembers its last answer and returns it when the sheets compare equal by
+content. Every caller gets it: the preview write (`deck-preview.js`), the stage window and the single-slide render. One slot
+is enough, since a session shows one theme at a time. It hands out a copy of the answer, so a caller that edits the result
+cannot change the memo, and any change to either sheet (or a different number of sheets) rescans. The scan's result is
+unchanged for every input; only the repeat is skipped.
+
+Measured with `npm run bench`, same machine, median over 10 keystrokes on each bench deck (the edit tier's new `scan ms/key`
+column, which times `webRefsInCss` on the sheet `api.render` returns, as the Playground does):
+
+| deck | scan ms/key before | after |
+|---|---|---|
+| normal (jargon) | 35.30 | 0.01 |
+| charts | 34.09 | 0.01 |
+| math | 33.48 | 0.00 |
+| hub-spoke | 34.14 | 0.01 |
+
+The scan was larger than the engine's own render of the same key (12 to 31 ms). The first key after a theme or plugin
+change still pays one scan. The blessed baseline carries the column as commentary (`scanMs`), not a gate, for the reason the
+edit tier's `ms` is not one: a wall clock would be flaky in the merge train.

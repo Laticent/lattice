@@ -148,6 +148,23 @@ test('a subdomain reference the rewrite cannot reach takes that host\'s wildcard
   assert.match(subresourceCspPolicy({ webOrigins: allowed, blocked: other.blocked }), /https:\/\/\*\.picsum\.photos/);
 });
 
+test('webRefsInCss: an unchanged sheet is not rescanned, a changed one is, and callers cannot edit the memo', () => {
+  const { webRefsInCss } = require('../../../lib/core/remote-ref.js');
+  const a = '.x{background:url(https://one.example/a.png)}';
+  const b = '.x{background:url(https://two.example/a.png)}';
+  const first = webRefsInCss(a, '');
+  // Same text in a NEW string (the Playground rebuilds its sheet every render) gives the same answer.
+  assert.deepEqual(webRefsInCss(`${a.slice(0, 5)}${a.slice(5)}`, ''), first);
+  first[0].origin = 'https://tampered.example';
+  first.push({ url: 'x', origin: 'https://extra.example', kind: 'css' });
+  assert.deepEqual(webRefsInCss(a, '').map((r) => r.origin), ['https://one.example']);
+  // A changed sheet, a changed second sheet and a different sheet count all rescan.
+  assert.deepEqual(webRefsInCss(b, '').map((r) => r.origin), ['https://two.example']);
+  assert.deepEqual(webRefsInCss(b, a).map((r) => r.origin), ['https://two.example', 'https://one.example']);
+  assert.deepEqual(webRefsInCss(b).map((r) => r.origin), ['https://two.example']);
+  assert.deepEqual(webRefsInCss(), []);
+});
+
 test('the spellings the HTML parser reads as a fetch are blocked too', () => {
   // `/` separates attributes; `&colon;` is a colon; an unquoted style still styles.
   for (const [html, n] of [

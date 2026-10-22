@@ -4,50 +4,50 @@
   "tolerancePct": 12,
   "calibration": {
     "probe": "calibration (markdown-it)",
-    "ms": 3.32,
-    "rmePct": 2.54
+    "ms": 2.2,
+    "rmePct": 0.98
   },
   "blessedOn": {
     "node": "v22",
     "platform": "linux/x64",
     "cpus": 4,
-    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
+    "cpu": "Intel(R) Xeon(R) Processor"
   },
   "datasets": {
     "normal (jargon)": {
       "slides": 58,
-      "index": 24.67,
-      "ms": 82.02,
-      "slidesPerSec": 707,
-      "rmePct": 6.82
+      "index": 27.89,
+      "ms": 61.41,
+      "slidesPerSec": 944,
+      "rmePct": 2.06
     },
     "charts": {
-      "slides": 25,
-      "index": 24.1,
-      "ms": 80.12,
-      "slidesPerSec": 312,
-      "rmePct": 7.33
+      "slides": 29,
+      "index": 29.97,
+      "ms": 65.99,
+      "slidesPerSec": 439,
+      "rmePct": 2.38
     },
     "math": {
       "slides": 17,
-      "index": 20.25,
-      "ms": 67.3,
-      "slidesPerSec": 253,
-      "rmePct": 4.82
+      "index": 49.52,
+      "ms": 109.04,
+      "slidesPerSec": 156,
+      "rmePct": 0.8
     },
     "stress (jargon x6)": {
       "slides": 348,
-      "index": 68.73,
-      "ms": 228.48,
-      "slidesPerSec": 1523,
-      "rmePct": 13.51
+      "index": 93.35,
+      "ms": 205.53,
+      "slidesPerSec": 1693,
+      "rmePct": 7.37
     },
     "hub-spoke (gallery + tiered x3)": {
       "slides": 17,
-      "index": 26.17,
-      "ms": 87,
-      "slidesPerSec": 195,
-      "rmePct": 3.87
+      "index": 31.07,
+      "ms": 68.41,
+      "slidesPerSec": 248,
+      "rmePct": 3.75
     }
   },
   "printDatasets": {
@@ -152,29 +152,33 @@
       "slides": 58,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 33.54,
-      "burstMs": 407.63
+      "ms": 25.03,
+      "scanMs": 0.01,
+      "burstMs": 302.96
     },
     "edit · charts": {
-      "slides": 25,
+      "slides": 29,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 33.32,
-      "burstMs": 406.52
+      "ms": 29.55,
+      "scanMs": 0.01,
+      "burstMs": 355.39
     },
     "edit · math": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 14.02,
-      "burstMs": 167.68
+      "ms": 12.89,
+      "scanMs": 0.01,
+      "burstMs": 147.67
     },
     "edit · hub-spoke (gallery + tiered x3)": {
       "slides": 17,
       "typesets": 0,
       "burstTypesets": 0,
-      "ms": 40.75,
-      "burstMs": 478.82
+      "ms": 31.77,
+      "scanMs": 0.01,
+      "burstMs": 402.15
     }
   },
   "flowchartDatasets": {
@@ -183,28 +187,28 @@
       "routed": 12,
       "bounded": 41,
       "hits": 1,
-      "ms": 153.23
+      "ms": 115.03
     },
     "flowchart · same calls, no cache": {
       "calls": 10,
       "routed": 14,
       "bounded": 44,
       "hits": 0,
-      "ms": 172
+      "ms": 124.43
     },
     "state chart · stress deck page (17 calls)": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 687.73
+      "ms": 548.97
     },
     "state chart · same calls, no cache": {
       "calls": 17,
       "routed": 23,
       "bounded": 70,
       "hits": 0,
-      "ms": 700.33
+      "ms": 543.18
     }
   },
   "collageDatasets": {
@@ -212,43 +216,43 @@
       "photos": 4,
       "arrangements": 52,
       "scored": 5,
-      "ms": 0.25,
-      "p95": 0.4
+      "ms": 0.1,
+      "p95": 0.27
     },
     "collage pack · 5 photos, free": {
       "photos": 5,
       "arrangements": 472,
       "scored": 13,
-      "ms": 0.79,
-      "p95": 1.57
+      "ms": 0.41,
+      "p95": 1.07
     },
     "collage pack · 6 photos, free": {
       "photos": 6,
       "arrangements": 5484,
       "scored": 1114,
-      "ms": 10.51,
-      "p95": 13.51
+      "ms": 6.66,
+      "p95": 7.26
     },
     "collage pack · 6 photos, ordered": {
       "photos": 6,
       "arrangements": 394,
       "scored": 62,
-      "ms": 0.52,
-      "p95": 1.39
+      "ms": 0.29,
+      "p95": 0.49
     }
   },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4946,
-      "ratio": 2.868,
-      "shippedNs": 28.45,
-      "kernelNs": 10.03
+      "ratio": 2.761,
+      "shippedNs": 23.54,
+      "kernelNs": 8.53
     },
     "inline · directives / retired kernel": {
       "spans": 368,
-      "ratio": 36.872,
-      "shippedNs": 1789.29,
-      "kernelNs": 53.08
+      "ratio": 35.774,
+      "shippedNs": 1333.39,
+      "kernelNs": 41.56
     }
   }
 }
