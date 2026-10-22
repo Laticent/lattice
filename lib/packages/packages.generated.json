@@ -6,7 +6,7 @@
     "component": 79,
     "finish": 9,
     "motion": 4,
-    "plugin": 13
+    "plugin": 14
   },
   "packages": [
     {
@@ -1544,6 +1544,19 @@
         "inline.js",
         "manifest.json",
         "styles.css",
+        "syntax.mjs"
+      ],
+      "code": true
+    },
+    {
+      "type": "plugin",
+      "name": "video",
+      "path": "lib/plugins/video",
+      "roles": [
+        "docs.md",
+        "fixtures.md",
+        "inline.js",
+        "manifest.json",
         "syntax.mjs"
       ],
       "code": true

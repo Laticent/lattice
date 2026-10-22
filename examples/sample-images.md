@@ -92,8 +92,7 @@ The image layout reads the photo's shape from the file in `lib/samples/`, so the
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=dQw4w9WgXcQ
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", poster="sample:video-poster.svg"}`
 
 ---
 

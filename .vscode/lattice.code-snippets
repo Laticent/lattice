@@ -1333,8 +1333,7 @@
       "",
       "One screen, one story — the fastest way to see the product work.",
       "",
-      "- https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-      "- A guided walkthrough `caption`"
+      "`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"A guided walkthrough\"}`"
     ],
     "description": "A video as a static, PDF-safe embed: a poster that links to the clip, a play badge, the provider's name, and a scannable QR to the same URL — never a live iframe."
   },

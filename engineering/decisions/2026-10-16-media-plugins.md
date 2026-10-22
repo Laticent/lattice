@@ -990,3 +990,26 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   service `fileConfine`) with the stand-in, and names it on stderr, which the bake forwards to the CLI's. Measured on the real page: before the guard both the outside and the
   inside picture were requested; after it the outside one is refused and the inside one loads (`mermaid-worker-confine.test.js`). The
   CLI also builds its file URLs with `pathToFileURL` now; `export-confine-windows` runs it on a Windows runner (run 39266738239), after `npm run build` was made to pass there.
+- 2026-10-22: slice 2 started (branch `claude/video-plugin`), built to §4.5 before #2725's `checkSlideTextAddressReaders` is on `main`, so
+  there is no `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` row to delete yet; whoever merges second removes the `video` row if #2725 lands one.
+  Landed: `lib/plugins/video/` (`@video{"https://…", title=, description=, poster=}`), declared `named` and `address` in its manifest.
+  - **The old pass is gone.** `lib/transformers/video.js` no longer reads bullets from the rendered page or the runtime DOM. It lays out the
+    figure the plugin drew (found by `data-lattice-media="video"`), adds the `qr` tile from the figure's own address after re-running
+    `detectProvider` on it, and is `readsText: false`, so `rebuilt-classes.js` no longer denies `video` slides to a plugin's fence. Poster
+    painting selects only `figure[data-lattice-media="video"]` and skips `[data-lattice-plugin]`; so do the Studio's video overlay and the
+    Reading view's video card.
+  - **Marker: `data-lattice-media`, as §4.4 decided,** not `data-lattice-figure` as the continuation brief for this slice wrote. The brief's
+    rule 3 (a browser half touches only its own figure) holds either way; the note's reason (author markup can forge `data-lattice-figure`
+    and the diagram rules match it with no value check) still stands.
+  - **Deviation, for the owner: no `>` sigil yet.** Decision 3 gives video `>`. Widening Segno's TAGS touches the hand-tuned char-code fast
+    path in `notation.ts` and a published library, and needs the proof that no deck reads an inline code span starting with `>`. This slice
+    adds the manifest field `named` (reached only as `@video{…}`; the bare record `{…}` is a pill's) instead, so `>` is a later, separate
+    change that adds an alias to an existing kind.
+  - **A block kind.** A video is a figure, so a lone `@video{…}` span leaves its paragraph (markdown-it core pass, `renderBlockHtml`); in
+    running text it stays code and `lint:deck` says `video-not-alone`. §4.3's "inline at text height" for video is not built.
+  - **The note's own example does not parse.** `@video{https://youtu.be/dQw4w9WgXcQ?t=90, …}` fails in Segno: `=` ends a bare value. The
+    address is quoted in every example here, and Segno's diagnostic offers the fix. Worth a line in §4.7.
+  - **Migration.** `lib/core/video-migrate.js` (shared by `lint:deck --fix`'s `video-bullet` and the sweep of the five shipped decks).
+    Rendered before and after, the five decks are byte-identical once the new `data-lattice-*` attributes are dropped from both sides.
+  - **Not built in this slice:** the `file` provider row, the poster chain's later links, `description` narration, the Studio overlay for a
+    `<video>`, oEmbed title offers, and the demo deck for the new syntax (the migrated `examples/video.md` is the demo until it is).

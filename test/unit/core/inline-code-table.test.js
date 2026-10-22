@@ -56,7 +56,7 @@ function corpusSpans() {
   // The pill is a plugin row too, but it is the one the hand list DID draw, so it stays in the corpus.
   const pluginReads = (t) => KINDS.some((k) => k.plugin && !k.untagged && (k.resolve(t) || k.diagnose(t)));
   // The named form (`@spark{…}`, the inline door) is new too, and the alias test below pins it.
-  const named = (t) => table.canonicalText(t.replace(/^\\/, '')) !== t.replace(/^\\/, '');
+  const named = (t) => { const bare = t.replace(/^\\/, ''); return table.canonicalText(bare) !== bare || table.NAMED_KINDS.some((k) => bare.startsWith(`@${k.name}{`)); };
   return [...spans].filter((s) => !/\bicon\s*=/.test(s) && !pluginReads(s) && !pluginReads(s.replace(/^\\/, '')) && !named(s));
 }
 

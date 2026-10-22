@@ -6622,6 +6622,14 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'that pass would have fired, and "no second value appeared" is an absence no poll '
        + 'expresses.',
   },
+  {
+    file: 'docs/e2e/plugin-video-attack.spec.ts', ms: 3000, count: 1,
+    why: 'ONE ABSENCE ASSERTION: a zip plugin\'s drawing on a video slide must NOT be turned into a poster, link, icon or request by '
+       + 'the runtime\'s mirror or its poster painting. There is no signal for a pass that must not act; the runtime re-runs on a '
+       + '150 ms trailing debounce after the plugin\'s output lands, and 3000 ms covers several such runs. The same test\'s CONTROL '
+       + '(the page itself requests the same host and the log must see it) proves the probe can see a request, and its POSITIVE '
+       + 'arms (the plugin drew, the author\'s own figure is whole) prove the page was settled enough to act.',
+  },
 ];
 
 // Extensions Playwright's default testMatch admits. NOT `listSourceFiles`, which omits

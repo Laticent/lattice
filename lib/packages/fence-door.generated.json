@@ -194,12 +194,6 @@
       ]
     },
     {
-      "pass": "video",
-      "classes": [
-        "video"
-      ]
-    },
-    {
       "pass": "cycle",
       "classes": [
         "cycle"

@@ -43,9 +43,10 @@ describe('the generated fence-door data', () => {
   test('a function built from the generated list answers as the live one does, on every class set the registry names', async () => {
     const { rebuiltFromAlternatives } = await load();
     const studio = rebuiltFromAlternatives(DATA.rebuilt);
-    const sets = [[], ['content'], ['dark'], ['video', 'dark'], ['closing', 'qr'], ['closing'], ...DATA.rebuilt.map((a) => a.classes), ...DATA.rebuilt.map((a) => [...a.classes, 'extra'])];
+    const sets = [[], ['content'], ['dark'], ['contact', 'dark'], ['closing', 'qr'], ['closing'], ...DATA.rebuilt.map((a) => a.classes), ...DATA.rebuilt.map((a) => [...a.classes, 'extra'])];
     for (const set of sets) assert.equal(studio(set), rebuiltBy(set), `class set ${JSON.stringify(set)}`);
-    assert.equal(studio(['video']), 'video');
+    assert.equal(studio(['contact']), 'contact');
+    assert.equal(studio(['video']), null, 'a video slide reads no text into an address: nothing to deny');
     assert.equal(studio(['split-panel']), null, 'a layout-only set denies nothing');
   });
 });

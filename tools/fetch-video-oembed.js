@@ -20,6 +20,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { detectProvider } = require('../lib/core/video-providers.mjs');
+const videoPlugin = require('../lib/plugins/video/video.inline.js');
 
 // Minimal GET → JSON. Injectable so tests never hit the network.
 function httpGetJson(url) {
@@ -81,10 +82,11 @@ function download(url, dest) {
 
 // Extract the bare video-URL bullets from a deck's markdown source.
 function videoUrlsFromDeck(src) {
+  // The author's own `@video{…}` records, read from the deck's source, never from a bullet or a slide's text.
   const urls = [];
-  for (const line of src.split(/\r?\n/)) {
-    const m = line.match(/^\s*-\s+(\S+)\s*$/);
-    if (m && detectProvider(m[1])) urls.push(m[1]);
+  for (const m of src.matchAll(/`(@video\{[^`]*\})`/g)) {
+    const f = videoPlugin.read(m[1].slice('@video'.length));
+    if (f) urls.push(f.provider.url);
   }
   return [...new Set(urls)];
 }

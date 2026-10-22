@@ -122,6 +122,11 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/struck-elevation.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['examples/studio-present.md', 'a kpi slide: a `{status}` pill ends each tile row'],
   ['kit/Sample-Deck.md', 'the kit sample deck: a kpi slide ends each tile row with a `{status}` pill'],
+  ['examples/video.md', 'video slides: the clip is one `@video{…}` record on its own line'],
+  ['examples/video-title-in-card.md', 'video slides: the clip is one `@video{…}` record on its own line'],
+  ['examples/sample-images.md', 'a video slide: the clip is one `@video{…}` record on its own line'],
+  ['lib/components/imagery/video/video.gallery.md', 'the video gallery: every slide names its clip with a `@video{…}` record'],
+  ['lib/components/imagery/imagery.gallery.md', 'the imagery family gallery: its video slide names the clip with a `@video{…}` record'],
   ['examples/actors-dense-roster.md', 'actors: a `{name}` pill ends each responsibility row'],
   ['test/integration/baseline-decks/gallery.md', 'the baseline gallery: cards-grid titles with a `{version}` pill, logo-wall marks with a `{tier}` pill'],
 ]);

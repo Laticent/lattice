@@ -1578,8 +1578,8 @@ async function renderedSections(md) {
 
 for (const [name, md, eyebrow, heading] of [
 	['wifi (.qr-head)', '<!-- _class: wifi -->\n\n`Offsite · Room Wi-Fi`\n\n## The war room has its own network.\n\n- Offsite-Guest `ssid`\n- boardroom2026 `password`\n', 'Offsite · Room Wi-Fi', 'The war room has its own network.'],
-	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n', 'Product tour', 'Watch the tour.'],
-	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n', 'Product tour', 'Watch the product tour.'],
+	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n', 'Product tour', 'Watch the tour.'],
+	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n', 'Product tour', 'Watch the product tour.'],
 ]) {
 	test(`eyebrow in a card head: ${name} projects the eyebrow as the kicker`, async () => {
 		const secs = await renderedSections(md);
@@ -1606,8 +1606,8 @@ test('wifi card narration speaks the network name and never the password', async
 // sentence that narration still read (followup 2329-p3). Both card shapes carry it: `.video-lead`
 // in `companion`, a paragraph beside `.video-head` by default. Rendered through the real engine.
 for (const [name, md] of [
-	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'],
-	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'],
+	['video companion (.video-lead)', '<!-- _class: video companion -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'],
+	['video (.video-head)', '<!-- _class: video -->\n\n`Product tour`\n\n## Watch the product tour.\n\nOne screen, one story.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'],
 ]) {
 	test(`video lead paragraph: ${name} projects it once, after the heading and before the poster`, async () => {
 		const { articleHtml } = project(await renderedSections(md));
@@ -1715,7 +1715,7 @@ test("math: an inline equation's glyph svg does not displace the display equatio
 // under `section.video` — re-hosted as a breakout figure it read as a bare link left of the column
 // with the heading repeated under it (followup 2350-p3). It projects as an in-column link card.
 test('video: a placeholder poster projects as an in-column link card, not a breakout figure', async () => {
-	const { articleHtml } = project(await renderedSections('<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n'));
+	const { articleHtml } = project(await renderedSections('<!-- _class: video -->\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n'));
 	assert.match(articleHtml, /<figure class="lp-video"><a class="lp-video-link" href="https:\/\/www\.youtube\.com\/watch\?v=aqz-KE-bpKQ" target="_blank" rel="noreferrer noopener"><span class="lp-video-play" aria-hidden="true"><\/span><span class="lp-video-label">Watch on YouTube<\/span><\/a><\/figure>/, articleHtml);
 	assert.doesNotMatch(articleHtml, /lp-figure/, 'no breakout figure');
 	assert.equal(articleHtml.split('Watch the tour.').length - 1, 1, 'the heading is not repeated as a caption');
@@ -1724,7 +1724,7 @@ test('video: a placeholder poster projects as an in-column link card, not a brea
 // The poster is a CSS background on a tile, never an `<img>`: the player's CSP (`img-src data:`)
 // blocks a remote poster, and a blocked `<img>` painted a broken-image icon in the card.
 test("video: a poster becomes the card's thumbnail tile and the author's caption its figcaption", async () => {
-	const md = '<!-- _class: video -->\n\n## Watch the tour.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- https://example.com/poster.jpg `poster`\n- Two minutes, no sound needed. `caption`\n';
+	const md = '<!-- _class: video -->\n\n## Watch the tour.\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Two minutes, no sound needed.", poster="https://example.com/poster.jpg"}`\n';
 	const { articleHtml } = project(await renderedSections(md));
 	assert.match(articleHtml, /<a class="lp-video-link"[^>]*><span class="lp-video-thumb" style="background-image:url\('https:\/\/example\.com\/poster\.jpg'\)" aria-hidden="true"><span class="lp-video-play" aria-hidden="true"><\/span><\/span>/, articleHtml);
 	assert.doesNotMatch(articleHtml, /<img/, 'no <img> for the poster');
@@ -1734,7 +1734,7 @@ test("video: a poster becomes the card's thumbnail tile and the author's caption
 
 test('video card: a non-http poster or link is dropped, and a quote cannot leave the attribute', () => {
 	const card = (href, style) => project(sections(
-		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="${href}" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
 	)).articleHtml;
 	assert.doesNotMatch(card('javascript:alert(1)', ''), /lp-video/, 'a javascript: link projects no card');
 	assert.doesNotMatch(card('https://ok.example/v', "background-image:url('javascript:alert(1)')"), /lp-video-thumb/, 'a javascript: poster projects no thumbnail');
@@ -1742,12 +1742,22 @@ test('video card: a non-http poster or link is dropped, and a quote cannot leave
 	assert.match(card('https://ok.example/v?a=&quot;onmouseover=x', ''), /href="https:\/\/ok\.example\/v\?a=&quot;onmouseover=x"/);
 });
 
+test('video card: a figure inside a plugin\'s drawing, or one without the plugin\'s marker, projects no card', () => {
+	const stage = (inner) => project(sections(
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2>${inner}</div></section>`,
+	)).articleHtml;
+	const fig = '<figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://attacker.example/?d=secret"><span class="video-provider">Watch on X</span></a></figure>';
+	assert.doesNotMatch(stage(`<div data-lattice-plugin="x">${fig}</div>`), /lp-video/, 'a plugin\'s drawing is hostile text: no card is BUILT from it');
+	assert.doesNotMatch(stage(fig.replace(' data-lattice-media="video"', '')), /lp-video/, 'a figure the video plugin did not stamp is not read');
+	assert.match(stage(fig), /lp-video/, 'control: the plugin\'s own figure still projects');
+});
+
 // A self-contained player embeds the poster before the article is built (lib/export/
 // inline-url-media.mjs), so the card must take the `data:image/…` it now carries: `safeHref`
 // alone dropped it and the article lost the picture the slide showed (followup 2358-p2).
 test('video card: an embedded data:image poster keeps its thumbnail; other data: types do not', () => {
 	const card = (style) => project(sections(
-		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed"><a class="video-poster" href="https://ok.example/v" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
+		`<section data-lattice-slide class="video" data-class="video"><div class="cell-stage"><h2>V</h2><figure class="video-embed" data-lattice-media="video"><a class="video-poster" href="https://ok.example/v" style="${style}"><span class="video-provider">Watch on X</span></a></figure></div></section>`,
 	)).articleHtml;
 	assert.match(card("background-image:url('data:image/jpeg;base64,/9j/AA==')"), /<span class="lp-video-thumb" style="background-image:url\('data:image\/jpeg;base64,\/9j\/AA=='\)"/);
 	assert.doesNotMatch(card("background-image:url('data:text/html;base64,PHA+')"), /lp-video-thumb/, 'a non-image data: URI projects no thumbnail');

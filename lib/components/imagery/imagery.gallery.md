@@ -73,5 +73,4 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind"}`

@@ -26,9 +26,7 @@ Every composition now sits in the frame's stage, with its own title beside its o
 
 The running header and this slide's footer stay on the slide. The rebuild used to drop both.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -40,9 +38,7 @@ The running header and this slide's footer stay on the slide. The rebuild used t
 
 The QR column fits the stage cell, so the poster no longer rides up to the top edge.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- The full 90-second tour `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="The full 90-second tour", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -52,9 +48,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 ## An exhibit, centered on its matte.
 
-- https://vimeo.com/1084537
-- The masthead band no longer claims this title, so the clip is no longer inside the band. `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://vimeo.com/1084537", title="The masthead band no longer claims this title, so the clip is no longer inside the band.", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -64,9 +58,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 ## The exhibit with its code beside the placard.
 
-- https://vimeo.com/1084537
-- The reference onboarding walkthrough, contained on its matte. `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://vimeo.com/1084537", title="The reference onboarding walkthrough, contained on its matte.", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -78,9 +70,7 @@ The QR column fits the stage cell, so the poster no longer rides up to the top e
 
 The default composition keeps the title and the framing paragraph above the poster.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- A guided walkthrough `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="A guided walkthrough", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -92,9 +82,7 @@ The default composition keeps the title and the framing paragraph above the post
 
 Nothing about the fix depends on the palette. The card and its cells carry through unchanged.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind", poster="sample:video-poster.svg"}`
 
 ---
 

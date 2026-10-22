@@ -6,7 +6,7 @@
 
 **Tags** `visual` · `showcase` · `pitch`
 
-Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the URL as a bare bullet; add an optional `caption` and an optional `poster` override. Provider is auto-detected.
+Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the clip as one `@video{"https://…", title="…", poster=…}` record on a line of its own (the video plugin draws it); the provider is auto-detected.
 
 ## Agent contract
 
@@ -17,8 +17,8 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 | Slot | Selector | Required | Description |
 |---|---|---|---|
 | `heading` | `h2` | no | Optional heading — the so-what of the clip, not 'Video'. |
-| `video` | `.video-embed` | yes | The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR. |
-| `caption` | `.video-embed figcaption` | no | Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax). |
+| `video` | `.video-embed` | yes | The clip, written as a `@video{"https://…"}` record on a line of its own. The video plugin draws the poster, play badge and provider label from that record; the layout adds the QR on a `qr` slide. |
+| `caption` | `.video-embed figcaption` | no | Optional: the record's `title="…"`, shown under the poster. |
 
 ### Variant decision rule
 
@@ -29,20 +29,21 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 ### Common mistakes
 
-- **The caption or poster bullet has no trailing `` `caption` ``/`` `poster` `` inline-code key.** The transform only recognizes a caption/poster bullet by its trailing key — a plain bullet with no key is invisible to the payload resolver, so the caption never appears and the poster override is silently dropped.
-- **Authoring more than one URL bullet, expecting a second clip or a contact-sheet grid.** The transform stops at the FIRST bullet whose text or link a provider recognizes — any additional URL bullets are silently ignored, not turned into a second video; only one clip renders per section.
+- **The clip is still a bare bullet, with `caption` and `poster` bullets beside it.** The bullet form is gone: the address comes only from your own `@video{…}` record, never from slide text. `lint:deck --fix` rewrites the bullets into the record (`video-bullet`).
+- **Writing a second `@video{…}` expecting a second clip or a contact-sheet grid.** The layout seats one clip; the first record on the slide is the one it lays out.
+- **The address holds `=` or `,` unquoted (`@video{https://youtu.be/x?t=90}`).** Quote it: `@video{"https://youtu.be/x?t=90"}`. Segno names the fix.
 
 ## When to use
 
 - **A clip makes the point better than a screenshot.** A product walkthrough, a customer testimonial, a demo reel — anywhere motion carries the argument. The slide shows a clean poster; the room scans the QR (or clicks it in the HTML/PDF) to watch.
-- **The URL is all you have to write.** Paste the YouTube / Vimeo / TikTok / Instagram link as a bare bullet; the provider is detected and the QR is generated for you. Add a `poster` bullet only when you want a specific still (required for Instagram, whose thumbnails aren't fetchable).
+- **The URL is all you have to write.** Write the YouTube / Vimeo / TikTok / Instagram link in one `@video{…}` record; the provider is detected and the QR is generated for you. Add `poster=…` only when you want a specific still (required for Instagram, whose thumbnails aren't fetchable).
 - **Closing / hand-off slides.** A 'watch the full demo' or 'see the launch film' send-off pairs a poster with a scannable code the audience takes with them — the same pattern as the QR closing/divider variants.
 
 ## When NOT to use
 
 - **Expecting it to autoplay in the PDF.** A PDF is paper — it can't play video, and the engine bars iframes for security. `video` is a poster + scannable link by design. If you need in-app playback, that's a separate interactive surface, not a boardroom deck.
 - **A wall of caption.** The caption is one line — 'Scan to watch', a title, a runtime. If you're writing a paragraph about the video, put it in a `content` slide and drop the clip in as a supporting `video`.
-- **Instagram with no poster.** Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster` bullet falls back to a plain placeholder tile. Author a `poster` for a real still.
+- **Instagram with no poster.** Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster=` word falls back to a plain placeholder tile. Author a `poster` for a real still.
 
 ## Authoring
 
@@ -53,8 +54,7 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 One screen, one story — the fastest way to see the product work.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- A guided walkthrough `caption`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="A guided walkthrough"}`
 ```
 
 ## Variants (component-specific)
@@ -70,9 +70,7 @@ The player beside the claim it proves.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind", poster="sample:video-poster.svg"}`
 ```
 
 ### `gallery` — gallery
@@ -84,9 +82,7 @@ A contained, matted exhibit.
 
 ## gallery mats the player like an exhibit.
 
-- https://vimeo.com/1084537
-- The reference onboarding walkthrough, contained on its matte. `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://vimeo.com/1084537", title="The reference onboarding walkthrough, contained on its matte.", poster="sample:video-poster.svg"}`
 ```
 
 ### `qr` — qr
@@ -100,9 +96,7 @@ Adds a scannable code; combines with any look.
 
 The full 90-second tour — scan to open it on your phone.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Scan to watch `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Scan to watch", poster="sample:video-poster.svg"}`
 ```
 
 ## Universal modifiers

@@ -157,6 +157,14 @@
                 "type": "boolean",
                 "description": "In-tree and EMBEDDED plugins only: the kind is the bare record `{…}` with no tag character (a pill). At most one kind in the whole registry is untagged. The row declares its own `lead` and `alias` in `<name>.inline.js`, and the dispatcher keeps it where the first-party pill row sat, between the state marks and the sparks."
               },
+              "named": {
+                "type": "boolean",
+                "description": "In-tree only: the kind has no short alias and is called only as `@kind{…}` (a kind whose `{…}` record would collide with the pill's bare record, or whose tag Segno does not yet carry). The row reads the bare record `{…}` the host hands it after peeling `@kind`, and is never asked about a span that does not open with `@`. Declares no `sigil`."
+              },
+              "address": {
+                "type": "boolean",
+                "description": "In-tree only: the kind turns its record into an ADDRESS a viewer's browser loads (a video embed, a poster, a code). It is resolved on the markdown-it token path only, from the author's own span, and the runtime's DOM mirror never dispatches it, so a plugin that writes `<code>@kind{https://…}</code>` into its drawing gets nothing (engineering/decisions/2026-10-16-media-plugins.md § 4.5). Its `element` is never called."
+              },
               "slot": {
                 "type": "object",
                 "description": "Zip: the kind's fields as a Segno slot spec (the shape a component's `segno` block uses, lib/core/segno-spec.js). The host reads each span's record with it and hands the renderer `fields`; lint, autocomplete and Compose read it without running code. A span whose record does not read is not drawn. Bounded (code-shape.mjs `slotRefusal`) and compiled at import; pinned in the plugin's approval."
