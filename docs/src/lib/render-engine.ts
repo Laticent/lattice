@@ -26,7 +26,7 @@
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
-import { ensureCharts } from './ensure-charts';
+import { ensureCalloutLayer, ensureCharts } from './ensure-charts';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
@@ -136,6 +136,8 @@ export async function renderMarkdown(
 	// name load here, before the synchronous render. The single-file engine answers none needed.
 	// A load that fails REJECTS (a ChunkLoadError): a chart drawn as its source list would be wrong.
 	await ensureCharts(PG.chartsNeeded?.(rendered) ?? []);
+	// The callout layer's lane and markers (ensure-charts.ts): a deck that writes `@callout` loads them here.
+	await ensureCalloutLayer(PG.calloutsNeeded?.(rendered) ?? false);
 	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
@@ -150,7 +152,18 @@ export async function renderMarkdown(
 			withHook = opts;
 		}
 	}
-	const out = await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	// A callout the scan above did not see (one written through markup) makes the chart throw a ChunkLoadError and
+	// records the miss: load the layer and render once more, as for a chart kernel below. Anything else rethrows.
+	const draw = async () => {
+		try {
+			return await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+		} catch (e) {
+			if (!PG.takeMissingCallouts?.()) throw e;
+			await ensureCalloutLayer(true);
+			return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+		}
+	};
+	const out = await draw();
 	// The scan reads directive comments, and over every tracked deck it has never missed a chart the
 	// render drew. Should one ever slip past it, the dispatch recorded it: load it and render once more.
 	// The record is engine-wide, so a miss from a concurrent render can land here too; that costs one
@@ -158,5 +171,5 @@ export async function renderMarkdown(
 	const missed = PG.takeMissingCharts?.() ?? [];
 	if (!missed.length) return out;
 	await ensureCharts(missed);
-	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	return draw();
 }

@@ -187,9 +187,9 @@ describe('the readers list matches the kernels', () => {
     assert.deepEqual([...CALLOUT_READERS].sort(), adopters);
   });
 
-  test('every reader has a row in this file\'s contract table, or is the heatmap or the journey (each has its own suite)', () => {
+  test('every reader has a row in this file\'s contract table, or is the heatmap, the journey, the flowchart or the state chart (each has its own suite)', () => {
     const rows = new Set(CHARTS.map((c) => c.cls.split(' ')[0]));
-    for (const name of CALLOUT_READERS) if (name !== 'heatmap' && name !== 'journey') assert.ok(rows.has(name), `${name} has no row in CHARTS`);
+    for (const name of CALLOUT_READERS) if (!['heatmap', 'journey', 'flowchart', 'state-chart'].includes(name)) assert.ok(rows.has(name), `${name} has no row in CHARTS`);
   });
 });
 
