@@ -1469,9 +1469,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				if (done) return;
 				const n = view.state.doc.nodeAt(pos);
 				if (!n || n.type.name !== 'comment' || field.value === original) return finish();
-				const next = writeNote(n.attrs.text as string, field.value);
+				// A comment inside a quote or a list item is written with that container's prefix on every line, so a note there stays one line.
+				const nested = view.state.doc.resolve(pos).depth >= 2;
+				const next = nested && field.value.includes('\n') ? null : writeNote(n.attrs.text as string, field.value);
 				if (next === null) {
-					why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with an underscore word, or change its channel. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
+					why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
 					why.hidden = false;
 					return;
 				}
@@ -1543,6 +1545,9 @@ export function commentRunPlugin() {
 							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked), panelId), {
 								side: 1,
 								key: `cs-panel-${pos}-${node.attrs.text}`,
+								// Keys typed in the note field are the field's, not the document's (Enter would split a block, Mod-z undo the deck).
+								stopEvent: (e: Event) => e.target instanceof HTMLTextAreaElement,
+								ignoreSelection: true,
 							}),
 						);
 					}

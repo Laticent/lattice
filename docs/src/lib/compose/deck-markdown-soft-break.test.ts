@@ -1,9 +1,10 @@
-// @vitest-environment node
+// @vitest-environment jsdom
 // A soft line break inside a paragraph survives an edit: the engine draws each one as `<br>`.
 import fs from 'node:fs';
 import path from 'node:path';
+import { DOMSerializer, DOMParser as PMDOMParser } from 'prosemirror-model';
 import { describe, expect, it } from 'vitest';
-import { roundTripSlideProse } from './deck-markdown';
+import { parseSlideProse, proseSchema, roundTripSlideProse, serializeSlideProse } from './deck-markdown';
 import { parseDeck } from './deck-source';
 import { createTokenizer } from './raw-block';
 
@@ -70,5 +71,31 @@ describe('soft breaks across the shipped decks', () => {
 		}
 		expect(checked).toBeGreaterThan(50);
 		expect(bad).toEqual([]);
+	});
+});
+
+// Found by the independent checker: each of these was a defect in the first version of the node.
+describe('soft break edge cases', () => {
+	it('a two-line setext heading keeps its words, on one line', () => {
+		expect(rt('Quarterly results\nand outlook\n===')).toBe('# Quarterly results and outlook');
+		expect(rt('Quarterly results\nand outlook\n---')).toBe('## Quarterly results and outlook');
+	});
+	it('block syntax typed at the start of a later line stays literal', () => {
+		for (const line of ['- b', '# b', '> b', '+ b', '2. b', '===', '---']) {
+			const out = rt(`a\n${line.replace(/^([-#>+]|2\.|=|---)/, '\\$1')}`);
+			expect(out, line).toMatch(/^a\n\\/);
+		}
+	});
+	it('plain text and textContent keep the line break', () => {
+		const doc = parseSlideProse('Revenue grew\nfaster than costs');
+		expect(doc.textBetween(0, doc.content.size, '\n\n')).toBe('Revenue grew\nfaster than costs');
+	});
+	it('a copied paragraph pastes back as soft breaks', () => {
+		const doc = parseSlideProse('one\ntwo');
+		const html = DOMSerializer.fromSchema(proseSchema).serializeFragment(doc.content);
+		const host = document.createElement('div');
+		host.append(html);
+		const back = PMDOMParser.fromSchema(proseSchema).parse(host);
+		expect(serializeSlideProse(back).trimEnd()).toBe('one\ntwo');
 	});
 });

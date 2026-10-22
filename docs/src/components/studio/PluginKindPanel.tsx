@@ -35,7 +35,7 @@ export function PluginKindPanel({ fields, onEdit, onEditAsText, onDone }: Object
 	const send = (edit: PluginKindEdit, what: string) => setRefused((onEdit as unknown as (e: PluginKindEdit) => boolean)(edit) ? null : what);
 	const controls: { name: string; type: ParamType }[] = [
 		...(entry.slot.positional ?? []).map((p) => ({ name: p.name, type: typeOf(p.type) })),
-		...Object.entries(entry.slot.params).map(([name, p]) => ({ name, type: typeOf(p) })),
+		...Object.entries(entry.slot.params ?? {}).map(([name, p]) => ({ name, type: typeOf(p) })),
 	];
 	const left: string[] = [];
 

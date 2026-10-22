@@ -1,6 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
-import { isDescriptionBody, isSayBody } from '../../components/studio/slide-directives';
+import { isDescriptionBody, isDirectiveBody, isSayBody } from '../../components/studio/slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
@@ -189,7 +189,7 @@ const NOTE_MAX = 8192;
  * result is refused (null) when it:
  *   · is empty (Remove is the way to delete a note);
  *   · ends the comment early, or is not one well-formed inert comment (`COMMENT_SHAPE`, the paste gate's own test);
- *   · reads as a directive (`_class: …`), which would be hoisted out of the prose and set a slide attribute;
+ *   · reads as a directive (`_class: …`, or the bare `footer: …` the engine also obeys), or opens a second comment, which would be hoisted out of the prose and set a slide attribute;
  *   · changes channel (a note that now starts `say:` would narrate), or exceeds `NOTE_MAX`.
  * A caller that gets null says why; it never writes a guess.
  */
@@ -197,7 +197,9 @@ export function writeNote(text: string, words: string): string | null {
 	// A textarea's value is LF already; a carriage return would make a second line ending in the deck, so it is refused, not folded.
 	if (/\r/.test(words)) return null;
 	const body = String(words).trim();
-	if (!body) return null;
+	if (!body || body.includes('<!--')) return null;
+	// The engine also obeys the bare spelling (`footer: …`, `class: lead`), not only `_class:`: those words are a directive, not a note.
+	if (isDirectiveBody(body)) return null;
 	const opener = /^<!-{2,}/.exec(text)?.[0];
 	const closer = /-*!?>$/.exec(text)?.[0];
 	if (!opener || closer === undefined) return null;

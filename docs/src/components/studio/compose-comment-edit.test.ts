@@ -52,6 +52,9 @@ describe('writeNote', () => {
 		['ends the comment', 'a --> <img src=x onerror=alert(1)>'],
 		['ends it with --!>', 'a --!> b'],
 		['a directive', '_class: hero'],
+		['a bare directive', 'footer: add sources'],
+		['a bare class directive', 'class: lead'],
+		['a second comment', 'one\n<!-- _class: lead'],
 		['a channel change', 'say: now narrated'],
 	])('refuses %s', (_n, words) => {
 		expect(writeNote('<!-- a plain note. -->', words)).toBeNull();
@@ -65,6 +68,25 @@ describe('writeNote', () => {
 });
 
 describe('the note panel', () => {
+	it('keys typed in the field do not reach the document', () => {
+		const v = mount();
+		pills()[1].click();
+		editButton().click();
+		const before = v.state.doc;
+		const f = field() as HTMLTextAreaElement;
+		f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		expect(v.state.doc.eq(before)).toBe(true);
+	});
+
+	it('a note inside a quote stays one line', () => {
+		mount('> quote\n>\n> <!-- n -->\n>\n> after');
+		pills()[0].click();
+		editButton().click();
+		type('one\ntwo');
+		expect(why().hidden).toBe(false);
+		expect(saved()).toBe('> quote\n>\n> <!-- n -->\n>\n> after');
+	});
+
 	it('shows no field until Edit is pressed, and opening a note writes nothing', () => {
 		mount();
 		pills()[1].click();

@@ -61,4 +61,12 @@ describe('PluginKindPanel — the controls come from the slot', () => {
 		await user.click(screen.getByRole('button', { name: /Edit as text/ }));
 		expect(onEditAsText).toHaveBeenCalled();
 	});
+
+	it('draws a slot that has only positional fields', () => {
+		const only: PluginKindEntry = { plugin: 'gantt', name: 'bar', slot: { positional: [{ name: 'task', type: 'text' }] } as never };
+		setPluginKindProvider(() => [only]);
+		const fields = kindOf('@bar{Build}', kernels)?.fields as PluginKindFields;
+		render(<PluginKindPanel fields={fields} src="@bar{Build}" kernels={kernels} slotColors={[]} onEdit={(() => true) as never} onEditAsText={() => {}} onDone={() => {}} holdOpen={() => {}} />);
+		expect(screen.getByRole('textbox', { name: 'Task' })).toBeTruthy();
+	});
 });

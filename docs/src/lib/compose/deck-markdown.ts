@@ -168,8 +168,11 @@ const softBreakSpec: NodeSpec = {
 	inline: true,
 	group: 'inline',
 	selectable: false,
-	parseDOM: [{ tag: 'br[data-soft]' }],
+	// Ahead of the hard break's own `br` rule, or a copy pasted back in Compose would become hard breaks.
+	parseDOM: [{ tag: 'br[data-soft]', priority: 60 }],
 	toDOM: () => ['br', { 'data-soft': '' }],
+	// Plain-text copy, and every `textContent` reader, sees the line break the author wrote.
+	leafText: () => '\n',
 };
 
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
@@ -182,7 +185,7 @@ export const proseSchema = new Schema({
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
-		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math)*' })
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math | soft_break)*' })
 		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
 		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
 		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
@@ -337,10 +340,29 @@ function interruptsParagraph(node: PMNode): boolean {
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
 	// The line break as written; the next line carries its own block prefix (`> `, list indent).
+	// The text after a soft break starts a line: `-`, `#`, `>`, `1.` or `---` there must stay escaped or it becomes structure.
+	// (The serializer clears its block-start flag after each node, so it is set here, where the text is written.)
+	text(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		const text = node.text as string;
+		if (index > 0 && parent.child(index - 1).type.name === 'soft_break' && parent.type.name !== 'heading') {
+			// A whole line of `=` or `-` under a line of text is a setext underline, which the upstream escaper never meets at a paragraph start.
+			const underline = /^(\s*)([=-])(?=[=-]*\s*(?:\n|$))/.exec(text);
+			if (underline) {
+				state.write();
+				state.out += `${underline[1]}\\${underline[2]}`;
+				state.atBlockStart = false;
+				state.text(text.slice(underline[0].length), !state.inAutolink);
+				return;
+			}
+			state.atBlockStart = true;
+		}
+		state.text(text, !state.inAutolink);
+	},
+	// A heading is one line, so a break inside it (a setext heading over two lines) writes a space, as it always did.
 	soft_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
 		for (let i = index + 1; i < parent.childCount; i++)
 			if (parent.child(i).type.name !== 'soft_break') {
-				state.write('\n');
+				state.write(parent.type.name === 'heading' ? ' ' : '\n');
 				return;
 			}
 	},
