@@ -242,6 +242,8 @@ proved: lift the paragraphs, tie notes to marks, size the lane, score the layout
 `gantt`, `hub-spoke`, and the quadrant's four other variants), so the notes cannot disagree with where the marks
 were drawn. A keyed chart builds its key around each candidate unit, as the heatmap does.
 
+**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to half the figure's width), notes sit side by side in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. The lane beside a chart stays a column, level with its marks. The heatmap's own below layout is unchanged: moving it changes which side wins on a square slide, which `heatmap-placement.test.js` pins, so it moves with the heatmap onto the layer (`followups.d/2855-p3-callouts-heatmap-on-the-layer.md`).
+
 **Three rules the second readers added.**
 
 1. **A word is never broken for a bigger plot.** `choose` prefers the layout that splits the fewest words

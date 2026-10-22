@@ -17,3 +17,5 @@ where     — `lib/components/chart/heatmap/heatmap.transform.js` `buildHeatmap`
 done when — `buildHeatmap` calls `choose`, and every heatmap deck (`examples/callout-placement.md` at five shapes, `examples/legend-anchored.md`, the gallery) renders byte for byte as before, or the PR names each slide that moved and why.
 evidence  — `diff -r` of the rendered HTML before and after, as in P2's own check.
 verify    — `heatmap-placement.test.js` unchanged and green.
+
+Also at that point: the heatmap's below-grid notes still stack in one column (`laneSvg` without `flow`). Every other chart now sets its notes under the figure as a group that wraps (`flow: true`, #2855). Moving the heatmap onto the same group changes which side wins on a square slide, which `heatmap-placement.test.js` pins ("square puts the key under the grid and keeps the notes beside it"), so that test and the owner's measured choice are re-decided together.

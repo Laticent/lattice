@@ -118,6 +118,8 @@ a reader matches a cell to its label by shape as well as by color, never by colo
 The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
 the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
 
+**Notes under a chart are a group, not a column.** On every chart but the heatmap, the notes set under the figure side by side, each as wide as its words (up to half the width), and wrap to a new row when the width runs out. A narrow slide (9:16) gets one row; a narrower pane, more rows. A lane beside the chart stays a column, level with its marks.
+
 **Placement.** The engine lays the heatmap out both ways, with the notes beside the grid and under
 it, and keeps the one that leaves the grid larger at the slide's shape. Where a band key is also on
 the slide, the key's two sides are tried with each: four layouts in all. A wide slide (16:9) keeps the notes beside the grid unless

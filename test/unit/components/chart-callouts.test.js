@@ -245,3 +245,30 @@ describe('radar: variants that take no callouts keep the paragraph', () => {
     assert.match(r.html, /@callout/);
   });
 });
+
+describe('a group of notes under a figure flows and wraps', () => {
+  const { laneSvg } = require('../../../lib/components/chart/_chart-family/legend-svg');
+  const entry = (text, mark) => ({ text, target: { cx: 10 * (mark + 1), cy: 20, w: 8, h: 8, mark } });
+  const draw = (width, texts) => laneSvg(texts.map(entry), { x: 0, width, top: 100, bottom: Infinity, fontSize: 8, flow: true });
+  const tops = (r) => r.placed.map((p) => Math.round(p.box.top));
+
+  test('notes that fit the width sit side by side on one row, left to right', () => {
+    const r = draw(400, ['Peak quarter', 'The launch', 'Held steady']);
+    assert.equal(new Set(tops(r)).size, 1, `one row: ${tops(r)}`);
+  });
+
+  test('when the width runs out the next note starts a new row', () => {
+    const r = draw(110, ['Peak quarter', 'The launch', 'Held steady']);
+    assert.ok(new Set(tops(r)).size > 1, `wrapped: ${tops(r)}`);
+  });
+
+  test('a narrower width never loses a note, only adds rows', () => {
+    const r = draw(60, ['Peak quarter', 'The launch', 'Held steady']);
+    assert.equal(r.placed.filter(Boolean).length, 3);
+  });
+
+  test('without `flow` the same notes stay a column', () => {
+    const r = laneSvg(['Peak quarter', 'The launch'].map(entry), { x: 0, width: 400, top: 100, bottom: Infinity, fontSize: 8 });
+    assert.equal(new Set(tops(r)).size, 2);
+  });
+});
