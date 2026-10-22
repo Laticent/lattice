@@ -16,6 +16,7 @@ import type { SparkFitReport } from '@/lib/spark-fit';
 import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
+import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
 import { tourChromeMargin } from './tour-chrome';
 
@@ -527,6 +528,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 						reportLint(view, []);
 						return [];
 					}
+					// The first pass waits for the first slide: the lint core is 256 KB of code the slide does not need, and
+					// it ran before the slide on a phone (Studio performance audit, PR #2868). Later passes find it cached.
+					if (!lintCoreMod) await firstSlideShown;
 					const core = lintCoreMod || (await loadLintCore());
 					if (!core) {
 						reportLint(view, null); // the kernel never arrived — no answer, which is not "clean"
