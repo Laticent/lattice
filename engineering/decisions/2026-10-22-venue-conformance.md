@@ -123,9 +123,9 @@ probe on all four canvases.
   huddle, and its caption is clipped under the poster. Moving it onto the shared sizing made it clip at
   laptop, so that edit was backed out; it needs its own layout.
 - **`pricing` at laptop:** a footnote clipped by its list item; predates venues.
-- **Not yet contracted:** a count or prose budget is measured at the wide canvas only. The same
-  components clip at hall on portrait canvases, and lint cannot say so, because the budget has no
-  per-canvas row.
+- **Not yet contracted:** a count budget (`byWords`, `lines`) is measured at the wide canvas only. The
+  same components clip at hall on portrait canvases, and lint cannot say so, because the budget has no
+  per-canvas row. The five one-block prose components are done (§9).
 
 ## 7 · Cost, measured
 
@@ -151,3 +151,26 @@ bundle, which had 203 bytes of headroom under its hard ceiling. After two rounds
    times its width"; they are the first thing to measure on a real projector.
 4. **Per-canvas budgets.** Extending `venueCapacity` and `venue-prose` to carry a row per canvas family
    would let lint speak for portrait decks at a venue. It is a schema and generator change.
+
+## 9 · Per-canvas prose budgets (2026-10-22)
+
+`venueCapacity.prose.families` carries a row for `square`, `tall` and `strip` beside the wide row, for
+`big-number`, `citation-card`, `collage`, `image` and `redline`, and for each register that has its own
+wide row. `tools/calibrate-venue-prose.js` measures them the way the wide row was measured: it writes N
+words into the slot of the component's `venueProbe` at each venue and takes the largest N before the
+page clips (V1/V2). The build bakes them into `venue-capacity.generated.js`, and the `venue-prose` rule
+reads the row for the deck's canvas, so lint now speaks for a portrait deck at a venue. A canvas with no
+row stays silent.
+
+The harness holds the rows true: on a canvas with a measured row, a `budget` probe renders the slot
+filled to exactly that row, bare and under each register, at each venue (a row of 0 is not rendered). An
+overstated row fails: raising big-number's tall-hall row from 3 to 12 makes V1 and V2 fire.
+
+The rows differ a lot from the wide ones. `big-number` holds 36/24/16/12 words wide and 18/12/8/3 tall;
+`image` holds 72/60/44/30 wide and 22/10/9/4 tall. A tall `hall` slide that was told it had 12 words
+had 3.
+
+**Not done:** the count budgets. Their lint path (`scaleCapacityFor`, with eyebrow, callout, register,
+strict and line-geometry corrections) is built for the wide canvas throughout, and a per-canvas row for
+each needs a calibration campaign and Studio-bundle bytes the owner has not set. See
+`followups.d/2862-p2-per-canvas-venue-budgets.md`.

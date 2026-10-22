@@ -56,7 +56,9 @@ function venueDocsLine(m, noun) {
     const row = vc.prose.row;
     const cell = VENUES.map((v) => `${v} ~${row[v]}${(vc.prose.atLeast || []).includes(v) ? '+' : ''}`).join(' · ');
     const regs = Object.entries(vc.prose.variants || {}).map(([tok, r]) => ` With \`${tok}\`: ${VENUES.map((v) => `${v} ~${r[v]}`).join(' · ')}.`).join('');
-    return `**By venue** (\`venue:\`) its ${vc.prose.slot} holds ${cell} words.${regs} A 0 means that register has no room for its prose at that venue. ${past} Measured on the real slide at a wide @size by growing that slot until the page clips; \`lint:deck\` reads the same numbers.`;
+    // The same slot on the other canvases, measured by tools/calibrate-venue-prose.js; lint reads these for a deck of that shape.
+    const fams = Object.entries(vc.prose.families || {}).map(([f, r]) => ` On a ${f} canvas: ${VENUES.map((v) => `${v} ~${r.row[v]}${(r.atLeast || []).includes(v) ? '+' : ''}`).join(' · ')}${Object.keys(r.variants || {}).length ? ` (each register has its own row in the manifest)` : ''}.`).join('');
+    return `**By venue** (\`venue:\`) its ${vc.prose.slot} holds ${cell} words on a wide canvas.${regs}${fams} A 0 means that register has no room for its prose at that venue. ${past} Measured on the real slide by growing that slot until the page clips (\`tools/calibrate-venue-prose.js\`); \`lint:deck\` reads the same numbers.`;
   }
   if (vc.lines) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');

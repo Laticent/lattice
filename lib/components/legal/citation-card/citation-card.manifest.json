@@ -191,7 +191,33 @@
       },
       "atLeast": [
         "laptop"
-      ]
+      ],
+      "families": {
+        "square": {
+          "row": {
+            "laptop": 100,
+            "huddle": 66,
+            "conference": 40,
+            "hall": 19
+          }
+        },
+        "tall": {
+          "row": {
+            "laptop": 46,
+            "huddle": 29,
+            "conference": 19,
+            "hall": 15
+          }
+        },
+        "strip": {
+          "row": {
+            "laptop": 120,
+            "huddle": 84,
+            "conference": 60,
+            "hall": 42
+          }
+        }
+      }
     }
   },
   "gesture": {

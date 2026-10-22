@@ -210,6 +210,110 @@
           "conference": 52,
           "hall": 0
         }
+      },
+      "families": {
+        "square": {
+          "row": {
+            "laptop": 104,
+            "huddle": 68,
+            "conference": 46,
+            "hall": 23
+          },
+          "variants": {
+            "annotated": {
+              "laptop": 84,
+              "huddle": 60,
+              "conference": 40,
+              "hall": 17
+            },
+            "three-col": {
+              "laptop": 27,
+              "huddle": 21,
+              "conference": 16,
+              "hall": 8
+            },
+            "split": {
+              "laptop": 44,
+              "huddle": 28,
+              "conference": 21,
+              "hall": 13
+            },
+            "stacked": {
+              "laptop": 84,
+              "huddle": 60,
+              "conference": 32,
+              "hall": 17
+            }
+          }
+        },
+        "tall": {
+          "row": {
+            "laptop": 40,
+            "huddle": 28,
+            "conference": 11,
+            "hall": 7
+          },
+          "variants": {
+            "annotated": {
+              "laptop": 34,
+              "huddle": 25,
+              "conference": 8,
+              "hall": 4
+            },
+            "three-col": {
+              "laptop": 34,
+              "huddle": 25,
+              "conference": 4,
+              "hall": 0
+            },
+            "split": {
+              "laptop": 34,
+              "huddle": 28,
+              "conference": 8,
+              "hall": 0
+            },
+            "stacked": {
+              "laptop": 34,
+              "huddle": 25,
+              "conference": 8,
+              "hall": 0
+            }
+          }
+        },
+        "strip": {
+          "row": {
+            "laptop": 96,
+            "huddle": 76,
+            "conference": 46,
+            "hall": 34
+          },
+          "variants": {
+            "annotated": {
+              "laptop": 92,
+              "huddle": 70,
+              "conference": 42,
+              "hall": 30
+            },
+            "three-col": {
+              "laptop": 96,
+              "huddle": 76,
+              "conference": 42,
+              "hall": 27
+            },
+            "split": {
+              "laptop": 100,
+              "huddle": 76,
+              "conference": 46,
+              "hall": 30
+            },
+            "stacked": {
+              "laptop": 92,
+              "huddle": 66,
+              "conference": 42,
+              "hall": 27
+            }
+          }
+        }
       }
     }
   },

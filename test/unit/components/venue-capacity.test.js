@@ -45,6 +45,12 @@ test('lint reads the manifests\' numbers, in laptop/huddle/conference/hall order
       for (const [tok, r] of Object.entries(vc.prose.variants || {})) {
         assert.deepEqual(baked[2][tok], VENUES.map((v) => r[v]), `${m.name} ${tok} words`);
       }
+      // The other canvases' rows ride in the fourth slot as { family: [row, registers?] }.
+      assert.deepEqual(Object.keys(baked[3] || {}).sort(), Object.keys(vc.prose.families || {}).sort(), `${m.name} canvases`);
+      for (const [fam, f] of Object.entries(vc.prose.families || {})) {
+        assert.deepEqual(baked[3][fam][0], VENUES.map((v) => f.row[v]), `${m.name} ${fam} words`);
+        for (const [tok, r] of Object.entries(f.variants || {})) assert.deepEqual(baked[3][fam][1][tok], VENUES.map((v) => r[v]), `${m.name} ${fam} ${tok} words`);
+      }
       continue;
     }
     for (const [words, row] of Object.entries(vc.byWords)) {

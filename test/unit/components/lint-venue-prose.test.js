@@ -70,6 +70,23 @@ describe('venue-prose', () => {
     assert.match(none[0].message, /holds none/);
   });
 
+  test('a portrait deck is judged by the row measured on that canvas, not the wide one', () => {
+    // Hall holds 12 words on a wide canvas and 3 on a tall one (tools/calibrate-venue-prose.js).
+    const tall = (n) => `---\nsize: portrait\nvenue: hall\n---\n\n<!-- _class: big-number -->\n\n- 1\n  - ${words(n)}\n`;
+    assert.deepEqual(lint(bigNumber(8, 'hall')), [], 'wide holds 12');
+    const f = lint(tall(8));
+    assert.equal(f.length, 1);
+    assert.match(f[0].message, /on a tall canvas holds about 3 words/);
+    assert.deepEqual(lint(tall(3)), []);
+  });
+
+  test('a register is judged by its own row on a portrait canvas too', () => {
+    const redline = (tok, n) => `---\nsize: portrait\nvenue: conference\n---\n\n<!-- _class: redline ${tok} -->\n\n## H.\n\n> ${words(n)}\n`;
+    assert.deepEqual(lint(redline('', 11)), [], 'bare holds 11 at conference on a tall canvas');
+    assert.equal(lint(redline('', 12)).length, 1);
+    assert.equal(lint(redline('three-col', 5)).length, 1, 'three-col has 4 at conference on a tall canvas');
+  });
+
   test('a component without a prose row is not judged', () => {
     assert.deepEqual(lint(`---\nvenue: hall\n---\n\n<!-- _class: list -->\n\n## H.\n\n- ${words(80)}\n`), []);
   });

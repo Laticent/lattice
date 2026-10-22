@@ -531,7 +531,10 @@ function buildVenueLint() {
     if (vc.prose) {
       // Compact, since it rides the Studio's lint bundle: [slot, row, variants?] with variants as { token: row }.
       prose[m.name] = [vc.prose.slot, row(vc.prose.row)];
-      if (vc.prose.variants) prose[m.name].push(Object.fromEntries(Object.entries(vc.prose.variants).map(([tok, r]) => [tok, row(r)])));
+      const regs = (v) => Object.fromEntries(Object.entries(v).map(([tok, r]) => [tok, row(r)]));
+      // [slot, row, variants | null, { family: [row, variants?] }]: the other canvases' budgets, when measured.
+      if (vc.prose.variants || vc.prose.families) prose[m.name].push(vc.prose.variants ? regs(vc.prose.variants) : null);
+      if (vc.prose.families) prose[m.name].push(Object.fromEntries(Object.entries(vc.prose.families).map(([f, r]) => [f, r.variants ? [row(r.row), regs(r.variants)] : [row(r.row)]])));
       continue;
     }
     const words = (byWords) => Object.fromEntries(Object.entries(byWords).map(([w, r]) => [w, row(r)]));

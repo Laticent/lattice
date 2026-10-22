@@ -10,7 +10,7 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ## Agent contract
 
-**By venue** (`venue:`) its caption holds laptop ~36 · huddle ~24 · conference ~16 · hall ~12 words. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide at a wide @size by growing that slot until the page clips; `lint:deck` reads the same numbers.
+**By venue** (`venue:`) its caption holds laptop ~36 · huddle ~24 · conference ~16 · hall ~12 words on a wide canvas. On a square canvas: laptop ~29 · huddle ~25 · conference ~18 · hall ~10. On a tall canvas: laptop ~18 · huddle ~12 · conference ~8 · hall ~3. On a strip canvas: laptop ~36 · huddle ~25 · conference ~19 · hall ~10. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide by growing that slot until the page clips (`tools/calibrate-venue-prose.js`); `lint:deck` reads the same numbers.
 
 ### Slots
 
