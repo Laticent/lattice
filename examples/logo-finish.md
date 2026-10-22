@@ -72,5 +72,5 @@ logo-finish: bottom-center accent-ink lg
 ## A plate, when asked for
 
 - `_class: logo-brand logo-plate` puts a soft plate behind the mark on this slide
-- The deck line can ask for it everywhere: `logo-finish: brand plate`
+- The deck line can ask for it everywhere: `logo-finish: plate`
 - `_class: logo-no-plate` takes it back on one slide

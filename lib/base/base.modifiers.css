@@ -3026,10 +3026,15 @@ section.logo-brand img.deck-logo {
   filter: none;
 }
 
-/* `plate` — a soft plate behind the mark, on any color word. Opt-in: the deck's `logo-finish:` line or one
- * slide's `_class: logo-plate` asks for it, and `logo-no-plate` takes it back on one slide. The plate uses the
- * theme's surface token so it harmonises with the canvas without picking a hard hue. */
+/* `plate` — the file's own colors on a soft plate. Opt-in: the deck's `logo-finish:` line or one slide's
+ * `_class: logo-plate` asks for it, and `logo-no-plate` takes it back on one slide. The plate is the img's own
+ * background, and `opacity` and `filter` act on the whole element, background included, so a plate under the
+ * watermark's grayscale-and-fade or a tint's flood filter would be washed out or flooded solid. The plate therefore
+ * shows the original colors at full strength, like `brand`, on every color word. The plate uses the theme's surface
+ * token so it harmonises with the canvas without picking a hard hue. */
 section.logo-plate img.deck-logo {
+  opacity: 1;
+  filter: none;
   background: color-mix(in srgb, var(--bg-alt) 70%, transparent);
   backdrop-filter: blur(0.4cqi);
   border-radius: 0.6cqi;

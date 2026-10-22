@@ -68,7 +68,9 @@ describe('the deck logo plate is opt-in (real render)', () => {
     await browser?.close();
   });
 
-  /** Per slide: whether a plate paints behind the mark (a background, a backdrop blur or padding). */
+  /** Per slide: whether a plate paints behind the mark (a background, a backdrop blur or padding), and whether it is
+   *  drawn at full strength: the img's own `opacity` and `filter` act on its background too, so a plate under the
+   *  watermark's fade or a tint's flood would be washed out or flooded solid. */
   async function plates(words, key) {
     const html = renderHtml(deck(words), { key });
     const page = await browser.newPage();
@@ -77,22 +79,40 @@ describe('the deck logo plate is opt-in (real render)', () => {
     const out = await page.evaluate(() =>
       [...document.querySelectorAll('section')].map((s) => {
         const cs = getComputedStyle(s.querySelector(':scope > img.deck-logo'));
-        return { bg: cs.backgroundColor !== 'rgba(0, 0, 0, 0)', blur: cs.backdropFilter !== 'none', pad: Number.parseFloat(cs.paddingTop) > 0 };
+        const plate = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' || cs.backdropFilter !== 'none' || Number.parseFloat(cs.paddingTop) > 0;
+        return { plate, solid: cs.opacity === '1' && cs.filter === 'none', radius: cs.borderRadius !== '0px' };
       }),
     );
     await page.close();
-    return out.map((p) => p.bg || p.blur || p.pad);
+    return out;
   }
+  const has = async (words, key) => (await plates(words, key)).map((p) => p.plate);
 
   test('brand keeps the file\'s colors with nothing behind them', async () => {
-    assert.deepEqual(await plates('brand', 'logo-plate-brand'), [false, true, false], 'only the slide that asks for a plate has one');
+    assert.deepEqual(await has('brand', 'logo-plate-brand'), [false, true, false], 'only the slide that asks for a plate has one');
   });
 
   test('the deck line asks for a plate, and one slide takes it back', async () => {
-    assert.deepEqual(await plates('brand plate', 'logo-plate-deck'), [true, true, false]);
+    assert.deepEqual(await has('brand plate', 'logo-plate-deck'), [true, true, false]);
   });
 
   test('the default mark has no plate', async () => {
-    assert.deepEqual(await plates('', 'logo-plate-default'), [false, true, false]);
+    assert.deepEqual(await has('', 'logo-plate-default'), [false, true, false]);
+  });
+
+  // The plate is the img's own background, so it must not inherit the mark's filter or fade: on the default watermark,
+  // on a tint word and on a dark canvas it is drawn at full strength with the file's own colors.
+  for (const words of ['plate', 'accent plate', 'accent-ink plate', 'brand plate']) {
+    test(`${words}: the plate is solid, not faded or flooded`, async () => {
+      const rows = await plates(words, `logo-plate-solid-${words.replace(/\s+/g, '-')}`);
+      for (const r of rows.filter((x) => x.plate)) assert.deepEqual(r, { plate: true, solid: true, radius: true }, `${words}: ${JSON.stringify(r)}`);
+      assert.ok(rows.some((x) => x.plate), 'at least one slide carries the plate');
+    });
+  }
+
+  test('a slide that asks for the plate on a deck with a watermark-colored mark is solid too', async () => {
+    const rows = await plates('', 'logo-plate-slide-on-default');
+    assert.deepEqual(rows[1], { plate: true, solid: true, radius: true });
+    assert.equal(rows[0].solid, false, 'the unplated watermark keeps its fade and grayscale');
   });
 });
