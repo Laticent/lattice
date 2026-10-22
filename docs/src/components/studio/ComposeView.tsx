@@ -1381,6 +1381,19 @@ function openNote(view: EditorView): { at: number; node: PMNode } | null {
 	return at != null && node?.type.name === 'comment' ? { at, node } : null;
 }
 
+/** A text caret next to `pos`, inside the slide `pos` is in: the next text after it, else the last text before it. Never a selection of a
+ *  note (the next block can be another note, and the next key would replace it) and never a position in another slide. */
+function caretNear(doc: PMNode, pos: number): Selection {
+	const $pos = doc.resolve(Math.min(pos, doc.content.size));
+	const start = $pos.depth >= 1 ? $pos.start(1) : 0;
+	const end = $pos.depth >= 1 ? $pos.end(1) : doc.content.size;
+	const after = Selection.findFrom($pos, 1, true);
+	if (after && after.from <= end) return after;
+	const before = Selection.findFrom($pos, -1, true);
+	if (before && before.from >= start) return before;
+	return Selection.near($pos, 1);
+}
+
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
  *  reading a note must never arm a delete (see `stopEvent` on CommentView). */
@@ -1463,7 +1476,7 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(at, at + n.nodeSize);
 			// The caret goes to where the note was: a click on a pill never moved the editor's selection, so refocusing without this puts
 			// the next keys at the old caret, which can be the top of the deck.
-			tr.setSelection(Selection.near(tr.doc.resolve(Math.min(at, tr.doc.content.size)), 1));
+			tr.setSelection(caretNear(tr.doc, at));
 			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
 			view.focus();
 		});
@@ -1510,10 +1523,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				e.preventDefault();
 				e.stopPropagation();
 				field.value = original;
+				typed = original;
 				why.hidden = true;
 				// Back to the slide, at the note: the editor's own selection may be anywhere else in the deck.
 				const open = isCurrent() ? openNote(view) : null;
-				if (open) view.dispatch(view.state.tr.setSelection(Selection.near(view.state.doc.resolve(open.at + open.node.nodeSize), 1)));
+				if (open) view.dispatch(view.state.tr.setSelection(caretNear(view.state.doc, open.at + open.node.nodeSize)));
 				view.focus();
 			} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
@@ -1534,14 +1548,23 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				left();
 			}),
 		);
-		// A native undo or redo pressed on Remove would reach into the field and change it without writing; it does nothing here.
-		remove.addEventListener('keydown', (e) => {
-			if ((e.metaKey || e.ctrlKey) && ['z', 'y'].includes(e.key.toLowerCase())) e.preventDefault();
+		// The browser keeps one native undo stack for the page, so an undo or redo pressed on any button reaches into the field and changes it
+		// without writing. The field only ever changes by what the author types into it: a change that arrives while it has no caret is undone.
+		let typed = field.value;
+		field.addEventListener('beforeinput', (e) => {
+			if (document.activeElement !== field && e.inputType.startsWith('history')) e.preventDefault();
+		});
+		field.addEventListener('input', () => {
+			if (document.activeElement === field) typed = field.value;
+			else field.value = typed;
 		});
 		// Opening a note is the author choosing to write in it: the caret is in the field. The panel is built once per opening, so this
 		// never fires for a panel that is merely redrawn.
 		queueMicrotask(() => {
-			if (field.isConnected && isCurrent()) field.focus();
+			if (!field.isConnected || !isCurrent()) return;
+			field.focus();
+			// The caret goes to the end, where an author adds to a note; a bare focus() leaves it at the start.
+			field.setSelectionRange(field.value.length, field.value.length);
 		});
 	}
 	actions.append(remove);

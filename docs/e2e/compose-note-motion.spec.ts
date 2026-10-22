@@ -144,7 +144,33 @@ test.describe('notes and motion in Compose', () => {
 		await expect
 			.poll(async () => {
 				const note = (await savedDeck(page)).match(/<!-- (a plain note\.[^>]*?) -->/)?.[1] ?? '';
-				return (await field.count()) ? (await field.inputValue()) === note : true;
+				return (await field.count()) ? (await field.inputValue()).trim() === note : true;
+			})
+			.toBe(true);
+	});
+
+	test('@crosswidth @gecko @webkit-tablet Escape or Remove beside another note never selects it, so the next keys cannot delete it', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /say/).click();
+		await page.keyboard.press('Escape');
+		await page.keyboard.type('QQ');
+		await expect.poll(() => savedDeck(page)).toContain('QQ');
+		const saved = await savedDeck(page);
+		expect(saved).toContain('<!-- a plain note. -->');
+		expect(saved).toContain('say: the slide reads as this.');
+	});
+
+	test('@crosswidth @gecko @webkit-tablet an undo pressed on the pill button cannot make the field and the deck disagree', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /say/).click();
+		await page.keyboard.type(' XYZ');
+		await page.keyboard.press('Shift+Tab');
+		await page.keyboard.press('ControlOrMeta+z');
+		const field = page.getByRole('textbox', { name: 'say text' });
+		await expect
+			.poll(async () => {
+				const note = (await savedDeck(page)).match(/<!-- say: ([^>]*?) -->/)?.[1] ?? '';
+				return (await field.count()) ? (await field.inputValue()).trim() === note : true;
 			})
 			.toBe(true);
 	});

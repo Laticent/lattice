@@ -1,4 +1,4 @@
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
 import { writeNote } from '@/lib/compose/comment-block';
@@ -90,6 +90,14 @@ describe('the note panel', () => {
 		field()?.dispatchEvent(new FocusEvent('blur'));
 		await Promise.resolve();
 		expect(saved()).toBe(DECK);
+	});
+
+	it('opens with the caret at the end of the words, where an author adds to a note', async () => {
+		mount();
+		pills()[1].click();
+		await Promise.resolve();
+		const f = field() as HTMLTextAreaElement;
+		expect([f.selectionStart, f.selectionEnd]).toEqual([f.value.length, f.value.length]);
 	});
 
 	it('has no Edit button: the field is the editor, and Remove is the only control', () => {
@@ -321,14 +329,6 @@ describe('leaving the panel', () => {
 		expect(saved()).toContain('<!-- changed without a blur of the field -->');
 	});
 
-	it('an undo or redo pressed on Remove does nothing to the field', () => {
-		mount();
-		pills()[1].click();
-		const e = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true });
-		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).dispatchEvent(e);
-		expect(e.defaultPrevented).toBe(true);
-	});
-
 	it('Escape and Remove put the caret at the note, not at the old selection', () => {
 		const v = mount(['<!-- _class: content -->', '', '## Plan', '', 'First paragraph.', '', '---', '', '<!-- _class: content -->', '', '## Two', '', 'Slide two text.', '', '<!-- a plain note. -->', '', 'After the note.'].join('\n'));
 		pills()[0].click();
@@ -337,6 +337,69 @@ describe('leaving the panel', () => {
 		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
 		const at = v.state.selection.from;
 		expect(v.state.doc.resolve(at).parent.textContent).toMatch(/After the note|Slide two text/);
+	});
+});
+
+// The seventh check: the caret that Escape and Remove return to must be a text position, in the note's own slide, never a selected note.
+describe('where the caret goes after Escape and Remove', () => {
+	const TWO_SLIDES = ['<!-- _class: content -->', '', '## Plan', '', 'Para one.', '', '<!-- say: first note. -->', '', '<!-- a second note. -->', '', '---', '', '<!-- _class: content -->', '', '## Second', '', 'Body two.', '', '<!-- last note. -->'].join('\n');
+	const slideIndexOf = (v: EditorView) => v.state.selection.$from.index(0);
+	const isTextCaret = (v: EditorView) => v.state.selection instanceof TextSelection;
+
+	for (const how of ['Escape', 'Remove'] as const) {
+		const leave = () => {
+			if (how === 'Escape') (field() as HTMLTextAreaElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+			else (document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		};
+
+		it(`${how}: when the next block is another note, the caret is text and no note is selected`, () => {
+			const v = mount(TWO_SLIDES);
+			pills()[0].click();
+			leave();
+			expect(isTextCaret(v)).toBe(true);
+			expect(slideIndexOf(v)).toBe(0);
+		});
+
+		it(`${how}: a note that ends its slide keeps the caret in that slide, not the next heading`, () => {
+			const v = mount(TWO_SLIDES);
+			pills()[1].click();
+			leave();
+			expect(isTextCaret(v)).toBe(true);
+			expect(slideIndexOf(v)).toBe(0);
+		});
+
+		it(`${how}: a note that ends the deck keeps a text caret in its slide`, () => {
+			const v = mount(TWO_SLIDES);
+			pills()[2].click();
+			leave();
+			expect(isTextCaret(v)).toBe(true);
+			expect(slideIndexOf(v)).toBe(1);
+		});
+	}
+});
+
+describe('an undo from another button', () => {
+	it('cannot change the field: what is not typed into it is undone', () => {
+		mount();
+		pills()[1].click();
+		const f = field() as HTMLTextAreaElement;
+		f.focus();
+		f.value = 'typed';
+		f.dispatchEvent(new InputEvent('input', { bubbles: true }));
+		f.blur();
+		// A native undo pressed elsewhere edits the field while it has no caret.
+		f.value = 'a plain note.';
+		f.dispatchEvent(new InputEvent('input', { bubbles: true }));
+		expect(f.value).toBe('typed');
+	});
+
+	it('is stopped before it edits the field', () => {
+		mount();
+		pills()[1].click();
+		const f = field() as HTMLTextAreaElement;
+		const e = new InputEvent('beforeinput', { inputType: 'historyUndo', cancelable: true, bubbles: true });
+		f.dispatchEvent(e);
+		expect(e.defaultPrevented).toBe(true);
 	});
 });
 
