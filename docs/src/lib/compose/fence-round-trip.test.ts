@@ -147,13 +147,13 @@ describe('a tilde fence survives an edit of its slide, character for character',
 		expect(fenceFor('~~~', '\t~~~')).toBe('~~~~');
 	});
 
-	it('an indented closer-shaped body line cannot un-lock the math after the fence', () => {
+	it('an indented closer-shaped body line cannot un-lock the HTML after the fence', () => {
 		// Valid CommonMark as written: a four-space run is not a closer, so the body is
 		// `    ```` and the fence ends on the last line. `fenceRanges` agrees, so the math
-		// after the fence locks the slide; the serializer still lengthens the fence, which
+		// after the fence (an HTML cell, which is not modeled) locks the slide; the serializer still lengthens the fence, which
 		// every reader agrees on.
-		expect(hasLossyConstruct('```\n    ```\n```\n\nPrice $x^2$')).toBe(true);
-		const src = '## Slide\n\n```\n    ```\n```\n\nPrice is $x^2$ here\n';
+		expect(hasLossyConstruct('```\n    ```\n```\n\n| a |\n| --- |\n| <b>x</b> |')).toBe(true);
+		const src = '## Slide\n\n```\n    ```\n```\n\n| a |\n| --- |\n| <b>x</b> |\n';
 		const out = docToDeck(deckToDoc(src));
 		expect(out).toContain('````\n    ```\n````');
 		expect(hasLossyConstruct(out.slice(out.indexOf('````')))).toBe(true);

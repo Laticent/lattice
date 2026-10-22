@@ -34,6 +34,7 @@ import { CodeControls, FencePicker } from './code-controls';
 import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
+import { mathInlineNodeView, rawBlockNodeView } from './raw-node-view';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -2186,6 +2187,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						new SlideView(node, nodeView, getPos as () => number, decorations, (i) => onOpenSlideSettingsRef.current?.(i), () => slideHeadingsRef.current, onInsertBelowRef.current ? (i) => onInsertBelowRef.current?.(i) : undefined, mountIsland, () => slideBlocksRef.current, mountInsert),
 					comment: (node, nodeView, getPos) => new CommentView(node, nodeView, getPos as () => number | undefined),
 					image: imageNodeView,
+					inline_math: mathInlineNodeView,
+					raw_block: rawBlockNodeView,
 					inline_object: objectNodeView({ getKernels: () => kernelsRef.current, isRendered: () => pillSheetReady(), ensureData: ensureObjectData }),
 					code_block: (node, nodeView, getPos) => new CodeBlockView(node, nodeView, (el, pos) => onChipRef.current(el, pos), getPos as () => number | undefined),
 				},
@@ -2597,6 +2600,20 @@ function ComposeStyles() {
 			.cs-img-stand-label{overflow-wrap:anywhere}
 			.cs-img-badge{position:absolute;left:8px;bottom:8px;max-width:calc(100% - 16px);padding:2px 8px;border-radius:999px;background:var(--bg,#fff);border:1px solid var(--border,#e4eaf2);color:var(--text-body,#1f2937);font:600 10px/1.6 var(--font-mono,ui-monospace,monospace);letter-spacing:.04em;text-transform:uppercase}
 			.ProseMirror-selectednode .cs-img-btn{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-math{display:inline-block;max-width:100%;vertical-align:baseline;user-select:none;-webkit-user-select:none}
+			.cs-math-btn{all:unset;display:inline-block;max-width:100%;cursor:pointer;border-radius:5px;padding:0 .2em;-webkit-tap-highlight-color:transparent}
+			.cs-math-btn:hover{background:color-mix(in oklab,var(--accent,#1e5f96),transparent 90%)}
+			.cs-math-btn:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-math-source{font-family:var(--font-mono,ui-monospace,monospace);font-size:.86em;color:var(--text-muted,#5b6b7f);background:color-mix(in oklab,var(--border,#e4eaf2),transparent 40%)}
+			.ProseMirror-selectednode .cs-math-btn{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-raw{display:block;max-width:100%;user-select:none;-webkit-user-select:none}
+			.cs-raw-btn{all:unset;box-sizing:border-box;display:block;width:100%;cursor:pointer;border:1px dashed var(--border,#e4eaf2);border-radius:8px;background:var(--bg-alt,#f2f5fa);padding:8px 12px 10px;-webkit-tap-highlight-color:transparent}
+			.cs-raw-btn:hover{border-color:color-mix(in oklab,var(--accent,#1e5f96),var(--border,#e4eaf2) 60%)}
+			.cs-raw-btn:focus-visible{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
+			.cs-raw-tag{display:block;font-family:var(--font-mono,ui-monospace,monospace);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted,#5b6b7f);padding-bottom:4px}
+			.cs-raw-body{overflow-x:auto;text-align:center;font-size:1.15em}
+			.cs-raw-source{text-align:left;white-space:pre;font-family:var(--font-mono,ui-monospace,monospace);font-size:.8em;line-height:1.4;color:var(--text-muted,#5b6b7f)}
+			.ProseMirror-selectednode .cs-raw-btn{outline:2px solid var(--accent,#1e5f96);outline-offset:2px}
 			.cs-code-chip{position:absolute;top:5px;right:6px;z-index:1;display:inline-flex;align-items:center;min-height:17px;padding:1px 7px;border:1px solid var(--border,#e4eaf2);border-radius:999px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9px;letter-spacing:.08em;text-transform:uppercase;line-height:1.5;cursor:pointer;user-select:none;transition:color .12s,border-color .12s,background .12s}
 			.cs-code-chip:hover:not(:disabled){color:var(--text-heading,#0a1628);border-color:var(--accent,#006fa8);background:var(--accent-soft,#eff6fc)}
 			/* On a locked slide the chip is a LABEL, not a control — it still names the

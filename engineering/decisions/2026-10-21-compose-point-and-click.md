@@ -182,12 +182,21 @@ bare `<img src="asset:harbor">` the browser cannot load.
 | Gap | Measured or known | Cost to close | Recommendation |
 |---|---|---|---|
 | ~~State-marker lists lock the slide~~ | 40 of 96 locked slides | **Shipped 2026-10-22.** No new node was needed: the serializer's `paragraph` rule un-escapes a list item's leading marker (the table cell's `unescapeLeadingMarker`), the lock keeps only `[X]`, and a click on the chip flips `[ ]` and `[x]`. A corpus test holds every shipped marker slide to the same marker count and no escaped marker | Done |
-| Inline math `$…$` locks the slide | 30 of 96 | The Compose parser has no math rule; needs the engine's rule (`sourceHasMath`) as an inline atom, drawn by KaTeX, with a TeX panel | Second. Also the `$$` block |
-| Block HTML locks the slide | 21 of 96 | An atom that carries the HTML verbatim, shown as a labeled block | Third. Cheap |
+| ~~Inline math `$…$` locks the slide~~ | 30 of 96 | **Shipped 2026-10-22** (`docs/src/lib/compose/raw-block.ts`). The Compose tokenizer installs the engine's own `mathInlineRule` and `mathBlockRule` at the places the math plugin installs them, so both draw the same boundary. The span is an `inline_math` atom and the `$$` block a `raw_block` of kind `math`; each carries its source verbatim. Drawn as MathML from the engine's KaTeX (`window.__latticeKatex`, exposed by `lattice-katex.js`), so the editor needs no KaTeX stylesheet or fonts; the TeX source shows until it loads | Done |
+| ~~Block HTML locks the slide~~ | 21 of 96 | **Shipped 2026-10-22.** A `raw_block` of kind `html` carries the lines verbatim (markdown-it's own `html_block` rule, called with `html` on for that one call) and is drawn as a labeled box. Compose never renders the author's HTML. **Top level only**, for the reason `comment-block.ts` gives: inside a list item, a modeled block turns a tight list loose. HTML at a line start inside a list or quote, and inline tags that lead a line, still lock the slide (`withoutModeledBlocks` masks only what is modeled) | Done |
 | Plugins installed from a package | no shipped example yet; the canary harness only | A kind's `slot` is data, so the writer and a generic panel work. The missing seam is drawing: the host cannot run the plugin's code to draw a span, so the node shows a placeholder | When the first inline package ships; `editRecord` plus a generic panel built from `slot` |
 | ~~Add a photo from the picker~~ | the Library already imports, with a format dialog | **Shipped 2026-10-22.** The import loop moved to `media-import-batch.ts`; the Library and the picker both call it, and the picker saves to the shared shelf behind the same format dialog and picks the new photo | Done |
 | Chart data, legend, anima | chart rows are text; 28 chart classes | `2026-10-14-chart-authoring-uniform-model.md` has the plan | Its own slice |
 | Notes (`say`, `describe`, `note`) | read-only panel | An edit field in the panel | Small; ask the owner whether notes should edit in place |
+
+### 7b. Known limits of the math and HTML atoms
+
+- A slide with an escaped dollar (`\$5`) stays locked. The serializer writes `\$` back as `$`, and next to a math span one bare `$` changes what the engine draws (the checker's repro: `Price \$5. Area $\pi r^2$.` came back as a KaTeX error). Escaping every `$` would rewrite every currency figure an author touches.
+- Compose joins a soft line break inside a paragraph into a space, and the engine draws each one as `<br>`. That predates the atoms, but four shipped slides that used to lock now reach it (`math.gallery.md`, `math-form-frame.md`, `math-split-structure.md`, `finish-backdrops.md`). `followups.d/2846-p6-*`.
+- A block atom pasted into a list item turns a tight list loose (the comment atom does the same).
+- Typing a digit straight after a math span makes the engine read the dollars as text (`$x$2`): the engine's own closing guard.
+- The preview is MathML, so it shows the shape of a formula, not the slide's typesetting. The slide preview beside Compose draws the real thing.
+- Typing `$x$` in Compose makes plain text, which becomes a math atom on the next load. There is no input rule yet.
 
 ## 8. Verification
 

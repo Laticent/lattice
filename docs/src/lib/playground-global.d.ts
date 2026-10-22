@@ -108,6 +108,8 @@ declare global {
 		// lattice-katex.js loads; __latticeKatexReady is the loader's poll target.
 		__latticeRegisterKatex?: (katex: unknown) => void;
 		__latticeKatexReady?: boolean;
+		// The same KaTeX, for the Studio's own realm (compose/math-draw.ts); set by lattice-katex.js.
+		__latticeKatex?: { renderToString(tex: string, options?: Record<string, unknown>): string };
 		// On-demand highlight.js grammars (docs/src/lib/ensure-hljs-language.ts +
 		// tools/build-hljs-languages.js): each grammar file pushes
 		// `[name, definition]` onto this queue, and lib/playground's

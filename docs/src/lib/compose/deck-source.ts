@@ -2,11 +2,12 @@
 
 import { readDirectiveComment } from '../../../../lib/core/comment-directive.mjs';
 import { CLASS_VOCAB } from '../../../../lib/core/meta-keys.mjs';
-import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { hasDisplayMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { frontMatterBlock, stripFrontMatter } from '../../components/studio/front-matter';
 import { splitSlides } from '../../components/studio/lint';
 import { fenceRanges } from '../../components/studio/slide-directives';
 import { normalizeSourceText } from '../normalize-source-text';
+import { withoutModeledBlocks } from './raw-block';
 
 
 // Pure deck-source helpers — the fence-aware split/join between a Lattice deck's
@@ -95,6 +96,10 @@ export function composeSlideChunk(directives: string[], prose: string): string {
 // the closing fence inside a code fence and the engine rendered an empty `pre` onto the slide.
 // 25 such comments across 7 shipped decks were one keystroke away from that.
 //
+// MODELED since 2026-10-22 (raw-block.ts): a top-level block of HTML, a top-level `$$` block and inline `$x$` math. Each is an
+// atom node that carries its source bytes, so none locks the slide. The same constructs inside a list item stay
+// unmodeled (modeling them changes the render), and the patterns below still catch them.
+//
 // GFM pipe TABLES are NOT here: the Compose parser now models them as real schema nodes and
 // round-trips them to pipe syntax (deck-markdown, 2026-07-19-compose-table-editing.md), so a
 // table slide is editable in place. A table cell that ITSELF holds an unmodeled construct
@@ -121,6 +126,10 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	// not one of the six (GFM reads it as a checked box, the opposite of a cross), so it stays locked.
 	/^\s*(?:[-*+]|\d+[.)])\s+\[X\]/m,
 	/\[\^[^\]]+\]/, // footnote reference / definition
+	// An HTML block of types 3-5 (`<?php`, `<!DOCTYPE`, `<![CDATA[`): the engine draws raw HTML, Compose would show text.
+	/^\s*<(?:\?|!\[CDATA\[|![A-Za-z])/m,
+	// An ESCAPED dollar (`\$5`): the serializer writes it back bare, and next to math one bare `$` changes what the engine draws.
+	/\\\$/,
 ];
 
 /** Blank fenced code blocks (fence-aware) and inline-code spans before construct detection,
@@ -144,8 +153,12 @@ function withoutCode(prose: string): string {
  *  uses the ENGINE's own currency-safe rules (`sourceHasMath`) — so `$a_1$` locks the slide but
  *  a `$400M` figure, or a `$x` in a shell fence, does not: the lock matches what the engine renders. */
 export function hasLossyConstruct(prose: string): boolean {
-	const bare = withoutCode(prose);
-	return sourceHasMath(bare) || LOSSY_CONSTRUCTS.some((re) => re.test(bare));
+	// Modeled blocks first, on the prose as the parser reads it (line numbers must match), then code. An HTML block or a `$$`
+	// block at the top level is an atom that writes its bytes back, so it no longer locks; one inside a list or a quote
+	// is still prose to the parser, and what is left of it below still trips the matching rule. Inline math is modeled
+	// everywhere inline text is parsed, so only a display `$$` line can be left.
+	const bare = withoutCode(withoutModeledBlocks(prose));
+	return hasDisplayMath(bare) || LOSSY_CONSTRUCTS.some((re) => re.test(bare));
 }
 
 /** The `_class` component name of a slide's directives (first token), or 'content'. */
