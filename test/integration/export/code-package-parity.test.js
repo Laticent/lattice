@@ -392,17 +392,16 @@ describe('code packages: every shipped transform runs in the locked page and mat
   //       door on the section's own tag, which the splice keeps), not the package's to set;
   //   journey p@data-lattice-desc — an engine-namespaced attribute the slide did not hand over;
   //       a package names its own data-* attributes (lib/core/door-attr.mjs doorFilterAttr).
-  //   video a@href, a@style       — the poster link and thumbnail are addresses the transform
-  //       BUILT from the bullet's text; the slide held none as an address, so the door drops them.
   //   video a@target              — the slide sanitizer strips target="_blank" from every slide.
+  //   (`video` used to lose its poster link and thumbnail (a@href, a@style) here too: the transform BUILT those addresses
+  //   from the bullet's text, and the door rightly dropped them. It now only lays out the figure the engine drew from the
+  //   author's `@video{…}` record, so it builds no address and those losses are gone.)
   test("the door's sanitizer removes only what it means to from the 29 packages' output", () => {
     assert.ok(afterDoor.slides > 0, 'runs after the package tests');
     assert.deepEqual([...losses].sort(), [
       ['journey p@data-lattice-desc', 9],
       ['scene section@data-img-bucket', 10],
       ['scene section@data-img-composition', 10],
-      ['video a@href', 7],
-      ['video a@style', 3],
       ['video a@target', 7],
     ]);
   });
