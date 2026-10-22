@@ -271,12 +271,19 @@
 /* Bar caption. The kernel places it inside the bar when it fits and beside it
  * when it does not, tagging which via data-pos — so the ink has to work on the
  * bar's tinted fill AND on the canvas. --text-heading clears both (the fill is
- * capped at ~54% hue precisely so this stays legible). */
+ * capped at ~54% hue precisely so this stays legible).
+ *
+ * WEIGHT 500, NOT 600. The lane name (.gantt-lane-label) is 600, and a caption
+ * at the same weight and ink read as a second lane label sitting inside the bar:
+ * no hierarchy between the grouping and the item. The chart family's convention
+ * is names and axes at 600, captions riding on a mark at 500 (`.quadrant-dot-label`,
+ * `.quadrant-bubble-label`, flowchart node labels). Fit is unaffected: the
+ * placement estimate is a flat GANTT_FIT_ADVANCE, and a lighter face is narrower. */
 :is(section.gantt, figure.gantt) .gantt-bar-label,
 :is(section.gantt, figure.gantt) .gantt-mlabel {
   fill: var(--text-heading);
   font-family: var(--font-body);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* ── The "today" / now line — opt-in (eyebrow `today <point>` only) ──────────
