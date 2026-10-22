@@ -46,7 +46,7 @@ for (const [label, width, height] of [
 	test(`a zip plugin cannot turn a video slide's text into an address, at ${label} (${width}px)`, async ({ page }) => {
 		const requests: string[] = [];
 		page.on('request', (r) => requests.push(r.url()));
-		await page.route(new RegExp(ATTACKER.replace(/\./g, '\\.')), (route) => route.abort());
+		await page.route(/attacker\.invalid/, (route) => route.abort());
 		await gotoStudio(page);
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
