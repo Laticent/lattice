@@ -1,0 +1,1 @@
+- **Added: `@callout` on `flowchart` and `state-chart`.** A note names a shape or state by `for=`; the chart rings it, numbers it, and sets the words under the figure (or beside it with `side=beside`), in the Studio and in every export. The state chart's `inline` variant keeps the callout paragraph as written. Demo: `examples/callouts-schedule.md`.

@@ -271,8 +271,7 @@ shape (the figure's viewBox grows in width for a lane beside it and in height fo
 The stacked bar, the map and the hub-spoke move at 4:3: the picks the real aspect made possible (§ 5 item 2).
 
 **What is not built.** `flowchart` and `state-chart` (the browser lays them out, so the shapes' boxes do not exist
-where the transform runs), and `radar` inside a split pane (the pane fits its own key). Both are filed in
-`followups.d/`. The heatmap's own placement loop was left alone in #2855 and now calls `choose` (`noteSides` keeps its
+where the transform runs; built afterward, § 12), and `radar` inside a split pane (the pane fits its own key). The heatmap's own placement loop was left alone in #2855 and now calls `choose` (`noteSides` keeps its
 both-sides default when the author names none; 60 renders of the twelve heatmap decks at five shapes are byte-identical).
 Its below-grid notes now flow like the others' (§ 11). Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
 
@@ -365,3 +364,49 @@ the grid") pins it. No shape changed which side wins for notes alone.
 Rendered: 942 example renders, four moved (`legend-anchored` at 16:9, 4:3 and 9:16; `callout-placement` at 9:16). In
 the PNGs the two slides that differ at 16:9 (`legend-anchored` 6 and 7) show one note centered under its grid, and the
 seven-by-twelve grid's notes in one row with a wider grid (463 against 374 px at 1x).
+
+## 12. Callouts on the flowchart and the state chart (#2864)
+
+**The problem.** Both charts are laid out in the browser (Trama, `docs/src/lib/trama`): the server writes a measuring
+harness and the model, and a pass in the page measures, lays out, fits and paints. The shapes' boxes exist only
+there, so the 17 server-side readers' `place` could not run where the transform runs.
+
+**The split.** The server half does what it can: `layer.around` lifts the callout paragraphs, `layer.resolve` ties
+each note to a shape or state by name (it has the names), and the notes ride in the model payload as
+`callouts: [{text, mark, detail?, plate?, color?, size?}]` with `calloutSide`. The `<desc>` and the hover card
+take their words there. The browser half places them: `callout-browser.js` `placeCallouts` calls the same `place`
+as every other chart (HARD RULE #1) on the laid-out boxes and answers with the notes' markup and the size the
+figure now takes.
+
+**Trama.** Two additive hooks, so Trama stays chart-agnostic. `PassOptions.callouts` is the placer, handed to the
+adapter on `ctx.callouts`. `adapter.extent(model, geo, ctx, measured)` says how large the drawing is with its notes;
+the fit's rounds, the `viewBox` and the scale box read it in place of `geo.width` and `geo.height`. A `paint` that
+mutated `geo` instead would have left the fit solving for a smaller figure than the one drawn, and the type floor
+would have been missed. The notes set at the chart's own smallest label (the floor lift is already in it), capped at
+18 units: a sparse state chart's labels grow to about 25 units, and a note that size broke its words in a narrow figure.
+
+**Where the placer comes from.** The Studio's runtime already bundles the callout layer, so it passes
+`placeCallouts` into the pass and pays no bytes. The CLI export serializes the pass with `toString()`, so a page
+has no modules: `tools/build-callout-browser.js` bundles `callout-browser.js` to an IIFE string
+(`lib/core/callout-browser-bundle.generated.js`, built not committed, like the dagre string), and `lattice.js`
+embeds it only in a deck whose flowchart or state chart carries callouts (`htmlHasCallouts`), so every other export
+is the size it was. Getting that string small took two leaf modules: `callout-geometry.js` and `callout-choose.js`
+split out of `callout-core.js`, and `legend-limits.js` out of `legend.js`, so the browser bundle does not carry the
+Segno reader that `lift` needs. 117 KB raw (39.8 KB gzipped) became 40 KB raw (17.1 KB gzipped).
+
+**HARD RULE #22.** `data-fc-model` and `data-sc-model` are author-forgeable and the pass runs after the sanitizer,
+so both `sanitizeModel`s rebuild `callouts` from a closed set: at most six, each tied to an existing shape index,
+text kept as text, `plate` and `size` matched against closed lists (an own-property check, so `constructor` is dropped), `color` 1 to 8, `side` `under` or `beside`.
+`graph-callouts.test.js` forges a model and holds each of those.
+
+**Not drawn, and said so.** A note that names no shape is listed in the `<desc>` as not drawn. The state chart's
+`inline` variant is rows of HTML with no layout pass, so it leaves the callout paragraph on the slide as written
+instead of dropping the author's words. A note the lane has no room for in `beside` cannot be reported from the
+browser (the `<desc>` is the server's); under the figure the group grows without limit, so none is lost.
+
+**Seen.** Real Studio in Chromium (`docs/e2e/graph-callouts.spec.ts`, 3 of 3): the ring, the note and the grown
+`viewBox` on both charts, and the orphan note in the `<desc>`. The CLI's PDF at 16:9, 1:1, 9:16 and 4:5, light and
+dark: the notes sit under the figure at every shape with the right shapes ringed. Rings are plain rectangles, so on the
+state chart's rounded tiles the ring's corners are square; tracing each tile's own outline is left for a later pass.
+Callout-free flowchart and state-chart decks render pixel-identical before and after (24 PDF pages), though their
+export script differs by the new `extent` lines.

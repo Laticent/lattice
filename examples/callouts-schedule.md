@@ -9,7 +9,7 @@ header: "Lattice · callouts on plans and networks · placed by measure"
 
 # Notes pin to the task or the node they name
 
-`Callouts · gantt and hub-spoke`
+`Callouts · gantt, hub-spoke, flowchart and state chart`
 
 A ring on a bar, a milestone or a disc, a numbered marker on it, and the words set under the chart in a centered group. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
 
@@ -51,3 +51,33 @@ A ring on a bar, a milestone or a disc, a numbered marker on it, and the words s
   - Workforce reskilling
 
 `@callout{[{Cutover slipped to October, for=Core platform migration}, {Waiting on the procurement freeze, for=Vendor consolidation}]}`
+
+---
+
+<!-- _class: flowchart -->
+
+## The queue clears in three steps.
+
+- Intake `pill` => Triage => Severity?
+- Severity? `diamond`
+  - =SEV1=> Page on-call
+  - -SEV2-> Open ticket => Mitigate
+- Page on-call `fail`
+- Mitigate => Postmortem
+- Postmortem `doc`
+
+`@callout{[{Pages the secondary after five minutes, for=Page on-call, detail="Then the manager."}, {The slowest step in the loop, for=Mitigate}]}`
+
+---
+
+<!-- _class: state-chart -->
+
+## A release moves one way, then rolls back.
+
+- Draft => Review => Approved => Live
+- Live `live`
+- Approved `warn`
+- Review =changes=> Draft
+- Live =rollback=> Approved
+
+`@callout{[{Two reviewers sign off here, for=Approved}, {Rollback is one click, for=Live}]}`

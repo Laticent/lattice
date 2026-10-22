@@ -2825,10 +2825,24 @@ if (hasStateChart) {
     needsDagre = htmlNeedsDagre(highlightedSlides);
   } catch (_e) { needsDagre = true; }   // unreadable gate → ship the engine
 }
+// The callout placer (tools/build-callout-browser.js) as an IIFE string, for a flowchart or state chart whose notes
+// the page's pass places. A clone that never built it exports the chart without notes and says so.
+let calloutIife = null;
+function calloutBrowserIife() {
+  if (calloutIife !== null) return calloutIife;
+  try {
+    calloutIife = require('./lib/core/callout-browser-bundle.generated.js').CALLOUT_BROWSER_IIFE;
+  } catch (_e) {
+    console.warn('  ⚠ the callout placer is not built (run npm run build) — flowchart and state-chart callouts export without their notes.');
+    calloutIife = '';
+  }
+  return calloutIife;
+}
+let calloutsEmbedded = false;   // the placer rides in the first script that needs it; the second reads the same global
 let stateChartScript = '';
 if (hasStateChart) {
   try {
-    const { browserJs: stateChartBrowserJs } = require('./lib/components/chart/state-chart/state-chart.layout.js');
+    const { browserJs: stateChartBrowserJs, htmlHasCallouts: stateChartHasCallouts } = require('./lib/components/chart/state-chart/state-chart.layout.js');
     // GATED ON THE MACHINE, NOT ON THE COMPONENT. Trama's kernel lays a CHAIN out on its
     // reading-order grid with no dagre at all, and most shipped machines are chains, so
     // the engine ships only when `htmlNeedsDagre` finds a machine that is not one. It asks
@@ -2845,7 +2859,11 @@ if (hasStateChart) {
     // everywhere else that means a host forgot the tag. Here the gate looked at the deck's
     // own machines and found nothing that needs it.
     const noDagreMark = !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
-    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife ? `${dagreIife}\n` : noDagreMark}${stateChartBrowserJs()}\n</script>`;
+    // The callout placer ships only for a deck whose state chart carries callouts, so every other export is the size it was.
+    const calloutsOn = highlightedSlides.some(stateChartHasCallouts);
+    const calloutsIife = calloutsOn ? calloutBrowserIife() : '';
+    calloutsEmbedded = !!calloutsIife;
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife ? `${dagreIife}\n` : noDagreMark}${calloutsIife ? `${calloutsIife}\n` : ''}${stateChartBrowserJs({ callouts: !!calloutsIife })}\n</script>`;
   } catch (e) {
     // The harness tiles show. Say so, as the flowchart does below.
     console.warn(`  ⚠ state chart layout unavailable (${e?.message ? e.message.split('\n')[0] : e}) — state charts export as their fallback tiles.`);
@@ -2862,12 +2880,14 @@ const hasFlowchart = highlightedSlides.some(s => s.includes('flowchart-figure'))
 let flowchartScript = '';
 if (hasFlowchart) {
   try {
-    const { browserJs: flowchartBrowserJs } = require('./lib/components/chart/flowchart/flowchart.layout.js');
+    const { browserJs: flowchartBrowserJs, htmlHasCallouts: flowchartHasCallouts } = require('./lib/components/chart/flowchart/flowchart.layout.js');
     let dagreIife = '';
     if (!(hasStateChart && needsDagre)) {
       try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* the harness stays up */ }
     }
-    flowchartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${flowchartBrowserJs()}\n</script>`;
+    const calloutsNeeded = highlightedSlides.some(flowchartHasCallouts);
+    const calloutsIife = calloutsNeeded && !calloutsEmbedded ? calloutBrowserIife() : '';
+    flowchartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${calloutsIife ? `${calloutsIife}\n` : ''}${flowchartBrowserJs({ callouts: calloutsNeeded && (calloutsEmbedded || !!calloutsIife) })}\n</script>`;
   } catch (e) {
     // The harness tiles show. Say so: a missing Trama once exported every flowchart
     // as tiles with no word to the author.
