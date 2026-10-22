@@ -1,11 +1,11 @@
 ---
-origin: 2854
+origin: 2855
 priority: P3
 recorded: 2026-10-21
 area: chart
 severity: low
 swimlane: engineering/decisions/2026-10-20-callout-placement.md § 7 P2
-source: https://github.com/Laticent/lattice/pull/2854
+source: https://github.com/Laticent/lattice/pull/2855
 ---
 
 # `flowchart` and `state-chart` do not read `@callout`
