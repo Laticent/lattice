@@ -168,6 +168,10 @@ const imageSpec: NodeSpec = {
 export const proseSchema = new Schema({
 	nodes: mdSchema.spec.nodes
 		.update('code_block', codeBlockSpec)
+		// The engine runs markdown-it with `breaks: true`, so a bare newline inside a paragraph is a line break on the slide.
+		// `soft` marks the newline as written (`a\nb`), so it writes back as a newline and not as the `\` + newline of a typed
+		// Shift-Enter (followups.d/2846-p6).
+		.update('hard_break', { ...(mdSchema.spec.nodes.get('hard_break') as NodeSpec), attrs: { soft: { default: false } } })
 		.update('image', imageSpec)
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
@@ -207,6 +211,7 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
 	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
 	table: { block: 'table' },
+	softbreak: { node: 'hard_break', getAttrs: () => ({ soft: true }) },
 	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
 	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
 	// A block of HTML or a `$$` display block, and an inline `$tex$` (raw-block.ts). Each carries its source bytes.
@@ -324,6 +329,14 @@ function interruptsParagraph(node: PMNode): boolean {
 
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
+	hard_break(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		if (node.attrs.soft) {
+			if (index < parent.childCount - 1) state.write('\n');
+			return;
+		}
+		// biome-ignore lint/suspicious/noExplicitAny: the upstream rule, called with its own signature.
+		(defaultMarkdownSerializer.nodes.hard_break as any)(state, node, parent, index);
+	},
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
 	image(state: SerializerState, node: PMNode) {

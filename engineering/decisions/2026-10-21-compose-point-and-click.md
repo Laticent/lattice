@@ -192,7 +192,7 @@ bare `<img src="asset:harbor">` the browser cannot load.
 ### 7b. Known limits of the math and HTML atoms
 
 - A slide with an escaped dollar (`\$5`) stays locked. The serializer writes `\$` back as `$`, and next to a math span one bare `$` changes what the engine draws (the checker's repro: `Price \$5. Area $\pi r^2$.` came back as a KaTeX error). Escaping every `$` would rewrite every currency figure an author touches.
-- Compose joins a soft line break inside a paragraph into a space, and the engine draws each one as `<br>`. That predates the atoms, but four shipped slides that used to lock now reach it (`math.gallery.md`, `math-form-frame.md`, `math-split-structure.md`, `finish-backdrops.md`). `followups.d/2846-p6-*`.
+- ~~Compose joins a soft line break inside a paragraph into a space~~ **Fixed 2026-10-22.** The parser reads a soft break as a `hard_break` node with `soft: true`; the serializer writes it back as a bare newline. A corpus test holds the engine-rendered `<br>` count of every unlocked shipped slide (`deck-markdown-soft-break.test.ts`).
 - A block atom pasted into a list item turns a tight list loose (the comment atom does the same).
 - Typing a digit straight after a math span makes the engine read the dollars as text (`$x$2`): the engine's own closing guard.
 - The preview is MathML, so it shows the shape of a formula, not the slide's typesetting. The slide preview beside Compose draws the real thing.

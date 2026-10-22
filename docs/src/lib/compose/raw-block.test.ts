@@ -84,7 +84,7 @@ describe('what the checker found', () => {
 		const doc = latticeMarkdownParser.parse('text\n$$x$$');
 		expect(doc.childCount).toBe(1);
 		expect(doc.child(0).type.name).toBe('paragraph');
-		expect(rt('> a\n> $$x$$')).toBe('> a $$x$$');
+		expect(rt('> a\n> $$x$$')).toBe('> a\n> $$x$$');
 	});
 	it('locks the HTML kinds it does not model (types 3-5)', () => {
 		for (const md of ['<?php echo 1; ?>\nmore', '<!DOCTYPE html>', '<![CDATA[\nx\n]]>']) expect(hasLossyConstruct(md)).toBe(true);
