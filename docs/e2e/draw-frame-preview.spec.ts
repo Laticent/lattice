@@ -289,3 +289,16 @@ test("the Studio's deck-wide diagram check draws through the frame and never loa
 		.toBeGreaterThanOrEqual(4);
 	expect(pageLibrary, 'the Studio page loaded the Mermaid library').toEqual([]);
 });
+
+// A diagram that arrives in a frame that has never held one is tagged (hidden) within a beat, not seconds later. The frame answers the
+// runtime's library request on the spot (it installs the stand-in), so no load is coming to run the pass again; the pass has to run
+// itself, or the fence's source stays on screen until some later edit does (measured before the fix: 99 painted frames, 6 s).
+test('the first diagram a preview gains is hidden under its tag at once, not left as source @gecko @webkit-tablet', async ({ page }) => {
+	test.setTimeout(240_000);
+	await gotoStudio(page);
+	const preview = livePreview(page);
+	await setEditorContent(page, '---\ntheme: indaco\n---\n\n## Prose\n\nNo diagram yet.\n\n---\n\n## Flow\n\n```mermaid\nflowchart LR\n  A[Draft] --> B[Ship]\n```\n');
+	await expect(preview.locator('.lattice').first()).toBeAttached({ timeout: 60_000 });
+	await page.getByRole('button', { name: /^Slide 2/ }).click();
+	await expect(preview.locator('pre[data-lattice-hydrate="mermaid"]')).toHaveAttribute('data-lattice-settle', /.+/, { timeout: 1500 });
+});
