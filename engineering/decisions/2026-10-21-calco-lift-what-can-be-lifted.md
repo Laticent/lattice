@@ -191,6 +191,20 @@ html-to-image cannot composite a slide that reads the paint behind it (a blend, 
 Chrome does, so its three photographs never add back up; the Studio passes `backdrop: 'whole'` and keeps one
 picture for such a slide without shooting its layers. Without that the 35-slide deck took 90 s and 42 MB.
 
+### The deck logo is its own picture, every time
+
+The logo (`img.deck-logo`) used to be treated three ways on one deck: its own picture on a quiet slide, merged into the picture of
+whatever it overlapped (a photo panel, a title band, the list markers) on a slide with a finish, and baked into the whole-slide
+picture in the Studio on a slide that reads its backdrop. The merging had one cause beyond the logo: a finish's own full-slide layers
+(`.backdrop::after`, `.backdrop-mask`) counted as foreground picture content, spanned the slide and joined every picture on it into
+one cluster. Now the finish's decorative layer is left out of the foreground items (the background capture draws it), and the logo is
+read apart (`readSlide(..., { logo: true })` reports it in `ReadResult.logo`), hidden from the background, foreground and whole-slide
+shots (`splitSlide` modes `foreground`, `nologo`), and shot alone over transparency (`splitSlide(section, 'logo')`) into one picture
+per look (file, size, tint, plate; `logoKey`), placed on every slide above its other shapes. Measured on the 35-slide photo deck: the logo
+is a separate 70 to 108 px picture on all 34 slides that show it, where before it was inside a larger picture on slides 3, 8 and 16 among
+others. Its alpha is kept (a PNG with a clear corner, tested), so a logo with a transparent background has no box unless the page
+paints one (the `brand` plate, which the engine now makes opt-in: see the logo docs).
+
 ## 10. What the validators prove, and what they do not
 
 `validate.py` (the PowerPoint-rules check used for this branch) validates, by an independent reading of its source, against the XSD only the parts

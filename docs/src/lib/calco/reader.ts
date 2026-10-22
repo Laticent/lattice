@@ -51,6 +51,8 @@ export interface ReadResult {
 	refused?: Refusal[];
 	/** With `diagnose`: every item the picture keeps (drawn elements, refused boxes, markers, unread text) with its box. */
 	kept?: Array<{ kind: string; x: number; y: number; w: number; h: number }>;
+	/** With `logo`: the slide's deck logo (`img.deck-logo`), left out of the pictures so the caller can shoot it alone. Absent when the slide shows none. */
+	logo?: { x: number; y: number; w: number; h: number; alt?: string };
 	/** What lifted shapes only approximate, one entry per shape and kind: `stacked-shadow` (two outer shadows drawn as one) or `backdrop-blur` (a frosted fill drawn as its translucent color). */
 	approximated: string[];
 }
@@ -89,6 +91,12 @@ export interface ReadOptions {
 	 * The caller crops each one from a capture of the slide. Default false.
 	 */
 	sprites?: boolean;
+	/**
+	 * Report the slide's deck logo (`img.deck-logo`) in `ReadResult.logo` instead of keeping it in a picture. The caller
+	 * photographs it alone (`splitSlide(section, 'logo')`) and hides it from every other capture, so it is never baked
+	 * into a background or into another picture. Default false.
+	 */
+	logo?: boolean;
 	/** With `shapes`: draw an inline chip (a code span, a mark) as a highlight on its words, not a shape. Default true. */
 	highlight?: boolean;
 }
@@ -739,6 +747,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	range.detach();
 
 	// ── words → lines → frames. An unplaceable block is dropped, and its text is not hidden.
+	let logoFound: ReadResult['logo'];
 	const frames: TextFrame[] = [];
 	const frameBlocks: Element[] = [];
 	const textOwners = new Set<Element>();
@@ -1824,9 +1833,17 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const walk = (el: Element) => {
 			const cs = win.getComputedStyle(el) as CSSStyleDeclaration & Record<string, string>;
 			if (cs.display === 'none') return;
+			// The slide's decorative layer is the background: its own boxes and pseudo-elements are painted by the background
+			// capture and hidden from the foreground, so they hold no foreground ink. Counted as picture content they
+			// would span the slide and join every picture on it into one.
+			if (el !== section && el.parentElement === section && backdropLayers().includes(el)) return;
 			const tag = String(el.localName).toLowerCase();
 			const shown = cs.visibility === 'visible' && opacityOf(el) > 0;
 			const rect = relRect(el.getBoundingClientRect());
+			if (options?.logo && el !== section && el.parentElement === section && tag === 'img' && el.classList.contains('deck-logo')) {
+				if (shown && rect.w > 0 && rect.h > 0) logoFound = { x: Math.round(rect.x * 1000) / 1000, y: Math.round(rect.y * 1000) / 1000, w: Math.round(rect.w * 1000) / 1000, h: Math.round(rect.h * 1000) / 1000, ...((el.getAttribute('alt') || '').trim() ? { alt: (el.getAttribute('alt') || '').trim() } : {}) };
+				return;
+			}
 			if (el !== section && DRAWN.has(tag)) {
 				if (shown && rect.w > 0 && rect.h > 0) items.push({ node: el, owner: el, rect, kind: `drawn:${tag}`, bleed: bleedOf(cs), alt: (el.getAttribute('alt') || el.getAttribute('aria-label') || el.querySelector('title')?.textContent || '').trim() || undefined });
 				return;
@@ -2477,7 +2494,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	}
 	putScrollBack();
 	if (!hidden) earlyHost.__calcoRestore = undefined;
-	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
+	return { width: boxW, height: boxH, frames, shapes, hidden, approximated, ...(logoFound ? { logo: logoFound } : {}), ...(options?.diagnose && refusedOut ? { refused: refusedOut } : {}), ...(keptOut ? { kept: keptOut } : {}) };
 }
 
 /** Undo `readSlide(section, { hide: true })`. Safe to call when nothing is hidden. */
@@ -2509,9 +2526,14 @@ export function restoreSlide(section: HTMLElement): void {
  * text of its own, such as a finish's wash or ghost numeral. Border WIDTHS stay, so nothing
  * moves. Undone by `restoreSplit`.
  *
+ * The slide's deck logo (`img.deck-logo`) is its own picture, never part of the background or the
+ * foreground: both hide it. `which: 'logo'` shows ONLY the logo, over transparency (so a photograph
+ * with `omitBackground` is the logo alone, with its own alpha), and `which: 'nologo'` hides only the
+ * logo, for a capture of the whole slide.
+ *
  * Self-contained, like `readSlide`: a headless browser receives it as source.
  */
-export function splitSlide(section: HTMLElement, which: 'background' | 'foreground'): void {
+export function splitSlide(section: HTMLElement, which: 'background' | 'foreground' | 'logo' | 'nologo'): void {
 	const doc = section.ownerDocument;
 	const win = doc.defaultView as Window & typeof globalThis;
 	const host = section as HTMLElement & { __calcoSplit?: () => void };
@@ -2530,8 +2552,10 @@ export function splitSlide(section: HTMLElement, which: 'background' | 'foregrou
 	const rules: string[] = [`${sel}, ${sel} *, ${sel}::before, ${sel}::after { transition: none !important; animation: none !important; }`];
 	for (const pseudo of ['::before', '::after'] as const) {
 		const text = drawsText(pseudo);
-		// The background keeps a pseudo that paints without text; the foreground keeps the one with text.
-		if (which === 'background' ? text : !text) rules.push(`${sel}${pseudo} { visibility: hidden !important; }`);
+		// The background keeps a pseudo that paints without text; the foreground keeps the one with text; the logo
+		// capture keeps neither, and hiding only the logo keeps both.
+		if (which === 'nologo') continue;
+		if (which === 'logo' || (which === 'background' ? text : !text)) rules.push(`${sel}${pseudo} { visibility: hidden !important; }`);
 	}
 	const layer = `${sel} [data-calco-backdrop], ${sel} [data-calco-backdrop] *`;
 	// The background hides every element INLINE. A stylesheet rule can be outranked by a deck's own `!important`
@@ -2539,15 +2563,22 @@ export function splitSlide(section: HTMLElement, which: 'background' | 'foregrou
 	// background that other slides share. An inline `!important` is outranked only by another inline one, which
 	// this replaces; the author's inline value is put back on undo.
 	const hiddenInline: Array<[HTMLElement, string | null]> = [];
+	const hide = (el: HTMLElement) => {
+		hiddenInline.push([el, el.getAttribute('style')]);
+		el.style.setProperty('visibility', 'hidden', 'important');
+	};
+	const logos = (Array.from(section.children) as HTMLElement[]).filter((el) => el.localName === 'img' && el.classList.contains('deck-logo'));
 	if (which === 'background') {
 		for (const el of Array.from(section.querySelectorAll<HTMLElement>('*'))) {
 			if (!el.style || el.closest('[data-calco-backdrop]')) continue;
-			hiddenInline.push([el, el.getAttribute('style')]);
-			el.style.setProperty('visibility', 'hidden', 'important');
+			hide(el);
 		}
-	}
+	} else if (which === 'logo') {
+		// Everything but the logo, the decorative layer included.
+		for (const el of Array.from(section.querySelectorAll<HTMLElement>('*'))) if (el.style && !logos.includes(el)) hide(el);
+	} else for (const el of logos) hide(el);
 	if (which === 'background') rules.push(`${sel} * { visibility: hidden !important; }`, `${layer} { visibility: visible !important; }`);
-	else rules.push(`${layer} { visibility: hidden !important; }`,`${sel} { background: none !important; border-color: transparent !important; border-image: none !important; box-shadow: none !important; outline-color: transparent !important; }`);
+	else if (which !== 'nologo') rules.push(`${layer} { visibility: hidden !important; }`, `${sel} { background: none !important; border-color: transparent !important; border-image: none !important; box-shadow: none !important; outline-color: transparent !important; }`);
 	style.textContent = rules.join('\n');
 	section.setAttribute('data-calco-split', which);
 	doc.head.appendChild(style);

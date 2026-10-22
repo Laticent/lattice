@@ -8,7 +8,7 @@
  */
 
 export type { CapturedSlide, CaptureHost, CaptureOptions, Shot } from './capture.js';
-export { captureOfficeSlides, cropPictures, describeBackground, placePictures, readsBackdrop, splitError, toBase64 } from './capture.js';
+export { captureOfficeSlides, cropPictures, describeBackground, logoKey, placePictures, readsBackdrop, splitError, toBase64 } from './capture.js';
 export type { FaceUse, FontHost, FontMetrics } from './fonts.js';
 export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts.js';
 export type { PlacedBox } from './layout.js';

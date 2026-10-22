@@ -27,6 +27,8 @@ interface Box {
 }
 interface PictureBox extends Box {
 	photo?: boolean;
+	/** One picture, never split into a photo core and strips (a logo). */
+	lone?: boolean;
 }
 interface Piece extends Box {
 	data: string;
@@ -131,6 +133,21 @@ export async function splitError(_section: HTMLElement, { bg, fg, full, tol }: {
     for (let c = 0; c < 3; c++) if (Math.abs(f[k + c] * al + b[k + c] * (1 - al) - o[k + c]) > tol) { off++; break; }
   }
   return off / (o.length / 4);
+}
+
+/**
+ * In the page: what the slide's deck logo looks like, as a key. Two slides whose logos have the same key
+ * (the file, the size, the tint filter, the opacity, the plate) draw the same pixels, so one photograph of the
+ * logo serves both. Null when the slide has no logo. Self-contained, like `readSlide`.
+ */
+export function logoKey(section: HTMLElement): string | null {
+	const win = section.ownerDocument.defaultView as Window & typeof globalThis;
+	const logo = (Array.from(section.children) as HTMLElement[]).find((el) => el.localName === 'img' && el.classList.contains('deck-logo')) as HTMLImageElement | undefined;
+	if (!logo) return null;
+	const cs = win.getComputedStyle(logo);
+	const props = ['width', 'height', 'opacity', 'filter', 'background-color', 'background-image', 'backdrop-filter', 'padding', 'border-radius', 'box-sizing', 'object-fit', 'mix-blend-mode'];
+	const tint = section.querySelector(':scope > svg.deck-logo-tint');
+	return [logo.currentSrc || logo.src, ...props.map((k) => `${k}:${cs.getPropertyValue(k)}`), tint ? tint.innerHTML : ''].join('|');
 }
 
 /**
@@ -259,7 +276,7 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
     if (t) {
       // A JPEG paints a clear pixel black, so only a crop with none is one.
       const share = opaqueShare(t);
-      const core = share < 1 && t.w * t.h >= 40000 ? opaqueCore(t, 0.4) : null;
+      const core = share < 1 && !b.lone && t.w * t.h >= 40000 ? opaqueCore(t, 0.4) : null;
       if (share === 1) parts.push(await encode(t, true, b.photo));
       else if (core) {
         // Splitting a picture exists to keep a photo a JPEG without painting its clear corners black. If the
@@ -426,15 +443,55 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 	const imageIndexes: Array<number | null> = [];
 	// Slides that paint the same background (same `splitKey`) share one photograph and one answer.
 	const seen = new Map<string, { bg: Uint8Array; flat: string | null; slot: number; own?: number }>();
+	// The deck logo is its own picture on every slide: shot once per look (file, size, tint, plate), placed per slide.
+	const logos = new Map<string, { dx: number; dy: number; w: number; h: number; image: Uint8Array } | null>();
 	const guard = host.guard ? host.guard.bind(host) : <T>(_i: number, fn: () => Promise<T>) => fn();
+	// The whole slide, without its logo: the logo is a picture of its own.
+	const shootWhole = async (i: number) => {
+		await host.run(i, splitSlide, 'nologo');
+		try {
+			return await host.shoot(i, 'full');
+		} finally {
+			await host.run(i, restoreSplit);
+		}
+	};
+	const addLogo = async (i: number, read: ReturnType<typeof readSlide>) => {
+		if (!read.logo) return;
+		const key = await host.run<string | null>(i, logoKey);
+		if (!key) return;
+		let look = logos.get(key);
+		if (look === undefined) {
+			// The logo alone over transparency, cropped to its own ink: its alpha is kept, and so is whatever plate it has.
+			await host.run(i, splitSlide, 'logo');
+			let shot: Uint8Array;
+			try {
+				shot = await host.shoot(i, 'foreground');
+			} finally {
+				await host.run(i, restoreSplit);
+			}
+			const got = await host.run<CropResult>(i, cropPictures, {
+				fg: toBase64(shot),
+				boxes: [{ x: read.logo.x, y: read.logo.y, w: read.logo.w, h: read.logo.h, lone: true }],
+				rules: { maxOutside: SPRITE_OUTSIDE_SHARE, quality: PICTURE_JPEG_QUALITY, toneBytes: PICTURE_TONE_JPEG_BYTES, flatBytes: PICTURE_FLAT_BYTES, share: PICTURE_JPEG_SHARE },
+			});
+			const part = got.images[0]?.[0];
+			look = part ? { dx: part.x - read.logo.x, dy: part.y - read.logo.y, w: part.w, h: part.h, image: fromBase64(part.data) } : null;
+			logos.set(key, look);
+		}
+		if (!look) return;
+		// Last, so it is above everything the slide draws but its text.
+		read.shapes.push({ kind: 'picture', x: read.logo.x + look.dx, y: read.logo.y + look.dy, w: look.w, h: look.h, image: look.image, alt: read.logo.alt || 'Logo' });
+	};
 	for (let i = 0; i < count; i++) {
 		slides.push(
 			await guard(i, async () => {
 				const reads = await host.run<boolean>(i, readsBackdrop);
 				if (reads && options.backdrop === 'whole') {
 					try {
-						const whole = await host.run<ReturnType<typeof readSlide>>(i, readSlide, { hide: true, shapes: true, sprites: false });
-						return { image: new Uint8Array(await host.shoot(i, 'full')), frames: whole.frames, shapes: whole.shapes, approximated: whole.approximated };
+						const whole = await host.run<ReturnType<typeof readSlide>>(i, readSlide, { hide: true, shapes: true, sprites: false, logo: true });
+						const image = new Uint8Array(await shootWhole(i));
+						await addLogo(i, whole);
+						return { image, frames: whole.frames, shapes: whole.shapes, approximated: whole.approximated };
 					} finally {
 						await host.run(i, restoreSlide);
 					}
@@ -464,7 +521,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 				let withSprites = false;
 				try {
 					for (const trySprites of options.sprites !== false && !reads ? [true, false] : [false]) {
-						read = await host.run(i, readSlide, { hide: true, shapes: true, sprites: trySprites });
+						read = await host.run(i, readSlide, { hide: true, shapes: true, sprites: trySprites, logo: true });
 						await host.run(i, splitSlide, 'foreground');
 						try {
 							fg = await host.shoot(i, 'foreground');
@@ -493,9 +550,12 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 					}
 					if (reads) {
 						// Something here reads what is behind it: prove the layers add back up, or keep the old picture.
-						const full = await host.shoot(i, 'full');
+						const full = await shootWhole(i);
 						const bad = await host.run<number>(i, splitError, { bg: toBase64(known.bg), fg: toBase64(fg), full: toBase64(full), tol: 16 });
-						if (bad > SPLIT_BAD_SHARE) return { image: new Uint8Array(full), frames: read.frames, shapes: read.shapes, approximated: read.approximated };
+						if (bad > SPLIT_BAD_SHARE) {
+							await addLogo(i, read);
+							return { image: new Uint8Array(full), frames: read.frames, shapes: read.shapes, approximated: read.approximated };
+						}
 					}
 					let index: number;
 					if (known.flat) {
@@ -511,6 +571,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 						if (imageIndexes[known.slot] == null) imageIndexes[known.slot] = backgrounds.push({ image: new Uint8Array(known.bg) }) - 1;
 						index = imageIndexes[known.slot] as number;
 					}
+					await addLogo(i, read);
 					return { image: withSprites ? undefined : new Uint8Array(fg), frames: read.frames, shapes: read.shapes, background: index, approximated: read.approximated };
 				} finally {
 					await host.run(i, restoreSlide);
