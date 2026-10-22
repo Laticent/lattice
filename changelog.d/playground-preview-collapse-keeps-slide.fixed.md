@@ -1,0 +1,1 @@
+- Collapsing and expanding the Playground preview on desktop returns it to the slide it was on, instead of slide 1. After typing in another slide while it was collapsed, it opens on the caret's slide. The frame stays covered until it is on that slide, so no frame shows another one.

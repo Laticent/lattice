@@ -143,6 +143,9 @@ docs/src/playground/*.generated.js
 # concurrent PR conflict. `prepare` builds it, so a fresh clone and
 # `npm publish` both have it. See tools/build-dagre-bundle.js.
 lib/core/dagre-bundle.generated.js
+# The callout placer as an IIFE string for the export's flowchart and state-chart passes. Same contract.
+# See tools/build-callout-browser.js.
+lib/core/callout-browser-bundle.generated.js
 docs/src/lib/*/dist/
 # The hidden staging tree a library builder writes and renames into place. Named per pid so
 # two concurrent builds cannot corrupt each other, and swept on the next run when its pid is

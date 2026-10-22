@@ -9,17 +9,23 @@
 // dock on a phone so the keyboard does not cover the results. It reads the same name → URL map the preview renders with, so
 // what the thumbnail shows is what the slide will show.
 //
-// An empty Library says so and offers the way to fill it (the Library panel), instead of an empty grid.
+// An empty Library says so and offers the way to fill it, instead of an empty grid. "Add a photo" imports through the
+// Library's own flow (media-import-batch.ts, behind the same format dialog), saves to the shared shelf, and picks the photo.
 //
 // Design: engineering/decisions/2026-10-21-compose-point-and-click.md §6. Lazy: ComposeView loads this on first use.
 
-import { Images } from 'lucide-react';
+import { Images, Plus } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { PanelBody, PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSheet } from '@/components/ui/panel';
+import { notify } from '@/lib/notify';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import type { AssetChoice } from './editor-complete';
-import { assetChoices, ensureAssetAlts, ensureAssetUrls, onAssetUrlsChanged } from './media-urls';
+import { MEDIA_ACCEPT, type PhotoFormat } from './media-import';
+import { importPhotoBatch } from './media-import-batch';
+import { LIBRARY_SCOPE } from './media-store';
+import { assetChoices, ensureAssetAlts, ensureAssetUrls, onAssetUrlsChanged, refreshAssetUrls } from './media-urls';
+import { PhotoFormatDialog } from './PhotoFormatDialog';
 
 export interface PickedPhoto {
 	name: string;
@@ -41,6 +47,47 @@ export function PhotoPicker({ open, onOpenChange, onPick, onOpenLibrary }: { ope
 	const [alts, setAlts] = React.useState<Record<string, string>>({});
 	const [query, setQuery] = React.useState('');
 	const searchRef = React.useRef<HTMLInputElement>(null);
+	const fileRef = React.useRef<HTMLInputElement>(null);
+	const [pending, setPending] = React.useState<File[] | null>(null);
+	const [adding, setAdding] = React.useState(false);
+
+	async function addPhotos(files: File[], format: PhotoFormat) {
+		setAdding(true);
+		try {
+			const { saved, failed, renamed } = await importPhotoBatch(files, LIBRARY_SCOPE, format);
+			if (renamed.length) notify(`${renamed.slice(0, 2).join('; ')}.`);
+			if (failed.length) notify(failed.slice(0, 2).join(' ') + (failed.length > 2 ? ` (+${failed.length - 2} more)` : ''));
+			if (!saved.length) return;
+			void navigator.storage?.persist?.().catch(() => {});
+			await refreshAssetUrls();
+			const described = await ensureAssetAlts();
+			onPick({ name: saved[0], caption: described[saved[0]] ?? null });
+		} finally {
+			setAdding(false);
+		}
+	}
+	const addButton = (
+		<>
+			<input
+				ref={fileRef}
+				type="file"
+				accept={MEDIA_ACCEPT}
+				multiple
+				hidden
+				aria-label="Choose photo files"
+				onChange={(e) => {
+					// Copy the files out before anything awaits: a FileList is live and empties in WebKit.
+					const picked = Array.from(e.target.files ?? []);
+					e.target.value = '';
+					if (picked.length) setPending(picked);
+				}}
+			/>
+			<Button type="button" variant="outline" size="sm" disabled={adding} onClick={() => fileRef.current?.click()}>
+				<Plus />
+				{adding ? 'Adding…' : 'Add a photo'}
+			</Button>
+		</>
+	);
 
 	// Read the shelf when the picker opens, and follow it while it is open (a photo added in the Library shows at once).
 	React.useEffect(() => {
@@ -75,7 +122,12 @@ export function PhotoPicker({ open, onOpenChange, onPick, onOpenLibrary }: { ope
 	return (
 		<PanelSheet open={open} onOpenChange={onOpenChange} width="md">
 			<PanelHeader icon={<Images />} title="Choose a photo" srDescription="The photos in your Library. Pick one to put it on the slide." />
-			{phone || !photos?.length ? null : <div className="border-b border-border px-4 py-2">{search}</div>}
+			{phone || !photos?.length ? null : (
+				<div className="flex items-center gap-2 border-b border-border px-4 py-2">
+					{search}
+					{addButton}
+				</div>
+			)}
 			<PanelBody padded={false} className="px-3 pb-4">
 				{!photos ? (
 					<p className="px-1 py-6 text-center text-[12px] text-muted-foreground" role="status">
@@ -83,7 +135,8 @@ export function PhotoPicker({ open, onOpenChange, onPick, onOpenLibrary }: { ope
 					</p>
 				) : photos.length === 0 ? (
 					<PanelEmpty icon={<Images />} title="Your Library has no photos yet">
-						Add photos in the Library, then come back here to put them on a slide.
+						Add one from your device and it goes on the slide.
+						<span className="mt-3 flex justify-center">{addButton}</span>
 						{onOpenLibrary ? (
 							<span className="mt-3 flex justify-center">
 								<Button
@@ -125,7 +178,21 @@ export function PhotoPicker({ open, onOpenChange, onPick, onOpenLibrary }: { ope
 					</ul>
 				)}
 			</PanelBody>
-			{phone && photos?.length ? <PanelDock>{search}</PanelDock> : null}
+			{phone && photos?.length ? (
+				<PanelDock>
+					{search}
+					{addButton}
+				</PanelDock>
+			) : null}
+			<PhotoFormatDialog
+				files={pending}
+				onCancel={() => setPending(null)}
+				onConfirm={(format) => {
+					const files = pending;
+					setPending(null);
+					if (files) void addPhotos(files, format);
+				}}
+			/>
 		</PanelSheet>
 	);
 }

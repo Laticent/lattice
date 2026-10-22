@@ -14,11 +14,17 @@ const listeners = new Set<() => void>();
 vi.mock('./media-urls', () => ({
 	ensureAssetUrls: async () => urls,
 	ensureAssetAlts: async () => alts,
+	refreshAssetUrls: async () => {},
 	assetChoices: () => shelf,
 	onAssetUrlsChanged: (cb: () => void) => {
 		listeners.add(cb);
 		return () => listeners.delete(cb);
 	},
+}));
+
+// The real dialog measures formats on a canvas, which jsdom lacks; its own suite covers it.
+vi.mock('./PhotoFormatDialog', () => ({
+	PhotoFormatDialog: ({ files }: { files: File[] | null }) => (files ? <div role="dialog" aria-label="Add photos" /> : null),
 }));
 
 beforeEach(() => {
@@ -74,6 +80,17 @@ describe('PhotoPicker', () => {
 		await userEvent.click(screen.getByRole('button', { name: 'Open the Library' }));
 		expect(onOpenLibrary).toHaveBeenCalledTimes(1);
 		expect(onOpenChange).toHaveBeenCalledWith(false);
+	});
+
+	it('an empty Library offers Add a photo, and a chosen file waits for the format dialog', async () => {
+		shelf = [];
+		const { container } = render(<PhotoPicker open onOpenChange={() => {}} onPick={() => {}} />);
+		await waitFor(() => expect(screen.getByText('Your Library has no photos yet')).toBeTruthy());
+		expect(screen.getByRole('button', { name: 'Add a photo' })).toBeTruthy();
+		const input = container.ownerDocument.querySelector('input[type="file"]') as HTMLInputElement;
+		expect(input.accept).toContain('image/*');
+		await userEvent.upload(input, new File(['x'], 'a.png', { type: 'image/png' }));
+		await waitFor(() => expect(screen.getByRole('dialog', { name: 'Add photos' })).toBeTruthy());
 	});
 
 	it('shows a photo added in the Library while it is open', async () => {

@@ -12,6 +12,9 @@
       "detail"
     ]
   },
+  "callout": {
+    "side": "beside"
+  },
   "function": "evidence",
   "bucket": "chart",
   "form": "canvas",

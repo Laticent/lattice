@@ -165,7 +165,7 @@ describe('a starter becomes a pane body', () => {
 		expect(paneStarter('<!-- _class: x -->\n\n## H\n\n- a\n\n> Insight', false)).toBe('- a');
 	});
 	it('a starter Compose could not edit is not offered (it would lock the slide read-only)', () => {
-		expect(starterEditable(SKELETON.checklist)).toBe(false); // its state markers lock a slide
+		expect(starterEditable(SKELETON.checklist)).toBe(true); // its state markers round-trip
 		expect(starterEditable(SKELETON.redline)).toBe(true); // inline <del>/<ins> round-trips as text
 		expect(starterEditable(SKELETON.bar)).toBe(true);
 		expect(starterEditable(SKELETON.table)).toBe(true);

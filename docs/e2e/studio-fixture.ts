@@ -848,6 +848,23 @@ export async function setEditorContent(page: Page, text: string): Promise<void> 
 	await page.keyboard.insertText(text);
 }
 
+/** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
+ *  `Markdown source` cell swaps the editor in and `Preview` swaps the slide back. On a wider
+ *  box both are on screen and `typeDeck` types straight in. Gated on the real viewport width, as
+ *  editor-lint.spec.ts explains. */
+const SINGLE_PANE_MAX_WIDTH = 699;
+export const isPhone = (page: Page): boolean => (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= SINGLE_PANE_MAX_WIDTH;
+
+/** Replace the deck source at any width: through the phone's one-pane layout when the box is that narrow. */
+export async function typeDeck(page: Page, deck: string): Promise<void> {
+	if (isPhone(page)) {
+		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await expect(page.getByLabel('Deck source')).toBeVisible();
+	}
+	await setEditorContent(page, deck);
+	if (isPhone(page)) await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
+}
+
 /** Open the Coach panel (collapsed by default) and wait for it. Coach and Chat are
  *  separate panels now (own toolbar icon, own drawer) — no tabs. */
 export async function openArchitect(page: Page): Promise<void> {

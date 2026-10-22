@@ -14,6 +14,7 @@ import { chunkLoadMessage } from './chunk-load';
 import { engineBase, SAFE_CHUNK, sameOriginAsset } from './engine-base';
 
 const loads = new Map<string, Promise<void>>();
+const CALLOUT_ENTRY = 'callout-place.js';
 let chunkList: Promise<Record<string, string[]>> | null = null;
 
 /** esm/chunks.json: each entry's static chunks, so all of them start downloading at once. */
@@ -81,6 +82,33 @@ export function ensureCharts(layouts: readonly string[]): Promise<void> {
 			return p;
 		}),
 	).then(() => undefined);
+}
+
+/**
+ * Load the half of the callout layer that draws a note, for a deck that writes one. Every chart kernel
+ * reads callouts through it, and none carries it (it is `legend-svg.js` and the lane and marker code),
+ * so a deck with no `@callout` never downloads it. Resolves at once when the engine says nothing is
+ * needed. Rejects with a ChunkLoadError: a chart drawn without the callouts its author wrote is a
+ * confident wrong answer, the same as a chart drawn as its source list.
+ */
+export function ensureCalloutLayer(needed: boolean): Promise<void> {
+	if (!needed) return Promise.resolve();
+	const base = engineBase();
+	if (!base) return Promise.reject(chunkLoadError(new Error('the engine has not loaded')));
+	let p = loads.get(CALLOUT_ENTRY);
+	if (!p) {
+		void preloadEntry(base, CALLOUT_ENTRY);
+		const url = sameOriginAsset(base, `esm/${CALLOUT_ENTRY}`);
+		p = (url ? import(/* @vite-ignore */ url.href) : Promise.reject(new Error(`not an engine asset: ${CALLOUT_ENTRY}`))).then(
+			() => undefined,
+			(e) => {
+				loads.delete(CALLOUT_ENTRY);
+				throw chunkLoadError(e);
+			},
+		);
+		loads.set(CALLOUT_ENTRY, p);
+	}
+	return p;
 }
 
 /** For tests. */

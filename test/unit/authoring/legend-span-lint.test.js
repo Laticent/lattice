@@ -17,7 +17,7 @@ test('a legend on a slide no component reads it on is told it renders as code', 
   const f = findLegendSpans('---\nmarp: true\n---\n\n# Hi\n\n`@callout{{Peak, for=1}}`\n');
   assert.equal(f.length, 1);
   assert.equal(f[0].rule, 'legend-span');
-  assert.match(f[0].message, /`@callout\{…\}` renders as code here: no component on this slide reads one yet \(today: heatmap\)/);
+  assert.match(f[0].message, /`@callout\{…\}` renders as code here: no component on this slide reads one yet \(today: heatmap, /);
 });
 
 test('the reader\'s own diagnostics come through: no target, and the `{1, lg}` shape', () => {
@@ -122,4 +122,61 @@ test('a @callout span with no layout word gets no layout note, even when its ent
   }
   const named = findLegendSpans(heatmap('@callout{{Peak, row=r, col=A}, layout=along-path}')).map((x) => x.message);
   assert.ok(named.some((m) => /`along-path` is not a callout layout/.test(m)));
+});
+
+// The charts that name their marks by label (callout-layer.js): the list's items are the names.
+const listChart = (cls, list, span) => `---\nmarp: true\n---\n\n<!-- _class: ${cls} -->\n\n## R\n\n${list}\n\n\`${span}\`\n`;
+const BAR_LIST = '- Q1 `1`\n- Q2 `2`\n- Q3 `3`';
+
+test('a callout on a bar that names a category the list has says nothing', () => {
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}}')), []);
+});
+
+test('a callout on a bar that names no category is told so, with the names it could have used', () => {
+  const [f] = findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q9}}'));
+  assert.equal(f.rule, 'legend-span');
+  assert.match(f.message, /"Peak" is not drawn: `for=Q9` names no mark\. The marks are Q1, Q2, Q3\./);
+});
+
+test('an index or Category/Series form is accepted', () => {
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{A, for=1}}')), []);
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{A, for="Q2/North"}}')), []);
+});
+
+test('where the marks are nested, a name at any depth is a mark', () => {
+  const quad = '- Quick Wins\n  - Slack bot `{3, 72}`\n- Defer\n  - Old UI `{2, 28}`';
+  assert.deepEqual(findLegendSpans(listChart('quadrant', quad, '@callout{{Ship, for=Slack bot}}')), []);
+});
+
+test('a chart named by a pill (ep-curve) is not checked', () => {
+  const ep = '- OEP\n  - `{10, $120M}`\n  - `{100, $410M}`';
+  assert.deepEqual(findLegendSpans(listChart('ep-curve', ep, '@callout{{Plan, for=1-in-100}}')), []);
+});
+
+test('a `key` legend on a bar says the chart draws anchored labels', () => {
+  const fs = findLegendSpans(listChart('bar', BAR_LIST, '@legend{[{A, c1}, {B, c2}], key}'));
+  assert.ok(fs.some((f) => /a bar chart draws anchored labels, each with `for=` naming a mark/.test(f.message)));
+});
+
+test('a seventh callout past the cap is named, for a chart that names its marks', () => {
+  const many = Array.from({ length: 7 }, (_, i) => `{N${i}, for=Q1}`).join(', ');
+  const fs = findLegendSpans(listChart('bar', BAR_LIST, `@callout{[${many}]}`));
+  assert.equal(fs.filter((f) => /is not drawn: a chart draws at most 6 callouts/.test(f.message)).length, 1);
+});
+
+test('a mark name with its own `<` or `>` still matches what the list says', () => {
+  const list = '- Age < 30 `120`\n- Age 30+ `180`\n- Cost > plan `90`';
+  assert.deepEqual(findLegendSpans(listChart('bar', list, '@callout{{Peak, for="Age < 30"}}')), []);
+  assert.deepEqual(findLegendSpans(listChart('bar', list, '@callout{{Over, for="Cost > plan"}}')), []);
+});
+
+test('a tag in a mark name is dropped, as it is in the drawn label', () => {
+  assert.deepEqual(findLegendSpans(listChart('bar', '- <b>Q1</b> `1`\n- Q2 `2`', '@callout{{Peak, for=Q1}}')), []);
+});
+
+test('a callout\'s `side=` or bare side word is clean, and a side that is not one is told', () => {
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}, side=beside}')), []);
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}, under}')), []);
+  const [f] = findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}, side=left}'));
+  assert.match(f.message, /`left` is not a callout side: use `under` or `beside`/);
 });

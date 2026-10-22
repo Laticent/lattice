@@ -380,6 +380,17 @@ describe('lattice-engine: css emission (P1.1)', () => {
     assert.doesNotMatch(eng.render('# A\n', 'cuoio').html, /data-orientation/);
   });
 
+  test('render() stamps data-aspect with the exact shape, and leaves 16:9 unstamped', () => {
+    const eng = createEngine();
+    eng.addThemes([SOCIAL, PALETTE]);
+    const stamp = (size) => eng.render(`---\nsize: ${size}\n---\n# A\n`, 'cuoio').html.match(/<section[^>]*data-aspect="([^"]*)"/)?.[1];
+    assert.equal(stamp('standard'), '1.33');
+    assert.equal(stamp('square'), '1.00');
+    assert.equal(stamp('story'), '0.56');
+    assert.equal(stamp('hd'), undefined);
+    assert.doesNotMatch(eng.render('# A\n', 'cuoio').html, /data-aspect/);
+  });
+
   // The browser runtime (lib/runtime/index.js) stamps the same scale when it measures the slide.
   // Both read it from lib/adaptive/families.js canvasScaleFor, so neither may carry the formula.
   test('runtime injectOrientationStyle scale stays in step with orientationFor', () => {

@@ -100,7 +100,7 @@ export interface ImageEdit {
 }
 
 /** Is the slide that holds `pos` locked (edited in Markdown, because Compose cannot round-trip it)? Its node identity must never change. */
-function inLockedSlide(state: EditorState, pos: number): boolean {
+export function inLockedSlide(state: EditorState, pos: number): boolean {
 	return Boolean(state.doc.resolve(pos).node(1)?.attrs.locked);
 }
 

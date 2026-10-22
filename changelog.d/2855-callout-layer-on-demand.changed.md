@@ -1,0 +1,1 @@
+- **Changed: a deck with no `@callout` no longer downloads the callout layer in the Studio.** The lane, the markers and `legend-svg.js` load only for a deck that writes a callout; the largest chart download is about 6KB smaller (gzipped) and the rendered output is byte-for-byte unchanged.

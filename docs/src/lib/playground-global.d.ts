@@ -50,6 +50,10 @@ export interface LatticePlaygroundEngine {
 	/** The chart layouts this deck's directives name whose kernel is not loaded (ESM engine only;
 	 *  docs/src/lib/ensure-charts.ts loads them). Empty on the single-file engine. */
 	chartsNeeded?: (markdown: string) => string[];
+	/** Whether the deck writes a callout and this engine build has not got the half that draws it. */
+	calloutsNeeded?: (markdown: string) => boolean;
+	/** Whether a render needed the callout layer and had none, since the last call. Taking clears it. */
+	takeMissingCallouts?: () => boolean;
 	/** The chart layouts a render met with no kernel loaded, since the last call. */
 	takeMissingCharts?: () => string[];
 	/** Tokenize one fence body → each token's range in `code`. For a surface that
@@ -108,6 +112,8 @@ declare global {
 		// lattice-katex.js loads; __latticeKatexReady is the loader's poll target.
 		__latticeRegisterKatex?: (katex: unknown) => void;
 		__latticeKatexReady?: boolean;
+		// The same KaTeX, for the Studio's own realm (compose/math-draw.ts); set by lattice-katex.js.
+		__latticeKatex?: { renderToString(tex: string, options?: Record<string, unknown>): string };
 		// On-demand highlight.js grammars (docs/src/lib/ensure-hljs-language.ts +
 		// tools/build-hljs-languages.js): each grammar file pushes
 		// `[name, definition]` onto this queue, and lib/playground's

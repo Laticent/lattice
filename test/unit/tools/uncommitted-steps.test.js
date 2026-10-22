@@ -43,6 +43,9 @@ const EXPECTED_UNCOMMITTED = new Set([
   // reason as the docs-site bundles — a 62KB minified bundle on one line makes
   // every concurrent PR conflict.
   'build-dagre-bundle.js',
+  // Measured 2026-10-22 (touch a marker, run it alone, `find -newer`): its entire write set is
+  // lib/core/callout-browser-bundle.generated.js, which .gitignore carries, the same contract as the dagre string.
+  'build-callout-browser.js',
   'build-css.js',
   'build-default-bundle.js',
   'build-runtime.js',

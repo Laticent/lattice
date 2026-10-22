@@ -106,8 +106,8 @@ describe('folding a slide next to a folded one (the neighbor-match bug)', () => 
 // external resync and silently drop an external edit.
 describe('a rejected edit leaves the doc unchanged though tr.docChanged is true (Finding 1)', () => {
 	it('typing into a locked slide is filtered — same doc, but the tr reports docChanged', () => {
-		// A table no longer locks (modeled + round-trippable); inline math still does.
-		const src = '<!-- _class: content -->\n\n# Locked\n\nThe area is $A = \\pi r^2$ here.';
+		// A table and inline math no longer lock (both modeled); a block of HTML inside a list item still does.
+		const src = '<!-- _class: content -->\n\n# Locked\n\n- area\n  <div>x</div>';
 		const state = EditorState.create({ doc: deckToDoc(src), plugins: [structuralGuard()] });
 		expect(state.doc.child(0).attrs.locked).toBe(true);
 		// caret inside the locked slide, then type a character

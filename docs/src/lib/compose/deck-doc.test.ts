@@ -158,10 +158,15 @@ describe('edit-local emit — untouched slides re-emit their bytes verbatim', ()
 		expect(doc.child(2).attrs.locked).toBe(false); // "## End" — plain prose
 	});
 
-	it('a table whose cell holds an unmodeled construct (math) STILL locks the whole slide', () => {
+	it('a table cell that holds inline math is editable: math is modeled now (raw-block.ts)', () => {
 		const mathCell = '<!-- _class: content -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |';
 		const doc = deckToDoc(['<!-- _class: title -->\n\n# Deck', mathCell].join('\n\n---\n\n'));
-		expect(doc.child(1).attrs.locked).toBe(true); // math in a cell → safe degradation to lock
+		expect(doc.child(1).attrs.locked).toBe(false);
+	});
+	it('a table whose cell holds an unmodeled construct (inline HTML) STILL locks the whole slide', () => {
+		const cell = '<!-- _class: content -->\n\n## Areas\n\n| Shape | Area |\n| --- | --- |\n| Circle | <b>big</b> |';
+		const doc = deckToDoc(['<!-- _class: title -->\n\n# Deck', cell].join('\n\n---\n\n'));
+		expect(doc.child(1).attrs.locked).toBe(true); // HTML in a cell → safe degradation to lock
 	});
 });
 

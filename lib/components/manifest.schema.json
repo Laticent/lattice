@@ -340,6 +340,17 @@
         }
       }
     },
+    "callout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "enum": ["under", "beside"],
+          "description": "Where this chart's `@callout` notes sit when the author does not say: `under` the figure (the default; omit the field) or `beside` it. An author overrides it per slide with `side=under` / `side=beside` (or the bare word) in the `@callout` span."
+        }
+      },
+      "description": "Callout defaults for a chart that draws `@callout{…}` notes (lib/components/chart/_chart-family/callout-layer.js). DECLARED HERE so the author's default and the chart's own default come from one place: the builder compiles this into lib/core/callout-catalog.generated.js, which the placement reads. OMIT the field for a chart that wants the shared default (notes under the figure)."
+    },
     "axisSet": {
       "type": "object",
       "additionalProperties": false,

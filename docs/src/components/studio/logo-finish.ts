@@ -4,12 +4,13 @@
 // the docs build cannot import (CJS with its own require); logo-finish.test.ts pins every word and
 // its order to the engine's register, so the two cannot drift.
 
-export type LogoFinishAxis = 'placement' | 'color' | 'size' | 'scope';
+export type LogoFinishAxis = 'placement' | 'color' | 'plate' | 'size' | 'scope';
 export type LogoFinishWords = Partial<Record<LogoFinishAxis, string>>;
 
 export const LOGO_FINISH_AXES: readonly { axis: LogoFinishAxis; names: readonly string[] }[] = [
 	{ axis: 'placement', names: ['top-right', 'top-left', 'top-center', 'bottom-left', 'bottom-center', 'bottom-right'] },
 	{ axis: 'color', names: ['auto', 'accent', 'ink', 'muted', 'canvas', 'inverse', 'brand', 'accent-ink', 'accent-canvas', 'ink-canvas'] },
+	{ axis: 'plate', names: ['no-plate', 'plate'] },
 	{ axis: 'size', names: ['md', 'sm', 'lg'] },
 	{ axis: 'scope', names: ['all', 'title'] },
 ];
@@ -49,7 +50,7 @@ const LABELS: Record<string, string> = {
 	'bottom-left': 'Bottom left', 'bottom-center': 'Bottom center', 'bottom-right': 'Bottom right',
 	auto: 'Auto', accent: 'Accent', ink: 'Ink', muted: 'Muted', canvas: 'Canvas', inverse: 'Inverse', brand: 'Original colors',
 	'accent-ink': 'Accent + ink', 'accent-canvas': 'Accent, soft', 'ink-canvas': 'Ink, soft',
-	md: 'Medium', sm: 'Small', lg: 'Large', all: 'Every slide', title: 'Title slide only',
+	'no-plate': 'No plate', plate: 'Soft plate', md: 'Medium', sm: 'Small', lg: 'Large', all: 'Every slide', title: 'Title slide only',
 };
 export const logoFinishLabel = (word: string): string => LABELS[word] ?? word;
 

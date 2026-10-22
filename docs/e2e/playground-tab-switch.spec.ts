@@ -141,3 +141,140 @@ test(`on a wide screen, Explore and back leaves the editor where it was and the 
 	await expect.poll(async () => Math.abs((await editorScroll(page)) - scroll), { timeout: 10_000 }).toBeLessThan(4);
 	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
 });
+
+/**
+ * What the reader SEES across a switch: every animation frame, whether the preview is on screen and which slide
+ * it shows, and whether it is still the document that was there before the click (a rewrite is a reload).
+ */
+async function watchSwitch(page: Page, click: () => Promise<void>) {
+	await page.evaluate(() => {
+		const f = document.getElementById('preview') as HTMLIFrameElement;
+		(f.contentWindow as unknown as { __before: boolean }).__before = true;
+		const w = window as unknown as { __frames: Array<{ seen: boolean; slide: number; same: boolean }>; __watching: boolean };
+		w.__frames = [];
+		w.__watching = true;
+		const tick = () => {
+			const cs = getComputedStyle(f);
+			// On a phone the Edit pane hides the preview (zero width): that is not a frame the reader can see.
+			const seen = cs.visibility === 'visible' && Number.parseFloat(cs.opacity) > 0.05 && f.getBoundingClientRect().width > 0;
+			let slide = -1;
+			let same = false;
+			try {
+				const win = f.contentWindow as Window;
+				same = (win as unknown as { __before?: boolean }).__before === true;
+				let best = -1;
+				f.contentDocument?.querySelectorAll('.lattice > section, .lattice > div[data-lv-ph]').forEach((el, i) => {
+					const r = el.getBoundingClientRect();
+					const v = Math.max(0, Math.min(win.innerHeight, r.bottom) - Math.max(0, r.top));
+					if (v > best) {
+						best = v;
+						slide = i + 1;
+					}
+				});
+			} catch {
+				/* mid-navigation */
+			}
+			w.__frames.push({ seen, slide, same });
+			if (w.__watching) requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	await click();
+}
+
+/** Wait `n` animation frames inside the page (a pause measured in what the reader sees, not in milliseconds). */
+const frames = (page: Page, n: number) =>
+	page.evaluate(
+		(count) =>
+			new Promise<void>((resolve) => {
+				let left = count;
+				const tick = () => (--left <= 0 ? resolve() : requestAnimationFrame(tick));
+				requestAnimationFrame(tick);
+			}),
+		n,
+	);
+
+/** Click a mode tab from inside the page, so two switches can be a given number of frames apart. */
+const clickTab = (page: Page, name: 'Explore' | 'Edit') => page.evaluate((n) => (document.querySelector(`[role="tab"][aria-label="${n}"]`) as HTMLElement).click(), name);
+
+const stopWatching = (page: Page) =>
+	page.evaluate(() => {
+		const w = window as unknown as { __frames: Array<{ seen: boolean; slide: number; same: boolean }>; __watching: boolean };
+		w.__watching = false;
+		return w.__frames;
+	});
+
+for (const [name, wide, tags] of [
+	['phone', false, TAGS],
+	['wide', true, WIDE],
+] as const) {
+	test(`switching to Explore after an edit never shows a wrong slide, and does not reload the preview (${name}) ${tags}`, async ({ page }) => {
+		await open(page, wide);
+		await editLine(page, 'point 7.2');
+		// A phone's Edit pane hides the preview, so only the wide layout shows it following the caret.
+		if (wide) await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
+		await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+		await watchSwitch(page, () => page.getByRole('tab', { name: 'Explore' }).click());
+		await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(7);
+		await expect
+			.poll(() => page.evaluate(() => document.querySelector('.pg-preview-wrap')?.classList.contains('is-live')), { timeout: 20_000 })
+			.toBe(true);
+		const frames = await stopWatching(page);
+		const seen = frames.filter((f) => f.seen);
+		expect(seen.length).toBeGreaterThan(0);
+		// Every frame the reader could see shows the slide the caret is in.
+		expect(seen.filter((f) => f.slide !== 7)).toEqual([]);
+		// And the document was patched, not replaced.
+		expect(frames.every((f) => f.same)).toBe(true);
+	});
+}
+
+test(`switching back to Edit never shows a wrong slide for a frame ${WIDE}`, async ({ page }) => {
+	await open(page, true);
+	await editLine(page, 'point 9.2');
+	// The slide the preview shows beside the caret in Edit: the reader must get back to exactly this one.
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBeGreaterThan(7);
+	const home = await shownSlide(page);
+	await page.getByRole('tab', { name: 'Explore' }).click();
+	await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(9);
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+	await watchSwitch(page, () => page.getByRole('tab', { name: 'Edit' }).click());
+	await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 20_000 });
+	// Keep watching well past the reveal: a snap that comes a few frames later is the failure, not the success.
+	await frames(page, 40);
+	const watched = await stopWatching(page);
+	const seen = watched.filter((f) => f.seen);
+	expect(seen.length).toBeGreaterThan(0);
+	expect(seen.filter((f) => f.slide !== home)).toEqual([]);
+	expect(watched.every((f) => f.same)).toBe(true);
+});
+
+for (const [name, wide, tags] of [
+	['phone', false, TAGS],
+	['wide', true, WIDE],
+] as const) {
+	// The reader changes their mind: Explore and back (and again) with only a few frames between the taps, so the first
+	// switch's render lands after they have already left. Nothing may be left covered, and the preview must end on
+	// the caret's slide.
+	for (const gap of [0, 4, 12, 15]) {
+		test(`a quick Explore and back, ${gap} frames apart, ends on the caret's slide with the preview showing (${name}) ${tags}`, async ({ page }) => {
+			await open(page, wide);
+			await editLine(page, 'point 9.2');
+			await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/);
+			await clickTab(page, 'Explore');
+			await frames(page, gap + 1);
+			await clickTab(page, 'Edit');
+			await frames(page, gap + 1);
+			await clickTab(page, 'Explore');
+			await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 4000 });
+			await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBe(9);
+			await clickTab(page, 'Edit');
+			await expect(page.locator('.pg-preview-wrap')).toHaveClass(/is-live/, { timeout: 4000 });
+			if (wide) {
+				// The preview follows the editor again, on the caret's slide and not pinned to an end of the deck.
+				await expect.poll(() => shownSlide(page), { timeout: 20_000 }).toBeGreaterThan(7);
+				await expect.poll(() => shownSlide(page)).toBeLessThan(SLIDES + 1);
+			}
+		});
+	}
+}
