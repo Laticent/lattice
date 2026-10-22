@@ -97,6 +97,31 @@ test.describe('compose images', () => {
 		await expect(panel(page)).toContainText('Library photo: forest');
 	});
 
+	test('@smoke Add a photo in the picker imports through the Library flow and picks the new photo', async ({ page }) => {
+		// A new author: the Library is empty, so the picker offers the upload itself.
+		await openDeckInCompose(page, ['<!-- _class: content -->', '', '## New', '', 'Words.'].join('\n'));
+		await insertVia(page, 'Image');
+		await expect(picker(page)).toBeVisible();
+		await expect(picker(page)).toContainText('Your Library has no photos yet');
+		const png = await page.evaluate(async () => {
+			const c = document.createElement('canvas');
+			c.width = 400;
+			c.height = 300;
+			(c.getContext('2d') as CanvasRenderingContext2D).fillRect(0, 0, 400, 300);
+			const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b as Blob), 'image/png'));
+			return Array.from(new Uint8Array(await blob.arrayBuffer()));
+		});
+		await picker(page).locator('input[type="file"]').setInputFiles({ name: 'Dock Crane.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+		// The Library's own format dialog asks how to store it.
+		const dialog = page.getByRole('dialog').filter({ hasText: /How should|stored|format/i }).last();
+		await dialog.getByRole('button', { name: /^Add photo/ }).click();
+		await expect(picker(page)).toHaveCount(0);
+		await expect.poll(() => savedDeck(page)).toMatch(/!\[[^\]]*\]\(asset:dock-crane\)/);
+		// It is on the shelf the Library shows.
+		await page.getByRole('button', { name: CHROME.library }).click();
+		await expect(page.locator('[data-media-card="dock-crane"]')).toBeVisible();
+	});
+
 	test('a background shows its placement, and a pick writes only the side word', async ({ page }) => {
 		await openWithPhotos(page);
 		await page.getByRole('button', { name: 'Edit background image' }).click();

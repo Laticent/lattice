@@ -185,7 +185,7 @@ bare `<img src="asset:harbor">` the browser cannot load.
 | Inline math `$…$` locks the slide | 30 of 96 | The Compose parser has no math rule; needs the engine's rule (`sourceHasMath`) as an inline atom, drawn by KaTeX, with a TeX panel | Second. Also the `$$` block |
 | Block HTML locks the slide | 21 of 96 | An atom that carries the HTML verbatim, shown as a labeled block | Third. Cheap |
 | Plugins installed from a package | no shipped example yet; the canary harness only | A kind's `slot` is data, so the writer and a generic panel work. The missing seam is drawing: the host cannot run the plugin's code to draw a span, so the node shows a placeholder | When the first inline package ships; `editRecord` plus a generic panel built from `slot` |
-| Add a photo from the picker | the Library already imports, with a format dialog | Reuse the Library's import flow from the picker | Soon; it is the one step a new author hits first |
+| ~~Add a photo from the picker~~ | the Library already imports, with a format dialog | **Shipped 2026-10-22.** The import loop moved to `media-import-batch.ts`; the Library and the picker both call it, and the picker saves to the shared shelf behind the same format dialog and picks the new photo | Done |
 | Chart data, legend, anima | chart rows are text; 28 chart classes | `2026-10-14-chart-authoring-uniform-model.md` has the plan | Its own slice |
 | Notes (`say`, `describe`, `note`) | read-only panel | An edit field in the panel | Small; ask the owner whether notes should edit in place |
 
@@ -249,7 +249,7 @@ Taken on a reversible default, because the owner was away; each is one commit to
 2. **"Poll" read as the pill editor** (§1).
 3. **A background's panel edits only its side**, not the share or the other keywords. The engine does not honor a declared share
    (`followups.d/2739-p4`), so a share control would promise what the slide does not do.
-4. **The Library photo picker has no upload**, so a new author with an empty Library is sent to the Library first.
+4. **The Library photo picker has no upload**, so a new author with an empty Library is sent to the Library first. *(Reversed 2026-10-22: the picker now adds a photo; see §7.)*
 5. **Motion has no insert door.**
 
 ## 10. References
