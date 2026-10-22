@@ -55,6 +55,8 @@ const GANTT = '- Framework\n  - Signal taxonomy `Q1..Q2` `done`\n  - Scoring mod
 
 const HUB = '- Program office\n  - Customer onboarding\n  - Core platform migration `at-risk`\n  - Data governance\n  - Vendor consolidation `blocked`\n  - Branch network\n  - Workforce reskilling';
 
+const RISK = '- Cyber outage `{4, 5}` `{2, 4}`\n- Hurricane season `{3, 5}` `{3, 3}`\n- Reserve shortfall `{3, 4}`\n- FX swing `{4, 2}`\n- Key person loss `{2, 3}`';
+
 /** @type {Array<{cls: string, body: string, a: [string, number], b: [string, number]}>} */
 const CHARTS = [
   { cls: 'bar', body: LIST, a: ['Q2', 1], b: ['Q4', 3] },
@@ -62,6 +64,7 @@ const CHARTS = [
   { cls: 'slope dumbbell', body: SLOPE, a: ['Kestrel Group', 1], b: ['Meridian Partners', 3] },
   { cls: 'piechart', body: PIE, a: ['Meetings about meetings', 1], b: ['Stakeholder management', 3] },
   { cls: 'piechart donut', body: PIE, a: ['Meetings about meetings', 1], b: ['Stakeholder management', 3] },
+  { cls: 'risk-matrix', body: RISK, a: ['Hurricane season', 1], b: ['FX swing', 3] },
   { cls: 'hub-spoke', body: HUB, a: ['Core platform migration', 1], b: ['Data governance', 2] },
   { cls: 'gantt', body: GANTT, a: ['Scoring model v2', 1], b: ['GA', 5] },
   { cls: 'radar', body: RADAR, a: ['Pricing', 1], b: ['Ecosystem', 3] },
@@ -180,9 +183,52 @@ describe('the readers list matches the kernels', () => {
     assert.deepEqual([...CALLOUT_READERS].sort(), adopters);
   });
 
-  test('every reader has a row in this file\'s contract table, or is the heatmap (which has its own suite)', () => {
+  test('every reader has a row in this file\'s contract table, or is the heatmap or the journey (each has its own suite)', () => {
     const rows = new Set(CHARTS.map((c) => c.cls.split(' ')[0]));
-    for (const name of CALLOUT_READERS) if (name !== 'heatmap') assert.ok(rows.has(name), `${name} has no row in CHARTS`);
+    for (const name of CALLOUT_READERS) if (name !== 'heatmap' && name !== 'journey') assert.ok(rows.has(name), `${name} has no row in CHARTS`);
+  });
+});
+
+describe('journey: callouts (HTML board, notes under it)', () => {
+  const BODY = '- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Workspace setup `{who=user, mood=1}`';
+  const run = (extra, { cls = 'journey', orientation } = {}) => transformChartSection(md.render(`## J\n\n${BODY}\n\n${extra}`), cls, orientation);
+  const NOTE = '`@callout{[{Our best moment, for=Book demo}, {Where we lose them, for="Workspace setup", detail="Needs an admin"}]}`';
+
+  test('a note rings the task it names, marks its chip, and is listed under the board', () => {
+    const d = doc(run(NOTE).html);
+    assert.equal(d.querySelectorAll('[data-callout]').length, 2);
+    assert.equal(d.querySelectorAll('.journey-callout-badge').length, 2);
+    assert.equal(d.querySelectorAll('ol.journey-callouts > li').length, 2);
+    assert.match(d.querySelector('.journey-callouts').textContent, /Our best moment/);
+    assert.match(d.querySelector('.journey-callouts').textContent, /Needs an admin/);
+    assert.doesNotMatch(run(NOTE).html, /@callout/);
+  });
+
+  test('the same on the vertical board of a portrait deck', () => {
+    const d = doc(run(NOTE, { orientation: 'portrait' }).html);
+    assert.equal(d.querySelectorAll('.journey-vtask[data-callout]').length, 2);
+    assert.equal(d.querySelectorAll('ol.journey-callouts > li').length, 2);
+  });
+
+  test('a note that names no task is not drawn and the description says so', () => {
+    const d = doc(run('`@callout{{Ghost, for=Nowhere}}`').html);
+    assert.equal(d.querySelectorAll('[data-callout]').length, 0);
+    assert.match(d.querySelector('.journey-desc').textContent, /Not drawn: "Ghost"/);
+  });
+
+  test('callouts off draw nothing', () => {
+    const d = doc(run(NOTE, { cls: 'journey callout-off' }).html);
+    assert.equal(d.querySelectorAll('[data-callout]').length, 0);
+    assert.equal(d.querySelectorAll('.journey-callouts').length, 0);
+  });
+
+  test('a slide with no callout renders as before', () => {
+    assert.doesNotMatch(run('').html, /journey-callout|data-callout/);
+  });
+
+  test('a note\'s words are escaped', () => {
+    const html = run('`@callout{{<img src=x onerror=1>, for="Book demo"}}`').html;
+    assert.doesNotMatch(html, /<img src=x/);
   });
 });
 

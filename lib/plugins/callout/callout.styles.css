@@ -147,3 +147,18 @@ text.legend-text.legend-number[data-c] tspan {
 .legend-target[data-c='c10'] { stroke: light-dark(var(--cat-10-mark), var(--cat-10-fill)); }
 .legend-target[data-c='c11'] { stroke: light-dark(var(--cat-11-mark), var(--cat-11-fill)); }
 .legend-target[data-c='c12'] { stroke: light-dark(var(--cat-12-mark), var(--cat-12-fill)); }
+
+/* ── HTML charts (journey.styles.css): a chip and its note share one ink, set here so the color stays this
+ * plugin's. Strong tone per mode, as the markers above. ───────────────────────────────────────────── */
+[data-callout-c='c1'] { --callout-ink: light-dark(var(--cat-1-mark), var(--cat-1-fill)); }
+[data-callout-c='c2'] { --callout-ink: light-dark(var(--cat-2-mark), var(--cat-2-fill)); }
+[data-callout-c='c3'] { --callout-ink: light-dark(var(--cat-3-mark), var(--cat-3-fill)); }
+[data-callout-c='c4'] { --callout-ink: light-dark(var(--cat-4-mark), var(--cat-4-fill)); }
+[data-callout-c='c5'] { --callout-ink: light-dark(var(--cat-5-mark), var(--cat-5-fill)); }
+[data-callout-c='c6'] { --callout-ink: light-dark(var(--cat-6-mark), var(--cat-6-fill)); }
+[data-callout-c='c7'] { --callout-ink: light-dark(var(--cat-7-mark), var(--cat-7-fill)); }
+[data-callout-c='c8'] { --callout-ink: light-dark(var(--cat-8-mark), var(--cat-8-fill)); }
+[data-callout-c='c9'] { --callout-ink: light-dark(var(--cat-9-mark), var(--cat-9-fill)); }
+[data-callout-c='c10'] { --callout-ink: light-dark(var(--cat-10-mark), var(--cat-10-fill)); }
+[data-callout-c='c11'] { --callout-ink: light-dark(var(--cat-11-mark), var(--cat-11-fill)); }
+[data-callout-c='c12'] { --callout-ink: light-dark(var(--cat-12-mark), var(--cat-12-fill)); }

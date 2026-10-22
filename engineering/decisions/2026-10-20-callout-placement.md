@@ -221,7 +221,7 @@ mean to change a render; an item that does stops for the owner's light and dark 
 | P1 | Split: `@callout` and `@legend` plugins over shared kernels (marker shapes, plate, color slots, mark vocabulary); the heatmap moves to `@callout`; old pinned `@legend` spans keep working with a lint hint | `diff -r` of every tracked deck before and after, byte-identical |
 | P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first — **built on the heatmap**, in `buildHeatmap`/`layoutHeatmap`; the shared emitter waits for the second chart. **The shared emitter is `callout-layer.js` (§ 8)** | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs (§ 5) |
 | P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke. **Built (§ 8) for seventeen of the nineteen; `flowchart` and `state-chart` are browser-laid-out and filed in `followups.d/`** | a demo deck per family, four slide shapes |
-| P4 | Journey task callouts; risk-matrix onto the callout plugin. | both galleries, light and dark, owner sign-off |
+| P4 | Journey task callouts; risk-matrix onto the callout plugin. **Built (§ 9)** | both galleries, light and dark, owner sign-off |
 | P5 | Keys through `@legend` on every component that already draws one, so authors can rename and reorder entries | `diff -r` where untouched; demo deck |
 
 Charts the scout ruled out for callouts: kanban, timeline-list and progress (their items are
@@ -275,3 +275,21 @@ where the transform runs), and `radar` inside a split pane (the pane fits its ow
 `followups.d/`. The heatmap's own placement loop was left alone (it differs from `choose` only in rule 1), also
 filed. Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
 
+## 9. Journey and risk-matrix (P4 as built)
+
+**`risk-matrix`** reads callouts through `onSvg` like the gantt: a note names a risk, its marker on the grid is
+ringed, and the note's own marker (a number, a shape and a color, apart from the risk's own number) sits beside
+it. The grid keeps its numbered key; "onto the callout plugin" here means the plugin draws the notes, and the
+key stays the register's list. Replacing the key with callouts is a design change the owner has not asked for.
+
+**`journey`** is the one chart here that is not SVG. The board is CSS layout the browser measures, so the
+server cannot score a side by the plot and the notes always sit under the board, in a row that wraps. The task's
+chip is ringed in the note's color (`outline`) and carries the note's marker (an inline SVG drawn by `markerSvg`,
+so the shapes are the charts' own). A portrait deck splits the vertical board into one page per stage, and the
+splitter copies whatever sits outside a stage onto every page, so each note rides inside the stage it is about.
+A note is a row high, which at 16:9 clipped the mood legend until the key under it gave back its air
+(`:has(.journey-callouts)` in `journey.styles.css`); the detail runs on after its note on one line for the same
+reason.
+
+**Not built, and still open:** plan item P5, keys through `@legend` on every component that already draws one
+(`followups.d/2854-p3-keys-through-legend.md`).
