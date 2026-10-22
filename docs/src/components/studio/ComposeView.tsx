@@ -946,7 +946,7 @@ class SlideView {
 				const idx = Math.min(Math.max(fallbackIndex, 0), tr.doc.childCount - 1);
 				let off = 0;
 				for (let k = 0; k < idx; k++) off += tr.doc.child(k).nodeSize;
-				tr.setSelection(Selection.near(tr.doc.resolve(Math.min(off + 1, tr.doc.content.size))));
+				tr.setSelection(noteSafe(tr.doc, Selection.near(tr.doc.resolve(Math.min(off + 1, tr.doc.content.size)))));
 			}
 		}
 		this.view.dispatch(tr);
@@ -991,7 +991,8 @@ class SlideView {
 	}
 	private toggleCollapse() {
 		const pos = this.getPos();
-		this.view.dispatch(this.view.state.tr.setMeta(collapseKey, { pos }));
+		// Folding or unfolding closes an open note: its pill may be one the fold hides, and a panel with no visible pill is a dead end.
+		this.view.dispatch(this.view.state.tr.setMeta(collapseKey, { pos }).setMeta(commentOpenKey, { open: null }));
 		this.view.focus();
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
@@ -1395,12 +1396,17 @@ function caretNear(doc: PMNode, pos: number): Selection | null {
 	return null;
 }
 
-/** Where a new editor state starts. The default is the first selectable thing, which for a deck that opens with a note is that note, selected:
- *  the first key typed would replace it. A text position is used when the deck has one. */
+/** A selection that is never a note selected by accident. A note is a selectable atom, so a selection helper that lands on one (the first block of a
+ *  deck or slide, a slide picked in the rail) leaves the editor with the note selected, and the next replacing key (a paste, an input method, Backspace,
+ *  Delete) removes it. A text position near it is used when there is one. Selecting a note on purpose (an arrow key onto it) does not come through here. */
+function noteSafe(doc: PMNode, sel: Selection): Selection {
+	if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return sel;
+	return caretNear(doc, sel.to) ?? Selection.findFrom(doc.resolve(0), 1, true) ?? sel;
+}
+
+/** Where a new editor state starts: the first text of the deck when the deck opens with a note. */
 function startSelection(doc: PMNode): Selection {
-	const start = Selection.atStart(doc);
-	if (start instanceof NodeSelection && start.node.type.name === 'comment') return Selection.findFrom(doc.resolve(0), 1, true) ?? start;
-	return start;
+	return noteSafe(doc, Selection.atStart(doc));
 }
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
@@ -1537,7 +1543,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				why.hidden = true;
 				// Back to the slide, at the note: the editor's own selection may be anywhere else in the deck.
 				const open = isCurrent() ? openNote(view) : null;
-				const caret = open ? caretNear(view.state.doc, open.at + open.node.nodeSize) : null;
+				// On a folded slide the blocks after the note are hidden, and the browser cannot hold a caret in hidden content, so it would land in the
+				// next slide: the caret stays in the field there, as it does on a slide with no text.
+				const anchor = open ? view.domAtPos(open.at).node : null;
+				const folded = Boolean((anchor instanceof Element ? anchor : anchor?.parentElement)?.closest('.cs-collapsed'));
+				const caret = open && !folded ? caretNear(view.state.doc, open.at + open.node.nodeSize) : null;
 				// A slide that is only a note has no text to return to, so the caret stays in the field rather than going to another slide.
 				if (caret) {
 					view.dispatch(view.state.tr.setSelection(caret));
@@ -1606,9 +1616,51 @@ export function commentRunPlugin() {
 			},
 		},
 		props: {
-			// A selected note is a deliberate gesture (Backspace at the start of the next block), never something typed text may replace:
+			// A selected note is a deliberate gesture (an arrow key onto it; Backspace or Delete then removes it), never something typed text may replace:
 			// the editor can hold a node selection on a note it never meant to (a deck that opens with one, a slide-control refocus), and the
 			// next printed character would delete it. The text goes to the nearest caret in the note's slide instead, or nowhere.
+			// The same for a paste: it replaces the selection, so with a note selected the selection first moves to text. Where the slide has no
+			// text the paste is dropped, not allowed to delete the note.
+			handlePaste(view) {
+				const sel = view.state.selection;
+				if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
+				const caret = caretNear(view.state.doc, sel.to);
+				if (!caret) return true;
+				view.dispatch(view.state.tr.setSelection(caret));
+				return false;
+			},
+			// And for an input method: starting a composition deletes a selected non-text node before any text input event is seen.
+			handleDOMEvents: {
+				compositionstart(view) {
+					const sel = view.state.selection;
+					if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
+					const caret = caretNear(view.state.doc, sel.to);
+					if (caret) view.dispatch(view.state.tr.setSelection(caret));
+					return false;
+				},
+			},
+			// Backspace at the start of the block after a note, or Delete at the end of the block before one, SELECTS the note instead of removing it:
+			// the next press removes it, so a caret that merely sits beside a note (a slide picked in the rail) never costs the author one.
+			handleKeyDown(view, event) {
+				if ((event.key !== 'Backspace' && event.key !== 'Delete') || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;
+				const { selection } = view.state;
+				// A note that is selected on purpose is removed by the next press (said here, not left to the engine's default, which Firefox does not run).
+				if (selection instanceof NodeSelection && selection.node.type.name === 'comment') {
+					view.dispatch(view.state.tr.deleteSelection());
+					return true;
+				}
+				if (!(selection instanceof TextSelection) || !selection.empty) return false;
+				const { $from } = selection;
+				const forward = event.key === 'Delete';
+				if (forward ? $from.parentOffset !== $from.parent.content.size : $from.parentOffset !== 0) return false;
+				const $edge = view.state.doc.resolve(forward ? $from.after() : $from.before());
+				const note = forward ? $edge.nodeAfter : $edge.nodeBefore;
+				if (note?.type.name !== 'comment') return false;
+				view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, forward ? $edge.pos : $edge.pos - note.nodeSize)));
+				// Some engines move focus off the editor when a non-editable node becomes the selection; the next press has to arrive here.
+				view.focus();
+				return true;
+			},
 			handleTextInput(view, _from, _to, text) {
 				const sel = view.state.selection;
 				if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
@@ -1736,9 +1788,8 @@ export class CommentView {
 	// to read it, then carrying on typing, silently destroyed the note. Verified on the real Studio.
 	// Reading must never arm a delete, so removal has its own control in the panel.
 	//
-	// `selectable: true` still earns its place on the spec, for the OTHER route in: Backspace at the
-	// start of the following block selects the atom rather than deleting it — ProseMirror's designed
-	// stop — which is why that arm leaves the source intact.
+	// `selectable: true` still earns its place on the spec: an arrow key, or a Backspace or Delete at the edge of the next block, selects a note
+	// (`handleKeyDown` in `commentRunPlugin`), and a second Backspace or Delete removes it, on purpose.
 	stopEvent(e: Event) {
 		return this.dom.contains(e.target as Node);
 	}
@@ -2050,7 +2101,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
 			// nearest real text position from there — the slide's first editable spot,
 			// whatever block happens to open it.
-			const sel = Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size)));
+			const sel = noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
 			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
 			v.dispatch(v.state.tr.setSelection(sel));
 			// Scroll the HOST explicitly rather than riding ProseMirror's

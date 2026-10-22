@@ -441,6 +441,85 @@ describe('typed text never replaces a selected note', () => {
 
 });
 
+describe('a note selected by accident cannot be replaced by a paste or an input method', () => {
+	const WITH_TEXT = 'Para a.\n\n<!-- a note. -->';
+	const noText = '<!-- lonely note. -->\n\n---\n\n## B';
+	const select = (v: EditorView) => {
+		let at = -1;
+		v.state.doc.descendants((n, p) => {
+			if (n.type.name === 'comment' && at < 0) at = p;
+		});
+		v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, at)));
+	};
+	const paste = (v: EditorView) => v.someProp('handlePaste', (f) => f(v, new Event('paste') as ClipboardEvent, v.state.doc.slice(0, 0)));
+	const compose = (v: EditorView) => v.someProp('handleDOMEvents', (h) => h.compositionstart?.(v, new CompositionEvent('compositionstart')));
+
+	it('a paste moves to text first, then pastes there, and the note stays', () => {
+		const v = mount(WITH_TEXT);
+		select(v);
+		expect(paste(v)).toBeFalsy();
+		expect(v.state.selection instanceof TextSelection).toBe(true);
+		expect(saved()).toContain('<!-- a note. -->');
+	});
+
+	it('a paste with no text to go to is dropped, not allowed to delete the note', () => {
+		const v = mount('<!-- only note. -->');
+		select(v);
+		expect(paste(v)).toBe(true);
+		expect(saved()).toContain('<!-- only note. -->');
+	});
+
+	it('starting an input-method composition moves to text first', () => {
+		const v = mount(WITH_TEXT);
+		select(v);
+		compose(v);
+		expect(v.state.selection instanceof TextSelection).toBe(true);
+	});
+
+	it('ordinary pastes and compositions are untouched', () => {
+		const v = mount(DECK);
+		expect(paste(v)).toBeFalsy();
+		expect(compose(v)).toBeFalsy();
+		void noText;
+	});
+});
+
+describe('Backspace and Delete beside a note select it first', () => {
+	const press = (v: EditorView, key: string) => v.someProp('handleKeyDown', (f) => f(v, new KeyboardEvent('keydown', { key })));
+	const caretAt = (v: EditorView, text: string, offset: number) => {
+		let at = -1;
+		v.state.doc.descendants((n, p) => {
+			if (at < 0 && n.isTextblock && n.textContent === text) at = p + 1 + offset;
+		});
+		v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, at)));
+	};
+
+	it('Backspace at the start of the block after a note selects the note, and a second Backspace removes it', () => {
+		const v = mount('Para a.\n\n<!-- a note. -->\n\nPara b.');
+		caretAt(v, 'Para b.', 0);
+		expect(press(v, 'Backspace')).toBe(true);
+		expect(v.state.selection instanceof NodeSelection).toBe(true);
+		expect(saved()).toContain('<!-- a note. -->');
+		expect(press(v, 'Backspace')).toBe(true);
+		expect(saved()).not.toContain('a note.');
+	});
+
+	it('Delete at the end of the block before a note selects the note', () => {
+		const v = mount('Para a.\n\n<!-- a note. -->\n\nPara b.');
+		caretAt(v, 'Para a.', 7);
+		expect(press(v, 'Delete')).toBe(true);
+		expect(v.state.selection instanceof NodeSelection).toBe(true);
+	});
+
+	it('does nothing in the middle of a block or beside text', () => {
+		const v = mount('Para a.\n\n<!-- a note. -->\n\nPara b.');
+		caretAt(v, 'Para b.', 3);
+		expect(press(v, 'Backspace')).toBeFalsy();
+		caretAt(v, 'Para a.', 2);
+		expect(press(v, 'Delete')).toBeFalsy();
+	});
+});
+
 describe('an undo from another button', () => {
 	it('cannot change the field: what is not typed into it is undone', () => {
 		mount();

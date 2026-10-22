@@ -268,4 +268,11 @@ describe('ComposeView: an outside change while a note is being written', () => {
 		render(<ComposeView source={'<!-- first note. -->\n\n---\n\n## B\n\nPara b.'} onChange={() => {}} />);
 		expect(theView().state.selection.toJSON().type).not.toBe('node');
 	});
+
+	it('picking a slide whose first block is a note puts the caret on text, not on the note', () => {
+		const ref = React.createRef<ComposeHandle>();
+		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.'} onChange={() => {}} />);
+		ref.current?.revealSlide(1);
+		expect(theView().state.selection.toJSON().type).toBe('text');
+	});
 });

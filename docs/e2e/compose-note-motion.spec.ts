@@ -208,6 +208,45 @@ test.describe('notes and motion in Compose', () => {
 		await expect(page.getByRole('textbox', { name: 'note text' })).toBeVisible();
 	});
 
+	test('@crosswidth @gecko @webkit-tablet picking a slide in the rail never leaves its leading note selected for the next key to delete', async ({ page }) => {
+		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.');
+		const rail = page.locator('nav[aria-label="Slide navigator"] button').nth(1);
+		test.skip(!(await rail.isVisible()), 'the desktop slide rail is not shown at this width');
+		await page.getByText('Para a.').click();
+		await rail.click();
+		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(0);
+		// The caret sits just after the note: the first Backspace selects it, and only a second one removes it.
+		await page.keyboard.press('Backspace');
+		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(1);
+		expect(await savedDeck(page)).toContain('<!-- n2. -->');
+		// Firefox leaves focus on the rail button after a click, so these keys never reach the editor and nothing is deleted at all.
+		const inEditor = await page.evaluate(() => !!document.activeElement?.closest('.ProseMirror'));
+		await page.keyboard.press('Backspace');
+		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(inEditor ? 0 : 1);
+	});
+
+	test('@crosswidth @gecko @webkit-tablet on a folded slide Escape keeps the caret in the note, so the next keys never reach the next slide', async ({ page }) => {
+		await openDeckInCompose(page, '<!-- folded note. -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
+		await page.getByRole('button', { name: /Collapse slide/ }).first().click();
+		await pill(page, /note/).click();
+		await page.keyboard.press('Escape');
+		await page.keyboard.type('ZZ');
+		await page.getByText('Para b.').click();
+		const saved = await savedDeck(page);
+		expect(saved).toContain('## B');
+		expect(saved).not.toContain('## ZZ');
+	});
+
+	test('@crosswidth @gecko @webkit-tablet a note selected with the arrow key is not replaced by typing, and is still removed by Delete', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await page.getByText('Second paragraph.').click();
+		await page.keyboard.press('Home');
+		await page.keyboard.press('ArrowLeft');
+		await page.keyboard.type('x');
+		await expect.poll(() => savedDeck(page)).toContain('x');
+		expect(await savedDeck(page)).toContain('<!-- a plain note. -->');
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));
