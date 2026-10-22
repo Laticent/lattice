@@ -31,7 +31,7 @@ describe('chart-finish.generated.css', () => {
   test('every selector is a finish head over a :where() mark — specificity (0,1,1)', () => {
     assert.ok(selectors.length > 100);
     for (const s of selectors) {
-      assert.match(s, /^(section|figure)\.chart-finish-(pigment|etching|tone) :where\(.+\)$/, s);
+      assert.match(s, /^(section|figure)\.chart-finish-(pigment|etch|tone) :where\(.+\)$/, s);
     }
   });
 
@@ -68,7 +68,7 @@ describe('chart-finish.generated.css', () => {
   });
 
   test('every finish reaches every encoding it names', () => {
-    for (const f of ['pigment', 'etching', 'tone']) {
+    for (const f of ['pigment', 'etch', 'tone']) {
       for (const enc of ['hue', 'ramp', 'layered']) {
         assert.match(css, new RegExp(`chart-finish-${f} :where\\(.*data-encodes="${enc}"`), `${f} × ${enc}`);
       }
@@ -180,7 +180,7 @@ describe('chart-finish.generated.css', () => {
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
     assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
-    assert.doesNotMatch(css, /chart-finish-(pigment|etching) :where\([^)]*\.roadmap/, 'only tone reaches a roadmap');
+    assert.doesNotMatch(css, /chart-finish-(pigment|etch) :where\([^)]*\.roadmap/, 'only tone reaches a roadmap');
     // The re-point and the pill's ink share one @supports block: without relative color the
     // pill could not pick its ink, so the roadmap keeps its shipped phases there.
     // Checker finding: `lastIndexOf('@supports')` alone always finds SOME earlier block, so the
@@ -211,7 +211,7 @@ describe('chart-finish.generated.css', () => {
   // A status key carries no text, but it keys marks that do, so it takes their level: under
   // tone the gantt key sat at the middle step beside bars at the text step.
   test('a status key takes the level of the text-bearing marks it keys', () => {
-    for (const finish of ['pigment', 'etching', 'tone']) {
+    for (const finish of ['pigment', 'etch', 'tone']) {
       assert.equal(statusBody(finish, '.gantt-legend-swatch[data-s]'), statusBody(finish, '.gantt-bar[data-s]'), `gantt, ${finish}`);
       assert.equal(
         statusBody(finish, '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])'),
@@ -224,7 +224,7 @@ describe('chart-finish.generated.css', () => {
   // The state chart's statuses were outside the table, so a tone deck quieted a gantt's
   // statuses and left a state chart's loud. A deferred HTML tile keeps its hollow background.
   test('a state chart status is in the status table, and a deferred tile stays hollow', () => {
-    for (const finish of ['pigment', 'etching', 'tone']) {
+    for (const finish of ['pigment', 'etch', 'tone']) {
       assert.match(statusBody(finish, '.state-node-shape[data-s]'), /var\(--fill-hue\)/);
       assert.match(statusBody(finish, ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])'), /var\(--fill-hue\)/);
     }

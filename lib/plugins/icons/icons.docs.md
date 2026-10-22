@@ -26,11 +26,11 @@ The icon's name comes first, then any of these words, in any order:
 | `c1` … `c12` | the color slot, the same cycle sparks and charts use | `c1` |
 | `sm` `md` `lg` | the size, relative to the text around it | `md` |
 | `framed` `bare` | a square tile behind the icon, or the lines alone | `framed` |
-| `pigment` `etching` `tone` | how the color is spent: an ink tile with knocked-out lines; a clear tile with ink lines; a pale tint with ink lines | `pigment` |
+| `pigment` `etch` `tone` | how the color is spent: an ink tile with knocked-out lines; a clear tile with ink lines; a pale tint with ink lines | `pigment` |
 | `square` `rounded` | the tile's corners | `square` |
 | `label="…"` | what a screen reader says, when the icon's own name is not right | the name, in words |
 
-`^{database}`, `^{database, c3, lg}`, `^{bucket, c4, bare}`, `^{shield, etching, rounded}`,
+`^{database}`, `^{database, c3, lg}`, `^{bucket, c4, bare}`, `^{shield, etch, rounded}`,
 `^{server, label="Primary DB host"}`.
 
 An inline icon is an image with a name (`role="img"`), so a reader hears it where it stands.
@@ -79,7 +79,7 @@ modes. On the hub it sits above the name; an `icon-only` hub with no value fills
 ## The deck and the slide: `icon:` and `icon-*`
 
 ```yaml
-icon: bare etching
+icon: bare etch
 ```
 
 The `icon:` register styles every icon on the deck, one word per axis (frame, look, corners).

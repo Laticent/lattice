@@ -65,10 +65,10 @@ const TONE_TEXT_D = [35, 31, 28, 24, 21, 17, 14, 10];
 /** The levels, per finish (finish-coherence.md §Levels). `[light, dark]` pairs. */
 const F = {
   pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[16, 0.54], [16, 0.37]], layered: 0.35, edge: 1, edgeBackdrop: 1 },
-  // Etching's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
+  // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etching: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.18, edge: 2, edgeBackdrop: 3 },
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.18, edge: 2, edgeBackdrop: 3 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp
   // that PRINTS ITS VALUE takes (a heatmap cell), as [light, dark]: shorter, because its top
   // step must still carry text at 4.5:1. Tone's text band tops out at 70% on light, not the
@@ -112,11 +112,11 @@ const STATUS_MARKS = [
 
 // What a body mixes toward. Pigment reproduces the family's shipped body tier
 // (`--chart-cat-N-body`: the hue over `--chart-cat-base`, which is BLACK in dark mode).
-// Etching and tone mix toward the CANVAS instead: a whisper or a value step taken toward
+// Etch and tone mix toward the CANVAS instead: a whisper or a value step taken toward
 // black lands darker than the slide itself and reads as a hole, not a quiet mark. In light
 // mode the two bases are the same color, so only the dark face differs.
 let BASE = 'var(--chart-cat-base)';
-const BODY_BASE = { pigment: 'var(--chart-cat-base)', etching: 'var(--bg)', tone: 'var(--bg)' };
+const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
@@ -185,7 +185,7 @@ const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
 /**
  * Members whose identity is a STROKE (`paint: "none"` series path), which no finish reaches.
  * Tone leaves every mark of theirs alone, dots and bands included: a tonal dot on a line that
- * kept its category hue is a mark that no longer matches its own series. Pigment and etching
+ * kept its category hue is a mark that no longer matches its own series. Pigment and etch
  * keep a dot's hue, so they may repaint it.
  */
 const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
@@ -371,10 +371,10 @@ function build() {
 
     // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
     // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
-    // (the cell gap) is the member's, except under etching, where the line is the identity.
+    // (the cell gap) is the member's, except under etch, where the line is the identity.
     w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
     const rampAt = ([lo, k], base) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--mix) * ${k}), ${base})`;
-    const rampStroke = name === 'etching'
+    const rampStroke = name === 'etch'
       ? [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke']
       : [];
     for (const m of ramps) {
@@ -419,7 +419,7 @@ function build() {
     // of its disc, not a child, so it cannot read the disc's paint. Its ink is fixed per mode
     // for the shipped bodies and clears 3:1 there; under a finish the disc takes the bodies
     // above, and measured, no fixed ink held (a pigment group disc 2.27:1 on onyx dark, an
-    // etching status disc 1.62:1). So the icon picks black or white from the SAME body this
+    // etch status disc 1.62:1). So the icon picks black or white from the SAME body this
     // finish gives its disc (the group rule and the status rule above, read from the same
     // tables, so the two cannot drift), and waits on relative color like every text ink here.
     w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');

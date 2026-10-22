@@ -274,7 +274,7 @@ section.flowchart .fc-icon {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-section.icon-etching .flowchart-svg .fc-icon { stroke-width: 1.5; }
+section.icon-etch .flowchart-svg .fc-icon { stroke-width: 1.5; }
 section.flowchart .fc-node-group[data-text="1"] .fc-icon { color: var(--chart-cat-1-ink); }
 section.flowchart .fc-node-group[data-text="2"] .fc-icon { color: var(--chart-cat-2-ink); }
 section.flowchart .fc-node-group[data-text="3"] .fc-icon { color: var(--chart-cat-3-ink); }

@@ -618,7 +618,7 @@ describe('hub-spoke under a chart finish', () => {
   test('a status disc keys on data-s and every finish paints it from --hs-state-*', () => {
     const html = T.buildHubSpoke(model('Hub', [['A', ['blocked']], ['B'], ['C']])).html;
     assert.match(html.match(/<path class="hub-spoke-node"[^>]*data-label="A"[^>]*>/)[0], /data-s="blocked"[^>]*data-paint="fill"/);
-    for (const f of ['pigment', 'etching', 'tone']) {
+    for (const f of ['pigment', 'etch', 'tone']) {
       const rule = finishCss.match(new RegExp(`section\\.chart-finish-${f} :where\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-s\\]\\)[^{]*\\{([^}]*)\\}`));
       assert.ok(rule, `${f}: no status rule for hub-spoke`);
       assert.match(rule[1], /var\(--hs-state-hue\)/);
@@ -630,7 +630,7 @@ describe('hub-spoke under a chart finish', () => {
     assert.ok(rule, 'no tone re-point for hub-spoke');
     assert.match(rule[1], /--hs-group-hue: var\(--chart-cat-1-hue\) !important/);
     assert.match(rule[1], /--hs-group-ink: var\(--chart-cat-1-ink\) !important/);
-    assert.doesNotMatch(finishCss, /chart-finish-(pigment|etching) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
+    assert.doesNotMatch(finishCss, /chart-finish-(pigment|etch) :where\([^)]*hub-spoke-neck/, 'only tone re-points the group property');
     const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     // The band, arrowhead and name read the member property, never the family slot table,
     // or the re-point above would land on nothing.
@@ -772,10 +772,10 @@ describe('hub-spoke — the rows it owns, and nothing past them', () => {
 
 describe('hub-spoke — icon ink under a chart finish', () => {
   test('each finish gives the icon the ink its disc body clears, for every slot and for a status', () => {
-    // A finish repaints the disc; a fixed ink measured 1.62:1 on an etching status disc. The
+    // A finish repaints the disc; a fixed ink measured 1.62:1 on an etch status disc. The
     // generator derives the icon's ink from the same body it gives the disc (inkOn).
     const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
-    for (const finish of ['pigment', 'etching', 'tone']) {
+    for (const finish of ['pigment', 'etch', 'tone']) {
       for (let n = 1; n <= 8; n++) {
         const re = new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.565 - l\\)`);
         assert.match(css, re, `${finish} slot ${n}`);
@@ -806,7 +806,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
       }
       return [v];
     };
-    for (const finish of ['pigment', 'etching', 'tone']) {
+    for (const finish of ['pigment', 'etch', 'tone']) {
       const pairs = [[1, 8].map((n) => [`chart-finish-${finish} :where(:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="fill"]`, `chart-finish-${finish} :where(.hub-spoke-icon[data-hue="${n}"])`])].flat();
       pairs.push([`chart-finish-${finish} :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s])`, `chart-finish-${finish} :where(.hub-spoke-icon[data-s])`]);
       for (const [disc, icon] of pairs) {

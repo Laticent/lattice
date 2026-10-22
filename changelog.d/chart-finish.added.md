@@ -1,5 +1,5 @@
 - **`chart-finish:` picks how every chart on a deck spends its color.** Three finishes:
-  `pigment` (full-strength bodies under an ink edge), `etching` (a whisper of a body under a
+  `pigment` (full-strength bodies under an ink edge), `etch` (a whisper of a body under a
   doubled edge) and `tone` (one hue in eight value steps, every name in its ink). The key
   repaints with the marks it keys. Omit the key, or set `chart-finish: off`, and every chart
   renders exactly as before. A slide can override the deck with `_class: chart-finish-<name>`,

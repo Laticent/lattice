@@ -59,7 +59,7 @@ export const CHART_FINISHES: ChartFinishEntry[] = [
 		swatch: chip(BARS.map((b) => bar(flat(mixA(82)), b))),
 	},
 	{
-		name: 'etching', label: 'Etching',
+		name: 'etch', label: 'Etch',
 		blurb: 'Identity in the line: a whisper of color under a doubled edge. The modern one.',
 		// The pale body is drawn inset over a full-size bar of the edge color, which leaves the
 		// edge showing around it: an outline, in gradients.

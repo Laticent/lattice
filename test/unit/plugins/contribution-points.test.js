@@ -102,7 +102,7 @@ describe('contributes.services and contributes.data', () => {
 });
 
 describe('contributes.registers', () => {
-  const axes = { frame: ['framed', 'bare'], look: ['pigment', 'etching'] };
+  const axes = { frame: ['framed', 'bare'], look: ['pigment', 'etch'] };
   test('a register resolves; a host key or a second owner fails', () => {
     assert.deepEqual(errorsOf([plugin('a', { registers: { badge: { axes } } })]), []);
     expectError([plugin('a', { registers: { tag: { axes } } })], /declares register "tag", which the host already owns/);
@@ -133,7 +133,7 @@ describe('the register factory builds every plugin register', () => {
     assert.ok(icon, 'the icons manifest declares `icon:`');
     assert.equal(icon.plugin, 'icons');
     // Plugin dependency order, which sorts by name among peers: icons before sparks.
-    assert.deepEqual(axisRegisterClassesFromFrontMatter('spark: bare\nicon: etching rounded'), ['icon-etching', 'icon-rounded', 'spark-bare']);
+    assert.deepEqual(axisRegisterClassesFromFrontMatter('spark: bare\nicon: etch rounded'), ['icon-etch', 'icon-rounded', 'spark-bare']);
     assert.equal(axisRegisterTokenAxis('icon-bare'), 'icon:frame');
     assert.equal(axisRegisterTokenAxis('spark-bare'), 'spark:frame');
   });
