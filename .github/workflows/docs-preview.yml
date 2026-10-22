@@ -85,7 +85,7 @@ jobs:
       - name: Deploy preview to Cloudflare Pages
         id: deploy
         if: steps.guard.outputs.have == 'true'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           # Not a secret — the account id is visible in the project's dashboard URL.
