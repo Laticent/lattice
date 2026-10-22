@@ -15,7 +15,7 @@ chart-finish: pigment
 
 `Charts · chart-finish`
 
-Pigment, etching or tone, set once for the deck and overridden per slide.
+Pigment, etch or tone, set once for the deck and overridden per slide.
 
 ---
 
@@ -41,10 +41,10 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 
 ---
 
-<!-- _class: bar chart-finish-etching -->
-<!-- _footer: "_class: chart-finish-etching · one slide overrides the deck" -->
+<!-- _class: bar chart-finish-etch -->
+<!-- _footer: "_class: chart-finish-etch · one slide overrides the deck" -->
 
-`Etching · identity in the line`
+`Etch · identity in the line`
 
 ## Every region grew, and EMEA grew fastest.
 
@@ -100,7 +100,7 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 
 ---
 
-<!-- _class: heatmap chart-finish-etching -->
+<!-- _class: heatmap chart-finish-etch -->
 <!-- _footer: "Each value picks black or white from its own cell" -->
 
 `Retention · 2026 cohorts`
@@ -159,6 +159,6 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 <!-- _header: '' -->
 <!-- _footer: "Chart finish · closing" -->
 
-`chart-finish: pigment · etching · tone`
+`chart-finish: pigment · etch · tone`
 
 ## Omit the key and every chart renders exactly as before.
