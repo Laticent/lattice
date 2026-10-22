@@ -378,6 +378,35 @@ describe('where the caret goes after Escape and Remove', () => {
 	}
 });
 
+describe('where the caret goes when the slide has little or no text', () => {
+	it('Escape on a note alone in the last slide selects nothing and keeps the caret in the field', async () => {
+		const v = mount('## A\n\nPara a.\n\n---\n\n<!-- lonely last. -->');
+		pills()[0].click();
+		await Promise.resolve();
+		const before = v.state.selection;
+		(field() as HTMLTextAreaElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		expect(v.state.selection.eq(before)).toBe(true);
+		expect(document.querySelector('.ProseMirror-selectednode')).toBeNull();
+		expect(document.activeElement).toBe(field());
+	});
+
+	it('Remove on a note alone in the last slide leaves a caret in that slide', () => {
+		const v = mount('## A\n\nPara a.\n\n---\n\n<!-- lonely last. -->');
+		pills()[0].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(v.state.selection instanceof TextSelection).toBe(true);
+		expect(v.state.selection.$from.index(0)).toBe(1);
+	});
+
+	it('Remove on a quoted note that ends its slide keeps the caret in that slide, not the next', () => {
+		const v = mount('## A\n\nPara a.\n\n> <!-- quoted last. -->\n\n---\n\n## B\n\nPara b.');
+		pills()[0].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(v.state.selection instanceof TextSelection).toBe(true);
+		expect(v.state.selection.$from.index(0)).toBe(0);
+	});
+});
+
 describe('an undo from another button', () => {
 	it('cannot change the field: what is not typed into it is undone', () => {
 		mount();

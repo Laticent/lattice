@@ -175,6 +175,24 @@ test.describe('notes and motion in Compose', () => {
 			.toBe(true);
 	});
 
+	test('@crosswidth @gecko @webkit-tablet a note alone in the last slide is not deleted by the key after Escape', async ({ page }) => {
+		await openDeckInCompose(page, '## A\n\nPara a.\n\n---\n\n<!-- lonely last. -->');
+		await pill(page, /note/).click();
+		await page.keyboard.press('Escape');
+		await page.keyboard.type('QQ');
+		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(1);
+		expect(await savedDeck(page)).toContain('<!-- lonely last. -->');
+	});
+
+	test('@crosswidth @gecko @webkit-tablet Remove on a quoted note that ends its slide keeps the next keys in that slide', async ({ page }) => {
+		await openDeckInCompose(page, '## A\n\nPara a.\n\n> <!-- quoted last. -->\n\n---\n\n## B\n\nPara b.');
+		await pill(page, /note/).click();
+		await page.getByRole('button', { name: 'Remove' }).click();
+		await page.keyboard.type('QQ');
+		await expect.poll(() => savedDeck(page)).toContain('QQ');
+		expect(await savedDeck(page)).not.toContain('## QQB');
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

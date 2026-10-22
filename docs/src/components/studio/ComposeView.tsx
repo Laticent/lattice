@@ -1382,8 +1382,9 @@ function openNote(view: EditorView): { at: number; node: PMNode } | null {
 }
 
 /** A text caret next to `pos`, inside the slide `pos` is in: the next text after it, else the last text before it. Never a selection of a
- *  note (the next block can be another note, and the next key would replace it) and never a position in another slide. */
-function caretNear(doc: PMNode, pos: number): Selection {
+ *  note (the next block can be another note, and the next key would replace it) and never a position in another slide. Null when the slide
+ *  holds no text at all (a slide that is only a note): there is nowhere on it to put a caret. */
+function caretNear(doc: PMNode, pos: number): Selection | null {
 	const $pos = doc.resolve(Math.min(pos, doc.content.size));
 	const start = $pos.depth >= 1 ? $pos.start(1) : 0;
 	const end = $pos.depth >= 1 ? $pos.end(1) : doc.content.size;
@@ -1391,7 +1392,7 @@ function caretNear(doc: PMNode, pos: number): Selection {
 	if (after && after.from <= end) return after;
 	const before = Selection.findFrom($pos, -1, true);
 	if (before && before.from >= start) return before;
-	return Selection.near($pos, 1);
+	return null;
 }
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
@@ -1476,9 +1477,10 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(at, at + n.nodeSize);
 			// The caret goes to where the note was: a click on a pill never moved the editor's selection, so refocusing without this puts
 			// the next keys at the old caret, which can be the top of the deck.
-			tr.setSelection(caretNear(tr.doc, at));
+			const caret = caretNear(tr.doc, tr.mapping.map(at));
+			if (caret) tr.setSelection(caret);
 			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
-			view.focus();
+			if (caret) view.focus();
 		});
 	}
 	// The words write when the author leaves the field or presses Ctrl/Cmd+Enter; Escape puts the original back and returns to the
@@ -1527,8 +1529,12 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				why.hidden = true;
 				// Back to the slide, at the note: the editor's own selection may be anywhere else in the deck.
 				const open = isCurrent() ? openNote(view) : null;
-				if (open) view.dispatch(view.state.tr.setSelection(caretNear(view.state.doc, open.at + open.node.nodeSize)));
-				view.focus();
+				const caret = open ? caretNear(view.state.doc, open.at + open.node.nodeSize) : null;
+				// A slide that is only a note has no text to return to, so the caret stays in the field rather than going to another slide.
+				if (caret) {
+					view.dispatch(view.state.tr.setSelection(caret));
+					view.focus();
+				}
 			} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
 				commit();
