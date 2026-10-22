@@ -103,11 +103,14 @@ describe('notes and key together', () => {
     for (const l of labels(d)) assert.ok(l.x > right && l.x < keyX(d));
   });
 
-  test('square puts the key under the grid and keeps the notes beside it, within the margin', () => {
+  test('square puts the notes and the key both under the grid, the notes first', () => {
+    // Measured (design note § 10): with the notes flowing, both under keeps 100% of the plot at 1:1 against 87% for
+    // notes beside and key under, which clears PLACEMENT_MARGIN. Stacked, it was 100% against 99% and stayed beside.
     const d = doc(render(THREE, { orientation: 'square' }, ['scale']));
-    const { right, bottom } = cellBox(d);
-    for (const l of labels(d)) assert.ok(l.x > right);
-    assert.ok(keyY(d) > bottom);
+    const { bottom } = cellBox(d);
+    const ys = labels(d).map((l) => l.y);
+    assert.ok(Math.min(...ys) > bottom, 'every note sits under the lowest cell');
+    assert.ok(keyY(d) > Math.max(...ys), 'the key is under the notes');
   });
 
   test('both under the grid: the notes run its width, then the key, with the key\'s own rule between', () => {

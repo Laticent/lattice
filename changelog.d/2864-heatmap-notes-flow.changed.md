@@ -1,0 +1,1 @@
+- **Changed: a heatmap's callouts under the grid now flow side by side, like every other chart's.** They used to stack in one column. On a square slide with a key, the notes and the key now both sit under the grid, because the flowing notes cost less height; the notes beside the grid still win on wide slides.

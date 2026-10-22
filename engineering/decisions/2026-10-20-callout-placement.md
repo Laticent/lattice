@@ -240,7 +240,7 @@ proved: lift the paragraphs, tie notes to marks, size the lane, score the layout
 `gantt`, `hub-spoke`, and the quadrant's four other variants), so the notes cannot disagree with where the marks
 were drawn. A keyed chart builds its key around each candidate unit, as the heatmap does.
 
-**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to the figure's width), notes sit side by side, each row centered in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only the resolved side: the author's `side=`, else the manifest default (`callout.side`, compiled into `lib/core/callout-catalog.generated.js`), else under. `around` sets the resolved side for the span of one chart's render, so no chart's call changes. On the heatmap an explicit `side=` pins the notes; with none the grid keeps its own choice by plot size. The decision was the owner's: "the user should decide via a callout parameter; the default under; charts override it via their manifest." A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's bottom edge near its start, half outside it: inside the chip it covered the mood face, the top corners hold the actor dots and the heatmap's mood number, and on a row chip the face slides along the chip with the score, so the middle of the edge is not free either. The heatmap's own below layout is unchanged: moving it changes which side wins on a square slide, which `heatmap-placement.test.js` pins, so it moves on its own, with the test and the owner's measured choice re-decided together (`followups.d/2855-p3-heatmap-notes-flow.md`).
+**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to the figure's width), notes sit side by side, each row centered in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only the resolved side: the author's `side=`, else the manifest default (`callout.side`, compiled into `lib/core/callout-catalog.generated.js`), else under. `around` sets the resolved side for the span of one chart's render, so no chart's call changes. On the heatmap an explicit `side=` pins the notes; with none the grid keeps its own choice by plot size. The decision was the owner's: "the user should decide via a callout parameter; the default under; charts override it via their manifest." A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's bottom edge near its start, half outside it: inside the chip it covered the mood face, the top corners hold the actor dots and the heatmap's mood number, and on a row chip the face slides along the chip with the score, so the middle of the edge is not free either. The heatmap's below layout moved onto the flowing group afterward (§ 11).
 
 **Three rules the second readers added.**
 
@@ -274,7 +274,7 @@ The stacked bar, the map and the hub-spoke move at 4:3: the picks the real aspec
 where the transform runs), and `radar` inside a split pane (the pane fits its own key). Both are filed in
 `followups.d/`. The heatmap's own placement loop was left alone in #2855 and now calls `choose` (`noteSides` keeps its
 both-sides default when the author names none; 60 renders of the twelve heatmap decks at five shapes are byte-identical).
-Its below-grid notes still stack in one column, which is filed. Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
+Its below-grid notes now flow like the others' (§ 11). Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
 
 ## 9. Journey and risk-matrix (P4 as built)
 
@@ -340,3 +340,28 @@ A callout deck pays what it paid before plus one request. On the real Studio in 
 (`docs/e2e/engine-on-demand.spec.ts`): a bar chart with no callout requests `chart-bar.js` and not
 `callout-place.js`; adding `@callout` fetches it once and draws the marker and the note; a 404 on it shows "couldn't
 load part of the app" and draws no note.
+
+## 11. The heatmap's notes under the grid flow (#2864)
+
+`layoutHeatmap` passes `flow: below` to `laneSvg`, as `place` does for every other chart, so the notes under a grid sit
+side by side and wrap instead of stacking in one column. Measured on the 4 by 5 retention grid, plot kept as a share
+of the better side at that shape, the pick rule's own score (`kept` in `choose`):
+
+| Slide | Notes beside | Notes under, stacked (before) | Notes under, flowing (after) |
+|---|---|---|---|
+| 16:9, three notes | 100% | 79% | 93% |
+| 4:3, three notes | 100% | 82% | 97% |
+| 1:1, three notes | 71% | 100% | 100% |
+| 9:16, three notes | 70% | 100% | 100% |
+| 1:1, six long notes | 97% | 100% | 100% |
+
+With a key as well, at 1:1 the four placements scored (beside/beside, beside/under, under/beside, under/under) 40%,
+99%, 57%, 100% before and 35%, 87%, 50%, 100% after. Stacked, under/under beat beside/under by 1%, inside
+`PLACEMENT_MARGIN`, so the notes stayed beside. Flowing, it wins by 15%, so at a square slide with a key the notes
+and the key now both go under the grid, the notes first. That is the measured outcome of the owner's earlier rule that
+notes go under the figure at every shape; `heatmap-placement.test.js` ("square puts the notes and the key both under
+the grid") pins it. No shape changed which side wins for notes alone.
+
+Rendered: 942 example renders, four moved (`legend-anchored` at 16:9, 4:3 and 9:16; `callout-placement` at 9:16). In
+the PNGs the two slides that differ at 16:9 (`legend-anchored` 6 and 7) show one note centered under its grid, and the
+seven-by-twelve grid's notes in one row with a wider grid (463 against 374 px at 1x).
