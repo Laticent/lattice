@@ -224,8 +224,8 @@ describe('chart-finish provenance + override', () => {
 		expect(chartFinishProvenance(own, deck('chart-finish: tone', own))).toMatchObject({ state: 'on', value: 'off', deckValue: 'tone' });
 	});
 	it('setChartFinish swaps the one token and keeps the component; null clears it', () => {
-		const on = setChartFinish(slide, 'etching');
-		expect(getClassTokens(on)).toEqual(['bar', 'chart-finish-etching']);
+		const on = setChartFinish(slide, 'etch');
+		expect(getClassTokens(on)).toEqual(['bar', 'chart-finish-etch']);
 		expect(getClassTokens(setChartFinish(on, 'tone'))).toEqual(['bar', 'chart-finish-tone']);
 		expect(getClassTokens(setChartFinish(on, null))).toEqual(['bar']);
 	});

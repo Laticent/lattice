@@ -301,7 +301,7 @@ section.state-chart .sc-icon {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-section.icon-etching .state-chart-edges .sc-icon { stroke-width: 1.5; }
+section.icon-etch .state-chart-edges .sc-icon { stroke-width: 1.5; }
 section.state-chart .state-node-group[data-text="1"] .sc-icon { color: var(--chart-cat-1-ink); }
 section.state-chart .state-node-group[data-text="2"] .sc-icon { color: var(--chart-cat-2-ink); }
 section.state-chart .state-node-group[data-text="3"] .sc-icon { color: var(--chart-cat-3-ink); }
