@@ -456,8 +456,15 @@ function build() {
     // body clears, from the hue it names. An author-colored caption (`data-text` on the group) keeps its ink.
     {
       const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-      w(supports(rule(name, '.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]', [
+      // PIGMENT paints the tile with a solid body, so an author-colored caption (`text=cN`, picked for the shipped pale
+      // tint) would sit on it at 1.01:1 on onyx dark; measured over 32 palettes it failed on 124 of 128 such nodes. Pigment
+      // therefore owns the caption's ink on a tile it paints. Etch and tone paint a pale body and leave the author's ink.
+      const own = name === 'pigment' ? '' : ':not([data-text])';
+      w(supports(rule(name, `.state-node-group${own} > .state-label-t, .state-index-t[data-s]`, [
         `fill: ${onInk(name, 'var(--fill-hue)', l, d)}`,
+      ])));
+      w(supports(rule(name, `.state-node-group${own} > .sc-icon`, [
+        `color: ${onInk(name, 'var(--fill-hue)', l, d)}`,
       ])));
     }
 
@@ -467,9 +474,14 @@ function build() {
     // author-filled node keeps its own ink.
     {
       const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-      const nameSel = (extra) => `.fc-node-group${extra}:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name`;
+      // As for the state chart caption: pigment owns the ink on a node it paints solid, even an author-colored one.
+      const own = name === 'pigment' ? '' : ':not([data-text])';
+      const nameSel = (extra, kid = '.fc-name') => `.fc-node-group${extra}${own}:not([data-fill]):not([data-s="deferred"]) > ${kid}`;
       w(supports(rule(name, nameSel(''), [
         `fill: ${onInk(name, 'var(--fc-hue)', l, d)}`,
+      ])));
+      w(supports(rule(name, nameSel('', '.fc-icon'), [
+        `color: ${onInk(name, 'var(--fc-hue)', l, d)}`,
       ])));
       // Under tone a slot node is one hue at ITS slot's step, not the slot's own hue.
       if (tone) for (const n of SLOTS) {
