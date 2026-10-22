@@ -1786,6 +1786,10 @@
                 { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
               ]
             },
+            "cellDescriptions": {
+              "type": "boolean",
+              "description": "A `{> prose}` description in one of the chart's TABLE cells is read: after a cell's value it describes the cell, in a header cell the column, and a column headed `{>}` holds one plain-text description per row (model note decision 5). Only heatmap reads it today; lint `chart-description-unread` warns on a description in a table cell of a chart that does not."
+            },
             "empty": {
               "enum": ["none", "not-measured"],
               "description": "What an empty cell means: `none` (nothing yet: no mark) or `not-measured` (heatmap: a gap the chart draws as unmeasured)."

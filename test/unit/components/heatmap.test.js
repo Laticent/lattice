@@ -909,3 +909,52 @@ describe('the row-name gutter fits the names on one line, never at the cells\' c
     assert.equal(values, 24, 'every cell still prints its number');
   });
 });
+
+describe('a cell, a column and a row can carry a `{> …}` description (model note decision 5)', () => {
+  const tbl3 = (...rows) => tbl(['| Cohort | M0 | M1 `{> the second month}` | `{>}` |', '| --- | --: | --: | --- |', ...rows].join('\n'));
+
+  test('a description after a value is the cell\'s note, and the value is left as authored', () => {
+    assert.deepEqual(readCell('62 <code>{&gt; dipped, then recovered}</code>'), { raw: '62', detail: 'dipped, then recovered' });
+  });
+  test('it and `note=` read the same, and the retired form still reads', () => {
+    assert.equal(readCell('62 <code>{&gt; why}</code>').detail, readCell('62 <code>note=why</code>').detail);
+  });
+  test('a pipe, an equals sign and quotes in the prose are prose', () => {
+    assert.equal(readCell('62 <code>{&gt; a | b = &quot;c&quot;}</code>').detail, 'a | b = "c"');
+  });
+  test('a number-shaped description is no value: `{>5}` describes, it does not measure', () => {
+    assert.deepEqual(readCell('<code>{&gt;5}</code>'), { raw: '', detail: '5' });
+  });
+  test('a description on an unmeasured crossing is kept, and the crossing stays unmeasured', () => {
+    const m = parseHeatmapTable(tbl3('| Feb | 100 | `{> not reached yet}` | Pilot |'));
+    assert.equal(m.rows[0].cells[1], null);
+    assert.equal(m.rows[0].cellNotes[1], 'not reached yet');
+    const marks = cellMarks({ ...m, callouts: [] });
+    assert.equal(marks[1].detail, 'not reached yet');
+  });
+  test('a header description describes the column and is not part of its name', () => {
+    const m = parseHeatmapTable(tbl3('| Jan | 100 | 62 | Launch |'));
+    assert.deepEqual(m.cols, ['M0', 'M1']);
+    assert.deepEqual(m.colNotes, ['', 'the second month']);
+  });
+  test('the `{>}` column holds one plain-text description per row and is no data column', () => {
+    const m = parseHeatmapTable(tbl3('| Jan | 100 | 62 | Launch cohort |', '| Feb | 100 | 58 | Pilot |'));
+    assert.deepEqual(m.cols, ['M0', 'M1']);
+    assert.deepEqual(m.rows.map((r) => r.note), ['Launch cohort', 'Pilot']);
+  });
+  test('the `{>}` column is taken out BEFORE the 12-column cap, wherever it sits', () => {
+    const cols = Array.from({ length: 12 }, (_, i) => `C${i}`);
+    const head = `| R | \`{>}\` | ${cols.join(' | ')} |`;
+    const m = parseHeatmapTable(tbl([head, `|${' --- |'.repeat(14)}`, `| a | why | ${cols.map((_c, i) => i + 1).join(' | ')} |`].join('\n')));
+    assert.equal(m.cols.length, 12);
+    assert.deepEqual(m.overflowCols, []);
+    assert.equal(m.rows[0].note, 'why');
+    assert.equal(m.rows[0].cells[11].num, 12, 'the last data column is read from its own cell, not shifted by the description column');
+  });
+  test('the rendered <desc> says the column and row descriptions', () => {
+    const m = parseHeatmapTable(tbl3('| Jan | 100 | 62 | Launch cohort |'));
+    const out = buildHeatmap(m, {});
+    assert.match(out, /Column M1: the second month\./);
+    assert.match(out, /Row Jan: Launch cohort\./);
+  });
+});
