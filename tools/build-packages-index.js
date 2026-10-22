@@ -261,8 +261,9 @@ function renderFenceDoor() {
   // The inline kinds Lattice draws itself (the host's rows and the shipped plugins'): a zip plugin's kind of the same
   // name would be called by `@kind{…}` spans the host already draws (2026-10-14-plugin-inline-door.md §6).
   // The host's rows and the plugin rows by name; the `@` row's own name (`named`) is the dispatcher's, not a kind.
-  const { FIRST_PARTY, KINDS } = require('../lib/core/inline-code-directives.js');
-  const shippedKinds = [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin)].map((k) => k.name))].sort();
+  const { FIRST_PARTY, KINDS, NAMED_ONLY_KINDS } = require('../lib/core/inline-code-directives.js');
+  // Named-only kinds (a video) are not in KINDS, but a zip plugin must not take their names either.
+  const shippedKinds = [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin), ...NAMED_ONLY_KINDS].map((k) => k.name))].sort();
   return `${JSON.stringify({ generated: 'tools/build-packages-index.js — DO NOT EDIT', rebuilt, shippedFences: [...shipped].sort(), shippedKinds, highlightLanguages: [...languages].sort() }, null, 2)}\n`;
 }
 

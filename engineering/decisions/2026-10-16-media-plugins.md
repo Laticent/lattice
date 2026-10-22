@@ -1013,3 +1013,15 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
     Rendered before and after, the five decks are byte-identical once the new `data-lattice-*` attributes are dropped from both sides.
   - **Not built in this slice:** the `file` provider row, the poster chain's later links, `description` narration, the Studio overlay for a
     `<video>`, oEmbed title offers, and the demo deck for the new syntax (the migrated `examples/video.md` is the demo until it is).
+- 2026-10-22: the trio on slice 2 (red team, inversion, checker) found no way to make Lattice build an address from a plugin's text.
+  It found these, fixed in the same PR: a zip plugin could claim `@video` (`shippedKinds` now includes named-only kinds); the autofix took the
+  whole bullet line as the address, joined the record to a paragraph above it, and could not apply across lines (it now takes the URL token,
+  puts the record in a paragraph of its own, and offers a one-line fix only); three bullet shapes that drew a clip before got no finding (any
+  `video` slide with no record is now a `video-bullet` error); `aria-label` hid the visible "Watch on" words (removed, which is what made the
+  five decks identical to `main` apart from `data-lattice-*`); a list-item record left an empty list; Export-to-Marp printed the record as code
+  (the bundle now rewrites a lone record to a plain Markdown link, `lib/plugins/video/shared/video-marp-export.js`; no poster, recorded in
+  `marp-fidelity.js`); `video-not-alone` disagreed with the renderer in both directions.
+  **Still open:** `@video` on a slide that is not a `video` slide draws an unstyled figure (all the CSS is scoped to `section.video`); an
+  `inline-code: literal` deck draws no video; the `idempotent` marker `class="video-card"` is a fragile string; the old bullet form was dropped,
+  where §4.5 rule 4 had said to keep it working by reading bullet tokens: the owner chose the `@video` record over keeping the bullet when asked
+  (2026-10-22), knowing it breaks old decks, so this note's rule 4 is superseded for `video`.

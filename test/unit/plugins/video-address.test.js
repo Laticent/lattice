@@ -8,7 +8,8 @@ const assert = require('node:assert/strict');
 const { JSDOM } = require('jsdom');
 const dispatcher = require('../../../lib/core/inline-code-directives.js');
 const engine = require('../../../lib/engine');
-const { lintText } = require('../../../lib/authoring/lint.js');
+const { lintText, buildVocab } = require('../../../lib/authoring/lint.js');
+const { applyAllFixes } = require('../../../lib/authoring/lint-core.js');
 const { migrateVideoBullets } = require('../../../lib/core/video-migrate.js');
 
 const render = (md) => engine.createEngine().render(md, 'indaco').html;
@@ -71,14 +72,15 @@ describe('the DOM path never dispatches an address kind', () => {
 
 describe('lint', () => {
   test('a bullet clip is an error with an autofix that writes the record', () => {
-    const src = deck('- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n- Tour `caption`');
+    const src = deck('- https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     const f = lintText(src).filter((x) => x.rule === 'video-bullet');
     assert.equal(f.length, 1);
     assert.equal(f[0].severity, 'error');
-    assert.equal(f[0].replace.to, '`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", title="Tour"}`');
-    const fixed = src.replace(f[0].replace.from, f[0].replace.to);
-    assert.equal(lintText(fixed).filter((x) => x.rule === 'video-bullet').length, 0);
-    assert.match(render(fixed), /data-lattice-media="video"/, 'the fixed deck draws the clip');
+    const fixed = applyAllFixes(src, buildVocab());
+    const out = typeof fixed === 'string' ? fixed : fixed.source;
+    assert.match(out, /`@video\{"https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ"\}`/);
+    assert.equal(lintText(out).filter((x) => x.rule === 'video-bullet').length, 0);
+    assert.match(render(out), /data-lattice-media="video"/, 'the fixed deck draws the clip');
   });
 
   test('a span in a sentence warns; a lone span, even in a list item, does not', () => {
@@ -118,6 +120,50 @@ describe('what the inversion found', () => {
     const html = render(deck(`- \`${SPAN}\``));
     assert.doesNotMatch(html, /<ul>\s*<\/ul>|<li>\s*<\/li>/);
     assert.doesNotMatch(html, /class="video-poster[^>]*aria-label/);
+  });
+});
+
+describe('what the red team found', () => {
+  test('a zip plugin cannot take the `video` kind: it is in the shipped list', () => {
+    assert.ok(require('../../../lib/packages/fence-door.generated.json').shippedKinds.includes('video'));
+  });
+
+  test('the autofix keeps the record in a paragraph of its own, so a bullet above cannot swallow it', () => {
+    const src = deck('- Built for the Q3 review\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    const fixed = applyAllFixes(src, buildVocab());
+    assert.match(render(typeof fixed === 'string' ? fixed : fixed.source), /data-lattice-media="video"/);
+    const r = migrateVideoBullets(src);
+    assert.match(render(r.source), /data-lattice-media="video"/, 'and so does the sweep');
+  });
+
+  test('a clip with caption and poster bullets is not offered as a one-line autofix; a backtick in a title is refused', () => {
+    const f = lintText(deck('- https://youtu.be/dQw4w9WgXcQ\n- Tour `caption`')).find((x) => x.rule === 'video-bullet');
+    assert.equal(f.autofixable, undefined);
+    assert.equal(migrateVideoBullets('<!-- _class: video -->\n\n- https://youtu.be/dQw4w9WgXcQ\n- The `best` clip `caption`\n').skipped, 1);
+  });
+
+  test('video-not-alone: a record under a paragraph line warns; a quote or numbered record does not', () => {
+    const r = (b) => lintText(deck(b)).filter((x) => x.rule === 'video-not-alone').length;
+    assert.equal(r(`A short intro line.\n\`${SPAN}\``), 1);
+    assert.equal(r(`> \`${SPAN}\``), 0);
+    assert.equal(r(`1. \`${SPAN}\``), 0);
+  });
+});
+
+describe('what the checker found', () => {
+  test('Export-to-Marp rewrites a lone record to a plain link, and leaves a fenced or unreadable one alone', () => {
+    const { withVideoLinks } = require('../../../lib/plugins/video/shared/video-marp-export.js');
+    const out = withVideoLinks(`a\n\n\`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}\`\n\n- \`@video{"https://attacker.example/x"}\`\n\n\`\`\`\n\`${SPAN}\`\n\`\`\`\n`);
+    assert.match(out, /^\[Tour\]\(https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ\)$/m);
+    assert.match(out, /`@video\{"https:\/\/attacker\.example\/x"\}`/);
+    assert.match(out, /```\n`@video\{"https:\/\/www\.youtube/);
+  });
+
+  test('a bullet inside a fenced example is not migrated; the real one below it is', () => {
+    const src = '<!-- _class: video -->\n\n```md\n- https://vimeo.com/1\n```\n\n- https://vimeo.com/1084537\n';
+    const r = migrateVideoBullets(src);
+    assert.match(r.source, /```md\n- https:\/\/vimeo\.com\/1\n```/);
+    assert.match(r.source, /`@video\{"https:\/\/vimeo\.com\/1084537"\}`/);
   });
 });
 

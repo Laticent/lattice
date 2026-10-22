@@ -34,8 +34,9 @@ describe('the generated fence-door data', () => {
   });
 
   test('the shipped inline kinds are the live dispatcher table\'s, so a zip plugin cannot take one', () => {
-    const { FIRST_PARTY, KINDS } = require('../../../lib/core/inline-code-directives.js');
-    assert.deepEqual(DATA.shippedKinds, [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin)].map((k) => k.name))].sort());
+    const { FIRST_PARTY, KINDS, NAMED_ONLY_KINDS } = require('../../../lib/core/inline-code-directives.js');
+    assert.deepEqual(DATA.shippedKinds, [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin), ...NAMED_ONLY_KINDS].map((k) => k.name))].sort());
+    assert.ok(DATA.shippedKinds.includes('video'), 'a named-only kind is shipped too: a zip plugin cannot take `@video`');
     assert.equal(DATA.shippedKinds.includes('named'), false, 'the dispatcher\'s own row is not a kind');
     for (const k of ['state', 'pill', 'spark', 'icon', 'avatar']) assert.ok(DATA.shippedKinds.includes(k), k);
   });
