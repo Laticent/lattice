@@ -43,7 +43,7 @@ import {
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
-import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
+import { sourceHasMath, sourceHasMathOutsideCode } from '../../../lib/plugins/math/math.syntax.mjs';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
@@ -1458,10 +1458,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
 		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
 		// KaTeX's 20 faces are stripped from the registered theme until a source actually
-		// contains math (2026-08-17 loading audit §9.6). Gate on the ENGINE's own detector,
-		// the same one renderMarkdown uses, and AWAIT it as part of themeReady so the first
+		// contains math (2026-08-17 loading audit §9.6). Gate on the engine's detector with code
+		// skipped (`sourceHasMathOutsideCode`): math inside a code span or fence never renders, and
+		// counting it loaded the faces and re-registered lattice.css before the welcome deck's first
+		// slide (Studio performance audit, PR #2868). AWAIT it as part of themeReady so the first
 		// math slide already has its faces — no fallback-font flash.
-		const katexReady = sourceHasMath(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
+		const katexReady = sourceHasMathOutsideCode(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
 		const themeReady = extra
 			? themes.ensureBase().then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited

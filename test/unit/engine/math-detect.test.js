@@ -86,3 +86,52 @@ describe('math-detect: unit behavior', () => {
     assert.equal(sourceHasMath(undefined), false);
   });
 });
+
+// ── sourceHasMathOutsideCode: what the Studio downloads KaTeX for (2026-10-22 performance audit) ──
+describe('sourceHasMathOutsideCode skips code, and only code', () => {
+  // Loaded lazily so this block reads the shipped module, like the cases above.
+  const load = () => import('../../../lib/plugins/math/math.syntax.mjs');
+
+  test('math written about in an inline code span is not math (the Studio welcome deck)', async () => {
+    const { sourceHasMathOutsideCode, sourceHasMath } = await load();
+    const src = '- Write `$math$` for an inline formula';
+    assert.equal(sourceHasMath(src), true, 'the raw detector counts it, which is the bug being routed around');
+    assert.equal(sourceHasMathOutsideCode(src), false);
+  });
+
+  test('a double-backtick span and a fenced code block are skipped too', async () => {
+    const { sourceHasMathOutsideCode } = await load();
+    assert.equal(sourceHasMathOutsideCode('Use ``$a$`` here'), false);
+    assert.equal(sourceHasMathOutsideCode('```js\nconst x = `$y$`;\nconst p = "$a$";\n```\n'), false);
+    assert.equal(sourceHasMathOutsideCode('~~~\n$$\nx\n$$\n~~~\n'), false);
+  });
+
+  test('real math still counts: inline, display, a math fence, and math beside a code span', async () => {
+    const { sourceHasMathOutsideCode } = await load();
+    assert.equal(sourceHasMathOutsideCode('Euler: $e^{i\\pi}+1=0$'), true);
+    assert.equal(sourceHasMathOutsideCode('$$\n\\int_0^1 x\\,dx\n$$\n'), true);
+    assert.equal(sourceHasMathOutsideCode('```math\nx^2\n```\n'), true);
+    assert.equal(sourceHasMathOutsideCode('Type `code` then $x^2$ after it'), true);
+    assert.equal(sourceHasMathOutsideCode('```\ncode\n```\n\nThen $x^2$.'), true, 'math after a closed fence');
+  });
+
+  test('currency prose is still not math, and an unmatched backtick is left alone', async () => {
+    const { sourceHasMathOutsideCode } = await load();
+    assert.equal(sourceHasMathOutsideCode('Revenue $400M, up from $18M'), false);
+    assert.equal(sourceHasMathOutsideCode('a lone ` then $x^2$'), true);
+  });
+
+  test('empty input', async () => {
+    const { sourceHasMathOutsideCode } = await load();
+    assert.equal(sourceHasMathOutsideCode(''), false);
+    assert.equal(sourceHasMathOutsideCode(undefined), false);
+  });
+});
+
+test('sourceHasMathOutsideCode never misses math the real engine renders (every fixture above)', async () => {
+  const { sourceHasMathOutsideCode } = await import('../../../lib/plugins/math/math.syntax.mjs');
+  for (const f of FIXTURES) {
+    if (engineRendersMath(f.src)) assert.equal(sourceHasMathOutsideCode(f.src), true, `missed rendered math: ${f.name}`);
+  }
+  for (const src of ['Write `$math$` for a formula', '```\n$x^2$\n```\n']) assert.equal(engineRendersMath(src), false, `the engine renders math in code: ${src}`);
+});
