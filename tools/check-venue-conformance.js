@@ -27,9 +27,15 @@
  * STALE entry (one that no longer fails), so the list cannot rot.
  *
  * Usage: node tools/check-venue-conformance.js [--only=a,b] [--jobs=N] [--families=wide,square,tall,strip] [--all-families] [--venues=hall] [--json] [--strict]
- * A report by default (exit 0). `--strict` exits 1 on an unnamed failure, a stale KNOWN entry or a
- * component that could not be measured. It is NOT wired into CI: that is the owner's call (see the
- * decision note). Skips loudly with no Chromium.
+ * A one-block prose component whose manifest carries a budget for another canvas (`venueCapacity.prose.families`)
+ * is also rendered on that canvas with its slot filled to exactly that budget, bare and under each register: the
+ * `budget` probe, which is what proves a measured row true (`tools/calibrate-venue-prose.js` writes the rows).
+ * Count budgets (`byWords`, `lines`) are still held at the wide canvas only.
+ *
+ * A report by default (exit 0). `--strict` is the ratchet: it holds all four canvas families and exits 1
+ * on an unnamed failure, a stale KNOWN entry, a component that could not be measured, or no Chromium.
+ * CI runs it (`.github/workflows/ci.yml`, integration shard 4), so a PR that adds a failing row, or fixes
+ * one without deleting its KNOWN entry, goes red. A bare report skips loudly with no Chromium (exit 0).
  */
 const fs = require('node:fs');
 const os = require('node:os');
@@ -38,6 +44,7 @@ const { resolveChrome } = require('./lib/resolve-chrome');
 const { loadAll, manifestBucket } = require('../lib/components');
 const { splitSample, render, VENUE_CLASS } = require('./audit-reading-size');
 const { SIZE_ALIAS } = require('./lib/calibrate-core');
+const { fillSlot } = require('./lib/venue-prose-fill');
 
 const ROOT = path.join(__dirname, '..');
 const args = process.argv.slice(2);
@@ -46,9 +53,10 @@ const only = opt('only').split(',').filter(Boolean);
 const VENUES = (opt('venues') || 'laptop,huddle,conference,hall').split(',');
 const jobs = Math.max(1, Number(opt('jobs')) || Math.min(4, os.cpus().length));
 const JSON_OUT = args.includes('--json');
-const FAMILY_LIST = (opt('families') || 'wide').split(',').filter(Boolean);
-const ALL_FAMILIES = args.includes('--all-families'); // also hold count-budgeted components to every canvas
 const STRICT = args.includes('--strict');
+// The ratchet (`--strict`) holds every canvas family, because `KNOWN` names rows on tall and square; a bare report stays on wide.
+const FAMILY_LIST = (opt('families') || (STRICT ? 'wide,square,tall,strip' : 'wide')).split(',').filter(Boolean);
+const ALL_FAMILIES = args.includes('--all-families'); // also hold count-budgeted components to every canvas
 
 /**
  * Minimum QR width as a share of slide width, per venue. PROPOSED, not ruled: derived from
@@ -76,6 +84,7 @@ const KNOWN = Object.freeze([
   { component: 'title', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
   { component: 'topic', variant: 'fact', families: ['tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
   { component: 'video', families: ['square', 'tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
+  { component: 'contact', families: ['square'], venues: ['hall'], why: 'The venueProbe card (full name, title, org, phone, email, URL, caption) marks the slide clipped at hall on a square canvas; no text or image leaves the frame, so the overshoot is small. Found 2026-10-22 when the ratchet first held the square canvas; the fix is a layout pass on the square structure, recorded in followups.d/2862-p7-contact-square-hall-clip.md.' },
   { component: 'pricing', families: ['wide'], venues: ['laptop'], why: 'The sample\'s footnote ("Checks accumulate up the ladder") is clipped by its list item at the designed size; it predates venues. Found by the harness on 2026-10-22, not on the path of the venue work.' },
   { component: 'video', variant: 'qr', why: 'The `qr` register sizes its code from a fixed `8rem`, so it sits under the venue floor from huddle up (10% of the slide at every venue) and its caption is clipped under the poster. Moving it onto the shared QR sizing made it clip at laptop, so the edit was backed out; it needs its own layout (code beside the poster at wide). Found 2026-10-22.' },
 ]);
@@ -191,7 +200,8 @@ function inspectInPage() {
  * when the manifest has one, because a register such as `pricing four` or `list-steps vertical` needs
  * different content from the bare slide; one without a sample of its own takes the bare content.
  */
-function buildDeck(m, probe) {
+function buildDeck(m, probe, family) {
+  if (probe === 'budget') return buildBudgetDeck(m, family);
   const bare = probe === 'venueProbe' ? m.venueProbe : m.sample;
   if (!bare) return { src: '', roster: [] };
   const rows = [{ variant: null, sample: bare }];
@@ -212,10 +222,33 @@ function buildDeck(m, probe) {
   return { src: `---\ntheme: indaco\n---\n\n${slides.join('\n---\n\n')}`, roster };
 }
 
+/**
+ * A one-block prose component on a canvas other than wide: its slot filled to exactly the words the
+ * manifest says that canvas holds (`venueCapacity.prose.families`), bare and under each measured register,
+ * at every venue. A budget of 0 (no room) is not rendered. This is what proves a measured row true.
+ */
+function buildBudgetDeck(m, family) {
+  const f = m.venueCapacity?.prose?.families?.[family];
+  if (!f || !m.venueProbe) return { src: '', roster: [] };
+  const sp = splitSample(m.venueProbe, m.name);
+  const roster = [];
+  const slides = [];
+  for (const [variant, row] of [[null, f.row], ...Object.entries(f.variants || {})]) {
+    for (const venue of VENUES) {
+      const n = row[venue];
+      if (!n) continue;
+      const cls = [m.name, ...sp.tokens, ...(variant ? [variant] : []), VENUE_CLASS[venue]].join(' ');
+      slides.push(`<!-- _class: ${cls} -->\n\n${fillSlot(m.name, sp.body, n)}\n`);
+      roster.push({ variant, venue });
+    }
+  }
+  return { src: slides.length ? `---\ntheme: indaco\n---\n\n${slides.join('\n---\n\n')}` : '', roster };
+}
+
 async function checkComponent(browser, m, family, probe) {
   // `probe` names the content under test: the manifest `sample`, or `venueProbe`, the longest
   // realistic content the component declares it holds.
-  const { src, roster } = buildDeck(m, probe);
+  const { src, roster } = buildDeck(m, probe, family);
   if (!roster.length) return [];
   const { html, dir } = await render(src, m.name, path.join(ROOT, 'lib/components', manifestBucket(m), m.name), SIZE_ALIAS[family]);
   const page = await browser.newPage();
@@ -255,12 +288,13 @@ async function checkComponent(browser, m, family, probe) {
 }
 
 const paginated = new Set(); // `<component> <family>` pairs the engine splits into more pages than the roster
-const keyOf = (r) => `${r.component}${r.variant ? ` ${r.variant}` : ''}${r.probe === 'venueProbe' ? ' (venueProbe)' : ''} ${r.family}/${r.venue} ${r.check}`;
+const probeTag = (r) => (r.probe === 'sample' ? '' : ` (${r.probe})`);
+const keyOf = (r) => `${r.component}${r.variant ? ` ${r.variant}` : ''}${probeTag(r)} ${r.family}/${r.venue} ${r.check}`;
 
 async function main() {
   let chrome;
   try { chrome = resolveChrome(); } catch { chrome = null; }
-  if (!chrome) { console.error('check-venue-conformance: SKIPPED — no Chromium (set CHROME_PATH).'); process.exit(0); }
+  if (!chrome) { console.error(`check-venue-conformance: ${STRICT ? 'FAILED' : 'SKIPPED'} — no Chromium (set CHROME_PATH).`); process.exit(STRICT ? 1 : 0); }
   const puppeteer = require('puppeteer');
   const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
   const manifests = loadAll().filter((m) => !only.length || only.includes(m.name));
@@ -273,9 +307,12 @@ async function main() {
         const m = queue.shift();
         // A count budget (`venueCapacity`) is measured at the wide canvas only, so that is the contract
         // for a component that has one; a component with none is held to every canvas asked for.
-        const fams = (m.venueCapacity?.byWords || m.venueCapacity?.prose || m.venueCapacity?.lines) && !ALL_FAMILIES ? FAMILY_LIST.filter((f) => f === 'wide') : FAMILY_LIST;
+        // A prose budget measured on other canvases (`prose.families`) is held on those too, at the budget.
+        const budgeted = m.venueCapacity?.byWords || m.venueCapacity?.prose || m.venueCapacity?.lines;
+        const fams = budgeted && !ALL_FAMILIES ? FAMILY_LIST.filter((f) => f === 'wide' || m.venueCapacity?.prose?.families?.[f]) : FAMILY_LIST;
         for (const fam of fams) {
-          for (const probe of m.venueProbe ? ['sample', 'venueProbe'] : ['sample']) {
+          const measuredHere = fam !== 'wide' && m.venueCapacity?.prose?.families?.[fam];
+          for (const probe of measuredHere ? ['budget'] : m.venueProbe ? ['sample', 'venueProbe'] : ['sample']) {
             try { failures.push(...await checkComponent(browser, m, fam, probe)); } catch (e) { errors.push({ component: m.name, family: fam, error: String(e.message || e).split('\n')[0] }); }
           }
         }
@@ -292,7 +329,7 @@ async function main() {
   if (JSON_OUT) { process.stdout.write(`${JSON.stringify({ failures, errors, stale }, null, 2)}\n`); } else {
     const byComp = new Map();
     for (const f of failures) {
-      const k = `${f.component}${f.variant ? ` ${f.variant}` : ''}${f.probe === 'venueProbe' ? ' (venueProbe)' : ''}`;
+      const k = `${f.component}${f.variant ? ` ${f.variant}` : ''}${probeTag(f)}`;
       if (!byComp.has(k)) byComp.set(k, []);
       byComp.get(k).push(f);
     }

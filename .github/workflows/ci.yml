@@ -523,6 +523,15 @@ jobs:
             node tools/conformance-render.js --changed="origin/$BASE_REF" 2>&1
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+      # VENUE CONFORMANCE RATCHET, per PR and in the queue (owner brief 2026-10-22, #2862 follow-up P1).
+      # Renders every component at laptop / huddle / conference / hall on all four canvas families and
+      # fails on any failing row that tools/check-venue-conformance.js `KNOWN` does not name, and on a
+      # `KNOWN` entry that no longer fails, so the list can only shrink. Measured 4m41s (4 jobs) to 5m56s (2 jobs)
+      # on a 4-vCPU sandbox for the whole catalog; shard 4 is the shortest leg (about 230s of tests against 340-540s).
+      # Blocking, with no `continue-on-error`. `--strict` also fails when no Chromium is found.
+      - name: Venue conformance ratchet
+        if: matrix.shard == 4
+        run: npm run --silent check:venue-conformance -- --strict
       - name: Upload Marp renders on failure
         # The marp-kit render gate exists because every defect it guards was
         # VISIBLE ON THE FIRST PAGE OF A PDF. A red run that leaves nothing to look

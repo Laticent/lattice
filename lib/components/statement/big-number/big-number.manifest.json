@@ -130,6 +130,32 @@
         "huddle": 24,
         "conference": 16,
         "hall": 12
+      },
+      "families": {
+        "square": {
+          "row": {
+            "laptop": 29,
+            "huddle": 25,
+            "conference": 18,
+            "hall": 10
+          }
+        },
+        "tall": {
+          "row": {
+            "laptop": 18,
+            "huddle": 12,
+            "conference": 8,
+            "hall": 3
+          }
+        },
+        "strip": {
+          "row": {
+            "laptop": 36,
+            "huddle": 25,
+            "conference": 19,
+            "hall": 10
+          }
+        }
       }
     }
   },

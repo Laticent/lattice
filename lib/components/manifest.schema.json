@@ -1200,6 +1200,16 @@
               "description": "Rows for a register that holds more or less than the bare component, keyed by its variant token. A 0 means that register holds none of its prose at that venue (its layout has no room at that size); lint says so, and the conformance harness skips it there.",
               "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
               "additionalProperties": { "$ref": "#/$defs/venueRow" }
+            },
+            "families": {
+              "type": "object",
+              "description": "The same budget on the other canvas families, measured by tools/calibrate-venue-prose.js: `row`, `atLeast` and `variants` mean what they mean above, for that canvas. `row` and `variants` above are the wide canvas. A family with no entry has no budget, so lint says nothing there.",
+              "additionalProperties": false,
+              "properties": {
+                "square": { "$ref": "#/$defs/venueProseFamily" },
+                "tall": { "$ref": "#/$defs/venueProseFamily" },
+                "strip": { "$ref": "#/$defs/venueProseFamily" }
+              }
             }
           }
         },
@@ -1814,6 +1824,20 @@
               "description": "What an empty cell means: `none` (nothing yet: no mark) or `not-measured` (heatmap: a gap the chart draws as unmeasured)."
             }
           }
+        }
+      }
+    },
+    "venueProseFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row"],
+      "properties": {
+        "row": { "$ref": "#/$defs/venueRow" },
+        "atLeast": { "type": "array", "items": { "type": "string", "enum": ["laptop", "huddle", "conference", "hall"] } },
+        "variants": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "$ref": "#/$defs/venueRow" }
         }
       }
     },

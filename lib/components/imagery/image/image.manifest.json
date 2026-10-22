@@ -344,6 +344,74 @@
           "conference": 44,
           "hall": 24
         }
+      },
+      "families": {
+        "square": {
+          "row": {
+            "laptop": 78,
+            "huddle": 60,
+            "conference": 40,
+            "hall": 28
+          },
+          "variants": {
+            "split": {
+              "laptop": 52,
+              "huddle": 38,
+              "conference": 27,
+              "hall": 18
+            },
+            "mirror": {
+              "laptop": 78,
+              "huddle": 60,
+              "conference": 40,
+              "hall": 28
+            }
+          }
+        },
+        "tall": {
+          "row": {
+            "laptop": 22,
+            "huddle": 10,
+            "conference": 9,
+            "hall": 4
+          },
+          "variants": {
+            "split": {
+              "laptop": 22,
+              "huddle": 10,
+              "conference": 9,
+              "hall": 4
+            },
+            "mirror": {
+              "laptop": 22,
+              "huddle": 10,
+              "conference": 9,
+              "hall": 4
+            }
+          }
+        },
+        "strip": {
+          "row": {
+            "laptop": 54,
+            "huddle": 34,
+            "conference": 25,
+            "hall": 15
+          },
+          "variants": {
+            "split": {
+              "laptop": 54,
+              "huddle": 34,
+              "conference": 25,
+              "hall": 15
+            },
+            "mirror": {
+              "laptop": 54,
+              "huddle": 34,
+              "conference": 25,
+              "hall": 15
+            }
+          }
+        }
       }
     }
   },

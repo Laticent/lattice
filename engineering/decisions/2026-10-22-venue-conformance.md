@@ -123,9 +123,9 @@ probe on all four canvases.
   huddle, and its caption is clipped under the poster. Moving it onto the shared sizing made it clip at
   laptop, so that edit was backed out; it needs its own layout.
 - **`pricing` at laptop:** a footnote clipped by its list item; predates venues.
-- **Not yet contracted:** a count or prose budget is measured at the wide canvas only. The same
-  components clip at hall on portrait canvases, and lint cannot say so, because the budget has no
-  per-canvas row.
+- **Not yet contracted:** a count budget (`byWords`, `lines`) is measured at the wide canvas only. The
+  same components clip at hall on portrait canvases, and lint cannot say so, because the budget has no
+  per-canvas row. The five one-block prose components are done (§9).
 
 ## 7 · Cost, measured
 
@@ -138,12 +138,39 @@ bundle, which had 203 bytes of headroom under its hard ceiling. After two rounds
 
 ## 8 · Calls for the owner
 
-1. **CI.** The harness is on demand. A ratcheted CI step (a committed baseline that may only fall,
-   like `overflow:check`) is now cheap, since the baseline would be the 53 named rows. Adding a CI step
-   changes the CI contract, so it is yours.
+1. **CI.** *Done 2026-10-22 (owner brief).* `check:venue-conformance --strict` runs on integration shard 4 of `ci.yml`, blocking. The
+   baseline is the `KNOWN` list in the tool, which `--strict` holds in both directions: an unnamed
+   failing row fails, and so does a named row that no longer fails. Strict holds all four canvas
+   families (3m29s for the catalog on a 4-vCPU sandbox; shard 4 is the shortest leg). The first
+   strict run over the square canvas found one unnamed row, `contact` at hall (clip mark only, no
+   item out of frame), now named, so the baseline is 54 rows, not 53; fix tracked in
+   `followups.d/2862-p7-contact-square-hall-clip.md`.
 2. **`venueCapacity.none`.** Recommended: the manifest schema requires a `none` component to carry a
    `venueProbe`, so the sentence is verified instead of trusted. Today it is convention.
 3. **The code floors** (10 / 12 / 16 / 22%) are my estimate from "a phone reads a code from about ten
    times its width"; they are the first thing to measure on a real projector.
 4. **Per-canvas budgets.** Extending `venueCapacity` and `venue-prose` to carry a row per canvas family
    would let lint speak for portrait decks at a venue. It is a schema and generator change.
+
+## 9 · Per-canvas prose budgets (2026-10-22)
+
+`venueCapacity.prose.families` carries a row for `square`, `tall` and `strip` beside the wide row, for
+`big-number`, `citation-card`, `collage`, `image` and `redline`, and for each register that has its own
+wide row. `tools/calibrate-venue-prose.js` measures them the way the wide row was measured: it writes N
+words into the slot of the component's `venueProbe` at each venue and takes the largest N before the
+page clips (V1/V2). The build bakes them into `venue-capacity.generated.js`, and the `venue-prose` rule
+reads the row for the deck's canvas, so lint now speaks for a portrait deck at a venue. A canvas with no
+row stays silent.
+
+The harness holds the rows true: on a canvas with a measured row, a `budget` probe renders the slot
+filled to exactly that row, bare and under each register, at each venue (a row of 0 is not rendered). An
+overstated row fails: raising big-number's tall-hall row from 3 to 12 makes V1 and V2 fire.
+
+The rows differ a lot from the wide ones. `big-number` holds 36/24/16/12 words wide and 18/12/8/3 tall;
+`image` holds 72/60/44/30 wide and 22/10/9/4 tall. A tall `hall` slide that was told it had 12 words
+had 3.
+
+**Not done:** the count budgets. Their lint path (`scaleCapacityFor`, with eyebrow, callout, register,
+strict and line-geometry corrections) is built for the wide canvas throughout, and a per-canvas row for
+each needs a calibration campaign and Studio-bundle bytes the owner has not set. See
+`followups.d/2862-p2-per-canvas-venue-budgets.md`.
