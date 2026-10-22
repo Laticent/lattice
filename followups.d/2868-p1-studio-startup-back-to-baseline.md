@@ -21,6 +21,9 @@ decided   — the owner sets both targets. PR #2870 (warm-ups after the first sl
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note
             and one question round first (CLAUDE.md, design before code).
+            Preloading the engine from the HTML was tried and made the first slide later (5.97 s -> 6.38-6.52 s); the
+            note's §6 has the table. Re-measure it only after a preview-first boot. Hosting (Cloudflare in front of, or
+            instead of, GitHub Pages: Brotli, Early Hints, immutable caching) is the owner's call; §6 item 8.
 done when — (1) first slide <= 3.25 s median of 5 on the phone profile in the note, against a build of 2026-09-22
             measured the same day; (2) Lighthouse mobile performance >= 90 on /studio/, /playground/ and / against the
             deployed site, three runs; (3) the owner has decided whether a time budget (first slide, Lighthouse) joins CI.

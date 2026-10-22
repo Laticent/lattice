@@ -150,9 +150,35 @@ this adds what the regression and Lighthouse show.
 6. **React work before the slide**: fewer components mounted at startup; measure each.
 7. **A budget that measures time**: first slide on the phone profile and Lighthouse score, per route, with the 2026-09-22
    numbers as the floor to return to. Adding it is a CI change, so the owner decides.
+8. **Hosting that serves the split well.** Production (`lattice.style`) is on GitHub Pages: HTTP/2, gzip, a 600 s
+   cache, no Early Hints. The PR previews are on Cloudflare Pages, which adds Brotli. Moving production to Cloudflare,
+   or putting Cloudflare in front of GitHub Pages, buys Brotli, Early Hints (`103`) and long immutable caching for the
+   versioned `/playground/v/<hash>/` assets. It cuts bytes and repeat-visit cost; it does not touch the CPU time that
+   dominates the phone profile. The owner decides on hosting.
+
+### Tried and measured: preloading the engine from the HTML
+
+The owner asked whether the browser can fetch many files at once without one bundle. It can: HTTP/2 already
+multiplexes every request on one connection, and `<link rel="modulepreload">` starts a module before the code that
+imports it runs. The Studio's HTML had 122 such hints and none for the engine. A component in `studio.astro` added
+`modulepreload` for `esm/engine.js`, a `preload` for `themes/lattice.css`, and an inline script that read
+`esm/chunks.json` and preloaded the engine's 37 chunks. Measured on PR #2870's head, back to back on one machine:
+
+| Build | Phone first slide, median of 5 | Lighthouse score | LCP | TBT |
+|---|---|---|---|---|
+| No preload | 5.97 s | 46-50 | 11.2-11.3 s | 0.97-1.25 s |
+| Engine, theme and 37 chunks | 6.52 s | 52 | 13.8-14.0 s | 0.63-0.80 s |
+| Engine and theme only | 6.38 s | 42-45 | 12.7-12.9 s | 1.14-1.37 s |
+
+Both forms made the first slide and the largest paint later, so neither shipped. The preloads compete with the
+Studio's own boot code for the throttled link and the main thread, and the engine is not what the first paint waits
+for. The full form also fetched `chunks.json` twice. Preloading pays only after the boot order puts the engine on the
+critical path (item 1); re-measure it then, not before.
 
 ## What was not measured
 
 - A real iPhone, Safari or Firefox.
 - Commits between 2026-09-27 and today one by one; the steps there are smaller than the noise.
 - The Lighthouse numbers after PR #2870's last commit on the deployed preview (`696ce6c`).
+- The HTML preload on the deployed Cloudflare preview. Both local forms regressed, so it was not pushed to a PR to
+  test there.
