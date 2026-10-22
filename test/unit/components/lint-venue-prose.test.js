@@ -53,6 +53,13 @@ describe('venue-prose', () => {
     assert.equal(f[0].severity, 'info');
   });
 
+  test('speaker notes and fenced code are not an image slide\'s body', () => {
+    const notes = Array(40).fill('word').join(' ');
+    assert.equal(proseWords('image', `# Title\n\n![a](a.png)\n\n<!--\n${notes}\n-->\n`), null);
+    assert.equal(proseWords('image', `# Title\n\n![a](a.png)\n\n\`\`\`\n${notes}\n\`\`\`\n`), null);
+    assert.equal(proseWords('image', `# Title\n\n<!-- x -->\nthree real words\n`), 3);
+  });
+
   test('a register measured on its own is judged by its row, and a 0 says there is no room', () => {
     const redline = (tok, n) => `---\nvenue: conference\n---\n\n<!-- _class: redline ${tok} -->\n\n## H.\n\n> ${words(n)}\n`;
     assert.deepEqual(lint(redline('', 60)), [], 'bare holds 72 at conference');

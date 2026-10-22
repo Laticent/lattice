@@ -64,6 +64,11 @@ describe('qrPayload — what the code carries', () => {
     const fields = f(['name', 'Ada'], ['phone', 'call me'], ['qr', 'tel']);
     assert.equal(qrPayload(fields), vcardPayload(fields));
   });
+
+  test('a phone extension is left out of the tel: code, never dialed as digits', () => {
+    const fields = f(['name', 'Ada'], ['phone', '+1 (555) 010-0100 ext. 23'], ['qr', 'tel']);
+    assert.equal(qrPayload(fields), 'tel:+15550100100');
+  });
 });
 
 describe('renderCard — ledger', () => {

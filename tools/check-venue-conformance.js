@@ -287,7 +287,7 @@ async function main() {
   failures.sort((a, b) => keyOf(a).localeCompare(keyOf(b)));
   const known = (r) => KNOWN.find((k) => covers(k, r));
   const unnamed = failures.filter((f) => !known(f));
-  const stale = only.length ? [] : KNOWN.filter((k) => !failures.some((r) => covers(k, r))).map((k) => `${k.component}${k.variant ? ` ${k.variant}` : ''}`);
+  const stale = only.length ? [] : KNOWN.filter((k) => (!k.families || k.families.some((f) => FAMILY_LIST.includes(f)) || ALL_FAMILIES) && !failures.some((r) => covers(k, r))).map((k) => `${k.component}${k.variant ? ` ${k.variant}` : ''}`);
 
   if (JSON_OUT) { process.stdout.write(`${JSON.stringify({ failures, errors, stale }, null, 2)}\n`); } else {
     const byComp = new Map();
