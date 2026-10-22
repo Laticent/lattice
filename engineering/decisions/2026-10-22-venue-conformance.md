@@ -134,9 +134,7 @@ component. The hook suite for this change ran to about 400 seconds because it to
 schema and a generated table.
 
 **Bytes.** The `venue-prose` rule and its slot readers cost about 485 bytes gzipped in the Studio's live-lint
-bundle, which had 203 bytes of headroom under its hard ceiling. After two rounds of trimming the rule's own
-code and the generated rows, the bundle measures 112,922 bytes; the owner raised the ceiling by 1,024 bytes
-(112,640 to 113,664) on 2026-10-22 (`docs/route-budget.history.md`).
+bundle, which had 203 bytes of headroom under its hard ceiling. After two rounds of trimming the rule's own code and the generated rows, the bundle measured 112,922 bytes. The owner approved a 1,024-byte raise (112,640 to 113,664); main then raised the same ceiling for callouts (#2855) to 124,089, so this PR carries no budget change.
 
 ## 8 · Calls for the owner
 
