@@ -172,6 +172,7 @@ distinct, stable ID.
 |---|---|---|---|
 | `capacity-overflow` | warning | — | More elements than the layout's capacity, on a wide (16:9) deck or under `fit: report`, where nothing splits the slide; the extra ones may be cut off. (At other sizes the slide splits and nothing is reported.) |
 | `capacity-crowd` | suggestion | — | More elements than the layout reads well with; it still renders whole. |
+| `venue-prose` | warning / info | — | A component that is one block of prose (a `big-number` caption, a `redline` clause, an `image` paragraph) carries more words than it holds at the deck's venue, so the end is cut off. A warning at a named venue, `info` under a bare `scale-*`. |
 | `capacity-scale` | warning / info | — | More elements, longer text, or a longer or wider code block than the layout fits at the deck's type size (a `venue:`, a `scale-*` class, or, on a 16:9 deck with neither, the laptop size itself), so some may be cut off. A warning at a named venue, at the laptop size, or for a code block too long even at laptop size; otherwise `info` under a bare `scale-*`. |
 | `spot-scale` | warning / info | — | A `scale-*` or `venue-*` class on some slides only, so type size jumps between slides. |
 | `code-line-clipped` | info | — | A code line wider than the pane it renders into, so its end is cut off. |
