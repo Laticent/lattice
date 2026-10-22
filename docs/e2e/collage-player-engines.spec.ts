@@ -24,7 +24,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 let html = '';
 
-test.beforeAll(async (_fixtures, testInfo) => {
+test.beforeAll(async ({ browserName: _engine }, testInfo) => {
 	test.setTimeout(300_000);
 	const dir = testInfo.outputDir;
 	fs.mkdirSync(dir, { recursive: true });
