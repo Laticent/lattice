@@ -78,6 +78,9 @@ describe('proseWords — the slot readers', () => {
   test('image reads the first plain paragraph below the heading, not the image or a directive', () => {
     assert.equal(proseWords('image', '<!-- _class: image -->\n\n## Title\n\nOne two three.\n\n![bg](x.png)\n'), 3);
   });
+  test('citation-card ignores a directive comment that spans lines', () => {
+    assert.equal(proseWords('citation-card', '## T\n\n<!-- a\nmulti-line -->\n`Cal. Code`\n\n> one two\n\n- three four'), 4);
+  });
   test('a slot that is absent reads as null, so the rule says nothing', () => {
     assert.equal(proseWords('big-number', '- 42\n'), null);
     assert.equal(proseWords('list', '## H\n\nbody\n'), null);
