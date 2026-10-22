@@ -12,18 +12,20 @@
 // Lazy: ComposeView loads this with React.lazy, as IconGrid is, so none of it is in the Studio's
 // startup JavaScript.
 
-import { ChartLine, Image as ImageIcon, Shapes, Tag, UserRound } from 'lucide-react';
+import { ChartLine, Code, Image as ImageIcon, Shapes, Sigma, Tag, UserRound } from 'lucide-react';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
 import { editImage, isImage, removeImage } from '@/lib/compose/image-objects';
 import { closeObjectEditor, editObject, editObjectAsText, type InlineKernels, kindOf, leaveObject, type OpenObject } from '@/lib/compose/inline-objects';
+import { editInlineMath, editRawBlock, type RawObjectKind, rawObjectKind, removeRaw } from '@/lib/compose/raw-objects';
 import { hasFinePointer, useIsPhone } from '@/lib/use-breakpoint';
 import { AvatarPanel } from './AvatarPanel';
 import { IconPanel } from './IconPanel';
 import { ImagePanel } from './ImagePanel';
 import { PillPanel, readSlotColors } from './PillEditor';
+import { RawPanel } from './RawPanel';
 import { SparkPanel } from './SparkPanel';
 
 /** What a panel is handed. It reports one edit per change and never writes the document itself. */
@@ -79,7 +81,14 @@ const IMAGE_ENTRY: PanelEntry = {
 };
 
 /** The header icon of each kind's sheet. */
-const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <ChartLine />, avatar: <UserRound />, icon: <Shapes />, image: <ImageIcon /> };
+const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <ChartLine />, avatar: <UserRound />, icon: <Shapes />, image: <ImageIcon />, 'inline-math': <Sigma />, math: <Sigma />, html: <Code /> };
+
+/** The entry for a math span, a math block and a block of HTML: their panel is `RawPanel`, which the host renders itself. */
+const RAW_ENTRY: Record<RawObjectKind, PanelEntry> = {
+	'inline-math': { title: 'Edit math', describe: "Change this math's TeX and see it drawn.", Panel: () => <></> },
+	math: { title: 'Edit math block', describe: "Change this math block's TeX and see it drawn.", Panel: () => <></> },
+	html: { title: 'Edit HTML block', describe: "Change this block's HTML.", Panel: () => <></> },
+};
 
 /** A virtual anchor that finds the object's place in the page again on every measurement. */
 type Anchor = { getBoundingClientRect: () => DOMRect; contextElement?: Element };
@@ -105,8 +114,10 @@ export function InlineObjectEditorHost({
 	// An image is not an inline object: it has no source text, and its panel is its own (ImagePanel.tsx).
 	const imageNode = view.state.doc.nodeAt(open.pos);
 	const image = isImage(imageNode);
-	const owner = image ? null : kindOf(open.src, kernels);
-	const entry = image ? IMAGE_ENTRY : owner ? PANELS[owner.kind.id] : undefined;
+	// A math span, a math block and a block of HTML are not inline objects either: they have text, not a source a kernel reads.
+	const rawKind = rawObjectKind(imageNode);
+	const owner = image || rawKind ? null : kindOf(open.src, kernels);
+	const entry = image ? IMAGE_ENTRY : rawKind ? RAW_ENTRY[rawKind] : owner ? PANELS[owner.kind.id] : undefined;
 	const held = React.useRef(false);
 	const holdOpen = React.useCallback((v: boolean) => {
 		held.current = v;
@@ -159,9 +170,23 @@ export function InlineObjectEditorHost({
 		editObjectAsText(view, openRef.current.pos);
 	}, [onClose, view]);
 
-	if (!entry || (!owner && !image)) return null;
+	if (!entry || (!owner && !image && !rawKind)) return null;
 	const panel =
-		image && imageNode ? (
+		rawKind ? (
+			<RawPanel
+				kind={rawKind}
+				text={open.src}
+				onEdit={(text) => (rawKind === 'inline-math' ? editInlineMath(view, openRef.current.pos, text) : editRawBlock(view, openRef.current.pos, text))}
+				onRemove={() => {
+					const removed = removeRaw(view, openRef.current.pos);
+					if (!removed) return false;
+					onClose();
+					if (hasFinePointer()) view.focus();
+					return true;
+				}}
+				onDone={close}
+			/>
+		) : image && imageNode ? (
 			<ImagePanel
 				fields={{ src: imageNode.attrs.src as string, alt: (imageNode.attrs.alt as string | null) ?? null }}
 				onEdit={(edit) => editImage(view, openRef.current.pos, edit)}
@@ -179,7 +204,7 @@ export function InlineObjectEditorHost({
 		) : owner ? (
 			<entry.Panel fields={owner.fields} src={open.src} kernels={kernels} slotColors={slotColors} onEdit={onEdit as ObjectPanelProps['onEdit']} onEditAsText={onEditAsText} onDone={close} holdOpen={holdOpen} />
 		) : null;
-	const kindId = image ? 'image' : (owner?.kind.id ?? 'pill');
+	const kindId = image ? 'image' : (rawKind ?? owner?.kind.id ?? 'pill');
 
 	if (phone) {
 		return (

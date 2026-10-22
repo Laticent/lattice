@@ -10,8 +10,9 @@ import {
 import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 import { unescapeLeadingMarker } from '../../../../lib/core/cell-marker-edit.mjs';
-import { commentBlockRule, commentNodeSpec } from './comment-block';
+import { commentNodeSpec } from './comment-block';
 import { inlineObjectSpec, serializeInlineObject } from './inline-object';
+import { createTokenizer, mathInlineSpec, rawBlockSpec, serializeMathInline, serializeRawBlock } from './raw-block';
 
 
 // The deck-model library core — Lattice slide prose ⟷ ProseMirror document,
@@ -171,7 +172,7 @@ export const proseSchema = new Schema({
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
-		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object)*' })
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math)*' })
 		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
 		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
 		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
@@ -180,7 +181,9 @@ export const proseSchema = new Schema({
 		.update('ordered_list', withTightDefault(mdSchema.spec.nodes.get('ordered_list') as NodeSpec))
 		.append(composeTableNodes)
 		.addToEnd('comment', commentNodeSpec)
-		.addToEnd('inline_object', inlineObjectSpec),
+		.addToEnd('inline_object', inlineObjectSpec)
+		.addToEnd('raw_block', rawBlockSpec)
+		.addToEnd('inline_math', mathInlineSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -189,7 +192,7 @@ export const proseSchema = new Schema({
 // tasklists, etc. stay locked for now) plus token→node rules for the GFM table.
 // `thead`/`tbody` are transparent (`ignore`), so their child rows attach directly
 // to the `table` node, matching prosemirror-tables' flat `table → table_row+` shape.
-const tableTokenizer = new MarkdownIt('commonmark', { html: false }).enable('table').use(commentBlockRule);
+const tableTokenizer = createTokenizer();
 
 // biome-ignore lint/suspicious/noExplicitAny: markdown-it Token is loosely typed upstream.
 function alignAttrs(token: any) {
@@ -206,6 +209,10 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 	table: { block: 'table' },
 	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
 	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
+	// A block of HTML or a `$$` display block, and an inline `$tex$` (raw-block.ts). Each carries its source bytes.
+	lattice_html: { node: 'raw_block', getAttrs: (tok) => ({ kind: 'html', text: tok.content }) },
+	lattice_math_block: { node: 'raw_block', getAttrs: (tok) => ({ kind: 'math', text: tok.content }) },
+	lattice_math_inline: { node: 'inline_math', getAttrs: (tok) => ({ tex: tok.content }) },
 	thead: { ignore: true },
 	tbody: { ignore: true },
 	tr: { block: 'table_row' },
@@ -325,6 +332,23 @@ const latticeNodes = {
 		// A backslash is escaped with the parenthesis or quote it could otherwise cancel: `a\\` + `)` must not read as an escaped `)`.
 		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[\\()]/g, '\\$&')}${title ? ` "${title.replace(/[\\"]/g, '\\$&')}"` : ''})`);
 	},
+	// A list item's first paragraph gets the table cell's treatment (serializeCell): a leading LFM state
+	// marker keeps its brackets, so `- [x] done` writes back as it was read and not as `- \\[x\\] done`.
+	// Every other paragraph is the upstream serializer, byte for byte.
+	paragraph(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
+			const sub = new SubState(state.nodes, state.marks, state.options);
+			sub.renderInline(node);
+			const out = unescapeLeadingMarker(sub.out);
+			if (out !== sub.out) {
+				state.text(out, false);
+				state.closeBlock(node);
+				return;
+			}
+		}
+		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
+		(defaultMarkdownSerializer.nodes.paragraph as any)(state, node, parent, index);
+	},
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)
@@ -375,6 +399,8 @@ const latticeNodes = {
 	},
 	// An inline object (a pill, a spark, an avatar) writes back the code span it came from.
 	inline_object: serializeInlineObject,
+	raw_block: serializeRawBlock,
+	inline_math: serializeMathInline,
 	// A fence the author wrote comes back with the marker they wrote (see `codeBlockSpec`).
 	// With no marker it is the upstream serializer, byte for byte.
 	code_block(state: SerializerState, node: PMNode, parent: PMNode, index: number) {

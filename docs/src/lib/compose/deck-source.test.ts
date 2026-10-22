@@ -15,8 +15,8 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 	it('does NOT fire on a table with LFM state markers (they are literal cell text that round-trips)', () => {
 		expect(hasLossyConstruct('| Regime | Access |\n| --- | :---: |\n| GDPR | [x] |\n| CCPA | [-] |')).toBe(false);
 	});
-	it('STILL fires on a table whose cell holds an unmodeled construct (math), locking the whole slide', () => {
-		expect(hasLossyConstruct('| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |')).toBe(true);
+	it('does NOT fire on a table whose cell holds inline math: the atom writes it back (raw-block.ts)', () => {
+		expect(hasLossyConstruct('| Shape | Area |\n| --- | --- |\n| Circle | $\\pi r^2$ |')).toBe(false);
 	});
 	it('STILL fires on a table whose cell holds inline HTML (Axis F / checker Bug 3)', () => {
 		// The block-HTML rule is line-anchored, so a mid-line tag in a cell slipped past it; the
@@ -41,20 +41,21 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 	it('fires on strikethrough', () => {
 		expect(hasLossyConstruct('Price was ~~$5M~~ now $3M.')).toBe(true);
 	});
-	it('fires on a block-level HTML tag', () => {
-		expect(hasLossyConstruct('<figure>\n  <img src="x">\n</figure>')).toBe(true);
+	it('does not fire on a top-level block of HTML (an atom since raw-block.ts), but fires on one inside a list item', () => {
+		expect(hasLossyConstruct('<figure>\n  <img src="x">\n</figure>')).toBe(false);
+		expect(hasLossyConstruct('- item\n  <figure>\n    <img src="x">\n  </figure>')).toBe(true);
 	});
-	it('fires on a task list', () => {
-		expect(hasLossyConstruct('- [ ] todo\n- [x] done')).toBe(true);
+	it('does not fire on a task list: the six markers round-trip', () => {
+		// The serializer keeps a list item's leading marker unescaped (deck-markdown paragraph),
+		// as it does in a table cell, so a checklist edits in place.
+		expect(hasLossyConstruct('- [ ] todo\n- [x] done')).toBe(false);
 	});
-
-	it('fires on every one of the six state markers, not only the GFM two', () => {
-		// The editor does not know `[!]` or `[?]`; left unlocked it escaped them to `\[!\]`
-		// and the engine printed literal brackets instead of the drawn mark.
-		for (const m of ['x', 'X', '-', '!', '?', ' ', '/']) {
-			expect(hasLossyConstruct(`- Card\n  - [${m}] item`)).toBe(true);
+	it('fires only on `[X]`, the GFM checked box that is not one of the six', () => {
+		for (const m of ['x', '-', '!', '?', ' ', '/']) {
+			expect(hasLossyConstruct(`- Card\n  - [${m}] item`)).toBe(false);
 		}
-		expect(hasLossyConstruct('1. [!] failed')).toBe(true);
+		expect(hasLossyConstruct('1. [!] failed')).toBe(false);
+		expect(hasLossyConstruct('- Card\n  - [X] item')).toBe(true);
 		expect(hasLossyConstruct('- [~] not a marker')).toBe(false);
 	});
 	it('fires on a footnote reference', () => {
@@ -72,9 +73,10 @@ describe('hasLossyConstruct — detects what Compose cannot round-trip', () => {
 		expect(hasLossyConstruct('## Revenue\n\n1. $2.4B\n   - Total revenue\n2. 42%\n   - Margin')).toBe(false);
 	});
 
-	it('fires on inline / display math (the engine renders it, Compose cannot round-trip it)', () => {
-		expect(hasLossyConstruct('The area is $A = \\pi r^2$ per shape.')).toBe(true);
-		expect(hasLossyConstruct('## Model\n\n$$E = mc^2$$')).toBe(true);
+	it('does not fire on inline or top-level display math (atoms since raw-block.ts), but fires on display math inside a list item', () => {
+		expect(hasLossyConstruct('The area is $A = \\pi r^2$ per shape.')).toBe(false);
+		expect(hasLossyConstruct('## Model\n\n$$E = mc^2$$')).toBe(false);
+		expect(hasLossyConstruct('- Model\n  $$E = mc^2$$')).toBe(true);
 	});
 	it('does NOT fire on currency prose (the engine keeps $400M / $18M literal, so Compose can too)', () => {
 		expect(hasLossyConstruct('Revenue was $400M, up 28% YoY, ahead by $18M.')).toBe(false);

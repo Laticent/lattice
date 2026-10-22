@@ -22,7 +22,8 @@ import { listAllAssetVersions, pruneOrphanVersions } from './library/asset-histo
 import { listAssets } from './library/asset-store.js';
 import { MediaCard } from './MediaCard';
 import { decksUsingRecord, removeMediaAlias, updateMediaDetails } from './media-edit';
-import { classifyMedia, importImage, importVideo, LIBRARY_MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
+import { classifyMedia, importVideo, LIBRARY_MEDIA_ACCEPT, MediaImportError, type PhotoFormat, uniqueName } from './media-import';
+import { importPhotoBatch } from './media-import-batch';
 import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type MediaRecord, namesOf, saveMedia, setMediaScope, visibleMedia } from './media-store';
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
@@ -590,31 +591,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		const scope = addScope === 'deck' && activeDeckId ? activeDeckId : LIBRARY_SCOPE;
 		markFresh();
 		setBusy('Adding…');
-		const taken = new Set((await listMedia()).flatMap(namesOf));
-		let n = 0;
-		const failed: string[] = [];
-		const renamed: string[] = [];
-		let described = 0;
 		try {
-			for (const file of picked) {
-				try {
-					if (classifyMedia(file) !== 'image') throw new MediaImportError(`${file.name} isn't an image.`);
-					const rec = await importImage(file, scope, format);
-					const wanted = rec.name;
-					rec.name = uniqueName(rec.name, taken);
-					if (rec.name !== wanted) renamed.push(`“${wanted}” was taken, so ${file.name} is “${rec.name}”`);
-					await saveMedia(rec, Date.now());
-					taken.add(rec.name);
-					n++;
-					if (rec.fileCaption) described++;
-				} catch (e) {
-					// The person is told below; the cause goes to the console for whoever has to debug a browser
-					// that refuses (a private window, a full quota, an engine that cannot store a Blob).
-					console.warn('lattice: could not add an image', file.name, e);
-					const msg = String((e as Error)?.message ?? '');
-					failed.push(e instanceof MediaImportError || msg.startsWith(MEDIA_REFUSAL_PREFIX) ? msg : `${file.name}: could not be added.`);
-				}
-			}
+			// The loop is shared with the photo picker (media-import-batch.ts), so both add a photo the same way.
+			const { saved, failed, renamed, described } = await importPhotoBatch(picked, scope, format);
+			const n = saved.length;
 			reload();
 			if (n) onChanged(); // the open deck's previews learn of the new photo
 			// Browsers may evict a site's storage under pressure (Safari after a week unused); ask to keep it. A refusal changes nothing.

@@ -251,8 +251,16 @@ export function kindOf(src: string, kernels: InlineKernels): { kind: ObjectKind;
 
 const objectType = () => deckSchema.nodes.inline_object;
 
-/** Can an editor be open on this node: an inline object, or an image (image-objects.ts)? */
-const openable = (node: PMNode | null | undefined): boolean => Boolean(node && (node.type === objectType() || node.type === deckSchema.nodes.image));
+/** Can an editor be open on this node: an inline object, an image (image-objects.ts), or a math or raw-block atom (raw-objects.ts)? */
+const openable = (node: PMNode | null | undefined): boolean =>
+	Boolean(node && (node.type === objectType() || node.type === deckSchema.nodes.image || node.type === deckSchema.nodes.inline_math || node.type === deckSchema.nodes.raw_block));
+
+/** What the open state remembers of an openable node: an object's or image's `src`, a math span's TeX, a raw block's text. */
+const sourceOf = (node: PMNode | null | undefined): string | undefined => {
+	const a = node?.attrs;
+	const v = a?.src ?? a?.tex ?? a?.text;
+	return typeof v === 'string' ? v : undefined;
+};
 const code = () => deckSchema.marks.code;
 
 // ── Text → object ────────────────────────────────────────────────────────────
@@ -852,7 +860,7 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 				const meta = tr.getMeta(objectsKey) as ObjectsMeta | undefined;
 				if (meta && 'open' in meta) {
 					const at = next.doc.nodeAt(meta.open);
-					const src = at?.attrs.src;
+					const src = openable(at) ? sourceOf(at) : undefined;
 					return typeof src === 'string' ? { ...value, open: { pos: meta.open, src, ...(at?.type === deckSchema.nodes.image ? { alt: (at.attrs.alt as string | null) ?? null } : {}), id: value.nextId }, nextId: value.nextId + 1 } : value;
 				}
 				if (meta && 'close' in meta) return value.open ? { ...value, open: null } : value;
@@ -865,8 +873,8 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 					const here = openable(node) && sel instanceof NodeSelection && sel.from === pos;
 					if (!here) {
 						open = null;
-					} else if (pos !== open.pos || node?.attrs.src !== open.src || (open.alt !== undefined && (node?.attrs.alt ?? null) !== open.alt)) {
-						open = { ...open, pos, src: node?.attrs.src as string, ...(open.alt !== undefined ? { alt: (node?.attrs.alt as string | null) ?? null } : {}) };
+					} else if (pos !== open.pos || sourceOf(node) !== open.src || (open.alt !== undefined && (node?.attrs.alt ?? null) !== open.alt)) {
+						open = { ...open, pos, src: sourceOf(node) as string, ...(open.alt !== undefined ? { alt: (node?.attrs.alt as string | null) ?? null } : {}) };
 					}
 				}
 				return open === value.open ? value : { ...value, open };
