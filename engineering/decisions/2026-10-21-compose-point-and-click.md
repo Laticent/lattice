@@ -56,7 +56,7 @@ Driven on the real Studio (Chromium, the built site) with one deck holding every
 | Image `![alt](asset:name)` | a broken-image mark; no picker | drawn; picker; panel |
 | `![bg right](…)` | an inline picture | a labeled background, with a side control |
 | Table | controls in the bar | unchanged |
-| Notes (`say`, `describe`, `note`) | read-only panel | An edit field in the panel | Small; ask the owner whether notes should edit in place |
+| ~~Notes (`say`, `describe`, `note`)~~ | read-only panel | **Shipped 2026-10-22.** The panel's Edit button opens the words in a field (`ComposeView.tsx` `buildCommentPanel`); `writeNote` (`comment-block.ts`) replaces only the words and keeps the opener, closer and channel prefix, and returns null for a result that ends the comment early, reads as a directive, changes channel or is empty. The owner question (should notes edit in the panel?) was open while the owner was away, so it was decided on the reversible side: Edit sits behind its own button, reading a note still writes nothing, and the owner can veto by removing the button. The Insert menu's **Motion** item opens the Library on its scenes (a scene is a slide, so it cannot go at the caret) | Done |
 | Chart data, legend, anima | text | unchanged (§7) |
 
 **What still locks a slide.** Compose locks a slide whose prose it cannot round-trip, and the author is sent to Markdown.

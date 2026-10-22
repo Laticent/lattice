@@ -15,7 +15,7 @@
 //     so there is one write path. The blockers are read when the menu opens, from the live editor state.
 //   · The two doors that open a surface of their own (an image from the Library) are handed in as callbacks.
 
-import { Atom, Braces, ChartLine, GitFork, Grid2x2Plus, Image as ImageIcon, LineChart, Shapes, SquareCode, Tag, UserRound } from 'lucide-react';
+import { Atom, Braces, ChartLine, Clapperboard, GitFork, Grid2x2Plus, Image as ImageIcon, LineChart, Shapes, SquareCode, Tag, UserRound } from 'lucide-react';
 import { isInTable } from 'prosemirror-tables';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
@@ -55,6 +55,7 @@ export function InsertControls({
 	getSource,
 	getFences,
 	onInsertImage,
+	onInsertMotion,
 }: {
 	view: EditorView;
 	getKernels: () => InlineKernels | null;
@@ -62,6 +63,8 @@ export function InsertControls({
 	getFences: () => SlideFences | undefined;
 	/** Open the Library photo picker for the caret. Absent when the Library is not available. */
 	onInsertImage?: () => void;
+	/** Open the Library on its Motion scenes; a pick there adds the scene as a slide after this one. Absent when the Library is not available. */
+	onInsertMotion?: () => void;
 }) {
 	const [open, setOpen] = React.useState(false);
 
@@ -130,12 +133,25 @@ export function InsertControls({
 						},
 					]
 				: []),
+			...(onInsertMotion
+				? [
+						{
+							id: 'motion',
+							group: 'Blocks' as const,
+							label: 'Motion',
+							hint: 'A scene from your Library, on a new slide',
+							Icon: Clapperboard,
+							blocked: null,
+							run: () => onInsertMotion(),
+						},
+					]
+				: []),
 			inline('pill', 'Pill', 'A status label or tag', Tag),
 			inline('spark', 'Spark', 'A word-sized chart', ChartLine),
 			inline('avatar', 'Avatar', 'A person, drawn from their name', UserRound),
 			inline('icon', 'Icon', 'A small picture from the icon set', Braces),
 		];
-	}, [view, getKernels, getSource, getFences, onInsertImage]);
+	}, [view, getKernels, getSource, getFences, onInsertImage, onInsertMotion]);
 
 	// Read from the editor as it stands when the menu OPENS, in the same render that mounts the items, so the first arrow key
 	// finds them all. (Built in an effect after the open, the first keys landed while the list was still being filled.)

@@ -10,7 +10,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, } from '@/lib/compose/code-commands';
-import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
+import { type CommentKind, commentInner, commentKind, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
@@ -1430,7 +1430,70 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			view.focus();
 		});
 	}
-	wrap.append(remove);
+	// EDIT is a second deliberate act too, and only on a slide Compose can write. The words open in a field; they are written when
+	// the author leaves it or presses Ctrl/Cmd+Enter, and Escape drops the change. Nothing is written for words that did not change,
+	// so a note that is opened and left keeps its bytes. `writeNote` keeps the channel prefix and refuses a result that would not be
+	// the same kind of comment; the panel says why and keeps the author's words in the field.
+	const actions = document.createElement('div');
+	actions.className = 'cs-comment-actions';
+	if (!locked) {
+		const edit = document.createElement('button');
+		edit.type = 'button';
+		edit.className = 'cs-comment-edit';
+		edit.textContent = 'Edit';
+		edit.addEventListener('click', () => {
+			const current = view.state.doc.nodeAt(pos);
+			if (!current || current.type.name !== 'comment') return;
+			const original = readableNote(current.attrs.text as string);
+			const field = document.createElement('textarea');
+			field.className = 'cs-comment-field';
+			field.value = original;
+			field.rows = Math.min(12, Math.max(3, original.split('\n').length + 1));
+			field.setAttribute('aria-label', `${KIND_LABEL[commentKind(current.attrs.text as string)]} text`);
+			const why = document.createElement('p');
+			why.className = 'cs-comment-why';
+			why.setAttribute('role', 'alert');
+			why.hidden = true;
+			body.replaceWith(field);
+			field.after(why);
+			edit.disabled = true;
+			field.focus();
+			let done = false;
+			const finish = () => {
+				done = true;
+				field.replaceWith(body);
+				why.remove();
+				edit.disabled = false;
+			};
+			const commit = () => {
+				if (done) return;
+				const n = view.state.doc.nodeAt(pos);
+				if (!n || n.type.name !== 'comment' || field.value === original) return finish();
+				const next = writeNote(n.attrs.text as string, field.value);
+				if (next === null) {
+					why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with an underscore word, or change its channel. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
+					why.hidden = false;
+					return;
+				}
+				done = true;
+				view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, text: next }).setMeta(commentOpenKey, { open: pos }));
+			};
+			field.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape') {
+					e.preventDefault();
+					e.stopPropagation();
+					finish();
+				} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+					e.preventDefault();
+					commit();
+				}
+			});
+			field.addEventListener('blur', commit);
+		});
+		actions.append(edit);
+	}
+	actions.append(remove);
+	wrap.append(actions);
 	return wrap;
 }
 
@@ -1681,7 +1744,7 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: () => void; pluginKinds?: readonly PluginKindEntry[] }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[] }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2380,7 +2443,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					</div>,
 					document.body,
 				)}
-			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} />, insertHost)}
+			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} onInsertMotion={onOpenLibrary ? () => onOpenLibraryRef.current?.('motion') : undefined} />, insertHost)}
 			{island?.kind === 'table' && createPortal(<TableControls view={viewRef.current as EditorView} stateful={island.stateful} />, island.slot)}
 			{island?.kind === 'code' && createPortal(<CodeControls view={viewRef.current as EditorView} source={source} />, island.slot)}
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
@@ -2529,10 +2592,14 @@ function ComposeStyles() {
 			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 			/* Removal is the panel's own control — reading a note must never arm a delete. */
-			.cs-host .cs-comment-remove{margin-top:8px;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
+			.cs-host .cs-comment-actions{display:flex;gap:6px;margin-top:8px}
+			.cs-host .cs-comment-field{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:6px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text,#16243b);font:inherit;line-height:1.45}
+			.cs-host .cs-comment-why{margin:6px 0 0;font-size:11.5px;color:var(--fail,#b3261e)}
+			.cs-host .cs-comment-edit,.cs-host .cs-comment-remove{margin-top:0;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
+			.cs-host .cs-comment-edit:hover:not(:disabled){color:var(--accent,#2f6fed);border-color:var(--accent,#2f6fed)}
 			.cs-host .cs-comment-remove:hover:not(:disabled){color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 10%,var(--bg,#fff))}
 			/* A locked slide takes no edits, so the control says why instead of doing nothing. */
-			.cs-host .cs-comment-remove:disabled{cursor:default;opacity:.7;text-transform:none;letter-spacing:.02em}
+			.cs-host .cs-comment-edit:disabled,.cs-host .cs-comment-remove:disabled{cursor:default;opacity:.7;text-transform:none;letter-spacing:.02em}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
@@ -2750,7 +2817,7 @@ function ComposeStyles() {
 				.cs-host .cs-comment{min-height:28px;padding:2px 11px 2px 9px;font-size:10px}
 				.cs-host .cs-comment svg{width:13px;height:13px}
 				.cs-host .cs-comment-body{font-size:12px}
-				.cs-host .cs-comment-remove{min-height:28px;font-size:10px}
+				.cs-host .cs-comment-edit,.cs-host .cs-comment-remove{min-height:28px;font-size:10px}
 				/* the chip is a tap target here, not just a label */
 				.cs-code-chip{top:4px;right:5px;min-height:24px;padding:2px 10px;font-size:10px}
 				.cs-host pre.cs-code{padding-top:32px;font-size:13px}

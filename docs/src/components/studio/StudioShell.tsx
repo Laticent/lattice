@@ -790,7 +790,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	// When the reference-doc picker's "Manage in Library" link opens the Library, jump
 	// it straight to the Docs tab (#651). Undefined for the normal Library button.
-	const [libInitialFilter, setLibInitialFilter] = React.useState<'refdoc' | undefined>(undefined);
+	const [libInitialFilter, setLibInitialFilter] = React.useState<'refdoc' | 'motion' | undefined>(undefined);
 	// The Docs deep-link is one-shot: clear it whenever the Library leaves the assistant
 	// slot. Desktop closes the docked Library via the activity-bar launcher (a plain
 	// `setActiveAssistant(null)` — the docked `LibraryFrame` is a div and never fires
@@ -6054,7 +6054,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={() => { revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} />
+				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) setLibInitialFilter(filter); revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

@@ -178,6 +178,35 @@ export function commentText(text: string): string {
 	return stripChannelPrefix(commentBody(text), text);
 }
 
+/** Longest comment a note may be edited to: the same ceiling a paste is held to (`readCommentText`). */
+const NOTE_MAX = 8192;
+
+/**
+ * The comment with its words replaced, or null when the result would not be the same kind of comment.
+ *
+ * Only the words change. The opener (`<!--`, or a longer dash run), the closer and the channel prefix
+ * (`say:`, `describe:`) stay as the author wrote them, so a note that is never edited is never touched. The
+ * result is refused (null) when it:
+ *   · is empty (Remove is the way to delete a note);
+ *   · ends the comment early, or is not one well-formed inert comment (`COMMENT_SHAPE`, the paste gate's own test);
+ *   · reads as a directive (`_class: …`), which would be hoisted out of the prose and set a slide attribute;
+ *   · changes channel (a note that now starts `say:` would narrate), or exceeds `NOTE_MAX`.
+ * A caller that gets null says why; it never writes a guess.
+ */
+export function writeNote(text: string, words: string): string | null {
+	// A textarea's value is LF already; a carriage return would make a second line ending in the deck, so it is refused, not folded.
+	if (/\r/.test(words)) return null;
+	const body = String(words).trim();
+	if (!body) return null;
+	const opener = /^<!-{2,}/.exec(text)?.[0];
+	const closer = /-*!?>$/.exec(text)?.[0];
+	if (!opener || closer === undefined) return null;
+	const channel = commentKind(text) === 'note' ? '' : `${/^\s*([A-Za-z]+)\s*:/.exec(commentInner(text))?.[1] ?? ''}: `;
+	const out = `${opener} ${channel}${body} ${closer}`;
+	if (out.length > NOTE_MAX || !isWellFormedComment(out) || DIRECTIVE_SHAPED.test(out) || commentKind(out) !== commentKind(text)) return null;
+	return out;
+}
+
 /** The `comment` node: a block-level ATOM carrying its source bytes.
  *
  *  Atom, so it has no editable content and a keystroke can never reflow it. A node — rather than
