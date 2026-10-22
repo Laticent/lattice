@@ -95,6 +95,33 @@ test.describe('notes and motion in Compose', () => {
 		await expect.poll(() => savedDeck(page)).not.toContain('changed words');
 	});
 
+	test('@crosswidth @gecko @webkit-tablet focus left on Remove never comes back: opening another note and typing does not delete it', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		await expect(page.getByRole('textbox', { name: 'note text' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(page.getByRole('button', { name: 'Remove' })).toBeFocused();
+		await page.getByText('First paragraph.').click();
+		await pill(page, /say/).click();
+		const say = page.getByRole('textbox', { name: 'say text' });
+		await expect(say).toBeFocused();
+		await page.keyboard.press('End');
+		await page.keyboard.type(' hello there');
+		await page.getByText('Second paragraph.').click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('say: the slide reads as this.', 'say: the slide reads as this. hello there'));
+	});
+
+	test('@crosswidth @gecko @webkit-tablet typing straight after Ctrl+Enter continues at the caret', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type('abc');
+		await page.keyboard.press('ControlOrMeta+Enter');
+		await page.keyboard.type('def');
+		await page.getByText('Second paragraph.').click();
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('a plain note.', 'abcdef'));
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

@@ -1369,36 +1369,17 @@ function readableNote(text: string): string {
 	return stripChannelPrefix(prose, text);
 }
 
-/** Where `node` is in the document now, or null when it is gone or was replaced. The panel is built for one node object and outlives
- *  edits that shift it, so it finds the note again by identity: a position captured at build time can point at a different comment. */
-function locateComment(view: EditorView, node: PMNode): number | null {
-	let at: number | null = null;
-	view.state.doc.descendants((n, p) => {
-		if (at !== null) return false;
-		if (n === node) {
-			at = p;
-			return false;
-		}
-		return n.isBlock && !n.isTextblock;
-	});
-	return at;
+/** Counts the openings of a note panel. The panel is keyed to its opening, not to the note's text or place, so it is built once per opening
+ *  and left alone while the author writes: a write, an edit above the note, or a change to the note's own words never rebuilds it. A rebuild
+ *  destroys the field the caret is in, which blurs it and can write twice or into the wrong note. */
+let openSeq = 0;
+
+/** The note the plugin says is open, followed through every edit by the plugin's own state, or null when none is. */
+function openNote(view: EditorView): { at: number; node: PMNode } | null {
+	const at = commentOpenKey.getState(view.state);
+	const node = at == null ? null : view.state.doc.nodeAt(at);
+	return at != null && node?.type.name === 'comment' ? { at, node } : null;
 }
-
-/** A number for each comment node object, so a panel is keyed to the note it was built for: a write that changes nothing still replaces the
- *  node, and a panel keyed by position and text would then keep a closure over a node that is gone. */
-const noteIds = new WeakMap<PMNode, number>();
-let noteSeq = 0;
-const noteId = (node: PMNode): number => {
-	let id = noteIds.get(node);
-	if (id === undefined) noteIds.set(node, (id = ++noteSeq));
-	return id;
-};
-
-/** Set by the pill's click and read once by the panel that click opens, so the caret goes into the field when the author opens a note and
- *  never when the panel is only rebuilt (an edit above the note, a sync). */
-let focusNextNote = false;
-/** Likewise for the Remove button: Tab from a note being written moves the caret to it, and the write that follows rebuilds the panel. */
-let focusNextRemove = false;
 
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
@@ -1427,7 +1408,10 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// `aria-expanded="true"` aimed at nothing. The shipped test asserted the id resolved AT MOUNT,
 	// certifying precisely the property that stops holding.
 	body.id = panelId;
-	const original = readableNote(node.attrs.text as string);
+	// This panel belongs to one opening. Once the author opens another note, or closes this one, it must write nothing.
+	const seq = openSeq;
+	const isCurrent = () => seq === openSeq && !view.isDestroyed;
+	let original = readableNote(node.attrs.text as string);
 	body.textContent = original;
 	// On a slide Compose can write, the words are a live field: one click on the pill and the author types. On a locked slide they
 	// are plain text, as before. The field is the panel's body (same class and id), and its default value is the words, so the
@@ -1457,9 +1441,9 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 		// Pressing Remove keeps the caret where it is: the field blurring first would write the words and rebuild the panel under the click.
 		remove.addEventListener('mousedown', (e) => e.preventDefault());
 		remove.addEventListener('click', () => {
-			const at = locateComment(view, node);
-			if (at === null) return; // stale decoration — the note was changed or removed under us
-			const n = node;
+			const open = isCurrent() ? openNote(view) : null;
+			if (!open) return; // stale panel — another note was opened, or this one is gone
+			const { at, node: n } = open;
 			// A BOUNDED lift, not `deleteRange`. When the comment is a blockquote's only child a plain
 			// delete leaves the emptied quote behind, so the author gets a bare `> ` line they never
 			// wrote — that is why this stopped being a plain delete. But `deleteRange` was the wrong
@@ -1493,21 +1477,28 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	why.hidden = true;
 	if (!locked) {
 		const commit = () => {
-			// The note this panel was built for, found by identity: after an edit above it, or after a write that replaced it, the right
-			// answer is its new place, or nothing (a replaced note is the one this panel already wrote).
-			const at = locateComment(view, node);
-			if (at === null || field.value === original) return;
+			const open = isCurrent() ? openNote(view) : null;
+			if (!open || field.value === original) return;
 			// A comment inside a quote or a list item is written with that container's prefix on every line, so a note there stays one line.
-			const nested = view.state.doc.resolve(at).depth >= 2;
-			const next = nested && field.value.trim().includes('\n') ? null : writeNote(node.attrs.text as string, field.value);
+			const nested = view.state.doc.resolve(open.at).depth >= 2;
+			const next = nested && field.value.trim().includes('\n') ? null : writeNote(open.node.attrs.text as string, field.value);
 			if (next === null) {
 				why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
 				why.hidden = false;
 				return;
 			}
-			// Words that differ only by spacing write the same comment; there is nothing to replace, and the panel stays as it is.
-			if (next === node.attrs.text) return;
-			view.dispatch(view.state.tr.setNodeMarkup(at, undefined, { ...node.attrs, text: next }).setMeta(commentOpenKey, { open: at }));
+			why.hidden = true;
+			// Words that differ only by spacing write the same comment, so there is nothing to replace.
+			if (next === open.node.attrs.text) {
+				original = field.value;
+				return;
+			}
+			view.dispatch(view.state.tr.setNodeMarkup(open.at, undefined, { ...open.node.attrs, text: next }).setMeta(commentOpenKey, { open: open.at }));
+			original = readableNote(next);
+		};
+		// Tell the editor the caret has left the note, so an outside change it parked while the author wrote can land.
+		const left = () => {
+			if (!view.isDestroyed) view.dom.dispatchEvent(new CustomEvent('cs-note-left'));
 		};
 		field.addEventListener('keydown', (e) => {
 			// A key that belongs to an input method (an Escape that cancels a composition) is not ours.
@@ -1520,38 +1511,25 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				view.focus();
 			} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
 				e.preventDefault();
-				// The write rebuilds the panel; the author is still writing, so the new field takes the caret.
-				focusNextNote = true;
 				commit();
-				focusNextNote = false;
 			}
 		});
-		// A blur also fires when an edit elsewhere rebuilds the panel and the browser removes the focused field, in the middle of the view's
-		// own update. Writing then would dispatch from inside that update, so the write waits for it to finish.
-		field.addEventListener('blur', (e) => {
-			if (e.relatedTarget === remove) focusNextRemove = true;
+		// The write waits for the blur's own turn, so it never dispatches from inside the view's update.
+		field.addEventListener('blur', () =>
 			queueMicrotask(() => {
 				commit();
-				// The editor parks an outside change while a note is being written; the field leaving is when it may land.
-				view.dom.dispatchEvent(new CustomEvent('cs-note-left'));
-			});
+				left();
+			}),
+		);
+		remove.addEventListener('blur', () => queueMicrotask(left));
+		// Opening a note is the author choosing to write in it: the caret is in the field. The panel is built once per opening, so this
+		// never fires for a panel that is merely redrawn.
+		queueMicrotask(() => {
+			if (field.isConnected && isCurrent()) field.focus();
 		});
-		// Opening a note is the author choosing to write in it: the caret is in the field. A rebuilt panel never takes the caret.
-		if (focusNextNote) {
-			focusNextNote = false;
-			queueMicrotask(() => {
-				if (field.isConnected) field.focus();
-			});
-		}
 	}
 	actions.append(remove);
 	wrap.append(why, actions);
-	if (focusNextRemove) {
-		focusNextRemove = false;
-		queueMicrotask(() => {
-			if (remove.isConnected) remove.focus();
-		});
-	}
 	return wrap;
 }
 
@@ -1600,7 +1578,7 @@ export function commentRunPlugin() {
 						decos.push(
 							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked), panelId), {
 								side: 1,
-								key: `cs-panel-${noteId(node)}`,
+								key: `cs-panel-${openSeq}`,
 								// Keys and clicks inside the panel are the panel's, not the document's (Enter in the field would split a block, Mod-z would undo the deck, Enter on Remove would be cancelled).
 								stopEvent: (e: Event) => e.target instanceof Element && e.target.closest('.cs-comment-panel') !== null,
 								ignoreSelection: true,
@@ -1653,7 +1631,7 @@ export class CommentView {
 				// A TOGGLE, and a radio at the same time: clicking the open pill closes it, clicking any
 				// other pill moves the panel to that one. Selection-only transaction — no doc change —
 				// so the structural guard waves it through and nothing re-emits the deck source.
-				focusNextNote = open !== pos;
+				if (open !== pos) openSeq++;
 				this.view.dispatch(this.view.state.tr.setMeta(commentOpenKey, { open: open === pos ? null : pos }));
 			},
 			{ signal: this.ac.signal },
@@ -2413,8 +2391,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						return false;
 					},
 					// The same, when the caret leaves a note field (the note panel announces it after writing its words).
-					'cs-note-left': () => {
-						flushParkedResync();
+					'cs-note-left': (v) => {
+						// Not while the editor has the caret (it lands on that blur) or while it sits on the panel's Remove button.
+						if (!v.hasFocus() && !document.activeElement?.closest('.cs-comment-panel')) flushParkedResync();
 						return false;
 					},
 				},

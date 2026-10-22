@@ -259,6 +259,56 @@ describe('a panel that is rebuilt by an edit elsewhere', () => {
 	});
 });
 
+// The checker's last round, reproduced in a real browser.
+describe('a panel is built once per opening', () => {
+	it('keeps the same field through a write, so the caret and the next keys stay in it', async () => {
+		mount();
+		pills()[1].click();
+		const old = field() as HTMLTextAreaElement;
+		old.value = 'saved';
+		old.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+		expect(field()).toBe(old);
+		old.value = 'saved again';
+		old.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+		expect(saved()).toContain('<!-- saved again -->');
+		expect(field()).toBe(old);
+	});
+
+	it('focus left on Remove does not come back to steal the caret when another note is opened', async () => {
+		mount();
+		pills()[1].click();
+		await Promise.resolve();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).focus();
+		pills()[0].click();
+		await Promise.resolve();
+		expect(document.activeElement).toBe(field());
+		expect(document.activeElement?.classList.contains('cs-comment-remove')).toBe(false);
+	});
+
+	it('a panel that was replaced by opening another note writes nothing', async () => {
+		mount();
+		pills()[1].click();
+		const stale = field() as HTMLTextAreaElement;
+		stale.value = 'words for the old panel';
+		pills()[0].click();
+		stale.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		expect(saved()).toBe(DECK);
+	});
+
+	it('writes nothing, and throws nothing, when the editor is gone before the blur lands', async () => {
+		const v = mount();
+		pills()[1].click();
+		const f = field() as HTMLTextAreaElement;
+		f.value = 'unsaved words';
+		v.destroy();
+		view = null;
+		f.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		await Promise.resolve();
+	});
+});
+
 describe('the pill icons', () => {
 	it('say, describe and note each draw their own shape', () => {
 		mount(DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
