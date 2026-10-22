@@ -11,7 +11,12 @@
   },
   "function": "imagery",
   "form": "canvas",
-  "coda": { "dock": "grid", "claims": ["trailing-paragraph"] },
+  "coda": {
+    "dock": "grid",
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
   "projection": {
     "figure": "bare"
   },
@@ -318,7 +323,29 @@
     "noBudget": "one picture, covering its cell"
   },
   "venueCapacity": {
-    "none": "The image fills its box and scales, so no element count marks where it stops fitting."
+    "prose": {
+      "slot": "body",
+      "row": {
+        "laptop": 72,
+        "huddle": 60,
+        "conference": 44,
+        "hall": 30
+      },
+      "variants": {
+        "split": {
+          "laptop": 72,
+          "huddle": 60,
+          "conference": 44,
+          "hall": 24
+        },
+        "mirror": {
+          "laptop": 72,
+          "huddle": 60,
+          "conference": 44,
+          "hall": 24
+        }
+      }
+    }
   },
   "gesture": {
     "archetype": "media",
@@ -403,5 +430,6 @@
         "card-float"
       ]
     }
-  ]
+  ],
+  "venueProbe": "<!-- _class: image -->\n\n## The image layout reads the asset’s shape.\n\nTwo-thirds of trials that reach the first generated report convert to paid; the ones that stall at setup almost never do.\n\n![bg](sample:photo-wide.svg)\n"
 }

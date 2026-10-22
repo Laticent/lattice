@@ -51,6 +51,13 @@ function venueDocsLine(m, noun) {
   const how = 'Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.';
   if (vc.none) return `**By venue** no count budget. ${vc.none}`;
   const past = 'Past the room\'s number the slide still renders at the venue\'s size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export\'s `⚠ OVERFLOW` line and the Studio\'s ring name it.';
+  if (vc.prose) {
+    // One block of prose has no element count: the budget is the words in its primary slot.
+    const row = vc.prose.row;
+    const cell = VENUES.map((v) => `${v} ~${row[v]}${(vc.prose.atLeast || []).includes(v) ? '+' : ''}`).join(' · ');
+    const regs = Object.entries(vc.prose.variants || {}).map(([tok, r]) => ` With \`${tok}\`: ${VENUES.map((v) => `${v} ~${r[v]}`).join(' · ')}.`).join('');
+    return `**By venue** (\`venue:\`) its ${vc.prose.slot} holds ${cell} words.${regs} A 0 means that register has no room for its prose at that venue. ${past} Measured on the real slide at a wide @size by growing that slot until the page clips; \`lint:deck\` reads the same numbers.`;
+  }
   if (vc.lines) {
     const fmt = (r) => VENUES.map((v) => `${v} ~${r[v]}`).join(' · ');
     // Lint reads `code`'s and compare-code's line budgets (lint-core, the code-pane rule).
@@ -116,6 +123,7 @@ function venueDocsLine(m, noun) {
 function venuePickCell(m) {
   const vc = m.venueCapacity;
   if (!vc || vc.none) return '—';
+  if (vc.prose) return `${VENUES.map((v) => `${vc.prose.row[v]}${(vc.prose.atLeast || []).includes(v) ? '+' : ''}`).join('/')} words`;
   if (vc.lines) return `${VENUES.map((v) => vc.lines.bare[v]).join('/')} lines`;
   const { row } = authoredRow(vc, m.density?.soft);
   const cap = hardCap(m);

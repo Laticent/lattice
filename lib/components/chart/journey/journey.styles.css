@@ -505,7 +505,7 @@ section.journey .journey-timeline::after {
  * lines (--journey-mood-row), so tightening it keeps all three in step; the curve takes a
  * matching share. Engineering/decisions/2026-10-22-venue-conformance.md. */
 section.journey:where(.venue-conference) { --journey-mood-row: 1.7cqi; --journey-curve-h: 13cqi; }
-section.journey:where(.venue-hall)       { --journey-mood-row: 1.4cqi; --journey-curve-h: 10cqi; }
+section.journey:where(.venue-hall)       { --journey-mood-row: 1.3cqi; --journey-curve-h: 9cqi; }
 
 /* ── Mood faces with plumb lines ────────────────────────────────────── */
 section.journey .journey-moods {

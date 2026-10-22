@@ -14,8 +14,12 @@
   gap: var(--sp-sm);
 }
 .qr-figure .qr-tile {
-  width: 9em;
-  padding: 0.6em;
+  /* The code's share of the slide, never below the venue's floor (`--qc-qr`, set for every host
+   * that draws a QR: `section.qr`). It was `9em`, which a venue's type lift grew and a hall's back
+   * row still could not scan. */
+  box-sizing: border-box;
+  width: var(--qc-qr, 9em);
+  padding: calc(var(--qc-qr, 9em) * 0.07);
   background: var(--qr-paper, #ffffff);
   color: var(--qr-ink, #14140f);
   border-radius: 0.6em;
@@ -40,7 +44,7 @@
  * shape, `data-family`) picks the structure; each component's stylesheet arranges its own
  * parts per family. Record: engineering/decisions/2026-10-22-venue-conformance.md.
  * `:where()` keeps all of it at zero specificity, so a component rule always wins. */
-:where(section.contact, section.wifi) {
+:where(section.contact, section.wifi, section.qr) {
   /* The code's share of the slide width: the family's design size, never below the venue's
    * floor `--qr-min` (base.modifiers.css). A phone camera reads a code from about ten times its
    * width, and the back row of a hall is several slide-widths away, so the floor rises with the
@@ -56,8 +60,8 @@
    * above is a share for the CODE, which is what a scanner has to resolve. */
   --qc-qr: calc(var(--_sec-1cqi, 1cqi) * 100 * var(--qr-share) / 0.86);
 }
-:where(section.contact, section.wifi)[data-family="square"] { --qr-base: 0.24; }
-:where(section.contact, section.wifi):where([data-family="tall"], [data-family="strip"]) { --qr-base: 0.3; }
+:where(section.contact, section.wifi, section.qr)[data-family="square"] { --qr-base: 0.24; }
+:where(section.contact, section.wifi, section.qr):where([data-family="tall"], [data-family="strip"]) { --qr-base: 0.3; }
 
 /* A narrow canvas gets the venue's type lift on top of its own portrait scale, so a caption
  * stops at a share of the width. */
@@ -100,10 +104,31 @@ section.divider.qr .qr-figure { align-items: center; }
 section.closing.qr .qr-figure figcaption,
 section.divider.qr .qr-figure figcaption { color: var(--text-display); }
 
+/* On a wide slide the code sits BESIDE the heading, not under it. The anchors centre a column of
+ * eyebrow, a display heading (three lines at hall) and a subtitle; the code at its venue floor is a
+ * 327px block at hall, and under 480px of text it does not fit a 544px stage, whereas the width is
+ * there to spare. Tall, strip and square keep the stack. */
+section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-auto-flow: row;
+  column-gap: var(--qc-pad, calc(var(--_sec-1cqi, 1cqi) * 3));
+  align-content: center;
+  align-items: center;
+  justify-items: start;
+}
+section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) > :not(.qr-figure):not(.marker-rail):not(.fixme-tab):not(.slide-edge) {
+  grid-column: 1;
+}
+section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) > .qr-figure {
+  grid-column: 2;
+  grid-row: 1 / span 6;
+  align-self: center;
+}
+
 /* Split-panel — the figure fills the supporting (right) zone. */
 section.split-panel.qr .panel-right {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-section.split-panel.qr .qr-figure .qr-tile { width: 10.5em; }

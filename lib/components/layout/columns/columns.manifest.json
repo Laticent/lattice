@@ -117,5 +117,6 @@
   },
   "venueCapacity": {
     "none": "A host holds two components, each with its own venue budget, so it has nothing of its own to count."
-  }
+  },
+  "venueProbe": "<!-- _class: columns ratio-60-40 -->\n\n## Services outgrew licenses for the first time.\n\n<!-- _pane: bar -->\n### Revenue by line\n\n- Licenses `42`\n- Services `47`\n\n<!-- _pane: list -->\n### What changed\n\n- Services passed licenses in March\n"
 }

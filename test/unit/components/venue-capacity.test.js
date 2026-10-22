@@ -35,6 +35,18 @@ test('lint reads the manifests\' numbers, in laptop/huddle/conference/hall order
       assert.equal(core.SCALE_CAPACITY[m.name], undefined, `${m.name}: no count row in lint`);
       continue;
     }
+    // A one-block prose component states WORDS, not a count: lint's `venue-prose` reads them from the
+    // generated `prose` table, and there is no count row.
+    if (vc.prose) {
+      assert.equal(core.SCALE_CAPACITY[m.name], undefined, `${m.name}: no count row in lint`);
+      const baked = generated.prose[m.name];
+      assert.equal(baked.slot, vc.prose.slot, `${m.name} slot`);
+      assert.deepEqual(baked.row, VENUES.map((v) => vc.prose.row[v]), `${m.name} words`);
+      for (const [tok, r] of Object.entries(vc.prose.variants || {})) {
+        assert.deepEqual(baked.variants[tok], VENUES.map((v) => r[v]), `${m.name} ${tok} words`);
+      }
+      continue;
+    }
     for (const [words, row] of Object.entries(vc.byWords)) {
       assert.deepEqual(core.SCALE_CAPACITY[m.name]?.[words], VENUES.map((v) => row[v]), `${m.name} @ ${words} words`);
     }
@@ -59,7 +71,8 @@ test('a measured row never grows as the room grows', () => {
       ? Object.entries(r).flatMap(([n, g]) => Object.entries(g).map(([sh, row]) => [`headed ${n} ${sh}`, row]))
       : [[k, r]])) : [];
     const words = (tag, byWords) => Object.entries(byWords || {}).map(([w, r]) => [`${tag}${w}`, r]);
-    const rows = [...lines, ...words('', vc.byWords), ...words('eyebrow ', vc.eyebrow?.byWords),
+    const prose = vc.prose ? [['prose', vc.prose.row], ...Object.entries(vc.prose.variants || {}).map(([tok, r]) => [`prose ${tok}`, r])] : [];
+    const rows = [...lines, ...prose, ...words('', vc.byWords), ...words('eyebrow ', vc.eyebrow?.byWords),
       ...words('insight ', vc.insight?.byWords), ...words('insight eyebrow ', vc.insight?.eyebrow?.byWords)];
     for (const [key, row] of rows) {
       const seq = VENUES.map((v) => row[v]);

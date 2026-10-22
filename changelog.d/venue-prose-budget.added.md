@@ -1,0 +1,1 @@
+- A one-block prose component (`big-number`, `redline`, `image`, `citation-card`, `collage`) now states the words its main slot holds at each venue (`venueCapacity.prose`, with a row per register where one differs), and `lint:deck` warns with the new `venue-prose` rule when a slide is past it. The numbers show in each component's docs "By venue" line and in the pick list.

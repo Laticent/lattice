@@ -18,7 +18,11 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": { "claims": ["blockquote"] },
+  "coda": {
+    "claims": [
+      "blockquote"
+    ]
+  },
   "tags": [
     "contract",
     "contrast",
@@ -169,7 +173,45 @@
     "noBudget": "one amended passage"
   },
   "venueCapacity": {
-    "none": "One clause with its inline edits per slide; its length is prose, not a count of elements."
+    "prose": {
+      "slot": "redline",
+      "row": {
+        "laptop": 84,
+        "huddle": 84,
+        "conference": 72,
+        "hall": 20
+      },
+      "atLeast": [
+        "laptop",
+        "huddle"
+      ],
+      "variants": {
+        "annotated": {
+          "laptop": 84,
+          "huddle": 84,
+          "conference": 52,
+          "hall": 12
+        },
+        "three-col": {
+          "laptop": 60,
+          "huddle": 44,
+          "conference": 0,
+          "hall": 0
+        },
+        "split": {
+          "laptop": 60,
+          "huddle": 52,
+          "conference": 30,
+          "hall": 10
+        },
+        "stacked": {
+          "laptop": 84,
+          "huddle": 72,
+          "conference": 52,
+          "hall": 0
+        }
+      }
+    }
   },
   "gesture": {
     "archetype": "statement",
@@ -178,5 +220,6 @@
         "select": ":is(ins, del)"
       }
     }
-  }
+  },
+  "venueProbe": "<!-- _class: redline -->\n\n## The redline tracks an amendment verbatim.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out.\n\n- **Why this matters.** One duty, one uniform link title.\n"
 }

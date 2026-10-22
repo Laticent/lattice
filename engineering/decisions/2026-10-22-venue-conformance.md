@@ -1,129 +1,146 @@
 ---
-status: proposed
+status: shipped
 summary: >
-  `contact` and `wifi` lose their QR code, phone and URL at huddle and above, and nothing warns,
-  because their manifests say `venueCapacity: none` ("a fixed card, nothing to count") and the
-  only venue check is a count budget. `npm run check:venue-conformance` renders every component at
-  every venue and looks instead. It found 15 of the 45 components exempted with `none` failing at
-  some venue, `contact` and `wifi` from huddle. A realistic vCard QR is 67 modules wide, 2.5 times a
-  `tel:` code's 27, which is why the hall fix needs a lean payload as well as a bigger code.
-  Four calls are the owner's (§6).
+  `contact` and `wifi` lost their QR code, phone and URL at huddle and above, and nothing warned,
+  because their manifests said `venueCapacity: none` ("a fixed card, nothing to count") and the only
+  venue check was a count budget. `npm run check:venue-conformance` now renders every component at
+  every venue and canvas and looks. It found 719 failing rows in 175 component/register pairs; after
+  this change the whole catalog is at 53 rows, all named in the tool with a reason. The fixes follow
+  one rule, "type scales with the venue, geometry does not", plus a per-venue words budget for
+  one-block prose components (`venueCapacity.prose`, lint rule `venue-prose`). Remaining decisions
+  are the owner's (§8).
 builds-on: 2026-09-29-one-reading-size-per-venue.md
 ---
 
 # Venue conformance: render it, don't count it
 
-**Status:** proposed 2026-10-22 · **Owner:** Sharmarke · **Code:** `tools/check-venue-conformance.js`
-(the harness, shipped here); the `contact`/`wifi` fix is §4 and waits on §6.
+**Status:** shipped 2026-10-22 · **Owner:** Sharmarke · **Code:** `tools/check-venue-conformance.js`
+(the harness); the card and component fixes in §4
 
 ## 1 · What was reported
 
-The `contact` card does not suit a hall or a conference room, and it needs to support a telephone.
+The `contact` card does not suit a hall or a conference room, it needs to support a telephone, and
+the other components should be checked for the same problem with a harness that stops it recurring.
 
 ## 2 · What the audit found
 
-**`contact` at hall** (a 3-line card with a realistic title and org, `venue: hall`): the name alone,
-at `--fs-hero` × 1.5 = 129pt, fills the card. The QR code, the email, the phone and the URL are
-pushed past the frame and clipped; the export prints "Content clipped". At laptop the same card
-only just fits.
+**`contact` at hall:** the name alone, at `--fs-hero` x 1.5 = 129pt, filled the card. The QR code,
+the email, the phone and the URL were pushed past the frame and clipped. Even the shipped sample
+clipped from huddle, and `wifi` failed the same way. On a portrait canvas both failed at laptop.
 
-**Even the shipped sample fails.** `contact.manifest.json`'s own `sample` (a 2-line name, 132-byte
-vCard) clips its URL at huddle (a TV in a small room), its email and caption at conference, and
-all of it at hall. `wifi` fails the same way, from huddle. Both build on one kernel,
-`lib/components/connect/_qr-card/`.
+**Why nothing warned.** The only fit check was a count budget (`venueCapacity`), and `contact` and
+`wifi` had opted out with `venueCapacity.none`, a free-text sentence nothing verified. A card has
+nothing to count and still clips, because the size of its parts is not a count.
 
-**Why nothing warned.** The venue system's only fit check is a count budget
-(`venueCapacity`, `lint:deck`'s `capacity-scale`). `contact` and `wifi` opted out with
-`venueCapacity.none`, a free-text sentence saying there is nothing to count. Nothing checked the
-sentence. The card has nothing to count and still clips, because the size of its parts is not a
-count.
+**The same hole, catalog-wide.** The harness renders each component's sample, bare and per register, at
+four venues and four canvas families (a 3-minute run) and checks: V1 the engine did not mark the slide
+clipped; V2 nothing visible is outside the slide or its clipping ancestor; V3 a QR code is at least a
+venue-set share of the slide width.
 
-**The same hole, catalog-wide.** `check:venue-conformance` (V1 engine marks the slide clipped, V2
-anything visible sits outside the slide or its clipping ancestor, V3 QR too small) over all 79
-components, bare and per variant, four venues (a 53-second run):
+| | Failing rows | Component/register pairs |
+|---|---|---|
+| First run (the 13 components in scope plus the rest) | 719 | 175 |
+| After the probe fixes in §5 (false positives removed) | 643 | |
+| After the fixes in §4 | **53** | 19 |
 
-| Class | Components | Failing at some venue | Covered by a lint warning? |
-|---|---|---|---|
-| `venueCapacity.none` (45) | 45 | **15**: big-number@hall, citation-card@huddle, collage@hall, columns@conference, contact@huddle, gantt@conference, image@hall, journey@conference, logo-wall@huddle, math@hall, matrix-grid@huddle, progress@hall, redline@hall, rows@huddle, wifi@huddle | **No** |
-| has a count budget (34) | 34 | 22 (a sample sized for laptop is over its hall budget) | Yes, by design |
+45 of 79 components had exempted themselves with `none`; 15 of those failed at some venue. The 13
+named in the request (`big-number`, `citation-card`, `collage`, `columns`, `gantt`, `image`,
+`journey`, `logo-wall`, `math`, `matrix-grid`, `progress`, `redline`, `rows`) plus `contact` and `wifi`
+now pass at every venue on the wide canvas, and `contact` and `wifi` pass on all four canvases.
 
-The engine's own export warning independently confirms `big-number` at hall, `citation-card` and
-`rows` at huddle. **Not yet verified by eye:** the other 12 in the `none` row, and the 22 budgeted
-ones (their clipping is expected, since the sample was sized at laptop). The charts in the
-`none` row (`gantt`, `journey`, `matrix-grid`, `math`, `progress`) may be probe noise at a chart
-edge; each needs a look before anyone fixes it. 40 laptop rows also fail (for example
-`agenda cards`, `authority-chain branching`, `kpi compliance`); they predate venues and are
-unexamined.
+## 3 · The rule the fixes follow
 
-## 3 · Why `contact` fails: four causes
+**Type scales with the venue; geometry does not.** A venue multiplies every type role, so any length
+written in `em` grows with it. `contact` padded, gapped and sized its QR in `em`, so a hall's 1.5x
+step also inflated the card around the text. Every length in the fixed cards is now a share of the
+slide (`--_sec-1cqi`, `--_sec-1cqh`), and only the text grows. Two axes stay apart: the **canvas
+family** (`data-family`) picks the structure (wide: identity | code; square: ledger beside the code;
+tall and strip: one column) and the **venue** picks the type size and the code's floor width.
 
-1. **The name is display text with no ceiling.** `.qr-name` is `--fs-hero`, and a venue multiplies
-   every role (§8 of the one-reading-size note: titles scale too). Hero at hall is 129pt.
-2. **The card is built for one shape.** A two-column flex row with 2.9em padding; the 58% identity
-   column wins the space, so the QR column is squeezed or pushed out.
-3. **The ledger reads at the support size** (`--fs-body-compact`, 23pt at hall) and the QR tile is a
-   fixed `8em`. Both are fine at laptop and wrong across a room.
-4. **The code is dense.** Measured with the shipped encoder: a realistic vCard (name, title, org,
-   email, phone, URL) is 218 bytes and a **67 × 67 module** QR; the sample's 132 bytes is 55 × 55.
-   A `tel:` payload is **27 × 27** and a short URL 35 × 35. At the same printed width a module of
-   the `tel:` code is 2.5 times larger, so it scans from about 2.5 times further. Making the dense
-   code big enough for a hall costs more width than the slide has.
+**Fit has a floor.** Text that must fit a column (a display name, a ledger line, a caption) shrinks to
+the smaller of its role and what fits, but never below about its laptop size. Past the floor the card
+overflows and the engine flags it, instead of text quietly set too small to read. This is the
+contract, because a `venue:` is a fixed setting the engine does not shrink content to meet (owner
+ruling 2026-09-27). The two are consistent: a card's text fits its own box within a legible range; a
+slide that holds more than its component holds still clips, loudly, and `lint:deck` says so first.
 
-## 4 · Proposed fix for `contact` and `wifi` (one kernel, HARD RULE #1)
+**Count-bound and prose-bound components declare a budget, and a probe.** Measured on the real
+slide shape (a heading, its eyebrow, then N items), not a synthetic one.
 
-**A. A venue-aware card in `_qr-card`.**
-- **The name stops using hero.** At conference and hall it takes a role that is sized to fit
-  (`--fs-h1`, or a clamp to the card width), so it cannot push the rest out. Measured target: all
-  five lines of the sample card in frame at every venue.
-- **Stack below the name at conference and hall:** identity on top, QR and ledger in a row below,
-  so the QR keeps a share of the slide width set by `SCAN_MIN`.
-- **The ledger reads at `--fs-body`** at conference and hall, not the support size.
-- **The QR tile is a share of the slide, not `8em`**, floored by `SCAN_MIN[venue]`.
+## 4 · What shipped
 
-**B. A lean QR mode** (`qr: vcard | tel | url`, a card-level key, default `vcard`). A hall deck
-picks `tel` or `url` and gets a 27- or 35-module code. A vCard remains available and is the right
-choice at a desk.
+- **`contact`, `wifi`** (kernel `_qr-card`): geometry in slide units, family-driven structure, fits with
+  floors, code floor `--qr-min` (laptop 0.10, huddle 0.12, conference 0.16, hall 0.22 of the slide
+  width, set with the venue in `base.modifiers.css`). `contact` gains typed phone lines (`mobile`,
+  `office`, `phone`, each a `TEL;TYPE=` entry), an authored-order ledger, and `qr: vcard | tel | url`
+  (a realistic vCard is 55-67 modules wide, a `tel:` code 27, so it scans from about 2.5x further).
+- **Budgets and probes** (`venueCapacity`, `venueProbe`): `progress` 9+/6/5/4 rows, `journey`
+  6+/6+/3/2 stages, `matrix-grid` 7/4/3/2 rows, `gantt` 3 lanes, `math` 7/6/3/2 legend lines,
+  `logo-wall` 8/8/4/4 logos (`dense`: 12/12/12/6). The rig's builder numbers overstated three of them,
+  so each was re-measured on the real slide.
+- **A words budget for one-block prose** (`venueCapacity.prose`, a schema shape beside `byWords`,
+  baked into `venue-capacity.generated.js`, printed in the docs and pick list): `big-number` caption
+  36/24/16/12, `redline` 84/84/72/20 (with rows per register; `three-col` holds none from conference),
+  `image` 72/60/44/30, `collage` 52/36/30/20, `citation-card` 117/79/55/31 across quote, gloss and action.
+  Lint rule `venue-prose` (`lib/authoring/venue-prose.js` reads the slot) warns past it; registered in
+  `spec/diagnostics.md`.
+- **Layout fixes found by the harness:** `journey`'s mood band and curve were full size at every
+  venue while its legend grew, so conference and hall held **zero** stages: a venue now tightens one
+  variable (`--journey-mood-row`) that the band, faces and plumb lines all read. `collage`'s text
+  column (a fixed 30%) widens to 33/38/44% with the venue. `progress`'s track was shorter than its
+  own percentage plate at hall. `matrix-grid`'s rotated row-axis title was cut on a short grid; the
+  figure now has a minimum height for its own title. `closing qr` and `divider qr` put the code beside
+  the heading on wide and share the floor.
+- **Hosts** (`columns`, `rows`): a probe of small panes, since they hold what their panes hold.
 
-**C. Telephone as a first-class field.**
-- Today `phone` is accepted (`phone|tel|mobile`) and appears in the ledger and the vCard's `TEL`.
-  It is one field, untyped, shown as plain text in the smallest ledger role. There is no way to
-  list a mobile and an office line, or to make the QR dial.
-- Proposed: `mobile`, `office`/`work` and `phone` become distinct keys, each a `TEL;TYPE=` line in the
-  vCard (`CELL`, `WORK`, `VOICE`); the card shows up to two and leads with the first; the `tel:`
-  QR mode dials the first one, with the number normalized for the code (spaces and punctuation
-  stripped, `+` kept) while the slide shows it as authored.
+## 5 · The harness, and how it was made honest
 
-## 5 · The harness, and what it does not do yet
+`check-venue-conformance` reuses `audit-reading-size`'s rig. Its first run was noisy; each source of noise
+was fixed in the probe, not hidden: a clip is per axis; an out-of-flow box is clipped only by an overflow
+box at or above its containing block; a text run's glyph padding is not content (the middle 60% across
+the line is tested, and rotated text is detected from its computed style); screen-reader-only text is
+skipped; a register uses its own sample (`variantDocs`); a host that the engine paginates is reported as
+"not judged" rather than failing.
 
-`npm run check:venue-conformance` (`tools/check-venue-conformance.js`, built on
-`audit-reading-size`'s render rig, which now exports `probeDeck`, `render`, `splitSample`). A
-report by default; `--strict` fails on an unnamed failure or a stale `KNOWN` entry.
+**What it cannot see.** CSS-generated content (a `::before` label) has no DOM text, so the harness and
+the engine's own clip detector both missed `matrix-grid`'s cut axis title; a person found it from the
+demo deck. Anything drawn only by a pseudo-element needs a look.
 
-- It is **not wired into CI**. 643 failing rows today would fail it on day one, and adding a CI
-  step is the owner's call (§6).
-- `SCAN_MIN` (10 / 12 / 16 / 22% of slide width) is **my proposal**, derived from "a phone reads a
-  code from about ten times its width" and the room table in `typography.md` §7. It is a number
-  the owner sets.
-- It checks the sample, not a trimmed or worst-case deck: a component that fits its sample and
-  clips its longest realistic content is not caught. For `contact` the realistic-content case was
-  found by hand (§2); a longer-content probe (the `check:jank` content sweep applies here) is the
-  next step.
-- Its V2 can over-report at a chart's edge, where marks legitimately overshoot a clip box.
+**The contract per kind of component.** A component with a count or prose budget is judged on its
+`venueProbe` at the **wide** canvas, because its budget is measured there; its laptop-size sample is
+over budget at hall by design and `lint:deck` says so. A component with none is judged on sample and
+probe on all four canvases.
 
-## 6 · Calls for the owner
+## 6 · Open, named in the tool (`KNOWN`)
 
-1. **Fix shape for `contact`/`wifi`.** Recommended: **A + B + C**. A alone fixes the clipping but
-   leaves the hall code too dense to scan from the back (§3.4). B adds a lean code, costing a new
-   authoring key. C is the telephone request.
-2. **`SCAN_MIN` numbers** (§5). Recommended as proposed; they are the first thing a venue-testing
-   session should measure on a real projector.
-3. **Wiring the harness.** Options: (a) leave on-demand (cost 0, catches nothing unprompted);
-   (b) a nightly workflow that posts the failing-row count; (c) a ratcheted CI step like
-   `overflow:check`, with a committed baseline that may only go down. Recommended: (c), in a
-   follow-up PR after the 15 `none` failures are triaged, so the baseline starts near zero. Adding
-   a CI step changes the CI contract, so this is yours.
-4. **What `venueCapacity.none` means.** Recommended: a `none` justification stays free text but
-   the manifest schema requires the component to pass `check:venue-conformance` at all four
-   venues, so the sentence is verified instead of trusted. Today it is not.
-5. **Scope of the follow-up.** The other 13 `none` components that fail (§2) are separate fixes
-   after a visual check of each; I did not touch them.
+53 rows, each with a reason; `--strict` fails on an unnamed row or a stale entry.
+
+- **Display text on a portrait canvas at hall or conference** (`title`, `quote`, `content`, `topic fact`,
+  `closing`, `divider qr`, `scene`, `video`, `piechart donut`, `state-chart`): the type scales twice and a
+  portrait slide is read on a phone, not in a room. The venue contract is a landscape one; recorded, not
+  designed for.
+- **`video qr`:** its code is a fixed `8rem` (10% of the slide at every venue), under the floor from
+  huddle, and its caption is clipped under the poster. Moving it onto the shared sizing made it clip at
+  laptop, so that edit was backed out; it needs its own layout.
+- **`pricing` at laptop:** a footnote clipped by its list item; predates venues.
+- **Not yet contracted:** a count or prose budget is measured at the wide canvas only. The same
+  components clip at hall on portrait canvases, and lint cannot say so, because the budget has no
+  per-canvas row.
+
+## 7 · Cost, measured
+
+The harness takes about 3 minutes for the whole catalog on a 6-way pool and about 4 seconds for one
+component. The hook suite for this change ran to about 400 seconds because it touches the manifest
+schema and a generated table.
+
+## 8 · Calls for the owner
+
+1. **CI.** The harness is on demand. A ratcheted CI step (a committed baseline that may only fall,
+   like `overflow:check`) is now cheap, since the baseline would be the 53 named rows. Adding a CI step
+   changes the CI contract, so it is yours.
+2. **`venueCapacity.none`.** Recommended: the manifest schema requires a `none` component to carry a
+   `venueProbe`, so the sentence is verified instead of trusted. Today it is convention.
+3. **The code floors** (10 / 12 / 16 / 22%) are my estimate from "a phone reads a code from about ten
+   times its width"; they are the first thing to measure on a real projector.
+4. **Per-canvas budgets.** Extending `venueCapacity` and `venue-prose` to carry a row per canvas family
+   would let lint speak for portrait decks at a venue. It is a schema and generator change.
