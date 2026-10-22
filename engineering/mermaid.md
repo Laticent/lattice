@@ -723,6 +723,11 @@ editor change to first diagram): first visit 1414 ms (1268 to 1654) drawing in t
 Studio's own deck-wide diagram check loading `mermaid.min.js` (857 KB, `mermaid-parse`) into the Studio page on the first edit in about
 40% of runs; that load is there before and after this measurement. Since owner decision D1 A (2026-10-21) the check draws each diagram through the frame as an ordinary draw job and the page loads no Mermaid (`docs/src/components/studio/mermaid-parse.ts`); the numbers above predate that change. An earlier CPU trace of one condition (1779 to 1366 ms, prose deck 885 ms) overstated the first-visit
 gain. The page warms the frame when a deck holds a fence, so it overlaps the preview's own start.
+Typed edits, which are what a person feels (median keystroke in a diagram label, real Studio, headless Chromium, flat at 1, 5 and 20 diagrams): about 300 ms
+drawing in the page and 390 to 410 ms in the frame, so the frame adds a constant of about +50 ms (about 17 to 30%). A V8 CPU profile over 8 keystrokes puts it on
+the main thread in pieces: Mermaid's module build running a little slower than its minified bundle (~+11 ms), sanitizing the returned drawing (~+8 to 10 ms, the
+sandbox's price) and frame, host and stand-in glue (~+15 to 20 ms). The frame shares the page's thread in that run; whether desktop Chrome gives a sandboxed frame its
+own process is UNVERIFIED. A whole-document replace re-renders the whole deck and grows with deck size in both modes, with or without diagrams.
 What is left over the prose floor (about 480 ms) is the preview's own start and the first draw, all on the one main thread: only a frame
 in another process would run in parallel (a frame served from a different site is isolated by the browser; measured 13 to 48 ms of
 parent-thread blocking against 330 to 590 ms for a same-site frame), which needs a second host; the owner ruled that out (2026-10-21).
