@@ -1547,6 +1547,14 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			}
 			view.dispatch(view.state.tr.setNodeMarkup(open.at, undefined, { ...open.node.attrs, text: next }).setMeta(commentOpenKey, { open: open.at }));
 			original = editable(next, open.at);
+			// The field shows what is now written, read the same way it was on opening. Words indented further than the note's hanging indent
+			// become part of it; leaving the typed form in the field would put that indent back again on every later write.
+			if (field.value !== original) {
+				const at = Math.min(field.selectionStart ?? original.length, original.length);
+				field.value = original;
+				typed = original;
+				field.setSelectionRange(at, at);
+			}
 		};
 		field.addEventListener('cs-note-commit', (e) => {
 			commit();

@@ -198,7 +198,8 @@ function noteWords(text: string): string {
 export function editableNote(text: string): string {
 	const words = noteWords(text);
 	const indent = hangingIndent(words);
-	return indent ? words.split('\n').map((l, i) => (i > 0 && l.startsWith(indent) ? l.slice(indent.length) : l)).join('\n') : words;
+	// A line of only spaces keeps them: `writeNote` puts the indent back on lines with words only, so stripping it here would lose it.
+	return indent ? words.split('\n').map((l, i) => (i > 0 && l.trim() && l.startsWith(indent) ? l.slice(indent.length) : l)).join('\n') : words;
 }
 
 /** Longest comment a note may be edited to: the same ceiling a paste is held to (`readCommentText`). */
@@ -230,8 +231,12 @@ export function writeNote(text: string, words: string): string | null {
 	// Everything around the words keeps its bytes: the space or line break after the opener, the channel prefix as written, and the space or
 	// line break before the closer. Only the words between them change.
 	const inner = commentInner(text);
-	const lead = (commentKind(text) === 'note' ? /^\s*/ : /^\s*[A-Za-z]+\s*:\s*/).exec(inner)?.[0] ?? '';
-	const trail = /\s*$/.exec(inner)?.[0] ?? '';
+	let lead = (commentKind(text) === 'note' ? /^\s*/ : /^\s*[A-Za-z]+\s*:\s*/).exec(inner)?.[0] ?? '';
+	let trail = /\s*$/.exec(inner)?.[0] ?? '';
+	// A comment written with no space (`<!--x-->`) gets one where the words would otherwise run into the opener or closer: a leading `-` or
+	// `>`, or a trailing `-`, would be read as part of them and drop out of the words.
+	if (!/\s$/.test(lead) && /^[->]/.test(body)) lead += ' ';
+	if (!trail && /-$/.test(body)) trail = ' ';
 	const indent = hangingIndent(noteWords(text));
 	const laid = indent ? body.split('\n').map((l, i) => (i > 0 && l.trim() ? indent + l : l)).join('\n') : body;
 	const out = `${opener}${lead}${laid}${trail}${closer}`;

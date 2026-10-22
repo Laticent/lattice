@@ -132,6 +132,11 @@ describe('soft break edge cases', () => {
 		expect(serializeSlideProse(para('a', 'S', 'H', 'c')).trimEnd()).toBe('a\\\nc');
 		expect(serializeSlideProse(para('a', 'S', 'H')).trimEnd()).toBe('a');
 	});
+	it('two or three hard breaks in a row stay that many', () => {
+		expect(rt('a\\\n\\\nb')).toBe('a\\\n\\\nb');
+		expect(rt('a\\\n\\\n\\\nb')).toBe('a\\\n\\\n\\\nb');
+		expect(rt('**a\\\n\\\nb**')).toBe('**a\\\n\\\nb**');
+	});
 	it('a setext heading with a blank or code-indented line falls back to one ATX line', () => {
 		const heading = (level: number, parts: (string | null)[]) =>
 			proseSchema.node('doc', null, [proseSchema.node('heading', { level }, parts.map((p) => (p === null ? proseSchema.node('soft_break') : proseSchema.text(p))))]);

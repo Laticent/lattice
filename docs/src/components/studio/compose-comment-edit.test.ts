@@ -61,6 +61,12 @@ describe('writeNote', () => {
 		const cases = ['<!-- Q1 revenue: 10\nQ2 revenue: 20\nQ3 revenue: 30 -->', '<!-- say: First sentence 10.\n     Second sentence. -->', '<!--\nTODO 10\n-->', '<!--\n  - a 10\n  - b\n-->', '<!--note 10-->', '<!-- TODO 10:\n     - call finance\n       - nested\n     - redo the chart -->'];
 		for (const text of cases) expect(writeNote(text, editableNote(text).replace('10', '11'))).toBe(text.replace('10', '11'));
 	});
+	it('keeps a line of only spaces, and a dash next to the opener or closer of a comment written with no space', () => {
+		const t = '<!-- a\n  b\n  \n  c -->';
+		expect(writeNote(t, editableNote(t))).toBe(t);
+		expect(writeNote('<!--x-->', '- item')).toBe('<!-- - item-->');
+		expect(writeNote('<!--x-->', 'a-')).toBe('<!--a- -->');
+	});
 	it('keeps lines the author typed', () => {
 		expect(writeNote('<!-- a -->', 'one\n\n- two\n- three')).toBe('<!-- one\n\n- two\n- three -->');
 	});
@@ -118,6 +124,18 @@ describe('the note panel', () => {
 		expect(saved()).toBe(DECK.replace('say: the slide reads as this.', 'say: it reads as that.'));
 		// The panel stays open on the note it just wrote.
 		expect((document.querySelector('.cs-comment-body') as HTMLTextAreaElement).value).toBe('it reads as that.');
+	});
+
+	it('indenting the later lines writes once: a second write, or leaving, does not add the indent again', async () => {
+		mount('## H\n\n<!-- a\n  b -->\n\nPara.');
+		pills()[0].click();
+		expect(field()?.value).toBe('a\nb');
+		type('a\n  b');
+		expect(saved()).toContain('<!-- a\n    b -->');
+		type((field() as HTMLTextAreaElement).value);
+		field()?.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		expect(saved()).toContain('<!-- a\n    b -->');
 	});
 
 	it('writes when the author leaves the field', async () => {
