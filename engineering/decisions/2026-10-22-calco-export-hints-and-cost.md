@@ -1,11 +1,11 @@
 ---
 status: proposed
-summary: Options for letting components tell the Calco office export what they mean (a resizable tag, a reserved spectrum band) instead of the reader guessing from paint, and where the export spends its time as the component set grows.
+summary: Proposal that component manifests declare export hints (a resizable tag, a reserved spectrum band) as design-time specification, so the Calco reader stops guessing from paint, plus where the export spends its time as components grow.
 ---
 
 # Calco export: component hints, and what the export costs as we add components (2026-10-22)
 
-**Status: proposal. Nothing is built; the owner picks an option (§4).**
+**Status: proposal, owner leans B (§4). Nothing is built.**
 
 **The question.** The editable `.pptx`/`.odp` export (#2852) reads the rendered page: computed style and
 geometry, never the component manifests. That is why a new component needs no export code, and also why
@@ -45,16 +45,20 @@ export time in a real browser, and memory on a 35-slide deck.
   manifest. Intent is explicit and the reader stays generic. It adds a contract between manifests and
   the exporter, and every hint needs a test per format.
 - **C. Hints in CSS, not manifests.** A custom property such as `--export-role: pill` on the element.
-  Same effect as B without touching manifests, and themes or decks can override it. Harder to find and
-  lint than a manifest field.
+  Rejected: CSS is a presentation layer that themes and decks override, so design intent stored there can
+  drift away from what the component means, and nothing audits it.
 
 ## 4. Recommendation
 
-**C for the two known cases, promoted to B only if a third appears.** The reader already reads computed
-style, so a custom property costs one read and no new pipeline. The hint is inert on every other
-surface, which keeps HARD RULE #1 intact. Measure first: add per-phase timing to the export (one
-instrumented run per deck above) before optimizing anything, since §2 shows no component-driven cost yet.
+**B.** Intent is a design-time specification, so it belongs where design is specified: the component
+manifest. The manifest declares a hint from a closed vocabulary (`pill`, `reserves-band`,
+`group-with-text`); the engine writes it onto the rendered element as a `data-export-role` attribute,
+a marker with no styling; the reader reads that one attribute and stays generic. Other surfaces ignore
+it, which keeps HARD RULE #1 intact. Guardrails: a lint rejects any hint outside the vocabulary, each
+hint has one writer test per format in the conformance harness, and an unknown paint still falls back
+to a picture (the refusal ratchet). Measure first: add per-phase timing to the export before
+optimizing anything, since §2 shows no component-driven cost yet.
 
-**What the owner decides:** A, B or C; and whether the per-phase timing PR comes first.
+**What the owner decides:** whether to mandate B, and whether the per-phase timing PR comes first.
 **Not decided here:** the native tag shape itself (`followups.d/2852-p2-tags-are-not-resizable-shapes.md`),
 which every option still has to build.
