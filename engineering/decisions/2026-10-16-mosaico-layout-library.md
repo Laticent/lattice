@@ -707,6 +707,38 @@ is the Read hosts', `engineering/mermaid.md`).
 `2779-p1`; `2744-p3` (route panes through `template`) waits on it. Not tested: a photo as a plugin figure
 (the plugin is unbuilt), dark themes, `rows`.
 
+### 8.9 A photo in a pane is fitted, and the charts were never a fixed drawing (2026-10-22)
+
+**The rule.** In a pane that is not an `image` pane, a paragraph that is exactly one picture is a figure
+(`data-pane-figure`, stamped where `embed` in `lib/core/panes.js` assembles the pane). It takes the height the pane has
+left and the full pane width, and the picture centers in that box both ways, scaled down to fit and never up past its own
+pixels, with `object-fit: contain` (`lib/forms/cell/pane/pane.css`). The shape comes from the picture's own bytes, so the
+rule works today. When the `image` plugin (#2727) stamps an `aspect-ratio` on its figure (media-plugins §4.11), the same
+box takes it with no second rule. An `image` pane keeps its deliberate `cover` crop. The marker exists because CSS cannot
+see text: `p:has(> img:only-child)` also matched `Revenue from ![](logo) grew…`, and the checker showed it squeezing that
+prose to a sliver and stamping "Content clipped". Prose with a picture in it is not a figure and flows as text. A pane
+with no lone picture renders identical: nine existing pane decks (74 slides) and the `image` pane slide came out
+pixel-identical before and after.
+
+**Measured** on the 12-slide matrix of §8.8 (four photo shapes by three shares, CLI render, indaco): before, five
+slides carried "Content clipped" (wide at 75%; tall at 50% and 75%; square at 50% and 75%, which is one more than §8.8
+counted); after, none do, in light and dark. `test/integration/export/pane-photo-fit.test.js` pins it on the real
+export in Chromium: every picture sits inside its pane stage, at its own shape, centered both ways, with and without a
+pane title, and prose with an inline picture is not made a figure. The same test fails with the rule removed, and with
+the titled-pane selector arm removed (both verified by editing the CSS).
+
+**Correction to §8.8.** §8.8 said `piechart`, `radar`, `funnel` and `map` "scale a fixed drawing" and that one pane rule
+by declared aspect could cover them. Measured, that is not what happens. Each chart's SVG already fills the pane's stage
+and letterboxes centered (`viewBox` with `meet`), and each already picks among a few drawings by pane shape (map's
+`viewBox` is 937x1155 at 25%, 1155x1332 at 50%, 1826x564 at 75%). The drawing's viewBox fills 56 to 99% of the pane
+(10 chart-by-share cells, a five-item deck; a different item count moves a figure by a few points, and a four-item
+`piechart` measured 97 / 61 / 84%): `piechart` 91 / 56 / 84% at 25 / 50 / 75; `radar` 74% at 50 and 99% at 75;
+`funnel` 76% at 50 and 88% at 75; `map` 83 / 64 / 62%. A declared `pane.aspect` would change none of these, because
+containment already happens, so it is **not added**; the owner chose the full rule on 2026-10-22, was shown this
+measurement, and chose the photo rule alone. What is left is a drawing choice per chart (a layout for the shape that
+fills better), not a pane rule: `piechart` at 50% (56%) and `map` at 50% and 75% (64%, 62%) are logged in
+`followups.d/2779-p2-chart-drawings-that-fill-less-than-two-thirds-of-a-pane.md`.
+
 ## 9. Decisions
 
 **Settled (owner, 2026-10-16):**
