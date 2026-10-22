@@ -39,11 +39,11 @@ describe('a series name spelled two ways across groups', () => {
     assert.equal(f[0].replace.to, 'Net Revenue');
   });
   test('the spelling under more groups wins, not the first', () => {
-    const f = found(deck('line', '- A\n  - Licences `{1}`\n- B\n  - Licenses `{2}`\n- C\n  - Licenses `{3}`'));
+    const f = found(deck('line', '- A\n  - Licences `{1}`\n  - Cost `{1}`\n- B\n  - Licenses `{2}`\n  - Cost `{1}`\n- C\n  - Licenses `{3}`\n  - Cost `{1}`'));
     assert.deepEqual(f.map((x) => x.replace), [{ from: 'Licences', to: 'Licenses' }]);
   });
   test('the old pill form is covered too', () => {
-    assert.equal(found(deck('bar', '- A\n  - Sales `1`\n- B\n  - Sale `2`')).length, 1);
+    assert.equal(found(deck('bar', '- A\n  - Sales `1`\n  - Cost `3`\n- B\n  - Sale `2`\n  - Cost `4`')).length, 1);
   });
 });
 
@@ -70,6 +70,12 @@ describe('silent on genuinely different series', () => {
 });
 
 describe('review findings (checker, 2026-10-22)', () => {
+  test('different series with different companions are never merged (Cars/Vans against Card/Bans)', () => {
+    assert.equal(found(deck('bar', '- A\n  - Cars `{1}`\n  - Vans `{2}`\n- B\n  - Card `{3}`\n  - Bans `{4}`')).length, 0);
+  });
+  test('a group with no companion series proves nothing', () => {
+    assert.equal(found(deck('bar', '- A\n  - Sales `{1}`\n- B\n  - Sale `{2}`')).length, 0);
+  });
   const fixes = (src) => lintCore.applyAllFixes(src, vocab);
   test('the fix carries the text as written, so it applies (double space, bold, underscore, trailing text)', () => {
     for (const bad of ['net  revenue `{2}`', 'Net **Revenu** `{2}`', 'net_ref `{2}`', 'Sale `{2}` EMEA']) {
@@ -100,12 +106,12 @@ describe('review findings (checker, 2026-10-22)', () => {
     assert.equal(found(deck('bar', rows)).length, 0); // past the name cap the pair scan is skipped, and the findings are linear in rows either way
   });
   test('one misspelled row gets one finding', () => {
-    const f = found(deck('bar', '- A\n  - Licenses `{1}`\n- B\n  - Licenses `{2}`\n- C\n  - Licences `{3}`\n- D\n  - Lisences `{4}`'));
+    const f = found(deck('bar', '- A\n  - Licenses `{1}`\n  - Cost `{1}`\n- B\n  - Licenses `{2}`\n  - Cost `{1}`\n- C\n  - Licences `{3}`\n  - Cost `{1}`\n- D\n  - Lisences `{4}`\n  - Cost `{1}`'));
     assert.equal(f.filter((x) => x.line.startsWith('- Lisences')).length, 1);
     assert.equal(f.filter((x) => x.line.startsWith('- Lisences'))[0].replace.to, 'Licenses');
   });
   test('a longer fence around a shorter one does not break the scan', () => {
-    const src = deck('bar', '- A\n  - Licenses `{1}`\n- B\n  - Licences `{2}`\n\n````\n```\n````');
+    const src = deck('bar', '- A\n  - Licenses `{1}`\n  - Cost `{1}`\n- B\n  - Licences `{2}`\n  - Cost `{1}`\n\n````\n```\n````');
     assert.equal(found(src).length, 1);
   });
 });
