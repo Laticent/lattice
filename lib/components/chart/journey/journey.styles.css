@@ -1084,3 +1084,61 @@ section.journey .journey-vmood .journey-face {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* ── Callouts (journey.transform.js `journeyCallouts`, callout-layer.js) ────────────────────────────
+ * A note names a task: the task's chip is ringed in the note's color and carries the note's marker on its
+ * corner, and the notes read in a list under the board, each led by the same marker. The board is
+ * measured by the browser, so the notes always sit under it; the marker's shape and color are painted by
+ * the callout plugin's stylesheet (`--callout-ink`, callout.styles.css). Padding and gap, never margin. */
+section.journey .journey-callouts {
+  order: 9;
+  display: flex;
+  flex-flow: row wrap;
+  gap: var(--sp-xs) var(--sp-2xl);
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-sm) 0 0;
+}
+section.journey .journey-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-sm);
+  align-items: center;
+  font-family: var(--font-label);
+  font-size: var(--fs-meta);
+  color: var(--text-body);
+}
+section.journey .journey-callout-marker {
+  flex: none;
+}
+/* A detail runs on after its note, in the quieter ink: one line a note keeps the board its height. */
+section.journey .journey-callout-detail {
+  color: var(--text-secondary, var(--text-body));
+}
+section.journey .journey-callout-detail::before {
+  content: ' · ';
+}
+section.journey [data-callout] {
+  position: relative;
+  outline: 2px solid var(--callout-ink, var(--text-body));
+  outline-offset: 1px;
+}
+/* The badge straddles the chip's BOTTOM edge near its start, half outside it. Every other spot is taken: the actor
+ * dots sit top-left, the heatmap's mood number top-right, and on a row chip the mood face slides along the chip
+ * with the score, so its middle is not free either. The start of the bottom edge is empty in every variant,
+ * and nothing overhangs the board's sides, so nothing is clipped. */
+section.journey .journey-callout-badge {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 8%;
+  transform: translateY(50%);
+  display: flex;
+  z-index: 1;
+}
+/* The notes take a row of the board's height, so the key under them gives back what it spent on air. */
+section.journey .journey-board:has(.journey-callouts) .journey-legend {
+  padding-top: var(--sp-sm);
+}
+section.journey .journey-board:has(.journey-callouts) .journey-mood-legend {
+  padding-top: var(--sp-xs);
+}

@@ -6,6 +6,16 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-22 — measured on the built tree at 127b36b
+
+Callouts on 19 charts (#2855): the shared placement file callout-layer.js is 11.9KB gzipped and sits in every chart kernel's closure; owner approved D1 A.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelGz | 79298 | 87803 | +8505 | 96583 |
+| studio | chartKernelsGz | 200314 | 231477 | +31163 | 254625 |
+| studio | lintCoreGz | 92465 | 112808 | +20343 | 124089 |
+
 ### 2026-10-21 — measured on #2826 (page numbers) built on top of main at b1820ef
 
 Raises the studio route's lint-core ceiling by 640 bytes (112000 → 112640, 109.4KB → 110.0KB), soft target unchanged; the owner chose this on 2026-10-21 (#2826). `main` measured lintCoreGz 109.4KB against the 109.4KB ceiling, 0.0KB left, so any lint rule added fails. #2826 adds `paginate-comment-retired`, which tells an author that a `paginate` slide comment no longer does anything, and the route measured 109.6KB on its head. Measured locally with main's lint core in place of #2826's: about 190 bytes; dropping the rule was the other option and the owner turned it down. The lint core loads after first paint (engine-spine note §5). Set by hand at the owner's direction because `route-budget:rebaseline -- --raise --ceiling` would move the soft target to the measurement and the ceiling 10% above it, about +11KB. No eager-JS raise, so no explanation file is owed.

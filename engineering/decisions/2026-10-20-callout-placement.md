@@ -117,9 +117,7 @@ again on the real engine (§ 7, P2).
 
 ## 5. The rule: the engine picks by measure
 
-For each chart with callouts, a key or both, the engine tries the callouts on the right or
-below, and the key on the right or below, and keeps the combination that leaves the plot largest
-at the slide's real stage size. Ties put callouts on the right, beside the marks they name.
+**Superseded by § 8 (owner review, 2026-10-22).** The original rule: for each chart with callouts, a key or both, try the callouts on the right or below and the key on the right or below, and keep the combination that leaves the plot largest at the slide's real stage size; ties put callouts on the right. The notes' side is now the author's call (§ 8: `side=under|beside` in the `@callout` span), else the chart's manifest default (`callout.side`; only the pie and donut say `beside`), else under; the key's two sides are still tried.
 
 - **A hairline only where they stack.** When callouts and the key both go below, something parts
   them. As built, that is the key's own portrait rule (the accent fade the family already draws
@@ -140,12 +138,15 @@ single render's. Four details the rule above leaves open:
 1. **The score is the plot's area once the whole viewBox is fitted into the chart's box.** The box's
    shape is not the slide's: it is the chart area under the title, measured in Chromium as 2.72 wide
    at 16:9, 1.74 at 4:3, 1.26 at 1:1, 1.09 at 4:5 and 0.67 at 9:16.
-2. **The transform is told an orientation name, not the shape.** `landscape` covers 16:9 and 4:3,
-   `portrait` covers 4:5 and 9:16, and those pairs want different layouts (on the demo deck's notes-and-key slide
-   the best layout at 16:9 has the key beside the grid, and at 4:3 it has the key below). Portrait is scored at both of its shapes and
-   the pick gives up least at the worse one. Landscape is scored at 16:9 alone: scoring 4:3 too moved
-   16:9 slides off today's layout (81% of the best grid, against 100% for 16:9 alone). Passing the slide's
-   real aspect down to the transform is the proper fix and is filed in `followups.d/`.
+2. **The transform is told the slide's shape.** An orientation name covers shapes that want different
+   layouts (`landscape` is 16:9 and 4:3, `portrait` is 4:5 and 9:16; on the demo deck's notes-and-key slide the
+   best layout at 16:9 has the key beside the grid and at 4:3 it has the key below). The engine
+   (`lib/engine/slides.js`) and the runtime (`stampOrientation`) now stamp each section's `data-aspect`
+   (`aspectStamp`, `lib/adaptive/families.js`; absent at 16:9 so the common deck's markup does not move),
+   `transformChartSection` hands it to the kernel as `ctx.aspect`, and the runtime's rebuild key includes it. The heatmap
+   reads the chart box's aspect off the slide's by interpolating the five measured points (`chartBoxAspect`)
+   and scores every layout at that one shape. `STAGE_ASPECTS` (landscape 16:9; portrait scored at both 4:5
+   and 9:16) is the fallback for a caller that passes only an orientation name.
 3. **A challenger must keep 10% more plot** (`PLACEMENT_MARGIN`). A layout that grows the figure's
    height also scales its type down, so on a 3 by 2 grid at 16:9 notes below keep 5% more plot than
    notes beside and set every label 10% smaller. Ties keep today's layout.
@@ -173,7 +174,18 @@ the notes under the grid, 1.4 to 2.5 times the grid) and at 9:16. The two losses
 rules above: at 4:5, three notes under the grid keep 82% of the grid `main` kept with notes beside it,
 because the pick is the one that gives up least across 4:5 and 9:16 (it wins 143% at 9:16); and six
 long notes with a key keep 62% at 4:5, because `main` drew only five of them there. These are the
-cases the real aspect would settle.
+cases the real aspect settles (§ 5, item 2): with the stamp, the grid's area against the tree before it:
+
+| Slide | 16:9 | 4:3 | 1:1 | 4:5 | 9:16 |
+|---|---|---|---|---|---|
+| 3 notes | 100% | 100% | 100% | 122% | 116% |
+| 3 notes + key | 100% | 146% | 100% | 100% | 141% |
+| key only | 100% | 146% | 100% | 100% | 100% |
+| 6 long notes | 100% | 100% | 100% | 100% | 100% |
+| 6 long notes + key | 100% | 127% | 100% | 124% | 100% |
+
+(`real.js`, this commit against the commit before it. At 4:5 the three notes now sit beside the grid again,
+which is where `main` had them, so the 82% loss above is gone.)
 
 ## 6. One row style for the key and the callouts (owner, 2026-10-21)
 
@@ -205,11 +217,79 @@ mean to change a render; an item that does stops for the owner's light and dark 
 | P | Item | Evidence |
 |---|---|---|
 | P1 | Split: `@callout` and `@legend` plugins over shared kernels (marker shapes, plate, color slots, mark vocabulary); the heatmap moves to `@callout`; old pinned `@legend` spans keep working with a lint hint | `diff -r` of every tracked deck before and after, byte-identical |
-| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first — **built on the heatmap**, in `buildHeatmap`/`layoutHeatmap`; the shared emitter waits for the second chart | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs (§ 5) |
-| P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke | a demo deck per family, four slide shapes |
-| P4 | Journey task callouts; risk-matrix onto the callout plugin | both galleries, light and dark, owner sign-off |
+| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first — **built on the heatmap**, in `buildHeatmap`/`layoutHeatmap`; the shared emitter waits for the second chart. **The shared emitter is `callout-layer.js` (§ 8)** | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs (§ 5) |
+| P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke. **Built (§ 8) for seventeen of the nineteen; `flowchart` and `state-chart` are browser-laid-out and filed in `followups.d/`** | a demo deck per family, four slide shapes |
+| P4 | Journey task callouts; risk-matrix onto the callout plugin. **Built (§ 9)** | both galleries, light and dark, owner sign-off |
 | P5 | Keys through `@legend` on every component that already draws one, so authors can rename and reorder entries | `diff -r` where untouched; demo deck |
 
 Charts the scout ruled out for callouts: kanban, timeline-list and progress (their items are
 already text rows), and Mermaid diagrams (Mermaid owns the layout and has no stable mark hooks).
 Word-cloud is weak: its marks are words that are already labeled.
+
+## 8. The second readers (P3 as built)
+
+Seventeen charts now read `@callout`; the heatmap was the first. Each takes `for=` naming its mark (the table in
+`lib/plugins/callout/callout.docs.md`), rings the mark, puts a numbered marker on or beside it, and sets the
+words in a lane beside the figure or under it by the § 5 rule.
+
+**One layer, three ways in.** `lib/components/chart/_chart-family/callout-layer.js` holds what the heatmap
+proved: lift the paragraphs, tie notes to marks, size the lane, score the layouts at the slide's real shape
+(item 2 of § 5, now `data-aspect`), and describe the notes. A chart whose geometry it keeps hands the layer boxes
+(`bar`, `line`, `histogram`, `waterfall`, `bullet`, `scatter`, `slope`, `tower`, `ep-curve`, `piechart`, `funnel`,
+`map`, `radar`, `quadrant` cohort). A chart whose figure is finished first is read back (`fromSvg`, `onSvg`:
+`gantt`, `hub-spoke`, and the quadrant's four other variants), so the notes cannot disagree with where the marks
+were drawn. A keyed chart builds its key around each candidate unit, as the heatmap does.
+
+**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to the figure's width), notes sit side by side, each row centered in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only the resolved side: the author's `side=`, else the manifest default (`callout.side`, compiled into `lib/core/callout-catalog.generated.js`), else under. `around` sets the resolved side for the span of one chart's render, so no chart's call changes. On the heatmap an explicit `side=` pins the notes; with none the grid keeps its own choice by plot size. The decision was the owner's: "the user should decide via a callout parameter; the default under; charts override it via their manifest." A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's bottom edge near its start, half outside it: inside the chip it covered the mood face, the top corners hold the actor dots and the heatmap's mood number, and on a row chip the face slides along the chip with the score, so the middle of the edge is not free either. The heatmap's own below layout is unchanged: moving it changes which side wins on a square slide, which `heatmap-placement.test.js` pins, so it moves with the heatmap onto the layer (`followups.d/2855-p3-callouts-heatmap-on-the-layer.md`).
+
+**Three rules the second readers added.**
+
+1. **A word is never broken for a bigger plot.** `choose` prefers the layout that splits the fewest words
+   (`measureLabel` `split`): at 9:16 a grouped bar's lane beside the chart broke `quarter` into `quart` over `er`
+   and lost to the notes under it. A note ellipsized at its third line is still allowed, as on the heatmap.
+2. **Point-like marks get a marker beside them, one size, a free diagonal each.** An area mark (a cell, a bar)
+   keeps the heatmap's rule of one place for every marker. A dot has no corner and its neighbours' names take the
+   room above it, so each marker takes the first clear of four diagonals and two level spots, and the size and
+   the digit are what must agree (`legend-svg.js` `pinMarkers`).
+3. **The lane's type is the key's, unless the figure sets its own.** The key's size is a share of the figure's
+   height; a funnel's tall portrait viewBox made that 18.9 against its own 8.5 labels, so the funnel passes
+   `laneFont`.
+
+**Where the notes landed** before the 2026-10-22 owner review (today every chart but the pie puts them under the figure, so read this table as the measurement that motivated the change, not as current behavior), on the demo decks' charts (`examples/callouts-*.md`), measured on the kernel at each
+shape (the figure's viewBox grows in width for a lane beside it and in height for notes under it):
+
+| Chart | 16:9 | 4:3 | 1:1 | 4:5 | 9:16 |
+|---|---|---|---|---|---|
+| bar, slope, line, histogram, waterfall, bullet, scatter, ep-curve, funnel, radar, quadrant cohort | beside | beside | under | beside | under |
+| stacked-bar | beside | under | under | beside | under |
+| hub-spoke, map | beside | under | under | beside | under |
+| tower | beside | beside | under | beside | beside |
+| piechart | beside | beside | beside | beside | beside |
+| quadrant | beside | beside | beside | beside | under |
+| gantt | under | under | under | under | under |
+
+The stacked bar, the map and the hub-spoke move at 4:3: the picks the real aspect made possible (§ 5 item 2).
+
+**What is not built.** `flowchart` and `state-chart` (the browser lays them out, so the shapes' boxes do not exist
+where the transform runs), and `radar` inside a split pane (the pane fits its own key). Both are filed in
+`followups.d/`. The heatmap's own placement loop was left alone (it differs from `choose` only in rule 1), also
+filed. Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
+
+## 9. Journey and risk-matrix (P4 as built)
+
+**`risk-matrix`** reads callouts through `onSvg` like the gantt: a note names a risk, its marker on the grid is
+ringed, and the note's own marker (a number, a shape and a color, apart from the risk's own number) sits beside
+it. The grid keeps its numbered key; "onto the callout plugin" here means the plugin draws the notes, and the
+key stays the register's list. Replacing the key with callouts is a design change the owner has not asked for.
+
+**`journey`** is the one chart here that is not SVG. The board is CSS layout the browser measures, so the
+server cannot score a side by the plot and the notes always sit under the board, in a row that wraps. The task's
+chip is ringed in the note's color (`outline`) and carries the note's marker (an inline SVG drawn by `markerSvg`,
+so the shapes are the charts' own). A portrait deck splits the vertical board into one page per stage, and the
+splitter copies whatever sits outside a stage onto every page, so each note rides inside the stage it is about.
+A note is a row high, which at 16:9 clipped the mood legend until the key under it gave back its air
+(`:has(.journey-callouts)` in `journey.styles.css`); the detail runs on after its note on one line for the same
+reason.
+
+**Not built, and still open:** plan item P5, keys through `@legend` on every component that already draws one
+(`followups.d/2854-p3-keys-through-legend.md`).

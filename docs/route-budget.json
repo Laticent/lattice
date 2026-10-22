@@ -17,16 +17,16 @@
         "hard": 778504
       },
       "chartKernelGz": {
-        "soft": 79298,
-        "hard": 87228
+        "soft": 87803,
+        "hard": 96583
       },
       "lintCoreGz": {
-        "soft": 92465,
-        "hard": 112640
+        "soft": 112808,
+        "hard": 124089
       },
       "chartKernelsGz": {
-        "soft": 200314,
-        "hard": 220345
+        "soft": 231477,
+        "hard": 254625
       }
     },
     "playground": {
