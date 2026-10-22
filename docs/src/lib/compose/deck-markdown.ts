@@ -1,4 +1,3 @@
-import MarkdownIt from 'markdown-it';
 import {
 	defaultMarkdownParser,
 	defaultMarkdownSerializer,
@@ -162,6 +161,17 @@ const imageSpec: NodeSpec = {
 	],
 };
 
+/** A soft line break (`a\nb`). The engine runs markdown-it with `breaks: true`, so it draws each one as a
+ *  `<br>`; the upstream parser turned it into a space, which joined the lines of any paragraph an author
+ *  edited. It is its own node so the hard break (`\\` + newline) keeps writing what it always did. */
+const softBreakSpec: NodeSpec = {
+	inline: true,
+	group: 'inline',
+	selectable: false,
+	parseDOM: [{ tag: 'br[data-soft]' }],
+	toDOM: () => ['br', { 'data-soft': '' }],
+};
+
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
  *  authoring-comment atom and the inline-object atom (`inline-object.ts`). `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
@@ -183,7 +193,8 @@ export const proseSchema = new Schema({
 		.addToEnd('comment', commentNodeSpec)
 		.addToEnd('inline_object', inlineObjectSpec)
 		.addToEnd('raw_block', rawBlockSpec)
-		.addToEnd('inline_math', mathInlineSpec),
+		.addToEnd('inline_math', mathInlineSpec)
+		.addToEnd('soft_break', softBreakSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -206,6 +217,7 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 	...defaultMarkdownParser.tokens,
 	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
 	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
+	softbreak: { node: 'soft_break' },
 	table: { block: 'table' },
 	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
 	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
@@ -324,6 +336,14 @@ function interruptsParagraph(node: PMNode): boolean {
 
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
+	// The line break as written; the next line carries its own block prefix (`> `, list indent).
+	soft_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
+		for (let i = index + 1; i < parent.childCount; i++)
+			if (parent.child(i).type.name !== 'soft_break') {
+				state.write('\n');
+				return;
+			}
+	},
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
 	image(state: SerializerState, node: PMNode) {
