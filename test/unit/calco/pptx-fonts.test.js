@@ -54,6 +54,24 @@ describe('calco sfnt', () => {
     assert.deepEqual(eot.subarray(eot.length - face.length), face);
   });
 
+  test('renameFace puts a face in the bold or italic slot of its family', async () => {
+    const face = await ttf();
+    const bold = renameFace(face, 'Outfit', 'bold');
+    assert.equal(familyNameOf(bold), 'Outfit');
+    const os2 = (bytes) => {
+      const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      for (let i = 0; i < v.getUint16(4); i++) {
+        const rec = 12 + i * 16;
+        const tag = String.fromCharCode(...bytes.slice(rec, rec + 4));
+        if (tag === 'OS/2') return v.getUint16(v.getUint32(rec + 8) + 62);
+      }
+      return null;
+    };
+    assert.equal(os2(bold) & 0x61, 0x20, 'bold only');
+    assert.equal(os2(renameFace(face, 'Outfit', 'boldItalic')) & 0x61, 0x21, 'bold and italic');
+    assert.equal(os2(renameFace(face, 'Outfit')) & 0x61, 0x40, 'regular');
+  });
+
   test('renameFace keeps the records it does not own: the copyright, and names STAT points at', async () => {
     const face = await ttf();
     const ids = (bytes) => {
@@ -159,7 +177,36 @@ describe('calco pptx — embedded fonts', () => {
     const face = await ttf();
     const deck = await deckWith([{ family: 'Outfit', weight: 700, italic: false, bytes: face }, { family: 'Outfit', weight: 720, italic: false, bytes: face.slice() }], [700, 720]);
     const names = planEmbedding(deck).faces.map((f) => f.name);
-    assert.deepEqual(names, ['Outfit Bold', 'Outfit 720']);
+    // 700 takes the bold slot of "Outfit"; 720 has no slot, so it is a family of its own; "Outfit Bold" is already the full name of the 700 face, so it is numbered.
+    assert.deepEqual(names, ['Outfit', 'Outfit Bold 720']);
+  });
+
+  test('regular, bold and italic share one family in their slots, and the runs flag them', async () => {
+    const face = await ttf();
+    const mk = (weight, italic) => ({ family: 'Playfair Display', weight, italic, bytes: face.slice() });
+    const deck = await deckWith([mk(400, false), mk(700, false), mk(700, true)], []);
+    const pf = (weight, italic, y) => frame([[{ text: 'x', style: style({ family: 'Playfair Display', weight, italic }) }]], { y });
+    deck.slides[0].frames.push(pf(400, false, 100), pf(700, false, 160), pf(700, true, 220));
+    const plan = planEmbedding(deck);
+    assert.deepEqual(plan.faces.map((f) => `${f.name}/${f.slot}`), ['Playfair Display/regular', 'Playfair Display/bold', 'Playfair Display/boldItalic']);
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    assert.match(pres, /<p:embeddedFont><p:font typeface="Playfair Display"[^>]*\/><p:regular r:id="[^"]+"\/><p:bold r:id="[^"]+"\/><p:boldItalic r:id="[^"]+"\/><\/p:embeddedFont>/);
+    const slide = await zip.file('ppt/slides/slide1.xml').async('string');
+    const runs = [...slide.matchAll(/<a:rPr([^>]*)>[\s\S]*?<a:latin typeface="([^"]+)"/g)].map((m) => `${m[2]}${/ b="1"/.test(m[1]) ? ' b' : ''}${/ i="1"/.test(m[1]) ? ' i' : ''}`);
+    assert.deepEqual(runs, ['Playfair Display', 'Playfair Display b', 'Playfair Display b i']);
+  });
+
+  test('an italic face is slotted only beside its upright twin', async () => {
+    const face = await ttf();
+    const mk = (weight, italic) => ({ family: 'Playfair Display', weight, italic, bytes: face.slice() });
+    const deck = await deckWith([mk(400, false), mk(700, true)], []);
+    deck.slides[0].frames.push(
+      frame([[{ text: 'a', style: style({ family: 'Playfair Display', weight: 400 }) }]], { y: 100 }),
+      frame([[{ text: 'b', style: style({ family: 'Playfair Display', weight: 700, italic: true }) }]], { y: 160 }),
+    );
+    // Bold italic with no bold upright would let a reader draw an upright bold run in italic: it is a family of its own.
+    assert.deepEqual(planEmbedding(deck).faces.map((f) => `${f.name}/${f.slot}`), ['Playfair Display/regular', 'Playfair Display Bold Italic/regular']);
   });
 
   test('every PptxGenJS output type still works with fonts embedded', async () => {

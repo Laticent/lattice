@@ -1,0 +1,2 @@
+- an editable export no longer reads text that an opaque box or picture covers as live text (it exported a phantom page number on top of a panel), and photographs stay JPEG pictures, so a photo-heavy deck is smaller.
+- an editable `.pptx` names a bold or italic face by its own family with the bold or italic flag, embedded in that family's slot, so LibreOffice and Google Slides find the font by name instead of falling back to a sans.

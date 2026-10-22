@@ -11776,6 +11776,9 @@ const NUL_TEXT_EXTENSIONS = [
   '.peggy',
   // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
   '.license',
+  // The Open XML SDK checker (tools/office-conformance/openxml-check) and the vendored Office schemas
+  // (test/conformance/office/schemas) — plain text source.
+  '.cs', '.csproj', '.xsd',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list

@@ -26,6 +26,12 @@ export interface TextStyle {
 	 * LibreOffice clips when the run is also letter-spaced.
 	 */
 	flatColor?: string;
+	/**
+	 * A solid color behind the run, as `#rrggbb`: an inline chip (a code span, a mark) drawn as a text highlight, so
+	 * it moves with its words and wraps with them. The chip's translucent tint is blended over what is behind it.
+	 * The chip's corners, border and padding are not carried.
+	 */
+	highlight?: string;
 	/** Extra space after each character, px. */
 	letterSpacing: number;
 	/** CSS `text-transform` (`none`, `uppercase`, `lowercase`, `capitalize`). */
@@ -62,7 +68,17 @@ export interface TextFrame {
 	lines: TextRun[][];
 	/** The group this text moves with: the index of its card in `Slide.shapes`. */
 	group?: number;
+	/**
+	 * What the text is on the slide, when the page says so: the slide's `title`, the
+	 * `eyebrow` kicker above a heading, the `subtitle` below one, the running `header` and
+	 * `footer`, and the page `number`. A writer names the box by it, and where the format has
+	 * a placeholder for it (title, footer, slide number) writes one.
+	 */
+	role?: FrameRole;
 }
+
+/** What a text frame is on the slide (see `TextFrame.role`). */
+export type FrameRole = 'title' | 'eyebrow' | 'subtitle' | 'header' | 'footer' | 'number';
 
 /** A color with its opacity. */
 export interface Paint {
@@ -72,12 +88,27 @@ export interface Paint {
 	alpha: number;
 }
 
+/** One color stop of a linear gradient. */
+export interface GradientStop extends Paint {
+	/** 0–1 along the gradient line. */
+	pos: number;
+}
+
+/** A linear gradient fill: the CSS angle in degrees (0 is toward the top, 90 toward the right) and its stops. */
+export interface Gradient {
+	angle: number;
+	stops: GradientStop[];
+}
+
 /** An outer shadow, in px. */
 export interface Shadow extends Paint {
 	x: number;
 	y: number;
 	blur: number;
 }
+
+/** One step of a path: move, line, cubic Bézier, close. */
+export type PathCmd = ['M', number, number] | ['L', number, number] | ['C', number, number, number, number, number, number] | ['Z'];
 
 /**
  * A box or a rule the reader lifted out of the slide picture, so it can be drawn as a
@@ -91,15 +122,22 @@ export interface Shadow extends Paint {
  * A `line` is one side of a border: a straight stroke from `(x, y)` to `(x + w, y + h)`
  * along the middle of the border band, so `h` is 0 for a horizontal rule and `w` for a
  * vertical one.
+ *
+ * A `path` is a drawn mark (a check, a cross, a dash): `x, y, w, h` the bounding box of its
+ * `path`, which is relative to that box. It is stroked (`stroke`, with `cap` and `join`) and/or
+ * filled (`fill`), and a writer draws it as the format's freeform shape, so it stays a real,
+ * recolorable object. The reader lifts it from a pseudo-element that paints a CSS mask.
  */
 export interface Shape {
-	kind: 'box' | 'line';
+	kind: 'box' | 'line' | 'path' | 'picture';
 	x: number;
 	y: number;
 	w: number;
 	h: number;
 	radii?: [number, number, number, number];
 	fill?: Paint;
+	/** A linear gradient the box is filled with. `fill` then holds a stand-in color for a reader that ignores it. */
+	gradient?: Gradient;
 	stroke?: Paint & { width: number };
 	shadow?: Shadow;
 	/** A line: the side of its box it was. */
@@ -110,10 +148,45 @@ export interface Shape {
 	 * the corner to the next side there. Absent when both corners are square.
 	 */
 	wrap?: [number, number];
+	/** A path: its outline, relative to the box `x, y`. */
+	path?: PathCmd[];
+	/** A path: whether it is closed (a filled mark) or open (a stroked one). */
+	closed?: boolean;
+	/** A path's stroke ends and corners. */
+	cap?: 'butt' | 'round' | 'square';
+	join?: 'miter' | 'round' | 'bevel';
+	/** Drawn by a pseudo-element of the box it groups with (a pill's dot or mark), not by an element. */
+	pseudo?: boolean;
+	/**
+	 * A group inside its card's group: the index of the shape that owns it. A pill inside a card is
+	 * one object (its box, its dot, its ring, its mark), and that object is one member of the card.
+	 */
+	sub?: number;
+	/**
+	 * A picture: what could not be a shape (a photo, a chart, an icon, a box with a paint Calco cannot draw), cropped
+	 * from the slide. The reader fixes where it is and the host fills in the bytes; the picture sits in the paint order
+	 * among the shapes, so a card can hold an icon above its fill. Its description is the element's own alt text.
+	 */
+	image?: Uint8Array;
+	alt?: string;
+	/** A picture that holds a raster image (an `<img>`, a video poster, a canvas): lossy JPEG is fine for it. */
+	photo?: boolean;
 	/** A label: the index in `Slide.frames` of the text this box carries inside it. */
 	text?: number;
 	/** The group this shape moves with: the index of its card in `Slide.shapes`. */
 	group?: number;
+}
+
+/**
+ * What a slide paints behind its content: a flat color, or a picture of the page's own paint
+ * (its border, rules, washes and textures). Slides whose backgrounds match share one, so a
+ * writer puts it on a master page / layout once and the slides inherit it.
+ */
+export interface Background {
+	/** `#rrggbb`, when the background is one flat color. Then there is no `image`. */
+	color?: string;
+	/** PNG bytes, slide-sized, opaque. */
+	image?: Uint8Array;
 }
 
 /** A slide, read. */
@@ -121,8 +194,13 @@ export interface Slide {
 	/**
 	 * The slide as one picture (PNG bytes). In PICTURE mode it is the whole slide; in
 	 * EDITABLE mode it is the slide with its text hidden, and `frames` carries the text.
+	 * With `background` set it is only the FOREGROUND: transparent wherever the slide
+	 * shows nothing but its background, which the master page supplies.
+	 * Absent when the slide's pictures are `Shape`s of kind `picture`: each carries its own bytes.
 	 */
-	image: Uint8Array;
+	image?: Uint8Array;
+	/** Index into `Deck.backgrounds`: the background this slide inherits. Absent: none (the picture is opaque). */
+	background?: number;
 	/** Editable text. Empty in picture mode. */
 	frames: TextFrame[];
 	/**
@@ -142,6 +220,8 @@ export interface Deck {
 	width: number;
 	height: number;
 	slides: Slide[];
+	/** The backgrounds the slides share, by index (see `Slide.background`). */
+	backgrounds?: Background[];
 	title?: string;
 	subject?: string;
 	author?: string;

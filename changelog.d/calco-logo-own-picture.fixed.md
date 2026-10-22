@@ -1,0 +1,1 @@
+- the editable export keeps the deck logo as its own picture on every slide, with its transparency, instead of baking it into the shared background, a photo panel's picture or a whole-slide picture depending on the slide; a finish's own full-slide layers no longer merge the pictures on a slide into one.

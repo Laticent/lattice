@@ -17,6 +17,9 @@
 import { type FontMetrics, faceFor, readFontMetrics } from './fonts.js';
 import type { EmbeddedFont, TextFrame, TextStyle } from './types.js';
 
+/** Loops, not a spread: `Math.min(...xs)` overflows the call stack past about 120,000 values. */
+const highest = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
+
 /** Used when the face is not embedded: a typical text face (ascent 0.8 of the glyph box). */
 const FALLBACK: FontMetrics = { ascent: 0.96, descent: 0.24 };
 
@@ -68,7 +71,7 @@ export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetric
 	// The browser's baseline: the glyph box splits ascent : descent.
 	const baseline = frame.y + (frame.firstLineHeight * ascent) / (ascent + descent);
 	const y = spacing === 'proportional' ? baseline - spacingMultiple(frame, metrics, size) * (ascent + (metrics.lineGap || 0) / 2) * size : baseline - (frame.lineHeight - descent * size);
-	const maxSize = Math.max(...frame.lines.flat().map((r) => r.style.size));
+	const maxSize = highest(frame.lines.flat().map((r) => r.style.size));
 	const room =
 		frame.align === 'center'
 			? 2 * Math.min(frame.x, slideW - frame.x - frame.w)

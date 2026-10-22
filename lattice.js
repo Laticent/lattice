@@ -130,6 +130,15 @@ function listAvailablePalettes() {
   } catch (_e) { return '(themes/ not readable)'; }
 }
 
+// The export log's "approximated" clause: what an editable export drew as the nearest thing an
+// office suite has (`stacked-shadow`: two outer shadows as one; `backdrop-blur`: a frosted fill as its
+// translucent color). Empty when nothing was approximated.
+function approximatedNote(tally) {
+  const label = { 'stacked-shadow': 'stacked shadow', 'backdrop-blur': 'frosted fill', 'chip-highlight': 'inline chip as highlight' };
+  const parts = Object.entries(tally || {}).map(([kind, n]) => `${n} ${label[kind] || kind}${n === 1 ? '' : 's'}`);
+  return parts.length ? `; approximated: ${parts.join(', ')}` : '';
+}
+
 /** Every option: `lattice --help all`. */
 function showFullHelp() {
   console.log(`lattice — turn a Markdown deck into PDF / PPTX / ODP / PNG / HTML (every option)
@@ -4865,14 +4874,15 @@ async function renderBody(browser, g, closeBrowser) {
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
-        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
+        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
       }
     } else {
       const pngBuffers = [];
       for (const h of handles) {
-        pngBuffers.push(await g(() => h.screenshot(pngShot), 'screenshot slide'));
+        // A `.pptx` slide picture is opaque, so a photographic one is stored as a JPEG (lib/export/slide-picture.js).
+        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot) : h.screenshot(pngShot)), 'screenshot slide'));
       }
       await closeBrowser();
 
