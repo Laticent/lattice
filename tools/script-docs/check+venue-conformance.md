@@ -1,0 +1,4 @@
+---
+group: Lint & audit
+---
+Does every component's sample SURVIVE each venue? Renders every manifest `sample`, bare and under each declared variant, at laptop / huddle / conference / hall and checks three things: V1 the engine did not mark the slide clipped; V2 every visible text node and image/SVG sits inside the slide and inside every clipping ancestor (finds a card whose own `overflow:hidden` hides its excess); V3 a QR code is at least a venue-set share of the slide width (`SCAN_MIN`, proposed). Exists because `contact` and `wifi` set `venueCapacity: none` ("fixed card, nothing to count") and so lost their QR, phone and URL at hall with no warning from anywhere. A report by default; `--strict` exits 1 on an unnamed failure or a stale `KNOWN` entry. `--only=a,b`, `--venues=`, `--json`. Not wired into CI. Record: engineering/decisions/2026-10-22-venue-conformance.md.
