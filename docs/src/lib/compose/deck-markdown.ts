@@ -353,6 +353,24 @@ function lineStartEscape(text: string): { head: string; length: number } | null 
 }
 
 /** The text of each line of a heading, split at its soft breaks. Two breaks in a row write one (the serializer collapses them), so they are one split. */
+/** One line break for a run of adjacent soft and hard breaks (the text between them was deleted): a hard break when the run holds one,
+ *  else the soft form. Writing each break on its own put a blank line in the paragraph (`a\\` then an empty line), which splits it and leaves
+ *  a visible backslash. A run that ends the block writes nothing, as upstream's hard break does. */
+function writeBreakRun(state: SerializerState, parent: PMNode, index: number) {
+	const isBreak = (n: PMNode) => n.type.name === 'soft_break' || n.type.name === 'hard_break';
+	if (index > 0 && isBreak(parent.child(index - 1))) return;
+	let hard = false;
+	for (let i = index; i < parent.childCount; i++) {
+		const child = parent.child(i);
+		if (!isBreak(child)) {
+			if (hard) state.write('\\\n');
+			else state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\n');
+			return;
+		}
+		if (child.type.name === 'hard_break') hard = true;
+	}
+}
+
 function setextLines(heading: PMNode): string[] {
 	const lines = [''];
 	let afterBreak = false;
@@ -397,13 +415,10 @@ const latticeNodes = {
 	// The line break as written; the next line carries its own block prefix (`> `, list indent). A setext heading over two
 	// lines keeps its break (the engine draws it as `<br>`); an ATX heading is one line, so a break there writes a space.
 	soft_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
-		// Two breaks in a row (the text between them was deleted) write one line break, not a blank line that splits the paragraph.
-		if (index > 0 && parent.child(index - 1).type.name === 'soft_break') return;
-		for (let i = index + 1; i < parent.childCount; i++)
-			if (parent.child(i).type.name !== 'soft_break') {
-				state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\n');
-				return;
-			}
+		writeBreakRun(state, parent, index);
+	},
+	hard_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
+		writeBreakRun(state, parent, index);
 	},
 	heading(state: SerializerState, node: PMNode) {
 		let hasBreak = false;

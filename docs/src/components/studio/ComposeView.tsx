@@ -10,7 +10,7 @@ import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, } from '@/lib/compose/code-commands';
-import { type CommentKind, commentInner, commentKind, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
+import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
@@ -740,8 +740,8 @@ class SlideView {
 		// three-finger swipe) lists only what the BROWSER edited, never ProseMirror's history, so an
 		// author who picked the wrong color had no way back. The pair drives the one history for the
 		// whole deck, from whichever slide's bar is showing. It never takes focus, so no keyboard rises.
-		this.undoBtn = this.btn('Undo', 'undo-2', () => { undo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-undo');
-		this.redoBtn = this.btn('Redo', 'redo-2', () => { redo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-redo');
+		this.undoBtn = this.btn('Undo', 'undo-2', () => { undo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-undo', false);
+		this.redoBtn = this.btn('Redo', 'redo-2', () => { redo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-redo', false);
 		this.undoBtn.disabled = this.redoBtn.disabled = true;
 		// FIRST in the bar, before the Format group. On a narrow pane the bar wraps (CSS), with this pair
 		// and the insert doors on the first row.
@@ -779,7 +779,15 @@ class SlideView {
 		liveSlideViews.add(this);
 		this.applyDecos(decorations);
 	}
-	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls: string): HTMLButtonElement {
+	/** Write the open note's words before a slide control acts. The controls keep focus in the field (their mousedown is cancelled), so its blur,
+	 *  which writes the words, never fires; a control that rebuilds the deck or hides the panel would drop them. True when words are left unwritten
+	 *  (the note refused them). */
+	private writeOpenNote(): boolean {
+		const state = { dirty: false };
+		this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: state }));
+		return state.dirty;
+	}
+	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls: string, saveNote = true): HTMLButtonElement {
 		const b = document.createElement('button');
 		b.type = 'button';
 		b.className = cls;
@@ -789,6 +797,8 @@ class SlideView {
 		b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 		b.addEventListener('click', (e) => {
 			e.preventDefault();
+			// Undo and Redo step the history as it stands; writing the note first would make them undo the note instead.
+			if (saveNote) this.writeOpenNote();
 			fn();
 		}, { signal: this.ac.signal });
 		return b;
@@ -991,12 +1001,12 @@ class SlideView {
 	}
 	private toggleCollapse() {
 		// Folding or unfolding closes an open note: its pill may be one the fold hides, and a panel with no visible pill is a dead end.
-		// Its words are written first, because the panel leaves the page before its field blurs. Words the note refuses stay open.
-		const state = { dirty: false };
-		this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: state }));
+		// Its words are written first (`btn` does it on every control, and asks again here for the answer), because the panel leaves the page
+		// before its field blurs. Words the note refuses stay open.
+		const dirty = this.writeOpenNote();
 		const pos = this.getPos();
 		const tr = this.view.state.tr.setMeta(collapseKey, { pos });
-		this.view.dispatch(state.dirty ? tr : tr.setMeta(commentOpenKey, { open: null }));
+		this.view.dispatch(dirty ? tr : tr.setMeta(commentOpenKey, { open: null }));
 		this.view.focus();
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
@@ -1446,8 +1456,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// This panel belongs to one opening. Once the author opens another note, or closes this one, it must write nothing.
 	const seq = openSeq;
 	const isCurrent = () => seq === openSeq && !view.isDestroyed;
-	let original = readableNote(node.attrs.text as string);
-	body.textContent = original;
+	// The field holds the words as written, line breaks and all, so changing one word writes one word. A note inside a quote or list stays one
+	// line (see `commit`), so its field shows the joined reading form, as before.
+	const editable = (text: string, at: number) => (view.state.doc.resolve(at).depth >= 2 ? readableNote(text) : editableNote(text));
+	let original = editable(node.attrs.text as string, pos);
+	body.textContent = readableNote(node.attrs.text as string);
 	// On a slide Compose can write, the words are a live field: one click on the pill and the author types. On a locked slide they
 	// are plain text, as before. The field is the panel's body (same class and id), and its default value is the words, so the
 	// text a reader or a test sees is the same either way.
@@ -1533,11 +1546,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 				return;
 			}
 			view.dispatch(view.state.tr.setNodeMarkup(open.at, undefined, { ...open.node.attrs, text: next }).setMeta(commentOpenKey, { open: open.at }));
-			original = readableNote(next);
+			original = editable(next, open.at);
 		};
 		field.addEventListener('cs-note-commit', (e) => {
 			commit();
-			(e as CustomEvent<{ dirty: boolean }>).detail.dirty = field.value !== original;
+			(e as CustomEvent<{ dirty: boolean }>).detail.dirty = field.value.trim() !== original.trim();
 		});
 		// Tell the editor the caret has left the note, so an outside change it parked while the author wrote can land.
 		const left = () => {

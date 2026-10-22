@@ -126,6 +126,12 @@ describe('soft break edge cases', () => {
 		const doc = proseSchema.node('doc', null, [proseSchema.node('paragraph', null, [proseSchema.text('a'), proseSchema.node('soft_break'), proseSchema.node('soft_break'), proseSchema.text('c')])]);
 		expect(serializeSlideProse(doc).trimEnd()).toBe('a\nc');
 	});
+	it('a hard break next to a soft break writes one hard break, never a blank line that splits the paragraph', () => {
+		const para = (...kids: string[]) => proseSchema.node('doc', null, [proseSchema.node('paragraph', null, kids.map((k) => (k === 'H' ? proseSchema.node('hard_break') : k === 'S' ? proseSchema.node('soft_break') : proseSchema.text(k))))]);
+		expect(serializeSlideProse(para('a', 'H', 'S', 'c')).trimEnd()).toBe('a\\\nc');
+		expect(serializeSlideProse(para('a', 'S', 'H', 'c')).trimEnd()).toBe('a\\\nc');
+		expect(serializeSlideProse(para('a', 'S', 'H')).trimEnd()).toBe('a');
+	});
 	it('a setext heading with a blank or code-indented line falls back to one ATX line', () => {
 		const heading = (level: number, parts: (string | null)[]) =>
 			proseSchema.node('doc', null, [proseSchema.node('heading', { level }, parts.map((p) => (p === null ? proseSchema.node('soft_break') : proseSchema.text(p))))]);

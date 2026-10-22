@@ -179,6 +179,28 @@ export function commentText(text: string): string {
 	return stripChannelPrefix(commentBody(text), text);
 }
 
+/** The indent every later line of a note's words shares (the hanging indent an author lines a note up with). The panel shows the words
+ *  without it and `writeNote` puts it back, so a note reads flush in the field and keeps its bytes. */
+function hangingIndent(words: string): string {
+	const later = words.split('\n').slice(1).filter((l) => l.trim());
+	if (!later.length) return '';
+	return later.map((l) => /^[ \t]*/.exec(l)?.[0] ?? '').reduce((a, b) => (b.startsWith(a) ? a : a.startsWith(b) ? b : ''));
+}
+
+function noteWords(text: string): string {
+	const inner = commentInner(text);
+	return (commentKind(text) === 'note' ? inner : inner.replace(/^\s*[A-Za-z]+\s*:/, '')).trim();
+}
+
+/** The comment's words as the author wrote them, for EDITING: the channel prefix, the space around the words and their shared hanging indent
+ *  are set aside, and every line break inside them is kept, so changing one word writes back one word and nothing else (`readableNote` joins
+ *  wrapped lines, which is right for reading and wrong for writing). */
+export function editableNote(text: string): string {
+	const words = noteWords(text);
+	const indent = hangingIndent(words);
+	return indent ? words.split('\n').map((l, i) => (i > 0 && l.startsWith(indent) ? l.slice(indent.length) : l)).join('\n') : words;
+}
+
 /** Longest comment a note may be edited to: the same ceiling a paste is held to (`readCommentText`). */
 const NOTE_MAX = 8192;
 
@@ -205,8 +227,14 @@ export function writeNote(text: string, words: string): string | null {
 	const opener = /^<!-{2,}/.exec(text)?.[0];
 	const closer = /-*!?>$/.exec(text)?.[0];
 	if (!opener || closer === undefined) return null;
-	const channel = commentKind(text) === 'note' ? '' : `${/^\s*([A-Za-z]+)\s*:/.exec(commentInner(text))?.[1] ?? ''}: `;
-	const out = `${opener} ${channel}${body} ${closer}`;
+	// Everything around the words keeps its bytes: the space or line break after the opener, the channel prefix as written, and the space or
+	// line break before the closer. Only the words between them change.
+	const inner = commentInner(text);
+	const lead = (commentKind(text) === 'note' ? /^\s*/ : /^\s*[A-Za-z]+\s*:\s*/).exec(inner)?.[0] ?? '';
+	const trail = /\s*$/.exec(inner)?.[0] ?? '';
+	const indent = hangingIndent(noteWords(text));
+	const laid = indent ? body.split('\n').map((l, i) => (i > 0 && l.trim() ? indent + l : l)).join('\n') : body;
+	const out = `${opener}${lead}${laid}${trail}${closer}`;
 	if (out.length > NOTE_MAX || !isWellFormedComment(out) || DIRECTIVE_SHAPED.test(out) || commentKind(out) !== commentKind(text)) return null;
 	return out;
 }

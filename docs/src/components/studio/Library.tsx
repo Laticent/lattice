@@ -218,7 +218,7 @@ function FilterRow({ icon, label, desc, count, on, onPick }: { icon: React.React
 	);
 }
 
-export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
+export function Library({ open, onOpenChange, docked, options, activePalette, activeFinish, initialFilter, filterRequest, activeDeckId = null, activeDeckSource, onReplaceSource, onApplyTheme, onApplyFinish, onInsert, onEditTheme, onEditComponent, onEditFinish, onEditMotion, onChanged }: {
 	open: boolean;
 	onOpenChange: (o: boolean) => void;
 	/** Desktop-Craft: render as a docked left column (plain div, no Sheet portal),
@@ -228,6 +228,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	activePalette: string;
 	activeFinish: string;
 	initialFilter?: Filter;
+	/** Counts requests for `initialFilter`. A second request for the same filter, after the author moved to another tab, changes nothing else, so this is what brings the tab back. */
+	filterRequest?: number;
 	/** The deck open in the Studio. Decides which deck-scoped images the Images tab shows and what "This deck" means on add. */
 	activeDeckId?: string | null;
 	/** The open deck's CURRENT markdown. The "used in N decks" count reads it live, so it follows what is typed beside the panel; every other deck is read from storage when the panel loads. */
@@ -369,6 +371,10 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setArmed(null);
 		}
 	}, [open, reload, initialFilter]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: runs once per request; `open` and `initialFilter` are read, not watched.
+	React.useEffect(() => {
+		if (open && initialFilter) setFilter(initialFilter);
+	}, [filterRequest]);
 
 	const q = query.trim().toLowerCase();
 	const inDesign = filter === 'all' || filter === 'design';

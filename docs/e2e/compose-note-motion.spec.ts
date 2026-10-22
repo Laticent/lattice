@@ -257,6 +257,17 @@ test.describe('notes and motion in Compose', () => {
 		await expect.poll(() => savedDeck(page)).toContain('<!-- HALF TYPED -->');
 	});
 
+	test('@crosswidth @gecko @webkit-tablet deleting another slide while a note is half typed keeps the words', async ({ page }) => {
+		await openDeckInCompose(page, '## One\n\nBody one.\n\n<!-- old note -->\n\n---\n\n## Two\n\nBody two.');
+		await pill(page, /note/).click();
+		await page.getByRole('textbox', { name: 'note text' }).pressSequentially(' EDITED');
+		// Slide Two's own control (the toolbar's Delete slide acts on the slide with the caret).
+		await page.locator('.cs-slide', { hasText: 'Body two.' }).getByRole('button', { name: 'Delete slide' }).click();
+		await page.getByRole('button', { name: 'Confirm delete slide' }).click();
+		await expect.poll(() => savedDeck(page)).toContain('<!-- old note EDITED -->');
+		expect(await savedDeck(page)).not.toContain('## Two');
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

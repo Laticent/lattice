@@ -791,6 +791,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// When the reference-doc picker's "Manage in Library" link opens the Library, jump
 	// it straight to the Docs tab (#651). Undefined for the normal Library button.
 	const [libInitialFilter, setLibInitialFilter] = React.useState<'refdoc' | 'motion' | undefined>(undefined);
+	const [libFilterRequest, setLibFilterRequest] = React.useState(0);
 	// The Docs deep-link is one-shot: clear it whenever the Library leaves the assistant
 	// slot. Desktop closes the docked Library via the activity-bar launcher (a plain
 	// `setActiveAssistant(null)` — the docked `LibraryFrame` is a div and never fires
@@ -6054,7 +6055,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) setLibInitialFilter(filter); revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} />
+				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -7385,7 +7386,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -7574,7 +7575,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							options={options}
 							activePalette={palette}
 							activeFinish={finish}
-							initialFilter={libInitialFilter}
+							initialFilter={libInitialFilter} filterRequest={libFilterRequest}
 							activeDeckId={deck.id}
 							activeDeckSource={source} onReplaceSource={replaceDeckSource}
 							onApplyTheme={applyPalette}

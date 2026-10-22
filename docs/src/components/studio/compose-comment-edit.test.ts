@@ -1,7 +1,7 @@
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { afterEach, describe, expect, it } from 'vitest';
-import { writeNote } from '@/lib/compose/comment-block';
+import { editableNote, writeNote } from '@/lib/compose/comment-block';
 import { deckToDoc, docToDeck } from '@/lib/compose/deck-doc';
 import { CommentView, commentRunPlugin, structuralGuard } from './ComposeView';
 
@@ -56,6 +56,10 @@ describe('writeNote', () => {
 		expect(writeNote('<!-- a plain note. -->', 'new words')).toBe('<!-- new words -->');
 		expect(writeNote('<!-- say: old -->', 'new words')).toBe('<!-- say: new words -->');
 		expect(writeNote('<!--- dashes --->', 'x')).toBe('<!--- x --->');
+	});
+	it('changing one word of a note that spans lines changes that word and no other byte', () => {
+		const cases = ['<!-- Q1 revenue: 10\nQ2 revenue: 20\nQ3 revenue: 30 -->', '<!-- say: First sentence 10.\n     Second sentence. -->', '<!--\nTODO 10\n-->', '<!--\n  - a 10\n  - b\n-->', '<!--note 10-->', '<!-- TODO 10:\n     - call finance\n       - nested\n     - redo the chart -->'];
+		for (const text of cases) expect(writeNote(text, editableNote(text).replace('10', '11'))).toBe(text.replace('10', '11'));
 	});
 	it('keeps lines the author typed', () => {
 		expect(writeNote('<!-- a -->', 'one\n\n- two\n- three')).toBe('<!-- one\n\n- two\n- three -->');
