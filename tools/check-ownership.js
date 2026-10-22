@@ -6203,6 +6203,16 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'out, so a lightbox that was going to open would already be mounted.',
   },
   {
+    file: 'docs/e2e/collage-player-engines.spec.ts', ms: 600, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS in Firefox and WebKit (#2648 P2): with the exported player\'s collage '
+       + 'lightbox open, a wheel flick must NOT also turn the slide behind it. The player\'s window '
+       + 'listener turns a slide inside the same event dispatch, but a leak past the lightbox\'s '
+       + 'stopPropagation has no signal of its own; a poll of the unchanged index goes green on its '
+       + 'first tick. 600ms outlasts the player\'s 350ms wheel cooldown, so a leaked event would have '
+       + 'fired and the index moved. The same file\'s control arm (a wheel on the closed deck turns '
+       + 'the slide) and its closed-again arm prove the listener is live in that engine.',
+  },
+  {
     file: 'docs/e2e/deck-drop-import.spec.ts', ms: 1000, count: 3,
     why: 'THREE ABSENCE ASSERTIONS: a PDF dropped on the code editor, on the compose editor and '
        + 'while presenting must import NOTHING and leave the tab on the Studio. There is no signal '
