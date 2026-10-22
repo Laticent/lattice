@@ -70,7 +70,6 @@ Build-time only. The directive does not render in the marp-vscode preview pane b
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 
 `Lattice · custom logo`
 

@@ -138,7 +138,6 @@ Filled = high exposure, half = moderate, empty = controlled.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

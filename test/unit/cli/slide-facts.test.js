@@ -59,7 +59,8 @@ describe('slide facts', () => {
     assert.deepEqual(facts, {
       version: FACTS_VERSION,
       classes: ['tally', 'split'],
-      directives: { header: 'Deck header', footer: 'Deck footer', class: 'tally split', backgroundColor: 'red' },
+      // `paginate` is on by default (2026-10-20), so a numbered slide reports it with no key written.
+      directives: { paginate: 'true', header: 'Deck header', footer: 'Deck footer', class: 'tally split', backgroundColor: 'red' },
       title: 'Three wins & more',
       blocks: [
         { type: 'heading', level: 6, text: 'Eyebrow', runs: [{ text: 'Eyebrow' }] },

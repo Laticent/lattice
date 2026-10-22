@@ -8,7 +8,6 @@ footer: "read-aloud narrates the flowchart topology"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 <!-- _header: '' -->
 

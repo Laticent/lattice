@@ -716,12 +716,12 @@ describe('Studio — Inspector controls respond', () => {
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
-		// Off by default (no front-matter); turning it on writes `paginate: true`.
-		expect(sw).not.toBeChecked();
-		await user.click(sw);
+		// On by default (no front-matter); turning it off writes `paginate: false`.
 		expect(sw).toBeChecked();
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*true/);
-		// Turning it off removes the directive again.
+		await user.click(sw);
+		expect(sw).not.toBeChecked();
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*false/);
+		// Turning it back on removes the directive again.
 		await user.click(screen.getByRole('switch', { name: 'Page numbers' }));
 		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/);
 	});
@@ -732,10 +732,10 @@ describe('Studio — Inspector controls respond', () => {
 		await clickSection(user, 'Chrome');
 		const sw = await screen.findByRole('switch', { name: 'Page numbers' });
 		await user.click(sw);
-		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*true/);
+		expect(screen.getByLabelText('Deck source').textContent).toMatch(/paginate:\s*false/);
 		// The change surfaces a one-click Undo, labeled by what changed.
 		const undo = await screen.findByRole('button', { name: 'Undo' });
-		expect(screen.getByText('Page numbers on')).toBeInTheDocument();
+		expect(screen.getByText('Page numbers off')).toBeInTheDocument();
 		// One click reverts the source to before the change and dismisses the toast.
 		await user.click(undo);
 		await waitFor(() => expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/paginate/));

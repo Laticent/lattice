@@ -6,7 +6,6 @@ header: "Lattice · q-and-a alignment pass"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 # The Q&A slide, on one baseline

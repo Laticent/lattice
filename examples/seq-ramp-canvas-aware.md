@@ -8,7 +8,6 @@ footer: "Canvas-relative stops · #1697"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -116,7 +115,6 @@ An accent's lightness is whatever the palette needed for an accent, so weight 4 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 # 38 of 38 encodings ordered.

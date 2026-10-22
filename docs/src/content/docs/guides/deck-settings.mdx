@@ -32,8 +32,7 @@ paginate: true
 footer: Board review · Confidential
 ---
 
-<!-- _class: spectrum-off -->
-<!-- _paginate: false -->
+<!-- _class: spectrum-off no-pagination -->
 
 ## One slide can differ from the deck.
 
@@ -72,7 +71,7 @@ own setting wins over the deck's:
 	editMarkdown
 	markdown={LAB_OVERRIDE}
 	size="short"
-	hint="The deck sets a two-color brand bar and page numbers. This slide drops the bar (spectrum-off) and hides its own number (_paginate: false). Delete those two lines and the slide falls back to the deck."
+	hint="The deck sets a two-color brand bar and page numbers. This slide drops the bar (spectrum-off) and hides its own number (no-pagination). Delete those two classes and the slide falls back to the deck."
 />
 
 **3. A wrong value is usually caught.** Most look and accent settings accept a
@@ -122,8 +121,10 @@ row puts its spare height.
 
 ### Chrome — the furniture on every slide
 
-`header:`, `footer:` and `paginate:` add a running header, a running footer and
-page numbers. `meta:` fills the small status line in the masthead, such as a
+`header:` and `footer:` add a running header and a running footer. Page numbers
+are on unless `paginate: false` says otherwise; one slide opts out with the
+`no-pagination` class, and title, divider and closing slides drop theirs on
+their own. `meta:` fills the small status line in the masthead, such as a
 date or a review stage. `logo:` draws your logo, and one line styles it:
 `logo-finish: bottom-center accent-ink lg title` takes up to one word each for
 the placement, the color, the size and the scope, and the editor completes them.

@@ -29,7 +29,10 @@ const ROOT = path.join(__dirname, '..', '..', '..');
 // Keys this comparison cannot ask the section about, each for a reason:
 //   class   has its own gate (class-directive-scan.test.js): the engine also merges the deck class in.
 //   theme   is deck-only and picks the stylesheet; the engine writes no per-slide attribute for it.
-const SKIPPED_KEYS = new Set(['class', 'theme']);
+//   paginate is no slide directive: the engine derives `data-paginate` from front matter, the
+//           `no-pagination` / `with-pagination` classes and the component manifest, and ignores a
+//           comment (test/unit/engine/directive-scope.test.js pins that). The scan resolves no value.
+const SKIPPED_KEYS = new Set(['class', 'theme', 'paginate']);
 
 const htmlUnescape = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 

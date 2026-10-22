@@ -140,7 +140,6 @@ At the start of the year we committed to seven roadmap items. Five shipped on or
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

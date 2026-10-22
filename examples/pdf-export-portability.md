@@ -18,7 +18,6 @@ The deck stays vector — selectable text, embedded fonts, crisp at any zoom. On
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -85,7 +84,6 @@ The tall photo column vanished outright in Quartz viewers. Same fix: the SVG is 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

@@ -236,7 +236,6 @@ The model holds: 240 youth served, 78% placed or in school, 84 cents of every do
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

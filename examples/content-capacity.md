@@ -8,7 +8,6 @@ footer: "Pick the layout by content shape"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

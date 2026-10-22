@@ -256,7 +256,6 @@ Northwind's surplus grew 22%, so it can now keep the first $50M of a catastrophe
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

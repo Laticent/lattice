@@ -144,25 +144,32 @@ style: |
 
 ## 2.2 Per-Slide Directives
 
-| Directive                   | Scope             | Effect               |
-| --------------------------- | ----------------- | -------------------- |
-| `<!-- _class: X -->`        | This slide only   | CSS class on section |
-| `<!-- _paginate: false -->` | This slide only   | Hide page number     |
-| `<!-- _header: '' -->`      | This slide only   | Hide header          |
-| `<!-- _footer: '' -->`      | This slide only   | Hide footer          |
-| `<!-- header: 'New' -->`    | This slide only   | Change header        |
-| `<!-- footer: 'New' -->`    | This slide only   | Change footer        |
-| `<!-- _class: no-header -->` | This slide only  | Hide the deck header |
+| Directive or class                      | Scope           | Effect                  |
+| --------------------------------------- | --------------- | ----------------------- |
+| `<!-- _class: X -->`                    | This slide only | CSS class on section    |
+| `<!-- _class: … no-pagination -->`      | This slide only | Hide page number        |
+| `<!-- _class: … with-pagination -->`    | This slide only | Show page number        |
+| `<!-- _class: … no-header -->`          | This slide only | Hide the deck header    |
+| `<!-- _header: '' -->`                  | This slide only | Hide header             |
+| `<!-- _footer: '' -->`                  | This slide only | Hide footer             |
+| `<!-- header: 'New' -->`                | This slide only | Change header           |
+| `<!-- footer: 'New' -->`                | This slide only | Change footer           |
 
-Header, footer and page numbers are set for every slide in front matter only. A slide comment sets its own slide, with
-or without the underscore: Lattice is not Marp, where the plain form carries onto every later slide. Every other
-directive keeps Marp's rule: underscore prefix = this slide only, no underscore = this slide and all following.
+Header and footer are set for every slide in front matter only. A slide comment sets its own slide, with or without
+the underscore: Lattice is not Marp, where the plain form carries onto every later slide. Every other directive keeps
+Marp's rule: underscore prefix = this slide only, no underscore = this slide and all following.
 
-Title, divider, and closing slides should suppress header, footer, and pagination:
+**Page numbers are not a slide directive.** Front matter `paginate:` numbers the deck and is on unless it says
+`false`. A slide opts out with the `no-pagination` class and back in with `with-pagination`. A component opts its
+slides out in its manifest (`"chrome": { "pagination": false }`), as title, divider and closing do, so their slides
+need nothing. A `paginate:` or `_paginate:` comment is ignored, and the deck lint says what to write instead.
+Marp carries plain directives onward; Export to Marp writes Marp's own directives so a Marp render agrees (owner's
+rulings, 2026-10-20).
+
+Title, divider, and closing slides should suppress header and footer (their manifest already drops the page number):
 
 ```markdown
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 ```

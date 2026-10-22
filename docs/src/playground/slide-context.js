@@ -471,14 +471,6 @@ export function directiveNameAt(before) {
 	return { from: m[1].length, typed: m[2] };
 }
 
-// The cursor's position on a `_paginate:` value inside an HTML comment —
-// `<!-- _paginate: fa|`. Returns `{ from, typed }` or null.
-export function paginateValuePosition(before) {
-	const m = before.match(/^(\s*<!--\s*_paginate:\s*)([\w-]*)$/);
-	if (!m) return null;
-	return { from: m[1].length, typed: m[2] };
-}
-
 // The cursor's position on a `_focusStyle:` value inside an HTML comment —
 // `<!-- _focusStyle: ri|`. Returns `{ from, typed }` or null. Distinct from the
 // axis detector below: `_focusStyle:` never matches the `_focus(Steps)?:` axis
@@ -548,8 +540,7 @@ export function identifierBefore(before) {
 // ENTERING a context, before any character is typed). Pure mirror of the source
 // gating in complete.js; returns one of:
 //   'class' | 'modifier'                        — inside `<!-- _class: … -->`
-//   'directive'                                 — a directive NAME `<!-- _pag…`
-//   'paginate'                                  — a `<!-- _paginate: … value
+//   'directive'                                 — a directive NAME `<!-- _hea…`
 //   'fence'                                     — a fence info string ` ```…`
 //   'theme' | 'finish' | 'split'                 — front-matter value lines
 //   null                                        — none of the above
@@ -566,7 +557,6 @@ export function typeaheadContext(getLine, lineNo, before) {
 	const cls = classDirectiveCompletion(before);
 	if (cls) return cls.kind; // 'class' | 'modifier'
 	if (directiveNameAt(before)) return 'directive';
-	if (paginateValuePosition(before)) return 'paginate';
 	if (focusStyleValuePosition(before)) return 'focus-style';
 	if (focusAxisPosition(before)) return 'focus';
 	if (fenceLangAt(before)) return 'fence';

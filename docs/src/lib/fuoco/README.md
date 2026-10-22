@@ -108,6 +108,41 @@ once per animation frame, for DOM work: a held key that crosses three parts in a
 view once. `idle` delivers when the browser is idle, for saving and presence. Pass a
 `scheduler` to `createFocusHub` to run the lanes somewhere other than a browser.
 
+## Lines, columns and section names
+
+Offsets are what the hub speaks; editors speak lines. `place.ts` converts, over a line table built once
+per outline snapshot (lines split on `\n`; 1-based lines, 0-based columns):
+
+| Call | What it does |
+|---|---|
+| `lineAt(outline, offset)` · `offsetAt(outline, line, col?)` · `lineEnd(outline, line)` · `lineCount(outline)` | Offset ↔ line and column, clamped into the text. |
+| `placeAt(outline, offset)` | `{ offset, line, col, unit, part, flat, kinds }`, or null for an empty outline. |
+| `rangeOf(outline, unit, part?)` · `extentOf(outline, from, to)` | A section's `{ from, to, fromLine, toLine }`; `toLine` is the last line that holds text. |
+| `focusPlace(hub)` | The focus as a `Place`: the caret when a view reported one, else the start of the focused part. A function, not a hub method, so a host that never asks for lines does not carry the line table. |
+
+`Outline.kinds` is the host's name for its two levels (`{ unit: 'slide', part: 'page' }`; pass `kinds` to
+`createTextOutliner` for `'chapter'` and `'paragraph'`). Without it a place says `unit` and `part`.
+
+## Aligning two views
+
+An editor and a preview show the same sections at different sizes, so a ratio of their scroll positions
+drifts and a jump at each section boundary is jarring. `align.ts` is a map between the two scroll positions
+that keeps the **sections** level: the first at the top, the last at the bottom, every one between centered in
+both. That is one rule: each section's centered scroll position, clamped into the view's scroll range (the first
+and last cannot be centered, so they clamp to the ends). The pairs are anchors, joined by straight lines, so
+the map is continuous, monotone and exact at both ends. Text and picture are level section for section, never
+line for line.
+
+| Call | What it does |
+|---|---|
+| `ViewLayout` | One view: `tops` and `bottoms` of each section in its scroll coordinates, its `viewport` and `content` size. Both views describe the same sections in the same order. |
+| `createScrollMap(a, b)` | `{ toB(scrollA), toA(scrollB) }`. |
+| `sectionAt(layout, scroll)` | The section a view is on: the one centered nearest, the first at the top, the last at the end. |
+| `anchorsOf(a, b)` · `centeredAt(layout, i)` · `maxScroll(layout)` | The pairs, a section's centered position, the furthest a view scrolls. |
+
+A host that scrolls two panes with it also needs an echo guard: setting a pane's scroll makes that pane
+scroll, so remember where the move landed and drop the event that arrives there.
+
 ## The guarantees
 
 | Guarantee | Mechanism |

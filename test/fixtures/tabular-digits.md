@@ -2,6 +2,8 @@
 marp: true
 theme: indaco
 size: hd
+# No page number: the test lists every word with a digit in it.
+paginate: false
 ---
 
 <!-- _class: glossary -->

@@ -206,8 +206,8 @@ and the linter use. Every suggestion is deterministic and offline;
 - **On an empty slide** — a `skeleton` completion drops the component's slot
   scaffold already in the correct nesting, so a card-style slide starts from
   the `- Title` / `  - body` shape rather than the inline-bold trap above.
-- **Other slide directives** — `_paginate`, `_header`, `_footer`, and friends
-  inside an HTML comment, plus `_paginate`'s `true` / `false` / `skip` values.
+- **Other slide directives** — `_header`, `_footer`, `_focus`, and friends
+  inside an HTML comment.
 - **Fence languages** — the language id after ` ``` `, including the
   `mermaid` and `chart` blocks Lattice renders.
 - **Inside a `mermaid` block** — the Mermaid diagram and flow keywords.
@@ -355,17 +355,19 @@ opt an individual slide out with a `_class` token.
 |---|---|---|---|
 | Running header | `header: "Acme — Q3"` | `no-header` | no — appears once you give it text |
 | Running footer | `footer: "Confidential"` | `no-footer` | no — appears once you give it text |
-| Page number | `paginate: true` | `no-paginate` | on for Form decks |
+| Page number | `paginate: false` (turns it **off**) | `no-pagination` | yes — except title, divider and closing |
 | Section rail | `class: no-progress` (turns it **off**) | `no-progress` | on when the deck has dividers |
 
-The header, footer, and page number ride Marp's own front-matter directives, so
-a running band turns **on** by giving it text and **off** by removing the line.
+The header and footer ride front-matter keys, so a running band turns **on** by
+giving it text and **off** by removing the line. Page numbers are on unless the
+front matter says `paginate: false`; title, divider and closing slides drop
+theirs through their component manifest.
 The section rail has no such directive, so its deck-wide off-switch is the
 `no-progress` class, which propagates to every slide. Want the rail gone
 everywhere? Add `class: no-progress` to the front matter. Want it back on one
-slide? That direction is rarer — reach for the per-slide `_header:` /
-`_footer:` / `_paginate:` directives when you need to turn a band *on* for
-a single slide against a deck that leaves it off.
+slide? That direction is rarer — reach for a per-slide `<!-- _header: -->` /
+`<!-- _footer: -->` comment, or the `with-pagination` class, when you need to turn
+a band *on* for a single slide against a deck that leaves it off.
 
 A header, footer or page-number comment on a slide sets **that slide only**, with
 or without the underscore: `<!-- header: "Appendix" -->` on slide 12 puts the text

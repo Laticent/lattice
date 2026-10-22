@@ -91,12 +91,12 @@ section.image > footer { display: none; }
  * one that loses its number.
  *
  * The class is DOUBLED to reach (0,2,2), the same idiom and the same reason as
- * `section.no-paginate.no-paginate::after` in base.variants.css: the engine pagination
+ * `section.no-pagination.no-pagination::after` in base.variants.css: the engine pagination
  * rule is `section[data-lattice-pagination]::after` at (0,1,2) and it is emitted at the
  * very END of the bundle, so an equally-specific selector LOSES on source order. Written
  * singly first, this rule was in the bundle, more specific than the scaffold default, and
  * changed exactly zero pixels. */
-section.image.image[data-img-composition="statement"]::after { content: none; }
+section.image.image[data-img-composition="statement"]:not(.with-pagination)::after { content: none; }
 /* The same suppression on the REAL element. Since #2206 the page number is one mark on
  * every frame — a `<span class="lat-pagination">` the pagination Tile injects
  * (lib/forms/tile/pagination) — and the pseudo above is retired wherever it exists. So
@@ -106,7 +106,7 @@ section.image.image[data-img-composition="statement"]::after { content: none; }
  * `display: none` rather than `content: none` because an element has no `content` to
  * null; the doubled class is unnecessary here (a child selector already beats the Tile's
  * `section > .lat-pagination`) but is kept so the two arms read as one pair. */
-section.image.image[data-img-composition="statement"] > .lat-pagination { display: none; }
+section.image.image[data-img-composition="statement"]:not(.with-pagination) > .lat-pagination { display: none; }
 
 /* The photo. Base = full-bleed cover layer behind everything; each composition
  * repositions/resizes it. No <img>, so no Marpit `section img` override needed. */

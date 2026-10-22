@@ -134,7 +134,6 @@ npx lattice fmt deck.md --check
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

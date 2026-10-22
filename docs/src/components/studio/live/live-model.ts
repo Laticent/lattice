@@ -21,6 +21,10 @@ export type LivePerson = {
 	editing: boolean;
 	/** What they are doing in the Studio, when they share it (not for this browser's own row). */
 	doing?: LiveDoing;
+	/** Where they are in the settings, in words ("in Deck · Brand", "in Setup · AI"), when they share it. */
+	at?: string;
+	/** The settings row they changed a moment ago ("changed Theme"): the row's name, never its value. */
+	changed?: string;
 	/** `off`: not on the call (no mic shown). `muted`: on the call, muted. */
 	mic: 'off' | 'muted' | 'on' | 'speaking';
 	/** Their connection dropped a moment ago and they have not come back yet (a phone that
@@ -136,7 +140,9 @@ export type LiveView = {
 
 /** Where the presenter is in Present (§7.2): the rendered slide in their lens, the page of a split slide,
  *  and the lens. Every member renders the same deck, so the same index is the same slide. */
-export type LiveTransport = { idx: number; page: number; lens: string; hash?: string };
+export type LiveTransport = { idx: number; page: number; lens: string; hash?: string; voice?: boolean };
+/** One narration sentence as it travels: compressed audio and its type. */
+export type LiveClip = { bytes: Uint8Array; mime: string; lead?: number };
 export type LivePresent = LiveTransport & { by: string };
 
 /** One of the host's records the others do not have: a theme, a finish, a custom component, or the
@@ -153,6 +159,13 @@ export type LiveActions = {
 	presentToEveryone: (on: boolean) => void;
 	/** Host, presenting to everyone: where its Present is now. */
 	presentTransport: (t: LiveTransport) => void;
+	/** Host, presenting to everyone with Voice on: how to answer a member's request for the clip of one sentence,
+	 *  named by the hash of its text. It must serve only what this device already holds, and never synthesize,
+	 *  because a peer must not spend the presenter's key (live-uniform note §6 rule 7). `null` stops serving. */
+	serveClips: (serve: ((hash: string) => Promise<LiveClip | null>) | null) => void;
+	/** Member following a presentation with narration: the presenter's clip for the sentence with this hash and
+	 *  this many characters. Resolves null when it never comes. Held in memory only, for this presentation. */
+	askClip: (hash: string, textLen: number, signal?: AbortSignal) => Promise<LiveClip | null>;
 	/** Mix a live stream into what this browser sends on the call (the presenter's narration), or take
 	 *  the last one out (null). It waits for the call if there is none yet. */
 	mixIntoCall: (stream: MediaStream | null) => void;

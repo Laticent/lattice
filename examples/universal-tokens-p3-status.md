@@ -8,7 +8,6 @@ footer: "Phase 3 — status + diagram lifecycle"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -87,7 +86,6 @@ sequenceDiagram
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

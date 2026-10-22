@@ -6,7 +6,6 @@ header: "Spectrum ramp floor · #1527"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -63,7 +62,6 @@ A ramp encodes rank by lightness, so its lowest stop is the palest thing on the 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

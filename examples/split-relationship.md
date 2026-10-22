@@ -8,7 +8,6 @@ footer: "split relationship signal"
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 01 · The four relationships`
 
@@ -111,7 +110,6 @@ footer: "split relationship signal"
 
 <!-- _class: divider -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 `Section 02 · What the split carries`
 

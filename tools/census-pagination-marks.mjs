@@ -187,13 +187,13 @@ console.log(`  BOTH (overprinted)             ${String(totals.both).padStart(7)}
 console.log(`  neither mark is used           ${String(totals.neither).padStart(7)}   ${pct(totals.neither).padStart(7)}`);
 if (totals.failed.length) console.log(`\n  ${totals.failed.length} deck(s) failed to export: ${totals.failed.join(', ')}`);
 // THE "NEITHER" SET IS REPORTED, NEVER JUST COUNTED. A paginated slide with no mark is
-// either a deliberate suppression (`silent`, `no-paginate`, `image statement`, an
+// either a deliberate suppression (`silent`, `no-pagination`, `image statement`, an
 // edge-media `claim-bleed`) or a page number that went missing — and the two are
 // indistinguishable from a count. Breaking it down by class is what lets a reader tell a
 // 9% that is all suppression from a 9% hiding a regression.
 const neither = new Map();
 for (const d of perDeck) for (const cls of d.neitherSlides || []) {
-  const key = ['silent', 'no-paginate'].find((t) => cls.split(/\s+/).includes(t)) || cls;
+  const key = ['silent', 'no-pagination'].find((t) => cls.split(/\s+/).includes(t)) || cls;
   neither.set(key, (neither.get(key) || 0) + 1);
 }
 if (neither.size) {

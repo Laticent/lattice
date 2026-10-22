@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import { insertVia } from './compose-insert';
 import { expect, gotoStudio, persistedSource, setEditorContent, test } from './studio-fixture';
 
 /** The saved deck text. The store keeps it JSON-encoded, so decode it before comparing bytes. */
@@ -148,7 +149,7 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
 		await page.keyboard.press('End');
-		await bar(page).getByRole('button', { name: 'Insert pill' }).click();
+		await insertVia(page, 'Pill');
 
 		await expect(editor(page)).toBeVisible();
 		await expect(editor(page).getByRole('textbox', { name: 'Label' })).toHaveValue('Status');
@@ -235,6 +236,9 @@ test.describe('compose pill editor', () => {
 	test('copying a pill to another slide pastes the exact span, drawn', async ({ page, context }) => {
 		await context.grantPermissions(['clipboard-read', 'clipboard-write']);
 		await openDeckInCompose(page);
+		// The pills become objects when the authoring kernels have loaded, a moment after the slide shows. Walking the caret before that
+		// lands on text, not on the pill (the spec failed about one run in five without this wait).
+		await expect(drawnPills(page)).toHaveCount(4);
 		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
 		await page.keyboard.press('Home');
 		for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowRight");
@@ -273,7 +277,7 @@ test.describe('compose pill editor', () => {
 		await chip(page, 'SHIPPED').click();
 		await editor(page).getByRole('button', { name: 'Done' }).click();
 		// Done puts the caret directly after the pill: the case that used to write ONE code span.
-		await bar(page).getByRole('button', { name: 'Insert pill' }).click();
+		await insertVia(page, 'Pill');
 		await expect(editor(page)).toBeVisible();
 		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c2}` `{Status}`');
 		await editor(page).getByRole('button', { name: 'Done' }).click();

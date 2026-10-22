@@ -1,0 +1,617 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 140112,
+	"lines": [
+		{
+			"key": "3a0cb570580e",
+			"text": "The Studio builds boardroom slides from plain text. Watch.",
+			"file": "3a0cb570580e.mp3",
+			"bytes": 26784,
+			"speechMs": 4408,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The Studio builds boardroom slides from plain text.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 262,
+								"charOffset": 0
+							},
+							{
+								"display": "Studio",
+								"spoken": "Studio",
+								"startMs": 262,
+								"endMs": 785,
+								"charOffset": 4
+							},
+							{
+								"display": "builds",
+								"spoken": "builds",
+								"startMs": 785,
+								"endMs": 1046,
+								"charOffset": 11
+							},
+							{
+								"display": "boardroom",
+								"spoken": "boardroom",
+								"startMs": 1046,
+								"endMs": 1569,
+								"charOffset": 18
+							},
+							{
+								"display": "slides",
+								"spoken": "slides",
+								"startMs": 1569,
+								"endMs": 2092,
+								"charOffset": 28
+							},
+							{
+								"display": "from",
+								"spoken": "from",
+								"startMs": 2092,
+								"endMs": 2354,
+								"charOffset": 35
+							},
+							{
+								"display": "plain",
+								"spoken": "plain",
+								"startMs": 2354,
+								"endMs": 2615,
+								"charOffset": 40
+							},
+							{
+								"display": "text.",
+								"spoken": "text.",
+								"startMs": 2615,
+								"endMs": 2915,
+								"charOffset": 46
+							}
+						],
+						"startMs": 0,
+						"endMs": 3406,
+						"charOffset": 0
+					},
+					{
+						"display": "Watch.",
+						"words": [
+							{
+								"display": "Watch.",
+								"spoken": "Watch.",
+								"startMs": 3617,
+								"endMs": 3917,
+								"charOffset": 52
+							}
+						],
+						"startMs": 3617,
+						"endMs": 4408,
+						"charOffset": 52
+					}
+				],
+				"durationMs": 4408
+			}
+		},
+		{
+			"key": "f0b3ccb5e3c8",
+			"text": "Start with a blank deck…",
+			"file": "f0b3ccb5e3c8.mp3",
+			"bytes": 11232,
+			"speechMs": 1817,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Start with a blank deck…",
+						"words": [
+							{
+								"display": "Start",
+								"spoken": "Start",
+								"startMs": 0,
+								"endMs": 247,
+								"charOffset": 0
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 247,
+								"endMs": 493,
+								"charOffset": 6
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 493,
+								"endMs": 740,
+								"charOffset": 11
+							},
+							{
+								"display": "blank",
+								"spoken": "blank",
+								"startMs": 740,
+								"endMs": 987,
+								"charOffset": 13
+							},
+							{
+								"display": "deck…",
+								"spoken": "deck…",
+								"startMs": 987,
+								"endMs": 1269,
+								"charOffset": 19
+							}
+						],
+						"startMs": 0,
+						"endMs": 1817,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1817
+			}
+		},
+		{
+			"key": "a9cfed81c485",
+			"text": "…“My First Deck.”",
+			"file": "a9cfed81c485.mp3",
+			"bytes": 7344,
+			"speechMs": 1175,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "…“My First Deck.”",
+						"words": [
+							{
+								"display": "…“My",
+								"spoken": "…“My",
+								"startMs": 0,
+								"endMs": 392,
+								"charOffset": 0
+							},
+							{
+								"display": "First",
+								"spoken": "First",
+								"startMs": 392,
+								"endMs": 783,
+								"charOffset": 5
+							},
+							{
+								"display": "Deck.”",
+								"spoken": "Deck.",
+								"startMs": 783,
+								"endMs": 1175,
+								"charOffset": 11
+							}
+						],
+						"startMs": 0,
+						"endMs": 1175,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1175
+			}
+		},
+		{
+			"key": "ffa676bcc860",
+			"text": "Three lines of Markdown…",
+			"file": "ffa676bcc860.mp3",
+			"bytes": 11376,
+			"speechMs": 1824,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Three lines of Markdown…",
+						"words": [
+							{
+								"display": "Three",
+								"spoken": "Three",
+								"startMs": 0,
+								"endMs": 218,
+								"charOffset": 0
+							},
+							{
+								"display": "lines",
+								"spoken": "lines",
+								"startMs": 218,
+								"endMs": 654,
+								"charOffset": 6
+							},
+							{
+								"display": "of",
+								"spoken": "of",
+								"startMs": 654,
+								"endMs": 872,
+								"charOffset": 12
+							},
+							{
+								"display": "Markdown…",
+								"spoken": "Markdown…",
+								"startMs": 872,
+								"endMs": 1340,
+								"charOffset": 15
+							}
+						],
+						"startMs": 0,
+						"endMs": 1824,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1824
+			}
+		},
+		{
+			"key": "9454609d23e2",
+			"text": "…a boardroom title. Instantly.",
+			"file": "9454609d23e2.mp3",
+			"bytes": 15408,
+			"speechMs": 2515,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "…a boardroom title.",
+						"words": [
+							{
+								"display": "…a",
+								"spoken": "…a",
+								"startMs": 0,
+								"endMs": 196,
+								"charOffset": 0
+							},
+							{
+								"display": "boardroom",
+								"spoken": "boardroom",
+								"startMs": 196,
+								"endMs": 587,
+								"charOffset": 3
+							},
+							{
+								"display": "title.",
+								"spoken": "title.",
+								"startMs": 587,
+								"endMs": 1007,
+								"charOffset": 13
+							}
+						],
+						"startMs": 0,
+						"endMs": 1374,
+						"charOffset": 0
+					},
+					{
+						"display": "Instantly.",
+						"words": [
+							{
+								"display": "Instantly.",
+								"spoken": "Instantly.",
+								"startMs": 1532,
+								"endMs": 2148,
+								"charOffset": 20
+							}
+						],
+						"startMs": 1532,
+						"endMs": 2515,
+						"charOffset": 20
+					}
+				],
+				"durationMs": 2515
+			}
+		},
+		{
+			"key": "96d4658c558e",
+			"text": "One number that matters…",
+			"file": "96d4658c558e.mp3",
+			"bytes": 10944,
+			"speechMs": 1775,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "One number that matters…",
+						"words": [
+							{
+								"display": "One",
+								"spoken": "One",
+								"startMs": 0,
+								"endMs": 212,
+								"charOffset": 0
+							},
+							{
+								"display": "number",
+								"spoken": "number",
+								"startMs": 212,
+								"endMs": 637,
+								"charOffset": 4
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 637,
+								"endMs": 849,
+								"charOffset": 11
+							},
+							{
+								"display": "matters…",
+								"spoken": "matters…",
+								"startMs": 849,
+								"endMs": 1304,
+								"charOffset": 16
+							}
+						],
+						"startMs": 0,
+						"endMs": 1775,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1775
+			}
+		},
+		{
+			"key": "d7a8ca06316d",
+			"text": "The whole slide is the metric.",
+			"file": "d7a8ca06316d.mp3",
+			"bytes": 13824,
+			"speechMs": 2240,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The whole slide is the metric.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 248,
+								"charOffset": 0
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 248,
+								"endMs": 496,
+								"charOffset": 4
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 496,
+								"endMs": 745,
+								"charOffset": 10
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 745,
+								"endMs": 993,
+								"charOffset": 16
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 993,
+								"endMs": 1241,
+								"charOffset": 19
+							},
+							{
+								"display": "metric.",
+								"spoken": "metric.",
+								"startMs": 1241,
+								"endMs": 1774,
+								"charOffset": 23
+							}
+						],
+						"startMs": 0,
+						"endMs": 2240,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 2240
+			}
+		},
+		{
+			"key": "f6afd319ac98",
+			"text": "A few values in a list…",
+			"file": "f6afd319ac98.mp3",
+			"bytes": 12096,
+			"speechMs": 1965,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "A few values in a list…",
+						"words": [
+							{
+								"display": "A",
+								"spoken": "A",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "few",
+								"spoken": "few",
+								"startMs": 210,
+								"endMs": 420,
+								"charOffset": 2
+							},
+							{
+								"display": "values",
+								"spoken": "values",
+								"startMs": 420,
+								"endMs": 839,
+								"charOffset": 6
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 839,
+								"endMs": 1049,
+								"charOffset": 13
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 1049,
+								"endMs": 1259,
+								"charOffset": 16
+							},
+							{
+								"display": "list…",
+								"spoken": "list…",
+								"startMs": 1259,
+								"endMs": 1499,
+								"charOffset": 18
+							}
+						],
+						"startMs": 0,
+						"endMs": 1965,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1965
+			}
+		},
+		{
+			"key": "c01d7b952b08",
+			"text": "…and the engine draws the chart.",
+			"file": "c01d7b952b08.mp3",
+			"bytes": 11376,
+			"speechMs": 1834,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "…and the engine draws the chart.",
+						"words": [
+							{
+								"display": "…and",
+								"spoken": "…and",
+								"startMs": 0,
+								"endMs": 203,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 203,
+								"endMs": 406,
+								"charOffset": 5
+							},
+							{
+								"display": "engine",
+								"spoken": "engine",
+								"startMs": 406,
+								"endMs": 813,
+								"charOffset": 9
+							},
+							{
+								"display": "draws",
+								"spoken": "draws",
+								"startMs": 813,
+								"endMs": 1016,
+								"charOffset": 16
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1016,
+								"endMs": 1219,
+								"charOffset": 22
+							},
+							{
+								"display": "chart.",
+								"spoken": "chart.",
+								"startMs": 1219,
+								"endMs": 1452,
+								"charOffset": 26
+							}
+						],
+						"startMs": 0,
+						"endMs": 1834,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 1834
+			}
+		},
+		{
+			"key": "4e5e6e50c4e4",
+			"text": "That fast. Now go build yours.",
+			"file": "4e5e6e50c4e4.mp3",
+			"bytes": 19728,
+			"speechMs": 3217,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That fast.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 296,
+								"charOffset": 0
+							},
+							{
+								"display": "fast.",
+								"spoken": "fast.",
+								"startMs": 296,
+								"endMs": 636,
+								"charOffset": 5
+							}
+						],
+						"startMs": 0,
+						"endMs": 1193,
+						"charOffset": 0
+					},
+					{
+						"display": "Now go build yours.",
+						"words": [
+							{
+								"display": "Now",
+								"spoken": "Now",
+								"startMs": 1431,
+								"endMs": 1728,
+								"charOffset": 11
+							},
+							{
+								"display": "go",
+								"spoken": "go",
+								"startMs": 1728,
+								"endMs": 2024,
+								"charOffset": 15
+							},
+							{
+								"display": "build",
+								"spoken": "build",
+								"startMs": 2024,
+								"endMs": 2321,
+								"charOffset": 18
+							},
+							{
+								"display": "yours.",
+								"spoken": "yours.",
+								"startMs": 2321,
+								"endMs": 2660,
+								"charOffset": 24
+							}
+						],
+						"startMs": 1431,
+						"endMs": 3217,
+						"charOffset": 11
+					}
+				],
+				"durationMs": 3217
+			}
+		}
+	]
+}

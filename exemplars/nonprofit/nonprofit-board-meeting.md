@@ -230,7 +230,6 @@ Year-one cost is $340K lease plus $70K fit-out. A committed three-year county co
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

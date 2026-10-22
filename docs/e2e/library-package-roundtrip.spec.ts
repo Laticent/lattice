@@ -39,7 +39,7 @@ test('a repo package imports into the Library and exports as the same files', as
 
 	await gotoStudio(page);
 	await openLibrary(page);
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'probe-content.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'probe-content.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
 	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
 
 	const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Share .probe-content' }).click()]);

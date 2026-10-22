@@ -200,6 +200,12 @@
       ]
     },
     {
+      "pass": "cycle",
+      "classes": [
+        "cycle"
+      ]
+    },
+    {
       "pass": "logo-marks",
       "classes": [
         "logo-wall"
@@ -254,72 +260,6 @@
       "pass": "label-set-key",
       "classes": [
         "obligation-matrix"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "agenda"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "cards-grid"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "cards-stack"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "checklist"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "cycle"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "kpi"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "list"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "list-steps"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "matrix-2x2"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "pricing"
-      ]
-    },
-    {
-      "pass": "inline-run",
-      "classes": [
-        "verdict-grid"
       ]
     }
   ],

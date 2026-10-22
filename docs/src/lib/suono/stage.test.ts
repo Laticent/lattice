@@ -618,3 +618,52 @@ describe('createStage — tapPlayback (a live copy of what the stage plays)', ()
 	});
 });
 
+
+describe('createStage — pan (stereo placement)', () => {
+	function install(withPanner: boolean) {
+		const panner = { pan: { value: 0, cancelScheduledValues: vi.fn(), setValueAtTime: vi.fn(), setTargetAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() };
+		const dest = {};
+		(window as unknown as { AudioContext: unknown }).AudioContext = class {
+			state = 'running';
+			currentTime = 0;
+			sampleRate = 24000;
+			destination = dest;
+			createStereoPanner = withPanner ? () => panner : undefined;
+			createGain = () => ({ gain: { value: 1, setValueAtTime() {}, linearRampToValueAtTime() {} }, connect() {}, disconnect() {} });
+			createBufferSource = () => ({ buffer: null, connect() {}, start() {}, stop() {}, disconnect() {}, onended: null });
+			createBuffer = () => ({ duration: 1, getChannelData: () => new Float32Array(1) });
+			decodeAudioData = (_ab: unknown, ok: (b: unknown) => void) => ok({ duration: 1, sampleRate: 24000, length: 24000, numberOfChannels: 1 });
+			resume = () => Promise.resolve();
+		};
+		return { panner, dest };
+	}
+	const clipOf = (stage: ReturnType<typeof createStage>) => stage.decode({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as unknown as Blob);
+
+	it('routes the clip through a panner set to the requested lean, then on to the speakers', async () => {
+		const { panner, dest } = install(true);
+		const stage = createStage({ keepAlive: false });
+		stage.play(await clipOf(stage), { pan: -0.4 });
+		expect(panner.pan.value).toBe(-0.4);
+		expect(panner.connect).toHaveBeenCalledWith(dest);
+	});
+
+	it('glides a live clip to a new lean, and clamps and ignores nonsense', async () => {
+		const { panner } = install(true);
+		const stage = createStage({ keepAlive: false });
+		const h = stage.play(await clipOf(stage), { pan: 0 });
+		h.setPan(5, 300);
+		expect(panner.pan.setTargetAtTime).toHaveBeenCalledWith(1, 0, 0.1);
+		h.setPan(Number.NaN);
+		expect(panner.pan.setValueAtTime).toHaveBeenCalledWith(0, 0);
+	});
+
+	it('plays centred, not silent, on an engine with no stereo panner', async () => {
+		const { dest } = install(false);
+		const stage = createStage({ keepAlive: false });
+		const h = stage.play(await clipOf(stage), { pan: 0.5 });
+		expect(() => h.setPan(-1, 100)).not.toThrow();
+		h.stop();
+		expect((await h.done).ok).toBe(true);
+		expect(dest).toBeTruthy();
+	});
+});

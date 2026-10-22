@@ -338,7 +338,7 @@ describe('sizeValuePosition — the size: value slot (Tier 1)', () => {
 	});
 });
 
-describe('directiveNameAt / paginateValuePosition / fenceLangAt (Tier 2)', () => {
+describe('directiveNameAt / fenceLangAt (Tier 2)', () => {
 	test('directiveNameAt captures a directive name before the colon', async () => {
 		const { directiveNameAt } = await load();
 		assert.deepEqual(directiveNameAt('<!-- _pag'), { from: '<!-- '.length, typed: '_pag' });
@@ -351,10 +351,9 @@ describe('directiveNameAt / paginateValuePosition / fenceLangAt (Tier 2)', () =>
 		assert.equal(directiveNameAt('## a heading'), null);
 	});
 
-	test('paginateValuePosition captures the value after _paginate:', async () => {
+	test('a `_paginate:` value is not completed: page numbers are front matter and a class', async () => {
 		const { paginateValuePosition } = await load();
-		assert.deepEqual(paginateValuePosition('<!-- _paginate: fa'), { from: '<!-- _paginate: '.length, typed: 'fa' });
-		assert.equal(paginateValuePosition('<!-- _header: x'), null);
+		assert.equal(paginateValuePosition, undefined);
 	});
 
 	test('fenceLangAt captures the info string on a fence line', async () => {
@@ -467,10 +466,10 @@ describe('typeaheadContext — proactive popup entry classification', () => {
 		assert.equal(typeaheadContext(getter([before]), 1, before), 'directive');
 	});
 
-	test('a `_paginate:` value is the paginate context', async () => {
+	test('a `_paginate:` value is no completion context (the comment is retired)', async () => {
 		const { typeaheadContext } = await load();
 		const before = '<!-- _paginate: ';
-		assert.equal(typeaheadContext(getter([before]), 1, before), 'paginate');
+		assert.equal(typeaheadContext(getter([before]), 1, before), null);
 	});
 
 	test('a fence info string is the fence context', async () => {

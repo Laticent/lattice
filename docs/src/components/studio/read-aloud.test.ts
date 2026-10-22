@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildTrack } from '@/lib/cadenza';
 import { loadCalibration, recordObservation, resetCalibration } from '@/playground/readaloud-calibration';
-import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideCueFor, guideLeadFor, previewTtsVoice, SYNC_LEAD_MS, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
+import { bakeClipKeys, GUIDE_LEAD_MAX_MS, GUIDE_LEAD_MS, GUIDE_SETTLE_MS, guideCueFor, guideLeadFor, previewTtsVoice, SYNC_LEAD_MS, setRoomClipSource, slideToSpeech, synthBakeClip, useReadAloud } from './read-aloud';
 
 // The audio backend is now a Suono stage + sequence (not voice.speak). Two stubs:
 //   • the voice model — SYNTHESIZES bytes (synthOne, fed to the sequence's produce, never invoked
@@ -29,12 +29,14 @@ const { unlockSpy, synthSampleSpy, voiceState, stageCtl } = vi.hoisted(() => ({
 	//   · created — how many times `createVoiceModel` has been called, so a test can
 	//               assert the voice load has actually STARTED rather than infer it from
 	//               elapsed time (see the arming-window test for why that matters).
-	voiceState: { rung: 'silent' as string, gate: null as Promise<void> | null, created: 0 },
+	voiceState: { rung: 'silent' as string, gate: null as Promise<void> | null, created: 0, synthCalls: 0 },
 	stageCtl: {
 		clockMs: 0,
 		state: 'running' as 'none' | 'suspended' | 'running',
 		onItemStart: null as null | ((e: { index: number; onsetMs: number; durationMs: number }) => void),
 		onState: null as null | ((e: { playing: boolean; index: number; error?: string; aborted?: boolean }) => void),
+		produce: null as null | ((s: string, o: { signal: AbortSignal }) => Promise<unknown>),
+		keyOf: null as null | ((s: string) => string),
 		play: vi.fn(),
 		pause: vi.fn(),
 		resume: vi.fn(),
@@ -54,11 +56,15 @@ vi.mock('@/lib/suono', () => ({
 		decode: async () => ({ durationMs: 0, buffer: {} }),
 		play: () => ({ stop() {}, done: Promise.resolve({ ok: true }) }),
 		sequence: (o: {
+			produce?: (s: string, o: { signal: AbortSignal }) => Promise<unknown>;
+			keyOf?: (s: string) => string;
 			onItemStart?: (e: { index: number; onsetMs: number; durationMs: number }) => void;
 			onState?: (e: { playing: boolean; index: number; error?: string; aborted?: boolean }) => void;
 		}) => {
 			stageCtl.onItemStart = o.onItemStart ?? null;
 			stageCtl.onState = o.onState ?? null;
+			stageCtl.produce = o.produce ?? null;
+			stageCtl.keyOf = o.keyOf ?? null;
 			return {
 				play: stageCtl.play,
 				pause: stageCtl.pause,
@@ -104,7 +110,10 @@ function voiceModelStub() {
  *  synchronously or behind `voiceState.gate`. */
 function voiceModel() {
 	return {
-		synthOne: async () => ({ rung: voiceState.rung, bytes: null, key: 'test-key' }),
+		synthOne: async () => {
+			voiceState.synthCalls++;
+			return { rung: voiceState.rung, bytes: null, key: 'test-key' };
+		},
 		speakThis: () => {},
 		warm: () => {},
 		stop() {},
@@ -306,6 +315,126 @@ describe('useReadAloud — iOS audio unlock in the play gesture', () => {
 		});
 		act(() => result.current.play());
 		expect(unlockSpy).toHaveBeenCalled();
+	});
+});
+
+// Present together: a member who follows a narrated presentation hears the presenter's clips, and never
+// calls a voice engine of their own (live-uniform note §6 rule 7).
+describe('useReadAloud — the room as the voice', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		voiceState.rung = 'openrouter-tts'; // this member has a key: the room's clips must still be what plays
+		voiceState.synthCalls = 0;
+		stageCtl.produce = null;
+		stageCtl.keyOf = null;
+	});
+	afterEach(() => {
+		setRoomClipSource(null);
+		vi.useRealTimers();
+		voiceState.rung = 'silent';
+		stageCtl.produce = null;
+		stageCtl.keyOf = null;
+	});
+
+	it("takes each sentence's audio from the room and calls no engine of its own", async () => {
+		const asked: string[] = [];
+		const clip = new Blob([new Uint8Array(8)], { type: 'audio/mpeg' });
+		setRoomClipSource(async (spoken) => {
+			asked.push(spoken);
+			return clip;
+		});
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.'));
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(stageCtl.produce).not.toBeNull();
+		const got = await stageCtl.produce?.('Alpha bravo charlie delta.', { signal: new AbortController().signal });
+		expect(got).toBe(clip);
+		expect(asked).toEqual(['Alpha bravo charlie delta.']);
+		expect(voiceState.synthCalls).toBe(0);
+		// The decoded-clip cache key names the room, so a clip is never replayed as the member's own voice.
+		expect(stageCtl.keyOf?.('x')).toMatch(/^room\|/);
+	});
+
+	it("a member with a key of their own who plays muted and then unmutes into the room's voice spends none of it", async () => {
+		const asked: string[] = [];
+		const clip = new Blob([new Uint8Array(8)], { type: 'audio/mpeg' });
+		const { result, rerender } = renderHook(({ muted }) => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.', { muted }), { initialProps: { muted: true } });
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		// The read began before the room's narration was on this page, so it holds the member's own voice.
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		setRoomClipSource(async (spoken) => {
+			asked.push(spoken);
+			return clip;
+		});
+		rerender({ muted: false });
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		await stageCtl.produce?.('Alpha bravo charlie delta.', { signal: new AbortController().signal });
+		expect(voiceState.synthCalls).toBe(0);
+		expect(asked).toEqual(['Alpha bravo charlie delta.']);
+	});
+
+	it("a member who paused on their own voice and then gets the room's voice does not resume on their own key", async () => {
+		const asked: string[] = [];
+		const clip = new Blob([new Uint8Array(8)], { type: 'audio/mpeg' });
+		const { result, rerender } = renderHook(({ muted }) => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.', { muted }), { initialProps: { muted: true } });
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => result.current.pause());
+		setRoomClipSource(async (spoken) => {
+			asked.push(spoken);
+			return clip;
+		});
+		rerender({ muted: false });
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		await stageCtl.produce?.('Alpha bravo charlie delta.', { signal: new AbortController().signal });
+		expect(voiceState.synthCalls).toBe(0);
+		expect(asked).toEqual(['Alpha bravo charlie delta.']);
+	});
+
+	it("with the room's source off, the member's own voice is back", async () => {
+		const { result } = renderHook(() => useReadAloud('Alpha bravo charlie delta. Echo foxtrot.'));
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		act(() => result.current.play());
+		await act(async () => {
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		await stageCtl.produce?.('Alpha bravo charlie delta.', { signal: new AbortController().signal });
+		expect(voiceState.synthCalls).toBe(1);
+		expect(stageCtl.keyOf?.('x')).toMatch(/^openrouter-tts\|/);
 	});
 });
 

@@ -1,0 +1,1173 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 258624,
+	"lines": [
+		{
+			"key": "b542a64cdcaa",
+			"text": "This is Read. Just the slides, full size, the way your audience will see them.",
+			"file": "b542a64cdcaa.mp3",
+			"bytes": 33120,
+			"speechMs": 5465,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This is Read.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 227,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 227,
+								"endMs": 454,
+								"charOffset": 5
+							},
+							{
+								"display": "Read.",
+								"spoken": "Read.",
+								"startMs": 454,
+								"endMs": 714,
+								"charOffset": 8
+							}
+						],
+						"startMs": 0,
+						"endMs": 1139,
+						"charOffset": 0
+					},
+					{
+						"display": "Just the slides, full size, the way your audience will see them.",
+						"words": [
+							{
+								"display": "Just",
+								"spoken": "Just",
+								"startMs": 1322,
+								"endMs": 1549,
+								"charOffset": 14
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1549,
+								"endMs": 1776,
+								"charOffset": 19
+							},
+							{
+								"display": "slides,",
+								"spoken": "slides,",
+								"startMs": 1776,
+								"endMs": 2262,
+								"charOffset": 23
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 2484,
+								"endMs": 2710,
+								"charOffset": 31
+							},
+							{
+								"display": "size,",
+								"spoken": "size,",
+								"startMs": 2710,
+								"endMs": 2970,
+								"charOffset": 36
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3192,
+								"endMs": 3418,
+								"charOffset": 42
+							},
+							{
+								"display": "way",
+								"spoken": "way",
+								"startMs": 3418,
+								"endMs": 3645,
+								"charOffset": 46
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 3645,
+								"endMs": 3872,
+								"charOffset": 50
+							},
+							{
+								"display": "audience",
+								"spoken": "audience",
+								"startMs": 3872,
+								"endMs": 4326,
+								"charOffset": 55
+							},
+							{
+								"display": "will",
+								"spoken": "will",
+								"startMs": 4326,
+								"endMs": 4552,
+								"charOffset": 64
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 4552,
+								"endMs": 4779,
+								"charOffset": 69
+							},
+							{
+								"display": "them.",
+								"spoken": "them.",
+								"startMs": 4779,
+								"endMs": 5039,
+								"charOffset": 73
+							}
+						],
+						"startMs": 1322,
+						"endMs": 5465,
+						"charOffset": 14
+					}
+				],
+				"durationMs": 5465
+			}
+		},
+		{
+			"key": "6e78ae05c611",
+			"text": "The strip along the bottom lists every slide by its title. Click one to jump straight to it.",
+			"file": "6e78ae05c611.mp3",
+			"bytes": 35424,
+			"speechMs": 5847,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The strip along the bottom lists every slide by its title.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "strip",
+								"spoken": "strip",
+								"startMs": 210,
+								"endMs": 420,
+								"charOffset": 4
+							},
+							{
+								"display": "along",
+								"spoken": "along",
+								"startMs": 420,
+								"endMs": 840,
+								"charOffset": 10
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 840,
+								"endMs": 1050,
+								"charOffset": 16
+							},
+							{
+								"display": "bottom",
+								"spoken": "bottom",
+								"startMs": 1050,
+								"endMs": 1469,
+								"charOffset": 20
+							},
+							{
+								"display": "lists",
+								"spoken": "lists",
+								"startMs": 1469,
+								"endMs": 1679,
+								"charOffset": 27
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 1679,
+								"endMs": 2309,
+								"charOffset": 33
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 2309,
+								"endMs": 2519,
+								"charOffset": 39
+							},
+							{
+								"display": "by",
+								"spoken": "by",
+								"startMs": 2519,
+								"endMs": 2729,
+								"charOffset": 45
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 2729,
+								"endMs": 2939,
+								"charOffset": 48
+							},
+							{
+								"display": "title.",
+								"spoken": "title.",
+								"startMs": 2939,
+								"endMs": 3389,
+								"charOffset": 52
+							}
+						],
+						"startMs": 0,
+						"endMs": 3784,
+						"charOffset": 0
+					},
+					{
+						"display": "Click one to jump straight to it.",
+						"words": [
+							{
+								"display": "Click",
+								"spoken": "Click",
+								"startMs": 3953,
+								"endMs": 4163,
+								"charOffset": 59
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 4163,
+								"endMs": 4372,
+								"charOffset": 65
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4372,
+								"endMs": 4582,
+								"charOffset": 69
+							},
+							{
+								"display": "jump",
+								"spoken": "jump",
+								"startMs": 4582,
+								"endMs": 4792,
+								"charOffset": 72
+							},
+							{
+								"display": "straight",
+								"spoken": "straight",
+								"startMs": 4792,
+								"endMs": 5002,
+								"charOffset": 77
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 5002,
+								"endMs": 5212,
+								"charOffset": 86
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 5212,
+								"endMs": 5453,
+								"charOffset": 89
+							}
+						],
+						"startMs": 3953,
+						"endMs": 5847,
+						"charOffset": 59
+					}
+				],
+				"durationMs": 5847
+			}
+		},
+		{
+			"key": "555764814ef6",
+			"text": "The theme and light or dark controls work here too, so you can see the deck in any look without touching it.",
+			"file": "555764814ef6.mp3",
+			"bytes": 40176,
+			"speechMs": 6634,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The theme and light or dark controls work here too, so you can see the deck in any look without touching it.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 228,
+								"charOffset": 0
+							},
+							{
+								"display": "theme",
+								"spoken": "theme",
+								"startMs": 228,
+								"endMs": 455,
+								"charOffset": 4
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 455,
+								"endMs": 683,
+								"charOffset": 10
+							},
+							{
+								"display": "light",
+								"spoken": "light",
+								"startMs": 683,
+								"endMs": 910,
+								"charOffset": 14
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 910,
+								"endMs": 1138,
+								"charOffset": 20
+							},
+							{
+								"display": "dark",
+								"spoken": "dark",
+								"startMs": 1138,
+								"endMs": 1366,
+								"charOffset": 23
+							},
+							{
+								"display": "controls",
+								"spoken": "controls",
+								"startMs": 1366,
+								"endMs": 1821,
+								"charOffset": 28
+							},
+							{
+								"display": "work",
+								"spoken": "work",
+								"startMs": 1821,
+								"endMs": 2048,
+								"charOffset": 37
+							},
+							{
+								"display": "here",
+								"spoken": "here",
+								"startMs": 2048,
+								"endMs": 2276,
+								"charOffset": 42
+							},
+							{
+								"display": "too,",
+								"spoken": "too,",
+								"startMs": 2276,
+								"endMs": 2537,
+								"charOffset": 47
+							},
+							{
+								"display": "so",
+								"spoken": "so",
+								"startMs": 2759,
+								"endMs": 2987,
+								"charOffset": 52
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 2987,
+								"endMs": 3214,
+								"charOffset": 55
+							},
+							{
+								"display": "can",
+								"spoken": "can",
+								"startMs": 3214,
+								"endMs": 3442,
+								"charOffset": 59
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 3442,
+								"endMs": 3670,
+								"charOffset": 63
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3670,
+								"endMs": 3897,
+								"charOffset": 67
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 3897,
+								"endMs": 4125,
+								"charOffset": 71
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 4125,
+								"endMs": 4352,
+								"charOffset": 76
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 4352,
+								"endMs": 4808,
+								"charOffset": 79
+							},
+							{
+								"display": "look",
+								"spoken": "look",
+								"startMs": 4808,
+								"endMs": 5035,
+								"charOffset": 83
+							},
+							{
+								"display": "without",
+								"spoken": "without",
+								"startMs": 5035,
+								"endMs": 5490,
+								"charOffset": 88
+							},
+							{
+								"display": "touching",
+								"spoken": "touching",
+								"startMs": 5490,
+								"endMs": 5946,
+								"charOffset": 96
+							},
+							{
+								"display": "it.",
+								"spoken": "it.",
+								"startMs": 5946,
+								"endMs": 6207,
+								"charOffset": 105
+							}
+						],
+						"startMs": 0,
+						"endMs": 6634,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 6634
+			}
+		},
+		{
+			"key": "d4068320ef58",
+			"text": "Read as an article turns the deck into a page, with an outline on the left. It reads top to bottom, like a document.",
+			"file": "d4068320ef58.mp3",
+			"bytes": 42336,
+			"speechMs": 6995,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Read as an article turns the deck into a page, with an outline on the left.",
+						"words": [
+							{
+								"display": "Read",
+								"spoken": "Read",
+								"startMs": 0,
+								"endMs": 184,
+								"charOffset": 0
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 184,
+								"endMs": 367,
+								"charOffset": 5
+							},
+							{
+								"display": "an",
+								"spoken": "an",
+								"startMs": 367,
+								"endMs": 551,
+								"charOffset": 8
+							},
+							{
+								"display": "article",
+								"spoken": "article",
+								"startMs": 551,
+								"endMs": 1102,
+								"charOffset": 11
+							},
+							{
+								"display": "turns",
+								"spoken": "turns",
+								"startMs": 1102,
+								"endMs": 1285,
+								"charOffset": 19
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1285,
+								"endMs": 1469,
+								"charOffset": 25
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 1469,
+								"endMs": 1652,
+								"charOffset": 29
+							},
+							{
+								"display": "into",
+								"spoken": "into",
+								"startMs": 1652,
+								"endMs": 2020,
+								"charOffset": 34
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2020,
+								"endMs": 2203,
+								"charOffset": 39
+							},
+							{
+								"display": "page,",
+								"spoken": "page,",
+								"startMs": 2203,
+								"endMs": 2414,
+								"charOffset": 41
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2593,
+								"endMs": 2777,
+								"charOffset": 47
+							},
+							{
+								"display": "an",
+								"spoken": "an",
+								"startMs": 2777,
+								"endMs": 2960,
+								"charOffset": 52
+							},
+							{
+								"display": "outline",
+								"spoken": "outline",
+								"startMs": 2960,
+								"endMs": 3327,
+								"charOffset": 55
+							},
+							{
+								"display": "on",
+								"spoken": "on",
+								"startMs": 3327,
+								"endMs": 3511,
+								"charOffset": 63
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3511,
+								"endMs": 3695,
+								"charOffset": 66
+							},
+							{
+								"display": "left.",
+								"spoken": "left.",
+								"startMs": 3695,
+								"endMs": 3905,
+								"charOffset": 70
+							}
+						],
+						"startMs": 0,
+						"endMs": 4250,
+						"charOffset": 0
+					},
+					{
+						"display": "It reads top to bottom, like a document.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 4398,
+								"endMs": 4581,
+								"charOffset": 76
+							},
+							{
+								"display": "reads",
+								"spoken": "reads",
+								"startMs": 4581,
+								"endMs": 4765,
+								"charOffset": 79
+							},
+							{
+								"display": "top",
+								"spoken": "top",
+								"startMs": 4765,
+								"endMs": 4948,
+								"charOffset": 85
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4948,
+								"endMs": 5132,
+								"charOffset": 89
+							},
+							{
+								"display": "bottom,",
+								"spoken": "bottom,",
+								"startMs": 5132,
+								"endMs": 5526,
+								"charOffset": 92
+							},
+							{
+								"display": "like",
+								"spoken": "like",
+								"startMs": 5705,
+								"endMs": 5889,
+								"charOffset": 100
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 5889,
+								"endMs": 6072,
+								"charOffset": 105
+							},
+							{
+								"display": "document.",
+								"spoken": "document.",
+								"startMs": 6072,
+								"endMs": 6650,
+								"charOffset": 107
+							}
+						],
+						"startMs": 4398,
+						"endMs": 6995,
+						"charOffset": 76
+					}
+				],
+				"durationMs": 6995
+			}
+		},
+		{
+			"key": "94e562faa7cc",
+			"text": "Back to the deck returns you to the slides.",
+			"file": "94e562faa7cc.mp3",
+			"bytes": 16272,
+			"speechMs": 2647,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Back to the deck returns you to the slides.",
+						"words": [
+							{
+								"display": "Back",
+								"spoken": "Back",
+								"startMs": 0,
+								"endMs": 203,
+								"charOffset": 0
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 203,
+								"endMs": 406,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 406,
+								"endMs": 610,
+								"charOffset": 8
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 610,
+								"endMs": 813,
+								"charOffset": 12
+							},
+							{
+								"display": "returns",
+								"spoken": "returns",
+								"startMs": 813,
+								"endMs": 1219,
+								"charOffset": 17
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1219,
+								"endMs": 1423,
+								"charOffset": 25
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1423,
+								"endMs": 1626,
+								"charOffset": 29
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1626,
+								"endMs": 1829,
+								"charOffset": 32
+							},
+							{
+								"display": "slides.",
+								"spoken": "slides.",
+								"startMs": 1829,
+								"endMs": 2265,
+								"charOffset": 36
+							}
+						],
+						"startMs": 0,
+						"endMs": 2647,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 2647
+			}
+		},
+		{
+			"key": "7dc4ee3a43b8",
+			"text": "And Edit this slide takes you to Write, right where you were. Nothing in Read changes your deck.",
+			"file": "7dc4ee3a43b8.mp3",
+			"bytes": 37728,
+			"speechMs": 6235,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "And Edit this slide takes you to Write, right where you were.",
+						"words": [
+							{
+								"display": "And",
+								"spoken": "And",
+								"startMs": 0,
+								"endMs": 223,
+								"charOffset": 0
+							},
+							{
+								"display": "Edit",
+								"spoken": "Edit",
+								"startMs": 223,
+								"endMs": 669,
+								"charOffset": 4
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 669,
+								"endMs": 891,
+								"charOffset": 9
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 891,
+								"endMs": 1114,
+								"charOffset": 14
+							},
+							{
+								"display": "takes",
+								"spoken": "takes",
+								"startMs": 1114,
+								"endMs": 1560,
+								"charOffset": 20
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 1560,
+								"endMs": 1783,
+								"charOffset": 26
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1783,
+								"endMs": 2006,
+								"charOffset": 30
+							},
+							{
+								"display": "Write,",
+								"spoken": "Write,",
+								"startMs": 2006,
+								"endMs": 2261,
+								"charOffset": 33
+							},
+							{
+								"display": "right",
+								"spoken": "right",
+								"startMs": 2479,
+								"endMs": 2702,
+								"charOffset": 40
+							},
+							{
+								"display": "where",
+								"spoken": "where",
+								"startMs": 2702,
+								"endMs": 2925,
+								"charOffset": 46
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 2925,
+								"endMs": 3147,
+								"charOffset": 52
+							},
+							{
+								"display": "were.",
+								"spoken": "were.",
+								"startMs": 3147,
+								"endMs": 3403,
+								"charOffset": 56
+							}
+						],
+						"startMs": 0,
+						"endMs": 3821,
+						"charOffset": 0
+					},
+					{
+						"display": "Nothing in Read changes your deck.",
+						"words": [
+							{
+								"display": "Nothing",
+								"spoken": "Nothing",
+								"startMs": 4001,
+								"endMs": 4447,
+								"charOffset": 62
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 4447,
+								"endMs": 4669,
+								"charOffset": 70
+							},
+							{
+								"display": "Read",
+								"spoken": "Read",
+								"startMs": 4669,
+								"endMs": 4892,
+								"charOffset": 73
+							},
+							{
+								"display": "changes",
+								"spoken": "changes",
+								"startMs": 4892,
+								"endMs": 5338,
+								"charOffset": 78
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 5338,
+								"endMs": 5561,
+								"charOffset": 86
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 5561,
+								"endMs": 5816,
+								"charOffset": 91
+							}
+						],
+						"startMs": 4001,
+						"endMs": 6235,
+						"charOffset": 62
+					}
+				],
+				"durationMs": 6235
+			}
+		},
+		{
+			"key": "5099abd799fb",
+			"text": "Present and Share are one click away from here, too.",
+			"file": "5099abd799fb.mp3",
+			"bytes": 18864,
+			"speechMs": 3095,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Present and Share are one click away from here, too.",
+						"words": [
+							{
+								"display": "Present",
+								"spoken": "Present",
+								"startMs": 0,
+								"endMs": 409,
+								"charOffset": 0
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 409,
+								"endMs": 613,
+								"charOffset": 8
+							},
+							{
+								"display": "Share",
+								"spoken": "Share",
+								"startMs": 613,
+								"endMs": 817,
+								"charOffset": 12
+							},
+							{
+								"display": "are",
+								"spoken": "are",
+								"startMs": 817,
+								"endMs": 1022,
+								"charOffset": 18
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 1022,
+								"endMs": 1226,
+								"charOffset": 22
+							},
+							{
+								"display": "click",
+								"spoken": "click",
+								"startMs": 1226,
+								"endMs": 1430,
+								"charOffset": 26
+							},
+							{
+								"display": "away",
+								"spoken": "away",
+								"startMs": 1430,
+								"endMs": 1839,
+								"charOffset": 32
+							},
+							{
+								"display": "from",
+								"spoken": "from",
+								"startMs": 1839,
+								"endMs": 2043,
+								"charOffset": 37
+							},
+							{
+								"display": "here,",
+								"spoken": "here,",
+								"startMs": 2043,
+								"endMs": 2278,
+								"charOffset": 42
+							},
+							{
+								"display": "too.",
+								"spoken": "too.",
+								"startMs": 2477,
+								"endMs": 2711,
+								"charOffset": 48
+							}
+						],
+						"startMs": 0,
+						"endMs": 3095,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3095
+			}
+		},
+		{
+			"key": "3ea196966a38",
+			"text": "That is Read. It is the quiet way to look at your work. Want to see the full workshop?",
+			"file": "3ea196966a38.mp3",
+			"bytes": 34704,
+			"speechMs": 5734,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That is Read.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 207,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 207,
+								"endMs": 414,
+								"charOffset": 5
+							},
+							{
+								"display": "Read.",
+								"spoken": "Read.",
+								"startMs": 414,
+								"endMs": 652,
+								"charOffset": 8
+							}
+						],
+						"startMs": 0,
+						"endMs": 1041,
+						"charOffset": 0
+					},
+					{
+						"display": "It is the quiet way to look at your work.",
+						"words": [
+							{
+								"display": "It",
+								"spoken": "It",
+								"startMs": 1207,
+								"endMs": 1415,
+								"charOffset": 14
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 1415,
+								"endMs": 1622,
+								"charOffset": 17
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1622,
+								"endMs": 1829,
+								"charOffset": 20
+							},
+							{
+								"display": "quiet",
+								"spoken": "quiet",
+								"startMs": 1829,
+								"endMs": 2036,
+								"charOffset": 24
+							},
+							{
+								"display": "way",
+								"spoken": "way",
+								"startMs": 2036,
+								"endMs": 2243,
+								"charOffset": 30
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2243,
+								"endMs": 2450,
+								"charOffset": 34
+							},
+							{
+								"display": "look",
+								"spoken": "look",
+								"startMs": 2450,
+								"endMs": 2657,
+								"charOffset": 37
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 2657,
+								"endMs": 2864,
+								"charOffset": 42
+							},
+							{
+								"display": "your",
+								"spoken": "your",
+								"startMs": 2864,
+								"endMs": 3072,
+								"charOffset": 45
+							},
+							{
+								"display": "work.",
+								"spoken": "work.",
+								"startMs": 3072,
+								"endMs": 3309,
+								"charOffset": 50
+							}
+						],
+						"startMs": 1207,
+						"endMs": 3698,
+						"charOffset": 14
+					},
+					{
+						"display": "Want to see the full workshop?",
+						"words": [
+							{
+								"display": "Want",
+								"spoken": "Want",
+								"startMs": 3865,
+								"endMs": 4072,
+								"charOffset": 56
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 4072,
+								"endMs": 4279,
+								"charOffset": 61
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 4279,
+								"endMs": 4486,
+								"charOffset": 64
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4486,
+								"endMs": 4693,
+								"charOffset": 68
+							},
+							{
+								"display": "full",
+								"spoken": "full",
+								"startMs": 4693,
+								"endMs": 4900,
+								"charOffset": 72
+							},
+							{
+								"display": "workshop?",
+								"spoken": "workshop?",
+								"startMs": 4900,
+								"endMs": 5345,
+								"charOffset": 77
+							}
+						],
+						"startMs": 3865,
+						"endMs": 5734,
+						"charOffset": 56
+					}
+				],
+				"durationMs": 5734
+			}
+		}
+	]
+}

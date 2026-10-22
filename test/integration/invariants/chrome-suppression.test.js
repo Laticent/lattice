@@ -75,7 +75,7 @@ Footer gone; the PAGE NUMBER must stay (only the footer text hides, not the band
 
 ---
 
-<!-- _class: content no-paginate -->
+<!-- _class: content no-pagination -->
 ## No page number
 Pagination gone; footer stays.
 
@@ -153,7 +153,7 @@ describe('chrome suppression on a Form deck (real render)', () => {
     assert.equal((await probe(page, 4, PAGINATION)).shown, true, 'page number must survive — only the footer text hides');
   });
 
-  test('no-paginate (slide 5): page number hidden, footer stays', async () => {
+  test('no-pagination (slide 5): page number hidden, footer stays', async () => {
     assert.equal((await probe(page, 5, PAGINATION)).shown, false, 'page number must be hidden');
     assert.equal((await probe(page, 5, FOOTER)).shown, true, 'footer must remain');
   });

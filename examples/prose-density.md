@@ -8,7 +8,6 @@ footer: "Budget the words, not just the elements"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

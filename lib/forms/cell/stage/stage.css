@@ -491,8 +491,8 @@ section.form.fill-optical {
 /* ── CLAIM · let content claim the stage (2026-07-03 decision) ───────────────
  * A universal, purpose-coupled dial: how much of the frame the content claims
  * vs the chrome. The presets expand to composable switches (inset + chrome
- * recede + bleed); the individual chrome switches (`no-paginate`, `silent`, …)
- * still compose on top, so `claim-hero no-paginate` is expressible — switches,
+ * recede + bleed); the individual chrome switches (`no-pagination`, `silent`, …)
+ * still compose on top, so `claim-hero no-pagination` is expressible — switches,
  * not a rigid slider. Default (`framed` / no token) is the standard frame,
  * unchanged. Insets are PADDING via the `--frame-*` vars (HARD RULE #20 — never
  * margin); cqi lengths, no hex, no color. `claim-quiet`/`claim-hero` are
@@ -519,7 +519,7 @@ section.form.claim-quiet .cell-masthead .masthead-bay {
 /* hero — the content takes the stage: the footer band, section rail, and meta
  * bay recede and the inset tightens so the content fills the freed space, but
  * the TITLE and the page number STAY on EVERY component — an unlabeled slide has
- * no place in a board deck (drop the number with `no-paginate`). */
+ * no place in a board deck (drop the number with `no-pagination`). */
 section.form.claim-hero {
   --frame-x: var(--frame-inset-x);
   --frame-y: var(--frame-inset-y);
@@ -536,9 +536,9 @@ section.form.claim-hero .cell-masthead .masthead-bay { /* meta / logo / status b
  * its content under it in the bottom-right. Reserve a thin page-number strip — far less
  * than the full footer band, so the "content takes the stage" gain holds — but ONLY when
  * the number is actually shown: it is injected only on a paginated slide
- * (`:has(.lat-pagination)`), and `no-paginate` / `silent` hide it (so a
- * `claim-hero no-paginate` still fills fully to the edge). */
-section.form.claim-hero:has(.lat-pagination):not(.no-paginate):not(.silent) {
+ * (`:has(.lat-pagination)`), and `no-pagination` / `silent` hide it (so a
+ * `claim-hero no-pagination` still fills fully to the edge). */
+section.form.claim-hero:has(.lat-pagination):not(.no-pagination):not(.silent) {
   --footer-reserve: calc(var(--frame-inset-y) + var(--fs-meta) + var(--sp-sm));
 }
 
@@ -572,7 +572,7 @@ section.form.claim-bleed .cell-masthead .masthead-bay {
 /* Edge-media (except charts, which stay labeled) drops the title too; and every
  * edge-media layout drops the page number for the pure edge-to-edge visual. The
  * legacy pseudo page number on STAGE_DEFERRED media is a section::after (doubled
- * class for specificity, mirroring `no-paginate`). */
+ * class for specificity, mirroring `no-pagination`). */
 section.form.claim-bleed:is(.big-number, .diagram, .image, .video) > .cell-masthead,
 section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video) > .cell-footer {
   display: none;

@@ -31,7 +31,7 @@ const PANEL = '[data-testid="preview-fidelity-overlay"]';
 // A deck whose FIRST slide sets a running `backgroundColor:` the second inherits — the smallest real
 // case where the fast route would lose something, so the registry diverts to the whole-deck render and
 // the diff has a genuine, nameable difference to report. (It was a running `header:` until the owner
-// ruled that `header`, `footer` and `paginate` set their own slide only, audit §11r: a header no longer
+// ruled that `header` and `footer` set their own slide only, audit §11r: a header no longer
 // carries, so there is nothing for a lone slide to lose.)
 const RUNNING_HEADER_DECK = `---
 paginate: true

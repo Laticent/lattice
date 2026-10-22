@@ -13,7 +13,7 @@ summary: >
 
 # One legend plugin: labels, marks, plates, narration, gestures
 
-**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. § 18 records the owner's ruling on callout markers: shape and color, at most six. Facts in
+**2026-10-19.** Status: in progress. Waves 0, 1 and 2 are built (§§ 15, 16, 17); Waves 3 to 5 are not. § 18 records the owner's ruling on callout markers: shape and color, at most six. The owner then split callouts from the key; `2026-10-20-callout-placement.md` records the split and the placement rule, and supersedes § 4's "no second plugin". Facts in
 §§ 3 to 13 come from three read-only audits of the tree and are cited by file and line; the lines
 marked UNVERIFIED are the ones nobody opened. Where the build departed from §§ 4 to 10, § 15 says
 how and why.

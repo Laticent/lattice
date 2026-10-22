@@ -1,6 +1,6 @@
 // Guided-tour preference — the single source of truth for whether the docs
 // workspaces show their tours. Deliberately tiny and dependency-free (no
-// driver.js import) so every page can read it cheaply and the Drawing Board
+// tour-engine import) so every page can read it cheaply and the Drawing Board
 // settings drawer can import it without dragging the tour engine into the
 // settings bundle.
 //

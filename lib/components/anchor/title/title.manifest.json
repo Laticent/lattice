@@ -11,6 +11,7 @@
   },
   "function": "anchor",
   "form": "bookend",
+  "chrome": { "pagination": false },
   "coda": { "claims": ["trailing-paragraph"] },
   "substance": "prose",
   "tags": [
@@ -41,7 +42,7 @@
       "description": "Optional plain-paragraph subtitle below the h1. Uncapped — title's subtitle is a single tagline, unlike closing's, which takes `--measure-bookend-lede`."
     }
   },
-  "skeleton": "<!-- _class: title -->\n<!-- _paginate: false -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
+  "skeleton": "<!-- _class: title -->\n<!-- _header: '' -->\n<!-- _footer: '' -->\n\n# Deck title goes here\n\n`Category · Date or audience`\n\nOne-line subtitle that frames the deck.\n",
   "anatomyBlock": "T1-title-bookend",
   "sample": "<!-- _class: title silent -->\n\n# The title slide opens on the dark canvas.\n\n`anchor · title · the deck's first breath`\n\nOne heading, an eyebrow, one line of context — centered, chrome-free, quickly gone.\n",
   "whenToUse": [

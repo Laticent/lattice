@@ -1,0 +1,3 @@
+studio: +470
+The Library's section model (`panel-shells.tsx`: four sections, the per-section filter lists and `sectionOf`), the filter menu's dropdown-menu primitive, which the Library now loads with the Studio's startup code, and the `addedAt` and `origin` fields on the theme, component, finish and scene stores. CI measured +430 B gz against main (dropdown-menu +204, panel-shells +121, scene-library +36, theme-library +33, finish-library +27); +470 leaves room for gzip spread between builds.
+Given back first: the eight-pill list became a four-entry list plus two short filter lists, and the Library's two extra rows (kinds, and where new media goes) are one menu on the one row.

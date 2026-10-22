@@ -41,7 +41,7 @@
 import { narrateChart as narrateChartDefault, plainSay } from '@/playground/read-along-core.generated.js';
 
 /** What the deck says that one slide's Markdown cannot: the switches a chart narrator reads off the
- *  deck rather than the slide (the legend's `legend: off` and the host's plugin switch). The slides a
+ *  deck rather than the slide (the callout plugin's `callout: off` and the host's plugin switch). The slides a
  *  caller hands in have their front matter stripped, so it travels here. */
 export type NarrationDeck = { frontMatter?: string; pluginsOff?: readonly string[] };
 

@@ -37,10 +37,10 @@ test('@smoke the Show Me menu lists the tour, and it builds a deck and completes
 	await gotoStudio(page);
 	expect(await firstDeckCount(page)).toBe(0); // fresh context — no deck yet
 
-	// The menu offers the tour.
+	// The menu offers the narrated course (welcome, read, craft, present, share) and the hands-on first look.
 	await page.locator(SHOW_ME).click();
-	await expect(page.locator('[data-tour]')).toHaveCount(1);
-	await expect(page.locator('[data-tour="first-look"]')).toBeVisible();
+	await expect(page.locator('[data-tour]')).toHaveCount(6);
+	for (const id of ['welcome', 'read', 'craft', 'present', 'share', 'first-look']) await expect(page.locator(`[data-tour="${id}"]`)).toBeVisible();
 
 	// Launch it. The stage mounts and the Show Me trigger hides while it runs
 	// (rendered `invisible`, so it stays in the DOM — assert hidden, not removed).
@@ -137,4 +137,53 @@ test('the Exit button hands the wheel back, leaving "My First Deck" behind', asy
 	await expect(page.locator(STAGE)).toHaveCount(0);
 	await expect(toastText(page)).toContainText('yours to edit');
 	await expect.poll(() => firstDeckCount(page)).toBe(1);
+});
+
+
+// The first-run welcome (2026-10-20-first-run-onboarding.md). `?welcome=1` forces the start card on a
+// host that would otherwise stay quiet (every e2e run does); a real first visit on the production site
+// gets the same card by itself.
+test('the welcome card offers a sound test, and Not now leaves the Studio untouched', async ({ page }) => {
+	await page.goto('/studio/?welcome=1');
+	const card = page.locator('[data-welcome="start"]').first();
+	await expect(card).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByRole('button', { name: 'Test sound' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Start without sound' })).toBeVisible();
+	await page.getByRole('button', { name: 'Not now' }).click();
+	await expect(page.locator('[data-welcome="start"]')).toHaveCount(0);
+	await expect(page.locator(STAGE)).toHaveCount(0);
+});
+
+test('Start without sound runs the narrated tour on captions', async ({ page }) => {
+	await page.goto('/studio/?welcome=1');
+	await page.getByRole('button', { name: 'Start without sound' }).click({ timeout: 30_000 });
+	await expect(page.locator(STAGE)).toBeVisible();
+	await expect(page.getByText('Welcome to Lattice. I’ll show you around.')).toBeVisible({ timeout: 15_000 });
+});
+
+// THE LAYOUT PROMISE: a tour walks the screen it needs and puts the visitor's own back. Start the Present
+// tour from Craft with the Coach panel open on the third slide; it resets to Write with nothing open,
+// opens Present, and when it ends the stop, the panel and the slide are exactly where they were.
+test('a tour puts the visitor’s layout back when it ends', async ({ page }) => {
+	test.slow();
+	await gotoStudio(page);
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.getByRole('button', { name: /Craft — every panel/ }).click();
+	await page.locator('[aria-label="Toggle Coach"]').click();
+	await expect(page.locator('[aria-label="Toggle Coach"]')).toHaveAttribute('aria-pressed', 'true');
+	await page.locator('[aria-label^="Slide 3"]').first().click();
+	await expect(page.getByText('Slide 3 / 7')).toBeVisible();
+
+	await page.locator(SHOW_ME).click();
+	await page.locator('[data-tour="present"]').click();
+	await expect(page.locator(STAGE)).toBeVisible();
+	// The tour's own layout: Write, no panel.
+	await expect(page.getByRole('button', { name: /Write — editor \+ preview/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.locator('[aria-label="Toggle Coach"]')).toHaveCount(0);
+
+	await expect(page.locator('[data-welcome="end"]')).toBeVisible({ timeout: 150_000 });
+	await page.getByRole('button', { name: 'Start building' }).click();
+	await expect(page.getByRole('button', { name: /Craft — every panel/ })).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.locator('[aria-label="Toggle Coach"]')).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByText('Slide 3 / 7')).toBeVisible();
 });

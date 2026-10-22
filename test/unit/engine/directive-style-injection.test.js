@@ -246,7 +246,7 @@ describe('nothing re-parses a serialization we produced', () => {
     const decls = declarationsIn(css);
     assert.deepEqual(
       decls,
-      ['--footer', '--background-image', 'background-image', 'background-position',
+      ['--footer', '--paginate', '--background-image', 'background-image', 'background-position',
        'background-repeat', 'background-size'],
       `the background pass re-parsed the directive pass's output: ${css}`,
     );

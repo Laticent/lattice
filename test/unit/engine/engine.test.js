@@ -94,13 +94,16 @@ describe('lattice-engine: contract', () => {
     assert.ok(toks(lightDeck[1]).has('dark') && !toks(lightDeck[1]).has('light')); // per-slide wins, no "light dark"
   });
 
-  test('paginate true emits pagination attrs; false emits none', () => {
-    const md = '<!-- paginate: true -->\n\n# A\n\n---\n\n<!-- _paginate: false -->\n\n# B\n';
+  test('pagination is on by default, a class opts a slide out, and a paginate comment is ignored', () => {
+    const md = '# A\n\n---\n\n<!-- _class: content no-pagination -->\n\n# B\n\n---\n\n<!-- _paginate: false -->\n\n# C\n';
     const { html } = makeEngine().render(md, 'lattice');
     const secs = html.match(/<section[^>]*>/g);
     assert.match(secs[0], /data-lattice-pagination="1"/);
     assert.doesNotMatch(secs[1], /data-lattice-pagination=/);
-    assert.doesNotMatch(secs[1], /--paginate:false/);
+    assert.doesNotMatch(secs[1], /--paginate:/);
+    assert.match(secs[2], /data-lattice-pagination="3"/, 'the retired `_paginate: false` comment must not hide the number');
+    const off = makeEngine().render(`---\npaginate: false\n---\n\n${md}`, 'lattice').html.match(/<section[^>]*>/g);
+    assert.ok(off.every((s) => !/data-lattice-pagination=/.test(s)), 'front matter `paginate: false` numbers nothing');
   });
 
   // NB: plain render() is the EXPORT path — it strips data-debug (preview-only). The

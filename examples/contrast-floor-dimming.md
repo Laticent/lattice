@@ -7,7 +7,6 @@ header: "Lattice · Contrast floor + de-emphasis"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Title slide · title" -->
 
 # The contrast floor, and what "dimmed" should mean
@@ -124,7 +123,6 @@ When the largest thing on a row is the least legible, the instrument is wrong.
 <!-- _class: closing -->
 <!-- _header: '' -->
 <!-- _footer: "Closing bookend · closing" -->
-<!-- _paginate: false -->
 
 `What Is Still Owed`
 

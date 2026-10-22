@@ -16,7 +16,6 @@ A `scene` slide freezes an Anima poster into the PDF — and on the HTML/present
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

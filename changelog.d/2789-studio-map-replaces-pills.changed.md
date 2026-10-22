@@ -1,1 +1,1 @@
-- The Studio's slide map is now the slide navigator where it sits beside the slide: the pill navigator under the preview hides while the map is open there, and comes back where the map stacks under the slide (a narrow pane or a phone). Live presence dots now show on the map's tiles.
+- The Studio's slide map replaces the slide pills at every width: with the map on, its thumbnails sit in the slide strip under the preview, where the pills were, and the pills come back when it is off. Live presence dots now show on the map's tiles, and outside Read each tile names its component.

@@ -6,6 +6,5 @@
 
 <!-- markdownlint-disable MD033 -->
 
-<!-- paginate: true -->
 
 <!-- Then land the number. -->

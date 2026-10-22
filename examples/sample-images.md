@@ -7,7 +7,6 @@ logo: sample:logo-acme-mark.svg
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -99,7 +98,6 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

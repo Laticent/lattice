@@ -1,0 +1,11 @@
+- **Breaking:** page numbers are on by default. Front matter `paginate: false` turns them off for the deck; a deck that leaves the key out is now numbered.
+- **Breaking:** a `<!-- paginate: … -->` or `<!-- _paginate: … -->` slide comment does nothing. One slide opts out with the `no-pagination` class and back in with `with-pagination`. `lint:deck` reports the comment as `paginate-comment-retired`, and `--fix` deletes it where that changes nothing.
+- **Breaking:** the `no-paginate` class is renamed `no-pagination`, to pair with the new `with-pagination`.
+- A component opts its slides out of page numbers in its manifest, with `"chrome": { "pagination": false }`. Title, divider and closing do, so their skeletons no longer carry `_paginate: false`. A slide's class wins over the manifest.
+- Export to Marp writes Marp's own `paginate` and `_paginate` directives, so a Marp render numbers the same slides.
+- Slide facts (`lattice facts`) report `paginate: "true"` on every numbered slide, since numbering is now the default.
+- `with-pagination` wins over every opt-out, including `silent`, collage and a statement image, which used to hide the number in CSS alone. `paginate:` reads the same everywhere: `false`, `no`, `off`, `0`, `skip` and `hold` are off, in the engine, the Studio and Export to Marp.
+- `lint:deck` names `no-paginate` as renamed to `no-pagination`.
+- The PDF writer draws a page number on a split slide under a finish as selectable text. Its `pointer-events: none` hid it from the hit test, so the number was kept in the photo layer.
+- The Studio's preview bar puts previous, the slide count and next in one pill, with the slide-map toggle beside it. The map toggle moved up from the end of the slide strip. A divider now separates the slide actions (add, duplicate, delete, move earlier, move later) from the slide picker, and the actions wrap onto a second row, centered, where the strip is tall enough. On a phone the count reads "5 / 7", every control keeps a 44px touch target, and the bar keeps its height. In the Read posture, which has no preview bar, the toggle stays in the strip.
+- Export to Marp loads its bundle builder on demand, so the engine every page boots with is about 24 KB (gzipped) smaller.

@@ -138,7 +138,6 @@ The technology detects AF reliably — that much is convincing. But the leap fro
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

@@ -7,7 +7,6 @@ header: "Lattice · Global Font Scale"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
@@ -156,7 +155,6 @@ One modifier bumps the readable fonts on a slide — or the whole deck — up in
 <!-- _class: closing -->
 <!-- _header: '' -->
 <!-- _footer: "Closing · closing" -->
-<!-- _paginate: false -->
 
 `Reach for it when the room demands it`
 

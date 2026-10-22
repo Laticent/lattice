@@ -122,14 +122,14 @@ section.collage .collage-list > li > code {
 
 /* ── no page number ─────────────────────────────────────────────────────────────────────
  * The owner asked for no page number on a collage: the photos own the slide. The two arms below
- * are the `no-paginate` pair from base.variants.css, written for this component so the author
- * does not have to add `no-paginate`. The class is DOUBLED to reach (0,2,2) over the engine
+ * are the `no-pagination` pair from base.variants.css, written for this component so the author
+ * does not have to add `no-pagination`. The class is DOUBLED to reach (0,2,2) over the engine
  * pagination pseudo (a single class changed zero pixels in image.styles.css). The header and
  * footer stay; only `silent` removes those. Pinned by a pixel test. */
-section.collage.collage::after {
+section.collage.collage:not(.with-pagination)::after {
 	content: none;
 }
-section.collage.collage > .lat-pagination {
+section.collage.collage:not(.with-pagination) > .lat-pagination {
 	display: none;
 }
 

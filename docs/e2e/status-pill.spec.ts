@@ -78,7 +78,7 @@ async function openLibrary(page: import('@playwright/test').Page) {
 test('a refused import names each refusal on its own line', async ({ page }) => {
 	await gotoStudio(page);
 	await openLibrary(page);
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({
 		name: 'refused.zip',
 		mimeType: 'application/zip',
 		buffer: await refusedBundle(),
@@ -100,7 +100,7 @@ test('a refused import names each refusal on its own line', async ({ page }) => 
 test('a corrupt bundle reports WHY, not that the file was empty', async ({ page }) => {
 	await gotoStudio(page);
 	await openLibrary(page);
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({
 		name: 'corrupt.zip',
 		mimeType: 'application/zip',
 		buffer: Buffer.from('this is not a zip at all'),

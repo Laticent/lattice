@@ -17,13 +17,13 @@ import { Mark, type NodeSpec, type Node as PMNode } from 'prosemirror-model';
 import { CLIP_ORIGIN } from './clip-origin';
 
 /**
- * The shape a source must have to be a node at all: one line, braced, with an optional `~` or `!`
+ * The shape a source must have to be a node at all: one line, braced, with an optional `~`, `!` or `^`
  * sigil. This is a SAFETY check, not a grammar: the kernel decides whether a source is a pill. It
  * exists for the one path where the source arrives from outside, a paste. A newline in `src` would
  * end the code span when the node is written back, and what follows would be parsed as deck
  * structure (a `---` slide boundary, a `<!-- _backgroundImage: … -->` directive).
  */
-export const INLINE_OBJECT_SRC = /^[~!]?\{[^\n\r`]*\}$/;
+export const INLINE_OBJECT_SRC = /^[~!^]?\{[^\n\r`]*\}$/;
 
 /** Longest source an object may carry. The notation is a line of options, never a document. */
 export const INLINE_OBJECT_MAX = 512;

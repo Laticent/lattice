@@ -33,9 +33,17 @@ export interface PartRef {
 	readonly part: number;
 }
 
+/** What the host calls its two levels ("slide" and "page", "chapter" and "paragraph"). */
+export interface Kinds {
+	readonly unit: string;
+	readonly part: string;
+}
+
 export interface Outline {
 	/** Bumped on every change of text; the same text keeps its revision. */
 	readonly rev: number;
+	/** The host's words for a unit and a part. Absent: "unit" and "part". */
+	readonly kinds?: Kinds;
 	readonly source: string;
 	readonly units: readonly Unit[];
 	/** `partBase[i]` = parts before unit `i`; the last entry is the total. */

@@ -4,7 +4,7 @@ import { createHostKey, type HostKey, signCert, signHello, tokenId, verifyChain 
 import { formatLink, mintLink, parseFragment, toBase64Url } from './link';
 import { createMemoryNetwork, type MemoryNetwork } from './memory';
 import { type Control, cleanName, decodeControl, encodeControl, frame, PROTOCOL_VERSION, TAG_AWARENESS, TAG_DOC, TAG_POST } from './protocol';
-import { createSession, HANDOFF_GRACE_MS, HOST_POLL_MS, MAX_POLL_ROUNDS, MAX_WAITING, type Session, type SessionOptions } from './session';
+import { createSession, HANDOFF_GRACE_MS, HOST_POLL_MS, MAX_POLL_ROUNDS, MAX_WAITING, type Session, type SessionOptions, uniqueClients } from './session';
 import { type Clock, linkKind, type Stream, type Transport } from './types';
 
 // Every test runs whole sessions over the in-memory network, with a real Yjs document as the
@@ -769,6 +769,29 @@ describe('round 2 (red-team + checker, 2026-10-06)', () => {
 		const byName = Object.fromEntries(a.s.getState().members.map((x) => [x.name, x.client]));
 		expect(byName).toEqual({ Sharmarke: 111, Amina: 222, Mallory: undefined });
 		expect(m.s.getState().stage).toBe('live');
+	});
+
+	it('a client id belongs to the token that first claimed it: a newcomer cannot take a dropped member\'s id, and the member gets it back', async () => {
+		const net = createMemoryNetwork();
+		const h = host(net, { client: 111 });
+		const a = await joined(net, h, 'Amina', { client: 222 });
+		const token = a.s.getState().token as string;
+		net.drop(a.t.selfId);
+		await settle(net);
+		// While Amina is away, someone else knocks claiming her client id (it travels in the clear in awareness).
+		const eve = await joined(net, h, 'Eve', { client: 222 });
+		expect(eve.s.getState().stage).toBe('live');
+		expect(h.s.getState().members.find((m) => m.name === 'Eve')?.client).toBeUndefined();
+		// Amina rejoins with her token and speaks for her id again.
+		const again = guest(net, { token, client: 222 });
+		await settle(net);
+		expect(again.s.getState().stage).toBe('live');
+		expect(h.s.getState().members.find((m) => m.name === 'Amina')?.client).toBe(222);
+	});
+
+	it('a roster that names one client id twice keeps it for the first member only', () => {
+		const m = (id: string, client?: number) => ({ id, name: id, role: 'edit' as const, color: 1 as const, ...(client !== undefined ? { client } : {}) });
+		expect(uniqueClients([m('a', 5), m('b', 5), m('c', 6), m('d')]).map((x) => x.client)).toEqual([5, undefined, 6, undefined]);
 	});
 
 	it('posts reach members only, with the transport sender, never from a stranger', async () => {

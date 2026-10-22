@@ -111,7 +111,7 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 		try {
 			await gotoStudio(page);
 			await openLibrary(page);
-			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'tally.zip', mimeType: 'application/zip', buffer: await tallyZip(tallyCode(origin, udpPort)) });
+			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'tally.zip', mimeType: 'application/zip', buffer: await tallyZip(tallyCode(origin, udpPort)) });
 			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
 			await page.keyboard.press('Escape');
 
@@ -228,7 +228,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			});
 			await gotoStudio(page);
 			await openLibrary(page);
-			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'tally.zip', mimeType: 'application/zip', buffer: await tallyZip(code) });
+			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'tally.zip', mimeType: 'application/zip', buffer: await tallyZip(code) });
 			const toast = page.locator('[data-sonner-toast]').first();
 			await expect(toast).toContainText('Nothing could be imported from that file.');
 			await expect(toast).toContainText('tally');
@@ -286,7 +286,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			zip.file('dateline/dateline.styles.css', 'section.dateline .dateline-rows { display: grid; gap: 0.25em; }\n');
 			zip.file('dateline/dateline.gallery.md', '<!-- _class: dateline -->\n\n## Plan\n\n- 2026-01-10 Kickoff\n');
 			zip.file('dateline/dateline.transform.js', datelineCode(origin));
-			await page.locator('input[type="file"][accept=".zip"]').setInputFiles({ name: 'dateline.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
+			await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'dateline.zip', mimeType: 'application/zip', buffer: await zip.generateAsync({ type: 'nodebuffer' }) });
 			await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 component(s)');
 			await page.keyboard.press('Escape');
 			await setEditorContent(page, '<!-- _class: dateline -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n');

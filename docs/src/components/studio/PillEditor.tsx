@@ -26,10 +26,10 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { InlineKernels, PillEdit, PillFields } from '@/lib/compose/inline-objects';
 import { cn } from '@/lib/utils';
 import { IconGrid } from './IconGrid';
+import { ColorRow, ITEM, PanelFooter } from './object-controls';
 
-/** The selected look for a toggle item: the repo's chip-row pattern (SlideContext.tsx), so the pressed one is plain to see. */
-export const ITEM =
-	'border border-border text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))] data-[state=on]:border-[var(--accent)] data-[state=on]:bg-[var(--accent-soft)] data-[state=on]:text-[var(--accent)]';
+// The chip look is shared with the other panels, and re-exported for the ones that import it from here.
+export { ITEM };
 
 /** What a person calls each shape. Anything the engine adds later falls back to its own name. */
 const SHAPE_NAMES: Record<string, string> = {
@@ -182,26 +182,7 @@ export function PillPanel({
 				<span id={`${labelId}-color`} className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
 					Color
 				</span>
-				<ToggleGroup
-					type="single"
-					value={fields.c ?? 'default'}
-					onValueChange={(v) => v && send({ color: v === 'default' ? null : v }, 'That color cannot be written here. Use Edit as text.')}
-					aria-labelledby={`${labelId}-color`}
-					className="flex flex-wrap gap-1.5"
-				>
-					<ToggleGroupItem value="default" aria-label="Color: theme default" className={cn(ITEM, 'h-6 rounded-full px-2.5 text-[11px] font-normal')}>
-						Default
-					</ToggleGroupItem>
-					{COLORS.map((c, i) => (
-						<ToggleGroupItem key={c} value={c} aria-label={`Color ${i + 1}`} className={cn(ITEM, 'size-6 rounded-full p-0 data-[state=on]:ring-2 data-[state=on]:ring-[var(--accent)]')}>
-							<span
-								aria-hidden="true"
-								className={cn('block size-3.5 rounded-full border border-border', slotColors[i] ? '' : 'bg-muted')}
-								style={slotColors[i] ? { background: slotColors[i] as string } : undefined}
-							/>
-						</ToggleGroupItem>
-					))}
-				</ToggleGroup>
+				<ColorRow labeledBy={`${labelId}-color`} value={fields.c} slotColors={slotColors} slots={COLORS} onPick={(c) => send({ color: c }, 'That color cannot be written here. Use Edit as text.')} />
 				{/* Slots are ordinals: the same number is a different hue in another theme. */}
 				<p className="text-[11px] text-muted-foreground">Colors follow your theme; a number is a place in it, not a meaning.</p>
 			</div>
@@ -249,14 +230,7 @@ export function PillPanel({
 				</ToggleGroup>
 			</div>
 			</div>
-			<div className="flex shrink-0 items-center justify-between gap-2 border-t border-border pt-3">
-				<Button type="button" variant="ghost" size="sm" onClick={onEditAsText}>
-					Edit as text
-				</Button>
-				<Button type="button" size="sm" onClick={onDone}>
-					Done
-				</Button>
-			</div>
+			<PanelFooter onEditAsText={onEditAsText} onDone={onDone} />
 		</div>
 	);
 }

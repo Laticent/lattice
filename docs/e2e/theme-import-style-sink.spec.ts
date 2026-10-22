@@ -83,7 +83,7 @@ test('an imported theme cannot break out of the preview `<style>` (#1458, #1718)
 	await page.getByRole('button', { name: CHROME.library }).click();
 	// The Library's OWN input. The panel loads on first open (#2402), so a bare `.first()`
 	// resolved to the Studio's always-mounted deck opener before the Library had landed.
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({
 		name: `${THEME_NAME}.lattice-theme.zip`,
 		mimeType: 'application/zip',
 		buffer: await hostileThemeZip(),
@@ -226,7 +226,7 @@ test('an imported theme whose CSS reaches off the device is refused, and a clean
 
 	await gotoStudio(page);
 	await page.getByRole('button', { name: CHROME.library }).click();
-	await page.locator('input[type="file"][accept=".zip"]').setInputFiles({
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({
 		name: 'mixed.lattice-assets.zip',
 		mimeType: 'application/zip',
 		buffer: await mixedBundleZip(),

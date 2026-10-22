@@ -7,7 +7,6 @@ footer: "video keeps its title in the card"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

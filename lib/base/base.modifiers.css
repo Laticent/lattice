@@ -2089,7 +2089,7 @@ section.compare-prose.mirror > .cell-stage > :is(ul, ol) {
  *      Playground, the Studio and lib/runtime load, so the counter text was
  *      stripped there while the unpacked emulator/CLI path kept it — one modifier,
  *      two render paths, two different pictures.
- *   2. `silent` / `no-paginate` null that same pseudo with
+ *   2. `silent` / `no-pagination` null that same pseudo with
  *      `section.silent.silent::after { content: none }` (base.variants.css), which
  *      ties this rule's (0,2,2) specificity and wins on source order. Every sample
  *      this repo ships — divider.docs.md, the manifest, divider.gallery.md — reads
@@ -3009,7 +3009,7 @@ svg.deck-logo-tint { position: absolute; color: var(--logo-tint); }
  * `title` scope skipped, on `no-logo` slides, and on a deck with no `logo:` at all. A deck without a
  * placement word keeps header and logo together exactly as before. `.form` is in the Form selectors to out-rank the show rules in stage.css
  * (`section.form > .cell-footer > footer`, (0,2,2)); the legacy direct-child footer is the second
- * selector of each pair. Same reach `no-footer` / `no-paginate` use. */
+ * selector of each pair. Same reach `no-footer` / `no-pagination` use. */
 section:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) > header,
 section.form:is(.logo-top-left, .logo-top-center, .logo-top-right):has(> img.deck-logo) .tile-meta,
 section:is(.logo-bottom-left, .logo-bottom-center):has(> img.deck-logo) > footer,

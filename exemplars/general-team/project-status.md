@@ -150,7 +150,6 @@ The current hybrid app crashes at three times the industry rate and can't use th
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

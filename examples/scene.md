@@ -16,7 +16,6 @@ A `scene` puts an Anima motion scene on a slide as its poster still. The PDF sho
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

@@ -1,7 +1,7 @@
 /* Universal variants — apply to every layout.
  *
  * Three categories shipped here:
- *   chrome — silent, no-header, no-footer, no-paginate
+ *   chrome — silent, no-header, no-footer, no-pagination
  *   state  — wip, draft, tbd, confidential, redacted, archived,
  *            pinned, revised
  *   tone   — tone-pass, tone-warn, tone-fail, tone-skip
@@ -24,7 +24,7 @@
 
 /* `no-header` — hide the header band (top of slide).
    `no-footer` — hide the footer band (bottom-left).
-   `no-paginate` — hide the page number (bottom-right).
+   `no-pagination` — hide the page number (bottom-right).
    `silent` — combines all three; useful for bookend slides that want
    none of the standard chrome without writing three separate Marp
    directives. */
@@ -44,8 +44,8 @@ section.no-footer > footer {
    * (`section.form.no-footer > .cell-footer > footer`). */
   display: none;
 }
-section.silent.silent::after,
-section.no-paginate.no-paginate::after {
+section.silent.silent:not(.with-pagination)::after,
+section.no-pagination.no-pagination::after {
   /* Suppress the pagination pseudo. The class is DOUBLED (`.silent.silent`)
      purely to reach specificity (0,2,2), which beats the engine pagination
      pseudo `article.lattice > section::after` (0,1,3) on class-count (2 > 1) — so no
@@ -59,11 +59,11 @@ section.no-paginate.no-paginate::after {
 }
 /* The migrated Form frame renders the page number as a REAL element
  * (`span.lat-pagination`), not the `::after` pseudo above — so suppressing the
- * pseudo alone leaves it visible. Hide the element too, so `no-paginate` /
- * `silent` (and `claim-hero no-paginate`) actually drop the page number on every
+ * pseudo alone leaves it visible. Hide the element too, so `no-pagination` /
+ * `silent` (and `claim-hero no-pagination`) actually drop the page number on every
  * frame. */
-section.silent .lat-pagination,
-section.no-paginate .lat-pagination {
+section.silent:not(.with-pagination) .lat-pagination,
+section.no-pagination .lat-pagination {
   display: none;
 }
 

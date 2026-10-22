@@ -9,7 +9,6 @@ footer: "Feature deck"
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 
 # One branch, one color
 

@@ -1,0 +1,2 @@
+studio: +300
+Compose's new editors are lazy, but the lucide icons they and the Insert menu use (`braces`, `images`) landed in shared Studio chunks, so those chunks grew by 318 and 268 bytes gzip while two others shrank (CI measured +225 against main). The panels, the photo picker and the image node view are in the lazy Compose chunk; the writer is in the authoring bundle (lintCoreGz stays under its ceiling, 0.4 KB left). +300 covers gzip spread on a route this PR changes only through shared icon chunks.

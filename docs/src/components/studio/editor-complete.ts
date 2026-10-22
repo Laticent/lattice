@@ -1,4 +1,5 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
 import sizes from '../../../../lib/engine/sizes.js';
@@ -151,11 +152,7 @@ export function frontMatterKeyAt(doc: string, lineText: string, lineFrom: number
 /** A Library photo the editor can offer: the part of a record completion needs, no bytes. */
 export type AssetChoice = { name: string; scope: string; width: number; height: number; sourceName: string };
 
-/** `team-photo` → `Team photo`: a starting alt text the author is expected to replace (it is selected on insert). */
-export function altFromAssetName(name: string): string {
-	const words = name.replace(/[-_]+/g, ' ').trim();
-	return words ? words[0].toUpperCase() + words.slice(1) : 'Photo';
-}
+export { altFromAssetName };
 
 /** Is the slide the cursor line sits on a `collage`? Reads upward to the slide's `---` (or the top) for
  *  its `_class:` directive. A collage's body is a list of photos, so a bare list item there is a photo. */

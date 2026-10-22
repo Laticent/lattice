@@ -30,7 +30,6 @@ One product told two ways: the chart family plots its data, this deck maps its s
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Group 01 · Flow & sequence`
@@ -101,7 +100,6 @@ Escalated,Decision log,280
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Group 02 · Structure & schema`
@@ -225,7 +223,6 @@ title Decision-log record
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Group 03 · Hierarchy & systems`
@@ -322,7 +319,6 @@ C4Context
 ---
 
 <!-- _class: divider -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Group 04 · Cause, set & history`
@@ -415,7 +411,6 @@ These shapes exist as both a Mermaid diagram and a native SVG-kernel component. 
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _footer: '' -->
 
 `Diagrams · graph substance`

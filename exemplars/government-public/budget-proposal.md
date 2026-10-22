@@ -178,7 +178,6 @@ The $64M federal formula match expires at the close of FY2028. A state appropria
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

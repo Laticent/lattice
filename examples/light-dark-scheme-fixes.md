@@ -91,7 +91,6 @@ three places a color can hide were already covered. This deck is the third.
 
 <!-- _class: closing spectrum -->
 <!-- _header: '' -->
-<!-- _paginate: false -->
 <!-- _footer: "Nothing shipped depends on light-dark() · closing spectrum" -->
 
 `The contract, now true`

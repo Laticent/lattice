@@ -1,0 +1,1602 @@
+{
+	"voice": {
+		"engine": "gemini",
+		"model": "google/gemini-3.1-flash-tts-preview",
+		"voice": "Schedar",
+		"kbps": 48,
+		"pace": "moderate"
+	},
+	"bytes": 439488,
+	"lines": [
+		{
+			"key": "f6434420b07e",
+			"text": "Welcome to the Playground. Every Lattice component lives here, one deck at a time, with a live editor one tap away.",
+			"file": "f6434420b07e.mp3",
+			"bytes": 45504,
+			"speechMs": 7531,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Welcome to the Playground.",
+						"words": [
+							{
+								"display": "Welcome",
+								"spoken": "Welcome",
+								"startMs": 0,
+								"endMs": 385,
+								"charOffset": 0
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 385,
+								"endMs": 578,
+								"charOffset": 8
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 578,
+								"endMs": 770,
+								"charOffset": 11
+							},
+							{
+								"display": "Playground.",
+								"spoken": "Playground.",
+								"startMs": 770,
+								"endMs": 1184,
+								"charOffset": 15
+							}
+						],
+						"startMs": 0,
+						"endMs": 1546,
+						"charOffset": 0
+					},
+					{
+						"display": "Every Lattice component lives here, one deck at a time, with a live editor one tap away.",
+						"words": [
+							{
+								"display": "Every",
+								"spoken": "Every",
+								"startMs": 1701,
+								"endMs": 2279,
+								"charOffset": 27
+							},
+							{
+								"display": "Lattice",
+								"spoken": "Lattice",
+								"startMs": 2279,
+								"endMs": 2664,
+								"charOffset": 33
+							},
+							{
+								"display": "component",
+								"spoken": "component",
+								"startMs": 2664,
+								"endMs": 3242,
+								"charOffset": 41
+							},
+							{
+								"display": "lives",
+								"spoken": "lives",
+								"startMs": 3242,
+								"endMs": 3627,
+								"charOffset": 51
+							},
+							{
+								"display": "here,",
+								"spoken": "here,",
+								"startMs": 3627,
+								"endMs": 3848,
+								"charOffset": 57
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 4036,
+								"endMs": 4228,
+								"charOffset": 63
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 4228,
+								"endMs": 4421,
+								"charOffset": 67
+							},
+							{
+								"display": "at",
+								"spoken": "at",
+								"startMs": 4421,
+								"endMs": 4614,
+								"charOffset": 72
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 4614,
+								"endMs": 4806,
+								"charOffset": 75
+							},
+							{
+								"display": "time,",
+								"spoken": "time,",
+								"startMs": 4806,
+								"endMs": 5027,
+								"charOffset": 77
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 5215,
+								"endMs": 5407,
+								"charOffset": 83
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 5407,
+								"endMs": 5600,
+								"charOffset": 88
+							},
+							{
+								"display": "live",
+								"spoken": "live",
+								"startMs": 5600,
+								"endMs": 5793,
+								"charOffset": 90
+							},
+							{
+								"display": "editor",
+								"spoken": "editor",
+								"startMs": 5793,
+								"endMs": 6371,
+								"charOffset": 95
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 6371,
+								"endMs": 6563,
+								"charOffset": 102
+							},
+							{
+								"display": "tap",
+								"spoken": "tap",
+								"startMs": 6563,
+								"endMs": 6756,
+								"charOffset": 106
+							},
+							{
+								"display": "away.",
+								"spoken": "away.",
+								"startMs": 6756,
+								"endMs": 7169,
+								"charOffset": 110
+							}
+						],
+						"startMs": 1701,
+						"endMs": 7531,
+						"charOffset": 27
+					}
+				],
+				"durationMs": 7531
+			}
+		},
+		{
+			"key": "0a90aa6408c1",
+			"text": "This switch flips between Explore, which draws the deck, and Edit, which opens its Markdown. Same deck, two views.",
+			"file": "0a90aa6408c1.mp3",
+			"bytes": 51840,
+			"speechMs": 8590,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "This switch flips between Explore, which draws the deck, and Edit, which opens its Markdown.",
+						"words": [
+							{
+								"display": "This",
+								"spoken": "This",
+								"startMs": 0,
+								"endMs": 258,
+								"charOffset": 0
+							},
+							{
+								"display": "switch",
+								"spoken": "switch",
+								"startMs": 258,
+								"endMs": 515,
+								"charOffset": 5
+							},
+							{
+								"display": "flips",
+								"spoken": "flips",
+								"startMs": 515,
+								"endMs": 773,
+								"charOffset": 12
+							},
+							{
+								"display": "between",
+								"spoken": "between",
+								"startMs": 773,
+								"endMs": 1288,
+								"charOffset": 18
+							},
+							{
+								"display": "Explore,",
+								"spoken": "Explore,",
+								"startMs": 1288,
+								"endMs": 1841,
+								"charOffset": 26
+							},
+							{
+								"display": "which",
+								"spoken": "which",
+								"startMs": 2093,
+								"endMs": 2350,
+								"charOffset": 35
+							},
+							{
+								"display": "draws",
+								"spoken": "draws",
+								"startMs": 2350,
+								"endMs": 2608,
+								"charOffset": 41
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2608,
+								"endMs": 2865,
+								"charOffset": 47
+							},
+							{
+								"display": "deck,",
+								"spoken": "deck,",
+								"startMs": 2865,
+								"endMs": 3161,
+								"charOffset": 51
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 3412,
+								"endMs": 3670,
+								"charOffset": 57
+							},
+							{
+								"display": "Edit,",
+								"spoken": "Edit,",
+								"startMs": 3670,
+								"endMs": 4223,
+								"charOffset": 61
+							},
+							{
+								"display": "which",
+								"spoken": "which",
+								"startMs": 4474,
+								"endMs": 4732,
+								"charOffset": 67
+							},
+							{
+								"display": "opens",
+								"spoken": "opens",
+								"startMs": 4732,
+								"endMs": 5247,
+								"charOffset": 73
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 5247,
+								"endMs": 5505,
+								"charOffset": 79
+							},
+							{
+								"display": "Markdown.",
+								"spoken": "Markdown.",
+								"startMs": 5505,
+								"endMs": 6058,
+								"charOffset": 83
+							}
+						],
+						"startMs": 0,
+						"endMs": 6541,
+						"charOffset": 0
+					},
+					{
+						"display": "Same deck, two views.",
+						"words": [
+							{
+								"display": "Same",
+								"spoken": "Same",
+								"startMs": 6749,
+								"endMs": 7006,
+								"charOffset": 93
+							},
+							{
+								"display": "deck,",
+								"spoken": "deck,",
+								"startMs": 7006,
+								"endMs": 7302,
+								"charOffset": 98
+							},
+							{
+								"display": "two",
+								"spoken": "two",
+								"startMs": 7553,
+								"endMs": 7811,
+								"charOffset": 104
+							},
+							{
+								"display": "views.",
+								"spoken": "views.",
+								"startMs": 7811,
+								"endMs": 8106,
+								"charOffset": 108
+							}
+						],
+						"startMs": 6749,
+						"endMs": 8590,
+						"charOffset": 93
+					}
+				],
+				"durationMs": 8590
+			}
+		},
+		{
+			"key": "da79050b9a7e",
+			"text": "Pick any component here. Search by name, and its whole deck loads: the title, every variant, and a stress test.",
+			"file": "da79050b9a7e.mp3",
+			"bytes": 46800,
+			"speechMs": 7734,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Pick any component here.",
+						"words": [
+							{
+								"display": "Pick",
+								"spoken": "Pick",
+								"startMs": 0,
+								"endMs": 209,
+								"charOffset": 0
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 209,
+								"endMs": 626,
+								"charOffset": 5
+							},
+							{
+								"display": "component",
+								"spoken": "component",
+								"startMs": 626,
+								"endMs": 1252,
+								"charOffset": 9
+							},
+							{
+								"display": "here.",
+								"spoken": "here.",
+								"startMs": 1252,
+								"endMs": 1491,
+								"charOffset": 19
+							}
+						],
+						"startMs": 0,
+						"endMs": 1883,
+						"charOffset": 0
+					},
+					{
+						"display": "Search by name, and its whole deck loads: the title, every variant, and a stress test.",
+						"words": [
+							{
+								"display": "Search",
+								"spoken": "Search",
+								"startMs": 2051,
+								"endMs": 2259,
+								"charOffset": 25
+							},
+							{
+								"display": "by",
+								"spoken": "by",
+								"startMs": 2259,
+								"endMs": 2468,
+								"charOffset": 32
+							},
+							{
+								"display": "name,",
+								"spoken": "name,",
+								"startMs": 2468,
+								"endMs": 2707,
+								"charOffset": 35
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 2910,
+								"endMs": 3119,
+								"charOffset": 41
+							},
+							{
+								"display": "its",
+								"spoken": "its",
+								"startMs": 3119,
+								"endMs": 3328,
+								"charOffset": 45
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 3328,
+								"endMs": 3536,
+								"charOffset": 49
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 3536,
+								"endMs": 3745,
+								"charOffset": 55
+							},
+							{
+								"display": "loads:",
+								"spoken": "loads,",
+								"startMs": 3745,
+								"endMs": 3984,
+								"charOffset": 60
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4340,
+								"endMs": 4549,
+								"charOffset": 67
+							},
+							{
+								"display": "title,",
+								"spoken": "title,",
+								"startMs": 4549,
+								"endMs": 4997,
+								"charOffset": 71
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 5200,
+								"endMs": 5826,
+								"charOffset": 78
+							},
+							{
+								"display": "variant,",
+								"spoken": "variant,",
+								"startMs": 5826,
+								"endMs": 6274,
+								"charOffset": 84
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 6477,
+								"endMs": 6686,
+								"charOffset": 93
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 6686,
+								"endMs": 6894,
+								"charOffset": 97
+							},
+							{
+								"display": "stress",
+								"spoken": "stress",
+								"startMs": 6894,
+								"endMs": 7103,
+								"charOffset": 99
+							},
+							{
+								"display": "test.",
+								"spoken": "test.",
+								"startMs": 7103,
+								"endMs": 7342,
+								"charOffset": 106
+							}
+						],
+						"startMs": 2051,
+						"endMs": 7734,
+						"charOffset": 25
+					}
+				],
+				"durationMs": 7734
+			}
+		},
+		{
+			"key": "e098ebad4a26",
+			"text": "Step through with the arrow keys. When a deck ends, it flows into the next component, so the catalog reads as one long story.",
+			"file": "e098ebad4a26.mp3",
+			"bytes": 48384,
+			"speechMs": 8001,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Step through with the arrow keys.",
+						"words": [
+							{
+								"display": "Step",
+								"spoken": "Step",
+								"startMs": 0,
+								"endMs": 210,
+								"charOffset": 0
+							},
+							{
+								"display": "through",
+								"spoken": "through",
+								"startMs": 210,
+								"endMs": 420,
+								"charOffset": 5
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 420,
+								"endMs": 630,
+								"charOffset": 13
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 630,
+								"endMs": 840,
+								"charOffset": 18
+							},
+							{
+								"display": "arrow",
+								"spoken": "arrow",
+								"startMs": 840,
+								"endMs": 1260,
+								"charOffset": 22
+							},
+							{
+								"display": "keys.",
+								"spoken": "keys.",
+								"startMs": 1260,
+								"endMs": 1501,
+								"charOffset": 28
+							}
+						],
+						"startMs": 0,
+						"endMs": 1895,
+						"charOffset": 0
+					},
+					{
+						"display": "When a deck ends, it flows into the next component, so the catalog reads as one long story.",
+						"words": [
+							{
+								"display": "When",
+								"spoken": "When",
+								"startMs": 2064,
+								"endMs": 2274,
+								"charOffset": 34
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 2274,
+								"endMs": 2484,
+								"charOffset": 39
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 2484,
+								"endMs": 2694,
+								"charOffset": 41
+							},
+							{
+								"display": "ends,",
+								"spoken": "ends,",
+								"startMs": 2694,
+								"endMs": 2935,
+								"charOffset": 46
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 3140,
+								"endMs": 3350,
+								"charOffset": 52
+							},
+							{
+								"display": "flows",
+								"spoken": "flows",
+								"startMs": 3350,
+								"endMs": 3560,
+								"charOffset": 55
+							},
+							{
+								"display": "into",
+								"spoken": "into",
+								"startMs": 3560,
+								"endMs": 3980,
+								"charOffset": 61
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 3980,
+								"endMs": 4190,
+								"charOffset": 66
+							},
+							{
+								"display": "next",
+								"spoken": "next",
+								"startMs": 4190,
+								"endMs": 4400,
+								"charOffset": 70
+							},
+							{
+								"display": "component,",
+								"spoken": "component,",
+								"startMs": 4400,
+								"endMs": 5061,
+								"charOffset": 75
+							},
+							{
+								"display": "so",
+								"spoken": "so",
+								"startMs": 5266,
+								"endMs": 5476,
+								"charOffset": 86
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 5476,
+								"endMs": 5686,
+								"charOffset": 89
+							},
+							{
+								"display": "catalog",
+								"spoken": "catalog",
+								"startMs": 5686,
+								"endMs": 6316,
+								"charOffset": 93
+							},
+							{
+								"display": "reads",
+								"spoken": "reads",
+								"startMs": 6316,
+								"endMs": 6526,
+								"charOffset": 101
+							},
+							{
+								"display": "as",
+								"spoken": "as",
+								"startMs": 6526,
+								"endMs": 6736,
+								"charOffset": 107
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 6736,
+								"endMs": 6946,
+								"charOffset": 110
+							},
+							{
+								"display": "long",
+								"spoken": "long",
+								"startMs": 6946,
+								"endMs": 7156,
+								"charOffset": 114
+							},
+							{
+								"display": "story.",
+								"spoken": "story.",
+								"startMs": 7156,
+								"endMs": 7607,
+								"charOffset": 119
+							}
+						],
+						"startMs": 2064,
+						"endMs": 8001,
+						"charOffset": 34
+					}
+				],
+				"durationMs": 8001
+			}
+		},
+		{
+			"key": "f568a9f549c4",
+			"text": "The Step menu jumps to any slide in the deck.",
+			"file": "f568a9f549c4.mp3",
+			"bytes": 19296,
+			"speechMs": 3153,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "The Step menu jumps to any slide in the deck.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 0,
+								"endMs": 225,
+								"charOffset": 0
+							},
+							{
+								"display": "Step",
+								"spoken": "Step",
+								"startMs": 225,
+								"endMs": 450,
+								"charOffset": 4
+							},
+							{
+								"display": "menu",
+								"spoken": "menu",
+								"startMs": 450,
+								"endMs": 899,
+								"charOffset": 9
+							},
+							{
+								"display": "jumps",
+								"spoken": "jumps",
+								"startMs": 899,
+								"endMs": 1124,
+								"charOffset": 14
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 1124,
+								"endMs": 1349,
+								"charOffset": 20
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 1349,
+								"endMs": 1799,
+								"charOffset": 23
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 1799,
+								"endMs": 2023,
+								"charOffset": 27
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 2023,
+								"endMs": 2248,
+								"charOffset": 33
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2248,
+								"endMs": 2473,
+								"charOffset": 36
+							},
+							{
+								"display": "deck.",
+								"spoken": "deck.",
+								"startMs": 2473,
+								"endMs": 2731,
+								"charOffset": 40
+							}
+						],
+						"startMs": 0,
+						"endMs": 3153,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 3153
+			}
+		},
+		{
+			"key": "cb16e4989a11",
+			"text": "In Edit you see the plain Markdown, with autocomplete for component names. Change a word, flip back, and the slide follows.",
+			"file": "cb16e4989a11.mp3",
+			"bytes": 49824,
+			"speechMs": 8237,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "In Edit you see the plain Markdown, with autocomplete for component names.",
+						"words": [
+							{
+								"display": "In",
+								"spoken": "In",
+								"startMs": 0,
+								"endMs": 216,
+								"charOffset": 0
+							},
+							{
+								"display": "Edit",
+								"spoken": "Edit",
+								"startMs": 216,
+								"endMs": 647,
+								"charOffset": 3
+							},
+							{
+								"display": "you",
+								"spoken": "you",
+								"startMs": 647,
+								"endMs": 862,
+								"charOffset": 8
+							},
+							{
+								"display": "see",
+								"spoken": "see",
+								"startMs": 862,
+								"endMs": 1078,
+								"charOffset": 12
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 1078,
+								"endMs": 1293,
+								"charOffset": 16
+							},
+							{
+								"display": "plain",
+								"spoken": "plain",
+								"startMs": 1293,
+								"endMs": 1509,
+								"charOffset": 20
+							},
+							{
+								"display": "Markdown,",
+								"spoken": "Markdown,",
+								"startMs": 1509,
+								"endMs": 1971,
+								"charOffset": 26
+							},
+							{
+								"display": "with",
+								"spoken": "with",
+								"startMs": 2181,
+								"endMs": 2397,
+								"charOffset": 36
+							},
+							{
+								"display": "autocomplete",
+								"spoken": "autocomplete",
+								"startMs": 2397,
+								"endMs": 3259,
+								"charOffset": 41
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 3259,
+								"endMs": 3475,
+								"charOffset": 54
+							},
+							{
+								"display": "component",
+								"spoken": "component",
+								"startMs": 3475,
+								"endMs": 4121,
+								"charOffset": 58
+							},
+							{
+								"display": "names.",
+								"spoken": "names.",
+								"startMs": 4121,
+								"endMs": 4584,
+								"charOffset": 68
+							}
+						],
+						"startMs": 0,
+						"endMs": 4988,
+						"charOffset": 0
+					},
+					{
+						"display": "Change a word, flip back, and the slide follows.",
+						"words": [
+							{
+								"display": "Change",
+								"spoken": "Change",
+								"startMs": 5162,
+								"endMs": 5377,
+								"charOffset": 75
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 5377,
+								"endMs": 5593,
+								"charOffset": 82
+							},
+							{
+								"display": "word,",
+								"spoken": "word,",
+								"startMs": 5593,
+								"endMs": 5840,
+								"charOffset": 84
+							},
+							{
+								"display": "flip",
+								"spoken": "flip",
+								"startMs": 6050,
+								"endMs": 6266,
+								"charOffset": 90
+							},
+							{
+								"display": "back,",
+								"spoken": "back,",
+								"startMs": 6266,
+								"endMs": 6513,
+								"charOffset": 95
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 6723,
+								"endMs": 6939,
+								"charOffset": 101
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 6939,
+								"endMs": 7154,
+								"charOffset": 105
+							},
+							{
+								"display": "slide",
+								"spoken": "slide",
+								"startMs": 7154,
+								"endMs": 7370,
+								"charOffset": 109
+							},
+							{
+								"display": "follows.",
+								"spoken": "follows.",
+								"startMs": 7370,
+								"endMs": 7832,
+								"charOffset": 115
+							}
+						],
+						"startMs": 5162,
+						"endMs": 8237,
+						"charOffset": 75
+					}
+				],
+				"durationMs": 8237
+			}
+		},
+		{
+			"key": "709bab5cb8ed",
+			"text": "Galleries load complete decks: showcase decks, one deck for each family, and every example.",
+			"file": "709bab5cb8ed.mp3",
+			"bytes": 39312,
+			"speechMs": 6496,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Galleries load complete decks: showcase decks, one deck for each family, and every example.",
+						"words": [
+							{
+								"display": "Galleries",
+								"spoken": "Galleries",
+								"startMs": 0,
+								"endMs": 647,
+								"charOffset": 0
+							},
+							{
+								"display": "load",
+								"spoken": "load",
+								"startMs": 647,
+								"endMs": 863,
+								"charOffset": 10
+							},
+							{
+								"display": "complete",
+								"spoken": "complete",
+								"startMs": 863,
+								"endMs": 1294,
+								"charOffset": 15
+							},
+							{
+								"display": "decks:",
+								"spoken": "decks,",
+								"startMs": 1294,
+								"endMs": 1541,
+								"charOffset": 24
+							},
+							{
+								"display": "showcase",
+								"spoken": "showcase",
+								"startMs": 1909,
+								"endMs": 2341,
+								"charOffset": 31
+							},
+							{
+								"display": "decks,",
+								"spoken": "decks,",
+								"startMs": 2341,
+								"endMs": 2588,
+								"charOffset": 40
+							},
+							{
+								"display": "one",
+								"spoken": "one",
+								"startMs": 2798,
+								"endMs": 3014,
+								"charOffset": 47
+							},
+							{
+								"display": "deck",
+								"spoken": "deck",
+								"startMs": 3014,
+								"endMs": 3230,
+								"charOffset": 51
+							},
+							{
+								"display": "for",
+								"spoken": "for",
+								"startMs": 3230,
+								"endMs": 3445,
+								"charOffset": 56
+							},
+							{
+								"display": "each",
+								"spoken": "each",
+								"startMs": 3445,
+								"endMs": 3661,
+								"charOffset": 60
+							},
+							{
+								"display": "family,",
+								"spoken": "family,",
+								"startMs": 3661,
+								"endMs": 4339,
+								"charOffset": 65
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4550,
+								"endMs": 4765,
+								"charOffset": 73
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 4765,
+								"endMs": 5412,
+								"charOffset": 77
+							},
+							{
+								"display": "example.",
+								"spoken": "example.",
+								"startMs": 5412,
+								"endMs": 6091,
+								"charOffset": 83
+							}
+						],
+						"startMs": 0,
+						"endMs": 6496,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 6496
+			}
+		},
+		{
+			"key": "38adc5b26a2b",
+			"text": "Deck settings hold the dials that apply to the whole deck: finish, size, and page numbers.",
+			"file": "38adc5b26a2b.mp3",
+			"bytes": 38160,
+			"speechMs": 6291,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "Deck settings hold the dials that apply to the whole deck: finish, size, and page numbers.",
+						"words": [
+							{
+								"display": "Deck",
+								"spoken": "Deck",
+								"startMs": 0,
+								"endMs": 241,
+								"charOffset": 0
+							},
+							{
+								"display": "settings",
+								"spoken": "settings",
+								"startMs": 241,
+								"endMs": 722,
+								"charOffset": 5
+							},
+							{
+								"display": "hold",
+								"spoken": "hold",
+								"startMs": 722,
+								"endMs": 963,
+								"charOffset": 14
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 963,
+								"endMs": 1204,
+								"charOffset": 19
+							},
+							{
+								"display": "dials",
+								"spoken": "dials",
+								"startMs": 1204,
+								"endMs": 1445,
+								"charOffset": 23
+							},
+							{
+								"display": "that",
+								"spoken": "that",
+								"startMs": 1445,
+								"endMs": 1686,
+								"charOffset": 29
+							},
+							{
+								"display": "apply",
+								"spoken": "apply",
+								"startMs": 1686,
+								"endMs": 2167,
+								"charOffset": 34
+							},
+							{
+								"display": "to",
+								"spoken": "to",
+								"startMs": 2167,
+								"endMs": 2408,
+								"charOffset": 40
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2408,
+								"endMs": 2649,
+								"charOffset": 43
+							},
+							{
+								"display": "whole",
+								"spoken": "whole",
+								"startMs": 2649,
+								"endMs": 2890,
+								"charOffset": 47
+							},
+							{
+								"display": "deck:",
+								"spoken": "deck,",
+								"startMs": 2890,
+								"endMs": 3166,
+								"charOffset": 53
+							},
+							{
+								"display": "finish,",
+								"spoken": "finish,",
+								"startMs": 3577,
+								"endMs": 4094,
+								"charOffset": 59
+							},
+							{
+								"display": "size,",
+								"spoken": "size,",
+								"startMs": 4329,
+								"endMs": 4605,
+								"charOffset": 67
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4840,
+								"endMs": 5081,
+								"charOffset": 73
+							},
+							{
+								"display": "page",
+								"spoken": "page",
+								"startMs": 5081,
+								"endMs": 5322,
+								"charOffset": 77
+							},
+							{
+								"display": "numbers.",
+								"spoken": "numbers.",
+								"startMs": 5322,
+								"endMs": 5839,
+								"charOffset": 82
+							}
+						],
+						"startMs": 0,
+						"endMs": 6291,
+						"charOffset": 0
+					}
+				],
+				"durationMs": 6291
+			}
+		},
+		{
+			"key": "e4c817becfeb",
+			"text": "And the palette recolors everything. Layouts never name a color, so the same Markdown looks right in every theme, light or dark.",
+			"file": "e4c817becfeb.mp3",
+			"bytes": 51264,
+			"speechMs": 8483,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "And the palette recolors everything.",
+						"words": [
+							{
+								"display": "And",
+								"spoken": "And",
+								"startMs": 0,
+								"endMs": 212,
+								"charOffset": 0
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 212,
+								"endMs": 423,
+								"charOffset": 4
+							},
+							{
+								"display": "palette",
+								"spoken": "palette",
+								"startMs": 423,
+								"endMs": 846,
+								"charOffset": 8
+							},
+							{
+								"display": "recolors",
+								"spoken": "recolors",
+								"startMs": 846,
+								"endMs": 1481,
+								"charOffset": 16
+							},
+							{
+								"display": "everything.",
+								"spoken": "everything.",
+								"startMs": 1481,
+								"endMs": 2358,
+								"charOffset": 25
+							}
+						],
+						"startMs": 0,
+						"endMs": 2755,
+						"charOffset": 0
+					},
+					{
+						"display": "Layouts never name a color, so the same Markdown looks right in every theme, light or dark.",
+						"words": [
+							{
+								"display": "Layouts",
+								"spoken": "Layouts",
+								"startMs": 2926,
+								"endMs": 3137,
+								"charOffset": 37
+							},
+							{
+								"display": "never",
+								"spoken": "never",
+								"startMs": 3137,
+								"endMs": 3560,
+								"charOffset": 45
+							},
+							{
+								"display": "name",
+								"spoken": "name",
+								"startMs": 3560,
+								"endMs": 3772,
+								"charOffset": 51
+							},
+							{
+								"display": "a",
+								"spoken": "a",
+								"startMs": 3772,
+								"endMs": 3984,
+								"charOffset": 56
+							},
+							{
+								"display": "color,",
+								"spoken": "color,",
+								"startMs": 3984,
+								"endMs": 4438,
+								"charOffset": 58
+							},
+							{
+								"display": "so",
+								"spoken": "so",
+								"startMs": 4644,
+								"endMs": 4856,
+								"charOffset": 65
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 4856,
+								"endMs": 5067,
+								"charOffset": 68
+							},
+							{
+								"display": "same",
+								"spoken": "same",
+								"startMs": 5067,
+								"endMs": 5279,
+								"charOffset": 72
+							},
+							{
+								"display": "Markdown",
+								"spoken": "Markdown",
+								"startMs": 5279,
+								"endMs": 5702,
+								"charOffset": 77
+							},
+							{
+								"display": "looks",
+								"spoken": "looks",
+								"startMs": 5702,
+								"endMs": 5913,
+								"charOffset": 86
+							},
+							{
+								"display": "right",
+								"spoken": "right",
+								"startMs": 5913,
+								"endMs": 6125,
+								"charOffset": 92
+							},
+							{
+								"display": "in",
+								"spoken": "in",
+								"startMs": 6125,
+								"endMs": 6336,
+								"charOffset": 98
+							},
+							{
+								"display": "every",
+								"spoken": "every",
+								"startMs": 6336,
+								"endMs": 6971,
+								"charOffset": 101
+							},
+							{
+								"display": "theme,",
+								"spoken": "theme,",
+								"startMs": 6971,
+								"endMs": 7214,
+								"charOffset": 107
+							},
+							{
+								"display": "light",
+								"spoken": "light",
+								"startMs": 7420,
+								"endMs": 7632,
+								"charOffset": 114
+							},
+							{
+								"display": "or",
+								"spoken": "or",
+								"startMs": 7632,
+								"endMs": 7843,
+								"charOffset": 120
+							},
+							{
+								"display": "dark.",
+								"spoken": "dark.",
+								"startMs": 7843,
+								"endMs": 8086,
+								"charOffset": 123
+							}
+						],
+						"startMs": 2926,
+						"endMs": 8483,
+						"charOffset": 37
+					}
+				],
+				"durationMs": 8483
+			}
+		},
+		{
+			"key": "faa8ef605a4f",
+			"text": "That is the Playground. Explore the catalog, grab any deck, and make it yours. The Tour button replays this any time.",
+			"file": "faa8ef605a4f.mp3",
+			"bytes": 49104,
+			"speechMs": 8126,
+			"leadMs": 46,
+			"track": {
+				"cues": [
+					{
+						"display": "That is the Playground.",
+						"words": [
+							{
+								"display": "That",
+								"spoken": "That",
+								"startMs": 0,
+								"endMs": 209,
+								"charOffset": 0
+							},
+							{
+								"display": "is",
+								"spoken": "is",
+								"startMs": 209,
+								"endMs": 418,
+								"charOffset": 5
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 418,
+								"endMs": 626,
+								"charOffset": 8
+							},
+							{
+								"display": "Playground.",
+								"spoken": "Playground.",
+								"startMs": 626,
+								"endMs": 1074,
+								"charOffset": 12
+							}
+						],
+						"startMs": 0,
+						"endMs": 1466,
+						"charOffset": 0
+					},
+					{
+						"display": "Explore the catalog, grab any deck, and make it yours.",
+						"words": [
+							{
+								"display": "Explore",
+								"spoken": "Explore",
+								"startMs": 1634,
+								"endMs": 2052,
+								"charOffset": 24
+							},
+							{
+								"display": "the",
+								"spoken": "the",
+								"startMs": 2052,
+								"endMs": 2261,
+								"charOffset": 32
+							},
+							{
+								"display": "catalog,",
+								"spoken": "catalog,",
+								"startMs": 2261,
+								"endMs": 2917,
+								"charOffset": 36
+							},
+							{
+								"display": "grab",
+								"spoken": "grab",
+								"startMs": 3121,
+								"endMs": 3330,
+								"charOffset": 45
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 3330,
+								"endMs": 3747,
+								"charOffset": 50
+							},
+							{
+								"display": "deck,",
+								"spoken": "deck,",
+								"startMs": 3747,
+								"endMs": 3987,
+								"charOffset": 54
+							},
+							{
+								"display": "and",
+								"spoken": "and",
+								"startMs": 4190,
+								"endMs": 4399,
+								"charOffset": 60
+							},
+							{
+								"display": "make",
+								"spoken": "make",
+								"startMs": 4399,
+								"endMs": 4608,
+								"charOffset": 64
+							},
+							{
+								"display": "it",
+								"spoken": "it",
+								"startMs": 4608,
+								"endMs": 4817,
+								"charOffset": 69
+							},
+							{
+								"display": "yours.",
+								"spoken": "yours.",
+								"startMs": 4817,
+								"endMs": 5056,
+								"charOffset": 72
+							}
+						],
+						"startMs": 1634,
+						"endMs": 5448,
+						"charOffset": 24
+					},
+					{
+						"display": "The Tour button replays this any time.",
+						"words": [
+							{
+								"display": "The",
+								"spoken": "The",
+								"startMs": 5616,
+								"endMs": 5825,
+								"charOffset": 79
+							},
+							{
+								"display": "Tour",
+								"spoken": "Tour",
+								"startMs": 5825,
+								"endMs": 6033,
+								"charOffset": 83
+							},
+							{
+								"display": "button",
+								"spoken": "button",
+								"startMs": 6033,
+								"endMs": 6451,
+								"charOffset": 88
+							},
+							{
+								"display": "replays",
+								"spoken": "replays",
+								"startMs": 6451,
+								"endMs": 6868,
+								"charOffset": 95
+							},
+							{
+								"display": "this",
+								"spoken": "this",
+								"startMs": 6868,
+								"endMs": 7077,
+								"charOffset": 103
+							},
+							{
+								"display": "any",
+								"spoken": "any",
+								"startMs": 7077,
+								"endMs": 7495,
+								"charOffset": 108
+							},
+							{
+								"display": "time.",
+								"spoken": "time.",
+								"startMs": 7495,
+								"endMs": 7734,
+								"charOffset": 112
+							}
+						],
+						"startMs": 5616,
+						"endMs": 8126,
+						"charOffset": 79
+					}
+				],
+				"durationMs": 8126
+			}
+		}
+	]
+}

@@ -87,7 +87,7 @@ function answerOf(li) {
 function cardsOf(stage) {
   const list = stage.querySelector(':scope > ul, :scope > ol');
   if (!list) return [];
-  return [...list.children].map((li) => {
+  return [...list.children].filter((li) => li.tagName === 'LI').map((li) => {
     const nested = li.querySelector(':scope > ul, :scope > ol');
     const own = [...li.childNodes].filter((n) => n !== nested).map((n) => n.textContent).join('').replace(/\s+/g, ' ').trim();
     return { title: own, body: nested ? [...nested.children].map(text) : [] };

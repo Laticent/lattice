@@ -7,7 +7,6 @@ header: "Lattice · State chart paint"
 ---
 
 <!-- _class: title -->
-<!-- _paginate: false -->
 
 `Lattice · Feature deck`
 

@@ -128,7 +128,6 @@ Last updated 2026-05-07 · the 9% is probably higher
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 

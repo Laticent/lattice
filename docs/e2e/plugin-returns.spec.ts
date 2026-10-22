@@ -38,7 +38,7 @@ async function returnsZip(words: string[]): Promise<Buffer> {
 }
 
 async function importZip(page: Parameters<typeof gotoStudio>[0], buffer: Buffer) {
-	const input = page.locator('input[type="file"][accept=".zip"]');
+	const input = page.locator('[data-testid="library-import-input"]');
 	// The Library button toggles, and the panel can still be open from the last import.
 	// The Library button toggles, and the panel may be open from an earlier visit or still mounting. Look, click only when the input is absent,
 	// then wait for it; a click that landed on a Library that was just opening closes it, so look again and click again (up to three tries).

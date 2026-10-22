@@ -139,11 +139,13 @@ WebAudio clock (`clockMs()`) and emits each clip's measured onset (`onItemStart`
 
 | Export | What it does |
 |---|---|
-| `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal})` → a `PlayHandle` (`stop()`, `pause()`, `resume()`, `done`), `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `stopAll()`, `sequence(opts)`, `dispose()`. |
+| `createStage(opts?)` | the owned context + playback. `unlock()`, `decode(bytes, key?)`, `play(clip, {onStart, signal, pan})` → a `PlayHandle` (`stop()`, `pause()`, `resume()`, `setPan(pan, glideMs?)`, `done`), `clockMs()`, `latencyMs()`, `state()`, `suspend()`/`resume()`, `stopAll()`, `sequence(opts)`, `dispose()`. |
 | `stage.sequence(opts)` / `makeSequence(stage, opts)` | the scheduler: `play`/`pause`/`resume`/`stop`/`warm`. Opts: `items`, `produce`, `keyOf?`, `gapMs?`, `concurrency?`, `onItemStart?`, `onState?`. `warm(items)` **preloads** — prefetches bytes AND decodes them, so a later play skips both. |
 | `encodeWav(samples, rate)` | Float32 PCM → WAV `BlobLike` (pure, node-safe). |
 | `wrapPcm(bytes, contentType)` | raw PCM response → WAV `BlobLike` (pure). |
 | `createBoundedCache` / `createInflight` | the FIFO cache + in-flight dedup primitives (pure). |
+
+**Stereo placement.** `pan` runs from -1 (left) through 0 (centre, the default) to 1 (right). `setPan` moves a live clip and glides there over `glideMs`; the lean survives pause and resume. It uses the Web Audio `StereoPannerNode`, so a mono clip (every TTS voice) moves cleanly. An engine without a panner plays the clip centred, never silent. Taps (`tapPlayback`) get the unpanned signal, so a call hears the voice centred.
 
 Types: `Stage`, `Sequence`, `Clip`, `Bytes`, `BlobLike`, `Onset`, `SequenceOptions`, `PlayResult`, …
 

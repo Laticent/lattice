@@ -1,7 +1,7 @@
 // preview-host.js — pure, import-free host classification for the guided tour.
 //
-// Extracted from guided-tour.js (which pulls in driver.js + CSS, docs-only deps
-// absent from CI's root install) so the Node unit suite can test it directly.
+// Extracted from guided-tour.js (which imports CSS, a docs-only dependency absent from CI's
+// root install) so the Node unit suite can test it directly.
 //
 // A host that is unambiguously a dev / PR-preview surface — never a production
 // site. `*.pages.dev` is Cloudflare Pages (every preview today is served there;

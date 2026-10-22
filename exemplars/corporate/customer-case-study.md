@@ -151,7 +151,6 @@ Pinewood didn't lay anyone off. The finishers who couldn't be fully staffed beca
 ---
 
 <!-- _class: closing -->
-<!-- _paginate: false -->
 <!-- _header: '' -->
 <!-- _footer: '' -->
 <!-- tier: short -->

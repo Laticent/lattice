@@ -68,10 +68,10 @@ describe('laneSvg', () => {
     assert.deepEqual(used, ['c2', 'c1']);
   });
 
-  test('the marker on a mark takes the caller\'s height; the one in the lane carries a digit as large as its label', () => {
+  test('the marker on a mark takes the caller\'s height; the one in the lane is the key\'s swatch size', () => {
     const { svg } = laneSvg([{ text: 'A', target: { cx: 30, cy: 30, w: 60, h: 60, mark: 0 } }], { ...opts, markerHeight: 14 });
     const sizes = [...doc(`<svg>${svg}</svg>`).querySelectorAll('text.legend-number')].map((t) => Number(t.getAttribute('font-size')));
-    assert.deepEqual(sizes, [Math.round(14 * DIGIT_OF_HEIGHT * 100) / 100, opts.fontSize]);
+    assert.deepEqual(sizes, [Math.round(14 * DIGIT_OF_HEIGHT * 100) / 100, Math.round(laneHeight(opts.fontSize) * DIGIT_OF_HEIGHT * 100) / 100]);
   });
 
   test('numbers run in reading order: row by row, then left to right', () => {
@@ -168,13 +168,16 @@ describe('laneSvg', () => {
     assert.deepEqual(markerShapes([{ plate: 'chevron-right' }, { plate: 'tag' }]), ['circle', 'square']);
   });
 
-  test('every shape is drawn about as tall as asked, and the lane digit is as large as the label', () => {
+  test('every shape is drawn about as tall as asked, and a lane marker is the key\'s swatch, its digit four-fifths of the label', () => {
     for (const shape of MARKER_SHAPES) {
       const body = outline(doc(`<svg>${markerSvg(1, 0, 0, shape, 10, 0, 1).svg}</svg>`).querySelector('.legend-plate'));
       const h = body.b - body.t;
       assert.ok(h > 8.5 && h < 11, `${shape}: ${h}`);
     }
-    assert.equal(laneHeight(7.5) * DIGIT_OF_HEIGHT, 7.5);
+    // One row style (owner, 2026-10-21): the lane marker is the key's swatch, MARK_OF_LABEL of the label.
+    const { MARK_OF_LABEL } = require('../../../lib/components/chart/_chart-family/svg-legend');
+    assert.equal(laneHeight(7.5), 7.5 * MARK_OF_LABEL);
+    assert.ok(Math.abs(laneHeight(7.5) * DIGIT_OF_HEIGHT - 7.5 * 0.79) < 0.05);
     // With or without its digit, a marker is the same shape element with the same slot: no attribute
     // may tell the stylesheet to paint the two copies of one callout differently.
     const plate = (svg) => /<\w+ class="legend-plate"[^>]*>/.exec(svg)[0].replace(/ (cx|cy|r|x|y|width|height|points)="[^"]*"/g, '');
@@ -209,7 +212,7 @@ describe('laneSvg', () => {
   test('the stylesheet paints every marker in one tone per mode, so a cell\'s marker matches its label\'s', () => {
     // The bug this pins: shapes on the cells took one tier (`mark`) and the lane's markers the other
     // (`fill`), and a theme's two tiers of one slot need not even share a hue (indaco: pale pink and olive).
-    const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/plugins/legend/legend.styles.css'), 'utf8');
+    const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/plugins/callout/callout.styles.css'), 'utf8');
     for (let i = 1; i <= 12; i++) {
       const rules = [...css.matchAll(new RegExp(`([^{}]*\\[data-c='c${i}'\\][^{}]*)\\{([^}]*)\\}`, 'g'))].filter((m) => /data-shape/.test(m[1]));
       assert.equal(rules.length, 1, `c${i}: one marker rule`);
@@ -297,12 +300,15 @@ describe('heatmap: authored callouts', () => {
     }
   });
 
-  test('a label the lane cannot hold is listed as not drawn, never as a callout', () => {
-    const many = Array.from({ length: 8 }, (_, i) => `{Callout number ${i} that wraps over lines, for=${i % 6}}`).join(', ');
-    const desc = doc(render(`\`@legend{[${many}]}\``)).querySelector('desc').textContent;
-    assert.match(desc, /no room beside the grid/);
-    const shown = (desc.match(/Callouts: ([\s\S]*?)\. Not drawn/) || ['', ''])[1];
-    assert.ok(!/no room/.test(shown));
+  test('notes that will not fit beside the grid move below it rather than be dropped', () => {
+    const many = Array.from({ length: 6 }, (_, i) => `{Callout number ${i} that wraps over lines, for=${i % 6}}`).join(', ');
+    const out = render(`\`@legend{[${many}]}\``);
+    const d = doc(out);
+    assert.equal(d.querySelectorAll('text.legend-text--bare').length, 6);
+    assert.doesNotMatch(d.querySelector('desc').textContent, /Not drawn/);
+    // Below the grid: every label starts under the lowest cell.
+    const cellBottom = Math.max(...[...d.querySelectorAll('rect.heatmap-cell')].map((r) => Number(r.getAttribute('y')) + Number(r.getAttribute('height'))));
+    for (const t of d.querySelectorAll('text.legend-text--bare tspan')) assert.ok(Number(t.getAttribute('y')) > cellBottom);
   });
 
   test('every marker shape in the lane stays inside the figure and off the grid', () => {
@@ -406,31 +412,93 @@ test('narration matches for= the way the chart does, markdown in a row name incl
   assert.match(String(narrateDataSeries(slide)), /Callout at Jan2026, M1: Dip\./);
 });
 
-describe('the author\'s switch: legend off', () => {
+describe('the split: @callout and callout: off (2026-10-20-callout-placement.md § 2)', () => {
+  const callout = '`@callout{{Dip, for="Jan 2026 · M1", detail="Pricing change"}}`';
+  test('a @callout span draws exactly what the pre-split @legend span drew', () => {
+    const before = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout.replace('@callout', '@legend')}`), {});
+    const after = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), {});
+    assert.match(after, /legend--anchored/);
+    assert.equal(after, before);
+  });
+  test('callout-off and a host that switched callout off hide it, and keep the detail', () => {
+    for (const ctx of [{ classTokens: ['callout-off'] }, { pluginsOff: new Set(['callout']) }]) {
+      const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), ctx);
+      assert.doesNotMatch(out, /legend--anchored|<code>@callout/);
+      assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
+    }
+  });
+  test('narration reads a @callout, and callout: off silences it', () => {
+    const slide = `<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n${callout}`;
+    assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1: Dip\./);
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'callout: off' })), /Callout/);
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap callout-on'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
+  });
+});
+
+describe('the split keeps every pre-split switch, end to end (the checker on P1)', () => {
+  const { createEngine } = require('../../../lib/engine');
+  const { findLegendSpans } = require('../../../lib/authoring/lint-core');
+  const body = (cls, span = '@callout{{Peak, for="Jan 2026 · M1"}}') => `<!-- _class: ${cls} -->\n\n## R\n\n${TABLE}\n\n\`${span}\`\n`;
+  const deck = (fm, slide) => `---\nmarp: true\n${fm}---\n\n${slide}`;
+  const drawn = (src, plugins) => /legend--anchored/.test(createEngine(plugins ? { plugins } : {}).render(src).html);
+
+  test('a host or deck that loads legend gets callouts; one that loads callout alone does too', () => {
+    const src = deck('', body('heatmap', '@legend{{Peak, for=1}}'));
+    assert.equal(drawn(src, { defaults: ['legend', 'chart-family', 'pills'] }), true, 'narrowed default set that lists legend');
+    assert.equal(drawn(deck('plugins: [legend]\n', body('heatmap')), { defaults: [] }), true, 'deck lists legend');
+    assert.equal(drawn(deck('plugins: [callout]\n', body('heatmap')), { defaults: [] }), true, 'deck lists callout');
+  });
+  test('switching callout off at the host hides callouts', () => {
+    assert.equal(drawn(deck('', body('heatmap')), { disabled: ['callout'] }), false);
+  });
+  test('the slide wins over the deck on every surface', () => {
+    const cases = [
+      ['callout: off\n', 'heatmap callout-on', true],
+      ['callout: off\n', 'heatmap', false],
+      ['callout: on\n', 'heatmap callout-off', false],
+    ];
+    for (const [fm, cls, on] of cases) {
+      const src = deck(fm, body(cls));
+      const label = `${fm.trim()} + ${cls}`;
+      assert.equal(drawn(src), on, `render: ${label}`);
+      const said = /Callout at/.test(String(narrateChart(body(cls), { frontMatter: `marp: true\n${fm}` })));
+      assert.equal(said, on, `narration: ${label}`);
+      const noted = findLegendSpans(src).some((f) => f.rule === 'legend-off');
+      assert.equal(noted, !on, `lint: ${label}`);
+    }
+  });
+  test('the old spelling on a slide nothing reads gets the code warning only, never "it still draws"', () => {
+    const f = findLegendSpans(deck('', '<!-- _class: lead -->\n\n# Hi\n\n`@legend{{Peak, for=1}}`\n'));
+    assert.deepEqual(f.map((x) => x.rule), ['legend-span']);
+  });
+});
+
+describe('the author\'s switch: callout off', () => {
   const callout = '`@legend{{Dip, for="Jan 2026 · M1", detail="Pricing change"}}`';
-  test('legend-off on the slide hides the callout and its line, and keeps the detail in the speaker note', () => {
-    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { classTokens: ['legend-off'] });
+  test('callout-off on the slide hides the callout and its line, and keeps the detail in the speaker note', () => {
+    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { classTokens: ['callout-off'] });
     assert.doesNotMatch(out, /legend--anchored|legend-target|<code>@legend/);
     assert.doesNotMatch(doc(out).querySelector('desc').textContent, /Dip/);
     assert.match(out, /<!-- Jan 2026 · M1 \(62\): Dip: Pricing change -->/);
   });
   test('a host that switched the plugin off hides it the same way', () => {
-    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { pluginsOff: new Set(['legend']) });
+    const out = transformSection(md.render(`## R\n\n${TABLE}\n\n${callout}`), { pluginsOff: new Set(['callout']) });
     assert.doesNotMatch(out, /legend--anchored/);
   });
-  test('narration says nothing for a hidden callout: deck off, or slide off; legend-on wins', () => {
+  test('narration says nothing for a hidden callout: deck off, or slide off; callout-on wins', () => {
     const slide = (cls, fm = '') => `${fm}<!-- _class: ${cls} -->\n\n## R\n\n${TABLE}\n\n${callout}`;
-    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap legend-off'))), /Callout|legend/);
-    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap', '---\nlegend: off\n---\n\n'))), /Callout/);
-    assert.match(String(narrateDataSeries(slide('heatmap legend-on', '---\nlegend: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
+    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap callout-off'))), /Callout|legend/);
+    assert.doesNotMatch(String(narrateDataSeries(slide('heatmap', '---\ncallout: off\n---\n\n'))), /Callout/);
+    assert.match(String(narrateDataSeries(slide('heatmap callout-on', '---\ncallout: off\n---\n\n'))), /Callout at Jan 2026, M1: Dip\./);
   });
   test('narration of one split slide reads the deck it came from: front matter and the host\'s off-list', () => {
     // How every caller hands a slide over: split from the deck, so the front matter is not on it.
     const slide = `<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n${callout}`;
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
-    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true\nlegend: OFF' })), /Callout/);
-    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['legend'] })), /Callout/);
-    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap legend-on'), { frontMatter: 'legend: off' })), /Callout at Jan 2026, M1/);
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true\ncallout: OFF' })), /Callout/);
+    assert.doesNotMatch(String(narrateChart(slide, { frontMatter: 'marp: true', pluginsOff: ['callout'] })), /Callout/);
+    assert.match(String(narrateChart(slide.replace('heatmap', 'heatmap callout-on'), { frontMatter: 'callout: off' })), /Callout at Jan 2026, M1/);
     // The deck is set for one call only: the next slide without one hears the callout again.
     assert.match(String(narrateChart(slide)), /Callout at Jan 2026, M1/);
   });
@@ -448,4 +516,22 @@ test('narration says the six callouts the chart draws, and not a seventh', () =>
   const said = String(narrateDataSeries(`<!-- _class: heatmap -->\n\n## R\n\n${TABLE}\n\n\`@legend{[${seven}]}\``));
   assert.match(said, /Callout at [^:]*: C6\./);
   assert.doesNotMatch(said, /C7/);
+});
+
+test('beside a band key, a callout holds the key label size; alone, a long callout may step down', () => {
+  // One row style (owner, 2026-10-21): the callout's words and the key's words never print at two
+  // sizes side by side. Without a key the lane may shrink a long label to fit; with one it ellipsizes.
+  const table = '|  | M0 | M1 | M2 |\n| --- | --: | --: | --: |\n| Jan | 100 | 62 | 48 |\n| Feb | 100 | 58 | 31 |\n| Mar | 100 | 71 | 59 |';
+  const span = '`@callout{[{"Setup call removed from onboarding, so new accounts stalled for weeks", row=Feb, col=M1}]}`';
+  const sizes = (ctx) => {
+    const d = doc(transformSection(md.render(`## R\n\n${table}\n\n${span}`), ctx));
+    const at = (sel) => [...new Set([...d.querySelectorAll(sel)].map((t) => Number(t.getAttribute('font-size'))))];
+    return { callout: at('text.legend-text--bare'), key: at('text.chart-key-label') };
+  };
+  const keyed = sizes({ classTokens: ['heatmap', 'scale'] });
+  assert.equal(keyed.key.length, 1);
+  assert.deepEqual(keyed.callout, keyed.key);
+  const alone = sizes({});
+  assert.equal(alone.key.length, 0);
+  assert.ok(alone.callout[0] < keyed.key[0], `a long callout with no key steps down: ${alone.callout}`);
 });
