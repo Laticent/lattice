@@ -269,6 +269,17 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, and `examples/chart-finish.md` exports at 847 KB. The prune now skips
   the dual-mode block by id.
 
+  **Pigment reads a curated ink for its solid tier.** Pigment's body is the family's solid tier
+  (`--chart-cat-N-body`, `--state-X-body`, and the 82% neutral), and the family curates the ink for text on
+  it: `--chart-cat-N-on`, `--state-X-on`, `--muted-mark-on` (`lib/plugins/chart-family/chart-family.styles.css`).
+  `--text-heading` is curated for the PALE `-fill` tier and fails on a solid body: on the gantt bars of all 32
+  palettes it fell under 4.5:1 on 104 of 320 bars (worst 1.37:1, concrete). Each `-on` defaults to black or
+  white by the body's luminance, a palette may set `--chart-state-X-on` / `--chart-catN-on` / `--chart-muted-on`
+  to curate it, and `test/unit/palette/chart-on-ink.test.js` holds every palette, in both modes, to 4.5:1. A
+  member's hue channel (`--fill-hue`, `--fc-hue`, `--chart-status-hue`, `--hs-state-hue`) has an `-on` sibling
+  its status table sets beside it, so a mark reads one channel pair. Etch and tone paint bodies the family has
+  no token for, so they still pick black or white from the body they paint.
+
 **What a finish does not reach, on purpose.** `line`, `slope` and `word-cloud`
 paint with strokes and type (`paint: "none"`), and a finish leaves them whole —
 under tone, their dots and bands too, since a tonal dot on a line that kept its

@@ -161,7 +161,7 @@
   /* The unstated HUE is the neutral mute ramp the kernel fills these with (GANTT_STATUS_FILL falls to
    * 'mute'), declared here so a chart finish reads it from the member like it reads every status's.
    * The fill itself is the kernel's inline gradient; a finish replaces it, this only names the hue. */
-  --fill-hue: var(--state-mute-hue);
+  --fill-hue: var(--state-mute-hue); --fill-on: var(--state-mute-on);
   /* No status means no status — a neutral ink. This was --state-info-ink, the
    * same blue a declared `pilot` or `decision` takes, so every gallery page drew
    * a blue bar the legend never named.
@@ -188,13 +188,13 @@
 
 :is(section.gantt, figure.gantt) .gantt-legend-swatch:not([data-s]) {
   /* The "no status" key chip names the same neutral the unstated bar wears. */
-  --fill-hue: var(--state-mute-hue);
+  --fill-hue: var(--state-mute-hue); --fill-on: var(--state-mute-on);
   --fill-ink: var(--text-secondary);
 }
 
 /* A caption inside a bar names the bar's hue too (`--fill-hue`), so a chart finish can pick the ink
  * its body clears: the label is a sibling of the rect, not a child, and cannot read the bar's paint. */
-:is(section.gantt, figure.gantt) .gantt-bar-label { --fill-hue: var(--state-mute-hue); }
+:is(section.gantt, figure.gantt) .gantt-bar-label { --fill-hue: var(--state-mute-hue); --fill-on: var(--state-mute-on); }
 
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
  * gradient is selected by the kernel (`GANTT_STATUS_FILL`) from the same
@@ -210,17 +210,17 @@
  * blue, so the key showed a two-color chip for a one-color status. One table
  * cannot disagree with itself. */
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="on-track"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="done"]     { --fill-ink: var(--state-pass-ink); --fill-hue: var(--state-pass-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="done"]     { --fill-ink: var(--state-pass-ink); --fill-hue: var(--state-pass-hue); --fill-on: var(--state-pass-on); }
 /* `live` is RUNNING work, not finished work. It shared --state-pass-ink with
  * `done` here and shared the 'pass' fill gradient in the kernel, so the legend
  * named three statuses and painted two of them identically. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="live"]     { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="live"]     { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); --fill-on: var(--state-info-on); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="at-risk"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); --fill-hue: var(--state-warn-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); --fill-hue: var(--state-warn-hue); --fill-on: var(--state-warn-on); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="blocked"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); --fill-hue: var(--state-fail-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); --fill-hue: var(--state-fail-hue); --fill-on: var(--state-fail-on); }
 :is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="pilot"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="decision"] { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="decision"] { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); --fill-on: var(--state-info-on); }
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
  * ink. It takes the same mute ramp a status-LESS bar takes, so on color alone
@@ -237,7 +237,7 @@
    * it needs the tier with headroom against the lane band, not just the
    * canvas. */
   --fill-ink: var(--text-secondary);
-  --fill-hue: var(--state-mute-hue);
+  --fill-hue: var(--state-mute-hue); --fill-on: var(--state-mute-on);
 }
 /* The HOLLOWING is the bar's, not the accent's. The accent is a 4px leading cue; at
  * 18% it disappears, and then a deferred bar has nothing marking where it starts. Its

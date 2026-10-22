@@ -119,14 +119,14 @@
  * Canvas-aware via light-dark(), so one rule each. */
 :is(section.progress, figure.progress) .progress-fill[data-s="on-track"],
 :is(section.progress, figure.progress) .progress-fill[data-s="done"],
-:is(section.progress, figure.progress) .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="live"] { --fill-hue: var(--state-pass-hue); --fill-on: var(--state-pass-on); --fill-ink: var(--state-pass-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="at-risk"],
-:is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="warn"]   { --fill-hue: var(--state-warn-hue); --fill-on: var(--state-warn-on); --fill-ink: var(--state-warn-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="blocked"],
-:is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="fail"]   { --fill-hue: var(--state-fail-hue); --fill-on: var(--state-fail-on); --fill-ink: var(--state-fail-ink); }
 :is(section.progress, figure.progress) .progress-fill[data-s="pilot"],
-:is(section.progress, figure.progress) .progress-fill[data-s="decision"] { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
-:is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-ink: var(--state-mute-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="decision"] { --fill-hue: var(--state-info-hue); --fill-on: var(--state-info-on); --fill-ink: var(--state-info-ink); }
+:is(section.progress, figure.progress) .progress-fill[data-s="deferred"] { --fill-hue: var(--state-mute-hue); --fill-on: var(--state-mute-on); --fill-ink: var(--state-mute-ink); }
 :is(section.progress, figure.progress) .progress-pct {
   font-family: var(--font-label);
   font-size: var(--fs-meta);
