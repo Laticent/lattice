@@ -58,11 +58,11 @@ describe('the retired keys warn and fix', () => {
     assert.doesNotMatch(out, /logo-on|logo-scale/);
   });
   test('the old `logo-style:` key is renamed, its value carried over', () => {
-    assert.match(fixed(deck('logo: lattice\nlogo-style: brand')), /^logo-finish: brand\n---/m);
+    assert.match(fixed(deck('logo: lattice\nlogo-style: brand')), /^logo-finish: brand plate\n---/m);
     assert.doesNotMatch(fixed(deck('logo: lattice\nlogo-style: brand')), /logo-style/);
     assert.doesNotMatch(fixed(deck('logo: lattice\nlogo-style: auto')), /logo-style|logo-finish/, '`auto` is the default word');
     const both = fixed(deck('logo: lattice\nlogo-style: brand\nlogo-on: title\nlogo-x: 50\nlogo-y: 82'));
-    assert.match(both, /^logo-finish: bottom-center brand title\n---/m);
+    assert.match(both, /^logo-finish: bottom-center brand plate title\n---/m);
     assert.equal(found(both, 'retired-logo-key').length, 0);
   });
   test('`logo-on: all` is just deleted', () => {
