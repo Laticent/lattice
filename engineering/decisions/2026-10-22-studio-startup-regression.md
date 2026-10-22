@@ -143,7 +143,20 @@ this adds what the regression and Lighthouse show.
 2. **A real largest paint in the main page**: the first slide, or its baked image, painted by the page itself so
    Lighthouse can see it; the loader must not be the largest element. The Playground already bakes a first slide
    (`2026-09-28-playground-virtual-filmstrip.md`).
-3. **The preview runtime split**, so the 825 KB the first slide does not use loads on demand.
+3. **The preview runtime split**, so the code the first slide does not use loads on demand. Measured 2026-10-22 with
+   the unminified bundle swapped in and V8 precise coverage in the Studio's preview frame, desktop:
+   - `lattice-runtime.js` is 1.28 MB minified, 447 KB gzipped, and costs 270-320 ms of script evaluation on the
+     phone profile, on the same main thread as the Studio.
+   - On a deck of gantt, radar, quadrant, map, state-chart and hub-spoke slides, **none of the chart builders ran**:
+     the engine had already built those charts as HTML. Never executed: the map basemaps (193 KB), the chart family
+     (127 KB), the Segno grammar (116 KB), `qrcode` (62 KB), `mosaico` (52 KB), `roughjs` (51 KB), and every
+     per-chart transform.
+   - What ran: the state-chart and flowchart layout (the Trama graph kernel, 74 ms of 114 ms runtime CPU), the
+     overflow probe and fit sweep, card-tag equalizing, font settling, copy buttons, the plugin host, and about 20
+     DOM transforms that found nothing left to do on engine output.
+   The chart builders are there for the runtime's other job: upgrading a Marp preview's DOM (VS Code), where no
+   engine ran first. A preview build for engine-rendered documents would carry the measuring passes and load the
+   graph layout only for a slide that has a state chart or flowchart.
 4. **The engine back to one file on the Studio's startup path**, or its chunk graph measured against one file on the
    same harness before deciding.
 5. **Panes and other feature subsystems installed on demand** in the engine, not on every render.
