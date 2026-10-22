@@ -151,6 +151,10 @@ const LAND_ATTEMPTS = 2;
  *  constant so raising either of those cannot silently reopen it. Found by an
  *  independent checker. */
 const REVEAL_CAP_MS = LAND_SETTLE_MS * (1 + LAND_ATTEMPTS) + 500;
+/** How long a cover over the preview may last with no render to lift it. */
+const COVER_BACKSTOP_MS = REVEAL_CAP_MS + 1000;
+/** Frames the reveal will wait for the sync to put the preview on the editor's slide (about 1 s). */
+const REALIGN_TRIES = 60;
 
 /** The filmstrip's slide bands in the frame document's own coordinates. One reader, used
  *  by BOTH directions of the walk↔scroll loop, so the index the observer reports and the
@@ -580,6 +584,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// reveals #preview + drops the skeleton) and dismiss the instant-shell, so the dark
 	// placeholder covers the whole gap and the hand-off is a single skeleton→slides step.
 	// A fallback timeout guarantees a stuck/again-0-width FIT can't hide the preview forever.
+	/** True from the switch until the walk has been pointed at that slide: the reveal waits for it (see `markLiveWhenSlidesVisible`). */
+	const openOnPendingRef = React.useRef(false);
+	/** True from a switch to Edit until the sync has put the preview on the editor's slide: the reveal waits for it too. */
+	const realignPendingRef = React.useRef(false);
+	const coverTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 	const markLiveWhenSlidesVisible = React.useCallback((frame: HTMLIFrameElement) => {
 		const wrap = frame.parentElement;
 		if (!wrap || wrap.classList.contains('is-live')) return; // already live (patch renders)
@@ -590,6 +599,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// now paints the cached slide at the rect the filmstrip is about to use (#1563),
 			// the two pictures coincide and the swap is invisible rather than a jump.
 			wrap.classList.add('is-live');
+			if (coverTimerRef.current) {
+				clearTimeout(coverTimerRef.current);
+				coverTimerRef.current = null;
+			}
 			// The app owns the reveal now; the bake's flag would hold a later write visible.
 			document.documentElement.removeAttribute('data-pg-bake');
 			// Tear the shell DOWN only once that fade has finished. Doing it here — as this
@@ -614,10 +627,32 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// …and the deck is on the slide the chrome names. Both halves are capped (this
 			// timeout, and `landWalk`'s own settle + retry budget), so neither can wedge the
 			// reveal shut on a frame whose FIT never settles.
-			if ((ready && !landPendingRef.current) || Date.now() - start > REVEAL_CAP_MS) goLive();
+			if ((ready && !landPendingRef.current && !openOnPendingRef.current && !realignPendingRef.current) || Date.now() - start > REVEAL_CAP_MS) goLive();
 			else requestAnimationFrame(check);
 		};
 		check();
+	}, []);
+
+	/** Cover the preview for a full write that is about to replace its document. Switching between Edit and Explore
+	 *  rewrites the document, and until the new one is fitted and on its slide the frame shows the OUTGOING document at
+	 *  the wrong scroll, then a blank, then the new one at the top, then a jump. `is-live` is what shows the frame
+	 *  (playground.css), so taking it off covers all of that with the pane's own fill, and `markLiveWhenSlidesVisible`
+	 *  puts it back once the deck is on its slide. The timer is a backstop for a render that never comes (an engine
+	 *  error, a collapsed pane): the old document is better than a frame that stays hidden. */
+	const coverPreview = React.useCallback(() => {
+		const wrap = frameRef.current?.parentElement;
+		if (!wrap) return;
+		// A frame that has not gone live yet (the first render is still on its way) is already covered by the first
+		// reveal; a backstop armed now would show it before that render had landed. Only a switch that finds it
+		// covered by an earlier switch re-arms the timer.
+		if (!wrap.classList.contains('is-live') && !coverTimerRef.current) return;
+		wrap.classList.remove('is-live');
+		// Every switch re-arms the backstop: a second one must not inherit the first one's nearly spent timer.
+		if (coverTimerRef.current) clearTimeout(coverTimerRef.current);
+		coverTimerRef.current = setTimeout(() => {
+			coverTimerRef.current = null;
+			wrap.classList.add('is-live');
+		}, COVER_BACKSTOP_MS);
 	}, []);
 
 	// ── Source accessors (prefer the live editor; safe before it mounts) ────────
@@ -718,6 +753,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		window.addEventListener('pageshow', onShow);
 		return () => window.removeEventListener('pageshow', onShow);
 	}, [onVirtualChange]);
+	/** Put the preview on the editor's slide and lift the reveal's hold on it. The sync can only realign once it can
+	 *  measure both panes (it needs the rendered index and a laid-out frame), so ask again for a few frames until it has
+	 *  nothing owed; the hold is lifted then, or after the cap, which is the reveal's own budget in frames. */
+	const settleRealign = React.useCallback((first: boolean) => {
+		let tries = 0;
+		const step = () => {
+			if (first && tries === 0) frameRef.current?.contentWindow?.__latticeFit?.();
+			const sync = syncRef.current;
+			sync?.loaded();
+			if (!sync?.pending() || ++tries > REALIGN_TRIES) {
+				realignPendingRef.current = false;
+				return;
+			}
+			requestAnimationFrame(step);
+		};
+		step();
+	}, []);
 	const onFrameLoad = React.useCallback(() => {
 		// A full srcdoc write replaced the frame's document: rebind the deck's keyboard,
 		// touch and scroll listeners to the new one.
@@ -736,7 +788,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// are editing if they just edited; otherwise back where they were reading.
 		const anchor = anchorRef.current;
 		anchorRef.current = null;
-		if (syncRef.current?.loaded()) {
+		const owedRealign = syncRef.current?.loaded();
+		if (syncRef.current?.pending()) settleRealign(false);
+		else realignPendingRef.current = false;
+		if (owedRealign) {
 			// The caret's slide is owed the preview: the sync follows it as soon as it can.
 		} else if (anchor && viewRef.current === 'edit') {
 			const frame = frameRef.current;
@@ -752,7 +807,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (band) frame.contentWindow.scrollTo({ top: band.top + (byKey === anchor.index ? anchor.frac * band.height : 0), behavior: 'auto' });
 			}
 		}
-	}, [onVirtualChange, mountAroundIndex]);
+	}, [onVirtualChange, mountAroundIndex, settleRealign]);
 
 	// While the preview pane is collapsed, rendering into its 0-width iframe is
 	// both wasted work and the iOS FIT-blank precondition — defer instead, and
@@ -920,6 +975,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				timerRef.current = setTimeout(() => render(fresh), 60);
 			} else if (r.status === 'error') {
 				setStatusLine(r.message, true);
+				// A cover with nothing coming to lift it would hide the old document for nothing.
+				openOnPendingRef.current = false;
+				realignPendingRef.current = false;
+				exploreFlatRef.current = -1;
+				frame.parentElement?.classList.add('is-live');
 			} else {
 				previewStateRef.current = r.state;
 				lastGeomRef.current = r.geom;
@@ -956,26 +1016,33 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (openOn >= 0 && viewRef.current === 'read') {
 					exploreFlatRef.current = -1;
 					void (async () => {
-						const ix = await r.index?.();
-						if (!ix) return;
-						const { pageOfFlat } = await import('@/lib/rendered-index');
-						const page = pageOfFlat(ix, openOn);
-						const cur = walkRef.current;
-						const f = frameRef.current;
-						if (page < 0 || viewRef.current !== 'read' || !cur || !f) return;
-						// A deck walk's index is the page; a plan walk's is the slide group that page belongs to.
-						let at = page;
-						if (cur.kind === 'plan') {
-							const el = walkUnits(f, false)[page]?.[0];
-							at = el ? walkUnits(f, true).findIndex((u) => u.includes(el)) : -1;
+						try {
+							const ix = await r.index?.();
+							if (!ix) return;
+							const { pageOfFlat } = await import('@/lib/rendered-index');
+							const page = pageOfFlat(ix, openOn);
+							const cur = walkRef.current;
+							const f = frameRef.current;
+							if (page < 0 || viewRef.current !== 'read' || !cur || !f) return;
+							// A deck walk's index is the page; a plan walk's is the slide group that page belongs to.
+							let at = page;
+							if (cur.kind === 'plan') {
+								const el = walkUnits(f, false)[page]?.[0];
+								at = el ? walkUnits(f, true).findIndex((u) => u.includes(el)) : -1;
+							}
+							if (at < 0 || at === cur.index) return;
+							const moved: Walk = { ...cur, index: at };
+							walkRef.current = moved;
+							setWalk(moved);
+							landWalkRef.current();
+						} finally {
+							// The walk points at its slide now (or never will): the reveal may go ahead.
+							openOnPendingRef.current = false;
 						}
-						if (at < 0 || at === cur.index) return;
-						const moved: Walk = { ...cur, index: at };
-						walkRef.current = moved;
-						setWalk(moved);
-						landWalkRef.current();
 					})();
-				}
+				} else openOnPendingRef.current = false;
+				// A render that lands after the reader has gone back to Edit must not leave Explore's target behind.
+				if (viewRef.current !== 'read') exploreFlatRef.current = -1;
 				// Go live only once the slides are actually revealed — NOT at srcdoc-set —
 				// so the skeleton / instant-shell covers the FIT window instead of the iframe
 				// flashing its opaque black body. This adds `is-live` (CSS reveals #preview +
@@ -1984,6 +2051,18 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		},
 		[readerComponent, startWalk, walkOrder],
 	);
+	/** Whether the document the frame holds is already `source`: the last render wrote it, and a plan walk (a component
+	 *  gallery) is not a deck the frame was ever asked to hold. Then switching Edit and Explore needs no rewrite. */
+	const reusableFrame = React.useCallback((source: string | null | undefined, walkKind: 'plan' | 'deck') => {
+		const shown = lastRenderedSourceRef.current;
+		if (walkKind !== 'deck' || source == null || shown == null || lf(source) !== lf(shown)) return false;
+		// …and the document in the frame is the LAST write, fully loaded: `lastRenderedSourceRef` is set when a render
+		// resolves, which is before its document loads, and a switch in that window would patch a document that is
+		// about to be replaced.
+		const doc = frameRef.current?.contentDocument;
+		const wrote = (previewStateRef.current as { writeId?: number }).writeId;
+		return !!doc && doc.readyState === 'complete' && doc.documentElement.getAttribute('data-lattice-write') === String(wrote ?? '');
+	}, []);
 	/** Flip the surface. Entering Explore walks the remembered component; leaving
 	 * re-renders the untouched draft. Read mode never wrote it (invariant). */
 	const setViewMode = React.useCallback(
@@ -2018,7 +2097,11 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			document.body.setAttribute('data-view', v);
 			if (v === 'read') {
 				// The caret stays where it is; Explore opens on its slide.
-				if (changing) exploreFlatRef.current = syncRef.current?.enterExplore() ?? -1;
+				if (changing) {
+					exploreFlatRef.current = syncRef.current?.enterExplore() ?? -1;
+					openOnPendingRef.current = exploreFlatRef.current >= 0;
+					coverPreview();
+				}
 				// Leaving Edit: save the edited deck back so Explore renders the edits
 				// (the unified view/source model — 2026-07-06 simplification).
 				//
@@ -2054,8 +2137,12 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				// iframe (the mobile 0-width FIT trap — same ordering as applyDeck).
 				setPane('preview');
 				document.body.setAttribute('data-pane', 'preview');
-				if (walkRef.current) freshRender();
-				else void startWalk(readerComponent, null);
+				// THE DOCUMENT THE FRAME HOLDS IS ALREADY THIS DECK when the text is unchanged: patch it instead of
+				// rewriting it (a rewrite is a blank, a reload and a fit; the patch is a re-fit and a landing).
+				if (walkRef.current) {
+					if (reusableFrame(exploreSourceRef.current, walkRef.current.kind)) void render(false);
+					else freshRender();
+				} else void startWalk(readerComponent, null);
 			} else {
 				// Entering Edit: open the current deck's markdown in the editor. Flipping
 				// back to Explore renders whatever you changed. (Whole-deck edit; Explore
@@ -2067,9 +2154,22 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 					backupDraft('Opened the deck in the editor');
 					setSource(exploreSourceRef.current);
 				}
+				if (changing) {
+					// Back in Edit: Explore's target means nothing now, and the preview is owed the editor's slide before it shows.
+					exploreFlatRef.current = -1;
+					openOnPendingRef.current = false;
+					realignPendingRef.current = true;
+					coverPreview();
+				}
 				setPane('edit');
 				document.body.setAttribute('data-pane', 'edit');
-				freshRender();
+				// Same text as the frame already shows: patch it, do not rewrite it.
+				if (changing && reusableFrame(getSource(), 'deck')) {
+					void render(false);
+					// No document load will say the frame has settled at Edit's width, so say it once it has re-fitted:
+					// the sync holds the preview's own scroll until then and puts it on the editor's slide.
+					requestAnimationFrame(() => requestAnimationFrame(() => settleRealign(true)));
+				} else freshRender();
 				// A click in Explore on another slide puts the caret at the end of its title.
 				if (changing) syncRef.current?.leaveExplore();
 			}
@@ -2077,7 +2177,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			// re-fit after layout so the filmstrip scales to the new box.
 			requestAnimationFrame(() => frameRef.current?.contentWindow?.__latticeFit?.());
 		},
-		[freshRender, readerComponent, startWalk, backupDraft, getSource, setSource],
+		[freshRender, render, reusableFrame, readerComponent, startWalk, backupDraft, getSource, setSource, coverPreview, settleRealign],
 	);
 
 	// ── The one-shot handoff (all three external writers land here) ─────────────
