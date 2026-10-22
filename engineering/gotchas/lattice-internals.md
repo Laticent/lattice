@@ -914,8 +914,9 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   The CLI, the export captures, Print and the players never opt in and are unchanged.
 - **Also on this path:** a WEB poster could not be loaded in the Studio at all. The
   pre-check that decides whether to scan a deck for web images (`web-image-hint.ts`) did
-  not recognize the `` `poster` `` bullet, so the strip that offers "Load" never appeared
-  and the poster stayed a hatched tile. It now matches `- <web url> `` `poster` ``.
+  not recognize the video's poster, so the strip that offers "Load" never appeared
+  and the poster stayed a hatched tile. It now matches `poster="<web url>"` inside the
+  `@video{…}` record (the bullet form is gone).
 - **Pinned by:** the "video poster painting (runtime)" arms in
   `test/unit/transformers/video.test.js`, `test/unit/core/image-painting.test.js`, and
   `web-image-hint.test.ts`.

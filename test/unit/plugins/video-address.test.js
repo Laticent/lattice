@@ -99,6 +99,28 @@ describe('lint', () => {
   });
 });
 
+describe('what the inversion found', () => {
+  test('every bullet shape that drew a clip before migrates with the URL token, not the whole line', () => {
+    for (const b of ['<https://youtu.be/dQw4w9WgXcQ>', '**https://youtu.be/dQw4w9WgXcQ**', 'Watch the [clip](https://youtu.be/dQw4w9WgXcQ) here', 'https://youtu.be/dQw4w9WgXcQ (two minutes)']) {
+      const r = migrateVideoBullets(`<!-- _class: video -->\n\n- ${b}\n`);
+      assert.equal(r.changed, 1, b);
+      assert.match(r.source, /`@video\{"https:\/\/youtu\.be\/dQw4w9WgXcQ"\}`/, b);
+    }
+  });
+
+  test('a video slide that names no clip at all is an error, whatever bullet it tried', () => {
+    const f = lintText(deck('- Watch it at the link in the notes.')).filter((x) => x.rule === 'video-bullet');
+    assert.equal(f.length, 1);
+    assert.equal(f[0].severity, 'error');
+  });
+
+  test('a list-item span leaves no empty list behind, and the poster carries no aria-label that hides its visible words', () => {
+    const html = render(deck(`- \`${SPAN}\``));
+    assert.doesNotMatch(html, /<ul>\s*<\/ul>|<li>\s*<\/li>/);
+    assert.doesNotMatch(html, /class="video-poster[^>]*aria-label/);
+  });
+});
+
 describe('migrateVideoBullets', () => {
   test('rewrites caption and poster bullets into one record, and only on a video slide', () => {
     const src = '<!-- _class: video -->\n\n## T\n\n- https://vimeo.com/1084537\n- A caption `caption`\n- sample:video-poster.svg `poster`\n\n---\n\n<!-- _class: content -->\n\n- https://vimeo.com/1084537\n';
