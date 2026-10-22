@@ -28,10 +28,14 @@
  * them whenever the caller passes JSZip: a `<a:pPr>` before EVERY run of a paragraph (the
  * schema allows one, first), `p:notesMasterIdLst` after `p:sldIdLst` (it belongs before),
  * and a `[Content_Types].xml` override for a slide master per slide, where one exists.
+ * It also writes ONE theme for the slide master and the notes master, which PowerPoint
+ * refuses to open once the notes master is in its schema position; `tidyPptx` gives each
+ * master its own copy (`giveMastersOwnThemes`).
  */
 
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
 import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
+import { imageMime } from './picture.js';
 import { canEmbedAsEot, renameFace, toEot } from './sfnt.js';
 import { drawOrder, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
 import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextRun } from './types.js';
@@ -226,7 +230,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		const s = pptx.addSlide();
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
-		s.addImage({ data: `image/png;base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
+		s.addImage({ data: `${imageMime(slide.image)};base64,${toBase64(slide.image)}`, x: 0, y: 0, w: slideW, h: slideH, altText: xmlSafe((slide.description || '').trim()) || `Slide ${i + 1}` });
 		const n = i + 1;
 		for (const { group, items } of drawOrder(slide, (shape, frame) => !!insetsOf(shape, frame))) {
 			// A group's members carry its number in their names; tidyPptx wraps them in a p:grpSp.
@@ -369,6 +373,81 @@ export function groupShapes(xml: string): string {
 	return out + xml.slice(at);
 }
 
+const THEME_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
+
+/** Where a relationship `target` points, from the folder of the part that owns the `.rels`. */
+function resolveTarget(partDir: string, target: string): string {
+	if (target.startsWith('/')) return target.slice(1);
+	const out = partDir.split('/');
+	for (const seg of target.split('/')) {
+		if (seg === '..') out.pop();
+		else if (seg !== '.') out.push(seg);
+	}
+	return out.join('/');
+}
+
+/**
+ * Give every master its own theme part. PptxGenJS 3.12 writes ONE `theme1.xml` and points both
+ * the slide master and the notes master at it, and PowerPoint refuses such a package ("Sorry,
+ * PowerPoint can't read") once `p:notesMasterIdLst` is in its schema position, which the
+ * mend above puts it in. Each master after the first that names a theme another master
+ * already owns gets a copy of it under a new name, with its relationship and content type.
+ */
+async function giveMastersOwnThemes(zip: ZipLike): Promise<void> {
+	const text = async (name: string) => (zip.file(name) as { async(type: string): Promise<string> }).async('string');
+	const order = { slideMasters: 0, notesMasters: 1, handoutMasters: 2 } as const;
+	const masters = Object.keys(zip.files)
+		.map((name) => ({ name, m: name.match(/^ppt\/(slideMasters|notesMasters|handoutMasters)\/(?:slide|notes|handout)Master(\d+)\.xml$/) }))
+		.filter((x): x is { name: string; m: RegExpMatchArray } => !!x.m)
+		.sort((a, b) => order[a.m[1] as keyof typeof order] - order[b.m[1] as keyof typeof order] || Number(a.m[2]) - Number(b.m[2]));
+	let next = 1 + Math.max(0, ...Object.keys(zip.files).map((n) => Number(n.match(/^ppt\/theme\/theme(\d+)\.xml$/)?.[1] ?? 0)));
+	const owned = new Set<string>();
+	const added: string[] = [];
+	for (const { name } of masters) {
+		const dir = name.slice(0, name.lastIndexOf('/'));
+		const relsName = `${dir}/_rels/${name.slice(name.lastIndexOf('/') + 1)}.rels`;
+		if (!zip.file(relsName)) continue;
+		let rels = await text(relsName);
+		for (const el of rels.match(/<Relationship\b[^>]*\/>/g) || []) {
+			if (!el.includes(`Type="${THEME_REL_TYPE}"`)) continue;
+			const target = el.match(/\bTarget="([^"]+)"/)?.[1];
+			const part = target && resolveTarget(dir, target);
+			if (!part || !zip.file(part)) continue;
+			if (!owned.has(part)) {
+				owned.add(part);
+				continue;
+			}
+			const copy = `ppt/theme/theme${next++}.xml`;
+			zip.file(copy, await text(part));
+			rels = rels.replace(el, el.replace(/\bTarget="[^"]+"/, `Target="${posixRelative(dir, copy)}"`));
+			owned.add(copy);
+			added.push(copy);
+		}
+		zip.file(relsName, rels);
+	}
+	if (added.length && zip.file('[Content_Types].xml')) {
+		let types = await text('[Content_Types].xml');
+		for (const part of added) {
+			if (types.includes(`PartName="/${part}"`)) continue;
+			const like = types.match(/<Override PartName="\/ppt\/theme\/theme\d+\.xml"[^>]*\/>/);
+			if (!like) continue;
+			types = types.replace('</Types>', `${like[0].replace(/PartName="[^"]+"/, `PartName="/${part}"`)}</Types>`);
+		}
+		zip.file('[Content_Types].xml', types);
+	}
+}
+
+/** The relative path from folder `fromDir` to `to`, both inside the package. */
+function posixRelative(fromDir: string, to: string): string {
+	const a = fromDir.split('/');
+	const b = to.split('/');
+	while (a.length && b.length > 1 && a[0] === b[0]) {
+		a.shift();
+		b.shift();
+	}
+	return [...a.map(() => '..'), ...b].join('/');
+}
+
 /**
  * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
  * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
@@ -400,6 +479,7 @@ async function tidyPptx(zip: ZipLike): Promise<void> {
 		const tidy = types.replace(/<Override PartName="\/([^"]+)"[^>]*\/>/g, (m, part: string) => (zip.file(part) ? m : ''));
 		if (tidy !== types) zip.file('[Content_Types].xml', tidy);
 	}
+	await giveMastersOwnThemes(zip);
 }
 
 /**
