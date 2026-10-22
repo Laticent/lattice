@@ -88,6 +88,7 @@ describe('the note panel', () => {
 		await Promise.resolve();
 		expect(document.activeElement).toBe(field());
 		field()?.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
 		expect(saved()).toBe(DECK);
 	});
 
@@ -107,11 +108,12 @@ describe('the note panel', () => {
 		expect((document.querySelector('.cs-comment-body') as HTMLTextAreaElement).value).toBe('it reads as that.');
 	});
 
-	it('writes when the author leaves the field', () => {
+	it('writes when the author leaves the field', async () => {
 		mount();
 		pills()[1].click();
 		(field() as HTMLTextAreaElement).value = 'changed on blur';
 		field()?.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
 		expect(saved()).toBe(DECK.replace('a plain note.', 'changed on blur'));
 	});
 
@@ -170,6 +172,70 @@ describe('the note panel', () => {
 		pills()[1].click();
 		expect(field()).toBeNull();
 		expect(document.querySelector('.cs-comment-body')?.textContent).toBe('a plain note.');
+	});
+});
+
+// The three defects the checker reproduced in a real browser, where an edit above an open note rebuilds its panel and the browser fires a
+// blur on the field it removes.
+describe('a panel that is rebuilt by an edit elsewhere', () => {
+	const insertAbove = (v: EditorView) => {
+		let at = 0;
+		v.state.doc.descendants((n, p) => {
+			if (!at && n.isTextblock && n.textContent === 'First paragraph.') at = p + 1;
+		});
+		v.dispatch(v.state.tr.insertText('Y', at));
+	};
+
+	it('does not take the caret from the editor', async () => {
+		const v = mount();
+		pills()[1].click();
+		await Promise.resolve();
+		(document.activeElement as HTMLElement).blur();
+		insertAbove(v);
+		await Promise.resolve();
+		expect(document.activeElement).not.toBe(field());
+	});
+
+	it('keeps what the author typed in the note and writes it to the right comment', async () => {
+		const v = mount();
+		pills()[1].click();
+		const old = field() as HTMLTextAreaElement;
+		old.value = 'half typed words';
+		insertAbove(v);
+		// The browser fires blur on the field it removed.
+		old.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(saved()).toContain('<!-- half typed words -->');
+		expect(saved()).toContain('<!-- say: the slide reads as this. -->');
+	});
+
+	it('writes once when Ctrl+Enter replaces the field', async () => {
+		const v = mount();
+		pills()[1].click();
+		const old = field() as HTMLTextAreaElement;
+		let writes = 0;
+		const dispatch = v.dispatch.bind(v);
+		v.dispatch = (tr) => {
+			if (tr.docChanged) writes++;
+			dispatch(tr);
+		};
+		old.value = 'saved once';
+		old.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+		old.dispatchEvent(new FocusEvent('blur'));
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(writes).toBe(1);
+		expect(saved()).toContain('<!-- saved once -->');
+	});
+
+	it('Remove after typing removes the note and does not write the typing first', () => {
+		mount();
+		pills()[1].click();
+		(field() as HTMLTextAreaElement).value = 'typed then removed';
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(saved()).not.toContain('typed then removed');
+		expect(saved()).not.toContain('a plain note.');
 	});
 });
 

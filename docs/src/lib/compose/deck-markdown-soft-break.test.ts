@@ -126,4 +126,24 @@ describe('soft break edge cases', () => {
 		const doc = proseSchema.node('doc', null, [proseSchema.node('paragraph', null, [proseSchema.text('a'), proseSchema.node('soft_break'), proseSchema.node('soft_break'), proseSchema.text('c')])]);
 		expect(serializeSlideProse(doc).trimEnd()).toBe('a\nc');
 	});
+	it('a setext heading with a blank or code-indented line falls back to one ATX line', () => {
+		const heading = (level: number, parts: (string | null)[]) =>
+			proseSchema.node('doc', null, [proseSchema.node('heading', { level }, parts.map((p) => (p === null ? proseSchema.node('soft_break') : proseSchema.text(p))))]);
+		for (const doc of [heading(1, ['a', null, '   ', null, 'b']), heading(2, ['    a', null, 'b'])]) {
+			const out = serializeSlideProse(doc).trimEnd();
+			const back = parseSlideProse(out);
+			expect([back.childCount, back.child(0).type.name], out).toEqual([1, 'heading']);
+		}
+	});
+	it('a heading that ends in # keeps its escape even with trailing spaces', () => {
+		const doc = proseSchema.node('doc', null, [proseSchema.node('heading', { level: 1 }, [proseSchema.text('a # ')])]);
+		const back = parseSlideProse(serializeSlideProse(doc));
+		expect(back.child(0).textContent).toBe('a #');
+	});
+	it('text after a hard break is escaped like text after a soft break', () => {
+		for (const md of ['Hard\\\n\\- b', 'a\\\n1\\) b']) {
+			const back = parseSlideProse(rt(md));
+			expect([back.childCount, back.child(0).type.name], md).toEqual([1, 'paragraph']);
+		}
+	});
 });

@@ -40,6 +40,29 @@ test.describe('notes and motion in Compose', () => {
 		await expect.poll(() => savedDeck(page)).not.toContain('say:');
 	});
 
+	test('@crosswidth @gecko @webkit-tablet typing in the slide above an open note stays in the slide, and a half-typed note is kept', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).click();
+		const field = page.getByRole('textbox', { name: 'note text' });
+		await expect(field).toBeFocused();
+		// Click into the paragraph above and type: every key lands in the paragraph, none in the note.
+		await page.getByText('First paragraph.').click();
+		await page.keyboard.press('End');
+		await page.keyboard.type('abc');
+		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('First paragraph.', 'First paragraph.abc'));
+		await expect(field).not.toBeFocused();
+		// Half-type in the note, then click into the paragraph below: the words are saved in the note, and the next key goes to the paragraph.
+		await field.click();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type('half typed words');
+		await page.getByText('Second paragraph.').click();
+		await page.keyboard.press('End');
+		await page.keyboard.type('Z');
+		await expect
+			.poll(() => savedDeck(page))
+			.toBe(DECK.replace('First paragraph.', 'First paragraph.abc').replace('a plain note.', 'half typed words').replace('Second paragraph.', 'Second paragraph.Z'));
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

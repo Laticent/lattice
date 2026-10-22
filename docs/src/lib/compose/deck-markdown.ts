@@ -352,6 +352,16 @@ function lineStartEscape(text: string): { head: string; length: number } | null 
 	return null;
 }
 
+/** The text of each line of a heading, split at its soft breaks. */
+function setextLines(heading: PMNode): string[] {
+	const lines = [''];
+	heading.forEach((child) => {
+		if (child.type.name === 'soft_break') lines.push('');
+		else lines[lines.length - 1] += child.textContent;
+	});
+	return lines;
+}
+
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
 	// THE START OF A LINE. The upstream escaper protects a paragraph's first line (`- `, `# `, `1.`) but it does not meet the
@@ -361,7 +371,8 @@ const latticeNodes = {
 	// would make it structure gets its backslash. Table cells and ATX headings keep the upstream behavior.
 	text(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
 		const text = node.text as string;
-		const afterBreak = index > 0 && parent.child(index - 1).type.name === 'soft_break';
+		const prev = index > 0 ? parent.child(index - 1).type.name : '';
+		const afterBreak = prev === 'soft_break' || prev === 'hard_break';
 		const inCell = parent.type.name.startsWith('table_');
 		const atx = parent.type.name === 'heading' && !state.setext;
 		if ((afterBreak || state.atBlockStart) && !inCell && !atx) {
@@ -393,8 +404,9 @@ const latticeNodes = {
 		node.forEach((child) => {
 			if (child.type.name === 'soft_break') hasBreak = true;
 		});
-		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form.
-		if (hasBreak && node.attrs.level <= 2) {
+		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form, and only when every line is
+		// real text. A blank line would end the heading and a line indented four spaces is code, so those fall back to one ATX line.
+		if (hasBreak && node.attrs.level <= 2 && setextLines(node).every((l) => l.trim() !== '' && !/^ {4,}/.test(l))) {
 			state.setext = true;
 			state.renderInline(node);
 			state.setext = false;
@@ -408,7 +420,7 @@ const latticeNodes = {
 		state.write(`${state.repeat('#', node.attrs.level)} `);
 		state.renderInline(node, false);
 		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in.
-		state.out = state.out.replace(/(\s)(#+)$/, '$1\\$2');
+		state.out = state.out.replace(/(\s)(#+)(\s*)$/, '$1\\$2$3');
 		state.closeBlock(node);
 	},
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
