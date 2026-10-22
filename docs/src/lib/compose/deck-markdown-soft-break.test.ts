@@ -76,15 +76,39 @@ describe('soft breaks across the shipped decks', () => {
 
 // Found by the independent checker: each of these was a defect in the first version of the node.
 describe('soft break edge cases', () => {
-	it('a two-line setext heading keeps its words, on one line', () => {
-		expect(rt('Quarterly results\nand outlook\n===')).toBe('# Quarterly results and outlook');
-		expect(rt('Quarterly results\nand outlook\n---')).toBe('## Quarterly results and outlook');
+	it('a two-line setext heading keeps its break, and its level', () => {
+		expect(rt('Quarterly results\nand outlook\n===')).toBe('Quarterly results\nand outlook\n===');
+		expect(rt('Quarterly results\nand outlook\n---')).toBe('Quarterly results\nand outlook\n---');
+	});
+	it('a heading that holds a break inside a quote keeps its prefix on every line', () => {
+		expect(rt('> one\n> two\n> ===')).toBe('> one\n> two\n> ===');
+	});
+	it('an ATX heading is unchanged, and a trailing # keeps its escape', () => {
+		expect(rt('## Plain title')).toBe('## Plain title');
+		expect(rt('## C \\#')).toBe('## C \\#');
+		expect(rt('a \\#\n===')).toBe('# a \\#');
 	});
 	it('block syntax typed at the start of a later line stays literal', () => {
 		for (const line of ['- b', '# b', '> b', '+ b', '2. b', '===', '---']) {
 			const out = rt(`a\n${line.replace(/^([-#>+]|2\.|=|---)/, '\\$1')}`);
 			expect(out, line).toMatch(/^a\n\\/);
 		}
+	});
+	it('the markers the upstream escaper misses stay literal after a break', () => {
+		for (const md of ['a\n1\\) b', 'a\n\\- b', 'a\n\\> b', 'a\n\\# b']) expect(rt(md), md).toBe(md);
+	});
+	it('text typed with leading spaces before a marker is escaped too', () => {
+		for (const typed of ['  - b', '  > b', '  # b', '  1) b']) {
+			const doc = proseSchema.node('doc', null, [proseSchema.node('paragraph', null, [proseSchema.text('a'), proseSchema.node('soft_break'), proseSchema.text(typed)])]);
+			const out = serializeSlideProse(doc).trimEnd();
+			// Read back, it is still one paragraph of two lines, not a list, a quote or a heading.
+			const back = parseSlideProse(out);
+			expect([back.childCount, back.child(0).type.name], typed).toEqual([1, 'paragraph']);
+			expect(out, typed).toMatch(/^a\n\s*\d?\\/);
+		}
+	});
+	it('a paragraph that starts with a marker keeps its escape, with or without spaces', () => {
+		for (const md of ['1\\) b', '\\- b', '\\# b', '\\> b']) expect(rt(md), md).toBe(md);
 	});
 	it('plain text and textContent keep the line break', () => {
 		const doc = parseSlideProse('Revenue grew\nfaster than costs');

@@ -337,36 +337,79 @@ function interruptsParagraph(node: PMNode): boolean {
 	return node.type.name !== 'ordered_list' || Number(node.attrs.order ?? 1) === 1;
 }
 
+/** The head to write for a line whose start would otherwise read as block syntax, and how much of the text it replaces. Null when it is plain. */
+function lineStartEscape(text: string): { head: string; length: number } | null {
+	const first = text.split('\n', 1)[0];
+	const marker = /^(\s*)([-+*>])(?=\s|$)/.exec(first);
+	if (marker) return { head: `${marker[1]}\\${marker[2]}`, length: marker[0].length };
+	const ordered = /^(\s*\d{1,9})([.)])(?=\s|$)/.exec(first);
+	if (ordered) return { head: `${ordered[1]}\\${ordered[2]}`, length: ordered[0].length };
+	const atx = /^(\s*)(#{1,6})(?=\s|$)/.exec(first);
+	if (atx) return { head: `${atx[1]}\\#${atx[2].slice(1)}`, length: atx[0].length };
+	// A whole line of `=` or `-` under a line of text is a setext underline.
+	const underline = /^(\s*)([=-])(?=[=-]*\s*$)/.exec(first);
+	if (underline) return { head: `${underline[1]}\\${underline[2]}`, length: underline[0].length };
+	return null;
+}
+
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
-	// The line break as written; the next line carries its own block prefix (`> `, list indent).
-	// The text after a soft break starts a line: `-`, `#`, `>`, `1.` or `---` there must stay escaped or it becomes structure.
-	// (The serializer clears its block-start flag after each node, so it is set here, where the text is written.)
+	// THE START OF A LINE. The upstream escaper protects a paragraph's first line (`- `, `# `, `1.`) but it does not meet the
+	// start of a LATER line, and it misses `1)`, a marker after spaces, and a bare `=`/`-` line. Any of those at the start of a
+	// line writes structure the author never typed: a list, a quote, a heading, a setext underline. So the first line of a text
+	// run that starts a line (the start of a block, or the line after a soft break) is checked here, and the one character that
+	// would make it structure gets its backslash. Table cells and ATX headings keep the upstream behavior.
 	text(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
 		const text = node.text as string;
-		if (index > 0 && parent.child(index - 1).type.name === 'soft_break' && parent.type.name !== 'heading') {
-			// A whole line of `=` or `-` under a line of text is a setext underline, which the upstream escaper never meets at a paragraph start.
-			const underline = /^(\s*)([=-])(?=[=-]*\s*(?:\n|$))/.exec(text);
-			if (underline) {
+		const afterBreak = index > 0 && parent.child(index - 1).type.name === 'soft_break';
+		const inCell = parent.type.name.startsWith('table_');
+		const atx = parent.type.name === 'heading' && !state.setext;
+		if ((afterBreak || state.atBlockStart) && !inCell && !atx) {
+			const hit = lineStartEscape(text);
+			if (hit) {
 				state.write();
-				state.out += `${underline[1]}\\${underline[2]}`;
+				state.out += hit.head;
 				state.atBlockStart = false;
-				state.text(text.slice(underline[0].length), !state.inAutolink);
+				state.text(text.slice(hit.length), !state.inAutolink);
 				return;
 			}
-			state.atBlockStart = true;
+			if (afterBreak) state.atBlockStart = true;
 		}
 		state.text(text, !state.inAutolink);
 	},
-	// A heading is one line, so a break inside it (a setext heading over two lines) writes a space, as it always did.
+	// The line break as written; the next line carries its own block prefix (`> `, list indent). A setext heading over two
+	// lines keeps its break (the engine draws it as `<br>`); an ATX heading is one line, so a break there writes a space.
 	soft_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
 		// Two breaks in a row (the text between them was deleted) write one line break, not a blank line that splits the paragraph.
 		if (index > 0 && parent.child(index - 1).type.name === 'soft_break') return;
 		for (let i = index + 1; i < parent.childCount; i++)
 			if (parent.child(i).type.name !== 'soft_break') {
-				state.write(parent.type.name === 'heading' ? ' ' : '\n');
+				state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\n');
 				return;
 			}
+	},
+	heading(state: SerializerState, node: PMNode) {
+		let hasBreak = false;
+		node.forEach((child) => {
+			if (child.type.name === 'soft_break') hasBreak = true;
+		});
+		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form.
+		if (hasBreak && node.attrs.level <= 2) {
+			state.setext = true;
+			state.renderInline(node);
+			state.setext = false;
+			state.write();
+			state.out += '\n';
+			state.write();
+			state.out += node.attrs.level === 1 ? '===' : '---';
+			state.closeBlock(node);
+			return;
+		}
+		state.write(`${state.repeat('#', node.attrs.level)} `);
+		state.renderInline(node, false);
+		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in.
+		state.out = state.out.replace(/(\s)(#+)$/, '$1\\$2');
+		state.closeBlock(node);
 	},
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
