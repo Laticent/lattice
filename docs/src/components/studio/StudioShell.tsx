@@ -2,6 +2,7 @@ import {
 	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
+import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
 import './asset-render-hook';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -1312,6 +1313,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [localComponents, setLocalComponents] = React.useState<StudioComponent[]>([]);
 	// Zip plugins (plugin-library.ts): kept in this browser only, run by the same door once approved.
 	const [localPlugins, setLocalPlugins] = React.useState<StudioPluginRecord[]>([]);
+	// What Compose draws a panel from for an installed plugin's `@kind{…}` span (its manifest's slot).
+	const composePluginKinds = React.useMemo(() => pluginKindEntries(localPlugins), [localPlugins]);
 	const refreshComponents = React.useCallback(() => {
 		// Keep a STABLE reference when nothing actually changed. The store resolves
 		// async to a fresh array each call (often an empty one when IndexedDB is
@@ -6051,7 +6054,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={() => { revealCraftDock(); setLibraryOpen(true); }} />
+				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={() => { revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>

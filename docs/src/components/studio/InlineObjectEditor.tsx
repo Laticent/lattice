@@ -12,7 +12,7 @@
 // Lazy: ComposeView loads this with React.lazy, as IconGrid is, so none of it is in the Studio's
 // startup JavaScript.
 
-import { ChartLine, Code, Image as ImageIcon, Shapes, Sigma, Tag, UserRound } from 'lucide-react';
+import { ChartLine, Code, Image as ImageIcon, Puzzle, Shapes, Sigma, Tag, UserRound } from 'lucide-react';
 import type { EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { PanelBody, PanelHeader, PanelSheet } from '@/components/ui/panel';
@@ -25,6 +25,7 @@ import { AvatarPanel } from './AvatarPanel';
 import { IconPanel } from './IconPanel';
 import { ImagePanel } from './ImagePanel';
 import { PillPanel, readSlotColors } from './PillEditor';
+import { PluginKindPanel } from './PluginKindPanel';
 import { RawPanel } from './RawPanel';
 import { SparkPanel } from './SparkPanel';
 
@@ -71,6 +72,11 @@ const PANELS: Record<string, PanelEntry> = {
 		describe: "Change this icon's shape, color, size, frame and look.",
 		Panel: (p) => <IconPanel {...(p as unknown as React.ComponentProps<typeof IconPanel>)} />,
 	},
+	plugin: {
+		title: 'Edit plugin object',
+		describe: "Change this plugin object's fields.",
+		Panel: (p) => <PluginKindPanel {...(p as unknown as React.ComponentProps<typeof PluginKindPanel>)} />,
+	},
 };
 
 /** The image's entry: its panel is not an inline object's, so the host renders it itself (the `image` branch below). */
@@ -81,7 +87,7 @@ const IMAGE_ENTRY: PanelEntry = {
 };
 
 /** The header icon of each kind's sheet. */
-const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <ChartLine />, avatar: <UserRound />, icon: <Shapes />, image: <ImageIcon />, 'inline-math': <Sigma />, math: <Sigma />, html: <Code /> };
+const KIND_ICON: Record<string, React.ReactNode> = { pill: <Tag />, spark: <ChartLine />, avatar: <UserRound />, icon: <Shapes />, plugin: <Puzzle />, image: <ImageIcon />, 'inline-math': <Sigma />, math: <Sigma />, html: <Code /> };
 
 /** The entry for a math span, a math block and a block of HTML: their panel is `RawPanel`, which the host renders itself. */
 const RAW_ENTRY: Record<RawObjectKind, PanelEntry> = {

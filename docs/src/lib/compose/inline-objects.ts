@@ -26,6 +26,10 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
 import { isObjectSource } from './inline-object';
 import { PILL_SCOPE } from './pill-sheet';
+import type { PluginKindEntry } from './plugin-kind-entries';
+
+export type { PluginKindEntry };
+
 import { classTokens } from './registers';
 
 /** What the engine reads out of a pill (lib/plugins/pills/pills.inline.js `resolve`). */
@@ -99,7 +103,7 @@ export type IconEdit = Record<string, string | number | null>;
 /** A slot schema as the kernels export it (lib/core/segno-spec.js): the panel is drawn from it. */
 export interface SlotSpec {
 	readonly positional?: readonly { name: string; type: unknown }[];
-	readonly params: Readonly<Record<string, { type: string; values?: readonly string[]; prefix?: string; max?: number; named?: boolean } | string>>;
+	readonly params: Readonly<Record<string, { type: string; values?: readonly string[]; prefix?: string; max?: number; named?: boolean; word?: string; of?: unknown } | string>>;
 }
 
 /** One change to a spark (lib/plugins/sparks/sparks.inline.js `editSpark`): an absent key leaves the axis alone. */
@@ -155,6 +159,14 @@ export interface InlineKernels {
 		readonly SIZES: readonly string[];
 		/** A circle or diamond whose label is too long for it (the linter's `pill-shape-crowded`). */
 		crowded(fields: PillFields): boolean;
+	};
+	/**
+	 * An installed plugin's inline kind, read and written through the slot spec its manifest declares (lib/authoring/inline-editors.js
+	 * `record`). Absent in a kernel set from before plugin kinds. `text` is the record, `{…}`, without the `@kind` lead.
+	 */
+	record?: {
+		read(spec: SlotSpec, name: string, text: string): Record<string, unknown> | null;
+		edit(spec: SlotSpec, name: string, text: string, changes: PluginKindEdit): string | null;
 	};
 	isLiteralFromSource(source: string): boolean;
 	INLINE_CODE_LITERAL: string;
@@ -236,12 +248,60 @@ export const iconKind: ObjectKind<IconFields, IconEdit> = {
 	needsData: true,
 };
 
+// ── Installed plugins' kinds ─────────────────────────────────────────────────
+
+/** One change to a plugin kind's record: a parameter to its new value, `null` (or `false` for a flag) to remove the word. */
+export type PluginKindEdit = Record<string, string | number | boolean | null>;
+
+/** What the generic panel is handed: the kind, and the words the author wrote on this span. */
+export interface PluginKindFields {
+	readonly entry: PluginKindEntry;
+	readonly written: Readonly<Record<string, unknown>>;
+}
+
+/** The names the engine already owns (an in-tree kind and its alias): a zip plugin cannot take one, so a span with this name is never a plugin's. */
+const IN_TREE_KINDS = new Set(['pill', 'spark', 'icon', 'avatar']);
+
+const NAMED_SPAN = /^@([a-z][a-z0-9-]*)(\{[^\n\r]*\})$/;
+
+let pluginKindProvider: () => readonly PluginKindEntry[] = () => [];
+
+/** The Studio hands Compose the kinds its installed plugins declare. Read on every lookup, so an install or a removal shows at once. */
+export function setPluginKindProvider(fn: () => readonly PluginKindEntry[]): void {
+	pluginKindProvider = fn;
+}
+
+/** The generic kind: a `@kind{…}` span the host cannot draw (the plugin's code runs only in the preview's sandbox), edited from the kind's declared slot. */
+export const pluginKind: ObjectKind<PluginKindFields, PluginKindEdit> = {
+	id: 'plugin',
+	read: (src, k) => {
+		const m = NAMED_SPAN.exec(src);
+		const entry = m && !IN_TREE_KINDS.has(m[1]) ? pluginKindProvider().find((e) => e.name === m[1]) : undefined;
+		const written = entry && m ? k.record?.read(entry.slot, `${entry.plugin}.inline.${entry.name}`, m[2]) : null;
+		return entry && written ? { entry, written } : null;
+	},
+	// The plugin's code is not run here, so there is no drawing: the object shows its source, still one tappable thing.
+	draw: () => null,
+	edit: (src, edit, k) => {
+		const m = NAMED_SPAN.exec(src);
+		const entry = m ? pluginKindProvider().find((e) => e.name === m[1]) : undefined;
+		const out = entry && m ? k.record?.edit(entry.slot, `${entry.plugin}.inline.${entry.name}`, m[2], edit) : null;
+		return out ? `@${entry?.name}${out}` : null;
+	},
+	name: (f) => `Edit ${f.entry.title ?? f.entry.name}`,
+};
+
 /** Every kind Compose can edit. A new kind is one more entry here and one more panel in InlineObjectEditor.tsx. */
 export const OBJECT_KINDS: readonly ObjectKind[] = [pillKind as ObjectKind, sparkKind as ObjectKind, avatarKind as ObjectKind, iconKind as ObjectKind];
 
 /** Which kind owns `src`, and the fields it reads. Null when none does (the span stays text). */
 export function kindOf(src: string, kernels: InlineKernels): { kind: ObjectKind; fields: unknown } | null {
 	if (!isObjectSource(src)) return null;
+	// A named span belongs to a plugin's kind or to no one: the in-tree readers parse the sigil forms only.
+	if (src.startsWith('@')) {
+		const fields = pluginKind.read(src, kernels);
+		return fields ? { kind: pluginKind as ObjectKind, fields } : null;
+	}
 	for (const kind of OBJECT_KINDS) {
 		const fields = kind.read(src, kernels);
 		if (fields) return { kind, fields };
@@ -451,7 +511,7 @@ export function normalizeObjects(state: EditorState, kernels: InlineKernels, dec
 			if (!node.isText || !node.text || !codeMark.isInSet(node.marks)) return;
 			// The sigil first: the cheapest reject, before the kernel is asked anything.
 			const c = node.text.charCodeAt(0);
-			if (c !== 0x7b && c !== 0x7e && c !== 0x21 && c !== 0x5e) return;
+			if (c !== 0x7b && c !== 0x7e && c !== 0x21 && c !== 0x5e && c !== 0x40) return;
 			const to = from + node.nodeSize;
 			if (sparing && sel.from <= to && sel.to >= from) return;
 			if (!kindOf(node.text, kernels)) return;
