@@ -292,7 +292,7 @@ A note is a row high, which at 16:9 clipped the mood legend until the key under 
 reason.
 
 **Not built, and still open:** plan item P5, keys through `@legend` on every component that already draws one
-(`followups.d/2854-p3-keys-through-legend.md`).
+(`followups.d/2855-p3-keys-through-legend.md`).
 
 ## 10. The callout layer loads on demand (#2855 follow-up)
 
