@@ -937,7 +937,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 
 - **Symptom:** a web-reference gate (`remoteCssRefs`, `blockWebCss`, `blockWebImages`, the
   code-package door's `cssRefTargets`) reports nothing, or rewrites nothing, and the page still
-  requests the URL. Found 2026-10-20 in twenty spellings, all now in
+  requests the URL. Found 2026-10-20 and 2026-10-22 in 23 spellings, all now in
   `test/fixtures/web-ref-beacons.js`: a CSS string a form feed or a carriage return ends
   (`"x<FF>}p{background:url(…)}"`), an escaped `u\72l(`, a URL in `image-set("…")` or
   `@import "…"`, a `)` inside `url("…")`, `url&lpar;…` in a style attribute, `<p/style=…>` and
@@ -948,9 +948,12 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   reads a function name; HTML decodes every named reference in an attribute, takes `/` (or
   nothing, after a quote) as an attribute separator, and parses an SVG `<style>` as markup. Four
   copies of the same CSS loop carried the same newline bug.
-- **Fix:** read CSS with `cssRefSpans` (lib/core/remote-ref.js), the one tokenizer every CSS
-  question goes through, and never with a regex. `blockWebImages` checks its own output with the
-  page's `DOMParser` and rewrites through the DOM anything the parser still finds, so a spelling
-  the regexes miss is caught in every browser caller. `npm run test:integration` loads every
+- **Fix:** read CSS with `cssRefSpans` and HTML tags with `scanHtml` (lib/core/remote-ref.js),
+  one tokenizer each, and never with a regex. The regexes were also slow: their nested
+  quantifiers took 25-50 s on `'<style"'.repeat(1000)`, where the scanner is linear.
+  `scanHtml` follows the HTML tokenizer for tags, attributes, comments and raw text, and tracks
+  `<svg>`/`<math>`; where foreign content holds something it does not model (a `<style>` inside
+  `<svg>`, a tag that leaves foreign content), `blockWebImages` asks the page's `DOMParser`,
+  which no shipped deck needs. `npm run test:integration` loads every
   payload in Chromium, as written (each must fetch, or the probe cannot see) and rewritten (none
   may). A new spelling goes in the fixture first.

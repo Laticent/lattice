@@ -1,6 +1,6 @@
 /**
  * Spellings of a web fetch that a regex scan of CSS or HTML reads differently from the browser,
- * each one measured to fetch in Chromium before the fix (2026-10-20). One table for two tiers:
+ * each one measured to fetch in Chromium before the fix (2026-10-20, three more 2026-10-22). One table for two tiers:
  * test/unit/core/web-css-bypass.test.js runs the scanners on it, and
  * test/integration/invariants/web-ref-beacon.test.js loads each one in Chromium, unrewritten (it
  * must fetch, or the probe cannot see) and rewritten (it must not).
@@ -28,6 +28,8 @@ function webRefBeacons(base) {
     ['font-face-smuggle', `@font-face{font-family:"}"} p{background:url(${u('font-face-smuggle')})}`],
     // A string in a custom property is fetched where a child reads it as an image.
     ['custom-property-string', `p{--q:"${u('custom-property-string')}"} p{background-image:image-set(var(--q) 1x)}`],
+    // `@font-face` used as a word inside a selector is not a font rule.
+    ['font-face-in-selector', `:is(@font-face, p){background:url(${u('font-face-in-selector')})}`],
   ].map(([name, text]) => ({ name, kind: 'css', text }));
   const font = [{ name: 'font-face-src', kind: 'font', text: `@font-face{font-family:q;src:url(${u('font-face-src')})} p{font-family:q}` }];
   const html = [
@@ -45,6 +47,10 @@ function webRefBeacons(base) {
     ['svg-style-named-entity', `<svg><style>p{background:url&lpar;${u('svg-style-named-entity')}&rpar;}</style></svg><p>x</p>`],
     ['svg-style-numeric-entity', `<svg><style>p{background:url&#40;${u('svg-style-numeric-entity')})}</style></svg><p>x</p>`],
     ['svg-style-comment', `<svg><style>p{background:url(<!-- -->${u('svg-style-comment')})}</style></svg><p>x</p>`],
+    // A quote inside an unquoted value is a character, not a quote.
+    ['quote-in-unquoted-value', `<img alt=a'b src=${u('quote-in-unquoted-value')}>`],
+    // A declarative shadow root holds live markup that a DOMParser does not attach.
+    ['declarative-shadow-root', `<div><template shadowrootmode="open"><p style="background:url(${u('declarative-shadow-root')})">x</p></template></div>`],
   ].map(([name, text]) => ({ name, kind: 'html', text }));
   return [...css, ...font, ...html];
 }

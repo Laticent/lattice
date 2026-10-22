@@ -76,19 +76,80 @@ describe('the rewrites leave the URL nowhere but its label', () => {
     assert.equal(blockWebCss(css).css, css);
   });
 
-  test('a rewritten style attribute is written back double-quoted and escaped', () => {
-    const { html } = blockWebImages(`<p style='content:"a&b";background:url(${BASE}/q)'>x</p>`, [], { DOMParser: null });
-    assert.match(html, /<p style="content:&quot;a&amp;b&quot;;background:repeating-linear-gradient\(/);
+  test('a rewritten style attribute keeps its quotes and every other character reference', () => {
+    const { html } = blockWebImages(`<p style='font-family:"Caf&eacute;";content:"a&amp;b";background:url(${BASE}/q)'>x</p>`, [], { DOMParser: null });
+    assert.match(html, /^<p style='font-family:"Caf&eacute;";content:"a&amp;b";background:repeating-linear-gradient\(/);
+  });
+
+  test('a web string that fetches nothing becomes `none`, not a slide-sized hatch', () => {
+    const { css } = blockWebCss(`footer::after{content:"${BASE}/report"} p{--src:"${BASE}/t";background:url(${BASE}/bg)}`);
+    assert.equal(css.match(/none/g)?.length, 2);
+    assert.equal(css.match(/repeating-linear-gradient/g)?.length, 1);
+  });
+
+  test('`@font-face` inside a selector or a prelude does not hide the rule from the rewrite', () => {
+    for (const css of [`:is(@font-face, p){background:url(${BASE}/a)}`, `p{ :is(@font-face, &) {background:url(${BASE}/b)} }`, `@media (@font-face), all{p{background:url(${BASE}/c)}}`]) {
+      const out = blockWebImages(`<style>${css}</style>`, [], { DOMParser: null });
+      assert.ok(!out.html.includes(BASE), out.html);
+      assert.equal(out.blocked.length, 1);
+    }
+  });
+
+  test('declarative shadow DOM content is rewritten, though a DOMParser does not attach it', () => {
+    const { html } = blockWebImages(`<div><template shadowrootmode="open"><p style="background:url(${BASE}/dsd)">x</p><img alt=a'b src=${BASE}/dsd2></template></div>`, [], { DOMParser });
+    assert.ok(!withoutLabels(html).includes(BASE), html);
+  });
+
+  test('an attribute keeps a legacy name followed by `=` as written, as the HTML parser does', () => {
+    const out = blockWebImages(`<p style='--a:&quot=; background:url(${BASE}/q); --b:"'>x</p>`, [], { DOMParser: null });
+    assert.ok(!out.html.includes(`${BASE}/q`), out.html);
+  });
+
+  test('a numeric reference in the windows-1252 range decodes to that character', () => {
+    assert.equal(decodeEntities('&#x99;&#128;'), '\u2122\u20ac');
+  });
+
+  test('with no parser, a <style> inside <svg> is still counted as the tree builder reads it', () => {
+    for (const p of PAYLOADS.filter((x) => x.name.startsWith('svg-style'))) {
+      const { blocked } = blockWebImages(asHtml(p), [], { DOMParser: null });
+      assert.ok(blocked.some((b) => b.url.startsWith(`${BASE}/${p.name}`)), p.name);
+    }
   });
 });
 
-describe('the parser check changes nothing on an ordinary deck', () => {
+describe('the scanner reads hostile markup in linear time', () => {
+  // Each shape took 25-50 s at 1,000 repetitions with the regexes the scanner replaced.
+  const shapes = { 'unclosed quote in a tag name': '<style"', 'unclosed mermaid hosts': '<div class="mermaid" ', 'unclosed style attributes': '<p style="', 'quote in an unquoted value': "<img alt=a'b " };
+  for (const [name, unit] of Object.entries(shapes)) {
+    test(name, () => {
+      const time = (n) => {
+        const t = process.hrtime.bigint();
+        blockWebImages(unit.repeat(n), [], { DOMParser: null });
+        return Number(process.hrtime.bigint() - t) / 1e6;
+      };
+      time(2000);
+      const big = time(20000);
+      assert.ok(big < 500, `${big.toFixed(0)} ms for 20,000 repetitions`);
+    });
+  }
+});
+
+describe('the parser check never runs on a deck Lattice ships', () => {
   const engine = require('../../../lib/engine/index.js').createEngine();
-  for (const deck of ['examples/sample-images.md', 'examples/video.md', 'examples/qr.md', 'test/integration/baseline-decks/gallery.md']) {
+  // web-images.md holds the corpus's web references; gallery.md its charts' inline SVG.
+  for (const deck of ['examples/web-images.md', 'examples/sample-images.md', 'examples/video.md', 'examples/qr.md', 'test/integration/baseline-decks/gallery.md']) {
     test(deck, () => {
       const { html } = engine.render(fs.readFileSync(path.join(__dirname, '../../..', deck), 'utf8'));
+      let parsed = 0;
+      class Counting extends DOMParser {
+        parseFromString(...args) {
+          parsed++;
+          return super.parseFromString(...args);
+        }
+      }
       const regexOnly = blockWebImages(html, [], { DOMParser: null });
-      const checked = blockWebImages(html, [], { DOMParser });
+      const checked = blockWebImages(html, [], { DOMParser: Counting });
+      assert.equal(parsed, 0);
       assert.equal(checked.html, regexOnly.html);
       assert.deepEqual(checked.blocked, regexOnly.blocked);
     });
