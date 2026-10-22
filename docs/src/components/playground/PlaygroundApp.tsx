@@ -813,7 +813,9 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// both wasted work and the iOS FIT-blank precondition — defer instead, and
 	// let the expand path run one authoritative render.
 	const previewCollapsedRef = React.useRef(false);
-	const pendingWhileCollapsedRef = React.useRef(false);
+	// Whether a render held back while collapsed was a deck swap (`fresh`), which opens at the top.
+	// A held patch is not one: expanding must keep the reader on their slide (followup 2851-p3).
+	const freshWhileCollapsedRef = React.useRef(false);
 
 	// ── Edit view: the preview and the editor follow one focus ───────────────────
 	// One hub (docs/src/lib/fuoco) holds which slide the reader is on; `playground-sync.ts` has the rules
@@ -910,7 +912,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const frame = frameRef.current;
 			if (!frame) return;
 			if (previewCollapsedRef.current) {
-				pendingWhileCollapsedRef.current = true;
+				if (fresh) freshWhileCollapsedRef.current = true;
 				setStatusLine('Preview collapsed — render deferred.');
 				return;
 			}
@@ -1226,18 +1228,32 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// while collapsed needs a full fresh render; otherwise one re-fit + patch heals
 	// the view. Double-rAF so the iframe is laid out + measurable first.
 	const onPreviewExpand = React.useCallback(() => {
+		// Collapsing squeezed the frame to a rail and scrolled it to the top. In Edit the reader is owed their slide
+		// (the editor's), and the frame stays covered until it is there rather than showing slide 1 on the way.
+		// A deck swap held back while collapsed opens at the top by design, so it needs neither.
+		const owedSlide = viewRef.current === 'edit' && !freshWhileCollapsedRef.current;
+		if (owedSlide) {
+			realignPendingRef.current = true;
+			coverPreview();
+		}
 		requestAnimationFrame(() =>
 			requestAnimationFrame(() => {
-				if (pendingWhileCollapsedRef.current) {
-					pendingWhileCollapsedRef.current = false;
+				const swapped = freshWhileCollapsedRef.current;
+				freshWhileCollapsedRef.current = false;
+				if (swapped) {
 					freshRender();
 				} else {
 					frameRef.current?.contentWindow?.__latticeFit?.();
 					render(false);
+					if (owedSlide) {
+						syncRef.current?.expanded();
+						settleRealign(true);
+						if (frameRef.current) markLiveWhenSlidesVisible(frameRef.current);
+					}
 				}
 			}),
 		);
-	}, [freshRender, render]);
+	}, [freshRender, render, coverPreview, settleRealign, markLiveWhenSlidesVisible]);
 	// react-resizable-panels split state (shared hook, 2026-07-19). The library
 	// owns pointer capture, keyboard/ARIA, double-click reset, and persistence; we
 	// own the srcdoc iframe pointer shield + __latticeFit re-fit via the callbacks:
@@ -1258,7 +1274,10 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 		// and hand the line back to `Rendered 7 slide(s).` over a preview that is doing
 		// nothing — the lie the hand-back below was built to prevent, relocated rather
 		// than removed. This was briefly moved to a pill and moved straight back.
-		onCollapse: (side) => setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.'),
+		onCollapse: (side) => {
+			if (side === 'b') syncRef.current?.collapsed();
+			setStatusLine(side === 'b' ? 'Preview collapsed — rendering paused.' : 'Editor collapsed.');
+		},
 		onExpand: (side) => {
 			if (side === 'b') {
 				onPreviewExpand(); // its render writes a fresh status on the way through

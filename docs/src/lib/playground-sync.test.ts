@@ -644,3 +644,73 @@ describe('the band', () => {
 		expect(r.log.some((l) => l.startsWith('band'))).toBe(true);
 	});
 });
+
+describe('a collapsed preview comes back on the slide it was on', () => {
+	/** Collapsing squeezes the frame, which scrolls it to the top; the reader's own scroll never reaches the sync. */
+	const squeeze = (r: ReturnType<typeof rig>) => {
+		r.state.active = false;
+		r.state.pv = 0;
+		r.sync.previewScrolled();
+		r.frame();
+	};
+
+	it('puts the preview back to the pixel when the focus has not moved', async () => {
+		const r = rig();
+		await r.land();
+		r.scrollPreview(1450);
+		const flat = r.hub.get().flat;
+		expect(flat).toBeGreaterThan(0);
+		const was = r.state.pv;
+		r.sync.collapsed();
+		squeeze(r);
+		r.state.active = true;
+		r.sync.expanded();
+		expect(r.sync.pending()).toBe(true);
+		expect(r.sync.loaded()).toBe(true);
+		expect(r.state.pv).toBe(was);
+		expect(r.sync.pending()).toBe(false);
+		expect(r.hub.get().flat).toBe(flat);
+	});
+
+	it("centers the caret's slide when the reader typed in another one while it was collapsed", async () => {
+		const r = rig();
+		await r.land();
+		r.scrollPreview(1450);
+		r.sync.collapsed();
+		squeeze(r);
+		r.state.now += 1000;
+		r.sync.selected({ head: at('beta'), anchor: at('beta'), line: 'beta', user: true });
+		r.frame();
+		expect(r.hub.get().flat).toBe(1);
+		r.state.active = true;
+		r.sync.expanded();
+		expect(r.sync.loaded()).toBe(true);
+		expect(r.state.pv).toBeCloseTo(Math.max(0, Math.min(centeredAt(r.pvLayout(SLIDES), 1), maxScroll(r.pvLayout(SLIDES)))), 6);
+	});
+
+	it('waits while the preview cannot be measured, then pays what it owes', async () => {
+		const r = rig();
+		await r.land();
+		r.scrollPreview(1450);
+		const was = r.state.pv;
+		r.sync.collapsed();
+		squeeze(r);
+		r.state.active = true;
+		r.state.previewOk = false;
+		r.sync.expanded();
+		expect(r.sync.loaded()).toBe(true);
+		expect(r.sync.pending()).toBe(true);
+		r.state.previewOk = true;
+		r.sync.loaded();
+		expect(r.sync.pending()).toBe(false);
+		expect(r.state.pv).toBe(was);
+	});
+
+	it('owes nothing outside Edit', async () => {
+		const r = rig();
+		await r.land();
+		r.state.editing = false;
+		r.sync.expanded();
+		expect(r.sync.pending()).toBe(false);
+	});
+});

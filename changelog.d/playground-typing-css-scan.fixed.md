@@ -1,0 +1,1 @@
+- Typing in the Playground no longer rescans the theme CSS for remote references on every keystroke. The scan cost about 34 ms per key on a full sheet (more than the render itself); `webRefsInCss` now returns its last answer when the sheets are unchanged, measured at 0.01 ms.
