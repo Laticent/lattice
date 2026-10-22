@@ -14,7 +14,7 @@
  */
 export type { Inconsistency, Use } from './consistency.js';
 export { consistency } from './consistency.js';
-export type { Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
+export type { DescValue, Diagnostic, Item, ListValue, Parsed, RecordValue, Scalar, Value } from './notation.js';
 export { isDirective, parse } from './notation.js';
 export type { Bound, Positional, RecordOf, RecordSpec, Slot, Spelling } from './schema.js';
 export { list, record, SchemaError, schemaProblems, value } from './schema.js';

@@ -248,6 +248,18 @@ unbound and reports it with a range and, where one exists, a fix. Nothing is hal
 fix is to make one positional, or to wrap it in `named(...)` so it must be written `name=value`
 (the retry policy's `attempts` above).
 
+### A description: `{> prose}`
+
+A record whose first character after `{` is `>` holds prose, not items: `{> Slipped a week, back on track}`.
+The prose runs to the first `}` that no backslash escapes (`\}` is `}`, `\\` is `\`; any other backslash stays), and
+commas, `=`, quotes, brackets and pipes in it are prose. The reader returns a `DescValue` (`kind: 'description'`,
+trimmed and unescaped `text`), a kind of its own, so a binder that expects a number or a name reports "found a
+description" and never reads `{>5}` as the number 5. A slot that takes values binds it to the diagnostic
+`description-not-here`; what a description MEANS (a chart table cell's note) is the consumer's business, as with `TAGS`.
+The choice is made on the one character after `{`, so the grammar stays LL(1); the price is that a record's FIRST bare
+item cannot start with `>` (`DESCRIBE` in `notation-grammar.ts`). Later items keep it: `{3, >5}` is two values.
+`plainRecordSpec` drops the description branch, so the plain parser refuses it and the full parser reads it.
+
 ### Types
 
 | type | spellings |

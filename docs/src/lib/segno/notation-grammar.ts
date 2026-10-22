@@ -23,11 +23,24 @@ export const STOP = ',={}[]"|';
  * business (`record({ tag: '~' })`), not the grammar's.
  */
 export const TAGS = '~^!';
+/**
+ * DESCRIBE: a record whose first character after the `{` is `>` holds a DESCRIPTION, prose to the first
+ * unescaped `}` (`{> Slipped a week, back on track}`), not items. The choice is made on that one
+ * character, so the grammar stays LL(1), and the price is that a record's FIRST bare item cannot start
+ * with `>`: `{>5}` and `{>a}` are descriptions, not values. Later items keep it (`{3, >5}`). What a
+ * description MEANS (a table cell's note) is the slot's business, as with TAGS.
+ */
+export const DESCRIBE = '>';
 
 const ws = many(oneOf(WS, 'a space'));
 const bare = node('bare', seq(noneOf(STOP + WS, 'a value'), many(noneOf(STOP, 'a value'))));
 // The same run at the START of a span, where a tag character opens a tagged record instead.
 const topBare = node('bare', seq(noneOf(STOP + WS + TAGS, 'a value'), many(noneOf(STOP, 'a value'))));
+// The same run as a record's FIRST item, where `>` opens a description instead (see DESCRIBE).
+const firstBare = node('bare', seq(noneOf(STOP + WS + DESCRIBE, 'a value'), many(noneOf(STOP, 'a value'))));
+// A description's prose: anything to the first `}` that no backslash escapes. A pipe is prose here
+// (the table row has already split on its own, so the author escapes it there: model note §7).
+const descText = many(alt(seq('\\', any()), noneOf('}\\', 'text')));
 
 // Each shape is its OWN rule, referenced from `value` and `item`, rather than an expression
 // both of them embed. Embedded, every shape was generated twice, into two large functions V8
@@ -40,12 +53,14 @@ export const notationSpec: GrammarSpec = {
     span: seq(ws, alt(node('tagged', seq(oneOf(TAGS, 'a tag'), ref('record'), ws)), ref('top'))),
     // `item`, less the bare runs that start with a tag character (see TAGS).
     top: alt(seq(ref('record'), ws), seq(ref('list'), ws), seq(ref('quoted'), ws), node('word', seq(topBare, opt(seq('=', ws, ref('value')))))),
-    record: node('record', seq('{', ref('item'), many(seq(',', ws, ref('item'))), '}')),
+    record: node('record', seq('{', alt(node('desc', seq(DESCRIBE, descText)), seq(ref('first'), many(seq(',', ws, ref('item'))))), '}')),
     list: node('list', seq('[', ws, opt(ref('item')), many(seq(',', ws, opt(ref('item')))), ']')),
     quoted: node('quoted', seq('"', many(alt(seq('\\', any()), noneOf('"\\', 'text'))), '"')),
     // A value: a record, a list, quoted text, or a bare run. Trailing space after a bare run
     // is part of the run (the reader trims it), which is what keeps the loop LL(1).
     value: alt(seq(ref('record'), ws), seq(ref('list'), ws), seq(ref('quoted'), ws), bare),
+    // A record's first item: an item whose bare run cannot start with `>` (see DESCRIBE).
+    first: alt(seq(ref('record'), ws), seq(ref('list'), ws), seq(ref('quoted'), ws), node('word', seq(firstBare, opt(seq('=', ws, ref('value')))))),
     // An item is a value, or a bare NAME followed by `=` and a value.
     item: alt(seq(ref('record'), ws), seq(ref('list'), ws), seq(ref('quoted'), ws), node('word', seq(bare, opt(seq('=', ws, ref('value')))))),
   },
@@ -59,4 +74,4 @@ export const notationSpec: GrammarSpec = {
  * never takes. schema.ts's fast bind tries it first and asks the full parser about anything it
  * refuses: on `{2, 82}` the full parser cost about 550 ns (followup 2718-p3).
  */
-export const plainRecordSpec: GrammarSpec = restrict(notationSpec, { rules: ['list', 'quoted'], nodes: ['tagged'] });
+export const plainRecordSpec: GrammarSpec = restrict(notationSpec, { rules: ['list', 'quoted'], nodes: ['tagged', 'desc'] });

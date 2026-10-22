@@ -368,6 +368,10 @@ export function record<const S extends RecordSpec>(spec: S): Slot<RecordOf<S>> {
     let pos = 0;
     for (let k = 0; k < items.length; k++) {
       const it = items[k];
+      if (it.value.kind === 'description') {
+        b.problem(err('description-not-here', `${label} takes values, not a description — a \`{> …}\` description stands alone, in a cell beside the value`, it.from, it.to));
+        continue;
+      }
       if (it.name !== null) {
         const t = byName.get(it.name);
         if (t) b.put(it.name, t, it.value, it);
