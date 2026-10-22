@@ -1,0 +1,1 @@
+- The browser runtime no longer re-reads inline code inside a plugin's drawing (`[data-lattice-plugin]`). A plugin that wrote `<code>^{database}</code>` used to get a real icon from it; a plugin that wrote an address-bearing span would have got a live poster or link. First step of the media plugins' rule that an address comes only from the author's own block.
