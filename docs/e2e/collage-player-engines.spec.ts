@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium, expect, type Page, test } from '@playwright/test';
 
 // The exported player's collage lightbox wheel and digits, in the OTHER two engine families.
-// @gecko @webkit-tablet
+// The `@gecko @webkit-tablet` tags are on the TEST TITLES below: playwright.config.ts routes the
+// `gecko` and `webkit-tablet` projects by title grep, so a tag in a comment runs nothing there.
 //
 // `test/integration/export/collage-player.test.js` drives the real export of `examples/collage.md`
 // through Puppeteer, which has Chromium only. Its wheel arm ("a plain wheel flick steps the photo
@@ -52,7 +53,7 @@ async function openCollage(page: Page) {
 	await expect.poll(() => slideIndex(page)).toBe(1);
 }
 
-test('a wheel flick turns the closed deck: the control for the lightbox arm', async ({ page }) => {
+test('a wheel flick turns the closed deck: the control for the lightbox arm @gecko @webkit-tablet', async ({ page }) => {
 	await openCollage(page);
 	const before = await slideIndex(page);
 	await page.mouse.move(400, 300);
@@ -60,7 +61,7 @@ test('a wheel flick turns the closed deck: the control for the lightbox arm', as
 	await expect.poll(() => slideIndex(page), { message: 'the player\'s own wheel listener is live in this engine' }).toBe(before + 1);
 });
 
-test('the open lightbox takes the wheel and digits and the deck behind does not turn', async ({ page }) => {
+test('the open lightbox takes the wheel and digits and the deck behind does not turn @gecko @webkit-tablet', async ({ page }) => {
 	await openCollage(page);
 	const before = await slideIndex(page);
 	const n = await page.locator('.lp-active .collage-tile').count();
