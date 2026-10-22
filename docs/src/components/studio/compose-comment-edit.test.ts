@@ -27,7 +27,6 @@ function mount(src = DECK) {
 	return view;
 }
 const pills = () => [...document.querySelectorAll('.cs-comment')] as HTMLElement[];
-const editButton = () => document.querySelector('.cs-comment-edit') as HTMLButtonElement;
 const field = () => document.querySelector('.cs-comment-field') as HTMLTextAreaElement | null;
 const why = () => document.querySelector('.cs-comment-why') as HTMLElement;
 const saved = () => docToDeck((view as EditorView).state.doc);
@@ -82,61 +81,52 @@ describe('writeNote', () => {
 });
 
 describe('the note panel', () => {
-	it('keys typed in the field do not reach the document', () => {
-		const v = mount();
-		pills()[1].click();
-		editButton().click();
-		const before = v.state.doc;
-		const f = field() as HTMLTextAreaElement;
-		f.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-		expect(v.state.doc.eq(before)).toBe(true);
-	});
-
-	it('a note inside a quote stays one line', () => {
-		mount('> quote\n>\n> <!-- n -->\n>\n> after');
-		pills()[0].click();
-		editButton().click();
-		type('one\ntwo');
-		expect(why().hidden).toBe(false);
-		expect(saved()).toBe('> quote\n>\n> <!-- n -->\n>\n> after');
-	});
-
-	it('shows no field until Edit is pressed, and opening a note writes nothing', () => {
+	it('opens with the words already in a field and the caret in it, and opening writes nothing', async () => {
 		mount();
 		pills()[1].click();
-		expect(field()).toBeNull();
-		editButton().click();
 		expect(field()?.value).toBe('a plain note.');
+		await Promise.resolve();
+		expect(document.activeElement).toBe(field());
 		field()?.dispatchEvent(new FocusEvent('blur'));
 		expect(saved()).toBe(DECK);
-		expect(field()).toBeNull();
+	});
+
+	it('has no Edit button: the field is the editor, and Remove is the only control', () => {
+		mount();
+		pills()[1].click();
+		expect([...document.querySelectorAll('.cs-comment-panel button')].map((b) => b.textContent)).toEqual(['Remove']);
 	});
 
 	it('writes only the note, and keeps the channel prefix of a say', () => {
 		mount();
 		pills()[0].click();
-		editButton().click();
 		expect(field()?.value).toBe('the slide reads as this.');
 		type('it reads as that.');
 		expect(saved()).toBe(DECK.replace('say: the slide reads as this.', 'say: it reads as that.'));
 		// The panel stays open on the note it just wrote.
-		expect(document.querySelector('.cs-comment-body')?.textContent).toBe('it reads as that.');
+		expect((document.querySelector('.cs-comment-body') as HTMLTextAreaElement).value).toBe('it reads as that.');
 	});
 
-	it('Escape drops the change', () => {
+	it('writes when the author leaves the field', () => {
 		mount();
 		pills()[1].click();
-		editButton().click();
+		(field() as HTMLTextAreaElement).value = 'changed on blur';
+		field()?.dispatchEvent(new FocusEvent('blur'));
+		expect(saved()).toBe(DECK.replace('a plain note.', 'changed on blur'));
+	});
+
+	it('Escape puts the original back and writes nothing', () => {
+		mount();
+		pills()[1].click();
 		(field() as HTMLTextAreaElement).value = 'discarded';
 		field()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 		expect(saved()).toBe(DECK);
-		expect(field()).toBeNull();
+		expect(field()?.value).toBe('a plain note.');
 	});
 
 	it('says why a refused note was refused, keeps the words in the field, and writes nothing', () => {
 		mount();
 		pills()[1].click();
-		editButton().click();
 		type('oops --> <b>');
 		expect(why().hidden).toBe(false);
 		expect(why().textContent).toMatch(/end its comment early/);
@@ -147,15 +137,47 @@ describe('the note panel', () => {
 	it('an empty note points at Remove', () => {
 		mount();
 		pills()[1].click();
-		editButton().click();
 		type('  ');
 		expect(why().textContent).toMatch(/Remove/);
 		expect(saved()).toBe(DECK);
 	});
 
-	it('a locked slide offers no Edit', () => {
+	it('keys typed in the field do not reach the document', () => {
+		const v = mount();
+		pills()[1].click();
+		const before = v.state.doc;
+		field()?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		expect(v.state.doc.eq(before)).toBe(true);
+	});
+
+	it('a note inside a quote stays one line', () => {
+		mount('> quote\n>\n> <!-- n -->\n>\n> after');
+		pills()[0].click();
+		type('one\ntwo');
+		expect(why().hidden).toBe(false);
+		expect(saved()).toBe('> quote\n>\n> <!-- n -->\n>\n> after');
+	});
+
+	it('Remove still removes the note', () => {
+		mount();
+		pills()[1].click();
+		(document.querySelector('.cs-comment-remove') as HTMLButtonElement).click();
+		expect(saved()).not.toContain('a plain note.');
+	});
+
+	it('a locked slide shows the words as plain text, with no field', () => {
 		mount(DECK.replace('First paragraph.', 'First ~~paragraph~~.'));
 		pills()[1].click();
-		expect(editButton()).toBeNull();
+		expect(field()).toBeNull();
+		expect(document.querySelector('.cs-comment-body')?.textContent).toBe('a plain note.');
+	});
+});
+
+describe('the pill icons', () => {
+	it('say, describe and note each draw their own shape', () => {
+		mount(DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
+		const shapes = pills().map((p) => p.querySelector('.cs-comment-glyph')?.innerHTML);
+		expect(new Set(shapes).size).toBe(3);
+		expect(pills().map((p) => p.dataset.kind)).toEqual(['say', 'describe', 'note']);
 	});
 });

@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
+import { readMarker } from '../../../../lib/core/meta-record.mjs';
 import { isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody } from '../../components/studio/slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
@@ -200,7 +201,7 @@ export function writeNote(text: string, words: string): string | null {
 	if (!body || body.includes('<!--')) return null;
 	// The engine also obeys the bare spelling (`footer: …`, `class: lead`), not only `_class:`: those words are a directive, not a note.
 	// On the say and describe channels the comment's first key is `say`/`describe`, so only a plain note can open with a directive word.
-	if (commentKind(text) === 'note' && (isDirectiveBody(body) || isPaneMarkerBody(body))) return null;
+	if (commentKind(text) === 'note' && (isDirectiveBody(body) || isPaneMarkerBody(body) || readMarker(`<!-- ${body} -->`))) return null;
 	const opener = /^<!-{2,}/.exec(text)?.[0];
 	const closer = /-*!?>$/.exec(text)?.[0];
 	if (!opener || closer === undefined) return null;

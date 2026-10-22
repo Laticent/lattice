@@ -1313,6 +1313,13 @@ function commentRuns(doc: PMNode) {
 /** The label a pill carries, by channel. `say:` and `describe:` are not notes — they are the
  *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
  *  "note" mislabels what the author is looking at. */
+// Each channel has its own DRAWN shape (HARD RULE #29), so the three read differently before the label does: say is a speech bubble,
+// describe is an eye (what a reader who cannot see the slide is told), note is a folded note.
+const KIND_GLYPH: Record<CommentKind, string> = {
+	say: '<path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/>',
+	describe: '<path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
+	note: '<path d="M3 2.5h7.5l3 3v8H3z"/><path d="M10.5 2.5v3h3M5.5 8h5M5.5 10.5h3"/>',
+};
 const KIND_LABEL: Record<CommentKind, string> = { say: 'say', describe: 'describe', note: 'note' };
 
 /** The open panel's id, PER EDITOR INSTANCE.
@@ -1389,8 +1396,18 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// `aria-expanded="true"` aimed at nothing. The shipped test asserted the id resolved AT MOUNT,
 	// certifying precisely the property that stops holding.
 	body.id = panelId;
-	body.textContent = readableNote(node.attrs.text as string);
-	wrap.append(body);
+	const original = readableNote(node.attrs.text as string);
+	body.textContent = original;
+	// On a slide Compose can write, the words are a live field: one click on the pill and the author types. On a locked slide they
+	// are plain text, as before. The field is the panel's body (same class and id), and its default value is the words, so the
+	// text a reader or a test sees is the same either way.
+	const field = document.createElement('textarea');
+	field.className = 'cs-comment-body cs-comment-field';
+	field.id = panelId;
+	field.defaultValue = original;
+	field.rows = Math.min(12, Math.max(3, original.split('\n').length + 1));
+	field.setAttribute('aria-label', `${KIND_LABEL[commentKind(node.attrs.text as string)]} text`);
+	wrap.append(locked ? body : field);
 
 	const remove = document.createElement('button');
 	remove.type = 'button';
@@ -1430,72 +1447,50 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			view.focus();
 		});
 	}
-	// EDIT is a second deliberate act too, and only on a slide Compose can write. The words open in a field; they are written when
-	// the author leaves it or presses Ctrl/Cmd+Enter, and Escape drops the change. Nothing is written for words that did not change,
-	// so a note that is opened and left keeps its bytes. `writeNote` keeps the channel prefix and refuses a result that would not be
-	// the same kind of comment; the panel says why and keeps the author's words in the field.
+	// The words write when the author leaves the field or presses Ctrl/Cmd+Enter; Escape puts the original back and returns to the
+	// slide. Nothing is written for words that did not change, so a note that is opened and left keeps its bytes. `writeNote` keeps
+	// the opener, closer and channel prefix, and refuses a result that would not be the same kind of comment: the panel says why and
+	// keeps the author's words in the field. Remove stays its own control, a second deliberate act.
 	const actions = document.createElement('div');
 	actions.className = 'cs-comment-actions';
+	const why = document.createElement('p');
+	why.className = 'cs-comment-why';
+	why.setAttribute('role', 'alert');
+	why.hidden = true;
 	if (!locked) {
-		const edit = document.createElement('button');
-		edit.type = 'button';
-		edit.className = 'cs-comment-edit';
-		edit.textContent = 'Edit';
-		edit.addEventListener('click', () => {
-			const current = view.state.doc.nodeAt(pos);
-			if (!current || current.type.name !== 'comment') return;
-			const original = readableNote(current.attrs.text as string);
-			const field = document.createElement('textarea');
-			field.className = 'cs-comment-field';
-			field.value = original;
-			field.rows = Math.min(12, Math.max(3, original.split('\n').length + 1));
-			field.setAttribute('aria-label', `${KIND_LABEL[commentKind(current.attrs.text as string)]} text`);
-			const why = document.createElement('p');
-			why.className = 'cs-comment-why';
-			why.setAttribute('role', 'alert');
-			why.hidden = true;
-			body.replaceWith(field);
-			field.after(why);
-			edit.disabled = true;
-			field.focus();
-			let done = false;
-			const finish = () => {
-				done = true;
-				field.replaceWith(body);
-				why.remove();
-				edit.disabled = false;
-			};
-			const commit = () => {
-				if (done) return;
-				const n = view.state.doc.nodeAt(pos);
-				if (!n || n.type.name !== 'comment' || field.value === original) return finish();
-				// A comment inside a quote or a list item is written with that container's prefix on every line, so a note there stays one line.
-				const nested = view.state.doc.resolve(pos).depth >= 2;
-				const next = nested && field.value.trim().includes('\n') ? null : writeNote(n.attrs.text as string, field.value);
-				if (next === null) {
-					why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
-					why.hidden = false;
-					return;
-				}
-				done = true;
-				view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, text: next }).setMeta(commentOpenKey, { open: pos }));
-			};
-			field.addEventListener('keydown', (e) => {
-				if (e.key === 'Escape') {
-					e.preventDefault();
-					e.stopPropagation();
-					finish();
-				} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-					e.preventDefault();
-					commit();
-				}
-			});
-			field.addEventListener('blur', commit);
+		const commit = () => {
+			const n = view.state.doc.nodeAt(pos);
+			if (!n || n.type.name !== 'comment' || field.value === original) return;
+			// A comment inside a quote or a list item is written with that container's prefix on every line, so a note there stays one line.
+			const nested = view.state.doc.resolve(pos).depth >= 2;
+			const next = nested && field.value.trim().includes('\n') ? null : writeNote(n.attrs.text as string, field.value);
+			if (next === null) {
+				why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
+				why.hidden = false;
+				return;
+			}
+			view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, text: next }).setMeta(commentOpenKey, { open: pos }));
+		};
+		field.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				e.stopPropagation();
+				field.value = original;
+				why.hidden = true;
+				view.focus();
+			} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+				e.preventDefault();
+				commit();
+			}
 		});
-		actions.append(edit);
+		field.addEventListener('blur', commit);
+		// Opening a note is the author choosing to write in it: the caret is already in the field.
+		queueMicrotask(() => {
+			if (field.isConnected) field.focus();
+		});
 	}
 	actions.append(remove);
-	wrap.append(actions);
+	wrap.append(why, actions);
 	return wrap;
 }
 
@@ -1569,6 +1564,7 @@ function slideOfPos(state: EditorState, pos: number): PMNode | null {
 export class CommentView {
 	dom: HTMLElement;
 	private tag: HTMLElement;
+	private glyph: Element;
 	private ac = new AbortController();
 
 	constructor(
@@ -1584,8 +1580,9 @@ export class CommentView {
 		// The shape is DRAWN, not typed (HARD RULE #29's reasoning: a typed glyph falls back to
 		// whatever font the machine has). Inline SVG, currentColor, so it themes with the pill.
 		this.dom.innerHTML =
-			'<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/></svg><span class="cs-comment-tag"></span>';
+			'<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g class="cs-comment-glyph"></g></svg><span class="cs-comment-tag"></span>';
 		this.tag = this.dom.querySelector('.cs-comment-tag') as HTMLElement;
+		this.glyph = this.dom.querySelector('.cs-comment-glyph') as Element;
 		this.dom.addEventListener(
 			'click',
 			() => {
@@ -1606,6 +1603,8 @@ export class CommentView {
 		const text = this.node.attrs.text as string;
 		const kind = commentKind(text);
 		this.tag.textContent = KIND_LABEL[kind];
+		this.dom.dataset.kind = kind;
+		this.glyph.innerHTML = KIND_GLYPH[kind];
 		this.dom.title = readableNote(text);
 		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
