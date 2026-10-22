@@ -1123,13 +1123,15 @@ section.journey [data-callout] {
   outline: 2px solid var(--callout-ink, var(--text-body));
   outline-offset: 1px;
 }
-/* The badge sits ON the chip's top corner, half outside it: inside the chip it covers the mood face or the
- * actor dot, which are the chip's data. */
+/* The badge straddles the chip's BOTTOM edge near its start, half outside it. Every other spot is taken: the actor
+ * dots sit top-left, the heatmap's mood number top-right, and on a row chip the mood face slides along the chip
+ * with the score, so its middle is not free either. The start of the bottom edge is empty in every variant,
+ * and nothing overhangs the board's sides, so nothing is clipped. */
 section.journey .journey-callout-badge {
   position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  transform: translate(-40%, -40%);
+  inset-block-end: 0;
+  inset-inline-start: 8%;
+  transform: translateY(50%);
   display: flex;
   z-index: 1;
 }

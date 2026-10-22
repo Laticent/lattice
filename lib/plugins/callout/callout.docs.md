@@ -1,7 +1,7 @@
 # callout
 
 A **callout** is a note pinned to one mark on a chart: a cell, a bar, a point. The chart draws a
-marker on the mark and the note beside the figure, and one shape and one color tie the two. The key,
+marker on the mark and the note under the figure (the heatmap and the pie may also put it beside), and one shape and one color tie the two. The key,
 what each color means, is the legend plugin's (`legend.docs.md`).
 
 ```markdown
@@ -104,9 +104,9 @@ On every chart a `for=` is matched by name without regard to case or extra space
 the order the chart draws its marks. A `for=` that names no mark is not drawn, and the chart's description lists
 it under "Not drawn" and says why; `lint:deck` names the marks it could have used.
 
-**The placement rule is one rule.** On each of these charts the engine lays the figure out both ways, the notes
-beside it and under it, and with a key the key's two sides too, and keeps the one that leaves the plot largest at
-the slide's real shape (`data-aspect`, § Placement below). A chart that has no callout on its slide renders as it
+**The placement rule is one rule.** On each of these charts the notes go under the figure as a centered group that
+wraps. With a key, the engine tries the key's two sides and keeps the one that leaves the plot larger at the
+slide's real shape (`data-aspect`, § Placement below); the pie also tries the notes beside it. A chart that has no callout on its slide renders as it
 always did, byte for byte. The shared pieces are `lib/components/chart/_chart-family/callout-layer.js`.
 
 On a heatmap the notes sit in a lane to the right of the grid, each level with its cell, or in a
@@ -118,7 +118,7 @@ a reader matches a cell to its label by shape as well as by color, never by colo
 The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
 the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
 
-**Notes sit under the chart, centered, as a group that wraps.** On every chart but the heatmap and the pie, the notes set under the figure side by side, each as wide as its words, and wrap to a new row when the width runs out; each row is centered under the figure. A narrow slide (9:16) gets more rows. A pie or donut may also take them beside it, where its key already sits. On a `journey` the badge sits on the task chip's top corner, half outside it, so the mood face and the actor dots stay visible.
+**Notes sit under the chart, centered, as a group that wraps.** On every chart but the heatmap and the pie, the notes set under the figure side by side, each as wide as its words, and wrap to a new row when the width runs out; each row is centered under the figure. A narrow slide (9:16) gets more rows. A pie or donut may also take them beside it, where its key already sits. On a `journey` the badge straddles the bottom edge of the task chip, near its start, so the actor dots, the mood number and the mood face stay visible.
 
 **Placement.** The engine lays the heatmap out both ways, with the notes beside the grid and under
 it, and keeps the one that leaves the grid larger at the slide's shape. Where a band key is also on

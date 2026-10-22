@@ -117,9 +117,7 @@ again on the real engine (§ 7, P2).
 
 ## 5. The rule: the engine picks by measure
 
-For each chart with callouts, a key or both, the engine tries the callouts on the right or
-below, and the key on the right or below, and keeps the combination that leaves the plot largest
-at the slide's real stage size. Ties put callouts on the right, beside the marks they name.
+**Superseded by § 8 (owner review, 2026-10-22).** The original rule: for each chart with callouts, a key or both, try the callouts on the right or below and the key on the right or below, and keep the combination that leaves the plot largest at the slide's real stage size; ties put callouts on the right. The notes now go only under the figure (the pie also tries beside it); the key's two sides are still tried.
 
 - **A hairline only where they stack.** When callouts and the key both go below, something parts
   them. As built, that is the key's own portrait rule (the accent fade the family already draws
@@ -242,7 +240,7 @@ proved: lift the paragraphs, tie notes to marks, size the lane, score the layout
 `gantt`, `hub-spoke`, and the quadrant's four other variants), so the notes cannot disagree with where the marks
 were drawn. A keyed chart builds its key around each candidate unit, as the heatmap does.
 
-**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to half the figure's width), notes sit side by side in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only `below` unless the chart passes `sides` (the pie passes both). A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's top corner, half outside it, because inside it covered the mood face. The heatmap's own below layout is unchanged: moving it changes which side wins on a square slide, which `heatmap-placement.test.js` pins, so it moves with the heatmap onto the layer (`followups.d/2855-p3-callouts-heatmap-on-the-layer.md`).
+**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to the figure's width), notes sit side by side, each row centered in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only `below` unless the chart passes `sides` (the pie passes both). A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's bottom edge near its start, half outside it: inside the chip it covered the mood face, the top corners hold the actor dots and the heatmap's mood number, and on a row chip the face slides along the chip with the score, so the middle of the edge is not free either. The heatmap's own below layout is unchanged: moving it changes which side wins on a square slide, which `heatmap-placement.test.js` pins, so it moves with the heatmap onto the layer (`followups.d/2855-p3-callouts-heatmap-on-the-layer.md`).
 
 **Three rules the second readers added.**
 
@@ -257,7 +255,7 @@ were drawn. A keyed chart builds its key around each candidate unit, as the heat
    height; a funnel's tall portrait viewBox made that 18.9 against its own 8.5 labels, so the funnel passes
    `laneFont`.
 
-**Where the notes land**, on the demo decks' charts (`examples/callouts-*.md`), measured on the kernel at each
+**Where the notes landed** before the 2026-10-22 owner review (today every chart but the pie puts them under the figure, so read this table as the measurement that motivated the change, not as current behavior), on the demo decks' charts (`examples/callouts-*.md`), measured on the kernel at each
 shape (the figure's viewBox grows in width for a lane beside it and in height for notes under it):
 
 | Chart | 16:9 | 4:3 | 1:1 | 4:5 | 9:16 |
