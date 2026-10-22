@@ -317,7 +317,10 @@ deck writes `@callout{` or `@legend{` and the build is the lazy one; `ensureCall
 **It cannot draw a wrong chart quietly.** A heavy function with no half installed throws `ChunkLoadError`, the
 name the hosts already turn into "part of the app didn't load". `test/unit/components/callout-layer-lazy.test.js`
 holds three lines: no example deck without a callout reaches the heavy half (it renders with the half withheld),
-a deck with a callout and no half throws, and every deck that throws is one the host's scan names.
+a deck with a callout and no half throws, and every deck that throws is one the host's scan names. A callout written
+through markup (`<code>@callout<span></span>{…}`) is one the scan cannot see and the chart still lifts, so `need()`
+also records the miss (`takeMissingCallouts`) and `renderMarkdown` loads the layer and renders once more, the way a
+missed chart kernel recovers. An independent checker found the gap.
 
 **Measured, same machine, gzip level 6.** Output is byte-identical: 942 renders (314 example decks at three slide
 shapes) before and after. The followup predicted about 12KB; the heavy half is 7.5KB, because the 11.9KB it counted

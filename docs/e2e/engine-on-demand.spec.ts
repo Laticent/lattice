@@ -144,3 +144,12 @@ test('a callout layer that will not load says so, rather than drawing the chart 
 	await expect(page.getByText(/couldn't load part of the app/i).first()).toBeVisible({ timeout: 20_000 });
 	await expect(live(page).locator('svg text', { hasText: 'South led' })).toHaveCount(0);
 });
+
+test('a callout written through markup, which the scan cannot see, still loads the layer and draws', async ({ page }) => {
+	const requests = engineRequests(page);
+	await gotoStudio(page);
+	await setEditorContent(page, `${BAR_DECK}\n<p><code>@callout<span></span>{[{South led, for=South}]}</code></p>\n`);
+	await expect(live(page).locator('section.chart-frame svg text', { hasText: 'South led' }).first()).toBeVisible({ timeout: 20_000 });
+	expect(requests).toContain('esm/callout-place.js');
+	await expect(page.getByText(/couldn't load part of the app/i)).toHaveCount(0);
+});

@@ -152,7 +152,18 @@ export async function renderMarkdown(
 			withHook = opts;
 		}
 	}
-	const out = await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	// A callout the scan above did not see (one written through markup) makes the chart throw a ChunkLoadError and
+	// records the miss: load the layer and render once more, as for a chart kernel below. Anything else rethrows.
+	const draw = async () => {
+		try {
+			return await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+		} catch (e) {
+			if (!PG.takeMissingCallouts?.()) throw e;
+			await ensureCalloutLayer(true);
+			return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+		}
+	};
+	const out = await draw();
 	// The scan reads directive comments, and over every tracked deck it has never missed a chart the
 	// render drew. Should one ever slip past it, the dispatch recorded it: load it and render once more.
 	// The record is engine-wide, so a miss from a concurrent render can land here too; that costs one
@@ -160,5 +171,5 @@ export async function renderMarkdown(
 	const missed = PG.takeMissingCharts?.() ?? [];
 	if (!missed.length) return out;
 	await ensureCharts(missed);
-	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	return draw();
 }

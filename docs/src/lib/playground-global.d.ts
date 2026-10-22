@@ -52,6 +52,8 @@ export interface LatticePlaygroundEngine {
 	chartsNeeded?: (markdown: string) => string[];
 	/** Whether the deck writes a callout and this engine build has not got the half that draws it. */
 	calloutsNeeded?: (markdown: string) => boolean;
+	/** Whether a render needed the callout layer and had none, since the last call. Taking clears it. */
+	takeMissingCallouts?: () => boolean;
 	/** The chart layouts a render met with no kernel loaded, since the last call. */
 	takeMissingCharts?: () => string[];
 	/** Tokenize one fence body → each token's range in `code`. For a surface that

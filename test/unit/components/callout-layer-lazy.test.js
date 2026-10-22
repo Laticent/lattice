@@ -17,11 +17,14 @@ const engine = require('../../../lib/engine');
 
 const EXAMPLES = path.join(__dirname, '..', '..', '..', 'examples');
 const decks = fs.readdirSync(EXAMPLES).filter((f) => f.endsWith('.md')).map((f) => [f, fs.readFileSync(path.join(EXAMPLES, f), 'utf8')]);
-const hasCallout = (md) => /@callout|@legend|callout/.test(md);
+const hasCallout = (md) => /@callout|@legend/.test(md);
 
 describe('the heavy half of the callout layer', () => {
   before(() => engine.render(decks[0][1]));
-  afterEach(() => layer.reset());
+  afterEach(() => {
+    layer.reset();
+    require('../../../lib/components/chart/_chart-family/callout-place-load').missed = false;
+  });
 
   test('no deck without a callout reaches it', () => {
     layer.uninstall();
@@ -57,6 +60,24 @@ describe('the heavy half of the callout layer', () => {
       }
       assert.deepEqual(missed, [], 'a deck the scan skips would throw in the browser');
       assert.equal(PG.calloutsNeeded(deck), true);
+    } finally {
+      load.lazy = false;
+    }
+  });
+
+  test('a callout the scan cannot see still records the miss, so the host can load the layer and render again', async () => {
+    const load = require('../../../lib/components/chart/_chart-family/callout-place-load');
+    const { default: PG } = await import('../../../lib/playground/index.js');
+    // The chart reads the callout through the text of the markup, so a tag inside the sigil hides it from the regex.
+    const deck = '<!-- _class: bar -->\n\n## Revenue\n\n- North `10`\n- South `20`\n\n<p><code>@callout<span></span>{[{South led, for=South}]}</code></p>\n';
+    load.lazy = true;
+    try {
+      layer.uninstall();
+      assert.equal(PG.calloutsNeeded(deck), false, 'the scan misses it');
+      assert.equal(PG.takeMissingCallouts(), false);
+      assert.throws(() => engine.render(deck), { name: 'ChunkLoadError' });
+      assert.equal(PG.takeMissingCallouts(), true, 'the miss is recorded');
+      assert.equal(PG.takeMissingCallouts(), false, 'taking clears it');
     } finally {
       load.lazy = false;
     }
