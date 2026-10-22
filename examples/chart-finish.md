@@ -4,7 +4,6 @@ size: 16:9
 theme: indaco
 paginate: true
 header: "Chart finish"
-chart-finish: pigment
 ---
 
 <!-- _class: title -->
@@ -15,12 +14,12 @@ chart-finish: pigment
 
 `Charts · chart-finish`
 
-Pigment, etch or tone, set once for the deck and overridden per slide.
+Pigment, etch or tone, set once for the deck and overridden per slide. Say nothing and it is pigment.
 
 ---
 
 <!-- _class: bar -->
-<!-- _footer: "chart-finish: pigment · the deck's setting" -->
+<!-- _footer: "no chart-finish: key · a finish is always on, and the default is pigment" -->
 
 `Pigment · identity in the body`
 
@@ -116,8 +115,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide.
 
 ---
 
-<!-- _class: gantt chart-finish-tone -->
-<!-- _footer: "A status keeps its own color under every finish" -->
+<!-- _class: gantt -->
+<!-- _footer: "A status keeps its own color, and a task with none wears the neutral one" -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -129,29 +128,23 @@ Pigment, etch or tone, set once for the deck and overridden per slide.
   - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
+  - Training plan `Q2..Q3`
   - Org-wide rollout `Q3..Q4` `blocked` `after=Per-team weighting`
 
 ---
 
-<!-- _class: bar chart-finish-off -->
-<!-- _footer: "_class: chart-finish-off · this slide keeps the chart as designed" -->
+<!-- _class: progress -->
+<!-- _footer: "The readout sits on its own plate, so the bar keeps its color on a dark slide too" -->
 
-`As designed · the default`
+`H1 2026 · readiness`
 
-## Every region grew, and EMEA grew fastest.
+## Three of the four workstreams are on pace.
 
-- North America
-  - FY24 `3.1`
-  - FY25 `3.6`
-  - FY26 `4.2`
-- EMEA
-  - FY24 `1.7`
-  - FY25 `2.4`
-  - FY26 `3.1`
-- APAC
-  - FY24 `1.2`
-  - FY25 `1.5`
-  - FY26 `1.8`
+- Signal intake `92%` `on-track`
+- Scoring policy `68%` `at-risk`
+- Calibration cadence `34%` `deferred`
+- Adoption `12%` `blocked`
+- Rollout `55%`
 
 ---
 
@@ -161,4 +154,4 @@ Pigment, etch or tone, set once for the deck and overridden per slide.
 
 `chart-finish: pigment · etch · tone`
 
-## Omit the key and every chart renders exactly as before.
+## Omit the key and every chart wears pigment.

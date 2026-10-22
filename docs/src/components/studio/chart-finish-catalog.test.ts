@@ -3,8 +3,8 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 // The engine's single source of truth for the `chart-finish:` register (CommonJS).
-import { CHART_FINISH_NAMES } from '../../../../lib/core/resolve-chart-finish.js';
-import { CHART_FINISHES } from './chart-finish-catalog';
+import { CHART_FINISH_DEFAULT, CHART_FINISH_NAMES } from '../../../../lib/core/resolve-chart-finish.js';
+import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
 // Without it, a register change silently drifts the picker — a value that renders but
@@ -23,5 +23,11 @@ describe('chart-finish-catalog ↔ CHART_FINISH_NAMES', () => {
 		for (const name of CHART_FINISH_NAMES) {
 			expect(cataloged.has(name), `chart-finish "${name}" is registered but missing from the picker catalog`).toBe(true);
 		}
+	});
+
+	it('the default the picker falls back to is the one the engine stamps', () => {
+		expect(DEFAULT_CHART_FINISH).toBe(CHART_FINISH_DEFAULT);
+		expect(activeChartFinish('')).toBe(activeChartFinish(DEFAULT_CHART_FINISH));
+		expect(activeChartFinish('off').name).toBe(DEFAULT_CHART_FINISH); // not a finish: reads as the default, as it renders
 	});
 });

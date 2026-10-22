@@ -173,15 +173,36 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 	// A chart-finish rule nests `:is()` in `:where()`, which the probe cannot strip, so it was kept
 	// as unevaluable: all ~280 of them rode into every snapshot, it passed MAX_UNITS, and nothing
 	// was stored (the studio-smoke playground-first-paint failure). Decided by the class instead.
-	it('drops chart-finish arms the captured document carries no finish for, and keeps a present one', () => {
+	// Every slide now wears a finish class, so the class alone is no longer enough: the rule is also
+	// kept only when the page holds a mark it reaches.
+	it('drops chart-finish arms the captured document carries no finish for', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;
 		doc.head.innerHTML = '<style>section.title{color:blue} section.chart-finish-tone :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
 		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(snap?.css).not.toContain('chart-finish');
-		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('chart-finish-tone');
+	});
+
+	it('drops a present finish\'s arm when the page holds no mark it reaches, and keeps it when one exists', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.title{color:blue} section.chart-finish-tone :where(:is(.wedge, .bar-mark)[data-hue="1"]){fill:red}</style>';
+		const section = doc.querySelector('.lattice > section') as HTMLElement;
+		section.classList.add('chart-finish-tone');
+		const bare = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(bare?.css).not.toContain('chart-finish-tone');
+		section.insertAdjacentHTML('beforeend', '<svg><rect class="bar-mark" data-hue="1"></rect></svg>');
 		const finished = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
 		expect(finished?.css).toContain('chart-finish-tone');
+	});
+
+	it('keeps a finish arm it cannot read, rather than dropping a rule the page may need', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.chart-finish-tone :where(:bogus-pseudo(1)){fill:red}</style>';
+		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('chart-finish-tone');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('chart-finish-tone');
 	});
 
 	it('a pane on a LATER slide does not keep pane arms in the slide-1 snapshot', () => {

@@ -287,6 +287,19 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
 });
 
+test('hoistRuleLightDark keeps a declaration\'s !important OUTSIDE the var() fallback', () => {
+	// `fill: light-dark(a, b) !important` is what every chart-finish rule is. With the flag left inside
+	// the fallback (`var(--lp-ld-0-0,a !important)`) the engine drops the whole declaration at parse time:
+	// the rule matched, set nothing, and the player showed the shipped paint under a finished deck's ink
+	// (tower share values 2.45:1 on onyx, against 8.33:1 in the HTML export).
+	const { css, darkBlock } = hoistRuleLightDark('.m{fill:light-dark(#eee,#111) !important;color:red}');
+	assert.match(css, /\.m\{fill:var\(--lp-ld-0-0,#eee\) !important;color:red\}/);
+	assert.doesNotMatch(css, /!important\)/, 'no flag inside a var() fallback');
+	assert.match(darkBlock, /--lp-ld-0-0:#111\}/);
+	// A declaration without the flag is untouched by the change.
+	assert.match(hoistRuleLightDark('.m{fill:light-dark(#eee,#111)}').css, /\.m\{fill:var\(--lp-ld-0-0,#eee\)\}/);
+});
+
 test('hoistRuleLightDark emits no COPY of the rule — the cascade for that property is untouched', () => {
 	// The whole reason for the indirection. A scoped copy (`:root[…=dark] .card{box-shadow:…}`)
 	// gains specificity as well as a scheme condition, so every rule that legitimately beat the

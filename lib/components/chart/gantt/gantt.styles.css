@@ -158,6 +158,10 @@
  * re-pointed per status below, exactly as it was for the <div> bars. */
 :is(section.gantt, figure.gantt) .gantt-bar,
 :is(section.gantt, figure.gantt) .gantt-milestone {
+  /* The unstated HUE is the neutral mute ramp the kernel fills these with (GANTT_STATUS_FILL falls to
+   * 'mute'), declared here so a chart finish reads it from the member like it reads every status's.
+   * The fill itself is the kernel's inline gradient; a finish replaces it, this only names the hue. */
+  --fill-hue: var(--state-mute-hue);
   /* No status means no status — a neutral ink. This was --state-info-ink, the
    * same blue a declared `pilot` or `decision` takes, so every gallery page drew
    * a blue bar the legend never named.
@@ -180,6 +184,12 @@
   --fill-ink: var(--text-secondary);
   stroke: var(--fill-ink);
   stroke-width: var(--chart-edge);
+}
+
+:is(section.gantt, figure.gantt) .gantt-legend-swatch:not([data-s]) {
+  /* The "no status" key chip names the same neutral the unstated bar wears. */
+  --fill-hue: var(--state-mute-hue);
+  --fill-ink: var(--text-secondary);
 }
 
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL

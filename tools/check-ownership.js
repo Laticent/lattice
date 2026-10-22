@@ -7509,6 +7509,14 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + 'deck it builds is rendered by the engine, which normalizes its own input.',
   },
   {
+    file: 'tools/chart-finish-reach.mjs',
+    why: 'reads the REPO-COMMITTED `lib/components/chart/chart.gallery.md`, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, and the one anchor it uses strips the '
+       + 'gallery\'s own front matter so a `theme:` / `color-mode:` block can be prepended; the deck '
+       + 'it writes is rendered by the engine, which normalizes its own input. An on-demand '
+       + 'diagnostic, so a CRLF-saved gallery would misreport its own run, never a deck.',
+  },
+  {
     file: 'tools/build-capabilities.js',
     why: 'reads REPO-COMMITTED `tools/script-docs/*.md` description files, not author text. '
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance '

@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone | `off` |
+| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone | `pigment` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -824,10 +824,13 @@ angle, the reading thresholds and the room bands — is `engineering/typography.
 `chart-finish:` picks how every chart on the deck spends its color. A finish moves color;
 it never adds any, never removes any, and never changes a chart's structure.
 
+Like `icon:` and `spark:`, it is a look rather than a layer that can be switched off: a chart
+always spends its color some way, so there is no `off`. A deck that names none wears `pigment`,
+and so does one that names a word that is not a finish (`unknown-chart-finish` catches it).
+
 | `chart-finish:` value | Token | Identity lives in | Choose it for |
 |---|---|---|---|
-| `off` | *(none)* | each chart's own design. **The default** (omit the key). | charts exactly as they ship |
-| `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color | a colorful deck |
+| `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
 | `etch` | `chart-finish-etch` | the line: a whisper of color under a doubled edge | a modern look |
 | `tone` | `chart-finish-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
@@ -838,9 +841,10 @@ chart-finish: tone
 ---
 ```
 
-**Per slide.** `<!-- _class: bar chart-finish-etch -->` gives one chart its own finish.
-`<!-- _class: bar chart-finish-off -->` keeps one chart's shipped paint inside a finished
-deck. The slide token replaces the deck's; it never stacks with it.
+**Per slide.** `<!-- _class: bar chart-finish-etch -->` gives one chart its own finish, and
+`<!-- _class: bar chart-finish-pigment -->` asks for the default inside a `tone` deck. The slide
+token replaces the deck's; it never stacks with it. Every slide is stamped, including a chart
+in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 
 **What a finish reaches.** A finish repaints a mark only through the mark contract
 (`data-hue` · `data-encodes` · `data-paint`), so it reaches every mark that encodes a
@@ -848,7 +852,15 @@ category, a magnitude (a heatmap or map ramp) or a layered series, and the chart
 with it. It does not reach a mark painted by a stroke or by type, which is `line`, `slope`
 and `word-cloud`. A status color (a gantt bar's `done` or `blocked`) is a meaning, not a
 category, so it keeps its own hue under every finish, `tone` included, at the finish's
-quieter level.
+quieter level, and a task with no status wears the neutral one, so a chart never has one
+gradient bar among flat ones.
+
+**What a finish does not reach yet.** `flowchart`, `kanban`, `risk-matrix`, `slope`, `map` and
+`journey` keep their own paint under every finish: their data marks are not on the mark
+contract, so a finish cannot find them. They are consistent inside the chart and not with a
+finished deck, and `tools/chart-finish-reach.mjs` names them (and every other unreached mark,
+with its reason) so the list cannot drift. A few marks are neutral on purpose and stay so: a
+waterfall total, a heatmap's empty cell, an alarm halo, the status stripe on a gantt bar.
 
 **Limits.** Under `tone`, a mark that carries text (a flowchart shape, a matrix-grid
 cell) can use only the quiet top of the one hue, so about four of its categories separate

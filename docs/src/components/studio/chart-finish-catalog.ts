@@ -3,8 +3,9 @@
 // The engine's single source of truth is CHART_FINISH_NAMES (lib/core/resolve-chart-finish.js);
 // THIS file adds only the human layer the picker needs. Rot-guard: chart-finish-catalog.test.ts.
 //
-// Authored deck-wide via `chart-finish:` or per-slide via `_class: chart-finish-<name>`;
-// `chart-finish-off` is the per-slide token that takes one slide back to the shipped paint.
+// Authored deck-wide via `chart-finish:` or per-slide via `_class: chart-finish-<name>`. Like
+// `icon:` and `spark:` it is a look with no absent state: a deck that says nothing wears
+// DEFAULT_CHART_FINISH (the engine's CHART_FINISH_DEFAULT; chart-finish-catalog.test.ts pins them).
 
 export type ChartFinishEntry = {
 	/** the `chart-finish:` register value (and engine CHART_FINISH_NAMES member) */
@@ -46,16 +47,14 @@ function chip(layers: Layer[]): ChartFinishEntry['swatch'] {
 const bar = (image: string, b: (typeof BARS)[number], inset = 0): Layer =>
 	({ image, left: b.left + inset, bottom: FLOOR + inset, w: W - 2 * inset, h: b.h - 2 * inset });
 
-// Ordered as the picker shows them. `off` is the baseline (omitting the key renders it).
+/** What a deck wears when it names no finish; omitting the key renders it. */
+export const DEFAULT_CHART_FINISH = 'pigment';
+
+// Ordered as the picker shows them.
 export const CHART_FINISHES: ChartFinishEntry[] = [
 	{
-		name: 'off', label: 'As designed',
-		blurb: 'Each chart keeps the paint it was designed with — the default.',
-		swatch: chip(BARS.map((b) => bar(`linear-gradient(var(--accent), ${mixA(35)})`, b))),
-	},
-	{
 		name: 'pigment', label: 'Pigment',
-		blurb: 'Identity in the body: full-strength, flat color under a fine edge. The colorful one.',
+		blurb: 'Identity in the body: full-strength, flat color under a fine edge. The colorful one, and the default.',
 		swatch: chip(BARS.map((b) => bar(flat(mixA(82)), b))),
 	},
 	{
@@ -79,8 +78,8 @@ export const CHART_FINISHES_BY_NAME: Record<string, ChartFinishEntry> = Object.f
 	CHART_FINISHES.map((s) => [s.name, s]),
 );
 
-/** The active chart-finish entry for a value; unknown / empty → the `off` baseline. */
+/** The active chart-finish entry for a value; unknown / empty → the default finish. */
 export function activeChartFinish(value: string | undefined | null): ChartFinishEntry {
 	const key = (value ?? '').trim().toLowerCase();
-	return CHART_FINISHES_BY_NAME[key] ?? CHART_FINISHES_BY_NAME.off;
+	return CHART_FINISHES_BY_NAME[key] ?? CHART_FINISHES_BY_NAME[DEFAULT_CHART_FINISH];
 }

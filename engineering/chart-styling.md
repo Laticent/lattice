@@ -119,8 +119,14 @@ and a slide can pin its own with `_class: chart-finish-<name>`.
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
 | **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
 
-**No finish is the default.** A deck without `chart-finish:` keeps every chart's own
-paint, so the register changed nothing that already renders. Two things hold in
+**A finish is always on, and `pigment` is the default.** `chart-finish:` is a look
+like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
+a word that is not a finish, wears `pigment`, and every `<section>` is stamped with its
+finish (including a chart inside a pane, where the section never names the chart). There is
+no `off`. It used to be the default, and it meant "each chart as its own stylesheet draws it",
+which made the default look differ from chart to chart. That own paint still exists in each
+member's CSS, and it is what `tools/chart-finish-reach.mjs` measures a finish against: the
+tool swaps the finish class for none on a real render and compares. Two things hold in
 **all three**, and they are floors, not style:
 
 1. **Every mark carries an ink edge.** Measured: no body clears the 3:1 graphical
@@ -132,6 +138,36 @@ paint, so the register changed nothing that already renders. Two things hold in
    color. Under `tone` there is one hue, so a name wears the ink — the same
    channel the edge uses. Sending names to a neutral is a floor violation, and it
    is an easy one to write by accident because it looks like an accommodation.
+
+A third floor binds the **default** only, because it is the one every deck gets:
+
+3. **No finish may push a text run under its threshold that the unfinished paint cleared.**
+   This is the floor the finish design always stated, and it is now measured on every text run of
+   every chart (66,000 per state, 96 theme × mode combinations) with the repo's own contrast probe:
+   `node tools/chart-finish-reach.mjs --all-themes --check`, arm RUNS. Measuring it found what the
+   per-finish numbers had hidden: the radar's scale ticks, small muted text on the overlap of every
+   series polygon, fell to 3.20:1 (pigment), 4.18:1 (etch) and 1.60:1 (tone) on indaco, and a state
+   tile's index numeral fell from 5.95:1 to 4.31:1 on cuoio once its body went darker than its shipped
+   tint. A finish may not trade text legibility for a flatter body.
+
+   A second floor binds the **default** only, because it is the one every deck gets: **it never takes
+   a ramp's magnitude away.** A heatmap's top step against its empty cell is the datum. Pigment's ramp
+   once took a shorter band than the member ships (3.54:1 fell to 1.92:1 light and 3.03:1 to 1.51:1
+   dark on indaco), an acceptable trade for an opt-in look and a silent loss on every deck once it
+   became the default. Pigment now carries the member's own span, which is the member's own paint, so
+   it emits no heatmap rule at all and the theme's hand-solved cell inks stay. Etch and tone keep their
+   quieter bands; that is their identity, and it is reported, not gated.
+
+   **The reference is frozen.** A comparison with "the unfinished paint" is only a reference while each
+   member keeps that paint. The numbers are committed in `test/fixtures/chart-finish-baseline.json`
+   (`--freeze` rewrites them, as a deliberate act), the span gate measures against them, and a live
+   baseline that has moved is reported as DRIFT instead of followed. So converging a member onto a
+   finish cannot turn the gate into pigment measured against pigment.
+
+A related floor on the body: **a finish owns the body.** A mark that keeps its own gradient
+beside flat siblings reads as two looks in one chart (an unstated gantt bar, a progress bar with
+no status). The census arm `KEPT` in the same tool fails on any reached mark that still shows a
+gradient, and `REACH` lists every mark no finish reaches with its reason.
 
 ### How the engine applies them
 
@@ -154,13 +190,19 @@ measurement, and most undo a defect a render or the adversarial review found:
   clearing carbone's lime top step (3.39:1). Etch's ramp is wider than its
   whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
   flat navy, and a ramp's identity is value.
-- **A heatmap value picks its own ink.** The theme solves each step's ink against
-  the shipped fill, and a finish changes the fill, so no fixed ink holds (the
-  strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
-  body taken through relative-color syntax to black above OKLCH L 0.565 and white
-  below it. That clears 4.5:1 on 13 theme faces × 3 finishes (worst 4.62). A
-  canvas-colored halo was tried first and dropped: it reads as outlined stickers,
-  and the PDF export lost it.
+- **A heatmap value picks its own ink, under etch and tone.** The theme solves each step's
+  ink against the shipped fill, and a finish that changes the fill leaves no fixed ink that
+  holds (the strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
+  body taken through relative-color syntax to black above CIE luminance Y 0.1791 and white
+  below it. **Pigment changes nothing here**: it carries the member's own span, so it emits no
+  heatmap rule and the theme's hand-solved inks stay on the cells they were solved for. The
+  luminance switch replaced an OKLCH-lightness one (L 0.565): lightness is not luminance for a
+  saturated hue (a red cell at L 0.571 took black at 4.31:1 where white gives 4.87:1), and its
+  blend zone returned a near-invisible grey (1.003:1 on `rgb(210 40 70)`). The luminance
+  switch is never worse than 4.582:1, the point where black and white contrast are equal,
+  measured over 140,608 sRGB bodies and in Chromium 131, Firefox 142 and WebKit 26. A
+  canvas-colored halo was tried first and dropped: it reads as outlined stickers, and the PDF
+  export lost it.
 - **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
   level, and an HTML mark's own text takes the same black-or-white ink its body
   clears. A fixed `--text-body` failed on some themes: 2.62:1 on a 40% cuoio
@@ -172,8 +214,8 @@ measurement, and most undo a defect a render or the adversarial review found:
 - **Text waits for the engine that can pick its ink.** Choosing black or white
   from a mark's own color needs relative-color CSS with math on a channel, and
   the guard tests exactly that expression:
-  `@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0))`. A bare
-  `oklch(from red l c h)` guard would let an engine that parses relative color
+  `@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) …))`.
+  A bare `color(from red xyz-d65 x y z)` guard would let an engine that parses relative color
   but not the clamp apply the body and drop the ink. No fixed ink clears every
   theme: measured in WebKit with the guarded blocks removed, `--text-body` read
   3.54:1 on concrete's status pill and `--text-heading` 3.34:1 on an a11y heatmap

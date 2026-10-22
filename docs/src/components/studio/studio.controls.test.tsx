@@ -970,7 +970,7 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await openDeckTab(user, 'Look');
 		await pick(user, 'Choose chart finish', /^Tone/);
 		await waitFor(() => expect(source()).toMatch(/chart-finish: tone/));
-		await pick(user, 'Choose chart finish', /^As designed/); // the baseline → no key, never `chart-finish: off`
+		await pick(user, 'Choose chart finish', /^Pigment/); // the default → no key, never `chart-finish: pigment`
 		await waitFor(() => expect(source()).not.toMatch(/chart-finish:/));
 	});
 
