@@ -131,6 +131,8 @@ function close() {
 // viewport-relative even under a transformed ancestor) gives full-size controls.
 function play(poster) {
 	try {
+		// The guard in the frame already checks, but the frame is page code: ask again here, in the parent, before an embed is built.
+		if (!ownPoster(poster)) return false;
 		const href = poster?.getAttribute ? poster.getAttribute('href') : null;
 		const direct = embedSrc(href); // YouTube/Vimeo: id is in the URL (sync)
 		if (!direct && !isTikTok(href)) return false; // not embeddable → guard opens the tab
@@ -272,6 +274,13 @@ function play(poster) {
 	}
 }
 
+/** The poster anchor under `el` when it belongs to the video plugin's own figure (not a plugin's drawing), else null. */
+function ownPoster(el) {
+	const a = el?.closest?.('a.video-poster[href]');
+	if (!a) return null;
+	return a.closest('figure.video-embed[data-lattice-media="video"]') && !a.closest('[data-lattice-plugin]') ? a : null;
+}
+
 /**
  * A tap the HOST caught, at viewport point (`clientX`, `clientY`), over a preview frame that
  * cannot receive it (see the header). If the point lands on a slide's `.video-poster`, play the
@@ -296,7 +305,9 @@ export function tapVideoAt(frame, clientX, clientY) {
 		if (!doc || !g || !g.S) return false;
 		const x = (clientX - g.fr.left) / g.S;
 		const y = (clientY - g.fr.top) / g.S;
-		const poster = doc.elementFromPoint(x, y)?.closest?.('a.video-poster[href]');
+		// Only the video plugin's own figure, never one inside a plugin's drawing: that is hostile text, whatever classes it wears
+		// (engineering/decisions/2026-10-16-media-plugins.md § 4.5, rule 3).
+		const poster = ownPoster(doc.elementFromPoint(x, y));
 		if (!poster) return false;
 		const href = poster.getAttribute('href') || '';
 		if (!/^https?:/i.test(href)) return false;

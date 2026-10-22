@@ -57,8 +57,7 @@ marp: true
 
 ## Watch the tour.
 
-- ${url}
-- Scan to watch \`caption\`
+\`@video{"${url}", title="Scan to watch"}\`
 `;
 
 // The engine paint is not the subject here; stub the heavy externals the way
