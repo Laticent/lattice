@@ -101,6 +101,10 @@ function loadRemoteRef(): Promise<RemoteRef> {
 	remoteRefLoad ??= import('../../../lib/core/remote-ref.js').then((m) => ((m as unknown as { default?: RemoteRef }).default ?? m) as RemoteRef);
 	return remoteRefLoad;
 }
+// Start the fetch when this module loads, so the first render does not stop to fetch it. Waiting here put a network
+// round trip and a yield between the engine's output and the frame, and the Studio's other startup work moved into that
+// gap (bisected to #2387; the first slide on a throttled phone profile went from 6.50 s to 6.15 s, median of 5).
+if (typeof window !== 'undefined') void loadRemoteRef();
 
 // Adaptive image sizes, known before a slide paints: lazily loaded, off the Studio's eager
 // bundle (docs/route-budget.json). See ./image-size-memo.ts.
