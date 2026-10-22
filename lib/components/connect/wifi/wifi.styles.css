@@ -125,23 +125,11 @@ section.wifi .qr-side {
 }
 
 section.wifi .qr-cta {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5em;
   color: var(--accent);
+  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-weight: 600;
-}
-section.wifi .qr-cta::before {
-  content: "";
-  flex: none;
-  width: 0.5em;
-  height: 0.5em;
-  border-radius: 50%;
-  background: var(--accent);
-  /* Sits on the caption's FIRST line when it wraps, not centered against all of them. */
-  transform: translateY(0.45em);
 }
 
 section.wifi .qr-fields {

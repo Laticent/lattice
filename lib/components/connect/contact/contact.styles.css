@@ -83,8 +83,8 @@ section.contact .qr-name {
 section.contact .qr-lockup {
   grid-area: lockup;
   display: flex;
-  align-items: center;
-  gap: 0.9em;
+  flex-direction: column;
+  gap: 0.35em;
   font-family: var(--font-label);
   /* Meta, unless the lockup would need more than two lines of this column: then the size that
    * does fit (0.85em per character is the uppercase advance plus the 0.2em tracking). */
@@ -92,13 +92,6 @@ section.contact .qr-lockup {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--accent);
-}
-section.contact .qr-tick {
-  flex: none;
-  width: 2.4em;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 2px;
 }
 
 section.contact .qr-ledger {
