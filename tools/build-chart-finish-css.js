@@ -70,11 +70,11 @@ const F = {
   // it halved the top-to-empty contrast (3.54 → 1.92 light, 3.03 → 1.51 dark on indaco). The ink is
   // now picked per cell (`inkOn`, behind the @supports below), so the band no longer has to protect it.
   // tools/chart-finish-reach.mjs measures the span against the unfinished paint on every theme.
-  pigment: { body: [82, 82], backdrop: [40, 46], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.14, edge: 1, edgeBackdrop: 1 },
+  pigment: { body: [82, 82], backdrop: [82, 82], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.18, edge: 2, edgeBackdrop: 3 },
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.1, edge: 2, edgeBackdrop: 3 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp
   // that PRINTS ITS VALUE takes (a heatmap cell), as [light, dark]: shorter, because its top
   // step must still carry text at 4.5:1. Tone's text band tops out at 70% on light, not the
@@ -107,7 +107,7 @@ const STATUS_MARKS = [
   { sel: '.gantt-legend-swatch:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
   { sel: '.gantt-milestone[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false },
   { sel: '.gantt-legend-swatch[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: false, keysText: true },
-  { sel: ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true },
+  { sel: ':is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: true, nodeInk: true },
   // An UNSTATED state tile is the neutral `--muted-mark` tile (state-chart.styles.css), and it keeps
   // pace with the stated tiles beside it for the same reason as the gantt marks above. Its KEY has no
   // unstated row on purpose: the only key swatches without a status are the SVG edge-style lines, and
@@ -117,10 +117,9 @@ const STATUS_MARKS = [
   // harness. An unstated shape keeps the member's `url(#sc-fill-0)` gradient unless a finish owns it too.
   { sel: '.state-node-shape:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
   { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
-  // A state chart's key is the shared graph key (`_chart-family/graph-key.js`, state chart v2):
-  // its status swatch follows the state tiles it keys. Scoped to the state chart's figure, since
-  // a flowchart's status shapes keep their paint under a finish and so must its key.
-  { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
+  // The state chart's and the flowchart's key is the shared graph key (`_chart-family/graph-key.js`):
+  // its status swatch follows the tiles it keys, and both charts' tiles are finished.
+  { sel: '.fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   // The progress fill's readout sits on its OWN plate (`.progress-pct`, progress.styles.css), so the
   // text never lands on the body and the fill does not need a text level: `bears: false`. As `true`
   // it took pigment's 40%/46% text level, which in dark mode is near-black against the slide. An
@@ -128,6 +127,13 @@ const STATUS_MARKS = [
   // chart never has one gradient bar among flat siblings.
   { sel: '.progress-fill[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false },
   { sel: '.progress-fill:not([data-s])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false },
+  // A flowchart node painted from a status word, or from no color at all (the neutral tile). A slot node is
+  // a hue mark (`data-hue`) and is painted by the HUE rule. An author's explicit `fill`/`border` is left alone.
+  { sel: '.fc-shape[data-s]:not([data-s="deferred"])', hue: 'var(--fc-hue)', ink: 'var(--fc-hue-mark)', paint: 'fill', bears: true },
+  { sel: '.fc-shape:not([data-s]):not([data-slot]):not([data-fill])', hue: 'var(--fc-hue)', ink: 'var(--fc-hue-mark)', paint: 'fill', bears: true },
+  // The HTML harness tile each node is measured from (hidden once the layout pass has drawn the SVG shape).
+  { sel: '.fc-node[data-s]:not([data-s="deferred"])', hue: 'var(--fc-hue)', ink: 'var(--fc-hue-mark)', paint: 'bg', bears: true },
+  { sel: '.fc-node:not([data-s]):not([data-slot]):not([data-fill])', hue: 'var(--fc-hue)', ink: 'var(--fc-hue-mark)', paint: 'bg', bears: true },
   { sel: '.chart-status[data-s]', hue: 'var(--chart-status-hue)', ink: 'var(--chart-status-ink)', paint: 'bg', bears: true },
   { sel: '.waterfall-bar[data-s="up"]', hue: 'var(--state-pass-hue)', ink: 'var(--state-pass-ink)', paint: 'fill', bears: false },
   { sel: '.waterfall-bar[data-s="down"]', hue: 'var(--state-fail-hue)', ink: 'var(--state-fail-ink)', paint: 'fill', bears: false },
@@ -227,7 +233,7 @@ const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
  * kept its category hue is a mark that no longer matches its own series. Pigment and etch
  * keep a dot's hue, so they may repaint it.
  */
-const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
+const STROKE_MEMBERS = ['slope'];
 
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
 const SHARED_CLASSES = new Set(['chart-key-swatch']);
@@ -393,19 +399,21 @@ function build() {
       // be far darker than a category's (concrete's is near-black), and at pigment's 40% the
       // text on it read 3.6:1 where tone's 30% held on every theme.
       const textLevel = s.bears || s.keysText;
-      const lvl = textLevel ? (name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop) : f.body;
+      const lvl = textLevel ? f.backdrop : f.body;
       const body = tone
         ? (textLevel ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
         : pair(s.hue, lvl);
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       if (s.bears && s.paint === 'bg') {
-        const [l, d] = tone || name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+        const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
         decls.push(`color: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
         // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
         // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
         // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
         // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
+        // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
+        if (s.nodeInk) decls.push(`--state-node-ink: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
         if (s.indexInk) decls.push(`--state-index-ink: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
       }
       // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
@@ -413,11 +421,48 @@ function build() {
       w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
     }
 
+    // A gantt caption printed INSIDE a bar picks the ink its bar's finish body clears. It is a sibling of
+    // the rect, so it names the same hue (`--fill-hue`, gantt.styles.css) and takes the same text level the
+    // bar's status rule above gives; a caption beside the bar sits on the canvas and keeps its heading ink.
+    {
+      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+      w(supports(rule(name, '.gantt-bar-label[data-pos="inside"]', [
+        `fill: ${ld(inkOn(mix('var(--fill-hue)', `${l}%`)), inkOn(mix('var(--fill-hue)', `${d}%`)))}`,
+      ])));
+    }
+
+    // A state chart caption (an SVG <text>, a sibling of its tile's shape) picks the ink the tile's finish
+    // body clears, from the hue it names. An author-colored caption (`data-text` on the group) keeps its ink.
+    {
+      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+      w(supports(rule(name, '.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]', [
+        `fill: ${ld(inkOn(mix('var(--fill-hue)', `${l}%`)), inkOn(mix('var(--fill-hue)', `${d}%`)))}`,
+      ])));
+    }
+
+    // A flowchart node's name is a sibling of its shape, so it reads the hue the group names and picks the ink
+    // that hue's finish body clears. A slot node's body is a HUE mark at the text level; a status or neutral
+    // node's is the status level, which is the same level here. An author-colored name (`data-text`) or an
+    // author-filled node keeps its own ink.
+    {
+      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+      const nameSel = (extra) => `.fc-node-group${extra}:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name`;
+      w(supports(rule(name, nameSel(''), [
+        `fill: ${ld(inkOn(mix('var(--fc-hue)', `${l}%`)), inkOn(mix('var(--fc-hue)', `${d}%`)))}`,
+      ])));
+      // Under tone a slot node is one hue at ITS slot's step, not the slot's own hue.
+      if (tone) for (const n of SLOTS) {
+        w(supports(rule(name, nameSel(`[data-slot="${n}"]:not([data-s])`), [
+          `fill: ${ld(inkOn(mix(ONE, `${TONE_TEXT[n - 1]}%`)), inkOn(mix(ONE, `${TONE_TEXT_D[n - 1]}%`)))}`,
+        ])));
+      }
+    }
+
     // The SVG twin of the unstated tile's index numeral (the HTML one is set in the status row above). A
     // numeral is a sibling <text> of its shape inside `.state-node-group`, so it cannot inherit from the
     // shape: it is reached through its group, and picks its ink from the body the finish gave the tile.
     {
-      const [l, d] = tone || name === 'pigment' ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
+      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
       const neutral = 'var(--muted-mark)';
       w(supports(rule(name, '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t', [
         `fill: ${ld(inkOn(mix(neutral, `${l}%`)), inkOn(mix(neutral, `${d}%`)))}`,
@@ -475,6 +520,81 @@ function build() {
       ])));
     });
 
+    // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────
+    // The stroke IS the mark (paint `none`: no body, no edge to carry identity), so a finish may not give it the
+    // body rule above; that stepped a stroke to 2.18:1 on light. It gets rules of its own, and every rule keeps
+    // the stroke at or above the graphical 3:1 the family holds. ETCH draws the line heavier, because under
+    // etch the line is the identity and a line chart has no outline to make it one. TONE draws every series
+    // in the one ink at four steps (a step is a mix of the INK, which is far darker than the hue, so the
+    // lightest step still clears the canvas), and series 5-8 repeat the steps dashed, so a series is never
+    // told apart by a lightness step alone and the order survives grayscale print.
+    if (name === 'etch') {
+      w(rule(name, ':is(.line-path, .ep-path)', ['stroke-width: 2.6']));
+    }
+    if (tone) {
+      const LINE_STEP = [100, 80, 64, 52];
+      for (const n of SLOTS) {
+        const step = `color-mix(in oklab, ${ONE_INK} ${LINE_STEP[(n - 1) % 4]}%, var(--bg))`;
+        const dash = n > 4 ? ['stroke-dasharray: 5 3'] : [];
+        w(rule(name, `:is(.line-path, .ep-path)[data-hue="${n}"]`, [`stroke: ${step}`, ...dash]));
+        w(rule(name, `:is(.line-dot, .ep-dot)[data-hue="${n}"]`, [`fill: ${step}`]));
+        w(rule(name, `:is(.line-area, .line-band)[data-hue="${n}"]`, [`fill: ${step}`, 'fill-opacity: 0.38']));
+      }
+      // A word-cloud word colored from a category (`--wc-color: var(--chart-cat-N-ink)`, baked inline) wears the one
+      // ink; the accent word and the muted words are emphasis, not category, and keep theirs.
+      w(supports(rule(name, '.wc-word[style*="--chart-cat-"]', [`fill: color-mix(in oklab, ${ONE_INK} 60%, var(--text-heading))`])));
+      // A series NAME wears the one ink: under tone the line it names is no longer its category hue.
+      w(rule(name, '.cart-series[data-hue]', [`fill: ${ONE_INK}`]));
+    }
+
+    // ── RISK BANDS — a severity ramp whose hue is the meaning ───────────────
+    // The matrix's four bands rise in strength with severity (risk-matrix.styles.css), so order survives
+    // grayscale print. Pigment IS that shipped ramp, so it adds nothing. Etch takes the same order at about
+    // a third of the strength and draws each cell's edge in the band's ink at 2px (the line is the identity,
+    // and it turns the cell hairline into a visible grid). Tone keeps the status hues, quieter, with a 1px edge.
+    if (name !== 'pigment') {
+      const BANDS = [
+        ['low', 'pass', { etch: [10, 18], tone: [14, 22] }],
+        ['medium', 'warn', { etch: [16, 26], tone: [24, 32] }],
+        ['high', 'fail', { etch: [26, 38], tone: [40, 48] }],
+        ['critical', 'fail', { etch: [44, 56], tone: [66, 70] }],
+      ];
+      w('\n/* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */');
+      for (const [band, st, lv] of BANDS) {
+        const [l, d] = lv[name];
+        w(rule(name, `.risk-cell[data-band="${band}"]`, [
+          `fill: ${ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
+          `stroke: ${name === 'etch' ? `var(--state-${st}-ink)` : 'var(--bg)'}`,
+          `stroke-width: ${name === 'etch' ? edge(f.edge) : '1.2'}`,
+          ...(name === 'etch' ? ['vector-effect: non-scaling-stroke'] : []),
+        ]));
+      }
+    }
+
+    // ── A NEUTRAL hub-spoke node — no status and no hue ─────────────────────
+    // Its shipped body is a flat neutral (`--hs-neutral-body`, a strong mix of the body ink), which is already
+    // pigment's solid look and tone's one ink, so those two keep it. Etch is the pale one with the 2px edge:
+    // left alone, a whole etched chart read as pigment with two recolored nodes.
+    if (name === 'etch') {
+      const body = ld(mix('var(--hs-neutral-ink)', `${f.backdrop[0]}%`), mix('var(--hs-neutral-ink)', `${f.backdrop[1]}%`));
+      w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
+        `fill: ${body}`, 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+      ]));
+      w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [
+        `--hs-icon-ink: ${ld(inkOn(mix('var(--text-body)', `${f.backdrop[0]}%`)), inkOn(mix('var(--text-body)', `${f.backdrop[1]}%`)))}`,
+      ])));
+    }
+
+    // ── A JOURNEY STAGE BAR — one constant ground (`encodes: none`), the heaviest mark on the slide ────
+    // Pigment and tone keep the shipped slate; etch is the pale one with the 2px edge, in the stage's own
+    // accent. The stage name's ink is `--journey-stage-fg`, solved against the shipped ground and a paler one holds.
+    if (name === 'etch') {
+      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [
+        'background: color-mix(in oklab, var(--journey-stage-bg) 38%, var(--bg))',
+        `box-shadow: inset 0 0 0 ${edge(f.edge)} var(--section-accent, currentColor)`,
+      ]));
+    }
+
     // ── A HUB-SPOKE ICON — a drawing on a disc, so it takes the ink its disc clears ──
     // The icon (`{icon=…}`, engineering/decisions/2026-09-29-inline-icons.md § 14) is a sibling
     // of its disc, not a child, so it cannot read the disc's paint. Its ink is fixed per mode
@@ -517,9 +637,14 @@ function build() {
       // translucent polygons at that strength stack to a mid-tone center that no ink can read a scale tick on
       // (near-black on concrete's overlap measured 3.73:1, the unfinished paint 4.67:1). tools/chart-finish-reach.mjs
       // RUNS holds it: no theme or mode may push a text run under its threshold that the unfinished paint cleared.
-      const alpha = tone ? String(Math.round((0.08 + 0.24 * (TONE[n - 1] / 92)) * 1000) / 1000) : String(f.layered);
+      const alpha = tone ? String(Math.round((0.06 + 0.14 * (TONE[n - 1] / 92)) * 1000) / 1000) : String(f.layered);
+      // The outline is the series: 1px under pigment and tone, 2px under etch. Under tone it takes the series' step of
+      // the one ink (the same steps a line uses), dashed from the fifth series, so overlapping polygons stay apart.
+      const lstep = `color-mix(in oklab, ${ONE_INK} ${[100, 80, 64, 52][(n - 1) % 4]}%, var(--bg))`;
       w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${tone ? notLeft : ''}`, [
-        `fill: ${body}`, `fill-opacity: ${alpha}`, `stroke: ${tone ? ONE_INK : inkOf(n)}`,
+        `fill: ${body}`, `fill-opacity: ${alpha}`, `stroke: ${tone ? lstep : inkOf(n)}`,
+        `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+        ...(tone && n > 4 ? ['stroke-dasharray: 5 3'] : []),
       ]));
     }
     // The radar's scale ticks sit in the CENTER, where every series polygon overlaps, and they are small

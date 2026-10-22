@@ -204,11 +204,17 @@ describe('chart-finish.generated.css', () => {
     assert.match(css, /\.map-figure \.chart-key-swatch/);
   });
 
-  // Checked on the render: a tonal dot on a line that kept its category hue no longer matched
-  // its own series. Tone leaves a stroke member whole.
-  test('tone leaves every mark of a stroke member alone, dots and bands included', () => {
+  // Checked on the render: a tonal dot on a line that kept its category hue no longer matched its own series, and
+  // a stroke is never given a body (a stroke stepped to 2.18:1 on light). So line and ep-curve have rules of their
+  // own: every series stroke, dot, band and area takes one step of the one ink under tone, and slope stays whole.
+  test('tone paints a line chart\'s stroke, dots and areas from one table of ink steps; slope is left alone', () => {
     const toneHue = css.match(/section\.chart-finish-tone :where\(:is\(\[data-hue="1"\][^{]*/)[0];
-    for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) assert.ok(toneHue.includes(`.${c}`), `${c} is excluded under tone`);
+    assert.ok(toneHue.includes('.slope-dot'), 'slope-dot is still excluded under tone');
+    for (const c of ['line-dot', 'line-band', 'line-area']) assert.ok(toneHue.includes(`.${c}`) === false, `${c} has no body rule of its own under tone`);
+    for (const c of ['line-path', 'ep-path', 'line-dot', 'ep-dot', 'line-area']) {
+      assert.match(css, new RegExp(`chart-finish-tone :where\\([^)]*\\.${c}[^{]*data-hue="1"`), `${c} takes tone's ink step`);
+    }
+    assert.match(css, /chart-finish-tone :where\(:is\(\.line-path, \.ep-path\)\[data-hue="5"\]\)[^}]*stroke-dasharray/, 'series 5 repeats the steps dashed');
     const pigmentHue = css.match(/section\.chart-finish-pigment :where\(:is\(\[data-hue="1"\][^{]*/)[0];
     for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) {
       assert.ok(!pigmentHue.includes(`.${c}`), `pigment keeps ${c} in its own hue, so it may repaint it`);
@@ -266,7 +272,7 @@ describe('chart-finish.generated.css', () => {
     for (const finish of ['pigment', 'etch', 'tone']) {
       assert.equal(statusBody(finish, '.gantt-legend-swatch[data-s]'), statusBody(finish, '.gantt-bar[data-s]'), `gantt, ${finish}`);
       assert.equal(
-        statusBody(finish, '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])'),
+        statusBody(finish, '.fc-key-swatch[data-s]:not([data-s="deferred"])'),
         statusBody(finish, '.state-node-shape[data-s]'),
         `state-chart, ${finish}`,
       );
@@ -294,11 +300,12 @@ describe('chart-finish.generated.css', () => {
     const { transformSection } = require('../../../lib/components/chart/state-chart/state-chart.transform');
     const inner = '<h2>T</h2><ul><li>A <code>AT-RISK</code><ul><li>-&gt; B</li></ul></li><li>B</li></ul>';
     const key = STATUS_MARKS.find((m) => m.sel.includes('.fc-key-swatch'));
-    const scope = /^\[data-chart="([a-z-]+)"\] /.exec(key.sel);
-    assert.ok(scope, 'the row is scoped by the key\'s data-chart');
+    // The row is no longer scoped to one chart: the flowchart's status shapes are finished too, so the shared
+    // graph key's status swatch follows the tiles it keys in both charts.
+    assert.ok(key && !/^\[data-chart=/.test(key.sel), 'the key row covers every chart that uses the graph key');
     for (const variant of [[], ['inline']]) {
       const html = transformSection(inner, { classTokens: ['state-chart', ...variant] });
-      assert.match(html, new RegExp(`<ol class="fc-key" data-chart="${scope[1]}">.*class="fc-key-swatch"[^>]*data-s="at-risk"`), variant.join() || 'default');
+      assert.match(html, /<ol class="fc-key" data-chart="state-chart">.*class="fc-key-swatch"[^>]*data-s="at-risk"/, variant.join() || 'default');
     }
   });
 });
