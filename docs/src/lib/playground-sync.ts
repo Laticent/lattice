@@ -153,6 +153,9 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let renderedSource: string | null = null;
 	let owed = false;
 	let awaitingLoad = false;
+	/** Set by `leaveExplore`: the preview's scroll means nothing until the host says the frame has settled (`loaded()`),
+	 *  whether that is a new document loading or the same one re-fitting to Edit's width. */
+	let hold = false;
 	let awaitingAt = -Infinity;
 	/** The slide the caret is in (the last focus an editor move reported), apart from where a scroll has put the focus. */
 	let caretSlide = -1;
@@ -267,7 +270,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	}
 
 	/** A full write is on its way: the frame still shows the outgoing document, whose scroll means nothing. */
-	const loading = () => awaitingLoad && ports.now() - awaitingAt < LOAD_MAX_MS;
+	const loading = () => (awaitingLoad || hold) && ports.now() - awaitingAt < LOAD_MAX_MS;
 
 	/** Whether this scroll frame should move the follower pane. A follower redraw (CodeMirror re-rendering lines, the
 	 *  filmstrip mounting slides) is the cost of the whole feature, and it is paid on every frame. While frames are
@@ -478,7 +481,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		leaveExplore() {
 			// Edit's preview is about to be written afresh. Until it has loaded, the outgoing document's scroll (still
 			// Explore's, at another width) means nothing, and the editor is the one to follow.
-			awaitingLoad = true;
+			hold = true;
 			awaitingAt = ports.now();
 			owed = ports.editing();
 			const page = exploreClick;
@@ -506,6 +509,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		},
 		loaded() {
 			awaitingLoad = false;
+			hold = false;
 			if (!owed) return false;
 			if (realign()) owed = false;
 			return true;

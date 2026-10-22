@@ -844,7 +844,9 @@ token-only gate is **superseded** by decision 12 below; decisions 6, 8 and 9 sta
     `selector`s (`lib/transformers/rebuilt-classes.js`), so a pass added later denies its slides the
     day it is registered; a short `GENERIC` list (`form`, `image`, `split-panel`…) names the class
     sets that only frame a slide. A fence on a chart slide is therefore not drawn either (the engine
-    draws those).
+    draws those). A pass that only restructures markup and reads no text into an address opts out
+    with `readsText: false` on its registry entry (`inline-run`, 2026-10-21: it wraps a list label's
+    words in a span, and without the opt-out it denied a plugin's span on 10 components' slides).
 
 ## 10. Non-goals
 
