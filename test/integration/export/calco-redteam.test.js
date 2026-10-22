@@ -194,6 +194,24 @@ describe('calco red-team fixtures', () => {
     assert.ok(checked.shots.includes('1:foreground') && checked.shots.includes('1:full'), checked.shots.join());
   });
 
+  test('chip: a slide whose only painted box is a highlight chip leaves no film behind', async () => {
+    await load(
+      page(
+        'section{background:#0b3a5e;color:#fff}code{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.2);padding:0 4px;font-family:monospace}p{position:absolute;left:60px;top:300px;font-size:30px;margin:0}',
+        '<p>One word <code>tag:</code> and more.</p>',
+      ),
+    );
+    const handles = await tab.$$('section[data-lattice-slide]');
+    const host = {
+      run: (i, fn, arg) => handles[i].evaluate(fn, arg),
+      shoot: async (i, kind) => new Uint8Array(await handles[i].screenshot({ type: 'png', omitBackground: kind === 'foreground' })),
+    };
+    const { slides } = await captureOfficeSlides(host, 1, { sprites: true });
+    const runs = slides[0].frames.flatMap((f) => f.lines.flat());
+    assert.ok(runs.find((r) => r.text.includes('tag:'))?.style.highlight, 'the chip is a highlight');
+    assert.equal(slides[0].shapes.filter((x) => x.kind === 'picture').length, 0, 'the chip leaves no picture: its own paint is hidden from the capture');
+  });
+
   test('a chip over the decorative layer is a native highlight too, in a color close to the page behind it', async () => {
     const res = await read(
       page(

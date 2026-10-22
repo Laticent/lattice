@@ -239,14 +239,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// `overGradient`: a gradient layer counts as its background color. Only letter-spaced
 	// text asks for that, because LibreOffice clips letter-spaced text drawn with opacity
 	// (its last letters vanish), so a near color beats a lost word. A url() image never does.
-	const flatten = (el: Element, c: { r: number; g: number; b: number; a: number }, overGradient = false): string | undefined => {
+	const flatten = (el: Element, c: { r: number; g: number; b: number; a: number }, overGradient = false, approx = false): string | undefined => {
 		for (let p: Element | null = el; p; p = p.parentElement) {
 			const cs = win.getComputedStyle(p);
 			const image = cs.backgroundImage && cs.backgroundImage !== 'none' ? cs.backgroundImage : '';
-			if (image && (!overGradient || /url\(/i.test(image))) return undefined;
+			// `approx`: a finish's grid or glow on the slide itself is not matched, the slide's solid color stands in for it.
+			const stands = approx && p === section && !/url\(/i.test(image);
+			if (image && !stands && (!overGradient || /url\(/i.test(image))) return undefined;
 			const bg = parseColor(cs.backgroundColor);
 			if (!bg || bg.a === 0) {
-				if (p === section || image) return undefined;
+				if (p === section || (image && !stands)) return undefined;
 				continue;
 			}
 			if (bg.a < 1) return undefined;
@@ -390,7 +392,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				// Blend a translucent tint over the nearest solid color behind the chip; a picture or gradient on the chip itself
 				// leaves it a shape. A finish's glow or grid behind a chip is not matched exactly: the native highlight is an opaque
 				// color close to what shows there, which keeps the words editable without a film over them.
-				const shown = !plainPaint ? undefined : bg.a >= 1 ? hex(bg) : chip.parentElement ? flatten(chip.parentElement, { ...bg, a: bg.a * opacity }) : undefined;
+				const shown = !plainPaint ? undefined : bg.a >= 1 ? hex(bg) : chip.parentElement ? flatten(chip.parentElement, { ...bg, a: bg.a * opacity }, false, true) : undefined;
 				if (shown) {
 					style.highlight = shown;
 					// Translucent text over the highlight appears as the blend of the two; LibreOffice drops a run's background
@@ -2437,7 +2439,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 	// A lifted shape's paint goes the same way: transparent, inline and !important, every
 	// border WIDTH kept so nothing moves. Undone first, before the text, because the color
 	// freeze may have written inline styles on the same element.
-	if (options?.hide && shapes.length) {
+	// A slide whose only painted boxes are highlight chips has no shapes, and the chips' own paint must still go.
+	if (options?.hide && (shapes.length || chipEls.size)) {
 		const undo: Array<() => void> = [];
 		// A pseudo shape hides its pseudo (below), never its element: the element may paint something else.
 		for (const el of [...paintHidden, ...chipEls] as HTMLElement[]) {
