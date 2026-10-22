@@ -219,11 +219,59 @@ mean to change a render; an item that does stops for the owner's light and dark 
 | P | Item | Evidence |
 |---|---|---|
 | P1 | Split: `@callout` and `@legend` plugins over shared kernels (marker shapes, plate, color slots, mark vocabulary); the heatmap moves to `@callout`; old pinned `@legend` spans keep working with a lint hint | `diff -r` of every tracked deck before and after, byte-identical |
-| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first — **built on the heatmap**, in `buildHeatmap`/`layoutHeatmap`; the shared emitter waits for the second chart | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs (§ 5) |
-| P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke | a demo deck per family, four slide shapes |
-| P4 | Journey task callouts; risk-matrix onto the callout plugin | both galleries, light and dark, owner sign-off |
+| P2 | The placement rule (§ 5) in the shared emitter, on the heatmap first — **built on the heatmap**, in `buildHeatmap`/`layoutHeatmap`; the shared emitter waits for the second chart. **The shared emitter is `callout-layer.js` (§ 8)** | the real engine's plot area against this note's mock, 16:9 / 1:1 / 4:5 / 9:16, light and dark PDFs (§ 5) |
+| P3 | Callouts on the SVG charts with marks: bar, stacked-bar, line, ep-curve, scatter, quadrant, piechart, radar, map, funnel, histogram, waterfall, bullet, slope, tower, gantt, flowchart, state-chart, hub-spoke. **Built (§ 8) for seventeen of the nineteen; `flowchart` and `state-chart` are browser-laid-out and filed in `followups.d/`** | a demo deck per family, four slide shapes |
+| P4 | Journey task callouts; risk-matrix onto the callout plugin. | both galleries, light and dark, owner sign-off |
 | P5 | Keys through `@legend` on every component that already draws one, so authors can rename and reorder entries | `diff -r` where untouched; demo deck |
 
 Charts the scout ruled out for callouts: kanban, timeline-list and progress (their items are
 already text rows), and Mermaid diagrams (Mermaid owns the layout and has no stable mark hooks).
 Word-cloud is weak: its marks are words that are already labeled.
+
+## 8. The second readers (P3 as built)
+
+Seventeen charts now read `@callout`; the heatmap was the first. Each takes `for=` naming its mark (the table in
+`lib/plugins/callout/callout.docs.md`), rings the mark, puts a numbered marker on or beside it, and sets the
+words in a lane beside the figure or under it by the § 5 rule.
+
+**One layer, three ways in.** `lib/components/chart/_chart-family/callout-layer.js` holds what the heatmap
+proved: lift the paragraphs, tie notes to marks, size the lane, score the layouts at the slide's real shape
+(item 2 of § 5, now `data-aspect`), and describe the notes. A chart whose geometry it keeps hands the layer boxes
+(`bar`, `line`, `histogram`, `waterfall`, `bullet`, `scatter`, `slope`, `tower`, `ep-curve`, `piechart`, `funnel`,
+`map`, `radar`, `quadrant` cohort). A chart whose figure is finished first is read back (`fromSvg`, `onSvg`:
+`gantt`, `hub-spoke`, and the quadrant's four other variants), so the notes cannot disagree with where the marks
+were drawn. A keyed chart builds its key around each candidate unit, as the heatmap does.
+
+**Three rules the second readers added.**
+
+1. **A word is never broken for a bigger plot.** `choose` prefers the layout that splits the fewest words
+   (`measureLabel` `split`): at 9:16 a grouped bar's lane beside the chart broke `quarter` into `quart` over `er`
+   and lost to the notes under it. A note ellipsized at its third line is still allowed, as on the heatmap.
+2. **Point-like marks get a marker beside them, one size, a free diagonal each.** An area mark (a cell, a bar)
+   keeps the heatmap's rule of one place for every marker. A dot has no corner and its neighbours' names take the
+   room above it, so each marker takes the first clear of four diagonals and two level spots, and the size and
+   the digit are what must agree (`legend-svg.js` `pinMarkers`).
+3. **The lane's type is the key's, unless the figure sets its own.** The key's size is a share of the figure's
+   height; a funnel's tall portrait viewBox made that 18.9 against its own 8.5 labels, so the funnel passes
+   `laneFont`.
+
+**Where the notes land**, on the demo decks' charts (`examples/callouts-*.md`), measured on the kernel at each
+shape (the figure's viewBox grows in width for a lane beside it and in height for notes under it):
+
+| Chart | 16:9 | 4:3 | 1:1 | 4:5 | 9:16 |
+|---|---|---|---|---|---|
+| bar, slope, line, histogram, waterfall, bullet, scatter, ep-curve, funnel, radar, quadrant cohort | beside | beside | under | beside | under |
+| stacked-bar | beside | under | under | beside | under |
+| hub-spoke, map | beside | under | under | beside | under |
+| tower | beside | beside | under | beside | beside |
+| piechart | beside | beside | beside | beside | beside |
+| quadrant | beside | beside | beside | beside | under |
+| gantt | under | under | under | under | under |
+
+The stacked bar, the map and the hub-spoke move at 4:3: the picks the real aspect made possible (§ 5 item 2).
+
+**What is not built.** `flowchart` and `state-chart` (the browser lays them out, so the shapes' boxes do not exist
+where the transform runs), and `radar` inside a split pane (the pane fits its own key). Both are filed in
+`followups.d/`. The heatmap's own placement loop was left alone (it differs from `choose` only in rule 1), also
+filed. Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
+
