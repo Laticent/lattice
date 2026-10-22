@@ -414,15 +414,27 @@ figure.chart-finish-pigment :where(.gantt-bar-label[data-pos="inside"]) {
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.chart-finish-pigment :where(.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]),
-figure.chart-finish-pigment :where(.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]) {
+section.chart-finish-pigment :where(.state-node-group > .state-label-t, .state-index-t[data-s]),
+figure.chart-finish-pigment :where(.state-node-group > .state-label-t, .state-index-t[data-s]) {
   fill: var(--fill-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.chart-finish-pigment :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
-figure.chart-finish-pigment :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name) {
+section.chart-finish-pigment :where(.state-node-group > .sc-icon),
+figure.chart-finish-pigment :where(.state-node-group > .sc-icon) {
+  color: var(--fill-on) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.fc-node-group:not([data-fill]):not([data-s="deferred"]) > .fc-name),
+figure.chart-finish-pigment :where(.fc-node-group:not([data-fill]):not([data-s="deferred"]) > .fc-name) {
   fill: var(--fc-on) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.fc-node-group:not([data-fill]):not([data-s="deferred"]) > .fc-icon),
+figure.chart-finish-pigment :where(.fc-node-group:not([data-fill]):not([data-s="deferred"]) > .fc-icon) {
+  color: var(--fc-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1068,9 +1080,21 @@ figure.chart-finish-etch :where(.state-node-group:not([data-text]) > .state-labe
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-etch :where(.state-node-group:not([data-text]) > .sc-icon),
+figure.chart-finish-etch :where(.state-node-group:not([data-text]) > .sc-icon) {
+  color: light-dark(color(from color-mix(in oklab, var(--fill-hue) 14%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--fill-hue) 19%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-etch :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
 figure.chart-finish-etch :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name) {
   fill: light-dark(color(from color-mix(in oklab, var(--fc-hue) 14%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--fc-hue) 19%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-etch :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-icon),
+figure.chart-finish-etch :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-icon) {
+  color: light-dark(color(from color-mix(in oklab, var(--fc-hue) 14%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--fc-hue) 19%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1852,9 +1876,21 @@ figure.chart-finish-tone :where(.state-node-group:not([data-text]) > .state-labe
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-tone :where(.state-node-group:not([data-text]) > .sc-icon),
+figure.chart-finish-tone :where(.state-node-group:not([data-text]) > .sc-icon) {
+  color: light-dark(color(from color-mix(in oklab, var(--fill-hue) 30%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--fill-hue) 35%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-tone :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
 figure.chart-finish-tone :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name) {
   fill: light-dark(color(from color-mix(in oklab, var(--fc-hue) 30%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--fc-hue) 35%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-tone :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-icon),
+figure.chart-finish-tone :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-icon) {
+  color: light-dark(color(from color-mix(in oklab, var(--fc-hue) 30%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--fc-hue) 35%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {

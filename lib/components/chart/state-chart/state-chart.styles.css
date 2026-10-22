@@ -245,16 +245,16 @@ section.state-chart .state-chart-figure[data-sc-drawn="1"] .sc-harness {
  * RUNNING work and takes `info`, apart from finished `done`. The browser pass picks the
  * painted gradient from the same mapping (state-chart.layout.js `STATUS_TONE`), and the
  * key groups words by it (graph-key.js). */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="on-track"], [data-s="done"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .sc-icon, .fc-key-swatch):is([data-s="on-track"], [data-s="done"])
   { --fill-hue: var(--state-pass-hue); --fill-on: var(--state-pass-on); --fill-ink: var(--state-pass-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .sc-icon, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"])
   { --fill-hue: var(--state-warn-hue); --fill-on: var(--state-warn-on); --fill-ink: var(--state-warn-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .sc-icon, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"])
   { --fill-hue: var(--state-fail-hue); --fill-on: var(--state-fail-on); --fill-ink: var(--state-fail-ink); }
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .sc-icon, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
   { --fill-hue: var(--state-info-hue); --fill-on: var(--state-info-on); --fill-ink: var(--state-info-ink); }
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
-section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch)[data-s="deferred"]
+section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .sc-icon, .fc-key-swatch)[data-s="deferred"]
   { --fill-hue: var(--muted-mark); --fill-on: var(--muted-mark-on); --fill-ink: var(--text-secondary); }
 /* A status tile's stops: the pill's. The pass emits the same four literals into its
  * per-tone gradient (state-chart.layout.js `nodeDefs`). */
@@ -274,14 +274,14 @@ section.state-chart .state-index-t[data-s] {
 
 /* A SLOT (`c1`…`c8`) paints a state with a chart palette slot. A status wins over a slot
  * (the key names the status), as it does on the flowchart; a deferred status takes the slot. */
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="1"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-1-hue); --fill-on: var(--chart-cat-1-on); --fill-ink: var(--chart-cat-1-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="2"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-2-hue); --fill-on: var(--chart-cat-2-on); --fill-ink: var(--chart-cat-2-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="3"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-3-hue); --fill-on: var(--chart-cat-3-on); --fill-ink: var(--chart-cat-3-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="4"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-4-hue); --fill-on: var(--chart-cat-4-on); --fill-ink: var(--chart-cat-4-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="5"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-5-hue); --fill-on: var(--chart-cat-5-on); --fill-ink: var(--chart-cat-5-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="6"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-6-hue); --fill-on: var(--chart-cat-6-on); --fill-ink: var(--chart-cat-6-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="7"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-7-hue); --fill-on: var(--chart-cat-7-on); --fill-ink: var(--chart-cat-7-ink); }
-section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t)[data-slot="8"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-8-hue); --fill-on: var(--chart-cat-8-on); --fill-ink: var(--chart-cat-8-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="1"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-1-hue); --fill-on: var(--chart-cat-1-on); --fill-ink: var(--chart-cat-1-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="2"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-2-hue); --fill-on: var(--chart-cat-2-on); --fill-ink: var(--chart-cat-2-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="3"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-3-hue); --fill-on: var(--chart-cat-3-on); --fill-ink: var(--chart-cat-3-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="4"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-4-hue); --fill-on: var(--chart-cat-4-on); --fill-ink: var(--chart-cat-4-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="5"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-5-hue); --fill-on: var(--chart-cat-5-on); --fill-ink: var(--chart-cat-5-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="6"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-6-hue); --fill-on: var(--chart-cat-6-on); --fill-ink: var(--chart-cat-6-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="7"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-7-hue); --fill-on: var(--chart-cat-7-on); --fill-ink: var(--chart-cat-7-ink); }
+section.state-chart :is(.state-node, .state-node-shape, .state-node-accent, .state-label-t, .sc-icon)[data-slot="8"]:is(:not([data-s]), [data-s="deferred"]) { --fill-hue: var(--chart-cat-8-hue); --fill-on: var(--chart-cat-8-on); --fill-ink: var(--chart-cat-8-ink); }
 /* One channel only: `border=cN` inks the edge, `text=cN` the name. (`fill=cN` is the
  * gradient the pass picks.) */
 section.state-chart .state-node-shape[data-border="1"] { stroke: var(--chart-cat-1-ink); }
@@ -294,6 +294,8 @@ section.state-chart .state-node-shape[data-border="7"] { stroke: var(--chart-cat
 section.state-chart .state-node-shape[data-border="8"] { stroke: var(--chart-cat-8-ink); }
 /* A painted icon draws bare in the name's ink, at the drawing's own stroke (the icons note § 6). */
 section.state-chart .sc-icon {
+  /* The hue the tile under this drawing wears, so a chart finish can pick the ink its body clears. */
+  --fill-hue: var(--muted-mark); --fill-on: var(--muted-mark-on);
   color: var(--state-node-ink);
   fill: none;
   stroke: currentColor;
