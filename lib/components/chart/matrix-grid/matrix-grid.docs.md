@@ -12,7 +12,7 @@ Use for a rubric where BOTH axes are ordered categories (a depth ladder × a rea
 
 ## Agent contract
 
-**By venue** no count budget. A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting.
+**By venue** (`venue:`, ~6 words each) it holds laptop ~7 · huddle ~4 · conference ~3 · hall ~2 rows. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

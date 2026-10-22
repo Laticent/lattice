@@ -26,7 +26,7 @@
  * `KNOWN` names findings that are open on purpose; each carries the issue or note that owns
  * it, and the tool fails on a STALE entry (one that no longer fails), so the list cannot rot.
  *
- * Usage: node tools/check-venue-conformance.js [--only=a,b] [--jobs=N] [--families=wide,square,tall,strip] [--venues=hall] [--json] [--strict]
+ * Usage: node tools/check-venue-conformance.js [--only=a,b] [--jobs=N] [--families=wide,square,tall,strip] [--all-families] [--venues=hall] [--json] [--strict]
  * A report by default (exit 0). `--strict` exits 1 on an unnamed failure, a stale KNOWN entry or a
  * component that could not be measured. It is NOT wired into CI: that is the owner's call (see the
  * decision note). Skips loudly with no Chromium.
@@ -46,6 +46,7 @@ const only = opt('only').split(',').filter(Boolean);
 const jobs = Math.max(1, Number(opt('jobs')) || Math.min(4, os.cpus().length));
 const JSON_OUT = args.includes('--json');
 const FAMILY_LIST = (opt('families') || 'wide').split(',').filter(Boolean);
+const ALL_FAMILIES = args.includes('--all-families'); // also hold count-budgeted components to every canvas
 const STRICT = args.includes('--strict');
 
 /**
@@ -69,11 +70,23 @@ function inspectInPage() {
     const sr = s.getBoundingClientRect();
     const TOL = 1.5;
     const escaped = [];
+    // An ancestor clips an axis only if ITS overflow on that axis is hidden/clip (or scrolls). A box that
+    // clips sideways but not vertically (`overflow-x: hidden`) does not hide what sits below it.
+    const clips = (v) => /(hidden|clip|auto|scroll)/.test(v);
     const clipAncestors = (el) => {
       const list = [];
+      // An out-of-flow box (absolute, fixed) is clipped only by an `overflow` box that is its
+      // containing block or above it: one nested between the box and its containing block does not
+      // clip it. Collection therefore starts at the containing block.
+      const pos = getComputedStyle(el).position;
+      const outOfFlow = pos === 'absolute' || pos === 'fixed';
+      const cb = outOfFlow ? el.offsetParent : null;
+      let counting = !outOfFlow;
       for (let p = el.parentElement; p && p !== s.parentElement; p = p.parentElement) {
+        if (!counting && (p === cb || (pos === 'fixed' && !cb))) counting = true;
+        if (!counting) continue;
         const cs = getComputedStyle(p);
-        if (/(hidden|clip)/.test(cs.overflowX) || /(hidden|clip)/.test(cs.overflowY)) list.push(p);
+        if (clips(cs.overflowX) || clips(cs.overflowY)) list.push({ el: p, x: clips(cs.overflowX), y: clips(cs.overflowY) });
       }
       return list;
     };
@@ -99,8 +112,10 @@ function inspectInPage() {
       if (el.closest('.sr-only, [aria-hidden="true"], header, footer, .fit-berth, .fit-tab')) return;
       if (outside(rect, sr)) { escaped.push({ label, why: 'outside the slide' }); return; }
       for (const a of clipAncestors(el)) {
-        const ar = a.getBoundingClientRect();
-        if (outside(rect, ar)) { escaped.push({ label, why: `clipped by ${a.className || a.tagName.toLowerCase()}` }); return; }
+        const ar = a.el.getBoundingClientRect();
+        const outX = a.x && (rect.left < ar.left - TOL || rect.right > ar.right + TOL);
+        const outY = a.y && (rect.top < ar.top - TOL || rect.bottom > ar.bottom + TOL);
+        if (outX || outY) { escaped.push({ label, why: `clipped by ${a.el.className || a.el.tagName.toLowerCase()}` }); return; }
       }
     };
     const walker = document.createTreeWalker(s, NodeFilter.SHOW_TEXT);
@@ -109,7 +124,12 @@ function inspectInPage() {
       if (!t) continue;
       const range = document.createRange();
       range.selectNodeContents(n);
-      check(n.parentElement, range.getBoundingClientRect(), t.slice(0, 40));
+      // A text run's rect is the font's content area, which overshoots its line box by a few
+      // pixels above and below the ink; test the middle 60% so a label that sits on a clip edge
+      // is not reported for glyph padding.
+      const tr = range.getBoundingClientRect();
+      const inset = tr.height * 0.2;
+      check(n.parentElement, { left: tr.left, right: tr.right, width: tr.width, height: tr.height, top: tr.top + inset, bottom: tr.bottom - inset }, t.slice(0, 40));
     }
     for (const el of s.querySelectorAll('svg, img, canvas')) {
       if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue;
@@ -141,6 +161,10 @@ async function checkComponent(browser, m, family, probe) {
     if (Object.keys(slides).length !== roster.length) throw new Error(`${m.name}: rendered ${Object.keys(slides).length} slides for a roster of ${roster.length}`);
     const rows = [];
     roster.forEach((r, i) => {
+      // A component with a count budget (`venueCapacity.byWords`) is judged above laptop on content
+      // sized to that budget (`venueProbe`); its laptop-sized sample is over budget at hall by
+      // design, and `lint:deck` already says so.
+      if (probe === 'sample' && m.venueCapacity?.byWords && r.venue !== 'laptop') return;
       const s = slides[String(i + 1)];
       const base = { component: m.name, variant: r.variant, venue: r.venue, family, probe };
       if (s.overflow || s.clipMarked) rows.push({ ...base, check: 'V1', detail: 'the engine marked the slide clipped' });
@@ -172,7 +196,10 @@ async function main() {
     await Promise.all(Array.from({ length: jobs }, async () => {
       while (queue.length) {
         const m = queue.shift();
-        for (const fam of FAMILY_LIST) {
+        // A count budget (`venueCapacity`) is measured at the wide canvas only, so that is the contract
+        // for a component that has one; a component with none is held to every canvas asked for.
+        const fams = m.venueCapacity?.byWords && !ALL_FAMILIES ? FAMILY_LIST.filter((f) => f === 'wide') : FAMILY_LIST;
+        for (const fam of fams) {
           for (const probe of m.venueProbe ? ['sample', 'venueProbe'] : ['sample']) {
             try { failures.push(...await checkComponent(browser, m, fam, probe)); } catch (e) { errors.push({ component: m.name, family: fam, error: String(e.message || e).split('\n')[0] }); }
           }
@@ -207,4 +234,4 @@ async function main() {
 
 if (require.main === module) main().catch((e) => { console.error(e.stack || String(e)); process.exit(1); });
 
-module.exports = { SCAN_MIN };
+module.exports = { SCAN_MIN, inspectInPage };
