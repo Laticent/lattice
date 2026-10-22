@@ -279,6 +279,33 @@ section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane[dat
   object-fit: cover;
   border-radius: var(--radius-sm);
 }
+/* A PHOTO in any other pane is fitted, never cropped. A paragraph that is exactly one picture
+ * carries `data-pane-figure` (lib/core/panes.js `embed`); prose with a picture in it does not, so
+ * it keeps flowing as text. The slide rule (`section img`,
+ * base.modifiers.css) takes the pane's width at the picture's own shape and crops it to
+ * `cover`, so a picture taller than the pane ran past its edge and the engine stamped
+ * "Content clipped" (wide at 75%, tall at 50% and 75%, square at 50% and 75%, measured). Its
+ * paragraph takes the height the pane has left and centers the picture in it, scaled down
+ * to fit and never up past its own pixels. An `image` pane keeps its deliberate cover crop
+ * above. */
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:not([data-pane="image"]) > .cell-stage > p[data-pane-figure],
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane:not([data-pane="image"]) > .cell-stage > p[data-pane-figure] {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: none; /* the prose measure would leave a wide pane's picture left of center */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane:not([data-pane="image"]) > .cell-stage > p[data-pane-figure] > img,
+section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane:not([data-pane="image"]) > .cell-stage > p[data-pane-figure] > img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
 /* A ROW LABEL is a slide-sized word in a column sized by the pane. progress's label column is
  * `18.75cqi` and matrix-grid's stub is one equal share of a `table-layout: fixed` grid; both
  * are fractions of the CONTAINER, which in a pane is the pane, while the label's type is pinned
