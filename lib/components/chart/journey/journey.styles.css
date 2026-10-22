@@ -1123,10 +1123,13 @@ section.journey [data-callout] {
   outline: 2px solid var(--callout-ink, var(--text-body));
   outline-offset: 1px;
 }
+/* The badge sits ON the chip's top corner, half outside it: inside the chip it covers the mood face or the
+ * actor dot, which are the chip's data. */
 section.journey .journey-callout-badge {
   position: absolute;
-  inset-block-start: 0.15em;
-  inset-inline-end: 0.15em;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  transform: translate(-40%, -40%);
   display: flex;
   z-index: 1;
 }

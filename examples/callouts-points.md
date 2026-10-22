@@ -11,7 +11,7 @@ header: "Lattice · callouts on points · placed by measure"
 
 `Callouts · points and lines`
 
-A ring on the dot, a numbered marker beside it and clear of the line, and the words in a lane. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
+A ring on the dot, a numbered marker beside it and clear of the line, and the words set under the chart in a centered group. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
 
 ---
 

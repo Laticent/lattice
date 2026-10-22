@@ -152,10 +152,14 @@ for (const c of CHARTS) {
       assert.equal(render(c, two(c)).html, render(c, two(c)).html);
     });
 
-    test('the notes move with the slide\'s shape: beside the figure at 16:9, a different layout at 9:16', () => {
-      const wide = doc(render(c, two(c), { orientation: undefined, aspect: undefined }).html).querySelector('svg').getAttribute('viewBox');
-      const story = doc(render(c, two(c), { orientation: 'portrait', aspect: 0.56 }).html).querySelector('svg').getAttribute('viewBox');
-      assert.notEqual(wide, story);
+    test('the notes sit under the figure at every shape, as a group the figure grows to hold (a pie may also take them beside it)', () => {
+      const height = (html) => Number(doc(html).querySelector('svg').getAttribute('viewBox').split(/\s+/)[3]);
+      for (const shape of [{ orientation: undefined, aspect: undefined }, { orientation: 'portrait', aspect: 0.56 }]) {
+        const bare = height(render(c, '', shape).html);
+        const noted = height(render(c, two(c), shape).html);
+        if (c.cls.startsWith('pie')) continue;
+        assert.ok(noted > bare, `${c.cls} at ${shape.aspect ?? '16:9'}: ${noted} is taller than ${bare}`);
+      }
     });
 
     test('a slide the chart declines keeps its callout paragraph', () => {

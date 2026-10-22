@@ -11,7 +11,7 @@ header: "Lattice · callouts on bars · placed by measure"
 
 `Callouts · bars`
 
-A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, with its words in a lane that sits beside the chart or under it, whichever leaves the plot larger. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
+A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, with its words set under the chart, side by side, wrapping when the width runs out. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
 
 ---
 

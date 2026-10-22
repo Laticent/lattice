@@ -11,7 +11,7 @@ header: "Lattice · callouts on plans and networks · placed by measure"
 
 `Callouts · gantt and hub-spoke`
 
-A ring on a bar, a milestone or a disc, a numbered marker on it, and the words in a lane. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
+A ring on a bar, a milestone or a disc, a numbered marker on it, and the words set under the chart in a centered group. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
 
 ---
 

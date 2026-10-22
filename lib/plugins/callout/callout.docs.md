@@ -118,7 +118,7 @@ a reader matches a cell to its label by shape as well as by color, never by colo
 The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
 the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
 
-**Notes under a chart are a group, not a column.** On every chart but the heatmap, the notes set under the figure side by side, each as wide as its words (up to half the width), and wrap to a new row when the width runs out. A narrow slide (9:16) gets one row; a narrower pane, more rows. A lane beside the chart stays a column, level with its marks.
+**Notes sit under the chart, centered, as a group that wraps.** On every chart but the heatmap and the pie, the notes set under the figure side by side, each as wide as its words, and wrap to a new row when the width runs out; each row is centered under the figure. A narrow slide (9:16) gets more rows. A pie or donut may also take them beside it, where its key already sits. On a `journey` the badge sits on the task chip's top corner, half outside it, so the mood face and the actor dots stay visible.
 
 **Placement.** The engine lays the heatmap out both ways, with the notes beside the grid and under
 it, and keeps the one that leaves the grid larger at the slide's shape. Where a band key is also on
