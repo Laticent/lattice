@@ -1,1 +1,1 @@
-- Compose keeps a line break inside a paragraph. Editing a paragraph used to join `line one` and `line two` into one line, though the slide draws each newline as a break; the newline now writes back as written, and a typed Shift-Enter still writes `\` plus a newline.
+- Compose keeps a line break inside a paragraph. Editing a paragraph used to join `line one` and `line two` into one line, though the slide draws each newline as a break; the newline now writes back as written.

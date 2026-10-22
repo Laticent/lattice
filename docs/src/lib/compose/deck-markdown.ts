@@ -169,9 +169,13 @@ export const proseSchema = new Schema({
 	nodes: mdSchema.spec.nodes
 		.update('code_block', codeBlockSpec)
 		// The engine runs markdown-it with `breaks: true`, so a bare newline inside a paragraph is a line break on the slide.
-		// `soft` marks the newline as written (`a\nb`), so it writes back as a newline and not as the `\` + newline of a typed
-		// Shift-Enter (followups.d/2846-p6).
-		.update('hard_break', { ...(mdSchema.spec.nodes.get('hard_break') as NodeSpec), attrs: { soft: { default: false } } })
+		// `soft` marks the newline as written (`a\nb`), so it writes back as a newline and not as the `\` + newline of a
+		// backslash break (followups.d/2846-p6).
+		.update('hard_break', { ...(mdSchema.spec.nodes.get('hard_break') as NodeSpec), attrs: { soft: { default: false } },
+			// The clipboard and the editor DOM carry the flag, so a copied paragraph pastes with its newlines as written.
+			toDOM: (node) => (node.attrs.soft ? ['br', { 'data-soft': '' }] : ['br']),
+			parseDOM: [{ tag: 'br', getAttrs: (dom) => ({ soft: (dom as HTMLElement).hasAttribute('data-soft') }) }],
+		})
 		.update('image', imageSpec)
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
@@ -327,15 +331,47 @@ function interruptsParagraph(node: PMNode): boolean {
 	return node.type.name !== 'ordered_list' || Number(node.attrs.order ?? 1) === 1;
 }
 
+/** Whether the soft break at `index` can write as a bare newline: not when it opens or ends the paragraph, nor after another
+ *  break (a second bare newline is a blank line). The caller falls back to the backslash form, which draws the same `<br>`. */
+function softBreakIsSafe(parent: PMNode, index: number): boolean {
+	if (index === 0 || parent.child(index - 1).type.name === 'hard_break') return false;
+	const next = parent.maybeChild(index + 1);
+	return !!next && next.type.name !== 'hard_break';
+}
+
+/** A line start the upstream escaper leaves bare but a parser reads as a block: a setext underline, raw HTML, a table row, a `1)` list. */
+const UNESCAPED_LINE_START = /^(\s*)(=|<|\||\d+\))/;
+
+/** After a break, the next text starts a line. The upstream escaper only treats a block's first text as a line start, so mark this
+ *  one (it then escapes `-`, `+`, `>`, `#`, `1.`) and write the four starts it does not escape as an entity, which reads back as the
+ *  same character. Without this, `a` + break + `- b` wrote a list. */
+function startLine(state: SerializerState, next: PMNode | null | undefined): void {
+	if (!next?.isText) return;
+	// biome-ignore lint/suspicious/noExplicitAny: `atBlockStart` and `text` are serializer internals.
+	const st = state as any;
+	const text = st.text.bind(st);
+	st.text = (t: string, escaped?: boolean) => {
+		// A mark's opener is written with escaping off; wait for the text itself.
+		if (escaped === false) return text(t, escaped);
+		st.text = text;
+		// The serializer clears `atBlockStart` after rendering the break itself, so set it here, as the text is written.
+		st.atBlockStart = true;
+		// The one character that makes the line a block: `=`, `<`, `|`, or the `)` of `1)`.
+		text(t.replace(UNESCAPED_LINE_START, (_m, ws: string, tok: string) => (tok.endsWith(')') ? `${ws}${tok.slice(0, -1)}&#41;` : `${ws}&#${tok.charCodeAt(0)};`)), escaped);
+	};
+}
+
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
 	hard_break(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
-		if (node.attrs.soft) {
-			if (index < parent.childCount - 1) state.write('\n');
+		if (node.attrs.soft && softBreakIsSafe(parent, index)) {
+			state.write('\n');
+			startLine(state, parent.maybeChild(index + 1));
 			return;
 		}
 		// biome-ignore lint/suspicious/noExplicitAny: the upstream rule, called with its own signature.
 		(defaultMarkdownSerializer.nodes.hard_break as any)(state, node, parent, index);
+		startLine(state, parent.maybeChild(index + 1));
 	},
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.

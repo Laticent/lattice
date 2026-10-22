@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { describe, expect, it } from 'vitest';
-import { roundTripSlideProse } from './deck-markdown';
+import { latticeMarkdownParser, latticeMarkdownSerializer, roundTripSlideProse } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
 
 const rt = (md: string) => roundTripSlideProse(md).trimEnd();
@@ -27,6 +27,52 @@ describe('soft line breaks', () => {
 	});
 	it('marks around a break survive', () => {
 		expect(rt('**bold**\n*it*')).toBe('**bold**\n*it*');
+	});
+});
+
+// The engine draws every break the same, so what must hold is the STRUCTURE: the paragraph stays one block with its breaks.
+const blocks = (md: string) => latticeMarkdownParser.parse(md).content.childCount;
+const types = (md: string) => latticeMarkdownParser.parse(md).content.toJSON()?.map((n: { type: string }) => n.type);
+
+describe('soft breaks never change structure', () => {
+	// A line that starts like a block, written as an escaped literal after a newline.
+	for (const marker of ['\\- b', '\\+ b', '\\# b', '\\> b', '\\---', '\\===', '1\\. b', '1\\) b', '\\<div>x']) {
+		it(`"a" then "${marker}" stays one paragraph`, () => {
+			const md = `a\n${marker}`;
+			const out = rt(md);
+			expect(types(out), out).toEqual(['paragraph']);
+			expect(rt(out)).toBe(out); // and settles
+			expect(brs(out)).toBe(1);
+		});
+	}
+	it('inside a list item and a quote', () => {
+		for (const md of ['- a\n  \\- b', '> a\n> \\- b', '- [x] a\n  \\- b']) expect(types(rt(md)), rt(md)).toHaveLength(1);
+		expect(types(rt('> a\n> \\- b'))).toEqual(['blockquote']);
+	});
+	it('deleting a middle line does not split the paragraph', () => {
+		const doc = latticeMarkdownParser.parse('line one\nline two\nline three');
+		const para = doc.content.child(0);
+		// [text, soft, text, soft, text] minus the middle text: two soft breaks side by side.
+		const joined = para.copy(para.content.cut(0, 8).append(para.content.cut(para.content.size - 10 - 1 - 0)));
+		const md = latticeMarkdownSerializer.serialize(doc.copy(doc.content.replaceChild(0, joined))).trimEnd();
+		expect(blocks(md), md).toBe(1);
+	});
+	it('a leading, trailing or doubled break keeps one block', () => {
+		const sch = latticeMarkdownParser.parse('x').type.schema;
+		const t = (s: string) => sch.text(s);
+		const soft = () => sch.nodes.hard_break.create({ soft: true });
+		const hard = () => sch.nodes.hard_break.create();
+		for (const kids of [
+			[t('a'), soft(), soft(), t('b')],
+			[t('a'), hard(), soft(), t('b')],
+			[t('a'), soft(), hard(), t('b')],
+			[soft(), t('b')],
+			[t('a'), soft()],
+		]) {
+			const doc = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, kids)]);
+			const md = latticeMarkdownSerializer.serialize(doc).trimEnd();
+			expect(blocks(md), JSON.stringify(md)).toBe(1);
+		}
 	});
 });
 
