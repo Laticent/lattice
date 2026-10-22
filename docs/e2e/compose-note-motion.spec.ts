@@ -201,6 +201,13 @@ test.describe('notes and motion in Compose', () => {
 		await expect(page.locator('.cs-host .cs-comment')).toHaveCount(1);
 	});
 
+	test('@crosswidth @gecko @webkit-tablet a note on a folded slide opens a panel you can see', async ({ page }) => {
+		await openDeckInCompose(page, '<!-- folded note. -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
+		await page.getByRole('button', { name: /Collapse slide/ }).first().click();
+		await pill(page, /note/).click();
+		await expect(page.getByRole('textbox', { name: 'note text' })).toBeVisible();
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

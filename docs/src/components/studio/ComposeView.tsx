@@ -2675,6 +2675,8 @@ function ComposeStyles() {
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4){display:block}
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4) ~ :is(h1,h2,h3,h4){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child{display:block}
+			/* A note's panel stays visible on a folded slide: its pill can be the visible first block, and a panel that opens hidden is a dead click. */
+			.cs-slide.cs-collapsed .cs-slide-content > .cs-comment-panel{display:block}
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4)::after,
 			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child::after{content:" ⋯";color:var(--text-muted,#6b7f9a);font-weight:400}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
