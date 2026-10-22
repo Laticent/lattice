@@ -55,3 +55,22 @@ logo-finish: bottom-center accent-ink lg
 - `top-left` hides the running header
 - `bottom-right` hides the page number and the rail
 - `title` shows the mark on the cover only
+
+---
+
+<!-- _class: logo-brand -->
+
+## Original colors, nothing behind them
+
+- `_class: logo-brand` keeps the file's own colors
+- No plate: a logo with a transparent background stays transparent over the slide
+
+---
+
+<!-- _class: logo-brand logo-plate -->
+
+## A plate, when asked for
+
+- `_class: logo-brand logo-plate` puts a soft plate behind the mark on this slide
+- The deck line can ask for it everywhere: `logo-finish: brand plate`
+- `_class: logo-no-plate` takes it back on one slide

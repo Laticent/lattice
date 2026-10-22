@@ -261,7 +261,8 @@ Works on SVG, PNG, and JPEG. Composes with every treatment
 |---|---|
 | Logo on every slide | `logo: ./logo.svg` |
 | Title slide only | `logo: ./logo.svg` + `logo-finish: title` |
-| Keep the file's own colors on a plate | `logo: ./logo.svg` + `logo-finish: brand` |
+| Keep the file's own colors | `logo: ./logo.svg` + `logo-finish: brand` |
+| Put a soft plate behind the logo | `logo-finish: brand plate`, or `_class: logo-plate` on one slide |
 | Recolor from the palette (follows light and dark) | `logo-finish: accent` or a blend, `accent-ink` |
 | Another berth (hides the header, footer or page number there) | `logo-finish: bottom-center` |
 | Several at once, one line | `logo-finish: bottom-center accent-ink lg title` |

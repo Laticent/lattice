@@ -1581,8 +1581,10 @@ workspace files). Same constraint `class: dark` has — see
 `engineering/gotchas.md`.
 
 **Brand colors.** The `brand` color word (`logo-finish: brand`) puts `logo-brand` on the section.
-The silhouette filter is removed; the logo's original colors render directly on a soft `--bg-alt`
-plate. Use when the brand's colors carry meaning (government insignia, university crests); reach for
+The silhouette filter is removed; the logo's original colors render directly, with nothing behind
+them, so a logo with a transparent background stays transparent. Add the `plate` word
+(`logo-finish: brand plate`, or `_class: logo-plate` on one slide) for a soft `--bg-alt` plate behind it, and
+`_class: logo-no-plate` to take the deck's plate back on one slide. Use `brand` when the brand's colors carry meaning (government insignia, university crests); reach for
 `auto` or a palette color otherwise.
 
 ---
