@@ -10,7 +10,7 @@ Use to make one metric land. The number should be the headline — supporting te
 
 ## Agent contract
 
-**By venue** no count budget. One number and its claim per slide, so there is no repeated element to count.
+**By venue** (`venue:`) its caption holds laptop ~36 · huddle ~24 · conference ~16 · hall ~12 words. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide at a wide @size by growing that slot until the page clips; `lint:deck` reads the same numbers.
 
 ### Slots
 

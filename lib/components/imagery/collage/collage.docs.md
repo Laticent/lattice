@@ -10,7 +10,7 @@ Use when several photographs make the argument together: a product line, a site,
 
 ## Agent contract
 
-**By venue** no count budget. Its elements are photographs; a synthetic deck would measure broken-image boxes, not photos. The packer holds four to six, and falls back to an even grid past six.
+**By venue** (`venue:`) its description holds laptop ~52 · huddle ~36 · conference ~30 · hall ~20 words. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide at a wide @size by growing that slot until the page clips; `lint:deck` reads the same numbers.
 
 ### Slots
 

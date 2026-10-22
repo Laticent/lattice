@@ -50,7 +50,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 `divider qr`
 
-## The payload bullet below becomes a scannable code.
+## The payload bullet becomes a scannable code.
 
 - https://laticent.io/components/divider
 - Scan for the divider's docs `caption`

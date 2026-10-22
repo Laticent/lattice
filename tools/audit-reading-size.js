@@ -109,7 +109,7 @@ function probeDeck(m) {
   return { src: `---\ntheme: indaco\n---\n\n${slides.join('\n---\n\n')}`, roster };
 }
 
-function render(src, tag, assetDir) {
+function render(src, tag, assetDir, size) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ars-'));
   // Samples reference their own assets by relative path (image, logo-wall, team-profile).
   if (assetDir && fs.existsSync(assetDir)) {
@@ -122,7 +122,7 @@ function render(src, tag, assetDir) {
   const html = path.join(dir, `${tag}.html`);
   fs.writeFileSync(md, src);
   return new Promise((resolve, reject) => {
-    const p = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), md, html, 'indaco', '-q', '--no-split'], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
+    const p = spawn(process.execPath, [path.join(ROOT, 'lattice.js'), md, html, 'indaco', '-q', '--no-split', ...(size ? ['--size', size] : [])], { cwd: ROOT, stdio: ['ignore', 'ignore', 'pipe'] });
     let err = '';
     p.stderr.on('data', (d) => { err += d; });
     p.on('close', (code) => (code === 0 && fs.existsSync(html) ? resolve({ html, dir }) : reject(new Error(`emulator exited ${code} for ${tag}:\n${err.slice(0, 600)}`))));
@@ -284,4 +284,6 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(e.stack || String(e)); process.exit(1); });
+if (require.main === module) main().catch((e) => { console.error(e.stack || String(e)); process.exit(1); });
+
+module.exports = { splitSample, probeDeck, render, VENUE_CLASS };

@@ -10,14 +10,14 @@
   },
   "split": {
     "strategy": "journey-stages",
-    "note": "PORTRAIT ONLY, and the VERTICAL form only. At landscape a journey is one figure over a shared axis \u2014 .journey-board sets --task-count, every task carries an absolute --col, and the stage ribbon spans its tasks with grid-column: span var(--span) \u2014 so a slice leaves tasks at columns 4-5 of a grid missing columns 1-3. That is the matrix-grid/gantt test, and journey fails it at landscape: it rings there, untouched. At portrait journey.transform.js emits ol.journey-vstack > li.journey-vstage > ol.journey-vrows > li.journey-vtask and the vertical rules are flex throughout (--span is a growth factor, --col unread), so a stage is a real unit: its own band label, its own rows, a per-task mood mark rather than one polyline across the set. The categorical accent survives the cut because it is attribute-driven \u2014 .journey-vstage[data-section=\"0..5\"] picks --cat-1-mark..--cat-6-mark \u2014 and data-section is written on the member, so it travels. The actor and mood legends FOLLOW the vstack in the emitted DOM, so they ride the suffix and repeat on every page, which a page of mood faces needs. The splitter returns null when there is no ol.journey-vstack, so the landscape grid is untouched. lib/core/carousel.js journey-stages."
+    "note": "PORTRAIT ONLY, and the VERTICAL form only. At landscape a journey is one figure over a shared axis — .journey-board sets --task-count, every task carries an absolute --col, and the stage ribbon spans its tasks with grid-column: span var(--span) — so a slice leaves tasks at columns 4-5 of a grid missing columns 1-3. That is the matrix-grid/gantt test, and journey fails it at landscape: it rings there, untouched. At portrait journey.transform.js emits ol.journey-vstack > li.journey-vstage > ol.journey-vrows > li.journey-vtask and the vertical rules are flex throughout (--span is a growth factor, --col unread), so a stage is a real unit: its own band label, its own rows, a per-task mood mark rather than one polyline across the set. The categorical accent survives the cut because it is attribute-driven — .journey-vstage[data-section=\"0..5\"] picks --cat-1-mark..--cat-6-mark — and data-section is written on the member, so it travels. The actor and mood legends FOLLOW the vstack in the emitted DOM, so they ride the suffix and repeat on every page, which a page of mood faces needs. The splitter returns null when there is no ol.journey-vstack, so the landscape grid is untouched. lib/core/carousel.js journey-stages."
   },
   "function": "progression",
   "bucket": "chart",
   "form": "timeline",
   "substance": "structure",
   "render": "hybrid",
-  "renderNote": "The board \u2014 stages, lanes, actors and task labels \u2014 is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. Drawn across it in inline `<svg>`: the mood curve and the mood faces, the only parts with real geometry. Neither side animates today \u2014 journey emits no motion roles, so chart-motion skips it.",
+  "renderNote": "The board — stages, lanes, actors and task labels — is an HTML/CSS grid, because a journey map is fundamentally a table of text that must wrap and reflow. Drawn across it in inline `<svg>`: the mood curve and the mood faces, the only parts with real geometry. Neither side animates today — journey emits no motion roles, so chart-motion skips it.",
   "kernel": {
     "figureClass": "journey-board",
     "marks": [
@@ -76,17 +76,36 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
   "labelSet": {
     "aria": "Mood scale",
     "members": [
-      { "key": "1", "label": "Pain" },
-      { "key": "5", "label": "Delight" }
+      {
+        "key": "1",
+        "label": "Pain"
+      },
+      {
+        "key": "5",
+        "label": "Delight"
+      }
     ],
     "unkeyed": [
-      { "key": "2", "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself" },
-      { "key": "3", "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself" },
-      { "key": "4", "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself" }
+      {
+        "key": "2",
+        "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself"
+      },
+      {
+        "key": "3",
+        "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself"
+      },
+      {
+        "key": "4",
+        "why": "only the two POLES carry words; the steps between them show their number, which is the scale itself"
+      }
     ]
   },
   "orientation": [
@@ -113,9 +132,18 @@
     "step": {
       "label": "a journey step",
       "params": {
-        "who": { "type": "text", "named": true },
-        "mood": { "type": "number", "named": true },
-        "volume": { "type": "number", "named": true }
+        "who": {
+          "type": "text",
+          "named": true
+        },
+        "mood": {
+          "type": "number",
+          "named": true
+        },
+        "volume": {
+          "type": "number",
+          "named": true
+        }
       }
     }
   },
@@ -249,32 +277,32 @@
   ],
   "specimenVoice": true,
   "handles": [
-      {
-        "part": ".journey-actor",
-        "names": ".journey-actor-name",
-        "note": "An actor chip is a colored dot plus a name span, so there is no nested block to cut a header from and the whole chip becomes the handle. HANDLE ONLY: the legend and the lane headers carry the SAME actor names, so neither can ever win the name-led matcher — the two tie on length and the ambiguity rule refuses both. Measured: all 9 of journey's new resolutions come from `.journey-vstage`; this row's work is moving already-resolved cues off the container."
-      },
-      {
-        "part": ".journey-task",
-        "names": ".journey-task-label",
-        "note": "A task cell is its actor initials plus a label span. HANDLE ONLY in practice: `narrateJourneyMood` emits `<stage>: <task>, <actor>, <mood>`, so a real cue opens with the STAGE, never the task label — the matcher fires on a task-led sentence but the projection does not write one."
-      },
-      {
-        "part": ".journey-stage",
-        "names": ".journey-stage-name",
-        "note": "The LANDSCAPE board's stage, and the counterpart to `.journey-vstage`. Found by presenting a landscape deck: `narrateJourneyMood` opens each cue with the stage name, so this is the row that places them — the portrait row alone left every landscape stage cue hiding."
-      },
-      {
-        "part": ".journey-vstage",
-        "names": ".journey-vstage-name",
-        "note": "The portrait board's stage: a name span above a row list, so the cue that opens with the stage name had nothing to land on."
-      },
-      {
-        "part": ".journey-lane",
-        "names": ".journey-lane-label",
-        "note": "A lane header is a label span beside its span count. HANDLE ONLY, and for the same measured reason as `.journey-actor`: its text is the actor name the legend also carries, so the two tie and the name-led matcher refuses both. It earns its place by moving the ink off the whole lane header, not by placing a cue."
-      }
-    ],
+    {
+      "part": ".journey-actor",
+      "names": ".journey-actor-name",
+      "note": "An actor chip is a colored dot plus a name span, so there is no nested block to cut a header from and the whole chip becomes the handle. HANDLE ONLY: the legend and the lane headers carry the SAME actor names, so neither can ever win the name-led matcher — the two tie on length and the ambiguity rule refuses both. Measured: all 9 of journey's new resolutions come from `.journey-vstage`; this row's work is moving already-resolved cues off the container."
+    },
+    {
+      "part": ".journey-task",
+      "names": ".journey-task-label",
+      "note": "A task cell is its actor initials plus a label span. HANDLE ONLY in practice: `narrateJourneyMood` emits `<stage>: <task>, <actor>, <mood>`, so a real cue opens with the STAGE, never the task label — the matcher fires on a task-led sentence but the projection does not write one."
+    },
+    {
+      "part": ".journey-stage",
+      "names": ".journey-stage-name",
+      "note": "The LANDSCAPE board's stage, and the counterpart to `.journey-vstage`. Found by presenting a landscape deck: `narrateJourneyMood` opens each cue with the stage name, so this is the row that places them — the portrait row alone left every landscape stage cue hiding."
+    },
+    {
+      "part": ".journey-vstage",
+      "names": ".journey-vstage-name",
+      "note": "The portrait board's stage: a name span above a row list, so the cue that opens with the stage name had nothing to land on."
+    },
+    {
+      "part": ".journey-lane",
+      "names": ".journey-lane-label",
+      "note": "A lane header is a label span beside its span count. HANDLE ONLY, and for the same measured reason as `.journey-actor`: its text is the actor name the legend also carries, so the two tie and the name-led matcher refuses both. It earns its place by moving the ink off the whole lane header, not by placing a cue."
+    }
+  ],
   "pane": {
     "side": 50,
     "stack": false,
@@ -290,7 +318,20 @@
     }
   },
   "venueCapacity": {
-    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+    "axis": "item",
+    "at": "wide",
+    "atLeast": [
+      "laptop",
+      "huddle"
+    ],
+    "byWords": {
+      "6": {
+        "laptop": 6,
+        "huddle": 6,
+        "conference": 3,
+        "hall": 2
+      }
+    }
   },
   "gesture": {
     "archetype": "flow",
@@ -306,5 +347,6 @@
       }
     },
     "key": "act:peak"
-  }
+  },
+  "venueProbe": "<!-- _class: journey -->\n\n## The journey scores each stage of the path.\n\n- Evaluate\n  - Read case study `{who=prospect, mood=5}`\n  - Book demo `{who=prospect, mood=4}`\n- Trial\n  - Trial signup `{who=prospect, mood=3}`\n  - Workspace setup `{who=user, mood=1}`\n"
 }

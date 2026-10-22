@@ -109,5 +109,6 @@
   },
   "venueCapacity": {
     "none": "A host holds two components, each with its own venue budget, so it has nothing of its own to count."
-  }
+  },
+  "venueProbe": "<!-- _class: rows -->\n\n## Hiring kept pace with the plan through Q3.\n\n<!-- _pane: progress -->\n### Hired against plan\n\n- Engineering `98%`\n\n<!-- _pane: list -->\n### By function\n\n- Engineering hired 118 of 120\n- Sales hired 55 of 60\n"
 }

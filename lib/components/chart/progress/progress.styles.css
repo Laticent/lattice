@@ -47,7 +47,10 @@
    * row and washed the fill out; the magnitude is carried by the bar's length,
    * its leading-edge intensity (see the fill), and the printed %. overflow:hidden
    * + radius clip the fill's rounded corners. */
-  height: 2.5cqi;
+  /* The readout plate rides inside this clipped box, and its text is `--fs-meta`, which a venue
+   * lifts (29px at hall) past a fixed 2.5cqi (32px) once the plate's padding is added, so the
+   * number was cut by its own track. The track is at least as tall as its label. */
+  height: max(2.5cqi, calc(var(--fs-meta) + 0.8cqi));
   background: transparent;
   border-radius: var(--chart-mark-radius);
   overflow: hidden;

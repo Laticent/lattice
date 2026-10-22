@@ -12,7 +12,7 @@ Use when a process or experience needs charting as a horizontal sequence of mome
 
 ## Agent contract
 
-**By venue** no count budget. A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting.
+**By venue** (`venue:`, ~6 words each) it holds laptop ~6+ · huddle ~6+ · conference ~3 · hall ~2 items. A `+` means the rig tried that many and the slide still fit. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

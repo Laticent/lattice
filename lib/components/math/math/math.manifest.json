@@ -4,17 +4,33 @@
   "function": "evidence",
   "bucket": "math",
   "form": "canvas",
-  "plugins": { "requires": ["math"], "optional": ["function-plot"] },
+  "plugins": {
+    "requires": [
+      "math"
+    ],
+    "optional": [
+      "function-plot"
+    ]
+  },
   "projection": {
     "figure": "bare"
   },
   "stage": "canvas",
   "conformance": "strict",
-  "coda": { "dock": "grid", "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": {
+    "dock": "grid",
+    "claims": [
+      "blockquote",
+      "trailing-paragraph"
+    ]
+  },
   "split": {
     "strategy": "math-structures",
     "intro": "The equation, then its symbols",
-    "roles": ["cover", "body"],
+    "roles": [
+      "cover",
+      "body"
+    ],
     "note": "#2136 - math splits on STRUCTURE, not on variant. Eight variants render four structures: equation+legend (bare/feature/matrix/decompose), step table (derivation), card stack (theorem) and columns (compare). `stats` and `canvas` are fixed scaffolds that the strategy refuses BY NAME, first: being indivisible is a fact about the VARIANT, and letting it fall out of a member count held only for the two committed samples (author the stats reading as a list and `cover-paginate` claimed the slide). The two paginated arms run LAST, and only on a collection that is a direct child of the stage. A STRATEGY rather than a bare `capacity.axis` because two of the four structures are not collections at all - markdown renders theorem as sibling <blockquote>s and compare as a flat h3/p/p run - and because a bare axis would let a later change paginate the two scaffolds. NO `perPage`: the split trigger is STRUCTURAL and passes `ATOMIZE` as the ratio (auto-split.js, owner ruling 2026-09-01), so the shared paginator resolves one member per page whatever a recipe declares - a number here would read as pacing and change nothing. The two bespoke arms are one member per page by construction. See lib/core/carousel.js `splitMathStructures`."
   },
   "substance": "prose",
@@ -228,7 +244,16 @@
     "noBudget": "one equation; its size is fixed chrome, not a count"
   },
   "venueCapacity": {
-    "none": "The equation is fixed content that dominates the box, so a count of legend lines measures the wrong thing."
+    "axis": "line",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 7,
+        "huddle": 6,
+        "conference": 3,
+        "hall": 2
+      }
+    }
   },
   "gesture": {
     "archetype": "media",
@@ -237,5 +262,6 @@
         "select": ":is(.katex-display, .katex:not(.katex-display *))"
       }
     }
-  }
+  },
+  "venueProbe": "<!-- _class: math -->\n\n`Linear regression · OLS`\n\n## One equation, displayed; its symbols named below.\n\n$$ \\hat\\beta = (X^\\top X)^{-1} X^\\top y $$\n\n- $\\hat\\beta$ — OLS coefficient vector\n- $X$ — design matrix, $n \\times p$\n"
 }

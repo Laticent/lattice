@@ -6,10 +6,15 @@
   "form": "panel",
   "substance": "structure",
   "stage": "canvas",
-  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "blockquote",
+      "trailing-paragraph"
+    ]
+  },
   "conformance": "strict",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "fields",
       "title"
@@ -21,7 +26,7 @@
     "kickoff"
   ],
   "description": "An identity card that encodes a vCard: name, title and contact lines beside a QR that saves the presenter to a phone.",
-  "purpose": "Use as the \"scan to add me\" close or a speaker-intro slide. The QR encodes a vCard the audience saves in one tap; the card shows the name as hero with title/org and a contact ledger. Author the fields as a postfix-key list.",
+  "purpose": "Use as the \"scan to add me\" close or a speaker-intro slide. The QR encodes a vCard the audience saves in one tap, or, with `qr: tel`, a link that dials; the card shows the name as hero with title/org and a contact ledger. Author the fields as a postfix-key list. It reflows by canvas (side by side, then stacked) and holds at every venue.",
   "slots": {
     "title": {
       "selector": "h2",
@@ -31,7 +36,7 @@
     "fields": {
       "selector": "ul > li",
       "required": true,
-      "description": "One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title|role, org|company, email, phone|tel, url|web. Optional key: `caption` (CTA under the QR)."
+      "description": "One field per bullet in postfix-key form — value first, trailing inline-code names the field: `- Sharmarke Aden `name``. Keys: name (required), title|role, org|company, email, phone|tel|voice, mobile|cell, office|work, url|web|site. Phone keys are separate lines, each typed in the vCard, and the ledger lists every line in the order you wrote it. Optional keys: `caption` (CTA under the QR) and `qr` (what the code carries: `vcard`, `tel` or `url`)."
     },
     "caption": {
       "selector": "ul > li",
@@ -49,6 +54,14 @@
     {
       "title": "Show what you choose, encode the rest",
       "body": "Every non-empty field goes into the vCard; the card foregrounds the name, title and org and lists email/phone/url beneath."
+    },
+    {
+      "title": "A hall or conference room",
+      "body": "A full vCard is a dense code (55-67 modules wide) and the back row cannot resolve it. Add `- tel `qr`` or `- url `qr``: the code carries only a phone link or a web address (27-35 modules, about 2.5 times larger per module) and the ledger still shows every field."
+    },
+    {
+      "title": "Phone numbers that differ",
+      "body": "Write each line with its own key (`mobile`, `office`, `phone`). Each becomes its own typed TEL entry in the vCard, and the card lists them in the order written."
     }
   ],
   "antiPatterns": [
@@ -74,7 +87,11 @@
     },
     {
       "mistake": "The trailing key doesn't match a supported alias, e.g. `` `position` `` instead of `` `title`/`role` ``.",
-      "fix": "Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|mobile, url|web|site, caption) — an unrecognized key isn't mapped to any card field, so the whole bullet is silently dropped from both the rendered card and the vCard, not merely misplaced."
+      "fix": "Only the documented keys are recognized (name, title|role, org|company, email, phone|tel|voice, mobile|cell, office|work, url|web|site, qr, caption) — an unrecognized key isn't mapped to any card field, so the whole bullet is silently dropped from both the rendered card and the vCard, not merely misplaced."
+    },
+    {
+      "mistake": "A full vCard QR on a `venue: hall` deck.",
+      "fix": "The code is dense and the room is far. Add `- tel `qr`` (the code dials the first phone line) or `- url `qr``; the card still lists everything."
     }
   ],
   "specimenVoice": true,
@@ -87,9 +104,10 @@
     "noBudget": "one contact card"
   },
   "venueCapacity": {
-    "none": "A fixed card (name, a few contact lines and a QR code), with no repeated element to count."
+    "none": "A fixed card, so there is no count budget. `npm run check:venue-conformance` checks its fit at every venue and canvas instead."
   },
   "gesture": {
     "archetype": "media"
-  }
+  },
+  "venueProbe": "<!-- _class: contact -->\n\n- Sharmarke Aden `name`\n- Founder & Chief Executive Officer `title`\n- Laticent International Holdings `org`\n- +1 (555) 014-2200 `mobile`\n- sharmarke.aden@laticent.example `email`\n- laticent.example/sharmarke `url`\n- Scan to add me `caption`\n"
 }

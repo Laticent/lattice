@@ -27,7 +27,11 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": { "claims": ["blockquote"] },
+  "coda": {
+    "claims": [
+      "blockquote"
+    ]
+  },
   "tags": [
     "citation",
     "quotation",
@@ -134,7 +138,7 @@
     "margin": {
       "label": "margin",
       "summary": "The cite in the gutter.",
-      "sample": "<!-- _class: citation-card margin -->\n\n## margin hangs the cite in the gutter.\n\n`GDPR Art. 6(1)(f) · legitimate interests`\n\n> Processing is lawful \u2026 only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights \u2026 of the data subject.\n\n- Two-part test.\n  - Necessity first, then balancing against the data subject's rights. Document both halves.\n"
+      "sample": "<!-- _class: citation-card margin -->\n\n## margin hangs the cite in the gutter.\n\n`GDPR Art. 6(1)(f) · legitimate interests`\n\n> Processing is lawful … only if necessary for the purposes of the legitimate interests pursued by the controller, except where such interests are overridden by the interests or fundamental rights … of the data subject.\n\n- Two-part test.\n  - Necessity first, then balancing against the data subject's rights. Document both halves.\n"
     },
     "triptych": {
       "label": "triptych",
@@ -177,9 +181,21 @@
     "noBudget": "one citation"
   },
   "venueCapacity": {
-    "none": "Atomic: one citation per slide, so there is no count axis."
+    "prose": {
+      "slot": "text",
+      "row": {
+        "laptop": 117,
+        "huddle": 79,
+        "conference": 55,
+        "hall": 31
+      },
+      "atLeast": [
+        "laptop"
+      ]
+    }
   },
   "gesture": {
     "archetype": "statement"
-  }
+  },
+  "venueProbe": "<!-- _class: citation-card -->\n\n## The card quotes the law verbatim, cited.\n\n`Cal. Civ. Code §1798.140(o) · CCPA/CPRA`\n\n> \"Personal information\" identifies a particular consumer.\n\n- In plain English: any data tied to a household.\n- **What we must do.**\n  - Treat household identifiers as personal information.\n"
 }
