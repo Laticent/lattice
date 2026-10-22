@@ -296,3 +296,39 @@ describe('flow: whole words, and no note wider than the view', () => {
     assert.ok(r.placed[0].box.right <= 40 + 0.01, `right edge ${r.placed[0].box.right}`);
   });
 });
+
+describe('the notes\' side: the author\'s `side=`, else the chart\'s manifest default, else under', () => {
+  const viewBox = (html) => doc(html).querySelector('svg').getAttribute('viewBox').split(/\s+/).map(Number);
+  const note = (extra = '') => (c) => `\`@callout{{Peak, for=${c.a[0]}}${extra}}\``;
+  const bar = CHARTS.find((c) => c.cls === 'bar');
+  const pie = CHARTS.find((c) => c.cls === 'piechart');
+  const size = (c, extra) => { const [, , w, h] = viewBox(render(c, note(extra)(c)).html); return { w, h }; };
+  const bare = (c) => { const [, , w, h] = viewBox(render(c, '').html); return { w, h }; };
+
+  test('a chart with no manifest default puts the notes under the figure: taller, no wider', () => {
+    const b = bare(bar);
+    const s = size(bar, '');
+    assert.ok(s.h > b.h && s.w <= b.w + 0.01, `${JSON.stringify(s)} vs ${JSON.stringify(b)}`);
+  });
+
+  test('`side=beside` puts them beside it: wider, no taller', () => {
+    const b = bare(bar);
+    const s = size(bar, ', side=beside');
+    assert.ok(s.w > b.w && s.h <= b.h + 0.01, `${JSON.stringify(s)} vs ${JSON.stringify(b)}`);
+  });
+
+  test('the bare word `beside` reads the same as `side=beside`', () => {
+    assert.deepEqual(size(bar, ', beside'), size(bar, ', side=beside'));
+  });
+
+  test('the pie\'s manifest default is beside, and the author overrides it with `side=under`', () => {
+    const dflt = size(pie, '');
+    const under = size(pie, ', side=under');
+    assert.ok(dflt.w > under.w, `default ${JSON.stringify(dflt)} is wider than under ${JSON.stringify(under)}`);
+    assert.ok(under.h > dflt.h, `under ${JSON.stringify(under)} is taller than default ${JSON.stringify(dflt)}`);
+  });
+
+  test('a side word that is not one is ignored, and the default stands', () => {
+    assert.deepEqual(size(bar, ', side=left'), size(bar, ''));
+  });
+});

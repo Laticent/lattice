@@ -51,6 +51,7 @@ span whose labels pin a mark still draws them, and `lint:deck` suggests `@callou
 | `` `@callout{{Drop-off, tag, c4, row=Feb, col=M2}}` `` | Its number on a square in color 4 |
 | `` `@callout{{Drop-off, c4, for=14}}` `` | Its number on a circle in color 4, at mark 14 (the short form) |
 | `` `@callout{{Drop-off, row=Feb, col=M2, detail="Shipped mid-month"}}` `` | The detail joins that cell's card and the speaker note |
+| `` `@callout{[{Peak, for=Q4}, {Low, for=Q1}], side=beside}` `` | Both notes beside the chart instead of under it |
 
 **A callout** is the pill's record plus its named words:
 
@@ -66,6 +67,14 @@ Quote any text holding a comma, `=`, `|`, a bracket or a brace: `{"Peak, then fl
 
 A callout is always anchored to the mark it names; a layout word in a `@callout` span is reported
 and ignored.
+
+**Where the notes sit is yours to say.** Put `side=under` or `side=beside` (or just the word) anywhere in the
+`@callout` span; the first span on the slide that names one decides for the slide. With none, the chart's own
+default applies: under the figure, except where a chart's manifest says otherwise (`callout.side` in its
+`*.manifest.json`; the pie and donut say `beside`, where their key already sits). A side that is neither is
+reported and ignored. `beside` on a narrow slide (9:16) leaves the notes a narrow lane, so long words may break;
+`under` is the safer choice there. On the heatmap, with no `side=`, the grid still picks the side that leaves
+it larger.
 
 One shape reads the wrong way without an error: a number followed by a style word, `{1, lg}`, is the
 callout "1" in size lg. `lint:deck` warns on it; quote the word to keep it as text, `{1, "lg"}`.
@@ -104,9 +113,10 @@ On every chart a `for=` is matched by name without regard to case or extra space
 the order the chart draws its marks. A `for=` that names no mark is not drawn, and the chart's description lists
 it under "Not drawn" and says why; `lint:deck` names the marks it could have used.
 
-**The placement rule is one rule.** On each of these charts the notes go under the figure as a centered group that
-wraps. With a key, the engine tries the key's two sides and keeps the one that leaves the plot larger at the
-slide's real shape (`data-aspect`, § Placement below); the pie also tries the notes beside it. A chart that has no callout on its slide renders as it
+**The placement rule is one rule.** On each of these charts the notes go where the slide says (`side=`, else the
+chart's manifest default, else under the figure; see **Where the notes sit is yours to say**). With a key, the
+engine tries the key's two sides and keeps the one that leaves the plot larger at the slide's real shape
+(`data-aspect`, § Placement below). A chart that has no callout on its slide renders as it
 always did, byte for byte. The shared pieces are `lib/components/chart/_chart-family/callout-layer.js`.
 
 On a heatmap the notes sit in a lane to the right of the grid, each level with its cell, or in a
@@ -118,7 +128,7 @@ a reader matches a cell to its label by shape as well as by color, never by colo
 The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
 the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
 
-**Notes sit under the chart, centered, as a group that wraps.** On every chart but the heatmap and the pie, the notes set under the figure side by side, each as wide as its words, and wrap to a new row when the width runs out; each row is centered under the figure. A narrow slide (9:16) gets more rows. A pie or donut may also take them beside it, where its key already sits. On a `journey` the badge straddles the bottom edge of the task chip, near its start, so the actor dots, the mood number and the mood face stay visible.
+**Notes sit under the chart, centered, as a group that wraps.** On every chart but the heatmap and the pie, the notes set under the figure side by side, each as wide as its words, and wrap to a new row when the width runs out; each row is centered under the figure. A narrow slide (9:16) gets more rows. A pie or donut defaults to beside, by its manifest; any chart takes `side=beside`. On a `journey` the badge straddles the bottom edge of the task chip, near its start, so the actor dots, the mood number and the mood face stay visible.
 
 **Placement.** The engine lays the heatmap out both ways, with the notes beside the grid and under
 it, and keeps the one that leaves the grid larger at the slide's shape. Where a band key is also on
@@ -218,7 +228,8 @@ says which prefix a span was written with). The SVG emitter is `laneSvg` in
    answers `{ mark, box }` (the `data-mark` index and the mark's box in the figure's coordinates; `pin:
    'beside'` for a point, `ring: 'path'` with `d` for an outline, `ring: 'circle'` for a round mark), and
    caps the drawn notes at six;
-3. `place` / `placeUnkeyed` / `choose` lay the notes out beside and under the figure, and a chart with a
+3. `place` / `placeUnkeyed` / `choose` lay the notes out on the side `sideFor` resolved (the author's `side=`,
+   else the manifest's `callout.side`, else under), and a chart with a
    key hands `choose` an `attempt(place)` that builds its key around each unit; the winner is the layout
    that leaves the plot largest at the slide's shape, by the rule in the design note § 5;
 4. `mergeDetail` adds each note's `detail` to its mark's card and the speaker note;

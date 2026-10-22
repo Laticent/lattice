@@ -11,7 +11,7 @@ header: "Lattice · callouts on bars · placed by measure"
 
 `Callouts · bars`
 
-A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, with its words set under the chart, side by side, wrapping when the width runs out. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
+A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, with its words set under the chart, side by side, wrapping when the width runs out; `side=beside` puts them beside it. Render this deck at 16:9, 4:3, 1:1, 4:5 and 9:16 to watch the notes move.
 
 ---
 
@@ -144,3 +144,17 @@ A `@callout` ringed on a bar, a stack, a band, a step, a KPI row or a layer, wit
 - Retention `$50M`
 
 `@callout{[{Thinly placed, for=Layer 3}, {Most claims land here, for=Layer 1}]}`
+
+---
+
+<!-- _class: bar -->
+<!-- _footer: "bar · side=beside: the author puts the notes beside the chart; under is the default." -->
+
+## The same chart, with the notes beside it.
+
+- Q1 `120`
+- Q2 `180`
+- Q3 `240`
+- Q4 `310`
+
+`@callout{[{Peak quarter, for=Q4}, {Slowest start, for=Q1}], side=beside}`

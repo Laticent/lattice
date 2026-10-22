@@ -173,3 +173,10 @@ test('a mark name with its own `<` or `>` still matches what the list says', () 
 test('a tag in a mark name is dropped, as it is in the drawn label', () => {
   assert.deepEqual(findLegendSpans(listChart('bar', '- <b>Q1</b> `1`\n- Q2 `2`', '@callout{{Peak, for=Q1}}')), []);
 });
+
+test('a callout\'s `side=` or bare side word is clean, and a side that is not one is told', () => {
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}, side=beside}')), []);
+  assert.deepEqual(findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}, under}')), []);
+  const [f] = findLegendSpans(listChart('bar', BAR_LIST, '@callout{{Peak, for=Q2}, side=left}'));
+  assert.match(f.message, /`left` is not a callout side: use `under` or `beside`/);
+});

@@ -252,3 +252,23 @@ describe('legend-messages: every code the reader emits has words', () => {
     assert.equal(legendMessage(readLegend('@legend{x}').diagnostics[1]), 'The legend has no entries it can draw.');
   });
 });
+
+test('a @callout span reads its side: `side=beside`, `side=under`, or the bare word', () => {
+  const { readLegend } = require('../../../lib/core/legend');
+  assert.equal(readLegend('@callout{{Peak, for=1}, side=beside}').legend.side, 'beside');
+  assert.equal(readLegend('@callout{{Peak, for=1}, under}').legend.side, 'under');
+  assert.equal(readLegend('@callout{{Peak, for=1}}').legend.side, undefined);
+});
+
+test('a side that is not one is reported, and the callout still reads', () => {
+  const { readLegend } = require('../../../lib/core/legend');
+  const r = readLegend('@callout{{Peak, for=1}, side=left}');
+  assert.equal(r.ok, true);
+  assert.ok(r.diagnostics.some((d) => d.code === 'legend/side'));
+  assert.equal(r.legend.side, undefined);
+});
+
+test('a @legend span carries no side: the notes are a callout\'s', () => {
+  const { readLegend } = require('../../../lib/core/legend');
+  assert.equal(readLegend('@legend{[{Poor, c1}], key, beside}').legend.side, undefined);
+});
