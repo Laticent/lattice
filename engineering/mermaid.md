@@ -726,8 +726,10 @@ gain. The page warms the frame when a deck holds a fence, so it overlaps the pre
 Typed edits, which are what a person feels (median keystroke in a diagram label, real Studio, headless Chromium, flat at 1, 5 and 20 diagrams): about 300 ms
 drawing in the page and 390 to 410 ms in the frame, so the frame adds a constant of about +50 ms (about 17 to 30%). A V8 CPU profile over 8 keystrokes puts it on
 the main thread in pieces: Mermaid's module build running a little slower than its minified bundle (~+11 ms), sanitizing the returned drawing (~+8 to 10 ms, the
-sandbox's price) and frame, host and stand-in glue (~+15 to 20 ms). The frame shares the page's thread in that run; whether desktop Chrome gives a sandboxed frame its
-own process is UNVERIFIED. A whole-document replace re-renders the whole deck and grows with deck size in both modes, with or without diagrams.
+sandbox's price) and frame, host and stand-in glue (~+15 to 20 ms). The frame shares the page's thread in headless Chromium's default build. With Chrome's `IsolateSandboxedIframes` and `--site-per-process` on, it ran in its own
+process and a keystroke took 299 ms against 305 ms without (243 ms in the page), so the cost is the round trip, not contention for the thread. In a plain page
+Mermaid's module build renders about 25% slower than its minified bundle (about 21 ms against 16 ms), which is the Mermaid share of the gap. Owner decision D1 B (2026-10-22)
+asked for an optimization attempt; no change was found that pays for its risk (a font-rule cache would save about 2.5 ms and can go stale), so the cost stays. A whole-document replace re-renders the whole deck and grows with deck size in both modes, with or without diagrams.
 What is left over the prose floor (about 480 ms) is the preview's own start and the first draw, all on the one main thread: only a frame
 in another process would run in parallel (a frame served from a different site is isolated by the browser; measured 13 to 48 ms of
 parent-thread blocking against 330 to 590 ms for a same-site frame), which needs a second host; the owner ruled that out (2026-10-21).
