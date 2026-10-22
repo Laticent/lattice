@@ -1,0 +1,3 @@
+studio: +150
+`StudioShell` builds the list of inline kinds the installed plugins declare (`pluginKindEntries`, a type-only-import module of its own) and hands it to Compose as a prop, so a plugin installed in the Library turns its `@kind{…}` spans into objects without a keystroke; the same prop line also carries the Motion item's Library filter. The editor, the panel and the kernel writer are all lazy, so only this wiring is eager (+150 B gz as CI measured).
+Given back first: the list is built from the records the shell already holds, so Compose imports nothing from the code-package door (a static import of `door.ts` would have pulled it onto the startup path).
