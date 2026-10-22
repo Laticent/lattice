@@ -68,3 +68,44 @@ describe('silent on genuinely different series', () => {
     assert.equal(found(deck('bar', '- A\n  - Sales `{1}`\n    - Licenses note\n- B\n  - Sales `{2}`\n    - Licences note')).length, 0);
   });
 });
+
+describe('review findings (checker, 2026-10-22)', () => {
+  const fixes = (src) => lintCore.applyAllFixes(src, vocab);
+  test('the fix carries the text as written, so it applies (double space, bold, underscore, trailing text)', () => {
+    for (const bad of ['net  revenue `{2}`', 'Net **Revenu** `{2}`', 'net_ref `{2}`', 'Sale `{2}` EMEA']) {
+      const good = bad.startsWith('Net') ? 'Net **Revenue** `{1}`' : bad.startsWith('net_') ? 'netref `{1}`' : bad.startsWith('Sale') ? 'Sales `{1}`' : 'net revenue `{1}`';
+      const src = deck('bar', `- A\n  - ${good}\n- B\n  - ${bad}`);
+      const fixed = fixes(src);
+      assert.equal(found(fixed).length, 0, bad);
+    }
+  });
+  test('Fix all does not stall: a second slide still gets fixed', () => {
+    const two = [deck('bar', '- A\n  - Net Revenue `{1}`\n- B\n  - net  revenue `{2}`'), deck('bar', '- A\n  - Licenses `{1}`\n- B\n  - Licences `{2}`').replace(/^---\nmarp: true\n---\n\n/, '')].join('\n---\n\n');
+    assert.equal(found(fixes(two)).length, 0);
+  });
+  test('a note row (no number last) is not a series name', () => {
+    assert.equal(found(deck('line', '- Q1 `{4}`\n  - New hire\n- Q2 `{5}`\n  - New hires')).length, 0);
+  });
+  test('series missing from some groups are not merged', () => {
+    assert.equal(found(deck('bar', '- Phase 1\n  - Plan A `{3}`\n  - Baseline `{2}`\n- Phase 2\n  - Plan B `{4}`\n  - Baseline `{2}`')).length, 0);
+    assert.equal(found(deck('bar', '- 2023\n  - UK `{3}`\n- 2024\n  - US `{1}`')).length, 0);
+    assert.equal(found(deck('stacked-bar', '- Phase 1\n  - A `{3}`\n- Phase 2\n  - B `{4}`')).length, 0);
+  });
+  test('only the first list of the slide is read', () => {
+    const src = deck('bar', '- A\n  - Sales `{1}`\n- B\n  - Sales `{2}`\n\nSource notes:\n\n- Method\n  - Sale `{1}`');
+    assert.equal(found(src).length, 0);
+  });
+  test('many similar names neither explode nor crash', () => {
+    const rows = Array.from({ length: 800 }, (_, i) => `- G${i}\n  - Series${'x'.repeat(i % 7)}${i} \`{1}\``).join('\n');
+    assert.equal(found(deck('bar', rows)).length, 0); // past the name cap the pair scan is skipped, and the findings are linear in rows either way
+  });
+  test('one misspelled row gets one finding', () => {
+    const f = found(deck('bar', '- A\n  - Licenses `{1}`\n- B\n  - Licenses `{2}`\n- C\n  - Licences `{3}`\n- D\n  - Lisences `{4}`'));
+    assert.equal(f.filter((x) => x.line.startsWith('- Lisences')).length, 1);
+    assert.equal(f.filter((x) => x.line.startsWith('- Lisences'))[0].replace.to, 'Licenses');
+  });
+  test('a longer fence around a shorter one does not break the scan', () => {
+    const src = deck('bar', '- A\n  - Licenses `{1}`\n- B\n  - Licences `{2}`\n\n````\n```\n````');
+    assert.equal(found(src).length, 1);
+  });
+});
