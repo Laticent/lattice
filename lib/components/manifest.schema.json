@@ -758,6 +758,11 @@
       "minLength": 1,
       "description": "Full slide markdown (including the `_class` directive line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
     },
+    "venueProbe": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Full slide markdown (with the `_class` directive line) for the LONGEST realistic content this component promises to hold at every venue and canvas family. `check:venue-conformance` renders it beside `sample` and fails the component if anything clips. Declare it for a component whose `venueCapacity` is `none`: with no count budget, this is the only statement of how much it holds."
+    },
     "stressDoc": {
       "type": "object",
       "description": "Required wherever capacity is declared (validate() error since the migration completed); optional elsewhere. The stress-test slide as { summary, sample }: summary is one sentence naming the limit the slide shows; sample is the full slide markdown at the upper content limit. Replaces the legacy stressSample string. (`summary` was named `caption` before the read-as caption channel took that word — 2026-07-11.)",

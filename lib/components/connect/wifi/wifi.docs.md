@@ -10,7 +10,7 @@ Use to get a room onto the Wi-Fi without reading a password aloud. The QR encode
 
 ## Agent contract
 
-**By venue** no count budget. A fixed card (network, password and a QR code), with no repeated element to count.
+**By venue** no count budget. A fixed card, so there is no count budget. `npm run check:venue-conformance` checks its fit at every venue and canvas instead.
 
 ### Slots
 

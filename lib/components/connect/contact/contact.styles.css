@@ -3,46 +3,98 @@
  *   .qr-card.contact-card > .qr-identity (.qr-name + .qr-lockup + .qr-ledger)
  *                         > .qr-side (.qr-tile + .qr-cta)
  * QR tile is fixed light paper / dark ink (scans in every theme), via a
- * token-with-fallback so a theme can retune it. */
+ * token-with-fallback so a theme can retune it.
+ *
+ * THE RULE THIS FILE FOLLOWS: type scales with the venue, geometry does not.
+ * A venue multiplies every type role (typography.md §7), so any length written in `em`
+ * grows with it. The card used to pad, gap and size its QR in `em`, so a hall's 1.5x
+ * type step also inflated the card around it, and the name (hero, 129pt at hall) pushed
+ * the QR, the phone and the URL off the slide (engineering/decisions/2026-10-22-venue-
+ * conformance.md). Here every length is a share of the SLIDE (`--_sec-1cqi`, the width
+ * unit, and `--_sec-1cqh`, the height unit), so the box is the same at every venue and
+ * only the text inside it gets bigger.
+ *
+ * The code's size and framing (`--qr-share`, `--qc-qr`, the tile and caption) are shared with
+ * `wifi`, in _qr-card/qr-general.css.
+ *
+ * Two axes, kept apart:
+ *   FAMILY  (`data-family`, the canvas shape) picks the STRUCTURE.
+ *     wide    identity column | QR column
+ *     square  name, then lockup, then the ledger beside the QR
+ *     tall, strip   one column: name, lockup, ledger, QR
+ *   VENUE   (`venue-*`) picks the type size, the QR's floor width (`--qr-min`, set with the
+ *     venue in base.modifiers.css).
+ * The name is the one display element: it takes the smaller of the hero role, the width
+ * of its column and a share of the slide's height, so it can be too big for nothing.
+ *
+ * Every fit has a FLOOR, in slide units, about the role's size at laptop. Shrinking to fit is the
+ * contract only within a legible range; a card more over-authored than that overflows
+ * and the engine flags it, instead of quietly setting its text too small to read. */
 
 section.contact .qr-card {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
+  /* Height cap for ONE name line, in slide-height units: a portrait canvas is short of height,
+   * not width, so its stacked name takes a smaller share. */
+  --qc-name-h: 12;
+  /* The identity column's width, read by the name below as `100cqi` of THIS card. */
+  --qc-id-w: calc(100cqi - var(--qc-pad) * 4 - var(--qc-qr));
+  /* The ledger's own column: the same as the identity column except in square, where the
+   * name and lockup span the card and the ledger shares a row with the QR. */
+  --qc-led-w: var(--qc-id-w);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name side" "lockup side" "ledger side";
+  grid-template-rows: auto auto auto;
+  align-content: center;
+  column-gap: var(--qc-pad);
+  row-gap: var(--qc-gap);
+  padding: var(--qc-pad);
   background: var(--bg-alt);
   border: 1px solid var(--border);
-  border-radius: 0.85em;
+  border-radius: calc(var(--_sec-1cqi, 1cqi) * 0.9);
   overflow: hidden;
 }
 
-section.contact .qr-identity {
-  flex: 1 1 58%;
-  padding: 2.9em 3.1em;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1.35em;
-}
+/* The identity group dissolves into the card's grid, so the structure can be rearranged per
+ * family without a second copy of the markup. */
+section.contact .qr-identity { display: contents; }
 
 section.contact .qr-name {
+  grid-area: name;
+  align-self: end;
   font-family: var(--font-display);
-  font-size: var(--fs-hero);
+  /* min(hero, what fits the column, what fits the height). 0.6em per character is the
+   * average advance of a display serif in mixed case, a little wide on purpose so the
+   * longest line never reaches the column edge. The height term keeps two stacked lines
+   * from taking the card. */
+  font-size: max(
+    calc(var(--_sec-1cqi, 1cqi) * 3.5),
+    min(
+      var(--fs-hero),
+      calc(var(--qc-id-w) / (var(--name-chars, 12) * 0.6)),
+      calc(var(--_sec-1cqh, 1cqh) * var(--qc-name-h))
+    )
+  );
   line-height: 0.97;
   color: var(--text-heading);
   padding: 0;
+  overflow-wrap: anywhere;
 }
 
 section.contact .qr-lockup {
+  grid-area: lockup;
   display: flex;
   align-items: center;
   gap: 0.9em;
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
+  /* Meta, unless the lockup would need more than two lines of this column: then the size that
+   * does fit (0.85em per character is the uppercase advance plus the 0.2em tracking). */
+  font-size: max(calc(var(--_sec-1cqi, 1cqi) * 1.1), min(var(--fs-meta), var(--qc-lock-max, 999px), calc(var(--qc-id-w) * 2 / (var(--lockup-chars, 40) * 0.85))));
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--accent);
 }
 section.contact .qr-tick {
+  flex: none;
   width: 2.4em;
   height: 2px;
   background: var(--accent);
@@ -50,40 +102,68 @@ section.contact .qr-tick {
 }
 
 section.contact .qr-ledger {
+  grid-area: ledger;
+  align-self: start;
   display: flex;
   flex-direction: column;
   font-family: var(--font-label);
-  font-size: var(--fs-body-compact);
+  /* The longest line must fit the column on one line; breaking an email mid-word is a worse
+   * failure than a smaller line. 0.62em per character is a monospace advance. */
+  font-size: max(calc(var(--_sec-1cqi, 1cqi) * 1.3), min(var(--fs-body-compact), var(--qc-led-max, 999px), calc(var(--qc-led-w) / (var(--ledger-chars, 24) * 0.62))));
   color: var(--text-muted);
-  line-height: 2.05;
+  line-height: 1.7;
+  min-width: 0;
 }
 
 section.contact .qr-side {
-  flex: 1 1 42%;
-  padding: 2.9em 3.1em;
+  grid-area: side;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.1em;
-  border-left: 1px solid var(--border);
-}
-
-section.contact .qr-tile {
-  width: 8em;
-  padding: 0.85em;
-  background: var(--qr-paper, #ffffff);
-  color: var(--qr-ink, #14140f);
-  border: 1px solid var(--border);
-  border-radius: 0.6em;
+  gap: var(--qc-gap);
+  padding-inline-start: var(--qc-pad);
+  border-inline-start: 1px solid var(--border);
 }
 
 section.contact .qr-cta {
   font-family: var(--font-label);
-  font-size: var(--fs-meta);
-  letter-spacing: 0.22em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+/* ── Square: the name and lockup take the full width, the ledger sits beside the QR. ── */
+section.contact[data-family="square"] .qr-card {
+  --qc-name-h: 12;
+  --qc-id-w: calc(100cqi - var(--qc-pad) * 2);
+  --qc-led-w: calc(100cqi - var(--qc-pad) * 4 - var(--qc-qr));
+  grid-template-areas: "name name" "lockup lockup" "ledger side";
+}
+section.contact[data-family="square"] .qr-side {
+  padding-inline-start: var(--qc-pad);
+}
+
+/* ── Tall and strip: one column, the QR last and wide enough for a phone camera. ── */
+/* A narrow canvas gets the venue's type lift on top of its own portrait scale, so the lift
+ * cannot outrun the column: the ledger and lockup stop at a share of the width (the caption's
+ * cap is shared, in qr-general.css). Declared on the slide element, where the stamp lives. */
+section.contact:where([data-family="tall"], [data-family="strip"]) {
+  --qc-led-max: calc(var(--_sec-1cqi, 1cqi) * 4.2);
+  --qc-lock-max: calc(var(--_sec-1cqi, 1cqi) * 3.1);
+}
+section.contact:where([data-family="tall"], [data-family="strip"]) .qr-card {
+  --qc-name-h: 8;
+  --qc-id-w: calc(100cqi - var(--qc-pad) * 2);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "name" "lockup" "ledger" "side";
+}
+section.contact:where([data-family="tall"], [data-family="strip"]) .qr-side {
+  padding-inline-start: 0;
+  padding-top: var(--qc-gap);
+  border-inline-start: 0;
+  border-top: 1px solid var(--border);
 }
 
 /* ── Struck elevation (base.tokens.css --elevation-card) ── lift the card. */

@@ -11,7 +11,9 @@
  * it renders the thing and looks.
  *
  * For every component it renders the manifest `sample`, bare and once per declared variant, at
- * each venue (the rig `audit-reading-size` uses), and in Chromium checks three invariants:
+ * each venue and canvas family (the rig `audit-reading-size` uses), and in Chromium checks three
+ * invariants. A component that declares `venueProbe` (the longest realistic content it promises
+ * to hold) is rendered with that too, because a short sample can pass where a real card clips:
  *
  *   V1 NO CLIP      the engine did not mark the slide `.overflow` / `.clip-marked`.
  *   V2 IN FRAME     every visible text node and every image/SVG lies fully inside the slide
@@ -24,7 +26,7 @@
  * `KNOWN` names findings that are open on purpose; each carries the issue or note that owns
  * it, and the tool fails on a STALE entry (one that no longer fails), so the list cannot rot.
  *
- * Usage: node tools/check-venue-conformance.js [--only=a,b] [--jobs=N] [--venues=hall] [--json] [--strict]
+ * Usage: node tools/check-venue-conformance.js [--only=a,b] [--jobs=N] [--families=wide,square,tall,strip] [--venues=hall] [--json] [--strict]
  * A report by default (exit 0). `--strict` exits 1 on an unnamed failure, a stale KNOWN entry or a
  * component that could not be measured. It is NOT wired into CI: that is the owner's call (see the
  * decision note). Skips loudly with no Chromium.
@@ -35,6 +37,7 @@ const path = require('node:path');
 const { resolveChrome } = require('./lib/resolve-chrome');
 const { loadAll, manifestBucket } = require('../lib/components');
 const { probeDeck, render } = require('./audit-reading-size');
+const { SIZE_ALIAS } = require('./lib/calibrate-core');
 
 const ROOT = path.join(__dirname, '..');
 const args = process.argv.slice(2);
@@ -42,6 +45,7 @@ const opt = (k) => (args.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.len
 const only = opt('only').split(',').filter(Boolean);
 const jobs = Math.max(1, Number(opt('jobs')) || Math.min(4, os.cpus().length));
 const JSON_OUT = args.includes('--json');
+const FAMILY_LIST = (opt('families') || 'wide').split(',').filter(Boolean);
 const STRICT = args.includes('--strict');
 
 /**
@@ -124,10 +128,12 @@ function inspectInPage() {
   return out;
 }
 
-async function checkComponent(browser, m) {
-  const { src, roster } = probeDeck(m);
+async function checkComponent(browser, m, family, probe) {
+  // `probe` names the content under test: the manifest `sample`, or `venueProbe`, the longest
+  // realistic content the component declares it holds.
+  const { src, roster } = probeDeck(probe === 'venueProbe' ? { ...m, sample: m.venueProbe } : m);
   if (!roster.length) return [];
-  const { html, dir } = await render(src, m.name, path.join(ROOT, 'lib/components', manifestBucket(m), m.name));
+  const { html, dir } = await render(src, m.name, path.join(ROOT, 'lib/components', manifestBucket(m), m.name), SIZE_ALIAS[family]);
   const page = await browser.newPage();
   try {
     await page.goto(`file://${html}`, { waitUntil: 'networkidle0', timeout: 180000 });
@@ -136,11 +142,12 @@ async function checkComponent(browser, m) {
     const rows = [];
     roster.forEach((r, i) => {
       const s = slides[String(i + 1)];
-      const base = { component: m.name, variant: r.variant, venue: r.venue };
+      const base = { component: m.name, variant: r.variant, venue: r.venue, family, probe };
       if (s.overflow || s.clipMarked) rows.push({ ...base, check: 'V1', detail: 'the engine marked the slide clipped' });
       if (s.escapedCount) rows.push({ ...base, check: 'V2', detail: `${s.escapedCount} item(s) out of frame: ${s.escaped.map((e) => `"${e.label}" (${e.why})`).join('; ')}` });
       const min = SCAN_MIN[r.venue];
-      for (const w of s.qr) if (w < min) rows.push({ ...base, check: 'V3', detail: `QR is ${(w * 100).toFixed(1)}% of slide width; ${r.venue} needs ${(min * 100).toFixed(0)}%` });
+      // 2% slack: the engine's slide-width unit stops a hair short of the slide's gutters.
+      for (const w of s.qr) if (w < min * 0.98) rows.push({ ...base, check: 'V3', detail: `QR is ${(w * 100).toFixed(1)}% of slide width; ${r.venue} needs ${(min * 100).toFixed(0)}%` });
     });
     return rows;
   } finally {
@@ -149,7 +156,7 @@ async function checkComponent(browser, m) {
   }
 }
 
-const keyOf = (r) => `${r.component}${r.variant ? ` ${r.variant}` : ''} ${r.venue} ${r.check}`;
+const keyOf = (r) => `${r.component}${r.variant ? ` ${r.variant}` : ''}${r.probe === 'venueProbe' ? ' (venueProbe)' : ''} ${r.family}/${r.venue} ${r.check}`;
 
 async function main() {
   let chrome;
@@ -165,7 +172,11 @@ async function main() {
     await Promise.all(Array.from({ length: jobs }, async () => {
       while (queue.length) {
         const m = queue.shift();
-        try { failures.push(...await checkComponent(browser, m)); } catch (e) { errors.push({ component: m.name, error: String(e.message || e).split('\n')[0] }); }
+        for (const fam of FAMILY_LIST) {
+          for (const probe of m.venueProbe ? ['sample', 'venueProbe'] : ['sample']) {
+            try { failures.push(...await checkComponent(browser, m, fam, probe)); } catch (e) { errors.push({ component: m.name, family: fam, error: String(e.message || e).split('\n')[0] }); }
+          }
+        }
       }
     }));
   } finally {
@@ -179,14 +190,14 @@ async function main() {
   if (JSON_OUT) { process.stdout.write(`${JSON.stringify({ failures, errors, stale }, null, 2)}\n`); } else {
     const byComp = new Map();
     for (const f of failures) {
-      const k = `${f.component}${f.variant ? ` ${f.variant}` : ''}`;
+      const k = `${f.component}${f.variant ? ` ${f.variant}` : ''}${f.probe === 'venueProbe' ? ' (venueProbe)' : ''}`;
       if (!byComp.has(k)) byComp.set(k, []);
       byComp.get(k).push(f);
     }
     console.log(`venue conformance: ${manifests.length} components, ${failures.length} failing row(s) in ${byComp.size} component/variant(s)\n`);
     for (const [k, rows] of byComp) {
       console.log(k);
-      for (const r of rows) console.log(`  ${r.venue.padEnd(11)}${r.check}${KNOWN[keyOf(r)] ? ' (known)' : ''}  ${r.detail}`);
+      for (const r of rows) console.log(`  ${r.family.padEnd(7)}${r.venue.padEnd(11)}${r.check}${KNOWN[keyOf(r)] ? ' (known)' : ''}  ${r.detail}`);
     }
     for (const e of errors) console.log(`NOT MEASURED  ${e.component}: ${e.error}`);
     for (const k of stale) console.log(`STALE KNOWN entry (no longer fails — delete it): ${k}`);
@@ -194,4 +205,6 @@ async function main() {
   if (STRICT && (unnamed.length || stale.length || errors.length)) process.exit(1);
 }
 
-main().catch((e) => { console.error(e.stack || String(e)); process.exit(1); });
+if (require.main === module) main().catch((e) => { console.error(e.stack || String(e)); process.exit(1); });
+
+module.exports = { SCAN_MIN };

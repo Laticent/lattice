@@ -31,6 +31,66 @@
   line-height: 1.25;
 }
 
+/* ── The QR CARD, shared by contact and wifi ──────────────────────────────────────────────
+ * What the two cards must agree on lives here once: how big the code is, how it is framed,
+ * and the geometry units. The rule both follow: TYPE scales with the venue, GEOMETRY does
+ * not. A venue multiplies every type role, so a length in `em` grows with it; every length
+ * here is a share of the SLIDE (`--_sec-1cqi` width, `--_sec-1cqh` height) instead, so a
+ * card is the same box at every venue and only its text gets bigger. The FAMILY (the canvas
+ * shape, `data-family`) picks the structure; each component's stylesheet arranges its own
+ * parts per family. Record: engineering/decisions/2026-10-22-venue-conformance.md.
+ * `:where()` keeps all of it at zero specificity, so a component rule always wins. */
+:where(section.contact, section.wifi) {
+  /* The code's share of the slide width: the family's design size, never below the venue's
+   * floor `--qr-min` (base.modifiers.css). A phone camera reads a code from about ten times its
+   * width, and the back row of a hall is several slide-widths away, so the floor rises with the
+   * room. */
+  --qr-base: 0.15;
+  --qr-share: max(var(--qr-min, 0.1), var(--qr-base));
+  /* Declared HERE, on the slide element, and not on `.qr-card`: `--_sec-1cq*` is the slide's own
+   * stamp (check-ownership's `--_sec-1cq*` rule), so a token built from it belongs on the
+   * element that carries it. The card inherits them. */
+  --qc-pad: calc(var(--_sec-1cqi, 1cqi) * 3.2);
+  --qc-gap: calc(var(--_sec-1cqh, 1cqh) * 2.2);
+  /* The tile is the code plus its quiet zone (7% a side), so the code is 86% of it. The share
+   * above is a share for the CODE, which is what a scanner has to resolve. */
+  --qc-qr: calc(var(--_sec-1cqi, 1cqi) * 100 * var(--qr-share) / 0.86);
+}
+:where(section.contact, section.wifi)[data-family="square"] { --qr-base: 0.24; }
+:where(section.contact, section.wifi):where([data-family="tall"], [data-family="strip"]) { --qr-base: 0.3; }
+
+/* A narrow canvas gets the venue's type lift on top of its own portrait scale, so a caption
+ * stops at a share of the width. */
+:where(section.contact, section.wifi):where([data-family="tall"], [data-family="strip"]) {
+  --qc-cta-max: calc(var(--_sec-1cqi, 1cqi) * 2.6);
+}
+:where(section.contact, section.wifi) .qr-card { container-type: inline-size; }
+
+:where(section.contact, section.wifi) .qr-tile {
+  box-sizing: border-box;
+  width: var(--qc-qr);
+  /* The quiet zone a scanner needs, as a share of the tile so it scales with it. */
+  padding: calc(var(--qc-qr) * 0.07);
+  background: var(--qr-paper, #ffffff);
+  color: var(--qr-ink, #14140f);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--qc-qr) * 0.07);
+}
+:where(section.contact, section.wifi) .qr-tile svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+:where(section.contact, section.wifi) .qr-cta {
+  max-width: var(--qc-qr);
+  text-align: center;
+  line-height: 1.3;
+  /* Meta, unless the caption would need more than two lines under the code: then the size that
+   * fits two (0.95em per character: the uppercase advance, the tracking and the slack
+   * word-wrapping wastes). */
+  font-size: max(calc(var(--_sec-1cqi, 1cqi) * 1.05), min(var(--fs-meta), var(--qc-cta-max, 999px), calc(var(--qc-qr) * 2 / (var(--cta-chars, 14) * 0.95))));
+}
+
 /* Anchors (closing / divider) — a centered figure under the heading; the section's
  * own column gap separates it from the h2. These hosts sit on a DARK ground, so
  * the caption takes the same light display token the heading uses (the light-ground

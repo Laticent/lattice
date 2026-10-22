@@ -47,8 +47,9 @@ function formDeck(sample) {
   return `---\nmarp: true\ntheme: indaco\n---\n\n${sample.trim()}\n`;
 }
 
-// A fitting card (its sample) and an overstuffed one (a very long name wraps at
-// --fs-hero to several lines, pushing the card well past the ~600px stage).
+// A fitting card (its sample) and an overstuffed one. The card shrinks its type to fit its
+// column, down to a legible floor, so "overstuffed" has to mean MORE than the floor can take:
+// a ledger of fifteen lines. (A long name or caption alone now fits, by design.)
 const FITTING = `<!-- _class: contact -->
 
 - Ada Slide \`name\`
@@ -66,6 +67,7 @@ const OVERSTUFFED = `<!-- _class: contact -->
 - +1-555-0142 extension 99815 \`phone\`
 - laticent-international-holdings.example/team/alexandria/profile \`url\`
 - Scan to add me — this call to action runs long across several wrapped lines so the identity card grows well past the height of the stage cell \`caption\`
+${Array.from({ length: 12 }, (_, i) => `- +1-555-01${String(i).padStart(2, '0')} \`phone\``).join('\n')}
 `;
 
 describe('contact overflow detection is preserved after the conformance:strict wrap', () => {

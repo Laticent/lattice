@@ -6,10 +6,15 @@
   "form": "panel",
   "substance": "structure",
   "stage": "canvas",
-  "coda": { "claims": ["blockquote", "trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "blockquote",
+      "trailing-paragraph"
+    ]
+  },
   "conformance": "strict",
   "adapt": {
-    "mode": "native",
+    "mode": "reflow",
     "priority": [
       "fields",
       "title"
@@ -92,9 +97,10 @@
     "noBudget": "one network card"
   },
   "venueCapacity": {
-    "none": "A fixed card (network, password and a QR code), with no repeated element to count."
+    "none": "A fixed card, so there is no count budget. `npm run check:venue-conformance` checks its fit at every venue and canvas instead."
   },
   "gesture": {
     "archetype": "media"
-  }
+  },
+  "venueProbe": "<!-- _class: wifi -->\n\n`Room Wi-Fi`\n\n## Join the Laticent offsite network\n\n- Laticent Conference Guest `ssid`\n- specimen2026-secure-key `password`\n- WPA2 `security`\n- Scan to connect `caption`\n"
 }
