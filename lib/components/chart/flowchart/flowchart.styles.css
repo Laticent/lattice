@@ -222,10 +222,10 @@ section.flowchart .fc-name {
 }
 
 /* The status table: one tone per word, the chart family's (gantt's) mapping. */
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-hue-mark: var(--state-pass-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-hue-mark: var(--state-warn-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-hue-mark: var(--state-fail-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-hue-mark: var(--state-info-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-on: var(--state-pass-on); --fc-hue-mark: var(--state-pass-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-on: var(--state-warn-on); --fc-hue-mark: var(--state-warn-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-on: var(--state-fail-on); --fc-hue-mark: var(--state-fail-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-on: var(--state-info-on); --fc-hue-mark: var(--state-info-ink); }
 section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch)[data-s]:not([data-s="deferred"]) {
   --fc-status-fill: light-dark(color-mix(in oklab, var(--fc-hue) 22%, var(--bg)), color-mix(in oklab, var(--fc-hue) 46%, black));
 }
@@ -237,15 +237,15 @@ section.flowchart .fc-node[data-s="deferred"] { background: none; border-style: 
 
 /* The group names the hue its shape wears, so the caption (a sibling) and a chart finish can read it:
  * a status word through the table above, a slot here, and otherwise the neutral tile. */
-section.flowchart :is(.fc-node-group, .fc-node) { --fc-hue: var(--muted-mark); --fc-hue-mark: var(--text-secondary); }
-section.flowchart .fc-node-group[data-slot="1"]:not([data-s]) { --fc-hue: var(--chart-cat-1-hue); }
-section.flowchart .fc-node-group[data-slot="2"]:not([data-s]) { --fc-hue: var(--chart-cat-2-hue); }
-section.flowchart .fc-node-group[data-slot="3"]:not([data-s]) { --fc-hue: var(--chart-cat-3-hue); }
-section.flowchart .fc-node-group[data-slot="4"]:not([data-s]) { --fc-hue: var(--chart-cat-4-hue); }
-section.flowchart .fc-node-group[data-slot="5"]:not([data-s]) { --fc-hue: var(--chart-cat-5-hue); }
-section.flowchart .fc-node-group[data-slot="6"]:not([data-s]) { --fc-hue: var(--chart-cat-6-hue); }
-section.flowchart .fc-node-group[data-slot="7"]:not([data-s]) { --fc-hue: var(--chart-cat-7-hue); }
-section.flowchart .fc-node-group[data-slot="8"]:not([data-s]) { --fc-hue: var(--chart-cat-8-hue); }
+section.flowchart :is(.fc-node-group, .fc-node) { --fc-hue: var(--muted-mark); --fc-on: var(--muted-mark-on); --fc-hue-mark: var(--text-secondary); }
+section.flowchart .fc-node-group[data-slot="1"]:not([data-s]) { --fc-hue: var(--chart-cat-1-hue); --fc-on: var(--chart-cat-1-on); }
+section.flowchart .fc-node-group[data-slot="2"]:not([data-s]) { --fc-hue: var(--chart-cat-2-hue); --fc-on: var(--chart-cat-2-on); }
+section.flowchart .fc-node-group[data-slot="3"]:not([data-s]) { --fc-hue: var(--chart-cat-3-hue); --fc-on: var(--chart-cat-3-on); }
+section.flowchart .fc-node-group[data-slot="4"]:not([data-s]) { --fc-hue: var(--chart-cat-4-hue); --fc-on: var(--chart-cat-4-on); }
+section.flowchart .fc-node-group[data-slot="5"]:not([data-s]) { --fc-hue: var(--chart-cat-5-hue); --fc-on: var(--chart-cat-5-on); }
+section.flowchart .fc-node-group[data-slot="6"]:not([data-s]) { --fc-hue: var(--chart-cat-6-hue); --fc-on: var(--chart-cat-6-on); }
+section.flowchart .fc-node-group[data-slot="7"]:not([data-s]) { --fc-hue: var(--chart-cat-7-hue); --fc-on: var(--chart-cat-7-on); }
+section.flowchart .fc-node-group[data-slot="8"]:not([data-s]) { --fc-hue: var(--chart-cat-8-hue); --fc-on: var(--chart-cat-8-on); }
 
 /* Slots: a whole shape, or one channel of it. A channel beats the whole-shape slot
  * because it is the narrower instruction. */

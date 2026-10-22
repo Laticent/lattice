@@ -777,10 +777,14 @@ describe('hub-spoke — icon ink under a chart finish', () => {
     const css = fs.readFileSync(path.join(ROOT, 'lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
     for (const finish of ['pigment', 'etch', 'tone']) {
       for (let n = 1; n <= 8; n++) {
-        const re = new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.1791 - y\\)`);
+        // Pigment's disc body is the family's solid tier, so its icon reads that tier's curated ink; etch and tone
+        // paint a body the family has no token for, so they compute it from the body they paint.
+        const re = finish === 'pigment'
+          ? new RegExp(`chart-finish-pigment :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: var\\(--chart-cat-${n}-on\\)`)
+          : new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.1791 - y\\)`);
         assert.match(css, re, `${finish} slot ${n}`);
       }
-      assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*var\\(--hs-state-hue\\)`), `${finish} status`);
+      assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: ${finish === 'pigment' ? 'var\\(--hs-state-on\\)' : '[^;]*var\\(--hs-state-hue\\)'}`), `${finish} status`);
     }
   });
 
@@ -812,6 +816,9 @@ describe('hub-spoke — icon ink under a chart finish', () => {
       for (const [disc, icon] of pairs) {
         const body = decl(disc, 'fill');
         const ink = decl(icon, '--hs-icon-ink');
+        // Pigment: the icon reads the curated `-on` token of the very tier the disc paints (the 82% `-body`), and
+        // chart-on-ink.test.js holds that token to 4.5:1 on that body for every palette.
+        if (finish === 'pigment') { assert.match(ink, /^var\(--(?:chart-cat-[1-8]|hs-state)-on\)$/, icon); continue; }
         for (const arm of arms(body)) assert.ok(ink.includes(`color(from ${arm} xyz-d65`), `${icon}: ${ink} does not derive from ${arm}`);
       }
     }

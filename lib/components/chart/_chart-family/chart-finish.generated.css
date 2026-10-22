@@ -117,7 +117,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="1"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-1-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -134,7 +134,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="2"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-2-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-2-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -151,7 +151,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="3"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-3-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-3-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -168,7 +168,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="4"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-4-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-4-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -185,7 +185,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="5"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-5-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-5-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -202,7 +202,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="6"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-6-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-6-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -219,7 +219,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="7"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-7-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-7-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -236,7 +236,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row)[data-hue="8"][data-encodes="hue"][data-paint="bg"]) {
   background: color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-8-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-cat-8-on) !important;
 }
 }
 
@@ -296,8 +296,8 @@ section.chart-finish-pigment :where(:is(.state-node, .state-node-row)[data-s]:no
 figure.chart-finish-pigment :where(:is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])) {
   background: color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fill-ink) !important;
-  color: color(from color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
-  --state-node-ink: color(from color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--fill-on) !important;
+  --state-node-ink: var(--fill-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -305,8 +305,8 @@ section.chart-finish-pigment :where(:is(.state-node, .state-node-row):not([data-
 figure.chart-finish-pigment :where(:is(.state-node, .state-node-row):not([data-s])) {
   background: color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fill-ink) !important;
-  color: color(from color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
-  --state-index-ink: color(from color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--fill-on) !important;
+  --state-index-ink: var(--fill-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -367,7 +367,7 @@ section.chart-finish-pigment :where(.fc-node[data-s]:not([data-s="deferred"])),
 figure.chart-finish-pigment :where(.fc-node[data-s]:not([data-s="deferred"])) {
   background: color-mix(in oklab, var(--fc-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fc-hue-mark) !important;
-  color: color(from color-mix(in oklab, var(--fc-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--fc-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -375,7 +375,7 @@ section.chart-finish-pigment :where(.fc-node:not([data-s]):not([data-slot]):not(
 figure.chart-finish-pigment :where(.fc-node:not([data-s]):not([data-slot]):not([data-fill])) {
   background: color-mix(in oklab, var(--fc-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fc-hue-mark) !important;
-  color: color(from color-mix(in oklab, var(--fc-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--fc-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -383,7 +383,7 @@ section.chart-finish-pigment :where(.chart-status[data-s]),
 figure.chart-finish-pigment :where(.chart-status[data-s]) {
   background: color-mix(in oklab, var(--chart-status-hue) 82%, var(--chart-cat-base)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-status-ink) !important;
-  color: color(from color-mix(in oklab, var(--chart-status-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  color: var(--chart-status-on) !important;
 }
 }
 section.chart-finish-pigment :where(.waterfall-bar[data-s="up"]),
@@ -410,25 +410,25 @@ figure.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.gantt-bar-label[data-pos="inside"]),
 figure.chart-finish-pigment :where(.gantt-bar-label[data-pos="inside"]) {
-  fill: color(from color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  fill: var(--fill-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]),
 figure.chart-finish-pigment :where(.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]) {
-  fill: color(from color-mix(in oklab, var(--fill-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  fill: var(--fill-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
 figure.chart-finish-pigment :where(.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name) {
-  fill: color(from color-mix(in oklab, var(--fc-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  fill: var(--fc-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t),
 figure.chart-finish-pigment :where(.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t) {
-  fill: color(from color-mix(in oklab, var(--muted-mark) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  fill: var(--muted-mark-on) !important;
 }
 }
 
@@ -446,49 +446,49 @@ figure.chart-finish-pigment :where(:is(.map-region--on, .map-figure .chart-key-s
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="1"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="1"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-1-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="2"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="2"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-2-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="3"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="3"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-3-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="4"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="4"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-4-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="5"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="5"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-5-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="6"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="6"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-6-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="7"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="7"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-7-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--chart-cat-8-on) !important;
 }
 }
 
@@ -496,55 +496,55 @@ figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="1"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="1"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-1-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-1-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="2"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="2"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-2-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-2-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="3"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="3"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-3-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-3-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="4"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="4"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-4-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-4-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="5"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="5"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-5-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-5-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="6"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="6"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-6-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="7"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="7"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-7-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="8"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="8"]) {
-  --tower-ink: color(from color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --tower-ink: var(--chart-cat-8-on) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-s]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-s]) {
-  --hs-icon-ink: color(from color-mix(in oklab, var(--hs-state-hue) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
+  --hs-icon-ink: var(--hs-state-on) !important;
 }
 }
 

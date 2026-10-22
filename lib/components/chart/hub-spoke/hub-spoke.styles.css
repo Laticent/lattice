@@ -77,11 +77,11 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 }
 
 /* ── status: re-points the local state channel of a flagged spoke ─────────── */
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="on-track"], [data-s="done"], [data-s="live"]) { --hs-state-hue: var(--state-pass-hue); --hs-state-ink: var(--state-pass-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="at-risk"], [data-s="warn"]) { --hs-state-hue: var(--state-warn-hue); --hs-state-ink: var(--state-warn-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="blocked"], [data-s="fail"]) { --hs-state-hue: var(--state-fail-hue); --hs-state-ink: var(--state-fail-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="pilot"], [data-s="decision"]) { --hs-state-hue: var(--state-info-hue); --hs-state-ink: var(--state-info-ink); }
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg [data-s="deferred"] { --hs-state-hue: var(--state-mute-hue); --hs-state-ink: var(--state-mute-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="on-track"], [data-s="done"], [data-s="live"]) { --hs-state-hue: var(--state-pass-hue); --hs-state-on: var(--state-pass-on); --hs-state-ink: var(--state-pass-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="at-risk"], [data-s="warn"]) { --hs-state-hue: var(--state-warn-hue); --hs-state-on: var(--state-warn-on); --hs-state-ink: var(--state-warn-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="blocked"], [data-s="fail"]) { --hs-state-hue: var(--state-fail-hue); --hs-state-on: var(--state-fail-on); --hs-state-ink: var(--state-fail-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg :is([data-s="pilot"], [data-s="decision"]) { --hs-state-hue: var(--state-info-hue); --hs-state-on: var(--state-info-on); --hs-state-ink: var(--state-info-ink); }
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-svg [data-s="deferred"] { --hs-state-hue: var(--state-mute-hue); --hs-state-on: var(--state-mute-on); --hs-state-ink: var(--state-mute-ink); }
 
 /* ── bodies. The EDGE WIDTH is the family's (chart-family.styles.css, the shared
  *    --chart-edge rule every declared fill mark joins); this file sets only paint. ── */

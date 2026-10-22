@@ -186,6 +186,27 @@ const inkOn = (cell) => {
 const SUPPORTS = `@supports (color: ${inkOn('red')})`;
 const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
 
+/**
+ * The ink for text ON a body. PIGMENT's body is the solid tier the chart family already names (`--chart-cat-N-body`,
+ * `--state-X-body`), and the family curates an ink for it (`--chart-cat-N-on`, `--state-X-on`, `--muted-mark-on`;
+ * chart-family.styles.css), so pigment reads that token and a palette's own choice wins. A member's hue channel
+ * (`--fill-hue`, `--fc-hue`, ...) has an `-on` sibling that its status table sets beside it. Etch and tone paint
+ * bodies the family has no token for (a pale wash, a tone step), so those two still pick black or white from the
+ * body they paint.
+ */
+const ON_TOKEN = [
+  [/^var\(--(fill|fc|chart-status|hs-state)-hue\)$/, (m) => `var(--${m[1]}-on)`],
+  [/^var\(--muted-mark\)$/, () => 'var(--muted-mark-on)'],
+  [/^var\(--chart-cat-([1-8])-hue\)$/, (m) => `var(--chart-cat-${m[1]}-on)`],
+  [/^var\(--state-(pass|warn|fail|info|mute)-hue\)$/, (m) => `var(--state-${m[1]}-on)`],
+];
+function onInk(finish, hue, l, d) {
+  if (finish === 'pigment') {
+    for (const [re, fn] of ON_TOKEN) { const m = re.exec(hue); if (m) return fn(m); }
+  }
+  return ld(inkOn(mix(hue, `${l}%`)), inkOn(mix(hue, `${d}%`)));
+}
+
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);
 
 /**
@@ -380,7 +401,7 @@ function build() {
         // on an engine that cannot pick the ink, a mark that carries text keeps its shipped
         // paint and ink, which each theme's gates already hold. Every other mark still moves.
         const sel = `${cls}[data-hue="${n}"][data-encodes="hue"][data-paint="${paint}"]`;
-        const text = paint === 'bg' ? [`color: ${ld(inkOn(bodyL), inkOn(bodyD))}`] : [];
+        const text = paint === 'bg' ? [`color: ${name === 'pigment' ? `var(--chart-cat-${n}-on)` : ld(inkOn(bodyL), inkOn(bodyD))}`] : [];
         w(supports(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text])));
       }
     }
@@ -407,14 +428,14 @@ function build() {
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       if (s.bears && s.paint === 'bg') {
         const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-        decls.push(`color: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
+        decls.push(`color: ${onInk(name, s.hue, l, d)}`);
         // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
         // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
         // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
         // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
         // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
-        if (s.nodeInk) decls.push(`--state-node-ink: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
-        if (s.indexInk) decls.push(`--state-index-ink: ${ld(inkOn(mix(s.hue, `${l}%`)), inkOn(mix(s.hue, `${d}%`)))}`);
+        if (s.nodeInk) decls.push(`--state-node-ink: ${onInk(name, s.hue, l, d)}`);
+        if (s.indexInk) decls.push(`--state-index-ink: ${onInk(name, s.hue, l, d)}`);
       }
       // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
       // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
@@ -427,7 +448,7 @@ function build() {
     {
       const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
       w(supports(rule(name, '.gantt-bar-label[data-pos="inside"]', [
-        `fill: ${ld(inkOn(mix('var(--fill-hue)', `${l}%`)), inkOn(mix('var(--fill-hue)', `${d}%`)))}`,
+        `fill: ${onInk(name, 'var(--fill-hue)', l, d)}`,
       ])));
     }
 
@@ -436,7 +457,7 @@ function build() {
     {
       const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
       w(supports(rule(name, '.state-node-group:not([data-text]) > .state-label-t, .state-index-t[data-s]', [
-        `fill: ${ld(inkOn(mix('var(--fill-hue)', `${l}%`)), inkOn(mix('var(--fill-hue)', `${d}%`)))}`,
+        `fill: ${onInk(name, 'var(--fill-hue)', l, d)}`,
       ])));
     }
 
@@ -448,7 +469,7 @@ function build() {
       const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
       const nameSel = (extra) => `.fc-node-group${extra}:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name`;
       w(supports(rule(name, nameSel(''), [
-        `fill: ${ld(inkOn(mix('var(--fc-hue)', `${l}%`)), inkOn(mix('var(--fc-hue)', `${d}%`)))}`,
+        `fill: ${onInk(name, 'var(--fc-hue)', l, d)}`,
       ])));
       // Under tone a slot node is one hue at ITS slot's step, not the slot's own hue.
       if (tone) for (const n of SLOTS) {
@@ -465,7 +486,7 @@ function build() {
       const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
       const neutral = 'var(--muted-mark)';
       w(supports(rule(name, '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t', [
-        `fill: ${ld(inkOn(mix(neutral, `${l}%`)), inkOn(mix(neutral, `${d}%`)))}`,
+        `fill: ${onInk(name, neutral, l, d)}`,
       ])));
     }
 
@@ -607,7 +628,7 @@ function build() {
     const iconInk = ([a, b]) => ld(inkOn(a), inkOn(b));
     for (const n of SLOTS) {
       const arms = tone ? [mix(ONE, `${TONE[n - 1]}%`), mix(ONE, `${TONE[n - 1]}%`)] : [mix(hueOf(n), `${f.body[0]}%`), mix(hueOf(n), `${f.body[1]}%`)];
-      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${iconInk(arms)}`])));
+      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${name === 'pigment' ? `var(--chart-cat-${n}-on)` : iconInk(arms)}`])));
     }
     // ── A TOWER SHARE FIGURE — printed on its share, so it takes the ink that share's
     // finish body clears. Outside a finish the figure reads its ink off --mark-body
@@ -622,11 +643,11 @@ function build() {
       const arms = tone
         ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
         : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
-      w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${iconInk(arms)}`])));
+      w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${name === 'pigment' ? `var(--chart-cat-${n}-on)` : iconInk(arms)}`])));
     }
     const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
     const sArms = tone ? [mix(hsStatus.hue, `${TONE[2]}%`), mix(hsStatus.hue, `${TONE[2]}%`)] : [mix(hsStatus.hue, `${f.body[0]}%`), mix(hsStatus.hue, `${f.body[1]}%`)];
-    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${iconInk(sArms)}`])));
+    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${name === 'pigment' ? 'var(--hs-state-on)' : iconInk(sArms)}`])));
 
     // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
     // A gradient here reads as a fourth color where two polygons cross.
