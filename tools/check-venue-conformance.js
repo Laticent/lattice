@@ -27,9 +27,10 @@
  * STALE entry (one that no longer fails), so the list cannot rot.
  *
  * Usage: node tools/check-venue-conformance.js [--only=a,b] [--jobs=N] [--families=wide,square,tall,strip] [--all-families] [--venues=hall] [--json] [--strict]
- * A report by default (exit 0). `--strict` exits 1 on an unnamed failure, a stale KNOWN entry or a
- * component that could not be measured. It is NOT wired into CI: that is the owner's call (see the
- * decision note). Skips loudly with no Chromium.
+ * A report by default (exit 0). `--strict` is the ratchet: it holds all four canvas families and exits 1
+ * on an unnamed failure, a stale KNOWN entry, a component that could not be measured, or no Chromium.
+ * CI runs it (`.github/workflows/ci.yml`, integration shard 4), so a PR that adds a failing row, or fixes
+ * one without deleting its KNOWN entry, goes red. A bare report skips loudly with no Chromium (exit 0).
  */
 const fs = require('node:fs');
 const os = require('node:os');
@@ -46,9 +47,10 @@ const only = opt('only').split(',').filter(Boolean);
 const VENUES = (opt('venues') || 'laptop,huddle,conference,hall').split(',');
 const jobs = Math.max(1, Number(opt('jobs')) || Math.min(4, os.cpus().length));
 const JSON_OUT = args.includes('--json');
-const FAMILY_LIST = (opt('families') || 'wide').split(',').filter(Boolean);
-const ALL_FAMILIES = args.includes('--all-families'); // also hold count-budgeted components to every canvas
 const STRICT = args.includes('--strict');
+// The ratchet (`--strict`) holds every canvas family, because `KNOWN` names rows on tall and square; a bare report stays on wide.
+const FAMILY_LIST = (opt('families') || (STRICT ? 'wide,square,tall,strip' : 'wide')).split(',').filter(Boolean);
+const ALL_FAMILIES = args.includes('--all-families'); // also hold count-budgeted components to every canvas
 
 /**
  * Minimum QR width as a share of slide width, per venue. PROPOSED, not ruled: derived from
@@ -76,6 +78,7 @@ const KNOWN = Object.freeze([
   { component: 'title', families: ['tall'], venues: ['hall'], why: PORTRAIT_HALL },
   { component: 'topic', variant: 'fact', families: ['tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
   { component: 'video', families: ['square', 'tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
+  { component: 'contact', families: ['square'], venues: ['hall'], why: 'The venueProbe card (full name, title, org, phone, email, URL, caption) marks the slide clipped at hall on a square canvas; no text or image leaves the frame, so the overshoot is small. Found 2026-10-22 when the ratchet first held the square canvas; the fix is a layout pass on the square structure, recorded in followups.d/2862-p7-contact-square-hall-clip.md.' },
   { component: 'pricing', families: ['wide'], venues: ['laptop'], why: 'The sample\'s footnote ("Checks accumulate up the ladder") is clipped by its list item at the designed size; it predates venues. Found by the harness on 2026-10-22, not on the path of the venue work.' },
   { component: 'video', variant: 'qr', why: 'The `qr` register sizes its code from a fixed `8rem`, so it sits under the venue floor from huddle up (10% of the slide at every venue) and its caption is clipped under the poster. Moving it onto the shared QR sizing made it clip at laptop, so the edit was backed out; it needs its own layout (code beside the poster at wide). Found 2026-10-22.' },
 ]);
@@ -260,7 +263,7 @@ const keyOf = (r) => `${r.component}${r.variant ? ` ${r.variant}` : ''}${r.probe
 async function main() {
   let chrome;
   try { chrome = resolveChrome(); } catch { chrome = null; }
-  if (!chrome) { console.error('check-venue-conformance: SKIPPED — no Chromium (set CHROME_PATH).'); process.exit(0); }
+  if (!chrome) { console.error(`check-venue-conformance: ${STRICT ? 'FAILED' : 'SKIPPED'} — no Chromium (set CHROME_PATH).`); process.exit(STRICT ? 1 : 0); }
   const puppeteer = require('puppeteer');
   const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
   const manifests = loadAll().filter((m) => !only.length || only.includes(m.name));

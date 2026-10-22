@@ -138,9 +138,13 @@ bundle, which had 203 bytes of headroom under its hard ceiling. After two rounds
 
 ## 8 · Calls for the owner
 
-1. **CI.** The harness is on demand. A ratcheted CI step (a committed baseline that may only fall,
-   like `overflow:check`) is now cheap, since the baseline would be the 53 named rows. Adding a CI step
-   changes the CI contract, so it is yours.
+1. **CI.** *Done 2026-10-22 (owner brief).* `check:venue-conformance --strict` runs on integration shard 4 of `ci.yml`, blocking. The
+   baseline is the `KNOWN` list in the tool, which `--strict` holds in both directions: an unnamed
+   failing row fails, and so does a named row that no longer fails. Strict holds all four canvas
+   families (3m29s for the catalog on a 4-vCPU sandbox; shard 4 is the shortest leg). The first
+   strict run over the square canvas found one unnamed row, `contact` at hall (clip mark only, no
+   item out of frame), now named, so the baseline is 54 rows, not 53; fix tracked in
+   `followups.d/2862-p7-contact-square-hall-clip.md`.
 2. **`venueCapacity.none`.** Recommended: the manifest schema requires a `none` component to carry a
    `venueProbe`, so the sentence is verified instead of trusted. Today it is convention.
 3. **The code floors** (10 / 12 / 16 / 22%) are my estimate from "a phone reads a code from about ten
