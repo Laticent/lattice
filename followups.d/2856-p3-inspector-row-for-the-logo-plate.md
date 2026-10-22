@@ -2,9 +2,9 @@
 origin: 2856
 priority: P3
 recorded: 2026-10-22
-area: studio
+area: website
 severity: low
-swimlane: engineering/decisions/2026-10-21-calco-lift-what-can-be-lifted.md
+swimlane: engineering/decisions/2026-08-04-finish-stacking-displaces-frame-chrome.md
 source: https://github.com/Laticent/lattice/pull/2856
 ---
 
