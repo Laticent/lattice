@@ -4635,6 +4635,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	// A preview that is not on screen never paints, so nothing would release the first-slide gate (`first-slide.ts`) but
+	// its backstop: an author who collapsed the preview to write would wait for lint. Release it as soon as it is hidden.
+	React.useEffect(() => {
+		if (!editorSlotVisible) markFirstSlideShown();
+	}, [editorSlotVisible]);
 	previewShownRef.current = editorSlotVisible;
 	// A step waiting for a render was aimed at the preview as it stood: drop it when the preview
 	// hides, Present opens, or the deck or lens changes, so it never moves a surface the author left.

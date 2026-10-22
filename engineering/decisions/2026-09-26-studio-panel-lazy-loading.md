@@ -533,7 +533,7 @@ the queue landed in the seconds around the first slide and kept the main thread 
 Both queues now start from `first-slide.ts` › `afterFirstSlideAndPause`: once the live preview has painted its first
 slide (`markFirstSlideShown`, called from `onPreviewFirstRender`) **and** the user has made no pointer or key input
 for 3 s. Each keystroke restarts the pause, so the warm-up never lands on someone typing. A preview that never paints
-releases it after a 10 s backstop. The idle scheduling inside `warmPanels` is unchanged.
+releases it after a 6 s backstop, and a Studio that opens with the preview hidden releases it at once. The idle scheduling inside `warmPanels` is unchanged.
 
 The Editor's first lint pass and the Coach's first assessment wait for the first slide too: both load the lint core
 (256 KB), which ran about a second before the slide.
@@ -542,10 +542,10 @@ Measured on the same phone profile, three cold loads each:
 
 | | Before | After |
 |---|---|---|
-| Lint core requested | 6.0 s, before the slide | 8.4 s, after it |
+| Lint core requested | 6.0 s, before the slide | 7.6 s, after it |
 | First warm-up chunk requested | about 1-3 s after the slide | about 4.7 s after the slide |
-| Main thread busy in the 3 s after the slide | 2.2-2.5 s | 1.67-1.70 s |
-| First slide | 6.2-7.7 s | 6.7-6.9 s (within noise) |
+| Main thread busy in the 3 s after the slide | 2.2-2.5 s | 1.26-1.62 s |
+| First slide | 6.2-7.7 s | 5.8-6.4 s |
 
 **The trade.** The offline guarantee above now needs the user to have stayed online until a few seconds after the first
 slide and one pause, rather than until the first idle callback after mount. A user who loads the Studio and goes

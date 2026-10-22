@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadStudioPanels } from '@/test/panels';
 import StudioShell from './StudioShell';
@@ -24,7 +25,11 @@ beforeAll(loadStudioPanels);
 // Timing is the whole subject, so the round is HAND-RELEASED here rather than raced.
 
 vi.mock('@/components/DeckPreview', () => ({
-	default: ({ 'aria-label': label }: { 'aria-label'?: string }) => <div data-testid="deck-preview">{label}</div>,
+	// Reports its first render like the real preview, which releases the Studio's first-slide gate (first-slide.ts).
+	default: ({ 'aria-label': label, onFirstRender }: { 'aria-label'?: string; onFirstRender?: () => void }) => {
+		React.useEffect(() => onFirstRender?.(), [onFirstRender]);
+		return <div data-testid="deck-preview">{label}</div>;
+	},
 }));
 
 // PER-TEST, not per-file. A single hoisted promise is resolved forever once the first test

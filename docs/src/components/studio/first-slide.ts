@@ -3,10 +3,11 @@
 // Measured on a throttled phone profile, the warm-ups and the lint core ran in the seconds before and just after the
 // first slide and kept the main thread 75-83% busy for 3 s (Studio performance audit, PR #2868).
 //
-// A BACKSTOP, because waiting must never become never: a preview that fails to paint, or an editor mounted where no
-// preview exists, still gets its lint and warm-ups after FIRST_SLIDE_BACKSTOP_MS.
+// A BACKSTOP, because waiting must never become never: a preview that fails to paint (DeckPreview reports no failure to
+// its host) still gets its lint and warm-ups after FIRST_SLIDE_BACKSTOP_MS from this module's load. A Studio that opens
+// with the preview hidden (split collapsed, Present open, another view) releases the gate at once (StudioShell).
 
-export const FIRST_SLIDE_BACKSTOP_MS = 10_000;
+export const FIRST_SLIDE_BACKSTOP_MS = 6_000;
 
 let resolveShown: () => void = () => {};
 let shown = false;

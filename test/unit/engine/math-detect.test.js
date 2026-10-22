@@ -135,3 +135,25 @@ test('sourceHasMathOutsideCode never misses math the real engine renders (every 
   }
   for (const src of ['Write `$math$` for a formula', '```\n$x^2$\n```\n']) assert.equal(engineRendersMath(src), false, `the engine renders math in code: ${src}`);
 });
+
+// Shapes an independent checker found where a first cut said "no math" and the engine typeset math. Each must stay true.
+const OUTSIDE_CODE_TRAPS = [
+  'Press the ` key.\n\n$x^2$ is math\n\nAnd ` again.\n',
+  '``` code ``` then $x^2$\n\nmore $y^2$',
+  '> ```\n> code\n\nAfter $x^2$',
+  '- item\n  ```\n  code\n\nAfter $x^2$',
+  'Value $`x`$ here',
+  'A $a`b$ and ` later',
+  'Use `` $x^2$ ` y `',
+  '```foo`bar\n$x^2$',
+  '```\r\ncode\r\n```\r\n\r\nThen $x^2$.',
+  'Write `$x$` and then $y^2$',
+  '```\nunclosed\n\n$x^2$',
+];
+
+test('sourceHasMathOutsideCode never misses rendered math in the traps', async () => {
+  const { sourceHasMathOutsideCode } = await import('../../../lib/plugins/math/math.syntax.mjs');
+  for (const src of OUTSIDE_CODE_TRAPS) {
+    if (engineRendersMath(src)) assert.equal(sourceHasMathOutsideCode(src), true, `missed rendered math: ${JSON.stringify(src)}`);
+  }
+});
