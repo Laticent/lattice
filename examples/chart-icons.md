@@ -105,7 +105,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 
 ---
 
-<!-- _class: flowchart lr icon-etching -->
+<!-- _class: flowchart lr icon-etch -->
 
 `Look`
 
@@ -116,7 +116,7 @@ The flowchart and the state chart take the icons plugin's drawings: `icon=` besi
 - Worker `{c3, icon=function}` -> Warehouse
 - Warehouse `{cylinder, icon=warehouse}`
 
-*`icon-etching` on this slide (or `icon: etching` on the deck) draws every node icon at the thinner etching stroke.*
+*`icon-etch` on this slide (or `icon: etch` on the deck) draws every node icon at the thinner etch stroke.*
 
 ---
 
