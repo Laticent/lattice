@@ -133,6 +133,11 @@ The harness takes about 3 minutes for the whole catalog on a 6-way pool and abou
 component. The hook suite for this change ran to about 400 seconds because it touches the manifest
 schema and a generated table.
 
+**Bytes.** The `venue-prose` rule and its slot readers cost about 485 bytes gzipped in the Studio's live-lint
+bundle, which had 203 bytes of headroom under its hard ceiling. After two rounds of trimming the rule's own
+code and the generated rows, the bundle measures 112,922 bytes; the owner raised the ceiling by 1,024 bytes
+(112,640 to 113,664) on 2026-10-22 (`docs/route-budget.history.md`).
+
 ## 8 · Calls for the owner
 
 1. **CI.** The harness is on demand. A ratcheted CI step (a committed baseline that may only fall,

@@ -60,7 +60,7 @@ describe('venue-prose', () => {
     assert.equal(split.length, 1, 'split holds 30 at conference');
     const none = lint(redline('three-col', 5));
     assert.equal(none.length, 1);
-    assert.match(none[0].message, /no room/);
+    assert.match(none[0].message, /holds none/);
   });
 
   test('a component without a prose row is not judged', () => {

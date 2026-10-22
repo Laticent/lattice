@@ -182,7 +182,7 @@
   },
   "venueCapacity": {
     "prose": {
-      "slot": "body (the quotation, the gloss and the action together)",
+      "slot": "text",
       "row": {
         "laptop": 117,
         "huddle": 79,

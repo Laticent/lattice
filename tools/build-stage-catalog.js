@@ -529,8 +529,9 @@ function buildVenueLint() {
       continue;
     }
     if (vc.prose) {
-      prose[m.name] = { slot: vc.prose.slot, row: row(vc.prose.row) };
-      if (vc.prose.variants) prose[m.name].variants = Object.fromEntries(Object.entries(vc.prose.variants).map(([tok, r]) => [tok, row(r)]));
+      // Compact, since it rides the Studio's lint bundle: [slot, row, variants?] with variants as { token: row }.
+      prose[m.name] = [vc.prose.slot, row(vc.prose.row)];
+      if (vc.prose.variants) prose[m.name].push(Object.fromEntries(Object.entries(vc.prose.variants).map(([tok, r]) => [tok, row(r)])));
       continue;
     }
     const words = (byWords) => Object.fromEntries(Object.entries(byWords).map(([w, r]) => [w, row(r)]));

@@ -10,7 +10,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ## Agent contract
 
-**By venue** (`venue:`) its body (the quotation, the gloss and the action together) holds laptop ~117+ · huddle ~79 · conference ~55 · hall ~31 words. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide at a wide @size by growing that slot until the page clips; `lint:deck` reads the same numbers.
+**By venue** (`venue:`) its text holds laptop ~117+ · huddle ~79 · conference ~55 · hall ~31 words. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide at a wide @size by growing that slot until the page clips; `lint:deck` reads the same numbers.
 
 ### Slots
 

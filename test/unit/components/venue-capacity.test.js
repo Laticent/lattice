@@ -40,10 +40,10 @@ test('lint reads the manifests\' numbers, in laptop/huddle/conference/hall order
     if (vc.prose) {
       assert.equal(core.SCALE_CAPACITY[m.name], undefined, `${m.name}: no count row in lint`);
       const baked = generated.prose[m.name];
-      assert.equal(baked.slot, vc.prose.slot, `${m.name} slot`);
-      assert.deepEqual(baked.row, VENUES.map((v) => vc.prose.row[v]), `${m.name} words`);
+      assert.equal(baked[0], vc.prose.slot, `${m.name} slot`);
+      assert.deepEqual(baked[1], VENUES.map((v) => vc.prose.row[v]), `${m.name} words`);
       for (const [tok, r] of Object.entries(vc.prose.variants || {})) {
-        assert.deepEqual(baked.variants[tok], VENUES.map((v) => r[v]), `${m.name} ${tok} words`);
+        assert.deepEqual(baked[2][tok], VENUES.map((v) => r[v]), `${m.name} ${tok} words`);
       }
       continue;
     }
