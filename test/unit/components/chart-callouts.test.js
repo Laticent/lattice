@@ -272,3 +272,23 @@ describe('a group of notes under a figure flows and wraps', () => {
     assert.equal(new Set(tops(r)).size, 2);
   });
 });
+
+describe('flow: whole words, and no note wider than the view', () => {
+  const { laneSvg } = require('../../../lib/components/chart/_chart-family/legend-svg');
+  const one = (text, fontSize, width = 400) => laneSvg([{ text, target: { cx: 10, cy: 10, w: 4, h: 4, mark: 'a' } }], { x: 0, width, top: 100, bottom: Infinity, fontSize, flow: true });
+
+  test('a note that measures as one line is set as one line, at every size', () => {
+    for (const fs of [6, 7, 7.5, 9]) {
+      for (let n = 1; n <= 40; n++) {
+        const text = 'x'.repeat(n);
+        const r = one(text, fs, 1000);
+        assert.deepEqual(r.placed[0].box.lines, [text], `${n} letters at ${fs}`);
+      }
+    }
+  });
+
+  test('a note is never wider than the width it is given', () => {
+    const r = one('A fairly long note about the chart', 7.5, 40);
+    assert.ok(r.placed[0].box.right <= 40 + 0.01, `right edge ${r.placed[0].box.right}`);
+  });
+});

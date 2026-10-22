@@ -163,3 +163,13 @@ test('a seventh callout past the cap is named, for a chart that names its marks'
   const fs = findLegendSpans(listChart('bar', BAR_LIST, `@callout{[${many}]}`));
   assert.equal(fs.filter((f) => /is not drawn: a chart draws at most 6 callouts/.test(f.message)).length, 1);
 });
+
+test('a mark name with its own `<` or `>` still matches what the list says', () => {
+  const list = '- Age < 30 `120`\n- Age 30+ `180`\n- Cost > plan `90`';
+  assert.deepEqual(findLegendSpans(listChart('bar', list, '@callout{{Peak, for="Age < 30"}}')), []);
+  assert.deepEqual(findLegendSpans(listChart('bar', list, '@callout{{Over, for="Cost > plan"}}')), []);
+});
+
+test('a tag in a mark name is dropped, as it is in the drawn label', () => {
+  assert.deepEqual(findLegendSpans(listChart('bar', '- <b>Q1</b> `1`\n- Q2 `2`', '@callout{{Peak, for=Q1}}')), []);
+});
