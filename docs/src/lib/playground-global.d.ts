@@ -50,6 +50,8 @@ export interface LatticePlaygroundEngine {
 	/** The chart layouts this deck's directives name whose kernel is not loaded (ESM engine only;
 	 *  docs/src/lib/ensure-charts.ts loads them). Empty on the single-file engine. */
 	chartsNeeded?: (markdown: string) => string[];
+	/** Whether the deck writes a callout and this engine build has not got the half that draws it. */
+	calloutsNeeded?: (markdown: string) => boolean;
 	/** The chart layouts a render met with no kernel loaded, since the last call. */
 	takeMissingCharts?: () => string[];
 	/** Tokenize one fence body → each token's range in `code`. For a surface that

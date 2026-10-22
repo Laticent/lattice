@@ -26,7 +26,7 @@
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
-import { ensureCharts } from './ensure-charts';
+import { ensureCalloutLayer, ensureCharts } from './ensure-charts';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
@@ -136,6 +136,8 @@ export async function renderMarkdown(
 	// name load here, before the synchronous render. The single-file engine answers none needed.
 	// A load that fails REJECTS (a ChunkLoadError): a chart drawn as its source list would be wrong.
 	await ensureCharts(PG.chartsNeeded?.(rendered) ?? []);
+	// The callout layer's lane and markers (ensure-charts.ts): a deck that writes `@callout` loads them here.
+	await ensureCalloutLayer(PG.calloutsNeeded?.(rendered) ?? false);
 	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface

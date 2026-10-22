@@ -294,3 +294,46 @@ reason.
 
 **Not built, and still open:** plan item P5, keys through `@legend` on every component that already draws one
 (`followups.d/2854-p3-keys-through-legend.md`).
+
+## 10. The callout layer loads on demand (#2855 follow-up)
+
+**What moved.** `callout-layer.js` was one 620-line file in the closure of all nineteen chart kernels, so a deck
+with a chart downloaded the lane, the markers and `legend-svg.js` whether or not it wrote a callout. It is now
+three files behind the same import:
+
+| File | Holds | Loaded |
+|---|---|---|
+| `callout-core.js` | `lift`, `around`, `choose`, the stage's shape, the boxes a marker avoids, `matchName`, `mergeDetail`, `addToDesc` | always: `choose` places a key with no callout in sight, and `mergeDetail` runs on every render |
+| `callout-place.js` | `resolve`, `laneFor`, `place`, `describe`, `fromSvg`, `onSvg`, the marker and lane drawing (`legend-svg.js`) | for a deck that writes `@callout` or `@legend` |
+| `callout-layer.js` | the surface the charts import: core functions direct, the rest through `need()` | always (tiny) |
+
+**How it loads.** Node, the CLI and the single-file bundles reach `callout-place.js` through
+`callout-place-load.js` (a `require`). The ESM playground build swaps that file for a stand-in that answers null
+and ships `esm/callout-place.js` as an entry of its own, which installs the half into the shared layer
+(`tools/build-playground.js` `calloutPlaceEsmPlugin`). The engine's `calloutsNeeded(markdown)` says whether the
+deck writes `@callout{` or `@legend{` and the build is the lazy one; `ensureCalloutLayer` in
+`docs/src/lib/ensure-charts.ts` loads the entry before the synchronous render, as KaTeX and the kernels load.
+
+**It cannot draw a wrong chart quietly.** A heavy function with no half installed throws `ChunkLoadError`, the
+name the hosts already turn into "part of the app didn't load". `test/unit/components/callout-layer-lazy.test.js`
+holds three lines: no example deck without a callout reaches the heavy half (it renders with the half withheld),
+a deck with a callout and no half throws, and every deck that throws is one the host's scan names.
+
+**Measured, same machine, gzip level 6.** Output is byte-identical: 942 renders (314 example decks at three slide
+shapes) before and after. The followup predicted about 12KB; the heavy half is 7.5KB, because the 11.9KB it counted
+was a shared chunk that still holds what the kernels need.
+
+| | Before | After |
+|---|---|---|
+| `chartKernelGz`, the largest kernel closure (`chart-map`), `check-route-budget.mjs` | 85.7 KB | 80.3 KB |
+| `chartKernelsGz`, the union of every kernel closure | 226.1 KB | 220.5 KB |
+| Engine (`calloutsNeeded`, the stand-in), my own gzip | 301,759 B | 302,206 B |
+
+`chartKernelGz` was more than 5% under its soft target, so the ledger called it stale and its soft target and
+ceiling came down with `route-budget:rebaseline` (87,803 to 82,236; 96,583 to 90,460). `chartKernelsGz` is
+inside its 5% band, so its ceiling stays where the owner set it.
+
+A callout deck pays what it paid before plus one request. On the real Studio in Chromium
+(`docs/e2e/engine-on-demand.spec.ts`): a bar chart with no callout requests `chart-bar.js` and not
+`callout-place.js`; adding `@callout` fetches it once and draws the marker and the note; a 404 on it shows "couldn't
+load part of the app" and draws no note.
