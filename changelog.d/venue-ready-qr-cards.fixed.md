@@ -2,3 +2,4 @@
 - At the default (laptop) venue the Wi-Fi heading is a little smaller (64px to about 50px, now beside the code instead of full width) and the `split-panel qr` code tile is about 11% narrower (250px to 223px), because both now share the venue-aware code sizing.
 - A phone extension ("ext. 23") no longer becomes part of a `qr: tel` code, and `venue-prose` ignores speaker notes and fenced code when it counts an `image` or `collage` slide's words.
 - `contact` drops the accent rule before the title and stacks title and organization on two lines instead of joining them with a dot; the `wifi` caption no longer has a bullet before it.
+- `contact` sets the organization in the body face, mixed case and the heading color, under the accent-colored tracked title, so the two no longer share one style.

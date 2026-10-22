@@ -94,6 +94,17 @@ section.contact .qr-lockup {
   color: var(--accent);
 }
 
+/* The title is the tracked accent label; the organization is a plain body-face line beneath it,
+ * so the two read as two kinds of fact. Mixed case and no tracking run narrower than the
+ * uppercase the fit above assumes, so 1.25em stays inside the same column. */
+section.contact .qr-lockup > :nth-child(2) {
+  font-family: var(--font-body);
+  font-size: 1.25em;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--text-heading);
+}
+
 section.contact .qr-ledger {
   grid-area: ledger;
   align-self: start;
