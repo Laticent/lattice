@@ -263,6 +263,12 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    line, slope, stacked-bar) is kept for now, though §2 moves series data to tables, so phase 4's codemod may meet a third
    source form. That is an explicit call to revisit before phase 4 (`followups.d/2746-p1-revisit-nested-list-records.md`);
    meanwhile a lint that keeps a series' name the same in every group is `followups.d/2746-p2-series-name-consistency-lint.md`.
+   **Owner, 2026-10-22: the revisit is settled. Narrow at phase 4.** The census (this PR) found 0 records in a nested row across
+   the five series charts: 78 nested-list slides (bar 6, line 20, stacked-bar 17, slope 14, radar 32; 1,057 nested rows) and none
+   writes one, so removing the form breaks no deck. Until phase 4 the engine keeps drawing it. Phase 4 narrows claims to a chart's
+   first data depth: a nested series row stays a pill, lint points the author to the table, and the codemod meets two source
+   forms (old spans, tables), not three. The code change (`isDetailRow`'s `point-unless-valued` and the `ancestors` plumbing in
+   the five readers) lands with phase 4, under its adversarial trio.
 
    (2) **The bridge.** The chart family calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so
    the engine and the runtime share it, and rewrites a data row's record to the spans each transform reads (`legacySpans`);
