@@ -78,13 +78,16 @@ const FINISHES = ['pigment', 'etch', 'tone'];
  */
 const SANCTIONED_NEUTRAL = [
   ['waterfall', 'waterfall-bar', 'a TOTAL column is a neutral anchor on purpose: its fill is mixed toward --bg so it reads as standing on the slide (waterfall.styles.css)'],
-  ['hub-spoke', 'hub-spoke-node', 'a node with no status takes --hs-neutral-body, a flat neutral; only a status or a hue gives it color to move'],
   ['hub-spoke', 'hub-spoke-halo', 'an alarm halo is drawn in the status INK, and a finish never recolors an ink'],
   ['hub-spoke', 'hub-spoke-neck', 'a connector line, not a body'],
   ['heatmap', 'heatmap-cell', 'the EMPTY cell is the absence of a datum: neutral by definition, and the ramp is measured against it'],
   ['gantt', 'gantt-bar-accent', 'the 4px leading stripe is the status INK, which every finish keeps (an ink edge is a finish floor)'],
   ['state-chart', 'state-node-accent', 'the leading stripe is the status INK, which every finish keeps (an ink edge is a finish floor)'],
   ['state-chart', 'state-edge-arrow', 'an edge arrowhead is the head of a connector line, drawn in the edge ink, not a body'],
+  ['flowchart', 'fc-head', 'an edge arrowhead is the head of a connector line, drawn in the edge ink, not a body'],
+  ['flowchart', 'fc-key-swatch', 'a key swatch with no status keys an edge STYLE (a line), and a body behind a line would be a box'],
+  ['risk-matrix', 'risk-marker', 'a risk disc is the heading ink with the canvas color for its number, the one pairing that holds over every band in both modes (risk-matrix.styles.css)'],
+  ['risk-matrix', 'risk-key-marker', 'the key twin of the risk disc, for the same reason'],
   ['tower', 'chart-key-swatch', 'the `open` and `retained` swatches key the tower\'s two neutral segments, which carry no hue to finish (tower.styles.css)'],
 ];
 
@@ -95,7 +98,7 @@ const SANCTIONED_NEUTRAL = [
  * That is the convergence work recorded in followups.d/chart-finish-reach-whole-charts.md; naming
  * them here is what keeps it from being forgotten, and the check fails the day one is reached.
  */
-const WHOLE_CHARTS = ['flowchart', 'kanban', 'risk-matrix', 'slope', 'map', 'journey'];
+const WHOLE_CHARTS = ['kanban', 'slope', 'map', 'journey'];
 
 function parseArgs(argv) {
   const out = { themes: [], all: false, modes: ['light', 'dark', 'print'], spanFloor: 0.9, textFloor: 4.5, check: false, freeze: false, json: null };
