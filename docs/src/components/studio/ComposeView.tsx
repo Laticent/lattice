@@ -2593,7 +2593,7 @@ function ComposeStyles() {
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 			/* Removal is the panel's own control — reading a note must never arm a delete. */
 			.cs-host .cs-comment-actions{display:flex;gap:6px;margin-top:8px}
-			.cs-host .cs-comment-field{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:6px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text,#16243b);font:inherit;line-height:1.45}
+			.cs-host .cs-comment-field{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:6px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-body,#16243b);font:inherit;line-height:1.45}
 			.cs-host .cs-comment-why{margin:6px 0 0;font-size:11.5px;color:var(--fail,#b3261e)}
 			.cs-host .cs-comment-edit,.cs-host .cs-comment-remove{margin-top:0;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
 			.cs-host .cs-comment-edit:hover:not(:disabled){color:var(--accent,#2f6fed);border-color:var(--accent,#2f6fed)}
