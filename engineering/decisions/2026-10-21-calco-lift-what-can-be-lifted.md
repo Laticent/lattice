@@ -233,8 +233,11 @@ Each of these was found in review and fixed in the same PR, with a fixture in
 - **Hidden text under an opaque box or picture** is no longer read as live text, and no longer left as picture ink:
   `hiddenUnderOpaque` hit-tests three points, and the dropped text is hidden from the capture like read text.
   Checked on `card-tags` slide 7, where a panel covers the page number: `main` exported a phantom "7" on top of the panel.
-- **An opaque highlight over a backdrop layer's grid or glow** is not drawn: a chip that overlaps the decorative layer
-  stays in the picture (`backdrop-register` refusals 40 → 47, all `covered` / `wrapped-inline`; the ratchet is re-blessed for it).
+- **An inline chip over a backdrop layer's grid or glow** is a native highlight like any other. It was kept as a picture
+  for a while, which left a film under or over the words; the owner's call (2026-10-22) is that a color close to the page
+  behind it is better than a film, so the words stay editable. The highlight is an opaque color, so the grid does not show
+  through it. The decorative layer's own boxes and pseudo-elements are also left out of the foreground items, since the
+  background capture draws them (`backdrop-register` refusals 47 → 0 and pictures 10 → 0; the ratchet is re-blessed).
 - **A shape reaching into a thick rounded border** is clipped against the padding box and its inner radii.
 - **A `::before` with a z-index and a static `::after`** of one element are ordered by level, not by side.
 - **Two backgrounds that differ only by a very faint watermark** may still share one master page. This is not a

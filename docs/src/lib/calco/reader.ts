@@ -386,15 +386,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (!bg || bg.a === 0) continue;
 				// An inline-block or inline-flex pill is a box of its own: its corners, border and padding are shapes.
 				if (ccs.display !== 'inline') break;
-				// A highlight is opaque. Over the slide's decorative layer (a finish's grid or glow) it would hide what the chip
-				// is drawn over, so the chip stays a translucent shape there.
-				const cr = chip.getBoundingClientRect();
-				if (backdropLayers().some((layer) => {
-					const lr = layer.getBoundingClientRect();
-					return cr.left < lr.right && lr.left < cr.right && cr.top < lr.bottom && lr.top < cr.bottom;
-				})) break;
 				const plainPaint = (!ccs.backgroundImage || ccs.backgroundImage === 'none') && (!ccs.borderImageSource || ccs.borderImageSource === 'none') && !chip.querySelector('img,svg,canvas,math,video,picture');
-				// Blend a translucent tint over what is behind the chip; a picture or gradient behind it leaves the chip a shape.
+				// Blend a translucent tint over the nearest solid color behind the chip; a picture or gradient on the chip itself
+				// leaves it a shape. A finish's glow or grid behind a chip is not matched exactly: the native highlight is an opaque
+				// color close to what shows there, which keeps the words editable without a film over them.
 				const shown = !plainPaint ? undefined : bg.a >= 1 ? hex(bg) : chip.parentElement ? flatten(chip.parentElement, { ...bg, a: bg.a * opacity }) : undefined;
 				if (shown) {
 					style.highlight = shown;

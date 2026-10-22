@@ -194,7 +194,7 @@ describe('calco red-team fixtures', () => {
     assert.ok(checked.shots.includes('1:foreground') && checked.shots.includes('1:full'), checked.shots.join());
   });
 
-  test('chip over the decorative layer stays a shape; the same chip elsewhere is a highlight', async () => {
+  test('a chip over the decorative layer is a native highlight too, in a color close to the page behind it', async () => {
     const res = await read(
       page(
         '.backdrop{position:absolute;left:0;top:0;width:640px;height:720px;z-index:-1;background:repeating-linear-gradient(90deg,#fff,#fff 10px,#ddd 10px,#ddd 11px)}code{background:rgba(0,100,150,.1);padding:0 4px;font-family:monospace}p{position:absolute;margin:0;font-size:22px}',
@@ -202,8 +202,10 @@ describe('calco red-team fixtures', () => {
       ),
     );
     const runs = res.frames.flatMap((f) => f.lines.flat());
-    assert.ok(!runs.find((r) => r.text.includes('OVER_GRID'))?.style.highlight, 'over the grid: no highlight');
+    // Words stay editable with no picture over them: the highlight is an approximate color, not a film.
+    assert.ok(runs.find((r) => r.text.includes('OVER_GRID'))?.style.highlight, 'over the grid: highlight');
     assert.ok(runs.find((r) => r.text.includes('ON_WHITE'))?.style.highlight, 'on white: highlight');
+    assert.equal(res.shapes.filter((x) => x.kind === 'picture').length, 0, 'no picture film for either chip');
   });
 
   test('clip: a shape that fills a rounded overflow box\'s padding box does not poke out of the inner corner', async () => {
