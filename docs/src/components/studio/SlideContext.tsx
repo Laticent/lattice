@@ -798,7 +798,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
 							{isChart && (
-								<Row label="Chart finish" hint={chartFinishProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etching tone color" help={<><strong>Pigment</strong> puts the color in the body, <strong>Etching</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. <strong>As designed</strong> keeps the chart's own paint, even inside a deck that sets a finish. Written as <code>_class: chart-finish-*</code>.</>}>
+								<Row label="Chart finish" hint={chartFinishProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body, <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. <strong>As designed</strong> keeps the chart's own paint, even inside a deck that sets a finish. Written as <code>_class: chart-finish-*</code>.</>}>
 									<Picker ariaLabel="Chart finish" value={chartFinishOpt.value} onChange={onChartFinish} options={chartFinishOpt.options} />
 								</Row>
 							)}

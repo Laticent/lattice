@@ -25,8 +25,8 @@ const classesOf = (md) => String(engine.render(md).html).split('<section ').slic
 
 describe('chart-finish: the vocabulary', () => {
   test('three finishes plus off; off is classless', () => {
-    assert.deepEqual([...CHART_FINISH_NAMES], ['off', 'pigment', 'etching', 'tone']);
-    assert.deepEqual([...CHART_FINISHES], ['pigment', 'etching', 'tone']);
+    assert.deepEqual([...CHART_FINISH_NAMES], ['off', 'pigment', 'etch', 'tone']);
+    assert.deepEqual([...CHART_FINISHES], ['pigment', 'etch', 'tone']);
     assert.equal(chartFinishClass('off'), '');
     assert.equal(chartFinishClass('Tone '), 'chart-finish-tone');
     assert.equal(chartFinishClass('tonal'), '');
@@ -34,14 +34,14 @@ describe('chart-finish: the vocabulary', () => {
   });
 
   test('every token carries the chart-finish- prefix, so none collides with the backdrop `finish-*`', () => {
-    assert.deepEqual([...CHART_FINISH_TOKENS], ['chart-finish-pigment', 'chart-finish-etching', 'chart-finish-tone', 'chart-finish-off']);
+    assert.deepEqual([...CHART_FINISH_TOKENS], ['chart-finish-pigment', 'chart-finish-etch', 'chart-finish-tone', 'chart-finish-off']);
     for (const t of CHART_FINISH_TOKENS) assert.ok(isChartFinishToken(t));
     assert.ok(!isChartFinishToken('finish-atrium'));
   });
 
   test('the front-matter read strips a trailing comment and quotes', () => {
     assert.equal(readFrontMatterChartFinish('---\nchart-finish: tone  # restrained\n---\n'), 'tone');
-    assert.equal(readFrontMatterChartFinish('---\nchart-finish: "etching"\n---\n'), 'etching');
+    assert.equal(readFrontMatterChartFinish('---\nchart-finish: "etch"\n---\n'), 'etch');
     assert.equal(readFrontMatterChartFinish('---\ntheme: indaco\n---\n'), null);
     assert.equal(chartFinishClassFromSource('---\nchart-finish: pigment\n---\n'), 'chart-finish-pigment');
     assert.ok(isKnownChartFinish('OFF') && !isKnownChartFinish('matte'));
@@ -61,12 +61,12 @@ describe('chart-finish: both render paths', () => {
   });
 
   const deck = (fm) => `---\nmarp: true\n${fm}---\n\n<!-- _class: bar -->\n\n## A\n\n- A \`3\`\n\n---\n\n` +
-    '<!-- _class: bar chart-finish-etching -->\n\n## B\n\n- A `3`\n\n---\n\n<!-- _class: bar chart-finish-off -->\n\n## C\n\n- A `3`\n';
+    '<!-- _class: bar chart-finish-etch -->\n\n## B\n\n- A `3`\n\n---\n\n<!-- _class: bar chart-finish-off -->\n\n## C\n\n- A `3`\n';
 
   test('the deck stamps every slide; a slide token overrides; chart-finish-off opts one out', () => {
     const [a, b, c] = classesOf(deck('chart-finish: tone\n'));
     assert.ok(a.includes('chart-finish-tone'));
-    assert.ok(b.includes('chart-finish-etching') && !b.includes('chart-finish-tone'));
+    assert.ok(b.includes('chart-finish-etch') && !b.includes('chart-finish-tone'));
     assert.ok(c.includes('chart-finish-off') && !c.includes('chart-finish-tone'));
   });
 
@@ -89,11 +89,11 @@ describe('chart-finish: lint', () => {
     const f = r.findings.find((x) => x.rule === 'unknown-chart-finish');
     assert.ok(f, 'unknown-chart-finish fired');
     assert.equal(f.severity, 'warning');
-    assert.match(f.fix, /off, pigment, etching, tone/);
+    assert.match(f.fix, /off, pigment, etch, tone/);
   });
 
   test('a known value, a commented value and no value are silent', () => {
-    for (const fm of ['chart-finish: tone\n', 'chart-finish: etching # line\n', '']) {
+    for (const fm of ['chart-finish: tone\n', 'chart-finish: etch # line\n', '']) {
       const r = lint(`---\nmarp: true\n${fm}---\n\n## A\n`);
       assert.equal(r.findings.filter((x) => x.rule === 'unknown-chart-finish').length, 0, fm);
     }

@@ -18,7 +18,7 @@ F = {
     layered_alpha='0.55',
     edge=1, edge_backdrop=1, textured='1',
     tone=None),
-  'etching': dict(
+  'etch': dict(
     body=('30%', '40%'),          # retreats to a whisper; the edge carries identity
     backdrop=('14%', '19%'),
     ramp=('6%', '0.24'),
@@ -101,8 +101,8 @@ for name, f in F.items():
     w(f'\n/* RAMP — a magnitude, so the finish SCALES the band rather than')
     w(f'   replacing it. --mix stays the datum; lo and the span are the finish. */')
     w(f'{S} [data-fill="ramp"][data-paint="fill"]{{fill:{mix(rh, f"calc({lo} + var(--mix) * {k})")}!important;'
-      f'stroke:{"var(--bg)" if name != "etching" else "color-mix(in oklab,var(--chart-cat-1-ink) 75%,transparent)"}!important;'
-      f'stroke-width:{0.6 if name != "etching" else 1}!important;}}')
+      f'stroke:{"var(--bg)" if name != "etch" else "color-mix(in oklab,var(--chart-cat-1-ink) 75%,transparent)"}!important;'
+      f'stroke-width:{0.6 if name != "etch" else 1}!important;}}')
     w(f'{S} [data-fill="ramp"][data-paint="bg"]{{background:{mix(rh, f"calc({lo} + var(--mix) * {k})")}!important;background-image:none!important;}}')
 
     # ── PRESENCE ──────────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ for name, f in F.items():
         w(f'{S} [data-slot="{i}"][data-fill="layered"]{{'
           f'fill:{src}!important;fill-opacity:{a}!important;'
           f'stroke:{"var(--chart-cat-1-ink)" if f["tone"] else f"var(--chart-cat-{i}-ink)"}!important;'
-          f'stroke-width:{f["edge"] + (1 if name == "etching" else 0.5)}!important;}}')
+          f'stroke-width:{f["edge"] + (1 if name == "etch" else 0.5)}!important;}}')
 
     w(f'\n/* The quadrant ZONE tints are furniture, not marks — but they are')
     w(f'   coloured, so a finish that leaves them alone leaves four pastel')

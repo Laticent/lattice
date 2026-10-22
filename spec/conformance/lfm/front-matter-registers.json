@@ -981,8 +981,8 @@
    }
   },
   {
-   "name": "chart-finish: etching",
-   "source": "---\nchart-finish: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "chart-finish: etch",
+   "source": "---\nchart-finish: etch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
@@ -1043,8 +1043,8 @@
    }
   },
   {
-   "name": "spark: etching",
-   "source": "---\nspark: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spark: etch",
+   "source": "---\nspark: etch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
@@ -1105,8 +1105,8 @@
    }
   },
   {
-   "name": "icon: etching",
-   "source": "---\nicon: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "icon: etch",
+   "source": "---\nicon: etch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }

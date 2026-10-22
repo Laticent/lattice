@@ -73,7 +73,7 @@ examples:
       | Look | Trend | Share |
       | --- | --- | --- |
       | `pigment` | `~{12 14 13 17 21, c1}` | `~{72%, c3}` |
-      | `etching` | `~{12 14 13 17 21, c1, etching}` | `~{72%, c3, etching}` |
+      | `etch` | `~{12 14 13 17 21, c1, etch}` | `~{72%, c3, etch}` |
       | `tone` | `~{12 14 13 17 21, c1, tone}` | `~{72%, c3, tone}` |
 ---
 
@@ -115,14 +115,14 @@ Then add words, in any order:
 | `end`, `minmax` | Dot the latest value, or the low and the high |
 | `zero` | Start a line at 0, so a series that barely moved reads as flat |
 | `framed`, `bare` | A tile behind the spark, or ink alone |
-| `pigment`, `etching`, `tone` | How the color is spent |
+| `pigment`, `etch`, `tone` | How the color is spent |
 | `square`, `rounded` | The tile's corners |
 
 To set the frame, look or corners for the whole deck, use the `spark:` front-matter key. For one slide, use a `spark-` class:
 
 ```markdown
 ---
-spark: etching rounded
+spark: etch rounded
 ---
 
 <!-- _class: table spark-bare -->
