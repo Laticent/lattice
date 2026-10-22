@@ -272,3 +272,17 @@ test('a @legend span carries no side: the notes are a callout\'s', () => {
   const { readLegend } = require('../../../lib/core/legend');
   assert.equal(readLegend('@legend{[{Poor, c1}], key, beside}').legend.side, undefined);
 });
+
+test('a side word where it cannot work is reported, not dropped', () => {
+  const { readLegend } = require('../../../lib/core/legend');
+  assert.ok(readLegend('@legend{{Peak, for=1}, beside}').diagnostics.some((d) => d.code === 'legend/side-kind'));
+  assert.ok(readLegend('{{Peak, for=1}, beside}').diagnostics.some((d) => d.code === 'legend/side-kind'));
+});
+
+test('two different sides in one callout span: the first is used, and the conflict is reported', () => {
+  const { readLegend } = require('../../../lib/core/legend');
+  const r = readLegend('@callout{{Peak, for=1}, under, beside}');
+  assert.equal(r.legend.side, 'under');
+  assert.ok(r.diagnostics.some((d) => d.code === 'legend/side-twice'));
+  assert.deepEqual(readLegend('@callout{{Peak, for=1}, under, side=under}').diagnostics, []);
+});
