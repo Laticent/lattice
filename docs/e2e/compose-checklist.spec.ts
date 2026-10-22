@@ -21,7 +21,7 @@ async function openChecklist(page: import('@playwright/test').Page): Promise<voi
 	await page.locator('.cs-host .ProseMirror').waitFor();
 }
 
-test('@crosswidth a checklist slide is editable and each marker is badged', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet a checklist slide is editable and each marker is badged', async ({ page }) => {
 	await openChecklist(page);
 	await expect(page.locator('.cs-host .cs-slide-locked, .cs-host [data-locked="true"]')).toHaveCount(0);
 	await expect(page.locator('.cs-host li .cs-cellmark')).toHaveCount(6);
@@ -34,7 +34,7 @@ test('@crosswidth a checklist slide is editable and each marker is badged', asyn
 	expect(source).not.toMatch(/\\\[/);
 });
 
-test('@crosswidth a click on the chip flips [ ] and [x] and changes only those bytes', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet a click on the chip flips [ ] and [x] and changes only those bytes', async ({ page }) => {
 	await openChecklist(page);
 	await page.locator('.cs-host li .cs-cellmark').nth(1).click(); // `[ ]` → `[x]`
 	await expect.poll(() => persistedSource(page)).toContain('- [x] Legal sign-off');
