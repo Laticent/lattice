@@ -32,6 +32,20 @@ const PANES = [
 const DECK = ['`Eyebrow`', '', '## Title', '', '<!-- panes: 40/60 -->', PANES, '',
   '> The key insight.', '', '— A below-note.', ''].join('\n');
 
+test('a pane carries no running chrome: one page number, the slide\'s, and no footer cell inside a pane', () => {
+  // Pagination is on by default, so each pane's one-slide render grows a footer Cell holding a
+  // page number of 1. Panes are portals (2026-09-28-generic-pane-layouts-authoring.md §4): the
+  // footer and the number stay the host's.
+  const html = render(DECK);
+  const inPanes = [...html.matchAll(/<lat-pane\b[\s\S]*?<\/lat-pane>/g)].map((m) => m[0]);
+  assert.equal(inPanes.length, 2);
+  for (const pane of inPanes) {
+    assert.doesNotMatch(pane, /lat-pagination/, 'a pane draws no page number');
+    assert.doesNotMatch(pane, /cell-footer/, 'a pane draws no footer cell');
+  }
+  assert.equal(count(html, /class="lat-pagination"/g), 1, 'the slide keeps its one page number');
+});
+
 test('a slide with two panes is ONE section with one title and two lat-pane cells', () => {
   const html = render(DECK);
   assert.equal(sections(html), 1, 'a pane is never a slide');
