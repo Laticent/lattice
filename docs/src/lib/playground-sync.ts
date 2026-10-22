@@ -113,6 +113,12 @@ export interface PlaygroundSync {
 	picked(page: number, opts: { grab: boolean }): void;
 	/** A new preview document loaded: realign it with the editor if that was waiting. Returns whether it was. */
 	loaded(): boolean;
+	/** The preview pane is being collapsed: keep where the reader was in it. */
+	collapsed(): void;
+	/** The preview pane was collapsed and is open again. Collapsing squeezes the frame, which scrolls it to the top, so
+	 *  in Edit it is owed the slide in focus (the one the reader was on, or the caret's after typing): the next
+	 *  `loaded()` puts it there. */
+	expanded(): void;
 	/** True while a realign is waiting for the preview or its index. */
 	pending(): boolean;
 	destroy(): void;
@@ -152,6 +158,12 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let indexSource: string | null = null;
 	let renderedSource: string | null = null;
 	let owed = false;
+	/** The owed realign is a re-opened preview pane's: it goes to the focus slide, not to the editor's scroll. */
+	let owedFocus = false;
+	/** The preview's scroll the last time the reader could see it, and what `collapsed()` kept of it with its focus slide. */
+	let lastShownScroll = -1;
+	let keptScroll = -1;
+	let keptFlat = -1;
 	let awaitingLoad = false;
 	/** Set by `leaveExplore`: the preview's scroll means nothing until the host says the frame has settled (`loaded()`),
 	 *  whether that is a new document loading or the same one re-fitting to Edit's width. */
@@ -361,6 +373,27 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		return true;
 	}
 
+	/** Pay what the preview is owed: the focus slide after a re-opened pane, else the editor's slide. False until it can be measured. */
+	function settleOwed(): boolean {
+		if (!owedFocus) return realign();
+		const flat = hub.get().flat;
+		if (flat < 0) {
+			owedFocus = false;
+			return realign();
+		}
+		const L = pair();
+		if (!L || flat >= L.pv.tops.length) return false;
+		// Same slide as at the collapse: put the preview back to the pixel (a first slide would otherwise be
+		// centered, which scrolls it by the frame's padding). Another slide, or a scroll that no longer names the
+		// focus (a drag-collapse squeezes the frame before the pane reports it): center the focus slide.
+		if (keptScroll >= 0 && flat === keptFlat && sectionAt(L.pv, keptScroll) === flat) {
+			if (Math.abs(keptScroll - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(keptScroll), at: ports.now() };
+		} else if (!centerPreview(flat)) return false;
+		owedFocus = false;
+		keptScroll = -1;
+		return true;
+	}
+
 	/** Center slide `flat` in the preview (the first at the top, the last at the bottom: the alignment's own rule). */
 	function centerPreview(flat: number): boolean {
 		const L = pair();
@@ -462,7 +495,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 				indexSource = renderedSource;
 				paintBand();
 				paintMark();
-				if (owed && !awaitingLoad && realign()) owed = false;
+				if (owed && !awaitingLoad && settleOwed()) owed = false;
 			}).catch(() => {});
 		},
 		remark() {
@@ -495,6 +528,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			// Only the reader's scrolls say whether the page keeps up: the follower's own echo lands in the same frame.
 			if (!isEcho(echo.preview)) noteScroll();
 			lastPreviewScroll = ports.now();
+			if (ports.active()) lastShownScroll = ports.previewScroll();
 			if (!previewRaf) previewRaf = ports.raf(drivenByPreview);
 		},
 		editorScrolled() {
@@ -511,8 +545,16 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			awaitingLoad = false;
 			hold = false;
 			if (!owed) return false;
-			if (realign()) owed = false;
+			if (settleOwed()) owed = false;
 			return true;
+		},
+		collapsed() {
+			keptScroll = lastShownScroll >= 0 ? lastShownScroll : ports.previewScroll();
+			keptFlat = hub.get().flat;
+		},
+		expanded() {
+			owed = ports.editing();
+			owedFocus = owed;
 		},
 		pending: () => owed,
 		destroy() {

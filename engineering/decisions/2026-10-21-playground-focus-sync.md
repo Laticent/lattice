@@ -376,3 +376,28 @@ column, which times `webRefsInCss` on the sheet `api.render` returns, as the Pla
 The scan was larger than the engine's own render of the same key (12 to 31 ms). The first key after a theme or plugin
 change still pays one scan. The blessed baseline carries the column as commentary (`scanMs`), not a gate, for the reason the
 edit tier's `ms` is not one: a wall clock would be flaky in the merge train.
+
+## Collapsing the preview keeps your slide (2026-10-22, followup `2851-p3`)
+
+Collapsing the preview squeezes its frame to a 28 px rail, and that scrolls the frame to the top (measured: `scrollY` 3160 to
+0, with no document write). The old expand then ran `freshRender()` whenever any render had been held back, which opens a
+new document at slide 1, and otherwise left the frame at the top. Either way the reader came back to slide 1.
+
+- **A held patch is not a deck swap.** `render` now records only a held `fresh` render (`freshWhileCollapsedRef`); the old
+  flag that any held render set (`pendingWhileCollapsedRef`) is gone. Expanding after a deck swap still writes a fresh
+  document at the top, as before; expanding after typing patches the live one.
+- **The sync keeps the reader's place.** `collapsed()` (called from `onCollapse`) keeps the preview's scroll as the reader last
+  had it and the focus slide; `expanded()` owes the preview that slide in Edit. On the next `loaded()` the preview goes back to
+  the pixel when the focus slide is the same one and the kept scroll still names it, and otherwise centers the focus slide
+  (the caret's, after typing while collapsed). Centering everything was the first cut: it scrolled a first slide by the
+  frame's 18 px padding and broke `playground-first-paint`'s collapsed-capture case in 4 of 8 runs; baseline 0 of 8.
+- **No wrong-slide frame.** `onPreviewExpand` covers the frame (`coverPreview`) and holds the reveal (`realignPendingRef`)
+  until the sync has paid, the way the Edit/Explore switch does. Only Edit: Explore's forced expand is a deck swap or shows
+  one slide, and keeps its path.
+
+Evidence, the real Playground (`docs/e2e/playground-preview-collapse.spec.ts`; a per-frame probe records the slide on
+screen from the expand click, skipping frames that are covered or still a rail). Before, with the same spec on the
+unchanged code: both cases end on slide 1 (expected 9 and 3). After: the frames show `[9]` and end on slide 3, on desktop
+(Chromium), `gecko` and `webkit-tablet`. The phone layout has no collapse (tabs own visibility), so `webkit-phone` does
+not apply. Real Safari and touch are UNVERIFIED. Not done: a collapse by dragging the divider has no e2e; the
+`sectionAt` check on the kept scroll is the guard for it.
