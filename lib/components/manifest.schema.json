@@ -1819,6 +1819,14 @@
                 { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } }
               ]
             },
+            "native": {
+              "type": "boolean",
+              "description": "The chart's transform and narrator read a row's `{…}` record themselves (lib/core/chart-rows.js `takeRecord`, `recordFields`) instead of through the bridge's old spans, so every field the schema has is drawn, including ones no old span spells (bullet's `band=` and `floor=`, progress's `note=`). The old-form branch stays in each reader until phase 4."
+            },
+            "cellDescriptions": {
+              "type": "boolean",
+              "description": "A `{> prose}` description in one of the chart's TABLE cells is read: after a cell's value it describes the cell, in a header cell the column, and a column headed `{>}` holds one plain-text description per row (model note decision 5). Only heatmap reads it today; lint `chart-description-unread` warns on a description in a table cell of a chart that does not."
+            },
             "empty": {
               "enum": ["none", "not-measured"],
               "description": "What an empty cell means: `none` (nothing yet: no mark) or `not-measured` (heatmap: a gap the chart draws as unmeasured)."

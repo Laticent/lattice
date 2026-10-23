@@ -1,0 +1,1 @@
+- Chart authoring: the decision note records that a `{…}` record in a nested list row (bar, line, stacked-bar, slope, radar) narrows at phase 4; no deck in the repo writes one, and nothing changes in rendering today.

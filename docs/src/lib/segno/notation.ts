@@ -54,7 +54,19 @@ export interface ListValue {
   readonly from: number;
   readonly to: number;
 }
-export type Value = Scalar | RecordValue | ListValue;
+/**
+ * A description: `{> prose}`, the whole record. Its text is trimmed and unescaped (`\}` is `}`, `\\` is
+ * `\`). It is a value of its own kind rather than a flagged scalar so that a reader which does not
+ * know it fails to compile and a binder that expects a number or a name is told it found "a
+ * description", never reads the prose as a value (`{>5}` is a description of "5", not the number).
+ */
+export interface DescValue {
+  readonly kind: 'description';
+  readonly text: string;
+  readonly from: number;
+  readonly to: number;
+}
+export type Value = Scalar | RecordValue | ListValue | DescValue;
 
 export interface Item {
   /** The parameter name for `name=value`, else null. */
@@ -138,13 +150,13 @@ class ReadError {
 
 // The reader walks the generated parser's flat tree (flat.ts): four integers per node — kind,
 // from, to, next. Kind numbers are resolved to names once, from the tree's own table.
-let K_BARE = -1, K_QUOTED = -1, K_RECORD = -1, K_LIST = -1, K_WORD = -1, K_TAGGED = -1;
+let K_BARE = -1, K_QUOTED = -1, K_RECORD = -1, K_LIST = -1, K_WORD = -1, K_TAGGED = -1, K_DESC = -1;
 let kindsSeen: readonly string[] | null = null;
 function bindKinds(kinds: readonly string[]) {
   if (kinds === kindsSeen) return;
   kindsSeen = kinds;
   K_BARE = kinds.indexOf('bare'); K_QUOTED = kinds.indexOf('quoted'); K_RECORD = kinds.indexOf('record');
-  K_LIST = kinds.indexOf('list'); K_WORD = kinds.indexOf('word'); K_TAGGED = kinds.indexOf('tagged');
+  K_LIST = kinds.indexOf('list'); K_WORD = kinds.indexOf('word'); K_TAGGED = kinds.indexOf('tagged'); K_DESC = kinds.indexOf('desc');
   FLAT_KIND.bare = K_BARE; FLAT_KIND.word = K_WORD; FLAT_KIND.record = K_RECORD;
 }
 
@@ -215,6 +227,7 @@ function readValue(s: string, b: Int32Array, at: number): Value {
   }
   if (kind === K_QUOTED) return { kind: 'scalar', text: unquote(s, from, to), quoted: true, from, to };
   if (kind === K_RECORD) {
+    if (at + 4 < next && b[at + 4] === K_DESC) return readDescription(s, from, to, b[at + 5], b[at + 6]);
     const items: Item[] = [];
     for (let k = at + 4; k < next; k = b[k + 3]) items.push(readItem(s, b, k));
     return { kind: 'record', items, from, to };
@@ -237,6 +250,21 @@ function readValue(s: string, b: Int32Array, at: number): Value {
     return { kind: 'list', items, from, to };
   }
   throw new Error(`segno: unexpected node kind ${kind}`);
+}
+
+/** `{> prose}`: the prose between the `>` and the closing brace, unescaped and trimmed. */
+function readDescription(s: string, from: number, to: number, textFrom: number, textTo: number): DescValue {
+  let out = '';
+  for (let i = textFrom + 1; i < textTo; i++) {
+    const c = s[i];
+    if (c === '\\' && (s[i + 1] === '}' || s[i + 1] === '\\')) { out += s[i + 1]; i++; continue; }
+    out += c;
+  }
+  let a = 0;
+  let z = out.length;
+  while (a < z && isSpace(out.charCodeAt(a))) a++;
+  while (z > a && isSpace(out.charCodeAt(z - 1))) z--;
+  return { kind: 'description', text: out.slice(a, z), from, to };
 }
 
 function itemAsValue(s: string, b: Int32Array, at: number): Value {
@@ -342,7 +370,13 @@ function unclosed(s: string): string {
   for (let k = 0; k < s.length; k++) {
     const c = s[k];
     if (c === '"') { for (k++; k < s.length && s[k] !== '"'; k++) if (s[k] === '\\') k++; continue; }
-    if (c === '{') stack.push('}');
+    if (c === '{' && s[k + 1] === '>') {
+      // A description: prose to the first `}` no backslash escapes. Quotes and brackets inside it are prose.
+      let j = k + 2;
+      while (j < s.length && s[j] !== '}') j += s[j] === '\\' ? 2 : 1;
+      if (j >= s.length) { stack.push('}'); break; }
+      k = j;
+    } else if (c === '{') stack.push('}');
     else if (c === '[') stack.push(']');
     else if (c === '}' || c === ']') { if (stack.pop() !== c) return ''; }
   }

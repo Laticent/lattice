@@ -210,6 +210,10 @@ const SHAPE_INPUTS = {
     ['open brace', `{${'a'.repeat(n)}`],
     ['many modifiers', `{X${', tag'.repeat(n / 5)}}`],
     ['long quoted label', `{"${'a'.repeat(n)}"}`],
+    // A description runs to its closing brace; an unclosed one and one full of escapes must stay linear.
+    ['long description', `{> ${'a, '.repeat(n / 3)}}`],
+    ['open description', `{> ${'a, '.repeat(n / 3)}`],
+    ['escaped description', `{> ${'a \\} '.repeat(n / 5)}}`],
   ],
 };
 for (const [target, shapes] of Object.entries(SHAPE_INPUTS)) {

@@ -5154,6 +5154,37 @@ const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').pr
 const RESHAPE_STRATEGIES = new Set(['cover-cards']);
 
 /**
+ * The count of chart row schemas whose transform and narrator still parse a row's spans with a reader of their own, not
+ * through the row schema (`segno.row.rows.native`; lib/core/chart-rows.js `takeRecord`). Phase 2 of the chart authoring model
+ * moves them over one by one; phase 4 deletes the bridge once none is left. A ratchet, both ways: a chart that gains a row
+ * schema without `native` raises the count, and a chart moved over must lower the budget in the same change, so the number
+ * can only fall on purpose. A chart marked `native` must read through `takeRecord` in its kernel, so the flag cannot be
+ * decorative. (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §10; followups.d/2690-p1-chart-model-phase-2-reader.md)
+ */
+const PRIVATE_ROW_READER_BUDGET = 14;
+
+function checkNativeRowReaders(manifests, errors, readKernel = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')) {
+  let privateReaders = 0;
+  for (const m of manifests) {
+    const slot = m.segno?.row ?? m.segno?.cell;
+    if (!slot?.rows) continue;
+    if (slot.rows.native !== true) { privateReaders++; continue; }
+    const rel = kernelModuleRel(manifestBucket(m), m.name);
+    let src = '';
+    try { src = readKernel(rel); } catch { /* reported below */ }
+    if (!/\btakeRecord\(/.test(stripCodeComments(src))) { // a call, not a mention in a comment
+      errors.push(`${m.name}: its row schema says \`native: true\`, but ${rel} never calls takeRecord, so the transform does not read the record through the row schema. Read it there, or drop the flag.`);
+    }
+  }
+  if (privateReaders !== PRIVATE_ROW_READER_BUDGET) {
+    errors.push(
+      `${privateReaders} chart row schemas read their rows with a private reader (no \`rows.native\`), and PRIVATE_ROW_READER_BUDGET in ` +
+      `tools/check-ownership.js is ${PRIVATE_ROW_READER_BUDGET}. ${privateReaders > PRIVATE_ROW_READER_BUDGET ? 'A new row schema should read through takeRecord and chart-rows.js recordFields, and set `rows.native`.' : 'A chart moved to the shared reader: lower the budget to the new count in the same change.'}`);
+  }
+}
+
+
+/**
  * Cross-check the adaptivity DECLARATION (manifest `adapt.mode`) against reality,
  * so the manifest can never silently drift from the code (the jank this replaces —
  * 7 charts that reflowed but declared nothing, with no gate to catch it). See
@@ -13980,6 +14011,7 @@ function run() {
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
   checkChartKernels(manifests, errors);
+  checkNativeRowReaders(manifests, errors);
   checkChartMarks(manifests, errors);
   checkGuideHandles(manifests, errors);
   checkMarkIdentity(errors);
@@ -14274,6 +14306,8 @@ module.exports = {
   decodeCssEscapes,
   SANCTIONED_GLYPH_DECKS,
   checkTypedGlyphs,
+  checkNativeRowReaders,
+  PRIVATE_ROW_READER_BUDGET,
   checkRouterBudget,
   routerTokenCount,
   ROUTER_FILE,
