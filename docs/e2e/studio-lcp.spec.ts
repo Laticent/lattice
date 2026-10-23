@@ -19,9 +19,9 @@ test('the Studio’s largest contentful paint is not the Nacre loader @smoke', a
 	await page.goto('/studio/', { waitUntil: 'load' });
 	// The app's own loader exists once the island has mounted, and the first slide is the end of the loading story.
 	await expect(page.frameLocator('[aria-label="Live deck preview"] iframe.live').locator('.lattice').first()).toBeAttached({ timeout: 60_000 });
-	await page.waitForTimeout(1500);
-	const entries = await page.evaluate(() => (window as unknown as { __lcp: string[] }).__lcp);
-	expect(entries.length, 'the page reported no largest-contentful-paint entry').toBeGreaterThan(0);
+	const read = () => page.evaluate(() => (window as unknown as { __lcp: string[] }).__lcp);
+	await expect.poll(async () => (await read()).length, { message: 'the page reported no largest-contentful-paint entry', timeout: 15_000 }).toBeGreaterThan(0);
+	const entries = await read();
 	const last = entries[entries.length - 1];
 	expect(last, `the largest contentful paint is inside the Nacre loader: ${entries.join(' -> ')}`).not.toContain('|in-loader|');
 });
