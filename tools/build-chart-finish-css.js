@@ -656,16 +656,41 @@ function build() {
     w('\n/* The radar scale ticks sit on the overlap of every series, so they take the heading ink. */');
     w(rule(name, '.radar-tick', ['fill: var(--text-heading)']));
 
+    // ── REGIONS — pigment puts color on the MARKS and keeps the ground under them neutral ──
+    // Apple's HIG: "use color sparingly" and "add visual separation between contiguous areas of color". A zone, a
+    // band header or a total is ground, not data, so the base finish paints it neutral and lets the marks on it carry
+    // the color. Etch and tone keep their own treatments of the same furniture.
+    if (name === 'pigment') {
+      w('\n/* REGIONS — the ground is neutral; color sits on the marks (HIG: color sparingly). */');
+      // A radar series is a line with dots: a translucent fill per series overlaps into a color in no palette.
+      w(rule(name, '.radar-poly', ['fill: none', 'stroke-width: calc(var(--chart-edge) * 2.5)']));
+      // A risk band IS a status (low · medium · high · critical), so it wears the status fill, with a canvas seam
+      // between cells. Critical is the fail fill one step deeper in lightness, so the four stay ordered.
+      for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
+        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      }
+      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--state-fail-hue) 72%, black)', 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
+      w(rule(name, '.waterfall-bar[data-s="total"]', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
+      // The hub-spoke HUB is the one mark with no category and no status: the neutral solid, its name in the solid ink.
+      w(rule(name, '.hub-spoke-hub', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
+      w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-solid-ink)']));
+      // A roadmap workstream cell is a row header: neutral ground, its phase kept on the left rule.
+      // It carries the workstream's name, so it moves with the other text-bearing marks (TEXT WAITS).
+      w(supports(rule(name, '.roadmap td:first-child', ['background: var(--bg-alt)'])));
+      // A journey stage's top rule was a category color per stage, decoration that read as data.
+      w(rule(name, '.journey-stage', ['--section-accent: var(--chart-neutral-hue)']));
+    }
+
     // ── the quadrant's zone tints ────────────────────────────────────────────
     // Furniture, not marks — but colored, so a finish that left them alone would leave four
     // pastel rectangles behind whatever it did to the dots.
     w('\n/* The quadrant ZONE tints — colored furniture, so they move with the finish. */');
     for (let c = 0; c < 4; c++) {
-      // Zones are furniture under the dots and their labels, so pigment paints them at the family's pale `-fill`
-      // tier, not the solid: a solid zone would bury the marks and the names on it.
-      const body = tone ? mix(ONE, `${TONE[c]}%`) : name === 'pigment' ? `var(--chart-cat-${c + 1}-fill)` : pair(hueOf(c + 1), f.backdrop);
+      // Pigment's zones are the neutral ground (REGIONS, above): the dots carry the category color.
+      const body = tone ? mix(ONE, `${TONE[c]}%`) : name === 'pigment' ? 'var(--bg-alt)' : pair(hueOf(c + 1), f.backdrop);
       // The zone names are printed on these tints, so they wait with the text (TEXT WAITS).
-      w(supports(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : '0.5'}`])));
+      w(supports(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : name === 'pigment' ? '1' : '0.5'}`])));
     }
   }
   return out.join('\n') + '\n';
