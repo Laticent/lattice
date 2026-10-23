@@ -43,3 +43,23 @@ test('@crosswidth @gecko @webkit-tablet a click on the chip flips [ ] and [x] an
 	const source = await persistedSource(page);
 	for (const line of ['- [!] Pricing', '- [?] Date', '- [-] Docs', '- [/] Translations']) expect(source).toContain(line);
 });
+
+const MIXED = [
+	'---', 'marp: true', 'theme: indaco', '---', '',
+	'## A content slide.', '', '- [x] plain bullet', '- [ ] another', '',
+	'---', '',
+	'<!-- _class: checklist -->', '', '## Launch gates.', '', '- [x] Security review', '- [ ] Legal sign-off', '',
+].join('\n');
+
+test('@crosswidth @gecko @webkit-tablet only a slide whose layout draws markers gets chips', async ({ page }) => {
+	await gotoStudio(page);
+	const sourceTab = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
+	if (await sourceTab.isVisible().catch(() => false)) await sourceTab.click();
+	await setEditorContent(page, MIXED);
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	// The checklist slide's two items are chips; the content slide's two bullets are plain text, as the slide prints them.
+	await expect(page.locator('.cs-host li .cs-cellmark')).toHaveCount(2);
+	await expect(page.locator('.cs-slide').nth(0).locator('.cs-cellmark')).toHaveCount(0);
+	await expect(page.locator('.cs-slide').nth(1).locator('.cs-cellmark')).toHaveCount(2);
+});

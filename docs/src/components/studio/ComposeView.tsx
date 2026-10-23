@@ -341,6 +341,13 @@ const STATEFUL_CLASSES = new Set(['obligation-matrix', 'roadmap']);
 function isStatefulClass(slide: PMNode): boolean {
 	return STATEFUL_CLASSES.has(slideClassOf((slide.attrs.directives as string[]) || []));
 }
+// The components whose LIST items the engine draws a state marker on (`checklistItemStates`, `verdictGridBadges` in
+// lib/integrations/markdown-it/plugins.js). Any other layout prints `[x] text` as plain text, so Compose paints no chip there
+// either: a chip the slide does not draw is a control that changes the source and nothing the author can see.
+const LIST_MARKER_CLASSES = new Set(['checklist', 'verdict-grid', 'pricing']);
+function drawsListMarkers(slide: PMNode): boolean {
+	return LIST_MARKER_CLASSES.has(slideClassOf((slide.attrs.directives as string[]) || []));
+}
 function stateMarkerPlugin() {
 	// Memoize by doc IDENTITY: `decorations` is called on every view update, but the marker set only
 	// changes when the DOC changes — so a selection-only update (a caret move, the common case) skips
@@ -358,6 +365,7 @@ function stateMarkerPlugin() {
 				const $pos = view.state.doc.resolve(pos);
 				const para = $pos.parent;
 				if ($pos.depth < 2 || $pos.node($pos.depth - 1).type.name !== 'list_item' || !para.firstChild?.isText) return false;
+				if (!drawsListMarkers($pos.node(1))) return false;
 				const start = $pos.start();
 				const m = readEditMarker(para.firstChild.text ?? '');
 				if (!m) return false;
@@ -369,6 +377,7 @@ function stateMarkerPlugin() {
 				if (state.doc === cachedDoc) return cached;
 				const decos: Decoration[] = [];
 				let stateful = false;
+				let listMarkers = false;
 				state.doc.descendants((node, pos) => {
 					// Only paint where the ENGINE renders a stoplight chip: a marker-bearing pipe-table
 					// component's BODY cell. Descend stateful slides only (skip the rest wholesale — also
@@ -379,11 +388,13 @@ function stateMarkerPlugin() {
 					// cells wait on the stateful classes, tracked here because `descendants` walks in document order.
 					if (node.type.name === 'slide') {
 						stateful = isStatefulClass(node);
+						listMarkers = drawsListMarkers(node);
 						return true;
 					}
 					if (node.type.name === 'list_item') {
-						// A list item's leading marker (`- [x] done`): painted wherever it leads, because every layout
-						// reads it through the same list-text grammar, and a click toggles it (below).
+						// A list item's leading marker (`- [x] done`): painted where the slide's layout draws it (`LIST_MARKER_CLASSES`),
+						// and a click toggles it (below).
+						if (!listMarkers) return true;
 						const para = node.firstChild;
 						const lead = para?.type.name === 'paragraph' ? para.firstChild : null;
 						const lm = lead?.isText ? readEditMarker(lead.text ?? '') : null;
