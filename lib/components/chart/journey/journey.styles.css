@@ -550,7 +550,6 @@ section.journey .journey-face {
   width: 2.8125cqi;
   height: 2.8125cqi;
   color: var(--mood-color);
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--text-body) 10%, transparent));
 }
 section.journey .journey-mood[data-mood="5"] { --mood-color: var(--journey-mood-5); }
 section.journey .journey-mood[data-mood="4"] { --mood-color: var(--journey-mood-4); }
@@ -661,7 +660,6 @@ section.journey.curve .journey-curve {
    * scale survives non-uniform viewBox stretching. */
 }
 section.journey.curve .journey-curve polyline {
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--text-body) 6%, transparent));
 }
 section.journey.curve .journey-curve .journey-curve-grid {
   /* `stroke="currentColor"` on the line element resolves via the

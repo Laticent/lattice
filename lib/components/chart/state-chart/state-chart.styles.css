@@ -28,21 +28,15 @@
  * on the section; no margins (HARD RULE #20). */
 
 section.state-chart {
-  --state-node-ink: var(--text-heading);
+  /* Every tile is its concept's flat SOLID (chart-family.styles.css § THE SOLID TIER), so the name and the
+   * ordinal on it take the ink curated for every solid, at 7:1 (chart-solids.test.js). A deferred tile is
+   * hollow and takes the heading ink instead (below). */
+  --state-node-ink: var(--chart-solid-ink);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
-  /* THE ORDINAL PRINTS ON THE TILE, NOT ON THE CANVAS: `--text-muted` is calibrated
-   * against the slide and measured under 4.5:1 inside a filled tile. */
-  --state-index-ink: var(--text-body);
+  /* THE ORDINAL PRINTS ON THE TILE, NOT ON THE CANVAS, so it takes the solid ink too. */
+  --state-index-ink: var(--chart-solid-ink);
   --state-marker: var(--diagram-line);
-  /* The TILE RAMP: how much hue a tile's fill carries at its top and bottom. A neutral
-   * tile takes the chart family's fill ramp; a STATUS tile takes the pill's stops (below),
-   * the family's AA-vetted recipe for text on a status tint (tools/composed-contrast.js,
-   * `stateChartNode`). */
-  --state-tile-top-l: var(--chart-fill-top-l);
-  --state-tile-top-d: var(--chart-fill-top-d);
-  --state-tile-bottom-l: var(--chart-fill-bottom-l);
-  --state-tile-bottom-d: var(--chart-fill-bottom-d);
   /* The paints the shared key (flowchart.styles.css, "The key") reads. */
   --fc-line-mark: var(--state-edge);
   --fc-stroke-mark: var(--state-node-stroke);
@@ -119,14 +113,10 @@ section.state-chart .state-node {
    * chart-text minimum, and the fit raises that floor by 1/k, so the right padding tracks
    * the badge's own size (two digits of it) rather than a fixed length. */
   padding: 0.78125cqi calc(0.78125cqi + 2 * max(var(--chart-text-min), 0.703125cqi)) 0.78125cqi 1.5625cqi;
-  --fill-hue: var(--muted-mark);
+  --fill-hue: var(--chart-neutral-hue);
   --fill-ink: var(--diagram-stroke);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  background: var(--fill-hue);
+  border: var(--chart-hairline) solid var(--fill-hue);
   color: var(--state-node-ink);
   border-radius: var(--chart-mark-radius);
   font-weight: 500;
@@ -200,7 +190,7 @@ section.state-chart .state-node .state-index {
 /* A state with a status has its leading accent (the SVG twin is `.state-node-accent`). */
 section.state-chart .state-node[data-s],
 section.state-chart .state-node-row[data-s] {
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+  border-left: var(--chart-fill-accent) solid var(--fill-hue);
 }
 
 /* Labels and titles are measured, never shown as HTML: out of flow and invisible, but
@@ -255,15 +245,7 @@ section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-
   { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch)[data-s="deferred"]
-  { --fill-hue: var(--muted-mark); --fill-ink: var(--text-secondary); }
-/* A status tile's stops: the pill's. The pass emits the same four literals into its
- * per-tone gradient (state-chart.layout.js `nodeDefs`). */
-section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) {
-  --state-tile-top-l: 18%;
-  --state-tile-bottom-l: 30%;
-  --state-tile-top-d: 42%;
-  --state-tile-bottom-d: 54%;
-}
+  { --fill-hue: var(--state-mute-hue); --fill-ink: var(--text-secondary); --state-node-ink: var(--text-heading); --state-index-ink: var(--text-heading); }
 /* The badge on a status tile takes the NAME's ink: at ~8px on a tinted tile the body ink
  * measured as low as 3.2:1. */
 section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) .state-index,
@@ -410,8 +392,8 @@ section.state-chart .state-marker-ring {
  * the overlay is `pointer-events: none`, so the tile turns them back on. */
 section.state-chart .state-node-shape {
   pointer-events: auto;
-  --fill-hue: var(--muted-mark);
-  stroke: color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  --fill-hue: var(--chart-neutral-hue);
+  stroke: var(--fill-hue);
   stroke-width: var(--chart-edge);
 }
 /* A status or a slot inks the whole edge, as it does a gantt bar's. */
@@ -422,13 +404,14 @@ section.state-chart .state-node-shape[data-s="deferred"] {
   fill-opacity: 0.18;
   stroke-dasharray: 4 2.5;
 }
-/* The leading accent: only on a state with a status or a slot, inked from the table. */
+/* The leading accent: only on a state with a status or a slot. It is the tile's own solid, so on a filled tile it
+ * reads as part of the tile; on a deferred (hollow) tile it is the one solid mark of where the state starts. */
 section.state-chart .state-node-accent {
-  fill: var(--fill-ink);
+  fill: var(--fill-hue);
 }
 section.state-chart .state-label-t {
   /* The hue the tile under this caption wears, so a chart finish can pick the ink its body clears. */
-  --fill-hue: var(--muted-mark);
+  --fill-hue: var(--chart-neutral-hue);
   fill: var(--state-node-ink);
   font-family: var(--font-body);
   font-weight: 500;
@@ -498,23 +481,19 @@ section.state-chart .state-node-row {
   grid-template-columns: subgrid;
   align-items: center;
   padding: var(--sp-sm) var(--sp-md);
-  background: linear-gradient(180deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-top-l),    var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--state-tile-top-d),    black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-l), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) var(--state-tile-bottom-d), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
+  background: var(--fill-hue);
+  border: var(--chart-hairline) solid var(--fill-hue);
   color: var(--state-node-ink);
   border-radius: var(--chart-mark-radius);
 }
 /* The neutral tile, at zero added specificity so the status table re-points it. */
 section.state-chart :where(.state-node-row) {
-  --fill-hue: var(--muted-mark);
+  --fill-hue: var(--chart-neutral-hue);
   --fill-ink: var(--diagram-stroke);
 }
 /* The row's own `border` shorthand resets the accent the shared rule set. */
 section.state-chart .state-node-row[data-s] {
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+  border-left: var(--chart-fill-accent) solid var(--fill-hue);
 }
 section.state-chart .state-node-row[data-s="deferred"] {
   background: color-mix(in oklab, var(--muted-mark) 18%, var(--bg));

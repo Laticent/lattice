@@ -70,7 +70,9 @@ const F = {
   // it halved the top-to-empty contrast (3.54 → 1.92 light, 3.03 → 1.51 dark on indaco). The ink is
   // now picked per cell (`inkOn`, behind the @supports below), so the band no longer has to protect it.
   // tools/chart-finish-reach.mjs measures the span against the unfinished paint on every theme.
-  pigment: { body: [82, 82], backdrop: [24, 50], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
+  // Pigment IS the solids (chart-family.styles.css § THE SOLID TIER): every body, with text on it or not, is the
+  // concept's curated solid at full strength, and its text is `--chart-solid-ink` at 7:1.
+  pigment: { body: [100, 100], backdrop: [100, 100], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
@@ -119,7 +121,10 @@ const STATUS_MARKS = [
   { sel: '.state-node-shape[data-s]', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'fill', bears: true },
   // The state chart's and the flowchart's key is the shared graph key (`_chart-family/graph-key.js`):
   // its status swatch follows the tiles it keys, and both charts' tiles are finished.
-  { sel: '.fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
+  // Each chart names its status hue in its own channel (state chart `--fill-*`, flowchart `--fc-*`), so the shared
+  // key's swatch is reached once per chart, scoped by the key's `data-chart`.
+  { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
+  { sel: '[data-chart="flowchart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fc-hue)', ink: 'var(--fc-hue-mark)', paint: 'bg', bears: false, keysText: true },
   // The progress fill's readout sits on its OWN plate (`.progress-pct`, progress.styles.css), so the
   // text never lands on the body and the fill does not need a text level: `bears: false`. As `true`
   // it took pigment's 40%/46% text level, which in dark mode is near-black against the slide. An
@@ -152,17 +157,17 @@ const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: '
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
 /**
- * The ink for TEXT on a mark, under every finish: the one the chart family curates for a text-bearing body.
- * `--text-heading` is gated on the `-fill` tier (chart-contrast.test.js: at least 6.9:1 on every category fill and
- * 5.46:1 on every status fill, in both modes, on every palette). A finish therefore paints a mark that carries
- * text at that tier or quieter, and never picks a second ink: pigment's earlier solid text marks needed black
- * or white picked per body, which cleared 4.5:1 and read as mud (median 5.6:1), and changed the text color from
- * chart to chart. Text-FREE marks are where pigment is solid.
+ * The ink for TEXT on a mark, one per finish and never picked per body (a per-body black-or-white cleared 4.5:1,
+ * read as mud at a median of 5.6:1, and changed the text color from chart to chart).
+ *   pigment  `--chart-solid-ink`: each theme curates it with its solids, at 7:1 on every one of them
+ *            (chart-solids.test.js).
+ *   etch, tone  `--text-heading`: their text tiers are paler than the family's `-fill` tier, on which
+ *            chart-contrast.test.js holds `--text-heading` (at least 6.9:1 on a category fill, 5.46:1 on a status).
  */
-const TEXT_INK = 'var(--text-heading)';
+const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-solid-ink)' : 'var(--text-heading)');
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
 const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
-const mix = (hue, pct) => `color-mix(in oklab, ${hue} ${pct}, ${BASE})`;
+const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${pct}, ${BASE})`);
 const ld = (a, b) => (a === b ? a : `light-dark(${a}, ${b})`);
 const pair = (hue, [l, d]) => ld(mix(hue, `${l}%`), mix(hue, `${d}%`));
 /**
@@ -394,7 +399,7 @@ function build() {
         ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
         : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
       // Pigment's text-bearing body IS the family's curated fill tier, read as the token.
-      const body = name === 'pigment' ? `var(--chart-cat-${n}-fill)` : ld(bodyL, bodyD);
+      const body = ld(bodyL, bodyD);
       const ink = tone ? ONE_INK : inkOf(n);
       for (const paint of ['fill', 'bg']) {
         if (!bears[paint].length) continue;
@@ -406,7 +411,7 @@ function build() {
         // on an engine that cannot pick the ink, a mark that carries text keeps its shipped
         // paint and ink, which each theme's gates already hold. Every other mark still moves.
         const sel = `${cls}:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]`;
-        const text = paint === 'bg' ? [`color: ${TEXT_INK}`] : [];
+        const text = paint === 'bg' ? [`color: ${textInk(name)}`] : [];
         w(supports(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text])));
       }
     }
@@ -432,21 +437,21 @@ function build() {
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       if (s.bears && s.paint === 'bg') {
-        decls.push(`color: ${TEXT_INK}`);
+        decls.push(`color: ${textInk(name)}`);
         // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
         // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
         // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
         // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
         // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
-        if (s.nodeInk) decls.push(`--state-node-ink: ${TEXT_INK}`);
-        if (s.indexInk) decls.push(`--state-index-ink: ${TEXT_INK}`);
+        if (s.nodeInk) decls.push(`--state-node-ink: ${textInk(name)}`);
+        if (s.indexInk) decls.push(`--state-index-ink: ${textInk(name)}`);
       }
       // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
       // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
       w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
     }
 
-    // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes TEXT_INK ──
+    // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes the finish's text ink ──
     // Each of these is a sibling of its mark in the SVG (a gantt caption beside its rect, a state caption and its
     // index numeral beside the tile's shape, a flowchart name beside its node), so it cannot inherit the mark's
     // ink and is reached by name. A caption beside its bar (`data-pos="after"`) sits on the canvas and keeps the
@@ -458,7 +463,7 @@ function build() {
       '.state-index-t[data-s]',
       '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
       '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
-    ].join(', '), [`fill: ${TEXT_INK}`])));
+    ].join(', '), [`fill: ${textInk(name)}`])));
 
     // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
     // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
@@ -575,10 +580,23 @@ function build() {
         `--hs-icon-ink: ${ld(inkOn(mix('var(--text-body)', `${f.backdrop[0]}%`)), inkOn(mix('var(--text-body)', `${f.backdrop[1]}%`)))}`,
       ])));
     }
+    if (name === 'pigment') {
+      // Pigment paints the neutral node with the neutral SOLID, like every other unstated mark in the family.
+      w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
+        'fill: var(--chart-neutral-hue)', 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+      ]));
+      w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`])));
+    }
 
     // ── A JOURNEY STAGE BAR — one constant ground (`encodes: none`), the heaviest mark on the slide ────
-    // Pigment and tone keep the shipped slate; etch is the pale one with the 2px edge, in the stage's own
+    // Pigment paints it with the neutral solid and the solid ink; tone keeps the shipped slate; etch is the pale one
+    // with the 2px edge, in the stage's own
     // accent. The stage name's ink is `--journey-stage-fg`, solved against the shipped ground and a paler one holds.
+    if (name === 'pigment') {
+      w(supports(rule(name, ':is(.journey-stage, .journey-vstage-name)', [
+        'background: var(--chart-neutral-hue)', `color: ${textInk(name)}`,
+      ])));
+    }
     if (name === 'etch') {
       w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [
         'background: color-mix(in oklab, var(--journey-stage-bg) 38%, var(--bg))',
@@ -598,17 +616,17 @@ function build() {
     const iconInk = ([a, b]) => ld(inkOn(a), inkOn(b));
     for (const n of SLOTS) {
       const arms = tone ? [mix(ONE, `${TONE[n - 1]}%`), mix(ONE, `${TONE[n - 1]}%`)] : [mix(hueOf(n), `${f.body[0]}%`), mix(hueOf(n), `${f.body[1]}%`)];
-      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${iconInk(arms)}`])));
+      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${name === 'pigment' ? textInk(name) : iconInk(arms)}`])));
     }
     // ── A TOWER SHARE FIGURE — printed on its share. Outside a finish the figure reads its ink off --mark-body
     // (tower.styles.css), solved for the shipped share; a finish paints the share's `fill` directly. A share CARRIES
     // TEXT (`bears: true`), so every finish paints it at the text-bearing tier, and the figure takes the one ink
-    // curated for that tier (TEXT_INK).
+    // curated for that tier (`textInk`).
     w('\n/* TOWER SHARE FIGURE — the ink curated for a text-bearing body. */');
-    for (const n of SLOTS) w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${TEXT_INK}`])));
+    for (const n of SLOTS) w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${textInk(name)}`])));
     const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
     const sArms = tone ? [mix(hsStatus.hue, `${TONE[2]}%`), mix(hsStatus.hue, `${TONE[2]}%`)] : [mix(hsStatus.hue, `${f.body[0]}%`), mix(hsStatus.hue, `${f.body[1]}%`)];
-    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${iconInk(sArms)}`])));
+    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${name === 'pigment' ? textInk(name) : iconInk(sArms)}`])));
 
     // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
     // A gradient here reads as a fourth color where two polygons cross.
@@ -643,7 +661,9 @@ function build() {
     // pastel rectangles behind whatever it did to the dots.
     w('\n/* The quadrant ZONE tints — colored furniture, so they move with the finish. */');
     for (let c = 0; c < 4; c++) {
-      const body = tone ? mix(ONE, `${TONE[c]}%`) : pair(hueOf(c + 1), f.backdrop);
+      // Zones are furniture under the dots and their labels, so pigment paints them at the family's pale `-fill`
+      // tier, not the solid: a solid zone would bury the marks and the names on it.
+      const body = tone ? mix(ONE, `${TONE[c]}%`) : name === 'pigment' ? `var(--chart-cat-${c + 1}-fill)` : pair(hueOf(c + 1), f.backdrop);
       // The zone names are printed on these tints, so they wait with the text (TEXT WAITS).
       w(supports(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : '0.5'}`])));
     }

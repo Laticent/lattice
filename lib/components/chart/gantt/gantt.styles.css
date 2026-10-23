@@ -158,10 +158,11 @@
  * re-pointed per status below, exactly as it was for the <div> bars. */
 :is(section.gantt, figure.gantt) .gantt-bar,
 :is(section.gantt, figure.gantt) .gantt-milestone {
-  /* The unstated HUE is the neutral mute ramp the kernel fills these with (GANTT_STATUS_FILL falls to
-   * 'mute'), declared here so a chart finish reads it from the member like it reads every status's.
-   * The fill itself is the kernel's inline gradient; a finish replaces it, this only names the hue. */
-  --fill-hue: var(--state-mute-hue);
+  /* Every bar and milestone is its status's flat SOLID, and an unstated one the neutral solid
+   * (chart-family.styles.css § THE SOLID TIER). The status rules below re-point `--fill-hue`; the fill reads it
+   * here, so the kernel's paint server is only a fallback for a reader without this stylesheet. */
+  --fill-hue: var(--chart-neutral-hue);
+  fill: var(--fill-hue);
   /* No status means no status — a neutral ink. This was --state-info-ink, the
    * same blue a declared `pilot` or `decision` takes, so every gallery page drew
    * a blue bar the legend never named.
@@ -188,13 +189,13 @@
 
 :is(section.gantt, figure.gantt) .gantt-legend-swatch:not([data-s]) {
   /* The "no status" key chip names the same neutral the unstated bar wears. */
-  --fill-hue: var(--state-mute-hue);
+  --fill-hue: var(--chart-neutral-hue);
   --fill-ink: var(--text-secondary);
 }
 
 /* A caption inside a bar names the bar's hue too (`--fill-hue`), so a chart finish can pick the ink
  * its body clears: the label is a sibling of the rect, not a child, and cannot read the bar's paint. */
-:is(section.gantt, figure.gantt) .gantt-bar-label { --fill-hue: var(--state-mute-hue); }
+:is(section.gantt, figure.gantt) .gantt-bar-label { --fill-hue: var(--chart-neutral-hue); }
 
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
  * gradient is selected by the kernel (`GANTT_STATUS_FILL`) from the same
@@ -283,9 +284,10 @@
 }
 
 /* Bar caption. The kernel places it inside the bar when it fits and beside it
- * when it does not, tagging which via data-pos — so the ink has to work on the
- * bar's tinted fill AND on the canvas. --text-heading clears both (the fill is
- * capped at ~54% hue precisely so this stays legible).
+ * when it does not, tagging which via data-pos. Beside a bar it sits on the canvas
+ * and takes --text-heading; inside one it sits on the bar's solid and takes the ink
+ * curated for every solid, --chart-solid-ink (7:1, chart-solids.test.js). A deferred
+ * bar is hollow, so its caption sits on the canvas too.
  *
  * WEIGHT 500, NOT 600. The lane name (.gantt-lane-label) is 600, and a caption
  * at the same weight and ink read as a second lane label sitting inside the bar:
@@ -298,6 +300,9 @@
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-weight: 500;
+}
+:is(section.gantt, figure.gantt) .gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]) {
+  fill: var(--chart-solid-ink);
 }
 
 /* ── The "today" / now line — opt-in (eyebrow `today <point>` only) ──────────
@@ -375,10 +380,10 @@
  * bar's own x — so it must INHERIT `--fill-ink` from the bar's rules, never
  * re-derive it. It cannot disagree with a table it does not have. */
 :is(section.gantt, figure.gantt) .gantt-bar-accent {
-  /* THE INK ONLY — never the bar's outline. The accent is a solid fill; adding
-   * it to the bars' rule handed it their `stroke` too, which outlined a 4px
-   * sliver in its own color and pushed it under the 3:1 floor on four themes. */
-  fill: var(--fill-ink);
+  /* The bar's own SOLID, never the bar's outline: on a filled bar it reads as part of the bar, and on a deferred
+   * (hollow) bar it is the one solid mark of where the task starts. Adding it to the bars' rule handed it their
+   * `stroke` too, which outlined a 4px sliver and pushed it under the 3:1 floor on four themes. */
+  fill: var(--fill-hue);
 }
 
 /* AN UNSTATED BAR HAS NO ACCENT, because the accent has nothing to do. Its one

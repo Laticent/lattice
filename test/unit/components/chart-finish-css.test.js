@@ -49,14 +49,15 @@ describe('chart-finish.generated.css', () => {
     }
   });
 
-  test('a mark that carries text wears the curated text tier, and its text is --text-heading, under every finish', () => {
-    // chart-contrast.test.js gates that pair (--text-heading on every -fill tier, every palette, both modes). A finish
-    // that painted a text-bearing mark any stronger needed a second ink per body, which read as mud and changed the
-    // text color from chart to chart (engineering/chart-styling.md §3).
+  test('pigment paints every mark with its solid, and text on a solid is --chart-solid-ink; etch and tone use --text-heading', () => {
+    // chart-solids.test.js holds --chart-solid-ink at 7:1 on every solid; chart-contrast.test.js holds --text-heading
+    // on the family's -fill tier, which etch's and tone's text tiers are paler than. No text ink is ever picked per
+    // body: that read as mud and changed the text color from chart to chart (engineering/chart-styling.md §3).
     for (let n = 1; n <= 8; n++) {
-      assert.match(css, new RegExp(`chart-finish-pigment :where\\(:is\\([^{]*\\):is\\(\\[data-hue="${n}"\\], \\[data-key-hue="${n}"\\]\\)\\[data-encodes="hue"\\]\\[data-paint="bg"\\]\\)[^{]*\\{[^}]*background: var\\(--chart-cat-${n}-fill\\)[^}]*color: var\\(--text-heading\\)`), `slot ${n}`);
+      const re = (finish, bg, ink) => new RegExp(`chart-finish-${finish} :where\\(:is\\([^{]*\\):is\\(\\[data-hue="${n}"\\], \\[data-key-hue="${n}"\\]\\)\\[data-encodes="hue"\\]\\[data-paint="bg"\\]\\)[^{]*\\{[^}]*background: ${bg}[^}]*color: ${ink}`);
+      assert.match(css, re('pigment', `var\\(--chart-cat-${n}-hue\\)`, 'var\\(--chart-solid-ink\\)'), `pigment slot ${n}`);
+      assert.match(css, re('etch', '[^;]*', 'var\\(--text-heading\\)'), `etch slot ${n}`);
     }
-    // No text ink anywhere is picked per body, except a heatmap value (the member's own ramp, solved per step).
     const picked = css.split('\n}').filter((b) => /(?:^|\s)(?:color|fill|--tower-ink|--state-node-ink|--state-index-ink):\s*(?:light-dark\()?color\(from/.test(b));
     for (const b of picked) assert.match(b, /heatmap-value|hub-spoke-icon|lat-pill/, b.slice(0, 160));
   });
@@ -178,9 +179,8 @@ describe('chart-finish.generated.css', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/progress/progress.manifest.json'), 'utf8'));
     assert.equal(manifest.kernel.marks.find((m) => m.class === 'progress-fill').bears, false, 'the manifest agrees with the status table');
     // At bears:true pigment took the 40%/46% text level, which in dark mode is near-black on the slide.
-    const body = statusBody('pigment', '.progress-fill[data-s]');
-    assert.match(body, /82%/, 'pigment\'s full body level');
-    assert.doesNotMatch(body, /\b(?:40|46|30|35)%/);
+    // Pigment paints every body with its concept's SOLID at full strength: the member's hue channel itself.
+    assert.equal(statusBody('pigment', '.progress-fill[data-s]'), 'var(--fill-hue)', 'pigment\'s body is the solid');
   });
 
   test('the ink switches on luminance: black above Y 0.1791, white below, in the generated guard and rules', () => {
@@ -288,7 +288,7 @@ describe('chart-finish.generated.css', () => {
     for (const finish of ['pigment', 'etch', 'tone']) {
       assert.equal(statusBody(finish, '.gantt-legend-swatch[data-s]'), statusBody(finish, '.gantt-bar[data-s]'), `gantt, ${finish}`);
       assert.equal(
-        statusBody(finish, '.fc-key-swatch[data-s]:not([data-s="deferred"])'),
+        statusBody(finish, '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])'),
         statusBody(finish, '.state-node-shape[data-s]'),
         `state-chart, ${finish}`,
       );
@@ -315,10 +315,10 @@ describe('chart-finish.generated.css', () => {
   test('the state chart key row reaches the key of both variants', () => {
     const { transformSection } = require('../../../lib/components/chart/state-chart/state-chart.transform');
     const inner = '<h2>T</h2><ul><li>A <code>AT-RISK</code><ul><li>-&gt; B</li></ul></li><li>B</li></ul>';
-    const key = STATUS_MARKS.find((m) => m.sel.includes('.fc-key-swatch'));
-    // The row is no longer scoped to one chart: the flowchart's status shapes are finished too, so the shared
-    // graph key's status swatch follows the tiles it keys in both charts.
-    assert.ok(key && !/^\[data-chart=/.test(key.sel), 'the key row covers every chart that uses the graph key');
+    // One row per chart that uses the shared graph key, scoped by the key's `data-chart`, because each chart names its
+    // status hue in its own channel (`--fill-*` on the state chart, `--fc-*` on the flowchart).
+    const rows = STATUS_MARKS.filter((m) => m.sel.includes('.fc-key-swatch'));
+    assert.deepEqual(rows.map((m) => /^\[data-chart="([a-z-]+)"\] /.exec(m.sel)?.[1]).sort(), ['flowchart', 'state-chart']);
     for (const variant of [[], ['inline']]) {
       const html = transformSection(inner, { classTokens: ['state-chart', ...variant] });
       assert.match(html, /<ol class="fc-key" data-chart="state-chart">.*class="fc-key-swatch"[^>]*data-s="at-risk"/, variant.join() || 'default');

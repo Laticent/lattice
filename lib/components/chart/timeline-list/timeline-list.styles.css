@@ -64,13 +64,8 @@ figure.timeline-list.chart-frame .chart-body {
   left: 6%;
   right: 6%;
   height: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
-  background: linear-gradient(
-    to right,
-    color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 12%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 88%,
-    color-mix(in oklab, var(--accent) 12%, transparent) 100%
-  );
+  /* A flat rule: the chart family paints nothing graded. */
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
   transform: translateY(-1px);
   z-index: 0;
 }
@@ -242,13 +237,8 @@ section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeli
   right: auto;
   width: 2px;  /* sanctioned: timeline spine rule — a hairline, resolution-stable by design */
   height: auto;
-  background: linear-gradient(
-    to bottom,
-    color-mix(in oklab, var(--accent) 12%, transparent) 0%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 8%,
-    color-mix(in oklab, var(--accent) 55%, transparent) 92%,
-    color-mix(in oklab, var(--accent) 12%, transparent) 100%
-  );
+  /* A flat rule: the chart family paints nothing graded. */
+  background: color-mix(in oklab, var(--accent) 55%, transparent);
   transform: translateX(-1px);
 }
 section.timeline-list:where([data-family="tall"], [data-family="strip"]) .timeline-item {
