@@ -306,14 +306,14 @@ section.word-cloud,
    * Theme-overridable: a theme sets `--chart-catN` (same light-dark shape) at
    * :root to flavor the spectrum to its character; the var() indirection lets
    * the theme always win, and untuned themes inherit this master set. */
-  --chart-cat-1-hue: var(--chart-cat1, light-dark(#0A6CE0, #2E8BFF));  /* blue   */
-  --chart-cat-2-hue: var(--chart-cat2, light-dark(#C2670A, #FFA630));  /* orange */
-  --chart-cat-3-hue: var(--chart-cat3, light-dark(#1E9E48, #34D058));  /* green  */
-  --chart-cat-4-hue: var(--chart-cat4, light-dark(#9333D6, #BE5AF2));  /* purple */
-  --chart-cat-5-hue: var(--chart-cat5, light-dark(#0E96AE, #3FC8E0));  /* teal   */
-  --chart-cat-6-hue: var(--chart-cat6, light-dark(#E11D48, #FF4D6A));  /* rose   */
-  --chart-cat-7-hue: var(--chart-cat7, light-dark(#B5860A, #FFD426));  /* gold   */
-  --chart-cat-8-hue: var(--chart-cat8, light-dark(#4B49C9, #6E6CF0));  /* indigo */
+  --chart-cat-1-hue: var(--chart-cat1, light-dark(#0053B3, #5AA1FF));  /* blue   */
+  --chart-cat-2-hue: var(--chart-cat2, light-dark(#894600, #FFA630));  /* orange */
+  --chart-cat-3-hue: var(--chart-cat3, light-dark(#006628, #34D058));  /* green  */
+  --chart-cat-4-hue: var(--chart-cat4, light-dark(#841DC5, #D07AFF));  /* purple */
+  --chart-cat-5-hue: var(--chart-cat5, light-dark(#006071, #3FC8E0));  /* teal   */
+  --chart-cat-6-hue: var(--chart-cat6, light-dark(#B30033, #FF7483));  /* rose   */
+  --chart-cat-7-hue: var(--chart-cat7, light-dark(#715200, #FFD426));  /* gold   */
+  --chart-cat-8-hue: var(--chart-cat8, light-dark(#4946C6, #9096FF));  /* indigo */
 
   --chart-cat-1-fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, black));
   --chart-cat-2-fill: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-2-hue) 40%, black));
@@ -553,11 +553,21 @@ section.word-cloud,
  * per-`.dark` overrides collapse into the light-dark() pairs). */
 section.chart-frame,
 .chart-frame {
-  --state-pass-hue: var(--chart-state-pass, light-dark(#1E9E48, #34D058));  /* green  — done/on-track/live   */
-  --state-warn-hue: var(--chart-state-warn, light-dark(#C2790A, #FFB02E));  /* amber  — at-risk/warn         */
-  --state-fail-hue: var(--chart-state-fail, light-dark(#CE2F2F, #FF5B52));  /* red    — blocked/fail         */
-  --state-info-hue: var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF));  /* blue   — pilot/decision/info  */
-  --state-mute-hue: var(--chart-state-mute, light-dark(#6B7480, #9AA7B6));  /* gray   — deferred             */
+  --state-pass-hue: var(--chart-state-pass, light-dark(#006628, #34D058));  /* green  — done/on-track/live   */
+  --state-warn-hue: var(--chart-state-warn, light-dark(#7C4B00, #FFB02E));  /* amber  — at-risk/warn         */
+  --state-fail-hue: var(--chart-state-fail, light-dark(#B10015, #FF776C));  /* red    — blocked/fail         */
+  --state-info-hue: var(--chart-state-info, light-dark(#0053B3, #5AA1FF));  /* blue   — pilot/decision/info  */
+  --state-mute-hue: var(--chart-state-mute, light-dark(#4F5863, #9AA7B6));  /* gray   — deferred             */
+
+  /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
+   * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
+   * mark with neither `--chart-neutral-hue`. Text on any of them is `--chart-solid-ink`, one ink per mode (white
+   * on a light canvas, the canvas on a dark one), so a label reads the same on every chart. Each theme curates the
+   * seeds (`--chart-catN`, `--chart-state-X`, `--chart-neutral`, `--chart-on-solid`) so the ink clears 7:1 on every
+   * solid and every solid clears 3:1 off the canvas: tools/curate-chart-solids.js seeded them, and
+   * test/unit/palette/chart-solids.test.js holds every palette to it. No chart mixes or grades its own fill. */
+  --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #9AA7B6));
+  --chart-solid-ink: var(--chart-on-solid, light-dark(#FFFFFF, var(--bg)));
 
   /* Light: a 24% tint into the canvas (proven, like catN). Dark: deepen the
    * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue

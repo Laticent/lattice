@@ -67,9 +67,11 @@
   --pass: light-dark(#4d4d4d, #bbbbbb);
   --warn: light-dark(#6e6e6e, #959595);
   --fail: light-dark(#2d2d2d, #e2e2e2);
-  --chart-state-pass: #4d4d4d;
-  --chart-state-warn: #6e6e6e;
-  --chart-state-fail: #2d2d2d;
+  --chart-state-pass: light-dark(#4D4D4D, #989898);
+  --chart-state-warn: light-dark(#575757, #989898);
+  --chart-state-fail: light-dark(#2D2D2D, #979797);
+  --chart-on-solid: light-dark(#FFFFFF, #000000);
+  --chart-neutral: light-dark(#575757, #989898);
   --diagram-critical: #2d2d2d;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
