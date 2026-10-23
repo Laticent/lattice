@@ -130,9 +130,9 @@ white text at 7:1 is brown. The contract, held for every palette in both modes b
   (`--state-X-ink`, the theme's `--X`) does. A light amber under dark text cannot clear 3:1 itself.
 
 **Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). The
-deck picks how loud its status fills are; `muted` is the default. Muted is `--X-solid` with `--on-warn`
-white on the light face; vivid is `--X-solid-vivid` with a dark `--on-warn-vivid`, which
-`chart-family.styles.css` swaps in under `.chart-finish-vivid`. Each theme curates both. A brand theme's
+deck picks how loud its status fills are; `muted` is the default. Muted is `--X-solid`; vivid is `--X-solid-vivid`, which
+`chart-family.styles.css` swaps in under `.chart-finish-vivid`. Both put white text on every light-face fill (the
+owner's call): vivid takes the most chroma each hue reaches under white at 7:1, so its amber is a burnt orange. Each theme curates both. A brand theme's
 muted light fills sit under the colorblind floor (one white ink at 7:1 cannot reach it), and the owner
 made that call: the `a11y-*` palettes carry the floor, in both intensities, and every status also carries
 a label. `cvd-trio-floor.test.js` holds the a11y fills to their own condition's floor and the brand fills

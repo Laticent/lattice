@@ -165,18 +165,18 @@
   --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), in both intensities of `chart-finish:`. MUTED, the
    * default: on the light face a deep green, bronze and oxblood, all under white text; on the dark face a sage,
-   * ochre and rose-brick under the canvas as ink. VIVID: on the light face a true amber under its own dark ink; on
-   * the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
+   * ochre and rose-brick under the canvas as ink. VIVID: on the light face the most saturated green, burnt orange
+   * and crimson white text allows; on the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
    * colorblind floors; a brand theme's fills are held to their recorded separation instead. Solved by
    * tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#2B642F, #7EBD87);
   --warn-solid: light-dark(#673200, #F69F72);
   --fail-solid: light-dark(#5B0409, #D87976);
   --on-warn: light-dark(#FFFFFF, var(--on-solid));
-  --pass-solid-vivid: light-dark(#006517, #38D566);
-  --warn-solid-vivid: light-dark(#FF9B50, #FF9F6D);
-  --fail-solid-vivid: light-dark(#4F0A0B, #FB575C);
-  --on-warn-vivid: light-dark(#131416, var(--on-solid));
+  --pass-solid-vivid: light-dark(#006718, #38D566);
+  --warn-solid-vivid: light-dark(#973C00, #FF9F6D);
+  --fail-solid-vivid: light-dark(#B40017, #FB575C);
+  --on-warn-vivid: light-dark(#FFFFFF, var(--on-solid));
   --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *
@@ -421,10 +421,10 @@
    * on --bg #1A1A1C. */
   --chart-cat1: light-dark(#114D1B, #10D6A8);  /* electric green -- brand anchor   4.83 / 8.26 */
   --chart-cat2: light-dark(#0E50BE, #71A5FF);  /* bright blue    -- cool complement 4.74 / 5.37 */
-  --chart-cat3: light-dark(#973A00, #E69400);  /* vivid orange   -- warm opposite   4.77 / 6.18 */
+  --chart-cat3: light-dark(#8F0701, #E69400);  /* vivid orange   -- warm opposite   4.77 / 6.18 */
   --chart-cat4: light-dark(#603EC2, #A99BFF);  /* vivid indigo                      4.63 / 4.66 */
   --chart-cat5: light-dark(#00606E, #3BC8E0);  /* vivid cyan                        4.76 / 8.71 */
-  --chart-cat6: light-dark(#A91956, #FF7AA3);  /* vivid magenta                     4.67 / 5.18 */
+  --chart-cat6: light-dark(#A81A5A, #FF7AA3);  /* vivid magenta                     4.67 / 5.18 */
   --chart-cat7: light-dark(#715100, #F5B832);  /* amber-gold                        4.62 / 9.75 */
   --chart-cat8: light-dark(#843390, #DA87E7);  /* vivid purple                      4.64 / 5.25 */
 
@@ -436,10 +436,10 @@
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#114D1B, #10D6A8);
   --chart-cat2-ink: light-dark(#0E50BE, #71A5FF);
-  --chart-cat3-ink: light-dark(#973A00, #E69400);
+  --chart-cat3-ink: light-dark(#8F0701, #E69400);
   --chart-cat4-ink: light-dark(#603EC2, #A99BFF);
   --chart-cat5-ink: light-dark(#00606E, #3BC8E0);
-  --chart-cat6-ink: light-dark(#A91956, #FF7AA3);
+  --chart-cat6-ink: light-dark(#A81A5A, #FF7AA3);
   --chart-cat7-ink: light-dark(#715100, #F5B832);
   --chart-cat8-ink: light-dark(#843390, #DA87E7);
   /* ── end chart categorical ink ── */

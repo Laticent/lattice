@@ -533,8 +533,8 @@ section.word-cloud,
  * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
  * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`, the rule below this
  * block). A chart keeps no status color of its own. The ink is the fill on the light face and the fill lifted toward
- * white on the dark one; the one fill too light to clear 3:1 off a light slide, vivid amber, takes the theme's status
- * ink `--warn` as its ink and edge instead. */
+ * white on the dark one; a fill too light to clear 3:1 off a light slide (an a11y palette's amber) takes its edge
+ * from `--warn-solid-edge`. */
 section.chart-frame,
 .chart-frame {
   --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
@@ -1194,7 +1194,6 @@ section.chart-frame .chart-caption::before {
   --state-warn-hue: var(--warn-solid-vivid);
   --state-fail-hue: var(--fail-solid-vivid);
   --state-warn-on: var(--on-warn-vivid);
-  --state-warn-ink: light-dark(var(--warn), color-mix(in oklab, var(--state-warn-hue) 78%, white));
 }
 
 /* TEXT ON A STATUS FILL. Every member marks a status with `data-s`, in one shared vocabulary, and its label sits on

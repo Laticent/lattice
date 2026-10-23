@@ -847,7 +847,7 @@ risk, blocked) are, under any finish. Write the two words in either order.
 | Second word | Token | Light slide | Dark slide |
 |---|---|---|---|
 | `muted` | `chart-finish-muted` | deep green, bronze and oxblood, all under white text. **The default** (omit the word). | calm sage, ochre and rose-brick |
-| `vivid` | `chart-finish-vivid` | a true amber under dark text, beside the deep green and red | saturated green, amber and red |
+| `vivid` | `chart-finish-vivid` | emerald, burnt orange and crimson, all under white text | saturated green, amber and red |
 
 ```markdown
 ---

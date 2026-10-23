@@ -76,7 +76,6 @@
     "--chart-inset-x",
     "--chart-panel-x",
     "--chart-panel-y",
-    "--warn",
     "--chart-status-hue",
     "--cover-gutter",
     "--font-body",

@@ -172,15 +172,6 @@ function solveFills(hue) {
   return best;
 }
 
-/** Whether a set of light-face vivid fills meets the contract (kept for callers that check a hand-tuned trio). */
-function fillsHold(fills, ink) {
-  const target = TEXT_ON_SOLID + MARGIN;
-  if (!TRIO.every((s) => isHex(fills[s]))) return false;
-  if (contrastRatio(fills.pass, '#FFFFFF') < target || contrastRatio(fills.fail, '#FFFFFF') < target) return false;
-  if (!isHex(ink) || contrastRatio(fills.warn, ink) < target) return false;
-  return TRIO.every((x, i) => TRIO.slice(i + 1).every((y) => floorMultiple(fills[x], fills[y]) >= 1));
-}
-
 /**
  * Solve one theme's solids from its own chain. Returns { seed: 'light-dark(#L, #D)' } and, per seed, whether the
  * theme's own value already clears the bar in both modes (`kept`): such a seed is left exactly as written, so a
@@ -300,6 +291,28 @@ function solveMutedLightFills(seeds) {
   return best;
 }
 
+/**
+ * The light-face VIVID fills: white text on all three, like muted (the owner's call), each hue at the most chroma
+ * it reaches under white at 7:1. Amber is nudged toward orange (15 degrees, held to 45-60), because an amber at its
+ * own hue that dark is brown, and a burnt orange still reads as caution.
+ */
+function solveVividLightFills(seeds) {
+  const target = TEXT_ON_SOLID + MARGIN;
+  const maxChroma = (h) => {
+    let best = null;
+    for (let L = 0.30; L <= 0.6; L += 0.005) {
+      for (let C = 0.05; C <= 0.28; C += 0.005) {
+        const x = oklchToHex({ L, C, h });
+        if (Math.abs(hexToOklch(x).C - C) > 0.006 || contrastRatio(x, '#FFFFFF') < target) continue;
+        if (!best || C > best.C + 1e-9 || (Math.abs(C - best.C) < 1e-9 && L > best.L)) best = { L, C, hex: x.toUpperCase() };
+      }
+    }
+    return best.hex;
+  };
+  const hue = (s) => hexToOklch(seeds[s]).h;
+  return { pass: maxChroma(hue('pass')), warn: maxChroma(Math.min(60, Math.max(45, hue('warn') - 15))), fail: maxChroma(hue('fail')) };
+}
+
 /** Both intensities' fills for a trio-owning theme, as the declarations it writes. */
 function solveStatusFills(theme, raw) {
   const R = (expr, dark) => resolveTokenExpr(expr, raw, dark);
@@ -319,6 +332,7 @@ function solveStatusFills(theme, raw) {
     return out;
   }
   const mutedLight = solveMutedLightFills(seedsLight);
+  const vividWhite = solveVividLightFills(seedsLight);
   const bg = R(raw.bg, true); const bgAlt = R(raw['bg-alt'], true);
   const ink = inkFor(bg);
   const hueDark = Object.fromEntries(TRIO.map((t) => [t, hexToOklch(R(raw[t], true)).h]));
@@ -327,10 +341,10 @@ function solveStatusFills(theme, raw) {
   const vividDark = solveDarkFills(hueDark, ink, surfaces, DARK_AIM.vivid);
   for (const t of TRIO) {
     out[FILL(t)] = `light-dark(${mutedLight[t]}, ${mutedDark[t]})`;
-    out[`${FILL(t)}-vivid`] = `light-dark(${vividLight[t]}, ${vividDark[t]})`;
+    out[`${FILL(t)}-vivid`] = `light-dark(${vividWhite[t]}, ${vividDark[t]})`;
   }
   out[ON_WARN] = 'light-dark(#FFFFFF, var(--on-solid))';
-  out[`${ON_WARN}-vivid`] = `light-dark(${vividInk}, var(--on-solid))`;
+  out[`${ON_WARN}-vivid`] = 'light-dark(#FFFFFF, var(--on-solid))';
   return out;
 }
 
@@ -378,4 +392,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { solveTheme, solveFills, solveMutedLightFills, solveDarkFills, solveStatusFills, inkFor, TEXT_ON_SOLID, CATS, STATES, NEUTRAL, ON_SOLID };
+module.exports = { solveTheme, solveFills, solveMutedLightFills, solveVividLightFills, solveDarkFills, solveStatusFills, inkFor, TEXT_ON_SOLID, CATS, STATES, NEUTRAL, ON_SOLID };
