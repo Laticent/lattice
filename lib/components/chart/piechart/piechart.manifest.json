@@ -206,7 +206,8 @@
         "nested": "detail",
         "legacy": [
           "value"
-        ]
+        ],
+        "native": true
       }
     }
   }

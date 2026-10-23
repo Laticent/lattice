@@ -268,7 +268,8 @@
         "shape": "fields",
         "quotes": true,
         "nested": "detail",
-        "legacy": "record"
+        "legacy": "record",
+        "native": true
       }
     }
   }

@@ -322,6 +322,7 @@
             2
           ]
         },
+        "native": true,
         "legacy": [
           "value"
         ]

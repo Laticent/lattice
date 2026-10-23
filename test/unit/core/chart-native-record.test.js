@@ -35,11 +35,84 @@ const CASES = {
     rec: '- Build `{68%, at-risk, note="Q4 slip, again"}`\n- Docs `{90%, on-track}`',
     bare: '- Build `{68%, at-risk}`\n- Docs `{90%, on-track}`',
   },
+  // The other fourteen charts (phase 2, slice 4): the old spans and the record draw and say the same, and a changed value does not.
+  bar: {
+    old: '- EMEA `4.2`\n- APAC `3.1`\n- AMER `5.6`',
+    rec: '- EMEA `{4.2}`\n- APAC `{3.1}`\n- AMER `{5.6}`',
+    bare: '- EMEA `{4.2}`\n- APAC `{3.1}`\n- AMER `{5.9}`',
+  },
+  line: {
+    old: '- Q1 `4.2`\n- Q2 `5.1`\n- Q3 `6.3`\n- Q4 `7.4`',
+    rec: '- Q1 `{4.2}`\n- Q2 `{5.1}`\n- Q3 `{6.3}`\n- Q4 `{7.4}`',
+    bare: '- Q1 `{4.2}`\n- Q2 `{5.1}`\n- Q3 `{6.3}`\n- Q4 `{9.4}`',
+  },
+  slope: {
+    old: '- EMEA\n  - 2024 `40%`\n  - 2025 `55%`\n- APAC\n  - 2024 `30%`\n  - 2025 `35%`',
+    rec: '- EMEA\n  - 2024 `{40%}`\n  - 2025 `{55%}`\n- APAC\n  - 2024 `{30%}`\n  - 2025 `{35%}`',
+    bare: '- EMEA\n  - 2024 `{40%}`\n  - 2025 `{55%}`\n- APAC\n  - 2024 `{30%}`\n  - 2025 `{60%}`',
+  },
+  'stacked-bar': {
+    old: '- FY24\n  - Product `3`\n  - Services `2`\n- FY25\n  - Product `4`\n  - Services `3`',
+    rec: '- FY24\n  - Product `{3}`\n  - Services `{2}`\n- FY25\n  - Product `{4}`\n  - Services `{3}`',
+    bare: '- FY24\n  - Product `{3}`\n  - Services `{2}`\n- FY25\n  - Product `{4}`\n  - Services `{7}`',
+  },
+  piechart: {
+    old: '- Enterprise `52%`\n- Mid-market `31%`\n- SMB `17%`',
+    rec: '- Enterprise `{52%}`\n- Mid-market `{31%}`\n- SMB `{17%}`',
+    bare: '- Enterprise `{52%}`\n- Mid-market `{31%}`\n- SMB `{40%}`',
+  },
+  funnel: {
+    old: '- Visits `1200`\n- Signups `340`\n- Paid `85`',
+    rec: '- Visits `{1200}`\n- Signups `{340}`\n- Paid `{85}`',
+    bare: '- Visits `{1200}`\n- Signups `{340}`\n- Paid `{185}`',
+  },
+  map: {
+    old: '- France `42`\n- Germany `31`\n- Spain `18`',
+    rec: '- France `{42}`\n- Germany `{31}`\n- Spain `{18}`',
+    bare: '- France `{42}`\n- Germany `{31}`\n- Spain `{88}`',
+  },
+  'word-cloud': {
+    old: '- growth `9`\n- margin `6`\n- churn `4`\n- cash `2`',
+    rec: '- growth `{9}`\n- margin `{6}`\n- churn `{4}`\n- cash `{2}`',
+    bare: '- growth `{9}`\n- margin `{6}`\n- churn `{4}`\n- cash `{8}`',
+  },
+  waterfall: {
+    old: '- Start `10` `total`\n- Upsell `+4`\n- Churn `-3`\n- End `11` `total`',
+    rec: '- Start `{10, total}`\n- Upsell `{+4}`\n- Churn `{-3}`\n- End `{11, total}`',
+    bare: '- Start `{10, total}`\n- Upsell `{+4}`\n- Churn `{-8}`\n- End `{11, total}`',
+  },
+  // Scatter and quadrant write a point as a record already: the old form IS the record, so the first arm is the same source twice.
+  scatter: {
+    old: '- Atlas `{4.2, 62}`\n- Borealis `{2.1, 38, size=14}`\n- Cirrus `{3.3, 51}`',
+    rec: '- Atlas `{4.2, 62}`\n- Borealis `{2.1, 38, size=14}`\n- Cirrus `{3.3, 51}`',
+    bare: '- Atlas `{4.2, 62}`\n- Borealis `{2.1, 38, size=14}`\n- Cirrus `{3.3, 91}`',
+  },
+  quadrant: {
+    old: '- Now\n  - Alpha `{3, 70}`\n  - Beta `{6, 40}`\n- Later\n  - Gamma `{8, 85}`',
+    rec: '- Now\n  - Alpha `{3, 70}`\n  - Beta `{6, 40}`\n- Later\n  - Gamma `{8, 85}`',
+    bare: '- Now\n  - Alpha `{3, 70}`\n  - Beta `{6, 40}`\n- Later\n  - Gamma `{8, 15}`',
+  },
+  radar: {
+    old: '- Us\n  - Speed `4`\n  - Cost `3`\n  - Reach `5`\n  - Trust `2`',
+    rec: '- Us\n  - Speed `{4}`\n  - Cost `{3}`\n  - Reach `{5}`\n  - Trust `{2}`',
+    bare: '- Us\n  - Speed `{4}`\n  - Cost `{3}`\n  - Reach `{5}`\n  - Trust `{4}`',
+  },
+  heatmap: {
+    old: '| | Jan | Feb |\n|---|---|---|\n| EMEA | 10 | 20 |\n| APAC | 30 | 40 |',
+    rec: '| | Jan | Feb |\n|---|---|---|\n| EMEA | `{10}` | `{20}` |\n| APAC | `{30}` | `{40}` |',
+    bare: '| | Jan | Feb |\n|---|---|---|\n| EMEA | `{10}` | `{20}` |\n| APAC | `{30}` | `{90}` |',
+  },
+  'matrix-grid': {
+    old: '| | Reach | Depth |\n|---|---|---|\n| Seed | [x] | [-] |\n| Grow | [ ] | [x] |',
+    rec: '| | Reach | Depth |\n|---|---|---|\n| Seed | `{done}` | `{partial}` |\n| Grow | `{todo}` | `{done}` |',
+    bare: '| | Reach | Depth |\n|---|---|---|\n| Seed | `{done}` | `{partial}` |\n| Grow | `{todo}` | `{todo}` |',
+  },
 };
 
 describe('the native charts are the ones the manifests say', () => {
-  test('bullet and progress, and only those, declare rows.native', () => {
-    assert.deepEqual([...rows.NATIVE_CHARTS].sort(), ['bullet', 'progress']);
+  test('every chart with a row schema declares rows.native (PRIVATE_ROW_READER_BUDGET is 0)', () => {
+    assert.deepEqual([...rows.NATIVE_CHARTS].sort(), [...rows.ROW_CHARTS].sort());
+    assert.equal(rows.ROW_CHARTS.length, 16);
   });
 });
 
@@ -164,5 +237,36 @@ describe('lint and the chart agree on where a native record is read (inversion f
   });
   test('a nested list after the record is the usual shape and silent', () => {
     assert.deepEqual(unread(deck('progress', '- EMEA `{61%, at-risk, note="slip"}`\n  - nested\n- A `{1%}`')), []);
+  });
+});
+
+describe('review round (2026-10-23): shapes the native readers must leave as the old readers did', () => {
+  test('heatmap: a record in the row-label or the `{>}` column is settled, never shown as raw braces', () => {
+    const label = render(deck('heatmap', '| | Jan | Feb |\n|---|---|---|\n| `{10}` | 1 | 2 |\n| APAC | 3 | 4 |'));
+    assert.match(label, /<th scope="row">10<\/th>/);
+    assert.doesNotMatch(label, /\{10\}/);
+    const desc = render(deck('heatmap', '| | Jan | Feb | `{>}` |\n|---|---|---|---|\n| EMEA | 1 | 2 | `{10}` |\n| APAC | 3 | 4 | note |'));
+    assert.match(desc, /Row EMEA: 10\./);
+  });
+  test('quadrant: a record in a loose list item is the item\'s trailing span only when nothing follows it, as before', () => {
+    const loose = '- Now\n\n  - Alpha `{3, 70}`\n\n  - Beta `{6, 40}`\n\n- Later\n\n  - Gamma `{8, 85}`';
+    assert.match(render(deck('quadrant', loose)), /Alpha \{3, 70\} at x 0, y 0/);
+  });
+  test('narration: a callout line between two lists does not make the second list part of the chart', () => {
+    const said = narrateChart(slide('line', '- Q1 `{4}`\n- Q2 `{5}`\n\n`@callout{{Big, for=Q1}}`\n\n- Q3 `{6}`'));
+    assert.match(said, /from four to five/);
+    assert.doesNotMatch(said, /Q3, six/);
+  });
+  test('waterfall: an item that binds to no field (`Total` for `total`) is not read, so the record stays as the old reader left it', () => {
+    const src = '- Start `{10, total}`\n- Mid `{20, Total}`\n- End `{30, total}`';
+    assert.match(narrateChart(slide('waterfall', src)), /Mid, twenty, Total/);
+    assert.equal(rows.recordFields('waterfall', '{20, Total}'), null);
+  });
+  test('matrix-grid: a claimed cell the decoder left is read through the schema and shows the marker it spells', () => {
+    const kernel = require('../../../lib/components/chart/matrix-grid/matrix-grid.transform.js');
+    const table = '<table><thead><tr><th></th><th>A</th></tr></thead><tbody><tr><td>r</td><td> <code data-lat-record="">{done}</code> </td><td><code>x</code> <code data-lat-record="">{done}</code></td></tr></tbody></table>';
+    const out = kernel.buildMatrixGridSection(`<h2>T</h2>${table}`, { cls: 'matrix-grid' }).html;
+    assert.match(out, /<td> \[x\] <\/td>/);
+    assert.doesNotMatch(out, /data-lat-record/);
   });
 });
