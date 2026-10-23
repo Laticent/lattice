@@ -86,20 +86,50 @@ const rendered = (md: string): string => {
 };
 
 describe('the engine draws the edited paragraph as it drew the original', () => {
-	const cases = ['a\n\\- b', 'a\n\\+ b', 'a\n\\# b', 'a\n\\> b', 'a\n\\---', 'a\n\\===', 'a\n\\= b', 'a\n1\\. b', 'a\n1\\) b', 'a\n\\<div>x', 'a\n\\| b |', '- a\n  \\- b', '> a\n> \\- b', 'line one\nline two', '**bold**\n*it*', 'x\n3 = 3'];
+	const cases = ['a\n\\- b', 'a\n\\+ b', 'a\n\\# b', 'a\n\\> b', 'a\n\\---', 'a\n\\===', 'a\n1\\. b', 'a\n1\\) b', 'a\n\\<div>x', 'a\n\\|---|', 'a\n\\:--', '- a\n  \\- b', '> a\n> \\- b', 'line one\nline two', '**bold**\n*it*', 'x\n3 = 3', 'a\n<b>x</b> y', 'a\n2) two', 'a\n| b |'];
 	for (const md of cases) {
 		it(JSON.stringify(md), () => {
 			expect(rt(md)).toBe(md); // the author's escape comes back byte for byte
 			expect(rendered(rt(md))).toBe(rendered(md));
 		});
 	}
+	// An escape that guards no block is not kept: Compose reads `\\=` and `=` as the same text, as it always has mid-line.
+	it('an escape that guards nothing writes bare, and draws the same text', () => {
+		expect(rt('a\n\\= b')).toBe('a\n= b');
+		expect(rt('a\n\\| b |')).toBe('a\n| b |');
+		const plain = (md: string) => rendered(md).replace(/<span data-esc>([^<]*)<\/span>/g, '$1');
+		expect(plain(rt('a\n\\= b'))).toBe(plain('a\n\\= b'));
+	});
 	it('a line a writer built (no escape in the source) still renders as one paragraph', () => {
 		const sch = latticeMarkdownParser.parse('x').type.schema;
-		for (const line of ['=== b', '<b>x</b>', '| x | y |', '2) two', '- b', '# b', '> b']) {
+		for (const line of ['===', '<div>x', '<!-- c -->', '|---|', ':--|--', '1) one', '- b', '# b', '> b', ' - b', '   ---', '  > b', '=== b', '<b>x</b>', '| x | y |', '2) two']) {
 			const doc = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, [sch.text('a'), sch.nodes.hard_break.create({ soft: true }), sch.text(line)])]);
 			const md = latticeMarkdownSerializer.serialize(doc).trimEnd();
 			expect(rendered(md), md).toMatch(/^<p>a<br \/> [\s\S]*<\/p>$/);
-			expect(latticeMarkdownParser.parse(md).eq(doc), md).toBe(true);
+			// A continuation line's indent is not part of the paragraph's text (markdown-it strips it), so it does not read back.
+			const want = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, [sch.text('a'), sch.nodes.hard_break.create({ soft: true }), sch.text(line.trimStart())])]);
+			expect(latticeMarkdownParser.parse(md).eq(want), md).toBe(true);
+		}
+	});
+});
+
+describe('what the second checker found', () => {
+	it('code after a break leaves the rest of the deck alone', () => {
+		for (const md of ['a\n`x`\n\n| b | c', 'a\n`x`\n\n## 1) z', 'a\n`x` = y', 'a\n`x`\n\n<b>hi</b> there']) expect(rt(md)).toBe(md);
+	});
+	it('inline HTML that an edit moves to a line start stays live', () => {
+		const sch = latticeMarkdownParser.parse('x').type.schema;
+		for (const br of [sch.nodes.hard_break.create({ soft: true }), sch.nodes.hard_break.create()]) {
+			const doc = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, [sch.text('x'), br, sch.text('<b>y</b> z')])]);
+			expect(latticeMarkdownSerializer.serialize(doc)).toContain('\n<b>y</b> z');
+		}
+	});
+	it('an indented marker after a deleted word does not open a block', () => {
+		const sch = latticeMarkdownParser.parse('x').type.schema;
+		for (const line of [' - flat costs', ' ---', ' > see appendix', ' + b', '   # b']) {
+			const doc = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, [sch.text('Revenue up'), sch.nodes.hard_break.create({ soft: true }), sch.text(line)])]);
+			const md = latticeMarkdownSerializer.serialize(doc).trimEnd();
+			expect(types(md), md).toEqual(['paragraph']);
 		}
 	});
 });

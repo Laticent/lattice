@@ -1,4 +1,5 @@
 import MarkdownIt from 'markdown-it';
+import htmlBlockNames from 'markdown-it/lib/common/html_blocks.mjs';
 import {
 	defaultMarkdownParser,
 	defaultMarkdownSerializer,
@@ -339,34 +340,44 @@ function softBreakIsSafe(parent: PMNode, index: number): boolean {
 	return !!next && next.type.name !== 'hard_break';
 }
 
-/** A line start the upstream escaper leaves bare but a parser reads as a block: a setext underline, raw HTML, a table row, a `1)` list. */
-const UNESCAPED_LINE_START = /^(\s*)(=|<|\||\d+\))/;
+// A block that may interrupt a paragraph, from markdown-it's own list (html_block.mjs, the rows whose third column is true).
+// Type 7, any other complete tag alone on a line, cannot, so a line led by `<b>` stays inline HTML and is never escaped.
+const HTML_BLOCK_START = new RegExp(`^(?:<(?:script|pre|style|textarea)(?=\\s|>|$)|<!--|<\\?|<![A-Z]|<!\\[CDATA\\[|</?(?:${htmlBlockNames.join('|')})(?=\\s|/?>|$))`, 'i');
 
-/** After a break, the next text starts a line. The upstream escaper only treats a block's first text as a line start, so mark this
- *  one (it then escapes `-`, `+`, `>`, `#`, `1.`) and backslash-escape the four starts it does not: `\=`, `\<`, `\|`, `1\)`. A
- *  backslash and not an entity, because the engine keeps an escaped `=` or `<` visible to the flowchart reader as `<span data-esc>`
- *  (plugins.js `escapeMarks`), and an entity would turn the author's literal back into an arrow. Without this, `a` + break + `- b`
- *  wrote a list. */
-function startLine(state: SerializerState, next: PMNode | null | undefined): void {
-	if (!next?.isText) return;
-	// biome-ignore lint/suspicious/noExplicitAny: `atBlockStart` and `text` are serializer internals.
+/** The prefix to escape by hand when `line` starts a line after a break: what the upstream escaper leaves bare but a parser reads
+ *  as a block that ends the paragraph. `whole` says the text runs to the end of the line (a setext underline and a table delimiter
+ *  row must be the whole line). Returns how many characters lead up to the one to escape, or -1. */
+function blockStartAt(line: string, whole: boolean): number {
+	if (HTML_BLOCK_START.test(line)) return 0;
+	if (/^1\)[ \t]+\S/.test(line)) return 1; // an ordered list may interrupt a paragraph only from 1, and only with content
+	if (whole && /^=+[ \t]*$/.test(line)) return 0; // a setext underline
+	if (whole && /^[|:][ \t:|-]*-[ \t:|-]*$/.test(line)) return 0; // a table delimiter row (one led by `-` is escaped upstream)
+	return -1;
+}
+
+/** Text after a break starts a line, but the upstream escaper only treats a block's first text as one, so `a` + break + `- b`
+ *  wrote a list. Here the text is escaped as a line start: indentation first (up to three spaces still opens a block), then the
+ *  upstream escapes (`-`, `+`, `>`, `#`, `1.`), then the few starts it misses, with a backslash so the engine still sees the
+ *  author's escape (an escaped `=` or `<` reaches the flowchart reader as `<span data-esc>`, plugins.js `escapeMarks`). */
+function textAfterBreak(state: SerializerState, node: PMNode, parent: PMNode, index: number): boolean {
+	const prev = index > 0 ? parent.child(index - 1) : null;
+	if (prev?.type.name !== 'hard_break' || state.inAutolink) return false;
+	const text = node.text ?? '';
+	const indent = /^[ \t]*/.exec(text)?.[0] ?? '';
+	const line = text.slice(indent.length);
+	const next = parent.maybeChild(index + 1);
+	const at = blockStartAt(line, !next || next.type.name === 'hard_break');
+	// biome-ignore lint/suspicious/noExplicitAny: `atBlockStart` is a serializer internal; `text` writes it as a line start.
 	const st = state as any;
-	const text = st.text.bind(st);
-	st.text = (t: string, escaped?: boolean) => {
-		// A mark's opener is written with escaping off; wait for the text itself.
-		if (escaped === false) return text(t, escaped);
-		st.text = text;
-		const m = UNESCAPED_LINE_START.exec(t);
-		if (!m) {
-			// The serializer clears `atBlockStart` after rendering the break itself, so set it here, as the text is written.
-			st.atBlockStart = true;
-			return text(t, escaped);
-		}
-		// The token goes out escaped by hand, unescaped by the upstream escaper (which would double the backslash); the rest is mid-line.
-		const [, ws, tok] = m;
-		text(`${ws}${tok.slice(0, -1)}\\${tok.slice(-1)}`, false);
-		return text(t.slice(m[0].length), escaped);
-	};
+	if (indent) state.text(indent, false);
+	if (at < 0) {
+		st.atBlockStart = true;
+		state.text(line);
+	} else {
+		state.text(`${line.slice(0, at)}\\${line[at]}`, false);
+		state.text(line.slice(at + 1));
+	}
+	return true;
 }
 
 const latticeNodes = {
@@ -374,13 +385,15 @@ const latticeNodes = {
 	hard_break(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
 		if (node.attrs.soft && softBreakIsSafe(parent, index)) {
 			state.write('\n');
-			startLine(state, parent.maybeChild(index + 1));
 			return;
 		}
 		// biome-ignore lint/suspicious/noExplicitAny: the upstream rule, called with its own signature.
 		(defaultMarkdownSerializer.nodes.hard_break as any)(state, node, parent, index);
-		startLine(state, parent.maybeChild(index + 1));
 	},
+	text(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		if (!textAfterBreak(state, node, parent, index)) state.text(node.text ?? '', !state.inAutolink);
+	},
+
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
 	image(state: SerializerState, node: PMNode) {
