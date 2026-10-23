@@ -14,6 +14,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const sheet = readFileSync(join(here, 'nacre-loader.css'), 'utf8');
 const page = readFileSync(join(here, '..', 'pages', 'studio.astro'), 'utf8');
 
+// The whole shell copy: every rule in the `SHELL_NACRE_CSS` template literal, not only the first ::after.
+const shellCss = page.match(/const SHELL_NACRE_CSS = `([^`]*)`/)?.[1] ?? '';
+const IMAGE_LOADERS = /url\(|image-set\(|-webkit-image-set\(/i;
+
 const sheetRule = sheet.match(/\.nacre-loader::after\s*\{([^}]*)\}/)?.[1] ?? '';
 const shellRule = page.match(/#studio-ssr-shell \.nacre-loader::after\{([^}]*)\}/)?.[1] ?? '';
 // Whitespace-insensitive: the shell copy is minified, the stylesheet is not.
@@ -33,7 +37,7 @@ describe('the loader grain', () => {
 			const bg = decl(rule, 'background-image') ?? '';
 			expect(bg, 'no background-image declared').not.toBe('');
 			expect(bg).toMatch(/^(repeating-)?(conic|linear|radial)-gradient\(/);
-			expect(rule).not.toMatch(/url\(|image-set\(/);
+			expect(rule).not.toMatch(IMAGE_LOADERS);
 		});
 	}
 
@@ -43,7 +47,12 @@ describe('the loader grain', () => {
 		}
 	});
 
-	it('no other rule in the stylesheet loads an image', () => {
-		expect(sheet.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/url\(|image-set\(/);
+	it('no rule in the stylesheet loads an image (any case)', () => {
+		expect(sheet.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(IMAGE_LOADERS);
+	});
+
+	it("no rule in the shell's inline copy loads an image (any case, any rule)", () => {
+		expect(shellCss, 'SHELL_NACRE_CSS not found in studio.astro').not.toBe('');
+		expect(shellCss).not.toMatch(IMAGE_LOADERS);
 	});
 });

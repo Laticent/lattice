@@ -162,7 +162,7 @@ dithering the gradients had.
   in both modes (RMS difference ~5/255). A browser without relative colors keeps a `hue-rotate`
   filter on two layers and pays the old cost there only.
 - **Nacre has grain.** A 2 px black-and-white checker (`repeating-conic-gradient`) at 1.8% opacity
-  dithers the ramps. It rasterizes once and never repaints. It was an SVG-noise tile until 2026-10-23: Chrome counted that image
+  sits over the ramps as dither (on pixels it breaks flat runs shorter than the old noise; banding on a real panel is unverified). It rasterizes once and never repaints. It was an SVG-noise tile until 2026-10-23: Chrome counted that image
   as the page's largest paint (`2026-10-23-startup-bake-off.md` E6), and a gradient is not a candidate. Both copies of the rule
   (`nacre-loader.css` and the shell in `studio.astro`) must stay image-free; `nacre-loader.test.ts` pins that.
 - **The Underpainting's brushwork has its own box.** `lib/core/image-painting.js` appends one empty

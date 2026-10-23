@@ -114,9 +114,9 @@
 }
 /* Grain: a 2 px black-and-white checker at 1.8%, a faint static texture under the color ramps. It replaced a
    gray noise tile that was meant to hide contour bands on a large 8-bit desktop panel. Whether the checker still
-   hides them is NOT shown: pixel measurements and a blur model say it masks far less than the noise did at 1x
-   (engineering/decisions/2026-10-23-startup-bake-off.md E6), and nobody has looked at a real panel. It is kept
-   because the noise could not stay as it was:
+   hides them on a real panel is NOT shown: nobody has looked at one. On pixels it breaks flat runs shorter than the
+   noise did (2.6 px against 7.6 px, engineering/decisions/2026-10-23-startup-bake-off.md E6). It is kept because
+   the noise could not stay as it was:
    A GRADIENT, NOT A `url()` IMAGE. Chrome counts a `background-image: url(...)` that covers a box as a
    largest-contentful-paint candidate, so a noise tile on a loader that React builds at mount made THAT element
    the page's LCP, at the island's mount time (13.7 s simulated on the phone profile, against 4-5 s once the image
