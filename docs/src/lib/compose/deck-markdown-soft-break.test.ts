@@ -325,3 +325,36 @@ describe('soft breaks across the shipped decks', () => {
 		expect(checked).toBeGreaterThan(500); // anti-vacuity
 	});
 });
+
+// A heading that holds a line break (PR #2861). The heading used to refuse a break, so the parser dropped the whole heading on any edit
+// of its slide; and the upstream heading rule loses a trailing `\#`.
+describe('a heading that holds a line break', () => {
+	const engine = new MarkdownIt('commonmark', { html: true, breaks: true }).enable(['table', 'strikethrough']);
+	it('a two-line setext heading keeps both lines, its level and its break, at the top level and inside a quote or list', () => {
+		for (const src of ['a\nb\n===', 'a\nb\n---', 'Title\\\nline two\n---', '**a\nb**\n===', '> a\n> b\n> ===', '- a\n  b\n  ---', 'start\na|b\n---']) {
+			expect(rt(src)).toBe(src);
+		}
+		expect(rt('intro\n\na  \nb\n===\n\nafter')).toBe('intro\n\na\\\nb\n===\n\nafter');
+	});
+	it('falls back to one ATX line, with the break as a space, when the setext form would not read back as the same heading', () => {
+		const src = 'a\nb\n===';
+		const doc = latticeMarkdownParser.parse(src);
+		const h3 = doc.copy(doc.content.replaceChild(0, doc.child(0).type.schema.nodes.heading.create({ level: 3 }, doc.child(0).content)));
+		expect(latticeMarkdownSerializer.serialize(h3).trimEnd()).toBe('### a b');
+		// A level-2 heading whose last line is `|b` would read as a one-column table over the `---`.
+		const schema = doc.type.schema;
+		const h2 = schema.node('doc', null, [schema.nodes.heading.create({ level: 2 }, [schema.text('start'), schema.nodes.hard_break.create({ soft: true }), schema.text('|b')])]);
+		expect(latticeMarkdownSerializer.serialize(h2).trimEnd()).toBe('## start |b');
+	});
+	it('an empty heading keeps its marker, and a trailing escaped # keeps its escape', () => {
+		expect(rt('para\n\n## ')).toBe('para\n\n##');
+		expect(rt('## a \\#')).toBe('## a \\#');
+	});
+	it('draws the same before and after, and a second round trip changes nothing', () => {
+		for (const src of ['a\nb\n===', 'Title\\\nline two\n---', 'start\na|b\n---', '- a\n  b\n  ---']) {
+			const once = roundTripSlideProse(src);
+			expect(engine.render(once)).toBe(engine.render(src));
+			expect(roundTripSlideProse(once)).toBe(once);
+		}
+	});
+});

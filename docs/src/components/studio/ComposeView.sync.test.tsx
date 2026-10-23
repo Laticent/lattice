@@ -211,3 +211,78 @@ describe('revealTail — following what a tour types into Compose', () => {
 		expect(() => handle?.revealTail()).not.toThrow();
 	});
 });
+
+describe('ComposeView: an outside change while a note is being written', () => {
+	const NOTE_DECK = '<!-- _class: content -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
+	const CHANGED = '<!-- _class: content -->\n\n# One changed\n\nbody one\n\n<!-- a plain note. -->';
+
+	it('waits until the caret leaves the note field, then lands', async () => {
+		const { view } = (() => {
+			const v = render(<ComposeView source={NOTE_DECK} onChange={() => {}} />);
+			return { view: v };
+		})();
+		(view.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const field = view.container.querySelector('.cs-comment-field') as HTMLTextAreaElement;
+		field.focus();
+		expect(document.activeElement).toBe(field);
+		view.rerender(<ComposeView source={CHANGED} onChange={() => {}} />);
+		// Not applied while the author is writing in the note.
+		expect(view.container.querySelector('h1')?.textContent).toBe('One');
+		field.blur();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(view.container.querySelector('h1')?.textContent).toBe('One changed');
+	});
+
+	it('does not land while the caret is on the panel, nor while the editor has it', async () => {
+		const v = render(<ComposeView source={NOTE_DECK} onChange={() => {}} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const field = v.container.querySelector('.cs-comment-field') as HTMLTextAreaElement;
+		field.focus();
+		v.rerender(<ComposeView source={CHANGED} onChange={() => {}} />);
+		// Tab to Remove: the panel keeps the caret, so the change still waits.
+		(v.container.querySelector('.cs-comment-remove') as HTMLButtonElement).focus();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(v.container.querySelector('h1')?.textContent).toBe('One');
+		expect(v.container.querySelector('.cs-comment-field')).not.toBeNull();
+	});
+
+	it('an outside change that arrives while the caret is on Remove waits for it to leave', async () => {
+		const v = render(<ComposeView source={NOTE_DECK} onChange={() => {}} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const remove = v.container.querySelector('.cs-comment-remove') as HTMLButtonElement;
+		remove.focus();
+		v.rerender(<ComposeView source={CHANGED} onChange={() => {}} />);
+		expect(v.container.querySelector('h1')?.textContent).toBe('One');
+		remove.blur();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(v.container.querySelector('h1')?.textContent).toBe('One changed');
+	});
+
+	it('opens a deck that starts with a note without the note selected, so the first key cannot replace it', () => {
+		render(<ComposeView source={'<!-- first note. -->\n\n---\n\n## B\n\nPara b.'} onChange={() => {}} />);
+		expect(theView().state.selection.toJSON().type).not.toBe('node');
+	});
+
+	it('picking a slide that is only a note stays on that slide and does not echo another slide', () => {
+		const ref = React.createRef<ComposeHandle>();
+		const seen: number[] = [];
+		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- only. -->\n\n---\n\n## C\n\nPara c.'} onChange={() => {}} onCursorSlide={(i: number) => seen.push(i)} />);
+		seen.length = 0;
+		ref.current?.revealSlide(1);
+		expect(theView().state.selection.$from.index(0)).toBe(1);
+		expect(seen).not.toContain(0);
+	});
+
+	it('picking a slide whose first block is a note puts the caret on text, not on the note', () => {
+		const ref = React.createRef<ComposeHandle>();
+		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.'} onChange={() => {}} />);
+		ref.current?.revealSlide(1);
+		expect(theView().state.selection.toJSON().type).toBe('text');
+	});
+});

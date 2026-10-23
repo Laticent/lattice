@@ -180,7 +180,7 @@ export const proseSchema = new Schema({
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
-		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math)*' })
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math | hard_break)*' })
 		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
 		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
 		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
@@ -352,6 +352,14 @@ function isOneParagraph(md: string, probe?: MarkdownIt): boolean {
 	return top.length === 2 && top[0] === 'paragraph_open'; // the `inline` token sits one level down
 }
 
+/** Whether `md` reads back as exactly one heading of `level` and nothing else, in the engine's block grammar (a last line `|b` over
+ *  `---` is a one-column table, and a line that opens a block ends the heading early). */
+function isSetextHeading(md: string, level: number): boolean {
+	paragraphProbe ??= new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
+	const top = paragraphProbe.parse(md, {}).filter((t) => t.level === 0);
+	return top.length === 2 && top[0].type === 'heading_open' && top[0].tag === `h${level}`; // the inline token sits one level down
+}
+
 /** `line` with its first marker escaped: a backslash before a leading punctuation character, or before the `.`/`)` of `01)`. */
 function escapeLineStart(line: string): string | null {
 	const m = /^([ \t]*)(\d{1,9}(?=[.)]))?([!-/:-@[-`{-~])/.exec(line);
@@ -424,6 +432,11 @@ function guardParagraphLines(out: string, htmlModeled: boolean): string {
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
 	hard_break(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		// An ATX heading is one line, so a break in one writes a space (only a level 1-2 heading has the two-line setext form; see `heading`).
+		if (parent.type.name === 'heading' && !(state as unknown as { setext?: boolean }).setext) {
+			if (parent.childCount > index + 1) state.write(' ');
+			return;
+		}
 		if (node.attrs.soft && softBreakIsSafe(parent, index)) {
 			state.write('\n');
 			return;
@@ -432,6 +445,35 @@ const latticeNodes = {
 		(defaultMarkdownSerializer.nodes.hard_break as any)(state, node, parent, index);
 	},
 
+
+	// A level 1-2 heading that holds a line break was written as a setext heading (`a` / `b` / `===`); the upstream rule writes one ATX
+	// line, and before the heading admitted a break the parser dropped the whole heading. It is written in that form again when every line
+	// is real text and the result reads back as the same heading; anything else falls back to one ATX line, with the break as a space.
+	heading(state: SerializerState, node: PMNode) {
+		const level = node.attrs.level as number;
+		let hasBreak = false;
+		node.forEach((child) => {
+			if (child.type.name === 'hard_break') hasBreak = true;
+		});
+		if (hasBreak && level <= 2) {
+			const sub = new SubState(state.nodes, state.marks, state.options);
+			(sub as unknown as { setext?: boolean }).setext = true;
+			sub.renderInline(node);
+			const body = sub.out.replace(/\n+$/, '');
+			const md = `${body}\n${level === 1 ? '===' : '---'}`;
+			if (body.split('\n').every((l) => l.trim() !== '') && isSetextHeading(md, level)) {
+				state.text(md, false);
+				state.closeBlock(node);
+				return;
+			}
+		}
+		state.write(`${state.repeat('#', level)} `);
+		state.renderInline(node, false);
+		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in. An empty heading's only
+		// `#` run is its own marker, which stays as written.
+		if (node.textContent.trim()) state.out = state.out.replace(/(\s)(#+)(\s*)$/, '$1\\$2$3');
+		state.closeBlock(node);
+	},
 
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.

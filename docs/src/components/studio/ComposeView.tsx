@@ -4,18 +4,18 @@ import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirr
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
-import { EditorState, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, } from '@/lib/compose/code-commands';
-import { type CommentKind, commentInner, commentKind, stripChannelPrefix } from '@/lib/compose/comment-block';
+import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
-import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, repaintObjects } from '@/lib/compose/inline-objects';
+import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
@@ -740,8 +740,8 @@ class SlideView {
 		// three-finger swipe) lists only what the BROWSER edited, never ProseMirror's history, so an
 		// author who picked the wrong color had no way back. The pair drives the one history for the
 		// whole deck, from whichever slide's bar is showing. It never takes focus, so no keyboard rises.
-		this.undoBtn = this.btn('Undo', 'undo-2', () => { undo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-undo');
-		this.redoBtn = this.btn('Redo', 'redo-2', () => { redo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-redo');
+		this.undoBtn = this.btn('Undo', 'undo-2', () => { undo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-undo', false);
+		this.redoBtn = this.btn('Redo', 'redo-2', () => { redo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-redo', false);
 		this.undoBtn.disabled = this.redoBtn.disabled = true;
 		// FIRST in the bar, before the Format group. On a narrow pane the bar wraps (CSS), with this pair
 		// and the insert doors on the first row.
@@ -779,7 +779,15 @@ class SlideView {
 		liveSlideViews.add(this);
 		this.applyDecos(decorations);
 	}
-	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls: string): HTMLButtonElement {
+	/** Write the open note's words before a slide control acts. The controls keep focus in the field (their mousedown is cancelled), so its blur,
+	 *  which writes the words, never fires; a control that rebuilds the deck or hides the panel would drop them. True when words are left unwritten
+	 *  (the note refused them). */
+	private writeOpenNote(): boolean {
+		const state = { dirty: false };
+		this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: state }));
+		return state.dirty;
+	}
+	private btn(label: string, icon: keyof typeof LUCIDE_PATHS, fn: () => void, cls: string, saveNote = true): HTMLButtonElement {
 		const b = document.createElement('button');
 		b.type = 'button';
 		b.className = cls;
@@ -789,6 +797,8 @@ class SlideView {
 		b.addEventListener('mousedown', (e) => e.preventDefault(), { signal: this.ac.signal });
 		b.addEventListener('click', (e) => {
 			e.preventDefault();
+			// Undo and Redo step the history as it stands; writing the note first would make them undo the note instead.
+			if (saveNote) this.writeOpenNote();
 			fn();
 		}, { signal: this.ac.signal });
 		return b;
@@ -946,7 +956,7 @@ class SlideView {
 				const idx = Math.min(Math.max(fallbackIndex, 0), tr.doc.childCount - 1);
 				let off = 0;
 				for (let k = 0; k < idx; k++) off += tr.doc.child(k).nodeSize;
-				tr.setSelection(Selection.near(tr.doc.resolve(Math.min(off + 1, tr.doc.content.size))));
+				tr.setSelection(noteSafe(tr.doc, Selection.near(tr.doc.resolve(Math.min(off + 1, tr.doc.content.size)))));
 			}
 		}
 		this.view.dispatch(tr);
@@ -990,8 +1000,13 @@ class SlideView {
 		this.commit(nodes, i);
 	}
 	private toggleCollapse() {
+		// Folding or unfolding closes an open note: its pill may be one the fold hides, and a panel with no visible pill is a dead end.
+		// Its words are written first (`btn` does it on every control, and asks again here for the answer), because the panel leaves the page
+		// before its field blurs. Words the note refuses stay open.
+		const dirty = this.writeOpenNote();
 		const pos = this.getPos();
-		this.view.dispatch(this.view.state.tr.setMeta(collapseKey, { pos }));
+		const tr = this.view.state.tr.setMeta(collapseKey, { pos });
+		this.view.dispatch(dirty ? tr : tr.setMeta(commentOpenKey, { open: null }));
 		this.view.focus();
 	}
 	update(node: PMNode, decorations: readonly Decoration[]) {
@@ -1313,6 +1328,13 @@ function commentRuns(doc: PMNode) {
 /** The label a pill carries, by channel. `say:` and `describe:` are not notes — they are the
  *  slide's narration text and its WCAG text alternative, with their own sinks — so calling them
  *  "note" mislabels what the author is looking at. */
+// Each channel has its own DRAWN shape (HARD RULE #29), so the three read differently before the label does: say is a speech bubble,
+// describe is an eye (what a reader who cannot see the slide is told), note is a folded note.
+const KIND_GLYPH: Record<CommentKind, string> = {
+	say: '<path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/>',
+	describe: '<path d="M1.5 8s2.3-4 6.5-4 6.5 4 6.5 4-2.3 4-6.5 4S1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.8"/>',
+	note: '<path d="M3 2.5h7.5l3 3v8H3z"/><path d="M10.5 2.5v3h3M5.5 8h5M5.5 10.5h3"/>',
+};
 const KIND_LABEL: Record<CommentKind, string> = { say: 'say', describe: 'describe', note: 'note' };
 
 /** The open panel's id, PER EDITOR INSTANCE.
@@ -1362,6 +1384,48 @@ function readableNote(text: string): string {
 	return stripChannelPrefix(prose, text);
 }
 
+/** Counts the openings of a note panel. The panel is keyed to its opening, not to the note's text or place, so it is built once per opening
+ *  and left alone while the author writes: a write, an edit above the note, or a change to the note's own words never rebuilds it. A rebuild
+ *  destroys the field the caret is in, which blurs it and can write twice or into the wrong note. */
+let openSeq = 0;
+
+/** The note the plugin says is open, followed through every edit by the plugin's own state, or null when none is. */
+function openNote(view: EditorView): { at: number; node: PMNode } | null {
+	const at = commentOpenKey.getState(view.state);
+	const node = at == null ? null : view.state.doc.nodeAt(at);
+	return at != null && node?.type.name === 'comment' ? { at, node } : null;
+}
+
+/** A text caret next to `pos`, inside the slide `pos` is in: the next text after it, else the last text before it. Never a selection of a
+ *  note (the next block can be another note, and the next key would replace it) and never a position in another slide. Null when the slide
+ *  holds no text at all (a slide that is only a note): there is nowhere on it to put a caret. */
+function caretNear(doc: PMNode, pos: number): Selection | null {
+	const $pos = doc.resolve(Math.min(pos, doc.content.size));
+	const start = $pos.depth >= 1 ? $pos.start(1) : 0;
+	const end = $pos.depth >= 1 ? $pos.end(1) : doc.content.size;
+	const after = Selection.findFrom($pos, 1, true);
+	if (after && after.from <= end) return after;
+	const before = Selection.findFrom($pos, -1, true);
+	if (before && before.from >= start) return before;
+	return null;
+}
+
+/** A selection that is never a note selected by accident. A note is a selectable atom, so a selection helper that lands on one (the first block of a
+ *  deck or slide, a slide picked in the rail) leaves the editor with the note selected, and the next replacing key (a paste, an input method, Backspace,
+ *  Delete) removes it. A text position on the same slide is used when there is one, else the note stays selected (typing is swallowed). Selecting a note on purpose (an arrow key onto it) does not come through here. */
+function noteSafe(doc: PMNode, sel: Selection): Selection {
+	if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return sel;
+	return caretNear(doc, sel.to) ?? sel;
+}
+
+/** Where a new editor state starts: the first text of the deck when the deck opens with a note. */
+function startSelection(doc: PMNode): Selection {
+	const start = Selection.atStart(doc);
+	const safe = noteSafe(doc, start);
+	// A first slide that is only a note has no text to put a caret in; the start of the deck may be the first text of a later slide.
+	return safe === start && start instanceof NodeSelection ? (Selection.findFrom(doc.resolve(0), 1, true) ?? start) : safe;
+}
+
 /** Build the shared panel for an open comment: its words, read-only, plus the one control that
  *  removes it. Removal is a SECOND deliberate act inside a panel the author chose to open —
  *  reading a note must never arm a delete (see `stopEvent` on CommentView). */
@@ -1389,8 +1453,24 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 	// `aria-expanded="true"` aimed at nothing. The shipped test asserted the id resolved AT MOUNT,
 	// certifying precisely the property that stops holding.
 	body.id = panelId;
+	// This panel belongs to one opening. Once the author opens another note, or closes this one, it must write nothing.
+	const seq = openSeq;
+	const isCurrent = () => seq === openSeq && !view.isDestroyed;
+	// The field holds the words as written, line breaks and all, so changing one word writes one word. A note inside a quote or list stays one
+	// line (see `commit`), so its field shows the joined reading form, as before.
+	const editable = (text: string, at: number) => (view.state.doc.resolve(at).depth >= 2 ? readableNote(text) : editableNote(text));
+	let original = editable(node.attrs.text as string, pos);
 	body.textContent = readableNote(node.attrs.text as string);
-	wrap.append(body);
+	// On a slide Compose can write, the words are a live field: one click on the pill and the author types. On a locked slide they
+	// are plain text, as before. The field is the panel's body (same class and id), and its default value is the words, so the
+	// text a reader or a test sees is the same either way.
+	const field = document.createElement('textarea');
+	field.className = 'cs-comment-body cs-comment-field';
+	field.id = panelId;
+	field.defaultValue = original;
+	field.rows = Math.min(12, Math.max(3, original.split('\n').length + 1));
+	field.setAttribute('aria-label', `${KIND_LABEL[commentKind(node.attrs.text as string)]} text`);
+	wrap.append(locked ? body : field);
 
 	const remove = document.createElement('button');
 	remove.type = 'button';
@@ -1406,9 +1486,12 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 		remove.title = 'This slide carries a construct Compose cannot round-trip, so it is read-only here.';
 	} else {
 		remove.textContent = 'Remove';
+		// Pressing Remove keeps the caret where it is: the field blurring first would write the words and rebuild the panel under the click.
+		remove.addEventListener('mousedown', (e) => e.preventDefault());
 		remove.addEventListener('click', () => {
-			const n = view.state.doc.nodeAt(pos);
-			if (!n || n.type.name !== 'comment') return; // stale decoration — the doc moved under us
+			const open = isCurrent() ? openNote(view) : null;
+			if (!open) return; // stale panel — another note was opened, or this one is gone
+			const { at, node: n } = open;
 			// A BOUNDED lift, not `deleteRange`. When the comment is a blockquote's only child a plain
 			// delete leaves the emptied quote behind, so the author gets a bare `> ` line they never
 			// wrote — that is why this stopped being a plain delete. But `deleteRange` was the wrong
@@ -1423,14 +1506,133 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			// means the comment sits inside a blockquote, and `childCount === 1` means that container
 			// is about to be empty. Everything else is a plain delete, which is what base did and what
 			// ProseMirror already handles (it refills an emptied slide with a paragraph).
-			const $c = view.state.doc.resolve(pos);
+			const $c = view.state.doc.resolve(at);
 			const liftParent = $c.depth >= 2 && $c.parent.childCount === 1;
-			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(pos, pos + n.nodeSize);
+			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(at, at + n.nodeSize);
+			// The caret goes to where the note was: a click on a pill never moved the editor's selection, so refocusing without this puts
+			// the next keys at the old caret, which can be the top of the deck.
+			// Not on a folded slide, whose text is hidden: keys typed there would edit words the author cannot see (Escape stays in the field
+			// for the same reason). The field is gone with the note, so focus leaves the editor.
+			const anchor = view.domAtPos(at).node;
+			const folded = Boolean((anchor instanceof Element ? anchor : anchor?.parentElement)?.closest('.cs-collapsed'));
+			const caret = folded ? null : caretNear(tr.doc, tr.mapping.map(at));
+			if (caret) tr.setSelection(caret);
+			// WebKit hands focus to the editor when the focused field leaves the page, with its caret in the hidden text, so focus leaves first.
+			if (folded && wrap.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
 			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
-			view.focus();
+			if (caret) view.focus();
 		});
 	}
-	wrap.append(remove);
+	// The words write when the author leaves the field or presses Ctrl/Cmd+Enter; Escape puts the original back and returns to the
+	// slide. Nothing is written for words that did not change, so a note that is opened and left keeps its bytes. `writeNote` keeps
+	// the opener, closer and channel prefix, and refuses a result that would not be the same kind of comment: the panel says why and
+	// keeps the author's words in the field. Remove stays its own control, a second deliberate act.
+	const actions = document.createElement('div');
+	actions.className = 'cs-comment-actions';
+	const why = document.createElement('p');
+	why.className = 'cs-comment-why';
+	why.setAttribute('role', 'alert');
+	why.hidden = true;
+	if (!locked) {
+		const commit = () => {
+			const open = isCurrent() ? openNote(view) : null;
+			if (!open || field.value === original) return;
+			// A comment inside a quote or a list item is written with that container's prefix on every line, so a note there stays one line.
+			const nested = view.state.doc.resolve(open.at).depth >= 2;
+			const next = nested && field.value.trim().includes('\n') ? null : writeNote(open.node.attrs.text as string, field.value);
+			if (next === null) {
+				why.textContent = field.value.trim() ? 'A note cannot end its comment early, start with a directive word such as footer: or _class:, change its channel, or run to a second line inside a quote or list. Your words are kept here.' : 'A note cannot be empty. Use Remove to delete it.';
+				why.hidden = false;
+				return;
+			}
+			why.hidden = true;
+			// Words that differ only by spacing write the same comment, so there is nothing to replace.
+			if (next === open.node.attrs.text) {
+				original = field.value;
+				return;
+			}
+			view.dispatch(view.state.tr.setNodeMarkup(open.at, undefined, { ...open.node.attrs, text: next }).setMeta(commentOpenKey, { open: open.at }));
+			original = editable(next, open.at);
+			// The field shows what is now written, read the same way it was on opening. Words indented further than the note's hanging indent
+			// become part of it; leaving the typed form in the field would put that indent back again on every later write.
+			if (field.value !== original) {
+				const at = Math.min(field.selectionStart ?? original.length, original.length);
+				field.value = original;
+				typed = original;
+				field.setSelectionRange(at, at);
+			}
+		};
+		field.addEventListener('cs-note-commit', (e) => {
+			commit();
+			(e as CustomEvent<{ dirty: boolean }>).detail.dirty = field.value.trim() !== original.trim();
+		});
+		// Tell the editor the caret has left the note, so an outside change it parked while the author wrote can land.
+		const left = () => {
+			if (!view.isDestroyed) view.dom.dispatchEvent(new CustomEvent('cs-note-left'));
+		};
+		field.addEventListener('keydown', (e) => {
+			// A key that belongs to an input method (an Escape that cancels a composition) is not ours.
+			if (e.isComposing) return;
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				e.stopPropagation();
+				field.value = original;
+				typed = original;
+				why.hidden = true;
+				// Back to the slide, at the note: the editor's own selection may be anywhere else in the deck.
+				const open = isCurrent() ? openNote(view) : null;
+				// On a folded slide the blocks after the note are hidden, and the browser cannot hold a caret in hidden content, so it would land in the
+				// next slide: the caret stays in the field there, as it does on a slide with no text.
+				const anchor = open ? view.domAtPos(open.at).node : null;
+				const folded = Boolean((anchor instanceof Element ? anchor : anchor?.parentElement)?.closest('.cs-collapsed'));
+				const caret = open && !folded ? caretNear(view.state.doc, open.at + open.node.nodeSize) : null;
+				// A slide that is only a note has no text to return to, so the caret stays in the field rather than going to another slide.
+				if (caret) {
+					view.dispatch(view.state.tr.setSelection(caret));
+					view.focus();
+				}
+			} else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+				e.preventDefault();
+				commit();
+			}
+		});
+		// The write waits for the blur's own turn, so it never dispatches from inside the view's update.
+		field.addEventListener('blur', () =>
+			queueMicrotask(() => {
+				commit();
+				left();
+			}),
+		);
+		// Leaving the panel from Remove writes whatever the field holds, so the field and the deck cannot disagree.
+		remove.addEventListener('blur', () =>
+			queueMicrotask(() => {
+				commit();
+				left();
+			}),
+		);
+		// The browser keeps one native undo stack for the page, so an undo or redo pressed on any button reaches into the field and changes it
+		// without writing. The field only ever changes by what the author types into it: a change that arrives while it has no caret is undone.
+		let typed = field.value;
+		field.addEventListener('beforeinput', (e) => {
+			if (document.activeElement !== field && e.inputType.startsWith('history')) e.preventDefault();
+		});
+		field.addEventListener('input', () => {
+			if (document.activeElement === field) typed = field.value;
+			else field.value = typed;
+		});
+		// Opening a note is the author choosing to write in it: the caret is in the field. The panel is built once per opening, so this
+		// never fires for a panel that is merely redrawn. On a touch screen a note opens for READING: focusing the field would raise the
+		// on-screen keyboard over half the slide on every tap, so the author taps the words to write (the owner's call, 2026-10-23).
+		const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+		queueMicrotask(() => {
+			if (touch || !field.isConnected || !isCurrent()) return;
+			field.focus();
+			// The caret goes to the end, where an author adds to a note; a bare focus() leaves it at the start.
+			field.setSelectionRange(field.value.length, field.value.length);
+		});
+	}
+	actions.append(remove);
+	wrap.append(why, actions);
 	return wrap;
 }
 
@@ -1454,6 +1656,59 @@ export function commentRunPlugin() {
 			},
 		},
 		props: {
+			// A selected note is a deliberate gesture (an arrow key onto it; Backspace or Delete then removes it), never something typed text may replace:
+			// the editor can hold a node selection on a note it never meant to (a deck that opens with one, a slide-control refocus), and the
+			// next printed character would delete it. The text goes to the nearest caret in the note's slide instead, or nowhere.
+			// The same for a paste: it replaces the selection, so with a note selected the selection first moves to text. Where the slide has no
+			// text the paste is dropped, not allowed to delete the note.
+			handlePaste(view) {
+				const sel = view.state.selection;
+				if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
+				const caret = caretNear(view.state.doc, sel.to);
+				if (!caret) return true;
+				view.dispatch(view.state.tr.setSelection(caret));
+				return false;
+			},
+			// And for an input method: starting a composition deletes a selected non-text node before any text input event is seen.
+			handleDOMEvents: {
+				compositionstart(view) {
+					const sel = view.state.selection;
+					if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
+					const caret = caretNear(view.state.doc, sel.to);
+					if (caret) view.dispatch(view.state.tr.setSelection(caret));
+					return false;
+				},
+			},
+			// Backspace at the start of the block after a note, or Delete at the end of the block before one, SELECTS the note instead of removing it:
+			// the next press removes it, so a caret that merely sits beside a note (a slide picked in the rail) never costs the author one.
+			handleKeyDown(view, event) {
+				// Held modifiers do not matter: Shift-, Ctrl- and Mod-Backspace are bound to join commands that delete a note outright.
+			if (event.key !== 'Backspace' && event.key !== 'Delete') return false;
+				const { selection } = view.state;
+				// A note that is selected on purpose is removed by the next press (said here, not left to the engine's default, which Firefox does not run).
+				if (selection instanceof NodeSelection && selection.node.type.name === 'comment') {
+					view.dispatch(view.state.tr.deleteSelection());
+					return true;
+				}
+				if (!(selection instanceof TextSelection) || !selection.empty) return false;
+				const { $from } = selection;
+				const forward = event.key === 'Delete';
+				if (forward ? $from.parentOffset !== $from.parent.content.size : $from.parentOffset !== 0) return false;
+				const $edge = view.state.doc.resolve(forward ? $from.after() : $from.before());
+				const note = forward ? $edge.nodeAfter : $edge.nodeBefore;
+				if (note?.type.name !== 'comment') return false;
+				view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, forward ? $edge.pos : $edge.pos - note.nodeSize)));
+				// Some engines move focus off the editor when a non-editable node becomes the selection; the next press has to arrive here.
+				view.focus();
+				return true;
+			},
+			handleTextInput(view, _from, _to, text) {
+				const sel = view.state.selection;
+				if (!(sel instanceof NodeSelection) || sel.node.type.name !== 'comment') return false;
+				const caret = caretNear(view.state.doc, sel.to);
+				if (caret) view.dispatch(view.state.tr.setSelection(caret).insertText(text));
+				return true;
+			},
 			decorations(state) {
 				const open = commentOpenKey.getState(state);
 				const decos: Decoration[] = [];
@@ -1479,7 +1734,10 @@ export function commentRunPlugin() {
 						decos.push(
 							Decoration.widget(run.to, (view) => buildCommentPanel(view, node, pos, Boolean(slideOfPos(view.state, pos)?.attrs.locked), panelId), {
 								side: 1,
-								key: `cs-panel-${pos}-${node.attrs.text}`,
+								key: `cs-panel-${openSeq}`,
+								// Keys and clicks inside the panel are the panel's, not the document's (Enter in the field would split a block, Mod-z would undo the deck, Enter on Remove would be cancelled).
+								stopEvent: (e: Event) => e.target instanceof Element && e.target.closest('.cs-comment-panel') !== null,
+								ignoreSelection: true,
 							}),
 						);
 					}
@@ -1501,6 +1759,7 @@ function slideOfPos(state: EditorState, pos: number): PMNode | null {
 export class CommentView {
 	dom: HTMLElement;
 	private tag: HTMLElement;
+	private glyph: Element;
 	private ac = new AbortController();
 
 	constructor(
@@ -1516,8 +1775,9 @@ export class CommentView {
 		// The shape is DRAWN, not typed (HARD RULE #29's reasoning: a typed glyph falls back to
 		// whatever font the machine has). Inline SVG, currentColor, so it themes with the pill.
 		this.dom.innerHTML =
-			'<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5H2.5v7h3v2.2l2.6-2.2h5.4z"/></svg><span class="cs-comment-tag"></span>';
+			'<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g class="cs-comment-glyph"></g></svg><span class="cs-comment-tag"></span>';
 		this.tag = this.dom.querySelector('.cs-comment-tag') as HTMLElement;
+		this.glyph = this.dom.querySelector('.cs-comment-glyph') as Element;
 		this.dom.addEventListener(
 			'click',
 			() => {
@@ -1527,6 +1787,15 @@ export class CommentView {
 				// A TOGGLE, and a radio at the same time: clicking the open pill closes it, clicking any
 				// other pill moves the panel to that one. Selection-only transaction — no doc change —
 				// so the structural guard waves it through and nothing re-emits the deck source.
+				// The open note's words are written first, whether this click moves the panel or closes it: on a touch screen the tap may not
+				// blur the field, and once the panel closes or `openSeq` moves it writes nothing. Words the note refuses keep it open, with
+				// the reason showing, as folding does.
+				if (open !== null) {
+					const state = { dirty: false };
+					this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: state }));
+					if (state.dirty) return;
+				}
+				if (open !== pos) openSeq++;
 				this.view.dispatch(this.view.state.tr.setMeta(commentOpenKey, { open: open === pos ? null : pos }));
 			},
 			{ signal: this.ac.signal },
@@ -1538,11 +1807,13 @@ export class CommentView {
 		const text = this.node.attrs.text as string;
 		const kind = commentKind(text);
 		this.tag.textContent = KIND_LABEL[kind];
+		this.dom.dataset.kind = kind;
+		this.glyph.innerHTML = KIND_GLYPH[kind];
 		this.dom.title = readableNote(text);
 		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
 		// then again when the panel opened.
-		this.dom.setAttribute('aria-label', `show the ${KIND_LABEL[kind]} comment`);
+		this.dom.setAttribute('aria-label', `open the ${KIND_LABEL[kind]} comment`);
 		// `aria-expanded` and `aria-controls` are NOT set here. They are decoration attributes (see
 		// commentRunPlugin), because decorations are recomputed from state on every transaction while
 		// this view is only updated when its node or decorations change — which is how the old
@@ -1566,9 +1837,8 @@ export class CommentView {
 	// to read it, then carrying on typing, silently destroyed the note. Verified on the real Studio.
 	// Reading must never arm a delete, so removal has its own control in the panel.
 	//
-	// `selectable: true` still earns its place on the spec, for the OTHER route in: Backspace at the
-	// start of the following block selects the atom rather than deleting it — ProseMirror's designed
-	// stop — which is why that arm leaves the source intact.
+	// `selectable: true` still earns its place on the spec: an arrow key, or a Backspace or Delete at the edge of the next block, selects a note
+	// (`handleKeyDown` in `commentRunPlugin`), and a second Backspace or Delete removes it, on purpose (not on a slide that is only that note: the structural guard refuses an empty slide, so Remove in the panel is the way).
 	stopEvent(e: Event) {
 		return this.dom.contains(e.target as Node);
 	}
@@ -1681,7 +1951,7 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: () => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[] }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -1880,7 +2150,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
 			// nearest real text position from there — the slide's first editable spot,
 			// whatever block happens to open it.
-			const sel = Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size)));
+			const sel = noteSafe(doc, Selection.near(doc.resolve(Math.min(pos + 1, doc.content.size))));
 			lastSlideRef.current = index; // pre-seed: this reveal must not echo back out
 			v.dispatch(v.state.tr.setSelection(sel));
 			// Scroll the HOST explicitly rather than riding ProseMirror's
@@ -2027,6 +2297,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// is up, so a pick goes in at the place the author chose.
 	const [pickerOpen, setPickerOpen] = React.useState(false);
 	const openPicker = React.useCallback(() => setPickerOpen(true), []);
+	// The inline kinds the installed plugins declare, read on every lookup (setPluginKindProvider). A change re-reads the deck so a
+	// span of a kind just installed becomes an object without a keystroke.
+	const pluginKindsRef = React.useRef<readonly PluginKindEntry[]>([]);
+	pluginKindsRef.current = pluginKinds ?? [];
+	setPluginKindProvider(() => pluginKindsRef.current);
+	React.useEffect(() => {
+		const v = viewRef.current;
+		const k = kernelsRef.current;
+		if (v && k && pluginKinds) normalizeDeck(v, k, k.isLiteralFromSource(sourceRef.current));
+	}, [pluginKinds]);
 	const onOpenLibraryRef = React.useRef(onOpenLibrary);
 	onOpenLibraryRef.current = onOpenLibrary;
 	const getKernelsStable = React.useCallback(() => kernelsRef.current, []);
@@ -2143,7 +2423,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the new one.
 		const folded = collapsedKeys(view.state);
 		const doc = deckToDoc(src);
-		view.updateState(EditorState.create({ doc, plugins: view.state.plugins }));
+		view.updateState(EditorState.create({ doc, selection: startSelection(doc), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
 		// logs, so a throw from the restore below would leave `updateState` already landed on
 		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
@@ -2170,12 +2450,24 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		if (!hostRef.current) return;
 		setFailed(false); // D3: a prior deck's parse failure must not stick to this one.
 		let view: EditorView;
+		// Apply an outside change that arrived while the editor, or a note field in it, had the caret.
+		const flushParkedResync = () => {
+			const pending = pendingResyncRef.current;
+			if (pending != null && viewRef.current) {
+				try {
+					resyncFrom(viewRef.current, pending);
+				} catch (e) {
+					console.error('[compose] blur resync', e);
+				}
+			}
+		};
 		try {
 			const doc = deckToDoc(source);
 			baselineRef.current = initBaseline(doc);
 			view = new EditorView(hostRef.current, {
 				state: EditorState.create({
 					doc,
+					selection: startSelection(doc),
 					plugins: buildPlugins(() => defaultTagAtCaret(), () => (onOpenPanePickerRef.current ? openPane : undefined), {
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
@@ -2259,14 +2551,13 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
 						setSelBar(null); // the selection bar never outlives focus
-						const pending = pendingResyncRef.current;
-						if (pending != null && viewRef.current) {
-							try {
-								resyncFrom(viewRef.current, pending);
-							} catch (e) {
-								console.error('[compose] blur resync', e);
-							}
-						}
+						flushParkedResync();
+						return false;
+					},
+					// The same, when the caret leaves a note field (the note panel announces it after writing its words).
+					'cs-note-left': (v) => {
+						// Not while the editor has the caret (it lands on that blur) or while it sits on the panel's Remove button.
+						if (!v.hasFocus() && !document.activeElement?.closest('.cs-comment-panel')) flushParkedResync();
 						return false;
 					},
 				},
@@ -2309,7 +2600,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// OWN echo without the old `docToDeck(doc) === source` guard — which compared through
 		// the LOSSY serializer and so never matched a rich deck (dead code, per the trio).
 		if (source === lastEmittedRef.current) return;
-		if (view.hasFocus()) {
+		// A note being written is the author mid-type too: its field and its Remove button are inside the editor but are not the editor's own focus.
+		if (view.hasFocus() || (document.activeElement instanceof Element && view.dom.contains(document.activeElement) && document.activeElement.closest('.cs-comment-panel'))) {
 			pendingResyncRef.current = source;
 			return;
 		}
@@ -2370,7 +2662,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					</div>,
 					document.body,
 				)}
-			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} />, insertHost)}
+			{insertHost && viewRef.current && createPortal(<InsertControls view={viewRef.current} getKernels={getKernelsStable} getSource={getSourceStable} getFences={getFencesStable} onInsertImage={openPicker} onInsertMotion={onOpenLibrary ? () => onOpenLibraryRef.current?.('motion') : undefined} />, insertHost)}
 			{island?.kind === 'table' && createPortal(<TableControls view={viewRef.current as EditorView} stateful={island.stateful} />, island.slot)}
 			{island?.kind === 'code' && createPortal(<CodeControls view={viewRef.current as EditorView} source={source} />, island.slot)}
 			{/* The chip's picker — anchored, not wrapped, because the chip lives in a NodeView
@@ -2483,6 +2775,8 @@ function ComposeStyles() {
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4){display:block}
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4) ~ :is(h1,h2,h3,h4){display:none}
 			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child{display:block}
+			/* A note's panel stays visible on a folded slide: its pill can be the visible first block, and a panel that opens hidden is a dead click. */
+			.cs-slide.cs-collapsed .cs-slide-content > .cs-comment-panel{display:block}
 			.cs-slide.cs-collapsed .cs-slide-content > :is(h1,h2,h3,h4)::after,
 			.cs-slide.cs-collapsed .cs-slide-content:not(:has(> :is(h1,h2,h3,h4))) > :first-child::after{content:" ⋯";color:var(--text-muted,#6b7f9a);font-weight:400}
 			/* a locked slide carries a construct Compose can't round-trip (table, block HTML,
@@ -2519,7 +2813,10 @@ function ComposeStyles() {
 			.cs-host .cs-comment-panel{margin:.1em 0 .7em;padding:9px 12px;max-width:62ch;border:1px solid var(--border,#e4eaf2);border-left:2px solid var(--accent,#006fa8);border-radius:0 8px 8px 0;background:var(--bg-alt,#f2f5fa)}
 			.cs-host .cs-comment-body{color:var(--text-body,#2b3a4f);font-family:var(--font-mono,ui-monospace,monospace);font-size:11.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 			/* Removal is the panel's own control — reading a note must never arm a delete. */
-			.cs-host .cs-comment-remove{margin-top:8px;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
+			.cs-host .cs-comment-actions{display:flex;gap:6px;margin-top:8px}
+			.cs-host .cs-comment-field{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:6px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-body,#16243b);font:inherit;line-height:1.45}
+			.cs-host .cs-comment-why{margin:6px 0 0;font-size:11.5px;color:var(--fail,#b3261e)}
+			.cs-host .cs-comment-remove{margin-top:0;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
 			.cs-host .cs-comment-remove:hover:not(:disabled){color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 10%,var(--bg,#fff))}
 			/* A locked slide takes no edits, so the control says why instead of doing nothing. */
 			.cs-host .cs-comment-remove:disabled{cursor:default;opacity:.7;text-transform:none;letter-spacing:.02em}
