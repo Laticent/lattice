@@ -55,7 +55,7 @@ concurrency:
 #                                                              2026-10-05 re-sample below)
 #   golden-diff            69    91s   511s   554s    25m     2.7x
 #   docs-build             89   420s   445s   466s    20m     2.6x
-#   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin
+#   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin (cap raised to 20m on 2026-10-22, see below)
 #   ci                     99     5s     7s    11s     5m    27.3x
 #
 #   player-webkit (added 2026-09-29, PR #2494): not in the sample above. Cap 12m is
@@ -523,6 +523,15 @@ jobs:
             node tools/conformance-render.js --changed="origin/$BASE_REF" 2>&1
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
+      # VENUE CONFORMANCE RATCHET, per PR and in the queue (owner brief 2026-10-22, #2862 follow-up P1).
+      # Renders every component at laptop / huddle / conference / hall on all four canvas families and
+      # fails on any failing row that tools/check-venue-conformance.js `KNOWN` does not name, and on a
+      # `KNOWN` entry that no longer fails, so the list can only shrink. Measured 4m41s (4 jobs) to 5m56s (2 jobs)
+      # on a 4-vCPU sandbox for the whole catalog; shard 4 is the shortest leg (about 230s of tests against 340-540s).
+      # Blocking, with no `continue-on-error`. `--strict` also fails when no Chromium is found.
+      - name: Venue conformance ratchet
+        if: matrix.shard == 4
+        run: npm run --silent check:venue-conformance -- --strict
       - name: Upload Marp renders on failure
         # The marp-kit render gate exists because every defect it guards was
         # VISIBLE ON THE FIRST PAGE OF A PDF. A red run that leaves nothing to look
@@ -895,7 +904,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20 # raised from 15 on 2026-10-22 (PR #2822): a passing run took 14m56s (tests 12m17s) and two runs were cancelled at the old cap
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

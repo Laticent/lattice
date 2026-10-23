@@ -1,0 +1,2 @@
+- The heatmap places its callouts and key by the slide's real shape, not by its orientation name. At 4:3 a keyed heatmap keeps its key under the grid (the grid grows to 1.46 times its old area on the demo deck), and at 4:5 three callouts sit beside the grid again; 16:9 decks do not change.
+- Sections of a deck that is not 16:9 carry a `data-aspect` attribute (for example `1.33`). A chart transform reads it as `ctx.aspect`; `transformChartSection` takes it as a sixth argument.

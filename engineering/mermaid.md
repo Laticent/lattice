@@ -467,6 +467,8 @@ NAVIGATION and dispatched an eager render for every diagram slide reached from a
 one, leaving the slide the author landed on queued behind them. It bought 236ms → 207ms with
 the blank-frame count unchanged at 10, which is nothing a viewer can see.
 
+**The frame must not break the tag-at-once rule.** `runPass` used to call `requestMermaidLibrary()` and return; for an in-page load the load's arrival schedules the pass, but a draw frame answers `ready` immediately (it installs the stand-in synchronously), so nothing ran the pass and the fence stayed untagged, its source visible, until a later mutation. Measured on the built Studio with `diagram-flash-bench --scenario nav`: 99 painted frames of source on the first diagram, against 10 in the page. `runPass` now re-enters when the answer is `ready`; after: 11 source frames, 270 ms to the diagram (651 ms in the page), and `edit` / `edit-burst` still 0 source, 0 blank. `docs/e2e/draw-frame-preview.spec.ts` pins the tag within 1.5 s.
+
 Numbers for all of it, the `--scenario edit` / `edit-burst` arms that measure the case a
 cache cannot answer, and why the previous diagram was never held on any earlier build:
 `engineering/decisions/2026-09-06-diagram-edit-holds-the-last.md`.
@@ -650,6 +652,89 @@ the global one, and it is joined by mermaid's separate TOP-LEVEL `fontFamily` an
 28 per-block `*FontFamily` keys that c4 / journey / sequence / timeline read instead
 (§5.3e). A sketch deck therefore speaks in one voice everywhere and draws by hand wherever
 Mermaid can (#1674).
+
+## 5.3f Where the preview draws a diagram (the sandboxed draw frame)
+
+A live preview in the Studio or the Playground does not run Mermaid in the page that holds your deck. The preview frame
+holds a **stand-in for `window.mermaid`** (`lib/plugins/mermaid/mermaid.draw-shim.mjs`) and the runtime's Mermaid pass
+(`mermaid.hydrate.js`) runs unchanged on top of it: same render queue, same per-palette `initialize`, same SVG cache, same
+gantt turn, same settle cap. The stand-in answers the three calls the pass makes (`initialize`, `render`,
+`mermaidAPI.getDiagramFromText`) by sending the definition, the config for its palette and the page width to the embedding
+page's draw host (`docs/src/lib/preview-draw-host.ts`, which lists the kinds it offers), which hands them to a **sandboxed frame**
+(`lib/packages/draw-frame-core.mjs`; `sandbox="allow-scripts"`, an opaque origin, `connect-src 'none'`).
+
+**The frame loads Mermaid's ES modules by URL; it does not inline the library.** The first cut inlined the 3.1 MB single file into the
+frame's `srcdoc` and cost a fresh page's first diagram about 1.0 s more than drawing in the page (2.3 s to 3.4 s). A CPU trace named the
+cause: the page's HTML parser tokenized 3 MB of script text (`ParseHTML` 591 ms against 8 ms) and the bundle then evaluated as one 350 to
+500 ms task, which also blocked the main thread in the in-page path. Mermaid's own ES build (`mermaid.esm.min.mjs`) evaluates a 28 KB core
+and imports the chunks a diagram type needs when it draws one (the first drawing's 23 preloaded files are 721 KB raw and 192 KB gzipped, measured in review). The
+frame is a small `srcdoc` (two inline scripts: a boot module that imports the entry by its absolute URL, and an import map), its policy
+names the ONE directory the modules come from (not `'self'`, which is the whole site) and the engine's font folders, and the import map's
+`integrity` carries the SHA-256 of every module, which a browser that supports it enforces. The files are vendored
+(`lib/plugins/mermaid/vendor/esm/`, 82 files, 3.1 MB, pinned by tree hash in the manifest like every other copy) and staged under
+`frames/mermaid/` (`docs/scripts/sync-playground-assets.mjs`); the per-file digests and the first drawing's `modulepreload` list are
+generated into `lib/plugins/draw-frame-libraries.generated.mjs`. A module loaded by an opaque-origin frame is a cross-origin fetch and needs
+CORS: GitHub Pages (production) sends `Access-Control-Allow-Origin: *` itself, the Cloudflare previews read `docs/public/_headers`, and the
+local dev and preview servers are set in `docs/astro.config.mjs` (with Vite's own CORS middleware off, which otherwise rewrites the
+header on a 304 and breaks the next request from the frame).
+
+What comes back is text from a frame that ran a library over an author's definition, so it is untrusted. The host sanitizes
+it with the **diagram profile** (`lib/core/sanitize-diagram-svg.mjs`): the slide profile's rules, but `<style>` and
+`<foreignObject>` admitted, because every Mermaid figure is made of them. Each `<style>` that survives passes
+`sanitizeStyleText` and loses any `@import`. `test/integration/export/draw-frame-mermaid.test.js` draws 48 diagrams through the real
+module-loaded frame (the system-design deck, the plugin fixtures and the diagram gallery), requires the sanitizer to change none of them,
+requires the answer to equal the single-file bundle's byte for byte (random ids and an `<img>` label aside), refuses a changed module, and
+shows a module outside the policy's directory is never even requested.
+
+**What the stand-in replaces.**
+
+| In the page, the library did | In a preview with a draw host, the stand-in does |
+|---|---|
+| measure text in the deck's fonts | the frame loads the font faces named in the config's `fontFamily` itself, from the engine's own font folders its policy names |
+| bind a flowchart's or class diagram's tooltip | a plain hover binder over the `title` the library puts on each `g.clickable`; the tooltip takes the diagram's own palette rule |
+| bind a gantt's `click` link | the frame sends the chart's links with its drawing (`db.getLinks()`), the host keeps `http(s)`, `mailto:`, `#`, `/` and `.` targets, and the binder opens one in place |
+| run a click CALLBACK | nothing: at `securityLevel: 'strict'` the library's own callback path returned early |
+
+**What does not change.** The CLI export, the plain `.html`, the player, `--fluid` and Export-to-Marp have no host page, so
+they load the single-file library as always. The Studio's own exports (PDF, PNG, PPTX and the Webpage bake) draw in-page as well: each
+capture frame sits in a `data-lattice-export="capture"` element (`createCaptureFrame`), and the runtime's draw-host lookup skips a frame
+inside one, so what they bake is the library's own answer and not a sanitized copy of a frame's (a frame's policy allows no images, so a
+node with an `<img>` label would size differently there).
+
+**What the frame does not isolate.** In Chromium a sandboxed frame from the same site runs on the page's own thread. A definition that
+is CPU-bound for a long time (measured in review: a 14.5 KB mindmap of 1,200 nodes blocked the page for 33 s, a 33 KB state diagram for 17 s)
+freezes the Studio tab, and the host's 15 s timeout cannot fire until the work returns. The in-page library froze it the same way, so this is
+not new, but the frame does not fix it either. Only a frame served from another site gets its own process (measured above), which needs a second host; the owner ruled that out (2026-10-21).
+
+**When the frame cannot load.** The boot module imports the entry with a dynamic `import()` and posts `failed` if it cannot, so the host
+learns at once instead of waiting out its 30 s open timeout. The host then drops Mermaid from the list of kinds it offers (`kinds` is read
+on every pass), and the next preview frame loads the library into the page as it always did. A lazily imported chunk that fails (offline, or a
+deploy removed the folder) closes the frame, because a browser keeps a failed import, so the next draw opens a fresh one.
+The figure that was drawing when the failure hit shows an error until the next edit.
+
+**What it does not get: the service worker and the HTTP cache.** An opaque-origin frame cannot register or use a service worker, and
+Chromium keys its HTTP cache by the frame's origin, so the modules are fetched again on every page load (measured in review: a module served
+`immutable` still reached the server on each of three loads). The in-page library came from the service worker's cache after the first visit.
+The cold-cache numbers below therefore do not cover a returning visitor, and the offline Studio falls back to the in-page library only
+after the first failed draw. A frame served from a second origin with `allow-same-origin` would get its own cache, service worker and
+process; the owner ruled a second origin out (2026-10-21), so this stays as it is (see the decision note).
+
+**What it costs and what it saves** (real Studio, headless Chromium, local preview build, 10 interleaved runs per path, medians with ranges;
+editor change to first diagram): first visit 1414 ms (1268 to 1654) drawing in the page, 1342 ms (1082 to 1493) in the frame; returning visit
+1112 ms on both; an edit redraw 652 ms (609 to 719) in the page, 670 to 825 ms (633 to 1139) in the frame. The spread in the frame's redraw is the
+Studio's own deck-wide diagram check loading `mermaid.min.js` (857 KB, `mermaid-parse`) into the Studio page on the first edit in about
+40% of runs; that load is there before and after this measurement. Since owner decision D1 A (2026-10-21) the check draws each diagram through the frame as an ordinary draw job and the page loads no Mermaid (`docs/src/components/studio/mermaid-parse.ts`); the numbers above predate that change. An earlier CPU trace of one condition (1779 to 1366 ms, prose deck 885 ms) overstated the first-visit
+gain. The page warms the frame when a deck holds a fence, so it overlaps the preview's own start.
+Typed edits, which are what a person feels (median keystroke in a diagram label, real Studio, headless Chromium, flat at 1, 5 and 20 diagrams): about 300 ms
+drawing in the page and 390 to 410 ms in the frame, so the frame adds a constant of about +50 ms (about 17 to 30%). A V8 CPU profile over 8 keystrokes puts it on
+the main thread in pieces: Mermaid's module build running a little slower than its minified bundle (~+11 ms), sanitizing the returned drawing (~+8 to 10 ms, the
+sandbox's price) and frame, host and stand-in glue (~+15 to 20 ms). The frame shares the page's thread in headless Chromium's default build. With Chrome's `IsolateSandboxedIframes` and `--site-per-process` on, it ran in its own
+process and a keystroke took 299 ms against 305 ms without (243 ms in the page), so the cost is the round trip, not contention for the thread. In a plain page
+Mermaid's module build renders about 25% slower than its minified bundle (about 21 ms against 16 ms), which is the Mermaid share of the gap. Owner decision D1 B (2026-10-22)
+asked for an optimization attempt; no change was found that pays for its risk (a font-rule cache would save about 2.5 ms and can go stale), so the cost stays. A whole-document replace re-renders the whole deck and grows with deck size in both modes, with or without diagrams.
+What is left over the prose floor (about 480 ms) is the preview's own start and the first draw, all on the one main thread: only a frame
+in another process would run in parallel (a frame served from a different site is isolated by the browser; measured 13 to 48 ms of
+parent-thread blocking against 330 to 590 ms for a same-site frame), which needs a second host; the owner ruled that out (2026-10-21).
 
 ## 5.3 Theme matching, and your own `%%{init}%%`
 

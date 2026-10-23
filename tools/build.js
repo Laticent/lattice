@@ -148,6 +148,9 @@ const STEPS = [
   // dagre IIFE at BUNDLE time, so a stale or missing file would be baked into
   // lattice-runtime.js and lattice.js rather than caught later.
   { label: 'dagre bundle (state-chart layout)', script: 'build-dagre-bundle.js', uncommitted: true },
+  // The callout placer as source, for the export's serialized flowchart and state-chart passes. Ahead of the
+  // bundles because lattice.js requires it at BUNDLE time, like the dagre string above.
+  { label: 'callout placer bundle (flowchart, state-chart export)', script: 'build-callout-browser.js', uncommitted: true },
   // Ahead of the bundles for the same reason as dagre, and it used to sit 18 steps
   // LATER, next to build-player-core.js — its first-discovered consumer. player-core
   // is not its only one: lattice.js's graph reaches

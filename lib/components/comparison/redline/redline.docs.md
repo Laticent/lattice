@@ -10,7 +10,7 @@ Use when an amendment's diff is the slide. The blockquote carries the redlined t
 
 ## Agent contract
 
-**By venue** no count budget. One clause with its inline edits per slide; its length is prose, not a count of elements.
+**By venue** (`venue:`) its redline holds laptop ~84+ · huddle ~84+ · conference ~72 · hall ~20 words on a wide canvas. With `annotated`: laptop ~84 · huddle ~84 · conference ~52 · hall ~12. With `three-col`: laptop ~60 · huddle ~44 · conference ~0 · hall ~0. With `split`: laptop ~60 · huddle ~52 · conference ~30 · hall ~10. With `stacked`: laptop ~84 · huddle ~72 · conference ~52 · hall ~0. On a square canvas: laptop ~104 · huddle ~68 · conference ~46 · hall ~23 (each register has its own row in the manifest). On a tall canvas: laptop ~40 · huddle ~28 · conference ~11 · hall ~7 (each register has its own row in the manifest). On a strip canvas: laptop ~96 · huddle ~76 · conference ~46 · hall ~34 (each register has its own row in the manifest). A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide by growing that slot until the page clips (`tools/calibrate-venue-prose.js`); `lint:deck` reads the same numbers.
 
 ### Slots
 

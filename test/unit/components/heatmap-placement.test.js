@@ -103,11 +103,14 @@ describe('notes and key together', () => {
     for (const l of labels(d)) assert.ok(l.x > right && l.x < keyX(d));
   });
 
-  test('square puts the key under the grid and keeps the notes beside it, within the margin', () => {
+  test('square puts the notes and the key both under the grid, the notes first', () => {
+    // Measured (design note § 10): with the notes flowing, both under keeps 100% of the plot at 1:1 against 87% for
+    // notes beside and key under, which clears PLACEMENT_MARGIN. Stacked, it was 100% against 99% and stayed beside.
     const d = doc(render(THREE, { orientation: 'square' }, ['scale']));
-    const { right, bottom } = cellBox(d);
-    for (const l of labels(d)) assert.ok(l.x > right);
-    assert.ok(keyY(d) > bottom);
+    const { bottom } = cellBox(d);
+    const ys = labels(d).map((l) => l.y);
+    assert.ok(Math.min(...ys) > bottom, 'every note sits under the lowest cell');
+    assert.ok(keyY(d) > Math.max(...ys), 'the key is under the notes');
   });
 
   test('both under the grid: the notes run its width, then the key, with the key\'s own rule between', () => {
@@ -154,5 +157,36 @@ describe('trying the placements leaves no trace', () => {
     const out = render('');
     assert.doesNotMatch(out, /legend|chart-key/);
     assert.match(out, /viewBox="0 0 320 180"/);
+  });
+});
+
+describe('the slide\'s real shape settles what its orientation name cannot', () => {
+  const viewBox = (out) => out.match(/viewBox="0 0 (\d+) (\d+)"/).slice(1).map(Number);
+
+  test('one orientation, two aspects, two layouts: a lone key sits beside the grid at 16:9 and under it at 4:3', () => {
+    const wide = viewBox(render('', { orientation: 'landscape', aspect: 16 / 9 }, ['scale']));
+    const standard = viewBox(render('', { orientation: 'landscape', aspect: 1.33 }, ['scale']));
+    assert.ok(wide[0] > standard[0], 'the key widens the 16:9 figure');
+    assert.ok(standard[1] > wide[1], 'and deepens the 4:3 one');
+  });
+
+  test('portrait: three notes sit beside the grid at 4:5 and under it at 9:16', () => {
+    const fourFive = viewBox(render(THREE, { orientation: 'portrait', aspect: 0.8 }));
+    const story = viewBox(render(THREE, { orientation: 'portrait', aspect: 0.56 }));
+    assert.ok(story[1] > fourFive[1]);
+  });
+
+  test('no aspect falls back to the orientation name: landscape is scored at 16:9', () => {
+    assert.equal(render(THREE, { orientation: 'landscape' }, ['scale']), render(THREE, { orientation: 'landscape', aspect: 16 / 9 }, ['scale']));
+  });
+
+  test('the chart box follows the slide: measured points exactly, linear between, clamped outside', () => {
+    const { chartBoxAspect } = require('../../../lib/components/chart/heatmap/heatmap.transform');
+    assert.equal(chartBoxAspect(16 / 9), 2.72);
+    assert.equal(chartBoxAspect(0.8), 1.09);
+    assert.equal(chartBoxAspect(0.3), 0.67);
+    assert.equal(chartBoxAspect(3), 2.72);
+    const mid = chartBoxAspect(1.15);
+    assert.ok(mid > 1.26 && mid < 1.74, String(mid));
   });
 });

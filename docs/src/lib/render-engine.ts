@@ -24,13 +24,15 @@
 // exemption is moot and every remaining call site goes through this module.)
 
 import { appendAutoGlossary } from '../../../lib/core/glossary-auto.mjs';
+import { DRAW_WARM } from '../../../lib/plugins/draw-warm.generated.mjs';
 import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
 import { renderWithCodePackages } from './code-packages/entry';
-import { ensureCharts } from './ensure-charts';
+import { ensureCalloutLayer, ensureCharts } from './ensure-charts';
 import { ensureFenceLanguages } from './ensure-hljs-language';
 import { deriveKatexProviderUrl, ensureKatexProvider } from './ensure-katex';
 import { ensurePluginData } from './ensure-plugin-data';
 import type { LatticePlaygroundEngine } from './playground-global';
+import { warmPreviewDrawHost } from './preview-draw-host';
 
 export type RenderMarkdownOpts = {
 	baseUrl?: string;
@@ -109,6 +111,13 @@ export type RenderMarkdownResult = {
  * the grammars this deck names, and the ones those embed — median 2.1 KB each — and
  * never rejects: a grammar that will not load costs its fence its color, not its text.
  */
+/**
+ * What says a deck holds a figure a sandboxed draw frame draws, per kind: the pattern the registry build writes from each such plugin's
+ * declared fences and aliases (lib/plugins/draw-warm.generated.mjs). A superset probe, like the other source probes: a deck that merely
+ * quotes a fence at the start of a line gets a warm frame it never uses. This file names no plugin.
+ */
+const DRAW_WARM_PATTERNS = Object.entries(DRAW_WARM).map(([kind, source]) => [kind, new RegExp(source, 'm')] as const);
+
 export async function renderMarkdown(
 	PG: LatticePlaygroundEngine,
 	source: string,
@@ -120,6 +129,10 @@ export async function renderMarkdown(
 	// reference-appendix slide live in the Studio exactly as it does in the export (HARD RULE #1).
 	// A no-op unless the deck opts in and defines terms; idempotent (strips its own trigger).
 	const rendered = appendAutoGlossary(source);
+	// A deck with a plot or a diagram warms the previews' draw host NOW, before the render and before the preview frame boots, so the
+	// host's code, the library and the frame's start overlap them instead of following the first draw
+	// (docs/src/lib/preview-draw-host-impl.ts; measured: they were 400 ms of a 520 ms first draw).
+	for (const [kind, pattern] of DRAW_WARM_PATTERNS) if (pattern.test(rendered)) warmPreviewDrawHost(kind);
 	if (sourceHasMath(rendered)) {
 		const katexUrl = deriveKatexProviderUrl();
 		if (katexUrl) await ensureKatexProvider(katexUrl).catch(() => {});
@@ -136,6 +149,8 @@ export async function renderMarkdown(
 	// name load here, before the synchronous render. The single-file engine answers none needed.
 	// A load that fails REJECTS (a ChunkLoadError): a chart drawn as its source list would be wrong.
 	await ensureCharts(PG.chartsNeeded?.(rendered) ?? []);
+	// The callout layer's lane and markers (ensure-charts.ts): a deck that writes `@callout` loads them here.
+	await ensureCalloutLayer(PG.calloutsNeeded?.(rendered) ?? false);
 	// CODE PACKAGES (contract note §9): with none saved this is exactly `PG.render`; with some, the
 	// render runs twice around the registry's code-packages slot, and each package runs sandboxed
 	// after the user approved it (code-packages/door.ts). One chokepoint, so every Studio surface
@@ -150,7 +165,18 @@ export async function renderMarkdown(
 			withHook = opts;
 		}
 	}
-	const out = await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	// A callout the scan above did not see (one written through markup) makes the chart throw a ChunkLoadError and
+	// records the miss: load the layer and render once more, as for a chart kernel below. Anything else rethrows.
+	const draw = async () => {
+		try {
+			return await renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+		} catch (e) {
+			if (!PG.takeMissingCallouts?.()) throw e;
+			await ensureCalloutLayer(true);
+			return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+		}
+	};
+	const out = await draw();
 	// The scan reads directive comments, and over every tracked deck it has never missed a chart the
 	// render drew. Should one ever slip past it, the dispatch recorded it: load it and render once more.
 	// The record is engine-wide, so a miss from a concurrent render can land here too; that costs one
@@ -158,5 +184,5 @@ export async function renderMarkdown(
 	const missed = PG.takeMissingCharts?.() ?? [];
 	if (!missed.length) return out;
 	await ensureCharts(missed);
-	return renderWithCodePackages<RenderMarkdownResult>(PG, rendered, theme, withHook);
+	return draw();
 }

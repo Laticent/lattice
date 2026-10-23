@@ -340,6 +340,17 @@
         }
       }
     },
+    "callout": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "side": {
+          "enum": ["under", "beside"],
+          "description": "Where this chart's `@callout` notes sit when the author does not say: `under` the figure (the default; omit the field) or `beside` it. An author overrides it per slide with `side=under` / `side=beside` (or the bare word) in the `@callout` span."
+        }
+      },
+      "description": "Callout defaults for a chart that draws `@callout{…}` notes (lib/components/chart/_chart-family/callout-layer.js). DECLARED HERE so the author's default and the chart's own default come from one place: the builder compiles this into lib/core/callout-catalog.generated.js, which the placement reads. OMIT the field for a chart that wants the shared default (notes under the figure)."
+    },
     "axisSet": {
       "type": "object",
       "additionalProperties": false,
@@ -746,6 +757,11 @@
       "type": "string",
       "minLength": 1,
       "description": "Full slide markdown (including the `_class` directive line, with no modifier) for the default-appearance slide of <name>.gallery.md. The skeleton field is the placeholder template for the scaffolder; sample is real prose that demonstrates the component."
+    },
+    "venueProbe": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Full slide markdown (with the `_class` directive line) for the LONGEST realistic content this component promises to hold at every venue and canvas family. `check:venue-conformance` renders it beside `sample` and fails the component if anything clips. Declare it for a component whose `venueCapacity` is `none`: with no count budget, this is the only statement of how much it holds."
     },
     "stressDoc": {
       "type": "object",
@@ -1170,6 +1186,33 @@
       "properties": {
         "axis": { "type": "string", "enum": ["item", "row", "col", "line"] },
         "at": { "type": "string", "enum": ["wide"] },
+        "prose": {
+          "type": "object",
+          "description": "For a component that is ONE block of prose (a big-number's caption, a redline's clause, an image's paragraph): the most words its primary slot holds at each venue, measured on the real slide at a wide @size by growing that slot until the page clips. There is no element count to budget, so this replaces `byWords`. `slot` names the slot (a key of `slots`). lint's `venue-prose` rule reads it.",
+          "additionalProperties": false,
+          "required": ["slot", "row"],
+          "properties": {
+            "slot": { "type": "string" },
+            "row": { "$ref": "#/$defs/venueRow" },
+            "atLeast": { "type": "array", "items": { "type": "string", "enum": ["laptop", "huddle", "conference", "hall"] }, "description": "Venues where the measurement never saw the slot clip, so the number is the most it tried." },
+            "variants": {
+              "type": "object",
+              "description": "Rows for a register that holds more or less than the bare component, keyed by its variant token. A 0 means that register holds none of its prose at that venue (its layout has no room at that size); lint says so, and the conformance harness skips it there.",
+              "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+              "additionalProperties": { "$ref": "#/$defs/venueRow" }
+            },
+            "families": {
+              "type": "object",
+              "description": "The same budget on the other canvas families, measured by tools/calibrate-venue-prose.js: `row`, `atLeast` and `variants` mean what they mean above, for that canvas. `row` and `variants` above are the wide canvas. A family with no entry has no budget, so lint says nothing there.",
+              "additionalProperties": false,
+              "properties": {
+                "square": { "$ref": "#/$defs/venueProseFamily" },
+                "tall": { "$ref": "#/$defs/venueProseFamily" },
+                "strip": { "$ref": "#/$defs/venueProseFamily" }
+              }
+            }
+          }
+        },
         "byWords": {
           "type": "object",
           "description": "Element count per venue, keyed by the words per element it was measured at.",
@@ -1377,9 +1420,10 @@
         "none": { "type": "string", "minLength": 20, "maxLength": 200, "description": "Why no count budget is published. One sentence." }
       },
       "oneOf": [
-        { "required": ["axis", "at", "byWords"], "not": { "anyOf": [{ "required": ["lines"] }, { "required": ["none"] }] } },
-        { "required": ["axis", "at", "lines"], "not": { "anyOf": [{ "required": ["byWords"] }, { "required": ["none"] }] } },
-        { "required": ["none"], "not": { "anyOf": [{ "required": ["axis"] }, { "required": ["at"] }, { "required": ["byWords"] }, { "required": ["lines"] }, { "required": ["atLeast"] }] } }
+        { "required": ["axis", "at", "byWords"], "not": { "anyOf": [{ "required": ["lines"] }, { "required": ["none"] }, { "required": ["prose"] }] } },
+        { "required": ["axis", "at", "lines"], "not": { "anyOf": [{ "required": ["byWords"] }, { "required": ["none"] }, { "required": ["prose"] }] } },
+        { "required": ["prose"], "not": { "anyOf": [{ "required": ["axis"] }, { "required": ["at"] }, { "required": ["byWords"] }, { "required": ["lines"] }, { "required": ["none"] }, { "required": ["atLeast"] }] } },
+        { "required": ["none"], "not": { "anyOf": [{ "required": ["axis"] }, { "required": ["at"] }, { "required": ["byWords"] }, { "required": ["lines"] }, { "required": ["atLeast"] }, { "required": ["prose"] }] } }
       ]
     },
     "density": {
@@ -1780,6 +1824,20 @@
               "description": "What an empty cell means: `none` (nothing yet: no mark) or `not-measured` (heatmap: a gap the chart draws as unmeasured)."
             }
           }
+        }
+      }
+    },
+    "venueProseFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row"],
+      "properties": {
+        "row": { "$ref": "#/$defs/venueRow" },
+        "atLeast": { "type": "array", "items": { "type": "string", "enum": ["laptop", "huddle", "conference", "hall"] } },
+        "variants": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+          "additionalProperties": { "$ref": "#/$defs/venueRow" }
         }
       }
     },

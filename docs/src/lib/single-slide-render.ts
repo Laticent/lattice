@@ -43,7 +43,7 @@ import {
 } from '../../../lib/diagnostics/slice-equivalence-core.mjs';
 import { drawnLibraryPreload } from '../../../lib/plugins/drawn-library.mjs';
 import { drawnFenceCount } from '../../../lib/plugins/drawn-probe.mjs';
-import { sourceHasMath } from '../../../lib/plugins/math/math.syntax.mjs';
+import { sourceHasMath, sourceHasMathOutsideCode } from '../../../lib/plugins/math/math.syntax.mjs';
 import { installCollageBridge } from '../playground/collage-host.js';
 import { applyDebug } from '../playground/debug-overlay.js';
 import { hashString, linkGuardAgent, previewDiagramsAttr } from '../playground/deck-preview.js';
@@ -101,6 +101,10 @@ function loadRemoteRef(): Promise<RemoteRef> {
 	remoteRefLoad ??= import('../../../lib/core/remote-ref.js').then((m) => ((m as unknown as { default?: RemoteRef }).default ?? m) as RemoteRef);
 	return remoteRefLoad;
 }
+// Start the fetch when this module loads, so the first render does not stop to fetch it. Waiting here put a network
+// round trip and a yield between the engine's output and the frame, and the Studio's other startup work moved into that
+// gap (bisected to #2387; the first slide on a throttled phone profile went from 6.50 s to 6.15 s, median of 5).
+if (typeof window !== 'undefined') void loadRemoteRef();
 
 // Adaptive image sizes, known before a slide paints: lazily loaded, off the Studio's eager
 // bundle (docs/route-budget.json). See ./image-size-memo.ts.
@@ -1188,7 +1192,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// no-op. See lib/core/preview-font-gate.mjs.
 			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
-			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
+			// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
+			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, window.__latticeDrawHost?.kinds) : '') +
 			'</head><body>' +
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way
@@ -1458,10 +1463,12 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 		// changed denominator). Report the SHOWN slide's bytes; `slideMarkdown` is that slide.
 		const shownBytes = opts?.slideMarkdown?.length ?? markdown.length;
 		// KaTeX's 20 faces are stripped from the registered theme until a source actually
-		// contains math (2026-08-17 loading audit §9.6). Gate on the ENGINE's own detector,
-		// the same one renderMarkdown uses, and AWAIT it as part of themeReady so the first
+		// contains math (2026-08-17 loading audit §9.6). Gate on the engine's detector with code
+		// skipped (`sourceHasMathOutsideCode`): math inside a code span or fence never renders, and
+		// counting it loaded the faces and re-registered lattice.css before the welcome deck's first
+		// slide (Studio performance audit, PR #2868). AWAIT it as part of themeReady so the first
 		// math slide already has its faces — no fallback-font flash.
-		const katexReady = sourceHasMath(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
+		const katexReady = sourceHasMathOutsideCode(markdown) ? themes.ensureKatexFaces() : Promise.resolve();
 		const themeReady = extra
 			? themes.ensureBase().then(() => {
 					// ALWAYS (re-)register — addThemes overwrites by name, so an edited

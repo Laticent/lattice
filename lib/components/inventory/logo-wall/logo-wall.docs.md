@@ -10,7 +10,7 @@ Use for the credibility slide — the 'trusted by' / 'our funders' / 'participat
 
 ## Agent contract
 
-**By venue** no count budget. Its elements are image assets; a synthetic deck would measure broken-image boxes, not logos.
+**By venue** (`venue:`, ~6 words each) it holds laptop ~8 · huddle ~8 · conference ~4 · hall ~4 items. With `dense` (~6 words): 12 · 12 · 12 · 6. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

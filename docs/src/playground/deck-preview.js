@@ -596,7 +596,8 @@ export function buildSrcdoc({
 		// the order at every call site for exactly that reason.
 		'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
 		// The diagram library's fetch starts with the document, not after the runtime boots.
-		(needsDrawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
+		// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
+		(needsDrawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, typeof window !== 'undefined' ? window.__latticeDrawHost?.kinds : undefined) : '') +
 		'</head><body>' +
 		a11yDefs +
 		html +

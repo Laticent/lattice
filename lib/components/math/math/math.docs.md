@@ -10,7 +10,7 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 
 ## Agent contract
 
-**By venue** no count budget. The equation is fixed content that dominates the box, so a count of legend lines measures the wrong thing.
+**By venue** (`venue:`, ~6 words each) it holds laptop ~7 · huddle ~6 · conference ~3 · hall ~2 lines. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured at a wide @size by `tools/calibrate-capacity.js`; see engineering/decisions/2026-09-25-font-scale-fit.md.
 
 ### Slots
 

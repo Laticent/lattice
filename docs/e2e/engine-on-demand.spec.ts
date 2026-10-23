@@ -8,7 +8,7 @@
 // result, and the last one asserts that a kernel that will not load says so instead of drawing
 // the chart as its source list.
 import type { Page, Request } from '@playwright/test';
-import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test } from './studio-fixture';
+import { expect, gotoStudio, LIVE_PREVIEW, setEditorContent, test, typeDeck } from './studio-fixture';
 
 const live = (page: Page) => page.frameLocator(LIVE_PREVIEW);
 
@@ -19,21 +19,6 @@ function engineRequests(page: Page): string[] {
 		if (m) seen.push(m[1]);
 	});
 	return seen;
-}
-
-/** Below 700px the Studio shows one pane at a time (docs/src/lib/use-breakpoint.ts): the
- *  `Markdown source` cell swaps the editor in and `Preview` swaps the slide back. On a wider
- *  box both are on screen and this types straight in. Gated on the real viewport width, as
- *  editor-lint.spec.ts explains. */
-const SINGLE_PANE_MAX_WIDTH = 699;
-const isPhone = (page: Page) => (page.viewportSize()?.width ?? Number.POSITIVE_INFINITY) <= SINGLE_PANE_MAX_WIDTH;
-async function typeDeck(page: Page, deck: string) {
-	if (isPhone(page)) {
-		await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
-		await expect(page.getByLabel('Deck source')).toBeVisible();
-	}
-	await setEditorContent(page, deck);
-	if (isPhone(page)) await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
 }
 
 async function chartLoadsItsOwnKernel(page: Page) {
@@ -115,4 +100,44 @@ test('a chart kernel that will not load says so, rather than drawing the chart a
 	await setEditorContent(page, '<!-- _class: funnel -->\n\n## Pipeline\n\n- Leads `400`\n- Qualified `120`\n- Won `30`\n');
 	await expect(page.getByText(/couldn't load part of the app/i).first()).toBeVisible({ timeout: 20_000 });
 	await expect(live(page).locator('section.funnel:not(.chart-frame) ul')).toHaveCount(0);
+});
+
+// The callout layer's lane and markers are their own chunk (engineering/decisions/2026-10-20-callout-placement.md
+// §10): a chart with no callout never fetches them, one that writes a callout fetches them before it draws, and a
+// chunk that will not load says so instead of drawing the chart without its notes.
+const BAR_DECK = '<!-- _class: bar -->\n\n## Revenue by region\n\n- North `10`\n- South `20`\n- West `14`\n';
+const CALLOUT = '\n`@callout{[{South led, for=South}]}`\n';
+
+test('@smoke @webkit-tablet @webkit-phone @gecko a chart with no callout does not fetch the callout layer, and one with a callout does and draws it', async ({ page }) => {
+	const requests = engineRequests(page);
+	await gotoStudio(page);
+	await typeDeck(page, BAR_DECK);
+	await expect(live(page).locator('section.chart-frame svg').first()).toBeVisible({ timeout: 20_000 });
+	expect(requests).toContain('esm/chart-bar.js');
+	expect(requests, 'no callout, no callout layer').not.toContain('esm/callout-place.js');
+	// A fresh page for the second deck: on the phone's one-pane layout a second replacement of the editor's content lost its
+	// first characters (the harness types there, not a person), and the engine's request log still spans both.
+	await gotoStudio(page);
+	await typeDeck(page, BAR_DECK + CALLOUT);
+	await expect(live(page).locator('section.chart-frame svg .legend-target').first()).toBeAttached({ timeout: 20_000 });
+	await expect(live(page).locator('section.chart-frame svg text', { hasText: 'South led' }).first()).toBeVisible();
+	expect(requests).toContain('esm/callout-place.js');
+	expect(requests.filter((r) => r === 'esm/callout-place.js'), 'fetched once').toHaveLength(1);
+});
+
+test('a callout layer that will not load says so, rather than drawing the chart without its notes', async ({ page }) => {
+	await page.route('**/esm/callout-place.js', (route) => route.fulfill({ status: 404, body: 'gone' }));
+	await gotoStudio(page);
+	await setEditorContent(page, BAR_DECK + CALLOUT);
+	await expect(page.getByText(/couldn't load part of the app/i).first()).toBeVisible({ timeout: 20_000 });
+	await expect(live(page).locator('svg text', { hasText: 'South led' })).toHaveCount(0);
+});
+
+test('a callout written through markup, which the scan cannot see, still loads the layer and draws', async ({ page }) => {
+	const requests = engineRequests(page);
+	await gotoStudio(page);
+	await setEditorContent(page, `${BAR_DECK}\n<p><code>@callout<span></span>{[{South led, for=South}]}</code></p>\n`);
+	await expect(live(page).locator('section.chart-frame svg text', { hasText: 'South led' }).first()).toBeVisible({ timeout: 20_000 });
+	expect(requests).toContain('esm/callout-place.js');
+	await expect(page.getByText(/couldn't load part of the app/i)).toHaveCount(0);
 });

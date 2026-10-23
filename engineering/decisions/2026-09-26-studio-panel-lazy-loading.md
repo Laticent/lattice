@@ -522,6 +522,36 @@ warms it, and the Save-Data test, flagged as a diagram user, that Save-Data skip
   Safari's service worker, where the Compose gap above was found. It was reported, not recorded,
   so it carries no artifact.
 
+## When the warm-up starts (2026-10-22)
+
+The warm-up ran at **mount**: `StudioShell` scheduled `warmPanels` and the `studio-warm` queue as soon as the island
+hydrated, and `requestIdleCallback` (or Safari's 1 s timer) fires during network waits, which at startup are the
+engine's. "After first paint" above meant the page's first paint, not the first slide's. On a throttled phone profile
+the queue landed in the seconds around the first slide and kept the main thread 75-83% busy for 3 s after it
+(the Studio performance audit, PR #2868).
+
+Both queues now start from `first-slide.ts` › `afterFirstSlideAndPause`: once the live preview has painted its first
+slide (`markFirstSlideShown`, called from `onPreviewFirstRender`) **and** the user has made no pointer or key input
+for 3 s. Each keystroke restarts the pause, so the warm-up never lands on someone typing. A preview that never paints
+releases it after a 6 s backstop, and a Studio that opens with the preview hidden releases it at once. The idle scheduling inside `warmPanels` is unchanged.
+
+The Editor's first lint pass and the Coach's first assessment wait for the first slide too: both load the lint core
+(256 KB), which ran about a second before the slide.
+
+Measured on the same phone profile, three cold loads each:
+
+| | Before | After |
+|---|---|---|
+| Lint core requested | 6.0 s, before the slide | 7.6 s, after it |
+| First warm-up chunk requested | about 1-3 s after the slide | about 4.7 s after the slide |
+| Main thread busy in the 3 s after the slide | 2.2-2.5 s | 1.26-1.62 s |
+| First slide | 6.2-7.7 s | 5.8-6.4 s |
+
+**The trade.** The offline guarantee above now needs the user to have stayed online until a few seconds after the first
+slide and one pause, rather than until the first idle callback after mount. A user who loads the Studio and goes
+offline within those seconds, without opening a panel, gets the chunk-load card for the panels they never opened. That
+window was already about 1-3 s; it is now about 3-5 s longer.
+
 ## Delivery
 
 One branch, one PR, one commit per split. Share + Workspace goes first, because it is the

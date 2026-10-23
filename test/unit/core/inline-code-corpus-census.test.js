@@ -64,6 +64,7 @@ const DEMONSTRATES_THE_GRAMMAR = new Map([
   ['examples/chart-icons.md', 'the demo deck for icons in flowchart and state-chart nodes (HARD RULE #9). Its `{icon=browser}`-style spans are counted here but render as node styles, not pills — the census reads spans without their slide, and both charts own their rows (lib/core/resolve-inline-code.js); the table slide escapes its examples'],
   ['examples/chart-european-numbers.md', 'the demo deck for chart values and row descriptions (HARD RULE #9): its last slide shows a `>` description carrying a pill and a spark, the rich card the hover reveals'],
   ['examples/pills-plugin.md', 'the demo deck for the embedded pills plugin: one pill, placed and tinted by seven components (HARD RULE #9)'],
+  ['examples/plugin-sandbox-tour.md', 'the demo deck for every plugin in the Studio and Playground, inline ones included: an icon, an avatar, a spark and a pill on one slide, so typing near them can be tried (HARD RULE #9)'],
   ['examples/checkbox-semantics.md', 'the demo deck showing an inline `[ ]` mark draws the same ring as a pricing row or a state-cells cell (HARD RULE #9)'],
 ]);
 
@@ -82,6 +83,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['examples/logo-wall.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['examples/logo-wall-equal-weight.md', 'logo-wall: a `{tier}` pill under each mark'],
   ['examples/sample-images.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
+  ['examples/venue-budgets.md', 'a logo-wall slide: a `{tier}` pill under each mark'],
   ['lib/components/legal/policy-recommendation/policy-recommendation.gallery.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
   ['examples/policy-recommendation.md', 'policy-recommendation: a `{source}` citation chip ends each evidence line'],
   ['lib/components/inventory/list-tabular/list-tabular.gallery.md', 'list-tabular register: a `{tag}` pill ends each row'],

@@ -1,0 +1,56 @@
+{
+  "type": "plugin",
+  "format": 1,
+  "name": "status-card",
+  "api": 1,
+  "title": "Status card",
+  "description": "A `status-card` fence: a status badge and a detail table. The plugin returns a word and some markdown; the host fills the `${status}`, `${title}` and `${detail}` slots of its drawing.",
+  "contributes": {
+    "fences": {
+      "status-card": {
+        "body": "text"
+      }
+    },
+    "styles": true,
+    "returns": {
+      "fields": {
+        "status": {
+          "type": "word",
+          "values": [
+            "on-track",
+            "at-risk",
+            "late"
+          ]
+        },
+        "title": {
+          "type": "text",
+          "max": 60
+        },
+        "detail": {
+          "type": "markdown",
+          "max": 600
+        }
+      }
+    }
+  },
+  "tokens": [
+    "--accent",
+    "--border",
+    "--cat-1-mark",
+    "--cat-2-mark",
+    "--cat-3-mark",
+    "--cat-on-mark",
+    "--text-heading"
+  ],
+  "render": {
+    "surfaces": {
+      "engine": "figure",
+      "preview": "figure",
+      "pdf": "figure",
+      "player": "figure",
+      "marp": "source"
+    },
+    "parity": "equivalent",
+    "degradesTo": "code-block"
+  }
+}

@@ -66,6 +66,14 @@ describe('the plugin scaffold', () => {
       }
       if (fs.existsSync(pluginFile(name, 'services.js'))) s.exports.services = Object.keys(require(pluginFile(name, 'services.js')).services);
       s.exports.hasData = fs.existsSync(pluginFile(name, 'data.generated.js'));
+      // The draw role files (manifest `draw`), read the way tools/build-plugin-registry.js reads them; the two `.mjs` halves by presence.
+      if (fs.existsSync(pluginFile(name, 'draw-frame.js'))) {
+        const { draw } = require(pluginFile(name, 'draw-frame.js'));
+        s.exports.hasDrawFrame = typeof draw === 'function';
+        s.exports.drawFrameSource = fs.readFileSync(pluginFile(name, 'draw-frame.js'), 'utf8');
+      }
+      s.exports.hasDrawHost = fs.existsSync(pluginFile(name, 'draw-host.mjs'));
+      s.exports.hasDrawShim = fs.existsSync(pluginFile(name, 'draw-shim.mjs'));
     }
     // Shipped hydrate modules carry their source for the require/import check.
     for (const s of shipped) if (s.exports.hasHydrate) s.exports.hydrateSource = fs.readFileSync(path.join(__dirname, `../../../lib/plugins/${s.manifest.name}/${s.manifest.name}.hydrate.js`), 'utf8');

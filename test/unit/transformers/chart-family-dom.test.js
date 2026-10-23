@@ -501,6 +501,24 @@ describe('chart-family.applyToDom — the rebuild guard', () => {
       'the section became portrait and the chart kept its landscape geometry');
   });
 
+  test('a changed data-aspect rebuilds, and the DOM pass lays out as the engine does at that shape', () => {
+    // A heatmap with a key scores its placements at the slide's shape: beside at 16:9, under at 4:3.
+    const table = '<table><thead><tr><th></th><th>M0</th><th>M1</th></tr></thead><tbody>'
+      + '<tr><th>Jan</th><td>100</td><td>62</td></tr><tr><th>Feb</th><td>100</td><td>58</td></tr></tbody></table>';
+    const src = `<h2>Retention</h2>${table}`;
+    const viewBox = (html) => html.match(/viewBox="0 0 (\d+) (\d+)"/).slice(1).map(Number);
+    const doc = makeDoc(`<section class="heatmap scale" data-orientation="landscape">${src}</section>`);
+    const sec = doc.querySelector('section.heatmap');
+    chartFamily.applyToDom(doc);
+    const wide = viewBox(sec.innerHTML);
+    sec.setAttribute('data-aspect', '1.33');
+    chartFamily.applyToDom(doc);
+    const standard = viewBox(sec.innerHTML);
+    assert.notDeepEqual(standard, wide, 'the section became 4:3 and the chart kept its 16:9 layout');
+    const direct = engine.transformChartSection(src, 'heatmap scale', 'landscape', undefined, null, 1.33);
+    assert.deepEqual(viewBox(direct.html), standard, 'the runtime and the engine path agree at 4:3');
+  });
+
   test('class order alone is not a change', () => {
     const doc = makeDoc(GANTT);
     chartFamily.applyToDom(doc);

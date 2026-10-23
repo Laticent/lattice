@@ -107,7 +107,7 @@ The payload bullet becomes a code.
 
 `divider qr`
 
-## The payload bullet below becomes a scannable code.
+## The payload bullet becomes a scannable code.
 
 - https://laticent.io/components/divider
 - Scan for the divider's docs `caption`

@@ -51,7 +51,8 @@ const PORT = Number(process.env.PREVIEW_PORT || 4321);
 // leaves Playwright testing whatever else is on 4321.
 const server = await preview({
 	root: process.cwd(),
-	server: { port: PORT },
+	// A sandboxed preview frame loads Mermaid's modules and the engine's fonts with CORS; this server serves only the public `dist`.
+	server: { port: PORT, headers: { 'Access-Control-Allow-Origin': '*' } },
 	vite: { preview: { strictPort: true } },
 });
 

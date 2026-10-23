@@ -7,10 +7,13 @@
  * Design: engineering/decisions/2026-10-07-calco-native-shapes.md.
  */
 import type { PlacedBox } from './layout.js';
-import type { Shape, Slide, TextFrame } from './types.js';
+import type { PathCmd, Shape, Slide, TextFrame } from './types.js';
 
-/** One step of a path: move, line, cubic Bézier, close. */
-export type PathCmd = ['M', number, number] | ['L', number, number] | ['C', number, number, number, number, number, number] | ['Z'];
+/** Loops, not a spread: `Math.min(...xs)` overflows the call stack past about 120,000 values. */
+const lowest = (xs: number[]) => xs.reduce((m, v) => (v < m ? v : m), Number.POSITIVE_INFINITY);
+const highest = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
+
+export type { PathCmd };
 
 /** A shape's outline, ready to write. */
 export interface ShapeGeometry {
@@ -65,6 +68,10 @@ function shift(path: PathCmd[], dx: number, dy: number): PathCmd[] {
  * radii shrunk by as much. A rule's path is the middle of its band already.
  */
 export function shapeGeometry(shape: Shape): ShapeGeometry {
+	if (shape.kind === 'path') {
+		const { x, y, w, h } = shape;
+		return { x, y, w, h, path: shape.path || [], closed: !!shape.closed };
+	}
 	if (shape.kind === 'line') {
 		const half = (shape.stroke?.width || 0) / 2;
 		const [r0, r1] = (shape.wrap || [0, 0]).map((r) => Math.max(0, r - half));
@@ -87,10 +94,10 @@ export function shapeGeometry(shape: Shape): ShapeGeometry {
 		path.push(['L', toMilli(x + w), toMilli(y + h)]);
 		if (r1) path.push(arc(bx, by, r1, b0, b1));
 		const pts = path.flatMap((c) => (c[0] === 'Z' ? [] : c[0] === 'C' ? [[c[1], c[2]], [c[3], c[4]], [c[5], c[6]]] : [[c[1], c[2]]]));
-		const minX = Math.min(...pts.map((p) => p[0]));
-		const minY = Math.min(...pts.map((p) => p[1]));
-		const maxX = Math.max(...pts.map((p) => p[0]));
-		const maxY = Math.max(...pts.map((p) => p[1]));
+		const minX = lowest(pts.map((p) => p[0]));
+		const minY = lowest(pts.map((p) => p[1]));
+		const maxX = highest(pts.map((p) => p[0]));
+		const maxY = highest(pts.map((p) => p[1]));
 		return { x: minX, y: minY, w: toMilli(maxX - minX), h: toMilli(maxY - minY), path: shift(path, -minX, -minY), closed: false };
 	}
 	const c = (shape.stroke?.width || 0) / 2;
@@ -195,6 +202,8 @@ export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame
 	};
 	const out: DrawnGroup[] = [];
 	const done = new Set<number>();
+	const framesGiven = new Set<number>();
+	const touches = (a: Shape, b: Shape) => a.x < b.x + b.w + 0.5 && b.x < a.x + a.w + 0.5 && a.y < b.y + b.h + 0.5 && b.y < a.y + a.h + 0.5;
 	shapes.forEach((_s, i) => {
 		if (done.has(i)) return;
 		const g = effective(i);
@@ -204,15 +213,28 @@ export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame
 			return;
 		}
 		const items: Drawn[] = [];
+		const heldBack: number[] = [];
 		shapes.forEach((_o, j) => {
-			if (effective(j) === g && !done.has(j)) {
-				items.push(shapeItem(j));
-				done.add(j);
+			if (effective(j) !== g || done.has(j)) return;
+			// The group is drawn together, where its first member paints. A member that another card's shape
+			// paints OVER, between the first member and it, would come out under that shape; it is left for its own
+			// group, in its own place in the order.
+			if (items.length && shapes.some((k, ki) => ki > i && ki < j && effective(ki) !== g && !done.has(ki) && touches(k, shapes[j]))) {
+				heldBack.push(j);
+				return;
 			}
+			// A member that comes after one held back and overlaps it would be drawn before it: it waits too.
+			if (heldBack.some((h) => touches(shapes[h], shapes[j]))) {
+				heldBack.push(j);
+				return;
+			}
+			items.push(shapeItem(j));
+			done.add(j);
 		});
-		frames.forEach((f, fi) => {
-			if (!carried.has(fi) && hasText(f) && memberGroup(fi) === g) items.push({ frame: f, index: fi });
-		});
+		// The card's text is drawn with the first group of the card; a later one, split off above, holds shapes only.
+		const text = framesGiven.has(g) ? [] : frames.flatMap((f, fi) => (!carried.has(fi) && hasText(f) && memberGroup(fi) === g ? [{ frame: f, index: fi }] : []));
+		framesGiven.add(g);
+		items.push(...text);
 		out.push({ group: g, items });
 	});
 	frames.forEach((f, fi) => {

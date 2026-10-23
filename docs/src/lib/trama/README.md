@@ -133,6 +133,9 @@ function returning:
 | `signature(fig, harness)` | the inputs, besides size and fonts, that change the drawing |
 | `measure(model, ctx)` | sizes from the harness, and the kernel's input |
 | `paint(model, measured, geo, ctx)` | the SVG's painted children, as markup |
+| `extent(model, geo, ctx, measured)` | optional: the size the drawing takes when it is larger than the laid-out graph (notes set under it). The fit, the `viewBox` and the scale box read it instead of `geo.width` and `geo.height`; it must be pure, because it runs in every round of the fit |
+
+`PassOptions.callouts` is a function the host passes in and the pipeline hands to the adapter as `ctx.callouts`; Trama never calls it. A chart that sets notes with its figure (the flowchart and the state chart) calls it from `extent` and `paint`. It rides in as an option because an adapter is serialized and may close over nothing.
 
 **`paint` returns markup, and the pipeline sets it as the `<svg>`'s `innerHTML` unchanged.** So
 every string an adapter paints that came from the page (a label, a title, a class) must go through

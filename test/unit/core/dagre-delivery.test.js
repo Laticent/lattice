@@ -88,7 +88,9 @@ describe('dagre delivery to the state-chart pass', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lattice.js'), 'utf8');
     assert.match(src, /dagre-bundle\.generated\.js/,
       'the export path is the one that needs the global installed for it');
-    assert.match(src, /\$\{dagreIife \? `\$\{dagreIife\}\\n` : noDagreMark\}\$\{stateChartBrowserJs\(\)\}/,
+    // The callout placer (tools/build-callout-browser.js) may sit between the engine and the pass, and the pass takes
+    // options when a deck has notes; the engine still comes first.
+    assert.match(src, /\$\{dagreIife \? `\$\{dagreIife\}\\n` : noDagreMark\}(?:\$\{calloutsIife \? `\$\{calloutsIife\}\\n` : ''\})?\$\{stateChartBrowserJs\(/,
       'and it must come BEFORE the pass, or the global does not exist yet');
   });
 

@@ -54,7 +54,7 @@ import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
 import { paginateOn } from '../../../../lib/core/meta-keys.mjs';
-import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
+import { sourceHasMathOutsideCode } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { attachPreviewZoom, type PreviewZoomHandle } from '../../lib/preview-zoom';
 import { hoverCodeCopyAt, tapCodeCopyAt } from '../../playground/code-copy-host.js';
 import { hoverCollageAt, tapCollageAt } from '../../playground/collage-host.js';
@@ -89,6 +89,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
+import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown } from './first-slide';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -1306,6 +1307,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [dismissSsrShell]);
 	const onPreviewFirstRender = React.useCallback(() => {
 		crashCrumb('render', 'first preview paint');
+		markFirstSlideShown();
 		dismissSsrShell();
 	}, [dismissSsrShell]);
 	// Saved LOCAL components from the same shared library (kind:'component') —
@@ -1357,7 +1359,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			localPlugins.map((p) => (p.kinds ?? []).map((k) => k.name)),
 		);
 		let live = true;
-		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}), ...(p.returns !== undefined ? { returns: p.returns } : {}) }))).then(
+		setPlugins(localPlugins.map((p) => ({ name: p.name, fence: p.fence, code: p.code, ...(p.placeholder ? { placeholder: p.placeholder } : {}), ...(p.kinds?.length ? { kinds: p.kinds } : {}), ...(p.returns !== undefined ? { returns: p.returns } : {}), ...(p.css ? { css: p.css } : {}) }))).then(
 			() => { if (live) setCodeStamp(codePackagesStamp()); },
 			(e) => console.warn('lattice: the plugin door did not load', e),
 		);
@@ -1510,16 +1512,29 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		import('./Editor').catch(() => {});
 	}, []);
-	// The six panels, once the Studio is idle (`lazy-panel.tsx` › warmPanels). Scheduled here at
-	// mount, as #2402 shipped it, so their offline guarantee depends on no extra download.
-	React.useEffect(() => warmPanels(STUDIO_PANELS), []);
+	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
+	// `lazy-panel.tsx` › warmPanels' idle scheduling. Scheduled from here, as #2402 shipped it, so their
+	// offline guarantee depends on no extra download. It used to start at mount, which put the warm-up in
+	// the seconds around the first slide (Studio performance audit, PR #2868).
+	React.useEffect(() => {
+		let cancelWarm: (() => void) | undefined;
+		const cancelWait = afterFirstSlideAndPause(() => {
+			cancelWarm = warmPanels(STUDIO_PANELS);
+		});
+		return () => {
+			cancelWait();
+			cancelWarm?.();
+		};
+	}, []);
 	// Then Compose, Present, the reading view and (if used before) Fabricate. That queue lives in
 	// its own chunk (`studio-warm.ts`) so none of it rides the startup bundle. If that chunk fails
 	// to load, those surfaces are not warmed this session; the six panels above still are.
 	React.useEffect(() => {
 		let cancel: (() => void) | undefined;
 		let dead = false;
-		import('./studio-warm')
+		// Same gate as the panels: nothing in this queue helps the first slide.
+		const cancelWait = afterFirstSlideAndPause(() =>
+			import('./studio-warm')
 			.then((m) => {
 				if (dead) return;
 				let fabricateUsed = false;
@@ -1528,14 +1543,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					fabricateUsed = localStorage.getItem(FABRICATE_USED_KEY) === '1';
 					diagramsUsed = localStorage.getItem(DIAGRAMS_USED_KEY) === '1';
 				} catch {}
-				const katexUrl = sourceHasMath(sourceRef.current) ? deriveKatexProviderUrl() : null;
+				const katexUrl = sourceHasMathOutsideCode(sourceRef.current) ? deriveKatexProviderUrl() : null;
 				// Fabricate's gallery carries a Diagram specimen, so opening Fabricate counts too.
 				const diagramRuntimeUrl = (diagramsUsed || fabricateUsed) && options?.runtimeUrl ? options.runtimeUrl : null;
 				cancel = m.startStudioWarmUp({ warmPanels, katexUrl, diagramRuntimeUrl, fabricateUsed });
 			})
-			.catch(() => {});
+			.catch(() => {}),
+		);
 		return () => {
 			dead = true;
+			cancelWait();
 			cancel?.();
 		};
 		// `options` comes from the page and never changes, so this runs once; the warmables are
@@ -3543,9 +3560,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	React.useEffect(() => {
 		let live = true;
 		setAssessing(true);
+		// The first assessment waits for the first slide: it loads the lint core (256 KB), which ran before the slide
+		// on a phone (Studio performance audit, PR #2868). After that the promise is settled and costs nothing.
 		const id = setTimeout(() => {
-			assessDeck(source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes).then((a: CoachAssessment) => {
-				if (!live) return;
+			firstSlideShown
+				.then(() => (live ? assessDeck(source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride ?? undefined, editorPalettes) : null))
+				.then((a: CoachAssessment | null) => {
+				if (!a || !live) return;
 				setScorecard(a.scorecard);
 				setDeckHasContent(a.hasContent);
 				setFindings(a.findings);
@@ -3560,8 +3581,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with
-	// no diagrams never loads the (~1MB) library at all. Debounced past the assessment so
-	// a burst of typing settles first. A failure to load reports `[]` rather than a guess.
+	// no diagrams never draws anything. Each diagram is drawn in the sandboxed preview frame; the page loads no Mermaid.
+	// Debounced past the assessment so a burst of typing settles first. A check that cannot answer reports `null`, never a guess.
 	const diagramSignature = React.useMemo(() => extractDiagrams(source).map((d) => d.code).join('\u0000'), [source]);
 	React.useEffect(() => {
 		let live = true;
@@ -3581,14 +3602,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const id = setTimeout(() => {
 			// On demand: the parse half (and its library loader) is not startup JavaScript.
 			import('./mermaid-parse')
-				.then((m) => m.checkDiagrams(extractDiagrams(sourceRef.current), options?.runtimeUrl ?? ''))
+				.then((m) => m.checkDiagrams(extractDiagrams(sourceRef.current), options?.runtimeUrl ?? '', () => !live))
 				.then((errs) => {
 					if (live) setDiagramErrors(errs);
 				})
 				.catch(() => {
 					if (live) setDiagramErrors(null);
 				});
-		}, 900);
+		}, 3000);
 		return () => {
 			live = false;
 			clearTimeout(id);
@@ -4618,6 +4639,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// renders deferred): on-screen in the desktop/tablet pane (not collapsed), the Read
 	// full-bleed, or the active mobile preview pane — never in Fabricate or while Present is up.
 	const editorSlotVisible = view === 'compose' && !presentOpen && (mobile ? effPane === 'preview' : effectiveStop === 'read' || split.collapsed !== 'b');
+	// A preview that is not on screen never paints, so nothing would release the first-slide gate (`first-slide.ts`) but
+	// its backstop: an author who collapsed the preview to write would wait for lint. Release it as soon as it is hidden.
+	React.useEffect(() => {
+		if (!editorSlotVisible) markFirstSlideShown();
+	}, [editorSlotVisible]);
 	previewShownRef.current = editorSlotVisible;
 	// A step waiting for a render was aimed at the preview as it stood: drop it when the preview
 	// hides, Present opens, or the deck or lens changes, so it never moves a surface the author left.
@@ -5438,7 +5464,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						{(['placement', 'color', 'size', 'scope'] as const).map((axis) => {
 							const meta = {
 								placement: { label: 'Position', desc: logoWords.placement ? (LOGO_PLACEMENT_HIDES[logoWords.placement] ?? '') : 'Top right, beside the header.', help: <>Which of the six berths the logo sits in: a corner, or the top or bottom center. Whatever chrome lives in that band stands down so the mark never overlaps it — the brand wins. Written as one word on the <code>logo-finish:</code> line.</> },
-								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors on a soft plate.</> },
+								color: { label: 'Color', desc: 'Auto, or a palette color.', help: <><strong>Auto</strong> keeps the faint watermark that flips on dark slides. A palette color recolors the mark from the theme and follows light and dark on its own; the blends mix two roles evenly. <strong>Original colors</strong> keeps the file's own colors with nothing behind them; the plate is a separate word in <code>logo-finish:</code>.</> },
 								size: { label: 'Size', desc: 'Small, medium or large.', help: <>Scales the mark — medium is the default size.</> },
 								scope: { label: 'Show on', desc: 'Every slide, or just the cover.', help: <>The title slide only means the deck's first slide and any slide using the <code>title</code> layout. One slide can hide the logo with <code>_class: no-logo</code>.</> },
 							}[axis];

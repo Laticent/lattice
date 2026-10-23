@@ -12,11 +12,10 @@
 // the Studio's live preview renders only the CURRENT slide, so it can never account for a
 // deck. Rather than scrape a frame that only knows one slide, ask the parser directly.
 //
-// COST. Mermaid is ~3MB, so it is loaded LAZILY and only for a deck that actually
-// contains a diagram — a deck with no ```mermaid fence never pays. It is the same file the
-// preview frames load: the Mermaid plugin's payload, staged beside `lattice-runtime.js`
-// (`drawnLibraryUrl`, lib/plugins/drawn-library.mjs — our own origin, never a CDN — offline /
-// strict-CSP safe), so no new asset ships and no page threads its address.
+// COST. Mermaid is ~3MB, and none of it loads into this page. Each diagram goes to the preview's sandboxed draw
+// frame (docs/src/lib/preview-draw-host.ts) as an ordinary draw job; the frame already holds Mermaid for the
+// previews, and a refusal from the library is the diagnosis. A deck with no ```mermaid fence never pays, and a
+// frame that cannot answer gives `null` (no verdict), never a guess.
 //
 // This is a RENDER diagnostic, not an authoring lint rule: it needs the Mermaid library,
 // which `lib/authoring/lint-core.js` cannot take (pure, fs-free, shared with the CLI). So
@@ -25,10 +24,10 @@
 
 import { splitTopLevel } from '@/components/studio/ai/architect-edits.js';
 
-// THE PARSE HALF LIVES IN `mermaid-parse.ts`, loaded on demand. This file — the diagram
+// THE CHECK HALF LIVES IN `mermaid-parse.ts`, loaded on demand. This file — the diagram
 // extraction the Studio's signature memo reads on every render — is in the Studio's startup
-// JavaScript; the library loader and the parse loop run only 900ms after a deck with a diagram
-// settles, so they stay out of it (docs/route-budget.json).
+// JavaScript; the draw loop runs only 3 s after a deck with a diagram
+// settles, so it stays out of it (docs/route-budget.json).
 
 /** One diagram that failed to parse, addressed by the same 1-based slide number the
  *  preview, the findings, and the edit protocol all use. */

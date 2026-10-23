@@ -1,0 +1,3 @@
+- `contact` takes separate typed phone lines (`mobile`/`cell`, `office`/`work`, `phone`/`tel`/`voice`), each its own `TEL;TYPE=` entry in the vCard. The ledger now lists every field in the order you wrote it.
+- `contact` takes a `qr` key: `vcard` (default), `tel` (a code that dials the first phone line) or `url`. A lean code is 27 to 35 modules wide against 55 to 67 for a full vCard, so it scans from further away; use it for a hall.
+- `venueProbe` manifest field: the longest realistic content a component promises to hold at every venue. `npm run check:venue-conformance` renders it, with each component's sample, at four venues and four canvas families and reports clipping, off-frame content and a QR code below the venue's floor.

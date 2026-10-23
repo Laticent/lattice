@@ -39,6 +39,334 @@
       "class": "vendor"
     },
     {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/architecture-YZFGNWBL-S5CXDPWN.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/architectureDiagram-EMZXCZ2Q.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/blockDiagram-IGV67L2C.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/c4Diagram-DFAF54RM.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-267PNR3T.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-2HR5LOFI.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-35NHKZTR.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-3GS5O3IE.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-3YCYZ6SJ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-5YUVU3PZ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-6NTNNK5N.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-73ENG63I.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-7RZVMHOQ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-A34GCYZU.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-AEOMTBSW.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-BWNR3NKH.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-DJ7UZH7F.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-DKKBVRCY.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-DU5LTGQ6.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-FXACKDTF.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-H3VCZNTA.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-HN6EAY2L.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-HNL3EPQF.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-IWDTEBJL.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-JIN56HTB.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-KSICW3F5.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-MGPAVIPZ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-NN2NZ22Q.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-O5ABG6QK.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-PK6DOVAG.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-QU3B7NT4.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-RNJOYNJ4.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-RWUO3TPN.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-SEEX5HTF.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-SRFB55UJ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-TBF5ZNIQ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-TU3PZOEN.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-TYMNRAUI.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-VELTKBKT.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-W7ZLLLMY.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-WSB5WSVC.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-XBXGYYE5.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-XEIFE4KY.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/chunk-XGPFEOL4.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/classDiagram-PPOCWD7C.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/classDiagram-v2-23LJLIIU.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/cose-bilkent-PNC4W37J.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/dagre-E77IOHMT.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/diagram-H7BISOXX.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/diagram-JC5VWROH.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/diagram-LXUTUG65.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/diagram-WEHSV5V5.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/erDiagram-GCSMX5X6.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/flowDiagram-OTCZ4VVT.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/ganttDiagram-MUNLMDZQ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/gitGraph-7Q5UKJZL-54BCDZD5.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/gitGraphDiagram-3HKGZ4G3.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/info-OMHHGYJF-BF2H5H6G.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/infoDiagram-MN7RKWGX.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/ishikawaDiagram-YMYX4NHK.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/journeyDiagram-SO5T7YLQ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/kanban-definition-LJHFXRCJ.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/katex-GD7MH7QM.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/mindmap-definition-2EUWGEK5.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/packet-4T2RLAQJ-EV4IVRXR.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/pie-ZZUOXDRM-N23DN5KN.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/pieDiagram-3IATQBI2.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/quadrantDiagram-E256RVCF.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/radar-PYXPWWZC-P6TP7ZYP.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/requirementDiagram-M5DCFWZL.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/sankeyDiagram-L3NBLAOT.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/sequenceDiagram-ZOUHS735.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/stateDiagram-MLPALWAM.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/stateDiagram-v2-B5LQ5ZB2.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/timeline-definition-5SPVSISX.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/treeView-SZITEDCU-5DXDK3XO.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/treemap-W4RFUUIX-WYLRDWKO.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/vennDiagram-IE5QUKF5.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/wardley-RL74JXVD-BCRCBASE.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/wardleyDiagram-XU3VSMPF.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/chunks/mermaid.esm.min/xychartDiagram-ZHJ5623Y.mjs",
+      "class": "vendor"
+    },
+    {
+      "path": "lib/plugins/mermaid/vendor/esm/mermaid.esm.min.mjs",
+      "class": "vendor"
+    },
+    {
       "path": "lib/plugins/mermaid/vendor/mermaid-cli/assets/index-Bv5aVo5X.js",
       "class": "vendor"
     },

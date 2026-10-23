@@ -1,3 +1,4 @@
+import MarkdownIt from 'markdown-it';
 import {
 	defaultMarkdownParser,
 	defaultMarkdownSerializer,
@@ -161,31 +162,25 @@ const imageSpec: NodeSpec = {
 	],
 };
 
-/** A soft line break (`a\nb`). The engine runs markdown-it with `breaks: true`, so it draws each one as a
- *  `<br>`; the upstream parser turned it into a space, which joined the lines of any paragraph an author
- *  edited. It is its own node so the hard break (`\\` + newline) keeps writing what it always did. */
-const softBreakSpec: NodeSpec = {
-	inline: true,
-	group: 'inline',
-	selectable: false,
-	// Ahead of the hard break's own `br` rule, or a copy pasted back in Compose would become hard breaks.
-	parseDOM: [{ tag: 'br[data-soft]', priority: 60 }],
-	toDOM: () => ['br', { 'data-soft': '' }],
-	// Plain-text copy, and every `textContent` reader, sees the line break the author wrote.
-	leafText: () => '\n',
-};
-
 /** The prose schema — prosemirror-markdown's block/mark set PLUS the table nodes and the
  *  authoring-comment atom and the inline-object atom (`inline-object.ts`). `deckSchema` (deck-doc) is built by wrapping THIS schema's nodes in a
  *  slide node, so every node spec is identical on both sides of the JSON bridge. */
 export const proseSchema = new Schema({
 	nodes: mdSchema.spec.nodes
 		.update('code_block', codeBlockSpec)
+		// The engine runs markdown-it with `breaks: true`, so a bare newline inside a paragraph is a line break on the slide.
+		// `soft` marks the newline as written (`a\nb`), so it writes back as a newline and not as the `\` + newline of a
+		// backslash break (followups.d/2846-p6).
+		.update('hard_break', { ...(mdSchema.spec.nodes.get('hard_break') as NodeSpec), attrs: { soft: { default: false } },
+			// The clipboard and the editor DOM carry the flag, so a copied paragraph pastes with its newlines as written.
+			toDOM: (node) => (node.attrs.soft ? ['br', { 'data-soft': '' }] : ['br']),
+			parseDOM: [{ tag: 'br', getAttrs: (dom) => ({ soft: (dom as HTMLElement).hasAttribute('data-soft') }) }],
+		})
 		.update('image', imageSpec)
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
-		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math | soft_break | hard_break)*' })
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math | hard_break)*' })
 		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
 		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
 		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
@@ -196,8 +191,7 @@ export const proseSchema = new Schema({
 		.addToEnd('comment', commentNodeSpec)
 		.addToEnd('inline_object', inlineObjectSpec)
 		.addToEnd('raw_block', rawBlockSpec)
-		.addToEnd('inline_math', mathInlineSpec)
-		.addToEnd('soft_break', softBreakSpec),
+		.addToEnd('inline_math', mathInlineSpec),
 	marks: mdSchema.spec.marks,
 });
 
@@ -220,8 +214,8 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 	...defaultMarkdownParser.tokens,
 	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
 	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
-	softbreak: { node: 'soft_break' },
 	table: { block: 'table' },
+	softbreak: { node: 'hard_break', getAttrs: () => ({ soft: true }) },
 	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
 	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
 	// A block of HTML or a `$$` display block, and an inline `$tex$` (raw-block.ts). Each carries its source bytes.
@@ -337,123 +331,150 @@ function interruptsParagraph(node: PMNode): boolean {
 	return node.type.name !== 'ordered_list' || Number(node.attrs.order ?? 1) === 1;
 }
 
-/** The head to write for a line whose start would otherwise read as block syntax, and how much of the text it replaces. Null when it is plain. */
-function lineStartEscape(text: string): { head: string; length: number } | null {
-	const first = text.split('\n', 1)[0];
-	const marker = /^(\s*)([-+*>])(?=\s|$)/.exec(first);
-	if (marker) return { head: `${marker[1]}\\${marker[2]}`, length: marker[0].length };
-	const ordered = /^(\s*\d{1,9})([.)])(?=\s|$)/.exec(first);
-	if (ordered) return { head: `${ordered[1]}\\${ordered[2]}`, length: ordered[0].length };
-	const atx = /^(\s*)(#{1,6})(?=\s|$)/.exec(first);
-	if (atx) return { head: `${atx[1]}\\#${atx[2].slice(1)}`, length: atx[0].length };
-	// A whole line of `=` or `-` under a line of text is a setext underline.
-	const underline = /^(\s*)([=-])(?=[=-]*\s*$)/.exec(first);
-	if (underline) return { head: `${underline[1]}\\${underline[2]}`, length: underline[0].length };
-	return null;
+/** Whether the soft break at `index` can write as a bare newline: not when it opens or ends the paragraph, nor after another
+ *  break (a second bare newline is a blank line). The caller falls back to the backslash form, which draws the same `<br>`. */
+function softBreakIsSafe(parent: PMNode, index: number): boolean {
+	if (parent.maybeChild(index - 1)?.type.name === 'hard_break') return false;
+	// A first line of only whitespace is a blank line to the parser, and the break after it would vanish.
+	let content = false;
+	for (let j = 0; j < index && !content; j++) content = !parent.child(j).isText || /\S/.test(parent.child(j).text ?? '');
+	if (!content) return false;
+	const next = parent.maybeChild(index + 1);
+	return !!next && next.type.name !== 'hard_break';
 }
 
-const isBreak = (n: PMNode) => n.type.name === 'soft_break' || n.type.name === 'hard_break';
-
-/** A soft break writes a line break unless a break sits just before it: that break already ended the line, and writing this one too put a
- *  blank line in the paragraph, which splits it (after a hard break it also leaves a visible backslash). A soft break before a hard break
- *  writes its line, which is what the source said (`a`, then a line holding only `\`). Breaks that end the block write nothing. */
-function writeSoftBreak(state: SerializerState, parent: PMNode, index: number) {
-	if (index > 0 && isBreak(parent.child(index - 1))) return;
-	for (let i = index + 1; i < parent.childCount; i++)
-		if (!isBreak(parent.child(i))) {
-			state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\n');
-			return;
-		}
+// The engine's block grammar, for the one question the guard below asks: is this still one paragraph? The commonmark preset with
+// raw HTML, tables and strikethrough, as lib/engine/index.js builds it. No engine plugin's block rule can interrupt a paragraph.
+let paragraphProbe: MarkdownIt | null = null;
+function isOneParagraph(md: string, probe?: MarkdownIt): boolean {
+	paragraphProbe ??= new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
+	const top = (probe ?? paragraphProbe).parse(md, {}).filter((t) => t.level === 0).map((t) => t.type);
+	return top.length === 2 && top[0] === 'paragraph_open'; // the `inline` token sits one level down
 }
 
-/** A hard break writes `\` and a line break, every one of them (two in a row are two `<br>`s), unless only breaks follow it to the end of the
- *  block, as upstream does. */
-function writeHardBreak(state: SerializerState, parent: PMNode, index: number) {
-	for (let i = index + 1; i < parent.childCount; i++)
-		if (!isBreak(parent.child(i))) {
-			// An ATX heading is one line (only levels 1 and 2 have the two-line setext form), so the break writes a space there.
-			state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\\\n');
-			return;
-		}
+/** Whether `md` reads back as exactly one heading of `level` and nothing else, in the engine's block grammar (a last line `|b` over
+ *  `---` is a one-column table, and a line that opens a block ends the heading early). */
+function isSetextHeading(md: string, level: number): boolean {
+	paragraphProbe ??= new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
+	const top = paragraphProbe.parse(md, {}).filter((t) => t.level === 0);
+	return top.length === 2 && top[0].type === 'heading_open' && top[0].tag === `h${level}`; // the inline token sits one level down
 }
 
-/** The text of each line of a heading, split at its soft breaks. Two breaks in a row write one (the serializer collapses them), so they are one split. */
-function setextLines(heading: PMNode): string[] {
-	const lines = [''];
-	let afterBreak = false;
-	heading.forEach((child) => {
-		if (child.type.name === 'soft_break' || child.type.name === 'hard_break') {
-			if (!afterBreak) lines.push('');
-			afterBreak = true;
-		} else {
-			lines[lines.length - 1] += child.textContent;
-			afterBreak = false;
+/** `line` with its first marker escaped: a backslash before a leading punctuation character, or before the `.`/`)` of `01)`. */
+function escapeLineStart(line: string): string | null {
+	const m = /^([ \t]*)(\d{1,9}(?=[.)]))?([!-/:-@[-`{-~])/.exec(line);
+	return m ? `${m[1]}${m[2] ?? ''}\\${line.slice(m[0].length - 1)}` : null;
+}
+
+/** A line that opens an HTML block or a `$$` block: never escaped (see `guardParagraphLines`). */
+const OPENS_RAW_BLOCK = /^(?:<|\$\$)/;
+
+/** A line that could open a block; any other line is left alone without parsing. */
+const MAY_OPEN_BLOCK = /^(?:[!-/:-@[-`{-~]|\d)/;
+
+/** A line's leading whitespace is never drawn (markdown-it strips it), but it moves where a tab stops inside a list or a quote, and
+ *  four columns of it make an indented code block. A line with content loses it; a blank line keeps it. */
+const unindent = (line: string): string => (/\S/.test(line) ? line.replace(/^[ \t]+/, '') : line);
+
+/**
+ * A paragraph's inline Markdown, with every line checked against the engine's own block grammar. The text after a break starts a
+ * line, but the upstream escaper only treats a block's first text as a line start, and marks, expelled whitespace and node
+ * boundaries all sit between a node and the line it lands on. So the guard reads each line as written, unindented: a line that
+ * would end the paragraph (`- b`, `---`, `01) b`, `<div>`, a table delimiter row) gets one backslash before its first marker; an
+ * interior blank line, which no escape can save, becomes a backslash break, which draws the same `<br>`; and a line still not
+ * saved is joined to the one above with a space, which is how Compose wrote every soft break before (followups.d/2846-p6). The
+ * first line gets the same check (`1) a` alone is a list); if it cannot be saved, the paragraph is written as before.
+ * A line that does not open a block, such as `<b>x</b>` or `**<div>x**`, is never touched.
+ * Each probe parses at most three lines: whether a line interrupts depends only on the line above it.
+ */
+function guardParagraphLines(out: string, htmlModeled: boolean): string {
+	const lines = out.split('\n');
+	// The first line is asked of Compose's own tokenizer: what matters there is that the paragraph reads back as a paragraph.
+	// (With raw HTML off, Compose keeps `<!-- c --> tail` as text, where the engine has always drawn it as HTML; escaping it would
+	// change a slide nobody edited.)
+	let first = unindent(lines[0]);
+	// Where Compose does not model HTML and `$$` blocks (anywhere but the top level), a line that opens one is the author's markup
+	// read as text: escaping it would put the markup on the slide. It is written as it came, with the rest of the paragraph, as
+	// main always wrote it. At the top level Compose models both, so the same text there is a literal, and the guard escapes it.
+	if (!htmlModeled && OPENS_RAW_BLOCK.test(first)) return out;
+	if (MAY_OPEN_BLOCK.test(first) && !isOneParagraph(first, tableTokenizer)) {
+		const escaped = escapeLineStart(first);
+		if (escaped === null || !isOneParagraph(escaped, tableTokenizer)) return out;
+		first = escaped;
+	}
+	const kept = [first];
+	// The line above, as the parser will meet it: the first line opens the paragraph; any later one continues it.
+	const above = () => (kept.length === 1 ? kept[0] : `x\n${kept[kept.length - 1]}`);
+	for (let i = 1; i < lines.length; i++) {
+		if (!/\S/.test(lines[i])) {
+			kept.push(i < lines.length - 1 ? '\\' : lines[i]);
+			continue;
 		}
-	});
-	return lines;
+		const line = unindent(lines[i]);
+		if (!MAY_OPEN_BLOCK.test(line) || isOneParagraph(`${above()}\n${line}`)) {
+			kept.push(line);
+			continue;
+		}
+		if (!htmlModeled && OPENS_RAW_BLOCK.test(line)) return [...kept, ...lines.slice(i)].join('\n');
+		const escaped = escapeLineStart(line);
+		if (escaped !== null && isOneParagraph(`${above()}\n${escaped}`)) {
+			kept.push(escaped);
+			continue;
+		}
+		// An odd run of trailing backslashes is a hard break; joined, it would print a backslash.
+		const last = kept[kept.length - 1];
+		const trail = /\\+$/.exec(last)?.[0].length ?? 0;
+		kept[kept.length - 1] = `${trail % 2 ? last.slice(0, -1) : last} ${line}`;
+	}
+	return kept.join('\n');
 }
 
 const latticeNodes = {
 	...defaultMarkdownSerializer.nodes,
-	// THE START OF A LINE. The upstream escaper protects a paragraph's first line (`- `, `# `, `1.`) but it does not meet the
-	// start of a LATER line, and it misses `1)`, a marker after spaces, and a bare `=`/`-` line. Any of those at the start of a
-	// line writes structure the author never typed: a list, a quote, a heading, a setext underline. So the first line of a text
-	// run that starts a line (the start of a block, or the line after a soft break) is checked here, and the one character that
-	// would make it structure gets its backslash. Table cells and ATX headings keep the upstream behavior.
-	text(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
-		const text = node.text as string;
-		const prev = index > 0 ? parent.child(index - 1).type.name : '';
-		const afterBreak = prev === 'soft_break' || prev === 'hard_break';
-		const inCell = parent.type.name.startsWith('table_');
-		const atx = parent.type.name === 'heading' && !state.setext;
-		if ((afterBreak || state.atBlockStart) && !inCell && !atx) {
-			const hit = lineStartEscape(text);
-			if (hit) {
-				state.write();
-				state.out += hit.head;
-				state.atBlockStart = false;
-				state.text(text.slice(hit.length), !state.inAutolink);
-				return;
-			}
-			if (afterBreak) state.atBlockStart = true;
-		}
-		state.text(text, !state.inAutolink);
-	},
-	// The line break as written; the next line carries its own block prefix (`> `, list indent). A setext heading over two
-	// lines keeps its break (the engine draws it as `<br>`); an ATX heading is one line, so a break there writes a space.
-	soft_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
-		writeSoftBreak(state, parent, index);
-	},
-	hard_break(state: SerializerState, _node: PMNode, parent: PMNode, index: number) {
-		writeHardBreak(state, parent, index);
-	},
-	heading(state: SerializerState, node: PMNode) {
-		let hasBreak = false;
-		node.forEach((child) => {
-			if (child.type.name === 'soft_break' || child.type.name === 'hard_break') hasBreak = true;
-		});
-		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form, and only when every line is
-		// real text. A blank line would end the heading and a first line indented four spaces is code (a later one is a continuation), so those fall back to one ATX line.
-		// A level-2 heading whose last line holds a `|` falls back too: that line over its `---` underline reads as a one-column table.
-		const lines = setextLines(node);
-		if (hasBreak && node.attrs.level <= 2 && lines.every((l, i) => l.trim() !== '' && !(i === 0 && /^ {4,}/.test(l))) && !(node.attrs.level === 2 && lines[lines.length - 1].includes('|'))) {
-			state.setext = true;
-			state.renderInline(node);
-			state.setext = false;
-			state.write();
-			state.out += '\n';
-			state.write();
-			state.out += node.attrs.level === 1 ? '===' : '---';
-			state.closeBlock(node);
+	hard_break(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		// An ATX heading is one line, so a break in one writes a space (only a level 1-2 heading has the two-line setext form; see `heading`).
+		if (parent.type.name === 'heading' && !(state as unknown as { setext?: boolean }).setext) {
+			if (parent.childCount > index + 1) state.write(' ');
 			return;
 		}
-		state.write(`${state.repeat('#', node.attrs.level)} `);
+		if (node.attrs.soft && softBreakIsSafe(parent, index)) {
+			state.write('\n');
+			return;
+		}
+		// biome-ignore lint/suspicious/noExplicitAny: the upstream rule, called with its own signature.
+		(defaultMarkdownSerializer.nodes.hard_break as any)(state, node, parent, index);
+	},
+
+
+	// A level 1-2 heading that holds a line break was written as a setext heading (`a` / `b` / `===`); the upstream rule writes one ATX
+	// line, and before the heading admitted a break the parser dropped the whole heading. It is written in that form again when every line
+	// is real text and the result reads back as the same heading; anything else falls back to one ATX line, with the break as a space.
+	heading(state: SerializerState, node: PMNode) {
+		const level = node.attrs.level as number;
+		let hasBreak = false;
+		node.forEach((child) => {
+			if (child.type.name === 'hard_break') hasBreak = true;
+		});
+		if (hasBreak && level <= 2) {
+			const sub = new SubState(state.nodes, state.marks, state.options);
+			(sub as unknown as { setext?: boolean }).setext = true;
+			sub.renderInline(node);
+			const body = sub.out.replace(/\n+$/, '');
+			const md = `${body}\n${level === 1 ? '===' : '---'}`;
+			if (body.split('\n').every((l) => l.trim() !== '') && isSetextHeading(md, level)) {
+				state.text(md, false);
+				state.closeBlock(node);
+				return;
+			}
+		}
+		state.write(`${state.repeat('#', level)} `);
 		state.renderInline(node, false);
-		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in. An empty heading has no
-		// words, and its only `#` run is its own marker, which must stay as written.
+		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in. An empty heading's only
+		// `#` run is its own marker, which stays as written.
 		if (node.textContent.trim()) state.out = state.out.replace(/(\s)(#+)(\s*)$/, '$1\\$2$3');
 		state.closeBlock(node);
 	},
+
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
 	image(state: SerializerState, node: PMNode) {
@@ -462,23 +483,23 @@ const latticeNodes = {
 		// A backslash is escaped with the parenthesis or quote it could otherwise cancel: `a\\` + `)` must not read as an escaped `)`.
 		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[\\()]/g, '\\$&')}${title ? ` "${title.replace(/[\\"]/g, '\\$&')}"` : ''})`);
 	},
-	// A list item's first paragraph gets the table cell's treatment (serializeCell): a leading LFM state
-	// marker keeps its brackets, so `- [x] done` writes back as it was read and not as `- \\[x\\] done`.
-	// Every other paragraph is the upstream serializer, byte for byte.
+	// Every paragraph's lines after a break go through `guardParagraphLines`. A list item's first paragraph also gets the table
+	// cell's treatment (serializeCell): a leading LFM state marker keeps its brackets, so `- [x] done` writes back as it was read
+	// and not as `- \\[x\\] done`. Otherwise the inline Markdown is the upstream serializer's, byte for byte.
 	paragraph(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
-		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
-			const sub = new SubState(state.nodes, state.marks, state.options);
-			sub.renderInline(node);
-			const out = unescapeLeadingMarker(sub.out);
-			if (out !== sub.out) {
-				state.text(out, false);
-				state.closeBlock(node);
-				return;
-			}
+		// An empty paragraph writes nothing of its own, as upstream does; `state.text('')` would still write a line.
+		if (node.childCount === 0) {
+			state.closeBlock(node);
+			return;
 		}
-		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
-		(defaultMarkdownSerializer.nodes.paragraph as any)(state, node, parent, index);
+		const sub = new SubState(state.nodes, state.marks, state.options);
+		sub.renderInline(node);
+		let out = guardParagraphLines(sub.out, parent?.type.name === 'doc' || parent?.type.name === 'slide'); // the top level, in a prose doc or a deck slide
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) out = unescapeLeadingMarker(out);
+		state.text(out, false);
+		state.closeBlock(node);
 	},
+
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)

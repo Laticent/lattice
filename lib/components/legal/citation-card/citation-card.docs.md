@@ -10,7 +10,7 @@ Use when one citation IS the slide. The blockquote carries the verbatim language
 
 ## Agent contract
 
-**By venue** no count budget. Atomic: one citation per slide, so there is no count axis.
+**By venue** (`venue:`) its text holds laptop ~117+ · huddle ~79 · conference ~55 · hall ~31 words on a wide canvas. On a square canvas: laptop ~100 · huddle ~66 · conference ~40 · hall ~19. On a tall canvas: laptop ~46 · huddle ~29 · conference ~19 · hall ~15. On a strip canvas: laptop ~120 · huddle ~84 · conference ~60 · hall ~42. A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide by growing that slot until the page clips (`tools/calibrate-venue-prose.js`); `lint:deck` reads the same numbers.
 
 ### Slots
 

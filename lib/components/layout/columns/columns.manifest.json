@@ -52,6 +52,10 @@
     {
       "title": "An unequal pair",
       "body": "Give the pane that needs room the larger share: `columns ratio-60-40`, `columns ratio-35-65`. Shares run 25 to 75 in 5% steps."
+    },
+    {
+      "title": "A photo beside text",
+      "body": "Put `![](photo.jpg)` alone in a plain pane. It is fitted to the pane and centered, never cropped, at any share; a pane that needs the photo to fill its box and crop is `<!-- _pane: image -->`."
     }
   ],
   "antiPatterns": [
@@ -117,5 +121,6 @@
   },
   "venueCapacity": {
     "none": "A host holds two components, each with its own venue budget, so it has nothing of its own to count."
-  }
+  },
+  "venueProbe": "<!-- _class: columns ratio-60-40 -->\n\n## Services outgrew licenses for the first time.\n\n<!-- _pane: bar -->\n### Revenue by line\n\n- Licenses `42`\n- Services `47`\n\n<!-- _pane: list -->\n### What changed\n\n- Services passed licenses in March\n"
 }

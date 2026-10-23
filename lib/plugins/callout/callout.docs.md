@@ -1,7 +1,7 @@
 # callout
 
 A **callout** is a note pinned to one mark on a chart: a cell, a bar, a point. The chart draws a
-marker on the mark and the note beside the figure, and one shape and one color tie the two. The key,
+marker on the mark and the note under the figure (the heatmap and the pie may also put it beside), and one shape and one color tie the two. The key,
 what each color means, is the legend plugin's (`legend.docs.md`).
 
 ```markdown
@@ -51,6 +51,7 @@ span whose labels pin a mark still draws them, and `lint:deck` suggests `@callou
 | `` `@callout{{Drop-off, tag, c4, row=Feb, col=M2}}` `` | Its number on a square in color 4 |
 | `` `@callout{{Drop-off, c4, for=14}}` `` | Its number on a circle in color 4, at mark 14 (the short form) |
 | `` `@callout{{Drop-off, row=Feb, col=M2, detail="Shipped mid-month"}}` `` | The detail joins that cell's card and the speaker note |
+| `` `@callout{[{Peak, for=Q4}, {Low, for=Q1}], side=beside}` `` | Both notes beside the chart instead of under it |
 
 **A callout** is the pill's record plus its named words:
 
@@ -67,14 +68,57 @@ Quote any text holding a comma, `=`, `|`, a bracket or a brace: `{"Peak, then fl
 A callout is always anchored to the mark it names; a layout word in a `@callout` span is reported
 and ignored.
 
+**Where the notes sit is yours to say.** Put `side=under` or `side=beside` (or just the word) anywhere in the
+`@callout` span; the first span on the slide that names one decides for the slide. With none, the chart's own
+default applies: under the figure, except where a chart's manifest says otherwise (`callout.side` in its
+`*.manifest.json`; the pie and donut say `beside`, where their key already sits). A side that is neither is
+reported and ignored. `beside` on a narrow slide (9:16) leaves the notes a narrow lane, so long words may break;
+`under` is the safer choice there. On the heatmap, with no `side=`, the grid still picks the side that leaves
+it larger.
+
 One shape reads the wrong way without an error: a number followed by a style word, `{1, lg}`, is the
 callout "1" in size lg. `lint:deck` warns on it; quote the word to keep it as text, `{1, "lg"}`.
 
 ## Where it draws today
 
-| Component | Reads | How a label names its mark |
+| Component | How a label names its mark | What the ring and marker land on |
 |---|---|---|
-| `heatmap` | `anchored` | A cell, by its row and column labels as the chart prints them, `row="Feb 2026", col=M2` (case and extra spaces do not matter); or the short form `for=`, its index counted row by row from 0 (`for=14`) or `Row/Column` (`for=Feb 2026/M2`) |
+| `heatmap` | A cell, by its row and column labels as the chart prints them, `row="Feb 2026", col=M2` (case and extra spaces do not matter); or the short form `for=`, its index counted row by row from 0 (`for=14`) or `Row/Column` (`for=Feb 2026/M2`) | The cell, ringed, with the marker on its corner |
+| `bar` | `for=Q2`, a category by name or index; in a grouped chart one bar as `for=Q2/North` | The bar, or the category's group of bars, ringed |
+| `stacked-bar` | `for=Q2`, a bar by name or index; one segment as `for=Q2/Services` | The whole stack, or the one segment, ringed |
+| `line` | `for=Q3`, a category (the first series with a reading there); `for=Q3/Enterprise` with several series | The dot, ringed, with the marker beside it and clear of the line |
+| `histogram` | `for=Q3`, a band by its label or index | The band, ringed |
+| `ep-curve` | `for=1-in-100`, or `for=100`; `for=1-in-100/Gross` with several curves | The dot, ringed |
+| `waterfall` | `for=Volume`, a step by its label or index | The bar, ringed |
+| `bullet` | `for=New ARR`, a KPI row by its name or index | The row's track, ringed |
+| `scatter` | `for=Atlas`, a point by its label or index | The dot or bubble, ringed |
+| `slope` | `for=Kestrel Group`, an entity by its label or index | A slopegraph: the marker beside the middle of the line. A `dumbbell`: its bar, ringed |
+| `tower` | `for=Layer 2`, a layer by its label or index | The layer's band, ringed |
+| `piechart` | `for=Deck production`, a slice by its label or index | The wedge, ringed along its outline, with the marker at its middle |
+| `funnel` | `for=Activated`, a stage by its label or index | The band, ringed along its outline |
+| `map` | `for=Nigeria`, a row of the list by its name or index (a region, or a group of them) | The outline, ringed, with the marker at the middle of its largest piece |
+| `quadrant` | `for=Slack intake bot`, an item by its label, or its index counted through the groups from 0 | The dot, ringed, with the marker beside it (every variant, `cohort` included) |
+| `radar` | `for=Pricing`, an axis by its name or index | The tip of the axis's spoke, ringed. Not drawn in a pane (a split slide) |
+| `gantt` | `for=Scoring model v2`, a task by its label | The bar or milestone, ringed |
+| `hub-spoke` | `for=Core platform migration`, a spoke by its label (a branch or a leaf in a `tiered` figure) | The disc, ringed |
+| `risk-matrix` | `for=Hurricane season`, a risk by its label or index | The risk's marker on the grid, ringed. The note's number is its own, a shape and color apart from the risk's number |
+| `flowchart` | `for=Page on-call`, a shape by its name or index | The shape, ringed, with the marker on its corner. The notes sit under the figure or beside it (`side=`), set by the browser once the chart is laid out, in the export as well as the Studio |
+| `state-chart` | `for=Approved`, a state by its name or index | The state, ringed, with the marker on its corner. The notes are placed the same way as the flowchart's. The `inline` variant has no layout to place them in, so it leaves the callout paragraph as written |
+| `journey` | `for=Book demo`, a task by its label or index | The task's chip, ringed in the note's color, with the note's marker on its corner. The notes are an HTML list under the board (the board is CSS layout the browser measures, so there is no side to choose); a `detail="…"` prints under its note |
+
+`kanban`, `timeline-list`, `progress`,
+Mermaid diagrams and `word-cloud` are ruled out in the design note: their marks are already text rows, or the
+chart owns the layout and has no stable mark to point at.
+
+On every chart a `for=` is matched by name without regard to case or extra spaces, or by index counted from 0 in
+the order the chart draws its marks. A `for=` that names no mark is not drawn, and the chart's description lists
+it under "Not drawn" and says why; `lint:deck` names the marks it could have used.
+
+**The placement rule is one rule.** On each of these charts the notes go where the slide says (`side=`, else the
+chart's manifest default, else under the figure; see **Where the notes sit is yours to say**). With a key, the
+engine tries the key's two sides and keeps the one that leaves the plot larger at the slide's real shape
+(`data-aspect`, § Placement below). A chart that has no callout on its slide renders as it
+always did, byte for byte. The shared pieces are `lib/components/chart/_chart-family/callout-layer.js`.
 
 On a heatmap the notes sit in a lane to the right of the grid, each level with its cell, or in a
 column under the grid, whichever leaves the grid larger (see **Placement** below), and a
@@ -84,6 +128,8 @@ reading order, one each (circle, square, triangle, diamond, hexagon, star), and 
 a reader matches a cell to its label by shape as well as by color, never by color or position alone.
 The digit, the callout's number, rides inside the shape when the cell has room for it, and always in
 the lane. No line crosses the grid, so no value is covered and two labels on one row stay apart.
+
+**Notes sit under the chart, centered, as a group that wraps.** On every chart but the heatmap and the pie, the notes set under the figure side by side, each as wide as its words, and wrap to a new row when the width runs out; each row is centered under the figure. A narrow slide (9:16) gets more rows. A pie or donut defaults to beside, by its manifest; any chart that sets its notes with the shared layer takes `side=beside` (not the `journey`, whose notes are always a list under its board). On a `journey` the badge straddles the bottom edge of the task chip, near its start, so the actor dots, the mood number and the mood face stay visible.
 
 **Placement.** The engine lays the heatmap out both ways, with the notes beside the grid and under
 it, and keeps the one that leaves the grid larger at the slide's shape. Where a band key is also on
@@ -135,7 +181,7 @@ slash separates the two; `row=` and `col=` name it whatever it holds. Two rows w
 resolve to the first.
 
 On every other slide a `@callout{…}` span still renders as code, and `lint:deck` says that no
-component on the slide reads it. Callouts reach the other charts one family at a time
+component on the slide reads it. Callouts reach the remaining charts one family at a time
 (`2026-10-20-callout-placement.md` § 7).
 
 ## Narration, the PDF and screen readers
@@ -157,7 +203,8 @@ component on the slide reads it. Callouts reach the other charts one family at a
 - a callout with no target, a callout with only one of `row=` and `col=`, and a callout that names
   its cell twice (`row=`/`col=` and `for=`);
 - on a heatmap, a target that names no cell of the slide's table (the message lists the rows and
-  columns it can use), and a `key` legend, which it does not draw yet;
+  columns it can use), and on every other chart a `for=` that names none of the list's marks (the
+  message lists the names it can use); and a `key` legend, which these charts do not draw yet;
 - the `{1, lg}` shape above;
 - a seventh callout on one chart, and each one after it, which the chart does not draw;
 - a callout on a slide where no component reads one yet.
@@ -165,7 +212,7 @@ component on the slide reads it. Callouts reach the other charts one family at a
 It also notes, as info, a callout the author switched off (rule `legend-off`), and a callout written
 in the pre-split `@legend{…}` spelling (rule `callout-spelling`).
 
-Whatever a heatmap does not draw — a target that names no cell, a `key` legend, a label the lane
+Whatever a chart does not draw — a target that names no mark, a `key` legend, a label the lane
 cannot hold, a callout past the sixth — its description lists under "Not drawn".
 
 ## For components
@@ -173,7 +220,29 @@ cannot hold, a callout past the sixth — its description lists under "Not drawn
 Callouts and the key share one model and reader, `lib/core/legend.js` (`readLegend`; `spanKind`
 says which prefix a span was written with). The SVG emitter is `laneSvg` in
 `lib/components/chart/_chart-family/legend-svg.js`, beside the placement pass it uses, since
-`lib/core` may not import a component. A component lifts the slide's callout paragraphs with
-`liftLegends` (`lib/core/lift-label-set.js`), resolves each target (`gridTarget` for a grid) to its
-own mark index, and hands the entries to the emitter. Off is one reading, `calloutsOff`. The emitter
-writes classes and a `data-c` color slot and never a color; this plugin's stylesheet paints them.
+`lib/core` may not import a component. The family's shared layer is
+`lib/components/chart/_chart-family/callout-layer.js`, which a chart adopts in five steps:
+
+1. `around(html, ctx, run)` takes the slide's callout paragraphs off the section (`lift`), runs the chart's
+   own splice, and puts the section back untouched when the chart declines it;
+2. `resolve(legends, { off, find })` ties each note to a mark through the chart's `find(target)`, which
+   answers `{ mark, box }` (the `data-mark` index and the mark's box in the figure's coordinates; `pin:
+   'beside'` for a point, `ring: 'path'` with `d` for an outline, `ring: 'circle'` for a round mark), and
+   caps the drawn notes at six;
+3. `place` / `placeUnkeyed` / `choose` lay the notes out on the side `sideFor` resolved (the author's `side=`,
+   else the manifest's `callout.side`, else under), and a chart with a
+   key hands `choose` an `attempt(place)` that builds its key around each unit; the winner is the layout
+   that leaves the plot largest at the slide's shape, by the rule in the design note § 5;
+4. `mergeDetail` adds each note's `detail` to its mark's card and the speaker note;
+5. `describe` writes the notes, and the ones not drawn, into the chart's `<desc>`.
+
+A chart whose figure is finished before callouts are considered (a gantt, a hub and spokes, the quadrant's
+variants) reads it back instead: `fromSvg` finds every marked shape and printed word, and `onSvg` ties the
+notes to the shapes by name and lays them out. A mark that is a shape in the figure's own markup is found
+this way without the chart keeping its geometry a second time.
+
+Off is one reading, `calloutsOff`. The emitter writes classes and a `data-c` color slot and never a color;
+this plugin's stylesheet paints them. The slide classes that read a callout are the one list
+`CALLOUT_READERS` (`lib/core/legend.js`); the linter and the narrator both read it, and a chart is added to
+it when its kernel adopts `around`. The narrator says each callout after the chart, bound to the mark the
+narrator already bound by that label (`withCallouts`, `lib/core/chart-narration.js`).

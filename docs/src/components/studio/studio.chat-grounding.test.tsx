@@ -1,5 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import * as React from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadStudioPanels } from '@/test/panels';
 import { assessDeck } from './coach/coach-core';
@@ -15,7 +16,11 @@ beforeAll(loadStudioPanels);
 // the exact silent failure this slice exists to avoid.
 
 vi.mock('@/components/DeckPreview', () => ({
-	default: ({ 'aria-label': label }: { 'aria-label'?: string }) => <div data-testid="deck-preview">{label}</div>,
+	// Reports its first render like the real preview, which releases the Studio's first-slide gate (first-slide.ts).
+	default: ({ 'aria-label': label, onFirstRender }: { 'aria-label'?: string; onFirstRender?: () => void }) => {
+		React.useEffect(() => onFirstRender?.(), [onFirstRender]);
+		return <div data-testid="deck-preview">{label}</div>;
+	},
 }));
 
 const FINDING = { slide: 2, rule: 'wall-of-text', severity: 'warning', message: 'Too many words on this slide.' };

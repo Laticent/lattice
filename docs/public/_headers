@@ -12,3 +12,13 @@
   Cache-Control: public, max-age=31536000, immutable
 /playground/v/:hash/styles/*
   Cache-Control: public, max-age=31536000, immutable
+# A draw frame's module graph (Mermaid's ES modules, staged under frames/): loaded by a sandboxed frame with an opaque origin, so each file
+# is a cross-origin module fetch and needs CORS. Public static files, so any origin is fine. GitHub Pages (production) sends this by default.
+/playground/v/:hash/frames/*
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=31536000, immutable
+# The fonts a draw frame loads itself (its policy names these two folders): a font is always a CORS fetch, and the frame's origin is opaque.
+/playground/v/:hash/themes/fonts/*
+  Access-Control-Allow-Origin: *
+/playground/v/:hash/katex/fonts/*
+  Access-Control-Allow-Origin: *

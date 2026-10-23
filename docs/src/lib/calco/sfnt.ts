@@ -99,6 +99,10 @@ interface NameRecord {
 	bytes: Uint8Array;
 }
 
+/** The four slots of a PowerPoint family: where a face goes inside the family it names. */
+export type FaceSlot = 'regular' | 'bold' | 'italic' | 'boldItalic';
+const SLOT_STYLE: Record<FaceSlot, string> = { regular: 'Regular', bold: 'Bold', italic: 'Italic', boldItalic: 'Bold Italic' };
+
 /** Every record of a name table, so a rename can keep the copyright, license and the names STAT and the stylistic sets point at. */
 function nameRecords(t: Table | undefined): NameRecord[] {
 	if (!t || t.data.length < 6) return [];
@@ -120,15 +124,16 @@ function nameRecords(t: Table | undefined): NameRecord[] {
  * The name table a renamed face carries: its own Windows (Unicode BMP, US English) records
  * for the IDs a rename owns, and every other record of the original kept as it was.
  */
-function nameTable(family: string, version: string, keep: NameRecord[] = []): Uint8Array {
+function nameTable(family: string, version: string, keep: NameRecord[] = [], style = 'Regular'): Uint8Array {
 	const ps = family.replace(/[^A-Za-z0-9-]/g, '');
+	const full = style === 'Regular' ? family : `${family} ${style}`;
 	const records: Array<[number, string]> = [
 		[1, family],
-		[2, 'Regular'],
+		[2, style],
 		[3, `${ps};Calco`],
-		[4, family],
+		[4, full],
 		[5, version],
-		[6, ps || 'CalcoFace'],
+		[6, `${ps || 'CalcoFace'}${style === 'Regular' ? '' : `-${style.replace(/ /g, '')}`}`],
 	];
 	const all: NameRecord[] = [
 		...keep.filter((r) => !RENAMED_IDS.has(r.id)),
@@ -178,30 +183,34 @@ function versionOf(tables: Table[]): string {
 }
 
 /**
- * The same face under its own family name, as that family's REGULAR face: the name table
- * is rewritten, OS/2 `fsSelection` says Regular, `head.macStyle` is cleared. The outlines,
+ * The same face under a family name, in one of that family's four slots (Regular by default): the
+ * name table is rewritten, OS/2 `fsSelection` and `head.macStyle` say which slot. The outlines,
  * metrics and weight class are untouched.
  */
-export function renameFace(bytes: Uint8Array, family: string): Uint8Array {
+export function renameFace(bytes: Uint8Array, family: string, slot: FaceSlot = 'regular'): Uint8Array {
 	const { flavor, tables } = readTables(bytes);
 	const version = versionOf(tables);
+	const style = SLOT_STYLE[slot];
+	const bold = slot === 'bold' || slot === 'boldItalic';
+	const italic = slot === 'italic' || slot === 'boldItalic';
 	const next = tables.map((t) => {
-		if (t.tag === 'name') return { tag: 'name', data: nameTable(family, version, nameRecords(t)) };
+		if (t.tag === 'name') return { tag: 'name', data: nameTable(family, version, nameRecords(t), style) };
 		if (t.tag === 'OS/2' && t.data.length >= 64) {
 			const d = t.data.slice();
 			const v = new DataView(d.buffer);
-			// Keep USE_TYPO_METRICS (bit 7) and the rest; set REGULAR (bit 6), clear ITALIC (0) and BOLD (5).
-			v.setUint16(62, (v.getUint16(62) & ~0x0021) | 0x0040);
+			// Keep USE_TYPO_METRICS (bit 7) and the rest; the slot sets BOLD (5), ITALIC (0) and REGULAR (6, only when neither).
+			const sel = (v.getUint16(62) & ~0x0061) | (bold ? 0x20 : 0) | (italic ? 0x01 : 0) | (!bold && !italic ? 0x40 : 0);
+			v.setUint16(62, sel);
 			return { tag: t.tag, data: d };
 		}
 		if (t.tag === 'head' && t.data.length >= 46) {
 			const d = t.data.slice();
-			new DataView(d.buffer).setUint16(44, 0); // macStyle: not bold, not italic
+			new DataView(d.buffer).setUint16(44, (bold ? 1 : 0) | (italic ? 2 : 0)); // macStyle
 			return { tag: t.tag, data: d };
 		}
 		return t;
 	});
-	if (!next.some((t) => t.tag === 'name')) next.push({ tag: 'name', data: nameTable(family, version) });
+	if (!next.some((t) => t.tag === 'name')) next.push({ tag: 'name', data: nameTable(family, version, [], style) });
 	return writeTables(flavor, next);
 }
 

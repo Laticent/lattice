@@ -43,6 +43,8 @@ export interface RectLike {
 
 /** What the pipeline hands an adapter: the figure, the unit scale and the helpers. */
 export interface GraphContext {
+  /** The host's callout placer (`PassOptions.callouts`), or undefined when the host has none. */
+  callouts?: PassOptions['callouts'];
   doc: Document;
   fig: HTMLElement;
   harness: Element;
@@ -131,6 +133,13 @@ export interface GraphAdapter<M extends { shapes: { id: string }[] } = GraphMode
   measure(model: M, ctx: GraphContext): Measured;
   /** The painted children of the SVG, as markup. */
   paint(model: M, measured: Measured, geo: Geometry, ctx: GraphContext): string;
+  /**
+   * The size the drawing takes when it is larger than the laid-out graph (notes set under or beside it).
+   * The fit, the SVG's viewBox and the scale box read it in place of `geo.width` and `geo.height`; omit it and
+   * they read the geometry. `measured` is what `measure` returned, so the drawing can follow the chart's own type
+   * size. It must be pure: it runs in every round of the fit and again in the paint.
+   */
+  extent?(model: M, geo: Geometry, ctx: GraphContext, measured: Measured): { w: number; h: number };
 }
 
 export type AdapterFactory<M extends { shapes: { id: string }[] } = GraphModel> = () => GraphAdapter<M>;
@@ -140,6 +149,12 @@ export interface PassOptions {
   onlyFresh?: boolean;
   /** Force live layout on, whatever the document says. */
   live?: boolean;
+  /**
+   * Sets a chart's callout notes (lib/components/chart/_chart-family/callout-browser.js), handed to an adapter on
+   * `ctx.callouts`. Trama never calls it. It rides in as a function because the adapter is serialized and may
+   * close over nothing.
+   */
+  callouts?: (spec: unknown) => { svg: string; w: number; h: number; drawn: number } | null;
 }
 
 // Expando state lives on the document and on each figure, keyed by the adapter's prefix,
@@ -614,7 +629,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     readMins();
     readVis(sec);
     const S = sec && sec.offsetWidth > 0 ? sec.offsetWidth / HD : 1;
-    const ctx: GraphContext = { doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, drawing, iconBox, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
+    const ctx: GraphContext = { callouts: opts?.callouts, doc: doc, fig, harness, S, maxScale: MAX_SCALE, rectL, textLines, drawing, iconBox, r1, esc, outline, grow, toOutline, cut, rounded, head, lines, groups };
+    // What the fit, the viewBox and the scale box read: the geometry, or the adapter's larger drawing.
+    const extentOf = (geo: Geometry, measured: Measured): { w: number; h: number } => (A.extent ? A.extent(model, geo, ctx, measured) : { w: geo.width, h: geo.height });
 
     // Measure with the harness laid out and the box unscaled.
     const unlay = () => {
@@ -669,8 +686,9 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     // give the slope, so an over-budget chart stops at the second round when that slope is
     // 0.9 or more (where the secant step gives up) or negative; the TYPE FLOOR report says so.
     const OVER_BUDGET = 0.5;
-    const settled = (geo: Geometry) => {
-      const kNow = fitOf(port0, geo.width * S, geo.height * S);
+    const settled = (geo: Geometry, measured: Measured) => {
+      const ext = extentOf(geo, measured);
+      const kNow = fitOf(port0, ext.w * S, ext.h * S);
       if (kNow == null || Math.abs(lift(kNow) - lift(kGuess)) / lift(kGuess) < 0.01) return true;
       const lg = lift(kGuess), ln = lift(kNow);
       let next = kNow;
@@ -746,7 +764,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
           // A settling chain paints only its last round: its early rounds start from a cold fit and
           // would flash a chart drawn at the wrong type floor.
           // A mid-chain paint leaves no signature: the next round rewrites the figure at once.
-          if (r < ROUNDS - 1 && !settled(geo)) { if (!settle) finish(m as Measured & { geo: Geometry }, false); round(r + 1, search, via, settle); return; }
+          if (r < ROUNDS - 1 && !settled(geo, m as Measured)) { if (!settle) finish(m as Measured & { geo: Geometry }, false); round(r + 1, search, via, settle); return; }
           finish(m as Measured & { geo: Geometry });
           if (settle) return;
           // The author paused: settle once, so the drawing at rest is the one every export makes
@@ -788,7 +806,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
         m = measure();
         m.geo = K.layout(m.args[0], m.args[1], m.args[2], dagre);
         if (!m.geo) { if (!dagre) fig.setAttribute(`data-${P}-nolayout`, '1'); F[key('NoLayoutSig')] = sig; return null; }
-        if (settled(m.geo)) break;
+        if (settled(m.geo, m)) break;
         floorFor(kGuess);
       }
       return m as Measured & { geo: Geometry };
@@ -825,13 +843,14 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
       const geo = m.geo;
       fig.removeAttribute(`data-${P}-nolayout`);
       const drawn = A.paint(model, m, geo, ctx);
-      const vb = `0 0 ${r1(geo.width)} ${r1(geo.height)}`;
+      const ext = extentOf(geo, m);
+      const vb = `0 0 ${r1(ext.w)} ${r1(ext.h)}`;
       writeSvg(drawn, vb);
-      box.style.width = `${r1(geo.width * S)}px`;
-      box.style.height = `${r1(geo.height * S)}px`;
+      box.style.width = `${r1(ext.w * S)}px`;
+      box.style.height = `${r1(ext.h * S)}px`;
       fig.setAttribute(`data-${P}-drawn`, '1');
       if (fig.getAttribute(`data-${P}-laid`) !== geo.dir) fig.setAttribute(`data-${P}-laid`, geo.dir);
-      const kFit = applyFit(port0, box, geo.width * S, geo.height * S, portMin);
+      const kFit = applyFit(port0, box, ext.w * S, ext.h * S, portMin);
       if (kFit != null) D[key('Fit')].set(fitKey, kFit);
       // A full search's choice is the pin: a grid (its lines, direction and, when the pick moved
       // a line break or reordered the shapes, its breaks and order), or dagre's layout (lines 0)
