@@ -89,8 +89,9 @@ describe('the rewrites leave the URL nowhere but its label', () => {
   test('the parser check refuses the same attributes as the text pass, and only with no policy', () => {
     // No fixture row trips `risky`, so the DOM half runs here directly, on every attribute row.
     const blocked = [];
+    // The same test the real `refuse` makes: the address's origin, never a prefix of its text.
     const refuse = (u) => {
-      if (!u.trim().startsWith(BASE)) return false;
+      if (remoteRef.webOrigin(u.trim()) !== BASE) return false;
       blocked.push(u);
       return true;
     };
