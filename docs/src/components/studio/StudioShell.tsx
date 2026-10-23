@@ -1496,6 +1496,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, []);
 	const editorRef = React.useRef<EditorHandle>(null);
 	const slideShown = useFirstSlideShown();
+	// Hold the editor's build until the first slide only while nothing needs it. Once it has been wanted (the pane
+	// opened, the slide shown, a wide window) it stays built: a window dragged across the 700 px breakpoint before the
+	// first slide would otherwise unmount a live editor and rebuild it later.
+	const [editorWanted, setEditorWanted] = React.useState(false);
 	const composeRef = React.useRef<ComposeHandle>(null);
 	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
 	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
@@ -1628,6 +1632,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The mobile pane the shell actually shows. Normally the user's Edit/Preview choice;
 	// on a landscape phone it is FORCED to preview (no editing surface → no keyboard).
 	const effPane: 'edit' | 'preview' = landscapePhone ? 'preview' : mobilePane;
+	const holdEditor = !editorWanted && !slideShown && mobile && effPane !== 'edit';
+	React.useEffect(() => {
+		if (!holdEditor) setEditorWanted(true);
+	}, [holdEditor]);
 	// At the narrow end of desktop the rail can't share the row with BOTH open panels
 	// without breaking the split's zero-void invariant (#721: pair-space ≥ 560). There
 	// it collapses to 48px icons (when shown), and — when both panels are open — folds
@@ -6083,7 +6091,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{!slideShown && mobile && effPane !== 'edit' ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 		</section>
@@ -6760,7 +6768,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: () => editorRef.current?.fixAll() } satisfies StudioCommand] : []),
 		// Formatting is an authoring step (lib/authoring/code-format/): it rewrites the source in the
 		// editor, so the row is offered only while the deck has a fenced block to format.
-		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => { void editorRef.current?.formatCode().then((r) => notify(formatCodeNotice(r))); } } satisfies StudioCommand] : []),
+		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => { const ed = editorRef.current; if (!ed) { notify('The editor is still loading. Try again in a moment.'); return; } void ed.formatCode().then((r) => notify(formatCodeNotice(r))); } } satisfies StudioCommand] : []),
 		{ id: 'toggle-mode', group: 'actions', label: 'Switch light / dark mode', icon: SunMoon, keywords: ['dark', 'light', 'night', 'mode'], run: toggleMode },
 		{ id: 'slide-settings', group: 'actions', label: 'Slide settings — look, notes', icon: FileSliders, keywords: ['speaker notes', 'notes', 'slide options'], run: () => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); } },
 		{ id: 'fabricate', group: 'actions', label: 'Fabricate — Theme & Component Studio', icon: PencilRuler, run: () => setView('fabricate') },

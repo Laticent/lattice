@@ -75,7 +75,21 @@ async function run(browser) {
 		}
 		await new Promise((r) => setTimeout(r, 25));
 	}
-	const out = { firstSlide: first, requestsAtSlide: requests, busyAtSlide: busyAtSlide == null ? null : busyAtSlide };
+	// AFTER=1: the 3 s after the slide, where deferred work lands: main-thread busy time and long tasks (>50 ms).
+	let afterBusy = null;
+	let longTasks = null;
+	if (first != null && process.env.AFTER === '1' && cdp) {
+		await page.evaluate(() => {
+			window.__lt = [];
+			new PerformanceObserver((l) => window.__lt.push(...l.getEntries().map((e) => Math.round(e.duration)))).observe({ type: 'longtask' });
+		});
+		const td = (m) => m.metrics.find((x) => x.name === 'TaskDuration')?.value ?? 0;
+		const m0 = await cdp.send('Performance.getMetrics');
+		await page.waitForTimeout(3000);
+		afterBusy = td(await cdp.send('Performance.getMetrics')) - td(m0);
+		longTasks = await page.evaluate(() => window.__lt);
+	}
+	const out = { firstSlide: first, requestsAtSlide: requests, busyAtSlide, afterBusy, longTasks };
 	await ctx.close();
 	return out;
 }
@@ -97,6 +111,9 @@ const summary = {
 	firstSlideMaxMs: ok.length ? Math.max(...ok.map((r) => r.firstSlide)) : null,
 	firstSlideMedianMs: ok.length ? Math.round(median(ok.map((r) => r.firstSlide))) : null,
 	requestsMedian: ok.length ? median(ok.map((r) => r.requestsAtSlide)) : null,
+	afterBusyMedianS: ok.some((r) => r.afterBusy != null) ? Number(median(ok.map((r) => r.afterBusy ?? 0)).toFixed(2)) : null,
+	longTasksMedianCount: ok.some((r) => r.longTasks) ? median(ok.map((r) => (r.longTasks ?? []).length)) : null,
+	longTaskMaxMs: ok.some((r) => r.longTasks) ? Math.max(0, ...ok.flatMap((r) => r.longTasks ?? [])) : null,
 	busyMedianS: ok.length ? Number(median(ok.map((r) => r.busyAtSlide ?? 0)).toFixed(2)) : null,
 	all: runs,
 };
@@ -104,6 +121,7 @@ if (process.env.JSON) console.log(JSON.stringify(summary));
 else {
 	console.log(`${PROFILE} ${URL}`);
 	console.log(`first slide  median ${summary.firstSlideMedianMs} ms  min ${summary.firstSlideMinMs}  max ${summary.firstSlideMaxMs}  (${runs.map((r) => r.firstSlide).join(', ')})`);
+	if (summary.afterBusyMedianS != null) console.log(`3 s after    ${summary.afterBusyMedianS} s busy, ${summary.longTasksMedianCount} long tasks (median), longest ${summary.longTaskMaxMs} ms`);
 	console.log(`requests     median ${summary.requestsMedian} (by the slide)`);
 	console.log(`main thread  median ${summary.busyMedianS} s busy by the slide (TaskDuration, throttled clock)`);
 	if (summary.gaveUp) console.log(`gave up on ${summary.gaveUp} run(s)`);

@@ -106,14 +106,23 @@ The baseline is 0.25 s away on this machine. Ordered by measured impact:
 The tier-2 trio (red team, Munger inversion, independent checker) ran on the first cut. It found two defects, both fixed
 before this note's numbers were taken: a unit test (`RuntimeWarm.test.ts`) still expected the Studio's HTML prefetch, and
 deferring the editor on every viewport would have shown a skeleton on the desktop split for the whole startup, and for 6 s
-when the engine fails to load. The editor now defers only where it is hidden. Left as known, low-severity edges:
+when the engine fails to load. The editor now defers only where it is hidden. Both were found by review and are closed:
 
-- Crossing the 700 px breakpoint before the first slide (a desktop window dragged narrow) unmounts a live editor; it
-  returns at the 6 s backstop with its text intact.
-- On a phone, the editor chunk, its view and the 256 KB lint core start right after the first slide, ahead of the panel
-  warm-ups' pause. Long tasks in the 3 s after the slide were not measured with and without this change.
-- On a phone, a source change made before the editor mounts becomes the editor's starting document, so undo cannot take it back.
-- The runtime prefetch finishes 120-400 ms before the frame asks for it on this harness; a slower link was not tried.
+- Crossing the 700 px breakpoint before the first slide used to unmount a live editor and rebuild it at the 6 s
+  backstop. The editor is now latched once wanted (`editorWanted` in `StudioShell.tsx`); `studio.editor-hold.test.tsx`
+  pins it, and the arm fails when the latch is removed.
+- "Format code blocks" in the palette did nothing, with no message, when the editor was not built yet. It now says so.
+
+Measured and accepted, from `AFTER=1 npm run perf:startup` (5 loads, three rounds, base against head, phone profile):
+in the 3 s after the first slide the main thread is busy 0.95 s against 0.68 s, and 4 long tasks (over 50 ms) against
+2 to 3. The longest task is no worse (185-202 ms against 191-289 ms), so a first tap waits no longer than it did. The
+work moved from before the slide to after it; it did not grow. A pause-gated build (the way the panel warm-ups wait for
+3 s of quiet) would lower it, at the price of a cold editor chunk when someone taps Source early; not done, because the
+measured worst case is unchanged.
+
+Still true: on a phone, a source change made before the editor is built (only reachable from the chat or Compose, in the
+few seconds before the slide) becomes the editor's starting document, so undo cannot take it back. The runtime prefetch
+finishes 120-400 ms before the frame asks for it on this harness; a slower link was not tried.
 
 ## What was not measured
 
