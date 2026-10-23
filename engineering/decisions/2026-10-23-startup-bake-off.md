@@ -77,11 +77,26 @@ every diagram arm identical to today:
 | `nav` cold: source frames / repaint / renders | 10 / 226 ms / 1 | 2 / 198 ms / 1 |
 | main-thread time per prose key, 4x CPU | 82 ms | 82 ms |
 
-Applied to `lib/runtime/index.js` in a scratch tree, three runtime tests fail, by design: `diagram-adoption.test.js` pins
-"one plain-debounce run, no second delay" and says re-adding one "needs its own tests and a measurement". This is the
-measurement; the tests go with the change. **Gate:** the runtime ships inside exports, so its bytes change; per CLAUDE.md
-that is the owner's sign-off, with dark and light renders. The behavior for an export is unchanged (only a host that
-stamps the swap gets the short path), but the bytes are not.
+**Built** (`lib/core/settle-delay.js`, called from the runtime's observer; its own commit, separable from the rest of the PR).
+On the real built Studio, same build, old runtime against new, alternating, 4x CPU, three rounds: last DOM change after a
+prose key **243-250 ms to 120-126 ms**; main-thread time per key equal (113-116 ms against 107-119 ms). At normal CPU 169 ms
+to 28 ms. Diagram arms on the final build: `edit` 0 blank / 12 held / 199 ms / 1 render; `edit-burst` 0 / 69 / 1 render;
+`edit-broken` 93 source frames / 1 render; `nav` cold 2 source frames (was 10) / 206 ms / 1 render; Playground `edit` 0 blank /
+11 held, `edit-burst` 0 / 64 / 1 render.
+
+Tests. The old pins ("one plain-debounce run, no second delay") are replaced by pins that say what is true now: the observer
+asks `settleDelay(hostSwap, pendingFence, DEBOUNCE_MS)` with the live pending query read in the same guard as the stamp
+(a first version read it outside the guard and 13 runtime tests failed on a harness whose window had closed), `scheduleRun`
+defaults to the full debounce and waits the delay it was armed with, and the old latched-delay names stay banned.
+`test/unit/core/settle-delay.test.js` is a six-row table of the situations the runtime meets. Root unit suite and the
+runtime suite pass.
+
+**Export evidence** (the demo deck of this PR's test deck, prose and two Mermaid diagrams, `indaco` and `indaco-dark`, built
+by the base tree and by this tree): the PDF is byte-identical in both modes, the standard HTML export is byte-identical, the
+`--player` export is byte-identical, and the `--fluid` HTML export differs only inside the embedded runtime script
+(90 lines, all minified runtime code); its full-page render at 1440 px is pixel-identical in both modes. An export never
+stamps a swap, so the new rule never fires there. **Gate:** the runtime file itself (`dist/lattice-runtime*.js`, the Marp
+bundle, `--fluid` HTML) carries new bytes, so this is for the owner's sign-off.
 
 ## E4. Fewer requests before the island runs
 

@@ -361,19 +361,26 @@ describe('the observer wiring', () => {
     );
   });
 
-  test('the burst schedules one plain-debounce run — no second, shorter delay', () => {
-    // The cut mechanism (COLD_MS / burstFirstSight) had no test at all, so deleting it or
-    // pinning it at 150 left 9134 tests green. These two arms are the pin: the call takes
-    // no delay argument, and nothing reintroduces a second timer constant.
-    assert.match(observerCallbackSrc() || '', /scheduleRun\(\);/, 'the observer must schedule a plain debounced run');
-    assert.doesNotMatch(RUNTIME_SRC + RUNTIME_INDEX_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'the second-delay policy is cut; re-adding one needs its own tests and a measurement');
+  test('the burst schedules ONE run, and its delay comes from settleDelay — never a second timer constant', () => {
+    // The unrestricted second delay (COLD_MS / burstFirstSight) was cut because it fired on navigation and queued a render
+    // per slide touched. The rule that replaced it is a pure function of two facts (lib/core/settle-delay.js, tested as a
+    // table in test/unit/core/settle-delay.test.js); this arm pins that the observer asks it, with the LIVE pending query
+    // and the full debounce, and that no latched delay (the old `scheduledRunDelay`) came back.
+    assert.match(
+      observerCallbackSrc() || '',
+      /scheduleRun\(settleDelay\(hostSwap, pendingFence, DEBOUNCE_MS\)\);/,
+      'the observer must schedule through settleDelay(hostSwap, pendingFence, DEBOUNCE_MS)',
+    );
+    assert.match(RUNTIME_INDEX_SRC, /pendingFence = !!document\.querySelector\('\[data-lattice-settle="pending"\]'\)/, 'the pending read is the LIVE DOM, in the same guard as the stamp');
+    assert.doesNotMatch(RUNTIME_SRC + RUNTIME_INDEX_SRC, /COLD_MS|burstFirstSight|scheduledRunDelay/, 'a latched second delay is cut for good; settleDelay is per call');
   });
 
-  test('scheduleRun re-arms from the full debounce, so a burst coalesces', () => {
+  test('scheduleRun re-arms from the delay it is given, and defaults to the full debounce, so a burst coalesces', () => {
     const at = RUNTIME_INDEX_SRC.indexOf('function scheduleRun(');
     const src = RUNTIME_INDEX_SRC.slice(at, RUNTIME_INDEX_SRC.indexOf('\n  function ', at + 1));
+    assert.match(src, /function scheduleRun\(delayMs = DEBOUNCE_MS\)/, 'every other caller must keep the full debounce');
     assert.match(src, /clearTimeout\(scheduledRunHandle\)/, 'a re-arm must cancel the pending run');
-    assert.match(src, /\}, DEBOUNCE_MS\);/, 'the re-armed run must wait the full debounce, not a latched shorter one');
+    assert.match(src, /\}, delayMs\);/, 'the run waits the delay it was armed with, not a latched value');
   });
 });
 
