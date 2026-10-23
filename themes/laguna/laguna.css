@@ -296,11 +296,11 @@
    * 24% tint for the fill); dark side = same hue lifted toward white 30%
    * in OKLab so it stays vivid on the deep-sea (#04181B) canvas. */
   --chart-cat1: light-dark(#005D76, #76AAAE);  /* teal        */
-  --chart-cat2: light-dark(#831A5A, #DB90BC);  /* berry       */
-  --chart-cat3: light-dark(#605902, #A9A36F);  /* bronze      */
+  --chart-cat2: light-dark(#780261, #F19AD6);  /* berry       */
+  --chart-cat3: light-dark(#2D4630, #D1C29F);  /* bronze      */
   --chart-cat4: light-dark(#3A417F, #98A1D3);  /* slate-blue  */
-  --chart-cat5: light-dark(#175400, #A4B151);  /* seafoam     */
-  --chart-cat6: light-dark(#8C2C2E, #DF9685);  /* rust        */
+  --chart-cat5: light-dark(#2F2D0C, #85D7C3);  /* seafoam     */
+  --chart-cat6: light-dark(#613C56, #E7BCDB);  /* rust        */
   --chart-cat7: light-dark(#42407D, #9C9DCE);  /* indigo      */
   --chart-cat8: light-dark(#803877, #C790BE);  /* plum        */
 
@@ -311,11 +311,11 @@
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#005D76, #76AAAE);
-  --chart-cat2-ink: light-dark(#831A5A, #DB90BC);
-  --chart-cat3-ink: light-dark(#605902, #A9A36F);
+  --chart-cat2-ink: light-dark(#780261, #F19AD6);
+  --chart-cat3-ink: light-dark(#2D4630, #D1C29F);
   --chart-cat4-ink: light-dark(#3A417F, #98A1D3);
-  --chart-cat5-ink: light-dark(#175400, #A4B151);
-  --chart-cat6-ink: light-dark(#8C2C2E, #DF9685);
+  --chart-cat5-ink: light-dark(#2F2D0C, #85D7C3);
+  --chart-cat6-ink: light-dark(#613C56, #E7BCDB);
   --chart-cat7-ink: light-dark(#42407D, #9C9DCE);
   --chart-cat8-ink: light-dark(#803877, #C790BE);
   /* ── end chart categorical ink ── */

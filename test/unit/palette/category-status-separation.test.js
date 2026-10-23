@@ -23,6 +23,15 @@ const { baseThemeNames } = require('../../helpers/palette');
 const { loadThemeChain, resolve } = require('../../helpers/chart-color');
 
 const SEPARATION = 0.08;
+const { hexToOklch } = require('../../../lib/theme/color.js');
+/**
+ * NO STATUS HUE AT ALL. Distance alone left a category in the green, amber or red family that read as a status from
+ * across the room, so the owner set the stronger rule: a category is teal, blue, indigo, violet or plum, or it is an
+ * earthy neutral (OKLCH chroma at most NEUTRAL_CHROMA). The status families, in OKLCH hue degrees: red and rose
+ * 340-40, orange through amber and olive 40-175 (amber shades into the yellow-greens, and both read as a status).
+ */
+const NEUTRAL_CHROMA = 0.05;
+const statusHue = (h) => h >= 340 || h < 40 || (h >= 40 && h <= 175);
 const hex = (o) => `#${[o.r, o.g, o.b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 const STATUS = ['pass-solid', 'warn-solid', 'fail-solid', 'pass-solid-vivid', 'warn-solid-vivid', 'fail-solid-vivid', 'info'];
 
@@ -40,6 +49,16 @@ describe('category colors stay apart from status colors', () => {
           }
         }
         assert.deepEqual(near, []);
+      });
+      test(`${theme} ${mode}: no category wears a status hue`, () => {
+        const vars = loadThemeChain(theme);
+        const off = [];
+        for (let n = 1; n <= 8; n++) {
+          const cat = hex(resolve(`var(--chart-cat-${n}-hue)`, vars, mode));
+          const { h, C } = hexToOklch(cat);
+          if (C > NEUTRAL_CHROMA && statusHue(h)) off.push(`cat${n} ${cat} hue ${h.toFixed(0)} chroma ${C.toFixed(3)}`);
+        }
+        assert.deepEqual(off, []);
       });
     }
   }
