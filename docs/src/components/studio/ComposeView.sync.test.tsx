@@ -20,7 +20,7 @@ vi.mock('prosemirror-view', async (importOriginal) => {
 	return { ...actual, EditorView: CapturingView };
 });
 
-import { type ComposeHandle, ComposeView } from './ComposeView';
+import { type ComposeHandle, ComposeView, collapseKey } from './ComposeView';
 
 // #1288 — Compose had no sync with the preview in EITHER direction: moving the caret
 // never moved the previewed slide, and picking a slide in the preview never moved
@@ -284,5 +284,27 @@ describe('ComposeView: an outside change while a note is being written', () => {
 		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.'} onChange={() => {}} />);
 		ref.current?.revealSlide(1);
 		expect(theView().state.selection.toJSON().type).toBe('text');
+	});
+});
+
+describe('ComposeView: the caret a reload starts on', () => {
+	const FOLD_DECK = 'first paragraph, no heading.\n\nsecond paragraph, hidden when folded.\n\n---\n\n## B\n\nPara b.';
+	const FOLD_DECK_EDITED = FOLD_DECK.replace('Para b.', 'Para b changed.');
+
+	it('never starts in the text of a folded slide', () => {
+		const v = render(<ComposeView source={FOLD_DECK} onChange={() => {}} />);
+		const pmView = theView();
+		// Fold slide 0 (a slide with no heading, so only its first block shows), then reload the deck from outside.
+		pmView.dispatch(pmView.state.tr.setMeta(collapseKey, { pos: 0 }));
+		expect(v.container.querySelectorAll('.cs-slide')[0]?.classList.contains('cs-collapsed')).toBe(true);
+		v.rerender(<ComposeView source={FOLD_DECK_EDITED} onChange={() => {}} />);
+		expect(v.container.querySelector('h2')?.nextElementSibling?.textContent).toBe('Para b changed.');
+		const { $from } = theView().state.selection;
+		expect($from.index(0), 'the caret sits on the open slide, not the folded one').toBe(1);
+	});
+
+	it('starts at the top of the deck when no slide is folded', () => {
+		render(<ComposeView source={FOLD_DECK} onChange={() => {}} />);
+		expect(theView().state.selection.$from.index(0)).toBe(0);
 	});
 });

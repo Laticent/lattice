@@ -247,6 +247,22 @@ export function collapsedKeys(state: EditorState): string[] {
 	return keys;
 }
 
+/** The offsets of the slides a restore folds: each remembered key claims the FIRST slide that still matches it and is not already claimed
+ *  (greedy, one-for-one; see the plugin below). One matcher for the plugin and for the load caret, so the two cannot disagree on which slides are folded. */
+function restoredSlideOffsets(doc: PMNode, keys: string[]): number[] {
+	const want = new Map<string, number>();
+	for (const k of keys) want.set(k, (want.get(k) ?? 0) + 1);
+	const offsets: number[] = [];
+	doc.forEach((node, offset) => {
+		const k = slideKeyOf(node);
+		const left = want.get(k) ?? 0;
+		if (left <= 0) return;
+		want.set(k, left - 1);
+		offsets.push(offset);
+	});
+	return offsets;
+}
+
 type CollapseMeta = { pos: number } | { restore: string[] };
 
 export function collapsePlugin() {
@@ -284,15 +300,9 @@ export function collapsePlugin() {
 					// matches it and is not already claimed, so "duplicate slide" on a collapsed
 					// slide folds one of the two copies rather than both — the copy stays where the
 					// author left it and the new one arrives open, which is the one you want to read.
-					const want = new Map<string, number>();
-					for (const k of meta.restore) want.set(k, (want.get(k) ?? 0) + 1);
-					const decos: Decoration[] = [];
-					tr.doc.forEach((node, offset) => {
-						const k = slideKeyOf(node);
-						const left = want.get(k) ?? 0;
-						if (left <= 0) return;
-						want.set(k, left - 1);
-						decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true }));
+					const decos = restoredSlideOffsets(tr.doc, meta.restore).map((offset) => {
+						const node = tr.doc.nodeAt(offset) as PMNode;
+						return Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true });
 					});
 					return DecorationSet.create(tr.doc, decos);
 				}
@@ -1444,8 +1454,19 @@ function noteSafe(doc: PMNode, sel: Selection): Selection {
 	return caretNear(doc, sel.to) ?? sel;
 }
 
-/** Where a new editor state starts: the first text of the deck when the deck opens with a note. */
-function startSelection(doc: PMNode): Selection {
+/** Where a new editor state starts: the first text of the deck when the deck opens with a note, and never text on a folded slide (`folded` holds
+ *  the slides' offsets): a folded slide hides everything but its heading, so keys typed at a caret in it edit words the author cannot see. When every
+ *  slide is folded there is no visible text to prefer, and the start of the deck stands. */
+function startSelection(doc: PMNode, folded?: ReadonlySet<number>): Selection {
+	if (folded?.size) {
+		let open: Selection | null = null;
+		doc.forEach((slide, offset) => {
+			if (open || folded.has(offset)) return;
+			const sel = Selection.findFrom(doc.resolve(offset + 1), 1, true);
+			if (sel && sel.from < offset + slide.nodeSize) open = sel;
+		});
+		if (open) return open;
+	}
 	const start = Selection.atStart(doc);
 	const safe = noteSafe(doc, start);
 	// A first slide that is only a note has no text to put a caret in; the start of the deck may be the first text of a later slide.
@@ -2449,7 +2470,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// the new one.
 		const folded = collapsedKeys(view.state);
 		const doc = deckToDoc(src);
-		view.updateState(EditorState.create({ doc, selection: startSelection(doc), plugins: view.state.plugins }));
+		view.updateState(EditorState.create({ doc, selection: startSelection(doc, new Set(restoredSlideOffsets(doc, folded))), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
 		// logs, so a throw from the restore below would leave `updateState` already landed on
 		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
