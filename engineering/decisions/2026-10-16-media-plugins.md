@@ -1033,3 +1033,15 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   `title=`); the migrator's fence tracking ignored the fence character. One fence tracker (`fenceStep`, `lib/core/video-migrate.js`) now
   serves the migrator and the Marp export. **Still open, low:** a CRLF file's autofix mixes line endings; the one-line fix can leave a
   doubled blank line.
+- 2026-10-23: a third checker, on `40a5fb1..8eb3ef5`, found a real breach in the Marp rewrite and a regression, and the pattern behind both: the
+  rewrite tried to mirror every CommonMark rule for "the engine draws this record", and each rule it missed was a divergence. A named HTML
+  entity (`&sol;`) in a TikTok or Instagram address (those providers pass the author's URL through) was decoded by Markdown into a `/`, moving the
+  link to another host; a record under a heading or comment was no longer rewritten; fence tracking ignored containers; the migrator cut an
+  address that ends in `_`. **Decision: stop mirroring, narrow instead.** The bundle now rewrites a record ONLY when it is its own paragraph at
+  the left margin (a blank line above and below, or the edge of the file) and outside a fence, and a fence-looking run inside a quote, list item
+  or indented block switches the rewrite off for the rest of the file. Everything else stays as code, the safe failure; a list-item or quote
+  record loses its link in a bundle. `&` is written `&amp;` and a backslash is percent-encoded in the destination. `video-not-alone` now also
+  warns for text directly below the record. Proof on the real artifact: `test/integration/export/marp-video-link.test.js` (real marp-cli,
+  real Chromium: the title stays text, a hostile address adds no second link, the parsed host stays on a provider, a record in running text stays
+  code). The Studio attack spec also ran on WebKit and Firefox (`@crosswidth @webkit-tablet @gecko`) at 1440, 820 and 390: 9 of 9 pass. Its first
+  WebKit run failed because `page.route()` interception broke the plugin sandbox's loads in WebKit; the spec no longer routes.

@@ -185,29 +185,52 @@ describe('what the second checker found', () => {
     assert.match(out, /\\`c\\`/);
   });
 
-  test('Marp: only where the engine draws the record — not off, not under text, not indented, not in any fence', () => {
+  test('Marp: a named HTML entity in the address cannot move the link to another host', () => {
+    for (const u of ['https://evil.example&sol;.instagram.com/p/X/', 'https://evil.example&quest;.tiktok.com/@u/video/1234567', 'https://www.instagram.com/p/X/?a=\\']) {
+      const out = withVideoLinks(REC(u));
+      if (!out.startsWith('[')) continue; // refused: left as code, which is also fine
+      const html = require('markdown-it')({ html: true }).render(out);
+      const href = /href="([^"]*)"/.exec(html)?.[1] || '';
+      assert.doesNotMatch(href, /^https:\/\/evil\.example[/?]/, `${u} -> ${href}`);
+      assert.equal((html.match(/<a /g) || []).length, 1, html);
+    }
+  });
+
+  test('Marp: rewrites only a record that is its own paragraph at the margin; everything else stays code (the safe failure)', () => {
     const r = REC('https://youtu.be/dQw4w9WgXcQ');
+    assert.match(withVideoLinks(`${r}`), /^\[Watch on YouTube\]/, 'alone');
+    assert.match(withVideoLinks(`## Title\n\n${r}\n\ntext`), /\n\[Watch on YouTube\]\(/, 'blank lines either side');
+    for (const bad of [`para\n${r}`, `${r}\nmore text`, `${r}\n===`, `## Slide\n${r}`, `- ${r}`, `> ${r}`, `    ${r}`, `1. ${r}`]) {
+      assert.equal(withVideoLinks(bad), bad, JSON.stringify(bad));
+    }
     assert.equal(withVideoLinks(r, { off: true }), r, 'plugin off: code, as the engine prints it');
-    assert.equal(withVideoLinks(`para\n${r}`), `para\n${r}`, 'a lazy continuation');
-    assert.equal(withVideoLinks(`    ${r}`), `    ${r}`, 'an indented code block');
-    assert.equal(withVideoLinks(`> \`\`\`\n> ${r}\n`), `> \`\`\`\n> ${r}\n`, 'a fence inside a quote');
-    assert.equal(withVideoLinks(`\`\`\`\n\`\`\`inner\n${r}\n\`\`\``), `\`\`\`\n\`\`\`inner\n${r}\n\`\`\``, 'an info string does not close a fence');
-    assert.match(withVideoLinks(`~~~\n\`\`\`\n${r}\n~~~\n${r}`), /~~~\n\[Watch on YouTube\]/, 'a tilde fence ends on a tilde fence');
   });
 
-  test('video-not-alone: a record under ANY line of the same block is a lazy continuation and warns', () => {
-    for (const above of ['- An item', '> Quoted text', '1. Step', '*Note* intro', '1.5 million views', '  indented text', '| a |']) {
-      const n = lintText(deck(`${above}\n${REC('https://youtu.be/dQw4w9WgXcQ')}`)).filter((x) => x.rule === 'video-not-alone').length;
-      assert.equal(n, 1, above);
+  test('Marp: fences — a record in one stays code; a fence-looking run in a quote, list or indent switches the rewrite off for the rest', () => {
+    const r = REC('https://youtu.be/dQw4w9WgXcQ');
+    assert.equal(withVideoLinks(`\`\`\`\n\n${r}\n\n\`\`\``), `\`\`\`\n\n${r}\n\n\`\`\``);
+    assert.equal(withVideoLinks(`\`\`\`\n\`\`\`inner\n\n${r}\n\n\`\`\``), `\`\`\`\n\`\`\`inner\n\n${r}\n\n\`\`\``, 'an info string does not close');
+    for (const opener of ['> ```', '- ```', '    ```']) {
+      const doc = `${opener}\n\nx\n\n${r}\n`;
+      assert.equal(withVideoLinks(doc), doc, opener);
     }
-    for (const above of ['## A heading', '<!-- a comment -->', '---']) {
-      assert.equal(lintText(deck(`${above}\n${REC('https://youtu.be/dQw4w9WgXcQ')}`)).filter((x) => x.rule === 'video-not-alone').length, 0, above);
-    }
+    assert.match(withVideoLinks(`~~~\n\`\`\`\n~~~\n\n${r}`), /\[Watch on YouTube\]/, 'a tilde fence ends on a tilde fence, then the record is a paragraph of its own');
   });
 
-  test('the migration reads fences by character: a tilde fence around a backtick line does not hide the real bullet', () => {
+  test('video-not-alone: a record touching a line of text above or below warns; one set off by block boundaries does not', () => {
+    const R = REC('https://youtu.be/dQw4w9WgXcQ');
+    const n = (b) => lintText(deck(b)).filter((x) => x.rule === 'video-not-alone').length;
+    for (const above of ['- An item', '> Quoted text', '1. Step', '*Note* intro', '1.5 million views', '  indented text', '| a |']) assert.equal(n(`${above}\n${R}`), 1, above);
+    for (const below of ['more text']) assert.equal(n(`${R}\n${below}`), 1, below);
+    for (const above of ['## A heading', '<!-- a comment -->', '<!--\nnote\n-->', '---', '***', '___']) assert.equal(n(`${above}\n${R}`), 0, above);
+    assert.equal(n(`${R}\n\n\`\`\`js\nx\n\`\`\``), 0, 'a blank line, then a fence');
+  });
+
+  test('the migration reads fences by character, and an address is never shortened', () => {
     const r = migrateVideoBullets('<!-- _class: video -->\n\n~~~\n```js\n~~~\n\n- https://youtu.be/dQw4w9WgXcQ\n');
     assert.equal(r.changed, 1);
+    const id = migrateVideoBullets('<!-- _class: video -->\n\n- https://youtu.be/abcdefghij_\n');
+    assert.match(id.source, /"https:\/\/youtu\.be\/abcdefghij_"/, 'an id may end in an underscore');
   });
 });
 

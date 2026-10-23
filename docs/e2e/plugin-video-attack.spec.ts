@@ -43,10 +43,12 @@ for (const [label, width, height] of [
 	['tablet', 820, 1180],
 	['mobile', 390, 844],
 ] as const) {
-	test(`a zip plugin cannot turn a video slide's text into an address, at ${label} (${width}px)`, async ({ page }) => {
+	test(`a zip plugin cannot turn a video slide's text into an address, at ${label} (${width}px) @crosswidth @webkit-tablet @gecko`, async ({ page }) => {
 		const requests: string[] = [];
 		page.on('request', (r) => requests.push(r.url()));
-		await page.route(/attacker\.invalid/, (route) => route.abort());
+		// No route(): the `.invalid` host cannot resolve, the log below still sees the attempt, and interception breaks the plugin sandbox's loads in WebKit.
+		// Start wide on every project (webkit-tablet opens at 1180x703): the test drives its own widths.
+		await page.setViewportSize({ width: 1440, height: 900 });
 		await gotoStudio(page);
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
