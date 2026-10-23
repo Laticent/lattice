@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
+import { EditorState } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
+import { deckToDoc, docToDeck } from './deck-doc';
 import { latticeMarkdownParser, latticeMarkdownSerializer, roundTripSlideProse } from './deck-markdown';
 import { hasLossyConstruct, parseDeck } from './deck-source';
 
@@ -240,6 +242,32 @@ describe('what the fourth checker found', () => {
 		const md = write(para(kids));
 		expect(performance.now() - t0).toBeLessThan(400); // the whole-paragraph probe took ~800 ms here
 		expect(types(md)).toEqual(['paragraph']);
+	});
+});
+
+describe('what the fifth checker found: HTML Compose does not model is written as it came', () => {
+	// Through the Studio's own path: a deck, its slides, and the slide node as the paragraph's top level.
+	const deck = (prose: string) => `---\nmarp: true\n---\n\n${prose}\n`;
+	const studio = (prose: string) => docToDeck(deckToDoc(deck(prose))).trim();
+
+	it('a list item that opens with HTML, a comment or `$$` comes back byte for byte', () => {
+		for (const prose of ['- <!-- c -->', '- <img src="a.png">', '- <div>x</div>', '1. <p>hi</p>', '- a\n- <!-- c -->\n- b', '> - <!-- c -->',
+			'1. <!-- note: speaker -->', '- $$x$$', '- <!-- c -->\n  b', '> - a\n>   <!-- c -->', '- Revenue up\n  <!-- say: 12% -->\n- Costs']) {
+			expect(studio(prose)).toBe(deck(prose).trim());
+			expect(rendered(rt(prose)), prose).toBe(rendered(prose));
+		}
+	});
+	it('an edit to another bullet leaves an HTML bullet live', () => {
+		const doc = deckToDoc(deck('- <img src="logo.png" alt="logo">\n- Revenue up'));
+		let at = -1;
+		doc.descendants((n, pos) => {
+			if (n.isText && n.text === 'Revenue up') at = pos + n.nodeSize;
+		});
+		const edited = EditorState.create({ doc }).apply(EditorState.create({ doc }).tr.insertText(' 4%', at)).doc;
+		expect(docToDeck(edited)).toContain('- <img src="logo.png" alt="logo">\n- Revenue up 4%');
+	});
+	it('at the top level, where Compose models HTML, an escaped literal stays escaped', () => {
+		for (const prose of ['a\n\\<div>x', 'a\n\\<!-- not a comment -->']) expect(studio(prose)).toBe(deck(prose).trim());
 	});
 });
 

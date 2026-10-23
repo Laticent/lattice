@@ -358,6 +358,9 @@ function escapeLineStart(line: string): string | null {
 	return m ? `${m[1]}${m[2] ?? ''}\\${line.slice(m[0].length - 1)}` : null;
 }
 
+/** A line that opens an HTML block or a `$$` block: never escaped (see `guardParagraphLines`). */
+const OPENS_RAW_BLOCK = /^(?:<|\$\$)/;
+
 /** A line that could open a block; any other line is left alone without parsing. */
 const MAY_OPEN_BLOCK = /^(?:[!-/:-@[-`{-~]|\d)/;
 
@@ -376,12 +379,16 @@ const unindent = (line: string): string => (/\S/.test(line) ? line.replace(/^[ \
  * A line that does not open a block, such as `<b>x</b>` or `**<div>x**`, is never touched.
  * Each probe parses at most three lines: whether a line interrupts depends only on the line above it.
  */
-function guardParagraphLines(out: string): string {
+function guardParagraphLines(out: string, htmlModeled: boolean): string {
 	const lines = out.split('\n');
 	// The first line is asked of Compose's own tokenizer: what matters there is that the paragraph reads back as a paragraph.
 	// (With raw HTML off, Compose keeps `<!-- c --> tail` as text, where the engine has always drawn it as HTML; escaping it would
 	// change a slide nobody edited.)
 	let first = unindent(lines[0]);
+	// Where Compose does not model HTML and `$$` blocks (anywhere but the top level), a line that opens one is the author's markup
+	// read as text: escaping it would put the markup on the slide. It is written as it came, with the rest of the paragraph, as
+	// main always wrote it. At the top level Compose models both, so the same text there is a literal, and the guard escapes it.
+	if (!htmlModeled && OPENS_RAW_BLOCK.test(first)) return out;
 	if (MAY_OPEN_BLOCK.test(first) && !isOneParagraph(first, tableTokenizer)) {
 		const escaped = escapeLineStart(first);
 		if (escaped === null || !isOneParagraph(escaped, tableTokenizer)) return out;
@@ -400,6 +407,7 @@ function guardParagraphLines(out: string): string {
 			kept.push(line);
 			continue;
 		}
+		if (!htmlModeled && OPENS_RAW_BLOCK.test(line)) return [...kept, ...lines.slice(i)].join('\n');
 		const escaped = escapeLineStart(line);
 		if (escaped !== null && isOneParagraph(`${above()}\n${escaped}`)) {
 			kept.push(escaped);
@@ -444,7 +452,7 @@ const latticeNodes = {
 		}
 		const sub = new SubState(state.nodes, state.marks, state.options);
 		sub.renderInline(node);
-		let out = guardParagraphLines(sub.out);
+		let out = guardParagraphLines(sub.out, parent?.type.name === 'doc' || parent?.type.name === 'slide'); // the top level, in a prose doc or a deck slide
 		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) out = unescapeLeadingMarker(out);
 		state.text(out, false);
 		state.closeBlock(node);
