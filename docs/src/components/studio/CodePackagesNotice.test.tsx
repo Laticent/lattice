@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe('the strip for a zip plugin', () => {
-	it('a listed plugin that is not approved says so, names the plugin, and Run it records the approval', () => {
+	it('a listed plugin that is not approved says so, names the plugin, and Approve records the approval', () => {
 		let approved = 0;
 		render(<CodePackagesNotice source={LISTED} stamp={codePackagesStamp()} onApproved={() => approved++} />);
 		const strip = screen.getByRole('status');

@@ -302,7 +302,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			unapproved.set(`plugin/${p.name}`, p);
 			// The same drawn card as an unlisted plugin's, with its own words: the strip above the preview is where the yes is given.
 			const hint = placeholderHint(p.placeholder);
-			sections.set(key, kindOf ? inlinePlaceholder(p.name, kindOf, p.kinds?.find((k) => k.name === kindOf)?.placeholder, 'unapproved') : fencePlaceholder(p.name, { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect }, 'unapproved'));
+			// A span keeps its code: a card in a sentence would take the author's words out of a shared file, and the strip says why.
+			sections.set(key, kindOf ? c.block : fencePlaceholder(p.name, { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect }, 'unapproved'));
 			continue;
 		}
 		const known = memo.get(key);
