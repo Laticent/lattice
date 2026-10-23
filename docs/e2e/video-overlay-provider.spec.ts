@@ -161,6 +161,9 @@ for (const c of PROVIDER_CASES) {
 		await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
 		await preview.locator('a.video-poster').click();
 		await expect(page.locator('.pg-video-modal[role="dialog"] iframe')).toHaveAttribute('src', c.embed, { timeout: 15_000 });
+		// A tracker-blocking browser can blank the frame unseen, so the way out is always on screen.
+		await expect(page.locator('.pg-video-modal a[target="_blank"]')).toHaveText(`Not playing? Open on ${c.label} ↗`);
+		await expect(page.locator('.pg-video-modal a[target="_blank"]')).toHaveAttribute('href', c.watch);
 	});
 }
 

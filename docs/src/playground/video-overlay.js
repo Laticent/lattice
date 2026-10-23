@@ -173,6 +173,19 @@ function play(poster) {
 		btn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
 		shell.appendChild(btn);
 		root.appendChild(shell);
+		// Always-visible way out: a browser with its own tracker blocking (Firefox, Orion) can blank a third-party
+		// player and the page cannot tell. A real <a> the user taps opens the provider's own page, so no one is stuck.
+		if (/^https?:/i.test(href || '')) {
+			const out = document.createElement('a');
+			out.href = href;
+			out.target = '_blank';
+			out.rel = 'noreferrer noopener';
+			out.textContent = `Not playing? Open on ${providerFor(href)?.label || 'the site'} ↗`;
+			out.style.cssText =
+				'position:absolute;inset-inline:0;bottom:max(10px,env(safe-area-inset-bottom));text-align:center;' +
+				'color:rgba(255,255,255,.82);font:500 13px system-ui,sans-serif;text-decoration:underline;';
+			root.appendChild(out);
+		}
 		// Backdrop tap closes; a tap on the player/shell does not (it drives playback).
 		// GHOST-CLICK GUARD (iOS): the tap that OPENS the modal is followed ~300ms later
 		// by a synthesized `click` at the same coordinates — which now land on the
