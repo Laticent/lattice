@@ -237,12 +237,18 @@ for (const c of PROVIDER_CASES.filter((p) => p.key === 'tiktok' || p.key === 'in
 			await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch, { timeout: 30_000 });
 			await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
 			await page.clock.install();
+			await page.evaluate(() => {
+				(window as unknown as { __heard: boolean }).__heard = false;
+				window.addEventListener('message', () => { (window as unknown as { __heard: boolean }).__heard = true; });
+			});
 			await preview.locator('a.video-poster').click();
 			const modal = page.locator('.pg-video-modal[role="dialog"]');
 			await expect(modal.locator('iframe')).toHaveAttribute('src', c.embed, { timeout: 15_000 });
 			const notice = modal.locator('[role="status"]');
 			await expect(notice).toBeHidden();
-			await page.waitForTimeout(800); // let the stub's message arrive
+			// Wait for the stub frame to finish loading, and for its message when it sends one, before the clock moves.
+			await (await modal.locator('iframe').elementHandle())!.contentFrame().then((f) => f!.waitForLoadState('load'));
+			if (signals) await page.waitForFunction(() => (window as unknown as { __heard: boolean }).__heard);
 			await page.clock.fastForward(9_000);
 			if (signals) await expect(notice).toBeHidden();
 			else await expect(notice).toContainText(`${c.label} didn't load`);
