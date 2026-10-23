@@ -1240,7 +1240,7 @@ section.chart-frame .chart-caption::before {
 }
 :is(section.chart-frame, figure.chart-frame) .progress-fill:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"])::before {
   position: absolute;
-  inset-inline-start: 0.25em;
+  inset-inline-start: 0.45cqi;
   inset-block: 0;
   height: auto;
   font-size: max(var(--chart-text-min), 2cqi);
