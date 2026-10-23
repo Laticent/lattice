@@ -86,7 +86,7 @@ const rendered = (md: string): string => {
 };
 
 describe('the engine draws the edited paragraph as it drew the original', () => {
-	const cases = ['a\n\\- b', 'a\n\\+ b', 'a\n\\# b', 'a\n\\> b', 'a\n\\---', 'a\n\\===', 'a\n1\\. b', 'a\n1\\) b', 'a\n\\<div>x', 'a\n\\|---|', 'a\n\\:--', '- a\n  \\- b', '> a\n> \\- b', 'line one\nline two', '**bold**\n*it*', 'x\n3 = 3', 'a\n<b>x</b> y', 'a\n2) two', 'a\n| b |'];
+	const cases = ['a\n\\- b', 'a\n\\+ b', 'a\n\\# b', 'a\n\\> b', 'a\n\\---', 'a\n\\===', 'a\n1\\. b', 'a\n1\\) b', 'a\n\\<div>x', 'a | b\n\\|---|---|', 'a | b\n\\:--|--', '- a\n  \\- b', '> a\n> \\- b', 'line one\nline two', '**bold**\n*it*', 'x\n3 = 3', 'a\n<b>x</b> y', 'a\n2) two', 'a\n| b |'];
 	for (const md of cases) {
 		it(JSON.stringify(md), () => {
 			expect(rt(md)).toBe(md); // the author's escape comes back byte for byte
@@ -97,6 +97,7 @@ describe('the engine draws the edited paragraph as it drew the original', () => 
 	it('an escape that guards nothing writes bare, and draws the same text', () => {
 		expect(rt('a\n\\= b')).toBe('a\n= b');
 		expect(rt('a\n\\| b |')).toBe('a\n| b |');
+		expect(rt('a\n\\:--')).toBe('a\n:--'); // one column with no pipe in the line above: never a table
 		const plain = (md: string) => rendered(md).replace(/<span data-esc>([^<]*)<\/span>/g, '$1');
 		expect(plain(rt('a\n\\= b'))).toBe(plain('a\n\\= b'));
 	});
@@ -134,6 +135,60 @@ describe('what the second checker found', () => {
 	});
 });
 
+describe('what the third checker found: the guard reads the line as written', () => {
+	const sch = latticeMarkdownParser.parse('x').type.schema;
+	const t = (x: string, ...marks: string[]) => sch.text(x, marks.map((m) => sch.marks[m].create()));
+	const soft = () => sch.nodes.hard_break.create({ soft: true });
+	const hard = () => sch.nodes.hard_break.create();
+	const write = (kids: import('prosemirror-model').Node[]) =>
+		latticeMarkdownSerializer.serialize(sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, kids)])).trimEnd();
+	const onePara = (md: string) => {
+		expect(types(md), md).toEqual(['paragraph']);
+		expect(rendered(md), md).toMatch(/^<p[^>]*>(?:(?!<\/p>)[\s\S])*<\/p>$/);
+	};
+
+	it('an unedited paragraph with a mark after a break comes back byte for byte', () => {
+		for (const md of ['a\n**<div>x**', 'a\n*<div>* y', 'a\n[<div>x](u)', 'a\n**<p>** z', '- a\n  **<div>x**', '> a\n> *<div>* b',
+			'a\n*=*', 'a\n**=**', 'a\n*- b*', 'a\n*# b*', 'a\n**1. b**', 'a\n**1) b**', 'a\n01\\) b', '- a\n  01\\) b', '> a\n> 01\\) b']) {
+			expect(rt(md)).toBe(md);
+			expect(rendered(rt(md))).toBe(rendered(md));
+		}
+	});
+	it('a leading-zero marker an edit writes does not open a list', () => {
+		onePara(write([t('Revenue up'), soft(), t('01) margins flat')]));
+		onePara(write([t('a'), hard(), t('001) b')]));
+	});
+	it('a marker split from its content by a node boundary does not open a list', () => {
+		const image = sch.nodes.image.create({ src: 'x.png', alt: 'i' });
+		const math = sch.nodes.inline_math.create({ tex: 'x' });
+		for (const kids of [
+			[t('a'), soft(), t('1.'), t(' b', 'strong')],
+			[t('a'), soft(), t('+'), t(' b', 'strong')],
+			[t('a'), soft(), t('1)'), t(' b', 'em')],
+			[t('a'), soft(), t('1) '), t('x', 'code')],
+			[t('a'), soft(), t('1) '), image],
+			[t('a'), soft(), t('1) '), math],
+			[t('Revenue up'), soft(), t('1.'), t(' margins', 'strong')],
+		])
+			onePara(write(kids));
+	});
+	it('a blank line between two breaks does not split the paragraph, and keeps both breaks', () => {
+		for (const blank of [t(' '), t('\t'), t(' ', 'em')]) {
+			const md = write([t('line one'), soft(), blank, soft(), t('line three')]);
+			onePara(md);
+			expect((rendered(md).match(/<br/g) ?? []).length, md).toBe(2);
+		}
+	});
+	it('an underline or delimiter row that whitespace leaves bare does not change the block', () => {
+		onePara(write([t('a'), soft(), t('==='), t(' ', 'em')]));
+		onePara(write([t('a | b'), soft(), t('|---|---|'), t(' ', 'em')]));
+	});
+	it('inline HTML an edit leaves at a line start stays live', () => {
+		expect(write([t('x'), soft(), t('<b>y</b> z')])).toBe('x\n<b>y</b> z');
+		expect(write([t('x'), hard(), t('<b>y</b> z')])).toBe('x\\\n<b>y</b> z');
+	});
+});
+
 describe('soft breaks across the shipped decks', () => {
 	const ROOT = path.resolve(__dirname, '../../../..');
 	function mdIn(dir: string, out: string[] = []): string[] {
@@ -167,5 +222,24 @@ describe('soft breaks across the shipped decks', () => {
 			}
 		}
 		expect(checked).toBeGreaterThan(0); // anti-vacuity
+	});
+
+	it('every unlocked slide parses back to the same document', () => {
+		let checked = 0;
+		for (const file of files) {
+			let slides: ReturnType<typeof parseDeck>['slides'];
+			try {
+				slides = parseDeck(fs.readFileSync(file, 'utf8')).slides;
+			} catch {
+				continue;
+			}
+			for (const s of slides) {
+				if (hasLossyConstruct(s.prose)) continue;
+				checked++;
+				const doc = latticeMarkdownParser.parse(s.prose);
+				expect(latticeMarkdownParser.parse(latticeMarkdownSerializer.serialize(doc)).eq(doc), path.relative(ROOT, file)).toBe(true);
+			}
+		}
+		expect(checked).toBeGreaterThan(500); // anti-vacuity
 	});
 });

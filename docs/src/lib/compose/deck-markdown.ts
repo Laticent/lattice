@@ -1,5 +1,4 @@
 import MarkdownIt from 'markdown-it';
-import htmlBlockNames from 'markdown-it/lib/common/html_blocks.mjs';
 import {
 	defaultMarkdownParser,
 	defaultMarkdownSerializer,
@@ -340,44 +339,55 @@ function softBreakIsSafe(parent: PMNode, index: number): boolean {
 	return !!next && next.type.name !== 'hard_break';
 }
 
-// A block that may interrupt a paragraph, from markdown-it's own list (html_block.mjs, the rows whose third column is true).
-// Type 7, any other complete tag alone on a line, cannot, so a line led by `<b>` stays inline HTML and is never escaped.
-const HTML_BLOCK_START = new RegExp(`^(?:<(?:script|pre|style|textarea)(?=\\s|>|$)|<!--|<\\?|<![A-Z]|<!\\[CDATA\\[|</?(?:${htmlBlockNames.join('|')})(?=\\s|/?>|$))`, 'i');
-
-/** The prefix to escape by hand when `line` starts a line after a break: what the upstream escaper leaves bare but a parser reads
- *  as a block that ends the paragraph. `whole` says the text runs to the end of the line (a setext underline and a table delimiter
- *  row must be the whole line). Returns how many characters lead up to the one to escape, or -1. */
-function blockStartAt(line: string, whole: boolean): number {
-	if (HTML_BLOCK_START.test(line)) return 0;
-	if (/^1\)[ \t]+\S/.test(line)) return 1; // an ordered list may interrupt a paragraph only from 1, and only with content
-	if (whole && /^=+[ \t]*$/.test(line)) return 0; // a setext underline
-	if (whole && /^[|:][ \t:|-]*-[ \t:|-]*$/.test(line)) return 0; // a table delimiter row (one led by `-` is escaped upstream)
-	return -1;
+// The engine's block grammar, for the one question the guard below asks: is this still one paragraph? The commonmark preset with
+// raw HTML, tables and strikethrough, as lib/engine/index.js builds it. No engine plugin's block rule can interrupt a paragraph.
+let paragraphProbe: MarkdownIt | null = null;
+function isOneParagraph(md: string): boolean {
+	paragraphProbe ??= new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
+	const top = paragraphProbe.parse(md, {}).filter((t) => t.level === 0).map((t) => t.type);
+	return top.length === 2 && top[0] === 'paragraph_open'; // the `inline` token sits one level down
 }
 
-/** Text after a break starts a line, but the upstream escaper only treats a block's first text as one, so `a` + break + `- b`
- *  wrote a list. Here the text is escaped as a line start: indentation first (up to three spaces still opens a block), then the
- *  upstream escapes (`-`, `+`, `>`, `#`, `1.`), then the few starts it misses, with a backslash so the engine still sees the
- *  author's escape (an escaped `=` or `<` reaches the flowchart reader as `<span data-esc>`, plugins.js `escapeMarks`). */
-function textAfterBreak(state: SerializerState, node: PMNode, parent: PMNode, index: number): boolean {
-	const prev = index > 0 ? parent.child(index - 1) : null;
-	if (prev?.type.name !== 'hard_break' || state.inAutolink) return false;
-	const text = node.text ?? '';
-	const indent = /^[ \t]*/.exec(text)?.[0] ?? '';
-	const line = text.slice(indent.length);
-	const next = parent.maybeChild(index + 1);
-	const at = blockStartAt(line, !next || next.type.name === 'hard_break');
-	// biome-ignore lint/suspicious/noExplicitAny: `atBlockStart` is a serializer internal; `text` writes it as a line start.
-	const st = state as any;
-	if (indent) state.text(indent, false);
-	if (at < 0) {
-		st.atBlockStart = true;
-		state.text(line);
-	} else {
-		state.text(`${line.slice(0, at)}\\${line[at]}`, false);
-		state.text(line.slice(at + 1));
+/** `line` with its first marker escaped: a backslash before a leading punctuation character, or before the `.`/`)` of `01)`. */
+function escapeLineStart(line: string): string | null {
+	const m = /^([ \t]*)(\d{1,9}(?=[.)]))?([!-/:-@[-`{-~])/.exec(line);
+	return m ? `${m[1]}${m[2] ?? ''}\\${line.slice(m[0].length - 1)}` : null;
+}
+
+/** A line that could open a block once it follows a break; any other line is left alone without parsing. */
+const MAY_OPEN_BLOCK = /^[ \t]*(?:[!-/:-@[-`{-~]|\d|$)/;
+
+/**
+ * A paragraph's inline Markdown, with every line after a break checked against the engine's own block grammar. The text after a
+ * break starts a line, but the upstream escaper only treats a block's first text as a line start, and marks, expelled whitespace
+ * and node boundaries all sit between a node and the line it lands on. So the guard reads the line as written: a line that would
+ * end the paragraph (`- b`, ` ---`, `01) b`, `<div>`, a table delimiter row) gets one backslash before its first marker; an
+ * interior blank line, which no escape can save, becomes a backslash break, which draws the same `<br>`; and a line still not
+ * saved is joined to the one above with a space, which is how Compose wrote every soft break before (followups.d/2846-p6).
+ * A line that does not open a block, such as `<b>x</b>` or `**<div>x**`, is never touched.
+ */
+function guardParagraphLines(out: string): string {
+	const lines = out.split('\n');
+	if (lines.length < 2) return out;
+	const kept = [lines[0]];
+	for (let i = 1; i < lines.length; i++) {
+		let line = lines[i];
+		if (i < lines.length - 1 && /^[ \t]*$/.test(line)) line = '\\';
+		if (!MAY_OPEN_BLOCK.test(line) || isOneParagraph([...kept, line].join('\n'))) {
+			kept.push(line);
+			continue;
+		}
+		const escaped = escapeLineStart(line);
+		if (escaped !== null && isOneParagraph([...kept, escaped].join('\n'))) {
+			kept.push(escaped);
+			continue;
+		}
+		// An odd run of trailing backslashes is a hard break; joined, it would print a backslash.
+		const last = kept[kept.length - 1];
+		const trail = /\\+$/.exec(last)?.[0].length ?? 0;
+		kept[kept.length - 1] = `${trail % 2 ? last.slice(0, -1) : last} ${line.trimStart()}`;
 	}
-	return true;
+	return kept.join('\n');
 }
 
 const latticeNodes = {
@@ -390,9 +400,7 @@ const latticeNodes = {
 		// biome-ignore lint/suspicious/noExplicitAny: the upstream rule, called with its own signature.
 		(defaultMarkdownSerializer.nodes.hard_break as any)(state, node, parent, index);
 	},
-	text(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
-		if (!textAfterBreak(state, node, parent, index)) state.text(node.text ?? '', !state.inAutolink);
-	},
+
 
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
 	// ordinary image the bytes are the upstream's, so a slide the author edited writes `![alt](src "title")` as it always has.
@@ -402,23 +410,18 @@ const latticeNodes = {
 		// A backslash is escaped with the parenthesis or quote it could otherwise cancel: `a\\` + `)` must not read as an escaped `)`.
 		state.write(`![${state.esc(oneLine(node.attrs.alt))}](${src.replace(/[\\()]/g, '\\$&')}${title ? ` "${title.replace(/[\\"]/g, '\\$&')}"` : ''})`);
 	},
-	// A list item's first paragraph gets the table cell's treatment (serializeCell): a leading LFM state
-	// marker keeps its brackets, so `- [x] done` writes back as it was read and not as `- \\[x\\] done`.
-	// Every other paragraph is the upstream serializer, byte for byte.
-	paragraph(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
-		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
-			const sub = new SubState(state.nodes, state.marks, state.options);
-			sub.renderInline(node);
-			const out = unescapeLeadingMarker(sub.out);
-			if (out !== sub.out) {
-				state.text(out, false);
-				state.closeBlock(node);
-				return;
-			}
-		}
-		// biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's node serializers are loosely typed upstream.
-		(defaultMarkdownSerializer.nodes.paragraph as any)(state, node, parent, index);
+	// Every paragraph's lines after a break go through `guardParagraphLines`. A list item's first paragraph also gets the table
+	// cell's treatment (serializeCell): a leading LFM state marker keeps its brackets, so `- [x] done` writes back as it was read
+	// and not as `- \\[x\\] done`. Otherwise the inline Markdown is the upstream serializer's, byte for byte.
+	paragraph(state: SerializerState, node: PMNode, parent: PMNode) {
+		const sub = new SubState(state.nodes, state.marks, state.options);
+		sub.renderInline(node);
+		let out = guardParagraphLines(sub.out);
+		if (parent?.type.name === 'list_item' && parent.firstChild === node && node.firstChild?.isText) out = unescapeLeadingMarker(out);
+		state.text(out, false);
+		state.closeBlock(node);
 	},
+
 	// Bullet lists use `-` (Lattice), not the default `*`. Same 2-space continuation
 	// indent, so nesting under an ordered item stays at the `   - ` depth the engine
 	// reads. (renderList's second arg is the child-line indent.)
