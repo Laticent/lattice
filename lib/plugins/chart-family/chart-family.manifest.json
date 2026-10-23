@@ -130,7 +130,13 @@
     "--fail-solid-edge",
     "--info-solid-edge",
     "--mute-solid-edge",
-    "--chart-status-edge"
+    "--chart-status-edge",
+    "--mark-check-bold",
+    "--mark-dash-bold",
+    "--mark-x-bold",
+    "--mark-slash-bold",
+    "--status-mark",
+    "--chart-text-min"
   ],
   "render": {
     "parity": "equivalent",
