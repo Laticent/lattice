@@ -433,6 +433,25 @@ iframe.live {
 	from { opacity: 0; transform: translateY(4px); }
 	to { opacity: 1; transform: translateY(0); }
 }
+/* The consent strip (CodePackagesNotice) asks for a yes before a plugin's code runs. When it appears it flashes its ground twice and
+ * the button's ring pulses with it, then both settle, so the eye goes to the one control that lets the block draw. A highlight flash,
+ * not a loop: it stops by itself. Reduced motion keeps the static strip. */
+@media (prefers-reduced-motion: no-preference) {
+	[data-slot="code-packages"]:is([data-state="unapproved"], [data-state="offered"]) {
+		animation: lx-attn-flash 0.9s ease-out 0.25s 2;
+	}
+	[data-slot="code-packages"]:is([data-state="unapproved"], [data-state="offered"]) :is(button[aria-label^="Approve"], button[aria-label^="Add the plugin"]) {
+		animation: lx-attn-ring 0.9s ease-out 0.25s 2;
+	}
+}
+@keyframes lx-attn-flash {
+	0%, 100% { background-color: var(--accent-soft); }
+	35% { background-color: color-mix(in srgb, var(--accent) 34%, var(--accent-soft)); }
+}
+@keyframes lx-attn-ring {
+	0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+	100% { box-shadow: 0 0 0 9px transparent; }
+}
 
 /* Home-page library cards (LibraryCards in components/landing/sections.tsx). Plain classes rather
  * than Tailwind utilities because nine cards repeat every class string in the HTML, and the home

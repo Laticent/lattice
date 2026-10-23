@@ -69,7 +69,7 @@ const OVERSTUFFED = `<!-- _class: wifi -->
 
 \`connect · wifi\`
 
-## Join the extraordinarily long boardroom network name that wraps across several lines of the masthead title area.
+## ${'Join the extraordinarily long boardroom network name that wraps across several lines of the masthead title area. '.repeat(6)}
 
 - Offsite-Guest-Network-With-A-Very-Long-Broadcast-Name-2026 \`ssid\`
 - an-exceptionally-long-passphrase-that-nobody-would-type-by-hand-2026 \`password\`

@@ -5154,6 +5154,37 @@ const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').pr
 const RESHAPE_STRATEGIES = new Set(['cover-cards']);
 
 /**
+ * The count of chart row schemas whose transform and narrator still parse a row's spans with a reader of their own, not
+ * through the row schema (`segno.row.rows.native`; lib/core/chart-rows.js `takeRecord`). Phase 2 of the chart authoring model
+ * moves them over one by one; phase 4 deletes the bridge once none is left. A ratchet, both ways: a chart that gains a row
+ * schema without `native` raises the count, and a chart moved over must lower the budget in the same change, so the number
+ * can only fall on purpose. A chart marked `native` must read through `takeRecord` in its kernel, so the flag cannot be
+ * decorative. (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §10; followups.d/2690-p1-chart-model-phase-2-reader.md)
+ */
+const PRIVATE_ROW_READER_BUDGET = 14;
+
+function checkNativeRowReaders(manifests, errors, readKernel = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')) {
+  let privateReaders = 0;
+  for (const m of manifests) {
+    const slot = m.segno?.row ?? m.segno?.cell;
+    if (!slot?.rows) continue;
+    if (slot.rows.native !== true) { privateReaders++; continue; }
+    const rel = kernelModuleRel(manifestBucket(m), m.name);
+    let src = '';
+    try { src = readKernel(rel); } catch { /* reported below */ }
+    if (!/\btakeRecord\(/.test(stripCodeComments(src))) { // a call, not a mention in a comment
+      errors.push(`${m.name}: its row schema says \`native: true\`, but ${rel} never calls takeRecord, so the transform does not read the record through the row schema. Read it there, or drop the flag.`);
+    }
+  }
+  if (privateReaders !== PRIVATE_ROW_READER_BUDGET) {
+    errors.push(
+      `${privateReaders} chart row schemas read their rows with a private reader (no \`rows.native\`), and PRIVATE_ROW_READER_BUDGET in ` +
+      `tools/check-ownership.js is ${PRIVATE_ROW_READER_BUDGET}. ${privateReaders > PRIVATE_ROW_READER_BUDGET ? 'A new row schema should read through takeRecord and chart-rows.js recordFields, and set `rows.native`.' : 'A chart moved to the shared reader: lower the budget to the new count in the same change.'}`);
+  }
+}
+
+
+/**
  * Cross-check the adaptivity DECLARATION (manifest `adapt.mode`) against reality,
  * so the manifest can never silently drift from the code (the jank this replaces —
  * 7 charts that reflowed but declared nothing, with no gate to catch it). See
@@ -6053,6 +6084,23 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'test/unit/components/state-chart.test.js "a forged model paints nothing outside the painter\'s vocabulary" ' +
       'and test/unit/components/graph-icons.test.js "a forged harness cannot inject markup" and ' +
       '"the cases the red team probed are pinned".',
+  },
+  {
+    file: 'lib/plugins/host-browser.mjs',
+    sink: 'target.innerHTML',
+    count: 1,
+    provenance:
+      'THIRD PARTY, SANITIZED BEFORE IT ARRIVES — the drawing a page\'s DRAW HOST answers, written into a plugin\'s placeholder by ' +
+      '`ctx.drawInto(target, job)`, the ONE writer for every plugin that draws in a draw frame (a plugin\'s hydrate never assigns markup ' +
+      'itself, so a new such plugin adds no entry here). Only the Studio and Playground previews offer a host ' +
+      '(docs/src/lib/preview-draw-host.ts); every other surface has none and never reaches this line. The host runs the plugin\'s library in a ' +
+      'sandboxed draw frame (an opaque origin: no storage, no network, no reach into the Studio; lib/packages/draw-frame-core.mjs) and ' +
+      'sanitizes what the frame returns BEFORE it answers, because the runtime has no sanitizer to run it here: through the plugin\'s own ' +
+      '`finish` (which receives the slide and diagram sanitizers) or, for a plugin with none, through `sanitizeSlideHtml` ' +
+      '(docs/src/lib/preview-draw-host-impl.ts `drawKind`). So the string written is a sanitizer\'s output, and the guard is those calls in the host: ' +
+      'its tests (docs/src/lib/preview-draw-host.test.ts "a plot\'s drawing is sanitized before the runtime sees it", ' +
+      'preview-draw-host.generic.test.ts "gives a kind with no host half the safe default") fail if either stops. A host that answered ' +
+      'unsanitized markup would be a new undeclared sink in the host, which this census would not see: do not add one without sanitizing there.',
   },
   // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
   // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
@@ -11784,6 +11832,9 @@ const NUL_TEXT_EXTENSIONS = [
   '.peggy',
   // A vendored library's license text, beside its copy (lib/plugins/<name>/vendor/*.LICENSE).
   '.license',
+  // The Open XML SDK checker (tools/office-conformance/openxml-check) and the vendored Office schemas
+  // (test/conformance/office/schemas) — plain text source.
+  '.cs', '.csproj', '.xsd',
 ];
 
 // The BINARY half of the same partition. Every tracked file must fall in one list
@@ -13968,6 +14019,7 @@ function run() {
   checkSolverIntentDeclared(manifests, errors);
   checkRenderNature(manifests, errors);
   checkChartKernels(manifests, errors);
+  checkNativeRowReaders(manifests, errors);
   checkChartMarks(manifests, errors);
   checkGuideHandles(manifests, errors);
   checkMarkIdentity(errors);
@@ -14262,6 +14314,8 @@ module.exports = {
   decodeCssEscapes,
   SANCTIONED_GLYPH_DECKS,
   checkTypedGlyphs,
+  checkNativeRowReaders,
+  PRIVATE_ROW_READER_BUDGET,
   checkRouterBudget,
   routerTokenCount,
   ROUTER_FILE,

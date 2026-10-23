@@ -7,7 +7,7 @@
 import { createRequire } from 'node:module';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHECKS, DECK, DECK_UNLISTED, PLUGIN } from '../../../../test/fixtures/fence-door-parity.mjs';
-import { approvePlugin, offeredIn, onCodePackagesStatus, pluginDigest, renderWithCodePackages, revokePlugin, setPlugins, unapprovedIn } from './door';
+import { approvePlugin, codePackagesStamp, offeredIn, onCodePackagesStatus, pluginDigest, renderWithCodePackages, revokePlugin, setPlugins, unapprovedIn } from './door';
 
 const require = createRequire(import.meta.url);
 const trust = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string) => string };
@@ -71,12 +71,13 @@ describe('consent', () => {
 		expect(await pluginDigest(`${PLUGIN.code} `, PLUGIN.fence)).not.toBe(await pluginDigest(PLUGIN.code, PLUGIN.fence));
 	});
 
-	it('an unapproved plugin never runs: the block stays, with a note, and the preview’s status offers the approval', async () => {
+	it('an unapproved plugin never runs: the same card an unlisted one gets stands there, with its own words, and the preview’s status offers the approval', async () => {
 		const html = await draw(DECK, true);
 		expect(opened).toEqual([]);
-		expect(html).toContain('language-gantt');
-		expect(html).toContain('data-package-error="gantt-plugin"');
-		expect(html).toContain('its code has not been approved in this browser');
+		expect(html).toContain('data-lattice-plugin-off="gantt-plugin"');
+		expect(html).toContain('data-reason="unapproved"');
+		expect(html).toContain('Plugin block · not approved in this browser');
+		expect(html).not.toContain('data-package-error');
 		expect(unapprovedIn(DECK).map((p) => p.name)).toEqual(['gantt-plugin']);
 	});
 
@@ -160,7 +161,7 @@ describe('rules the inversion lens found untested', () => {
 		revokePlugin('gantt-plugin');
 		const revoked = await draw(DECK);
 		expect(revoked).not.toContain('data-lattice-plugin=');
-		expect(revoked).toContain('its code has not been approved in this browser');
+		expect(revoked).toContain('Plugin block · not approved in this browser');
 		await approve();
 		expect(await draw(DECK_UNLISTED)).not.toContain('data-lattice-plugin=');
 	});
@@ -426,6 +427,21 @@ describe('the rules the CLI door learned', () => {
 	});
 });
 
+describe('a plugin’s stylesheet reaches the previews, rebuilt behind its root', () => {
+	it('an approved plugin’s sheet rides the stamp, every selector behind the plugin’s root; an unapproved one adds nothing; a hostile sheet adds nothing', async () => {
+		const css = '.lp-x{color:red}\n}\nsection{visibility:hidden}\n.y{';
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css: '.lp-x { color: var(--accent) }\nsection { display: block }' }]);
+		expect(codePackagesStamp()).not.toContain('[data-lattice-plugin');
+		approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence) });
+		const stamp = codePackagesStamp();
+		expect(stamp).toContain(`[data-lattice-plugin="${PLUGIN.name}"] .lp-x {`);
+		expect(stamp).toContain(`[data-lattice-plugin="${PLUGIN.name}"] section {`);
+		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, css }]);
+		approvePlugin({ name: PLUGIN.name, sha256: await pluginDigest(code, PLUGIN.fence) });
+		expect(codePackagesStamp()).not.toContain('visibility');
+	});
+});
+
 describe('data returns (threat-model decisions 11 and 12): the CLI door’s rules, in the Studio', () => {
 	const { RETURN_ENVELOPE, pluginReturnFields } = require('../../../../lib/packages/code-shape.mjs') as { RETURN_ENVELOPE: string; pluginReturnFields: (m: unknown) => ReturnType<typeof import('../../../../lib/packages/code-shape.mjs').pluginReturnFields> };
 	const cli = require('../../../../lib/packages/trust.js') as { pluginDigest: (code: string, fence: string, kinds?: unknown[], returns?: unknown[]) => string };
@@ -451,7 +467,7 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		expect(await pluginDigest(code, PLUGIN.fence, [], fields)).not.toBe(await pluginDigest(code, PLUGIN.fence));
 		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS }]);
 		await approve();
-		expect(await draw(DECK)).toContain('its code has not been approved in this browser');
+		expect(await draw(DECK)).toContain('Plugin block · not approved in this browser');
 	});
 
 	it('a clean value lands on the slide’s own <section>, escaped', async () => {
@@ -491,6 +507,25 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		expect(html).toContain('data-returned-gantt-plugin--status="late"');
 		expect(html).not.toContain('data-returned-gantt-plugin--status="ok"');
 		expect(failed.some((f) => /two different values for status/.test(f.why))).toBe(true);
+	});
+
+	it('host slots: `${field}` in the drawing’s visible text takes the checked value, on every render a remembered result is reused', async () => {
+		await install();
+		renderer = () => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p class="x" title="${status}">${status}: ${note} ${nope}</p>', data: { status: 'late', note: 'a < b & c' } })}`;
+		for (const pass of [1, 2]) {
+			const html = await draw(DECK);
+			expect(html, `pass ${pass}`).toContain('title="${status}"');
+			expect(html).toContain('late: a &lt; b &amp; c ${nope}');
+		}
+		expect(opened.map((o) => o.ran)).toEqual([1]);
+	});
+
+	it('host slots: a disabled plugin and a failed block keep what they had; no value reaches a note', async () => {
+		await install();
+		renderer = () => `${RETURN_ENVELOPE}${JSON.stringify({ html: '<p>${note}</p>', data: { status: 'evil', note: 'x' } })}`;
+		const html = await draw(DECK);
+		expect(html).not.toMatch(/<p>x<\/p>/);
+		expect(html).toContain('the plugin was disabled for this render');
 	});
 
 	it('a stored record with a malformed declaration does not stop the plugin door: it declares nothing, so its data is refused', async () => {

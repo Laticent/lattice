@@ -39,10 +39,13 @@ async function returnsZip(words: string[]): Promise<Buffer> {
 
 async function importZip(page: Parameters<typeof gotoStudio>[0], buffer: Buffer) {
 	const input = page.locator('[data-testid="library-import-input"]');
-	// The Library button toggles, and the panel can still be open from the last import.
-	if (!(await input.count())) {
+	// The Library button toggles, and the panel may be open from an earlier visit or still mounting. Look, click only when the input is absent,
+	// then wait for it; a click that landed on a Library that was just opening closes it, so look again and click again (up to three tries).
+	for (let attempt = 0; attempt < 3; attempt++) {
+		if (await input.count()) break;
 		const docked = page.getByRole('button', { name: 'Open Library' });
 		await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+		if (await input.waitFor({ state: 'attached', timeout: 6000 }).then(() => true, () => false)) break;
 	}
 	await input.setInputFiles({ name: `${PLUGIN}.zip`, mimeType: 'application/zip', buffer });
 	await expect(page.locator('[data-sonner-toast]').filter({ hasText: '1 plugin(s)' }).first()).toBeVisible();
@@ -87,7 +90,7 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 	await page.setViewportSize({ width: 1440, height: 900 });
 
 	// 2. CLEAN: approved, the drawing lands and the values sit on the slide's <section>, escaped.
-	await notice.getByRole('button', { name: `Run the code of ${PLUGIN}` }).click();
+	await notice.getByRole('button', { name: `Approve the code of ${PLUGIN}` }).click();
 	await expect(preview.locator(`[data-lattice-plugin="${PLUGIN}"] svg.lp-${PLUGIN}-chart`)).toHaveCount(1, { timeout: 30_000 });
 	const slide = preview.locator(`section[data-returned-${PLUGIN}--status]`).first();
 	await expect(slide).toHaveAttribute(`data-returned-${PLUGIN}--status`, 'late');

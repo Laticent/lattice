@@ -1,0 +1,1 @@
+- CI now runs `check:venue-conformance --strict` (integration shard 4). A PR that makes a component clip, drop a QR below its scan floor or leave the frame at any venue goes red unless the row is named in the tool's `KNOWN` list; deleting a fixed row's entry is required too. `--strict` now holds all four canvas families and fails when no Chromium is found.

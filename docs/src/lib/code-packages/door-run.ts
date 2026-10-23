@@ -18,7 +18,7 @@ import { captureHook, claimKey, engineClaimsOf, SLIDE_MS, slideInput, spliced, s
 import { activePluginNames, aspectOfOutput, captureFences, fenceCaptureNotes, fenceInput, fenceKey, fenceMarkup, fenceNamespace, fenceOutputNote, fencePlaceholder, inlineInput, inlineMarkup, inlinePlaceholder, placeholderHint, planFencePlugins, rebuiltFromAlternatives, substituteFences, withFenceNote } from '../../../../lib/packages/code-door-fence.mjs';
 import FENCE_DOOR from '../../../../lib/packages/fence-door.generated.json';
 import SHIPPED from '../../../../lib/packages/packages.generated.json';
-import { checkReturnData, returnAttr, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
+import { checkReturnData, fillReturnSlots, returnAttr, SLOT_FILL_MAX, slotFills, splitReturn } from '../../../../lib/packages/plugin-returns.mjs';
 import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 import { type CodePackagesStatus, codePackages, isApproved, isPluginApproved, type Renderer, rememberAspect, rememberedAspect, report, type StudioCodePackage, type StudioPlugin, studioPlugins } from './door';
 import { openPackageFrame, type PackageFrame } from './runner';
@@ -68,6 +68,8 @@ const spanFailures = new Map<string, string>();
 const rawLength = new Map<string, number>();
 /** What a remembered fence result RETURNED besides its drawing (`{ html, data }`), by its memo key: checked again on every render that reuses it. */
 const returnedData = new Map<string, Record<string, unknown>>();
+/** The memo keys whose entry is a DRAWING, not a failure note: only those take a host slot's value. */
+const okKeys = new Set<string>();
 /** Code that failed to load, by digest, with why: not retried on every render. */
 const unloadable = new Map<string, string>();
 
@@ -155,6 +157,7 @@ function remember(key: string, section: string) {
 		rawLength.delete(k);
 		spanFailures.delete(k);
 		returnedData.delete(k);
+		okKeys.delete(k);
 	};
 	if (memo.has(key)) drop(key);
 	while (memo.size && (memo.size >= MEMO_MAX || memoChars + section.length > MEMO_CHARS_MAX)) drop(memo.keys().next().value as string);
@@ -210,6 +213,8 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const sections = new Map<string, string>();
 	/** What each block drawn THIS render returned, by its key: what the returns check reads. */
 	const drawnData = new Map<string, Record<string, unknown>>();
+	/** The fence blocks whose DRAWING is on the page this render (not a note, a placeholder or a cap's replacement): the only ones a host slot fills. */
+	const onPage = new Set<string>();
 	const unapproved = new Map<string, StudioCodePackage | StudioPlugin>();
 	const failed: CodePackagesStatus['failed'] = [];
 	const unlisted = new Set<string>();
@@ -295,7 +300,10 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		const notDrawn = (why: string) => (kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
 		if (!isPluginApproved(p)) {
 			unapproved.set(`plugin/${p.name}`, p);
-			sections.set(key, notDrawn('its code has not been approved in this browser'));
+			// The same drawn card as an unlisted plugin's, with its own words: the strip above the preview is where the yes is given.
+			const hint = placeholderHint(p.placeholder);
+			// A span keeps its code: a card in a sentence would take the author's words out of a shared file, and the strip says why.
+			sections.set(key, kindOf ? c.block : fencePlaceholder(p.name, { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect }, 'unapproved'));
 			continue;
 		}
 		const known = memo.get(key);
@@ -312,6 +320,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			else {
 				sections.set(key, known);
 				if (knownData) drawnData.set(key, knownData);
+				if (okKeys.has(key)) onPage.add(key);
 			}
 			continue;
 		}
@@ -365,12 +374,14 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			}
 		} else {
 			remember(key, out);
+			okKeys.add(key);
 			rawLength.set(key, rawLen);
 			if (data) {
 				returnedData.set(key, data);
 				drawnData.set(key, data);
 			}
 			sections.set(key, out);
+			onPage.add(key);
 		}
 	}
 	// THE RETURNS CHECK, the CLI door's (code-door.js; plugin-returns.mjs; owner decisions 11 and 12). Every value a
@@ -395,6 +406,7 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 	const attrs = new Map<string, Array<[string, string]>>();
 	const onSlide = new Map<number, Map<string, string>>();
 	const clashes = new Set<string>();
+	const slotBudget = { left: SLOT_FILL_MAX };
 	for (const c of capFences.claims) {
 		const p = offered.get(c.pkg);
 		if (!p) continue;
@@ -406,6 +418,18 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 			continue;
 		}
 		const values = valuesOf.get(key);
+		// HOST SLOTS: `${field}` in the drawing's visible text takes the checked value (plugin-returns.mjs), after the check above.
+		const declared = p.returns ?? [];
+		if (onPage.has(key) && declared.length) {
+			const filled = fillReturnSlots(sections.get(key) as string, slotFills(values, declared), { inline: !!kindOf, budget: slotBudget });
+			if (filled === null) {
+				const why = `the values it returned grew its drawing past the ${SLOT_FILL_MAX.toLocaleString('en-US')}-character limit when the host filled its slots`;
+				failed.push({ name: c.pkg, slide: c.slide + 1, why });
+				sections.set(key, kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
+				continue;
+			}
+			sections.set(key, filled);
+		}
 		if (!values?.length) continue;
 		const here = onSlide.get(c.slide) ?? new Map<string, string>();
 		onSlide.set(c.slide, here);

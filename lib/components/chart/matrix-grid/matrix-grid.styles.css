@@ -50,6 +50,12 @@
  * grid. */
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure[data-row-axis] {
   padding-left: var(--sp-lg);
+  /* The rotated title is as tall as its text (0.78em a character: the mono glyph, the 0.1em tracking, the arrow and a
+   * little slack, in the label's own `--fs-meta`), and it is centered on this figure, so a short
+   * figure cut both of its ends: a two-row grid at hall showed "ER COGNITION". The figure is at least
+   * as tall as its title. If the slide cannot afford that, the grid overflows and the engine says so,
+   * instead of the label being cut where no probe reads it. */
+  min-height: calc(var(--row-axis-chars, 0) * 0.78 * var(--fs-meta));
   /* Resolve the axis-label size HERE, in a horizontal writing mode, so the
    * rotated ::before can inherit a finished length instead of re-resolving a
    * cqi token against the wrong axis (see the ::before rule below). The table

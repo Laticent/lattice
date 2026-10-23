@@ -59,4 +59,14 @@ describe('PillTabs', () => {
 		fireEvent.keyDown(tablist, { key: 'End' }); // → c
 		expect(selected()).toBe('Gamma');
 	});
+
+	it('dense tightens the gap and padding so a narrow pane fits more pills on one row', () => {
+		const { rerender } = render(<PillTabs tabs={TABS} value="a" onValueChange={() => {}} ariaLabel="Sections" />);
+		expect(screen.getByRole('tablist').className).toContain('gap-1.5');
+		expect(screen.getByRole('tab', { name: 'Alpha' }).className).toContain('px-3');
+		rerender(<PillTabs tabs={TABS} value="a" onValueChange={() => {}} ariaLabel="Sections" dense />);
+		expect(screen.getByRole('tablist').className).toContain('gap-1');
+		expect(screen.getByRole('tablist').className).not.toContain('gap-1.5');
+		expect(screen.getByRole('tab', { name: 'Alpha' }).className).toContain('px-2.5');
+	});
 });

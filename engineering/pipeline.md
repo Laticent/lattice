@@ -212,6 +212,20 @@ uses — one full-bleed image per slide, selectable text is lost (PPTX has
 always been image slides; `--raster` opts a PDF into the same trade for
 maximum viewer compatibility).
 
+**A slide picture is a PNG or a JPEG.** A `.pptx` or `.odp` slide is one picture, and PNG is the
+wrong format for a photograph or a soft gradient wash: 1 to 6 MB per 2560 × 1440 slide and about 1.2 s
+to encode, where a quality-92 JPEG is a fifth of the size and 0.36 s. A flat slide (text on a color)
+is the opposite: a smaller, crisper PNG in 0.2 s. The page says which kind a slide is before any
+shot (`isContinuousTone`: raster images or gradients cover a quarter of it), so the CLI
+(`lib/export/slide-picture.js`) and the Studio (`canvasToPictureBlob`, `deck-export.js`) shoot a
+continuous-tone slide as a JPEG first and never take its PNG when the JPEG is 100 KB or more, and
+shoot any other slide as a PNG first, trying a JPEG only when the PNG is over 600 KB and keeping it
+only when it is under 70% of the PNG. The thresholds live in `docs/src/lib/calco/picture.ts`; the
+writers name the part by the bytes (`imageMime`). A capture that keeps a rounded corner as
+transparency (`.png` output only) is never a JPEG. A 35-slide photo deck: 76.6 MB and 44 s before,
+16 MB and 15.5 s now; the Studio, 8 photo slides: 38.2 MB and 7.4 s before, 8.9 MB and 5.3 s now.
+`engineering/decisions/2026-10-21-slide-pictures-png-or-jpeg.md`.
+
 **`.odp` and `--editable` go through Calco.** Calco (`@laticent/calco`,
 `docs/src/lib/calco/`) is the office-export library; `lib/export/office-export.js`
 is the Lattice host that hands it JSZip, PptxGenJS, the deck's fonts and the HarfBuzz
@@ -221,7 +235,7 @@ pinner. Two modes:
   speaker notes on each page's notes view, the `describe:` text as each picture's
   alt text. The PPTX twin is the plain `.pptx`, which stays on
   `lib/export/pptx-export.js`.
-- **Editable** (`--editable` on `.odp` or `.pptx`): Calco reads every paragraph off
+- **Editable** (`--editable` on `.odp` or `.pptx`; the Studio's Editable text switch runs the same capture, `captureOfficeSlides`): Calco reads every paragraph off
   the rendered slide, hides that text, photographs the slide, and writes each
   paragraph back as a real text box in its own font, with the browser's line
   breaks. Both embed the fonts, each pinned to one weight with every character
@@ -241,6 +255,28 @@ pinner. Two modes:
   checked; it should read the embedded fonts. If font-less readers matter later, the
   options are splitting each line at its pictures, or leaving such a paragraph in the
   picture whole.
+
+**Layouts, shared backgrounds and roles (editable).** Each slide is photographed twice: its
+own paint alone (the fill, a `border-image` rule, a wash, a ghost numeral — the section's own
+paint plus any absolutely placed child under the content that holds no text), and its content
+over transparency. Slides whose backgrounds match (within 3 levels per channel, so a dithered
+gradient still matches) share one `.odp` master page or `.pptx` layout; a flat background is a
+solid fill, not a picture. Because the foreground picture is transparent, the background shows
+through and is not an object on any slide. A slide that blends or blurs what is behind it
+(`mix-blend-mode`, `backdrop-filter`) is checked against an opaque photograph and keeps that
+picture if the layers do not add back up; `lattice` prints how many slides did. Each frame also
+carries a `role` read from the page (`h1`/`h2`, the eyebrow and subtitle inline-code
+paragraphs, `<header>`, `<footer>`, `.lat-pagination`): the title is a title placeholder, the
+page number is a slide-number field when it equals the slide's position (a split run's "2.2" stays text), and a header, footer or page number that two or more
+slides share on one background moves to the layout. The foreground picture is locked against moving
+and resizing in the `.odp` (honored by LibreOffice; Collabora is untested) and in the `.pptx` markup
+(LibreOffice ignores it). In the CLI, what cannot be a shape is then cropped from the foreground
+capture as pictures of its own, in paint order among the shapes (`captureSlides`, `cropPictures`;
+`2026-10-21-calco-lift-what-can-be-lifted.md` §6); the whole-slide picture remains only for a slide
+that reads its backdrop (ink no crop covers becomes one more picture). The cost is one more screenshot per
+distinct background and one for the foreground: about +0.16 s per slide for the shared backgrounds alone (`accent-finishes`, 12 slides: 6.2 s → 8.1 s). The whole editable export, with shapes, pictures and chips, takes 2 to 2.5 times what `main` does (independent runs: `accent-finishes` 5.2 s → 11 to 15 s, the 120-slide gallery 127 s → 321 s), with
+slides that draw the same background photographed once. Design, measurements and what is not
+verified: `engineering/decisions/2026-10-17-calco-shared-backgrounds.md`.
 
 Calco writes the zip itself, so no `soffice` is needed to export — LibreOffice is
 only the reader. Rounded corners square on both, as on the PPTX: the page sets no

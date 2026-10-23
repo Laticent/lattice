@@ -10,7 +10,7 @@ Use when a visual carries meaning on its own. You hand it any rectangle; the lay
 
 ## Agent contract
 
-**By venue** no count budget. The image fills its box and scales, so no element count marks where it stops fitting.
+**By venue** (`venue:`) its body holds laptop ~72 · huddle ~60 · conference ~44 · hall ~30 words on a wide canvas. With `split`: laptop ~72 · huddle ~60 · conference ~44 · hall ~24. With `mirror`: laptop ~72 · huddle ~60 · conference ~44 · hall ~24. On a square canvas: laptop ~78 · huddle ~60 · conference ~40 · hall ~28 (each register has its own row in the manifest). On a tall canvas: laptop ~22 · huddle ~10 · conference ~9 · hall ~4 (each register has its own row in the manifest). On a strip canvas: laptop ~54 · huddle ~34 · conference ~25 · hall ~15 (each register has its own row in the manifest). A 0 means that register has no room for its prose at that venue. Past the room's number the slide still renders at the venue's size, because a venue is a fixed setting the engine never shrinks to fit, so it clips: `lint:deck` warns first (`capacity-scale`), and the export's `⚠ OVERFLOW` line and the Studio's ring name it. Measured on the real slide by growing that slot until the page clips (`tools/calibrate-venue-prose.js`); `lint:deck` reads the same numbers.
 
 ### Slots
 

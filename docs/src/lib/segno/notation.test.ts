@@ -8,6 +8,7 @@ import { notationSpec, plainRecordSpec, TAGS } from './notation-grammar';
 const shape = (v: Value | null): unknown => {
   if (v === null) return null;
   if (v.kind === 'scalar') return v.quoted ? `"${v.text}"` : v.text;
+  if (v.kind === 'description') return { desc: v.text };
   if (v.kind === 'list') return v.items.map(shape);
   return Object.fromEntries(v.items.map((it, k) => [it.name ?? `#${k}`, shape(it.value)]));
 };
@@ -312,9 +313,86 @@ describe('the plain-record parser builds the full parser\'s tree', () => {
       expect(compare(s), s).toBe('equal');
     }
   });
-  it('is derived, not written: the restriction removed lists, quotes and tags and nothing else', () => {
-    expect(Object.keys(plainRecordSpec.rules).sort()).toEqual(['item', 'record', 'span', 'top', 'value']);
-    expect(JSON.stringify(plainRecordSpec)).not.toMatch(/"list"|"quoted"|"tagged"/);
-    expect(plainRecordSpec.rules.record).toBe(notationSpec.rules.record); // untouched rules are shared, not copied
+  it('is derived, not written: the restriction removed lists, quotes, tags and descriptions and nothing else', () => {
+    expect(Object.keys(plainRecordSpec.rules).sort()).toEqual(['first', 'item', 'record', 'span', 'top', 'value']);
+    expect(JSON.stringify(plainRecordSpec)).not.toMatch(/"list"|"quoted"|"tagged"|"desc"/);
+    expect(plainRecordSpec.rules.span).not.toBe(notationSpec.rules.span); // `span` held the tagged branch
+    expect(plainRecordSpec.rules.item).not.toBe(notationSpec.rules.item); // `item` held lists and quotes
+  });
+});
+
+describe('descriptions: `{> prose}`', () => {
+  it('the whole record is the prose, trimmed', () => {
+    expect(read('{> Slipped a week}')).toEqual({ desc: 'Slipped a week' });
+    expect(read('{>   padded   }')).toEqual({ desc: 'padded' });
+    expect(read('{>}')).toEqual({ desc: '' });
+  });
+  it('`>` opens a description wherever it is the record\'s first character, so `{>5}` is not a value', () => {
+    expect(read('{>5}')).toEqual({ desc: '5' });
+    expect(read('{>a}')).toEqual({ desc: 'a' });
+  });
+  it('a later item keeps `>` as ordinary text', () => {
+    expect(read('{3, >5}')).toEqual({ '#0': '3', '#1': '>5' });
+    expect(read('{a, b=>c}')).toEqual({ '#0': 'a', b: '>c' });
+  });
+  it('separators, equals signs, quotes, brackets and pipes are prose', () => {
+    expect(read('{> a, b=c "d" [e] | f}')).toEqual({ desc: 'a, b=c "d" [e] | f' });
+  });
+  it('a backslash escapes `}` and itself; any other backslash stays', () => {
+    expect(read('{> a \\} b \\\\ c \\n}')).toEqual({ desc: 'a } b \\ c \\n' });
+  });
+  it('an unescaped `}` ends it, so what follows is not part of the span', () => {
+    expect(code('{> a} b')).toBe('syntax');
+  });
+  it('it never closes by itself: an open description is an unclosed record with a fix', () => {
+    const p = parse('{> a');
+    expect(p.ok).toBe(false);
+    if (!p.ok) {
+      expect(p.diagnostic.code).toBe('unclosed-bracket');
+      expect(p.diagnostic.fix?.insert).toBe('}');
+    }
+    expect(code('{> a \\}')).toBe('unclosed-bracket');
+  });
+  it('a space before `>` is still the refused space after the brace', () => {
+    expect(code('{ > x}')).toBe('space-after-brace');
+  });
+  it('a description nested in a record or a list is a description value, for the binder to refuse', () => {
+    expect(read('{{> x}}')).toEqual({ '#0': { desc: 'x' } });
+    expect(read('[{> x}, y]')).toEqual([{ desc: 'x' }, 'y']);
+  });
+  it('a tag may precede it', () => {
+    expect(code('~{> x}')).toBe('ok');
+  });
+  it('the plain-record parser refuses it and the full parser reads it', () => {
+    expect(plainRecordTree('{> x}')).toBeNull();
+    expect(plainRecordTree('{x}')).not.toBeNull();
+    expect(parseGenerated('{> x}').ok).toBe(true);
+  });
+  it('it reads in time linear in its length', () => {
+    const t = (n: number) => { const s = `{> ${'ab, '.repeat(n)}}`; const a = performance.now(); parse(s); return performance.now() - a; };
+    t(2000);
+    const small = Math.max(t(20000), 0.05);
+    expect(t(200000) / small).toBeLessThan(40); // 10x the input; linear is ~10, quadratic ~100
+  });
+  it('the LL(1) prefix property holds for descriptions: a tail never moves an error into the valid part', () => {
+    const TAIL = ['}', ']', '{', '[', ',', '"', '=', ' ', 'a', '\\', '|', '>'];
+    for (const base of ['{> x}', '{>}', '{> a, b=c}', '{> a \\} b}', '{3, >5}']) {
+      for (const t of TAIL) {
+        for (const u of ['', ...TAIL]) {
+          const p = parse(base + t + u);
+          if (!p.ok) expect(p.diagnostic.from, JSON.stringify(base + t + u)).toBeGreaterThanOrEqual(base.length - 1);
+        }
+      }
+    }
+  });
+  it('unclosed and escape-heavy descriptions stay linear', () => {
+    const run = (mk: (n: number) => string) => {
+      const t = (n: number) => { const s = mk(n); const a = performance.now(); parse(s); return performance.now() - a; };
+      t(3000);
+      const small = Math.max(t(20000), 0.05);
+      return t(200000) / small;
+    };
+    expect(run((n) => `{> ${'a, '.repeat(n / 3)}`)).toBeLessThan(40);
+    expect(run((n) => `{> ${'a \\} '.repeat(n / 5)}}`)).toBeLessThan(40);
   });
 });

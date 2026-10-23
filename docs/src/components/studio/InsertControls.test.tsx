@@ -30,10 +30,10 @@ function caretIn(view: EditorView, needle: string, after = false) {
 	view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
 }
 
-function setup(source: string, caret: string, opts: { image?: () => void } = {}) {
+function setup(source: string, caret: string, opts: { image?: () => void; motion?: () => void } = {}) {
 	const view = mount(source);
 	caretIn(view, caret, true);
-	render(<InsertControls view={view} getKernels={() => kernels} getSource={() => source} getFences={() => undefined} onInsertImage={opts.image} />);
+	render(<InsertControls view={view} getKernels={() => kernels} getSource={() => source} getFences={() => undefined} onInsertImage={opts.image} onInsertMotion={opts.motion} />);
 	const user = userEvent.setup();
 	const open = async () => {
 		await user.click(screen.getByRole('button', { name: 'Insert' }));
@@ -199,3 +199,25 @@ describe('InsertControls — what is unavailable, and why', () => {
 		await waitFor(() => expect(disabled('Diagram')).toBe(false));
 	});
 });
+
+describe('Motion', () => {
+	it('is absent without a Library, and asks the host to open the Library on its scenes when chosen', async () => {
+		const first = setup(CONTENT, 'Lead');
+		await first.open();
+		expect(screen.queryByRole('menuitem', { name: /^Motion/ })).toBeNull();
+		cleanup();
+		const motion = vi.fn();
+		const { user, open } = setup(CONTENT, 'Lead', { motion });
+		await open();
+		expect(disabled('Motion')).toBe(false);
+		await user.click(item('Motion'));
+		expect(motion).toHaveBeenCalledTimes(1);
+	});
+
+	it('is still offered on a slide Compose cannot write, because a scene is a slide of its own', async () => {
+		const { open } = setup(LOCKED, 'Has', { motion: () => {} });
+		await open();
+		expect(disabled('Motion')).toBe(false);
+	});
+});
+

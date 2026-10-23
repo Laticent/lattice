@@ -192,10 +192,14 @@ cut by a clip, an ellipsized footer among them. A box cannot reproduce a cut wor
 The editable `.pptx` places the same boxes through PptxGenJS, then Calco adds the fonts to
 the package itself (`embedPptxFonts`, `pptx.ts`; `sfnt.ts`):
 
-- **Embedded OpenType, one family per weight.** PowerPoint's font model has four slots per
-  family (regular, bold, italic, bold italic), so Outfit 300, 500 and 600 have nowhere to go.
-  `renameFace` gives each pinned face its own family ("Outfit SemiBold"), as that family's
-  regular face, and its runs ask for it by that name with no synthetic bold or italic.
+- **Embedded OpenType; 400 and 700 in their slots, other weights a family each.** PowerPoint's font
+  model has four slots per family (regular, bold, italic, bold italic), so Outfit 300, 500 and 600
+  have nowhere to go. A regular or bold face (an italic one only beside its upright twin) is
+  embedded in its slot of the family's own name ("Playfair Display"), and its runs carry the bold
+  or italic flag, so LibreOffice and Google Slides, which ignore the embedded copy, find the font
+  by name (2026-10-21 update; before it, "Playfair Display Bold" matched nothing and fell back to
+  a sans). `renameFace` gives every other pinned face its own family ("Outfit SemiBold"), as that
+  family's regular face, and its runs ask for it by that name with no synthetic bold or italic.
   `toEot` wraps it as EOT 2.1, uncompressed and not XOR-ed, in `ppt/fonts/*.fntdata`, listed
   in `p:embeddedFontLst` with `embedTrueTypeFonts="1"`, related by the `font` relationship
   and typed `application/x-fontdata`. This is the shape PowerPoint itself writes.
@@ -227,6 +231,17 @@ jargon gallery before, 0 on all five exported decks after. One PptxGenJS source 
 (`pptxgen.cjs.js`, in `makeXmlPresentation`) claims the schema's notes-master order "causes
 warning in modern powerpoint"; the comment beside it says the reverse, and the schema and the
 SDK both require it, so desktop PowerPoint is the one check left for that move.
+
+**Correction (2026-10-21): the notes-master move made desktop PowerPoint refuse the file.** The
+paragraph above left that move as "the one check left for desktop PowerPoint". The owner then
+opened `.pptx` exports from `main` and got "Sorry, PowerPoint can't read". PptxGenJS 3.12 points
+both `slideMaster1.xml` and `notesMaster1.xml` at one `theme1.xml`. A validator that encodes
+PowerPoint's rules reports a master sharing a theme as refused once `p:notesMasterIdLst` is NOT
+directly after `p:sldIdLst`, which is where `tidyPptx` put it for the schema. Plain and editable
+packages from `main` failed it identically. `tidyPptx` now keeps the schema order and gives each
+master its own copy of the theme (`giveMastersOwnThemes`), with its relationship and content
+type; the same packages then pass the XSD schema and that check. **Still not opened in desktop
+PowerPoint**: the validator is a stand-in, so "fixed" waits for the owner to open one.
 
 **The picture-only `.pptx` is tidied too (2026-10-07).** It writes through PptxGenJS directly
 (`lib/export/pptx-export.js` in the CLI, `exportPptx` in the Studio) and carried the last

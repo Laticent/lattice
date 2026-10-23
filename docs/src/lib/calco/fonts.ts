@@ -189,11 +189,12 @@ export function faceKey(family: string, weight: number, italic: boolean): string
 const WEIGHT_NAMES: Record<number, string> = { 100: 'Thin', 200: 'ExtraLight', 300: 'Light', 400: '', 500: 'Medium', 600: 'SemiBold', 700: 'Bold', 800: 'ExtraBold', 900: 'Black' };
 
 /**
- * The family name an embedded face is written under: the family itself for a plain regular,
- * else the family with its weight and slant ("Outfit SemiBold", "Playfair Display Bold
- * Italic"). Every face is its own family's regular, so a reader never has to resolve a
- * weight: PowerPoint has only four slots per family, and iOS (CoreText) matches by the
- * names inside the font. A pinned variable face still carries the variable font's names
+ * The family name a face is written under when it is a family of its own: the family itself
+ * for a plain regular, else the family with its weight and slant ("Outfit SemiBold",
+ * "Playfair Display Bold Italic"). The `.odp` writes every face this way, so a reader never has
+ * to resolve a weight: iOS (CoreText) matches by the names inside the font. The `.pptx` slots a
+ * regular or bold face in its family's own name instead (`planEmbedding`) and uses this name for
+ * the other weights, which PowerPoint's four slots cannot hold. A pinned variable face still carries the variable font's names
  * ("Outfit Thin" for every Outfit weight), so the file is renamed to match (sfnt.ts).
  */
 export function faceFamilyName(face: { family: string; weight: number; italic: boolean }, numeric = false): string {

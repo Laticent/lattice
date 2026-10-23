@@ -1316,6 +1316,9 @@ section.divider.light code {
  * Composes with any layout/variant (dark, cards-grid, …) since it only
  * sets a custom property. See engineering/typography.md §7 and
  * lib/base/base.docs.md. */
+/* `--qr-min` is the narrowest a scannable code may be, as a share of the slide width (laptop 0.10,
+ * the consumer's fallback). The cards that draw a QR (contact, wifi) never go below it; the
+ * conformance harness (tools/check-venue-conformance.js SCAN_MIN) pins the same four numbers. */
 /* VENUE (`venue:` front matter, lib/core/resolve-venue.js) — where the deck is seen.
  * Each venue asks for one rung of the same ladder and ALSO lifts the meta role
  * (eyebrows, captions, labels, header, page number) past the body's scale, because
@@ -1329,9 +1332,9 @@ section.divider.light code {
  * the label lift at conference (1.15); at hall 1.14, the most that keeps it below body
  * text (the label's 1.3 would put code at 26.2pt over a 24.0pt body). The derivation
  * is engineering/typography.md §7 "Venue". `laptop` is the designed size: no class. */
-section.venue-huddle     { --fs-scale: 1.15; }
-section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; --venue-compact-lift: 1.15; --venue-chrome-cut: 0.85; }
-section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-compact-lift: 1.14; --venue-chrome-cut: 0.85; }
+section.venue-huddle     { --fs-scale: 1.15; --qr-min: 0.12; }
+section.venue-conference { --fs-scale: 1.3;  --venue-meta-lift: 1.15; --venue-compact-lift: 1.15; --venue-chrome-cut: 0.85; --qr-min: 0.16; }
+section.venue-hall       { --fs-scale: 1.5;  --venue-meta-lift: 1.3;  --venue-compact-lift: 1.14; --venue-chrome-cut: 0.85; --qr-min: 0.22; }
 
 section.scale-l   { --fs-scale: 1.15; }
 section.scale-xl  { --fs-scale: 1.3;  }

@@ -18,7 +18,11 @@
   "form": "canvas",
   "substance": "prose",
   "stage": "flow",
-  "coda": { "claims": ["blockquote"] },
+  "coda": {
+    "claims": [
+      "blockquote"
+    ]
+  },
   "tags": [
     "contract",
     "contrast",
@@ -169,7 +173,149 @@
     "noBudget": "one amended passage"
   },
   "venueCapacity": {
-    "none": "One clause with its inline edits per slide; its length is prose, not a count of elements."
+    "prose": {
+      "slot": "redline",
+      "row": {
+        "laptop": 84,
+        "huddle": 84,
+        "conference": 72,
+        "hall": 20
+      },
+      "atLeast": [
+        "laptop",
+        "huddle"
+      ],
+      "variants": {
+        "annotated": {
+          "laptop": 84,
+          "huddle": 84,
+          "conference": 52,
+          "hall": 12
+        },
+        "three-col": {
+          "laptop": 60,
+          "huddle": 44,
+          "conference": 0,
+          "hall": 0
+        },
+        "split": {
+          "laptop": 60,
+          "huddle": 52,
+          "conference": 30,
+          "hall": 10
+        },
+        "stacked": {
+          "laptop": 84,
+          "huddle": 72,
+          "conference": 52,
+          "hall": 0
+        }
+      },
+      "families": {
+        "square": {
+          "row": {
+            "laptop": 104,
+            "huddle": 68,
+            "conference": 46,
+            "hall": 23
+          },
+          "variants": {
+            "annotated": {
+              "laptop": 84,
+              "huddle": 60,
+              "conference": 40,
+              "hall": 17
+            },
+            "three-col": {
+              "laptop": 27,
+              "huddle": 21,
+              "conference": 16,
+              "hall": 8
+            },
+            "split": {
+              "laptop": 44,
+              "huddle": 28,
+              "conference": 21,
+              "hall": 13
+            },
+            "stacked": {
+              "laptop": 84,
+              "huddle": 60,
+              "conference": 32,
+              "hall": 17
+            }
+          }
+        },
+        "tall": {
+          "row": {
+            "laptop": 40,
+            "huddle": 28,
+            "conference": 11,
+            "hall": 7
+          },
+          "variants": {
+            "annotated": {
+              "laptop": 34,
+              "huddle": 25,
+              "conference": 8,
+              "hall": 4
+            },
+            "three-col": {
+              "laptop": 34,
+              "huddle": 25,
+              "conference": 4,
+              "hall": 0
+            },
+            "split": {
+              "laptop": 34,
+              "huddle": 28,
+              "conference": 8,
+              "hall": 0
+            },
+            "stacked": {
+              "laptop": 34,
+              "huddle": 25,
+              "conference": 8,
+              "hall": 0
+            }
+          }
+        },
+        "strip": {
+          "row": {
+            "laptop": 96,
+            "huddle": 76,
+            "conference": 46,
+            "hall": 34
+          },
+          "variants": {
+            "annotated": {
+              "laptop": 92,
+              "huddle": 70,
+              "conference": 42,
+              "hall": 30
+            },
+            "three-col": {
+              "laptop": 96,
+              "huddle": 76,
+              "conference": 42,
+              "hall": 27
+            },
+            "split": {
+              "laptop": 100,
+              "huddle": 76,
+              "conference": 46,
+              "hall": 30
+            },
+            "stacked": {
+              "laptop": 92,
+              "huddle": 66,
+              "conference": 42,
+              "hall": 27
+            }
+          }
+        }
+      }
+    }
   },
   "gesture": {
     "archetype": "statement",
@@ -178,5 +324,6 @@
         "select": ":is(ins, del)"
       }
     }
-  }
+  },
+  "venueProbe": "<!-- _class: redline -->\n\n## The redline tracks an amendment verbatim.\n\n`Cal. Civ. Code §1798.135 · amendment SB-362 (2024)`\n\n> A business that <del>collects</del> <ins>collects, sells, or shares</ins> consumers' personal information shall provide <del>two or more</del> <ins>at least one</ins> designated method for submitting requests to opt-out.\n\n- **Why this matters.** One duty, one uniform link title.\n"
 }

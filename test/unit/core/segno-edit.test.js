@@ -244,3 +244,23 @@ describe('editRecord — the generic mechanism on a spec of its own', () => {
     assert.equal(editRecord('{Hi}', slot, spec, { title: null }), null);
   });
 });
+
+describe('inline-editors `record` — a plugin kind read and written from its slot spec', () => {
+  const { record } = require('../../../lib/authoring/inline-editors.js');
+  const spec = {
+    positional: [{ name: 'task', type: 'text' }],
+    params: { tone: { type: 'oneOf', values: ['calm', 'loud'] }, weeks: { type: 'number', named: true } },
+  };
+
+  test('reads the words the author wrote as plain values', () => {
+    assert.deepEqual(record.read(spec, 't.k', '{Build, loud, weeks=3}'), { task: 'Build', tone: 'loud', weeks: 3 });
+  });
+  test('writes one word and leaves the rest', () => {
+    assert.equal(record.edit(spec, 't.k', '{Build, weeks=3}', { tone: 'loud' }), '{Build, weeks=3, loud}');
+  });
+  test('a spec that does not compile, or a record that does not read, gives null', () => {
+    assert.equal(record.read({ params: { x: { type: 'list' } } }, 't.k', '{a}'), null);
+    assert.equal(record.edit(spec, 't.k', 'not a record', { tone: 'loud' }), null);
+    assert.equal(record.read(null, 't.k', '{a}'), null);
+  });
+});

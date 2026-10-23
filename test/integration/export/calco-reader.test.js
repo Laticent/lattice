@@ -238,9 +238,15 @@ describe('calco reader: the review cases', () => {
     assert.equal(plain(find(/bold/)).replace(/ /g, ''), 'bold italic');
   });
 
-  test('a line pushed right by a ::before marker starts after the marker', () => {
+  test('generated text is read in line: the "01" a ::before draws, a spacer for the 60px it takes, then the word', () => {
+    // The marker is no longer picture content: a real element stands in for it during the read.
     const why = find(/Why/);
-    assert.ok(why.x >= 40 + 55, `the box starts at ${why.x}, on top of the 60px marker`);
+    assert.equal(why.x, 40, 'the frame starts at the marker');
+    const runs = why.lines[0];
+    assert.equal(runs[0].text, '01');
+    assert.equal(runs[runs.length - 1].text, 'Why');
+    const gap = runs.find((r) => /^\s+$/.test(r.text));
+    assert.ok(gap && gap.style.letterSpacing > 30, 'a spacer carries the rest of the 60px');
   });
 
   test('a padded inline pill keeps its room as a spacer run', () => {
@@ -340,7 +346,7 @@ const SHAPES = `<!doctype html><html><head><style>
   #ring { position: absolute; left: 1060px; top: 40px; padding: 4px 8px; background: #fff; box-shadow: inset 0 0 0 1px #6b7f9a; font-size: 12px; }
   h2 { position: absolute; left: 40px; top: 470px; width: 600px; margin: 0; font-size: 28px; line-height: 40px; border-bottom: 2px solid #898e95; }
   #under { position: absolute; left: 720px; top: 470px; width: 200px; height: 80px; background: #eef; }
-  #over { position: absolute; left: 700px; top: 460px; width: 300px; height: 120px; background: linear-gradient(90deg, rgba(255,0,0,.2), transparent); }
+  #over { position: absolute; left: 700px; top: 460px; width: 300px; height: 120px; background: radial-gradient(circle, rgba(255,0,0,.2), transparent); }
   #back { position: absolute; left: 1000px; top: 450px; width: 260px; height: 200px; z-index: -1; background: radial-gradient(circle, #ddd, transparent); }
   #onback { position: absolute; left: 1040px; top: 500px; width: 180px; height: 100px; background: #eef; }
   #seg { position: absolute; left: 40px; top: 560px; width: 100px; height: 2.5px; padding-top: 16px; background: #006fa8; background-clip: content-box; }
@@ -414,11 +420,20 @@ describe('calco reader: native shapes', () => {
     assert.equal(res.frames[tag.text].group, undefined, 'the carried text is the label, not a group member');
   });
 
-  test('a card stays in the picture when something it would cover stays there: an icon, a ::before tag, list markers', () => {
+  test('a card stays in the picture when something it would cover stays there: an icon, list markers', () => {
     assert.equal(boxAt(380, 40), undefined, 'the card with an SVG icon');
-    assert.equal(boxAt(720, 40), undefined, 'the card with a counted ::before tag');
+    // (a counted ::before tag is generated TEXT, which is read as text now: see the next test)
     assert.equal(boxAt(40, 260), undefined, 'the card holding a bulleted list');
     assert.equal(res.frames.find((f) => textOf(f) === 'Has an icon.').group, undefined);
+  });
+
+  test('a counted ::before tag is a label with real text, and its card lifts and groups it', () => {
+    const card = boxAt(720, 40);
+    assert.ok(card, 'the card lifts: nothing the picture keeps is above it');
+    const tag = res.shapes.find((s) => s.text !== undefined && textOf(res.frames[s.text]) === '1');
+    assert.ok(tag, 'the tag is a label carrying its number');
+    assert.deepEqual(tag.fill, { color: '#006fa8', alpha: 1 });
+    assert.equal(tag.group, res.shapes.indexOf(card));
   });
 
   test('elliptical corners stay in the picture; a shadow and an inset ring are carried', () => {
@@ -441,13 +456,20 @@ describe('calco reader: native shapes', () => {
     assert.ok(boxAt(1040, 500), 'the backdrop paints below it');
   });
 
-  test('a fill clipped to its content box is that box; border-image, two shadows and a covered child stay', () => {
+  test('a fill clipped to its content box is that box; border-image stays and two shadows lift as one; a parent\'s positioned ::before and its child both lift, in paint order', () => {
     const seg = res.shapes.find((s) => s.kind === 'box' && s.fill?.color === '#006fa8' && Math.abs(s.x - 40) < 1);
     assert.ok(seg, 'the padded accent segment lifts');
     assert.ok(Math.abs(seg.y - 576) < 0.5 && Math.abs(seg.h - 2.5) < 0.1, `the fill is the content box: ${JSON.stringify(seg)}`);
     assert.equal(res.shapes.find((s) => Math.abs(s.x - 200) < 4 && Math.abs(s.y - 560) < 4), undefined, 'a border-image box');
-    assert.equal(boxAt(340, 560), undefined, 'a static child under its parent\'s absolutely placed ::before');
-    assert.equal(boxAt(500, 560), undefined, 'two outer shadow layers');
+    // The parent's absolutely placed ::before is lifted too, so nothing the picture keeps covers the child:
+    // both are shapes, and the pseudo paints ABOVE the static child, as CSS does.
+    const child = res.shapes.findIndex((s) => s.kind === 'box' && !s.pseudo && Math.abs(s.x - 340) < 1 && Math.abs(s.y - 560) < 1 && s.w === 100);
+    const pseudo = res.shapes.findIndex((s) => s.kind === 'box' && s.pseudo && Math.abs(s.x - 340) < 1 && Math.abs(s.y - 560) < 1 && s.w === 60);
+    assert.ok(child >= 0 && pseudo >= 0, 'the child and the pseudo are both shapes');
+    assert.ok(pseudo > child, 'the positioned pseudo is drawn after (above) the static child');
+    const stacked = boxAt(500, 560);
+    assert.ok(stacked?.shadow, 'two outer shadow layers are drawn as the widest one');
+    assert.ok(res.approximated.includes('stacked-shadow'), 'and the read says it approximated');
   });
 
   test('hiding takes the paint out without moving anything, and restore is exact', async () => {

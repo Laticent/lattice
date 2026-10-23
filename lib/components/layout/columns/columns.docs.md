@@ -29,6 +29,7 @@ Use when two components make one point together: a chart and what it means, befo
 - **A chart and what it means.** Put the evidence in one pane and the reading of it in the other: a `bar` beside a `list`, a `table` beside a `content` pane. The slide's `##` states the conclusion both panes support.
 - **Before and after.** Two `###` titles with no markers make two text panes: the quickest way to set two states side by side.
 - **An unequal pair.** Give the pane that needs room the larger share: `columns ratio-60-40`, `columns ratio-35-65`. Shares run 25 to 75 in 5% steps.
+- **A photo beside text.** Put `![](photo.jpg)` alone in a plain pane. It is fitted to the pane and centered, never cropped, at any share; a pane that needs the photo to fill its box and crop is `<!-- _pane: image -->`.
 
 ## When NOT to use
 

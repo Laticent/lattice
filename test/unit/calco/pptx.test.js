@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
 const { writePptx, pptxPageSize } = require('@laticent/calco');
-const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+const { ONE_PX_PNG, ONE_PX_JPEG, style, frame } = require('./_fixtures');
 
 async function slideXml(deck, n = 1) {
   const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer'));
@@ -128,3 +128,166 @@ describe('calco pptx — what PptxGenJS does not escape', () => {
   });
 });
 
+
+describe('calco pptx — layouts, roles and the locked picture', () => {
+  const header = (text) => frame([[{ text, style: style({ size: 12 }) }]], { role: 'header', x: 30, y: 24, w: 400, h: 20 });
+  const num = (n) => frame([[{ text: String(n), style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+  const title = (text) => frame([[{ text, style: style({ size: 40 }) }]], { role: 'title', x: 64, y: 90, w: 900, h: 60 });
+  const deck = () => ({
+    width: 1280,
+    height: 720,
+    backgrounds: [{ color: '#003d66' }, { image: ONE_PX_PNG }],
+    slides: [
+      { image: ONE_PX_PNG, background: 0, frames: [title('One'), header('Deck'), num(1)] },
+      { image: ONE_PX_PNG, background: 0, frames: [title('Two'), header('Deck'), num(2)] },
+      { image: ONE_PX_PNG, background: 1, frames: [title('Three'), num(3)] },
+    ],
+  });
+  const open = async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck(), 'nodebuffer', JSZip));
+    const text = (n) => zip.file(n).async('string');
+    return { zip, text };
+  };
+  const names = (xml) => [...xml.matchAll(/<p:cNvPr id="\d+" name="([^"]*)"/g)].map((m) => m[1]);
+
+  test('each shared background is written once, on a layout, and the slides point at layouts', async () => {
+    const { zip, text } = await open();
+    const layouts = Object.keys(zip.files).filter((n) => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n));
+    const withBg = [];
+    // PptxGenJS also writes its own empty default layout; ours are the ones named "Layout n".
+    for (const n of layouts) if (/<p:cSld name="Layout \d+"/.test(await text(n))) withBg.push(await text(n));
+    assert.ok(withBg.every((x) => /<p:bg>/.test(x)));
+    assert.equal(withBg.length, 2, 'one per background, none per slide');
+    assert.ok(withBg.some((x) => /<a:srgbClr val="003D66"\/>/.test(x)), 'a flat color is a solid fill');
+    assert.ok(withBg.some((x) => /<a:blip /.test(x)), 'a picture background is an image fill');
+    for (let i = 1; i <= 3; i++) assert.doesNotMatch(await text(`ppt/slides/slide${i}.xml`), /<p:bg>/, 'the slide itself paints no background');
+  });
+
+  test('a title is the slide title placeholder, drawn where the browser drew it, with no stray empty placeholders', async () => {
+    const { text } = await open();
+    const xml = await text('ppt/slides/slide1.xml');
+    assert.match(xml, /<p:ph type="title" idx="100"\/>/);
+    assert.equal((xml.match(/type="title"/g) || []).length, 1, 'one title, not the layout copy as well');
+    assert.doesNotMatch(xml, /hasCustomPrompt/);
+    assert.ok(names(xml).includes('Title 1'));
+    assert.doesNotMatch(xml, /calco-/, 'no tag leaks into the file');
+  });
+
+  test('a header and page number two slides share live on the layout; a lone page number is a slide-number field', async () => {
+    const { text } = await open();
+    const s1 = await text('ppt/slides/slide1.xml');
+    assert.ok(!names(s1).includes('Header 1'), 'the header moved to the layout');
+    assert.match(s1, /type="sldNum"/);
+    const layout = (await text('ppt/slideLayouts/slideLayout2.xml')) + (await text('ppt/slideLayouts/slideLayout3.xml'));
+    assert.match(layout, /name="Header"/);
+    assert.match(layout, /<a:t>Deck<\/a:t>/);
+    const s3 = await text('ppt/slides/slide3.xml');
+    assert.match(s3, /<a:fld [^>]*type="slidenum">/, 'unshared number is still a field');
+    assert.ok(names(s3).includes('Slide number 3'));
+  });
+
+  test('a page number that is not the slide position stays text, so a split run keeps its printed number', async () => {
+    const d = deck();
+    d.slides[2].frames[1] = frame([[{ text: '2.2', style: style({ size: 12 }) }]], { role: 'number', x: 1200, y: 680, w: 50, h: 20, align: 'right' });
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, d, 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide3.xml').async('string');
+    assert.match(xml, /<a:t>2\.2<\/a:t>/);
+    assert.doesNotMatch(xml, /type="slidenum"/);
+  });
+
+  test('the slide content picture is locked against moving and resizing', async () => {
+    const { text } = await open();
+    assert.match(await text('ppt/slides/slide1.xml'), /<a:picLocks noChangeAspect="1" noMove="1" noResize="1"\/>/);
+  });
+
+  test('a deck with no roles and no backgrounds is written as before: no layouts, no lock', async () => {
+    const plain = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hi', style: style() }]])] }] };
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, plain, 'nodebuffer', JSZip));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.doesNotMatch(xml, /noMove/);
+    assert.equal(Object.keys(zip.files).filter((n) => /slideLayout\d+\.xml$/.test(n)).length, 1);
+  });
+});
+
+describe('calco pptx — every master has its own theme', () => {
+  // PptxGenJS 3.12 writes one theme1.xml for the slide master AND the notes master. PowerPoint refuses
+  // ("Sorry, PowerPoint can't read") a package like that once p:notesMasterIdLst is in its schema position.
+  const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'Hi', style: style() }]])], notes: 'Say this' }] };
+  const themeOf = async (zip, rels) => {
+    const xml = await zip.file(rels).async('string');
+    return xml.match(/Type="[^"]*\/theme"[^>]*Target="([^"]+)"|Target="([^"]+)"[^>]*Type="[^"]*\/theme"/).slice(1).find(Boolean);
+  };
+  const check = async (zip) => {
+    const slide = await themeOf(zip, 'ppt/slideMasters/_rels/slideMaster1.xml.rels');
+    const notes = await themeOf(zip, 'ppt/notesMasters/_rels/notesMaster1.xml.rels');
+    assert.notEqual(slide, notes, 'the notes master must not share the slide master theme');
+    assert.ok(zip.file(`ppt/theme/${notes.split('/').pop()}`), 'the notes theme part exists');
+    const types = await zip.file('[Content_Types].xml').async('string');
+    assert.match(types, new RegExp(`PartName="/ppt/theme/${notes.split('/').pop()}"`), 'and has a content type');
+    const pres = await zip.file('ppt/presentation.xml').async('string');
+    assert.ok(pres.indexOf('<p:notesMasterIdLst>') < pres.indexOf('<p:sldIdLst>'), 'the schema order is kept');
+  };
+
+  test('the editable writer gives the notes master a theme of its own', async () => {
+    await check(await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip)));
+  });
+
+  test('the picture-only package, tidied through tidyPptxPackage, does too', async () => {
+    const { tidyPptxPackage } = require('@laticent/calco');
+    const raw = new PptxGenJS();
+    raw.addSlide().addNotes('Say this');
+    const bytes = await tidyPptxPackage(JSZip, await raw.write({ outputType: 'uint8array' }), 'nodebuffer');
+    await check(await JSZip.loadAsync(bytes));
+  });
+});
+
+describe('calco pptx — media are named by what their bytes are', () => {
+  // PptxGenJS 3.12 writes a layout's background image as <layout>-image-1.png whatever it holds.
+  test('a JPEG layout background is a .jpeg part, and its relationship follows the rename', async () => {
+    const deck = {
+      width: 1280,
+      height: 720,
+      backgrounds: [{ image: ONE_PX_JPEG }],
+      slides: [{ image: ONE_PX_PNG, background: 0, frames: [frame([[{ text: 'Hi', style: style() }]], { role: 'title' })] }],
+    };
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/[^/]+\.\w+$/.test(n));
+    const jpeg = media.filter((n) => /\.jpe?g$/.test(n));
+    assert.equal(jpeg.length, 1, 'the background is a .jpeg');
+    assert.deepEqual(media.filter((n) => /\.png$/.test(n)).length, 1, 'the slide picture stays a .png');
+    for (const n of media) {
+      const head = await zip.file(n).async('uint8array');
+      const isJpeg = head[0] === 0xff && head[1] === 0xd8;
+      assert.equal(/\.jpe?g$/.test(n), isJpeg, `${n} is named by its bytes`);
+    }
+    const rels = (await Promise.all(Object.keys(zip.files).filter((n) => n.endsWith('.rels')).map((n) => zip.file(n).async('string')))).join('');
+    assert.match(rels, new RegExp(jpeg[0].split('/').pop().replace('.', '\\.')), 'a relationship names the renamed part');
+    assert.doesNotMatch(rels, /Layout-\d+-image-1\.png/, 'none still names the old .png');
+  });
+});
+
+describe('calco pptx — a text highlight', () => {
+  test('a highlighted run writes a:highlight with the color', async () => {
+    const JSZip = require('jszip');
+    const PptxGenJS = require('pptxgenjs');
+    const { writePptx } = require('@laticent/calco');
+    const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+    const lit = { ...style(), highlight: '#e6f0f5' };
+    const bytes = await writePptx(PptxGenJS, { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'code', style: lit }]])] }] }, 'nodebuffer', JSZip);
+    const xml = await (await JSZip.loadAsync(bytes)).file('ppt/slides/slide1.xml').async('string');
+    assert.match(xml, /<a:highlight><a:srgbClr val="E6F0F5"\/><\/a:highlight>/);
+  });
+});
+
+describe('calco pptx — unique shape ids', () => {
+  test('a repeated cNvPr id on a slide is renumbered; the first holder keeps it', () => {
+    const { uniqueShapeIds } = require('@laticent/calco');
+    const xml = '<p:spTree><p:cNvPr id="1" name=""/><p:cNvPr id="25" name="Slide Number Placeholder 0"/><p:cNvPr id="25" name="Text"/><p:cNvPr id="26" name="Shape"/></p:spTree>';
+    const out = uniqueShapeIds(xml);
+    const ids = [...out.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1]);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.equal(ids[1], '25');
+    assert.ok(out.includes('name="Text"') && out.includes('name="Shape"'));
+    assert.equal(uniqueShapeIds('<p:cNvPr id="2"/><p:cNvPr id="3"/>'), '<p:cNvPr id="2"/><p:cNvPr id="3"/>', 'unique ids are left alone');
+  });
+});

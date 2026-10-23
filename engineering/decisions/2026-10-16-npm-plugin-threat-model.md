@@ -415,11 +415,32 @@ slide and the author is told of a clash. The host writes them by walking the ope
 over the whole tag matched a name inside another attribute's quoted value and broke the tag's quoting (the red team).
 Each value is also held to twice its declared length BEFORE cleaning, and a lone surrogate is refused.
 
-Not built, and put to the owner (the ❓ card on the PR): no host surface SHOWS a returned value yet. The values are
-attributes a deck's own CSS can select on (`section[data-returned-gantt--status="late"]`), but a plugin's own
-`styles.css` does not reach a CLI export (`lattice.js` embeds component sheets only) and markdown is never rendered,
-although decision 11 says the host renders it; `renderReturnMarkdown` waits for that surface. The deck context stays
-out of reach (decision 12). Recorded in `followups.d/2749-p3-plugin-returns-consumer.md`.
+**Shown by host slots (owner, 2026-10-20).** A plugin's drawing holds `${field}` where a returned value should appear, and
+the host fills it after the returns check, in both doors (`fillReturnSlots`, `lib/packages/plugin-returns.mjs`; the CLI
+in `code-door.js`, the Studio in `door-run.ts`). Text, word, number and flag values go in as escaped plain text.
+A markdown value goes in as `renderReturnMarkdown`'s output, cut again to a list of bare tags with no attributes
+(`slotMarkdownHtml`). A slot fills in visible text only: a `${…}` inside a tag, a comment or a raw-text element
+(`<style>`, `<script>`, `<textarea>`, `<title>`) stays as written, so a value cannot become a link, a style or a handler.
+The scan is single-pass, so a value that holds `${other}` cannot chain. A `${name}` that is not a declared field stays as
+written, and a declared field the block did not return fills as nothing.
+
+The review (red team, inversion and checker, 2026-10-20) found and closed four windows in the first cut. (1) A stylesheet wrapped
+as text in `[data-lattice-plugin="x"] { … }` is no boundary: a stray `}` ends the wrapper, and `& ~ *` or `section:has(&)`
+reach the author's content from inside it. `styles.css` is not pinned into the consent digest, so the scope is the only guard. The sheet is now
+parsed and rebuilt (`lib/packages/plugin-css.mjs`): every selector is written back behind the plugin's root, and anything outside
+"style rules plus `@media` / `@supports`" is refused at the gate (`pluginCssRefusal`, CLI and Studio import) and scopes to nothing
+at render. That drops `@keyframes`, `@font-face` and `@import`, which nesting dropped silently. (2) Slots expand a drawing after the
+output cap counted it: 200,000 slots filled from one 2,000-character value measured 403 million characters, so a render's fills are
+budgeted (`SLOT_FILL_MAX`, 2 million). (3) A markdown value is block HTML. In an inline span, or inside `<svg>` or `<math>`, it ends the
+span or the SVG and the rest of the drawing is re-read as HTML, and `<code>` from a value reaches the inline-directive passes. There it
+now fills as escaped source text. (4) The raw-text scan lowercased the whole drawing per element (quadratic: 480 KB took 23 s); it
+lowercases once.
+
+Two facts the owner may want to revisit. **A text value cannot carry a tag:** the check (`MARKUP_RE`) refuses `<b>` before any slot
+sees it, so the plugin is disabled instead, as decision 12 says. The slot's escaping is the second layer behind that check. **The two doors differ
+on which sheets they add:** the CLI adds the sheets of plugins that drew in this render, the Studio adds every approved plugin's sheet
+to every preview and export (its stamp does not know the deck). Scoping makes the extra sheets inert in a deck with no such root. A class
+in a drawing must start with `lp-<plugin name>`, which the door's attribute filter enforces. An npm plugin ships no stylesheet today.
 
 ## 7. What is not verified
 

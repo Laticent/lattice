@@ -39,7 +39,11 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
   "tags": [
     "percentage",
     "stoplight",
@@ -69,7 +73,7 @@
     "rows": {
       "selector": "ul > li",
       "required": true,
-      "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note."
+      "description": "One li per item: label text then trailing inline-code pills — percent first, optional status second, e.g. - Adoption `68%` `at-risk`. Status vocabulary — the shared CHART_STATUS ten: on-track / done / live / at-risk / warn / blocked / fail / pilot / decision / deferred. Case is ignored (`AT-RISK` colors as `at-risk` does) but spacing is not: write the word hyphenated. The bar and the pill take the same state color for all ten. An optional nested bullet renders as a per-row note, and so does the `note=` field of the row written as one record: `- Adoption `{68%, at-risk, note=\"Q4 slip\"}`` (the record's note first, then the nested bullets)."
     }
   },
   "skeleton": "<!-- _class: progress -->\n\n`Eyebrow · context`\n\n## Progress by item.\n\n- First item `80%` `on-track`\n- Second item `55%` `at-risk`\n- Third item `30%` `blocked`\n",
@@ -158,7 +162,19 @@
     }
   },
   "venueCapacity": {
-    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+    "axis": "row",
+    "at": "wide",
+    "atLeast": [
+      "laptop"
+    ],
+    "byWords": {
+      "6": {
+        "laptop": 9,
+        "huddle": 6,
+        "conference": 5,
+        "hall": 4
+      }
+    }
   },
   "gesture": {
     "archetype": "part",
@@ -208,11 +224,13 @@
         "shape": "fields",
         "quotes": false,
         "nested": "detail",
+        "native": true,
         "legacy": [
           "value",
           "status"
         ]
       }
     }
-  }
+  },
+  "venueProbe": "<!-- _class: progress -->\n\n`H1 2026 · Phase 1 readiness`\n\n## Progress bars race toward their targets.\n\n- Signal Intake `92%` `on-track`\n- Scoring policy `68%` `at-risk`\n- Decision Log `81%` `on-track`\n- Calibration cadence `34%` `deferred`\n"
 }

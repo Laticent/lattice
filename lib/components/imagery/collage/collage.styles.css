@@ -28,6 +28,13 @@ section.collage {
 	--collage-pop: 1.03;
 	--collage-recede: 0.45;
 }
+/* A larger venue enlarges the type but not the slide, so a fixed 30% column left the title five
+ * lines tall and the description off the page at hall (not even four words fit). The text column
+ * takes a larger share as the type grows, and the photos keep the rest. `:where()` holds these at
+ * the base rule's specificity, after it, so a deck's own `--collage-text-w` still wins. */
+section.collage:where(.venue-huddle)     { --collage-text-w: 33%; }
+section.collage:where(.venue-conference) { --collage-text-w: 38%; }
+section.collage:where(.venue-hall)       { --collage-text-w: 44%; }
 section.collage.fill {
 	--collage-snap: 0.08;
 }

@@ -152,13 +152,18 @@ describe('lint: chart-row-record-unread', () => {
   // (bridgeRecordsHtml), so a record with an old form draws and is not reported. What is left to
   // report is a record the chart cannot draw: a field with no span form, and a record that
   // follows another code span on the row.
-  test('a record with a field the chart cannot draw yet warns; no machine fix', () => {
-    const src = deck('bullet', '- Uptime `{4.2M, target=5.0M, band=[60%, 80%]}`\n- Cost `3` `5`');
+  test('bullet\'s band and floor and progress\'s note are drawn now, so lint is silent (native charts)', () => {
+    assert.deepEqual(recordFindings(deck('bullet', '- Uptime `{4.2M, target=5.0M, band=[60%, 80%], floor=1M}`\n- Cost `3` `5`')), []);
+    assert.deepEqual(recordFindings(deck('progress', '- Build `{68%, at-risk, note="Q4 slip"}`')), []);
+  });
+
+  test('a record the old spans cannot spell, on a chart that is not native, warns; no machine fix', () => {
+    // A value that holds a backtick has no single-backtick span, so the bridge cannot spell it for the map's transform.
+    const src = deck('map', '- Spain ``{"a`b"}``');
     const [f, ...rest] = recordFindings(src);
     assert.equal(rest.length, 0);
     assert.equal(f.severity, 'warning');
-    assert.equal(f.line, '- Uptime `{4.2M, target=5.0M, band=[60%, 80%]}`');
-    assert.match(f.message, /field the bullet chart cannot draw yet/);
+    assert.match(f.message, /field the map chart cannot draw yet/);
     // No machine fix: phase 4's codemod writes the record, so "Fix all" must not undo it.
     assert.equal(f.autofixable, undefined);
     assert.equal(lintCore.applyAllFixes(src, vocab), src);

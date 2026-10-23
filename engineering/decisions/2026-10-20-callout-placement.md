@@ -240,7 +240,7 @@ proved: lift the paragraphs, tie notes to marks, size the lane, score the layout
 `gantt`, `hub-spoke`, and the quadrant's four other variants), so the notes cannot disagree with where the marks
 were drawn. A keyed chart builds its key around each candidate unit, as the heatmap does.
 
-**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to the figure's width), notes sit side by side, each row centered in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only the resolved side: the author's `side=`, else the manifest default (`callout.side`, compiled into `lib/core/callout-catalog.generated.js`), else under. `around` sets the resolved side for the span of one chart's render, so no chart's call changes. On the heatmap an explicit `side=` pins the notes; with none the grid keeps its own choice by plot size. The decision was the owner's: "the user should decide via a callout parameter; the default under; charts override it via their manifest." A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's bottom edge near its start, half outside it: inside the chip it covered the mood face, the top corners hold the actor dots and the heatmap's mood number, and on a row chip the face slides along the chip with the score, so the middle of the edge is not free either. The heatmap's own below layout is unchanged: moving it changes which side wins on a square slide, which `heatmap-placement.test.js` pins, so it moves with the heatmap onto the layer (`followups.d/2855-p3-callouts-heatmap-on-the-layer.md`).
+**The notes under a chart flow (owner, 2026-10-22).** A column under a figure is a stack taller than the room it leaves, and at 9:16 it ate the plot. `laneSvg` takes `flow: true` for the `below` side: each note is as wide as its words (up to the figure's width), notes sit side by side, each row centered in reading order, and a note that no longer fits starts a new row; a row shares one centerline, set by its tallest label. Owner review of the 9:16 output (2026-10-22) tightened it: the notes go under the figure at every shape, each row centered, and `choose` tries only the resolved side: the author's `side=`, else the manifest default (`callout.side`, compiled into `lib/core/callout-catalog.generated.js`), else under. `around` sets the resolved side for the span of one chart's render, so no chart's call changes. On the heatmap an explicit `side=` pins the notes; with none the grid keeps its own choice by plot size. The decision was the owner's: "the user should decide via a callout parameter; the default under; charts override it via their manifest." A lane beside a chart, one note to a row with dead space to its right, was the thing being removed. The journey badge moved to the chip's bottom edge near its start, half outside it: inside the chip it covered the mood face, the top corners hold the actor dots and the heatmap's mood number, and on a row chip the face slides along the chip with the score, so the middle of the edge is not free either. The heatmap's below layout moved onto the flowing group afterward (§ 11).
 
 **Three rules the second readers added.**
 
@@ -271,9 +271,9 @@ shape (the figure's viewBox grows in width for a lane beside it and in height fo
 The stacked bar, the map and the hub-spoke move at 4:3: the picks the real aspect made possible (§ 5 item 2).
 
 **What is not built.** `flowchart` and `state-chart` (the browser lays them out, so the shapes' boxes do not exist
-where the transform runs), and `radar` inside a split pane (the pane fits its own key). Both are filed in
-`followups.d/`. The heatmap's own placement loop was left alone (it differs from `choose` only in rule 1), also
-filed. Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
+where the transform runs; built afterward, § 12), and `radar` inside a split pane (the pane fits its own key). The heatmap's own placement loop was left alone in #2855 and now calls `choose` (`noteSides` keeps its
+both-sides default when the author names none; 60 renders of the twelve heatmap decks at five shapes are byte-identical).
+Its below-grid notes now flow like the others' (§ 11). Owner sign-off per item (§ 7) is pending: the decks are in the PR, light and dark.
 
 ## 9. Journey and risk-matrix (P4 as built)
 
@@ -292,4 +292,121 @@ A note is a row high, which at 16:9 clipped the mood legend until the key under 
 reason.
 
 **Not built, and still open:** plan item P5, keys through `@legend` on every component that already draws one
-(`followups.d/2854-p3-keys-through-legend.md`).
+(`followups.d/2855-p3-keys-through-legend.md`).
+
+## 10. The callout layer loads on demand (#2855 follow-up)
+
+**What moved.** `callout-layer.js` was one 620-line file in the closure of all nineteen chart kernels, so a deck
+with a chart downloaded the lane, the markers and `legend-svg.js` whether or not it wrote a callout. It is now
+three files behind the same import:
+
+| File | Holds | Loaded |
+|---|---|---|
+| `callout-core.js` | `lift`, `around`, `choose`, the stage's shape, the boxes a marker avoids, `matchName`, `mergeDetail`, `addToDesc` | always: `choose` places a key with no callout in sight, and `mergeDetail` runs on every render |
+| `callout-place.js` | `resolve`, `laneFor`, `place`, `describe`, `fromSvg`, `onSvg`, the marker and lane drawing (`legend-svg.js`) | for a deck that writes `@callout` or `@legend` |
+| `callout-layer.js` | the surface the charts import: core functions direct, the rest through `need()` | always (tiny) |
+
+**How it loads.** Node, the CLI and the single-file bundles reach `callout-place.js` through
+`callout-place-load.js` (a `require`). The ESM playground build swaps that file for a stand-in that answers null
+and ships `esm/callout-place.js` as an entry of its own, which installs the half into the shared layer
+(`tools/build-playground.js` `calloutPlaceEsmPlugin`). The engine's `calloutsNeeded(markdown)` says whether the
+deck writes `@callout{` or `@legend{` and the build is the lazy one; `ensureCalloutLayer` in
+`docs/src/lib/ensure-charts.ts` loads the entry before the synchronous render, as KaTeX and the kernels load.
+
+**It cannot draw a wrong chart quietly.** A heavy function with no half installed throws `ChunkLoadError`, the
+name the hosts already turn into "part of the app didn't load". `test/unit/components/callout-layer-lazy.test.js`
+holds three lines: no example deck without a callout reaches the heavy half (it renders with the half withheld),
+a deck with a callout and no half throws, and every deck that throws is one the host's scan names. A callout written
+through markup (`<code>@callout<span></span>{…}`) is one the scan cannot see and the chart still lifts, so `need()`
+also records the miss (`takeMissingCallouts`) and `renderMarkdown` loads the layer and renders once more, the way a
+missed chart kernel recovers. An independent checker found the gap.
+
+**Measured, same machine, gzip level 6.** Output is byte-identical: 942 renders (314 example decks at three slide
+shapes) before and after. The followup predicted about 12KB; the heavy half is 7.5KB, because the 11.9KB it counted
+was a shared chunk that still holds what the kernels need.
+
+| | Before | After |
+|---|---|---|
+| `chartKernelGz`, the largest kernel closure (`chart-map`), `check-route-budget.mjs` | 85.7 KB | 80.3 KB |
+| `chartKernelsGz`, the union of every kernel closure | 226.1 KB | 220.5 KB |
+| Engine (`calloutsNeeded`, the stand-in), my own gzip | 301,759 B | 302,206 B |
+
+`chartKernelGz` was more than 5% under its soft target, so the ledger called it stale and its soft target and
+ceiling came down with `route-budget:rebaseline` (87,803 to 82,236; 96,583 to 90,460). `chartKernelsGz` is
+inside its 5% band, so its ceiling stays where the owner set it.
+
+A callout deck pays what it paid before plus one request. On the real Studio in Chromium
+(`docs/e2e/engine-on-demand.spec.ts`): a bar chart with no callout requests `chart-bar.js` and not
+`callout-place.js`; adding `@callout` fetches it once and draws the marker and the note; a 404 on it shows "couldn't
+load part of the app" and draws no note.
+
+## 11. The heatmap's notes under the grid flow (#2864)
+
+`layoutHeatmap` passes `flow: below` to `laneSvg`, as `place` does for every other chart, so the notes under a grid sit
+side by side and wrap instead of stacking in one column. Measured on the 4 by 5 retention grid, plot kept as a share
+of the better side at that shape, the pick rule's own score (`kept` in `choose`):
+
+| Slide | Notes beside | Notes under, stacked (before) | Notes under, flowing (after) |
+|---|---|---|---|
+| 16:9, three notes | 100% | 79% | 93% |
+| 4:3, three notes | 100% | 82% | 97% |
+| 1:1, three notes | 71% | 100% | 100% |
+| 9:16, three notes | 70% | 100% | 100% |
+| 1:1, six long notes | 97% | 100% | 100% |
+
+With a key as well, at 1:1 the four placements scored (beside/beside, beside/under, under/beside, under/under) 40%,
+99%, 57%, 100% before and 35%, 87%, 50%, 100% after. Stacked, under/under beat beside/under by 1%, inside
+`PLACEMENT_MARGIN`, so the notes stayed beside. Flowing, it wins by 15%, so at a square slide with a key the notes
+and the key now both go under the grid, the notes first. That is the measured outcome of the owner's earlier rule that
+notes go under the figure at every shape; `heatmap-placement.test.js` ("square puts the notes and the key both under
+the grid") pins it. No shape changed which side wins for notes alone.
+
+Rendered: 942 example renders, four moved (`legend-anchored` at 16:9, 4:3 and 9:16; `callout-placement` at 9:16). In
+the PNGs the two slides that differ at 16:9 (`legend-anchored` 6 and 7) show one note centered under its grid, and the
+seven-by-twelve grid's notes in one row with a wider grid (463 against 374 px at 1x).
+
+## 12. Callouts on the flowchart and the state chart (#2864)
+
+**The problem.** Both charts are laid out in the browser (Trama, `docs/src/lib/trama`): the server writes a measuring
+harness and the model, and a pass in the page measures, lays out, fits and paints. The shapes' boxes exist only
+there, so the 17 server-side readers' `place` could not run where the transform runs.
+
+**The split.** The server half does what it can: `layer.around` lifts the callout paragraphs, `layer.resolve` ties
+each note to a shape or state by name (it has the names), and the notes ride in the model payload as
+`callouts: [{text, mark, detail?, plate?, color?, size?}]` with `calloutSide`. The `<desc>` and the hover card
+take their words there. The browser half places them: `callout-browser.js` `placeCallouts` calls the same `place`
+as every other chart (HARD RULE #1) on the laid-out boxes and answers with the notes' markup and the size the
+figure now takes.
+
+**Trama.** Two additive hooks, so Trama stays chart-agnostic. `PassOptions.callouts` is the placer, handed to the
+adapter on `ctx.callouts`. `adapter.extent(model, geo, ctx, measured)` says how large the drawing is with its notes;
+the fit's rounds, the `viewBox` and the scale box read it in place of `geo.width` and `geo.height`. A `paint` that
+mutated `geo` instead would have left the fit solving for a smaller figure than the one drawn, and the type floor
+would have been missed. The notes set at the chart's own smallest label (the floor lift is already in it), capped at
+18 units: a sparse state chart's labels grow to about 25 units, and a note that size broke its words in a narrow figure.
+
+**Where the placer comes from.** The Studio's runtime already bundles the callout layer, so it passes
+`placeCallouts` into the pass and pays no bytes. The CLI export serializes the pass with `toString()`, so a page
+has no modules: `tools/build-callout-browser.js` bundles `callout-browser.js` to an IIFE string
+(`lib/core/callout-browser-bundle.generated.js`, built not committed, like the dagre string), and `lattice.js`
+embeds it only in a deck whose flowchart or state chart carries callouts (`htmlHasCallouts`), so every other export
+is the size it was. Getting that string small took two leaf modules: `callout-geometry.js` and `callout-choose.js`
+split out of `callout-core.js`, and `legend-limits.js` out of `legend.js`, so the browser bundle does not carry the
+Segno reader that `lift` needs. 117 KB raw (39.8 KB gzipped) became 40 KB raw (17.1 KB gzipped).
+
+**HARD RULE #22.** `data-fc-model` and `data-sc-model` are author-forgeable and the pass runs after the sanitizer,
+so both `sanitizeModel`s rebuild `callouts` from a closed set: at most six, each tied to an existing shape index,
+text kept as text, `plate` and `size` matched against closed lists (an own-property check, so `constructor` is dropped), `color` 1 to 8, `side` `under` or `beside`.
+`graph-callouts.test.js` forges a model and holds each of those.
+
+**Not drawn, and said so.** A note that names no shape is listed in the `<desc>` as not drawn. The state chart's
+`inline` variant is rows of HTML with no layout pass, so it leaves the callout paragraph on the slide as written
+instead of dropping the author's words. A note the lane has no room for in `beside` cannot be reported from the
+browser (the `<desc>` is the server's); under the figure the group grows without limit, so none is lost.
+
+**Seen.** Real Studio in Chromium (`docs/e2e/graph-callouts.spec.ts`, 3 of 3): the ring, the note and the grown
+`viewBox` on both charts, and the orphan note in the `<desc>`. The CLI's PDF at 16:9, 1:1, 9:16 and 4:5, light and
+dark: the notes sit under the figure at every shape with the right shapes ringed. Rings are plain rectangles, so on the
+state chart's rounded tiles the ring's corners are square; tracing each tile's own outline is left for a later pass.
+Callout-free flowchart and state-chart decks render pixel-identical before and after (24 PDF pages), though their
+export script differs by the new `extent` lines.

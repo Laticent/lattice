@@ -153,13 +153,14 @@ export function WorkspaceShell({ open, onOpenChange, children }: { open: boolean
 // Four sections, then a second row of kinds inside Design and Media. Eight flat pills wrapped
 // onto a second row at 390px and made the person pick a kind before they could see anything.
 // `LibraryFilter` is the fine-grained value; `sectionOf` says which pill it lives under.
-export type LibraryFilter = 'all' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc';
-export type LibrarySection = 'all' | 'design' | 'media' | 'files';
+export type LibraryFilter = 'all' | 'design' | 'theme' | 'component' | 'finish' | 'motion' | 'media' | 'image' | 'video' | 'refdoc' | 'plugin';
+export type LibrarySection = 'all' | 'design' | 'media' | 'files' | 'plugins';
 export const LIBRARY_SECTIONS: Array<{ value: LibrarySection; label: string }> = [
 	{ value: 'all', label: 'All' },
 	{ value: 'design', label: 'Design' },
 	{ value: 'media', label: 'Media' },
 	{ value: 'files', label: 'Files' },
+	{ value: 'plugins', label: 'Plugins' },
 ];
 /** The kinds inside a section. The first entry is the whole section. */
 export const LIBRARY_KINDS: Partial<Record<LibrarySection, Array<{ value: LibraryFilter; label: string }>>> = {
@@ -179,16 +180,17 @@ export const LIBRARY_KINDS: Partial<Record<LibrarySection, Array<{ value: Librar
 export function sectionOf(f: LibraryFilter): LibrarySection {
 	if (f === 'all') return 'all';
 	if (f === 'refdoc') return 'files';
+	if (f === 'plugin') return 'plugins';
 	if (f === 'media' || f === 'image' || f === 'video') return 'media';
 	return 'design';
 }
 /** The filter a section opens on. */
-export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'files' ? 'refdoc' : s);
+export const sectionFilter = (s: LibrarySection): LibraryFilter => (s === 'files' ? 'refdoc' : s === 'plugins' ? 'plugin' : s);
 export const LIBRARY_HEADER = {
 	icon: <FileBox />,
 	title: 'Library',
-	srDescription: 'Saved themes, components, finishes, images, videos, and files — search, filter, apply, or drop a file in.',
-	searchPlaceholder: 'Search themes, components, finishes, images, videos & files…',
+	srDescription: 'Saved themes, components, finishes, images, videos, files and plugins — search, filter, apply, or drop a file in.',
+	searchPlaceholder: 'Search themes, components, finishes, images, videos, files & plugins…',
 } as const;
 
 export function LibraryShell({ docked, open, onOpenChange, children }: { docked?: boolean; open: boolean; onOpenChange: (v: boolean) => void; children?: React.ReactNode }) {
@@ -220,7 +222,7 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 			/>
 			<div className="flex items-center gap-2 border-b border-border bg-card px-4 py-2.5">
 				<Inert className="min-w-0 flex-1">
-					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} />
+					<PillTabs ariaLabel="Library sections" value="all" onValueChange={() => {}} tabs={LIBRARY_SECTIONS} dense={docked} />
 				</Inert>
 			</div>
 			<div className="min-h-0 min-w-0 flex-1 overflow-hidden p-4">

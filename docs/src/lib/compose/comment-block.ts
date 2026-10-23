@@ -1,6 +1,7 @@
 import type MarkdownIt from 'markdown-it';
 import type { NodeSpec } from 'prosemirror-model';
-import { isDescriptionBody, isSayBody } from '../../components/studio/slide-directives';
+import { readMarker } from '../../../../lib/core/meta-record.mjs';
+import { isDescriptionBody, isDirectiveBody, isPaneMarkerBody, isSayBody } from '../../components/studio/slide-directives';
 import { CLIP_ORIGIN } from './clip-origin';
 
 // An authoring COMMENT, modeled as a real schema node instead of falling through as prose.
@@ -176,6 +177,71 @@ export function stripChannelPrefix(body: string, text: string): string {
  *  "say: " is the syntax that selects the channel, not part of what the author wrote. */
 export function commentText(text: string): string {
 	return stripChannelPrefix(commentBody(text), text);
+}
+
+/** The indent every later line of a note's words shares (the hanging indent an author lines a note up with). The panel shows the words
+ *  without it and `writeNote` puts it back, so a note reads flush in the field and keeps its bytes. */
+function hangingIndent(words: string): string {
+	const later = words.split('\n').slice(1).filter((l) => l.trim());
+	if (!later.length) return '';
+	return later.map((l) => /^[ \t]*/.exec(l)?.[0] ?? '').reduce((a, b) => (b.startsWith(a) ? a : a.startsWith(b) ? b : ''));
+}
+
+function noteWords(text: string): string {
+	const inner = commentInner(text);
+	return (commentKind(text) === 'note' ? inner : inner.replace(/^\s*[A-Za-z]+\s*:/, '')).trim();
+}
+
+/** The comment's words as the author wrote them, for EDITING: the channel prefix, the space around the words and their shared hanging indent
+ *  are set aside, and every line break inside them is kept, so changing one word writes back one word and nothing else (`readableNote` joins
+ *  wrapped lines, which is right for reading and wrong for writing). */
+export function editableNote(text: string): string {
+	const words = noteWords(text);
+	const indent = hangingIndent(words);
+	// A line of only spaces keeps them: `writeNote` puts the indent back on lines with words only, so stripping it here would lose it.
+	return indent ? words.split('\n').map((l, i) => (i > 0 && l.trim() && l.startsWith(indent) ? l.slice(indent.length) : l)).join('\n') : words;
+}
+
+/** Longest comment a note may be edited to: the same ceiling a paste is held to (`readCommentText`). */
+const NOTE_MAX = 8192;
+
+/**
+ * The comment with its words replaced, or null when the result would not be the same kind of comment.
+ *
+ * Only the words change. The opener (`<!--`, or a longer dash run), the closer and the channel prefix
+ * (`say:`, `describe:`) stay as the author wrote them, so a note that is never edited is never touched. The
+ * result is refused (null) when it:
+ *   · is empty (Remove is the way to delete a note);
+ *   · ends the comment early, or is not one well-formed inert comment (`COMMENT_SHAPE`, the paste gate's own test);
+ *   · reads as a directive (`_class: …`, or the bare `footer: …` the engine also obeys), or opens a second comment, which would be hoisted out of the prose and set a slide attribute;
+ *   · changes channel (a note that now starts `say:` would narrate), or exceeds `NOTE_MAX`.
+ * A caller that gets null says why; it never writes a guess.
+ */
+export function writeNote(text: string, words: string): string | null {
+	// A textarea's value is LF already; a carriage return would make a second line ending in the deck, so it is refused, not folded.
+	if (/\r/.test(words)) return null;
+	const body = String(words).trim();
+	if (!body || body.includes('<!--')) return null;
+	// The engine also obeys the bare spelling (`footer: …`, `class: lead`), not only `_class:`: those words are a directive, not a note.
+	// On the say and describe channels the comment's first key is `say`/`describe`, so only a plain note can open with a directive word.
+	if (commentKind(text) === 'note' && (isDirectiveBody(body) || isPaneMarkerBody(body) || readMarker(`<!-- ${body} -->`))) return null;
+	const opener = /^<!-{2,}/.exec(text)?.[0];
+	const closer = /-*!?>$/.exec(text)?.[0];
+	if (!opener || closer === undefined) return null;
+	// Everything around the words keeps its bytes: the space or line break after the opener, the channel prefix as written, and the space or
+	// line break before the closer. Only the words between them change.
+	const inner = commentInner(text);
+	let lead = (commentKind(text) === 'note' ? /^\s*/ : /^\s*[A-Za-z]+\s*:\s*/).exec(inner)?.[0] ?? '';
+	let trail = /\s*$/.exec(inner)?.[0] ?? '';
+	// A comment written with no space (`<!--x-->`) gets one where the words would otherwise run into the opener or closer: a leading `-` or
+	// `>`, or a trailing `-`, would be read as part of them and drop out of the words.
+	if (!/\s$/.test(lead) && /^[->]/.test(body)) lead += ' ';
+	if (!trail && /-$/.test(body)) trail = ' ';
+	const indent = hangingIndent(noteWords(text));
+	const laid = indent ? body.split('\n').map((l, i) => (i > 0 && l.trim() ? indent + l : l)).join('\n') : body;
+	const out = `${opener}${lead}${laid}${trail}${closer}`;
+	if (out.length > NOTE_MAX || !isWellFormedComment(out) || DIRECTIVE_SHAPED.test(out) || commentKind(out) !== commentKind(text)) return null;
+	return out;
 }
 
 /** The `comment` node: a block-level ATOM carrying its source bytes.

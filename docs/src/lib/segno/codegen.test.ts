@@ -34,8 +34,8 @@ function rng(seed: number) {
   };
 }
 
-const SEEDS = ['{BETA, tag, c4}', '[{Effort, 0..10, 5}, Reach]', '[, Reach]', 'after=Design', '"a, b"', '{a, "q\\"x", b=[1,2]}', '$4.2M', '{x = {y, z}}'];
-const ALPHABET = [...'{}[],="\\| abcxyz019.$-\t', '\u{1F600}', 'é'];
+const SEEDS = ['{BETA, tag, c4}', '[{Effort, 0..10, 5}, Reach]', '[, Reach]', 'after=Design', '"a, b"', '{a, "q\\"x", b=[1,2]}', '$4.2M', '{x = {y, z}}', '{> a, b=c \\} d}', '{>5}', '{3, >5}', '{{> x}, [{> y}]}'];
+const ALPHABET = [...'{}[],="\\| abcxyz019.$->\t', '\u{1F600}', 'é'];
 
 describe('generated parser = reference parser', () => {
   it('agrees on 20,000 fuzzed spans', () => {

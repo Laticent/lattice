@@ -111,6 +111,25 @@ for (const [label, width, height] of [
 	});
 }
 
+// A plugin the deck LISTS but this browser has not approved: an inline span keeps its words (a card in a sentence would take
+// the author's text out of a shared file), and the strip says why. The block form of the same plugin gets the drawn card instead.
+test('a listed but unapproved plugin leaves its inline span as code, with the strip asking for the yes @crosswidth @webkit-tablet @gecko', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	const docked = page.getByRole('button', { name: 'Open Library' });
+	await ((await docked.count()) ? docked : page.getByRole('button', { name: 'Library', exact: true })).click();
+	await page.locator('[data-testid="library-import-input"]').setInputFiles({ name: 'chip-plugin.zip', mimeType: 'application/zip', buffer: await chipZip() });
+	await expect(page.locator('[data-sonner-toast]').first()).toContainText('1 plugin(s)');
+	await page.keyboard.press('Escape');
+	await setEditorContent(page, `---\nplugins: [chip-plugin]\n---\n\n## Launch status\n\nThe launch is \`@tag-chip{Launch, hot}\` this week.\n`);
+	const notice = page.locator('[data-slot="code-packages"]');
+	await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
+	const preview = livePreview(page);
+	await expect(preview.locator('section')).toContainText('Launch, hot', { timeout: 30_000 });
+	await expect(preview.locator('[data-lattice-plugin-off]')).toHaveCount(0);
+	await expect(preview.locator('[data-lattice-plugin="chip-plugin"]')).toHaveCount(0);
+});
+
 // ── The BUILT-IN kinds in the named spelling, in the real Studio ──
 // `@icon{…}` and `@avatar{…}` are the same rows as `^{…}` and `!{…}` (inline-code-directives.js `NAMED_ROW`), so the
 // preview draws the same SVG, and the root keeps the author's spelling in `data-src`. The `@` menu lists the kinds.

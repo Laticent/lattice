@@ -29,12 +29,15 @@ export function PillTabs({
 	onValueChange,
 	ariaLabel,
 	className,
+	dense = false,
 }: {
 	tabs: PillTab[];
 	value: string;
 	onValueChange: (value: string) => void;
 	ariaLabel: string;
 	className?: string;
+	/** Tighter padding and gap, for a narrow pane that holds more pills than the roomy default fits on one row. */
+	dense?: boolean;
 }) {
 	const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
 		const i = tabs.findIndex((t) => t.value === value);
@@ -53,7 +56,7 @@ export function PillTabs({
 		el?.focus();
 	};
 	return (
-		<div className={cn('flex flex-wrap gap-1.5', className)} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
+		<div className={cn('flex flex-wrap', dense ? 'gap-1' : 'gap-1.5', className)} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
 			{tabs.map((t) => (
 				<button
 					type="button"
@@ -63,7 +66,8 @@ export function PillTabs({
 					tabIndex={t.value === value ? 0 : -1}
 					onClick={() => onValueChange(t.value)}
 					className={cn(
-						'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
+						'inline-flex items-center gap-1.5 rounded-full border py-1.5 font-semibold transition-colors',
+						dense ? 'px-2.5 text-[12px]' : 'px-3 text-[12.5px]',
 						t.value === value
 							? 'border-primary bg-primary text-primary-foreground'
 							: 'border-border bg-background text-muted-foreground hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]',

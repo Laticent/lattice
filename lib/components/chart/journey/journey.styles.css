@@ -199,6 +199,7 @@ section.journey .journey-legend {
   margin: 0;
   padding: 0;
   font-size: var(--fs-body-compact);
+  line-height: 1.25; /* the inherited 1.6 made a one-line legend entry a 49px box at hall */
   color: var(--text-secondary, var(--text-body));
 }
 section.journey .journey-actor {
@@ -247,6 +248,7 @@ section.journey .journey-mood-legend {
   font-size: var(--fs-body-compact);
   color: var(--text-secondary, var(--text-body));
   letter-spacing: 0.02em;
+  line-height: 1.25;
 }
 section.journey .journey-mood-key {
   display: inline-flex;
@@ -495,6 +497,16 @@ section.journey .journey-timeline::after {
   border-bottom: 6px solid transparent;
 }
 
+/* ── A larger venue tightens the mood band, not the type ─────────────────
+ * A venue enlarges every type role, but the board's height is the slide's. The legend, the
+ * stage heads and the step labels grow; the mood band and the curve are slide-unit geometry and
+ * did not give anything back, so at conference and hall the board overflowed with empty band
+ * inside it (not even one stage fit). One variable drives the band, the faces and the plumb
+ * lines (--journey-mood-row), so tightening it keeps all three in step; the curve takes a
+ * matching share. Engineering/decisions/2026-10-22-venue-conformance.md. */
+section.journey:where(.venue-conference) { --journey-mood-row: 1.7cqi; --journey-curve-h: 13cqi; }
+section.journey:where(.venue-hall)       { --journey-mood-row: 1.3cqi; --journey-curve-h: 9cqi; }
+
 /* ── Mood faces with plumb lines ────────────────────────────────────── */
 section.journey .journey-moods {
   display: grid;
@@ -643,7 +655,7 @@ section.journey.curve .journey-lanes {
 }
 section.journey.curve .journey-curve {
   display: block;
-  height: 17.1875cqi;
+  height: var(--journey-curve-h, 17.1875cqi);
   padding-top: var(--sp-md); /* was margin-top — padding stays inside the flex content box */
   /* Gridlines, polyline, and dots all live inside the SVG so the y-axis
    * scale survives non-uniform viewBox stretching. */

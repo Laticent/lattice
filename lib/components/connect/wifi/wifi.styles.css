@@ -16,11 +16,42 @@
  * costly and visible. The budget below is what stops it happening at all; this is
  * the backstop for the deck that still over-authors. */
 section.wifi .qr-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: safe center;
+  /* The QR takes the left column the full height; the heading and the rows stack in the right
+   * one. That spends width, which a wide slide has, instead of height, which it does not: a
+   * code at the hall floor is 327px tall on a 524px stage. Tall and strip stack everything. */
+  --qc-col-gap: calc(var(--qc-pad) * 1.6);
+  --qc-head-w: calc(100cqi - var(--qc-qr) - var(--qc-col-gap));
+  --qc-head-h: 7;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas: "side head" "side fields";
+  align-content: safe center;
+  align-items: center;
+  column-gap: var(--qc-col-gap);
+  row-gap: var(--qc-gap);
   height: 100%;
-  gap: 1.2em;
+}
+/* The body group dissolves into the card's grid so the structure can change per family. */
+section.wifi .qr-body { display: contents; }
+
+/* Tall and strip: a narrow canvas gets the venue's type lift on top of its own portrait scale, so
+ * the eyebrow, the labels and the values stop at a share of the width. Declared on the slide
+ * element, where the `--_sec-1cq*` stamp lives. */
+section.wifi:where([data-family="tall"], [data-family="strip"]) {
+  --qr-base: 0.24;
+  --qc-dd-max: calc(var(--_sec-1cqi, 1cqi) * 4);
+  --qc-dt-max: calc(var(--_sec-1cqi, 1cqi) * 2.6);
+  --qc-eyebrow-max: calc(var(--_sec-1cqi, 1cqi) * 2.6);
+}
+section.wifi:where([data-family="tall"], [data-family="strip"]) .qr-card {
+  --qc-head-w: 100cqi;
+  --qc-head-h: 5.2;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-template-areas: "head" "side" "fields";
+  align-content: safe start;
+  justify-items: stretch;
 }
 
 /* wifi is a `conformance:"strict"` CANVAS (model-driven frame render §4): the
@@ -54,86 +85,60 @@ section.wifi > .cell-stage > .qr-card {
  * being true. If the tile is ever widened past ~10.9em, this comes back WITH the
  * measurement that justifies it. */
 
+section.wifi .qr-head {
+  grid-area: head;
+  align-self: end;
+}
 section.wifi .qr-eyebrow {
-  font-size: var(--fs-meta);
+  font-size: min(var(--fs-meta), var(--qc-eyebrow-max, 999px));
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-weight: 600;
+  line-height: 1.25;
   padding: 0;
 }
 
 section.wifi .qr-head h2 {
-  font-size: var(--fs-h1);
+  /* The title role, unless the heading would need more than two lines of its column or take
+   * more than its share of the height. 0.55em per character is a display sans in mixed case. */
+  font-size: max(
+    calc(var(--_sec-1cqi, 1cqi) * 2.9),
+    min(
+      var(--fs-h1),
+      calc(var(--qc-head-w) * 2 / (var(--head-chars, 30) * 0.55)),
+      calc(var(--_sec-1cqh, 1cqh) * var(--qc-head-h))
+    )
+  );
   color: var(--text-heading);
   font-weight: 600;
   line-height: 1.02;
   padding-top: 0.18em;
 }
 
-section.wifi .qr-body {
-  display: flex;
-  align-items: center;
-  gap: 3.6em;
-}
-
-/* The column stays 12em — that is the CTA's MEASURE, not the tile's. Narrowing it
- * with the tile wrapped "One scan connects the room" (uppercase at 0.16em tracking)
- * onto a third line and cost more height than the smaller tile saved: measured, 24px
- * worse than leaving it alone. */
 section.wifi .qr-side {
-  flex: 0 0 auto;
+  grid-area: side;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.7em;
-  width: 12em;
-}
-
-/* 9.5em, down from 12em (#1278). THE CARD HAD NO ROOM FOR ITS OWN CONTENT: at 12em
- * the tile's border-box is 301px of a 524px stage — 57% of the card's height for the
- * code alone, leaving 223px for a heading, an eyebrow, three credential rows and a
- * CTA that together want 274. Four gallery slides clipped, and the reported cause (a
- * `.qr-cta` overshooting by ~25px) was never the cause: the CTA is 48px and the
- * arithmetic simply did not close. Measured on the real gallery card at 1280x720, the
- * retune below (tile 12em->9.5em, card gap 1.9->1.2em, side gap 0.9->0.7em, field gap
- * and rule inset 1.5->0.9em) takes the worst slide from 51px OVER to 22px under, and
- * a one-line title from 14px of headroom to 87 — a whole extra heading line either
- * way. 9.5em is still 19% larger than `contact`'s 8em tile, and 203px of SVG on a
- * 1280px slide scans from the back of a room. */
-section.wifi .qr-tile {
-  width: 9.5em;
-  padding: 1em;
-  background: var(--qr-paper, #ffffff);
-  color: var(--qr-ink, #14140f);
-  border: 1px solid var(--border);
-  border-radius: 0.85em;
+  gap: var(--qc-gap);
 }
 
 section.wifi .qr-cta {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-  font-size: var(--fs-meta);
   color: var(--accent);
+  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
-section.wifi .qr-cta::before {
-  content: "";
-  width: 0.5em;
-  height: 0.5em;
-  border-radius: 50%;
-  background: var(--accent);
-}
 
 section.wifi .qr-fields {
-  flex: 1 1 auto;
-  max-width: 24em;
+  grid-area: fields;
+  align-self: start;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.9em;
+  gap: var(--qc-gap);
   padding: 0;
 }
 
@@ -141,21 +146,31 @@ section.wifi .qr-row {
   display: flex;
   flex-direction: column;
   gap: 0.15em;
+  min-width: 0;
 }
 section.wifi .qr-row + .qr-row {
   border-top: 1px solid var(--border);
-  padding-top: 0.9em;
+  padding-top: var(--qc-gap);
 }
+section.wifi .qr-row dt,
+section.wifi .qr-row dd { margin: 0; }
 section.wifi .qr-row dt {
-  font-size: var(--fs-meta);
+  font-size: min(var(--fs-meta), var(--qc-dt-max, 999px));
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.16em;
+  line-height: 1.25;
 }
 section.wifi .qr-row dd {
-  font-size: var(--fs-h3);
+  /* The longest value must fit its column on one line; a password cut or wrapped mid-string is
+   * unusable. 0.62em per character is a monospace advance, a little wide for a proportional
+   * network name. */
+  font-size: max(calc(var(--_sec-1cqi, 1cqi) * 1.7), min(var(--fs-h3), calc(var(--_sec-1cqh, 1cqh) * 5.2), calc((100cqi - var(--qc-qr) - var(--qc-col-gap)) / (var(--field-chars, 16) * 0.62))));
   color: var(--text-heading);
   line-height: 1.12;
+}
+section.wifi:where([data-family="tall"], [data-family="strip"]) .qr-row dd {
+  font-size: max(calc(var(--_sec-1cqi, 1cqi) * 1.7), min(var(--fs-h3), var(--qc-dd-max), calc(100cqi / (var(--field-chars, 16) * 0.62))));
 }
 section.wifi .qr-row dd.qr-mono {
   font-family: var(--font-mono);

@@ -10,7 +10,7 @@
 import { Code2, Sparkles } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { approveCodePackage, approvePlugin, type CodePackagesStatus, offeredIn, onCodePackagesStatus, type StudioPlugin, unapprovedIn } from '@/lib/code-packages/door';
+import { approveCodePackage, approvePlugin, type CodePackagesStatus, isPluginApproved, offeredIn, onCodePackagesStatus, type StudioPlugin, unapprovedIn } from '@/lib/code-packages/door';
 import { returnsConsent } from '../../../../lib/packages/code-shape.mjs';
 import { deckPluginList, writeDeckPlugins } from '../../../../lib/plugins/deck-plugins.mjs';
 
@@ -62,14 +62,14 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 					size="xs"
 					variant="outline"
 					className="shrink-0"
-					aria-label={`Run the code of ${p.name}`}
+					aria-label={`Approve the code of ${p.name}`}
 					onClick={() => {
 						if (isPlugin(p)) approvePlugin(p);
 						else approveCodePackage(p);
 						onApproved();
 					}}
 				>
-					Run it
+					Approve
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
@@ -82,12 +82,15 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 	if (offered.length && onWrite) {
 		const p = offered[0];
 		const more = offered.length - 1;
+		// Consent to this exact code was already given in this browser (it survives unlisting), so the only thing left to do is
+		// list it: say that, and do not ask for a second yes.
+		const already = isPluginApproved(p);
 		return (
 			<div role="status" data-slot="code-packages" data-state="offered" className={`${row} flex-wrap bg-[var(--accent-soft)] text-[var(--text-heading)]`}>
 				<Sparkles className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
 				<span className="min-w-0 flex-1">
 					<span className="font-semibold">
-						The plugin “{p.name}” can draw the {drawsWhat(p)} in this deck.{more ? ` ${more} more plugin${more > 1 ? 's are' : ' is'} offered after it.` : ''}
+						{already ? <>This deck writes the {drawsWhat(p)} but does not list the plugin “{p.name}”.</> : <>The plugin “{p.name}” can draw the {drawsWhat(p)} in this deck.</>}{more ? ` ${more} more plugin${more > 1 ? 's are' : ' is'} offered after it.` : ''}
 					</span>{' '}
 					<button type="button" className="underline underline-offset-2" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
 						{open ? 'Hide details' : 'What it is'}
@@ -97,17 +100,17 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 					size="xs"
 					variant="outline"
 					className="shrink-0"
-					aria-label={`Approve the plugin ${p.name}`}
+					aria-label={already ? `Add the plugin ${p.name} to this deck` : `Approve the plugin ${p.name}`}
 					onClick={() => {
 						// ONE yes, two writes: the deck states what it needs (`plugins:`, so the CLI renders it the same
 						// way), and this browser records consent to the code at exactly these bytes. A downloaded deck can
 						// name a plugin but never carry its approval.
 						onWrite(`Plugins → list ${p.name}`, (s) => writeDeckPlugins(s, [...deckPluginList(s), p.name]));
-						approvePlugin(p);
+						if (!already) approvePlugin(p);
 						onApproved();
 					}}
 				>
-					Approve
+					{already ? 'Add to deck' : 'Approve'}
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">

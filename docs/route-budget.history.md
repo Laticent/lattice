@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-22 — measured on the built tree at b4552e5
+
+the callout layer's lane and markers load only for a deck that writes @callout (#2855 follow-up): the largest kernel closure fell 85.7 to 80.3 KB and the union 226.1 to 220.5 KB, and the three ceilings the owner raised for the layer come back down
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | chartKernelGz | 87803 | 82236 | -5567 | 90460 |
+
 ### 2026-10-22 — measured on the built tree at 127b36b
 
 Callouts on 19 charts (#2855): the shared placement file callout-layer.js is 11.9KB gzipped and sits in every chart kernel's closure; owner approved D1 A.

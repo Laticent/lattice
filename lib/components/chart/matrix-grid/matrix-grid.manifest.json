@@ -26,13 +26,29 @@
     "data": true
   },
   "stage": "canvas",
-  "coda": { "claims": ["trailing-paragraph"] },
-  "axisSet": {"members": ["column", "row"], "body": "table"},
+  "coda": {
+    "claims": [
+      "trailing-paragraph"
+    ]
+  },
+  "axisSet": {
+    "members": [
+      "column",
+      "row"
+    ],
+    "body": "table"
+  },
   "labelSet": {
     "aria": "Cell key",
     "members": [
-      { "key": "[-]", "label": "reachable" },
-      { "key": "[ ]", "label": "not applicable" }
+      {
+        "key": "[-]",
+        "label": "reachable"
+      },
+      {
+        "key": "[ ]",
+        "label": "not applicable"
+      }
     ],
     "unkeyed": [
       {
@@ -188,12 +204,12 @@
   ],
   "specimenVoice": true,
   "handles": [
-      {
-        "part": "tbody > tr",
-        "names": ":scope > td:first-child, :scope > th:first-child",
-        "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with. Scoped with `:scope >` because a row holding a nested table would otherwise hand back the inner table's first cell, and the handle would be drawn around the whole nested table."
-      }
-    ],
+    {
+      "part": "tbody > tr",
+      "names": ":scope > td:first-child, :scope > th:first-child",
+      "note": "The projection reads a row as `<label>: <cell>; <cell>.`, which no single element on the slide holds — so the cue hid. The row's first cell is the label it opens with. Scoped with `:scope >` because a row holding a nested table would otherwise hand back the inner table's first cell, and the handle would be drawn around the whole nested table."
+    }
+  ],
   "pane": {
     "side": 50,
     "stack": false,
@@ -209,7 +225,16 @@
     }
   },
   "venueCapacity": {
-    "none": "A chart scales its marks to the box instead of clipping, so no count marks where it stops fitting."
+    "axis": "row",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 7,
+        "huddle": 4,
+        "conference": 3,
+        "hall": 2
+      }
+    }
   },
   "gesture": {
     "archetype": "table",
@@ -248,5 +273,6 @@
         "empty": "none"
       }
     }
-  }
+  },
+  "venueProbe": "<!-- _class: matrix-grid -->\n\n## Your level is a cell, not a rung.\n\n`[Wider reach, Deeper cognition]`\n\n| Verb | Self | Team | Org | Field |\n| ---------- | :--: | :--: | :--: | :---: |\n| Apply      | [-]  | [x] Senior | [-] | [ ] |\n| Understand | [x] Mid | [-] | [ ] | [ ] |\n"
 }

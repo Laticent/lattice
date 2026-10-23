@@ -11,7 +11,8 @@
  * prune CSS + fonts against an offscreen full-deck iframe — the SAME kernel the CLI
  * emulator runs in headless Chromium (HARD RULE #1; the prune logic has one source).
  * css-tree is sizeable, so this is a dynamic-import chunk (only math for the export
- * pays it), never part of the initial Studio load.
+ * pays it), never part of the initial Studio load. The Studio's reading-view warm-up
+ * fetches it after the first slide and a pause in input (docs/src/components/studio/first-slide.ts).
  *
  * Flags:
  *   --check    Build to a temp buffer and diff against the committed file.

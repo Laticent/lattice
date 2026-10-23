@@ -1,0 +1,1 @@
+- Lint: `chart-series-name-inconsistent` warns when a nested bar, line, stacked-bar, slope or radar list spells one series two ways across its groups (`Licenses` / `Licences`), names the intended spelling, and offers a one-click fix. Series that sit side by side in a group, and names that differ only in digits, stay silent.

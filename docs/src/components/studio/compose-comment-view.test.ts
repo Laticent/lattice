@@ -350,10 +350,11 @@ describe('a comment nested in a blockquote is a first-class pill', () => {
 });
 
 describe('the panel lays the note out for reading', () => {
-	it('joins WRAPPED lines but keeps blank-line paragraphs', () => {
+	// The field is for EDITING, so it keeps the author's line breaks: joining wrapped lines there wrote the join back on the first edit.
+	it('keeps WRAPPED lines and blank-line paragraphs, without the hanging indent', () => {
 		mount(['<!-- _class: content -->', '', '## H', '', '<!-- one wrapped', '     line here.', '', '     And a second paragraph. -->'].join('\n'));
 		pills()[0].click();
-		expect(panels()[0].querySelector('.cs-comment-body')?.textContent).toBe('one wrapped line here.\n\nAnd a second paragraph.');
+		expect((panels()[0].querySelector('.cs-comment-body') as HTMLTextAreaElement).value).toBe('one wrapped\nline here.\n\nAnd a second paragraph.');
 	});
 
 	// The opposite failure to the one below, and the one the first fix created: dedenting by the

@@ -17,9 +17,11 @@
  */
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
 import { dominantStyle, metricsFor, placeFrame } from './layout.js';
+import { isPosition, planMasters, withoutHoisted } from './masters.js';
+import { imageExt, imageMime } from './picture.js';
 import { renameFace } from './sfnt.js';
 import { drawOrder, type Insets, labelInsets, type ShapeGeometry, shapeGeometry } from './shapes.js';
-import type { Deck, EmbeddedFont, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
+import type { Deck, EmbeddedFont, FrameRole, Gradient, JSZipClass, Shape, TextFrame, TextStyle } from './types.js';
 
 export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 
@@ -27,6 +29,8 @@ export const ODP_MIMETYPE = 'application/vnd.oasis.opendocument.presentation';
 const LONGEST_EDGE_CM = 33.867;
 const PT_PER_CM = 72 / 2.54;
 const NO_DIRS = Object.freeze({ createFolders: false });
+/** What a role is called in the file, so a reader finds it in the Navigator. */
+const ROLE_NAMES: Record<FrameRole, string> = { title: 'Title', eyebrow: 'Eyebrow', subtitle: 'Subtitle', header: 'Header', footer: 'Footer', number: 'Slide number' };
 
 const NS = [
 	'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"',
@@ -153,7 +157,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const textStyles = new Map<string, string>();
 	const textStyle = (s: TextStyle): string => {
 		const face = faceFor(s, used);
-		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps]);
+		const key = JSON.stringify([face ? used.indexOf(face) : s.family, s.weight, s.italic, s.size, s.color, s.alpha, s.flatColor, s.letterSpacing, s.transform, s.underline, s.strike, !!s.smallCaps, s.highlight]);
 		const hit = textStyles.get(key);
 		if (hit) return hit;
 		const name = `T${textStyles.size + 1}`;
@@ -179,6 +183,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			s.smallCaps ? 'fo:font-variant="small-caps"' : '',
 			s.underline ? 'style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"' : '',
 			s.strike ? 'style:text-line-through-style="solid"' : '',
+			s.highlight ? `fo:background-color="${s.highlight}"` : '',
 		].filter(Boolean);
 		automatic.push(`<style:style style:name="${name}" style:family="text"><style:text-properties ${attrs.join(' ')}/></style:style>`);
 		return name;
@@ -200,22 +205,51 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 	// A frame's placed box and its paragraph, as the browser drew it.
-	const textOf = (f: TextFrame) => {
+	const textOf = (f: TextFrame, position?: number) => {
 		const lead = dominantStyle(f.lines.find((l) => l.length) || f.lines[0]);
 		const box = placeFrame(f, W, metricsFor(lead, used, metricsCache), lead.size);
+		// A page number is a field, so it follows the slide when slides are moved.
+		const field = f.role === 'number' && position !== undefined && isPosition(f, position);
 		const body = f.lines
-			.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${textBody(r.text)}</text:span>`).join(''))
+			.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${field ? `<text:page-number text:select-page="current">${textBody(r.text)}</text:page-number>` : textBody(r.text)}</text:span>`).join(''))
 			.join('');
 		return { box, para: `<text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p>` };
 	};
 	const pct = (a: number) => `${Math.round(a * 1000) / 10}%`;
 	// One graphic style per distinct paint (and, for a label, text placement).
 	const shapeStyles = new Map<string, string>();
+	// Named gradients (colors) and opacity gradients (alpha), written once each to styles.xml.
+	const gradients = new Map<string, string>();
+	const gradientNamed = (g: Gradient, kind: 'color' | 'opacity'): string => {
+		// The CSS angle (0 toward the top, 90 toward the right) is the ODF angle turned the other way from the vertical.
+		const angle = (((180 - g.angle) % 360) + 360) % 360;
+		const key = `${kind}|${angle}|${g.stops.map((st) => (kind === 'color' ? `${st.pos}:${st.color}` : `${st.pos}:${st.alpha}`)).join(',')}`;
+		const hit = gradients.get(key);
+		if (hit) return hit.match(/draw:name="([^"]+)"/)?.[1] as string;
+		const name = `${kind === 'color' ? 'Gr' : 'Op'}${gradients.size + 1}`;
+		const first = g.stops[0];
+		const last = g.stops[g.stops.length - 1];
+		const stops = g.stops
+			.map((st) => (kind === 'color' ? `<loext:gradient-stop svg:offset="${st.pos}" loext:color-type="rgb" loext:color-value="${st.color}"/>` : `<loext:opacity-stop svg:offset="${st.pos}" svg:stop-opacity="${st.alpha}"/>`))
+			.join('');
+		gradients.set(
+			key,
+			kind === 'color'
+				? `<draw:gradient draw:name="${name}" draw:display-name="${name}" draw:style="linear" draw:start-color="${first.color}" draw:end-color="${last.color}" draw:start-intensity="100%" draw:end-intensity="100%" draw:angle="${angle}deg" draw:border="0%">${stops}</draw:gradient>`
+				: `<draw:opacity draw:name="${name}" draw:display-name="${name}" draw:style="linear" draw:start="${pct(first.alpha)}" draw:end="${pct(last.alpha)}" draw:angle="${angle}deg" draw:border="0%">${stops}</draw:opacity>`,
+		);
+		return name;
+	};
 	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align'] }): string => {
 		const attrs: string[] = [];
 		const stroke = shape.stroke;
-		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="butt"` : 'draw:stroke="none"');
-		attrs.push(shape.fill && closed ? `draw:fill="solid" draw:fill-color="${shape.fill.color}" draw:opacity="${pct(shape.fill.alpha)}"` : 'draw:fill="none"');
+		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="${shape.cap || 'butt'}"${shape.join ? ` draw:stroke-linejoin="${shape.join}"` : ''}` : 'draw:stroke="none"');
+		if (shape.gradient && closed) {
+			const g = shape.gradient;
+			const varies = g.stops.some((st) => st.alpha !== g.stops[0].alpha);
+			attrs.push(`draw:fill="gradient" draw:fill-gradient-name="${gradientNamed(g, 'color')}"`);
+			attrs.push(varies ? `draw:opacity-name="${gradientNamed(g, 'opacity')}"` : `draw:opacity="${pct(g.stops[0].alpha)}"`);
+		} else attrs.push(shape.fill && closed ? `draw:fill="solid" draw:fill-color="${shape.fill.color}" draw:opacity="${pct(shape.fill.alpha)}"` : 'draw:fill="none"');
 		if (shape.shadow) {
 			const sh = shape.shadow;
 			attrs.push(`draw:shadow="visible" draw:shadow-offset-x="${cm(sh.x)}" draw:shadow-offset-y="${cm(sh.y)}" draw:shadow-color="${sh.color}" draw:shadow-opacity="${pct(sh.alpha)}" loext:shadow-blur="${cm(sh.blur)}"`);
@@ -264,26 +298,81 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			`<draw:enhanced-geometry svg:viewBox="0 0 ${Math.round(geom.w * 100)} ${Math.round(geom.h * 100)}" draw:type="non-primitive" draw:enhanced-path="${pathOf(geom)}"/></draw:custom-shape>`
 		);
 	};
-	const frameXml = (f: TextFrame, name: string): string => {
-		const { box, para } = textOf(f);
+	const frameXml = (f: TextFrame, name: string, placeholder = false, position?: number): string => {
+		const { box, para } = textOf(f, position);
+		// A title is the slide's title object, so Navigator and the outline list it.
+		const title = placeholder && f.role === 'title';
+		const cls = title ? ' draw:layer="layout" presentation:style-name="prTitle" presentation:class="title" presentation:user-transformed="true"' : '';
+		// A presentation object takes its style from `presentation:style-name` alone (the ODF 1.3 schema refuses both).
 		return (
-			`<draw:frame draw:style-name="gr1" draw:name="${xmlEscape(name)}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
+			`<draw:frame${title ? '' : ' draw:style-name="gr1"'}${cls} draw:name="${xmlEscape(name)}" svg:x="${cm(box.x)}" svg:y="${cm(box.y)}" svg:width="${cm(box.w)}" svg:height="${cm(box.h)}">` +
 			`<draw:text-box>${para}</draw:text-box></draw:frame>`
 		);
 	};
-	const pages = deck.slides.map((slide, i) => {
+	// LAYOUTS (masters.ts): one master page per layout, holding the background and the running
+	// chrome its slides share. A deck with no roles and no shared background keeps the one
+	// "Default" master page, as before.
+	const useLayouts = !!deck.backgrounds?.length || deck.slides.some((sl) => sl.frames.some((f) => f.role));
+	const masters = useLayouts ? planMasters(deck) : null;
+	const bgPath = (b: number, bytes: Uint8Array) => `Pictures/background${pad3(b)}.${imageExt(bytes)}`;
+	const masterName = (li: number) => `Layout${li + 1}`;
+	const nameOf = (f: TextFrame, n: string | number, k: number) => (f.role ? `${ROLE_NAMES[f.role]} ${n}` : `Text ${n}.${k + 1}`);
+	// The picture over the master page is the slide's own content; it stays put unless a reader unlocks it.
+	if (masters) automatic.push('<style:style style:name="prTitle" style:family="presentation" style:parent-style-name="Default-title"><style:graphic-properties draw:stroke="none" draw:fill="none" draw:auto-grow-height="false" draw:auto-grow-width="false" draw:textarea-vertical-align="top" fo:padding-top="0cm" fo:padding-bottom="0cm" fo:padding-left="0cm" fo:padding-right="0cm"/></style:style>');
+	if (masters) automatic.push('<style:style style:name="grPic" style:family="graphic"><style:graphic-properties style:protect="position size"/></style:style>');
+	const masterXml = masters
+		? masters.layouts
+				.map((layout, li) => {
+					const chrome = (['header', 'footer', 'number'] as const)
+						.map((role) => {
+							const f = layout.chrome[role];
+							// A hoisted number is a field by construction: it equalled its slide's position.
+							return f ? frameXml(f, ROLE_NAMES[role], false, role === 'number' ? Number(f.lines[0][0].text) : undefined) : '';
+						})
+						.join('');
+					return `<style:master-page style:name="${masterName(li)}" style:page-layout-name="PM1" draw:style-name="Mdp${li + 2}">${chrome}</style:master-page>`;
+				})
+				.join('')
+		: '<style:master-page style:name="Default" style:page-layout-name="PM1" draw:style-name="Mdp1"/>';
+	// Pictures the shapes carry (a photo, an icon, a chart), written beside the slide pictures.
+	const spriteParts: Array<[string, Uint8Array]> = [];
+	const pictureXml = (shape: Shape, name: string, slideIndex: number, shapeIndex: number): string => {
+		if (!shape.image?.length) return '';
+		const path = `Pictures/slide${pad3(slideIndex)}-${shapeIndex + 1}.${imageExt(shape.image)}`;
+		spriteParts.push([path, shape.image]);
+		return (
+			`<draw:frame draw:style-name="gr1" draw:name="${xmlEscape(name)}" svg:x="${cm(shape.x)}" svg:y="${cm(shape.y)}" svg:width="${cm(shape.w)}" svg:height="${cm(shape.h)}">` +
+			`<draw:image xlink:href="${path}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
+			`<svg:title>${xmlEscape(name)}</svg:title><svg:desc>${xmlEscape(shape.alt || '')}</svg:desc></draw:frame>`
+		);
+	};
+	const pages = deck.slides.map((original, i) => {
 		const n = i + 1;
+		const slide = masters ? withoutHoisted(original, masters.hoisted[i]) : original;
 		const alt = (slide.description || '').trim() || `Slide ${n}`;
 		const carries = (shape: Shape, f: TextFrame) => !!labelInsets(shapeGeometry(shape), textOf(f).box, f.align);
 		const boxes = drawOrder(slide, carries)
 			.map(({ group, items }) => {
-				const xml = items
-					.map((item) =>
+				const parts = items.map((item) => ({
+					sub: 'shape' in item ? item.shape.sub : undefined,
+					xml:
 						'frame' in item
-							? frameXml(item.frame, `Text ${n}.${item.index + 1}`)
-							: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : 'Shape'} ${n}.${item.index + 1}`, item.label),
-					)
-					.join('');
+							? frameXml(item.frame, nameOf(item.frame, n, item.index), group === undefined, n)
+							: item.shape.kind === 'picture'
+								? pictureXml(item.shape, `Picture ${n}.${item.index + 1}`, i, item.index)
+								: shapeXml(item.shape, `${item.label ? 'Label' : item.shape.kind === 'line' ? 'Rule' : item.shape.kind === 'path' ? 'Mark' : 'Shape'} ${n}.${item.index + 1}`, item.label),
+				}));
+				// A pill inside a card is a group inside the card's group: each contiguous run of one
+				// owner's shapes nests.
+				let xml = '';
+				for (let a = 0; a < parts.length; ) {
+					const sub = parts[a].sub;
+					let b = a + 1;
+					while (group !== undefined && sub !== undefined && b < parts.length && parts[b].sub === sub) b++;
+					const run = parts.slice(a, b).map((x) => x.xml).join('');
+					xml += sub !== undefined && b - a > 1 ? `<draw:g draw:name="Group ${(group as number) + 1}.${sub + 1}">${run}</draw:g>` : run;
+					a = b;
+				}
 				return group === undefined ? xml : `<draw:g draw:name="Group ${group + 1}">${xml}</draw:g>`;
 			})
 			.join('');
@@ -293,14 +382,28 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 				`<draw:frame presentation:class="notes" svg:x="2.1cm" svg:y="12.8cm" svg:width="16.8cm" svg:height="13cm"><draw:text-box>${noteParagraphs(note)}</draw:text-box></draw:frame></presentation:notes>`
 			: '';
 		return (
-			`<draw:page draw:name="Slide ${n}" draw:master-page-name="Default">` +
-			`<draw:frame draw:name="Slide ${n}" svg:x="0cm" svg:y="0cm" svg:width="${page.w}cm" svg:height="${page.h}cm">` +
-			`<draw:image xlink:href="Pictures/slide${pad3(i)}.png" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
-			// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
-			`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
-			`</draw:frame>${boxes}${notesXml}</draw:page>`
+			`<draw:page draw:name="Slide ${n}" draw:master-page-name="${masters ? masterName(masters.layoutOf[i]) : 'Default'}">` +
+			(slide.image?.length
+				? `<draw:frame${masters ? ' draw:style-name="grPic"' : ''} draw:name="Slide ${n}" svg:x="0cm" svg:y="0cm" svg:width="${page.w}cm" svg:height="${page.h}cm">` +
+					`<draw:image xlink:href="Pictures/slide${pad3(i)}.${imageExt(slide.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` +
+					// Alt text: LibreOffice reads svg:title as the picture's title, svg:desc as its description.
+					`<svg:title>${xmlEscape(`Slide ${n}`)}</svg:title><svg:desc>${xmlEscape(alt)}</svg:desc>` +
+					'</draw:frame>'
+				: '') +
+			`${boxes}${notesXml}</draw:page>`
 		);
 	});
+	// A layout's background: a flat fill, or the shared picture stretched over the page.
+	const layoutStyles = (masters?.layouts || [])
+		.map((layout, li) => {
+			const paint = layout.paint;
+			const fill = paint?.color ? `draw:fill="solid" draw:fill-color="${paint.color}"` : paint?.image ? `draw:fill="bitmap" draw:fill-image-name="Bg${layout.background}" style:repeat="stretch"` : 'draw:fill="none"';
+			return `<style:style style:name="Mdp${li + 2}" style:family="drawing-page"><style:drawing-page-properties ${fill} presentation:background-visible="true" presentation:background-objects-visible="true"/></style:style>`;
+		})
+		.join('');
+	const fillImages = (deck.backgrounds || [])
+		.map((b, bi) => (b.image && masters?.layouts.some((l) => l.background === bi) ? `<draw:fill-image draw:name="Bg${bi}" xlink:href="${bgPath(bi, b.image)}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>` : ''))
+		.join('');
 
 	const content = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-content ${NS} office:version="1.3">${faceDecls}<office:automatic-styles>${automatic.join('')}</office:automatic-styles>
@@ -310,14 +413,15 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const styles = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles ${NS} office:version="1.3">${faceDecls}
 <office:styles>
-<style:default-style style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:default-style>
+<style:default-style style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:default-style>${masters ? '<style:style style:name="Default-title" style:family="presentation"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>' : ''}${[...gradients.values()].join('')}${fillImages}
 </office:styles>
 <office:automatic-styles>
 <style:page-layout style:name="PM1"><style:page-layout-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm" fo:page-width="${page.w}cm" fo:page-height="${page.h}cm" style:print-orientation="${page.w >= page.h ? 'landscape' : 'portrait'}"/></style:page-layout>
 <style:style style:name="Mdp1" style:family="drawing-page"><style:drawing-page-properties draw:fill="none" presentation:background-visible="true" presentation:background-objects-visible="true"/></style:style>
+${layoutStyles}${masters ? automatic.join('') : ''}
 </office:automatic-styles>
 <office:master-styles>
-<style:master-page style:name="Default" style:page-layout-name="PM1" draw:style-name="Mdp1"/>
+${masterXml}
 </office:master-styles>
 </office:document-styles>`;
 
@@ -340,7 +444,9 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		['styles.xml', 'text/xml'],
 		['meta.xml', 'text/xml'],
 		['settings.xml', 'text/xml'],
-		...deck.slides.map((_s, i): [string, string] => [`Pictures/slide${pad3(i)}.png`, 'image/png']),
+		...deck.slides.flatMap((s, i): Array<[string, string]> => (s.image?.length ? [[`Pictures/slide${pad3(i)}.${imageExt(s.image)}`, imageMime(s.image)]] : [])),
+		...spriteParts.map(([path, bytes]): [string, string] => [path, imageMime(bytes)]),
+		...(deck.backgrounds || []).flatMap((b, bi): Array<[string, string]> => (b.image && masters?.layouts.some((l) => l.background === bi) ? [[bgPath(bi, b.image), imageMime(b.image)]] : [])),
 		...used.map((_f, i): [string, string] => [fontPath(i), 'application/x-font-ttf']),
 	];
 	const manifest = `<?xml version="1.0" encoding="UTF-8"?>
@@ -358,9 +464,13 @@ ${parts.map(([p, t]) => `<manifest:file-entry manifest:full-path="${p}" manifest
 	zip.file('meta.xml', meta);
 	zip.file('settings.xml', settings);
 	deck.slides.forEach((slide, i) => {
-		if (!slide.image?.length) throw new Error(`calco: slide ${i + 1} has no image`);
+		if (slide.image && !slide.image.length) throw new Error(`calco: slide ${i + 1} has no image`);
 		// PNG is compressed already; deflating it again costs time and saves nothing.
-		zip.file(`Pictures/slide${pad3(i)}.png`, slide.image, { ...NO_DIRS, compression: 'STORE' });
+		if (slide.image?.length) zip.file(`Pictures/slide${pad3(i)}.${imageExt(slide.image)}`, slide.image, { ...NO_DIRS, compression: 'STORE' });
+	});
+	for (const [path, bytes] of spriteParts) zip.file(path, bytes, { ...NO_DIRS, compression: 'STORE' });
+	(deck.backgrounds || []).forEach((b, bi) => {
+		if (b.image && masters?.layouts.some((l) => l.background === bi)) zip.file(bgPath(bi, b.image), b.image, { ...NO_DIRS, compression: 'STORE' });
 	});
 	embedded.forEach((e, i) => {
 		zip.file(fontPath(i), e.bytes, NO_DIRS);

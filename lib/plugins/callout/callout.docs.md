@@ -102,10 +102,11 @@ callout "1" in size lg. `lint:deck` warns on it; quote the word to keep it as te
 | `gantt` | `for=Scoring model v2`, a task by its label | The bar or milestone, ringed |
 | `hub-spoke` | `for=Core platform migration`, a spoke by its label (a branch or a leaf in a `tiered` figure) | The disc, ringed |
 | `risk-matrix` | `for=Hurricane season`, a risk by its label or index | The risk's marker on the grid, ringed. The note's number is its own, a shape and color apart from the risk's number |
+| `flowchart` | `for=Page on-call`, a shape by its name or index | The shape, ringed, with the marker on its corner. The notes sit under the figure or beside it (`side=`), set by the browser once the chart is laid out, in the export as well as the Studio |
+| `state-chart` | `for=Approved`, a state by its name or index | The state, ringed, with the marker on its corner. The notes are placed the same way as the flowchart's. The `inline` variant has no layout to place them in, so it leaves the callout paragraph as written |
 | `journey` | `for=Book demo`, a task by its label or index | The task's chip, ringed in the note's color, with the note's marker on its corner. The notes are an HTML list under the board (the board is CSS layout the browser measures, so there is no side to choose); a `detail="…"` prints under its note |
 
-`flowchart` and `state-chart` do not read callouts yet: the browser lays them out (the server half writes only
-the measuring harness), so a callout there belongs to the browser half. `kanban`, `timeline-list`, `progress`,
+`kanban`, `timeline-list`, `progress`,
 Mermaid diagrams and `word-cloud` are ruled out in the design note: their marks are already text rows, or the
 chart owns the layout and has no stable mark to point at.
 

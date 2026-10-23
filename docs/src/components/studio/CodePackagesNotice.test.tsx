@@ -2,7 +2,7 @@
 // approved, and the plugin the deck writes a fence for but does not list (plugin-system §9 decision 11).
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { codePackagesStamp, isPluginApproved, setPlugins, studioPlugins } from '@/lib/code-packages/door';
+import { approvePlugin, codePackagesStamp, isPluginApproved, setPlugins, studioPlugins } from '@/lib/code-packages/door';
 import { CodePackagesNotice } from './CodePackagesNotice';
 
 const CODE = 'function render(){return "<p>x</p>"}\nexport { render as default };';
@@ -18,13 +18,13 @@ afterEach(async () => {
 });
 
 describe('the strip for a zip plugin', () => {
-	it('a listed plugin that is not approved says so, names the plugin, and Run it records the approval', () => {
+	it('a listed plugin that is not approved says so, names the plugin, and Approve records the approval', () => {
 		let approved = 0;
 		render(<CodePackagesNotice source={LISTED} stamp={codePackagesStamp()} onApproved={() => approved++} />);
 		const strip = screen.getByRole('status');
 		expect(strip.getAttribute('data-state')).toBe('unapproved');
 		expect(strip.textContent).toContain('This deck uses code from the plugin “gantt-plugin”, which has not run.');
-		fireEvent.click(screen.getByRole('button', { name: 'Run the code of gantt-plugin' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Approve the code of gantt-plugin' }));
 		expect(approved).toBe(1);
 		expect(isPluginApproved(studioPlugins().get('gantt-plugin') as never)).toBe(true);
 	});
@@ -40,6 +40,19 @@ describe('the strip for a zip plugin', () => {
 		expect(source).toMatch(/^---\ntheme: indaco\nplugins: \[gantt-plugin\]\n---\n/);
 		expect(approved).toBe(1);
 		expect(isPluginApproved(studioPlugins().get('gantt-plugin') as never)).toBe(true);
+	});
+
+	it('an unlisted plugin that was approved before is offered only to be listed: no second yes, and the words say so', () => {
+		approvePlugin(studioPlugins().get('gantt-plugin') as never);
+		let source = UNLISTED;
+		let approved = 0;
+		render(<CodePackagesNotice source={source} stamp={codePackagesStamp()} onApproved={() => approved++} onWrite={(_label, update) => { source = update(source); }} />);
+		const strip = screen.getByRole('status');
+		expect(strip.textContent).toContain('does not list the plugin “gantt-plugin”');
+		expect(strip.textContent).not.toMatch(/Approve/);
+		fireEvent.click(screen.getByRole('button', { name: 'Add the plugin gantt-plugin to this deck' }));
+		expect(source).toMatch(/plugins: \[gantt-plugin\]/);
+		expect(approved).toBe(1);
 	});
 
 	it('a deck that writes no such fence is offered nothing, and one that already lists the plugin is not offered it again', () => {

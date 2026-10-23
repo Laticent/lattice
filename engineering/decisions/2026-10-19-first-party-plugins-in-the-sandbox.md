@@ -97,6 +97,27 @@ the capture page itself. `followups.d/2800-p2-capture-browser-os-sandbox.md` giv
 **The sanitizer, kept byte-exact.** For Mermaid, `sanitizeKeeping` (`lib/packages/code-door-worker.js`) keeps the
 drawing's own bytes only when the same markup, parsed in that page, serializes to exactly what the sanitizer returned.
 
+
+### 3.x The manifest `draw` section: a plugin chooses the frame (owner decision, 2026-10-21)
+
+The owner asked whether every plugin is handled the same and whether a future plugin can choose the sandboxed draw frame, and ruled that this could not wait for a follow-up. The frame was wired to Mermaid and function-plot by name in about ten files. It is now driven by the manifest. In-tree plugins only (a zip or npm plugin cannot declare `draw`; `lib/plugins/resolve.js` `checkDraw` checks it for the build, and `refusePluginCode` in `lib/packages/code-shape.mjs` refuses it on a zip).
+
+```json
+"draw": { "frame": { "library": "inline" | "esm", "unsafeEval": false, "usesHydrate": false, "preload": [] }, "host": false, "shim": false }
+```
+
+| Role file | What it is | Runs in |
+|---|---|---|
+| `<name>.draw-frame.js` | `draw(job, env)`; self-contained text, hashed into the frame's script | the sandboxed frame |
+| `<name>.draw-host.mjs` | `prepare(job, env)` before the frame (fonts) and `finish(raw, env)` after it (sanitizer profile); default is the slide sanitizer | the page |
+| `<name>.draw-shim.mjs` | `createShim(host, doc)`, a stand-in for the library global; required for `render.exec.hydrate: "pass"`, forbidden for `"browser"` | the preview frame |
+
+`tools/build-plugin-registry.js` turns these into `draw-frame-libraries`, `draw-host-adapters`, `draw-shims`, `draw-kinds` and `draw-warm` `.generated.mjs`. The kernel (`lib/packages/draw-frame-core.mjs`), the host (`docs/src/lib/code-packages/draw-host.ts`, `preview-draw-host-impl.ts`), the warm-up (`render-engine.ts`) and the preload skip read those tables, so `lib/` and `docs/` name no plugin. The markup the frame returns is written by ONE sink, `ctx.drawInto` in `lib/plugins/host-browser.mjs` (HARD RULE #22 census). The frame's `env` gives an adapter `lib, box, faces, px, token, hydrate`.
+
+**Proof.** A throwaway third plugin (`spark-probe`, an inline library, an adapter, no shim) was added by files and a manifest alone. In the real Studio it drew in one sandboxed `iframe[data-lattice-draw-frame="spark-probe"]`, `kinds` listed it, only the host fetched its library and no `script[src*=spark]` was in the preview. It was deleted afterward. `test/integration/export/draw-frame.test.js` keeps a generic third-kind arm in real Chromium.
+
+**D2 B, deck fonts.** The host forwards a deck's or theme's faces to the frame when they are engine-folder URLs or well-formed `data:font/(woff2|woff|ttf|otf);base64,` URLs (700,000 characters each, 8 data faces, 2,000,000 in all). Real Studio test: `docs/e2e/draw-frame-fonts.spec.ts` (frame node boxes within 1 px of the in-page baseline with a Playfair `data:` face; a plain serif gives boxes more than 2% different). Measured gap without it: Playfair about −5.7%, Shantell −4.7%, Caveat +11.4%, Outfit and JetBrains about 0.
+
 ## 4. Evidence
 
 | What | Result |
@@ -122,3 +143,70 @@ The design step the previews PR starts with: that pool runs a package in a WORKE
 KaTeX's `renderToString` needs none, so math fits as it is. Mermaid and function-plot measure text in a layout, so they
 need the pool's frame document (or a DOM the worker can measure with) rather than its worker, without loosening the
 frame's policy. Measure the preview latency before and after, at 1440, 820 and 390 px.
+
+### D-B findings: what the pool cannot do as it stands (2026-10-20, read from the source)
+
+The previews PR starts from what the three libraries need and what the pool gives. Read from source, not yet built:
+
+| | Draws today | Needs | The pool's frame gives |
+|---|---|---|---|
+| math | KaTeX in the host page, called synchronously by `render()` through `lib/engine/katex-browser-stub.js`; the slide frame gets finished HTML | no DOM, no layout | a worker with no DOM: enough |
+| Mermaid | inside the un-sandboxed, same-origin preview frame, loaded by `lib/runtime` (`host-browser.mjs` `ensureLibrary`) | a laid-out DOM, the deck's fonts, `mermaid.initialize` per palette | no DOM, `font-src data:` only |
+| function-plot | the same frame, same loader | a laid-out DOM, d3, `getBoundingClientRect`, and `'unsafe-eval'` (it compiles each expression, as `lib/export/locked-figures.js` says) | no DOM, no `'unsafe-eval'` |
+
+Three facts follow, and each one collides with a line of the brief ("no new frame kind"; "math fits as it is"):
+
+1. **Math is synchronous in the engine and the pool is not.** `math.render.js` calls KaTeX inside `render()`; a frame answers by `postMessage`. Moving math into the pool means a two-pass render (the engine leaves a placeholder, the door fills it), as the fence door does, and the engine's display-math reflow (`data-math-reflow`) reads the typeset. That is a change to the engine's math path, not a change to the door.
+2. **Mermaid and function-plot cannot run in a worker.** They need the frame's own document: a second document in the pool (same `sandbox="allow-scripts"`, no `allow-same-origin`, the library inlined and named by hash, about 3 MB for Mermaid). That is a new frame kind in the sense of a new document, though not a new boundary.
+3. **function-plot cannot run under `sandboxCsp`.** Its sibling document needs `'unsafe-eval'`, as the CLI's locked page already grants it. Whether that loosens "the frame's policy" is the owner's call.
+
+An alternative for math alone that keeps `render()` synchronous and starts no browser: load the CLI's QuickJS-in-WebAssembly wall (`lib/core/katex-wall.js`) in the page. It needs a browser loader for the wasm (the file uses `fs` today) and an awaited load before `render()`, which `ensure-katex.ts` already does for the KaTeX script. It is byte-identical to the CLI and walls the library, but it is not the existing pool, which D-B decided.
+
+**Not built in this session.** The owner was away and D-B is a decided item whose premise these facts change, so the build waits on the ❓ card (`followups.d/2800-p1-preview-sandbox-pool-fork.md`).
+
+### D1 decided: A, the pool plus a draw frame (owner, 2026-10-20), and the design that follows
+
+The owner chose option A: previews go through the pool, with a second frame document for the libraries that need a screen. It rides PR #2822, one commit per slice. The spike that fixed the numbers (headless Chromium 131, a `sandbox="allow-scripts"` frame, a strict policy with one hashed inline script):
+
+| | Opens | First draw | Later draws | Notes |
+|---|---|---|---|---|
+| Mermaid (3.1 MB of script) | about 2,000 ms | 200 ms | about 50 ms | no `'unsafe-eval'` needed; the parent cannot reach into the frame |
+| function-plot (199 KB) | about 70 ms | about 45 ms | about 30 ms | **refused without `'unsafe-eval'`** ("Refused to evaluate a string as JavaScript") |
+
+So the owner's pick includes `'unsafe-eval'` in the function-plot frame's policy, and only there. The frame stays a sandboxed, opaque-origin document with no network, storage or reach into the Studio. Opening a Mermaid frame per render, as the worker pool does, would cost about 2 s each time, so **draw frames stay open for the page's life** (they hold first-party library code only, never a deck's or a third party's, so the carry-over that made the worker pool per-render does not apply).
+
+**The seam already exists.** The CLI export draws figures from outside the page: `hydrate-script.js` marks a hydrator `drawnByHost`, its placeholders wait `pending`, and `lib/export/locked-figures.js` reads them, draws and writes the result back. The preview does the same through a host the Studio and Playground install on the page (`window.__latticeDrawHost`, read through `win.parent`), so a deck, which cannot run script in the preview, cannot spoof it. Where no host is present (every export and the plain `.html`), the runtime keeps loading the libraries as today.
+
+**Pieces.**
+1. `docs/src/lib/code-packages/draw-host.ts`: opens the frames, fetches each library from beside the runtime, checks its SHA-256 against the manifest's pin before inlining it (the frame runs it by hash), serves `draw(kind, job)` and closes nothing until the page does.
+2. Preview runtime (`lib/plugins/host-browser.mjs`, the Mermaid pass, `function-plot.hydrate.js`): with a draw host, send `{config, size}` out and write the answer back; no library `<script>` in the deck page.
+3. Output: function-plot's drawing goes through the slide sanitizer, as the CLI's `WRITE` does. Mermaid's carries `<foreignObject>` labels and a `<style>`, which the slide sanitizer deletes, so it gets a diagram profile, accepted only if every gallery diagram passes byte-identical (the CLI check was 32 of 32). A diagram that does not pass falls back to the provenance census (HARD RULE #22 shape 4).
+4. Math: the engine leaves a placeholder and the door fills it from KaTeX in the pool worker (a two-pass render, the fence door's shape). The display-math reflow (`data-math-reflow`) reads the typeset, so it moves with it.
+
+**Slices.** (1) draw host and frames, no consumer; (2) function-plot; (3) Mermaid; (4) math; (5) the preview stops loading libraries, then the trio on what ships. Each slice leaves every preview working.
+
+
+### Slice 3 built: Mermaid through the draw frame (2026-10-20 to 2026-10-21)
+
+**Shape.** The runtime's Mermaid pass is untouched. `lib/plugins/mermaid/mermaid.draw-shim.mjs` is an object with the library global's shape (`initialize`, `render`, `mermaidAPI.getDiagramFromText`), installed by the plugin host's loader (`ensureLibrary`) where the library would have landed, when the embedding page's draw host offers the kind (`kinds` in `docs/src/lib/preview-draw-host.ts`). `lib/plugins/draw-shims.mjs` names the stand-ins by plugin, so `lib/runtime` names no plugin (`runtimePluginNames` stays at its budget). This kept the render queue, the per-palette `initialize`, the SVG cache, the gantt turn and the settle cap exactly as they were.
+
+**The diagram profile** (`lib/core/sanitize-diagram-svg.mjs`, HARD RULE #22 both channels): the slide profile with `<style>` and `<foreignObject>` admitted; each surviving sheet passes `sanitizeStyleText` and loses any `@import`. **It changes none of the 48 diagrams** in the corpus (the 32-diagram system-design deck, the plugin fixtures, the diagram gallery), compared as parsed-and-serialized DOM in real Chromium (`test/integration/export/draw-frame-mermaid.test.js`). The test is not vacuous: it requires the figures to hold both a `<foreignObject>` and a `<style>`, and a second arm shows a script, a handler, an `@import`, a `</style` terminator, an iframe in a label and a `javascript:` link all removed. So the provenance-census fallback was not needed.
+
+**What did not cross the boundary, and what replaced it.** `bindFunctions` is a closure and cannot cross `postMessage`. Tooltips are text in the SVG (`title` on `g.clickable`), so a plain hover binder replaces the library's. A gantt's links are read in the frame (`db.getLinks()`) and sent with the drawing. A click callback is not offered; at `securityLevel: 'strict'` the library's callback path returned early anyway. The deck's fonts: the frame's policy names the engine's font folders and the frame loads the faces itself, from the HTTP cache the preview page already filled.
+
+**Also fixed on the way:** the preview's frame builders no longer `<link rel="preload">` the library when the page's host offers Mermaid, and the Studio's Webpage bake frame is excluded from the host (`playerBake`, read without consuming the export-settings block: `readExportSettings` REMOVES the block, and an early read lost `pluginsOff` and the overflow marker for the whole page), so a bake takes the in-page path and its bytes stay the CLI's.
+
+**The performance story, because the first cut was wrong and the root cause is worth keeping.**
+
+| First diagram in a fresh Studio page (headless Chromium) | Time | Main thread busy |
+|---|---|---|
+| In the page (the original path) | 1774 ms | 1586 ms |
+| First cut: the 3.1 MB single file inlined in the frame's `srcdoc` | 2209 ms | 2036 ms |
+| Now: Mermaid's ES modules loaded by URL (3 runs: 1475, 1345, 1279 ms) | 1366 ms | 1257 ms |
+| A prose deck with no diagram, for the floor (3 runs) | 885 ms | |
+
+The first cut cost about 1.0 s and I turned Mermaid off (the owner: "this is really bad performance"), then went looking for the root cause with a CPU trace instead of guessing. The trace: `ParseHTML` 591 ms against 8 ms (the page's parser tokenized 3 MB of script text in the `srcdoc`) and the bundle evaluated as one 350 to 500 ms task (which is also what the in-page path did, and is jank today). Spikes in real Chromium fixed the options: an inline `srcdoc` opens in 716 to 750 ms; a tiny `srcdoc` that receives the text and sets it as a script's `textContent` 554 to 576 ms; a same-site frame loaded by URL with the single file 465 to 505 ms; Mermaid's ES build loaded lazily by a sandboxed URL-style frame **ready in 89 to 104 ms, first draw about 100 ms, later draws 22 to 45 ms, parent main thread blocked at most 50 ms**; a frame on a different site 13 to 48 ms (isolated by the browser). A `blob:` script measured the same as inline, so streaming parse was never the lever.
+
+**Security of the module-loaded frame**, measured, not assumed: the policy names the exact directory (`script-src 'sha256-<boot>' 'sha256-<importmap>' <dir>/`), not `'self'` (the whole site); `connect-src 'none'`; no `'unsafe-eval'`; fonts from the engine's two font folders only. An import map's `integrity` pins the SHA-256 of all 82 modules: a chunk altered after the map was written is refused by Chromium ("Failed to find a valid digest in the 'integrity' attribute") and the frame never starts; a browser without import-map integrity ignores it and relies on the policy's directory and the build-time tree pin (`lib/plugins/payload-path.js` `treeSha`, refreshed only by `npm run vendor:plugins`). The single-file bundle was pinned by a runtime SHA-256 check before it was inlined; that runtime check is gone for Mermaid because the host no longer fetches the library, and the two pins above replace it. function-plot (199 KB) stays inline and keeps its runtime pin.
+
+**Decided (owner, 2026-10-21): no second web address.** About 480 ms of the first diagram is above the prose floor, all on the one main thread. A frame on a different SITE would run in another process (13 to 48 ms of parent-thread blocking measured, against 330 to 590 ms for a same-site frame) and would also get its own HTTP cache and service worker, but it needs a second host (a second registrable domain, or a `*.github.io` / `*.pages.dev` project). The owner ruled that out, so the frame stays on this site, and what follows from it is accepted: the frame's modules are fetched again on each page load, an offline Studio falls back to the page's library after the first failed draw, and a CPU-bound diagram can still freeze the tab. Any future gain has to come from inside this site (fewer or smaller modules, earlier fetching, doing less work per draw). Math still draws in the page.

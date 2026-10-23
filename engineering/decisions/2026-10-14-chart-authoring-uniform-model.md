@@ -263,6 +263,12 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    line, slope, stacked-bar) is kept for now, though §2 moves series data to tables, so phase 4's codemod may meet a third
    source form. That is an explicit call to revisit before phase 4 (`followups.d/2746-p1-revisit-nested-list-records.md`);
    meanwhile a lint that keeps a series' name the same in every group is `followups.d/2746-p2-series-name-consistency-lint.md`.
+   **Owner, 2026-10-22: the revisit is settled. Narrow at phase 4.** The census (this PR) found 0 records in a nested row across
+   the five series charts: 78 nested-list slides (bar 6, line 20, stacked-bar 17, slope 14, radar 32; 1,057 nested rows) and none
+   writes one, so removing the form breaks no deck. Until phase 4 the engine keeps drawing it. Phase 4 narrows claims to a chart's
+   first data depth: a nested series row stays a pill, lint points the author to the table, and the codemod meets two source
+   forms (old spans, tables), not three. The code change (`isDetailRow`'s `point-unless-valued` and the `ancestors` plumbing in
+   the five readers) lands with phase 4, under its adversarial trio.
 
    (2) **The bridge.** The chart family calls `bridgeRecordsHtml` once before it dispatches (`chart-family.dispatch.js`), so
    the engine and the runtime share it, and rewrites a data row's record to the spans each transform reads (`legacySpans`);
@@ -313,10 +319,44 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    two items, so phase 4's codemod must write `1200` and show it grouped (the census counts 78 grouped funnel values); and a
    record under a valued row on bar or line stays a pill, so a series point written that way needs its parent without a value. Bullet's keyword rows (`Target`, `Floor`, `Band`) and stacked-bar's authored total read from the old spans until phase 4; lint says so.
 
-   **Phase 2, still to do.** The `{> …}` production (§9) and the table description it needs; each transform and
-   narrator reading the record through `readRecord` instead of the bridge and its private parser (the census note §3
-   table), so `tools/chart-authoring-census.mjs` can report no private reader; the field set the bridge cannot yet
-   spell as spans. Held in `followups.d/2690-p1-chart-model-phase-2-reader.md`.
+   **Phase 2, slice 3 (2026-10-22): the description production and the first native readers.** Owner, 2026-10-22: stage the reader
+   migration, two charts first.
+
+   (1) **The `{> prose}` production.** A record whose first character after `{` is `>` is a description (Segno, `notation-grammar.ts`
+   `DESCRIBE`): prose to the first unescaped `}`, with `\}` and `\\` as the escapes and every other character, a comma, `=`, quote,
+   bracket or pipe, as prose. The choice is made on that one character, so the grammar stays LL(1); a record's first bare item can no
+   longer start with `>` (`{>5}` is a description, no deck wrote one; `{3, >5}` is two values). The reader returns a `description` value
+   of its own kind, so a binder that expects a number reports "found a description" instead of reading `{>5}` as 5, and a slot that
+   takes values answers `description-not-here`. Evidence: the generated parser equals the reference on the 20,000-span fuzz (the
+   alphabet and seeds now hold `>` and descriptions), the LL(1) prefix property holds for descriptions, an unclosed or escape-heavy
+   description reads in linear time, and the plain-record parser refuses it so the fast path is untouched.
+
+   (2) **Table descriptions, heatmap.** After a cell's value `{> prose}` describes the cell, in a header cell the column, and a column
+   headed `{>}` holds one plain-text description per row (decision 5). Heatmap reads all three (`rows.cellDescriptions`): a cell
+   description joins the mark's detail as `note=` did (which still reads), a description on an unmeasured crossing is kept and the crossing
+   stays unmeasured, the `{>}` column is taken out before the 12-column cap and read by its own index, and the column and row descriptions
+   reach the chart's text description and the narrator. Lint `chart-description-unread` warns on a description where nothing reads it: in a
+   list row (where, after the row's record, it also loses the row's value, so the fix moves the prose into a `>` quote) and in a table cell
+   of a chart that reads none.
+
+   (3) **Native readers: bullet and progress** (`rows.native`). These two charts read a row's record themselves, in the transform
+   (`takeRecord`) and the narrator (`claimedRecord`), both through `recordFields` in `lib/core/chart-rows.js`, so a field no old span spells
+   is drawn and said: bullet's `band=` and `floor=`, progress's `note=`. A record draws what the old nested keyword rows draw (identical
+   HTML and narration, with the field dropped as the control). The pill pass still claims the record and stamps it; for a native chart the
+   bridge keeps the stamp for the kernel and settles whatever the kernel did not take (a declined slide, a record that is not the lead's
+   trailing element, as old spans must be) to the old spans, so those shapes read as before. The source bridge still rewrites what the old
+   spans can spell, so any reader that does not take the row (the leftover tail) reads it as it always did, and reports the claimed lines.
+   A keyword row below a record still overrides the record's field, as it overrode the row's own spans. `PRIVATE_ROW_READER_BUDGET`
+   (`checkNativeRowReaders`, via `build:check`) counts the row schemas without `native`, 14, and fails both when it grows and when a chart
+   moves over without lowering it. Corpus parity: 475 of the 478 chart slides in the repo render, narrate and lint byte-identically to
+   `main` (the other three are the new demo deck, `examples/chart-row-record-fields.md`).
+
+   **Phase 2, still to do.** The other 14 charts' transforms and narrators (`bar`, `line`, `slope`, `stacked-bar` on `cartesian.js`'s
+   `parseSeries`; `piechart`, `waterfall`, `scatter` on `stripTrailingPills`; `funnel`, `map`, `word-cloud`, `radar`, `quadrant`,
+   `heatmap` and `matrix-grid` on their own readers; about 12k lines of transform and 1.1k of narrator reader) move onto `recordFields`
+   one chart at a time, each lowering the budget, and each with its transform and narrator together so the picture and the voice cannot
+   drift. Then the bridge, `legacySpans` and the old-form branch go in phase 4. The rest of the list (the nested-list scope, the
+   residuals of rounds 13 to 21) is in `followups.d/2690-p1-chart-model-phase-2-reader.md`.
 3. **Editor.** The Insert menu, the schema-driven grid for lists and tables, the description fields, and reshape.
 4. **Normalize.** The codemod, kept runnable as a migrator because it is the last clean break before GA, the old
    branch deleted, locale display on, and a `**Breaking:**` fragment. Gated by §7, and it gets the full adversarial

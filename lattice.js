@@ -130,6 +130,15 @@ function listAvailablePalettes() {
   } catch (_e) { return '(themes/ not readable)'; }
 }
 
+// The export log's "approximated" clause: what an editable export drew as the nearest thing an
+// office suite has (`stacked-shadow`: two outer shadows as one; `backdrop-blur`: a frosted fill as its
+// translucent color). Empty when nothing was approximated.
+function approximatedNote(tally) {
+  const label = { 'stacked-shadow': 'stacked shadow', 'backdrop-blur': 'frosted fill', 'chip-highlight': 'inline chip as highlight' };
+  const parts = Object.entries(tally || {}).map(([kind, n]) => `${n} ${label[kind] || kind}${n === 1 ? '' : 's'}`);
+  return parts.length ? `; approximated: ${parts.join(', ')}` : '';
+}
+
 /** Every option: `lattice --help all`. */
 function showFullHelp() {
   console.log(`lattice — turn a Markdown deck into PDF / PPTX / ODP / PNG / HTML (every option)
@@ -1765,6 +1774,9 @@ let DECK_CODE_PACKAGES = [];
 // as the bytes the user approved: the door runs these on their fences. An installed plugin the deck does not list
 // is only offered, and its fence stays the code block it is. Filled by withInstalledComponents.
 let DECK_PLUGINS = [];
+// The stylesheets of the installed plugins that DREW something in this render, scoped to each plugin's own root (code-door-fence.mjs
+// `scopePluginCss`). Filled where the door runs; written into the export's one deck `<style>` through `sanitizeStyleText` (HARD RULE #22).
+let DECK_PLUGIN_CSS = '';
 /** Exit, naming each package, if any of these code packages lacks the user's approval. */
 function refuseUnapprovedCode(pkgs) {
   if (!pkgs.length) return;
@@ -1814,7 +1826,7 @@ function withInstalledPlugins(source) {
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
   const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
-  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
 }
 
 /**
@@ -2274,6 +2286,9 @@ function engineSlides(deckSource = rawMd) {
       process.exit(1);
     }
     rendered = r.rendered;
+    const { scopePluginCss } = require('./lib/packages/code-door-fence.mjs');
+    const drew = new Set((r.claimed || []).filter((n) => n.startsWith('plugin/')).map((n) => n.slice('plugin/'.length)));
+    DECK_PLUGIN_CSS = DECK_PLUGINS.filter((p) => drew.has(p.name) && p.css).map((p) => scopePluginCss(p.name, p.css)).join('\n');
   } else {
     rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl });
   }
@@ -2825,10 +2840,24 @@ if (hasStateChart) {
     needsDagre = htmlNeedsDagre(highlightedSlides);
   } catch (_e) { needsDagre = true; }   // unreadable gate → ship the engine
 }
+// The callout placer (tools/build-callout-browser.js) as an IIFE string, for a flowchart or state chart whose notes
+// the page's pass places. A clone that never built it exports the chart without notes and says so.
+let calloutIife = null;
+function calloutBrowserIife() {
+  if (calloutIife !== null) return calloutIife;
+  try {
+    calloutIife = require('./lib/core/callout-browser-bundle.generated.js').CALLOUT_BROWSER_IIFE;
+  } catch (_e) {
+    console.warn('  ⚠ the callout placer is not built (run npm run build) — flowchart and state-chart callouts export without their notes.');
+    calloutIife = '';
+  }
+  return calloutIife;
+}
+let calloutsEmbedded = false;   // the placer rides in the first script that needs it; the second reads the same global
 let stateChartScript = '';
 if (hasStateChart) {
   try {
-    const { browserJs: stateChartBrowserJs } = require('./lib/components/chart/state-chart/state-chart.layout.js');
+    const { browserJs: stateChartBrowserJs, htmlHasCallouts: stateChartHasCallouts } = require('./lib/components/chart/state-chart/state-chart.layout.js');
     // GATED ON THE MACHINE, NOT ON THE COMPONENT. Trama's kernel lays a CHAIN out on its
     // reading-order grid with no dagre at all, and most shipped machines are chains, so
     // the engine ships only when `htmlNeedsDagre` finds a machine that is not one. It asks
@@ -2845,7 +2874,11 @@ if (hasStateChart) {
     // everywhere else that means a host forgot the tag. Here the gate looked at the deck's
     // own machines and found nothing that needs it.
     const noDagreMark = !dagreIife ? 'globalThis.__latticeDagreNotNeeded=1;\n' : '';
-    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife ? `${dagreIife}\n` : noDagreMark}${stateChartBrowserJs()}\n</script>`;
+    // The callout placer ships only for a deck whose state chart carries callouts, so every other export is the size it was.
+    const calloutsOn = highlightedSlides.some(stateChartHasCallouts);
+    const calloutsIife = calloutsOn ? calloutBrowserIife() : '';
+    calloutsEmbedded = !!calloutsIife;
+    stateChartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife ? `${dagreIife}\n` : noDagreMark}${calloutsIife ? `${calloutsIife}\n` : ''}${stateChartBrowserJs({ callouts: !!calloutsIife })}\n</script>`;
   } catch (e) {
     // The harness tiles show. Say so, as the flowchart does below.
     console.warn(`  ⚠ state chart layout unavailable (${e?.message ? e.message.split('\n')[0] : e}) — state charts export as their fallback tiles.`);
@@ -2862,12 +2895,14 @@ const hasFlowchart = highlightedSlides.some(s => s.includes('flowchart-figure'))
 let flowchartScript = '';
 if (hasFlowchart) {
   try {
-    const { browserJs: flowchartBrowserJs } = require('./lib/components/chart/flowchart/flowchart.layout.js');
+    const { browserJs: flowchartBrowserJs, htmlHasCallouts: flowchartHasCallouts } = require('./lib/components/chart/flowchart/flowchart.layout.js');
     let dagreIife = '';
     if (!(hasStateChart && needsDagre)) {
       try { ({ DAGRE_IIFE: dagreIife } = require('./lib/core/dagre-bundle.generated.js')); } catch (_e) { /* the harness stays up */ }
     }
-    flowchartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${flowchartBrowserJs()}\n</script>`;
+    const calloutsNeeded = highlightedSlides.some(flowchartHasCallouts);
+    const calloutsIife = calloutsNeeded && !calloutsEmbedded ? calloutBrowserIife() : '';
+    flowchartScript = `${ENGINE_SCRIPT_OPEN}\n${dagreIife}\n${calloutsIife ? `${calloutsIife}\n` : ''}${flowchartBrowserJs({ callouts: calloutsNeeded && (calloutsEmbedded || !!calloutsIife) })}\n</script>`;
   } catch (e) {
     // The harness tiles show. Say so: a missing Trama once exported every flowchart
     // as tiles with no word to the author.
@@ -2915,7 +2950,7 @@ if (deckSheet.refused && !QUIET) {
     + ' verified as whole rules and were left in place. They will fail to load; the export is'
     + ' otherwise unaffected. Please report the stylesheet that triggered this.');
 }
-const deckStyleText = exportDeckStyleText({ w: slideW, h: slideH, startMark: sheetStartMark(deckSizeName, paletteName), deckCss: deckSheet.css, endMark: SHEET_END_MARK, globalCss: exportGlobalCss(fm, slidesAsAuthored.join('\n')) });
+const deckStyleText = exportDeckStyleText({ w: slideW, h: slideH, startMark: sheetStartMark(deckSizeName, paletteName), deckCss: deckSheet.css, endMark: SHEET_END_MARK, globalCss: `${exportGlobalCss(fm, slidesAsAuthored.join('\n'))}${DECK_PLUGIN_CSS ? `\n${DECK_PLUGIN_CSS}` : ''}` });
 
 // The one place the deck's stylesheet exists as a finished string. Compute it
 // once: the <style> body below embeds it, and the texture <defs> are chosen from
@@ -4845,14 +4880,15 @@ async function renderBody(browser, g, closeBrowser) {
       REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
-        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''})` : '';
+        const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
         console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
       }
     } else {
       const pngBuffers = [];
       for (const h of handles) {
-        pngBuffers.push(await g(() => h.screenshot(pngShot), 'screenshot slide'));
+        // A `.pptx` slide picture is opaque, so a photographic one is stored as a JPEG (lib/export/slide-picture.js).
+        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot) : h.screenshot(pngShot)), 'screenshot slide'));
       }
       await closeBrowser();
 

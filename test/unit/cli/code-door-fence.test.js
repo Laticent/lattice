@@ -443,6 +443,10 @@ describe('the gate for a plugin’s one script', () => {
     assert.match(refusePluginCode(plugin({}, { embedded: false })), /declares `embedded`/, 'even false: the key is the repository\'s alone');
   });
 
+  test('refuses `draw`: only a plugin in this repository chooses what runs in the preview draw frame', () => {
+    assert.match(refusePluginCode(plugin({}, { draw: { frame: { library: 'inline' } } })), /declares `draw`, which only a plugin in this repository may hold/);
+  });
+
   test('refuses render.exec (hydrate "pass", a bake), payload and vendor by rule, not by prose', () => {
     assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { hydrate: 'pass' } } })), /render\.exec/);
     assert.match(refusePluginCode(plugin({}, { render: { parity: 'equivalent', degradesTo: 'source', exec: { bake: 'subprocess' } } })), /render\.exec/);

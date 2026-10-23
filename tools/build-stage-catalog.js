@@ -497,6 +497,9 @@ function buildVenueLint() {
   const panelNot = {};
   const rows = {};
   const points = {};
+  // `prose`: component → { slot, row } for a component that is one block of prose, whose budget is a
+  // WORD count at each rung, not an element count (lint's `venue-prose`; lib/authoring/venue-prose.js).
+  const prose = {};
   let rowFrame = null;
   // Universal modifiers a `venueCapacity.rows` register may be measured with (Amendment (10)).
   const ROW_MODIFIERS = ['compact'];
@@ -523,6 +526,15 @@ function buildVenueLint() {
           code.headed = Object.fromEntries(Object.entries(vc.lines.headed).map(([k, g]) => [k, Object.fromEntries(Object.entries(g).map(([sh, r]) => [sh, row(r)]))]));
         }
       }
+      continue;
+    }
+    if (vc.prose) {
+      // Compact, since it rides the Studio's lint bundle: [slot, row, variants?] with variants as { token: row }.
+      prose[m.name] = [vc.prose.slot, row(vc.prose.row)];
+      const regs = (v) => Object.fromEntries(Object.entries(v).map(([tok, r]) => [tok, row(r)]));
+      // [slot, row, variants | null, { family: [row, variants?] }]: the other canvases' budgets, when measured.
+      if (vc.prose.variants || vc.prose.families) prose[m.name].push(vc.prose.variants ? regs(vc.prose.variants) : null);
+      if (vc.prose.families) prose[m.name].push(Object.fromEntries(Object.entries(vc.prose.families).map(([f, r]) => [f, r.variants ? [row(r.row), regs(r.variants)] : [row(r.row)]])));
       continue;
     }
     const words = (byWords) => Object.fromEntries(Object.entries(byWords).map(([w, r]) => [w, row(r)]));
@@ -643,10 +655,11 @@ function buildVenueLint() {
     '   per words-per-element, as [laptop, huddle, conference, hall]; code: pane lines, bare and\n' +
     '   under an eyebrow, and `headed` under a 2- or 3-line heading; variants: "<component> <token>" rows; insight: rows with a trailing\n' +
     '   insight callout; panel: claim-panel line geometry; rows: list and card line geometry; points: the\n' +
-    '   split-panel points column\'s line geometry. Rebuild:\n' +
+    '   split-panel points column\'s line geometry; prose: a one-block component\'s word budget\n' +
+    '   per rung. Rebuild:\n' +
     '   node tools/build-stage-catalog.js */\n' +
-    'module.exports = ' + JSON.stringify({ items, code: codeRows, compareCode, variants, insight, insightVariants, eyebrow, eyebrowStrict, insightEyebrow, axis, panel, panelNot, rows, rowFrame, points }) + ';\n';
-  return { source, count: Object.keys(items).length + (codeRows ? 1 : 0) + (compareCode ? 1 : 0) };
+    'module.exports = ' + JSON.stringify({ items, code: codeRows, compareCode, variants, insight, insightVariants, eyebrow, eyebrowStrict, insightEyebrow, axis, panel, panelNot, rows, rowFrame, points, prose }) + ';\n';
+  return { source, count: Object.keys(items).length + Object.keys(prose).length + (codeRows ? 1 : 0) + (compareCode ? 1 : 0) };
 }
 
 function main() {

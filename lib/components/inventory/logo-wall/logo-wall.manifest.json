@@ -174,9 +174,31 @@
     }
   },
   "venueCapacity": {
-    "none": "Its elements are image assets; a synthetic deck would measure broken-image boxes, not logos."
+    "axis": "item",
+    "at": "wide",
+    "byWords": {
+      "6": {
+        "laptop": 8,
+        "huddle": 8,
+        "conference": 4,
+        "hall": 4
+      }
+    },
+    "variants": {
+      "dense": {
+        "byWords": {
+          "6": {
+            "laptop": 12,
+            "huddle": 12,
+            "conference": 12,
+            "hall": 6
+          }
+        }
+      }
+    }
   },
   "gesture": {
     "archetype": "grid"
-  }
+  },
+  "venueProbe": "<!-- _class: logo-wall -->\n\n`inventory · logo-wall`\n\n## The logo wall seats the marks with captions.\n\n- ![Acme](sample:logo-acme.svg)\n  - Acme\n  - `{Series B}`\n- ![Globex](sample:logo-globex.svg)\n  - Globex\n  - `{Enterprise}`\n- ![Vantage](sample:logo-vantage.svg)\n  - Vantage\n  - `{Public}`\n- ![Umbra](sample:logo-umbra.svg)\n  - Umbra\n  - `{Series C}`\n"
 }

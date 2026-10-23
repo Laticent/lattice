@@ -144,7 +144,7 @@ function InstalledRow({ plugin: p, listed, stamp, last, onListed, onRemove }: { 
 				<div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
 					<span className="text-[12.5px] font-semibold text-foreground">{p.title}</span>
 					<span className="text-[11px] font-semibold text-muted-foreground">From a zip</span>
-					<span className={cn('text-[11px] font-semibold', approved ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{approved ? 'Approved in this browser' : 'Not approved'}</span>
+					<span className={cn('text-[11px] font-semibold', approved ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{approved ? 'Approved in this browser' : 'Not approved yet'}</span>
 				</div>
 				<div className="mt-0.5 flex min-w-0 flex-wrap gap-1">
 					{draws.map((d) => (

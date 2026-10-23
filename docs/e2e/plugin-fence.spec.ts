@@ -110,7 +110,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await expect(notice).toContainText('This deck uses code from the plugin “gantt-plugin”, which has not run.');
 			await notice.getByRole('button', { name: 'What it is' }).click();
 			await expect(page.locator('[data-slot="code-packages-detail"]')).toContainText(/gantt-plugin\.render\.js \(the ```gantt fence\), [\d,]+ bytes, sha256 [0-9a-f]{64}/);
-			await expect(preview.locator('[data-package-error="gantt-plugin"]')).toContainText('its code has not been approved in this browser');
+			await expect(preview.locator('[data-lattice-plugin-off="gantt-plugin"][data-reason="unapproved"]')).toContainText('Plugin block · not approved in this browser');
 			await expect(preview.locator('[data-lattice-plugin]')).toHaveCount(0);
 			await expect(page.locator('iframe[data-lattice-code-sandbox]')).toHaveCount(0);
 			await settle();
@@ -125,7 +125,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLIFrameElement && n.hasAttribute('data-lattice-code-sandbox')) w.__sandboxes.push(String(n.getAttribute('sandbox')));
 				}).observe(document.body, { childList: true, subtree: true });
 			});
-			await notice.getByRole('button', { name: 'Run the code of gantt-plugin' }).click();
+			await notice.getByRole('button', { name: 'Approve the code of gantt-plugin' }).click();
 			const chart = preview.locator('[data-lattice-plugin="gantt-plugin"] svg.lp-gantt-plugin-chart');
 			await expect(chart).toHaveCount(1, { timeout: 30_000 });
 			await expect(chart.locator('rect')).toHaveCount(3);

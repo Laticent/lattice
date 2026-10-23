@@ -275,7 +275,7 @@ describe('components.pick.md', () => {
     for (const m of manifests) {
       assert.equal(cells(rowFor(m.name))[4], venuePickCell(m), `${m.name}: by-venue cell`);
       if (m.venueCapacity?.none) assert.equal(cells(rowFor(m.name))[4], '—', `${m.name}: a none is a dash`);
-      else assert.match(cells(rowFor(m.name))[4], /^\d+\+?(\/\d+\+?){3}( lines)?$/, `${m.name}: four venue counts`);
+      else assert.match(cells(rowFor(m.name))[4], /^\d+\+?(\/\d+\+?){3}( lines| words)?$/, `${m.name}: four venue counts`);
     }
   });
 
