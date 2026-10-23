@@ -1,3 +1,2 @@
 - Compose: a list item whose text is `[x]: /u` keeps its escaped brackets when you edit it, so it still draws its text instead of an empty item (it read back as a link reference definition).
 - Compose: an escaped `\[x\](/u)` or `\[x\][ref]` at the start of a list item or a table cell stays literal text when you edit it; it was turning into a live link.
-- Compose: a list item written with an escaped marker (`- \[x\] text`) draws no checkbox chip, because it is literal text on the slide, and keeps its escape when you edit it.

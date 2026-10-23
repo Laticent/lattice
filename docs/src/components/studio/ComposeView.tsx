@@ -357,7 +357,7 @@ function stateMarkerPlugin() {
 				if (!el) return false;
 				const $pos = view.state.doc.resolve(pos);
 				const para = $pos.parent;
-				if ($pos.depth < 2 || $pos.node($pos.depth - 1).type.name !== 'list_item' || !para.firstChild?.isText || para.attrs.literalMarker) return false;
+				if ($pos.depth < 2 || $pos.node($pos.depth - 1).type.name !== 'list_item' || !para.firstChild?.isText) return false;
 				const start = $pos.start();
 				const m = readEditMarker(para.firstChild.text ?? '');
 				if (!m) return false;
@@ -386,7 +386,7 @@ function stateMarkerPlugin() {
 						// reads it through the same list-text grammar, and a click toggles it (below).
 						const para = node.firstChild;
 						const lead = para?.type.name === 'paragraph' ? para.firstChild : null;
-						const lm = lead?.isText && !para?.attrs.literalMarker ? readEditMarker(lead.text ?? '') : null;
+						const lm = lead?.isText ? readEditMarker(lead.text ?? '') : null;
 						if (lm) {
 							const from = pos + 2; // list_item open + paragraph open
 							decos.push(Decoration.inline(from, from + 3, { class: `cs-cellmark cs-cellmark-${stateClassesFor(lm.marker)?.sem}`, 'data-listmark': '' }));

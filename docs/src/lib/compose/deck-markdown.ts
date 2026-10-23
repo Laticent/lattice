@@ -175,15 +175,6 @@ const imageSpec: NodeSpec = {
 export const proseSchema = new Schema({
 	nodes: mdSchema.spec.nodes
 		.update('code_block', codeBlockSpec)
-		// A list item whose first line is a leading state marker written with escaped brackets (`- \[x\] done`) is literal text on the
-		// slide. The parser reads `\[x\]` and `[x]` as the same text, so the paragraph carries the difference: the serializer keeps the
-		// escape and Compose draws no chip on it. The flag rides the DOM, so a copied item pastes as it was.
-		.update('paragraph', {
-			...(mdSchema.spec.nodes.get('paragraph') as NodeSpec),
-			attrs: { literalMarker: { default: false } },
-			toDOM: (node) => (node.attrs.literalMarker ? ['p', { 'data-literal-marker': '' }, 0] : ['p', 0]),
-			parseDOM: [{ tag: 'p', getAttrs: (dom) => ({ literalMarker: (dom as HTMLElement).hasAttribute('data-literal-marker') }) }],
-		})
 		// The engine runs markdown-it with `breaks: true`, so a bare newline inside a paragraph is a line break on the slide.
 		// `soft` marks the newline as written (`a\nb`), so it writes back as a newline and not as the `\` + newline of a
 		// backslash break (followups.d/2846-p6).
@@ -217,17 +208,6 @@ export const proseSchema = new Schema({
 // `thead`/`tbody` are transparent (`ignore`), so their child rows attach directly
 // to the `table` node, matching prosemirror-tables' flat `table → table_row+` shape.
 const tableTokenizer = createTokenizer();
-// Flag the first paragraph of a list item whose source starts with an escaped state marker (`\[x\] …`): `inline.content` still holds
-// the backslashes that the text token drops. The six markers are the list-text grammar's, read through `unescapeLeadingMarker`.
-tableTokenizer.core.ruler.push('literal_marker', (state) => {
-	const t = state.tokens;
-	for (let i = 1; i < t.length - 1; i++) {
-		if (t[i].type !== 'paragraph_open' || t[i - 1].type !== 'list_item_open' || t[i + 1].type !== 'inline') continue;
-		const src = t[i + 1].content;
-		if (unescapeMarker(src) !== src) t[i].meta = { literalMarker: true };
-	}
-	return true;
-});
 
 // biome-ignore lint/suspicious/noExplicitAny: markdown-it Token is loosely typed upstream.
 function alignAttrs(token: any) {
@@ -242,7 +222,6 @@ export const latticeMarkdownParser = new MarkdownParser(proseSchema, tableTokeni
 	// `markup` is the opening run exactly as written — `~~~`, ```` ``` ````, ```` ```` ````.
 	fence: { block: 'code_block', getAttrs: (tok) => ({ params: tok.info || '', marker: tok.markup || '' }), noCloseToken: true },
 	table: { block: 'table' },
-	paragraph: { block: 'paragraph', getAttrs: (tok) => ({ literalMarker: !!tok.meta?.literalMarker }) },
 	softbreak: { node: 'hard_break', getAttrs: () => ({ soft: true }) },
 	// The whole `<!-- … -->` arrives as one token; its `content` is the source bytes.
 	lattice_comment: { node: 'comment', getAttrs: (tok) => ({ text: tok.content }) },
@@ -523,7 +502,7 @@ const latticeNodes = {
 		const sub = new SubState(state.nodes, state.marks, state.options);
 		sub.renderInline(node);
 		let out = guardParagraphLines(sub.out, parent?.type.name === 'doc' || parent?.type.name === 'slide'); // the top level, in a prose doc or a deck slide
-		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText && !node.attrs.literalMarker) {
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
 			out = unescapeLeadingMarker(out, true);
 		}
 		state.text(out, false);
