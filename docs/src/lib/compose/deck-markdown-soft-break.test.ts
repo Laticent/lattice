@@ -138,6 +138,9 @@ describe('soft break edge cases', () => {
 		expect(rt('intro\n\na  \nb\n===\n\nafter')).toBe('intro\n\na\\\nb\n===\n\nafter');
 		expect(rt('Title\\\nline two\n---')).toBe('Title\\\nline two\n---');
 	});
+	it('a level-2 heading whose last line holds a pipe is written on one line, not over an underline that makes it a table', () => {
+		expect(rt('start\n|x\n-')).toBe('## start |x');
+	});
 	it('a soft break before a line holding only a backslash keeps both breaks', () => {
 		expect(rt('a\n\\\nb')).toBe('a\n\\\nb');
 	});

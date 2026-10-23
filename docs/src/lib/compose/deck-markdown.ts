@@ -434,7 +434,9 @@ const latticeNodes = {
 		});
 		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form, and only when every line is
 		// real text. A blank line would end the heading and a first line indented four spaces is code (a later one is a continuation), so those fall back to one ATX line.
-		if (hasBreak && node.attrs.level <= 2 && setextLines(node).every((l, i) => l.trim() !== '' && !(i === 0 && /^ {4,}/.test(l)))) {
+		// A level-2 heading whose last line holds a `|` falls back too: that line over its `---` underline reads as a one-column table.
+		const lines = setextLines(node);
+		if (hasBreak && node.attrs.level <= 2 && lines.every((l, i) => l.trim() !== '' && !(i === 0 && /^ {4,}/.test(l))) && !(node.attrs.level === 2 && lines[lines.length - 1].includes('|'))) {
 			state.setext = true;
 			state.renderInline(node);
 			state.setext = false;
