@@ -61,9 +61,11 @@
   --pass: light-dark(#054c86, #82bfff);
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
-  --chart-state-pass: #054c86;
-  --chart-state-warn: #926300;
-  --chart-state-fail: #5f0009;
+  --chart-state-pass: light-dark(#054C86, #5C9ADA);
+  --chart-state-warn: light-dark(#785100, #BE8D3E);
+  --chart-state-fail: light-dark(#5F0009, #E07D75);
+  --chart-on-solid: light-dark(#FFFFFF, #000000);
+  --chart-neutral: light-dark(#575757, #989898);
   /* Diagram alarm — a deep-red attention signal (not a green/red pair). */
   --diagram-critical: #5f0009;
 

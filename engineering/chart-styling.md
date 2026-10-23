@@ -113,6 +113,25 @@ A finish moves color; it never adds or removes it, and it never touches
 structure. A deck picks one with `chart-finish:` (`lib/base/base.registers.docs.md`),
 and a slide can pin its own with `_class: chart-finish-<name>`.
 
+### The solids — the base every finish styles
+
+Every chart concept has **one flat solid**, curated per theme: a category is `--chart-cat-N-hue`
+(seed `--chart-catN`), a status `--state-X-hue` (seed `--chart-state-X`), and a mark with neither
+`--chart-neutral-hue` (seed `--chart-neutral`). Text on any solid is **one ink per mode**,
+`--chart-solid-ink` (seed `--chart-on-solid`): white where the canvas is light, the canvas itself where
+it is dark, so a label reads the same on every chart. The contract, held for every palette in both modes
+by `test/unit/palette/chart-solids.test.js`:
+
+- the ink on every solid clears **7:1** (WCAG AAA), and
+- every solid clears **3:1** against the slide (WCAG 1.4.11).
+
+`tools/curate-chart-solids.js` seeded the values: it keeps each theme's hue and chroma and moves only
+lightness, away from the ink, until the ink clears 7:1, and leaves a seed that already clears it exactly as
+the author wrote it. It is not part of the build, so a hand-tuned seed stays tuned; three were hand-tuned on
+the first pass, where solving pushed two adjacent categories together (`chart-contrast.test.js` holds
+adjacent slots 0.06 OKLab apart): ardesia's slots 3 and 4 (dark) and onyx's slot 6 (light). A solid is
+flat: no chart grades, mixes or filters its fill, and a finish styles the solids rather than inventing colors.
+
 | | identity lives in | choose it for | body | edge |
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | 82% | ink, 1× |

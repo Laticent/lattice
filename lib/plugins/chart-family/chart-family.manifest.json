@@ -117,7 +117,9 @@
     "--text-heading",
     "--text-label",
     "--text-muted",
-    "--text-secondary"
+    "--text-secondary",
+    "--chart-neutral",
+    "--chart-on-solid"
   ],
   "render": {
     "parity": "equivalent",
