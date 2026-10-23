@@ -170,23 +170,6 @@ export default defineConfig({
 	// dev-only shim for exactly that shape — see its header for why `optimizeDeps.include`
 	// does not do the job.
 	vite: {
-		build: {
-			rollupOptions: {
-				output: {
-					// ONE chunk for every lucide icon. Left alone the bundler emits one file per icon (about 35 of them on
-					// the Studio's startup path), and on the phone profile the request count, not the bytes, is what the
-					// first slide waits for once the editor build is out of its way: 186 -> 162 requests moved the first
-					// slide 4.42 s -> 4.09 s, interleaved, disjoint IQRs (engineering/decisions/2026-10-23-startup-bake-off.md
-					// E4). The price is the whole set (15.6 KB gzipped) on every route that uses any icon: Playground and
-					// home eager JS +7 to +9 KB, both under their ceilings (docs/route-budget.d/2868-studio-boot-order.md).
-					// A route-aware split is not possible here: an icon's importer is the shared barrel, so `manualChunks`
-					// cannot tell routes apart. `experimentalMinChunkSize` was tried and changed nothing.
-					manualChunks(id) {
-						if (id.includes('node_modules/lucide-react/dist/esm/icons/') || id.includes('createLucideIcon')) return 'lucide';
-					},
-				},
-			},
-		},
 		server: { fs: { allow: ['..'] } },
 		// The preview server serves only the built `dist`, which is public; its CORS is the one-line `server.headers` above, so Vite's is off here.
 		preview: { cors: false },

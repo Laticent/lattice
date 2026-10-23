@@ -430,7 +430,7 @@ const SHELL_BANDS_CSS = `#studio-ssr-shell .ssr-band{position:absolute;display:n
 // The Nacre skeleton — a scoped inline COPY of docs/src/styles/nacre-loader.css (the
 // island's stylesheet doesn't exist pre-hydration). It fills the 16:9 .ssr-slidebox exactly
 // (inset:0), so it can never bleed past the slide rect. Palette-blind via the render-blocking
-// --accent/--bg tokens. KEEP IN SYNC with nacre-loader.css (keyframes name + fallback hexes).
+// --accent/--bg tokens. KEEP IN SYNC with nacre-loader.css (keyframes name + fallback hexes + the ::after grain: `nacre-loader.test.ts` fails if the two drift or either regains a url() image).
 const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset:0;overflow:hidden;isolation:isolate;background:var(--bg,#0c1626);}
 #studio-ssr-shell .nacre-loader__layer{position:absolute;inset:-35%;mix-blend-mode:screen;transform-origin:50% 50%;will-change:transform;}
 #studio-ssr-shell .nacre-loader__layer--0{--nacre-tone:var(--accent,#5b8fc7);animation:nacre-rot 9s linear infinite;}
@@ -443,7 +443,7 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 #studio-ssr-shell .nacre-loader__blob:nth-child(3){width:50%;aspect-ratio:1;left:32%;top:56%;}
 #studio-ssr-shell .nacre-loader__core{position:absolute;inset:0;background:radial-gradient(58% 58% at 50% 46%,color-mix(in srgb,var(--accent,#5b8fc7) 15%,transparent),transparent 72%);}
 #studio-ssr-shell .nacre-loader__vig{position:absolute;inset:0;box-shadow:inset 0 0 70px 14px color-mix(in srgb,var(--bg,#0c1626) 92%,transparent);}
-#studio-ssr-shell .nacre-loader::after{content:"";position:absolute;inset:0;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");background-size:128px 128px;}
+#studio-ssr-shell .nacre-loader::after{content:"";position:absolute;inset:0;opacity:0.018;background-image:repeating-conic-gradient(#000 0 25%,#fff 0 50%);background-size:2px 2px;}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader{background:var(--bg,#e9eef5);}
 :root[data-mode="light"] #studio-ssr-shell .nacre-loader__layer{mix-blend-mode:multiply;}
 @keyframes nacre-rot{to{transform:rotate(360deg);}}

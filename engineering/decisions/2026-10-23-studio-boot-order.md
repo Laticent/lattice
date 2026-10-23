@@ -13,6 +13,11 @@ summary: >
 
 # The Studio's boot order: what the first slide waits for
 
+> **Protocol caveat (added 2026-10-23).** Every figure below was taken on `astro preview`, which speaks HTTP/1.1 and
+> overstates the cost of request count. On HTTP/2, which production serves, the same comparison reads 09-22 3.86 s, PR base
+> 3.97 s, this PR 3.29 s (15 loads each, interleaved; `2026-10-23-startup-bake-off.md` E4). The ranking of the changes holds;
+> the "gap to baseline" in §3-§4 does not: this PR is ahead of the 09-22 build. Use `npm run preview:h2` for new runs.
+
 **Where this sits.** `2026-10-22-studio-startup-regression.md` measured the regression and §6 ranked the fixes. This
 note is the first slice of item 1 there ("preview-first boot"): what the slide waits for that it does not need, and
 what changed. Follow-up: `followups.d/2868-p1-studio-startup-back-to-baseline.md`.

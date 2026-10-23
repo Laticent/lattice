@@ -5,6 +5,7 @@
 // measured: Chromium, 390 px, touch, 4x CPU slowdown, 80 ms latency, 6 Mbit/s, a cold profile each run.
 // "First slide" is the first moment the preview frame holds a `.lattice` document.
 //
+// Prefer HTTP/2 (`npm run preview:h2`, then URL=https://localhost:4430/studio/): `preview:e2e` is HTTP/1.1 and overstates request count.
 // Usage (from docs/, against a built dist being served, e.g. `npm run preview:e2e`):
 //   RUNS=5 node scripts/startup-bench.mjs                 # Studio on :4321
 //   URL=http://localhost:4321/playground/ FRAME='iframe' node scripts/startup-bench.mjs
@@ -36,7 +37,7 @@ const median = (xs) => {
 };
 
 async function run(browser) {
-	const ctx = await browser.newContext({ viewport: P.viewport, hasTouch: P.hasTouch, isMobile: ENGINE === 'firefox' ? undefined : P.isMobile, serviceWorkers: WARM ? 'allow' : 'block' });
+	const ctx = await browser.newContext({ viewport: P.viewport, hasTouch: P.hasTouch, isMobile: ENGINE === 'firefox' ? undefined : P.isMobile, serviceWorkers: WARM ? 'allow' : 'block', ignoreHTTPSErrors: /^https:\/\/localhost/.test(URL) });
 	const page = await ctx.newPage();
 	const cdp = ENGINE === 'chromium' ? await ctx.newCDPSession(page) : null;
 	if (cdp) {

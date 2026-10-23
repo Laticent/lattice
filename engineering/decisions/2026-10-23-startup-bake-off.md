@@ -1,15 +1,14 @@
 ---
 status: shipped
 summary: >
-  A bake-off of the candidate changes for the Studio's startup and edit latency, each measured on the same harness, the
-  same machine and interleaved builds. The PR's own gain holds (4.96 s to 4.35 s on the phone profile, no IQR overlap)
-  and holds on WebKit, Firefox and a warm service-worker load. Two candidates passed and are applied: grouping the lucide
-  icons into one chunk (first slide 4.42 s to 4.09 s against 3.98 s for the 09-22 build, for +7 to +9 KB of eager JS on
-  four other routes) and drawing the Nacre loader's grain with a gradient (Lighthouse LCP 13.7 s to 4.5-5.3 s, score 51-55
-  to 59-67). One candidate was built, reviewed and reverted: letting the runtime settle at once after a host-driven edit
-  moved the last DOM change from 169-250 ms to 24-126 ms, but the 150 ms it skipped only rewrites same-value attributes
-  and screenshots before and after are identical, so the gain was in the metric, not on the screen. The chart-builder
-  split was not rebuilt. Lighthouse 90 still needs FCP and TBT work.
+  A bake-off of the candidate changes for the Studio's startup and edit latency, each measured on the same harness and
+  machine with interleaved builds. The PR's boot change holds on WebKit, Firefox and a warm service-worker load. On HTTP/2,
+  the protocol production uses, the first slide is 3.29 s against 3.97 s for the PR's base and 3.86 s for the 2026-09-22
+  build. One candidate passed: drawing the Nacre loader's grain with a gradient, which stops the loader counting as the
+  page's largest paint (Lighthouse LCP 13.7 s to 4.5-5.3 s). Two were built, reviewed and dropped: grouping the lucide
+  icons into one chunk (its 0.4 s gain was an HTTP/1.1 test-server artifact: 0.08 s on HTTP/2, for +9 KB on 169 routes and
+  React pulled into the chunk) and letting the runtime settle at once after an edit (the gain was in the metric, not on
+  the screen). The chart-builder split was not rebuilt. Lighthouse 90 still needs FCP and TBT work.
 ---
 
 # Startup and edit-latency bake-off (2026-10-23)
@@ -97,24 +96,26 @@ prose edit; on a diagram edit the wait is the coalescing and the repaint (about 
 render, which this change did not touch. A metric that counts the last attribute write is the wrong instrument for edit
 latency; a screenshot series (as above) or the flash bench's repaint time is the right one.
 
-## E4. Fewer requests before the island runs
+## E4. Fewer requests before the island runs: built, reviewed, dropped
 
-Prototype: one `manualChunks` rule putting every lucide icon and `createLucideIcon` in one chunk (`docs/astro.config.mjs`,
-`vite.build.rollupOptions.output`). Interleaved, 4 rounds of 5 loads per arm:
+Prototype: one `manualChunks` rule putting every lucide icon in one chunk. On `astro preview` (HTTP/1.1) it looked like a win:
+4.42 s to 4.09 s, 186 requests to 162. Independent review (inversion, red team, checker) found the test server was the cause.
+HTTP/1.1 gives a browser six connections per host, so each extra request queues, and the 80 ms latency of the phone profile
+multiplies the queue. Production (GitHub Pages, Cloudflare) serves HTTP/2, where requests share one connection. Re-measured on
+HTTP/2 (`docs/scripts/serve-h2.mjs`), 15 loads per arm, interleaved:
 
-| Build | Median | IQR | Requests |
-|---|---|---|---|
-| PR head | 4.42 s | 4.39-4.64 | 186 |
-| + one lucide chunk | **4.09 s** | 4.06-4.15 | **162** |
-| 2026-09-22 | 3.98 s | | 111 |
+| Build | HTTP/1.1 median | HTTP/2 median | HTTP/2 IQR | Requests |
+|---|---|---|---|---|
+| 2026-09-22 | 4.13 s | 3.86 s | 3.74-3.91 | 111 |
+| PR base | 5.07 s | 3.97 s | 3.92-4.00 | 197 |
+| this PR, no icon chunk | n/a | **3.29 s** | 3.26-3.32 | 185 |
+| this PR + icon chunk | 4.15 s | about 3.21 s | | 162 |
 
-That contradicts the October 22 audit's "grouping did not move the first slide". It is not a contradiction of the
-measurement: the audit grouped when the main thread was the bottleneck; with the editor deferred, the thread is free sooner
-and the request count shows. Cost, from the route-budget gate on the prototype build: the chunk is 15.6 KB gzipped and
-loads on every route that uses any icon: Playground eager JS +7.4 KB, home +9.1 KB, Studio -0.5 KB. Both stay under their
-ceilings (home keeps 8.9 KB of headroom). `experimentalMinChunkSize` (6,000 and 15,000) changed nothing in this build, so
-the targeted rule is the working form. A Studio-only chunk was not possible with `manualChunks`: an icon's importers are the
-shared barrel, so the rule cannot tell routes apart. **Gate:** none beyond the route-budget allowance file.
+The chunk is worth about 0.08 s on HTTP/2. It costs about 9 KB on each of 169 routes, and its importer is the shared barrel,
+so it pulled React into the chunk: one icon edit would invalidate 957 KB of cached JavaScript. **Dropped.** The same finding
+corrects the regression framing: on HTTP/2 the PR base was 0.1 s slower than 09-22, not 0.8-1.0 s, and this PR is 0.57 s
+faster than 09-22. **Lesson, kept in the harness:** decide request-count trades on HTTP/2 (`npm run preview:h2`, then
+`URL=https://localhost:<port>/studio/ npm run perf:startup`).
 
 ## E5. Chart builders out of the preview runtime
 
@@ -133,11 +134,16 @@ same built page with `.nacre-loader::after { background-image: none }` injected,
 | as built | 51-55 | 4.0-4.3 s | **13.6-13.7 s** | 430-520 ms | the app's loader |
 | noise image removed | **62-69** | 3.6-4.3 s | **4.2-5.0 s** | 340-470 ms | the pre-paint shell's title |
 
-That confirms the cause and puts LCP back where 09-22 had it. **Applied** (`docs/src/styles/nacre-loader.css`): the grain is
-now a 2 px black-and-white checker drawn with `repeating-conic-gradient` at 1.8% opacity; a gradient is not an LCP
-candidate. It had to keep the grain's job, which is to dither the color ramps against banding on a large 8-bit panel, so
-it was measured against the noise tile on the loader rendered at 1200 px, dark and light (longest run of identical pixels
-along a row; mean color against no grain):
+That confirms the cause and puts LCP back where 09-22 had it. **Applied** in both copies of the loader's CSS: `docs/src/styles/nacre-loader.css` (the app's loader, built at React mount) and
+the inline copy in `studio.astro` (`#studio-ssr-shell`, painted before any script). The first cut fixed only the first; review
+found the shell still carried the noise image, so the Studio's LCP element could still be a loader. Both now draw the grain as
+a 2 px black-and-white checker with `repeating-conic-gradient` at 1.8% opacity; a gradient is not an LCP candidate.
+
+**What this is, honestly.** It is a measurement correction. Chrome counted a loader's decorative image as the page's largest
+paint, which put LCP at the island's mount time; the real content paints about 9 s sooner. The change does not make anything
+paint faster. The checker was also tested for what the grain is for (dithering the color ramps against banding on a large
+8-bit panel), on the loader rendered at 1200 px, dark and light (longest run of identical pixels along a row; mean color
+against no grain):
 
 | Grain | Flat run, dark | Flat run, light | Mean color shift (of 255) |
 |---|---|---|---|
@@ -146,11 +152,11 @@ along a row; mean color against no grain):
 | **checker at 1.8% (now)** | **2.6 px** | **2.9 px** | +1.1 / +0.5 / -0.1 dark; -0.8 / -1.2 / -1.8 light |
 | checker at 1.2% | 8.5 px | 9.7 px | smaller, but dithers no better than the noise |
 
-It dithers better than the noise and moves the average color by under 2 of 255. Side-by-side renders at 390, 820 and
-1440 px in both modes (old left, new right) show no difference. On the real build, Lighthouse mobile, three runs: score
-**59-67** (was 51-55), LCP **4.5-5.3 s** (was 13.6-13.7 s), the LCP element the pre-paint shell. `nacre-loader.test.ts`
-fails if a `url()` image returns to the file. **Not shown:** banding on a real desktop panel; the measure is on pixels, not
-on a display.
+A checker breaks flat runs shorter than noise does, and moves the average color by under 2 of 255. That is a pixel measure,
+not a display: banding on a real desktop panel is **UNVERIFIED**, and the loader is on screen for seconds. Side-by-side renders
+at 390, 820 and 1440 px in both modes show no visible difference. On the real build, Lighthouse mobile, three runs: score
+**59-67** (was 51-55), LCP **4.5-5.3 s** (was 13.6-13.7 s). Guards: `nacre-loader.test.ts` fails if either copy uses an image
+or the copies drift apart, and `docs/e2e/studio-lcp.spec.ts` fails if the page's largest paint is inside a loader.
 
 It does not reach 90. With LCP fixed the weighted audits read: FCP 3.6 s (score 33), LCP 4.2 s (45), TBT 380 ms (69), CLS 0
 (100), speed index 3.6 s (87). Reaching 90 needs FCP near 1.8 s (the render-blocking `landing.css`, 35 KB, is 304 ms of it)
@@ -181,12 +187,12 @@ time), which is a boot-order redesign, not a hint or a stylesheet.
 
 | Item | Before | After | What moved it |
 |---|---|---|---|
-| The PR's boot change | medium | **high** | E1 (no IQR overlap), E2 (three engines, warm load) |
+| The PR's boot change | medium | **high** (3.29 s vs 3.97 s base on HTTP/2) | E1 (no IQR overlap), E2 (three engines, warm load) |
 | Time budget in CI | medium | **high** (as a same-job comparison) | E1 spread 60 ms |
 | Settle sooner (E3) | low-medium | **dropped** | built and reviewed; the last 125 ms changes nothing visible (identical screenshots at +30 and +380 ms), so it is not worth a runtime-bytes change |
-| Icon chunk (E4) | low | **high** for the Studio, medium overall | interleaved, disjoint IQRs; cost on two routes is known and in budget |
+| Icon chunk (E4) | low | **dropped** | an HTTP/1.1 artifact: 0.08 s on HTTP/2, +9 KB on 169 routes, React in the chunk |
 | Chart-builder split (E5) | medium | medium | not rebuilt |
-| Lighthouse (E6, E7) | low | LCP fixed and applied (score 51-55 to 59-67); FCP levers measured and not taken; 90 needs the script work to shrink | cause confirmed, fix measured on the real build; hint variants trade first slide for FCP |
+| Lighthouse (E6, E7) | low | LCP measurement corrected and applied (score 51-55 to 59-67); FCP levers measured and not taken; 90 needs the script work to shrink | cause confirmed, fix measured on the real build; hint variants trade first slide for FCP |
 
 Everything is still emulated Chromium, WebKit and Firefox on one machine. A real phone is the one thing that would take
 any of these to `very high`.
