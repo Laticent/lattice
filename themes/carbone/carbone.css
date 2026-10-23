@@ -163,27 +163,29 @@
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
   --pass: light-dark(#19531F, #92ffa6);   /* 7.74 on card / dark unchanged */
   --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). TEXT COLOR CARRIES THE KIND: a status is a BRIGHT fill
-   * under near-black `--on-status`, where a category is a deep fill under white. Two intensities, picked with
-   * `chart-finish: pigment muted|vivid`; text clears 7:1 on the light face and 9:1 on the dark face. Each status also
-   * has an EDGE in its own hue, 4.6:1 off the slide, that rims the bright fill on the light face and serves as the
-   * status line and text. The hues are this theme's own status inks, leaning toward its accent; the a11y palettes
-   * carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#7FC783, #8BDA8F);
-  --warn-solid: light-dark(#FFB989, #FFC198);
-  --fail-solid: light-dark(#E88F69, #FFA67F);
-  --pass-solid-vivid: light-dark(#7AC87E, #8BDA8F);
-  --warn-solid-vivid: light-dark(#FFB989, #FFC198);
-  --fail-solid-vivid: light-dark(#FF8247, #FFA67F);
-  --on-status: #1A1A1A;
-  --pass-solid-edge: light-dark(#2F7737, #8BDA8F);
-  --warn-solid-edge: light-dark(#995A2B, #FFC198);
-  --fail-solid-edge: light-dark(#A5522D, #FFA67F);
-  --info-solid: light-dark(#4BAFE3, #5AC6FF);
-  --info-solid-vivid: light-dark(#00B6FB, #5AC6FF);
-  --info-solid-edge: light-dark(#00719E, #5AC6FF);
-  --mute-solid: light-dark(#A0A6AD, #B5BCC3);
-  --mute-solid-edge: light-dark(#646A70, #B5BCC3);
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
+   * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
+   * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. Each status
+   * also has an EDGE in its own hue, 4.6:1 off the slide, for a status line or text, and the two exceptions a SIGNAL
+   * ring in the bright classic hue. The hues are this theme's own status inks, leaning toward its accent; the a11y
+   * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#254A28, #4A704B);
+  --warn-solid: light-dark(#8B4600, #B65D00);
+  --fail-solid: light-dark(#9D0800, #DB1000);
+  --pass-solid-vivid: light-dark(#004E11, #007820);
+  --warn-solid-vivid: light-dark(#8B4600, #B65D00);
+  --fail-solid-vivid: light-dark(#9D0800, #DB1000);
+  --warn-solid-signal: light-dark(#FD9900, #FD9800);
+  --fail-solid-signal: light-dark(#FF7744, #FF7B4C);
+  --on-status: #FFFFFF;
+  --pass-solid-edge: light-dark(#254A28, #709871);
+  --warn-solid-edge: light-dark(#8B4600, #D2772D);
+  --fail-solid-edge: light-dark(#971C11, #E66857);
+  --info-solid: light-dark(#005E85, #1E7CA9);
+  --info-solid-vivid: light-dark(#005E85, #007DAF);
+  --info-solid-edge: light-dark(#005E85, #3F97C5);
+  --mute-solid: light-dark(#4B5157, #686E74);
+  --mute-solid-edge: light-dark(#4B5157, #888F95);
   --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *

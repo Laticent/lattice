@@ -81,9 +81,10 @@ function checklistBlock(name) {
  *                          --diagram-critical*, --diagram-today, --diagram-note).
  *                          Borders, edges, gantt state, notes, alarm.
  *   6. Chart palette     — --chart-cat1..--chart-cat8 and --chart-neutral (deep
- *                          fills under white --on-solid), the bright status fills
- *                          --pass-solid … --mute-solid with their -vivid twins and
- *                          --X-solid-edge, under near-black --on-status. Solve them
+ *                          fills under white --on-solid), the deep status fills
+ *                          --pass-solid … --mute-solid with their -vivid twins,
+ *                          --X-solid-edge and the --warn/--fail-solid-signal
+ *                          rings, under white --on-status. Solve them
  *                          with node tools/curate-chart-solids.js. Verify
  *                          distinguishability with:
  *                            node tools/contrast-audit.js ${name}

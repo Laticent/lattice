@@ -54,11 +54,9 @@ const KNOCKOUTS = {
   'scatter-dot': 'scatter',
   'sbar-seg': 'stacked-bar',
   'tower-share': 'tower',
-  // The risk grid strokes the canvas between cells and round each marker, so a
-  // marker reads apart from the cell under it: separators, not outlines.
+  // The risk grid strokes the canvas between cells: a separator, not an outline. (Its
+  // markers are light discs outlined in the heading ink, so they join the shared rule.)
   'risk-cell': 'risk-matrix',
-  'risk-marker': 'risk-matrix',
-  'risk-key-marker': 'risk-matrix',
   // An EP curve's dots are knocked out of the other curve where two cross, as line's are.
   'ep-dot': 'ep-curve',
   'quadrant-trail-after': 'quadrant',

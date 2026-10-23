@@ -2,28 +2,28 @@
 /**
  * Curate every theme's chart SOLIDS: one flat color per chart concept, and the ink that reads on it.
  *
- * TEXT COLOR CARRIES THE KIND. A chart paints two kinds of color, and the text on a fill says which one the reader is
- * looking at (engineering/chart-styling.md §3, "Polarity"):
+ * ONE INK. Every chart fill carries WHITE text (`--on-solid`, and `--on-status` on a status), so two charts side by side
+ * never wear two text colors (engineering/chart-styling.md §3):
  *
- *   - a CATEGORY (`--chart-catN`) or the neutral (`--chart-neutral`) is a DEEP fill under WHITE text (`--on-solid`):
- *     7:1 on the light face; on the dark face a mid-tone that white still clears at 4.6:1 and that stands off the
- *     dark slide.
- *   - a STATUS (`--pass-solid` … `--mute-solid`) is a BRIGHT fill under near-black text (`--on-status`): 7:1 on the
- *     light face, 9:1 on the dark face, in two intensities (`chart-finish: pigment muted|vivid`). The same hue may
- *     appear as a category and as a status; the polarity keeps them apart.
+ *   - a CATEGORY (`--chart-catN`) or the neutral (`--chart-neutral`) is a DEEP fill: 7:1 under white on the light face;
+ *     on the dark face a mid-tone that white still clears at 4.6:1 and that stands off the dark slide.
+ *   - a STATUS (`--pass-solid` … `--mute-solid`) is deep too, in its own hue at its own chroma: done a quiet sage, at
+ *     risk a burnt orange, blocked a crimson, info a deep cyan-blue, deferred a deep gray, in two intensities
+ *     (`chart-finish: pigment muted|vivid`; vivid makes done an emerald).
  *
- * A bright status fill sits under 3:1 on a light slide, so each status also has an EDGE (`--X-solid-edge`): its own
- * hue, deep enough to clear 4.6:1 off both slide surfaces. The chart family draws it round every status shape on the
- * light face and uses it wherever a status is a line or text (a slope, a waterfall step, a kanban header). On the dark
- * face the edge is the muted fill itself.
+ * A status that shares a category's hue is told apart by what the chart family adds to it, not by its fill: every
+ * status carries its drawn MARK (lib/core/status-marks.js), and the two exceptions, at risk and blocked, carry a
+ * SIGNAL ring (`--warn-solid-signal`, `--fail-solid-signal`): the bright amber and coral-red, 3:1 off their fill. Each
+ * status also has an EDGE (`--X-solid-edge`): its own hue at 4.6:1 off the slide, for a status drawn as a line or text.
  *
  * Each move keeps a seed's hue and moves lightness (and chroma, only down, when a hue leaves the sRGB gamut). The
  * category and neutral hues are the theme's own; the status hues are the theme's own status inks (`--pass` …), with
- * info held in the cyan band (the owner's call: cyan is reserved for info). The a11y palettes solve their status fills
- * as a trio that clears every colorblind floor (test/unit/palette/cvd-trio-floor.test.js).
+ * each held to its band (lib/theme/chart-solids.js `HUE_BAND`; cyan is reserved for info). The a11y palettes share one
+ * design: on the dark face every chart fill is BRIGHT under a near-black ink (still one ink per slide), and they solve
+ * their status fills as a trio that clears every colorblind floor (test/unit/palette/cvd-trio-floor.test.js).
  *
  * CURATED, NOT GENERATED. This rewrites the seed literals in the theme file that OWNS them. It is not part of
- * `npm run build`; the palette gates (test/unit/palette/chart-solids.test.js, chart-polarity.test.js) hold every
+ * `npm run build`; the palette gates (test/unit/palette/chart-solids.test.js, chart-one-ink.test.js) hold every
  * theme to the bar, so a value an author hand-tunes afterwards stays tuned as long as it clears them. After a run,
  * regenerate the category inks with `node tools/derive-chart-cat-ink.js`.
  *
@@ -44,9 +44,8 @@ const ROOT = path.join(__dirname, '..');
 const THEMES_DIR = path.join(ROOT, 'themes');
 const FAMILY = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.styles.css');
 
-/** The solvers and their bars are shared with the Studio's generator (lib/theme/polarity.js). */
-const A11Y_CAT_DARK = 5.5;
-const { deepFill, midFill, brightFill, edgeFor, STATUS_BAR, TEXT_ON_SOLID, CAT_DARK, STATUS_DARK } = require('../lib/theme/polarity.js');
+/** The solvers and their bars are shared with the Studio's generator (lib/theme/chart-solids.js). */
+const { deepFill, midFill, brightFill, solveStatusSet, DARK_INK, TEXT_ON_SOLID, CAT_DARK } = require('../lib/theme/chart-solids.js');
 
 const CATS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `chart-cat${n}`);
 const NEUTRAL = 'chart-neutral';
@@ -58,37 +57,28 @@ const FILL = (s) => `${s}-solid`;
 const VIVID = (s) => `${s}-solid-vivid`;
 const EDGE_OF = (s) => `${s}-solid-edge`;
 /** Every status seed a trio-owning theme declares. `--mute-solid` has no vivid: a neutral has no intensity. */
-const STATUS_SEEDS = [ON_STATUS, ...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...STATES.map(EDGE_OF)];
-/** Retired by the polarity scheme: amber is no longer the one status with its own ink. */
+const SIGNAL_OF = (s) => `${s}-solid-signal`;
+const STATUS_SEEDS = [ON_STATUS, ...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...STATES.map(EDGE_OF), ...['warn', 'fail'].map(SIGNAL_OF)];
+/** Retired: amber is no longer the one status with its own ink. */
 const RETIRED = ['on-warn', 'on-warn-vivid'];
 
 /**
- * Chroma per intensity, for a palette of average saturation. Muted is calm enough for a deck of status charts; vivid
- * is rich and stops short of neon. Each theme scales both by its own CHARACTER (below).
- */
-const CHROMA = { muted: { light: 0.10, dark: 0.12 }, vivid: { light: 0.16, dark: 0.16 } };
-/**
  * THE THEME'S CHARACTER, so a status set is on brand rather than one set for every palette. Two measurements of the
  * theme's own palette:
- *   - STRENGTH: its categories' mean light-face chroma against a typical 0.11, held to 0.6-1.2. A quiet palette
- *     (ardesia, onyx) gets calmer status fills, never so calm that amber stops reading as a warning,; a saturated one (carbone, indaco) richer ones.
+ *   - STRENGTH: its categories' mean light-face chroma against a typical 0.11, held to 0.75-1.2. A quiet palette
+ *     (ardesia, onyx) gets calmer status fills, a saturated one (carbone, indaco) richer ones.
  *   - WARMTH: pass and fail lean 20% of the way toward the theme's accent hue, at most 18 degrees, so a leather
- *     palette's green is olive-sage and a frost palette's red is a cool rose. Amber does not lean (toward a blue accent
- *     it turns olive, and an amber that is not amber is not a warning), info stays in its band, and an achromatic
- *     accent (chroma under 0.05) leans nothing.
+ *     palette's green is olive-sage and a frost palette's red is a cool rose. Warn does not lean, and an achromatic
+ *     accent (chroma under 0.05) leans nothing. Each hue is then held to its band (`HUE_BAND`).
  */
 const TYPICAL_CHROMA = 0.11;
 const STRENGTH = [0.75, 1.2];
 const LEAN = 0.2;
 const LEAN_MAX = 18;
-const PASS_BAND = [120, 165];
 function lean(h, toward) {
   const d = ((toward - h + 540) % 360) - 180;
   return (h + Math.max(-LEAN_MAX, Math.min(LEAN_MAX, d * LEAN)) + 360) % 360;
 }
-/** Info lives in the cyan band, so it never reads as a category blue or a pass green. */
-const INFO_HUE = [200, 235];
-const NEAR_BLACK = '#1A1A1A';
 const WHITE = '#FFFFFF';
 
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -120,13 +110,6 @@ function familyDefault(seed) {
 
 
 
-/** The ink on a status fill: the theme's own light-face heading where it is near-black, else a neutral near-black. */
-function statusInk(heading) {
-  return isHex(heading) && hexToOklch(heading).L <= 0.3 && hexToOklch(heading).L >= hexToOklch(NEAR_BLACK).L - 0.02
-    ? heading.toUpperCase()
-    : NEAR_BLACK;
-}
-
 /**
  * THE COLORBLIND TRIO (the a11y palettes only). The three status fills, bright under the ink, as far apart under the
  * palette's OWN condition as its floor asks (the gate's rule, cvd-trio-floor.test.js), each as close to its own hue as that allows.
@@ -137,19 +120,23 @@ const FLOOR_MARGIN = 1.02;
 function floorMultiple(a, b, type) {
   return oklabDistance(simulate(a, type), simulate(b, type)) / cvdFloor(type);
 }
-function solveCvdTrio(hue, ink, min, type) {
+/**
+ * THE COLORBLIND TRIO (the a11y palettes only): pass, warn and fail, each deep under white at `min` and 3:1 off the
+ * slide (`surfaces`: a fill stands off the slide by itself, chart-solids.test.js), as far apart under the palette's own condition as its floor
+ * asks, and each as close to the scheme's own fill (`aim`) as that allows.
+ */
+function solveCvdTrio(hue, aim, min, type, surfaces, ink = WHITE) {
   if (!SIMULATED_TYPES.includes(type)) throw new Error(`unknown condition ${type}`);
   const candidates = (s) => {
-    const aim = brightFill(hue[s], 0.12, ink, min);
     const out = [];
-    for (let L = 0.6; L <= 0.99; L += 0.01) {
+    for (let L = 0.2; L <= 0.99; L += 0.01) {
       for (let C = 0; C <= 0.24; C += 0.02) {
         const x = oklchToHex({ L, C, h: hue[s] });
         if (C > 0.012 && !inGamut(x, C)) continue;
-        if (contrastRatio(x, ink) >= min) out.push([x.toUpperCase(), oklabDistance(x, aim)]);
+        if (contrastRatio(x, ink) >= min && surfaces.every((bg) => contrastRatio(x, bg) >= 3.05)) out.push([x.toUpperCase(), oklabDistance(x, aim[s])]);
       }
     }
-    return out.sort((p, q) => p[1] - q[1]).slice(0, 600);
+    return out.sort((p, q) => p[1] - q[1]);
   };
   const P = candidates('pass'); const W = candidates('warn'); const F = candidates('fail');
   let best = null;
@@ -165,16 +152,8 @@ function solveCvdTrio(hue, ink, min, type) {
       }
     }
   }
-  if (!best) throw new Error(`no bright status trio clears the colorblind floors at ${min}:1`);
+  if (!best) throw new Error(`no status trio clears the ${type} floor at ${min}:1 under ${ink}`);
   return best;
-}
-
-/** The colorblind trio at the first bar in `bars` (highest first) that admits one. */
-function solveCvdTrioStepping(hue, ink, bars, type) {
-  for (const [i, bar] of bars.entries()) {
-    try { return solveCvdTrio(hue, ink, bar, type); } catch (err) { if (i === bars.length - 1) throw err; }
-  }
-  return null;
 }
 
 /** Solve one theme's solids from its own chain. Returns { seed: value } for every seed the theme should declare. */
@@ -191,62 +170,45 @@ function solveTheme(theme) {
     return v;
   };
 
-  // Categories and the neutral: deep under white on the light face, the matching mid-tone on the dark face. A
-  // colorblind palette's dark trio cannot reach 9:1 and still clear its floor (achromatopsia needs 0.22 of lightness
-  // range), so its dark categories sit one step deeper instead, keeping the two kinds 2:1 apart; on its near-black
-  // slide they still stand off by more than 3:1.
-  const catDark = theme.startsWith('a11y-') ? A11Y_CAT_DARK : CAT_DARK;
+  // Categories and the neutral: deep under white on the light face, the matching mid-tone on the dark face. A colorblind
+  // palette's dark face is BRIGHT under the near-black ink (lib/theme/chart-solids.js `DARK_INK`): its own hue at 7:1,
+  // and a gray mirrored in lightness, so a monochrome palette's grays keep their spacing.
+  const a11y = theme.startsWith('a11y-');
+  const brightFace = (light) => {
+    const { h, C, L } = hexToOklch(light);
+    if (C >= 0.02) return brightFill(h, C, DARK_INK, TEXT_ON_SOLID);
+    const floor = hexToOklch(brightFill(h, C, DARK_INK, TEXT_ON_SOLID)).L;
+    return oklchToHex({ L: Math.min(0.97, Math.max(floor, 1.12 - L)), C, h }).toUpperCase();
+  };
   for (const seed of [...CATS.filter(owns), NEUTRAL]) {
     const light = deepFill(arm(seed, false));
-    out[seed] = `light-dark(${light}, ${midFill(light, catDark)})`;
+    out[seed] = `light-dark(${light}, ${a11y ? brightFace(light) : midFill(light, CAT_DARK)})`;
   }
-  out[ON_SOLID] = WHITE;
+  out[ON_SOLID] = a11y ? `light-dark(${WHITE}, ${DARK_INK})` : WHITE;
 
-  // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's.
+  // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's. One ink: the status
+  // fills carry white too, so `--on-status` is white; it stays a token so a palette can still differ.
   if (owns('pass')) {
-    const surfaces = [R(raw.bg, false), R(raw['bg-alt'], false)].filter(isHex);
-    const ink = statusInk(R(raw['text-heading'], false));
-    out[ON_STATUS] = ink;
+    const face = (dark) => [R(raw.bg, dark), R(raw['bg-alt'], dark)].filter(isHex);
+    out[ON_STATUS] = out[ON_SOLID];
     const hue = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((s) => [s, hexToOklch(arm(s, false)).h]));
-    hue.info = Math.min(INFO_HUE[1], Math.max(INFO_HUE[0], hue.info));
     const accent = R(raw.accent, false);
-    const a11yPalette = theme.startsWith('a11y-');
-    if (!a11yPalette && isHex(accent) && hexToOklch(accent).C >= 0.05) for (const s of ['pass', 'fail']) hue[s] = lean(hue[s], hexToOklch(accent).h);
-    // Pass stays GREEN after its lean: leaned into teal it crowds info, which owns the cyan band.
-    if (!a11yPalette) hue.pass = Math.min(PASS_BAND[1], Math.max(PASS_BAND[0], hue.pass));
+    if (!a11y && isHex(accent) && hexToOklch(accent).C >= 0.05) for (const s of ['pass', 'fail']) hue[s] = lean(hue[s], hexToOklch(accent).h);
     const meanC = CATS.slice(0, 6).reduce((sum, seed) => sum + hexToOklch(arm(seed, false)).C, 0) / 6;
-    const strength = a11yPalette ? 1 : Math.min(STRENGTH[1], Math.max(STRENGTH[0], meanC / TYPICAL_CHROMA));
-    const a11y = theme.startsWith('a11y-');
-    const fills = {};
-    for (const intensity of ['muted', 'vivid']) {
-      for (const dark of [false, true]) {
-        const min = dark ? STATUS_DARK : TEXT_ON_SOLID;
-        const C = CHROMA[intensity][dark ? 'dark' : 'light'] * strength;
-        // A colorblind trio on the dark face aims for 9:1 like every palette, and steps down only as far as its floor
-        // forces (achromatopsia needs 0.22 of lightness range, which 9:1 leaves no room for); its deeper dark
-        // categories keep the two kinds 2:1 apart (chart-polarity.test.js).
-        const set = a11y && intensity === 'muted' ? solveCvdTrioStepping(hue, ink, dark ? [STATUS_DARK, 8.5, 8, 7.5, TEXT_ON_SOLID] : [min], theme.slice('a11y-'.length)) : {};
-        for (const s of ['pass', 'warn', 'fail', 'info']) {
-          const arms = ((fills[intensity] ??= {})[s] ??= {});
-          let fill = set[s] ?? brightFill(hue[s], C, ink, STATUS_BAR[s][dark ? 1 : 0]);
-          // At the gamut's edge one fill can clear both faces' bars; the dark face then steps one notch brighter, so
-          // the pair stays a pair (a theme never flattens a base light-dark() token, paired-token-parity.test.js).
-          if (dark && fill === arms.light) fill = brightFill(hue[s], C, ink, contrastRatio(fill, ink) + 0.3);
-          arms[dark ? 'dark' : 'light'] = fill;
-        }
-      }
+    const strength = a11y ? 1 : Math.min(STRENGTH[1], Math.max(STRENGTH[0], meanC / TYPICAL_CHROMA));
+    const darkInk = a11y ? DARK_INK : WHITE;
+    let set = solveStatusSet({ hue, strength, light: face(false), dark: face(true), darkInk });
+    if (a11y) {
+      // A colorblind palette solves its trio against its own condition, near the scheme's own fills, on each face; the
+      // trio's hues are its own (a colorblind palette picks hues for its condition, not for a band). One set serves
+      // both intensities.
+      const type = theme.slice('a11y-'.length);
+      const trio = [false, true].map((dark) => solveCvdTrio(hue, Object.fromEntries(TRIO.map((s) => [s, set[FILL(s)][dark ? 1 : 0]])), TEXT_ON_SOLID, type, [R(raw.bg, dark)], dark ? darkInk : WHITE));
+      const override = Object.fromEntries(TRIO.map((s) => [s, [trio[0][s], trio[1][s]]]));
+      set = solveStatusSet({ hue, strength, light: face(false), dark: face(true), override, darkInk });
     }
-    const muteHue = hexToOklch(arm('mute', false));
-    const mute = { light: brightFill(muteHue.h, 0.012, ink, TEXT_ON_SOLID), dark: brightFill(muteHue.h, 0.012, ink, STATUS_DARK) };
-    for (const s of ['pass', 'warn', 'fail', 'info']) {
-      const m = fills.muted[s];
-      out[FILL(s)] = `light-dark(${m.light}, ${m.dark})`;
-      // A colorblind palette keeps ONE set, the one that clears every floor, in both intensities.
-      out[VIVID(s)] = a11y ? `var(--${FILL(s)})` : `light-dark(${fills.vivid[s].light}, ${fills.vivid[s].dark})`;
-      out[EDGE_OF(s)] = `light-dark(${edgeFor(m.light, surfaces)}, ${m.dark})`;
-    }
-    out[FILL('mute')] = `light-dark(${mute.light}, ${mute.dark})`;
-    out[EDGE_OF('mute')] = `light-dark(${edgeFor(mute.light, surfaces)}, ${mute.dark})`;
+    for (const [token, [l, d]] of Object.entries(set)) out[token] = `light-dark(${l}, ${d})`;
+    if (a11y) for (const s of ['pass', 'warn', 'fail', 'info']) out[VIVID(s)] = `var(--${FILL(s)})`;
   }
   return out;
 }
@@ -305,4 +267,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { solveTheme, statusInk, solveCvdTrio, CATS, STATES, NEUTRAL, ON_SOLID, ON_STATUS, STATUS_SEEDS };
+module.exports = { solveTheme, solveCvdTrio, CATS, STATES, NEUTRAL, ON_SOLID, ON_STATUS, STATUS_SEEDS };

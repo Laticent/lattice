@@ -180,14 +180,14 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` pill as a scored surface: the status's flat BRIGHT fill (the base's `--X-solid`) under the
- * near-black status ink `--on-status`, at 7:1 on both faces (the curation aims 9:1 on the dark face; this gate holds
- * the 7:1 floor). TEXT COLOR CARRIES THE KIND (base.tokens.css § STATUS, IN TWO JOBS). `requires` pins the fill, the
- * ink and the state's hue mapping in the component CSS, so a retune of any of them reddens the gate instead of
- * silently re-pointing what is measured. */
+ * One `.chart-status` pill as a scored surface: the status's flat DEEP fill (the base's `--X-solid`) under the status
+ * ink `--on-status`, white like every chart ink (ONE INK, base.tokens.css § STATUS, IN TWO JOBS): 7:1 on the light
+ * face, 4.5:1 on the dark face, where a fill is the lightest mid-tone white still clears so it stands off the dark
+ * slide. `requires` pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of
+ * them reddens the gate instead of silently re-pointing what is measured. */
 const TRIO_STATES = ['pass', 'warn', 'fail'];
 const solidInk = () => '--on-status';
-const solidMinDark = () => 7;
+const solidMinDark = () => 4.5;
 
 function pillStop(state) {
   return {

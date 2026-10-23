@@ -31,64 +31,85 @@
 /* The cells. The canvas-colored hairline is the family separator: without it two
  * cells of one band read as one block and the grid loses its count. */
 :is(section.risk-matrix, figure.chart-frame) .risk-cell {
-  /* On the light face a band is a BRIGHT status fill, under 3:1 off the slide, so each cell is drawn in its status's
-   * edge (chart-family § THE STATUS EDGE sets `--chart-status-edge` per band); on the dark face the bright cell
-   * stands off the slide by itself and the seam is the canvas. */
-  stroke: light-dark(var(--chart-status-edge), var(--bg));
+  /* A band is a DEEP status fill that stands off the slide by itself, so the seam between cells is the canvas. */
+  stroke: var(--bg);
   stroke-width: 1.2;
 }
-/* Each band is a status FILL, read from the chart family (`--state-*-hue`), so a risk cell is the same green, amber
- * and red as a gantt bar or a pill in the same deck, in the intensity the deck picks. The fills are bright and the
- * markers on them carry the heading ink, so text color reads as status here as everywhere (chart-styling.md §3).
+/* Each band is a status FILL, read from the chart family (`--state-*-hue`), so a risk cell is the same sage, burnt
+ * orange and crimson as a gantt bar or a pill in the same deck, in the intensity the deck picks.
  *
  * THE ORDER SURVIVES GRAYSCALE PRINT: the print band's status fills darken with severity (base.tokens.css
  * `--print-*-solid`), and critical is darker again, so `--print` keeps low < medium < high < critical (#2714). */
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="low"] { fill: var(--state-pass-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="medium"] { fill: var(--state-warn-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="high"] { fill: var(--state-fail-hue); }
-/* Critical is the MOST saturated step, and still a bright fill under the markers: the vivid fail fill mixed 30% toward the
- * theme's own saturated fail ink (deeper on the light face, richer on the dark), so it outranks `high` in both
- * intensities and stays ordered in print. */
+/* Critical is the DEEPEST step: the vivid fail fill taken 18% toward black, so it outranks `high` in both intensities
+ * and stays ordered in print. What says "exception" is the ring round the band and the cross in each cell, below. */
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="critical"] {
-  fill: color-mix(in oklch, var(--fail-solid-vivid) 70%, var(--fail));
+  fill: color-mix(in oklch, var(--fail-solid-vivid) 82%, black);
+}
+/* The critical band's SIGNAL RING (chart-family § THE SIGNAL RING), traced round the whole band by the kernel and
+ * clipped to the band: twice the ring's width, so the half inside the band is the ring. */
+:is(section.risk-matrix, figure.chart-frame) .risk-band-ring {
+  fill: none;
+  stroke: var(--state-fail-signal);
+  stroke-width: calc(var(--chart-ring) * 2);
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
 }
 
-/* A marker is the canvas's heading ink with the canvas color for its number:
- * the one pairing that holds contrast over every band in both modes, so a risk
- * never depends on the cell under it to be read. */
+/* A marker is a DISC in the canvas color with the heading ink for its rim and its number: the one pairing that holds
+ * contrast over every deep band in both modes and on the bare canvas of the key, so a risk never depends on the cell
+ * under it to be read. The rim's weight is the family's edge (chart-family § the shared edge rule). */
 :is(section.risk-matrix, figure.chart-frame) :is(.risk-marker, .risk-key-marker) {
-  fill: var(--text-heading);
-  stroke: var(--bg);
-  stroke-width: 1;
+  fill: var(--bg);
+  stroke: var(--text-heading);
 }
 :is(section.risk-matrix, figure.chart-frame) :is(.risk-number, .risk-key-number) {
   font-size: 6px;
   font-weight: 700;
-  fill: var(--bg);
+  fill: var(--text-heading);
   font-variant-numeric: tabular-nums;
 }
-/* Under the Present Guide a focused risk's number keeps the canvas ink of its disk.
+/* THE KEY IS COLOR-CODED: each key disc wears its risk's BAND, the same fill as the cells, with its number in the solid
+ * ink, so a name in the key reads as low, medium, high or critical before the eye finds the cell. A critical disc also
+ * wears the signal ring, as the critical band does. On the canvas a deep fill stands off by itself (3:1, chart-solids). */
+:is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="low"] { fill: var(--state-pass-hue); }
+:is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="medium"] { fill: var(--state-warn-hue); }
+:is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="high"] { fill: var(--state-fail-hue); }
+:is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="critical"] {
+  fill: color-mix(in oklch, var(--fail-solid-vivid) 82%, black);
+  stroke: var(--state-fail-signal);
+  stroke-width: var(--chart-ring);
+  paint-order: stroke fill;
+}
+:is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band]:not([data-band="critical"]) { stroke: none; }
+:is(section.risk-matrix, figure.chart-frame) .risk-key-number { fill: var(--chart-solid-ink); }
+
+/* Under the Present Guide a focused risk's number keeps the heading ink of its disk.
  * The Guide paints focused SVG text in the accent (base.focus.css), right for text on
- * the canvas and wrong for text ON a mark: measured, indaco's accent on the heading-ink
- * disk is 3.31:1 light and 1.85:1 dark. The risk is still named by its accented key
+ * the canvas and wrong for text ON a mark. The risk is still named by its accented key
  * label and its outline. One step above the Guide's (0,2,3) rule. */
 section[data-guide] svg text:is(.risk-number, .risk-key-number):is(.lat-guide-focus, .lat-guide-highlight) {
-  fill: var(--bg);
+  fill: var(--text-heading);
 }
 
-/* Where a risk is meant to land once mitigated: a dashed ring, and the arrow to it. */
+/* Where a risk is meant to land once mitigated: a dashed ring, and the arrow to it. Both lie ON the bands, never on
+ * the canvas, so they wear the ink every band carries (`--chart-solid-ink`, one ink: white on a deep band, near-black
+ * on an `a11y-*` palette's bright dark-face band). The heading ink they used to wear was right for bright bands and
+ * all but vanished on deep ones. */
 :is(section.risk-matrix, figure.chart-frame) .risk-target {
   fill: none;
-  stroke: var(--text-heading);
+  stroke: var(--chart-solid-ink);
   stroke-width: 1;
   stroke-dasharray: 2 1.4;
 }
 :is(section.risk-matrix, figure.chart-frame) .risk-path {
-  stroke: var(--text-heading);
+  stroke: var(--chart-solid-ink);
   stroke-width: 1;
 }
 :is(section.risk-matrix, figure.chart-frame) .risk-arrowhead {
-  fill: var(--text-heading);
+  fill: var(--chart-solid-ink);
 }
 
 :is(section.risk-matrix, figure.chart-frame) .risk-tick {

@@ -287,8 +287,8 @@ section.chart-frame:not(.form) {
  * they can never drift apart. The spectrum is the chart-family's own —
  * decoupled from the engine-wide cN accents (which still drive roadmap /
  * journey / legal / decision) — Apple-inspired, well-spaced hues, each a deep
- * fill under white text with a matching mid-tone on the dark face (the
- * polarity below). Themes flavor it by setting `--chart-catN`
+ * fill under white text with a matching mid-tone on the dark face (one
+ * ink, below). Themes flavor it by setting `--chart-catN`
  * (see below). Components consume only --catN-fill / --catN-ink and stay
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
@@ -300,7 +300,7 @@ section.word-cloud,
    * journey / legal / decision). Each slot is `light-dark(deep, mid)`: a
    * category is a DEEP fill under white text (7:1 on the light face), and on
    * the dark face the lightest tone of the same hue that white still clears
-   * at 4.6:1, so it stands off the dark slide (chart-styling.md §3, "Polarity";
+   * at 4.6:1, so it stands off the dark slide (chart-styling.md §3, "One ink";
    * solved by tools/curate-chart-solids.js). The hues are well-spaced around
    * the wheel, Apple-inspired, not copied.
    *
@@ -533,10 +533,9 @@ section.word-cloud,
  *
  * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
  * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`, the rule below this
- * block). A chart keeps no status color of its own. TEXT COLOR CARRIES THE KIND: a status fill is BRIGHT, under
- * near-black `--on-status`; a category is deep, under white. The ink is the status's curated EDGE
- * (`--X-solid-edge`): its own hue at 4.6:1 off the slide on the light face, the muted fill on the dark one. It is what
- * a status LINE or status TEXT paints, and it rims every status shape on the light face (§ THE STATUS EDGE below). */
+ * block). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. The
+ * ink is the status's curated EDGE (`--X-solid-edge`): its own hue at 4.6:1 off the slide, what a status LINE or
+ * status TEXT paints. The signal is the bright ring an exception wears (§ THE SIGNAL RING below). */
 section.chart-frame,
 .chart-frame {
   --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
@@ -544,17 +543,19 @@ section.chart-frame,
   --state-fail-hue: var(--fail-solid);  /* red    — blocked/fail         */
   --state-info-hue: var(--info-solid);  /* blue   — pilot/decision/info  */
   --state-mute-hue: var(--mute-solid);  /* gray   — deferred             */
+  --state-warn-signal: var(--warn-solid-signal);
+  --state-fail-signal: var(--fail-solid-signal);
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
-   * mark with neither `--chart-neutral-hue`. Text on a category or the neutral is `--chart-solid-ink`, white
-   * (`--on-solid`) in both modes; inside a mark that carries a status, `--chart-solid-ink` is that status's
-   * `--state-X-on`, near-black (`--on-status`), by the rules below. So the text color says which kind of color the
-   * reader is looking at, even where a category and a status share a hue. Each theme curates the seeds (`--chart-catN`,
-   * the base's status fills and edges, `--chart-neutral`, and the two inks) so text clears 7:1 on every light-face
-   * solid (4.6:1 under white on a dark-face category, 9:1 on a dark-face status) and every solid has a 3:1 boundary
-   * off the canvas: tools/curate-chart-solids.js seeded them, and test/unit/palette/chart-solids.test.js and
-   * chart-polarity.test.js hold every palette to it. No chart mixes or grades its own fill. */
+   * mark with neither `--chart-neutral-hue`. Text on every solid is `--chart-solid-ink`, white: `--on-solid` on a
+   * category or the neutral, and inside a mark that carries a status, that status's `--state-X-on` (`--on-status`,
+   * white too), by the rules below. ONE INK, so two charts on one slide never wear two text colors. Where a category
+   * and a status share a hue, the status is told apart by its drawn MARK and, for an exception, its SIGNAL ring.
+   * Each theme curates the seeds (`--chart-catN`, the base's status fills, edges and signals, `--chart-neutral`, and
+   * the inks) so white clears 7:1 on every light-face solid and 4.6:1 on every dark-face one, and every solid has a
+   * 3:1 boundary off the canvas: tools/curate-chart-solids.js seeded them, and test/unit/palette/chart-solids.test.js
+   * and chart-one-ink.test.js hold every palette to it. No chart mixes or grades its own fill. */
   --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #697686));
   --chart-solid-ink: var(--on-solid);
 
@@ -582,8 +583,8 @@ section.chart-frame,
   --state-info-ink: var(--info-solid-edge);
   --state-mute-ink: var(--mute-solid-edge);
 
-  /* The ink for TEXT on each status fill: near-black `--on-status` on every one. Five tokens rather than one so a
-   * palette can still carry a different ink on one status without a code change. */
+  /* The ink for TEXT on each status fill: `--on-status`, white, on every one. Five tokens rather than one so a palette
+   * can still carry a different ink on one status without a code change. */
   --state-pass-on: var(--on-status);
   --state-warn-on: var(--on-status);
   --state-fail-on: var(--on-status);
@@ -652,6 +653,7 @@ section.chart-frame,
    * Chromium paints 2. */
   --chart-edge: var(--chart-hairline);            /* every data mark's edge */
   --chart-edge-strong: calc(var(--chart-hairline) * 2);  /* hero / active only */
+  --chart-ring: calc(var(--chart-hairline) * 1.3);  /* the signal ring inside an exception (§ THE SIGNAL RING) */
   /* ONE MARK CORNER. `0.46875cqi` was written out five times across progress,
    * kanban and state-chart — the same number, three members, no shared name —
    * next to 13 other radii the family had drifted into. A corner is structure:
@@ -1190,7 +1192,8 @@ section.chart-frame .chart-caption::before {
   color: var(--chart-solid-ink);
 }
 /* THE VIVID INTENSITY. `chart-finish: … vivid` stamps `chart-finish-vivid` on the slide, which points every status at
- * the theme's vivid fills. The neutral (`--mute-solid`) has no intensity, and the edges and the ink stay as they are.
+ * the theme's vivid fills. The neutral (`--mute-solid`) has no intensity, and the edges, signals and ink stay as they
+ * are.
  * A chart that IS the slide (`section.chart-frame`) and one that sits inside a slide (a pane) both take it. */
 .chart-finish-vivid.chart-frame,
 .chart-finish-vivid .chart-frame {
@@ -1201,8 +1204,8 @@ section.chart-frame .chart-caption::before {
 }
 
 /* TEXT ON A STATUS FILL. Every member marks a status with `data-s`, in one shared vocabulary, and its label sits on
- * that mark or inside it, so the ink on a fill is set here once, by status, for every chart: near-black, where the
- * frame's `--chart-solid-ink` is white. The five rules keep the ink a theme decision rather than a code one. */
+ * that mark or inside it, so the ink on a fill is set here once, by status, for every chart: `--state-X-on`, white
+ * like the frame's own `--chart-solid-ink`. The five rules keep the ink a theme decision rather than a code one. */
 :is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --chart-solid-ink: var(--state-pass-on); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-solid-ink: var(--state-warn-on); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-solid-ink: var(--state-fail-on); }
@@ -1246,29 +1249,33 @@ section.chart-frame .chart-caption::before {
   font-size: max(var(--chart-text-min), 2cqi);
 }
 
-/* THE STATUS EDGE. A status fill is bright, so on a light slide it sits under the 3:1 a graphical object needs
- * (WCAG 1.4.11). Every status SHAPE is rimmed with its status's edge (`--state-X-ink`, 4.6:1 off the slide) on the
- * light face; on the dark face the bright fill already stands off the slide by 9:1 or more and takes no rim. The edge
- * is drawn INSIDE the shape (an inset shadow; an SVG stroke painted under the fill), so a rimmed mark keeps its size.
- * A member that draws a status as an HTML box joins the second rule by class; an SVG shape is caught by tag and by the
- * status VOCABULARY (a waterfall's `total` is not a status, and keeps its own outline), minus the parts that are not
- * the status's body (an accent rule, a halo that is itself the ring). A risk cell is a status band without `data-s`,
- * so it joins by class. A bare numeral (`.state-index`) is text and is never rimmed. */
-:is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --chart-status-edge: var(--state-pass-ink); }
-:is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-status-edge: var(--state-warn-ink); }
-:is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-status-edge: var(--state-fail-ink); }
-:is(section.chart-frame, figure.chart-frame) :is([data-s="pilot"], [data-s="decision"], [data-s="info"]) { --chart-status-edge: var(--state-info-ink); }
-:is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --chart-status-edge: var(--state-mute-ink); }
-:is(section.chart-frame, figure.chart-frame) .risk-cell[data-band="low"] { --chart-status-edge: var(--state-pass-ink); }
-:is(section.chart-frame, figure.chart-frame) .risk-cell[data-band="medium"] { --chart-status-edge: var(--state-warn-ink); }
-:is(section.chart-frame, figure.chart-frame) .risk-cell:is([data-band="high"], [data-band="critical"]) { --chart-status-edge: var(--state-fail-ink); }
-:is(section.chart-frame, figure.chart-frame) :is(rect, circle, path, polygon, ellipse):is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="pilot"], [data-s="decision"], [data-s="info"], [data-s="deferred"]):not(.gantt-bar-accent, .state-node-accent, .hub-spoke-halo, .chart-status-mark) {
-  stroke: light-dark(var(--chart-status-edge, transparent), transparent);
-  stroke-width: var(--chart-edge);
-  paint-order: stroke fill;
+/* THE SIGNAL RING. A status fill is deep, like a category, so its fill alone cannot say "exception". The two
+ * exceptions, at risk and blocked, wear a RING: the status color at the opposite lightness to its fill
+ * (`--state-warn-signal` amber, `--state-fail-signal` coral-red on a deep fill), on both faces; every other status, and
+ * every category, wears none, so the ring means one thing on every chart.
+ *
+ * The ring is an OUTLINE THAT TAKES NO SPACE: `--chart-ring` wide (1.3 hairlines, 1.3px on a standard slide), drawn
+ * INSIDE the shape, so it never grows a mark, never covers an arrowhead a router ends at the shape's edge, and is never
+ * cut by a clipping parent. On an HTML box (a pill, a progress bar, a kanban card) it is an inset shadow. Every finish
+ * paints a status member's edge with `!important` (chart-finish.generated.css), so the ring is `!important` too, and
+ * wins on its higher specificity: one ring in pigment, etch and tone alike.
+ *
+ * On an SVG shape the ring is its OWN element, `.chart-signal-ring`: the shape's own outline, stroked twice the ring's
+ * width and clipped to the shape, so only the inner half shows. The member's kernel draws it (a gantt bar, a
+ * state-chart tile, a flowchart node). A CSS stroke on the shape itself would also reach a status that is a LINE (a
+ * slope). A hub-spoke disc's alarm halo is that chart's
+ * ring, and a risk matrix rings its critical band once. A bare numeral (`.state-index`) is text and is never ringed. */
+:is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-signal: var(--state-warn-signal); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-signal: var(--state-fail-signal); }
+:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .progress-fill, .state-node, .fc-node, .fc-key-swatch, .kanban-card):is([data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"]) {
+  box-shadow: inset 0 0 0 var(--chart-ring) var(--chart-signal) !important;
 }
-:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .progress-fill, .state-node, .fc-node, .fc-key-swatch)[data-s] {
-  box-shadow: inset 0 0 0 var(--chart-edge) light-dark(var(--chart-status-edge, transparent), transparent);
+:is(section.chart-frame, figure.chart-frame) .chart-signal-ring {
+  fill: none !important;
+  stroke: var(--chart-signal) !important;
+  stroke-width: calc(var(--chart-ring) * 2);
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
 }
 
 /* One rule per status — canvas-aware --state-* tokens, no `.dark` overrides. */
@@ -1841,7 +1848,9 @@ section.chart-frame:is(.piechart, .radar):is(.claim-hero, .claim-bleed) .cell-ma
   .fc-head,
   .waterfall-bar,
   .tower-layer,
-  .histogram-band
+  .histogram-band,
+  .risk-marker,
+  .risk-key-marker
 ) {
   vector-effect: non-scaling-stroke;
   stroke-width: var(--chart-edge);

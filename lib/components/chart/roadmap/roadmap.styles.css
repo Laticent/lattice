@@ -75,23 +75,24 @@
   height:0.95em;
   flex:0 0 auto;
 }
-/* The disc's glyph and rim. A neutral disc knocks its glyph out in the canvas and has no rim; a status disc (shipped,
- * in flight, missed) is a bright status FILL, so its glyph is the near-black status ink and its rim the status edge
- * (chart-family § THE STATUS EDGE). Each state below sets its own. */
-:is(section.roadmap, figure.roadmap) { --state-glyph-mark: var(--bg); --state-edge-mark: transparent; }
+/* The disc's glyph. A neutral disc knocks its glyph out in the canvas; a status disc (shipped, in flight, missed) is a
+ * deep status FILL, so its glyph is the status ink, white like every chart ink (one ink, chart-family § THE SOLID
+ * TIER). The glyph's SHAPE carries the state, so a disc needs no rim, and is too small to carry a signal ring. Each
+ * state below sets its own. */
+:is(section.roadmap, figure.roadmap) { --state-glyph-mark: var(--bg); }
 /* Per-state tokens, legend scope — mirror the cell tokens above. */
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--state-pass-hue); --state-edge-mark:var(--state-pass-ink); --state-glyph-mark:var(--on-status); --state-mark:var(--mark-check); }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--state-warn-hue); --state-edge-mark:var(--state-warn-ink); --state-glyph-mark:var(--on-status); --state-mark:var(--mark-dash);  }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--state-pass-hue); --state-glyph-mark:var(--on-status); --state-mark:var(--mark-check); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--state-warn-hue); --state-glyph-mark:var(--on-status); --state-mark:var(--mark-dash);  }
 /* planned = the neutral "not started" tier (#1821) — --muted-mark, not
  * --text-label, which is accent-hued emphasis since #1801. Matches the cells. */
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-missed  { --state-color:var(--state-fail-hue); --state-edge-mark:var(--state-fail-ink); --state-glyph-mark:var(--on-status); --state-mark:var(--mark-x);     }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-missed  { --state-color:var(--state-fail-hue); --state-glyph-mark:var(--on-status); --state-mark:var(--mark-x);     }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-unknown { --state-color:var(--muted-mark);  --state-mark:var(--mark-question); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark);  --state-mark:var(--mark-slash); }
 /* Under `heat` the key takes the cells' remap, or it would decode a red shipped disc
  * as "green = shipped" beside it. Same mapping as base.modifiers.css's heat block. */
-:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item.state-shipped { --state-color:var(--state-fail-hue); --state-edge-mark:var(--state-fail-ink); }
-:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-edge-mark:var(--state-pass-ink); --state-glyph-mark:var(--on-status); }
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item.state-shipped { --state-color:var(--state-fail-hue); }
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-glyph-mark:var(--on-status); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
   content:'';
@@ -99,14 +100,12 @@
   inset:0;
   border-radius:50%;
   background-color:var(--state-color, var(--muted-mark));
-  /* A status disc is a bright fill: its edge rims it on the light face (chart-family § THE STATUS EDGE). */
-  box-shadow:inset 0 0 0 1px light-dark(var(--state-edge-mark), transparent);
 }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::after {
   content:'';
   position:absolute;
   inset:0;
-  /* A status disc carries the near-black status ink (text color carries the kind); a neutral disc the canvas. */
+  /* A status disc carries the status ink; a neutral disc the canvas. */
   background-color:var(--state-glyph-mark);
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;
@@ -262,7 +261,7 @@
 :is(section.roadmap, figure.roadmap) td.cell-state.state-shipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-shipped {
   --state-color:var(--state-pass-hue);
-  --state-edge-mark:var(--state-pass-ink);
+ 
   --state-glyph-mark:var(--on-status);
   --state-mark:var(--mark-check);
   --cell-state-bg:color-mix(in srgb, var(--pass) 8%, transparent);
@@ -270,7 +269,7 @@
 :is(section.roadmap, figure.roadmap) td.cell-state.state-wip,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-wip {
   --state-color:var(--state-warn-hue);
-  --state-edge-mark:var(--state-warn-ink);
+ 
   --state-glyph-mark:var(--on-status);
   --state-mark:var(--mark-dash);
   --cell-state-bg:color-mix(in srgb, var(--warn) 9%, transparent);
@@ -280,7 +279,7 @@
 :is(section.roadmap, figure.roadmap) td.cell-state.state-missed,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-missed {
   --state-color:var(--state-fail-hue);
-  --state-edge-mark:var(--state-fail-ink);
+ 
   --state-glyph-mark:var(--on-status);
   --state-mark:var(--mark-x);
   --cell-state-bg:color-mix(in srgb, var(--fail) 8%, transparent);
@@ -314,16 +313,16 @@
  * cards — the defaults above carry `.horizons` inside `:is(...)` and outrank it — so
  * the remap lives here, one class heavier. Before it, `roadmap horizons heat` ignored
  * `heat` entirely: its cards kept the delivery colors while the table form remapped. */
-:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-edge-mark:var(--state-fail-ink); }
-:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-edge-mark:var(--state-warn-ink); }
-:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-edge-mark:var(--state-pass-ink); --state-glyph-mark:var(--on-status); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--state-fail-hue); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--state-warn-hue); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-glyph-mark:var(--on-status); }
 :is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); }
 /* The same remap on the TABLE cells, in fills: base.modifiers.css's shared heat block maps the status INKS, which a
  * checklist mark wears, but a roadmap disc is a status FILL with its edge and a dark glyph (text color carries the
  * kind), so it remaps the fill tokens here, one class heavier than the shared block. */
-:is(section.roadmap, figure.roadmap).heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-edge-mark:var(--state-fail-ink); }
-:is(section.roadmap, figure.roadmap).heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-edge-mark:var(--state-warn-ink); }
-:is(section.roadmap, figure.roadmap).heat td.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-edge-mark:var(--state-pass-ink); --state-glyph-mark:var(--on-status); }
+:is(section.roadmap, figure.roadmap).heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); }
+:is(section.roadmap, figure.roadmap).heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); }
+:is(section.roadmap, figure.roadmap).heat td.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-glyph-mark:var(--on-status); }
 
 /* Light treatment (default, any variant): a small state-colored
    indicator with an inset white glyph sits before the cell text.
@@ -375,12 +374,10 @@
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::before {
   border-radius:50%;
   background-color:var(--state-color, var(--muted-mark));
-  /* A status disc is a bright fill: its edge rims it on the light face (chart-family § THE STATUS EDGE). */
-  box-shadow:inset 0 0 0 1px light-dark(var(--state-edge-mark), transparent);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::after,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::after {
-  /* A status disc carries the near-black status ink (text color carries the kind); a neutral disc the canvas. */
+  /* A status disc carries the status ink; a neutral disc the canvas. */
   background-color:var(--state-glyph-mark);
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;
@@ -543,11 +540,9 @@
 :is(section.roadmap, figure.roadmap).status td.cell-state::after {
   border-radius:50%;
   background-color:var(--state-color, var(--muted-mark));
-  /* A status disc is a bright fill: its edge rims it on the light face (chart-family § THE STATUS EDGE). */
-  box-shadow:inset 0 0 0 1px light-dark(var(--state-edge-mark), transparent);
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state::before {
-  /* A status disc carries the near-black status ink (text color carries the kind); a neutral disc the canvas. */
+  /* A status disc carries the status ink; a neutral disc the canvas. */
   background-color:var(--state-glyph-mark);
   -webkit-mask:var(--state-mark) center / 72% 72% no-repeat;
           mask:var(--state-mark) center / 72% 72% no-repeat;

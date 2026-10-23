@@ -81,27 +81,29 @@
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
   --pass: light-dark(#1e4600, #b0fc8c);
   --fail: light-dark(#48000b, #ff6b72);
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). TEXT COLOR CARRIES THE KIND: a status is a BRIGHT fill
-   * under near-black `--on-status`, where a category is a deep fill under white. Two intensities, picked with
-   * `chart-finish: pigment muted|vivid`; text clears 7:1 on the light face and 9:1 on the dark face. Each status also
-   * has an EDGE in its own hue, 4.6:1 off the slide, that rims the bright fill on the light face and serves as the
-   * status line and text. The hues are this theme's own status inks, leaning toward its accent; the a11y palettes
-   * carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#79CB95, #7CDE9E);
-  --warn-solid: light-dark(#F9C177, #FFC77C);
-  --fail-solid: light-dark(#E88EA6, #FFA3BB);
-  --pass-solid-vivid: light-dark(#6BCD8E, #7CDE9E);
-  --warn-solid-vivid: light-dark(#FFC069, #FFC77C);
-  --fail-solid-vivid: light-dark(#FF7EA4, #FFA3BB);
-  --on-status: #211C15;
-  --pass-solid-edge: light-dark(#217847, #7CDE9E);
-  --warn-solid-edge: light-dark(#915E00, #FFC77C);
-  --fail-solid-edge: light-dark(#A14E67, #FFA3BB);
-  --info-solid: light-dark(#56B1E2, #63C8FF);
-  --info-solid-vivid: light-dark(#00B8FF, #63C8FF);
-  --info-solid-edge: light-dark(#00709C, #63C8FF);
-  --mute-solid: light-dark(#ACA79F, #C2BDB5);
-  --mute-solid-edge: light-dark(#6D6861, #C2BDB5);
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
+   * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
+   * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. Each status
+   * also has an EDGE in its own hue, 4.6:1 off the slide, for a status line or text, and the two exceptions a SIGNAL
+   * ring in the bright classic hue. The hues are this theme's own status inks, leaning toward its accent; the a11y
+   * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#1F4A2F, #467154);
+  --warn-solid: light-dark(#854A00, #AD6200);
+  --fail-solid: light-dark(#9B003C, #D31C58);
+  --pass-solid-vivid: light-dark(#004D28, #007740);
+  --warn-solid-vivid: light-dark(#854A00, #AD6200);
+  --fail-solid-vivid: light-dark(#9B003C, #D90057);
+  --warn-solid-signal: light-dark(#FBA700, #FFAE26);
+  --fail-solid-signal: light-dark(#FF7277, #FF777C);
+  --on-status: #FFFFFF;
+  --pass-solid-edge: light-dark(#1F4A2F, #6A9778);
+  --warn-solid-edge: light-dark(#854A00, #C97B2D);
+  --fail-solid-edge: light-dark(#95173E, #E3637D);
+  --info-solid: light-dark(#005E85, #297CA6);
+  --info-solid-vivid: light-dark(#005E85, #007DAF);
+  --info-solid-edge: light-dark(#005E85, #4595C0);
+  --mute-solid: light-dark(#54504A, #726D66);
+  --mute-solid-edge: light-dark(#54504A, #918C85);
   --warn: light-dark(#815400, #f1b74c);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
