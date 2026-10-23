@@ -76,10 +76,6 @@
     "--chart-inset-x",
     "--chart-panel-x",
     "--chart-panel-y",
-    "--fail",
-    "--info",
-    "--mute",
-    "--pass",
     "--warn",
     "--chart-status-hue",
     "--cover-gutter",
@@ -125,7 +121,12 @@
     "--state-warn-on",
     "--state-fail-on",
     "--state-info-on",
-    "--state-mute-on"
+    "--state-mute-on",
+    "--pass-solid-vivid",
+    "--warn-solid-vivid",
+    "--fail-solid-vivid",
+    "--on-warn-vivid",
+    "--warn-solid-edge"
   ],
   "render": {
     "parity": "equivalent",

@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone | `pigment` |
+| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone, and how loud its status colors are: muted or vivid | `pigment muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -841,9 +841,30 @@ chart-finish: tone
 ---
 ```
 
+**Intensity: `muted` or `vivid`.** A second word sets how loud the status colors (done, at
+risk, blocked) are, under any finish. Write the two words in either order.
+
+| Second word | Token | Light slide | Dark slide |
+|---|---|---|---|
+| `muted` | `chart-finish-muted` | deep green, bronze and oxblood, all under white text. **The default** (omit the word). | calm sage, ochre and rose-brick |
+| `vivid` | `chart-finish-vivid` | a true amber under dark text, beside the deep green and red | saturated green, amber and red |
+
+```markdown
+---
+chart-finish: pigment vivid
+---
+```
+
+Each theme curates both sets (`--pass-solid` … and `--pass-solid-vivid` …), and text on every
+fill clears 7:1 on a light slide and 4.5:1 on a dark one. For a reader who is colorblind,
+pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
+in both intensities.
+
 **Per slide.** `<!-- _class: bar chart-finish-etch -->` gives one chart its own finish, and
 `<!-- _class: bar chart-finish-pigment -->` asks for the default inside a `tone` deck. The slide
-token replaces the deck's; it never stacks with it. Every slide is stamped, including a chart
+token replaces the deck's; it never stacks with it. The two axes are separate:
+`<!-- _class: bar chart-finish-vivid -->` changes only the intensity and keeps the deck's finish.
+Every slide is stamped, including a chart
 in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 
 **What a finish reaches.** A finish repaints a mark only through the mark contract

@@ -48,7 +48,7 @@ describe('chart-family', () => {
     const html = getHtml();
     assert.match(html, /<div class="progress-bars"[^>]*>/);
     // Five rows in the first progress slide
-    const firstProgress = html.match(/<section[^>]*class="progress chart-finish-pigment form chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const firstProgress = html.match(/<section[^>]*class="progress chart-finish-pigment chart-finish-muted form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(firstProgress, 'first progress section not found');
     const rows = (firstProgress[0].match(/<div class="progress-row"[^>]*>/g) || []).length;
     assert.equal(rows, 5, `expected 5 progress-row, got ${rows}`);
@@ -62,13 +62,13 @@ describe('chart-family', () => {
   test('progress dark + minimal modifiers compose with chart-frame', { timeout: 180000 }, () => {
     const html = getHtml();
     // The combo slide: progress + dark + minimal + chart-frame all present
-    assert.match(html, /class="progress dark minimal chart-finish-pigment form chart-frame"/);
+    assert.match(html, /class="progress dark minimal chart-finish-pigment chart-finish-muted form chart-frame"/);
   });
 
   test('timeline-list emits a spine with date pills + status pills + body', { timeout: 180000 }, () => {
     const html = getHtml();
     assert.match(html, /<div class="timeline-spine"[^>]*>/);
-    const tl = html.match(/<section[^>]*class="timeline-list chart-finish-pigment form chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const tl = html.match(/<section[^>]*class="timeline-list chart-finish-pigment chart-finish-muted form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(tl, 'timeline-list section not found');
     const items = (tl[0].match(/<div class="timeline-item"[^>]*>/g) || []).length;
     assert.equal(items, 4, `expected 4 timeline-item, got ${items}`);
@@ -84,7 +84,7 @@ describe('chart-family', () => {
 
   test('piechart donut emits an SVG donut with proportional wedges and a legend', { timeout: 180000 }, () => {
     const html = getHtml();
-    const pc = html.match(/<section[^>]*class="piechart donut chart-finish-pigment form chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const pc = html.match(/<section[^>]*class="piechart donut chart-finish-pigment chart-finish-muted form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(pc, 'piechart donut section not found');
     assert.match(pc[0], /<div class="piechart-figure">/);
     // SVG-native legend (2026-06-13-svg-native-legend.md): diagram + spine + key
@@ -108,7 +108,7 @@ describe('chart-family', () => {
 
   test('chrome/body/caption skeleton extracts eyebrow, subtitle, italic caption', { timeout: 180000 }, () => {
     const html = getHtml();
-    const firstProgress = html.match(/<section[^>]*class="progress chart-finish-pigment form chart-frame"[^>]*>[\s\S]*?<\/section>/);
+    const firstProgress = html.match(/<section[^>]*class="progress chart-finish-pigment chart-finish-muted form chart-frame"[^>]*>[\s\S]*?<\/section>/);
     assert.ok(firstProgress);
     // Under the .viz-frame model (2026-07-15-viz-frame-merge) the chrome is
     // emitted flat — no .chart-header wrapper. Eyebrow, h2 and subtitle keep that

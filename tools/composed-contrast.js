@@ -615,6 +615,15 @@ const SURFACES = [
   // A stop nobody lists is a stop nobody scores, which is the fourth time in this
   // swimlane that a raw color-mix ground has been invisible.
   ...['pass', 'warn', 'fail', 'info', 'mute'].map((state) => pillStop(state)),
+  // The VIVID intensity's fills (`chart-finish: … vivid`): the same pill, re-pointed by the rule that stamps it.
+  ...TRIO_STATES.map((state) => ({
+    ...pillStop(state),
+    id: `chart/status-pill-${state}-vivid`,
+    ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the vivid ink on the vivid fill`,
+    groups: [{ bg: `var(--${state}-solid-vivid)` }],
+    ink: state === 'warn' ? '--on-warn-vivid' : '--on-solid',
+    requires: [new RegExp(`--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
+  })),
   // ── state-chart · the name and the ordinal on a status-tinted node ───────
   ...['pass', 'warn', 'fail', 'info'].map((state) => stateChartNode(state)),
   // THE PAINTED TILE'S PAINT LIVES IN JS, and the entries above pin only the CSS. Once the layout pass runs, a

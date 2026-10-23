@@ -129,6 +129,15 @@ white text at 7:1 is brown. The contract, held for every palette in both modes b
 - every solid clears **3:1** against the slide (WCAG 1.4.11), or, for a status fill, its ink edge
   (`--state-X-ink`, the theme's `--X`) does. A light amber under dark text cannot clear 3:1 itself.
 
+**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). The
+deck picks how loud its status fills are; `muted` is the default. Muted is `--X-solid` with `--on-warn`
+white on the light face; vivid is `--X-solid-vivid` with a dark `--on-warn-vivid`, which
+`chart-family.styles.css` swaps in under `.chart-finish-vivid`. Each theme curates both. A brand theme's
+muted light fills sit under the colorblind floor (one white ink at 7:1 cannot reach it), and the owner
+made that call: the `a11y-*` palettes carry the floor, in both intensities, and every status also carries
+a label. `cvd-trio-floor.test.js` holds the a11y fills to their own condition's floor and the brand fills
+to their recorded separation (`test/fixtures/status-fill-cvd-baseline.json`).
+
 **Status has two jobs** (`base.tokens.css` § STATUS, IN TWO JOBS). `--pass` … `--mute` are the status as INK on
 the slide (text, a rule, a mark's edge), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The
 light-face FILLS `--pass-solid` `--warn-solid` `--fail-solid` are a separate trio: a deep green and red under

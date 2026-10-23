@@ -100,13 +100,20 @@
   --pass: light-dark(#00472b, #b4ffd1);
   --warn: light-dark(#805401, #f4bf63);
   --fail: light-dark(#47000f, #f07f92);
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS): on the light face a deep green and red under white
-   * text and an amber under its own dark ink, all three at 7:1 and apart for a colorblind reader; on the dark face
-   * the fill is the status ink itself. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#266345, var(--pass));
-  --warn-solid: light-dark(#F3A51B, var(--warn));
-  --fail-solid: light-dark(#570014, var(--fail));
-  --on-warn: light-dark(#0A0A0A, var(--on-solid));
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), in both intensities of `chart-finish:`. MUTED, the
+   * default: on the light face a deep green, bronze and oxblood, all under white text; on the dark face a sage,
+   * ochre and rose-brick under the canvas as ink. VIVID: on the light face a true amber under its own dark ink; on
+   * the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
+   * colorblind floors; a brand theme's fills are held to their recorded separation instead. Solved by
+   * tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#266345, #72BE92);
+  --warn-solid: light-dark(#5B3B00, #E0AE57);
+  --fail-solid: light-dark(#550F1A, #D77787);
+  --on-warn: light-dark(#FFFFFF, var(--on-solid));
+  --pass-solid-vivid: light-dark(#266345, #15D584);
+  --warn-solid-vivid: light-dark(#F3A51B, #F0AD17);
+  --fail-solid-vivid: light-dark(#570014, #FD587E);
+  --on-warn-vivid: light-dark(#0A0A0A, var(--on-solid));
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

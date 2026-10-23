@@ -2,6 +2,7 @@ import type { Completion, CompletionContext, CompletionResult } from '@codemirro
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
+import { CHART_FINISH_AXES } from '../../../../lib/core/resolve-chart-finish.js';
 import sizes from '../../../../lib/engine/sizes.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from './front-matter-keys';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
@@ -87,6 +88,7 @@ const REGISTER_AXES: Record<string, readonly (readonly string[])[]> = {
 	tag: Object.values(CARD_TAG_AXES),
 	'image-card': IMAGE_CARD_AXIS_ORDER.map(imageCardWords),
 	'logo-finish': LOGO_FINISH_AXIS_ORDER.map(logoFinishWords),
+	'chart-finish': CHART_FINISH_AXES,
 };
 
 /** The words still worth offering after `written` on an axis-register line. Exported for a test. */

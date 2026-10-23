@@ -691,3 +691,13 @@ describe('frontMatterKeyAt — the hover over a front-matter key', () => {
 		expect(at(8, 1)).toBeNull();
 	});
 });
+
+describe('chart-finish: completes one word per axis', () => {
+	it('after a finish word, offers the intensities and not a second finish', async () => {
+		const { nextAxisWords } = await import('./editor-complete');
+		const words = ['pigment', 'etch', 'tone', 'muted', 'vivid'];
+		expect(nextAxisWords('chart-finish', 'pigment ', words)).toEqual(['muted', 'vivid']);
+		expect(nextAxisWords('chart-finish', 'vivid ', words)).toEqual(['pigment', 'etch', 'tone']);
+		expect(nextAxisWords('chart-finish', 'etch vivid', words)).toEqual([]);
+	});
+});

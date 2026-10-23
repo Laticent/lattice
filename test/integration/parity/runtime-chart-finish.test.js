@@ -76,6 +76,18 @@ describe('runtime chart finish — every section wears one', () => {
     const baked = frontMatterBlock(deckSource([]));
     const { window, document } = await boot({ body: `${section('bar')}${section('columns lat-pane-host')}${baked}` });
     for (const s of document.querySelectorAll('section')) assert.deepEqual(finishes(s), ['chart-finish-pigment']);
+    for (const s of document.querySelectorAll('section')) assert.ok(s.classList.contains('chart-finish-muted'), 'and the default intensity');
+    closeQuietly(window);
+  });
+
+  test('a baked `vivid` lands on every section, and a slide that names `muted` keeps it with the deck\'s finish', async () => {
+    const baked = frontMatterBlock(deckSource(['chart-finish: etch vivid']));
+    const { window, document } = await boot({ body: `${section('bar')}${section('bar chart-finish-muted')}${baked}` });
+    const [a, b] = [...document.querySelectorAll('section')];
+    assert.deepEqual(finishes(a), ['chart-finish-etch']);
+    assert.ok(a.classList.contains('chart-finish-vivid'));
+    assert.deepEqual(finishes(b), ['chart-finish-etch']);
+    assert.ok(b.classList.contains('chart-finish-muted') && !b.classList.contains('chart-finish-vivid'));
     closeQuietly(window);
   });
 
@@ -112,7 +124,8 @@ describe('runtime chart finish — every section wears one', () => {
     });
     assert.equal(calls.fetch, 1, 'one fetch of the source');
     for (const s of document.querySelectorAll('section')) assert.deepEqual(finishes(s), ['chart-finish-tone']);
-    assert.deepEqual(seen(), ['chart-finish-tone'], `a section wore ${seen().join(', ')} on the way`);
+    assert.deepEqual(seen(), ['chart-finish-tone', 'chart-finish-muted'], `a section wore ${seen().join(', ')} on the way`);
+    for (const s of document.querySelectorAll('section')) assert.ok(s.classList.contains('chart-finish-muted'), 'and the default intensity');
     closeQuietly(window);
   });
 

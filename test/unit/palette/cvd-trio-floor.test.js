@@ -38,6 +38,8 @@
  * and do not re-bless a number downward without saying why.
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const { simulate, SIMULATED_TYPES, ACHROMATOPSIA } = require('../../../lib/theme/cvd.js');
@@ -948,32 +950,63 @@ describe('CVD status-trio separation (frozen distances)', () => {
 });
 
 /**
- * THE STATUS FILLS on the light face (`--pass-solid` `--warn-solid` `--fail-solid`, base.tokens.css) are a trio of
- * their own: a gantt bar or a state tile is told apart by its fill alone. They were solved new, with no history to
- * freeze, so they clear the floor OUTRIGHT under every condition rather than ratcheting. (On the dark face a fill is
- * the status ink itself, which the frozen table above already holds.)
+ * THE STATUS FILLS (`--X-solid` and `--X-solid-vivid`, base.tokens.css § STATUS, IN TWO JOBS) are a trio of their
+ * own: a gantt bar or a state tile is told apart by its fill. Two postures, the owner's call:
+ *
+ *   · a COLORBLIND palette (a11y-<condition>) clears the floor for ITS condition OUTRIGHT, in both intensities and
+ *     both modes. It is the palette a reader with that condition picks, so it carries that floor.
+ *   · a BRAND palette is held to its recorded separation (test/fixtures/status-fill-cvd-baseline.json): a pair may
+ *     improve, never erode by more than EROSION_TOLERANCE. Its muted light fills (one white ink) cannot reach the
+ *     floor at 7:1 at all; the a11y palettes are the answer for that reader, and every status also carries a label.
+ *
+ * Re-record after a deliberate retune: `BLESS_FILL_CVD=1 node --test test/unit/palette/cvd-trio-floor.test.js`, and
+ * say why in the PR.
  */
-describe('CVD status-fill separation (light face, outright)', () => {
-  const FILLS = TRIO.map((s) => `${s}-solid`);
+const FILL_BASELINE = path.join(__dirname, '..', '..', 'fixtures', 'status-fill-cvd-baseline.json');
+const FILL_TOKENS = { muted: (s) => `${s}-solid`, vivid: (s) => `${s}-solid-vivid` };
+function measureFills() {
+  const out = {};
   for (const theme of listAllThemes()) {
-    test(theme, () => {
-      const vars = mergedVars(theme);
-      const hex = (t) => {
-        const v = resolveTokenExpr(vars[t], vars, false);
-        return /^#[0-9a-f]{6}$/i.test(String(v).trim()) ? String(v).trim() : null;
-      };
-      const short = [];
-      for (let i = 0; i < FILLS.length; i++) {
-        for (let j = i + 1; j < FILLS.length; j++) {
-          const a = hex(FILLS[i]); const b = hex(FILLS[j]);
-          assert.ok(a && b, `--${FILLS[i]} and --${FILLS[j]} resolve to hex`);
-          for (const type of TYPES) {
-            const d = oklabDistance(simulate(a, type), simulate(b, type));
-            if (d < collapseFloor(type)) short.push(`${FILLS[i]}^${FILLS[j]} ${type} ${d.toFixed(4)} < ${collapseFloor(type)}`);
+    const vars = mergedVars(theme);
+    for (const [intensity, tok] of Object.entries(FILL_TOKENS)) {
+      for (const [mode, isDark] of [['light', false], ['dark', true]]) {
+        const hex = (t) => {
+          const v = resolveTokenExpr(vars[t], vars, isDark);
+          return /^#[0-9a-f]{6}$/i.test(String(v).trim()) ? String(v).trim() : null;
+        };
+        for (let i = 0; i < TRIO.length; i++) {
+          for (let j = i + 1; j < TRIO.length; j++) {
+            const a = hex(tok(TRIO[i])); const b = hex(tok(TRIO[j]));
+            if (!a || !b) continue;
+            for (const type of TYPES) {
+              out[`${theme}|${intensity}|${mode}|${TRIO[i]}^${TRIO[j]}|${type}`] = Number(oklabDistance(simulate(a, type), simulate(b, type)).toFixed(4));
+            }
           }
         }
       }
-      assert.deepEqual(short, []);
-    });
+    }
   }
+  return out;
+}
+const fillsNow = measureFills();
+if (process.env.BLESS_FILL_CVD) fs.writeFileSync(FILL_BASELINE, `${JSON.stringify(fillsNow, null, 1)}\n`);
+const fillsFrozen = JSON.parse(fs.readFileSync(FILL_BASELINE, 'utf8'));
+
+describe('CVD status-fill separation', () => {
+  test('every palette and intensity is measured, and the record is not stale', () => {
+    assert.deepEqual(Object.keys(fillsNow).sort(), Object.keys(fillsFrozen).sort());
+  });
+  test('a colorblind palette clears its own condition\'s floor outright', () => {
+    const own = (k) => k.startsWith('a11y-') && k.split('|').pop() === k.split('|')[0].slice('a11y-'.length);
+    const short = Object.entries(fillsNow).filter(([k]) => own(k))
+      .filter(([k, d]) => d < collapseFloor(k.split('|').pop()))
+      .map(([k, d]) => `${k} ${d} < ${collapseFloor(k.split('|').pop())}`);
+    assert.deepEqual(short, []);
+  });
+  test('a brand palette does not erode its recorded separation', () => {
+    const eroded = Object.entries(fillsNow).filter(([k]) => !k.startsWith('a11y-'))
+      .filter(([k, d]) => fillsFrozen[k] !== undefined && d < fillsFrozen[k] - EROSION_TOLERANCE)
+      .map(([k, d]) => `${k} ${fillsFrozen[k]} -> ${d}`);
+    assert.deepEqual(eroded, []);
+  });
 });

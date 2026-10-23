@@ -79,6 +79,7 @@ const CONTRACT = [
   'info', 'mute', 'on-solid',
   // the light-face status fills and amber's own ink (base.tokens.css § STATUS, IN TWO JOBS)
   'pass-solid', 'warn-solid', 'fail-solid', 'on-warn',
+  'pass-solid-vivid', 'warn-solid-vivid', 'fail-solid-vivid', 'on-warn-vivid',
 ];
 
 // ── Color math (identical to chart-contrast.test.js) ───────────────────────

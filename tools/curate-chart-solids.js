@@ -172,7 +172,7 @@ function solveFills(hue) {
   return best;
 }
 
-/** Whether a theme's declared light-face fills already meet the contract, so a hand-tuned trio is left alone. */
+/** Whether a set of light-face vivid fills meets the contract (kept for callers that check a hand-tuned trio). */
 function fillsHold(fills, ink) {
   const target = TEXT_ON_SOLID + MARGIN;
   if (!TRIO.every((s) => isHex(fills[s]))) return false;
@@ -208,28 +208,130 @@ function solveTheme(theme) {
       (arms[seed] ??= {})[key] = solved;
       kept[seed] = (kept[seed] ?? true) && solved === v.toUpperCase();
     }
-    // The light-face status fills, for a theme that owns its trio (one that inherits it wears its owner's).
-    if (ownsTrio && !dark) {
-      const now = Object.fromEntries(TRIO.map((t) => [t, raw[FILL(t)] && R(raw[FILL(t)])]));
-      const nowInk = raw[ON_WARN] && R(raw[ON_WARN]);
-      const hold = fillsHold(now, nowInk);
-      const fills = hold ? now : solveFills(Object.fromEntries(TRIO.map((t) => [t, hexToOklch(R(raw[t])).h])));
-      for (const t of TRIO) {
-        (arms[FILL(t)] ??= {}).light = fills[t].toUpperCase();
-        arms[FILL(t)].dark = `var(--${t})`;
-        kept[FILL(t)] = hold;
-      }
-      (arms[ON_WARN] ??= {}).light = hold ? nowInk.toUpperCase() : warnInk(fills.warn, R(raw['text-heading']));
-      arms[ON_WARN].dark = 'var(--on-solid)';
-      kept[ON_WARN] = hold;
-    }
     const muted = R(raw['muted-mark'] ?? 'var(--text-muted)');
     if (!isHex(muted)) throw new Error(`${theme}: --muted-mark did not resolve (${key})`);
     (arms[NEUTRAL] ??= {})[key] = solveArm(muted, ink);
   }
   const out = {};
   for (const [seed, a] of Object.entries(arms)) out[seed] = `light-dark(${a.light}, ${a.dark})`;
+  // The status FILLS, in both intensities, for a theme that owns its trio (one that inherits it wears its owner's).
+  // A theme that already declares the full set keeps it exactly as written: the gates hold it, and a hand-tuned fill
+  // stays tuned.
+  if (ownsTrio) {
+    const declared = FILL_SEEDS.every((seed) => new RegExp(`--${seed}\\s*:`).test(ownFile));
+    for (const [seed, value] of Object.entries(solveStatusFills(theme, raw))) {
+      out[seed] = value;
+      kept[seed] = declared;
+    }
+  }
   return { solved: out, kept };
+}
+
+/** Every fill seed a trio-owning theme declares. */
+const FILL_SEEDS = [...TRIO.map(FILL), ON_WARN, ...TRIO.map((t) => `${FILL(t)}-vivid`), `${ON_WARN}-vivid`];
+
+/**
+ * The dark-face fills for one intensity: each status's hue at the intensity's aim, the closest candidate that clears
+ * 4.5:1 under the dark canvas as ink and as text on the canvas, with the three apart to normal vision. A brand theme's
+ * dark fills are not held to the colorblind floors (the a11y palettes carry those, the owner's call); they are held to
+ * their recorded separation by cvd-trio-floor.test.js.
+ */
+const DARK_AIM = {
+  muted: { pass: { L: 0.74, C: 0.10 }, warn: { L: 0.78, C: 0.11 }, fail: { L: 0.68, C: 0.12 } },
+  vivid: { pass: { L: 0.77, C: 0.19 }, warn: { L: 0.79, C: 0.17 }, fail: { L: 0.68, C: 0.20 } },
+};
+const DARK_SEPARATION = 0.10;
+function solveDarkFills(hue, ink, surfaces, aim) {
+  const candidates = (s) => {
+    const target = oklchToHex({ L: aim[s].L, C: aim[s].C, h: hue[s] });
+    const out = [];
+    for (let L = 0.55; L <= 0.95; L += 0.01) {
+      for (let C = 0.04; C <= 0.24; C += 0.02) {
+        const x = oklchToHex({ L, C, h: hue[s] });
+        if (Math.abs(hexToOklch(x).C - C) > 0.015) continue;
+        if (contrastRatio(x, ink) < 4.55 || surfaces.some((sf) => contrastRatio(x, sf) < 4.55)) continue;
+        out.push([x.toUpperCase(), oklabDistance(x, target)]);
+      }
+    }
+    return out.sort((p, q) => p[1] - q[1]).slice(0, 200);
+  };
+  const P = candidates('pass'); const W = candidates('warn'); const F = candidates('fail');
+  let best = null;
+  for (const [p, dp] of P) {
+    for (const [f, df] of F) {
+      if ((best && dp + df >= best.cost) || oklabDistance(p, f) < DARK_SEPARATION) continue;
+      for (const [w, dw] of W) {
+        const cost = dp + dw + df;
+        if (best && cost >= best.cost) break;
+        if (oklabDistance(p, w) >= DARK_SEPARATION && oklabDistance(w, f) >= DARK_SEPARATION) { best = { cost, pass: p, warn: w, fail: f }; break; }
+      }
+    }
+  }
+  if (!best) throw new Error('no dark status-fill trio clears 4.5:1 and stays apart');
+  return best;
+}
+
+/**
+ * The light-face MUTED fills: all three under one white ink at 7:1, nothing darker than 0.30 OKLCH lightness (below
+ * that a red reads black), each at the theme's own hue and chroma, and the three as far apart for a colorblind reader
+ * as that allows. On a light slide that is short of the floor for every brand theme; the a11y palettes carry it.
+ */
+const MUTED_FLOOR_L = 0.30;
+function solveMutedLightFills(seeds) {
+  const target = TEXT_ON_SOLID + MARGIN;
+  const candidates = (s) => {
+    const { C, h } = hexToOklch(seeds[s]);
+    const out = [];
+    for (let L = MUTED_FLOOR_L; L <= 0.6; L += 0.01) {
+      const x = oklchToHex({ L, C: Math.max(C, 0.08), h });
+      if (contrastRatio(x, '#FFFFFF') >= target) out.push(x.toUpperCase());
+    }
+    return out;
+  };
+  let best = null;
+  for (const p of candidates('pass')) {
+    for (const w of candidates('warn')) {
+      for (const f of candidates('fail')) {
+        const sep = Math.min(floorMultiple(p, w), floorMultiple(p, f), floorMultiple(w, f));
+        if (!best || sep > best.sep) best = { sep, pass: p, warn: w, fail: f };
+      }
+    }
+  }
+  return best;
+}
+
+/** Both intensities' fills for a trio-owning theme, as the declarations it writes. */
+function solveStatusFills(theme, raw) {
+  const R = (expr, dark) => resolveTokenExpr(expr, raw, dark);
+  const seedsLight = Object.fromEntries(TRIO.map((t) => [t, R(raw[t], false)]));
+  const hueLight = Object.fromEntries(TRIO.map((t) => [t, hexToOklch(seedsLight[t]).h]));
+  const vividLight = solveFills(hueLight);
+  const vividInk = warnInk(vividLight.warn, R(raw['text-heading'], false));
+  const out = {};
+  if (theme.startsWith('a11y-')) {
+    // A colorblind palette keeps ONE set, the one that clears every floor, in both intensities.
+    for (const t of TRIO) {
+      out[FILL(t)] = `light-dark(${vividLight[t]}, var(--${t}))`;
+      out[`${FILL(t)}-vivid`] = `var(--${FILL(t)})`;
+    }
+    out[ON_WARN] = `light-dark(${vividInk}, var(--on-solid))`;
+    out[`${ON_WARN}-vivid`] = `var(--${ON_WARN})`;
+    return out;
+  }
+  const mutedLight = solveMutedLightFills(seedsLight);
+  const bg = R(raw.bg, true); const bgAlt = R(raw['bg-alt'], true);
+  const ink = inkFor(bg);
+  const hueDark = Object.fromEntries(TRIO.map((t) => [t, hexToOklch(R(raw[t], true)).h]));
+  const surfaces = [bg, bgAlt].filter(isHex);
+  const mutedDark = solveDarkFills(hueDark, ink, surfaces, DARK_AIM.muted);
+  const vividDark = solveDarkFills(hueDark, ink, surfaces, DARK_AIM.vivid);
+  for (const t of TRIO) {
+    out[FILL(t)] = `light-dark(${mutedLight[t]}, ${mutedDark[t]})`;
+    out[`${FILL(t)}-vivid`] = `light-dark(${vividLight[t]}, ${vividDark[t]})`;
+  }
+  out[ON_WARN] = 'light-dark(#FFFFFF, var(--on-solid))';
+  out[`${ON_WARN}-vivid`] = `light-dark(${vividInk}, var(--on-solid))`;
+  return out;
 }
 
 /** Replace `--seed: <value>;` in place, keeping any trailing comment; or append the declaration after `anchor`. */
@@ -259,7 +361,7 @@ function main() {
     const mine = (seed) => new RegExp(`--${seed}\\s*:`).test(own);
     // A theme rewrites the seeds it already owns, and adds the two new ones after the last chart seed it owns.
     const owned = [...CATS, ...STATES].filter(mine);
-    const seeds = [...owned, NEUTRAL, ON_SOLID, ...(solved[FILL('pass')] ? [...TRIO.map(FILL), ON_WARN] : [])];
+    const seeds = [...owned, NEUTRAL, ON_SOLID, ...(solved[FILL('pass')] ? FILL_SEEDS : [])];
     const anchor = `--${owned[owned.length - 1]}`;
     for (const seed of seeds) {
       const current = (own.match(new RegExp(`--${seed}\\s*:\\s*([^;]+);`)) || [])[1]?.trim();
@@ -276,4 +378,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { solveTheme, solveFills, inkFor, TEXT_ON_SOLID, CATS, STATES, NEUTRAL, ON_SOLID };
+module.exports = { solveTheme, solveFills, solveMutedLightFills, solveDarkFills, solveStatusFills, inkFor, TEXT_ON_SOLID, CATS, STATES, NEUTRAL, ON_SOLID };

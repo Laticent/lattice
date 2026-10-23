@@ -95,7 +95,7 @@ describe('slide facts', () => {
   });
 
   test('the engine’s own classes are markup, not facts', () => {
-    assert.match(section, /class="tally split content chart-finish-pigment form"/);
+    assert.match(section, /class="tally split content chart-finish-pigment chart-finish-muted form"/);
     assert.deepEqual(facts.classes, ['tally', 'split']);
   });
 

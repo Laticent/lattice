@@ -530,10 +530,11 @@ section.word-cloud,
  *   --state-X-ink   the saturated mark — bar border, pill text, the
  *                   thin progress fill — lifted toward white on dark.
  *
- * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css) and the ink is the base's
- * status INK (`--pass` … `--mute`), which each theme curates once for every component. A chart keeps no status color
- * of its own. The ink is also every status mark's edge, so a fill too light to clear 3:1 off the slide (a light-face
- * amber) still has a boundary that does. */
+ * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
+ * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`, the rule below this
+ * block). A chart keeps no status color of its own. The ink is the fill on the light face and the fill lifted toward
+ * white on the dark one; the one fill too light to clear 3:1 off a light slide, vivid amber, takes the theme's status
+ * ink `--warn` as its ink and edge instead. */
 section.chart-frame,
 .chart-frame {
   --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
@@ -572,11 +573,11 @@ section.chart-frame,
   --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 50%, black));
   --state-mute-fill: light-dark(color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-mute-hue) 46%, black));
 
-  --state-pass-ink: light-dark(var(--pass), color-mix(in oklab, var(--pass) 78%, white));
-  --state-warn-ink: light-dark(var(--warn), color-mix(in oklab, var(--warn) 78%, white));
-  --state-fail-ink: light-dark(var(--fail), color-mix(in oklab, var(--fail) 78%, white));
-  --state-info-ink: light-dark(var(--info), color-mix(in oklab, var(--info) 78%, white));
-  --state-mute-ink: light-dark(var(--mute), color-mix(in oklab, var(--mute) 72%, white));
+  --state-pass-ink: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 78%, white));
+  --state-warn-ink: light-dark(var(--warn-solid-edge), color-mix(in oklab, var(--state-warn-hue) 78%, white));
+  --state-fail-ink: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 78%, white));
+  --state-info-ink: light-dark(var(--state-info-hue), color-mix(in oklab, var(--state-info-hue) 78%, white));
+  --state-mute-ink: light-dark(var(--state-mute-hue), color-mix(in oklab, var(--state-mute-hue) 72%, white));
 
   /* The ink for TEXT on each status fill: `--on-solid`, except amber, which carries the theme's `--on-warn`. */
   --state-pass-on: var(--on-solid);
@@ -1184,6 +1185,18 @@ section.chart-frame .chart-caption::before {
   border: var(--chart-hairline) solid var(--chart-status-hue);
   color: var(--chart-solid-ink);
 }
+/* THE VIVID INTENSITY. `chart-finish: … vivid` stamps `chart-finish-vivid` on the slide, which points every status at
+ * the theme's vivid fills and amber at its vivid ink. A chart that IS the slide (`section.chart-frame`) and one that
+ * sits inside a slide (a pane) both take it. */
+.chart-finish-vivid.chart-frame,
+.chart-finish-vivid .chart-frame {
+  --state-pass-hue: var(--pass-solid-vivid);
+  --state-warn-hue: var(--warn-solid-vivid);
+  --state-fail-hue: var(--fail-solid-vivid);
+  --state-warn-on: var(--on-warn-vivid);
+  --state-warn-ink: light-dark(var(--warn), color-mix(in oklab, var(--state-warn-hue) 78%, white));
+}
+
 /* TEXT ON A STATUS FILL. Every member marks a status with `data-s`, in one shared vocabulary, and its label sits on
  * that mark or inside it, so the ink on a fill is set here once, by status, for every chart. Only amber differs from
  * the frame's `--chart-solid-ink` today, and the five rules keep that a theme decision rather than a code one. */
