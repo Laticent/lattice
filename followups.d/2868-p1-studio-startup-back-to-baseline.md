@@ -18,9 +18,9 @@ where     — docs/src/components/studio/StudioShell.tsx and studio-warm.ts (wha
             other subsystems installed on every render); lib/runtime (1.25 MB, 825 KB unused at first slide); the Nacre
             loader (Lighthouse's largest-contentful-paint element on /studio/).
 progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot-order.md and -startup-bake-off.md): target (1) is MET on
-            the harness: phone first slide 4.15 s against 4.13 s for the 09-22 build and 5.07 s for the PR's base, 15 loads each, same
+            the harness: phone first slide over HTTP/2 3.29 s against 3.86 s for the 09-22 build and 3.97 s for the PR's base, 15 loads each, same
             machine, interleaved (editor built after the slide on a phone; engine, theme and runtime started from the island's first
-            module; icons in one chunk). Lighthouse (2) is NOT met: the loader no longer counts as the largest paint (LCP 13.7 s to
+            module). The icon chunk was dropped (HTTP/1.1 artifact). Lighthouse (2) is NOT met: the loader no longer counts as the largest paint (LCP 13.7 s to
             4.5-5.3 s, score 51-55 to 59-67) but FCP (3.3-3.6 s simulated) and TBT (~400 ms) remain; the cheap levers were measured and
             do not get there (E7). What is left is the script work itself: React ~800 ms, the runtime's chart builders (0.2 s ceiling,
             changes export bytes), ~1.9 s unattributed. Target (3), a CI time budget, is the owner's call; the harness spread (stdev
@@ -37,3 +37,7 @@ done when — (1) first slide at or below a build of 2026-09-22 measured the sam
 evidence  — the note's tables re-run on the new build: first slide, requests, main-thread work before the slide by
             script, typing latency, and Lighthouse score, FCP, LCP, TBT per page.
 verify    — tier 2 trio for the boot-order change; it touches every Studio load.
+
+next (owner order, 2026-10-23) — (1) a startup time budget in CI: same-job comparison of head against base with `serve-h2.mjs` and
+            `perf:startup` (adds a CI step: bring the owner the options first); (2) the preview runtime's chart-builder split (needs the
+            export sign-off, dark and light renders); (3) a Lighthouse 90 boot-order redesign: start with a design note.
