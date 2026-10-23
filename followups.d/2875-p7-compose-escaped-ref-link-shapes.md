@@ -5,7 +5,7 @@ recorded: 2026-10-23
 area: website
 severity: low
 swimlane: engineering/decisions/2026-10-21-compose-point-and-click.md §7
-source: https://github.com/Laticent/lattice/pull/2875
+source: https://github.com/Laticent/lattice/pull/2882
 ---
 
 # Compose: round trip changes link reference definitions on other slides
