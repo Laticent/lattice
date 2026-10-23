@@ -131,14 +131,16 @@ function followupProblems(dir = DIR, root = ROOT) {
 /**
  * The files under `rel` that git would see, as paths relative to `base`: what `git check-ignore`
  * reports is left out, so a `.DS_Store` or a local `node_modules/` the clean checkout never holds
- * does not fail the gate here and pass it in CI. Outside a repository nothing is ignored.
+ * does not fail the gate here and pass it in CI. Outside a repository nothing is ignored. Each path
+ * goes in as `./name`: git reads a leading `:` as pattern syntax (`:(icase)x`), and fails the
+ * whole batch on it.
  */
 function visibleEntries(base, rel) {
   const entries = fs.readdirSync(path.join(base, rel)).map((e) => path.join(rel, e));
   if (!entries.length) return entries;
-  const r = spawnSync('git', ['-C', base, 'check-ignore', '--stdin', '-z'], { input: entries.join('\0'), encoding: 'utf8' });
+  const r = spawnSync('git', ['-C', base, 'check-ignore', '--stdin', '-z'], { input: entries.map((e) => `./${e}`).join('\0'), encoding: 'utf8' });
   // Exit 0: some are ignored; 1: none are; anything else (not a repository): treat none as ignored.
-  const ignored = r.status === 0 ? new Set(r.stdout.split('\0').filter(Boolean)) : new Set();
+  const ignored = r.status === 0 ? new Set(r.stdout.split('\0').filter(Boolean).map((e) => e.replace(/^\.\//, ''))) : new Set();
   return entries.filter((e) => !ignored.has(e));
 }
 

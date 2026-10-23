@@ -169,6 +169,11 @@ test('what git ignores is not evidence: a stray .DS_Store neither fails a folder
   fs.mkdirSync(path.join(dir, '7-p1-closed-item'));
   fs.writeFileSync(path.join(dir, '7-p1-closed-item', '.DS_Store'), Buffer.from([0, 1, 2]));
   assert.deepEqual(followupProblems(dir), []);
+  // A name git could read as a pattern is still a name: it must not switch ignoring off.
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', ':(icase)x.DS_Store'), 'x');
+  fs.appendFileSync(path.join(repo, '.gitignore'), '*.log\n');
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'b.log'), Buffer.from([0, 1]));
+  assert.deepEqual(followupProblems(dir), []);
 });
 
 test('only regular files count: a named pipe is refused rather than read, and a README must be a file', () => {
