@@ -637,11 +637,15 @@
    * canvas, and the pass/warn/fail trio stays apart for a colorblind reader (test/unit/palette/cvd-trio-floor.test.js).
    *
    * `--pass-solid` … `--mute-solid` are the status as a FILL a label sits on: a gantt bar, a state tile, a pill. A
-   * fill and an ink cannot be one color on a light slide: 7:1 text on a fill needs a deep fill, and amber that deep is
-   * brown. So on the light face each theme curates its fills separately, and amber carries its own dark ink,
-   * `--on-warn`; every other fill carries `--on-solid`. Text on every fill clears 7:1 on the light face and 4.5:1 on
-   * the dark face, where a fill is the theme's own ink (test/unit/palette/chart-solids.test.js). The fills keep the
-   * colorblind separation too, and a fill lighter than 3:1 against the slide takes its boundary from its ink edge.
+   * fill and an ink are curated separately, and in two intensities the author picks with `chart-finish:`
+   * (resolve-chart-finish.js). MUTED, the default (`--X-solid`, `--on-warn`): every fill under one white ink on the
+   * light face (a deep green, bronze and oxblood) and a calm set under the canvas on the dark face. VIVID
+   * (`--X-solid-vivid`, `--on-warn-vivid`): a true amber under its own dark ink on the light face, because an amber
+   * deep enough for white text is brown, and a saturated set on the dark face. Text on every fill clears 7:1 on the
+   * light face and 4.5:1 on the dark face (test/unit/palette/chart-solids.test.js). The a11y palettes keep fills that
+   * clear every colorblind floor; a brand theme's fills are held to their recorded separation
+   * (cvd-trio-floor.test.js), the owner's call. A fill lighter than 3:1 against the slide takes its boundary from its
+   * ink edge.
    *
    * These engine values are the fallback for a palette that has not curated them, solved on a white and a
    * near-black canvas. */
@@ -650,13 +654,20 @@
   --fail: light-dark(#991B1B, #F87171);
   --info: light-dark(#0053B3, #5AA1FF);
   --mute: light-dark(#4F5863, #9AA7B6);
-  --pass-solid: light-dark(#00642D, var(--pass));
-  --warn-solid: light-dark(#FF9A62, var(--warn));
-  --fail-solid: light-dark(#4F0A0A, var(--fail));
+  --pass-solid: light-dark(#266439, #8BBA7C);
+  --warn-solid: light-dark(#703000, #E0AE57);
+  --fail-solid: light-dark(#5D0005, #D77786);
   --info-solid: var(--info);
   --mute-solid: var(--mute);
   --on-solid: light-dark(#FFFFFF, var(--bg));
-  --on-warn: light-dark(#1A1A1A, var(--on-solid));
+  --on-warn: light-dark(#FFFFFF, var(--on-solid));
+  /* The edge of the amber fill: the fill itself, unless a palette's muted amber is too light to clear 3:1 off the
+   * slide (the a11y palettes), which points it at its status ink. */
+  --warn-solid-edge: var(--warn-solid);
+  --pass-solid-vivid: light-dark(#00642D, #75CE55);
+  --warn-solid-vivid: light-dark(#FF9A62, #F1AC17);
+  --fail-solid-vivid: light-dark(#4F0A0A, #F9557A);
+  --on-warn-vivid: light-dark(#1A1A1A, var(--on-solid));
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured

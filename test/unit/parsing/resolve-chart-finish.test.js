@@ -60,19 +60,43 @@ describe('chart-finish: the vocabulary', () => {
   });
 });
 
+describe('chart-finish: the intensity axis', () => {
+  const { CHART_FINISH_INTENSITIES, CHART_FINISH_INTENSITY_DEFAULT, chartFinishClasses, withChartFinishClasses, isChartFinishIntensityToken } = require('../../../lib/core/resolve-chart-finish');
+  test('two intensities, muted the default, one word per axis in either order', () => {
+    assert.deepEqual([...CHART_FINISH_INTENSITIES], ['muted', 'vivid']);
+    assert.equal(CHART_FINISH_INTENSITY_DEFAULT, 'muted');
+    assert.deepEqual(chartFinishClasses(''), ['chart-finish-pigment', 'chart-finish-muted']);
+    assert.deepEqual(chartFinishClasses('vivid'), ['chart-finish-pigment', 'chart-finish-vivid']);
+    assert.deepEqual(chartFinishClasses('vivid etch'), ['chart-finish-etch', 'chart-finish-vivid']);
+    assert.deepEqual(chartFinishClasses('pigment vivd'), ['chart-finish-pigment', 'chart-finish-muted'], 'a typo wears that axis\'s default');
+    assert.ok(isKnownChartFinish('pigment vivid') && !isKnownChartFinish('muted vivid') && !isKnownChartFinish('tonal'));
+  });
+  test('a slide token on one axis keeps the deck\'s word on the other', () => {
+    assert.deepEqual(withChartFinishClasses(['bar', 'chart-finish-vivid'], 'etch'), ['bar', 'chart-finish-vivid', 'chart-finish-etch']);
+    assert.ok(isChartFinishIntensityToken('chart-finish-muted') && !isChartFinishToken('chart-finish-muted'));
+  });
+  test('both render paths stamp it: a vivid deck, and a slide that asks for muted', () => {
+    const md = '---\nmarp: true\nchart-finish: vivid\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n\n---\n\n<!-- _class: bar chart-finish-muted -->\n\n## B\n\n- A `3`\n';
+    const [a, b] = classesOf(md);
+    assert.deepEqual(a.filter(isChartFinishIntensityToken), ['chart-finish-vivid']);
+    assert.deepEqual(b.filter(isChartFinishIntensityToken), ['chart-finish-muted']);
+    assert.deepEqual(b.filter(isChartFinishToken), ['chart-finish-pigment']);
+  });
+});
+
 describe('chart-finish: both render paths', () => {
   test('the markdown-it plugin and the runtime stamp through the kernel, in a pass of their own', () => {
     // HARD RULE #1: each path stamps its own sections, so a register wired into one renders
     // two decks from one source. Both resolve through the kernel and both leave a slide's own
     // token alone.
     const plugins = read('lib/integrations/markdown-it/plugins.js');
-    assert.match(plugins, /chartFinishClassFromSource\(/, 'plugins.js resolves the register through the kernel');
+    assert.match(plugins, /withChartFinishClasses\(/, 'plugins.js resolves the register through the kernel');
     assert.match(plugins, /ruler\.push\('chart_finish_stamp'/, 'plugins.js stamps in a pass that runs for every deck');
-    assert.match(plugins, /cur\.some\(isChartFinishToken\)/, 'plugins.js keeps a slide that names its own');
+    assert.match(read('lib/core/resolve-chart-finish.js'), /out\.some\(isChartFinishToken\)[\s\S]*out\.some\(isChartFinishIntensityToken\)/, 'the kernel keeps a slide that names its own, per axis');
     const runtime = read('lib/runtime/index.js');
-    assert.match(runtime, /chartFinishClass\(/, 'the runtime resolves the register through the kernel');
+    assert.match(runtime, /chartFinishClasses\(/, 'the runtime resolves the register through the kernel');
     assert.match(runtime, /function stampChartFinish\(/, 'the runtime stamps every section');
-    assert.match(runtime, /isChartFinishToken/, 'the runtime keeps a slide that names its own');
+    assert.match(runtime, /isChartFinishToken[\s\S]*isChartFinishIntensityToken/, 'the runtime keeps a slide that names its own, per axis');
     for (const [rel, src] of [['plugins.js', plugins], ['runtime/index.js', runtime]]) {
       assert.doesNotMatch(src, /chartFinishTokens/, `${rel} no longer rides the deck-token pass, which returns early for a deck with no tokens`);
     }
