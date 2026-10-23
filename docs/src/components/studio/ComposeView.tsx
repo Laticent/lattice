@@ -9,6 +9,7 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { CHANGE_FLASH_CSS, changeFlashPlugin, diffFlash, type FlashSpec, flashKey } from '@/lib/compose/change-flash';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
@@ -1894,8 +1895,36 @@ export class CommentView {
 	}
 }
 
+/** Where the flashed lines are relative to what the author can see. Null when any of them is on screen (the eye finds it) or the lines have no drawing. */
+function offscreenChip(view: EditorView, spec: FlashSpec): { dir: 'above' | 'below'; n: number; pos: number } | null {
+	const host = view.dom.closest('.cs-host');
+	if (!host) return null;
+	const box = host.getBoundingClientRect();
+	let above = 0;
+	let below = 0;
+	let nearestAbove: number | null = null;
+	let nearestBelow: number | null = null;
+	for (const b of spec.blocks) {
+		const el = view.nodeDOM(b.from);
+		if (!(el instanceof Element)) return null;
+		const r = el.getBoundingClientRect();
+		if (r.bottom > box.top && r.top < box.bottom) return null;
+		if (r.bottom <= box.top) {
+			above++;
+			nearestAbove = b.from;
+		} else {
+			below++;
+			nearestBelow ??= b.from;
+		}
+	}
+	// Changes on both sides: the one below, because a deck is written downward.
+	if (nearestBelow != null) return { dir: 'below', n: below, pos: nearestBelow };
+	if (nearestAbove != null) return { dir: 'above', n: above, pos: nearestAbove };
+	return null;
+}
+
 type PaneOpen = (getPos: () => number | undefined, paneIndex: number) => void;
-function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions) {
+function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions, onFlashClear?: () => void) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
@@ -1904,6 +1933,7 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		panePlugin(getPaneOpen),
 		collapsePlugin(),
 		activeSlidePlugin(),
+		changeFlashPlugin({ onClear: onFlashClear }),
 		stateMarkerPlugin(),
 		...(notation ? [inlineObjectsPlugin(notation)] : []),
 		codeHighlightPlugin(),
@@ -2014,6 +2044,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// and flushed on blur so it is never silently lost (D2). null = nothing pending.
 	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
+	// A change painted by the flash that is out of view: a chip says how many lines are above or below and scrolls to the nearest on a tap.
+	const [flashChip, setFlashChip] = React.useState<{ dir: 'above' | 'below'; n: number; pos: number } | null>(null);
 	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
@@ -2474,6 +2506,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// everything. Read first, restore after — the doc the keys are matched against has to be
 		// the new one.
 		const folded = collapsedKeys(view.state);
+		const before = view.state.doc;
 		const doc = deckToDoc(src);
 		view.updateState(EditorState.create({ doc, selection: startSelection(doc, new Set(restoredSlideOffsets(doc, folded))), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
@@ -2494,6 +2527,16 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// A selection-only transaction — no doc change — so the structural guard waves it
 			// through and `dispatchTransaction`'s emit branch stays untouched (next.doc === prevDoc).
 			view.dispatch(view.state.tr.setMeta(collapseKey, { restore: folded }));
+		}
+		// Show what the outside change changed. A doc-less transaction, so nothing is emitted and nothing enters the undo history.
+		try {
+			const spec = diffFlash(before, view.state.doc);
+			if (spec) {
+				view.dispatch(view.state.tr.setMeta(flashKey, { flash: spec }).setMeta('addToHistory', false));
+				setFlashChip(offscreenChip(view, spec));
+			}
+		} catch (e) {
+			console.error('[compose] change flash', e);
 		}
 	}, []);
 
@@ -2524,7 +2567,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}),
+					}, () => setFlashChip(null)),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
@@ -2716,6 +2759,22 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
 				<div ref={hostRef} className="cs-host" />
+				{flashChip && (
+					<button
+						type="button"
+						className="cs-flash-chip"
+						data-dir={flashChip.dir}
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={() => {
+							const v = viewRef.current;
+							const el = v && !v.isDestroyed ? v.nodeDOM(flashChip.pos) : null;
+							if (el instanceof Element) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+							setFlashChip(null);
+						}}
+					>
+						{flashChip.n === 1 ? '1 change' : `${flashChip.n} changes`} {flashChip.dir}
+					</button>
+				)}
 			</div>
 			{selBar &&
 				createPortal(
@@ -2779,7 +2838,8 @@ function ComposeStyles() {
 	return (
 		<style>{`
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
-			.cs-frame{display:flex;height:100%}
+			.cs-frame{display:flex;height:100%;position:relative}
+			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd

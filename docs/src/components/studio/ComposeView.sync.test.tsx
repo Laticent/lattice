@@ -342,3 +342,30 @@ describe('ComposeView: a note half written when the deck switches', () => {
 		expect(onRetire).not.toHaveBeenCalled();
 	});
 });
+
+describe('ComposeView: an outside change is shown, not applied twice', () => {
+	const BASE = '<!-- _class: content -->\n\n## Plan\n\nThe launch is on Monday.\n\nClosing words.';
+	const CHANGED = BASE.replace('Monday', 'Tuesday morning');
+
+	it('paints the changed line and words, and leaves the deck bytes and undo history alone', () => {
+		const onChange = vi.fn();
+		const v = render(<ComposeView source={BASE} onChange={onChange} />);
+		const docBefore = theView().state.doc;
+		v.rerender(<ComposeView source={CHANGED} onChange={onChange} />);
+		expect(v.container.querySelectorAll('.cs-flash-block')).toHaveLength(1);
+		expect(v.container.querySelector('.cs-flash-span')?.textContent).toBe('Tuesday morning');
+		// The flash is decorations only: nothing is emitted, and the doc is the one the re-import built.
+		expect(onChange).not.toHaveBeenCalled();
+		expect(theView().state.doc.textContent).toContain('Tuesday morning');
+		expect(theView().state.doc).not.toBe(docBefore);
+	});
+
+	it('does not paint the author\u2019s own edits', () => {
+		const v = render(<ComposeView source={BASE} onChange={() => {}} />);
+		const pmView = theView();
+		const at = pmView.state.doc.textContent.indexOf('Closing');
+		expect(at).toBeGreaterThan(-1);
+		pmView.dispatch(pmView.state.tr.insertText('X', pmView.state.doc.content.size - 3));
+		expect(v.container.querySelector('.cs-flash-block')).toBeNull();
+	});
+});

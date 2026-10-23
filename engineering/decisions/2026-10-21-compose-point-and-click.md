@@ -277,6 +277,55 @@ on every transaction, not once per commit. That is the surface this change set o
 do not yet justify. **Revisit when a sixteenth bridge is needed**, or when the notes panel gains a
 second field. *(A recommendation taken on the reversible default while the owner was away; reversing it is a new design, not a revert.)*
 
+## 8d. Showing an outside change (followups.d/2861-p3)
+
+**The ask (owner, 2026-10-23).** An AI edit applies on its own and is undone with Ctrl/Cmd+Z or the undo toast. Compose should let the author
+SEE what changed: a tint and an accent rule on the line, a stronger tint on the exact words, then both fade slowly.
+
+**Built, on the recommended curve.** `docs/src/lib/compose/change-flash.ts` holds the diff (`diffFlash`), the plugin (`changeFlashPlugin`) and the
+stylesheet. `ComposeView.tsx`'s `resyncFrom` is the one place every outside change meets (an AI apply, the Inspector, a rename, an undo from the
+shell, a parked change that lands on blur), so it takes the doc before and after the re-import, diffs them, and dispatches a doc-less
+transaction that carries the paint. Each axis of the design model, as decided:
+
+1. **What counts as changed.** Textblocks compare pairwise when the deck has the same number of them; the changed words are the stretch
+   between the common prefix and suffix of the two lines (`Fragment.findDiffStart` / `findDiffEnd`). When a line was added or removed, the lines
+   equal at the start and at the end are the same lines, and what sits between is painted as lines only. A deletion with nothing inserted leaves a
+   thin accent mark where the words were. A change to a slide's directive comment (an Inspector `_class` stamp) is not a text change and paints
+   nothing; so does a deck where more than eight lines changed (a slide moved, a deck replaced): there is nothing to point at.
+2. **Two layers**, both ProseMirror decorations (`Decoration.node` for the line, `Decoration.inline` for the words, a widget for the mark), so
+   the paint never reaches the deck's bytes or the undo history. The transaction carries `addToHistory: false` and changes no document.
+3. **Motion**, CSS only. The Studio defines no `--motion-*` duration tokens (a grep of `docs/src` finds none), so the timing is four variables on
+   `.cs-host`: `--cs-flash-in`, `--cs-flash-hold`, `--cs-flash-out`, `--cs-flash-lag`; colors are the Studio's `--accent` mixed with transparent, the
+   pair the note panel already uses. The plugin removes the paint when the last fade ends (`animationend`), with a seven-second limit if nothing
+   ever animates (a folded slide draws nothing).
+4. **Reduced motion.** No fade: the tint appears, holds 1.4 s, and goes in one step.
+5. **Off screen.** A chip under the slide's sticky control bar reads "N changes above" or "below" and scrolls to the nearest on a tap. The
+   paint never scrolls the page, and a change waits for the caret to leave the editor in any case (the parked resync), so it cannot move text
+   the author is typing in. The chip is under the sticky bar for both directions because the bottom is where the undo toast of an AI edit lands: a first try at the bottom hid behind the toast on a phone.
+6. **Which changes.** Every one that reaches Compose from outside. The author's own keystrokes never come through `resyncFrom`.
+7. **Undo.** The shell's undo (the toast) restores the source, which re-enters through the same path, so it flashes what it restored. Compose's own
+   Ctrl/Cmd+Z undoes the author's keystrokes in the editor and is not an outside change; it does not flash.
+
+**Curves, for the owner to pick.** Three are in the stylesheet, selected by `data-flash-curve` on `.cs-host` (none set means the first):
+
+| Curve | Fade in | Hold | Fade out | Words start |
+|---|---|---|---|---|
+| settle (default, recommended) | 150 ms | 1.2 s | 1.6 s | +80 ms |
+| quick | 100 ms | 0.5 s | 0.8 s | +60 ms |
+| linger | 200 ms | 2.2 s | 2.4 s | +120 ms |
+
+Filmstrips of all three, six frames each (about 0.3, 0.8, 1.5, 2.3, 3.0 and 3.8 s after the change), at 1440 px and 390 px, are in
+`2026-10-23-change-flash/filmstrip-1440.png` and `filmstrip-390.png`; the chip is in `desktop-chip.png` and `phone-chip.png`, and the paint in the dark
+theme in `desktop-dark-peak.png`. Screen recordings of the same runs were sent with the PR. Once a curve is picked, the other two rules and the attribute go.
+
+**Evidence.** `docs/e2e/compose-change-flash.spec.ts`: a rename paints the heading line and the word "Pilot", the saved deck is exactly the renamed
+source, and the paint is gone after the fade; with reduced motion the animation is `none`, the tint is still drawn and it clears. `change-flash.test.ts` pins
+the diff (words, deletion mark, added line, identical deck, too-wide change); `ComposeView.sync.test.tsx` pins that an outside change paints, emits
+nothing, and that the author's own typing does not.
+
+**Not verified.** WebKit and Firefox (the e2e and recordings ran in Chromium); a real AI apply (a rename stands in: both enter through the same
+resync); the dark theme at phone width (one dark frame at desktop width was checked).
+
 ## 9. Decisions put to the owner
 
 Taken on a reversible default, because the owner was away; each is one commit to undo.
@@ -291,6 +340,8 @@ Taken on a reversible default, because the owner was away; each is one commit to
 5. **Motion has no insert door.** *(Reversed 2026-10-22: the Insert menu's Motion item opens the Library on its scenes; see §7.)*
 
 6. **The note's words stay in a `<textarea>`** (§8c). Alternative: a text-only isolating ProseMirror node. Twelve of fifteen guards go; the byte-exact note round trip is put at risk.
+
+7. **The change flash ships on the `settle` curve** (§8d), with the chip under the sticky bar. The owner picks the curve from the recordings; the other two are one commit to remove.
 
 ## 10. References
 
