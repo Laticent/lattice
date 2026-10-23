@@ -53,7 +53,7 @@ for (const [label, width, height] of [
 		await shot('notice');
 		await notice.getByRole('button', { name: 'What it is' }).click();
 		await shot('notice-open');
-		await notice.getByRole('button', { name: 'Run the code of gantt-plugin' }).click();
+		await notice.getByRole('button', { name: 'Approve and run the code of gantt-plugin' }).click();
 		await expect(livePreview(page).locator('[data-lattice-plugin="gantt-plugin"] svg rect')).toHaveCount(3, { timeout: 30_000 });
 		await shot('drawn');
 		// The editor does not call the listed plugin unknown (the lint knows the host's zip plugins).
@@ -126,7 +126,7 @@ for (const [label, width, height] of [
 		await shot('placeholder-open');
 
 		// Approve: ONE yes writes the deck's `plugins:` line and records consent for these bytes.
-		await notice.getByRole('button', { name: 'Approve the plugin gantt-plugin' }).click();
+		await notice.getByRole('button', { name: 'Approve and run the plugin gantt-plugin' }).click();
 		await expect.poll(() => persistedSource(page)).toContain('plugins: [gantt-plugin]');
 		await expect(preview.locator('[data-lattice-plugin="gantt-plugin"] svg rect')).toHaveCount(3, { timeout: 30_000 });
 		await expect(placeholder).toHaveCount(0);

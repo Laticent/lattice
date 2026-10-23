@@ -125,7 +125,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 					for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLIFrameElement && n.hasAttribute('data-lattice-code-sandbox')) w.__sandboxes.push(String(n.getAttribute('sandbox')));
 				}).observe(document.body, { childList: true, subtree: true });
 			});
-			await notice.getByRole('button', { name: 'Run the code of gantt-plugin' }).click();
+			await notice.getByRole('button', { name: 'Approve and run the code of gantt-plugin' }).click();
 			const chart = preview.locator('[data-lattice-plugin="gantt-plugin"] svg.lp-gantt-plugin-chart');
 			await expect(chart).toHaveCount(1, { timeout: 30_000 });
 			await expect(chart.locator('rect')).toHaveCount(3);

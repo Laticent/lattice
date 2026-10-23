@@ -1172,8 +1172,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					<div className="mt-1 flex min-w-0 flex-wrap gap-1">
 						{draws.map((d) => <code key={d} className="rounded bg-muted px-1 py-px font-mono text-[10.5px] text-muted-foreground">{d}</code>)}
 					</div>
-					<div className={cn('mt-1.5 text-[11px] font-semibold', approved ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{approved ? 'Approved in this browser' : 'Not approved'}{listed ? ' · In this deck' : ''}</div>
-					<p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{approved ? (listed ? 'Drawn in this deck.' : <>Add <code className="font-mono text-[10.5px]">{p.name}</code> to a deck's <code className="font-mono text-[10.5px]">plugins:</code> list to use it.</>) : listed ? 'Run its code from the notice above the preview.' : <>List <code className="font-mono text-[10.5px]">{p.name}</code> in a deck's <code className="font-mono text-[10.5px]">plugins:</code>, then approve it from the notice above the preview.</>}</p>
+					<div className={cn('mt-1.5 text-[11px] font-semibold', approved ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{approved ? 'Approved in this browser' : 'Not approved yet'}{listed ? ' · In this deck' : ''}</div>
+					<p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{approved ? (listed ? 'Drawn in this deck.' : <>Add <code className="font-mono text-[10.5px]">{p.name}</code> to a deck's <code className="font-mono text-[10.5px]">plugins:</code> list to use it.</>) : listed ? 'Tap Approve and run in the notice above the preview.' : <>It asks when a deck uses it: list <code className="font-mono text-[10.5px]">{p.name}</code> in a deck's <code className="font-mono text-[10.5px]">plugins:</code>, then Approve and run.</>}</p>
 					<div className="mt-2.5 flex items-center gap-1.5">
 						<span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-muted-foreground">{p.name}</span>
 						<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removePlugin(p); }} onCancel={() => setArmed(null)} label={p.title} />

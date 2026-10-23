@@ -73,7 +73,7 @@ for (const [label, width, height] of [
 		await shot('placeholder');
 
 		// Approve: one yes lists the plugin and records consent; each span is drawn from its fields.
-		await notice.getByRole('button', { name: 'Approve the plugin chip-plugin' }).click();
+		await notice.getByRole('button', { name: 'Approve and run the plugin chip-plugin' }).click();
 		await expect.poll(() => persistedSource(page)).toContain('plugins: [chip-plugin]');
 		const drawn = preview.locator('[data-lattice-plugin="chip-plugin"][data-kind="tag-chip"] .lp-chip-plugin-tag');
 		// The `columns` slide is at the cursor: a span drawn in each pane, from its own fields.

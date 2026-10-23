@@ -74,7 +74,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		const notice = page.locator('[data-slot="code-packages"]');
 		await setEditorContent(page, DECK);
 		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
-		await notice.getByRole('button', { name: `Run the code of ${NAME}` }).click();
+		await notice.getByRole('button', { name: `Approve and run the code of ${NAME}` }).click();
 
 		const root = preview.locator(`[data-lattice-plugin="${NAME}"]`);
 		// 1. FILLED
