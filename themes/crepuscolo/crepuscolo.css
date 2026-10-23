@@ -294,11 +294,11 @@
    * tint for the fill); dark side = the same hue lifted toward white so it
    * stays vivid on deep-plum canvas. */
   --chart-cat1: light-dark(#68378B, #B896D6);  /* violet      */
-  --chart-cat2: light-dark(#764E13, #BD9D79);  /* olive        */
-  --chart-cat3: light-dark(#006400, #6EB569);  /* forest       */
+  --chart-cat2: light-dark(#784E00, #BD9D79);  /* olive        */
+  --chart-cat3: light-dark(#004B00, #2AB975);  /* forest       */
   --chart-cat4: light-dark(#91317E, #D38CC1);  /* magenta      */
   --chart-cat5: light-dark(#304792, #8BA2DB);  /* indigo       */
-  --chart-cat6: light-dark(#3C6012, #8EAA77);  /* sage         */
+  --chart-cat6: light-dark(#374900, #87A89E);  /* sage         */
   --chart-cat7: light-dark(#7C3C5C, #C795AC);  /* mauve        */
   --chart-cat8: light-dark(#705131, #B89F88);  /* umber        */
 
@@ -309,11 +309,11 @@
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#68378B, #B896D6);
-  --chart-cat2-ink: light-dark(#764E13, #BD9D79);
-  --chart-cat3-ink: light-dark(#006400, #6EB569);
+  --chart-cat2-ink: light-dark(#784E00, #BD9D79);
+  --chart-cat3-ink: light-dark(#004B00, #2AB975);
   --chart-cat4-ink: light-dark(#91317E, #D38CC1);
   --chart-cat5-ink: light-dark(#304792, #8BA2DB);
-  --chart-cat6-ink: light-dark(#3C6012, #8EAA77);
+  --chart-cat6-ink: light-dark(#374900, #87A89E);
   --chart-cat7-ink: light-dark(#7C3C5C, #C795AC);
   --chart-cat8-ink: light-dark(#705131, #B89F88);
   /* ── end chart categorical ink ── */
@@ -344,7 +344,7 @@
    * status pills, state-chart, timeline). pass/warn/fail reuse crepuscolo's
    * inherited status trio so a gantt at-risk bar matches a --warn chip; info
    * takes the dusty slate blue, mute a desaturated violet-taupe. */
-  --info: light-dark(#215688, #7EAEE1); /* dusty slate   */
+  --info: light-dark(#1F5D7C, #54BDEC); /* dusty slate   */
   --mute: light-dark(#6C4A5A, #B7A993); /* violet taupe  */
   --on-solid: light-dark(#FFFFFF, #1A0F2D);
   --chart-neutral: light-dark(#5D5274, #AA9EC5);
