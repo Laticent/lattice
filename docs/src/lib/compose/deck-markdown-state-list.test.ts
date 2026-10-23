@@ -91,3 +91,17 @@ describe('a marker followed by a colon', () => {
 		expect(rt('- [x] still a marker')).toBe('- [x] still a marker');
 	});
 });
+
+describe('an escaped marker followed by a link destination', () => {
+	const require2 = createRequire(import.meta.url);
+	const html = (md: string): string => require2('../../../../lib/engine/index.js').createEngine().render(md).html;
+	const same = (md: string) => expect(html(roundTripSlideProse(md))).toBe(html(md));
+	it('a list item stays literal text', () => {
+		same('- \\[x\\](/u) link-shaped\n');
+		same('- \\[/\\](/u) link-shaped\n');
+	});
+	it('a table cell stays literal text', () => {
+		same('| h |\n|---|\n| \\[x\\](/u) |\n');
+		same('| h |\n|---|\n| \\[!\\][ref] |\n');
+	});
+});

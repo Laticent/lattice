@@ -239,15 +239,10 @@ test.describe('compose pill editor', () => {
 		// The pills become objects when the authoring kernels have loaded, a moment after the slide shows. Walking the caret before that
 		// lands on text, not on the pill (the spec failed about one run in five without this wait).
 		await expect(drawnPills(page)).toHaveCount(4);
-		// The walk onto the pill is retried as a whole: one attempt in four landed on text before the pill took its object form
-		// (followups.d/2875-p4: 2 of 8 runs failed), and a retry starts from a fresh click, so it can't inherit that state.
-		// Selecting by a DOM range or a click does not hold: Escape drops the selection and a DOM range reads as text.
-		await expect(async () => {
-			await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
-			await page.keyboard.press('Home');
-			for (let i = 0; i < 9; i++) await page.keyboard.press('ArrowRight');
-			await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1, { timeout: 1000 });
-		}).toPass({ timeout: 15000 });
+		await page.locator('.cs-slide').first().locator('.cs-slide-content p').first().click({ position: { x: 3, y: 8 } });
+		await page.keyboard.press('Home');
+		for (let i = 0; i < 9; i++) await page.keyboard.press("ArrowRight");
+		await expect(page.locator('.ProseMirror-selectednode')).toHaveCount(1);
 		await page.keyboard.press('ControlOrMeta+c');
 		await page.locator('.cs-slide').nth(1).locator('.cs-slide-content p').first().click();
 		await page.keyboard.press('End');
