@@ -1998,11 +1998,16 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[] }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
+	// Where an emit goes while the editor is being torn down for another deck: to that deck's own id (`onRetire`), never to `onChange`, which by
+	// then belongs to the next deck. Null the rest of the time.
+	const onRetireRef = React.useRef(onRetire);
+	onRetireRef.current = onRetire;
+	const retiringRef = React.useRef<((src: string) => void) | null>(null);
 	const lastEmittedRef = React.useRef(source);
 	const baselineRef = React.useRef<EmitBaseline | null>(null);
 	// An external source change that arrived while the editor held focus — parked here
@@ -2560,7 +2565,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
-						onChangeRef.current(src);
+						(retiringRef.current ?? onChangeRef.current)(src);
 					}
 					// The caret's slide index — the top-level `slide` node it sits in. Edge-
 					// triggered so the shell only hears about real crossings.
@@ -2638,6 +2643,21 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		host?.addEventListener('scroll', onScroll, { passive: true });
 		return () => {
 			host?.removeEventListener('scroll', onScroll);
+			// A note still being written has not blurred (a deck switch removes the field without one), so its words are written now, to THIS deck:
+			// `resetKey` is the deck this effect built the view for. The emit baseline is restored after, because the next deck's view does not share it.
+			const field = view.dom.querySelector('.cs-comment-field');
+			if (field && onRetireRef.current) {
+				const emitted = lastEmittedRef.current;
+				retiringRef.current = (src) => onRetireRef.current?.(src, resetKey);
+				try {
+					field.dispatchEvent(new CustomEvent('cs-note-commit', { detail: { dirty: false } }));
+				} catch (e) {
+					console.error('[compose] note write on teardown', e);
+				} finally {
+					retiringRef.current = null;
+					lastEmittedRef.current = emitted;
+				}
+			}
 			view.destroy();
 			viewRef.current = null;
 			baselineRef.current = null;

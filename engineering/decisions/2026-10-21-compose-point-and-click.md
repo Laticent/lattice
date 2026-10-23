@@ -252,6 +252,31 @@ A checker and a red team read the uncommitted diff (HARD RULE #25). Every findin
   instead of deleting it; the picker's thumbnails load lazily; the corpus test now asserts that avatars and icons convert.
 - **Tests that could not fail** (a locked-slide check with nothing clicked, a selection test with no selection) now click and select.
 
+## 8c. The note's words: a field, written on teardown (followups.d/2861-p2)
+
+**Teardown.** A deck switch re-creates the editor (`resetKey` is the deck id) and removes the note field without a blur, so
+half-typed words were lost. The cleanup of the editor effect now commits the field first, and the write goes to a new `onRetire(source, resetKey)`
+prop, never to `onChange`: the shell's `onChange` writes to whichever deck is current, and by cleanup time that is the next one. The shell passes
+`saveSourceGuarded(deckId, source)`, so the words land in the old deck's saved source. Words `writeNote` refuses (empty, or a directive word)
+are not written; the panel's reason was only ever shown on a commit the author asked for, so a refused half-sentence on a deck switch is dropped.
+Tests: `ComposeView.sync.test.tsx` (the words go to `onRetire` with the old key and `onChange` stays silent) and `e2e/compose-note-motion.spec.ts`
+(a real deck switch with the blur held back; the old deck's stored source has the words and the new deck has none). Both fail without the fix.
+
+**Model: keep the `<textarea>`.** Counted by reading `ComposeView.tsx`, not by prototype: fifteen mechanisms exist only because the words live
+outside ProseMirror. (1) `isCurrent()` stale-panel guard; (2) the `cs-note-commit` flush before a structural op, at two call sites; (3) the
+`cs-note-left` event; (4) the focus predicate that parks an outside change while the field has the caret; (5) the blur-then-microtask commit on
+the field; (6) the same on Remove; (7) the native-undo `beforeinput` guard; (8) the `typed` mirror that undoes changes made while unfocused;
+(9) the `isComposing` check; (10) the "nothing written if unchanged" comparison; (11) the field re-sync after a write; (12) Remove's `mousedown`
+`preventDefault`; (13) the touch check that skips auto-focus; (14) the folded-slide caret guards on Escape and Remove; (15) the teardown commit above.
+A text-only isolating node with a `filterTransaction` would delete 1 to 11 and 15 (twelve), because the words would be in the document: undo,
+input methods and selection come from ProseMirror, and nothing has to be flushed. It would keep 12 to 14 and add a node spec, a node view, the
+serializer rules, arrow-key entry into an isolating node and a paste rule.
+The cost is the byte-exact round trip. A note's text is a node attribute today, so an untouched slide re-emits its cached bytes (`baselineRef`);
+moving it into content puts every note in the serializer path, and `writeNote`'s opener, closer and channel rules would have to hold
+on every transaction, not once per commit. That is the surface this change set out not to touch, for a gain that the fifteen guards
+do not yet justify. **Revisit when a sixteenth bridge is needed**, or when the notes panel gains a
+second field. *(A recommendation taken on the reversible default while the owner was away; reversing it is a new design, not a revert.)*
+
 ## 9. Decisions put to the owner
 
 Taken on a reversible default, because the owner was away; each is one commit to undo.
@@ -264,6 +289,8 @@ Taken on a reversible default, because the owner was away; each is one commit to
    (`followups.d/2739-p4`), so a share control would promise what the slide does not do.
 4. **The Library photo picker has no upload**, so a new author with an empty Library is sent to the Library first. *(Reversed 2026-10-22: the picker now adds a photo; see §7.)*
 5. **Motion has no insert door.** *(Reversed 2026-10-22: the Insert menu's Motion item opens the Library on its scenes; see §7.)*
+
+6. **The note's words stay in a `<textarea>`** (§8c). Alternative: a text-only isolating ProseMirror node. Twelve of fifteen guards go; the byte-exact note round trip is put at risk.
 
 ## 10. References
 

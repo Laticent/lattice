@@ -308,3 +308,37 @@ describe('ComposeView: the caret a reload starts on', () => {
 		expect(theView().state.selection.$from.index(0)).toBe(0);
 	});
 });
+
+describe('ComposeView: a note half written when the deck switches', () => {
+	const A = '<!-- _class: content -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
+	const B = '<!-- _class: content -->\n\n# Other deck\n\nbody other';
+
+	it('writes the words to the deck being left, not to the next deck', async () => {
+		const onChange = vi.fn();
+		const onRetire = vi.fn();
+		const v = render(<ComposeView source={A} resetKey="deck-a" onChange={onChange} onRetire={onRetire} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const field = v.container.querySelector('.cs-comment-field') as HTMLTextAreaElement;
+		field.focus();
+		field.value = 'a plain note, half typed';
+		field.dispatchEvent(new Event('input', { bubbles: true }));
+		// The deck switch: new source and a new key in the same render, no blur on the field.
+		onChange.mockClear();
+		v.rerender(<ComposeView source={B} resetKey="deck-b" onChange={onChange} onRetire={onRetire} />);
+		expect(onRetire).toHaveBeenCalledTimes(1);
+		expect(onRetire.mock.calls[0]?.[0]).toBe(A.replace('a plain note.', 'a plain note, half typed'));
+		expect(onRetire.mock.calls[0]?.[1]).toBe('deck-a');
+		expect(onChange, 'nothing reaches the next deck').not.toHaveBeenCalled();
+		expect(v.container.querySelector('h1')?.textContent).toBe('Other deck');
+	});
+
+	it('writes nothing when the field was only opened', async () => {
+		const onRetire = vi.fn();
+		const v = render(<ComposeView source={A} resetKey="deck-a" onChange={() => {}} onRetire={onRetire} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		v.rerender(<ComposeView source={B} resetKey="deck-b" onChange={() => {}} onRetire={onRetire} />);
+		expect(onRetire).not.toHaveBeenCalled();
+	});
+});

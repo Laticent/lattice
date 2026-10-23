@@ -1,0 +1,1 @@
+- A note half typed in Compose is no longer lost when you switch decks. The field never blurred, so its words were never written; the editor now writes them to the deck you are leaving as it closes, and nothing reaches the deck you are opening.
