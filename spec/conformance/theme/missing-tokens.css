@@ -148,15 +148,22 @@
   --chart-cat8: light-dark(#006e89, #6198ac);
   --info: light-dark(#32669a, #6da3da);
   --mute: light-dark(#858d9a, #a4acba);
-  --on-solid: light-dark(#FFFFFF, #101418);
-  --pass-solid: light-dark(#00642D, var(--pass));
-  --warn-solid: light-dark(#F3A51B, var(--warn));
-  --fail-solid: light-dark(#4F0A0A, var(--fail));
-  --on-warn: light-dark(#1A1A1A, var(--on-solid));
-  --pass-solid-vivid: light-dark(#00642D, var(--pass));
-  --warn-solid-vivid: light-dark(#F3A51B, var(--warn));
-  --fail-solid-vivid: light-dark(#4F0A0A, var(--fail));
-  --on-warn-vivid: light-dark(#1A1A1A, var(--on-solid));
+  --on-solid: #FFFFFF;
+  --on-status: #1A1A1A;
+  --pass-solid: light-dark(#83C693, #87DA9B);
+  --warn-solid: light-dark(#F3C080, #FFC377);
+  --fail-solid: light-dark(#E19087, #FFA297);
+  --info-solid: light-dark(#60AEDA, #62C5FA);
+  --mute-solid: light-dark(#A0A6AD, #B6BCC3);
+  --pass-solid-vivid: light-dark(#55CD7A, #68DF8B);
+  --warn-solid-vivid: light-dark(#FFBC63, #FFC377);
+  --fail-solid-vivid: light-dark(#FF7F73, #FFA297);
+  --info-solid-vivid: light-dark(#00B0F4, #5AC6FF);
+  --pass-solid-edge: light-dark(#3B7C4D, #87DA9B);
+  --warn-solid-edge: light-dark(#946623, #FFC377);
+  --fail-solid-edge: light-dark(#A55A53, #FFA297);
+  --info-solid-edge: light-dark(#22769F, #62C5FA);
+  --mute-solid-edge: light-dark(#6A6F76, #B6BCC3);
   --chart-neutral: light-dark(#858d9a, #a4acba);
 }
 

@@ -633,42 +633,46 @@
   /* STATUS, IN TWO JOBS. A theme curates each status once, and every component that shows one reads these, a chart
    * included (chart-family.styles.css § THE SOLID TIER).
    *
-   * `--pass` … `--mute` are the status as INK on the slide: text, a rule, a mark's edge. They clear 4.5:1 on the
-   * canvas, and the pass/warn/fail trio stays apart for a colorblind reader (test/unit/palette/cvd-trio-floor.test.js).
+   * `--pass` … `--mute` are the status as INK on the slide: text, a rule, a mark. They clear 4.5:1 on the canvas, and
+   * the pass/warn/fail trio stays apart for a colorblind reader (test/unit/palette/cvd-trio-floor.test.js).
    *
-   * `--pass-solid` … `--mute-solid` are the status as a FILL a label sits on: a gantt bar, a state tile, a pill. A
-   * fill and an ink are curated separately, and in two intensities the author picks with `chart-finish:`
-   * (resolve-chart-finish.js). MUTED, the default (`--X-solid`, `--on-warn`): every fill under one white ink on the
-   * light face (a deep green, bronze and oxblood) and a calm set under the canvas on the dark face. VIVID
-   * (`--X-solid-vivid`, `--on-warn-vivid`): the most saturated green, burnt orange and crimson that white text clears
-   * at 7:1 on the light face (an amber any lighter needs dark text, the owner chose white), and a saturated set on the
-   * dark face. `--on-warn` stays a token so a palette whose amber is light (the a11y palettes) can carry dark ink. Text on every fill clears 7:1 on the
-   * light face and 4.5:1 on the dark face (test/unit/palette/chart-solids.test.js). The a11y palettes keep fills that
-   * clear every colorblind floor; a brand theme's fills are held to their recorded separation
-   * (cvd-trio-floor.test.js), the owner's call. A fill lighter than 3:1 against the slide takes its boundary from its
-   * ink edge.
+   * `--pass-solid` … `--mute-solid` are the status as a FILL a label sits on: a gantt bar, a state tile, a pill.
+   * TEXT COLOR CARRIES THE KIND (engineering/chart-styling.md §3): a status fill is BRIGHT, under near-black
+   * `--on-status`, where a category or the neutral is DEEP, under white `--on-solid`. The same hue may serve as a
+   * category and as a status; the text color tells them apart. Text on a status fill clears 7:1 on the light face and
+   * 9:1 on the dark face (test/unit/palette/chart-solids.test.js). Two intensities, picked with `chart-finish:`
+   * (resolve-chart-finish.js): MUTED, the default (`--X-solid`), calm enough for a deck full of status charts; VIVID
+   * (`--X-solid-vivid`), richer, short of neon. `--mute-solid` is a neutral and has no vivid.
    *
-   * These engine values are the fallback for a palette that has not curated them, solved on a white and a
-   * near-black canvas. */
+   * `--pass-solid-edge` … `--mute-solid-edge` are each status's EDGE: its own hue, deep enough to clear 4.6:1 off the
+   * slide. A bright fill sits under 3:1 on a light slide, so the chart family rims every status shape with its edge on
+   * the light face, and paints a status that is a LINE or TEXT (a slope, a waterfall step, a kanban header) with it.
+   * On the dark face the edge is the muted fill.
+   *
+   * These engine values are the fallback for a palette that has not curated them, solved by
+   * tools/curate-chart-solids.js on a white and a near-black canvas. */
   --pass: light-dark(#2D6A3F, #4ADE80);
   --warn: light-dark(#B45309, #F97316);
   --fail: light-dark(#991B1B, #F87171);
   --info: light-dark(#0053B3, #5AA1FF);
   --mute: light-dark(#4F5863, #9AA7B6);
-  --pass-solid: light-dark(#266439, #8BBA7C);
-  --warn-solid: light-dark(#703000, #E0AE57);
-  --fail-solid: light-dark(#5D0005, #D77786);
-  --info-solid: var(--info);
-  --mute-solid: var(--mute);
-  --on-solid: light-dark(#FFFFFF, var(--bg));
-  --on-warn: light-dark(#FFFFFF, var(--on-solid));
-  /* The edge of the amber fill: the fill itself, unless a palette's muted amber is too light to clear 3:1 off the
-   * slide (the a11y palettes), which points it at its status ink. */
-  --warn-solid-edge: var(--warn-solid);
-  --pass-solid-vivid: light-dark(#00662E, #75CE55);
-  --warn-solid-vivid: light-dark(#973C00, #F1AC17);
-  --fail-solid-vivid: light-dark(#B40012, #F9557A);
-  --on-warn-vivid: light-dark(#FFFFFF, var(--on-solid));
+  --pass-solid: light-dark(#83C693, #87DA9B);
+  --warn-solid: light-dark(#F3C080, #FFC377);
+  --fail-solid: light-dark(#E19087, #FFA297);
+  --info-solid: light-dark(#60AEDA, #62C5FA);
+  --mute-solid: light-dark(#A0A6AD, #B6BCC3);
+  --pass-solid-vivid: light-dark(#55CD7A, #68DF8B);
+  --warn-solid-vivid: light-dark(#FFBC63, #FFC377);
+  --fail-solid-vivid: light-dark(#FF7F73, #FFA297);
+  --info-solid-vivid: light-dark(#00B0F4, #5AC6FF);
+  --pass-solid-edge: light-dark(#3B7C4D, #87DA9B);
+  --warn-solid-edge: light-dark(#946623, #FFC377);
+  --fail-solid-edge: light-dark(#A55A53, #FFA297);
+  --info-solid-edge: light-dark(#22769F, #62C5FA);
+  --mute-solid-edge: light-dark(#6A6F76, #B6BCC3);
+  /* The two inks on a solid. White on a category or the neutral, near-black on a status. */
+  --on-solid: #FFFFFF;
+  --on-status: #1A1A1A;
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured
@@ -859,9 +863,18 @@
   --print-pass:            #2E2E2E;
   --print-warn:            #555555;
   --print-fail:            #111111;
-  --print-info:            #3D3D3D;  /* the status solids in print: every one carries white text at 7:1 */
+  --print-info:            #3D3D3D;
   --print-mute:            #575757;
-  --print-on-solid:        #FFFFFF;
+  --print-on-solid:        #FFFFFF;  /* white on a category or the neutral in print, as on screen */
+  /* The status FILLS in print keep the screen's polarity: a light gray under near-black text (9:1 or better), each a
+   * different step that DARKENS WITH SEVERITY (pass, warn, fail), so a severity ramp such as the risk matrix keeps its
+   * order on paper, and rimmed by the status ink above as their edge. */
+  --print-pass-solid:      #E0E0E0;
+  --print-warn-solid:      #C9C9C9;
+  --print-fail-solid:      #B0B0B0;
+  --print-info-solid:      #D3D3D3;
+  --print-mute-solid:      #EBEBEB;
+  --print-on-status:       #111111;
 
   /* Categorical fills → stepped grays; the border + (for series) pattern fills
    * do the work past ~5 categories. */

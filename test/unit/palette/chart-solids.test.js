@@ -1,21 +1,24 @@
 /**
- * Unit: the chart SOLIDS — one flat color per chart concept, and one ink for text on all of them.
+ * Unit: the chart SOLIDS — one flat color per chart concept, and the ink that reads on it.
  *
- * Every chart mark is painted with its concept's solid: `--chart-cat-N-hue` for a category, `--state-X-hue` for a
- * status (the base's `--X-solid`), `--chart-neutral-hue` for a mark with neither. Text on a solid is
- * `--chart-solid-ink`, except on a status fill, where it is that status's `--state-X-on` (amber carries `--on-warn`).
- * Each theme curates the seeds (tools/curate-chart-solids.js seeded them; a theme may hand-tune any of them), and this
- * holds every palette, in both modes, to the bar:
+ * TEXT COLOR CARRIES THE KIND (engineering/chart-styling.md §3). A category (`--chart-cat-N-hue`) or the neutral
+ * (`--chart-neutral-hue`) is a DEEP fill under white `--on-solid`; a status (the base's `--X-solid`, `--X-solid-vivid`)
+ * is a BRIGHT fill under near-black `--on-status`. Each theme curates the seeds (tools/curate-chart-solids.js seeded
+ * them; a theme may hand-tune any of them), and this holds every palette, in both modes and both intensities, to the
+ * bar:
  *
- *   1. text on a solid      >= 7:1 (WCAG AAA). The one exception the owner set: on the DARK face a pass/warn/fail
- *                           fill is the theme's own status ink, and text on it clears 4.5:1 (AA), because a fill
- *                           there cannot clear 7:1, the colorblind floor and its hue at once (base.tokens.css).
- *   2. a solid on the slide every solid against `--bg` >= 3:1 (WCAG 1.4.11, a graphical object), or, for a status
- *                           fill, its ink edge (`--state-X-ink`) does: a light-face amber under dark text is too
- *                           light to clear 3:1 itself, and its edge is the boundary.
+ *   1. text on a solid      a status: >= 7:1 on both faces (the curation aims 9:1 on the dark face).
+ *                           a category or the neutral: >= 7:1 on the light face, >= 4.5:1 on the dark face, where it
+ *                           is the lightest mid-tone white still clears so it can stand off the dark slide.
+ *   2. a solid on the slide >= 3:1 against `--bg` (WCAG 1.4.11, a graphical object), or, for a status fill on the
+ *                           light face, its EDGE (`--X-solid-edge`) does: a bright fill sits under 3:1 there, and the
+ *                           chart family rims it with the edge.
+ *   3. the edge as ink      a status edge is also the status's LINE and TEXT, so on the light face it clears 4.5:1.
  *
- * If a test fails, a theme's seed fell short: move the seed's lightness away from the ink (keep its hue), or re-run
- * `node tools/curate-chart-solids.js`. Do not lower the bar. engineering/chart-styling.md §3.
+ * Which ink is which, and that the chart family wires each kind to its own, is chart-polarity.test.js (a flat parse
+ * of the stylesheet sees only the last `--chart-solid-ink`, so the inks are read as the base tokens here). If a test fails, a theme's seed fell
+ * short: re-run `node tools/curate-chart-solids.js`, or move the seed's lightness away from its ink (keep its hue).
+ * Do not lower the bar.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,26 +28,22 @@ const { loadThemeChain, resolve, contrast } = require('../../helpers/chart-color
 const THEMES = [...baseThemeNames(), 'a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia'];
 const TEXT = 7;
 const MARK = 3;
-const TEXT_DARK_TRIO = 4.5;
-const TRIO = ['pass', 'warn', 'fail'];
+const CAT_DARK = 4.5;
+const EDGE_TEXT = 4.5;
 /**
- * Each INTENSITY of `chart-finish:` names its own fills and inks (base.tokens.css § STATUS, IN TWO JOBS), so the
- * status rows read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule
- * remaps on a slide, and which a flat parse of the stylesheet would see as already remapped). A status fill's EDGE is
- * the fill itself, except where a palette's amber is too light for 3:1 (the a11y palettes), which point
- * `--warn-solid-edge` at their status ink.
+ * Each INTENSITY of `chart-finish:` names its own fills (base.tokens.css § STATUS, IN TWO JOBS), so the status rows
+ * read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule remaps on a slide,
+ * and which a flat parse of the stylesheet would see as already remapped). `--mute-solid` has no vivid.
  */
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 const INTENSITIES = {
-  muted: (s) => ({ t: `${s}-solid`, ink: s === 'warn' ? 'on-warn' : 'on-solid', edge: s === 'warn' ? 'warn-solid-edge' : null, s }),
-  vivid: (s) => (TRIO.includes(s)
-    ? { t: `${s}-solid-vivid`, ink: s === 'warn' ? 'on-warn-vivid' : 'on-solid', edge: s === 'warn' ? 'warn-solid-edge' : null, s }
-    : { t: `${s}-solid`, ink: 'on-solid', s }),
+  muted: (s) => ({ t: `${s}-solid`, ink: 'on-status', edge: `${s}-solid-edge`, status: true }),
+  vivid: (s) => ({ t: s === 'mute' ? 'mute-solid' : `${s}-solid-vivid`, ink: 'on-status', edge: `${s}-solid-edge`, status: true }),
 };
 const SOLIDS = (intensity) => [
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'chart-solid-ink' })),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'on-solid' })),
   ...STATUS.map(INTENSITIES[intensity]),
-  { t: 'chart-neutral-hue', ink: 'chart-solid-ink' },
+  { t: 'chart-neutral-hue', ink: 'on-solid' },
 ];
 
 describe('chart solids: text on every solid clears its bar, and every solid has a 3:1 boundary on the slide', () => {
@@ -55,15 +54,18 @@ describe('chart solids: text on every solid clears its bar, and every solid has 
         const bg = resolve('var(--bg)', vars, mode);
         assert.ok(bg, 'the canvas resolves');
         const bad = [];
-        for (const { t, ink: inkTok, edge, s } of SOLIDS(intensity)) {
+        for (const { t, ink: inkTok, edge, status } of SOLIDS(intensity)) {
           const c = resolve(`var(--${t})`, vars, mode);
           const ink = resolve(`var(--${inkTok})`, vars, mode);
           if (!c || !ink) { bad.push(`--${t} or its ink --${inkTok} did not resolve`); continue; }
           const text = contrast(c, ink);
-          const bar = mode === 'dark' && TRIO.includes(s) ? TEXT_DARK_TRIO : TEXT;
+          const bar = !status && mode === 'dark' ? CAT_DARK : TEXT;
           if (text < bar) bad.push(`--${t}: text ${text.toFixed(2)}:1 (bar ${bar})`);
-          const mark = Math.max(contrast(c, bg), edge && mode === 'light' ? contrast(resolve(`var(--${edge})`, vars, mode), bg) : 0);
+          const e = edge && resolve(`var(--${edge})`, vars, mode);
+          if (edge && !e) { bad.push(`--${edge} did not resolve`); continue; }
+          const mark = Math.max(contrast(c, bg), status && mode === 'light' ? contrast(e, bg) : 0);
           if (mark < MARK) bad.push(`--${t}: against the slide ${mark.toFixed(2)}:1`);
+          if (status && mode === 'light' && contrast(e, bg) < EDGE_TEXT) bad.push(`--${edge}: as ink ${contrast(e, bg).toFixed(2)}:1 (bar ${EDGE_TEXT})`);
         }
         assert.deepEqual(bad, []);
       });

@@ -126,7 +126,8 @@ palette:
 - **Semantic / status — `--state-{pass,warn,fail,info,mute}-*`**, seeded from the
   base status fills `--pass-solid` … `--mute-solid` (the hue) and inks `--pass` …
   `--mute` (the edge) that every theme curates. Text on a status fill reads
-  `--chart-solid-ink`, which the family sets per status (`--on-warn` on amber).
+  `--chart-solid-ink`, white on a category, which the family re-points at near-black `--on-status` inside any mark
+  that carries a `data-s`: text color carries the kind (`engineering/chart-styling.md` §3).
   Encodes meaning: green=good, amber=caution, red=stop, blue=info/pilot,
   gray=deferred. Used by gantt bars, progress fills, status pills.
 - **Sequential** — the choropleth ramp, `map` only: each region carries a `--mix`

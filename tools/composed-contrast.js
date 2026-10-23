@@ -180,14 +180,14 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` pill as a scored surface: the status's flat FILL (the base's `--X-solid`) under that status's
- * text ink (`--on-warn` for amber, `--on-solid` for the rest), at 7:1 on the light face; on the dark face a
- * pass/warn/fail fill is the status ink itself and holds 4.5:1 (base.tokens.css § STATUS, IN TWO JOBS). `requires`
- * pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of them reddens the
- * gate instead of silently re-pointing what is measured. */
+ * One `.chart-status` pill as a scored surface: the status's flat BRIGHT fill (the base's `--X-solid`) under the
+ * near-black status ink `--on-status`, at 7:1 on both faces (the curation aims 9:1 on the dark face; this gate holds
+ * the 7:1 floor). TEXT COLOR CARRIES THE KIND (base.tokens.css § STATUS, IN TWO JOBS). `requires` pins the fill, the
+ * ink and the state's hue mapping in the component CSS, so a retune of any of them reddens the gate instead of
+ * silently re-pointing what is measured. */
 const TRIO_STATES = ['pass', 'warn', 'fail'];
-const solidInk = (state) => (state === 'warn' ? '--on-warn' : '--on-solid');
-const solidMinDark = (state) => (TRIO_STATES.includes(state) ? 4.5 : 7);
+const solidInk = () => '--on-status';
+const solidMinDark = () => 7;
 
 function pillStop(state) {
   return {
@@ -616,12 +616,12 @@ const SURFACES = [
   // swimlane that a raw color-mix ground has been invisible.
   ...['pass', 'warn', 'fail', 'info', 'mute'].map((state) => pillStop(state)),
   // The VIVID intensity's fills (`chart-finish: … vivid`): the same pill, re-pointed by the rule that stamps it.
-  ...TRIO_STATES.map((state) => ({
+  ...[...TRIO_STATES, 'info'].map((state) => ({
     ...pillStop(state),
     id: `chart/status-pill-${state}-vivid`,
-    ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the vivid ink on the vivid fill`,
+    ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the status ink on the vivid fill`,
     groups: [{ bg: `var(--${state}-solid-vivid)` }],
-    ink: state === 'warn' ? '--on-warn-vivid' : '--on-solid',
+    ink: '--on-status',
     requires: [new RegExp(`--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
   })),
   // ── state-chart · the name and the ordinal on a status-tinted node ───────

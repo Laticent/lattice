@@ -34,8 +34,11 @@ section.state-chart {
   --state-node-ink: var(--chart-solid-ink);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
-  /* THE ORDINAL PRINTS ON THE TILE, NOT ON THE CANVAS, so it takes the solid ink too. */
+  /* THE ORDINAL PRINTS ON THE TILE, NOT ON THE CANVAS, so it takes the solid ink too. Both inks are declared here
+   * for a tile with no status (white on the neutral solid) and re-declared per status below, near-black on a bright
+   * status fill: a custom property resolves where it is declared, so the section's value cannot follow a status. */
   --state-index-ink: var(--chart-solid-ink);
+  --state-chip-ground: color-mix(in oklab, black 24%, transparent);
   --state-marker: var(--diagram-line);
   /* The paints the shared key (flowchart.styles.css, "The key") reads. */
   --fc-line-mark: var(--state-edge);
@@ -236,16 +239,16 @@ section.state-chart .state-chart-figure[data-sc-drawn="1"] .sc-harness {
  * painted gradient from the same mapping (state-chart.layout.js `STATUS_TONE`), and the
  * key groups words by it (graph-key.js). */
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="on-track"], [data-s="done"])
-  { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
+  { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); --state-node-ink: var(--state-pass-on); --state-index-ink: var(--state-pass-on); --state-chip-ground: color-mix(in oklab, white 55%, transparent); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"])
-  { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
+  { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); --state-node-ink: var(--state-warn-on); --state-index-ink: var(--state-warn-on); --state-chip-ground: color-mix(in oklab, white 55%, transparent); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"])
-  { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
+  { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); --state-node-ink: var(--state-fail-on); --state-index-ink: var(--state-fail-on); --state-chip-ground: color-mix(in oklab, white 55%, transparent); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
-  { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
+  { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); --state-node-ink: var(--state-info-on); --state-index-ink: var(--state-info-on); --state-chip-ground: color-mix(in oklab, white 55%, transparent); }
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch)[data-s="deferred"]
-  { --fill-hue: var(--state-mute-hue); --fill-ink: var(--text-secondary); --state-node-ink: var(--text-heading); --state-index-ink: var(--text-heading); }
+  { --fill-hue: var(--state-mute-hue); --fill-ink: var(--text-secondary); --state-node-ink: var(--text-heading); --state-index-ink: var(--text-heading); --state-chip-ground: color-mix(in oklab, var(--bg-alt) 60%, transparent); }
 /* The badge on a status tile takes the NAME's ink: at ~8px on a tinted tile the body ink
  * measured as low as 3.2:1. */
 section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) .state-index,
@@ -567,7 +570,10 @@ section.state-chart .state-chip {
   padding: 0.3em 0.75em;
   border: var(--chart-hairline) solid var(--state-node-stroke);
   border-radius: var(--radius-full);
-  background: color-mix(in oklab, var(--bg-alt) 60%, transparent);
+  /* The chip steps AWAY from the text on its tile: darker under white text (a neutral tile), lighter under dark text
+   * (a bright status tile), the canvas ground on a hollow deferred tile. A fixed `--bg-alt` wash pulled the chip
+   * toward the text on two of the three and read 1.3:1 at worst. */
+  background: var(--state-chip-ground);
 }
 section.state-chart .state-chip[data-dir="back"] {
   border-style: dashed;

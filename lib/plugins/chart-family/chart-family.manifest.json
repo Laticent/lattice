@@ -5,14 +5,14 @@
   "name": "chart-family",
   "api": 1,
   "title": "Chart family",
-  "description": "Draws a chart slide (`_class: bar`, `line`, `gantt`, … every member of the chart bucket) from its authored list or table: it dispatches the section to the member's kernel and frames the figure. Each chart fills the family's `kernel` slot from its own manifest; switched off, a chart slide shows the list it was written as.",
+  "description": "Draws a chart slide (`_class: bar`, `line`, `gantt`, \u2026 every member of the chart bucket) from its authored list or table: it dispatches the section to the member's kernel and frames the figure. Each chart fills the family's `kernel` slot from its own manifest; switched off, a chart slide shows the list it was written as.",
   "contributes": {
     "extensionPoints": {
       "kernel": {
         "bucket": "chart",
         "role": "transform",
         "entry": "transformSection",
-        "description": "transformSection(html, ctx) → html | { html, cls } | null: builds one chart section's figure from its first list or table. The member's `kernel` block declares the figure root's class and its data marks; the family dispatches on the first chart class a section carries and wraps the result in the chart frame."
+        "description": "transformSection(html, ctx) \u2192 html | { html, cls } | null: builds one chart section's figure from its first list or table. The member's `kernel` block declares the figure root's class and its data marks; the family dispatches on the first chart class a section carries and wraps the result in the chart frame."
       }
     },
     "styles": true
@@ -115,7 +115,6 @@
     "--fail-solid",
     "--info-solid",
     "--mute-solid",
-    "--on-warn",
     "--state-pass-on",
     "--state-warn-on",
     "--state-fail-on",
@@ -124,8 +123,14 @@
     "--pass-solid-vivid",
     "--warn-solid-vivid",
     "--fail-solid-vivid",
-    "--on-warn-vivid",
-    "--warn-solid-edge"
+    "--warn-solid-edge",
+    "--on-status",
+    "--info-solid-vivid",
+    "--pass-solid-edge",
+    "--fail-solid-edge",
+    "--info-solid-edge",
+    "--mute-solid-edge",
+    "--chart-status-edge"
   ],
   "render": {
     "parity": "equivalent",

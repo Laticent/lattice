@@ -667,12 +667,14 @@ function build() {
       w('\n/* REGIONS — the ground is neutral; color sits on the marks (HIG: color sparingly). */');
       // A radar series is a line with dots: a translucent fill per series overlaps into a color in no palette.
       w(rule(name, '.radar-poly', ['fill: none', 'stroke-width: calc(var(--chart-edge) * 2.5)']));
-      // A risk band IS a status (low · medium · high · critical), so it wears the status fill, with a canvas seam
-      // between cells. Critical is the fail fill one step deeper in lightness, so the four stay ordered.
+      // A risk band IS a status (low · medium · high · critical), so it wears the status fill, drawn in its status
+      // edge on the light face (the fill alone sits under 3:1 there) and seamed with the canvas on the dark face. Critical is the MOST saturated step and still bright under the markers (text color carries the
+      // kind): the vivid fail fill mixed 30% toward the theme's saturated fail ink, so it outranks `high` in both intensities
+      // (risk-matrix.styles.css says the same).
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: light-dark(var(--chart-status-edge), var(--bg))', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--state-fail-hue) 72%, black)', 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklch, var(--fail-solid-vivid) 70%, var(--fail))', 'stroke: light-dark(var(--chart-status-edge), var(--bg))', 'stroke-width: 1.2']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
       // The hub-spoke HUB is the one mark with no category and no status: the neutral solid, its name in the solid ink.

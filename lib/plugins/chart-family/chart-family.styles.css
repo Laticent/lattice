@@ -286,9 +286,9 @@ section.chart-frame:not(.form) {
  * BOTH roles (tint fill, contrasting mark) are derived from that one hue so
  * they can never drift apart. The spectrum is the chart-family's own —
  * decoupled from the engine-wide cN accents (which still drive roadmap /
- * journey / legal / decision) — and Apple-inspired: vivid, well-spaced hues
- * whose dark-canvas value is a brighter same-hue sibling, used as accents on a
- * tint, never as flooded primaries. Themes flavor it by setting `--chart-catN`
+ * journey / legal / decision) — Apple-inspired, well-spaced hues, each a deep
+ * fill under white text with a matching mid-tone on the dark face (the
+ * polarity below). Themes flavor it by setting `--chart-catN`
  * (see below). Components consume only --catN-fill / --catN-ink and stay
  * palette-blind. Eight slots — past ~6 categories perceptual distinction
  * collapses (Wong 2011), so charts should consolidate rather than cycle on. */
@@ -297,23 +297,24 @@ section.word-cloud,
 .chart-frame { /* word-cloud is a chart-frame member; the bare `.chart-frame` also covers the Read·Article prose projection, which re-hosts a chart SVG in a <figure class="chart-frame"> outside its section — the SVG's --chart-cat-* colors must still resolve there (2026-07-… read-article-chart-tokens) */
   /* Apple-inspired categorical spectrum — the chart-family's OWN palette,
    * decoupled from the engine-wide cN accents (which still drive roadmap /
-   * journey / legal / decision). Each slot is `light-dark(lightCanvasVivid,
-   * darkCanvasVivid)` where the dark-canvas value is a brighter same-hue
-   * sibling (Apple ships its system colors this way: blue #007AFF→#0A84FF,
-   * green #34C759→#30D158, …). The hues are well-spaced around the wheel and
-   * tuned a touch off Apple's exact values — inspired, not copied.
+   * journey / legal / decision). Each slot is `light-dark(deep, mid)`: a
+   * category is a DEEP fill under white text (7:1 on the light face), and on
+   * the dark face the lightest tone of the same hue that white still clears
+   * at 4.6:1, so it stands off the dark slide (chart-styling.md §3, "Polarity";
+   * solved by tools/curate-chart-solids.js). The hues are well-spaced around
+   * the wheel, Apple-inspired, not copied.
    *
    * Theme-overridable: a theme sets `--chart-catN` (same light-dark shape) at
    * :root to flavor the spectrum to its character; the var() indirection lets
    * the theme always win, and untuned themes inherit this master set. */
-  --chart-cat-1-hue: var(--chart-cat1, light-dark(#0053B3, #5AA1FF));  /* blue   */
-  --chart-cat-2-hue: var(--chart-cat2, light-dark(#894600, #FFA630));  /* orange */
-  --chart-cat-3-hue: var(--chart-cat3, light-dark(#006628, #34D058));  /* green  */
-  --chart-cat-4-hue: var(--chart-cat4, light-dark(#841DC5, #D07AFF));  /* purple */
-  --chart-cat-5-hue: var(--chart-cat5, light-dark(#006071, #3FC8E0));  /* teal   */
-  --chart-cat-6-hue: var(--chart-cat6, light-dark(#B30033, #FF7483));  /* rose   */
-  --chart-cat-7-hue: var(--chart-cat7, light-dark(#715200, #FFD426));  /* gold   */
-  --chart-cat-8-hue: var(--chart-cat8, light-dark(#4946C6, #9096FF));  /* indigo */
+  --chart-cat-1-hue: var(--chart-cat1, light-dark(#0053B3, #2B73D6));  /* blue   */
+  --chart-cat-2-hue: var(--chart-cat2, light-dark(#894600, #A9642B));  /* orange */
+  --chart-cat-3-hue: var(--chart-cat3, light-dark(#006628, #2F8445));  /* green  */
+  --chart-cat-4-hue: var(--chart-cat4, light-dark(#841DC5, #9B51D6));  /* purple */
+  --chart-cat-5-hue: var(--chart-cat5, light-dark(#006071, #307F90));  /* teal   */
+  --chart-cat-6-hue: var(--chart-cat6, light-dark(#B30033, #D6374F));  /* rose   */
+  --chart-cat-7-hue: var(--chart-cat7, light-dark(#715200, #90702C));  /* gold   */
+  --chart-cat-8-hue: var(--chart-cat8, light-dark(#4946C6, #6265E7));  /* indigo */
 
   --chart-cat-1-fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, black));
   --chart-cat-2-fill: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 24%, var(--bg)), color-mix(in oklab, var(--chart-cat-2-hue) 40%, black));
@@ -532,9 +533,10 @@ section.word-cloud,
  *
  * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
  * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`, the rule below this
- * block). A chart keeps no status color of its own. The ink is the fill on the light face and the fill lifted toward
- * white on the dark one; a fill too light to clear 3:1 off a light slide (an a11y palette's amber) takes its edge
- * from `--warn-solid-edge`. */
+ * block). A chart keeps no status color of its own. TEXT COLOR CARRIES THE KIND: a status fill is BRIGHT, under
+ * near-black `--on-status`; a category is deep, under white. The ink is the status's curated EDGE
+ * (`--X-solid-edge`): its own hue at 4.6:1 off the slide on the light face, the muted fill on the dark one. It is what
+ * a status LINE or status TEXT paints, and it rims every status shape on the light face (§ THE STATUS EDGE below). */
 section.chart-frame,
 .chart-frame {
   --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
@@ -545,14 +547,15 @@ section.chart-frame,
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
-   * mark with neither `--chart-neutral-hue`. Text on any of them is `--chart-solid-ink`, one ink per mode (white
-   * on a light canvas, the canvas on a dark one), so a label reads the same on every chart. The one exception is
-   * amber: inside a mark that carries an at-risk status, `--chart-solid-ink` is `--on-warn` (the rule below). Each theme curates the
-   * seeds (`--chart-catN`, the base's status fills `--pass-solid` … `--mute-solid`, `--chart-neutral`, and the
-   * base's `--on-solid` / `--on-warn`) so the ink clears 7:1 on every
-   * solid and every solid clears 3:1 off the canvas: tools/curate-chart-solids.js seeded them, and
-   * test/unit/palette/chart-solids.test.js holds every palette to it. No chart mixes or grades its own fill. */
-  --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #9AA7B6));
+   * mark with neither `--chart-neutral-hue`. Text on a category or the neutral is `--chart-solid-ink`, white
+   * (`--on-solid`) in both modes; inside a mark that carries a status, `--chart-solid-ink` is that status's
+   * `--state-X-on`, near-black (`--on-status`), by the rules below. So the text color says which kind of color the
+   * reader is looking at, even where a category and a status share a hue. Each theme curates the seeds (`--chart-catN`,
+   * the base's status fills and edges, `--chart-neutral`, and the two inks) so text clears 7:1 on every light-face
+   * solid (4.6:1 under white on a dark-face category, 9:1 on a dark-face status) and every solid has a 3:1 boundary
+   * off the canvas: tools/curate-chart-solids.js seeded them, and test/unit/palette/chart-solids.test.js and
+   * chart-polarity.test.js hold every palette to it. No chart mixes or grades its own fill. */
+  --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #697686));
   --chart-solid-ink: var(--on-solid);
 
   /* Light: a 24% tint into the canvas (proven, like catN). Dark: deepen the
@@ -573,18 +576,19 @@ section.chart-frame,
   --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 50%, black));
   --state-mute-fill: light-dark(color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-mute-hue) 46%, black));
 
-  --state-pass-ink: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 78%, white));
-  --state-warn-ink: light-dark(var(--warn-solid-edge), color-mix(in oklab, var(--state-warn-hue) 78%, white));
-  --state-fail-ink: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 78%, white));
-  --state-info-ink: light-dark(var(--state-info-hue), color-mix(in oklab, var(--state-info-hue) 78%, white));
-  --state-mute-ink: light-dark(var(--state-mute-hue), color-mix(in oklab, var(--state-mute-hue) 72%, white));
+  --state-pass-ink: var(--pass-solid-edge);
+  --state-warn-ink: var(--warn-solid-edge);
+  --state-fail-ink: var(--fail-solid-edge);
+  --state-info-ink: var(--info-solid-edge);
+  --state-mute-ink: var(--mute-solid-edge);
 
-  /* The ink for TEXT on each status fill: `--on-solid`, except amber, which carries the theme's `--on-warn`. */
-  --state-pass-on: var(--on-solid);
-  --state-warn-on: var(--on-warn);
-  --state-fail-on: var(--on-solid);
-  --state-info-on: var(--on-solid);
-  --state-mute-on: var(--on-solid);
+  /* The ink for TEXT on each status fill: near-black `--on-status` on every one. Five tokens rather than one so a
+   * palette can still carry a different ink on one status without a code change. */
+  --state-pass-on: var(--on-status);
+  --state-warn-on: var(--on-status);
+  --state-fail-on: var(--on-status);
+  --state-info-on: var(--on-status);
+  --state-mute-on: var(--on-status);
 
   /* Shared accent header-rule — the hairline under a data header (gantt quarter
    * axis, kanban column headers). One token so every chart's header underline
@@ -1186,24 +1190,49 @@ section.chart-frame .chart-caption::before {
   color: var(--chart-solid-ink);
 }
 /* THE VIVID INTENSITY. `chart-finish: … vivid` stamps `chart-finish-vivid` on the slide, which points every status at
- * the theme's vivid fills and amber at its vivid ink. A chart that IS the slide (`section.chart-frame`) and one that
- * sits inside a slide (a pane) both take it. */
+ * the theme's vivid fills. The neutral (`--mute-solid`) has no intensity, and the edges and the ink stay as they are.
+ * A chart that IS the slide (`section.chart-frame`) and one that sits inside a slide (a pane) both take it. */
 .chart-finish-vivid.chart-frame,
 .chart-finish-vivid .chart-frame {
   --state-pass-hue: var(--pass-solid-vivid);
   --state-warn-hue: var(--warn-solid-vivid);
   --state-fail-hue: var(--fail-solid-vivid);
-  --state-warn-on: var(--on-warn-vivid);
+  --state-info-hue: var(--info-solid-vivid);
 }
 
 /* TEXT ON A STATUS FILL. Every member marks a status with `data-s`, in one shared vocabulary, and its label sits on
- * that mark or inside it, so the ink on a fill is set here once, by status, for every chart. Only amber differs from
- * the frame's `--chart-solid-ink` today, and the five rules keep that a theme decision rather than a code one. */
+ * that mark or inside it, so the ink on a fill is set here once, by status, for every chart: near-black, where the
+ * frame's `--chart-solid-ink` is white. The five rules keep the ink a theme decision rather than a code one. */
 :is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --chart-solid-ink: var(--state-pass-on); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-solid-ink: var(--state-warn-on); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-solid-ink: var(--state-fail-on); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="pilot"], [data-s="decision"], [data-s="info"]) { --chart-solid-ink: var(--state-info-on); }
 :is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --chart-solid-ink: var(--state-mute-on); }
+
+/* THE STATUS EDGE. A status fill is bright, so on a light slide it sits under the 3:1 a graphical object needs
+ * (WCAG 1.4.11). Every status SHAPE is rimmed with its status's edge (`--state-X-ink`, 4.6:1 off the slide) on the
+ * light face; on the dark face the bright fill already stands off the slide by 9:1 or more and takes no rim. The edge
+ * is drawn INSIDE the shape (an inset shadow; an SVG stroke painted under the fill), so a rimmed mark keeps its size.
+ * A member that draws a status as an HTML box joins the second rule by class; an SVG shape is caught by tag and by the
+ * status VOCABULARY (a waterfall's `total` is not a status, and keeps its own outline), minus the parts that are not
+ * the status's body (an accent rule, a halo that is itself the ring). A risk cell is a status band without `data-s`,
+ * so it joins by class. A bare numeral (`.state-index`) is text and is never rimmed. */
+:is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --chart-status-edge: var(--state-pass-ink); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-status-edge: var(--state-warn-ink); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-status-edge: var(--state-fail-ink); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="pilot"], [data-s="decision"], [data-s="info"]) { --chart-status-edge: var(--state-info-ink); }
+:is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --chart-status-edge: var(--state-mute-ink); }
+:is(section.chart-frame, figure.chart-frame) .risk-cell[data-band="low"] { --chart-status-edge: var(--state-pass-ink); }
+:is(section.chart-frame, figure.chart-frame) .risk-cell[data-band="medium"] { --chart-status-edge: var(--state-warn-ink); }
+:is(section.chart-frame, figure.chart-frame) .risk-cell:is([data-band="high"], [data-band="critical"]) { --chart-status-edge: var(--state-fail-ink); }
+:is(section.chart-frame, figure.chart-frame) :is(rect, circle, path, polygon, ellipse):is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="pilot"], [data-s="decision"], [data-s="info"], [data-s="deferred"]):not(.gantt-bar-accent, .state-node-accent, .hub-spoke-halo) {
+  stroke: light-dark(var(--chart-status-edge, transparent), transparent);
+  stroke-width: var(--chart-edge);
+  paint-order: stroke fill;
+}
+:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .progress-fill, .state-node, .fc-node, .fc-key-swatch)[data-s] {
+  box-shadow: inset 0 0 0 var(--chart-edge) light-dark(var(--chart-status-edge, transparent), transparent);
+}
 
 /* One rule per status — canvas-aware --state-* tokens, no `.dark` overrides. */
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="on-track"],

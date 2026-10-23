@@ -298,7 +298,9 @@
 }
 :is(section.matrix-grid, figure.matrix-grid) .matrix-grid-figure td .cell.cell-empty {
   background: none;
-  border: 1px solid var(--border);
+  /* Firmer than the bare --border hairline: beside a deep category cell the hairline vanished, and an empty cell is
+   * still a place in the grid the reader counts. */
+  border: 1px solid color-mix(in oklab, var(--text-muted) 40%, var(--bg));
 }
 
 /* ── Legend + caption, one paragraph (chart-family lifts only the single
