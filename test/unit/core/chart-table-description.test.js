@@ -110,3 +110,67 @@ describe('lint: a description where nothing reads it', () => {
     assert.equal(found(deck('bar', '- A `{4}`\n  > see `{> x}`')).length, 0);
   });
 });
+
+describe('a header description needs the column\'s name (inversion finding, 2026-10-23)', () => {
+  const body = '| Cohort | M0 | `{> churn spike}` |\n| --- | --: | --: |\n| Jan | 90 | 70 |';
+  test('picture and voice both keep the column, named by the cell\'s own text, as main drew it', () => {
+    assert.match(html(deck('heatmap', body)), /1 rows by 2 columns/);
+    const said = narrateChart(slide('heatmap', body));
+    assert.match(said, /Each row runs across M0 and \{> churn spike\}\./);
+    assert.doesNotMatch(said, /Column : /);
+  });
+  test('lint says the name is missing', () => {
+    const f = found(deck('heatmap', body));
+    assert.equal(f.length, 1);
+    assert.match(f[0].message, /no column name before it/);
+  });
+  test('a second `{>}` column is warned: only the first is the description column', () => {
+    const two = '| Cohort | M0 | `{>}` | `{>}` |\n| --- | --: | --- | --- |\n| Jan | 90 | a | b |';
+    const f = found(deck('heatmap', two));
+    assert.equal(f.length, 1);
+    assert.match(f[0].message, /2 `\{>\}` columns/);
+  });
+  test('`note=` in a header cell was never an annotation, so a deck that writes one renders as it did', () => {
+    const old = '| Cohort | M0 `note=x` |\n| --- | --: |\n| Jan | 90 |';
+    assert.doesNotMatch(html(deck('heatmap', old)), /Column M0/);
+    assert.doesNotMatch(narrateChart(slide('heatmap', old)), /Column M0/);
+  });
+});
+
+describe('red team and checker findings (2026-10-23): picture and voice read each form alike', () => {
+  test('every `{>}` column is out of the data in the voice too; the first holds the row notes', () => {
+    const two = '| C | M0 | `{>}` | M1 | `{>}` |\n| --- | --: | --- | --: | --- |\n| Feb | 4 | f2 | 6 | s2 |';
+    const said = narrateChart(slide('heatmap', two));
+    assert.match(said, /Each row runs across M0 and M1\./);
+    assert.match(said, /Row Feb: f2\./);
+    assert.match(html(deck('heatmap', two)), /1 rows by 2 columns/);
+  });
+  test('a documented `\\|` in a description is part of the prose, in a header cell and a body cell, picture and voice', () => {
+    const t = '| C | M0 `{> a \\| b, c}` | M1 |\n| --- | --: | --: |\n| Jan | 62 `{> d \\| e}` | 3 |';
+    const said = narrateChart(slide('heatmap', t));
+    assert.match(said, /Column M0: a \| b, c\./);
+    assert.match(said, /Jan at M0, sixty-two: d \| e\./);
+    assert.match(html(deck('heatmap', t)), /Column M0: a \| b, c\./);
+  });
+  test('a description on a row label is not read: picture and voice both take the cell as the name, and lint says so', () => {
+    const t = '| C | M0 |\n| --- | --: |\n| Jan `{> label note}` | 62 |';
+    assert.match(html(deck('heatmap', t)), /Jan \{&gt; label note\}/);
+    assert.match(narrateChart(slide('heatmap', t)), /Jan \{> label note\}/);
+    assert.match(found(deck('heatmap', t))[0].message, /row label is not read/);
+  });
+  test('a `{> …}` typed in the `{>}` column is read as its own text by both, and lint says so', () => {
+    const t = '| C | M0 | `{>}` |\n| --- | --: | --- |\n| Jan | 62 | `{> inner}` |';
+    assert.match(html(deck('heatmap', t)), /Row Jan: \{&gt; inner\}\./);
+    assert.match(narrateChart(slide('heatmap', t)), /Row Jan: \{> inner\}\./);
+    assert.match(found(deck('heatmap', t))[0].message, /plain text/);
+  });
+  test('`{>}` that shares its header cell, and one in the label column, are warned', () => {
+    assert.match(found(deck('heatmap', '| C | M0 | Why `{>}` |\n| --- | --: | --- |\n| Jan | 62 | x |'))[0].message, /shares its header cell/);
+    assert.match(found(deck('heatmap', '| `{>}` | M0 |\n| --- | --: |\n| a | 62 |'))[0].message, /label column/);
+  });
+  test('a progress note with a backtick is said as the chart draws it', () => {
+    const src = '- Build ``{68%, at-risk, note="a`b"}``\n- Docs `{90%, on-track}`';
+    assert.match(html(deck('progress', src)), /progress-note">a`b</);
+    assert.match(narrateChart(slide('progress', src)), /a`b\./);
+  });
+});

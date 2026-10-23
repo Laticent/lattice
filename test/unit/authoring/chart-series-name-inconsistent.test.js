@@ -78,15 +78,19 @@ describe('review findings (checker, 2026-10-22)', () => {
   });
   const fixes = (src) => lintCore.applyAllFixes(src, vocab);
   test('the fix carries the text as written, so it applies (double space, bold, underscore, trailing text)', () => {
-    for (const bad of ['net  revenue `{2}`', 'Net **Revenu** `{2}`', 'net_ref `{2}`', 'Sale `{2}` EMEA']) {
-      const good = bad.startsWith('Net') ? 'Net **Revenue** `{1}`' : bad.startsWith('net_') ? 'netref `{1}`' : bad.startsWith('Sale') ? 'Sales `{1}`' : 'net revenue `{1}`';
-      const src = deck('bar', `- A\n  - ${good}\n- B\n  - ${bad}`);
+    // Each group holds a companion series, so the shared-shape evidence is there and the finding exists before the fix.
+    for (const [good, bad] of [['Net Revenue', 'net  revenue'], ['Net **Revenue**', 'Net **Revenu**'], ['netref', 'net_ref'], ['Sales', 'Sale']]) {
+      const src = deck('bar', `- A\n  - ${good} \`{1}\`\n  - Cost \`{9}\`\n- B\n  - ${bad} \`{2}\`\n  - Cost \`{8}\``);
+      assert.equal(found(src).length, 1, `${bad}: flagged before the fix`);
       const fixed = fixes(src);
-      assert.equal(found(fixed).length, 0, bad);
+      assert.equal(found(fixed).length, 0, `${bad}: gone after`);
+      assert.ok(fixed.includes(`  - ${good} \`{2}\``), `${bad}: rewritten to ${good}`);
     }
   });
   test('Fix all does not stall: a second slide still gets fixed', () => {
-    const two = [deck('bar', '- A\n  - Net Revenue `{1}`\n- B\n  - net  revenue `{2}`'), deck('bar', '- A\n  - Licenses `{1}`\n- B\n  - Licences `{2}`').replace(/^---\nmarp: true\n---\n\n/, '')].join('\n---\n\n');
+    const slide2 = (cls, body) => `<!-- _class: ${cls} -->\n\n## B\n\n${body}\n`;
+    const two = `${deck('bar', '- A\n  - Net Revenue `{1}`\n  - Cost `{9}`\n- B\n  - net  revenue `{2}`\n  - Cost `{8}`')}\n---\n\n${slide2('bar', '- A\n  - Licenses `{1}`\n  - Cost `{9}`\n- B\n  - Licences `{2}`\n  - Cost `{8}`')}`;
+    assert.equal(found(two).length, 2, 'both slides are flagged');
     assert.equal(found(fixes(two)).length, 0);
   });
   test('a note row (no number last) is not a series name', () => {

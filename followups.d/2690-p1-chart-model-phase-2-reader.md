@@ -8,24 +8,35 @@ swimlane: engineering/decisions/2026-10-14-chart-authoring-uniform-model.md
 source: engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §9 and §10; engineering/decisions/2026-10-14-chart-authoring-census.md §3 and §4
 ---
 
-# Phase 2 of the chart authoring model, what is left: the `{> …}` production and the private readers
+# Phase 2 of the chart authoring model, what is left: the private readers of 14 charts
 
-why now   — Slice 2 (2026-10-16) drew the record on every path: ownership, the bridge in the chart family,
-            the source bridge for the narrators, the grid cells, and lint (model note §10). A record row draws
-            what its old spans draw on all 16 charts. What is left is the part that deletes the old branch.
-where     — 1. The `{> …}` production and the table description (model note §9): `>` excluded from the first
-               character of a record's first bare item, prose to the first unescaped `}`, LL(1) bound, grammar
-               fuzz and the scaling ladder. The pipe lint (`chart-table-unescaped-pipe`) is already in place.
-            2. Each transform and narrator reads the record through `readRecord` instead of the bridge
-               (`bridgeRecordsHtml`, `bridgeRecordsSource`) and its private parser (census note §3):
-               `stripTrailingPills`, `parseSeries`/`readLeadValue`, funnel and map's regexes, radar's
-               `parseAxisItem`, bullet's named nested rows. Then `tools/chart-authoring-census.mjs` reports no
-               private reader.
-            3. The fields the bridge cannot spell as spans: bullet's `band=` and `floor=` (named nested rows
-               today) and progress's `note=` (a nested row, drawn as a visible note). Until a transform reads
-               them, lint `chart-row-record-unread` is what keeps a record that carries one from losing it silently.
-            4. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the census
-               counts 78 grouped funnel values: the codemod writes `1200` and the chart shows it grouped.
+why now   — Slice 3 (2026-10-22) shipped the `{> prose}` description (Segno production, heatmap cell, column and row, lint
+            `chart-description-unread`) and moved bullet and progress onto the shared row reader (`rows.native`: transform
+            `takeRecord`, narrator `claimedRecord`, both through `recordFields`), so their `band=` `floor=` `note=` fields are drawn
+            and said. What is left is the same move for the other 14 charts, which delete the bridge once done.
+where     — 1. One chart at a time, transform AND narrator together (so the picture and the voice cannot drift), lowering
+               `PRIVATE_ROW_READER_BUDGET` in tools/check-ownership.js by one each:
+               `bar` `line` `slope` `stacked-bar` (`_chart-family/cartesian.js` `parseSeries`/`readLeadValue`; narrator
+               `parseDataRows`, `lineSentences`, `slopeSentences`), `piechart` `waterfall` `scatter` (`stripTrailingPills`;
+               narrator `stripTrailingPills`, `parseDataRows`), `funnel` (`parseFunnel`; `parseFunnelStages`), `map`, `word-cloud`
+               (`narrateWordCloud`), `radar` (`parseAxisItem`; `parseRadarSeries`), `quadrant` (`parseItemPills`; `parseQuadrantGroups`),
+               `heatmap` and `matrix-grid` (`readCell`, `matrix-grid-cells.js`; `parseDataTable`, `authoredTable`). The recipe is the one
+               bullet and progress used: add `native: true` to the schema, read the stamped record with `takeRecord`/`claimedRecord`,
+               settle what it declines with `settleLead`, and compare the record with the old form (HTML, narration, runtime) with the
+               field dropped as the control (`test/unit/core/chart-native-record.test.js`).
+            2. Then phase 4 deletes the bridge (`bridgeRecordsHtml`, `bridgeRecordsSource`, `legacySpans`, `settleLead`) with the old
+               spellings, and the narration bundle's `markdown-it` external goes with it.
+            3. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the census counts 78 grouped funnel
+               values: the codemod writes `1200` and the chart shows it grouped.
+            4. The model note's `{> …}` decisions still to ship: a list row's `>` description keeps rich Markdown on flowchart and
+               state-chart (§3 decision 5, "new work"), and the `\|` fix `chart-table-unescaped-pipe` offers still meets `pill-literal`.
+done when — no transform or narrator parses a row's spans itself (`PRIVATE_ROW_READER_BUDGET` is 0); the bridge and `legacySpans` are
+            deleted with the old spellings (phase 4).
+evidence  — corpus parity unchanged (HTML, marks, narration, lint), plus the per-chart matrix compared against the old form.
+verify    — tier 2 adversarial trio per chart group, because each changes what the shared kernel reads.
+
+Round log of slice 2 (history; the items it leaves open are the residuals named in it):
+
             5. Lint's `recordPlace` reads a row's lead per line, so a record on a continuation line, or after a bullet-character switch,
                can differ from the engine (no visible effect found; the place oracle counts 163 slides, to be taken to 0 by moving
                lint's line walker onto the shared tracker); the narrator picks its chart by the first class token
@@ -39,12 +50,6 @@ where     — 1. The `{> …}` production and the table description (model note 
             8. A chart list inside a top-level `>` quote draws from old spans but not from records (red team
                finding 7, 2026-10-16); and `chart-table-unescaped-pipe` misses a row that does not grow
                (`| AM | 3 `{> a | b}` |` under a three-column header), and its `\|` fix still meets `pill-literal`.
-done when — no transform or narrator parses a row's spans itself; the bridge and `legacySpans` are deleted
-            with the old spellings (phase 4); the census shows no private reader.
-evidence  — corpus parity unchanged (HTML, marks, narration, lint), plus the per-chart matrix
-            `test/unit/core/chart-row-record.test.js` rewritten to compare the record against its expected marks
-            rather than against the old spans.
-verify    — tier 2 adversarial trio, because it changes what the shared kernel reads.
             9. Fifth round (2026-10-17): a record is drawn only as the sole value of its row's lead paragraph, so a record in a later
                paragraph, beside another value, or a plain-number record under a valued parent on bar, line, slope or stacked-bar
                stays a pill (as on main); bullet and radar read every nested row as detail, so bullet's keyword rows and radar's

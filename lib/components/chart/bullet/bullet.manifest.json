@@ -85,7 +85,7 @@
     "range": {
       "selector": "li > ul",
       "required": false,
-      "description": "Optional nested sublist, each child a NAME plus a value pill. `Target` (or `Plan`/`Goal`) overrides the second pill; `Actual` (or `Measure`) overrides the first; each `Band` (or `Range`) adds one internal cut point, so two Bands make three zones and three is the ceiling — past that the cuts NEAREST the target are the ones kept; `Floor` (or `Base`) starts the row's scale above zero, which is what a near-100% KPI — uptime, NRR, renewal rate — needs to show any movement at all. Every other nested bullet is mark detail: the Present-mode reveal payload and the PDF speaker note. That includes a bullet whose pill IS a number under an unrecognized name, so context never becomes a phantom band. Omit the sublist and the zones are derived from the target at 60% and 85%."
+      "description": "Optional nested sublist, each child a NAME plus a value pill. `Target` (or `Plan`/`Goal`) overrides the second pill; `Actual` (or `Measure`) overrides the first; each `Band` (or `Range`) adds one internal cut point, so two Bands make three zones and three is the ceiling — past that the cuts NEAREST the target are the ones kept; `Floor` (or `Base`) starts the row's scale above zero, which is what a near-100% KPI — uptime, NRR, renewal rate — needs to show any movement at all. Every other nested bullet is mark detail: the Present-mode reveal payload and the PDF speaker note. That includes a bullet whose pill IS a number under an unrecognized name, so context never becomes a phantom band. Omit the sublist and the zones are derived from the target at 60% and 85%. A row can instead be written as one record, `- Uptime `{99.4%, target=99.9%, floor=99.0%, band=[99.5%]}``: `band` is a list of cut points, and a keyword row, if you also write one, overrides the record's value."
     }
   },
   "skeleton": "<!-- _class: bullet -->\n\n## Are we on plan.\n\n- First KPI `4.2M` `5.0M`\n- Second KPI `3.6M` `3.0M`\n- Third KPI `1.1M` `2.4M`\n",
@@ -266,6 +266,7 @@
         "shape": "fields",
         "quotes": true,
         "nested": "detail",
+        "native": true,
         "legacy": [
           "value",
           "target"

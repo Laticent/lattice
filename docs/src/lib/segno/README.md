@@ -257,7 +257,7 @@ trimmed and unescaped `text`), a kind of its own, so a binder that expects a num
 description" and never reads `{>5}` as the number 5. A slot that takes values binds it to the diagnostic
 `description-not-here`; what a description MEANS (a chart table cell's note) is the consumer's business, as with `TAGS`.
 The choice is made on the one character after `{`, so the grammar stays LL(1); the price is that a record's FIRST bare
-item cannot start with `>` (`DESCRIBE` in `notation-grammar.ts`). Later items keep it: `{3, >5}` is two values.
+item cannot start with `>` (`DESCRIBE` in `notation-grammar.ts`). Later items keep it: `{3, >5}` is two values. The same rule means a record that begins with a comparison, `{>=5}` or `{>5}`, is a description, not a value; quote it (`{">=5"}`) where a slot should read it as text.
 `plainRecordSpec` drops the description branch, so the plain parser refuses it and the full parser reads it.
 
 ### Types
