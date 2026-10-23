@@ -116,7 +116,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 ---
 
 <!-- _class: gantt -->
-<!-- _footer: "Text color tells the kind: a status is bright under dark text, a task with none is deep under white" -->
+<!-- _footer: "One ink: every bar is deep under white; a status carries its mark, an exception its ring" -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -134,7 +134,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 ---
 
 <!-- _class: progress chart-finish-vivid -->
-<!-- _footer: "_class: chart-finish-vivid · richer status fills, the same dark text" -->
+<!-- _footer: "_class: chart-finish-vivid · every status rich, done an emerald, the same white text" -->
 
 `H1 2026 · readiness`
 
@@ -149,7 +149,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 ---
 
 <!-- _class: risk-matrix -->
-<!-- _footer: "Every band is a status fill; critical is the most saturated of the four" -->
+<!-- _footer: "Every band is a status fill; critical is the deepest, ringed and marked as an exception" -->
 
 `Enterprise risk register · Q4 2026`
 

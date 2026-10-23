@@ -1054,6 +1054,8 @@ section.print {
   --pass-solid-edge: var(--print-pass);
   --warn-solid-edge: var(--print-warn);
   --fail-solid-edge: var(--print-fail);
+  --warn-solid-signal: var(--print-signal);
+  --fail-solid-signal: var(--print-signal);
   --info-solid: var(--print-info-solid);
   --info-solid-vivid: var(--print-info-solid);
   --mute-solid: var(--print-mute-solid);

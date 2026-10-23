@@ -37,27 +37,31 @@
   --pass: light-dark(#054c86, #82bfff);
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS): BRIGHT fills under near-black `--on-status`, 7:1 on
-   * both faces, solved as a trio that clears this palette's own colorblind floor, and one set for both intensities.
-   * Each status's EDGE, in its own hue at 4.6:1 off the slide, rims the fill on the light face. Solved by
-   * tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#6BACF0, #84C0FF);
-  --warn-solid: light-dark(#FEB42E, #EAB35F);
-  --fail-solid: light-dark(#ED8C84, #FCEAE8);
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), one ink per slide like every chart fill: DEEP under
+   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-solid` / `--on-status` at
+   * 7:1, as every a11y palette's chart fills are (engineering/chart-styling.md §3). Solved as a trio that clears this
+   * palette's own colorblind floor on both faces, one set for both intensities. Each status's EDGE, in its own hue at
+   * 4.6:1 off the slide, serves as its line and text; the two exceptions also wear a SIGNAL ring, the status color at
+   * the opposite lightness to its fill. Solved by tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#1B4268, #9EBEE0);
+  --warn-solid: light-dark(#764F00, #FEB42E);
+  --fail-solid: light-dark(#7C000F, #FF847C);
   --pass-solid-vivid: var(--pass-solid);
   --warn-solid-vivid: var(--warn-solid);
   --fail-solid-vivid: var(--fail-solid);
-  --on-status: #1A1A1A;
-  --pass-solid-edge: light-dark(#3272B2, #84C0FF);
-  --fail-solid-edge: light-dark(#AE544E, #FCEAE8);
-  --info-solid: light-dark(#60AEDA, #62C5FA);
+  --warn-solid-signal: light-dark(#E79F00, #8A5D00);
+  --fail-solid-signal: light-dark(#E45C57, #A31B22);
+  --on-status: light-dark(#FFFFFF, #1A1A1A);
+  --pass-solid-edge: light-dark(#1B4268, #9EBEE0);
+  --fail-solid-edge: light-dark(#7C000F, #FF847C);
+  --info-solid: light-dark(#125E82, #68ADD4);
   --info-solid-vivid: var(--info-solid);
-  --info-solid-edge: light-dark(#22769F, #62C5FA);
-  --mute-solid: light-dark(#AAA3AA, #BFB9BF);
-  --mute-solid-edge: light-dark(#746D74, #BFB9BF);
-  --warn-solid-edge: light-dark(#956500, #EAB35F);   /* the light amber's boundary on the slide */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#575757, #686868);
+  --info-solid-edge: light-dark(#125E82, #68ADD4);
+  --mute-solid: light-dark(#544F54, #B5AEB5);
+  --mute-solid-edge: light-dark(#544F54, #B5AEB5);
+  --warn-solid-edge: light-dark(#764F00, #FEB42E);   /* the light amber's boundary on the slide */
+  --on-solid: light-dark(#FFFFFF, #1A1A1A);
+  --chart-neutral: light-dark(#575757, #A5A5A5);
   --diagram-critical: #5f0009;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
@@ -164,11 +168,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#333333, #BFBFBF);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#0B0B0B, #BFBFBF);
+  --heatmap-step3-ink: light-dark(#0B0B0B, #E3E3E3);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#D4D4D4, #BFBFBF);
+  --heatmap-step4-ink: light-dark(#D4D4D4, #202020);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#A7A7A7, #CBCBCB);
+  --heatmap-step5-ink: light-dark(#A7A7A7, #434343);
   /* ── end heatmap ramp ── */
 }
 

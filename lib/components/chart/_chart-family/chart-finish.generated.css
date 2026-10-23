@@ -638,25 +638,25 @@ figure.chart-finish-pigment :where(.radar-poly) {
 section.chart-finish-pigment :where(.risk-cell[data-band="low"]),
 figure.chart-finish-pigment :where(.risk-cell[data-band="low"]) {
   fill: var(--state-pass-hue) !important;
-  stroke: light-dark(var(--chart-status-edge), var(--bg)) !important;
+  stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.chart-finish-pigment :where(.risk-cell[data-band="medium"]),
 figure.chart-finish-pigment :where(.risk-cell[data-band="medium"]) {
   fill: var(--state-warn-hue) !important;
-  stroke: light-dark(var(--chart-status-edge), var(--bg)) !important;
+  stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.chart-finish-pigment :where(.risk-cell[data-band="high"]),
 figure.chart-finish-pigment :where(.risk-cell[data-band="high"]) {
   fill: var(--state-fail-hue) !important;
-  stroke: light-dark(var(--chart-status-edge), var(--bg)) !important;
+  stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.chart-finish-pigment :where(.risk-cell[data-band="critical"]),
 figure.chart-finish-pigment :where(.risk-cell[data-band="critical"]) {
-  fill: color-mix(in oklch, var(--fail-solid-vivid) 70%, var(--fail)) !important;
-  stroke: light-dark(var(--chart-status-edge), var(--bg)) !important;
+  fill: color-mix(in oklch, var(--fail-solid-vivid) 82%, black) !important;
+  stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.chart-finish-pigment :where(.waterfall-bar[data-s="total"]),

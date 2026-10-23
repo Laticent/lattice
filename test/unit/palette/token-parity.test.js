@@ -61,12 +61,14 @@ const CONTRACT = [
   'seq-500',
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral',
-  // the status inks beyond the trio, and the two inks on a solid: white on a category, near-black on a status
+  // the status inks beyond the trio, and the inks on a solid (both white: one ink)
   'info', 'mute', 'on-solid', 'on-status',
-  // the status FILLS in both intensities, and each status's EDGE (base.tokens.css § STATUS, IN TWO JOBS)
+  // the status FILLS in both intensities, each status's EDGE, and the two exceptions' SIGNAL rings
+  // (base.tokens.css § STATUS, IN TWO JOBS)
   'pass-solid', 'warn-solid', 'fail-solid', 'info-solid', 'mute-solid',
   'pass-solid-vivid', 'warn-solid-vivid', 'fail-solid-vivid', 'info-solid-vivid',
   'pass-solid-edge', 'warn-solid-edge', 'fail-solid-edge', 'info-solid-edge', 'mute-solid-edge',
+  'warn-solid-signal', 'fail-solid-signal',
 ];
 
 function ownTokens(name) {

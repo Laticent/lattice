@@ -119,57 +119,75 @@ Every chart concept has **one flat solid**, curated per theme: a category is `--
 (seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-solid`), and a mark with
 neither `--chart-neutral-hue` (seed `--chart-neutral`).
 
-**Polarity: text color carries the kind.** A category or the neutral is a DEEP fill under white text
-(`--chart-solid-ink`, seed `--on-solid`). A status is a BRIGHT fill under near-black text (`--state-X-on`, seed
-`--on-status`), set inside any mark that carries a `data-s`. So a category and a status may share a hue, a brand
-green bar and an "on track" bar both green, and the reader still tells them apart: white text means a category,
-dark text means a status. This replaced a rule that kept every category off the status hues (green, amber, red);
-it cost every palette its brand colors and was rejected on sight. Apple's HIG asks a chart not to use one color
-to mean two things; polarity keeps the meanings apart without taking the brand's colors away.
+**One ink.** Every chart fill, a category, the neutral or a status, is DEEP enough to carry white text
+(`--chart-solid-ink`: `--on-solid` on a category or the neutral, `--state-X-on` → `--on-status` inside any mark that
+carries a `data-s`, both white). At most two charts share a slide, and two text colors side by side read as two
+systems, so the ink never changes with the kind. This replaced a scheme where a status was a BRIGHT fill under
+near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
+chart wore two inks, and on a light slide the bright fills were the quietest marks on it.
+
+**A status is told apart by what it adds, not by its fill.** A status shares a lightness with the categories, so a
+brand green bar and a "done" bar can look alike. Two things separate them:
+
+- **the MARK.** Every status that names a state carries its drawn shape (`lib/core/status-marks.js`): a check for
+  done, a dash for at risk, a cross for blocked, a slash for deferred. An SVG member inlines the path, an HTML member
+  masks the `--mark-*-bold` token; live, pilot and decision carry none. The shape also reaches a reader who sees no
+  color.
+- **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a bright ring in the classic hue
+  (`--warn-solid-signal` amber, `--fail-solid-signal` coral-red; § THE SIGNAL RING in `chart-family.styles.css`).
+  Nothing else rings, so a ring means "exception" on every chart. The ring sits outside the shape (an outset shadow
+  on HTML, a stroke painted under the fill on SVG) and is `!important`, because every finish paints a status
+  member's edge with `!important`. A risk matrix rings its whole critical band once and marks each critical cell.
 
 The contract, held for every palette in both modes and both intensities by
-`test/unit/palette/chart-solids.test.js` and `chart-polarity.test.js`:
+`test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`:
 
-- text on a status fill clears **7:1** on both faces (the curation aims 9:1 on the dark face, so a status still
-  glows on a dark slide);
-- text on a category or the neutral clears **7:1** on the light face and **4.5:1** on the dark face, where a
-  category is the lightest tone of its hue white still clears (4.6:1 by construction, 5.5:1 on the `a11y-*`
-  palettes), so it stands off the dark slide;
-- every status fill is at least **2:1** brighter than every category fill, so the two kinds stay apart for a
-  reader who sees no hue at all;
-- every solid clears **3:1** against the slide (WCAG 1.4.11), or, for a status fill on the light face, its EDGE
-  does. A bright fill sits under 3:1 on a light slide, so each status has `--X-solid-edge`: its own hue at 4.6:1
-  off the slide. The chart family rims every status shape with it on the light face (§ THE STATUS EDGE in
-  `chart-family.styles.css`) and paints a status that is a line or text with it (a slope, a waterfall step, a
-  kanban header, the status ink `--state-X-ink`).
+- white clears **7:1** on every light-face solid and **4.5:1** on every dark-face one, where a fill is the lightest
+  tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
+- every solid clears **3:1** against the slide (WCAG 1.4.11) by itself;
+- each status's EDGE (`--X-solid-edge`, its own hue at 4.6:1 off the slide) is what a status LINE or status TEXT
+  paints: a slope, a waterfall step, a kanban header, the status ink `--state-X-ink`;
+- each ring is brighter than its fill and clears **3:1** against the neighbor opposite it in lightness: the deep
+  fill on a light slide, the slide on a dark one, where it also steps **2:1** off its mid-tone fill. A ring held to
+  3:1 off a mid-tone fill washes out to near white.
 
-**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). The deck picks how loud
-its status fills are; `muted` is the default. Muted is `--X-solid`; vivid is `--X-solid-vivid`, which
-`chart-family.styles.css` swaps in under `.chart-finish-vivid`. Both keep near-black text. Muted is calm enough for
-a deck full of status charts; vivid is richer and stops short of neon (a fill between green and cyan is held to
-0.13 chroma, where sRGB would otherwise reach a mint that reads as a highlighter).
+**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-solid`, the
+default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
+`--X-solid-vivid`, which `chart-family.styles.css` swaps in under `.chart-finish-vivid`: every status rich, done an
+emerald, for a deck that celebrates its wins. Both keep white text, and the rings and edges are shared.
 
-**Each theme's status set is its own.** The hues are the theme's own status inks (`--pass` …), with info held in
-the cyan band. Pass and fail lean 20% toward the theme's accent, at most 18 degrees, so a leather palette's green
-is olive-sage and a frost palette's red a cool rose; amber does not lean (toward a blue accent it turns olive), and
-pass stays inside the green band (leaned into teal it crowds info). Saturation follows the theme's own categories,
-held to 0.75-1.2 of typical. The three step through the bright band, fail at the floor, pass a step up and warn
-brightest (`STATUS_BAR` in `lib/theme/polarity.js`), because three fills at one lightness are one gray to a reader
-without color vision: the first cut measured an achromatopsia median of 0.000 OKLab across the brand palettes.
+**Each theme's status set is its own.** The hues are the theme's own status inks (`--pass` …), each held to its band
+(`HUE_BAND` in `lib/theme/chart-solids.js`): warn a burnt orange (an amber deep enough for white text turns brown),
+fail a crimson, pass short of teal, info in the cyan band. Pass and fail lean 20% toward the theme's accent, at most
+18 degrees, so a leather palette's green is olive-sage and a frost palette's red a cool rose; warn does not lean.
+Saturation follows the theme's own categories, held to 0.75-1.2 of typical. Done sits a step deeper than the
+exceptions (`STATUS_BAR`): a settled status should be the quietest mark on the slide.
 
-**Colorblind readers.** The `a11y-*` palettes carry the colorblind floors: their trio clears their own condition's
-floor outright (`cvd-trio-floor.test.js`), and their dark categories sit one step deeper so the trio can keep the
-lightness range it needs. A brand palette is held to its recorded separation
-(`test/fixtures/status-fill-cvd-baseline.json`, the owner's call), and every status also carries a label.
+**Colorblind readers.** The marks carry status by shape for every reader. The deep band is narrow, so the statuses
+are spread across it: on the light face at risk and info sit at the white bar, blocked a step deeper, done deepest
+(`STATUS_BAR`); on the dark face each takes a fixed position across the band between 4.6:1 under white and 3:1 off
+its slide (`DARK_SPREAD`). Measured across the brand palettes against the bright scheme this replaced, the
+worst-separated pair holds or rises under every condition (protanopia 0.008 to 0.020, deuteranopia 0.003 to 0.003,
+tritanopia 0.057 to 0.064, achromatopsia 0.019 to 0.018; the p10 rises under all four), while the median falls under
+protanopia and achromatopsia. A brand palette is held to that record (`test/fixtures/status-fill-cvd-baseline.json`).
+
+**The `a11y-*` palettes are the answer for a colorblind reader, and they share one design.** On the light face they
+follow the scheme above. On the dark face the deep band under white is too narrow for three statuses a colorblind
+reader can tell apart (achromatopsia needs 0.22 of lightness; the band holds 0.10), so every chart fill there, a
+category or a status, is BRIGHT under a near-black ink (`DARK_INK` in `lib/theme/chart-solids.js`): still one ink per
+slide, and the bright band holds 0.3. A ring is always the status color at the opposite lightness to its fill, so
+there it is deep. Every `a11y-*` trio clears its own condition's floor outright, in both modes and both intensities
+(`cvd-trio-floor.test.js`).
 
 **Status has two jobs** (`base.tokens.css` § STATUS, IN TWO JOBS). `--pass` … `--mute` are the status as INK on
 the slide (text, a rule, a mark), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The FILLS and
 EDGES are a separate set. The first cut used one color for both jobs and pushed the trio apart by lightness alone,
 which turned red near-black and green near-white.
 
-`tools/curate-chart-solids.js` seeds the values with the solvers in `lib/theme/polarity.js`, the same ones the
-Studio's generator (`lib/theme/derive.js`) calls: it keeps each seed's hue, moves lightness (and chroma only down,
-where the gamut runs out), and writes every solid, edge and ink. It is not part of the build, so a hand-tuned seed
+`tools/curate-chart-solids.js` seeds the values with the solvers in `lib/theme/chart-solids.js`
+(`solveStatusSet` for the status set), the same ones the Studio's generator (`lib/theme/derive.js`) calls: it keeps
+each seed's hue, moves lightness (and chroma only down, where the gamut runs out), and writes every solid, edge,
+signal and ink. It is not part of the build, so a hand-tuned seed
 stays tuned as long as it clears the gates. A gray category keeps its light-face order on the dark face (a deeper
 gray stays deeper), and onyx's olive sits between two grays, because two adjacent grays under white cannot stay
 0.06 OKLab apart (`chart-contrast.test.js`). A solid is

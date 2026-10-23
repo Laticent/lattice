@@ -308,7 +308,7 @@ describe('theme-contrast', () => {
       return map;
     };
 
-    test('a 132-token map of oklch() does NOT return ok:true', () => {
+    test('a 134-token map of oklch() does NOT return ok:true', () => {
       const map = allOklch();
       // 107 when the note measured it; 108 since `--seq-500` joined the contract
       // (the sequential ramp's anchor — the base's `var(--accent)` fallback is
@@ -320,10 +320,11 @@ describe('theme-contrast', () => {
       // (five `--chart-state-*` out; `--chart-neutral`, `--info`, `--mute`,
       // `--on-solid` in); 121 since the light-face status fills and `--on-warn` joined it; 125 since their vivid set did;
       // 132 since text color took over the kind (`--on-warn` and `--on-warn-vivid` out; `--on-status`, `--info-solid`,
-      // `--mute-solid`, `--info-solid-vivid` and the five `--X-solid-edge` in). The count is pinned deliberately: it is the
+      // `--mute-solid`, `--info-solid-vivid` and the five `--X-solid-edge` in); 134 since one ink gave the two exceptions
+      // a ring (`--warn-solid-signal`, `--fail-solid-signal`). The count is pinned deliberately: it is the
       // tripwire for the map silently SHRINKING, which is what would make the
       // "nothing was measured" finding unreproducible.
-      assert.equal(Object.keys(map).length, 132, 'the full contract, as the note measured it');
+      assert.equal(Object.keys(map).length, 134, 'the full contract, as the note measured it');
       for (const level of ['gate', 'full']) {
         const a = auditBoth(map, { level });
         assert.equal(a.ok, false, `${level}: an unreadable palette must not report AA`);

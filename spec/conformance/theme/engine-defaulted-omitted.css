@@ -165,6 +165,8 @@
   --fail-solid-edge: light-dark(#A55A53, #FFA297);
   --info-solid-edge: light-dark(#22769F, #62C5FA);
   --mute-solid-edge: light-dark(#6A6F76, #B6BCC3);
+  --warn-solid-signal: light-dark(#F99705, #F69400);
+  --fail-solid-signal: light-dark(#FF8E82, #FF897D);
   --chart-neutral: light-dark(#858d9a, #a4acba);
 }
 

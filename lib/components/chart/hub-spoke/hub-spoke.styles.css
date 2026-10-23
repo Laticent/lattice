@@ -154,8 +154,9 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke: var(--text-heading);
 }
 
-/* ── emphasis halo and direction heads: filled ink, no edge ─────────────────── */
-:is(section.hub-spoke, figure.chart-frame) .hub-spoke-halo { fill: var(--hs-state-ink); stroke: none; }
+/* ── emphasis halo and direction heads: filled, no edge. The halo on an at-risk or blocked disc is this chart's
+ * SIGNAL RING (chart-family § THE SIGNAL RING), in the signal color. ── */
+:is(section.hub-spoke, figure.chart-frame) .hub-spoke-halo { fill: var(--chart-signal); stroke: none; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow { fill: var(--hs-neutral-ink); stroke: none; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-hue] { fill: var(--hs-group-ink); }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-s] { fill: var(--hs-state-ink); }

@@ -92,6 +92,12 @@ section.flowchart .fc-node {
   border-radius: var(--chart-mark-radius);
 }
 
+/* A shape that carries a STATUS MARK (the painted node's drawn shape in its leading top corner, flowchart.layout.js)
+ * reserves the mark's room on both sides, so the name, centered in the painted node, clears the corner mark. */
+section.flowchart .fc-node:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"]) {
+  padding-inline: calc(1.5625cqi + 0.8em);
+}
+
 /* A shape with an ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js): the
  * drawing sits before the name, or above it when the chart is pinned `tb` (the icons note
  * § 11 q1), and the measured box holds both. `icon-only` keeps the name in the harness for its
