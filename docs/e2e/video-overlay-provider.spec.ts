@@ -64,15 +64,25 @@ marp: true
 // playground-state.spec.ts does so nothing is network-gated. The provider embed is
 // stubbed too: the assertion is the iframe's SRC, and a real cross-origin load would
 // make this spec depend on youtube-nocookie.com being reachable from the runner.
+// What the stub player says to its parent. TikTok and Instagram post a message as soon as they load; a blocked frame
+// posts nothing, which is what the lightbox's "didn't load" notice listens for.
+let stubSignals = false;
+const SIGNAL_SCRIPT: Record<string, string> = {
+	'www.tiktok.com': "parent.postMessage({type:'onPlayerReady','x-tiktok-player':true},'*')",
+	'www.instagram.com': "parent.postMessage(JSON.stringify({type:'LOADING',details:{}}),'*')",
+};
+
 test.beforeEach(async ({ context }) => {
+	stubSignals = false;
 	await context.route(/mermaid.*\.js($|\?)/, (route) =>
 		route.fulfill({ contentType: 'text/javascript', body: 'window.mermaid={initialize(){},run(){},render(){return{svg:""}}};' }),
 	);
 	await context.route(/katex.*\.css($|\?)/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
 	await context.route(/fonts\.googleapis|fonts\.gstatic/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
-	await context.route(/youtube-nocookie\.com|player\.vimeo\.com|(?:www\.)?tiktok\.com|(?:www\.)?instagram\.com/, (route) =>
-		route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>stub player</title>' }),
-	);
+	await context.route(/youtube-nocookie\.com|player\.vimeo\.com|(?:www\.)?tiktok\.com|(?:www\.)?instagram\.com/, (route) => {
+		const say = stubSignals ? (SIGNAL_SCRIPT[new URL(route.request().url()).hostname] ?? '') : '';
+		return route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>stub player</title><script>${say}</script>` });
+	});
 });
 
 async function openDeck(page: import('@playwright/test').Page, source: string) {
@@ -215,3 +225,31 @@ test('@smoke the Studio preview plays a poster tapped at its screen position', a
 	await expect(modal.locator('iframe')).toHaveAttribute('src', EMBED);
 	expect(popped, 'a tap opened a tab instead of the in-page player').toBe(false);
 });
+
+// A browser's tracking protection can blank TikTok's or Instagram's frame with no error the page can read. Both players
+// post a message to their parent when they load, so silence for 8 seconds is the signal. The pair below is the control:
+// the same click, with and without the stub saying it loaded, so the notice cannot pass by being always on or always off.
+for (const c of PROVIDER_CASES.filter((p) => p.key === 'tiktok' || p.key === 'instagram')) {
+	for (const signals of [false, true]) {
+		test(`the ${c.key} player ${signals ? 'that loads shows no notice' : 'that never loads gets the "didn\'t load" notice'}`, async ({ page }) => {
+			stubSignals = signals;
+			const preview = await openDeck(page, deck(c.url));
+			await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch, { timeout: 30_000 });
+			await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+			await page.clock.install();
+			await preview.locator('a.video-poster').click();
+			const modal = page.locator('.pg-video-modal[role="dialog"]');
+			await expect(modal.locator('iframe')).toHaveAttribute('src', c.embed, { timeout: 15_000 });
+			const notice = modal.locator('[role="status"]');
+			await expect(notice).toBeHidden();
+			await page.waitForTimeout(800); // let the stub's message arrive
+			await page.clock.fastForward(9_000);
+			if (signals) await expect(notice).toBeHidden();
+			else await expect(notice).toContainText(`${c.label} didn't load`);
+			// The close button sits on the backdrop, clear of the player's own corner controls.
+			const close = await modal.getByRole('button', { name: 'Close video' }).boundingBox();
+			const frame = await modal.locator('iframe').boundingBox();
+			expect(close && frame && (close.y + close.height <= frame.y || close.x >= frame.x + frame.width || close.x + close.width <= frame.x), 'the close button overlaps the player').toBe(true);
+		});
+	}
+}

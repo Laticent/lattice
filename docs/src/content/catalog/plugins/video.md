@@ -111,6 +111,7 @@ The `video` slide class lays the record out and paints its poster. The plugin re
 ## What it doesn't do
 
 - **It never plays inside the slide.** The poster is a link. In the Studio a tap opens a player over the preview, and everywhere else it opens the clip's own page.
+- **It can't make a blocked player load.** A browser's tracking protection can blank a TikTok or Instagram player. The Studio always shows an "Open on" link under the player, and adds a notice if the player stays silent for 8 seconds.
 - **It doesn't lay out on other slides.** `@video` belongs on a `video` slide. On any other slide it is only a text link, and the linter says so with `video-slide-class`.
 - **It doesn't read bullets any more.** An old video slide that names its clip as a bullet draws nothing, and `lint:deck --fix` moves a lone address bullet into a record.
 - **It doesn't trust a lookalike.** A provider's name in a path or a fragment doesn't make the address that provider's, so a lookalike address draws nothing.

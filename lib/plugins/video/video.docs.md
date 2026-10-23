@@ -78,6 +78,13 @@ badge and the scannable code are rebuilt from the address the figure carries, af
 Type `` `@ `` and choose `video` from the menu. Tapping a poster in the preview opens a player over it, built from the provider's
 own embed address and the parsed clip ID, never from the text of the link. Everywhere else the poster is a plain link.
 
+Under the player the Studio always shows "Not playing? Open on {provider}", a plain link to the clip's own page. A browser with its
+own tracking protection (Firefox, Orion) can blank a third-party player and the page cannot read the frame to tell. TikTok and
+Instagram players post a message to the page when they load, so when one stays silent for 8 seconds the Studio adds a notice above
+the link: "{provider} didn't load. Your browser's tracking protection or a content blocker may be blocking it." The notice says
+"may" because the page can see that the player is silent, not why. YouTube and Vimeo players send no such message, so they get the
+link and no notice.
+
 ## In an export
 
 - **PDF and print.** The poster is a clickable link, and the scannable code carries the address for paper.
