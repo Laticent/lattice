@@ -323,8 +323,12 @@ source, and the paint is gone after the fade; with reduced motion the animation 
 the diff (words, deletion mark, added line, identical deck, too-wide change); `ComposeView.sync.test.tsx` pins that an outside change paints, emits
 nothing, and that the author's own typing does not.
 
-**Not verified.** WebKit and Firefox (the e2e and recordings ran in Chromium); a real AI apply (a rename stands in: both enter through the same
-resync); the dark theme at phone width (one dark frame at desktop width was checked).
+**Also driven (2026-10-23).** The same spec passes on WebKit at tablet and phone widths and on Firefox. A second test runs the Architect's real
+edit and Apply path with the model mocked (HARD RULE #24): Apply on a rewrite paints the changed words "Tuesday morning" and the line, the saved
+deck is exactly the rewrite, and the paint clears.
+
+**Not verified.** The dark theme at phone width (one dark frame at desktop width was checked); an AI apply with a live model (the mocked one
+exercises every step after the reply).
 
 ## 9. Decisions put to the owner
 
