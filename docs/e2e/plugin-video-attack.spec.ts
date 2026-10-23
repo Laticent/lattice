@@ -61,7 +61,7 @@ for (const [label, width, height] of [
 
 		const notice = page.locator('[data-slot="code-packages"]');
 		await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
-		await notice.getByRole('button', { name: 'Run the code of gantt-plugin' }).click();
+		await notice.getByRole('button', { name: 'Approve the code of gantt-plugin' }).click();
 
 		const preview = livePreview(page);
 		const plugin = preview.locator('[data-lattice-plugin="gantt-plugin"]');
