@@ -5,7 +5,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
-import { isPluginApproved, studioPlugins } from '@/lib/code-packages/door';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
@@ -283,6 +282,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// The zip plugins this browser holds (plugin-library.ts). They sit on the shelf beside the assets and are NEVER selectable, shared
 	// or exported: a plugin's code stays in this browser, where the person approves it.
 	const [plugins, setPlugins] = React.useState<StudioPluginRecord[]>([]);
+	// The code-package door loads on the first plugin the Library holds, not with the Library (door.ts, entry.ts).
+	const [door, setDoor] = React.useState<typeof import('@/lib/code-packages/door') | null>(null);
+	React.useEffect(() => {
+		if (plugins.length && !door) void import('@/lib/code-packages/door').then(setDoor);
+	}, [plugins.length, door]);
 	const [shipped, setShipped] = React.useState<ShippedScene[]>([]);
 	// ONE picker for everything. What a file IS decides where it goes (`classifyDropped`), not which
 	// button it came through, so a person never has to know the kind before they choose.
@@ -809,7 +813,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setBusy(null);
 		}
 	}
-	async function importFiles(files: FileList | File[] | null) {
+	async function importFiles(files: FileList | File[] | null, opts?: { keepFilter?: boolean }) {
 		if (!files?.length) return;
 		markFresh();
 		setBusy('Importing…');
@@ -872,8 +876,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			// Only what landed: a plugin-only zip used to read "Imported 0 theme(s) + 0 component(s) + 1 plugin(s)".
 			const parts = [nThemes && `${nThemes} theme(s)`, nComps && `${nComps} component(s)`, nFinishes && `${nFinishes} finish(es)`, nScenes && `${nScenes} motion(s)`, nPlugins && `${nPlugins} plugin(s)`].filter(Boolean);
 			const tally = `Imported ${parts.join(' + ') || '0 items'}${nPlugins ? ' (see the Plugins tab, and Deck settings → Plugins to list it)' : ''}.`;
-			// A zip that held only plugins opens on the Plugins pill, where they are; every other import keeps the view it has.
-			if (nPlugins && !(nThemes + nComps + nFinishes + nScenes)) setFilter('plugin');
+			// A zip that held only plugins opens on the Plugins pill, where they are; every other import keeps the view it has,
+			// and so does a drop that also carried files or images (it already landed on All).
+			if (nPlugins && !opts?.keepFilter && !(nThemes + nComps + nFinishes + nScenes)) setFilter('plugin');
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals
 				// go UNDER the reason rather than replacing it.
@@ -907,7 +912,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			setQuery('');
 			React.startTransition(() => setFilter(target));
 		}
-		if (zips.length) await importFiles(zips);
+		if (zips.length) await importFiles(zips, { keepFilter: docs.length + images.length > 0 });
 		if (docs.length) await addDocFiles(docs);
 		if (images.length) addMediaFiles(images);
 		if (rejected.length) notify(rejectedMessage(rejected.map((f) => f.name)));
@@ -1156,8 +1161,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const renderPlugin = (p: StudioPluginRecord) => {
 		const k = `plugin:${p.id}`;
 		const draws = [...(p.fence ? [`\`\`\`${p.fence}`] : []), ...(p.kinds ?? []).map((kind) => `@${kind.name}{…}`)];
-		const known = studioPlugins().get(p.name);
-		const approved = !!known && isPluginApproved(known);
+		const known = door?.studioPlugins().get(p.name);
+		const approved = !!door && !!known && door.isPluginApproved(known);
 		const listed = activeDeckSource !== undefined && deckPluginList(activeDeckSource).includes(p.name);
 		return (
 			<div key={k} data-library-plugin={p.name} className={cn('relative overflow-hidden rounded-xl border bg-card', isFresh(p.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
