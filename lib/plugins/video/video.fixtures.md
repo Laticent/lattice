@@ -61,12 +61,12 @@ bullet is an assertion about that render:
 
 ## Watch the reel
 
-`@video{"https://www.instagram.com/reel/DaStLQkuN3Q/", title="The reel"}`
+`@video{"https://www.instagram.com/reel/DWm0UOZgVVf/", title="The reel"}`
 ```
 
 - renders `data-provider="instagram"`
 - renders `Watch on Instagram`
-- renders `href="https://www.instagram.com/reel/DaStLQkuN3Q/"`
+- renders `href="https://www.instagram.com/reel/DWm0UOZgVVf/"`
 - detect true
 
 ## every YouTube spelling resolves to one watch address
