@@ -46,7 +46,7 @@ Short vertical video plays in a tall player. The poster is cropped to the slide'
 
 ## Instagram — the exhibit, matted.
 
-`@video{"https://www.instagram.com/reel/CuXxYz12345/", title="A reel from the field team, shown on its matte.", poster="sample:photo-square.jpg"}`
+`@video{"https://www.instagram.com/reel/DaStLQkuN3Q/", title="A reel from the field team, shown on its matte.", poster="sample:photo-square.jpg"}`
 
 ---
 

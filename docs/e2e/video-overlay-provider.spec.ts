@@ -149,7 +149,7 @@ test('@smoke the registry drives the poster AND the parent-hosted player', async
 const PROVIDER_CASES = [
 	{ key: 'vimeo', label: 'Vimeo', url: 'https://vimeo.com/1084537', watch: 'https://vimeo.com/1084537', embed: 'https://player.vimeo.com/video/1084537?autoplay=1' },
 	{ key: 'tiktok', label: 'TikTok', url: 'https://www.tiktok.com/@scout2015/video/6718335390845095173', watch: 'https://www.tiktok.com/@scout2015/video/6718335390845095173', embed: 'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=1' },
-	{ key: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/reel/CuXxYz12345/', watch: 'https://www.instagram.com/reel/CuXxYz12345/', embed: 'https://www.instagram.com/p/CuXxYz12345/embed/' },
+	{ key: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/reel/DaStLQkuN3Q/', watch: 'https://www.instagram.com/reel/DaStLQkuN3Q/', embed: 'https://www.instagram.com/p/DaStLQkuN3Q/embed/' },
 ] as const;
 for (const c of PROVIDER_CASES) {
 	test(`the ${c.key} row drives the poster, the badge, the QR and the player`, async ({ page }) => {
