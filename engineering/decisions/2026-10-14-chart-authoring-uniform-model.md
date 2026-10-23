@@ -351,12 +351,49 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    moves over without lowering it. Corpus parity: 475 of the 478 chart slides in the repo render, narrate and lint byte-identically to
    `main` (the other three are the new demo deck, `examples/chart-row-record-fields.md`).
 
-   **Phase 2, still to do.** The other 14 charts' transforms and narrators (`bar`, `line`, `slope`, `stacked-bar` on `cartesian.js`'s
-   `parseSeries`; `piechart`, `waterfall`, `scatter` on `stripTrailingPills`; `funnel`, `map`, `word-cloud`, `radar`, `quadrant`,
-   `heatmap` and `matrix-grid` on their own readers; about 12k lines of transform and 1.1k of narrator reader) move onto `recordFields`
-   one chart at a time, each lowering the budget, and each with its transform and narrator together so the picture and the voice cannot
-   drift. Then the bridge, `legacySpans` and the old-form branch go in phase 4. The rest of the list (the nested-list scope, the
-   residuals of rounds 13 to 21) is in `followups.d/2690-p1-chart-model-phase-2-reader.md`.
+   **Phase 2, slice 4 (2026-10-23): the other 14 charts read the record.** Every chart with a row schema is now `rows.native`, and
+   `PRIVATE_ROW_READER_BUDGET` is 0. Each transform asks `takeRecord` for the claimed record and reads it through the row schema
+   (`recordRow`, `recordCell`), and each narrator takes the same claim (`claimedRecord`) through `claimedRow`. The one new piece is
+   `recordPills` in `lib/core/chart-rows.js`: a record's fields, in the order the schema lists them (`rows.legacy`), as the trailing
+   values the chart reads; it declines a field the old reader never had, a gap, or a value no span can hold, and the caller then settles
+   the lead as the bridge always did, so those shapes read as before. These 14 charts have no field the old spans cannot spell, so
+   reading the record changes no picture and no sentence; the evidence is a before/after comparison, not a claim.
+
+   *Where each chart reads.* `bar`, `line`, `slope`, `stacked-bar`: `cartesian.js` `parseSeries` takes a `readLead` and a `settle` from
+   the kernel (the kernel calls `takeRecord`). `piechart`, `waterfall`: the row's lead. `funnel`, `map`, `word-cloud`: the one-pill match
+   in their row parser. `radar`: `parseAxisItem`. `scatter`, `quadrant`: the point record is their old form, so `takeRecord` hands the
+   transform the record text and the pills ahead of it still go back on the label. `heatmap`: `readCell` reads a cell that is only a
+   record (`recordCell`). `matrix-grid`: the cell decoder (`matrix-grid-cells.js`) turns `{done}` into its mark before the kernel runs,
+   so the kernel only reads a claimed cell the decoder declined. Narrators: `parseDataRows` (bar, line, slope, stacked-bar, piechart,
+   waterfall, map, word-cloud, scatter, bullet), `parseFunnelStages`, `parseRadarSeries` and `narrateRadarSectors`, and
+   `parseQuadrantGroups`. `parseDataTable` (heatmap) and `authoredTable` (matrix-grid) still read the cell text the source bridge writes
+   from the record (`gridCellText`, which reads the record through the schema); the bridge stays until phase 4.
+
+   *Evidence.* 812 chart slides in the repo corpus (the decks we ship, the galleries, every `.gallery.md`, in the old spellings and with
+   every row that has an old spelling rewritten as one record) render, narrate and lint byte-identically before and after (HTML with
+   ids normalized, the narration text, and the lint findings). `chart-native-record.test.js` holds each of the 14 to its old form on
+   the engine, the narrator and the runtime bundle, each with a changed value as the control.
+
+   *Review round (trio on this slice).* Fixed with a test each: a heatmap record in the row-label or `{>}` column was shown as raw braces
+   (those cells now settle); radar and quadrant read a record in a loose list item that the old reader missed (a record followed by
+   `</p>` is not a trailing span); the narrator claimed records after the callout lift, which can join two lists (claims now come before
+   the lift, as the bridge always ran); `recordFields` dropped a bare item that binds to no field (`{20, Total}` on waterfall), so it
+   now declines the record; scatter and quadrant read a point followed by a no-break space entity as the old reader did (the checker found the runtime drew it). `chart-native-path.test.js` counts the fallbacks, because the byte-identical corpus cannot tell a native
+   reader from the bridge it replaced.
+
+   *Honest limit.* Twelve of the 14 charts read the record as the pills the old parsers expect (`recordPills`, in `rows.legacy`
+   order), and `scatter`, `quadrant` and `heatmap` re-read the record text with the point and cell readers they already had: the
+   transforms now start from the record, but their inner parsers are the old ones. So phase 4's deletion list is longer than
+   "the bridge": `bridgeRecordsHtml`, `bridgeRecordsSource` (split the claim-finder `ownedRecordSites` from the rewriter first,
+   because the narrator's claims come from `bridgeRecords` and `claimedRecord` strips the rewritten tail by `legacySpans`),
+   `legacySpans`, `settleLead`, `settleCell`, `recordPills` and `EXTRA_FIELD_CHARTS`, every consumer of `rows.legacy` (lint
+   `chart-row-record-unread` returns early without it, `drawsRecord`, the runtime's `settleRecordStamps`, `segno-slots.js`), the
+   `native` flag with its gate, and the dead `native` branches in `bridgeRecordsHtml`'s `keep` and `bridgeLines`. A nested series row
+   stops being a record at phase 4 (owner, 2026-10-22), so the nested reads in `cartesian.js` and the narrator go with that narrowing.
+
+   **Phase 2, still to do.** Phase 4 deletes the bridge and the old-form branches (list above), and the narration bundle's
+   `markdown-it` external goes with it. The rest of the list (the
+   nested-list scope, the residuals of rounds 13 to 21) is in `followups.d/2690-p1-chart-model-phase-2-reader.md`.
 3. **Editor.** The Insert menu, the schema-driven grid for lists and tables, the description fields, and reshape.
 4. **Normalize.** The codemod, kept runnable as a migrator because it is the last clean break before GA, the old
    branch deleted, locale display on, and a `**Breaking:**` fragment. Gated by §7, and it gets the full adversarial

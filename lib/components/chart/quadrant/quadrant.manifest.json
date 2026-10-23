@@ -316,6 +316,7 @@
             1
           ]
         },
+        "native": true,
         "legacy": "record"
       }
     }

@@ -23,8 +23,14 @@ describe('checkNativeRowReaders', () => {
     assert.match(e, /read through takeRecord/);
   });
   test('failing arm: a chart moved over without lowering the budget fails', () => {
-    const [e] = run(fleet(PRIVATE_ROW_READER_BUDGET - 1));
-    assert.match(e, /lower the budget/);
+    // The repo's budget is 0 (every chart is native), so this arm hands the check a budget of 2 and a fleet of 1.
+    const errors = [];
+    checkNativeRowReaders(fleet(1), errors, undefined, 2);
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /lower the budget/);
+  });
+  test('the budget is 0: every chart with a row schema reads through the shared reader', () => {
+    assert.equal(PRIVATE_ROW_READER_BUDGET, 0);
   });
   test('a native chart whose kernel never calls takeRecord fails', () => {
     const errors = run(fleet(PRIVATE_ROW_READER_BUDGET, [chart('bullet', true)]), () => 'module.exports = {};');

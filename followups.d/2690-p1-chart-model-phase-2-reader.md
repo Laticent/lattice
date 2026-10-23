@@ -8,32 +8,24 @@ swimlane: engineering/decisions/2026-10-14-chart-authoring-uniform-model.md
 source: engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §9 and §10; engineering/decisions/2026-10-14-chart-authoring-census.md §3 and §4
 ---
 
-# Phase 2 of the chart authoring model, what is left: the private readers of 14 charts
+# Phase 2 of the chart authoring model, what is left: delete the bridge (phase 4) and the residuals
 
-why now   — Slice 3 (2026-10-22) shipped the `{> prose}` description (Segno production, heatmap cell, column and row, lint
-            `chart-description-unread`) and moved bullet and progress onto the shared row reader (`rows.native`: transform
-            `takeRecord`, narrator `claimedRecord`, both through `recordFields`), so their `band=` `floor=` `note=` fields are drawn
-            and said. What is left is the same move for the other 14 charts, which delete the bridge once done.
-where     — 1. One chart at a time, transform AND narrator together (so the picture and the voice cannot drift), lowering
-               `PRIVATE_ROW_READER_BUDGET` in tools/check-ownership.js by one each:
-               `bar` `line` `slope` `stacked-bar` (`_chart-family/cartesian.js` `parseSeries`/`readLeadValue`; narrator
-               `parseDataRows`, `lineSentences`, `slopeSentences`), `piechart` `waterfall` `scatter` (`stripTrailingPills`;
-               narrator `stripTrailingPills`, `parseDataRows`), `funnel` (`parseFunnel`; `parseFunnelStages`), `map`, `word-cloud`
-               (`narrateWordCloud`), `radar` (`parseAxisItem`; `parseRadarSeries`), `quadrant` (`parseItemPills`; `parseQuadrantGroups`),
-               `heatmap` and `matrix-grid` (`readCell`, `matrix-grid-cells.js`; `parseDataTable`, `authoredTable`). The recipe is the one
-               bullet and progress used: add `native: true` to the schema, read the stamped record with `takeRecord`/`claimedRecord`,
-               settle what it declines with `settleLead`, and compare the record with the old form (HTML, narration, runtime) with the
-               field dropped as the control (`test/unit/core/chart-native-record.test.js`).
-            2. Then phase 4 deletes the bridge (`bridgeRecordsHtml`, `bridgeRecordsSource`, `legacySpans`, `settleLead`) with the old
-               spellings, and the narration bundle's `markdown-it` external goes with it.
+why now   — Slice 4 (2026-10-23) moved the last 14 charts onto the shared row reader (`rows.native`; transform `takeRecord`, narrator
+            `claimedRecord`, through `recordFields`), so `PRIVATE_ROW_READER_BUDGET` is 0. What is left is deleting the code that
+            only the old spellings need.
+where     — 1. Phase 4 deletes the bridge and the old-form branches with the old spellings; the full list is in the model note §10
+               ("Honest limit"): split the narrator's claim-finder (`ownedRecordSites`) from the rewriter before deleting
+               `bridgeRecordsSource`/`legacySpans`; every consumer of `rows.legacy`; `recordPills`, `settleLead`, `settleCell`,
+               `EXTRA_FIELD_CHARTS`; the `native` flag and its gate. The narration bundle's `markdown-it` external goes with it.
+            2. Heatmap's `parseDataTable` and matrix-grid's `authoredTable` (narrator) still read the cell text the source bridge writes
+               from the record (`gridCellText`, which reads the record through the schema); phase 4 makes them read the record itself.
             3. A grouped number (`1,200`) is not a record value (Segno reads numbers ISO in, §5), and the census counts 78 grouped funnel
                values: the codemod writes `1200` and the chart shows it grouped.
             4. The model note's `{> …}` decisions still to ship: a list row's `>` description keeps rich Markdown on flowchart and
                state-chart (§3 decision 5, "new work"), and the `\|` fix `chart-table-unescaped-pipe` offers still meets `pill-literal`.
-done when — no transform or narrator parses a row's spans itself (`PRIVATE_ROW_READER_BUDGET` is 0); the bridge and `legacySpans` are
-            deleted with the old spellings (phase 4).
+done when — the bridge and `legacySpans` are deleted with the old spellings (phase 4).
 evidence  — corpus parity unchanged (HTML, marks, narration, lint), plus the per-chart matrix compared against the old form.
-verify    — tier 2 adversarial trio per chart group, because each changes what the shared kernel reads.
+verify    — tier 2 adversarial trio, because phase 4 changes what the shared kernel reads.
 
 Round log of slice 2 (history; the items it leaves open are the residuals named in it):
 

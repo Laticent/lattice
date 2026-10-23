@@ -5154,16 +5154,16 @@ const ADAPT_MODES = new Set(require('../lib/components/manifest.schema.json').pr
 const RESHAPE_STRATEGIES = new Set(['cover-cards']);
 
 /**
- * The count of chart row schemas whose transform and narrator still parse a row's spans with a reader of their own, not
- * through the row schema (`segno.row.rows.native`; lib/core/chart-rows.js `takeRecord`). Phase 2 of the chart authoring model
- * moves them over one by one; phase 4 deletes the bridge once none is left. A ratchet, both ways: a chart that gains a row
- * schema without `native` raises the count, and a chart moved over must lower the budget in the same change, so the number
- * can only fall on purpose. A chart marked `native` must read through `takeRecord` in its kernel, so the flag cannot be
- * decorative. (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §10; followups.d/2690-p1-chart-model-phase-2-reader.md)
+ * The count of chart row schemas whose transform still parses a row's spans with a reader of its own, not through the row
+ * schema (`segno.row.rows.native`; lib/core/chart-rows.js `takeRecord`). Phase 2 of the chart authoring model moved them over
+ * one by one and the count is 0: every chart with a row schema reads its record through `takeRecord`; phase 4 deletes the
+ * bridge and the old-form branches. A ratchet, both ways: a chart that gains a row schema without `native` raises the count,
+ * and the number can only rise on purpose. A chart marked `native` must read through `takeRecord` in its kernel, so the flag
+ * cannot be decorative. (engineering/decisions/2026-10-14-chart-authoring-uniform-model.md §10; followups.d/2690-p1-chart-model-phase-2-reader.md)
  */
-const PRIVATE_ROW_READER_BUDGET = 14;
+const PRIVATE_ROW_READER_BUDGET = 0;
 
-function checkNativeRowReaders(manifests, errors, readKernel = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8')) {
+function checkNativeRowReaders(manifests, errors, readKernel = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'), budget = PRIVATE_ROW_READER_BUDGET) {
   let privateReaders = 0;
   for (const m of manifests) {
     const slot = m.segno?.row ?? m.segno?.cell;
@@ -5176,10 +5176,10 @@ function checkNativeRowReaders(manifests, errors, readKernel = (rel) => fs.readF
       errors.push(`${m.name}: its row schema says \`native: true\`, but ${rel} never calls takeRecord, so the transform does not read the record through the row schema. Read it there, or drop the flag.`);
     }
   }
-  if (privateReaders !== PRIVATE_ROW_READER_BUDGET) {
+  if (privateReaders !== budget) {
     errors.push(
       `${privateReaders} chart row schemas read their rows with a private reader (no \`rows.native\`), and PRIVATE_ROW_READER_BUDGET in ` +
-      `tools/check-ownership.js is ${PRIVATE_ROW_READER_BUDGET}. ${privateReaders > PRIVATE_ROW_READER_BUDGET ? 'A new row schema should read through takeRecord and chart-rows.js recordFields, and set `rows.native`.' : 'A chart moved to the shared reader: lower the budget to the new count in the same change.'}`);
+      `tools/check-ownership.js is ${budget}. ${privateReaders > budget ? 'A new row schema should read through takeRecord and chart-rows.js recordFields, and set `rows.native`.' : 'A chart moved to the shared reader: lower the budget to the new count in the same change.'}`);
   }
 }
 

@@ -225,7 +225,8 @@
         "legacy": [
           "value",
           "kind"
-        ]
+        ],
+        "native": true
       }
     }
   }

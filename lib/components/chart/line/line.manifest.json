@@ -293,7 +293,8 @@
         "nested": "point-unless-valued",
         "legacy": [
           "value"
-        ]
+        ],
+        "native": true
       }
     }
   }

@@ -270,7 +270,8 @@
       "rows": {
         "shape": "grid",
         "quotes": false,
-        "empty": "none"
+        "empty": "none",
+        "native": true
       }
     }
   },

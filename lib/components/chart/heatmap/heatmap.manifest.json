@@ -227,7 +227,8 @@
         "shape": "grid",
         "quotes": false,
         "cellDescriptions": true,
-        "empty": "not-measured"
+        "empty": "not-measured",
+        "native": true
       }
     }
   }
