@@ -629,33 +629,88 @@ figure.chart-finish-pigment :where(.radar-tick) {
   fill: var(--text-heading) !important;
 }
 
+/* REGIONS — the ground is neutral; color sits on the marks (HIG: color sparingly). */
+section.chart-finish-pigment :where(.radar-poly),
+figure.chart-finish-pigment :where(.radar-poly) {
+  fill: none !important;
+  stroke-width: calc(var(--chart-edge) * 2.5) !important;
+}
+section.chart-finish-pigment :where(.risk-cell[data-band="low"]),
+figure.chart-finish-pigment :where(.risk-cell[data-band="low"]) {
+  fill: var(--state-pass-hue) !important;
+  stroke: var(--bg) !important;
+  stroke-width: 1.2 !important;
+}
+section.chart-finish-pigment :where(.risk-cell[data-band="medium"]),
+figure.chart-finish-pigment :where(.risk-cell[data-band="medium"]) {
+  fill: var(--state-warn-hue) !important;
+  stroke: var(--bg) !important;
+  stroke-width: 1.2 !important;
+}
+section.chart-finish-pigment :where(.risk-cell[data-band="high"]),
+figure.chart-finish-pigment :where(.risk-cell[data-band="high"]) {
+  fill: var(--state-fail-hue) !important;
+  stroke: var(--bg) !important;
+  stroke-width: 1.2 !important;
+}
+section.chart-finish-pigment :where(.risk-cell[data-band="critical"]),
+figure.chart-finish-pigment :where(.risk-cell[data-band="critical"]) {
+  fill: color-mix(in oklab, var(--state-fail-hue) 72%, black) !important;
+  stroke: var(--bg) !important;
+  stroke-width: 1.2 !important;
+}
+section.chart-finish-pigment :where(.waterfall-bar[data-s="total"]),
+figure.chart-finish-pigment :where(.waterfall-bar[data-s="total"]) {
+  fill: var(--chart-neutral-hue) !important;
+  stroke: var(--chart-neutral-hue) !important;
+}
+section.chart-finish-pigment :where(.hub-spoke-hub),
+figure.chart-finish-pigment :where(.hub-spoke-hub) {
+  fill: var(--chart-neutral-hue) !important;
+  stroke: var(--chart-neutral-hue) !important;
+}
+section.chart-finish-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)),
+figure.chart-finish-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
+  fill: var(--chart-solid-ink) !important;
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.roadmap td:first-child),
+figure.chart-finish-pigment :where(.roadmap td:first-child) {
+  background: var(--bg-alt) !important;
+}
+}
+section.chart-finish-pigment :where(.journey-stage),
+figure.chart-finish-pigment :where(.journey-stage) {
+  --section-accent: var(--chart-neutral-hue) !important;
+}
+
 /* The quadrant ZONE tints — colored furniture, so they move with the finish. */
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.quadrant-tint[data-cell="0"]),
 figure.chart-finish-pigment :where(.quadrant-tint[data-cell="0"]) {
-  fill: var(--chart-cat-1-fill) !important;
-  fill-opacity: 0.5 !important;
+  fill: var(--bg-alt) !important;
+  fill-opacity: 1 !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.quadrant-tint[data-cell="1"]),
 figure.chart-finish-pigment :where(.quadrant-tint[data-cell="1"]) {
-  fill: var(--chart-cat-2-fill) !important;
-  fill-opacity: 0.5 !important;
+  fill: var(--bg-alt) !important;
+  fill-opacity: 1 !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.quadrant-tint[data-cell="2"]),
 figure.chart-finish-pigment :where(.quadrant-tint[data-cell="2"]) {
-  fill: var(--chart-cat-3-fill) !important;
-  fill-opacity: 0.5 !important;
+  fill: var(--bg-alt) !important;
+  fill-opacity: 1 !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.quadrant-tint[data-cell="3"]),
 figure.chart-finish-pigment :where(.quadrant-tint[data-cell="3"]) {
-  fill: var(--chart-cat-4-fill) !important;
-  fill-opacity: 0.5 !important;
+  fill: var(--bg-alt) !important;
+  fill-opacity: 1 !important;
 }
 }
 

@@ -254,7 +254,11 @@ describe('chart-finish.generated.css', () => {
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
     assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
-    assert.doesNotMatch(css, /chart-finish-(pigment|etch) :where\([^)]*\.roadmap/, 'only tone reaches a roadmap');
+    assert.doesNotMatch(css, /chart-finish-etch :where\([^)]*\.roadmap/, 'etch leaves a roadmap alone');
+    // Pigment reaches ONE roadmap surface: the workstream row header goes to the neutral ground (REGIONS), and
+    // nothing else of the roadmap moves under it.
+    const pigmentRoadmap = [...css.matchAll(/section\.chart-finish-pigment :where\(([^)]*\.roadmap[^)]*)\)[^{]*\{([^}]*)\}/g)];
+    assert.deepEqual(pigmentRoadmap.map((m) => [m[1].trim(), m[2].trim()]), [['.roadmap td:first-child', 'background: var(--bg-alt) !important;']]);
     // The re-point and the pill's ink share one @supports block: without relative color the
     // pill could not pick its ink, so the roadmap keeps its shipped phases there.
     // Checker finding: `lastIndexOf('@supports')` alone always finds SOME earlier block, so the
