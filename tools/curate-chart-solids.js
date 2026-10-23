@@ -15,7 +15,8 @@
  * OKLCH lightness moves — away from the ink, by `ensureContrast` in lib/theme/color.js, the repo's one
  * lightness-march — until the ink clears 7:1 (AAA) on it. A seed that already clears it is left exactly as the
  * theme author curated it. Measured before the first run, over 18 palettes x 2 modes x 14 seeds: 180 of 504 already
- * cleared 7:1, the median shift was 0.03 OKLab lightness, and none was infeasible.
+ * cleared 7:1, the median shift was 0.03 OKLab lightness, and none was infeasible. The status trio is the exception:
+ * its INKS are the theme's and are left alone, and its light-face FILLS are solved as a trio (THE STATUS FILLS below).
  *
  * CURATED, NOT GENERATED. This rewrites the seed literals in the theme file that OWNS them, once. It is not part of
  * `npm run build`: a value an author hand-tunes afterwards stays tuned. What holds every theme to the bar is the
@@ -30,7 +31,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { resolveTokenExpr } = require('../lib/core/resolve-token-expr');
-const { contrastRatio, ensureContrast, hexToOklch, withLightness, oklabDistance } = require('../lib/theme/color.js');
+const { contrastRatio, ensureContrast, hexToOklch, oklchToHex, oklabDistance } = require('../lib/theme/color.js');
 const { themeChain } = require('../lib/theme/chain.mjs');
 const { simulate, SIMULATED_TYPES, ACHROMATOPSIA } = require('../lib/theme/cvd.js');
 const { THEME_EDGES } = require('../lib/theme/edges.generated.mjs');
@@ -45,7 +46,9 @@ const MARGIN = 0.05;
 
 const CATS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `chart-cat${n}`);
 // The status solids are the BASE's (base.tokens.css): every component that shows a status reads them.
-const STATES = ['pass', 'warn', 'fail', 'info', 'mute'];
+// `--pass` `--warn` `--fail` are the theme's status INKS and are not solved here; their light-face FILLS are (below).
+// `--info` and `--mute` serve as both ink and fill.
+const STATES = ['info', 'mute'];
 const NEUTRAL = 'chart-neutral';
 const ON_SOLID = 'on-solid';
 
@@ -100,76 +103,82 @@ function solveArm(seed, ink, surfaces = []) {
 }
 
 /**
- * THE STATUS TRIO MUST STAY APART TO A COLORBLIND READER. Solving each status alone to 7:1 under one ink packs all three
- * into the same narrow lightness band (under white every light-mode solid sits at or below about 0.47 OKLCH lightness),
- * and lightness is the channel a dichromat leans on and the only one a monochromat has: 142 trio pairs fell through the
- * floor test/unit/palette/cvd-trio-floor.test.js holds (0.15 under a dichromacy, 0.11 under achromatopsia). So the trio
- * is then pushed apart: while a pair is under its floor, the member already further from the ink moves further, which
- * keeps every contrast bar above met (moving away from the ink is also moving away from the canvas and the tint).
+ * THE STATUS FILLS (base.tokens.css § STATUS, IN TWO JOBS). `--pass` `--warn` `--fail` are the status as INK on the
+ * slide, curated by the theme and not touched here. On the light face a fill cannot be that ink: 7:1 under white needs
+ * a deep fill, an amber that deep is brown, and three fills packed into the narrow band under white collapse for a
+ * colorblind reader (the first pass here pushed them apart by lightness alone and turned red black and green white).
+ * So the light-face fills are solved as their own trio: green and red deep under white, amber light under its own dark
+ * ink (`--on-warn`), each at 7:1, apart under every condition test/unit/palette/cvd-trio-floor.test.js simulates, and
+ * otherwise as close as the search can get to the theme's own hue at a vivid lightness. On the dark face a fill is the
+ * status ink itself (`var(--X)`), at 4.5:1 under the dark canvas as ink.
  */
 const TRIO = ['pass', 'warn', 'fail'];
+const FILL = (s) => `${s}-solid`;
+const ON_WARN = 'on-warn';
 const cvdFloor = (type) => (type === ACHROMATOPSIA ? 0.11 : 0.15);
-/**
- * The bar each pair is held to is the gate's own: its floor, or, for a pair the frozen table already records BELOW the
- * floor (a monochrome palette's grays cannot reach 0.15 under every condition at once), that recorded separation.
- * Read from the test's frozen table so the solver and the gate cannot disagree about it.
- */
-const CVD_FROZEN = (() => {
-  const src = fs.readFileSync(path.join(ROOT, 'test', 'unit', 'palette', 'cvd-trio-floor.test.js'), 'utf8');
-  const out = new Map();
-  for (const m of src.matchAll(/\['([a-z0-9-]+\|(?:light|dark)\|[a-z]+\^[a-z]+\|[a-z]+)', ([0-9.]+)\]/g)) out.set(m[1], Number(m[2]));
-  return out;
-})();
-function trioBar(theme, mode, a, b, type) {
-  const floor = cvdFloor(type);
-  let bar = floor + 0.003; // a small margin over the floor, so a hex round-trip cannot land under it
-  for (const t of [theme, `${theme}-dark`]) {
-    for (const m of ['light', 'dark']) {
-      if (t === theme && m !== mode) continue;
-      // A pair already below the floor is held where it is (the gate's erosion tolerance is 0.002).
-      const frozen = CVD_FROZEN.get(`${t}|${m}|${a}^${b}|${type}`);
-      if (frozen !== undefined && frozen < floor) bar = Math.min(bar, frozen - 0.001);
-    }
-  }
-  return bar;
+/** A small margin over the floor, so a hex round-trip cannot land under it. */
+const FLOOR_MARGIN = 1.02;
+/** Where a fill aims: the theme's hue at a vivid lightness and chroma (a forest green, a true amber, an oxblood). */
+const AIM = { pass: { L: 0.46, C: 0.13 }, warn: { L: 0.78, C: 0.15 }, fail: { L: 0.44, C: 0.17 } };
+/** The search keeps each member's nearest candidates to its aim; 400 finds a passing trio on every shipped palette. */
+const KEEP = 400;
+const NEAR_BLACK = '#1A1A1A';
+
+/** The worst pair distance over every simulated condition, as a multiple of that condition's floor. */
+function floorMultiple(a, b) {
+  let worst = Infinity;
+  for (const type of SIMULATED_TYPES) worst = Math.min(worst, oklabDistance(simulate(a, type), simulate(b, type)) / cvdFloor(type));
+  return worst;
 }
-function spreadTrio(arm, ink, theme, mode, ok) {
-  const dir = ink === '#FFFFFF' ? -1 : 1;
-  const floorsMet = (c) => TRIO.every((x, i) => TRIO.slice(i + 1).every((y) => SIMULATED_TYPES.every(
-    (type) => oklabDistance(simulate(c[x], type), simulate(c[y], type)) >= trioBar(theme, mode, x, y, type))));
-  if (floorsMet(arm)) return true;
-  // Each member's room: how near the ink it may sit and still clear every contrast bar (`ok`). The trio is laid out
-  // from there, `step` apart in lightness and in its own order, and the step widens until every pair clears its bar.
-  const nearest = (x) => {
-    let L = hexToOklch(arm[x]).L;
-    while (ok(withLightness(arm[x], L - dir * 0.005))) L -= dir * 0.005;
-    return L;
-  };
-  // Every ordering of the three is tried, nearest-to-ink first, and the passing layout that moves the colors least
-  // wins: the order a palette shipped with is not always the one with room (a light amber pushed to the top of the
-  // band washes toward white and collides with a light blue under protanopia).
-  const room = Object.fromEntries(TRIO.map((x) => [x, nearest(x)]));
-  const orders = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]].map((o) => o.map((i) => TRIO[i]));
-  let best = null;
-  for (const order of orders) {
-    for (let step = 0; step <= 0.45; step += 0.005) {
-      const c = { ...arm };
-      let prev = null;
-      for (const x of order) {
-        const L = prev === null ? room[x] : (dir < 0 ? Math.min(room[x], prev + dir * step) : Math.max(room[x], prev + dir * step));
-        c[x] = withLightness(arm[x], L).toUpperCase();
-        prev = L;
+
+/** The amber's ink: the theme's own light-face heading if it clears 7:1 on the fill, else a neutral near-black. */
+function warnInk(fill, heading) {
+  return isHex(heading) && contrastRatio(fill, heading) >= TEXT_ON_SOLID + MARGIN ? heading.toUpperCase() : NEAR_BLACK;
+}
+
+/** Solve the three light-face fills from the hues of the theme's own status inks. */
+function solveFills(hue) {
+  const target = TEXT_ON_SOLID + MARGIN;
+  const candidates = (s) => {
+    const aim = oklchToHex({ L: AIM[s].L, C: AIM[s].C, h: hue[s] });
+    const out = [];
+    for (let L = 0.26; L <= 0.95; L += 0.01) {
+      for (let C = 0.04; C <= 0.2; C += 0.02) {
+        const x = oklchToHex({ L, C, h: hue[s] });
+        if (Math.abs(hexToOklch(x).C - C) > 0.015) continue; // out of gamut: the hex is not the color asked for
+        const ok = s === 'warn' ? contrastRatio(x, NEAR_BLACK) >= target : contrastRatio(x, '#FFFFFF') >= target;
+        if (ok) out.push([x.toUpperCase(), oklabDistance(x, aim)]);
       }
-      if (order.some((x) => { const L = hexToOklch(c[x]).L; return L <= 0.03 || L >= 0.995; })) break;
-      if (order.every((x) => ok(c[x])) && floorsMet(c)) {
-        const cost = TRIO.reduce((t, x) => t + Math.abs(hexToOklch(c[x]).L - hexToOklch(arm[x]).L), 0);
-        if (!best || cost < best.cost) best = { c, cost };
-        break;
+    }
+    return out.sort((p, q) => p[1] - q[1]).slice(0, KEEP);
+  };
+  const P = candidates('pass');
+  const W = candidates('warn');
+  const F = candidates('fail');
+  let best = null;
+  for (const [p, dp] of P) {
+    for (const [f, df] of F) {
+      if (best && dp + df >= best.cost) continue;
+      const pf = floorMultiple(p, f);
+      if (pf < FLOOR_MARGIN) continue;
+      for (const [w, dw] of W) {
+        const cost = dp + dw + df;
+        if (best && cost >= best.cost) break;
+        if (Math.min(pf, floorMultiple(p, w), floorMultiple(w, f)) >= FLOOR_MARGIN) { best = { cost, pass: p, warn: w, fail: f }; break; }
       }
     }
   }
-  if (best) { Object.assign(arm, best.c); return true; }
-  return false;
+  if (!best) throw new Error('no status-fill trio clears the colorblind floors at 7:1');
+  return best;
+}
+
+/** Whether a theme's declared light-face fills already meet the contract, so a hand-tuned trio is left alone. */
+function fillsHold(fills, ink) {
+  const target = TEXT_ON_SOLID + MARGIN;
+  if (!TRIO.every((s) => isHex(fills[s]))) return false;
+  if (contrastRatio(fills.pass, '#FFFFFF') < target || contrastRatio(fills.fail, '#FFFFFF') < target) return false;
+  if (!isHex(ink) || contrastRatio(fills.warn, ink) < target) return false;
+  return TRIO.every((x, i) => TRIO.slice(i + 1).every((y) => floorMultiple(fills[x], fills[y]) >= 1));
 }
 
 /**
@@ -199,13 +208,20 @@ function solveTheme(theme) {
       (arms[seed] ??= {})[key] = solved;
       kept[seed] = (kept[seed] ?? true) && solved === v.toUpperCase();
     }
-    const arm = Object.fromEntries(TRIO.map((t) => [t, arms[t][key]]));
-    const okStatus = (hex) => contrastRatio(hex, ink) >= TEXT_ON_SOLID + MARGIN
-      && [bg, bgAlt].filter(isHex).every((sf) => contrastRatio(hex, sf) >= 4.5 + MARGIN);
-    // Only a theme that OWNS its trio spreads it; one that inherits it (a11y-base from onyx) wears its owner's.
-    if (ownsTrio && !spreadTrio(arm, ink, theme, key, okStatus)) throw new Error(`${theme}: the status trio cannot be spread apart for a colorblind reader (${key})`);
-    for (const t of TRIO) {
-      if (arm[t] !== arms[t][key]) { arms[t][key] = arm[t]; kept[t] = false; }
+    // The light-face status fills, for a theme that owns its trio (one that inherits it wears its owner's).
+    if (ownsTrio && !dark) {
+      const now = Object.fromEntries(TRIO.map((t) => [t, raw[FILL(t)] && R(raw[FILL(t)])]));
+      const nowInk = raw[ON_WARN] && R(raw[ON_WARN]);
+      const hold = fillsHold(now, nowInk);
+      const fills = hold ? now : solveFills(Object.fromEntries(TRIO.map((t) => [t, hexToOklch(R(raw[t])).h])));
+      for (const t of TRIO) {
+        (arms[FILL(t)] ??= {}).light = fills[t].toUpperCase();
+        arms[FILL(t)].dark = `var(--${t})`;
+        kept[FILL(t)] = hold;
+      }
+      (arms[ON_WARN] ??= {}).light = hold ? nowInk.toUpperCase() : warnInk(fills.warn, R(raw['text-heading']));
+      arms[ON_WARN].dark = 'var(--on-solid)';
+      kept[ON_WARN] = hold;
     }
     const muted = R(raw['muted-mark'] ?? 'var(--text-muted)');
     if (!isHex(muted)) throw new Error(`${theme}: --muted-mark did not resolve (${key})`);
@@ -243,7 +259,7 @@ function main() {
     const mine = (seed) => new RegExp(`--${seed}\\s*:`).test(own);
     // A theme rewrites the seeds it already owns, and adds the two new ones after the last chart seed it owns.
     const owned = [...CATS, ...STATES].filter(mine);
-    const seeds = [...owned, NEUTRAL, ON_SOLID];
+    const seeds = [...owned, NEUTRAL, ON_SOLID, ...(solved[FILL('pass')] ? [...TRIO.map(FILL), ON_WARN] : [])];
     const anchor = `--${owned[owned.length - 1]}`;
     for (const seed of seeds) {
       const current = (own.match(new RegExp(`--${seed}\\s*:\\s*([^;]+);`)) || [])[1]?.trim();
@@ -260,4 +276,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { solveTheme, inkFor, TEXT_ON_SOLID, CATS, STATES, NEUTRAL, ON_SOLID };
+module.exports = { solveTheme, solveFills, inkFor, TEXT_ON_SOLID, CATS, STATES, NEUTRAL, ON_SOLID };

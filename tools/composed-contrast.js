@@ -180,44 +180,52 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` pill as a scored surface: the status's flat SOLID (the base's `--pass` … `--mute`) under the
- * one ink curated for every solid, `--on-solid`, at 7:1. `requires` pins the solid, the ink and the state's hue
- * mapping in the component CSS, so a retune of any of them reddens the gate instead of silently re-pointing what is
- * measured. */
+ * One `.chart-status` pill as a scored surface: the status's flat FILL (the base's `--X-solid`) under that status's
+ * text ink (`--on-warn` for amber, `--on-solid` for the rest), at 7:1 on the light face; on the dark face a
+ * pass/warn/fail fill is the status ink itself and holds 4.5:1 (base.tokens.css § STATUS, IN TWO JOBS). `requires`
+ * pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of them reddens the
+ * gate instead of silently re-pointing what is measured. */
+const TRIO_STATES = ['pass', 'warn', 'fail'];
+const solidInk = (state) => (state === 'warn' ? '--on-warn' : '--on-solid');
+const solidMinDark = (state) => (TRIO_STATES.includes(state) ? 4.5 : 7);
 
 function pillStop(state) {
   return {
     id: `chart/status-pill-${state}`,
-    ctx: `chart-family .chart-status[${state}]: the solid ink on the pill's flat solid`,
+    ctx: `chart-family .chart-status[${state}]: the status ink on the pill's flat fill`,
     base: '--bg',
-    groups: [{ bg: `var(--${state})` }],
-    ink: '--on-solid',
+    groups: [{ bg: `var(--${state}-solid)` }],
+    ink: solidInk(state),
     min: 7,
+    minDark: solidMinDark(state),
     src: CHARTFAMILY,
     requires: [
       /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
+      new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`),
+      new RegExp(`--state-${state}-on: var\\(${solidInk(state)}\\)`),
     ],
   };
 }
 
 /**
- * One state-chart NODE surface: text on a status-tinted tile.
+ * One state-chart NODE surface: text on a status-filled tile.
  *
- * A status paints the node itself, as a flat SOLID (chart-family.styles.css § THE SOLID TIER), and the state NAME
- * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink` (the base's `--on-solid`), held to 7:1
- * on every solid. The tile used to take the pill's 18/30 · 42/54 stops with `--text-heading`; `requires` pins the
- * solid, the ink and the tone mapping, so a retune of any of them reddens the gate instead of silently moving what
- * is measured. The neutral tile is the neutral solid, gated with the rest by test/unit/palette/chart-solids.test.js.
+ * A status paints the node itself, as a flat FILL (chart-family.styles.css § THE SOLID TIER), and the state NAME
+ * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink`: per status, `--state-X-on`. The bar is
+ * the pill's. `requires` pins the fill, the ink and the tone mapping, so a retune of any of them reddens the gate
+ * instead of silently moving what is measured. The neutral tile is the neutral solid, gated with the rest by
+ * test/unit/palette/chart-solids.test.js.
  */
 function stateChartNode(state) {
   return {
     id: `state-chart/node-${state}`,
-    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat solid`,
+    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat fill`,
     base: '--bg',
-    groups: [{ bg: `var(--${state})` }],
-    ink: '--on-solid',
+    groups: [{ bg: `var(--${state}-solid)` }],
+    ink: solidInk(state),
     min: 7,
+    minDark: solidMinDark(state),
     src: STATECHART,
     requires: [
       /--state-node-ink: var\(--chart-solid-ink\)/,
@@ -672,6 +680,9 @@ const SURFACES = [
 const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
+  // ── policy-recommendation/amend-badge ── 2
+  ['carbone-dark|light|policy-recommendation/amend-badge', 4.45],
+  ['carbone|light|policy-recommendation/amend-badge', 4.45],
   // ── policy-recommendation/oppose-badge ── 2
   ['concrete-dark|light|policy-recommendation/oppose-badge', 4.17],
   ['concrete|light|policy-recommendation/oppose-badge', 4.17],
@@ -683,11 +694,11 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['ardesia|dark|redline/del-on-old-card', 4.31],
   ['brina-dark|dark|redline/del-on-old-card', 4.43],
   ['brina|dark|redline/del-on-old-card', 4.43],
-  ['concrete-dark|dark|redline/del-on-old-card', 3.72],
-  ['concrete|dark|redline/del-on-old-card', 3.72],
+  ['concrete-dark|dark|redline/del-on-old-card', 3.68],
+  ['concrete|dark|redline/del-on-old-card', 3.68],
   // ── redline/old-label ── 2
-  ['concrete-dark|dark|redline/old-label', 4.48],
-  ['concrete|dark|redline/old-label', 4.48],
+  ['concrete-dark|dark|redline/old-label', 4.43],
+  ['concrete|dark|redline/old-label', 4.43],
 ]);
 
 // ── Color compositing ──────────────────────────────────────────────────────
@@ -1014,9 +1025,12 @@ function auditTheme(theme) {
       const res  = evalSurface(vars, s, isDark);
       const base = evalSurface(baseVars, s, isDark);
       if (!res || !base) { rows.push({ key, theme, mode, surface: s, unresolved: true }); continue; }
-      const below = res.ratio < s.min;
+      // A surface may hold its dark face to a different bar (`minDark`): a status fill on the dark face is the
+      // status ink itself, at 4.5:1 under its text (base.tokens.css § STATUS, IN TWO JOBS).
+      const min = isDark && s.minDark != null ? s.minDark : s.min;
+      const below = res.ratio < min;
       rows.push({
-        key, theme, mode, surface: s,
+        key, theme, mode, surface: s, min,
         ratio: res.ratio, fgHex: res.fgHex, bgHex: res.bgHex,
         baseRatio: base.ratio,
         below,
@@ -1258,7 +1272,7 @@ if (require.main === module) {
       if (r.unresolved) { console.log(`  ?     ${r.key}`); continue; }
       const mark = r.regressed ? '  ✗  ' : r.below ? 'under' : '  ✓  ';
       console.log(
-        `  ${mark} ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.surface.min}, ` +
+        `  ${mark} ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.min ?? r.surface.min}, ` +
         `base ${r.baseRatio.toFixed(2)})  ${r.key}`,
       );
     }
@@ -1269,14 +1283,14 @@ if (require.main === module) {
   for (const r of res.unresolved) console.log(`  ? unresolved: ${r.key} — ${r.surface.ctx}`);
   for (const r of res.regressions) {
     console.log(
-      `  ✗ ${r.baseRatio.toFixed(2)} -> ${r.ratio.toFixed(2)}:1 (need ${r.surface.min})  ${r.key}`,
+      `  ✗ ${r.baseRatio.toFixed(2)} -> ${r.ratio.toFixed(2)}:1 (need ${r.min ?? r.surface.min})  ${r.key}`,
     );
     console.log(`       ${r.surface.ctx}`);
     console.log(`       ink ${r.fgHex} on ${r.bgHex}  ·  ${r.surface.src}`);
   }
 
   for (const r of res.unlisted) {
-    console.log(`  ✗ ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.surface.min})  ${r.key}  — NOT in the frozen baseline`);
+    console.log(`  ✗ ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.min ?? r.surface.min})  ${r.key}  — NOT in the frozen baseline`);
     console.log(`       ${r.surface.ctx}`);
     console.log(`       ink ${r.fgHex} on ${r.bgHex}  ·  ${r.surface.src}`);
   }

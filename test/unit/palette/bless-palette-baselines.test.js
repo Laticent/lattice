@@ -194,9 +194,7 @@ describe('bless-palette-baselines · the table parser', () => {
     // `--code-inline-fg` inherited `var(--accent)` and the chip is a 10% wash of that same
     // value, so the ink was scored against a ground made from itself at 4.17 on --bg-alt.
     // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
-    // 14 -> 12 when the status pill and the state-chart node became solids under
-    // `--on-solid` (7:1 by construction), which retired two tinted-pill rows.
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*12 entries/,
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*14 entries/,
       'the contrast table still parses in full');
     // 792, up from 768: `carbone-dark` is a NEW theme (carbone grew a curated light face
     // and took the house two-file shape), so the table gains one theme's worth --

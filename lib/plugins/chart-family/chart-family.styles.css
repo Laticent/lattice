@@ -530,22 +530,25 @@ section.word-cloud,
  *   --state-X-ink   the saturated mark — bar border, pill text, the
  *                   thin progress fill — lifted toward white on dark.
  *
- * The hue IS the base's status solid (`--pass` `--warn` `--fail` `--info` `--mute`, base.tokens.css), which each
- * theme curates once for every component, at 7:1 under `--on-solid`. A chart keeps no status color of its own. */
+ * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css) and the ink is the base's
+ * status INK (`--pass` … `--mute`), which each theme curates once for every component. A chart keeps no status color
+ * of its own. The ink is also every status mark's edge, so a fill too light to clear 3:1 off the slide (a light-face
+ * amber) still has a boundary that does. */
 section.chart-frame,
 .chart-frame {
-  --state-pass-hue: var(--pass);  /* green  — done/on-track/live   */
-  --state-warn-hue: var(--warn);  /* amber  — at-risk/warn         */
-  --state-fail-hue: var(--fail);  /* red    — blocked/fail         */
-  --state-info-hue: var(--info);  /* blue   — pilot/decision/info  */
-  --state-mute-hue: var(--mute);  /* gray   — deferred             */
+  --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
+  --state-warn-hue: var(--warn-solid);  /* amber  — at-risk/warn         */
+  --state-fail-hue: var(--fail-solid);  /* red    — blocked/fail         */
+  --state-info-hue: var(--info-solid);  /* blue   — pilot/decision/info  */
+  --state-mute-hue: var(--mute-solid);  /* gray   — deferred             */
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
    * mark with neither `--chart-neutral-hue`. Text on any of them is `--chart-solid-ink`, one ink per mode (white
-   * on a light canvas, the canvas on a dark one), so a label reads the same on every chart. Each theme curates the
-   * seeds (`--chart-catN`, the base's status solids `--pass` `--warn` `--fail` `--info` `--mute`, `--chart-neutral`,
-   * and the base's `--on-solid`) so the ink clears 7:1 on every
+   * on a light canvas, the canvas on a dark one), so a label reads the same on every chart. The one exception is
+   * amber: inside a mark that carries an at-risk status, `--chart-solid-ink` is `--on-warn` (the rule below). Each theme curates the
+   * seeds (`--chart-catN`, the base's status fills `--pass-solid` … `--mute-solid`, `--chart-neutral`, and the
+   * base's `--on-solid` / `--on-warn`) so the ink clears 7:1 on every
    * solid and every solid clears 3:1 off the canvas: tools/curate-chart-solids.js seeded them, and
    * test/unit/palette/chart-solids.test.js holds every palette to it. No chart mixes or grades its own fill. */
   --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #9AA7B6));
@@ -569,11 +572,18 @@ section.chart-frame,
   --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 50%, black));
   --state-mute-fill: light-dark(color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-mute-hue) 46%, black));
 
-  --state-pass-ink: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 78%, white));
-  --state-warn-ink: light-dark(var(--state-warn-hue), color-mix(in oklab, var(--state-warn-hue) 78%, white));
-  --state-fail-ink: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 78%, white));
-  --state-info-ink: light-dark(var(--state-info-hue), color-mix(in oklab, var(--state-info-hue) 78%, white));
-  --state-mute-ink: light-dark(var(--state-mute-hue), color-mix(in oklab, var(--state-mute-hue) 72%, white));
+  --state-pass-ink: light-dark(var(--pass), color-mix(in oklab, var(--pass) 78%, white));
+  --state-warn-ink: light-dark(var(--warn), color-mix(in oklab, var(--warn) 78%, white));
+  --state-fail-ink: light-dark(var(--fail), color-mix(in oklab, var(--fail) 78%, white));
+  --state-info-ink: light-dark(var(--info), color-mix(in oklab, var(--info) 78%, white));
+  --state-mute-ink: light-dark(var(--mute), color-mix(in oklab, var(--mute) 72%, white));
+
+  /* The ink for TEXT on each status fill: `--on-solid`, except amber, which carries the theme's `--on-warn`. */
+  --state-pass-on: var(--on-solid);
+  --state-warn-on: var(--on-warn);
+  --state-fail-on: var(--on-solid);
+  --state-info-on: var(--on-solid);
+  --state-mute-on: var(--on-solid);
 
   /* Shared accent header-rule — the hairline under a data header (gantt quarter
    * axis, kanban column headers). One token so every chart's header underline
@@ -1174,6 +1184,15 @@ section.chart-frame .chart-caption::before {
   border: var(--chart-hairline) solid var(--chart-status-hue);
   color: var(--chart-solid-ink);
 }
+/* TEXT ON A STATUS FILL. Every member marks a status with `data-s`, in one shared vocabulary, and its label sits on
+ * that mark or inside it, so the ink on a fill is set here once, by status, for every chart. Only amber differs from
+ * the frame's `--chart-solid-ink` today, and the five rules keep that a theme decision rather than a code one. */
+:is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --chart-solid-ink: var(--state-pass-on); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-solid-ink: var(--state-warn-on); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-solid-ink: var(--state-fail-on); }
+:is(section.chart-frame, figure.chart-frame) :is([data-s="pilot"], [data-s="decision"], [data-s="info"]) { --chart-solid-ink: var(--state-info-on); }
+:is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --chart-solid-ink: var(--state-mute-on); }
+
 /* One rule per status — canvas-aware --state-* tokens, no `.dark` overrides. */
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="on-track"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="done"],

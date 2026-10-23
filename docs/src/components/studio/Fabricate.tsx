@@ -142,6 +142,10 @@ const DIAGRAM_TOKENS: { token: string; label: string }[] = [
 	{ token: 'diagram-critical', label: 'Critical edge' },
 	{ token: 'info', label: 'Status · info' },
 	{ token: 'mute', label: 'Status · muted' },
+	{ token: 'pass-solid', label: 'Status fill · pass' },
+	{ token: 'warn-solid', label: 'Status fill · warn' },
+	{ token: 'fail-solid', label: 'Status fill · fail' },
+	{ token: 'on-warn', label: 'Ink on the warn fill' },
 ];
 // Friendly label for any band token (the inspector's caption).
 function bandLabel(token: string): string {

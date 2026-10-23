@@ -73,7 +73,7 @@ override any subset of them.
 | Ink | `--text-display` `--text-heading` `--text-body` `--text-secondary` `--text-label` `--text-muted` `--code-inline-fg` |
 | Graphical ink | `--muted-mark` |
 | Accent | `--accent` `--accent-soft` `--on-accent` `--on-accent-soft` † `--accent-soft-body` † |
-| Status | `--pass` `--fail` `--warn` `--info` `--mute` `--on-solid` `--pass-bg` `--fail-bg` `--warn-bg` |
+| Status | `--pass` `--fail` `--warn` `--info` `--mute` `--on-solid` `--pass-solid` `--warn-solid` `--fail-solid` `--on-warn` `--pass-bg` `--fail-bg` `--warn-bg` |
 | The dark face | `--scheme-dark-bg` `--scheme-dark-bg-alt` `--scheme-dark-border` `--scheme-dark-text-heading` `--scheme-dark-text-body` `--scheme-dark-text-display` `--scheme-dark-text-secondary` `--scheme-dark-text-label` `--scheme-dark-text-muted` `--scheme-dark-muted-mark` |
 | Categorical slots | `--cat-1-fill` `--cat-2-fill` `--cat-3-fill` `--cat-4-fill` `--cat-5-fill` `--cat-6-fill` `--cat-7-fill` `--cat-8-fill` `--cat-9-fill` `--cat-10-fill` `--cat-11-fill` `--cat-12-fill` `--cat-1-mark` `--cat-2-mark` `--cat-3-mark` `--cat-4-mark` `--cat-5-mark` `--cat-6-mark` `--cat-7-mark` `--cat-8-mark` `--cat-9-mark` `--cat-10-mark` `--cat-11-mark` `--cat-12-mark` `--cat-1-ink` `--cat-2-ink` `--cat-3-ink` `--cat-4-ink` `--cat-5-ink` `--cat-6-ink` `--cat-7-ink` `--cat-8-ink` `--cat-9-ink` `--cat-10-ink` `--cat-11-ink` `--cat-12-ink` `--cat-on-fill` `--cat-on-mark` `--diagram-stroke` `--diagram-line` `--diagram-accent-warm` |
 | Heatmap ramp | `--heatmap-step1` ‡ `--heatmap-step2` ‡ `--heatmap-step3` ‡ `--heatmap-step4` ‡ `--heatmap-step5` ‡ `--heatmap-step1-ink` ‡ `--heatmap-step2-ink` ‡ `--heatmap-step3-ink` ‡ `--heatmap-step4-ink` ‡ `--heatmap-step5-ink` ‡ |
@@ -87,11 +87,13 @@ override any subset of them.
 † the engine defaults it (`ENGINE_DEFAULTED_TOKENS`). ‡ every reader has a fallback
 (`FALLBACK_ONLY_TOKENS`). Both live in `lib/theme/gate.js`, and a test holds this table to them.
 
-**The status and chart colors are SOLIDS.** `--pass` `--warn` `--fail` `--info` `--mute`, the eight `--chart-catN`
-and `--chart-neutral` are each one flat color a mark is painted with, and `--on-solid` is the one ink for text on
-any of them. A conforming theme gives `--on-solid` at least 7:1 on every solid and every solid at least 3:1
-against `--bg`, in both color schemes; a status solid also clears 4.5:1 as text on `--bg` and `--bg-alt`, because
-components print a status in its own color.
+**Status has two jobs, and chart colors are SOLIDS.** `--pass` `--warn` `--fail` `--info` `--mute` are the status as
+INK on the slide: each clears 4.5:1 as text on `--bg` and `--bg-alt`. `--pass-solid` `--warn-solid` `--fail-solid` are
+the status as a FILL a label sits on; `--info` and `--mute` serve as both. On the light face text on a fill clears 7:1
+under `--on-solid`, or under `--on-warn` on the amber fill; on the dark face a pass/warn/fail fill is the status ink
+itself and its text clears 4.5:1. The eight `--chart-catN` and `--chart-neutral` are fills too, at 7:1 under
+`--on-solid` in both color schemes. Every fill clears 3:1 against `--bg`, or a status fill's ink edge does, and the
+three light-face status fills stay apart for a colorblind reader.
 
 The code-highlighting tokens name ROLES, not a highlighter's classes: Lattice's code plugin maps
 each highlight.js class onto one of them, so a theme never names highlight.js. Four more roles are
