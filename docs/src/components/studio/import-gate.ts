@@ -102,15 +102,19 @@ export async function refuseImportedTheme(css: string, name: string): Promise<Im
 
 /**
  * Refuse an imported PLUGIN's `styles.css` that reaches off the device, or `null` to allow.
- * Nothing applies it yet (plugin-library.ts stores it for the step that delivers it), so it is
- * held to the exfil rules alone, as `refusePlugin` in lib/packages/gate.js holds it in the CLI.
+ * Held to the exfil rules and to the one shape the host can scope (lib/packages/plugin-css.mjs), as `refusePlugin` in
+ * lib/packages/gate.js holds it in the CLI: the Studio rebuilds the sheet behind the plugin's root for every preview and export.
  */
 export async function refuseImportedPluginStyles(css: string, name: string): Promise<ImportRefusal> {
 	if (!css.trim()) return null;
 	// `gateCss` for its exfil findings; `firstRefusal` ignores the style ones (scoping, hex, margin).
 	const { gateCss } = await loadLayoutCore();
 	const verdict = gateCss(css, name) as { findings?: Finding[] };
-	return firstRefusal(verdict.findings, name);
+	const exfil = firstRefusal(verdict.findings, name);
+	if (exfil) return exfil;
+	const { pluginCssRefusal } = await import('../../../../lib/packages/plugin-css.mjs');
+	const shape = pluginCssRefusal(css);
+	return shape ? { name, why: shape } : null;
 }
 
 /**

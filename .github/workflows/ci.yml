@@ -55,7 +55,7 @@ concurrency:
 #                                                              2026-10-05 re-sample below)
 #   golden-diff            69    91s   511s   554s    25m     2.7x
 #   docs-build             89   420s   445s   466s    20m     2.6x
-#   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin
+#   studio-smoke           89   342s   364s   829s    15m     1.1x  <-- thin (cap raised to 20m on 2026-10-22, see below)
 #   ci                     99     5s     7s    11s     5m    27.3x
 #
 #   player-webkit (added 2026-09-29, PR #2494): not in the sample above. Cap 12m is
@@ -904,7 +904,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20 # raised from 15 on 2026-10-22 (PR #2822): a passing run took 14m56s (tests 12m17s) and two runs were cancelled at the old cap
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

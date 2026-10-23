@@ -1192,7 +1192,8 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// no-op. See lib/core/preview-font-gate.mjs.
 			'<scr' + 'ipt>' + fontGateAgent() + '</scr' + 'ipt>' +
 			// The diagram library's fetch starts with the document, not after the runtime boots.
-			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl) : '') +
+			// A library whose kind the page's draw host offers is drawn in the host's own sandboxed frame, so the preview frame loads none.
+			(drawn && runtimeUrl ? drawnLibraryPreload(runtimeUrl, window.__latticeDrawHost?.kinds) : '') +
 			'</head><body>' +
 			html;
 		// Read off the SANITIZED html above rather than taken as a caller flag the way

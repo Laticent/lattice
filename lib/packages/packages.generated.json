@@ -1444,6 +1444,7 @@
       "path": "lib/plugins/function-plot",
       "roles": [
         "docs.md",
+        "draw-frame.js",
         "fixtures.md",
         "hydrate.js",
         "manifest.json",
@@ -1501,6 +1502,9 @@
       "roles": [
         "bake.js",
         "docs.md",
+        "draw-frame.js",
+        "draw-host.mjs",
+        "draw-shim.mjs",
         "fixtures.md",
         "highlight.js",
         "hydrate.js",

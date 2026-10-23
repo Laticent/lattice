@@ -28,6 +28,7 @@
 
 import { ENGINE_ENTRY, engineBaseFor, recordEngineUrl } from './engine-base';
 import { preloadEntry } from './ensure-charts';
+import { installPreviewDrawHost } from './preview-draw-host';
 
 // One in-flight/settled promise per engine URL (URLs are content-hashed, so a
 // single page only ever sees one). Survives React StrictMode double-mounts and
@@ -50,6 +51,8 @@ const POLL_MS = 50;
 export function ensureEngine(url: string): Promise<void> {
 	if (typeof window === 'undefined') return Promise.resolve();
 	recordEngineUrl(url);
+	// Every surface that shows a preview loads the engine here, so this is where the page offers its frames a draw host.
+	installPreviewDrawHost();
 	if (window.LatticePlayground) return Promise.resolve();
 
 	const existing = loaders.get(url);

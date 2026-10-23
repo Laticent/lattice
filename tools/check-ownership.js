@@ -6054,6 +6054,23 @@ const SANCTIONED_RUNTIME_MARKUP_SINKS = [
       'and test/unit/components/graph-icons.test.js "a forged harness cannot inject markup" and ' +
       '"the cases the red team probed are pinned".',
   },
+  {
+    file: 'lib/plugins/host-browser.mjs',
+    sink: 'target.innerHTML',
+    count: 1,
+    provenance:
+      'THIRD PARTY, SANITIZED BEFORE IT ARRIVES — the drawing a page\'s DRAW HOST answers, written into a plugin\'s placeholder by ' +
+      '`ctx.drawInto(target, job)`, the ONE writer for every plugin that draws in a draw frame (a plugin\'s hydrate never assigns markup ' +
+      'itself, so a new such plugin adds no entry here). Only the Studio and Playground previews offer a host ' +
+      '(docs/src/lib/preview-draw-host.ts); every other surface has none and never reaches this line. The host runs the plugin\'s library in a ' +
+      'sandboxed draw frame (an opaque origin: no storage, no network, no reach into the Studio; lib/packages/draw-frame-core.mjs) and ' +
+      'sanitizes what the frame returns BEFORE it answers, because the runtime has no sanitizer to run it here: through the plugin\'s own ' +
+      '`finish` (which receives the slide and diagram sanitizers) or, for a plugin with none, through `sanitizeSlideHtml` ' +
+      '(docs/src/lib/preview-draw-host-impl.ts `drawKind`). So the string written is a sanitizer\'s output, and the guard is those calls in the host: ' +
+      'its tests (docs/src/lib/preview-draw-host.test.ts "a plot\'s drawing is sanitized before the runtime sees it", ' +
+      'preview-draw-host.generic.test.ts "gives a kind with no host half the safe default") fail if either stops. A host that answered ' +
+      'unsanitized markup would be a new undeclared sink in the host, which this census would not see: do not add one without sanitizing there.',
+  },
   // Mermaid's two entries MOVED with its diagram pass, verbatim, from lib/runtime/index.js into the
   // plugin (phase D's browser half, `render.exec.hydrate: "pass"`): same sinks, same counts, same
   // provenance — the pass still runs inside the preview frame, after the builder sanitized.

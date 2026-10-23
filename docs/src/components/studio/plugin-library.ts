@@ -15,7 +15,7 @@ export type StudioPluginRecord = {
 	name: string; // lowercase slug: the name a deck writes in `plugins:`
 	fence: string; // the one fence it owns (```fence), or '' for a plugin of inline kinds only
 	code: string; // its `render.js`, as text
-	/** The plugin's `styles.css`, kept for the data-layer step that delivers it; not yet applied. */
+	/** The plugin's `styles.css`. The door rebuilds it behind the plugin's root (`scopePluginCss`) and adds it to every preview and export. */
 	css: string;
 	title: string;
 	description: string;

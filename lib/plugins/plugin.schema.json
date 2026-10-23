@@ -348,6 +348,35 @@
         }
       }
     },
+    "draw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame"],
+      "description": "IN-TREE ONLY. This plugin's figures may be drawn in a sandboxed DRAW FRAME by a page whose host offers one (the Studio's and the Playground's previews): the library runs in an opaque-origin frame with no network, and the figure comes back as text the host sanitizes. Needs `payload` (the library) and a browser half (`render.exec.hydrate` `browser` or `pass`). The host and the frame's kernel name no plugin: everything they need is declared here and in the files `<name>.draw-frame.js`, `<name>.draw-host.mjs` and `<name>.draw-shim.mjs`, wired by the registry build. A page without a host (every export, the plain `.html`) ignores this section and loads the library as before. Decision note: engineering/decisions/2026-10-19-first-party-plugins-in-the-sandbox.md.",
+      "properties": {
+        "frame": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["library"],
+          "description": "What runs INSIDE the frame. `<name>.draw-frame.js` exports `draw(job, env)`, which answers the figure as text: `env.lib` is the library's global, `env.box` a laid-out container, `env.faces(list)` loads font faces, `env.px(n)` checks a size, `env.token(node, name)` reads a CSS value and, with `usesHydrate`, `env.hydrate` is this plugin's own hydrate function. The module is self-contained (no require, no import, nothing outside `draw`): its text is hashed into the frame's one script.",
+          "properties": {
+            "library": {
+              "enum": ["inline", "esm"],
+              "description": "`inline`: the pinned library text goes into the frame's script (a small library). `esm`: the library is a module graph the frame imports by URL (a large one); needs `vendor.esm` and `vendor.esm-chunks`, and every module's SHA-256 goes into an import map."
+            },
+            "unsafeEval": { "type": "boolean", "description": "The frame's policy allows `'unsafe-eval'` (a library that compiles expressions, as function-plot does). Default false; the one policy bit a plugin may widen." },
+            "usesHydrate": { "type": "boolean", "description": "The frame also receives this plugin's `hydrate` function as `env.hydrate`, so the figure a preview draws is made by the code every other surface runs (HARD RULE #1). Needs `render.exec.hydrate: \"browser\"`." },
+            "preload": {
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" },
+              "description": "With `library: esm`: lazy chunks (by their name before the content hash) whose import closure the frame fetches when it opens, because the first drawing of most decks needs them (Mermaid: `flowDiagram`)."
+            }
+          }
+        },
+        "host": { "type": "boolean", "description": "`<name>.draw-host.mjs` exists and exports `prepare(job, env)` and/or `finish(raw, env)`. The host runs `prepare` on a job before it crosses to the frame and `finish` on the frame's answer before the page sees it. A plugin with no `finish` has its answer treated as markup and put through the slide sanitizer. Runs in the host page, never in the frame." },
+        "shim": { "type": "boolean", "description": "`<name>.draw-shim.mjs` exports `createShim(host, doc)`: an object with the library's global's shape that sends the work to the host. Required for a plugin whose browser half is a document pass (`render.exec.hydrate: \"pass\"`), which calls the global itself; forbidden for one whose hydrate function receives `ctx.draw`." }
+      }
+    },
     "vendor": {
       "type": "object",
       "description": "Third-party libraries the plugin OWNS a committed copy of that are not its browser `payload`: a renderer's library (KaTeX, with its stylesheet and fonts) or the bake's (ZenUML, mermaid-cli's render page). Every surface reads the copy (lib/plugins/payload-path.js `vendorPath`), never the installed package, and the build fails when a copy stops matching `sha256`. `npm run vendor:plugins` refreshes a copy and its record together.",

@@ -1774,6 +1774,9 @@ let DECK_CODE_PACKAGES = [];
 // as the bytes the user approved: the door runs these on their fences. An installed plugin the deck does not list
 // is only offered, and its fence stays the code block it is. Filled by withInstalledComponents.
 let DECK_PLUGINS = [];
+// The stylesheets of the installed plugins that DREW something in this render, scoped to each plugin's own root (code-door-fence.mjs
+// `scopePluginCss`). Filled where the door runs; written into the export's one deck `<style>` through `sanitizeStyleText` (HARD RULE #22).
+let DECK_PLUGIN_CSS = '';
 /** Exit, naming each package, if any of these code packages lacks the user's approval. */
 function refuseUnapprovedCode(pkgs) {
   if (!pkgs.length) return;
@@ -1823,7 +1826,7 @@ function withInstalledPlugins(source) {
     if (written.length) console.error(`warning: the installed plugin ${p.name} draws ${written.map((k) => `\`@${k.name}{…}\``).join(', ')} spans, and this deck does not list it, so they stay code. To draw them, add it to the deck's front matter: plugins: [${p.name}]`);
   }
   const { pluginReturnFields } = require('./lib/packages/code-shape.mjs');
-  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
+  return [...installed.filter((p) => active.has(p.name)).map((p) => ({ name: p.name, fence: fenceOf(p), kinds: inlineKindsOf(p.pkg.manifest), returns: pluginReturnFields(p.pkg.manifest), code: p.pkg.files[p.pkg.roles['render.js']], css: p.pkg.roles['styles.css'] ? String(p.pkg.files[p.pkg.roles['styles.css']]) : '', layer: trustOf(approvals, 'plugin', p.name, codeDigest(p.pkg))?.layer ?? null })), ...npm];
 }
 
 /**
@@ -2283,6 +2286,9 @@ function engineSlides(deckSource = rawMd) {
       process.exit(1);
     }
     rendered = r.rendered;
+    const { scopePluginCss } = require('./lib/packages/code-door-fence.mjs');
+    const drew = new Set((r.claimed || []).filter((n) => n.startsWith('plugin/')).map((n) => n.slice('plugin/'.length)));
+    DECK_PLUGIN_CSS = DECK_PLUGINS.filter((p) => drew.has(p.name) && p.css).map((p) => scopePluginCss(p.name, p.css)).join('\n');
   } else {
     rendered = engine.render(deckMd, paletteName, { samplesUrl, assetUrls, baseUrl: deckBaseUrl });
   }
@@ -2944,7 +2950,7 @@ if (deckSheet.refused && !QUIET) {
     + ' verified as whole rules and were left in place. They will fail to load; the export is'
     + ' otherwise unaffected. Please report the stylesheet that triggered this.');
 }
-const deckStyleText = exportDeckStyleText({ w: slideW, h: slideH, startMark: sheetStartMark(deckSizeName, paletteName), deckCss: deckSheet.css, endMark: SHEET_END_MARK, globalCss: exportGlobalCss(fm, slidesAsAuthored.join('\n')) });
+const deckStyleText = exportDeckStyleText({ w: slideW, h: slideH, startMark: sheetStartMark(deckSizeName, paletteName), deckCss: deckSheet.css, endMark: SHEET_END_MARK, globalCss: `${exportGlobalCss(fm, slidesAsAuthored.join('\n'))}${DECK_PLUGIN_CSS ? `\n${DECK_PLUGIN_CSS}` : ''}` });
 
 // The one place the deck's stylesheet exists as a finished string. Compute it
 // once: the <style> body below embeds it, and the texture <defs> are chosen from

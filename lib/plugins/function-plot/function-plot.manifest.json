@@ -31,6 +31,9 @@
       "when": "used"
     }
   },
+  "draw": {
+    "frame": { "library": "inline", "unsafeEval": true, "usesHydrate": true }
+  },
   "vendor": {
     "license": { "from": "npm:function-plot/LICENSE", "file": "vendor/function-plot.LICENSE", "version": "1.25.4", "sha256": "86afcfc89ecd82fcf71e87e1f7486cecefa878c73dd6f164445347f7d856d0f4" }
   },

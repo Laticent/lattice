@@ -486,8 +486,8 @@ was measured and disposed:
 | 0.5 Mbps | 23.2 s | not measured by the probe |
 
 The turn time passes 15 s below ~0.9 Mbps without the fit check timing out. The slow part is
-the Studio's Mermaid PARSE check (`checkDraft` → `mermaid-parse`), which has no time limit and
-waits for the whole download. That costs latency, never a wrong answer, so it stays.
+the Studio's Mermaid check (`checkDraft` → `mermaid-parse`), which has no time limit and
+waited for the whole download of the page-side library. (Since 2026-10-21 it draws each diagram in the sandboxed preview frame instead, and the page loads no Mermaid.) That costs latency, never a wrong answer, so it stays.
 
 **A diagram that has not drawn has no verdict.** At 0.7 Mbps the fit frame's 4 s diagram wait
 (`waitForDiagrams`) expired while Mermaid was still downloading. The frame released the figure

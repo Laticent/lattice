@@ -40,7 +40,7 @@ test('the plugins own exactly the libraries we ship', () => {
   assert.deepEqual(COPIES.map((c) => `${c.plugin}:${c.key}`).sort(), [
     'function-plot:function-plot', 'function-plot:license',
     'math:katex', 'math:katex-css', 'math:katex-fonts', 'math:license',
-    'mermaid:license', 'mermaid:mermaid', 'mermaid:render-page', 'mermaid:render-page-license', 'mermaid:zenuml', 'mermaid:zenuml-license',
+    'mermaid:esm', 'mermaid:esm-chunks', 'mermaid:license', 'mermaid:mermaid', 'mermaid:render-page', 'mermaid:render-page-license', 'mermaid:zenuml', 'mermaid:zenuml-license',
   ]);
   // Each is MIT, whose notice must travel with every copy: every package a plugin copies from has
   // its LICENSE copied beside the library, recorded and hashed like the library itself.
