@@ -116,9 +116,9 @@ and a slide can pin its own with `_class: chart-finish-<name>`.
 ### The solids — the base every finish styles
 
 Every chart concept has **one flat solid**, curated per theme: a category is `--chart-cat-N-hue`
-(seed `--chart-catN`), a status `--state-X-hue` (seed `--chart-state-X`), and a mark with neither
+(seed `--chart-catN`), a status `--state-X-hue` (seed the base status solid `--X`), and a mark with neither
 `--chart-neutral-hue` (seed `--chart-neutral`). Text on any solid is **one ink per mode**,
-`--chart-solid-ink` (seed `--chart-on-solid`): white where the canvas is light, the canvas itself where
+`--chart-solid-ink` (seed `--on-solid`): white where the canvas is light, the canvas itself where
 it is dark, so a label reads the same on every chart. The contract, held for every palette in both modes
 by `test/unit/palette/chart-solids.test.js`:
 
@@ -451,7 +451,7 @@ assumes hue is available breaks there and nowhere else.
   specificity beats that. A palette declares in `:root`; anything `chart-family.styles.css`
   declares on `.chart-frame` itself is out of a palette's reach that way. That is why a
   palette curates the chart SOLIDS through seeds the family READS (`--chart-catN`,
-  `--chart-state-X`, `--chart-neutral`, `--chart-on-solid`) and never sets the consumed
+  `--pass`…`--mute`, `--chart-neutral`, `--on-solid`) and never sets the consumed
   token. The gradient wash this note used to describe (`--chart-fill-top-*`, overridable as
   `--palette-fill-*`, and flattened by concrete because no ink cleared its mid-tone canvas)
   is retired: every fill is a flat solid with its own curated ink.

@@ -1041,11 +1041,10 @@ section.print {
   --heatmap-step3: var(--print-heatmap-step3); --heatmap-step3-ink: var(--print-heatmap-step3-ink);
   --heatmap-step4: var(--print-heatmap-step4); --heatmap-step4-ink: var(--print-heatmap-step4-ink);
   --heatmap-step5: var(--print-heatmap-step5); --heatmap-step5-ink: var(--print-heatmap-step5-ink);
-  --chart-state-pass: var(--print-pass);
-  --chart-state-warn: var(--print-warn);
-  --chart-state-fail: var(--print-fail);
-  --chart-state-info: var(--print-text-secondary);
-  --chart-state-mute: var(--print-text-muted);
+  --info: var(--print-info);
+  --mute: var(--print-mute);
+  --on-solid: var(--print-on-solid);
+  --chart-neutral: var(--print-mute);
   --seq-500: var(--print-seq-500);
   /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp
    * follows the canvas (#1697), and this band ALREADY pins `color-scheme: light`

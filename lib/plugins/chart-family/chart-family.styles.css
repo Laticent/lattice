@@ -530,27 +530,26 @@ section.word-cloud,
  *   --state-X-ink   the saturated mark — bar border, pill text, the
  *                   thin progress fill — lifted toward white on dark.
  *
- * Theme-overridable: a theme sets --chart-state-{pass,warn,fail,info,mute}
- * at :root to curate the semantics to its character; untuned themes inherit
- * this master set. One rule per state now serves both canvases (the old
- * per-`.dark` overrides collapse into the light-dark() pairs). */
+ * The hue IS the base's status solid (`--pass` `--warn` `--fail` `--info` `--mute`, base.tokens.css), which each
+ * theme curates once for every component, at 7:1 under `--on-solid`. A chart keeps no status color of its own. */
 section.chart-frame,
 .chart-frame {
-  --state-pass-hue: var(--chart-state-pass, light-dark(#006628, #34D058));  /* green  — done/on-track/live   */
-  --state-warn-hue: var(--chart-state-warn, light-dark(#7C4B00, #FFB02E));  /* amber  — at-risk/warn         */
-  --state-fail-hue: var(--chart-state-fail, light-dark(#B10015, #FF776C));  /* red    — blocked/fail         */
-  --state-info-hue: var(--chart-state-info, light-dark(#0053B3, #5AA1FF));  /* blue   — pilot/decision/info  */
-  --state-mute-hue: var(--chart-state-mute, light-dark(#4F5863, #9AA7B6));  /* gray   — deferred             */
+  --state-pass-hue: var(--pass);  /* green  — done/on-track/live   */
+  --state-warn-hue: var(--warn);  /* amber  — at-risk/warn         */
+  --state-fail-hue: var(--fail);  /* red    — blocked/fail         */
+  --state-info-hue: var(--info);  /* blue   — pilot/decision/info  */
+  --state-mute-hue: var(--mute);  /* gray   — deferred             */
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
    * mark with neither `--chart-neutral-hue`. Text on any of them is `--chart-solid-ink`, one ink per mode (white
    * on a light canvas, the canvas on a dark one), so a label reads the same on every chart. Each theme curates the
-   * seeds (`--chart-catN`, `--chart-state-X`, `--chart-neutral`, `--chart-on-solid`) so the ink clears 7:1 on every
+   * seeds (`--chart-catN`, the base's status solids `--pass` `--warn` `--fail` `--info` `--mute`, `--chart-neutral`,
+   * and the base's `--on-solid`) so the ink clears 7:1 on every
    * solid and every solid clears 3:1 off the canvas: tools/curate-chart-solids.js seeded them, and
    * test/unit/palette/chart-solids.test.js holds every palette to it. No chart mixes or grades its own fill. */
   --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #9AA7B6));
-  --chart-solid-ink: var(--chart-on-solid, light-dark(#FFFFFF, var(--bg)));
+  --chart-solid-ink: var(--on-solid);
 
   /* Light: a 24% tint into the canvas (proven, like catN). Dark: deepen the
    * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue

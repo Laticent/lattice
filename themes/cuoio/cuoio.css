@@ -156,12 +156,12 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#001305, #96f576);
-  --fail: light-dark(#8a010c, #ed6868);
+  --pass: light-dark(#000100, #B8FFA1);
+  --fail: light-dark(#611714, #FA748D);  /* hand-tuned: 7:1 under --on-solid, apart from warn for a colorblind reader, and body text on its 14% heat wash */
   /* The light --warn was darkened from #B47200 to clear AA (the original was
      3.4-3.7:1); the respacing below then re-solved it again, so the value here is
      not the #885800 that fix landed. */
-  --warn: light-dark(#8a5903, #f7a64f);
+  --warn: light-dark(#7B4F00, #FFB467);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -476,12 +476,9 @@
    * status pills, state-chart, timeline). pass/warn/fail reuse cuoio's own
    * status trio so a gantt at-risk bar matches a --warn chip; info takes the
    * slate blue, mute a warm taupe (not the engine's cool gray). */
-  --chart-state-pass: var(--pass);                  /* leather green */
-  --chart-state-warn: light-dark(#7B4F00, #F7A64F);                  /* saddle amber  */
-  --chart-state-fail: light-dark(#8A010C, #FB7574);                  /* crimson alarm */
-  --chart-state-info: light-dark(#2D598B, #7DA2E4); /* dusty slate   */
-  --chart-state-mute: light-dark(#704E48, #AC9E88); /* warm taupe    */
-  --chart-on-solid: light-dark(#FFFFFF, #15110D);
+  --info: light-dark(#2B5787, #7DA2E4); /* dusty slate   */
+  --mute: light-dark(#6E4C46, #AC9E88); /* warm taupe    */
+  --on-solid: light-dark(#FFFFFF, #15110D);
   --chart-neutral: light-dark(#635742, #AC9E88);
 }
 

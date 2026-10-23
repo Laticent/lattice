@@ -17,7 +17,7 @@
  * The direction is NEVER carried by hue alone: it is in the geometry (the bar
  * climbs or falls from the connector), in the sign printed on the label, and in
  * which side of the bar that label sits on. An achromatopsia palette flattens
- * `--chart-state-pass` and `--chart-state-fail` to two near-identical grays
+ * `--pass` and `--fail` to two near-identical grays
  * (themes/a11y-achromatopsia.css) and the chart still reads.
  *
  * Unlayered like every other component file (@layer is inert in this bundle and

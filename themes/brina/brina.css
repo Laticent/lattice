@@ -98,9 +98,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#004331, #b4ffd1);
-  --warn: light-dark(#7d5201, #f4bf63);
-  --fail: light-dark(#43000d, #f07f92);
+  --pass: light-dark(#003E2D, #B4FFD1);
+  --warn: light-dark(#7A4F00, #F4BF63);
+  --fail: light-dark(#2C0006, #F07F92);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -334,12 +334,9 @@
    * deeper steel-blue (nudged darker/more-saturated than cat1 #3C697C so it
    * stays clearly distinct on both canvases); mute uses a cool-steel taupe
    * derived from --text-muted. */
-  --chart-state-pass: var(--pass);                  /* frost green   */
-  --chart-state-warn: light-dark(#7A4F00, #F4BF63);                  /* amber signal  */
-  --chart-state-fail: var(--fail);                  /* alarm red     */
-  --chart-state-info: light-dark(#1E5280, #68A4EE); /* deep steel    */
-  --chart-state-mute: light-dark(#51576E, #ABBCCC); /* cool-steel taupe */
-  --chart-on-solid: light-dark(#FFFFFF, #0C141C);
+  --info: light-dark(#1E5280, #78B4FE); /* deep steel    */
+  --mute: light-dark(#4D536A, #ABBCCC); /* cool-steel taupe */
+  --on-solid: light-dark(#FFFFFF, #0C141C);
   --chart-neutral: light-dark(#4F5963, #93A2B4);
 }
 

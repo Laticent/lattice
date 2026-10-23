@@ -91,9 +91,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#000f01, #caffcd);
-  --warn: light-dark(#3b2000, #f5c266);
-  --fail: light-dark(#8d0812, #ee8787);
+  --pass: light-dark(#000F01, #D4FFD6);
+  --warn: light-dark(#3B2000, #F7C468);
+  --fail: light-dark(#8D0812, #EF8888);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -329,12 +329,9 @@
    * ochre + deep slate clear the 3:1 mark with authority while keeping the
    * same blue-info / amber-warn role language as the curated trio. Dark
    * sides lift to clear the espresso-gray canvas. mute is the system greige. */
-  --chart-state-pass: var(--pass);                  /* status green   */
-  --chart-state-warn: light-dark(#854608, #EB9334); /* burnt ochre    */
-  --chart-state-fail: light-dark(#8D0812, #F18A8A);                  /* status red     */
-  --chart-state-info: light-dark(#2F567F, #7CA9D9); /* deep slate     */
-  --chart-state-mute: light-dark(#5A594D, #B3A48E); /* warm greige    */
-  --chart-on-solid: light-dark(#FFFFFF, #1A1A18);
+  --info: light-dark(#043159, #A2CFFF); /* deep slate     */
+  --mute: light-dark(#31312B, #D9CAB4); /* warm greige — light arm held 0.065 off --warn */
+  --on-solid: light-dark(#FFFFFF, #1A1A18);
   --chart-neutral: light-dark(#4F4F4C, #A9A9A3);
 
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────

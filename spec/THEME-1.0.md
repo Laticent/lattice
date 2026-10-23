@@ -73,7 +73,7 @@ override any subset of them.
 | Ink | `--text-display` `--text-heading` `--text-body` `--text-secondary` `--text-label` `--text-muted` `--code-inline-fg` |
 | Graphical ink | `--muted-mark` |
 | Accent | `--accent` `--accent-soft` `--on-accent` `--on-accent-soft` † `--accent-soft-body` † |
-| Status | `--pass` `--fail` `--warn` `--pass-bg` `--fail-bg` `--warn-bg` |
+| Status | `--pass` `--fail` `--warn` `--info` `--mute` `--on-solid` `--pass-bg` `--fail-bg` `--warn-bg` |
 | The dark face | `--scheme-dark-bg` `--scheme-dark-bg-alt` `--scheme-dark-border` `--scheme-dark-text-heading` `--scheme-dark-text-body` `--scheme-dark-text-display` `--scheme-dark-text-secondary` `--scheme-dark-text-label` `--scheme-dark-text-muted` `--scheme-dark-muted-mark` |
 | Categorical slots | `--cat-1-fill` `--cat-2-fill` `--cat-3-fill` `--cat-4-fill` `--cat-5-fill` `--cat-6-fill` `--cat-7-fill` `--cat-8-fill` `--cat-9-fill` `--cat-10-fill` `--cat-11-fill` `--cat-12-fill` `--cat-1-mark` `--cat-2-mark` `--cat-3-mark` `--cat-4-mark` `--cat-5-mark` `--cat-6-mark` `--cat-7-mark` `--cat-8-mark` `--cat-9-mark` `--cat-10-mark` `--cat-11-mark` `--cat-12-mark` `--cat-1-ink` `--cat-2-ink` `--cat-3-ink` `--cat-4-ink` `--cat-5-ink` `--cat-6-ink` `--cat-7-ink` `--cat-8-ink` `--cat-9-ink` `--cat-10-ink` `--cat-11-ink` `--cat-12-ink` `--cat-on-fill` `--cat-on-mark` `--diagram-stroke` `--diagram-line` `--diagram-accent-warm` |
 | Heatmap ramp | `--heatmap-step1` ‡ `--heatmap-step2` ‡ `--heatmap-step3` ‡ `--heatmap-step4` ‡ `--heatmap-step5` ‡ `--heatmap-step1-ink` ‡ `--heatmap-step2-ink` ‡ `--heatmap-step3-ink` ‡ `--heatmap-step4-ink` ‡ `--heatmap-step5-ink` ‡ |
@@ -82,10 +82,16 @@ override any subset of them.
 | Sequential | `--seq-500` |
 | Universal signal | `--diagram-critical` |
 | Code highlighting | `--syntax-comment` `--syntax-keyword` `--syntax-builtin` `--syntax-number` `--syntax-constant` `--syntax-string` `--syntax-entity` `--syntax-type` `--syntax-variable` `--syntax-punctuation` |
-| Charts | `--chart-cat1` `--chart-cat2` `--chart-cat3` `--chart-cat4` `--chart-cat5` `--chart-cat6` `--chart-cat7` `--chart-cat8` `--chart-state-pass` `--chart-state-warn` `--chart-state-fail` `--chart-state-info` `--chart-state-mute` |
+| Charts | `--chart-cat1` `--chart-cat2` `--chart-cat3` `--chart-cat4` `--chart-cat5` `--chart-cat6` `--chart-cat7` `--chart-cat8` `--chart-neutral` |
 
 † the engine defaults it (`ENGINE_DEFAULTED_TOKENS`). ‡ every reader has a fallback
 (`FALLBACK_ONLY_TOKENS`). Both live in `lib/theme/gate.js`, and a test holds this table to them.
+
+**The status and chart colors are SOLIDS.** `--pass` `--warn` `--fail` `--info` `--mute`, the eight `--chart-catN`
+and `--chart-neutral` are each one flat color a mark is painted with, and `--on-solid` is the one ink for text on
+any of them. A conforming theme gives `--on-solid` at least 7:1 on every solid and every solid at least 3:1
+against `--bg`, in both color schemes; a status solid also clears 4.5:1 as text on `--bg` and `--bg-alt`, because
+components print a status in its own color.
 
 The code-highlighting tokens name ROLES, not a highlighter's classes: Lattice's code plugin maps
 each highlight.js class onto one of them, so a theme never names highlight.js. Four more roles are

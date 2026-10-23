@@ -360,7 +360,7 @@ diagram — it draws from the chart-family's own `--catN-*` spectrum (tunable
 per theme via `--chart-catN`) and no longer uses theme-defined
 `--c-quadrant-*` slot tokens. See `lib/components/chart/quadrant/`.
 
-### Chart-family palette (`--chart-catN`, `--chart-state-*`)
+### Chart-family palette (`--chart-catN`, the status solids)
 
 The chart bucket (pie, quadrant, radar, gantt, kanban, progress,
 state-chart, timeline-list, word-cloud) draws from its **own** two
@@ -381,7 +381,9 @@ character by setting the override hooks at `:root`, each a
 | Hook | Overrides |
 |---|---|
 | `--chart-cat1` … `--chart-cat8` | the 8 categorical hues |
-| `--chart-state-pass` / `-warn` / `-fail` / `-info` / `-mute` | the 5 semantic hues |
+| `--chart-neutral` | the solid for a mark with no category or status (a deferred node, a neutral bar) |
+| `--pass` / `--warn` / `--fail` / `--info` / `--mute` | the 5 status solids — base tokens every theme curates, not chart-only hooks |
+| `--on-solid` | the one ink on every solid; each solid clears 7:1 under it |
 
 The `var()` indirection means a theme always wins, and it need only set the
 slots it wants to flavor.
@@ -394,7 +396,7 @@ hue + a curated crimson `fail`) — lives in
 the mechanical contract; the style doc carries the "different yet similar"
 design principles.
 
-**Curate assessment-first.** Score candidate `--chart-cat*` / `--chart-state-*`
+**Curate assessment-first.** Score candidate `--chart-cat*` / status-solid
 values *before* committing to them — resolve the full token chain (incl. each
 chart's gradient deep stop) and check, on **both** canvases: text-on-fill WCAG
 (AA on labels), marks vs canvas (≥3:1, WCAG 1.4.11), and adjacent-slot OKLab

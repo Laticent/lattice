@@ -180,31 +180,18 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` gradient stop as a scored surface.
- *
- * The pill's ground is `color-mix(in oklab, var(--chart-status-hue) N%, <base>)` — `--bg` on the
- * light arm, `black` on the dark one — and its label is the shared `--text-heading`,
- * which flips dark-on-light / light-on-dark. So each stop is a real, separately-failing
- * surface on each arm, and both are listed rather than one being argued safe.
- *
- * `requires` pins the stop percentages AND the state's hue mapping in the component CSS,
- * so a retune of either reddens the gate instead of silently re-pointing what is measured.
- */
-const PILL_STATE_FALLBACK = {
-  pass: 'light-dark(#1E9E48, #34D058)',
-  warn: 'light-dark(#C2790A, #FFB02E)',
-  fail: 'light-dark(#CE2F2F, #FF5B52)',
-  info: 'light-dark(#0A6CE0, #2E8BFF)',
-  mute: 'light-dark(#6B7480, #9AA7B6)',
-};
+ * One `.chart-status` pill as a scored surface: the status's flat SOLID (the base's `--pass` … `--mute`) under the
+ * one ink curated for every solid, `--on-solid`, at 7:1. `requires` pins the solid, the ink and the state's hue
+ * mapping in the component CSS, so a retune of any of them reddens the gate instead of silently re-pointing what is
+ * measured. */
 
 function pillStop(state) {
   return {
     id: `chart/status-pill-${state}`,
     ctx: `chart-family .chart-status[${state}]: the solid ink on the pill's flat solid`,
     base: '--bg',
-    groups: [{ bg: `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})` }],
-    ink: '--chart-on-solid',
+    groups: [{ bg: `var(--${state})` }],
+    ink: '--on-solid',
     min: 7,
     src: CHARTFAMILY,
     requires: [
@@ -218,7 +205,7 @@ function pillStop(state) {
  * One state-chart NODE surface: text on a status-tinted tile.
  *
  * A status paints the node itself, as a flat SOLID (chart-family.styles.css § THE SOLID TIER), and the state NAME
- * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink` (seed `--chart-on-solid`), held to 7:1
+ * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink` (the base's `--on-solid`), held to 7:1
  * on every solid. The tile used to take the pill's 18/30 · 42/54 stops with `--text-heading`; `requires` pins the
  * solid, the ink and the tone mapping, so a retune of any of them reddens the gate instead of silently moving what
  * is measured. The neutral tile is the neutral solid, gated with the rest by test/unit/palette/chart-solids.test.js.
@@ -228,8 +215,8 @@ function stateChartNode(state) {
     id: `state-chart/node-${state}`,
     ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat solid`,
     base: '--bg',
-    groups: [{ bg: `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})` }],
-    ink: '--chart-on-solid',
+    groups: [{ bg: `var(--${state})` }],
+    ink: '--on-solid',
     min: 7,
     src: STATECHART,
     requires: [
@@ -492,7 +479,7 @@ const SURFACES = [
   // #1788 stepped it up.
   //
   // MODELING NOTE, because getting this wrong is silent. `--state-{s}-fill` and
-  // `--chart-state-*` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
+  // `--state-{s}-hue` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
   // cannot see them and they are seeded here from chart-family.styles.css. And the card must stay a
   // TOKEN (`--kanban-card`) rather than being inlined: `resolveTokenExpr` reduces a
   // `color-mix()` nested directly inside another `color-mix()`'s argument to a WRONG hex
@@ -685,9 +672,6 @@ const SURFACES = [
 const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
-  // ── policy-recommendation/amend-badge ── 2
-  ['carbone-dark|light|policy-recommendation/amend-badge', 4.45],
-  ['carbone|light|policy-recommendation/amend-badge', 4.45],
   // ── policy-recommendation/oppose-badge ── 2
   ['concrete-dark|light|policy-recommendation/oppose-badge', 4.17],
   ['concrete|light|policy-recommendation/oppose-badge', 4.17],
@@ -699,11 +683,11 @@ const KNOWN_SUB_THRESHOLD = new Map([
   ['ardesia|dark|redline/del-on-old-card', 4.31],
   ['brina-dark|dark|redline/del-on-old-card', 4.43],
   ['brina|dark|redline/del-on-old-card', 4.43],
-  ['concrete-dark|dark|redline/del-on-old-card', 3.68],
-  ['concrete|dark|redline/del-on-old-card', 3.68],
+  ['concrete-dark|dark|redline/del-on-old-card', 3.72],
+  ['concrete|dark|redline/del-on-old-card', 3.72],
   // ── redline/old-label ── 2
-  ['concrete-dark|dark|redline/old-label', 4.43],
-  ['concrete|dark|redline/old-label', 4.43],
+  ['concrete-dark|dark|redline/old-label', 4.48],
+  ['concrete|dark|redline/old-label', 4.48],
 ]);
 
 // ── Color compositing ──────────────────────────────────────────────────────
@@ -938,7 +922,7 @@ const CHART_FAMILY_TOKENS = Object.freeze(Object.fromEntries([
   ['kanban-card-dark', 'color-mix(in oklab, var(--bg-alt) 88%, white)'],
   ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((s) => {
     const [lp, dp] = s === 'mute' ? [22, 46] : [24, 50];
-    const hue = `var(--chart-state-${s}, ${PILL_STATE_FALLBACK[s]})`;
+    const hue = `var(--${s})`;
     return [
       [`state-${s}-hue`, hue],
       [`state-${s}-fill`, `light-dark(color-mix(in oklab, ${hue} ${lp}%, var(--bg)), `

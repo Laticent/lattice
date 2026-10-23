@@ -149,11 +149,10 @@
   --chart-cat6: light-dark(#48711e, #7c9a64);
   --chart-cat7: light-dark(#007462, #629c8e);
   --chart-cat8: light-dark(#006e89, #6198ac);
-  --chart-state-pass: var(--pass);
-  --chart-state-warn: var(--warn);
-  --chart-state-fail: var(--fail);
-  --chart-state-info: light-dark(#32669a, #6da3da);
-  --chart-state-mute: light-dark(#858d9a, #a4acba);
+  --info: light-dark(#32669a, #6da3da);
+  --mute: light-dark(#858d9a, #a4acba);
+  --on-solid: light-dark(#FFFFFF, #101418);
+  --chart-neutral: light-dark(#858d9a, #a4acba);
 }
 
 :root {

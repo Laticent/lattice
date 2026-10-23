@@ -94,11 +94,11 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --fail: light-dark(#500013, #ffabd6);
+  --fail: light-dark(#310008, #FFABD6);
   /* Self-curated semantic trio — warm green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --pass: light-dark(#0a4d24, #afff94);
-  --warn: light-dark(#905600, #c7914d);
+  --pass: light-dark(#00421C, #AFFF94);
+  --warn: light-dark(#814C00, #C7914D);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -328,12 +328,9 @@
    * status pills, state-chart, timeline). pass/warn/fail reuse magnolia's own
    * status trio so a gantt at-risk bar matches a --warn chip; info takes a
    * dusty slate blue, mute a desaturated rose-taupe that echoes --text-muted. */
-  --chart-state-pass: var(--pass);                  /* forest green  */
-  --chart-state-warn: light-dark(#814C00, #C7914D);                  /* amber         */
-  --chart-state-fail: var(--fail);                  /* garnet alarm  */
-  --chart-state-info: light-dark(#2D598B, #79A6D6); /* dusty slate   */
-  --chart-state-mute: light-dark(#615546, #A99B85); /* rose taupe    */
-  --chart-on-solid: light-dark(#FFFFFF, #14060A);
+  --info: light-dark(#27537F, #83B0E0); /* dusty slate   */
+  --mute: light-dark(#5B4F40, #B9AB95); /* rose taupe    */
+  --on-solid: light-dark(#FFFFFF, #14060A);
   --chart-neutral: light-dark(#6B514C, #B79A93);
 }
 

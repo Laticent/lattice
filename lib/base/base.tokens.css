@@ -521,8 +521,8 @@
   --status-pass: var(--pass);  --status-pass-bg: var(--pass-bg);
   --status-warn: var(--warn);  --status-warn-bg: var(--warn-bg);
   --status-fail: var(--fail);  --status-fail-bg: var(--fail-bg);
-  --status-info: var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF));
-  --status-mute: var(--chart-state-mute, light-dark(#6B7480, #9AA7B6));
+  --status-info: var(--info);
+  --status-mute: var(--mute);
 
   /* ── diagram lifecycle / annotation (group 3, CANONICAL) ──────────────
    * The Mermaid gantt lifecycle + note/error annotation colors, off the
@@ -630,9 +630,18 @@
    *
    * Background soft-tints (--pass-bg, --warn-bg, --fail-bg) live in
    * each theme and derive from these via color-mix with 10% alpha. */
-  --pass: light-dark(#2D6A3F, #4ADE80);
-  --warn: light-dark(#B45309, #F97316);
-  --fail: light-dark(#991B1B, #F87171);
+  /* THE FIVE STATUS SOLIDS and the one ink on them. Every component that shows a status reads these, a chart
+   * included (chart-family.styles.css § THE SOLID TIER), so a theme curates each status ONCE. Each is a SOLID:
+   * `--on-solid` text on it clears 7:1, and it clears 3:1 against the slide, so it also reads as a status ink on
+   * the canvas. Every palette declares all six (test/unit/palette/chart-solids.test.js); these engine values are
+   * the fallback for a palette that has not been curated, solved to the same bar on a white and a near-black
+   * canvas. */
+  --pass: light-dark(#006628, #34D058);
+  --warn: light-dark(#7C4B00, #FFB02E);
+  --fail: light-dark(#B10015, #FF776C);
+  --info: light-dark(#0053B3, #5AA1FF);
+  --mute: light-dark(#4F5863, #9AA7B6);
+  --on-solid: light-dark(#FFFFFF, var(--bg));
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured
@@ -714,7 +723,7 @@
    * --code-text is theme-defined for syntax-on-dark legibility. The
    * fallbacks below match the indaco values so unstyled renders are still
    * usable as a diagnostic. */
-  --code-bg:   var(--surface-inverse, #001D33);
+  --code-bg:   var(--surface-inverse);
   --code-text: #CBD9E8;
   /* The panel's inner hairline. On a dark slide `--code-bg` can equal the slide's own background
    * (onyx-dark, cuoio-dark and six more), and the panel then vanished, leaving code floating on the
@@ -823,6 +832,9 @@
   --print-pass:            #2E2E2E;
   --print-warn:            #555555;
   --print-fail:            #111111;
+  --print-info:            #3D3D3D;  /* the status solids in print: every one carries white text at 7:1 */
+  --print-mute:            #575757;
+  --print-on-solid:        #FFFFFF;
 
   /* Categorical fills → stepped grays; the border + (for series) pattern fills
    * do the work past ~5 categories. */
@@ -986,7 +998,7 @@
    * theme's brand hue). Achromatic themes can collapse --tag-bg to
    * --accent if they don't want a duotone identity. */
   --tag-bg:   var(--cat-2-mark);
-  --tag-text: var(--on-accent, #fff);
+  --tag-text: var(--on-accent);
 
   /* ── Universal pill — STRUCTURE ONLY ──────────────────────────────────
    * One geometry for every status / metadata pill across every layout.

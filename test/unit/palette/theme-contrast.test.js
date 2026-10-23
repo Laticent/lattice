@@ -308,7 +308,7 @@ describe('theme-contrast', () => {
       return map;
     };
 
-    test('a 118-token map of oklch() does NOT return ok:true', () => {
+    test('a 117-token map of oklch() does NOT return ok:true', () => {
       const map = allOklch();
       // 107 when the note measured it; 108 since `--seq-500` joined the contract
       // (the sequential ramp's anchor — the base's `var(--accent)` fallback is
@@ -316,10 +316,12 @@ describe('theme-contrast', () => {
       // heatmap ramp's ten joined it — five stop positions and the five inks
       // solved against them, which are on the contract rather than a var()
       // fallback because the ink sits on a SATURATED FILL where --text-body is
-      // wrong by construction. The count is pinned deliberately: it is the
+      // wrong by construction; 117 since the status solids moved to the base
+      // (five `--chart-state-*` out; `--chart-neutral`, `--info`, `--mute`,
+      // `--on-solid` in). The count is pinned deliberately: it is the
       // tripwire for the map silently SHRINKING, which is what would make the
       // "nothing was measured" finding unreproducible.
-      assert.equal(Object.keys(map).length, 118, 'the full contract, as the note measured it');
+      assert.equal(Object.keys(map).length, 117, 'the full contract, as the note measured it');
       for (const level of ['gate', 'full']) {
         const a = auditBoth(map, { level });
         assert.equal(a.ok, false, `${level}: an unreadable palette must not report AA`);
