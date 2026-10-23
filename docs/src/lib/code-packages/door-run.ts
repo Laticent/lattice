@@ -300,7 +300,9 @@ export async function runWithCodePackages<R extends { html: string }>(PG: Render
 		const notDrawn = (why: string) => (kindOf ? c.block : withFenceNote(c.block, c.pkg, why));
 		if (!isPluginApproved(p)) {
 			unapproved.set(`plugin/${p.name}`, p);
-			sections.set(key, notDrawn('its code has not been approved in this browser'));
+			// The same drawn card as an unlisted plugin's, with its own words: the strip above the preview is where the yes is given.
+			const hint = placeholderHint(p.placeholder);
+			sections.set(key, kindOf ? inlinePlaceholder(p.name, kindOf, p.kinds?.find((k) => k.name === kindOf)?.placeholder, 'unapproved') : fencePlaceholder(p.name, { ...hint, aspect: rememberedAspect(p.sha256) ?? hint.aspect }, 'unapproved'));
 			continue;
 		}
 		const known = memo.get(key);

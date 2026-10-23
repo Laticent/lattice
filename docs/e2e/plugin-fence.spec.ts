@@ -110,7 +110,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await expect(notice).toContainText('This deck uses code from the plugin “gantt-plugin”, which has not run.');
 			await notice.getByRole('button', { name: 'What it is' }).click();
 			await expect(page.locator('[data-slot="code-packages-detail"]')).toContainText(/gantt-plugin\.render\.js \(the ```gantt fence\), [\d,]+ bytes, sha256 [0-9a-f]{64}/);
-			await expect(preview.locator('[data-package-error="gantt-plugin"]')).toContainText('its code has not been approved in this browser');
+			await expect(preview.locator('[data-lattice-plugin-off="gantt-plugin"][data-reason="unapproved"]')).toContainText('Plugin block · not approved in this browser');
 			await expect(preview.locator('[data-lattice-plugin]')).toHaveCount(0);
 			await expect(page.locator('iframe[data-lattice-code-sandbox]')).toHaveCount(0);
 			await settle();

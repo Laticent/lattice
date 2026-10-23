@@ -71,12 +71,13 @@ describe('consent', () => {
 		expect(await pluginDigest(`${PLUGIN.code} `, PLUGIN.fence)).not.toBe(await pluginDigest(PLUGIN.code, PLUGIN.fence));
 	});
 
-	it('an unapproved plugin never runs: the block stays, with a note, and the preview’s status offers the approval', async () => {
+	it('an unapproved plugin never runs: the same card an unlisted one gets stands there, with its own words, and the preview’s status offers the approval', async () => {
 		const html = await draw(DECK, true);
 		expect(opened).toEqual([]);
-		expect(html).toContain('language-gantt');
-		expect(html).toContain('data-package-error="gantt-plugin"');
-		expect(html).toContain('its code has not been approved in this browser');
+		expect(html).toContain('data-lattice-plugin-off="gantt-plugin"');
+		expect(html).toContain('data-reason="unapproved"');
+		expect(html).toContain('Plugin block · not approved in this browser');
+		expect(html).not.toContain('data-package-error');
 		expect(unapprovedIn(DECK).map((p) => p.name)).toEqual(['gantt-plugin']);
 	});
 
@@ -160,7 +161,7 @@ describe('rules the inversion lens found untested', () => {
 		revokePlugin('gantt-plugin');
 		const revoked = await draw(DECK);
 		expect(revoked).not.toContain('data-lattice-plugin=');
-		expect(revoked).toContain('its code has not been approved in this browser');
+		expect(revoked).toContain('Plugin block · not approved in this browser');
 		await approve();
 		expect(await draw(DECK_UNLISTED)).not.toContain('data-lattice-plugin=');
 	});
@@ -466,7 +467,7 @@ describe('data returns (threat-model decisions 11 and 12): the CLI door’s rule
 		expect(await pluginDigest(code, PLUGIN.fence, [], fields)).not.toBe(await pluginDigest(code, PLUGIN.fence));
 		await setPlugins([{ name: PLUGIN.name, fence: PLUGIN.fence, code, returns: RETURNS }]);
 		await approve();
-		expect(await draw(DECK)).toContain('its code has not been approved in this browser');
+		expect(await draw(DECK)).toContain('Plugin block · not approved in this browser');
 	});
 
 	it('a clean value lands on the slide’s own <section>, escaped', async () => {
