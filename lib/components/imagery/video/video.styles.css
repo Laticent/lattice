@@ -234,6 +234,30 @@ section.video.companion .video-embed figcaption {
   line-height: 1.25;
 }
 
+/* ── off the video slide — a quiet text link ─────────────────────────────────────────
+ * Everything above is scoped to `section.video`. A record on any other slide still leaves its figure in the page, and with no
+ * rules it drew a browser-blue link and a caption with the UA's figure margin. It is a text link in the deck's accent instead:
+ * the clip stays reachable in print and in the PDF, and `lint:deck` says the slide wants the `video` class for the real layout.
+ * The poster's picture is dropped here (the inline style carries it), so it never tiles behind the words. */
+section:not(.video) .video-embed[data-lattice-media="video"] {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-xs, 0.25rem);
+}
+section:not(.video) .video-embed[data-lattice-media="video"] .video-poster {
+  background: none !important;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+section:not(.video) .video-embed[data-lattice-media="video"] figcaption {
+  font-size: var(--fs-meta, 0.8rem);
+  color: var(--text-muted, inherit);
+}
+
 /* ── gallery — contained-on-matte museum exhibit (CSS override to contain). ─── */
 /* The title now sits IN the stage with the exhibit (the masthead band used to
  * carry it), so the column is budgeted for both: a 3cqh gap, not 5, and a poster
@@ -267,6 +291,18 @@ section.video.gallery .video-poster {
   box-shadow:
     0 0 0 1px var(--border),
     0.6cqi 0.8cqi 0 -0.1cqi color-mix(in oklab, var(--text-heading) 16%, transparent);
+}
+/* The provider label belongs to the MATTE, not to the picture: a portrait or square poster sits letterboxed inside the frame, so a chip
+ * pinned to the picture's corner hung off its edge (TikTok and Instagram thumbnails are portrait). Centered on the frame's lower edge it
+ * reads as the exhibit's placard whatever shape the picture is. The frame stops clipping so the chip can straddle its edge. */
+section.video.gallery .video-poster { overflow: visible; }
+section.video.gallery .video-provider {
+  inset-inline-start: 50%;
+  /* The block-end inset is measured from the PADDING box, inside the 1.4cqi matte border: reaching past it puts the chip's middle on the frame's outer edge. */
+  inset-block-end: -1.4cqi;
+  transform: translate(-50%, 50%);
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px var(--border);
 }
 section.video.gallery .video-play { width: 9cqi; height: 9cqi; }
 section.video.gallery .video-play::before {

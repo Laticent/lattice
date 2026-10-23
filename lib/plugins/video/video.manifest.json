@@ -9,8 +9,25 @@
   "icon": {
     "viewBox": "0 0 128 128",
     "paths": [
-      {"ink": "line", "d": "M14 32H114V96H14Z", "width": 7},
-      {"ink": "accent", "d": "M54 50L80 64L54 78Z", "width": 7}
+      {
+        "ink": "line",
+        "d": "M32 20H96A16 16 0 0 1 112 36V70A16 16 0 0 1 96 86H32A16 16 0 0 1 16 70V36A16 16 0 0 1 32 20Z",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M53 36L79 52L53 68Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M28 108H100",
+        "width": 7
+      },
+      {
+        "ink": "fill",
+        "d": "M68 108A7 7 0 1 0 82 108A7 7 0 1 0 68 108Z"
+      }
     ]
   },
   "contributes": {

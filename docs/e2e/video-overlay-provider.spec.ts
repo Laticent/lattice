@@ -70,7 +70,7 @@ test.beforeEach(async ({ context }) => {
 	);
 	await context.route(/katex.*\.css($|\?)/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
 	await context.route(/fonts\.googleapis|fonts\.gstatic/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
-	await context.route(/youtube-nocookie\.com/, (route) =>
+	await context.route(/youtube-nocookie\.com|player\.vimeo\.com|(?:www\.)?tiktok\.com|(?:www\.)?instagram\.com/, (route) =>
 		route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>stub player</title>' }),
 	);
 });
@@ -143,6 +143,26 @@ test('@smoke the registry drives the poster AND the parent-hosted player', async
 	expect(popped, 'a tap opened a tab instead of the in-page player').toBe(false);
 	expect(page.url()).toContain('/playground/');
 });
+
+// EVERY provider the registry names, on the same surface: the poster, the badge, the QR and the parent-hosted player. The first arm
+// above drives YouTube only; a row whose `embed` template or `id` extractor drifted would still pass it.
+const PROVIDER_CASES = [
+	{ key: 'vimeo', label: 'Vimeo', url: 'https://vimeo.com/1084537', watch: 'https://vimeo.com/1084537', embed: 'https://player.vimeo.com/video/1084537?autoplay=1' },
+	{ key: 'tiktok', label: 'TikTok', url: 'https://www.tiktok.com/@scout2015/video/6718335390845095173', watch: 'https://www.tiktok.com/@scout2015/video/6718335390845095173', embed: 'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=1' },
+	{ key: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/reel/CuXxYz12345/', watch: 'https://www.instagram.com/reel/CuXxYz12345/', embed: 'https://www.instagram.com/p/CuXxYz12345/embed/' },
+] as const;
+for (const c of PROVIDER_CASES) {
+	test(`the ${c.key} row drives the poster, the badge, the QR and the player`, async ({ page }) => {
+		const preview = await openDeck(page, deck(c.url));
+		await expect(preview.locator(`figure.video-embed[data-provider="${c.key}"]`)).toHaveCount(1, { timeout: 30_000 });
+		await expect(preview.locator('.video-provider')).toHaveText(`Watch on ${c.label}`);
+		await expect(preview.locator('.video-qr .qr-tile svg')).toBeVisible();
+		await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch);
+		await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+		await preview.locator('a.video-poster').click();
+		await expect(page.locator('.pg-video-modal[role="dialog"] iframe')).toHaveAttribute('src', c.embed, { timeout: 15_000 });
+	});
+}
 
 test('@smoke a provider name in a URL fragment wears no provider badge', async ({ page }) => {
 	// The exact string both former tables resolved as Instagram. `instagram.com` is in

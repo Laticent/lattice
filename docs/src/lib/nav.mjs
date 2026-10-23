@@ -120,6 +120,7 @@ export function pluginsNav(url) {
 		plugin(url, 'Avatars', 'avatars', 'A face for every name'),
 		plugin(url, 'Function plots', 'function-plot', 'Graphs of y = f(x)'),
 		plugin(url, 'Code', 'code', 'Highlighted code in any language'),
+		plugin(url, 'Video', 'video', 'A clip drawn as a poster that links to it'),
 	];
 }
 

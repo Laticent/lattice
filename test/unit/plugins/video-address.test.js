@@ -251,3 +251,49 @@ describe('migrateVideoBullets', () => {
     assert.equal(r.source, src);
   });
 });
+
+describe('video-slide-class', () => {
+  const lint = (md) => lintText(md, buildVocab()).findings || lintText(md, buildVocab());
+  const rules = (md) => lint(md).map((f) => f.rule);
+  const REC = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Tour"}`';
+
+  test('a lone record on a slide that is not a video slide is a warning that names the class to write', () => {
+    const f = lint(`---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## Tour\n\n${REC}\n`).find((x) => x.rule === 'video-slide-class');
+    assert.ok(f, 'the finding is there');
+    assert.equal(f.severity, 'warning');
+    assert.match(f.fix, /_class: video/);
+  });
+
+  test('a slide with no class directive at all gets the same warning', () => {
+    assert.ok(rules(`---\ntheme: indaco\n---\n\n## Tour\n\n${REC}\n`).includes('video-slide-class'));
+  });
+
+  test('a video slide and a record inside a code fence are quiet', () => {
+    assert.ok(!rules(`---\ntheme: indaco\n---\n\n<!-- _class: video companion -->\n\n## Tour\n\n${REC}\n`).includes('video-slide-class'));
+    assert.ok(!rules('---\ntheme: indaco\n---\n\n## Docs\n\n```markdown\n' + REC + '\n```\n').includes('video-slide-class'));
+  });
+
+  test('a record the engine would not draw as a video is the literal warning\'s business, not this one\'s', () => {
+    const md = '---\ntheme: indaco\n---\n\n<!-- _class: content -->\n\n## Tour\n\n`@video{"https://evil.example/x"}`\n';
+    assert.ok(!rules(md).includes('video-slide-class'));
+  });
+});
+
+describe('video-extra-record', () => {
+  const lint = (md) => lintText(md, buildVocab()).findings || lintText(md, buildVocab());
+  const REC = (n) => `\`@video{"https://youtu.be/dQw4w9WgXcQ", title="Clip ${n}"}\``;
+
+  test('a second record on a video slide is a warning, and only the second', () => {
+    const f = lint(`---\ntheme: indaco\n---\n\n<!-- _class: video companion -->\n\n## Two\n\n${REC(1)}\n\n${REC(2)}\n`).filter((x) => x.rule === 'video-extra-record');
+    assert.equal(f.length, 1);
+    assert.match(f[0].line, /Clip 2/);
+    assert.match(f[0].fix, /slide of its own/);
+  });
+
+  test('one record per slide, across slides, and a record shown in a fence are quiet', () => {
+    const two = `---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## A\n\n${REC(1)}\n\n---\n\n<!-- _class: video -->\n\n## B\n\n${REC(2)}\n`;
+    assert.ok(!lint(two).some((x) => x.rule === 'video-extra-record'));
+    const fenced = `---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## A\n\n${REC(1)}\n\n\`\`\`markdown\n${REC(2)}\n\`\`\`\n`;
+    assert.ok(!lint(fenced).some((x) => x.rule === 'video-extra-record'));
+  });
+});

@@ -24,13 +24,14 @@ Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the 
 
 - **default (no modifier).** A standalone video callout with no strong claim beside it — poster plus meta column, the simplest look.
 - **`companion`.** A specific claim leads the slide and the clip proves it — text and poster split left/right.
-- **`gallery`.** The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be.
+- **`gallery`.** The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be. The provider's badge sits on the matte's lower edge, so it stays with the frame when the poster is portrait or square (TikTok and Instagram thumbnails usually are).
 - **`qr`.** The room should be able to open the clip on their own phones — combines with any other variant to add a scannable code beside the poster.
 
 ### Common mistakes
 
 - **The clip is still a bare bullet, with `caption` and `poster` bullets beside it.** The bullet form is gone: the address comes only from your own `@video{…}` record, never from slide text. `lint:deck --fix` rewrites the bullets into the record (`video-bullet`).
-- **Writing a second `@video{…}` expecting a second clip or a contact-sheet grid.** The layout seats one clip; the first record on the slide is the one it lays out.
+- **Writing a second `@video{…}` expecting a second clip or a contact-sheet grid.** The layout seats one clip; the first record on the slide is the one it lays out, and the second is drawn below it and runs off the slide. `lint:deck` says so (`video-extra-record`); give each clip its own slide.
+- **Writing `@video{…}` on a slide that is not a `video` slide.** The layout and the poster picture belong to this class, so any other slide draws the clip only as a plain text link. `lint:deck` says so (`video-slide-class`); add `<!-- _class: video -->`.
 - **The address holds `=` or `,` unquoted (`@video{https://youtu.be/x?t=90}`).** Quote it: `@video{"https://youtu.be/x?t=90"}`. Segno names the fix.
 
 ## When to use

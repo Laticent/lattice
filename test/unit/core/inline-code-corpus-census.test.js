@@ -124,6 +124,7 @@ const USES_A_COMPONENT_PILL = new Map([
   ['kit/Sample-Deck.md', 'the kit sample deck: a kpi slide ends each tile row with a `{status}` pill'],
   ['examples/video.md', 'video slides: the clip is one `@video{…}` record on its own line'],
   ['examples/video-title-in-card.md', 'video slides: the clip is one `@video{…}` record on its own line'],
+  ['examples/video-plugin.md', 'the video plugin demo deck: every video slide is one `@video{…}` record on its own line'],
   ['examples/sample-images.md', 'a video slide: the clip is one `@video{…}` record on its own line'],
   ['lib/components/imagery/video/video.gallery.md', 'the video gallery: every slide names its clip with a `@video{…}` record'],
   ['lib/components/imagery/imagery.gallery.md', 'the imagery family gallery: its video slide names the clip with a `@video{…}` record'],

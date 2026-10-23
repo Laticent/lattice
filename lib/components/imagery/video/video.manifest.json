@@ -121,7 +121,11 @@
     },
     {
       "mistake": "Writing a second `@video{…}` expecting a second clip or a contact-sheet grid.",
-      "fix": "The layout seats one clip; the first record on the slide is the one it lays out."
+      "fix": "The layout seats one clip; the first record on the slide is the one it lays out, and the second is drawn below it and runs off the slide. `lint:deck` says so (`video-extra-record`); give each clip its own slide."
+    },
+    {
+      "mistake": "Writing `@video{…}` on a slide that is not a `video` slide.",
+      "fix": "The layout and the poster picture belong to this class, so any other slide draws the clip only as a plain text link. `lint:deck` says so (`video-slide-class`); add `<!-- _class: video -->`."
     },
     {
       "mistake": "The address holds `=` or `,` unquoted (`@video{https://youtu.be/x?t=90}`).",
@@ -139,7 +143,7 @@
     },
     {
       "variant": "gallery",
-      "useWhen": "The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be."
+      "useWhen": "The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be. The provider's badge sits on the matte's lower edge, so it stays with the frame when the poster is portrait or square (TikTok and Instagram thumbnails usually are)."
     },
     {
       "variant": "qr",
