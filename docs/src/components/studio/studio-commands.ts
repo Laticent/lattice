@@ -51,6 +51,22 @@ export function runCommand(commands: readonly StudioCommand[], id: StudioCommand
 	return true;
 }
 
+/**
+ * Run the "Format code blocks" command against the editor, which may not be built yet: on a phone the editor waits for the
+ * first slide (`StudioShell.tsx`, `holdEditor`), and a command that silently did nothing in that window read as broken.
+ * Says so instead, and tells the author to try again.
+ */
+export function runFormatCode(
+	editor: { formatCode(): Promise<Parameters<typeof formatCodeNotice>[0]> } | null | undefined,
+	notify: (message: string) => void,
+): void {
+	if (!editor) {
+		notify('The editor is still loading. Try again in a moment.');
+		return;
+	}
+	void editor.formatCode().then((r) => notify(formatCodeNotice(r)));
+}
+
 /** What the "Format code blocks" command says when it finishes: what changed, and the first block it
  *  left alone, with why (lib/authoring/code-format/plan.mjs). Null: the deck changed while the
  *  formatters ran, so nothing was applied. */

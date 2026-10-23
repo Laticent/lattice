@@ -144,7 +144,7 @@ import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edg
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
-import { formatCodeNotice, type StudioCommand } from './studio-commands';
+import { runFormatCode, type StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -6768,7 +6768,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: () => editorRef.current?.fixAll() } satisfies StudioCommand] : []),
 		// Formatting is an authoring step (lib/authoring/code-format/): it rewrites the source in the
 		// editor, so the row is offered only while the deck has a fenced block to format.
-		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => { const ed = editorRef.current; if (!ed) { notify('The editor is still loading. Try again in a moment.'); return; } void ed.formatCode().then((r) => notify(formatCodeNotice(r))); } } satisfies StudioCommand] : []),
+		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => runFormatCode(editorRef.current, notify) } satisfies StudioCommand] : []),
 		{ id: 'toggle-mode', group: 'actions', label: 'Switch light / dark mode', icon: SunMoon, keywords: ['dark', 'light', 'night', 'mode'], run: toggleMode },
 		{ id: 'slide-settings', group: 'actions', label: 'Slide settings — look, notes', icon: FileSliders, keywords: ['speaker notes', 'notes', 'slide options'], run: () => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); } },
 		{ id: 'fabricate', group: 'actions', label: 'Fabricate — Theme & Component Studio', icon: PencilRuler, run: () => setView('fabricate') },
