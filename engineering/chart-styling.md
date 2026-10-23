@@ -448,16 +448,10 @@ assumes hue is available breaks there and nowhere else.
   path — where nothing carries `non-scaling-stroke` — every one of those extra
   declarations is a no-op.
 - **An INHERITED custom property loses to the element's own declaration**, and no
-  specificity beats that. A palette declares in `:root`; `chart-family.styles.css` declares
-  the fill wash on `.chart-frame` itself, so a palette setting `--chart-fill-top-l`
-  looks like an override and does nothing. The wash is read through
-  `var(--palette-fill-*, <default>)` for that reason. Note what this is NOT: a
-  palette scoped to `.chart-frame` would win, because then it is an own declaration
-  too. (Zero of the 15 shipped palettes do that for any of the 72 properties this
-  file sets there.)
-- **The wash's own contract is per-theme, and one theme breaks it.** "The wash
-  only tints, so `--text-heading` labels clear it on both canvases" holds on a
-  canvas near either end of the range and fails on a mid-toned one. concrete
-  (canvas `#B8B8B5`) measured 4.14:1 light and 3.49:1 dark for a label on a mark,
-  and no ink fixes it — its `--text-heading` is already 15,15,14 and pure black
-  reaches 4.20:1. The wash is what has to move.
+  specificity beats that. A palette declares in `:root`; anything `chart-family.styles.css`
+  declares on `.chart-frame` itself is out of a palette's reach that way. That is why a
+  palette curates the chart SOLIDS through seeds the family READS (`--chart-catN`,
+  `--chart-state-X`, `--chart-neutral`, `--chart-on-solid`) and never sets the consumed
+  token. The gradient wash this note used to describe (`--chart-fill-top-*`, overridable as
+  `--palette-fill-*`, and flattened by concrete because no ink cleared its mid-tone canvas)
+  is retired: every fill is a flat solid with its own curated ink.

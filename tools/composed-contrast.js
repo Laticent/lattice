@@ -198,23 +198,17 @@ const PILL_STATE_FALLBACK = {
   mute: 'light-dark(#6B7480, #9AA7B6)',
 };
 
-function pillStop(state, which, lightPct, darkPct) {
-  const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
-  const stop = which === 'high' ? '100%' : '0%';
+function pillStop(state) {
   return {
-    id: `chart/status-pill-${state}${which === 'low' ? '-low' : ''}`,
-    ctx: `chart-family .chart-status[${state}]: --text-heading on the pill gradient's ${stop} stop`,
+    id: `chart/status-pill-${state}`,
+    ctx: `chart-family .chart-status[${state}]: the solid ink on the pill's flat solid`,
     base: '--bg',
-    groups: [{
-      bg: `light-dark(color-mix(in oklab, ${hue} ${lightPct}%, var(--bg)), `
-        + `color-mix(in oklab, ${hue} ${darkPct}%, black))`,
-    }],
-    ink: '--text-heading',
-    min: 4.5,
+    groups: [{ bg: `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})` }],
+    ink: '--chart-on-solid',
+    min: 7,
     src: CHARTFAMILY,
     requires: [
-      new RegExp(`color-mix\\(in oklab, var\\(--chart-status-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
-      new RegExp(`color-mix\\(in oklab, var\\(--chart-status-hue\\) ${darkPct}%, black\\)`),
+      /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
     ],
   };
@@ -223,35 +217,25 @@ function pillStop(state, which, lightPct, darkPct) {
 /**
  * One state-chart NODE surface: text on a status-tinted tile.
  *
- * Since 2026-09-24 a status paints the node itself, and the corner badge these entries
- * used to model is gone. A status tile takes the PILL's stops (18/30 light, 42/54 dark)
- * rather than the family bar ramp: measured here, the bar ramp put the state's name
- * sub-AA on forty dark theme pairs. Two inks sit on the tile — the state NAME and the
- * ORDINAL — and both are `--state-node-ink` (`--text-heading`) on a status tile, so one
- * surface per stop covers both; `requires` pins that, and the stops, and the tone
- * mapping, so a retune of any of them reddens the gate instead of silently moving what
- * is measured. The neutral tile (no status) is unchanged by that work and is not scored
- * here: its hue, `--muted-mark`, does not resolve in this tool.
+ * A status paints the node itself, as a flat SOLID (chart-family.styles.css § THE SOLID TIER), and the state NAME
+ * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink` (seed `--chart-on-solid`), held to 7:1
+ * on every solid. The tile used to take the pill's 18/30 · 42/54 stops with `--text-heading`; `requires` pins the
+ * solid, the ink and the tone mapping, so a retune of any of them reddens the gate instead of silently moving what
+ * is measured. The neutral tile is the neutral solid, gated with the rest by test/unit/palette/chart-solids.test.js.
  */
-function stateChartNode(state, which) {
-  const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
-  const top = which === 'top';
-  const [l, d] = top ? [18, 42] : [30, 54];
+function stateChartNode(state) {
   return {
-    id: `state-chart/node-${state}${top ? '-top' : ''}`,
-    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's ${top ? '0%' : '100%'} stop`,
+    id: `state-chart/node-${state}`,
+    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat solid`,
     base: '--bg',
-    groups: [{
-      bg: `light-dark(color-mix(in oklab, ${hue} ${l}%, var(--bg)), color-mix(in oklab, ${hue} ${d}%, black))`,
-    }],
-    ink: '--text-heading',
-    min: 4.5,
+    groups: [{ bg: `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})` }],
+    ink: '--chart-on-solid',
+    min: 7,
     src: STATECHART,
     requires: [
-      /--state-node-ink: var\(--text-heading\)/,
+      /--state-node-ink: var\(--chart-solid-ink\)/,
       /\.state-index-t\[data-s\] \{\s*color: var\(--state-node-ink\);\s*fill: var\(--state-node-ink\);/,
-      new RegExp(`--state-tile-${top ? 'top' : 'bottom'}-l: ${l}%;`),
-      new RegExp(`--state-tile-${top ? 'top' : 'bottom'}-d: ${d}%;`),
+      /background: var\(--fill-hue\);/,
       new RegExp(`--fill-hue: var\\(--state-${state}-hue\\)`),
     ],
   };
@@ -635,28 +619,19 @@ const SURFACES = [
   // stop was itself sub-AA at 4.38:1 on concrete|pass while every gate was green (#1807).
   // A stop nobody lists is a stop nobody scores, which is the fourth time in this
   // swimlane that a raw color-mix ground has been invisible.
-  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((state) => [
-    pillStop(state, 'high', 30, 54),
-    pillStop(state, 'low', 18, 42),
-  ]),
+  ...['pass', 'warn', 'fail', 'info', 'mute'].map((state) => pillStop(state)),
   // ── state-chart · the name and the ordinal on a status-tinted node ───────
-  ...['pass', 'warn', 'fail', 'info'].flatMap((state) => [
-    stateChartNode(state, 'top'),
-    stateChartNode(state, 'bottom'),
-  ]),
-  // THE PAINTED TILE'S STOPS LIVE IN JS, and the entries above pin only the CSS.
-  // Once the layout pass runs, what a reader sees is the SVG tile, whose gradient
-  // the adapter emits from literals (`paint`, the status ramp) — so a drift there would
-  // leave every CSS pin green over a sub-AA painted state. Scored once, at the
-  // darker (100%) stop of the pass tone, with both literal stops pinned: a
-  // duplicate ratio adds nothing, the drift protection is the point.
-  { ...stateChartNode('pass', 'bottom'),
+  ...['pass', 'warn', 'fail', 'info'].map((state) => stateChartNode(state)),
+  // THE PAINTED TILE'S PAINT LIVES IN JS, and the entries above pin only the CSS. Once the layout pass runs, a
+  // reader sees the SVG tile, whose one-stop paint server the adapter emits (`ramp`); this pins that it carries the
+  // status's own solid, so a drift there cannot leave every CSS pin green over a different color.
+  { ...stateChartNode('pass'),
     id: 'state-chart/node-svg-stops',
-    ctx: 'state-chart SVG tile: the adapter\'s literal gradient stops match the CSS tile',
+    ctx: 'state-chart SVG tile: the adapter paints the status solid the CSS tile wears',
     src: STATECHART_JS,
     requires: [
-      /lit\(`--state-\$\{tone\}-hue`, '0%', 18, 42\)/,
-      /lit\(`--state-\$\{tone\}-hue`, '100%', 30, 54\)/,
+      /defs \+= ramp\(id, `--state-\$\{tone\}-hue`\)/,
+      /stop-color:var\(\$\{hue\}\)/,
     ] },
 ];
 

@@ -54,7 +54,6 @@
     "--chart-cat-8-fill",
     "--chart-cat-8-hue",
     "--chart-cat-8-ink",
-    "--chart-cat-base",
     "--chart-cat1",
     "--chart-cat1-ink",
     "--chart-cat2",
@@ -83,7 +82,6 @@
     "--chart-state-pass",
     "--chart-state-warn",
     "--chart-status-hue",
-    "--chart-status-ink",
     "--cover-gutter",
     "--font-body",
     "--font-display",
@@ -94,10 +92,6 @@
     "--headline-align",
     "--lh-relaxed",
     "--mark-ink",
-    "--palette-fill-bottom-d",
-    "--palette-fill-bottom-l",
-    "--palette-fill-top-d",
-    "--palette-fill-top-l",
     "--sp-2xl",
     "--sp-lg",
     "--sp-md",
@@ -119,7 +113,8 @@
     "--text-muted",
     "--text-secondary",
     "--chart-neutral",
-    "--chart-on-solid"
+    "--chart-on-solid",
+    "--chart-solid-ink"
   ],
   "render": {
     "parity": "equivalent",

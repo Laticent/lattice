@@ -55,83 +55,83 @@
    "heatmapText": 4.651
   },
   "ardesia-dark/dark": {
-   "topVsEmpty": 4.313,
-   "heatmapText": 4.668
+   "topVsEmpty": 5.548,
+   "heatmapText": 4.655
   },
   "ardesia-dark/light": {
-   "topVsEmpty": 4.45,
-   "heatmapText": 4.667
+   "topVsEmpty": 4.84,
+   "heatmapText": 4.64
   },
   "ardesia-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "ardesia/dark": {
-   "topVsEmpty": 4.313,
-   "heatmapText": 4.668
+   "topVsEmpty": 5.548,
+   "heatmapText": 4.655
   },
   "ardesia/light": {
-   "topVsEmpty": 4.45,
-   "heatmapText": 4.667
+   "topVsEmpty": 4.84,
+   "heatmapText": 4.64
   },
   "ardesia/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "atelier-dark/dark": {
-   "topVsEmpty": 4.386,
-   "heatmapText": 4.658
+   "topVsEmpty": 5.42,
+   "heatmapText": 4.679
   },
   "atelier-dark/light": {
-   "topVsEmpty": 3.88,
-   "heatmapText": 4.651
+   "topVsEmpty": 4.358,
+   "heatmapText": 4.655
   },
   "atelier-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "atelier/dark": {
-   "topVsEmpty": 4.386,
-   "heatmapText": 4.658
+   "topVsEmpty": 5.42,
+   "heatmapText": 4.679
   },
   "atelier/light": {
-   "topVsEmpty": 3.88,
-   "heatmapText": 4.651
+   "topVsEmpty": 4.358,
+   "heatmapText": 4.655
   },
   "atelier/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "brina-dark/dark": {
-   "topVsEmpty": 4.898,
-   "heatmapText": 4.662
+   "topVsEmpty": 5.42,
+   "heatmapText": 4.645
   },
   "brina-dark/light": {
-   "topVsEmpty": 3.349,
-   "heatmapText": 4.651
+   "topVsEmpty": 4.739,
+   "heatmapText": 4.653
   },
   "brina-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "brina/dark": {
-   "topVsEmpty": 4.898,
-   "heatmapText": 4.662
+   "topVsEmpty": 5.42,
+   "heatmapText": 4.645
   },
   "brina/light": {
-   "topVsEmpty": 3.349,
-   "heatmapText": 4.651
+   "topVsEmpty": 4.739,
+   "heatmapText": 4.653
   },
   "brina/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "burgundy-dark/dark": {
-   "topVsEmpty": 3.753,
-   "heatmapText": 4.627
+   "topVsEmpty": 5.596,
+   "heatmapText": 4.644
   },
   "burgundy-dark/light": {
-   "topVsEmpty": 4.935,
+   "topVsEmpty": 5.144,
    "heatmapText": 4.654
   },
   "burgundy-dark/print": {
@@ -139,11 +139,11 @@
    "heatmapText": 4.651
   },
   "burgundy/dark": {
-   "topVsEmpty": 3.753,
-   "heatmapText": 4.627
+   "topVsEmpty": 5.596,
+   "heatmapText": 4.644
   },
   "burgundy/light": {
-   "topVsEmpty": 4.935,
+   "topVsEmpty": 5.144,
    "heatmapText": 4.654
   },
   "burgundy/print": {
@@ -151,59 +151,59 @@
    "heatmapText": 4.651
   },
   "carbone-dark/dark": {
-   "topVsEmpty": 5.966,
-   "heatmapText": 4.654
+   "topVsEmpty": 6.094,
+   "heatmapText": 4.651
   },
   "carbone-dark/light": {
-   "topVsEmpty": 3.515,
-   "heatmapText": 4.655
+   "topVsEmpty": 4.691,
+   "heatmapText": 4.657
   },
   "carbone-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "carbone/dark": {
-   "topVsEmpty": 5.966,
-   "heatmapText": 4.654
+   "topVsEmpty": 6.094,
+   "heatmapText": 4.651
   },
   "carbone/light": {
-   "topVsEmpty": 3.515,
-   "heatmapText": 4.655
+   "topVsEmpty": 4.691,
+   "heatmapText": 4.657
   },
   "carbone/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "carta-dark/dark": {
-   "topVsEmpty": 3.856,
-   "heatmapText": 4.675
+   "topVsEmpty": 5.316,
+   "heatmapText": 4.668
   },
   "carta-dark/light": {
-   "topVsEmpty": 4.334,
-   "heatmapText": 4.657
+   "topVsEmpty": 4.675,
+   "heatmapText": 4.665
   },
   "carta-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "carta/dark": {
-   "topVsEmpty": 3.856,
-   "heatmapText": 4.675
+   "topVsEmpty": 5.316,
+   "heatmapText": 4.668
   },
   "carta/light": {
-   "topVsEmpty": 4.334,
-   "heatmapText": 4.657
+   "topVsEmpty": 4.675,
+   "heatmapText": 4.665
   },
   "carta/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "concrete-dark/dark": {
-   "topVsEmpty": 3.125,
-   "heatmapText": 4.616
+   "topVsEmpty": 5.341,
+   "heatmapText": 4.66
   },
   "concrete-dark/light": {
-   "topVsEmpty": 3.09,
+   "topVsEmpty": 3.17,
    "heatmapText": 4.652
   },
   "concrete-dark/print": {
@@ -211,11 +211,11 @@
    "heatmapText": 4.651
   },
   "concrete/dark": {
-   "topVsEmpty": 3.125,
-   "heatmapText": 4.616
+   "topVsEmpty": 5.341,
+   "heatmapText": 4.66
   },
   "concrete/light": {
-   "topVsEmpty": 3.09,
+   "topVsEmpty": 3.17,
    "heatmapText": 4.652
   },
   "concrete/print": {
@@ -223,8 +223,8 @@
    "heatmapText": 4.651
   },
   "crepuscolo-dark/dark": {
-   "topVsEmpty": 3.433,
-   "heatmapText": 4.656
+   "topVsEmpty": 5.337,
+   "heatmapText": 4.654
   },
   "crepuscolo-dark/light": {
    "topVsEmpty": 5.599,
@@ -235,8 +235,8 @@
    "heatmapText": 4.651
   },
   "crepuscolo/dark": {
-   "topVsEmpty": 3.433,
-   "heatmapText": 4.656
+   "topVsEmpty": 5.337,
+   "heatmapText": 4.654
   },
   "crepuscolo/light": {
    "topVsEmpty": 5.599,
@@ -247,80 +247,80 @@
    "heatmapText": 4.651
   },
   "cuoio-dark/dark": {
-   "topVsEmpty": 4.514,
-   "heatmapText": 4.658
+   "topVsEmpty": 5.206,
+   "heatmapText": 4.651
   },
   "cuoio-dark/light": {
-   "topVsEmpty": 3.775,
-   "heatmapText": 4.657
+   "topVsEmpty": 4.779,
+   "heatmapText": 4.653
   },
   "cuoio-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "cuoio/dark": {
-   "topVsEmpty": 4.514,
-   "heatmapText": 4.658
+   "topVsEmpty": 5.206,
+   "heatmapText": 4.651
   },
   "cuoio/light": {
-   "topVsEmpty": 3.775,
-   "heatmapText": 4.657
+   "topVsEmpty": 4.779,
+   "heatmapText": 4.653
   },
   "cuoio/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "indaco-dark/dark": {
-   "topVsEmpty": 3.834,
-   "heatmapText": 4.655
+   "topVsEmpty": 5.324,
+   "heatmapText": 4.652
   },
   "indaco-dark/light": {
-   "topVsEmpty": 4.568,
-   "heatmapText": 4.654
+   "topVsEmpty": 4.969,
+   "heatmapText": 4.612
   },
   "indaco-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "indaco/dark": {
-   "topVsEmpty": 3.834,
-   "heatmapText": 4.655
+   "topVsEmpty": 5.324,
+   "heatmapText": 4.652
   },
   "indaco/light": {
-   "topVsEmpty": 4.568,
-   "heatmapText": 4.654
+   "topVsEmpty": 4.969,
+   "heatmapText": 4.612
   },
   "indaco/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "laguna-dark/dark": {
-   "topVsEmpty": 4.961,
-   "heatmapText": 4.594
+   "topVsEmpty": 5.283,
+   "heatmapText": 4.598
   },
   "laguna-dark/light": {
-   "topVsEmpty": 3.128,
-   "heatmapText": 4.655
+   "topVsEmpty": 4.644,
+   "heatmapText": 4.662
   },
   "laguna-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "laguna/dark": {
-   "topVsEmpty": 4.961,
-   "heatmapText": 4.594
+   "topVsEmpty": 5.283,
+   "heatmapText": 4.598
   },
   "laguna/light": {
-   "topVsEmpty": 3.128,
-   "heatmapText": 4.655
+   "topVsEmpty": 4.644,
+   "heatmapText": 4.662
   },
   "laguna/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "magnolia-dark/dark": {
-   "topVsEmpty": 3.75,
-   "heatmapText": 4.635
+   "topVsEmpty": 5.251,
+   "heatmapText": 4.655
   },
   "magnolia-dark/light": {
    "topVsEmpty": 5.467,
@@ -331,8 +331,8 @@
    "heatmapText": 4.651
   },
   "magnolia/dark": {
-   "topVsEmpty": 3.75,
-   "heatmapText": 4.635
+   "topVsEmpty": 5.251,
+   "heatmapText": 4.655
   },
   "magnolia/light": {
    "topVsEmpty": 5.467,
@@ -343,48 +343,48 @@
    "heatmapText": 4.651
   },
   "mustard-dark/dark": {
-   "topVsEmpty": 5.526,
-   "heatmapText": 4.652
+   "topVsEmpty": 5.476,
+   "heatmapText": 4.641
   },
   "mustard-dark/light": {
-   "topVsEmpty": 2.996,
-   "heatmapText": 4.66
+   "topVsEmpty": 4.399,
+   "heatmapText": 4.637
   },
   "mustard-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "mustard/dark": {
-   "topVsEmpty": 5.526,
-   "heatmapText": 4.652
+   "topVsEmpty": 5.476,
+   "heatmapText": 4.641
   },
   "mustard/light": {
-   "topVsEmpty": 2.996,
-   "heatmapText": 4.66
+   "topVsEmpty": 4.399,
+   "heatmapText": 4.637
   },
   "mustard/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "onyx-dark/dark": {
-   "topVsEmpty": 4.358,
-   "heatmapText": 4.665
+   "topVsEmpty": 5.765,
+   "heatmapText": 4.635
   },
   "onyx-dark/light": {
-   "topVsEmpty": 3.9,
-   "heatmapText": 4.664
+   "topVsEmpty": 4.823,
+   "heatmapText": 4.691
   },
   "onyx-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "onyx/dark": {
-   "topVsEmpty": 4.358,
-   "heatmapText": 4.665
+   "topVsEmpty": 5.765,
+   "heatmapText": 4.635
   },
   "onyx/light": {
-   "topVsEmpty": 3.9,
-   "heatmapText": 4.664
+   "topVsEmpty": 4.823,
+   "heatmapText": 4.691
   },
   "onyx/print": {
    "topVsEmpty": 8.438,

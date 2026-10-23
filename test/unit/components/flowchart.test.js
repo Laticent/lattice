@@ -51,7 +51,7 @@ describe('flowchart — the figure through the real engine', () => {
 
   test('the key span is consumed and drawn as the key; the caption is left to the frame', () => {
     assert.doesNotMatch(html, /\[\{=&gt;, Paging path\}\]/, 'the bracketed span must not print as text');
-    assert.match(html, /<ol class="fc-key">.*Paging path/s);
+    assert.match(html, /<ol class="fc-key" data-chart="flowchart">.*Paging path/s);
     assert.match(html, /<p class="chart-caption"[^>]*>Most alerts close themselves\.<\/p>/);
   });
 

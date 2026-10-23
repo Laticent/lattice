@@ -237,7 +237,7 @@ section.flowchart .fc-node[data-s="deferred"] { background: none; border-style: 
 
 /* The group names the hue its shape wears, so the caption (a sibling) and a chart finish can read it:
  * a status word through the table above, a slot here, and otherwise the neutral tile. */
-section.flowchart :is(.fc-node-group, .fc-node) { --fc-hue: var(--muted-mark); --fc-hue-mark: var(--text-secondary); }
+section.flowchart :is(.fc-node-group, .fc-node) { --fc-hue: var(--chart-neutral-hue); --fc-hue-mark: var(--text-secondary); }
 section.flowchart .fc-node-group[data-slot="1"]:not([data-s]) { --fc-hue: var(--chart-cat-1-hue); }
 section.flowchart .fc-node-group[data-slot="2"]:not([data-s]) { --fc-hue: var(--chart-cat-2-hue); }
 section.flowchart .fc-node-group[data-slot="3"]:not([data-s]) { --fc-hue: var(--chart-cat-3-hue); }
