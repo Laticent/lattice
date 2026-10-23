@@ -112,16 +112,24 @@
 	inset: 0;
 	box-shadow: inset 0 0 70px 14px color-mix(in srgb, var(--bg, #0c1626) 92%, transparent);
 }
-/* Grain: a static gray noise tile at 2.5% that dithers the color ramps. A large 8-bit desktop
+/* Grain: a 2 px black-and-white checker at 1.8%, which dithers the color ramps. A large 8-bit desktop
    panel otherwise shows each color step as a contour band; a phone's dense, dithering screen
-   hides them. Static, so it rasterizes once and never repaints. */
+   hides them. Static, so it rasterizes once and never repaints.
+   A GRADIENT, NOT A `url()` IMAGE, and the difference is a Lighthouse score. Chrome counts a
+   `background-image: url(...)` that covers a box as a largest-paint candidate. The app builds its own
+   loader when React mounts, so a noise tile here made THAT element the page's largest contentful
+   paint, at the island's mount time (13.7 s simulated on the phone profile, against 4.2 s for the
+   pre-paint shell's title once the image was gone). A gradient is not a candidate.
+   Measured against the noise tile it replaces, on the loader rendered at 1200 px, dark and light: the
+   longest run of identical pixels along a row is 2.6 px (noise: 7.6; no grain: 19.5 dark, 12.7 light), and
+   the mean color moves by at most 1.8 of 255 (engineering/decisions/2026-10-23-startup-bake-off.md E6). */
 .nacre-loader::after {
 	content: '';
 	position: absolute;
 	inset: 0;
-	opacity: 0.025;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
-	background-size: 128px 128px;
+	opacity: 0.018;
+	background-image: repeating-conic-gradient(#000 0 25%, #fff 0 50%);
+	background-size: 2px 2px;
 }
 @keyframes nacre-rot {
 	to {

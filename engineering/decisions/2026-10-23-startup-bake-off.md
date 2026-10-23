@@ -119,12 +119,28 @@ same built page with `.nacre-loader::after { background-image: none }` injected,
 | as built | 51-55 | 4.0-4.3 s | **13.6-13.7 s** | 430-520 ms | the app's loader |
 | noise image removed | **62-69** | 3.6-4.3 s | **4.2-5.0 s** | 340-470 ms | the pre-paint shell's title |
 
-That confirms the cause and puts LCP back where 09-22 had it. It does not reach 90. With LCP fixed the weighted
-audits read: FCP 3.6 s (score 33), LCP 4.2 s (45), TBT 380 ms (69), CLS 0 (100), speed index 3.6 s (87). Reaching 90 needs
-FCP near 1.8 s (the render-blocking `landing.css`, 35 KB, is 304 ms of it) and TBT under 200 ms (React's 800 ms of
-script, the runtime's 278 ms long task, 1.9 s of unattributable work). **Gate:** the loader's grain is a visual element;
-replacing it so it is not an LCP image (a mask, a CSS gradient, or a smaller tile) needs the QUALITY BAR visual pass at
-three widths, not a blind removal.
+That confirms the cause and puts LCP back where 09-22 had it. **Applied** (`docs/src/styles/nacre-loader.css`): the grain is
+now a 2 px black-and-white checker drawn with `repeating-conic-gradient` at 1.8% opacity; a gradient is not an LCP
+candidate. It had to keep the grain's job, which is to dither the color ramps against banding on a large 8-bit panel, so
+it was measured against the noise tile on the loader rendered at 1200 px, dark and light (longest run of identical pixels
+along a row; mean color against no grain):
+
+| Grain | Flat run, dark | Flat run, light | Mean color shift (of 255) |
+|---|---|---|---|
+| none | 19.5 px | 12.7 px | 0 |
+| noise tile (before) | 7.6 px | 7.5 px | +1.3 / +0.9 / +0.6 dark; about 0 light |
+| **checker at 1.8% (now)** | **2.6 px** | **2.9 px** | +1.1 / +0.5 / -0.1 dark; -0.8 / -1.2 / -1.8 light |
+| checker at 1.2% | 8.5 px | 9.7 px | smaller, but dithers no better than the noise |
+
+It dithers better than the noise and moves the average color by under 2 of 255. Side-by-side renders at 390, 820 and
+1440 px in both modes (old left, new right) show no difference. On the real build, Lighthouse mobile, three runs: score
+**59-67** (was 51-55), LCP **4.5-5.3 s** (was 13.6-13.7 s), the LCP element the pre-paint shell. `nacre-loader.test.ts`
+fails if a `url()` image returns to the file. **Not shown:** banding on a real desktop panel; the measure is on pixels, not
+on a display.
+
+It does not reach 90. With LCP fixed the weighted audits read: FCP 3.6 s (score 33), LCP 4.2 s (45), TBT 380 ms (69), CLS 0
+(100), speed index 3.6 s (87). Reaching 90 needs FCP near 1.8 s (the render-blocking `landing.css`, 35 KB, is 304 ms of it)
+and TBT under 200 ms (React's 800 ms of script, the runtime's 278 ms long task, 1.9 s of unattributable work).
 
 ## Where confidence stands now
 
@@ -135,7 +151,7 @@ three widths, not a blind removal.
 | Settle sooner (E3) | low-medium | **medium-high** | prose -145 ms, every diagram arm unchanged, 3 tests to rewrite, export bytes change |
 | Icon chunk (E4) | low | **high** for the Studio, medium overall | interleaved, disjoint IQRs; cost on two routes is known and in budget |
 | Chart-builder split (E5) | medium | medium | not rebuilt |
-| Lighthouse 90 (E6) | low | **medium** that it is reachable; low that one change gets there | cause of LCP confirmed; FCP and TBT remain |
+| Lighthouse (E6) | low | LCP fixed and applied (score 51-55 to 59-67); 90 still needs FCP and TBT work | cause confirmed, fix measured on the real build |
 
 Everything is still emulated Chromium, WebKit and Firefox on one machine. A real phone is the one thing that would take
 any of these to `very high`.
