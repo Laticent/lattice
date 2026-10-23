@@ -1282,8 +1282,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
 						   across every drawer, the same way there is one header. */
 						<div className="grid h-full place-items-center">
-							<PanelEmpty icon={<FileBox />} title="No saved assets yet">
-								Fabricate a theme or a component, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>import files, photos or a package</button>.
+							{/* A zip import can take a few seconds (the plugin sandbox starts); an empty shelf that says nothing reads as a failed import. */}
+							<PanelEmpty icon={<FileBox />} title={busy ?? 'No saved assets yet'}>
+								{busy ? 'This can take a few seconds.' : <>Fabricate a theme or a component, or <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>import files, photos or a package</button>.</>}
 							</PanelEmpty>
 						</div>
 					) : (
