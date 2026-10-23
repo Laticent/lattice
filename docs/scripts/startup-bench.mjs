@@ -10,12 +10,17 @@
 //   URL=http://localhost:4321/playground/ FRAME='iframe' node scripts/startup-bench.mjs
 //   PROFILE=desktop RUNS=5 node scripts/startup-bench.mjs
 //   JSON=1 ... prints one JSON line (median + every run) for a baseline file.
-import { chromium } from '@playwright/test';
+import { chromium, firefox, webkit } from '@playwright/test';
 
 const RUNS = Number(process.env.RUNS || 5);
 const URL = process.env.URL || 'http://localhost:4321/studio/';
 const FRAME = process.env.FRAME || '[aria-label="Live deck preview"] iframe.live';
 const PROFILE = process.env.PROFILE || 'phone';
+// ENGINE=chromium|webkit|firefox. CPU and network throttling are Chromium DevTools features, so the other two run
+// unthrottled: compare a build against another build on the same engine, never across engines.
+const ENGINE = process.env.ENGINE || 'chromium';
+// WARM=1: after the cold load, reload in the same context with the service worker allowed, and report that load.
+const WARM = process.env.WARM === '1';
 const GIVE_UP = Number(process.env.GIVE_UP || 60_000);
 
 const PROFILES = {
@@ -31,16 +36,24 @@ const median = (xs) => {
 };
 
 async function run(browser) {
-	const ctx = await browser.newContext({ viewport: P.viewport, hasTouch: P.hasTouch, isMobile: P.isMobile, serviceWorkers: 'block' });
+	const ctx = await browser.newContext({ viewport: P.viewport, hasTouch: P.hasTouch, isMobile: ENGINE === 'firefox' ? undefined : P.isMobile, serviceWorkers: WARM ? 'allow' : 'block' });
 	const page = await ctx.newPage();
-	const cdp = await ctx.newCDPSession(page);
-	await cdp.send('Network.enable');
-	await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: P.latency, downloadThroughput: P.down, uploadThroughput: P.down });
-	if (P.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: P.cpu });
+	const cdp = ENGINE === 'chromium' ? await ctx.newCDPSession(page) : null;
+	if (cdp) {
+		await cdp.send('Network.enable');
+		await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: P.latency, downloadThroughput: P.down, uploadThroughput: P.down });
+		if (P.cpu > 1) await cdp.send('Emulation.setCPUThrottlingRate', { rate: P.cpu });
+	}
 	let requests = 0;
 	page.on('request', () => requests++);
 	// Main-thread busy time: the page's TaskDuration metric (script + layout + style) at the moment of the slide.
-	await cdp.send('Performance.enable');
+	await cdp?.send('Performance.enable');
+	if (WARM) {
+		// Prime the service worker and the HTTP cache with one full load, then measure the next one.
+		await page.goto(URL, { waitUntil: 'load' });
+		await page.waitForTimeout(6000);
+	}
+	requests = 0;
 	const t0 = Date.now();
 	await page.goto(URL, { waitUntil: 'commit' });
 	const deadline = t0 + GIVE_UP;
@@ -56,8 +69,8 @@ async function run(browser) {
 			.catch(() => false);
 		if (ready) {
 			first = Date.now() - t0;
-			const m = await cdp.send('Performance.getMetrics');
-			busyAtSlide = m.metrics.find((x) => x.name === 'TaskDuration')?.value ?? null;
+			const m = cdp ? await cdp.send('Performance.getMetrics') : null;
+			busyAtSlide = m?.metrics.find((x) => x.name === 'TaskDuration')?.value ?? null;
 			break;
 		}
 		await new Promise((r) => setTimeout(r, 25));
@@ -67,7 +80,7 @@ async function run(browser) {
 	return out;
 }
 
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
+const browser = await { chromium, firefox, webkit }[ENGINE].launch(ENGINE === 'chromium' ? { executablePath: process.env.CHROME_PATH || undefined } : {});
 const runs = [];
 for (let i = 0; i < RUNS; i++) runs.push(await run(browser));
 await browser.close();
@@ -76,8 +89,12 @@ const ok = runs.filter((r) => r.firstSlide != null);
 const summary = {
 	url: URL,
 	profile: PROFILE,
+	engine: ENGINE,
+	warm: WARM,
 	runs: runs.length,
 	gaveUp: runs.length - ok.length,
+	firstSlideMinMs: ok.length ? Math.min(...ok.map((r) => r.firstSlide)) : null,
+	firstSlideMaxMs: ok.length ? Math.max(...ok.map((r) => r.firstSlide)) : null,
 	firstSlideMedianMs: ok.length ? Math.round(median(ok.map((r) => r.firstSlide))) : null,
 	requestsMedian: ok.length ? median(ok.map((r) => r.requestsAtSlide)) : null,
 	busyMedianS: ok.length ? Number(median(ok.map((r) => r.busyAtSlide ?? 0)).toFixed(2)) : null,
@@ -86,7 +103,7 @@ const summary = {
 if (process.env.JSON) console.log(JSON.stringify(summary));
 else {
 	console.log(`${PROFILE} ${URL}`);
-	console.log(`first slide  median ${summary.firstSlideMedianMs} ms  (${runs.map((r) => r.firstSlide).join(', ')})`);
+	console.log(`first slide  median ${summary.firstSlideMedianMs} ms  min ${summary.firstSlideMinMs}  max ${summary.firstSlideMaxMs}  (${runs.map((r) => r.firstSlide).join(', ')})`);
 	console.log(`requests     median ${summary.requestsMedian} (by the slide)`);
 	console.log(`main thread  median ${summary.busyMedianS} s busy by the slide (TaskDuration, throttled clock)`);
 	if (summary.gaveUp) console.log(`gave up on ${summary.gaveUp} run(s)`);
