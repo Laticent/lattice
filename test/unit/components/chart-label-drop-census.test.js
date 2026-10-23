@@ -38,7 +38,7 @@
  * taken from a moving HEAD will not reproduce.
  *
  * An AUTHOR is not equally protected, and this census deliberately does not
- * claim they are. Five long names in one quadrant loses two, and twenty rows
+ * claim they are. Five long names in one quadrant loses one (two before the scatter dot grew to r=6), and twenty rows
  * on a `bar` loses ten — both at the shipped sizes, both silent, both reached
  * by the detector arms below. Warning the author is real work and needs a
  * render-time diagnostic channel the family does not have; it is not in scope

@@ -145,9 +145,11 @@ const DIAGRAM_TOKENS: { token: string; label: string }[] = [
 	{ token: 'pass-solid', label: 'Status fill · pass' },
 	{ token: 'warn-solid', label: 'Status fill · warn' },
 	{ token: 'fail-solid', label: 'Status fill · fail' },
-	{ token: 'on-warn', label: 'Ink on the warn fill' },
+	{ token: 'info-solid', label: 'Status fill · info' },
 	{ token: 'warn-solid-vivid', label: 'Status fill · warn (vivid)' },
-	{ token: 'on-warn-vivid', label: 'Ink on the vivid warn fill' },
+	{ token: 'warn-solid-edge', label: 'Status edge · warn' },
+	{ token: 'on-solid', label: 'Ink on a category' },
+	{ token: 'on-status', label: 'Ink on a status' },
 ];
 // Friendly label for any band token (the inspector's caption).
 function bandLabel(token: string): string {

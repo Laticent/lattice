@@ -249,7 +249,9 @@ test('every excluded knockout really strokes the canvas color', () => {
     // var(--bg) }` would satisfy a naive scan while the mark paints an ordinary
     // outline every moment a pointer is not on it — and a PDF has no pointer at
     // all. Only a rule that applies in the mark's resting state counts.
-    const strokes = owning.filter((r) => /(^|[;{\s])stroke:\s*var\(--bg\)/.test(r.body))
+    // A two-face knockout (`light-dark(<edge>, var(--bg))`) counts: the risk cell is seamed with the canvas on the
+    // dark face and drawn in its status edge on the light face, where its bright fill alone sits under 3:1.
+    const strokes = owning.filter((r) => /(^|[;{\s])stroke:\s*(var\(--bg\)|light-dark\([^;]*,\s*var\(--bg\)\))/.test(r.body))
       .filter((r) => !/:(hover|focus|focus-within|active|target|checked)\b/.test(r.sel))
       .filter((r) => !/\.chart-mark-active\b/.test(r.sel));
     if (!strokes.length) {

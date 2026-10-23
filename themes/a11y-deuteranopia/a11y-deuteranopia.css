@@ -61,20 +61,27 @@
   --pass: light-dark(#054c86, #82bfff);
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
-  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). A colorblind palette keeps ONE set in both
-   * intensities of `chart-finish:`: the set that clears every colorblind floor outright. On the dark face a fill is
-   * the status ink itself. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#155A98, var(--pass));
-  --warn-solid: light-dark(#F0A715, var(--warn));
-  --fail-solid: light-dark(#78000E, var(--fail));
-  --on-warn: light-dark(#1A1A1A, var(--on-solid));
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS): BRIGHT fills under near-black `--on-status`, 7:1 on
+   * both faces, solved as a trio that clears this palette's own colorblind floor, and one set for both intensities.
+   * Each status's EDGE, in its own hue at 4.6:1 off the slide, rims the fill on the light face. Solved by
+   * tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#6BACF0, #84C0FF);
+  --warn-solid: light-dark(#DD9800, #F7AE23);
+  --fail-solid: light-dark(#ECB9B4, #FFCDC8);
   --pass-solid-vivid: var(--pass-solid);
   --warn-solid-vivid: var(--warn-solid);
   --fail-solid-vivid: var(--fail-solid);
-  --on-warn-vivid: var(--on-warn);
-  --warn-solid-edge: var(--warn);   /* the light amber's boundary on the slide */
-  --on-solid: light-dark(#FFFFFF, #000000);
-  --chart-neutral: light-dark(#575757, #989898);
+  --on-status: #1A1A1A;
+  --pass-solid-edge: light-dark(#3272B2, #84C0FF);
+  --fail-solid-edge: light-dark(#91635F, #FFCDC8);
+  --info-solid: light-dark(#60AEDA, #62C5FA);
+  --info-solid-vivid: var(--info-solid);
+  --info-solid-edge: light-dark(#22769F, #62C5FA);
+  --mute-solid: light-dark(#AAA3AA, #BFB9BF);
+  --mute-solid-edge: light-dark(#746D74, #BFB9BF);
+  --warn-solid-edge: light-dark(#956500, #F7AE23);   /* the light amber's boundary on the slide */
+  --on-solid: #FFFFFF;
+  --chart-neutral: light-dark(#575757, #686868);
   /* Diagram alarm — a deep-red attention signal (not a green/red pair). */
   --diagram-critical: #5f0009;
 
@@ -182,11 +189,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#333333, #BFBFBF);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#0B0B0B, #EDEDED);
+  --heatmap-step3-ink: light-dark(#0B0B0B, #BFBFBF);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#D4D4D4, #292929);
+  --heatmap-step4-ink: light-dark(#D4D4D4, #BFBFBF);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#A7A7A7, #4A4A4A);
+  --heatmap-step5-ink: light-dark(#A7A7A7, #CBCBCB);
   /* ── end heatmap ramp ── */
 }
 

@@ -73,7 +73,7 @@ override any subset of them.
 | Ink | `--text-display` `--text-heading` `--text-body` `--text-secondary` `--text-label` `--text-muted` `--code-inline-fg` |
 | Graphical ink | `--muted-mark` |
 | Accent | `--accent` `--accent-soft` `--on-accent` `--on-accent-soft` † `--accent-soft-body` † |
-| Status | `--pass` `--fail` `--warn` `--info` `--mute` `--on-solid` `--pass-solid` `--warn-solid` `--fail-solid` `--on-warn` `--pass-solid-vivid` `--warn-solid-vivid` `--fail-solid-vivid` `--on-warn-vivid` `--pass-bg` `--fail-bg` `--warn-bg` |
+| Status | `--pass` `--fail` `--warn` `--info` `--mute` `--on-solid` `--on-status` `--pass-solid` `--warn-solid` `--fail-solid` `--info-solid` `--mute-solid` `--pass-solid-vivid` `--warn-solid-vivid` `--fail-solid-vivid` `--info-solid-vivid` `--pass-solid-edge` `--warn-solid-edge` `--fail-solid-edge` `--info-solid-edge` `--mute-solid-edge` `--pass-bg` `--fail-bg` `--warn-bg` |
 | The dark face | `--scheme-dark-bg` `--scheme-dark-bg-alt` `--scheme-dark-border` `--scheme-dark-text-heading` `--scheme-dark-text-body` `--scheme-dark-text-display` `--scheme-dark-text-secondary` `--scheme-dark-text-label` `--scheme-dark-text-muted` `--scheme-dark-muted-mark` |
 | Categorical slots | `--cat-1-fill` `--cat-2-fill` `--cat-3-fill` `--cat-4-fill` `--cat-5-fill` `--cat-6-fill` `--cat-7-fill` `--cat-8-fill` `--cat-9-fill` `--cat-10-fill` `--cat-11-fill` `--cat-12-fill` `--cat-1-mark` `--cat-2-mark` `--cat-3-mark` `--cat-4-mark` `--cat-5-mark` `--cat-6-mark` `--cat-7-mark` `--cat-8-mark` `--cat-9-mark` `--cat-10-mark` `--cat-11-mark` `--cat-12-mark` `--cat-1-ink` `--cat-2-ink` `--cat-3-ink` `--cat-4-ink` `--cat-5-ink` `--cat-6-ink` `--cat-7-ink` `--cat-8-ink` `--cat-9-ink` `--cat-10-ink` `--cat-11-ink` `--cat-12-ink` `--cat-on-fill` `--cat-on-mark` `--diagram-stroke` `--diagram-line` `--diagram-accent-warm` |
 | Heatmap ramp | `--heatmap-step1` ‡ `--heatmap-step2` ‡ `--heatmap-step3` ‡ `--heatmap-step4` ‡ `--heatmap-step5` ‡ `--heatmap-step1-ink` ‡ `--heatmap-step2-ink` ‡ `--heatmap-step3-ink` ‡ `--heatmap-step4-ink` ‡ `--heatmap-step5-ink` ‡ |
@@ -87,13 +87,17 @@ override any subset of them.
 † the engine defaults it (`ENGINE_DEFAULTED_TOKENS`). ‡ every reader has a fallback
 (`FALLBACK_ONLY_TOKENS`). Both live in `lib/theme/gate.js`, and a test holds this table to them.
 
-**Status has two jobs, and chart colors are SOLIDS.** `--pass` `--warn` `--fail` `--info` `--mute` are the status as
-INK on the slide: each clears 4.5:1 as text on `--bg` and `--bg-alt`. `--pass-solid` `--warn-solid` `--fail-solid` are
-the status as a FILL a label sits on, in the default `muted` intensity, and the `-vivid` set is the `vivid` one
-(`chart-finish: … vivid`); `--info` and `--mute` serve as both. On the light face text on a fill clears 7:1 under
-`--on-solid`, or under `--on-warn` / `--on-warn-vivid` on the amber fill; on the dark face it clears 4.5:1. The eight `--chart-catN` and `--chart-neutral` are fills too, at 7:1 under
-`--on-solid` in both color schemes. Every fill clears 3:1 against `--bg`, or a status fill's ink edge does, and the
-three light-face status fills stay apart for a colorblind reader.
+**Status has two jobs, and chart colors are SOLIDS, and text color carries the kind.** `--pass` `--warn` `--fail`
+`--info` `--mute` are the status as INK on the slide: each clears 4.5:1 as text on `--bg` and `--bg-alt`.
+`--pass-solid` … `--mute-solid` are the status as a FILL a label sits on, in the default `muted` intensity, and the
+`-vivid` set is the `vivid` one (`chart-finish: … vivid`; `--mute-solid` has none). A status fill is BRIGHT: text on it
+is near-black `--on-status` and clears 7:1 on both faces. The eight `--chart-catN` and `--chart-neutral` are fills too,
+DEEP ones: text on them is white `--on-solid`, at 7:1 on the light face and 4.5:1 on the dark face. So a category and a
+status may share a hue and the text color still says which is which; every status fill is at least 2:1 brighter than
+every category fill. Each status's `--X-solid-edge` is its own hue at 4.5:1 or better off `--bg` on the light face:
+it rims the bright fill there (which sits under 3:1 itself) and paints the status as a line or as text. Every other
+fill clears 3:1 against `--bg`, and the light-face status fills of an `a11y-` palette stay apart for its own
+colorblind condition.
 
 The code-highlighting tokens name ROLES, not a highlighter's classes: Lattice's code plugin maps
 each highlight.js class onto one of them, so a theme never names highlight.js. Four more roles are

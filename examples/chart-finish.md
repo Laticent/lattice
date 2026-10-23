@@ -116,7 +116,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 ---
 
 <!-- _class: gantt -->
-<!-- _footer: "A status keeps its own color, and a task with none wears the neutral one" -->
+<!-- _footer: "Text color tells the kind: a status is bright under dark text, a task with none is deep under white" -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -133,8 +133,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: progress -->
-<!-- _footer: "The readout sits on its own plate, so the bar keeps its color on a dark slide too" -->
+<!-- _class: progress chart-finish-vivid -->
+<!-- _footer: "_class: chart-finish-vivid · richer status fills, the same dark text" -->
 
 `H1 2026 · readiness`
 
@@ -145,6 +145,22 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 - Calibration cadence `34%` `deferred`
 - Adoption `12%` `blocked`
 - Rollout `55%`
+
+---
+
+<!-- _class: risk-matrix -->
+<!-- _footer: "Every band is a status fill; critical is the most saturated of the four" -->
+
+`Enterprise risk register · Q4 2026`
+
+## Cyber and hurricane risk sit in the red; both have a plan.
+
+- Cyber outage `{4, 5}` `{2, 4}`
+- Hurricane season `{3, 5}` `{3, 3}`
+- Reserve shortfall `{3, 4}`
+- FX swing `{4, 2}`
+- Key person loss `{2, 3}`
+- Pandemic `{1, 5}`
 
 ---
 
