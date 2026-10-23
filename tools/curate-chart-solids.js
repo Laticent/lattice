@@ -187,8 +187,10 @@ function solveTheme(theme) {
   out[ON_SOLID] = a11y ? `light-dark(${WHITE}, ${DARK_INK})` : WHITE;
 
   // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's. One ink: the status
-  // fills carry white too, so `--on-status` is white; it stays a token so a palette can still differ.
-  if (owns('pass')) {
+  // fills carry the same ink as the categories, so `--on-status` is `--on-solid`; it stays a token so a palette can
+  // still differ. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
+  // (bright fills under a near-black ink), so the brand set it would inherit from its parent would carry the wrong ink.
+  if (owns('pass') || a11y) {
     const face = (dark) => [R(raw.bg, dark), R(raw['bg-alt'], dark)].filter(isHex);
     out[ON_STATUS] = out[ON_SOLID];
     const hue = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((s) => [s, hexToOklch(arm(s, false)).h]));
@@ -198,7 +200,7 @@ function solveTheme(theme) {
     const strength = a11y ? 1 : Math.min(STRENGTH[1], Math.max(STRENGTH[0], meanC / TYPICAL_CHROMA));
     const darkInk = a11y ? DARK_INK : WHITE;
     let set = solveStatusSet({ hue, strength, light: face(false), dark: face(true), darkInk });
-    if (a11y) {
+    if (a11y && theme !== 'a11y-base') {
       // A colorblind palette solves its trio against its own condition, near the scheme's own fills, on each face; the
       // trio's hues are its own (a colorblind palette picks hues for its condition, not for a band). One set serves
       // both intensities.
@@ -246,7 +248,7 @@ function main() {
     // A new category or neutral seed lands after the last chart seed the theme owns; a new status seed after its fills.
     const lastCat = [...CATS].reverse().find(mine);
     let catAnchor = lastCat ? `--${lastCat}:` : null;
-    let statusAnchor = mine('fail-solid-vivid') ? '--fail-solid-vivid:' : '--fail-solid:';
+    let statusAnchor = mine('fail-solid-vivid') ? '--fail-solid-vivid:' : mine('fail-solid') ? '--fail-solid:' : '--on-solid:';
     for (const [seed, value] of Object.entries(solved)) {
       const current = (own.match(new RegExp(`--${seed}\\s*:\\s*([^;]+);`)) || [])[1]?.trim();
       total += 1;

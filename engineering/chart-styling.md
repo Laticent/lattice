@@ -133,11 +133,14 @@ brand green bar and a "done" bar can look alike. Two things separate them:
   done, a dash for at risk, a cross for blocked, a slash for deferred. An SVG member inlines the path, an HTML member
   masks the `--mark-*-bold` token; live, pilot and decision carry none. The shape also reaches a reader who sees no
   color.
-- **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a bright ring in the classic hue
-  (`--warn-solid-signal` amber, `--fail-solid-signal` coral-red; § THE SIGNAL RING in `chart-family.styles.css`).
-  Nothing else rings, so a ring means "exception" on every chart. The ring sits outside the shape (an outset shadow
-  on HTML, a stroke painted under the fill on SVG) and is `!important`, because every finish paints a status
-  member's edge with `!important`. A risk matrix rings its whole critical band once and marks each critical cell.
+- **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-solid-signal`
+  amber, `--fail-solid-signal` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
+  opposite lightness to its fill. Nothing else rings, so a ring means "exception" on every chart. It is an outline
+  that takes no space: 1.3 hairlines wide (`--chart-ring`), drawn INSIDE the shape, so it never grows a mark or covers
+  an arrowhead at the shape's edge. HTML boxes take an inset shadow (`!important`, because every finish paints a
+  status member's edge with `!important`); an SVG member's kernel draws the shape's own outline clipped to the shape
+  (`.chart-signal-ring`). A risk matrix rings its whole critical band once, inside the band, and marks each critical
+  cell. A hub-spoke alarm halo stands apart from its disc, so its only neighbor is the slide: it wears the status EDGE.
 
 The contract, held for every palette in both modes and both intensities by
 `test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`:
@@ -147,9 +150,10 @@ The contract, held for every palette in both modes and both intensities by
 - every solid clears **3:1** against the slide (WCAG 1.4.11) by itself;
 - each status's EDGE (`--X-solid-edge`, its own hue at 4.6:1 off the slide) is what a status LINE or status TEXT
   paints: a slope, a waterfall step, a kanban header, the status ink `--state-X-ink`;
-- each ring is brighter than its fill and clears **3:1** against the neighbor opposite it in lightness: the deep
-  fill on a light slide, the slide on a dark one, where it also steps **2:1** off its mid-tone fill. A ring held to
-  3:1 off a mid-tone fill washes out to near white.
+- each ring sits at the opposite lightness to its fill and clears **3:1** against the neighbor opposite it in
+  lightness: a bright ring on a deep fill against the fill (light slide); a bright ring on a mid-tone fill against the
+  slide, with a **2:1** step off the fill (dark slide; held to 3:1 off a mid-tone fill it washes out to near white); a
+  deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
 
 **Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-solid`, the
 default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is

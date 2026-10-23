@@ -239,6 +239,8 @@ section.flowchart .fc-shape[data-s]:not([data-s="deferred"]) { fill: var(--fc-st
 section.flowchart .fc-node[data-s]:not([data-s="deferred"]) { background: var(--fc-status-fill); border-color: var(--fc-hue-mark); }
 /* Deferred is hollow and dashed: on hue alone it would read as "no status". */
 section.flowchart .fc-shape[data-s="deferred"] { fill: none; stroke: var(--text-secondary); stroke-dasharray: 4px 2.5px; }
+/* A hollow node's status mark sits on the slide, so it wears the canvas ink, not the solid ink. */
+section.flowchart .chart-status-mark[data-s="deferred"] { stroke: var(--text-heading); }
 section.flowchart .fc-node[data-s="deferred"] { background: none; border-style: dashed; border-color: var(--text-secondary); }
 
 /* The group names the hue its shape wears, so the caption (a sibling) and a chart finish can read it:

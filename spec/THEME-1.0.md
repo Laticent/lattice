@@ -94,9 +94,10 @@ override any subset of them.
 the eight `--chart-catN` or `--chart-neutral`, is DEEP: text on it is white (`--on-solid`, and `--on-status`, which
 is also white), at 7:1 on the light face and 4.5:1 on the dark face, and the fill clears 3:1 against `--bg` by itself.
 Each status's `--X-solid-edge` is its own hue at 4.5:1 or better off `--bg` on both faces, and paints the status as a
-line or as text. `--warn-solid-signal` and `--fail-solid-signal` are the bright rings an at-risk or blocked shape
-wears: each is brighter than its fill and clears 3:1 against the fill on the light face and against `--bg` on the
-dark face. The status fills of an `a11y-` palette stay apart for its own colorblind condition; on the dark face an `a11y-`
+line or as text. `--warn-solid-signal` and `--fail-solid-signal` are the rings an at-risk or blocked shape
+wears, at the opposite lightness to its fill: bright on a deep fill, clearing 3:1 against the fill on the light face
+and against `--bg` on the dark face; deep on an `a11y-` palette's bright dark-face fill, clearing 3:1 against the
+fill. The status fills of an `a11y-` palette stay apart for its own colorblind condition; on the dark face an `a11y-`
 palette's chart fills are BRIGHT under a near-black `--on-solid` and `--on-status` (still one ink per slide), and its
 rings deep.
 

@@ -105,7 +105,7 @@
    * also has an EDGE in its own hue, 4.6:1 off the slide, for a status line or text, and the two exceptions a SIGNAL
    * ring in the bright classic hue. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#144B37, #3A6E59);
+  --pass-solid: light-dark(#144B37, #396E58);
   --warn-solid: light-dark(#854A00, #AD6200);
   --fail-solid: light-dark(#9B003C, #D01856);
   --pass-solid-vivid: light-dark(#004C35, #007251);
@@ -114,14 +114,14 @@
   --warn-solid-signal: light-dark(#FF9C01, #FF9C00);
   --fail-solid-signal: light-dark(#FF7277, #FF7278);
   --on-status: #FFFFFF;
-  --pass-solid-edge: light-dark(#144B37, #629680);
+  --pass-solid-edge: light-dark(#144B37, #61967F);
   --warn-solid-edge: light-dark(#854A00, #C77A2B);
   --fail-solid-edge: light-dark(#95173E, #E1627C);
   --info-solid: light-dark(#005F85, #297CA5);
   --info-solid-vivid: light-dark(#005F85, #007DAD);
   --info-solid-edge: light-dark(#005F85, #4494BE);
-  --mute-solid: light-dark(#564E52, #726A6D);
-  --mute-solid-edge: light-dark(#564E52, #928A8D);
+  --mute-solid: light-dark(#564E52, #72696D);
+  --mute-solid-edge: light-dark(#564E52, #92898D);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

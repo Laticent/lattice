@@ -43,10 +43,11 @@
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="low"] { fill: var(--state-pass-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="medium"] { fill: var(--state-warn-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="high"] { fill: var(--state-fail-hue); }
-/* Critical is the DEEPEST step: the vivid fail fill taken 18% toward black, so it outranks `high` in both intensities
- * and stays ordered in print. What says "exception" is the ring round the band and the cross in each cell, below. */
+/* Critical is the step FURTHEST FROM THE INK: the vivid fail fill taken 18% away from it, toward black under a white
+ * ink and toward white on an `a11y-*` palette's bright dark face (`--on-solid-shade`), so it outranks `high` in both
+ * intensities, keeps its text and ring clear on every face, and stays ordered in print. What says "exception" is the ring round the band and the cross in each cell, below. */
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="critical"] {
-  fill: color-mix(in oklch, var(--fail-solid-vivid) 82%, black);
+  fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black));
 }
 /* The critical band's SIGNAL RING (chart-family § THE SIGNAL RING), traced round the whole band by the kernel and
  * clipped to the band: twice the ring's width, so the half inside the band is the ring. */
@@ -73,12 +74,13 @@
 }
 /* THE KEY IS COLOR-CODED: each key disc wears its risk's BAND, the same fill as the cells, with its number in the solid
  * ink, so a name in the key reads as low, medium, high or critical before the eye finds the cell. A critical disc also
- * wears the signal ring, as the critical band does. On the canvas a deep fill stands off by itself (3:1, chart-solids). */
+ * wears the signal ring, as the critical band does: on a dark slide the critical mix sits near the slide, and the ring
+ * is what stands it off (it clears 3:1 against the slide there). */
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="low"] { fill: var(--state-pass-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="medium"] { fill: var(--state-warn-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="high"] { fill: var(--state-fail-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="critical"] {
-  fill: color-mix(in oklch, var(--fail-solid-vivid) 82%, black);
+  fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black));
   stroke: var(--state-fail-signal);
   stroke-width: var(--chart-ring);
   paint-order: stroke fill;

@@ -171,16 +171,16 @@
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#254A28, #4A704B);
   --warn-solid: light-dark(#8B4600, #B65D00);
-  --fail-solid: light-dark(#9D0800, #DB1000);
+  --fail-solid: light-dark(#9D0800, #DA1000);
   --pass-solid-vivid: light-dark(#004E11, #007820);
   --warn-solid-vivid: light-dark(#8B4600, #B65D00);
-  --fail-solid-vivid: light-dark(#9D0800, #DB1000);
+  --fail-solid-vivid: light-dark(#9D0800, #DA1000);
   --warn-solid-signal: light-dark(#FD9900, #FD9800);
-  --fail-solid-signal: light-dark(#FF7744, #FF7B4C);
+  --fail-solid-signal: light-dark(#FF7744, #FF7A4A);
   --on-status: #FFFFFF;
   --pass-solid-edge: light-dark(#254A28, #709871);
   --warn-solid-edge: light-dark(#8B4600, #D2772D);
-  --fail-solid-edge: light-dark(#971C11, #E66857);
+  --fail-solid-edge: light-dark(#971C11, #E56856);
   --info-solid: light-dark(#005E85, #1E7CA9);
   --info-solid-vivid: light-dark(#005E85, #007DAF);
   --info-solid-edge: light-dark(#005E85, #3F97C5);

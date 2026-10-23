@@ -211,6 +211,23 @@
   --chart-cat7: light-dark(#585858, #A5A5A5);
   --chart-cat8: light-dark(#585858, #A5A5A5);
   --on-solid: light-dark(#FFFFFF, #1A1A1A);
+  --on-status: light-dark(#FFFFFF, #1A1A1A);
+  --pass-solid: light-dark(#2B492D, #8CAE8D);
+  --pass-solid-vivid: var(--pass-solid);
+  --warn-solid: light-dark(#854A00, #DD9653);
+  --warn-solid-vivid: var(--warn-solid);
+  --fail-solid: light-dark(#9E0011, #FF7F74);
+  --fail-solid-vivid: var(--fail-solid);
+  --info-solid: light-dark(#125E82, #68ADD4);
+  --info-solid-vivid: var(--info-solid);
+  --mute-solid: light-dark(#544F54, #B5AEB5);
+  --pass-solid-edge: light-dark(#2B492D, #8CAE8D);
+  --warn-solid-edge: light-dark(#854A00, #DD9653);
+  --fail-solid-edge: light-dark(#971A1C, #FF7F74);
+  --info-solid-edge: light-dark(#125E82, #68ADD4);
+  --mute-solid-edge: light-dark(#544F54, #B5AEB5);
+  --warn-solid-signal: light-dark(#EAA000, #6F4A00);
+  --fail-solid-signal: light-dark(#FD746A, #A0181B);
   /* What a chip on a solid steps toward: away from the ink (state-chart's chip ground). */
   --on-solid-shade: light-dark(#000000, #FFFFFF);
   --chart-neutral: light-dark(#575757, #A5A5A5);
