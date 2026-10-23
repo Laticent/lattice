@@ -43,3 +43,48 @@ test('@crosswidth @gecko @webkit-tablet a click on the chip flips [ ] and [x] an
 	const source = await persistedSource(page);
 	for (const line of ['- [!] Pricing', '- [?] Date', '- [-] Docs', '- [/] Translations']) expect(source).toContain(line);
 });
+
+const MIXED = [
+	'---', 'marp: true', 'theme: indaco', '---', '',
+	'## A content slide.', '', '- [x] plain bullet', '- [ ] another', '',
+	'---', '',
+	'<!-- _class: checklist -->', '', '## Launch gates.', '', '- [x] Security review', '- [ ] Legal sign-off', '',
+].join('\n');
+
+test('@crosswidth @gecko @webkit-tablet only a slide whose layout draws markers gets chips', async ({ page }) => {
+	await gotoStudio(page);
+	const sourceTab = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
+	if (await sourceTab.isVisible().catch(() => false)) await sourceTab.click();
+	await setEditorContent(page, MIXED);
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	// The checklist slide's two items are chips; the content slide's two bullets are plain text, as the slide prints them.
+	await expect(page.locator('.cs-host li .cs-cellmark')).toHaveCount(2);
+	await expect(page.locator('.cs-slide').nth(0).locator('.cs-cellmark')).toHaveCount(0);
+	await expect(page.locator('.cs-slide').nth(1).locator('.cs-cellmark')).toHaveCount(2);
+});
+
+// The engine stamps a checklist's top-level items only, and badges a verdict-grid or pricing slide's nested items only;
+// it reads every class token, so a modifier before the component still counts (checker finding on #2882).
+const DEPTH = [
+	'---', 'marp: true', 'theme: indaco', '---', '',
+	'<!-- _class: compact checklist -->', '', '## Gates.', '', '- [x] Top item', '  - [ ] Nested item', '',
+	'---', '',
+	'<!-- _class: verdict-grid -->', '', '## Verdicts.', '', '- [x] Card title', '  - [x] Nested badge', '',
+].join('\n');
+
+test('@crosswidth @gecko @webkit-tablet a chip shows at the depth the slide draws it, and a modifier before the component still counts', async ({ page }) => {
+	await gotoStudio(page);
+	const sourceTab = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
+	if (await sourceTab.isVisible().catch(() => false)) await sourceTab.click();
+	await setEditorContent(page, DEPTH);
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	const chips = (n: number) => page.locator('.cs-slide').nth(n).locator('li .cs-cellmark');
+	// `compact checklist`: the top-level item is a chip, the nested one is text.
+	await expect(chips(0)).toHaveCount(1);
+	await expect(chips(0).first()).toHaveText('[x]');
+	// verdict-grid: the card title is text, the nested item is a chip.
+	await expect(chips(1)).toHaveCount(1);
+	await expect(page.locator('.cs-slide').nth(1).locator('li li .cs-cellmark')).toHaveCount(1);
+});

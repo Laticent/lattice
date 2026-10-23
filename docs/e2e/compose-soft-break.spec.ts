@@ -46,3 +46,22 @@ test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line break
 	expect(source).toContain('Line three');
 	expect(source).not.toMatch(/Line one!\\?\n\n/); // no blank line between the first and last line
 });
+
+test('@crosswidth @gecko @webkit-tablet Shift+Enter writes one new line, and Enter starts a paragraph', async ({ page }) => {
+	await openDeck(page);
+	const para = page.locator('.cs-host p', { hasText: 'Line three' });
+	await para.click();
+	// Put the caret at the end of the last line through the DOM selection (see the test above).
+	await para.evaluate((p) => {
+		const node = [...p.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).pop();
+		if (!node) throw new Error('no text node');
+		document.getSelection()?.setBaseAndExtent(node, node.textContent?.length ?? 0, node, node.textContent?.length ?? 0);
+	});
+	await page.keyboard.press('Shift+Enter');
+	await page.keyboard.type('Line four');
+	await expect.poll(() => stored(page)).toContain('Line three\nLine four');
+	expect(await stored(page)).not.toContain('Line three\n\n');
+	await page.keyboard.press('Enter');
+	await page.keyboard.type('Next paragraph');
+	await expect.poll(() => stored(page)).toContain('Line four\n\nNext paragraph');
+});

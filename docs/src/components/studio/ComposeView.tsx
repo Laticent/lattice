@@ -2,20 +2,21 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { history, isHistoryTransaction, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
-import { type MarkType, type Node as PMNode, Slice } from 'prosemirror-model';
+import { type MarkType, type Node as PMNode, type ResolvedPos, Slice } from 'prosemirror-model';
 import { liftListItem, sinkListItem, splitListItem } from 'prosemirror-schema-list';
 import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
-import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, } from '@/lib/compose/code-commands';
+import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
+import { insertLineBreak } from '@/lib/compose/line-break-command';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
@@ -340,6 +341,27 @@ const STATEFUL_CLASSES = new Set(['obligation-matrix', 'roadmap']);
 function isStatefulClass(slide: PMNode): boolean {
 	return STATEFUL_CLASSES.has(slideClassOf((slide.attrs.directives as string[]) || []));
 }
+// The components whose LIST items the engine draws a state marker on, and at which list depth: `checklistItemStates` stamps the
+// top-level items of a checklist (`listDepth === 1`), `verdictGridBadges` badges the nested items of a verdict-grid or pricing
+// slide (`listDepth >= 2`; the top-level item is the card title and prints `[x]` as text). Any other layout, and any other
+// depth, prints `[x] text` as plain text, so Compose paints no chip there either: a chip the slide does not draw is a control
+// that changes the source with nothing to see. The engine reads EVERY class token, so `compact checklist` counts; the slide's
+// first token alone would not (lib/integrations/markdown-it/plugins.js, `checklistItemStates`, `verdictGridBadges`).
+const LIST_MARKER_CLASSES = new Set(['checklist', 'verdict-grid', 'pricing']);
+function listMarkerDrawn(slide: PMNode, listDepth: number): boolean {
+	const name = slideClassToken((slide.attrs.directives as string[]) || [], LIST_MARKER_CLASSES);
+	if (name === 'checklist') return listDepth === 1;
+	return LIST_MARKER_CLASSES.has(name) && listDepth >= 2;
+}
+/** How many lists enclose `$pos`, counting the item's own: the engine's `listDepth`. */
+function listDepthAt($pos: ResolvedPos): number {
+	let depth = 0;
+	for (let d = 1; d <= $pos.depth; d++) {
+		const name = $pos.node(d).type.name;
+		if (name === 'bullet_list' || name === 'ordered_list') depth++;
+	}
+	return depth;
+}
 function stateMarkerPlugin() {
 	// Memoize by doc IDENTITY: `decorations` is called on every view update, but the marker set only
 	// changes when the DOC changes — so a selection-only update (a caret move, the common case) skips
@@ -357,6 +379,7 @@ function stateMarkerPlugin() {
 				const $pos = view.state.doc.resolve(pos);
 				const para = $pos.parent;
 				if ($pos.depth < 2 || $pos.node($pos.depth - 1).type.name !== 'list_item' || !para.firstChild?.isText) return false;
+				if (!listMarkerDrawn($pos.node(1), listDepthAt($pos))) return false;
 				const start = $pos.start();
 				const m = readEditMarker(para.firstChild.text ?? '');
 				if (!m) return false;
@@ -368,21 +391,24 @@ function stateMarkerPlugin() {
 				if (state.doc === cachedDoc) return cached;
 				const decos: Decoration[] = [];
 				let stateful = false;
+				let listSlide: PMNode | null = null;
 				state.doc.descendants((node, pos) => {
 					// Only paint where the ENGINE renders a stoplight chip: a marker-bearing pipe-table
 					// component's BODY cell. Descend stateful slides only (skip the rest wholesale — also
 					// faster), and decorate `table_cell`, never `table_header` (headers carry column labels,
 					// not statuses — `obligationMatrixBadges`/roadmap gate on `<td>`). Anything else the
 					// author typed stays literal, matching what the export produces (no WYSIWYG lie).
-					// A slide is entered whatever its class (list items carry markers in any layout); only its table
-					// cells wait on the stateful classes, tracked here because `descendants` walks in document order.
+					// A slide is entered whatever its class; its table cells wait on the stateful classes and its list items on
+					// `listMarkerDrawn`, tracked here because `descendants` walks in document order.
 					if (node.type.name === 'slide') {
 						stateful = isStatefulClass(node);
+						listSlide = node;
 						return true;
 					}
 					if (node.type.name === 'list_item') {
-						// A list item's leading marker (`- [x] done`): painted wherever it leads, because every layout
-						// reads it through the same list-text grammar, and a click toggles it (below).
+						// A list item's leading marker (`- [x] done`): painted where the slide's layout draws it (`LIST_MARKER_CLASSES`),
+						// and a click toggles it (below).
+						if (!listSlide || !listMarkerDrawn(listSlide, listDepthAt(state.doc.resolve(pos)))) return true;
 						const para = node.firstChild;
 						const lead = para?.type.name === 'paragraph' ? para.firstChild : null;
 						const lm = lead?.isText ? readEditMarker(lead.text ?? '') : null;
@@ -2548,6 +2574,15 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 				},
 				handleDOMEvents: {
+					// Shift-Enter adds one line inside a paragraph (line-break-command.ts). A DOM handler, not a keymap entry: on iOS
+					// prosemirror-view never passes an Enter keydown to the keymaps and answers it with a plain Enter, which splits the
+					// block. A selected pill or image keeps Shift-Enter as the key that opens its editor, like Enter.
+					keydown(v, event) {
+						if (event.key !== 'Enter' || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return false;
+						if (v.state.selection instanceof NodeSelection) return false;
+						event.preventDefault();
+						return insertLineBreak(v.state, v.dispatch);
+					},
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
 						setSelBar(null); // the selection bar never outlives focus

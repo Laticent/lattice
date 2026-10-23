@@ -171,7 +171,8 @@ the editor soft-wrap long lines instead of inserting newlines.
 
 The break is sometimes what you want, and then it is the right tool: the two lines of
 a `stats` confidence interval, an address, a verse. A blank line still starts a new
-paragraph. Nothing warns about a wrapped paragraph, because the source cannot say
+paragraph. In Compose, Shift+Enter writes that one new line inside the paragraph and Enter
+starts the next paragraph. Nothing warns about a wrapped paragraph, because the source cannot say
 whether the break was meant, so the only check is to look at the render.
 
 Why `breaks: true` stays on: `lib/engine/index.js`, where it matches Marp Core so a

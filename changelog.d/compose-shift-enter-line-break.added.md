@@ -1,0 +1,1 @@
+- Compose: Shift+Enter writes one new line inside the paragraph, saved as a plain newline (a line break on the slide); Enter still starts the next paragraph. In a heading or a table cell the key does nothing, and in a code fence it adds a newline.

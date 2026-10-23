@@ -9,7 +9,7 @@ import {
 } from 'prosemirror-markdown';
 import { type NodeSpec, type Node as PMNode, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
-import { unescapeLeadingMarker } from '../../../../lib/core/cell-marker-edit.mjs';
+import { unescapeLeadingMarker as unescapeMarker } from '../../../../lib/core/cell-marker-edit.mjs';
 import { commentNodeSpec } from './comment-block';
 import { inlineObjectSpec, serializeInlineObject } from './inline-object';
 import { createTokenizer, mathInlineSpec, rawBlockSpec, serializeMathInline, serializeRawBlock } from './raw-block';
@@ -33,6 +33,13 @@ import { createTokenizer, mathInlineSpec, rawBlockSpec, serializeMathInline, ser
 //    (2026-07-19-compose-table-editing.md), so a table slide is edited in place
 //    instead of being locked read-only. LFM state markers (`[x] [-] [ ] [/]`) and
 //    literal pipes inside cells survive byte-stable.
+
+/** `unescapeLeadingMarker`, except where the bare text would stop being text: `[x](/u)` and `[x][ref]` are links, and in a list item
+ *  `[x]: /u` is a link reference definition (it draws the item empty). Those keep their escape. A table cell holds no definition. */
+function unescapeLeadingMarker(text: string, inListItem = false): string {
+	const bare = unescapeMarker(text);
+	return /^\[[^\]]\](?:[([]|:)/.test(bare) && (inListItem || !/^\[[^\]]\]:/.test(bare)) ? text : bare;
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: prosemirror-markdown's serializer state is loosely typed upstream; we mirror its own node signatures.
 type SerializerState = any;
@@ -495,7 +502,9 @@ const latticeNodes = {
 		const sub = new SubState(state.nodes, state.marks, state.options);
 		sub.renderInline(node);
 		let out = guardParagraphLines(sub.out, parent?.type.name === 'doc' || parent?.type.name === 'slide'); // the top level, in a prose doc or a deck slide
-		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) out = unescapeLeadingMarker(out);
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
+			out = unescapeLeadingMarker(out, true);
+		}
 		state.text(out, false);
 		state.closeBlock(node);
 	},
