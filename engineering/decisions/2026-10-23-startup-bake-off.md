@@ -82,6 +82,16 @@ check never saw a Mermaid edit, and diagrams kept their wait only because a seco
 fix was possible (read after the plugin passes, or ask each pass), and a leading-plus-trailing rule would bound burst cost,
 but a change with no visible benefit does not earn that complexity or an export-bytes sign-off.
 
+The red team, working from the built Studio, found three more reasons not to re-land it in this form. (1) The pending-fence half of the
+gate never saw a Mermaid edit: the engine writes a fence with no settle attribute and the plugin tags it `pending` only
+after the observer reads, so the gate returned 0 on every diagram keystroke, and the diagram arms stayed at one render
+only because the plugin's own follow-up DOM write re-armed the 150 ms; had that write ever stopped, an eight-key burst would
+cost eight renders and nothing would have said so. (2) An eight-key prose burst ran 8 content passes at 0 ms plus 1 to 3
+at 150 ms, against 2 to 4 before, each 26-44 ms against 6-8 ms at 4x CPU; the "main-thread time per key" figure was true for a
+single key and not for a burst. (3) On a state-chart slide the 0 ms pass never fired, since the chart's microtask draw wrote
+to the DOM and re-armed 150 ms, so the gain depended on the slide. And one latent hazard: only the Mermaid plugin clears the
+swap stamp, so a runtime build without it would read `hostSwap` as true forever.
+
 What this leaves true, and recorded so the next person does not redo it: the 150 ms is not a latency an author feels on a
 prose edit; on a diagram edit the wait is the coalescing and the repaint (about 200 ms) is dominated by the diagram's own
 render, which this change did not touch. A metric that counts the last attribute write is the wrong instrument for edit
