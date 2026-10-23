@@ -99,7 +99,10 @@
   display: flex;
   align-items: center;
   justify-content: safe flex-end;
-  padding-inline-end: 0.625cqi;
+  /* One INSET, 0.45cqi, frames everything inside the bar: the readout plate's end gap here, its top and bottom gap
+   * (its own padding, below), and the status mark's start gap (chart-family.styles.css). Uneven gaps read as the
+   * plate pressing against the rim. */
+  padding-inline-end: 0.45cqi;
   overflow: visible;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
@@ -122,8 +125,10 @@
   /* The readout rides the fill's leading edge on a small READOUT PLATE in the canvas color, so --text-heading
    * clears it on any status and at any --pct, including a bar too short to hold the number. */
   background: var(--bg);
-  padding: 0.16cqi 0.55cqi;
-  border-radius: 0.55cqi;
+  /* Sized so the plate clears the bar's rim by the same 0.45cqi inset on every side, with its corners concentric to
+   * the bar's (the bar's radius less the inset, held to a visible minimum). */
+  padding: 0 0.45cqi;
+  border-radius: max(0.25cqi, calc(var(--chart-mark-radius) - 0.45cqi));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   line-height: 1;
