@@ -141,7 +141,7 @@ test(`a code package runs in the Studio only after consent, sandboxed, and reach
 					for (const r of records) for (const n of r.addedNodes) if (n instanceof HTMLIFrameElement && n.hasAttribute('data-lattice-code-sandbox')) w.__sandboxes.push(String(n.getAttribute('sandbox')));
 				}).observe(document.body, { childList: true, subtree: true });
 			});
-			await notice.getByRole('button', { name: 'Approve and run the code of tally' }).click();
+			await notice.getByRole('button', { name: 'Approve the code of tally' }).click();
 			await expect(preview.locator('.tally-marks[data-count="3"] .tally-mark')).toHaveCount(3, { timeout: 30_000 });
 			await expect(notice).toHaveCount(0);
 			// The package reports from INSIDE its worker whether WebRTC exists there at all. It must not:
@@ -292,7 +292,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 			await setEditorContent(page, '<!-- _class: dateline -->\n\n## Launch plan\n\n- 2026-01-10 **Kickoff**\n- 2026-03-02 Beta & pilot\n- 2026-06-30 [General availability](https://example.test)\n');
 			const notice = page.locator('[data-slot="code-packages"]');
 			await expect(notice).toHaveAttribute('data-state', 'unapproved', { timeout: 30_000 });
-			await notice.getByRole('button', { name: 'Approve and run the code of dateline' }).click();
+			await notice.getByRole('button', { name: 'Approve the code of dateline' }).click();
 			const preview = livePreview(page);
 			const rows = preview.locator('.dateline-rows .dateline-row');
 			await expect(rows).toHaveCount(3, { timeout: 30_000 });

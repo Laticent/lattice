@@ -62,14 +62,14 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 					size="xs"
 					variant="outline"
 					className="shrink-0"
-					aria-label={`Approve and run the code of ${p.name}`}
+					aria-label={`Approve the code of ${p.name}`}
 					onClick={() => {
 						if (isPlugin(p)) approvePlugin(p);
 						else approveCodePackage(p);
 						onApproved();
 					}}
 				>
-					Approve and run
+					Approve
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">
@@ -100,7 +100,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 					size="xs"
 					variant="outline"
 					className="shrink-0"
-					aria-label={already ? `Add the plugin ${p.name} to this deck` : `Approve and run the plugin ${p.name}`}
+					aria-label={already ? `Add the plugin ${p.name} to this deck` : `Approve the plugin ${p.name}`}
 					onClick={() => {
 						// ONE yes, two writes: the deck states what it needs (`plugins:`, so the CLI renders it the same
 						// way), and this browser records consent to the code at exactly these bytes. A downloaded deck can
@@ -110,7 +110,7 @@ export function CodePackagesNotice({ source, stamp, onApproved, onWrite }: { sou
 						onApproved();
 					}}
 				>
-					{already ? 'Add to deck' : 'Approve and run'}
+					{already ? 'Add to deck' : 'Approve'}
 				</Button>
 				{open && (
 					<p data-slot="code-packages-detail" className="basis-full pb-1 text-muted-foreground">

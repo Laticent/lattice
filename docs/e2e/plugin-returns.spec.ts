@@ -90,7 +90,7 @@ test(`a plugin's returned values: consent names them, clean ones land on the sli
 	await page.setViewportSize({ width: 1440, height: 900 });
 
 	// 2. CLEAN: approved, the drawing lands and the values sit on the slide's <section>, escaped.
-	await notice.getByRole('button', { name: `Approve and run the code of ${PLUGIN}` }).click();
+	await notice.getByRole('button', { name: `Approve the code of ${PLUGIN}` }).click();
 	await expect(preview.locator(`[data-lattice-plugin="${PLUGIN}"] svg.lp-${PLUGIN}-chart`)).toHaveCount(1, { timeout: 30_000 });
 	const slide = preview.locator(`section[data-returned-${PLUGIN}--status]`).first();
 	await expect(slide).toHaveAttribute(`data-returned-${PLUGIN}--status`, 'late');

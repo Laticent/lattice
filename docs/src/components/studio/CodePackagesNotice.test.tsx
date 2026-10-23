@@ -24,7 +24,7 @@ describe('the strip for a zip plugin', () => {
 		const strip = screen.getByRole('status');
 		expect(strip.getAttribute('data-state')).toBe('unapproved');
 		expect(strip.textContent).toContain('This deck uses code from the plugin “gantt-plugin”, which has not run.');
-		fireEvent.click(screen.getByRole('button', { name: 'Approve and run the code of gantt-plugin' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Approve the code of gantt-plugin' }));
 		expect(approved).toBe(1);
 		expect(isPluginApproved(studioPlugins().get('gantt-plugin') as never)).toBe(true);
 	});
@@ -36,7 +36,7 @@ describe('the strip for a zip plugin', () => {
 		const strip = screen.getByRole('status');
 		expect(strip.getAttribute('data-state')).toBe('offered');
 		expect(strip.textContent).toContain('The plugin “gantt-plugin” can draw the ```gantt block in this deck.');
-		fireEvent.click(screen.getByRole('button', { name: 'Approve and run the plugin gantt-plugin' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Approve the plugin gantt-plugin' }));
 		expect(source).toMatch(/^---\ntheme: indaco\nplugins: \[gantt-plugin\]\n---\n/);
 		expect(approved).toBe(1);
 		expect(isPluginApproved(studioPlugins().get('gantt-plugin') as never)).toBe(true);
