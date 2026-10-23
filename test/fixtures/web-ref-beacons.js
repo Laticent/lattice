@@ -1,6 +1,6 @@
 /**
  * Spellings of a web fetch that a regex scan of CSS or HTML reads differently from the browser,
- * each one measured to fetch in Chromium before the fix (2026-10-20, three more 2026-10-22). One table for two tiers:
+ * each one measured to fetch in Chromium before the fix (2026-10-20; three more 2026-10-22; the attribute rows 2026-10-23, found by the red team). One table for two tiers:
  * test/unit/core/web-css-bypass.test.js runs the scanners on it, and
  * test/integration/invariants/web-ref-beacon.test.js loads each one in Chromium, unrewritten (it
  * must fetch, or the probe cannot see) and rewritten (it must not).
@@ -10,7 +10,10 @@
  *   `css`   a stylesheet body, for `blockWebCss` and (inside `<style>`) `blockWebImages`
  *   `html`  slide markup, for `blockWebImages` only
  *   `font`  fetched only as an `@font-face` source: refused where no policy is behind the rewrite
+ * A row with `noPolicy: true` is likewise refused only with `{ fonts: true }`, the no-policy host.
  */
+const NO_POLICY = new Set(['svg-fill-attr', 'svg-mask-attr', 'svg-clip-path-attr', 'svg-marker-attr', 'feimage-href', 'table-background', 'td-background']);
+
 function webRefBeacons(base) {
   const u = (name) => `${base}/${name}`;
   const css = [
@@ -49,9 +52,19 @@ function webRefBeacons(base) {
     ['svg-style-comment', `<svg><style>p{background:url(<!-- -->${u('svg-style-comment')})}</style></svg><p>x</p>`],
     // A quote inside an unquoted value is a character, not a quote.
     ['quote-in-unquoted-value', `<img alt=a'b src=${u('quote-in-unquoted-value')}>`],
+    // An SVG paint attribute is CSS, and a url() in it is fetched for the paint server. These and
+    // the two rows after them are refused only where no policy backs the rewrite (`noPolicy`).
+    ['svg-fill-attr', `<svg width="9" height="9"><rect width="9" height="9" fill="url(${u('svg-fill-attr')}#p)"/></svg>`],
+    ['svg-mask-attr', `<svg width="9" height="9"><rect width="9" height="9" mask="url(${u('svg-mask-attr')}#m)"/></svg>`],
+    ['svg-clip-path-attr', `<svg width="9" height="9"><rect width="9" height="9" clip-path="url(${u('svg-clip-path-attr')}#c)"/></svg>`],
+    ['svg-marker-attr', `<svg width="9" height="9"><path d="M0 0L9 9" stroke="black" marker-start="url(${u('svg-marker-attr')}#k)"/></svg>`],
+    // Elements outside the media set that load an address of their own.
+    ['feimage-href', `<svg width="9" height="9"><filter id="f"><feImage href="${u('feimage-href')}"/></filter><rect width="9" height="9" filter="url(#f)"/></svg>`],
+    ['table-background', `<table background="${u('table-background')}"><tr><td>x</td></tr></table>`],
+    ['td-background', `<table><tr><td background="${u('td-background')}">x</td></tr></table>`],
     // A declarative shadow root holds live markup that a DOMParser does not attach.
     ['declarative-shadow-root', `<div><template shadowrootmode="open"><p style="background:url(${u('declarative-shadow-root')})">x</p></template></div>`],
-  ].map(([name, text]) => ({ name, kind: 'html', text }));
+  ].map(([name, text]) => ({ name, kind: 'html', text, ...(NO_POLICY.has(name) && { noPolicy: true }) }));
   return [...css, ...font, ...html];
 }
 

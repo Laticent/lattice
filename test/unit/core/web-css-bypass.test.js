@@ -17,7 +17,7 @@ const remoteRef = require('../../../lib/core/remote-ref.js');
 const { galleryRemoteRefs } = require('../../../lib/packages/gallery-gate.js');
 const { webRefBeacons, asHtml } = require('../../fixtures/web-ref-beacons.js');
 
-const { blockWebCss, blockWebImages, remoteCssRefs, cssRefSpans, decodeEntities } = remoteRef;
+const { blockWebCss, blockWebImages, verifyWithParser, remoteCssRefs, cssRefSpans, decodeEntities } = remoteRef;
 const BASE = 'https://evil.example';
 const PAYLOADS = webRefBeacons(BASE);
 const { DOMParser } = new JSDOM('').window;
@@ -56,7 +56,7 @@ describe('the CSS scanners list every spelling', () => {
 describe('the rewrites leave the URL nowhere but its label', () => {
   for (const p of PAYLOADS) {
     test(`blockWebImages: ${p.name}`, () => {
-      const { html, blocked } = blockWebImages(asHtml(p), [], { fonts: p.kind === 'font', DOMParser });
+      const { html, blocked } = blockWebImages(asHtml(p), [], { fonts: p.kind === 'font' || !!p.noPolicy, DOMParser });
       assert.ok(!holds(withoutLabels(html), BASE), html);
       assert.ok(blocked.some((b) => b.url.startsWith(`${BASE}/${p.name}`)), JSON.stringify(blocked));
     });
@@ -67,6 +67,40 @@ describe('the rewrites leave the URL nowhere but its label', () => {
       assert.ok(blocked.some((b) => b.url.startsWith(`${BASE}/${p.name}`)));
     });
   }
+
+  test('a fetching attribute is left to the policy where one backs the rewrite, and refused where none does', () => {
+    // The preview frames' policy refuses these, and `blocked` feeds that policy and the "Load
+    // images" offer, so a host with a policy sees the markup and the list unchanged.
+    for (const p of PAYLOADS.filter((x) => x.noPolicy)) {
+      const withPolicy = blockWebImages(asHtml(p), [], { DOMParser });
+      assert.equal(withPolicy.html, asHtml(p), p.name);
+      assert.deepEqual(withPolicy.blocked, [], p.name);
+      assert.ok(!holds(blockWebImages(asHtml(p), [], { fonts: true, DOMParser }).html, BASE), p.name);
+    }
+  });
+
+  test('a link is followed on a click, so its web href stays; a local reference stays too', () => {
+    const html = `<a href="${BASE}/page">x</a><math><mi href="${BASE}/m">x</mi></math><svg><use href="#local"/><rect fill="url(#g)"/></svg>`;
+    const out = blockWebImages(html, [], { fonts: true, DOMParser });
+    assert.equal(out.html, html);
+    assert.deepEqual(out.blocked, []);
+  });
+
+  test('the parser check refuses the same attributes as the text pass, and only with no policy', () => {
+    // No fixture row trips `risky`, so the DOM half runs here directly, on every attribute row.
+    const blocked = [];
+    const refuse = (u) => {
+      if (!u.trim().startsWith(BASE)) return false;
+      blocked.push(u);
+      return true;
+    };
+    for (const p of PAYLOADS.filter((x) => x.noPolicy)) {
+      assert.ok(!holds(verifyWithParser(asHtml(p), DOMParser, refuse, true), BASE), p.name);
+      assert.equal(verifyWithParser(asHtml(p), DOMParser, refuse, false), asHtml(p), p.name);
+    }
+    const local = `<svg><use href="#l"/><rect fill="url(#g)"/></svg><a href="${BASE}/page">x</a><math><mi href="${BASE}/m">x</mi></math>`;
+    assert.equal(verifyWithParser(local, DOMParser, refuse, true), local);
+  });
 
   test('a font is left to the policy where one backs the rewrite, and refused where none does', () => {
     const font = PAYLOADS.find((p) => p.kind === 'font');

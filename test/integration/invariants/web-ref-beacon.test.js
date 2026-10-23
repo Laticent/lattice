@@ -78,7 +78,7 @@ describe('web references: a rewritten deck fetches nothing', { skip: SKIP, timeo
     await page.addScriptTag({ content: bundle });
     const rewritten = await page.evaluate(
       (items) => items.map(({ html, fonts }) => RemoteRef.blockWebImages(html, [], { fonts }).html),
-      payloads.map((p) => ({ html: asHtml(p), fonts: p.kind === 'font' })),
+      payloads.map((p) => ({ html: asHtml(p), fonts: p.kind === 'font' || !!p.noPolicy })),
     );
     await page.close();
     assert.deepEqual(await fetched(rewritten), []);
