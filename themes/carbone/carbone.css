@@ -161,9 +161,16 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#00400B, #E8FFEA);   /* 7.74 on card / dark unchanged */
-  --fail: light-dark(#2A0001, #FFBDB9);   /* 10.92 on the composed band / dark unchanged */
-  --warn: light-dark(#8A4502, #FB8543);   /* 4.60 on card; pills sanctioned both faces */
+  --pass: light-dark(#19531F, #92ffa6);   /* 7.74 on card / dark unchanged */
+  --fail: light-dark(#580006, #ffaba7);   /* 10.92 on the composed band / dark unchanged */
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS): on the light face a deep green and red under white
+   * text and an amber under its own dark ink, all three at 7:1 and apart for a colorblind reader; on the dark face
+   * the fill is the status ink itself. Solved by tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#006517, var(--pass));
+  --warn-solid: light-dark(#FF9B50, var(--warn));
+  --fail-solid: light-dark(#4F0A0B, var(--fail));
+  --on-warn: light-dark(#131416, var(--on-solid));
+  --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *
    * Derived, they were nearly achromatic. The three light inks sit at OKLCH L

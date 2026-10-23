@@ -1044,6 +1044,10 @@ section.print {
   --info: var(--print-info);
   --mute: var(--print-mute);
   --on-solid: var(--print-on-solid);
+  --pass-solid: var(--print-pass);
+  --warn-solid: var(--print-warn);
+  --fail-solid: var(--print-fail);
+  --on-warn: var(--print-on-solid);
   --chart-neutral: var(--print-mute);
   --seq-500: var(--print-seq-500);
   /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp

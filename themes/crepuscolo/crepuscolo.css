@@ -96,9 +96,16 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#00421B, #D5FFC8);
-  --warn: light-dark(#804C00, #D9932F);
-  --fail: light-dark(#310001, #FFB2B0);
+  --pass: light-dark(#0d5026, #9dfb7d);
+  --warn: light-dark(#935800, #cf8a21);
+  --fail: light-dark(#550004, #ffa6a4);
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS): on the light face a deep green and red under white
+   * text and an amber under its own dark ink, all three at 7:1 and apart for a colorblind reader; on the dark face
+   * the fill is the status ink itself. Solved by tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#00642D, var(--pass));
+  --warn-solid: light-dark(#FBA02D, var(--warn));
+  --fail-solid: light-dark(#4F0A0A, var(--fail));
+  --on-warn: light-dark(#150F22, var(--on-solid));
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

@@ -124,9 +124,11 @@ palette:
   colour from the wedge it labelled. A rule with nothing to point at is a rule
   that gets retyped wrong.
 - **Semantic / status — `--state-{pass,warn,fail,info,mute}-*`**, seeded from the
-  base status solids `--pass` … `--mute` that every theme curates. Same
-  construction, but encodes meaning: green=good, amber=caution, red=stop,
-  blue=info/pilot, gray=deferred. Used by gantt bars, progress fills, status pills.
+  base status fills `--pass-solid` … `--mute-solid` (the hue) and inks `--pass` …
+  `--mute` (the edge) that every theme curates. Text on a status fill reads
+  `--chart-solid-ink`, which the family sets per status (`--on-warn` on amber).
+  Encodes meaning: green=good, amber=caution, red=stop, blue=info/pilot,
+  gray=deferred. Used by gantt bars, progress fills, status pills.
 - **Sequential** — the choropleth ramp, `map` only: each region carries a `--mix`
   percentage on one hue mixed into a neutral base (so the ramp stays monotonic
   above the neutral in both canvases). **No diverging set ships.**

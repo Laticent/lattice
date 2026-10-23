@@ -382,8 +382,9 @@ character by setting the override hooks at `:root`, each a
 |---|---|
 | `--chart-cat1` … `--chart-cat8` | the 8 categorical hues |
 | `--chart-neutral` | the solid for a mark with no category or status (a deferred node, a neutral bar) |
-| `--pass` / `--warn` / `--fail` / `--info` / `--mute` | the 5 status solids — base tokens every theme curates, not chart-only hooks |
-| `--on-solid` | the one ink on every solid; each solid clears 7:1 under it |
+| `--pass` / `--warn` / `--fail` / `--info` / `--mute` | the 5 status INKS — base tokens every theme curates, not chart-only hooks; `--info` and `--mute` are also their own fills |
+| `--pass-solid` / `--warn-solid` / `--fail-solid` | the light-face status FILLS (the dark face uses the ink); see `base.tokens.css` § STATUS, IN TWO JOBS |
+| `--on-solid` / `--on-warn` | the ink on a fill: `--on-warn` on amber, `--on-solid` on every other fill |
 
 The `var()` indirection means a theme always wins, and it need only set the
 slots it wants to flavor.

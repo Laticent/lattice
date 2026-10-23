@@ -63,6 +63,8 @@ const CONTRACT = [
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral',
   // the status solids and the one ink on every solid (base.tokens.css)
   'info', 'mute', 'on-solid',
+  // the light-face status fills and amber's own ink (base.tokens.css § STATUS, IN TWO JOBS)
+  'pass-solid', 'warn-solid', 'fail-solid', 'on-warn',
 ];
 
 function ownTokens(name) {

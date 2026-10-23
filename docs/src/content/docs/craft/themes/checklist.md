@@ -30,7 +30,8 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--cat-N-fill` / `--cat-N-mark` | 12 pairs | the [categorical cycle](/craft/themes/categorical/) |
 | `--cat-N-ink` | 12 | generated, not hand-picked |
 | `--chart-cat1…8`, `--chart-neutral` | 9 | the chart family's own palette |
-| `--info`, `--mute`, `--on-solid` | 3 | the status solids beyond pass/warn/fail, and the ink on every solid |
+| `--info`, `--mute`, `--on-solid` | 3 | the status colors beyond pass/warn/fail, and the ink on a fill |
+| `--pass-solid`, `--warn-solid`, `--fail-solid`, `--on-warn` | 4 | the light-face status fills, and amber's own dark ink |
 | `--diagram-*` | several | stroke, line, lifecycle, alarm |
 | `--scheme-dark-*` | 10 | the dark inputs your pairs read |
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |

@@ -24,11 +24,8 @@
 
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const fs   = require('fs');
-const path = require('path');
 const { baseThemeNames } = require('../../helpers/palette');
 
-const THEMES_DIR = path.join(__dirname, '..', '..', '..', 'themes');
 // Scope from the manifests — this array had 13 names and omitted `carta`.
 const CURATED = baseThemeNames();
 

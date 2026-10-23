@@ -116,14 +116,25 @@ and a slide can pin its own with `_class: chart-finish-<name>`.
 ### The solids — the base every finish styles
 
 Every chart concept has **one flat solid**, curated per theme: a category is `--chart-cat-N-hue`
-(seed `--chart-catN`), a status `--state-X-hue` (seed the base status solid `--X`), and a mark with neither
-`--chart-neutral-hue` (seed `--chart-neutral`). Text on any solid is **one ink per mode**,
-`--chart-solid-ink` (seed `--on-solid`): white where the canvas is light, the canvas itself where
-it is dark, so a label reads the same on every chart. The contract, held for every palette in both modes
-by `test/unit/palette/chart-solids.test.js`:
+(seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-solid`), and a mark with
+neither `--chart-neutral-hue` (seed `--chart-neutral`). Text on a solid is `--chart-solid-ink` (seed
+`--on-solid`): white where the canvas is light, the canvas itself where it is dark. The one exception is amber:
+inside a mark carrying an at-risk status the ink is `--on-warn`, a dark ink, because an amber deep enough for
+white text at 7:1 is brown. The contract, held for every palette in both modes by
+`test/unit/palette/chart-solids.test.js`:
 
-- the ink on every solid clears **7:1** (WCAG AAA), and
-- every solid clears **3:1** against the slide (WCAG 1.4.11).
+- the ink on every solid clears **7:1** (WCAG AAA), except a pass/warn/fail fill on the dark face, which is
+  the theme's own status ink and clears **4.5:1** (the owner's call: on the dark face 7:1, the colorblind
+  floor and the hue cannot all hold at once), and
+- every solid clears **3:1** against the slide (WCAG 1.4.11), or, for a status fill, its ink edge
+  (`--state-X-ink`, the theme's `--X`) does. A light amber under dark text cannot clear 3:1 itself.
+
+**Status has two jobs** (`base.tokens.css` § STATUS, IN TWO JOBS). `--pass` … `--mute` are the status as INK on
+the slide (text, a rule, a mark's edge), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The
+light-face FILLS `--pass-solid` `--warn-solid` `--fail-solid` are a separate trio: a deep green and red under
+white, an amber under `--on-warn`, held apart outright under every simulated condition
+(`cvd-trio-floor.test.js` § status-fill separation). The first cut used one color for both jobs and pushed the
+trio apart by lightness alone, which turned red near-black and green near-white.
 
 `tools/curate-chart-solids.js` seeded the values: it keeps each theme's hue and chroma and moves only
 lightness, away from the ink, until the ink clears 7:1, and leaves a seed that already clears it exactly as

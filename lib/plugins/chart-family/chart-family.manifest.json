@@ -114,7 +114,18 @@
     "--text-secondary",
     "--chart-neutral",
     "--on-solid",
-    "--chart-solid-ink"
+    "--chart-solid-ink",
+    "--pass-solid",
+    "--warn-solid",
+    "--fail-solid",
+    "--info-solid",
+    "--mute-solid",
+    "--on-warn",
+    "--state-pass-on",
+    "--state-warn-on",
+    "--state-fail-on",
+    "--state-info-on",
+    "--state-mute-on"
   ],
   "render": {
     "parity": "equivalent",
