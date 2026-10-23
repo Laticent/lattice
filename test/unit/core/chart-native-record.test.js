@@ -270,3 +270,18 @@ describe('review round (2026-10-23): shapes the native readers must leave as the
     assert.doesNotMatch(out, /data-lat-record/);
   });
 });
+
+describe('scatter and quadrant: a record followed by a no-break space entity is not the row\'s trailing span (checker, 2026-10-23)', () => {
+  const stamped = (r, tail) => `<code data-lat-record="">${r}</code>${tail}`;
+  test('scatter drops the point, as the old reader did', () => {
+    const { parseScatter } = require('../../../lib/components/chart/scatter/scatter.transform.js');
+    const ul = (tail) => `<li>Atlas ${stamped('{4.2, 62}', tail)}</li><li>B ${stamped('{2.1, 38}', '')}</li><li>C ${stamped('{3, 51}', '')}</li>`;
+    assert.equal(parseScatter(ul('')).points.length, 3);
+    assert.equal(parseScatter(ul('&nbsp;')).points.length, 2);
+  });
+  test('quadrant puts the item at the origin, as the old reader did', () => {
+    const { parseItemPills } = require('../../../lib/components/chart/quadrant/quadrant.transform.js');
+    assert.equal(parseItemPills(`Alpha ${stamped('{3, 70}', '')}`).pills.length, 1);
+    assert.equal(parseItemPills(`Alpha ${stamped('{3, 70}', '&nbsp;')}`).pills.length, 0);
+  });
+});

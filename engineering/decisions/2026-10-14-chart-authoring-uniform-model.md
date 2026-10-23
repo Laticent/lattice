@@ -378,7 +378,7 @@ The adversarial trio (red team, inversion, checker) reviewed the first draft. Wh
    (those cells now settle); radar and quadrant read a record in a loose list item that the old reader missed (a record followed by
    `</p>` is not a trailing span); the narrator claimed records after the callout lift, which can join two lists (claims now come before
    the lift, as the bridge always ran); `recordFields` dropped a bare item that binds to no field (`{20, Total}` on waterfall), so it
-   now declines the record. `chart-native-path.test.js` counts the fallbacks, because the byte-identical corpus cannot tell a native
+   now declines the record; scatter and quadrant read a point followed by a no-break space entity as the old reader did (the checker found the runtime drew it). `chart-native-path.test.js` counts the fallbacks, because the byte-identical corpus cannot tell a native
    reader from the bridge it replaced.
 
    *Honest limit.* Twelve of the 14 charts read the record as the pills the old parsers expect (`recordPills`, in `rows.legacy`
