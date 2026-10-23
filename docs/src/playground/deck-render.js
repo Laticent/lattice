@@ -74,6 +74,12 @@ export function patchSections(frame, next, prev) {
 				lattice.setAttribute('data-lattice-swap', kind);
 				stamped = true;
 			}
+			// CARRY THE FOCUS MARK ACROSS THE SWAP. `db-active` is the host's own marker on the slide in focus
+			// (reading-page.ts); the runtime's diagram scope key reads the section's class list, so a replacement
+			// WITHOUT the mark keys differently from the section it replaces and the runtime refuses to hold the
+			// old diagram while the new one draws: the slot sat empty for about 11 frames per keystroke in the
+			// Playground, where the Studio holds. The mark is re-applied by the next focus report either way.
+			if (fresh && cur[i]?.classList.contains('db-active')) fresh.classList.add('db-active');
 			if (fresh && cur[i]) lattice.replaceChild(fresh, cur[i]);
 		}
 	}
