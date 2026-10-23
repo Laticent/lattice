@@ -41,6 +41,14 @@ describe('studio-boot', () => {
 		expect(document.head.querySelector('link')).toBeNull();
 	});
 
+	it('drops a URL that is not a plain absolute path on this origin', async () => {
+		seed('{"engineUrl":"https://evil.example/e.js","themeBase":"//evil.example/t/","runtimeUrl":"/p/\\"><img src=x onerror=1>"}');
+		await import('./studio-boot');
+		expect(ensureEngine).not.toHaveBeenCalled();
+		expect(fetchTheme).not.toHaveBeenCalled();
+		expect(document.head.querySelector('link')).toBeNull();
+	});
+
 	it('swallows an engine failure: the preview reports it through its own call', async () => {
 		ensureEngine.mockImplementationOnce(() => Promise.reject(new Error('offline')));
 		seed('{"engineUrl":"/p/esm/engine.js"}');

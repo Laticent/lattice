@@ -15,9 +15,18 @@
 import { ensureEngine } from '@/lib/load-engine';
 import { createThemeFetcher } from '@/lib/theme-fetch';
 
+// The page writes these URLs at build time as absolute paths on its own origin (`/playground/v/<hash>/...`). Text read
+// back out of the DOM is checked rather than trusted: only a plain absolute path is used, so a value carrying markup, a
+// scheme or a host is dropped and the shell loads that asset at mount, as before.
+const PLAIN_PATH = /^\/[A-Za-z0-9._~\-/]*$/;
+const plainPath = (u: unknown): string | undefined => (typeof u === 'string' && PLAIN_PATH.test(u) && !u.startsWith('//') ? u : undefined);
+
 try {
 	const el = document.querySelector('script[data-studio-boot]');
-	const { engineUrl, themeBase, runtimeUrl } = JSON.parse(el?.textContent ?? '{}') as { engineUrl?: string; themeBase?: string; runtimeUrl?: string };
+	const raw = JSON.parse(el?.textContent ?? '{}') as Record<string, unknown> | null;
+	const engineUrl = plainPath(raw?.engineUrl);
+	const themeBase = plainPath(raw?.themeBase);
+	const runtimeUrl = plainPath(raw?.runtimeUrl);
 	// A failure here is the preview's to report: its own `ensureEngine` call retries (the loader
 	// un-caches a failed import) and shows the error state.
 	if (engineUrl) void ensureEngine(engineUrl).catch(() => {});
@@ -26,8 +35,7 @@ try {
 	// registering it waits for the engine, and the preview does that.
 	// The preview runtime (1.25MB, 447KB gzipped) is used only inside the preview frame, once the
 	// engine has rendered. The page used to prefetch it from the HTML, where it shared the throttled
-	// link with the island's own code and held the main thread idle for about 1.5 s on the phone
-	// profile. A prefetch hint keeps the lowest priority and the cache entry the frame's
+	// link with the island's own code. A prefetch hint keeps the lowest priority and the cache entry the frame's
 	// `<script src>` reads.
 	if (runtimeUrl) {
 		const link = document.createElement('link');
