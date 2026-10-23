@@ -1787,9 +1787,14 @@ export class CommentView {
 				// A TOGGLE, and a radio at the same time: clicking the open pill closes it, clicking any
 				// other pill moves the panel to that one. Selection-only transaction — no doc change —
 				// so the structural guard waves it through and nothing re-emits the deck source.
-				// Another note's words are written first: on a touch screen the tap may not blur the field, and once `openSeq` moves its panel
-				// writes nothing.
-				if (open !== null && open !== pos) this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: { dirty: false } }));
+				// The open note's words are written first, whether this click moves the panel or closes it: on a touch screen the tap may not
+				// blur the field, and once the panel closes or `openSeq` moves it writes nothing. Words the note refuses keep it open, with
+				// the reason showing, as folding does.
+				if (open !== null) {
+					const state = { dirty: false };
+					this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: state }));
+					if (state.dirty) return;
+				}
 				if (open !== pos) openSeq++;
 				this.view.dispatch(this.view.state.tr.setMeta(commentOpenKey, { open: open === pos ? null : pos }));
 			},

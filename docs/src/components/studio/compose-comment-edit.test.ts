@@ -152,6 +152,26 @@ describe('the note panel', () => {
 		expect(saved()).toContain('<!-- a\n    b -->');
 	});
 
+	it('words the open note refuses keep it open, with the reason, when another pill or its own is clicked', () => {
+		mount();
+		pills()[1].click();
+		(field() as HTMLTextAreaElement).value = 'ends --> early';
+		pills()[0].click();
+		expect(field()?.value).toBe('ends --> early');
+		expect((document.querySelector('.cs-comment-why') as HTMLElement).hidden).toBe(false);
+		pills()[1].click();
+		expect(field()?.value).toBe('ends --> early');
+		expect(saved()).toBe(DECK);
+	});
+
+	it('closing a note by its own pill writes its words, even when the field never blurs', () => {
+		mount();
+		pills()[1].click();
+		(field() as HTMLTextAreaElement).value = 'closed by its pill';
+		pills()[1].click();
+		expect(saved()).toBe(DECK.replace('a plain note.', 'closed by its pill'));
+	});
+
 	it('tapping another note writes the open one first, even when the field never blurs', () => {
 		mount();
 		pills()[1].click();
