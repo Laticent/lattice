@@ -70,10 +70,13 @@ test('the open lightbox takes the wheel and digits and the deck behind does not 
 	await expect(page.locator('dialog.collage-lightbox[open]')).toBeVisible();
 	await expect(counter(page)).toHaveText(`1 / ${n}`);
 
-	// A burst of two decisive notches is one step (the lightbox's own wheel gate), and no notch
-	// reaches the window listener that would have turned the slide.
+	// ONE decisive notch is exactly one step, and it never reaches the window listener that would
+	// have turned the slide. A two-notch burst is deliberately NOT sent: whether it counts as one
+	// flick or two depends on how fast the engine delivers the second event against the gate's
+	// cooldown, and on a loaded runner WebKit delivered them far enough apart to step twice
+	// (flaky on run 40002893721). The cooldown itself is pinned in the unit tests
+	// (collage-lightbox.test.js, present-transport.test.js).
 	await page.mouse.move(400, 300);
-	await page.mouse.wheel(0, 120);
 	await page.mouse.wheel(0, 120);
 	await expect(counter(page)).toHaveText(`2 / ${n}`);
 	// Settle past the player's 350 ms wheel cooldown so a leaked event would have fired by now.
