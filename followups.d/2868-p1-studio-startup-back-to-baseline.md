@@ -17,6 +17,10 @@ where     — docs/src/components/studio/StudioShell.tsx and studio-warm.ts (wha
             docs/src/lib/single-slide-render.ts, theme-fetch.ts, load-engine.ts (the preview path); lib/engine (panes and
             other subsystems installed on every render); lib/runtime (1.25 MB, 825 KB unused at first slide); the Nacre
             loader (Lighthouse's largest-contentful-paint element on /studio/).
+progress  — 2026-10-23, first slice (engineering/decisions/2026-10-23-studio-boot-order.md): phone first slide 5.00 s -> 4.50 s on a machine where the
+            2026-09-22 build takes 4.20 s (editor built after the first slide on a phone; engine, theme and runtime started
+            from the island's first module). Left: the 0.3 s to baseline (the runtime's chart builders, ceiling 0.2 s, needs the
+            owner's export sign-off) and Lighthouse, whose LCP is the Nacre loader at 13 s simulated (a pre-paint-shell design).
 decided   — the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note

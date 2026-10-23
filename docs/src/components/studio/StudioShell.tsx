@@ -88,7 +88,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown } from './first-slide';
+import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, useFirstSlideShown } from './first-slide';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -1495,18 +1495,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return () => window.removeEventListener(SETTINGS_EVENT, sync);
 	}, []);
 	const editorRef = React.useRef<EditorHandle>(null);
+	const slideShown = useFirstSlideShown();
 	const composeRef = React.useRef<ComposeHandle>(null);
-	// Warm the lazy Editor chunk right after hydration (off the critical path, but
-	// eagerly once the island is live) so the CodeMirror module is cached and the
-	// component mounts within ~a frame of the default markdown view — keeping
-	// `editorRef.current` ready before any realistic first interaction. Notably this
-	// closes the narrow cold-load window where the self-driving demo's synchronous
-	// `resetDoc('')` / first `typeTail` (which race a duplicate slide-1, see
-	// createDemoFirstDeck) could no-op against a not-yet-mounted editor. Fire-and-forget:
-	// a warm failure is harmless — React.lazy re-imports on real render. This is the
-	// "load the rest in the background" half of the deferral (decision doc 2026-07-19).
+	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
+	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
+	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
+	// (engineering/decisions/2026-10-23-studio-boot-order.md). Elsewhere the lazy import starts at render.
+	// The chunk is still cached before any realistic first interaction, so `editorRef.current` is ready
+	// within a frame of the pane showing; `editorReady` (the demo's probe) reports the gap honestly.
+	// Fire-and-forget: a warm failure is harmless, since React.lazy re-imports on real render.
 	React.useEffect(() => {
-		import('./Editor').catch(() => {});
+		void firstSlideShown.then(() => import('./Editor')).catch(() => {});
 	}, []);
 	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
 	// `lazy-panel.tsx` › warmPanels' idle scheduling. Scheduled from here, as #2402 shipped it, so their
@@ -6081,7 +6080,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" />
+					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
+					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
+					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
+					{!slideShown && mobile && effPane !== 'edit' ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 		</section>

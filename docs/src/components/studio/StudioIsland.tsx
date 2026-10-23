@@ -1,3 +1,4 @@
+import './studio-boot';
 import { type ComponentProps, StrictMode, useMemo } from 'react';
 import { noteError } from '@/lib/crash-sentinel';
 import { ErrorBoundary } from '../ErrorBoundary.tsx';

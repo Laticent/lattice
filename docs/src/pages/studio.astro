@@ -23,7 +23,6 @@ import ResourceHints from '../components/site/ResourceHints.astro';
 import ColorSchemeSeed from '../components/site/ColorSchemeSeed.astro';
 import StaleDeployRecovery from '../components/site/StaleDeployRecovery.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
-import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 // The webfont files the PRE-PAINT SHELL's top bar paints with, imported with `?url` so
 import { joinBase } from '../lib/base-url.mjs';
 import { buildStudioCatalog } from '../lib/studio-catalog.mjs';
@@ -482,10 +481,8 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 		    It writes only to this browser; see the module header for why an in-page
 		    error handler cannot see the failure this exists to catch. */}
 		<CrashSentinel />
-		{/* Prefetch the preview runtime at parse time so the first live render's
-		    iframe finds it warm instead of cold-fetching it on the critical path
-		    (the FRAME REBUILD cost). Overlaps island hydration + the engine load. */}
-		<RuntimeWarm />
+		{/* The preview runtime is prefetched by studio-boot.ts once the island's code has landed, not
+		    here: from the HTML it shared the throttled link with that code (the slide needs it last). */}
 		<title>Lattice Studio — one workspace</title>
 		<meta name="description" content="The Lattice Studio: compose, present, and fabricate decks in one workspace. A live prototype of the app redesign." />
 		<link rel="icon" type="image/svg+xml" href={url('favicon.svg')} />
@@ -1000,6 +997,9 @@ const SHELL_NACRE_CSS = `#studio-ssr-shell .nacre-loader{position:absolute;inset
 				</div>
 			</div>
 		</div>
+		<!-- The engine and theme URLs for the island's first module (studio-boot.ts), which starts both
+		     downloads as soon as the island's code is in, instead of when the shell has mounted. -->
+		<script type="application/json" data-studio-boot set:html={JSON.stringify({ engineUrl: options.engineUrl, themeBase: options.themeBase, runtimeUrl: options.runtimeUrl })}></script>
 		<!-- client:only — the Studio is a browser app surface (no SSR/SEO need),
 		     so it never server-renders; this also sidesteps Browser-API-on-server. -->
 		<StudioIsland client:only="react" options={options} componentNames={componentNames} catalogUrl={url('studio/component-catalog.json')} lintVocab={lintVocab} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} />

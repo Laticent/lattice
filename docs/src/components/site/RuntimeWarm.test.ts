@@ -54,7 +54,6 @@ describe('RuntimeWarm.astro', () => {
 describe('live-preview surfaces warm the runtime', () => {
 	const cases = [
 		{ file: 'pages/index.astro', ownsUrl: true },
-		{ file: 'pages/studio.astro', ownsUrl: true },
 		{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false },
 	];
 	for (const { file, ownsUrl } of cases) {
@@ -67,6 +66,16 @@ describe('live-preview surfaces warm the runtime', () => {
 			if (ownsUrl) expect(s).toContain(RUNTIME_FILE);
 		});
 	}
+
+	// The Studio warms from its island's first module, not from the HTML: a prefetch in the HTML shared the
+	// throttled link with the island's own code (engineering/decisions/2026-10-23-studio-boot-order.md). The page
+	// hands that module the same `runtimeUrl` the preview frame loads, so it is still one cache entry.
+	it('pages/studio.astro hands the island the runtime URL for its boot prefetch', () => {
+		const s = read('pages/studio.astro');
+		expect(s).toContain(RUNTIME_FILE);
+		expect(s).toMatch(/data-studio-boot[^>]*set:html=\{JSON\.stringify\(\{[^}]*runtimeUrl: options\.runtimeUrl/);
+		expect(s).not.toMatch(/<RuntimeWarm\s*\/>/);
+	});
 
 	// The Playground warms from its boot seed instead, and only when no newcomer bake is in play:
 	// a bake frame requests the runtime at once, and a prefetch racing it is a second download
