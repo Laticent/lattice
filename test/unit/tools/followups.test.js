@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { followupProblems, listFollowups } = require(path.join(__dirname, '..', '..', '..', 'tools', 'followups.js'));
+const { followupProblems, listFollowups, EVIDENCE_CAP } = require(path.join(__dirname, '..', '..', '..', 'tools', 'followups.js'));
 
 const GOOD = `---
 origin: 42
@@ -101,4 +101,49 @@ test('swimlane must name a path that exists', () => {
 test('the listing carries area, severity and swimlane', () => {
   const [i] = listFollowups(folder({ '42-p1-x.md': GOOD }));
   assert.deepEqual([i.area, i.severity, i.swimlane], ['engine', 'medium', 'followups.d/README.md §The contract']);
+});
+
+// ── Evidence folders: `<item name>/` beside its item, living exactly as long as it ────────────
+
+/** Write `files` (paths may hold `/`) under a fresh followups folder. */
+function tree(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'followups-'));
+  for (const [name, body] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+    fs.writeFileSync(path.join(dir, name), body);
+  }
+  return dir;
+}
+const EVIDENCE_README = '# Evidence\n\nRan against abc1234. Run: node probe.mjs\n';
+
+test('an evidence folder beside its item, with a README, passes and is listed', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md': EVIDENCE_README, '42-p1-fix-the-thing/probe.mjs': 'console.log(1);\n' });
+  assert.deepEqual(followupProblems(dir), []);
+  assert.equal(listFollowups(dir)[0].evidence, true);
+});
+
+test('an evidence folder whose item is gone is refused: it lives exactly as long as the item', () => {
+  const dir = tree({ '42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  assert.match(followupProblems(dir).join('\n'), /its item followups\.d\/42-p1-fix-the-thing\.md is gone/);
+});
+
+test('an evidence folder needs a README naming the commit and how to run it', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/probe.mjs': 'x\n' });
+  assert.match(followupProblems(dir).join('\n'), /needs a README\.md/);
+});
+
+test('an evidence folder holds text only, no links, and stays under the cap', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1]));
+  fs.symlinkSync('/etc/hostname', path.join(dir, '42-p1-fix-the-thing', 'link'));
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'corpus.txt'), 'a'.repeat(EVIDENCE_CAP + 1));
+  const problems = followupProblems(dir).join('\n');
+  assert.match(problems, /shot\.png: binary/);
+  assert.match(problems, /link: a symbolic link/);
+  assert.match(problems, /over the 512 KB cap/);
+});
+
+test('an evidence folder is named like its item', () => {
+  const dir = tree({ 'Probe Kit/README.md': EVIDENCE_README });
+  assert.match(followupProblems(dir).join('\n'), /named like its item/);
 });

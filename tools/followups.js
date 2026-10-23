@@ -24,6 +24,12 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const DIR = path.join(ROOT, 'followups.d');
 const NAME = /^(\d+)-p(\d+)-[a-z0-9][a-z0-9-]*\.md$/;
+// An item's EVIDENCE FOLDER: the same name without `.md`, beside it. It holds what a reader needs
+// to reproduce the item's findings (scripts, fixtures, small data, notes), and it lives exactly as
+// long as the item: the gate refuses a folder whose item is gone. Text only, and capped, so it stays
+// an evidence kit rather than a corpus. Contract: followups.d/README.md §Evidence folders.
+const EVIDENCE_NAME = /^(\d+)-p(\d+)-[a-z0-9][a-z0-9-]*$/;
+const EVIDENCE_CAP = 512 * 1024;
 // The fields a continuation brief carries per item (engineering/workflow.md §The continuation
 // brief). A new item must carry `done when`: without an acceptance check, nobody can close it.
 // Anchored to a line start, so a title that merely says "done when" does not count.
@@ -80,7 +86,8 @@ function listFollowups(dir = DIR) {
     .map((file) => {
       const p = parse(fs.readFileSync(path.join(dir, file), 'utf8')) || { meta: {} };
       const { origin, priority, area, severity, swimlane } = p.meta;
-      return { file, origin, priority, area, severity, swimlane, title: p.title, backfill: p.meta.backfill === 'true' };
+      const evidence = fs.existsSync(path.join(dir, file.replace(/\.md$/, ''), 'README.md'));
+      return { file, origin, priority, area, severity, swimlane, title: p.title, backfill: p.meta.backfill === 'true', evidence };
     });
 }
 
@@ -92,6 +99,10 @@ function followupProblems(dir = DIR, root = ROOT) {
   for (const file of fs.readdirSync(dir)) {
     if (file === 'README.md') continue;
     const where = `followups.d/${file}`;
+    if (fs.lstatSync(path.join(dir, file)).isDirectory()) {
+      problems.push(...evidenceProblems(dir, file));
+      continue;
+    }
     const name = file.match(NAME);
     if (!name) { problems.push(`${where}: name must be <origin-pr>-p<n>-<slug>.md (lower-case slug).`); continue; }
     const p = parse(fs.readFileSync(path.join(dir, file), 'utf8'));
@@ -113,6 +124,40 @@ function followupProblems(dir = DIR, root = ROOT) {
   return problems;
 }
 
+/**
+ * The defects of one evidence folder: its name, its item, its README, and what it holds. A file
+ * is text when its first 8 KB hold no NUL byte, which is how git itself tells binary from text.
+ */
+function evidenceProblems(dir, name) {
+  const where = `followups.d/${name}/`;
+  if (!EVIDENCE_NAME.test(name)) return [`${where}: an evidence folder is named like its item without \`.md\` (<origin-pr>-p<n>-<slug>/).`];
+  const problems = [];
+  if (!fs.existsSync(path.join(dir, `${name}.md`))) {
+    problems.push(`${where}: its item followups.d/${name}.md is gone. An evidence folder lives exactly as long as its item: delete it in the PR that deletes the item.`);
+  }
+  if (!fs.existsSync(path.join(dir, name, 'README.md'))) {
+    problems.push(`${where}: needs a README.md saying what the folder holds, the commit it ran against, and how to run it.`);
+  }
+  let bytes = 0;
+  const walk = (rel) => {
+    for (const entry of fs.readdirSync(path.join(dir, name, rel))) {
+      const r = path.join(rel, entry);
+      const abs = path.join(dir, name, r);
+      const st = fs.lstatSync(abs);
+      if (st.isSymbolicLink()) problems.push(`${where}${r}: a symbolic link; evidence is a copy, not a pointer.`);
+      else if (st.isDirectory()) walk(r);
+      else {
+        bytes += st.size;
+        const head = fs.readFileSync(abs).subarray(0, 8192);
+        if (head.includes(0)) problems.push(`${where}${r}: binary. Evidence folders hold text only (scripts, fixtures, data, notes).`);
+      }
+    }
+  };
+  walk('');
+  if (bytes > EVIDENCE_CAP) problems.push(`${where}: ${(bytes / 1024).toFixed(0)} KB, over the ${EVIDENCE_CAP / 1024} KB cap. Keep the kit that reproduces the finding, not the corpus it ran on.`);
+  return problems;
+}
+
 function main() {
   if (process.argv.includes('--check')) {
     const problems = followupProblems();
@@ -121,7 +166,7 @@ function main() {
   }
   const items = listFollowups().sort((a, b) => (a.area || '~').localeCompare(b.area || '~')
     || (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || a.file.localeCompare(b.file));
-  for (const i of items) console.log(`${i.area} · ${i.severity}  ·  ${i.file}  ·  ${i.title}`);
+  for (const i of items) console.log(`${i.area} · ${i.severity}  ·  ${i.file}${i.evidence ? ' (+ evidence/)' : ''}  ·  ${i.title}`);
   console.log(`\n${items.length} pending item(s) with no issue — contract: followups.d/README.md`);
   // A backfilled item was copied from an old brief and never checked against main, so it
   // may be done or duplicated. Say so on every listing until the triage pass clears them.
@@ -131,4 +176,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { followupProblems, listFollowups, knownAreas, SEVERITIES, SEVERITY_RANK };
+module.exports = { followupProblems, listFollowups, knownAreas, SEVERITIES, SEVERITY_RANK, EVIDENCE_CAP };
