@@ -297,3 +297,37 @@ describe('video-extra-record', () => {
     assert.ok(!lint(fenced).some((x) => x.rule === 'video-extra-record'));
   });
 });
+
+describe('the video placement rules say what the engine does', () => {
+  const REC = '`@video{"https://youtu.be/dQw4w9WgXcQ", title="Clip"}`';
+  const lint = (md) => lintText(md, buildVocab()).findings || lintText(md, buildVocab());
+  const figures = (md) => (render(md).match(/<figure class="video-embed"/g) || []).length;
+  const wrap = (cls, body) => `---\ntheme: indaco\n---\n\n<!-- _class: ${cls} -->\n\n## T\n\n${body}\n`;
+
+  // Each case: where the record sits, and whether the engine draws a figure from it. The wrong-slide rule must fire exactly when it does.
+  const CASES = [
+    ['a record in a tight list item', `- ${REC}`, 1],
+    ['a record in a blockquote', `> ${REC}`, 1],
+    ['a record that is a lazy continuation of the text above', `Some text\n${REC}`, 0],
+    ['a record indented four spaces (an indented code block)', `    ${REC}`, 0],
+    ['a record inside a multi-line HTML comment', `<!--\n${REC}\n-->`, 0],
+    ['a record after mixed fence markers that have all closed', '```\nx\n```\n~~~\ny\n~~~\n\n' + REC, 1],
+    ['a record inside a four-backtick fence holding a three-backtick line', '````markdown\n```\n' + REC + '\n````', 0],
+  ];
+  for (const [name, body, drawn] of CASES) {
+    test(`video-slide-class on ${name}: fires only when the engine draws a figure`, () => {
+      const md = wrap('content', body);
+      assert.equal(figures(md), drawn, 'the engine side of the case');
+      assert.equal(lint(md).some((f) => f.rule === 'video-slide-class'), drawn === 1);
+    });
+  }
+
+  test('video-extra-record counts a second record the engine draws, in a list item or a quote, and not one it leaves as code', () => {
+    const fires = (md) => lint(md).some((f) => f.rule === 'video-extra-record');
+    assert.equal(fires(wrap('video', `${REC}\n\n- ${REC}`)), true);
+    assert.equal(fires(wrap('video', `${REC}\n\n> ${REC}`)), true);
+    assert.equal(fires(wrap('video', `${REC}\n\nSome text\n${REC}`)), false, 'a lazy continuation is code');
+    assert.equal(fires(wrap('video', `${REC}\n\n    ${REC}`)), false, 'an indented code block is code');
+    assert.equal(fires(wrap('video', `${REC}\n\n<!--\n${REC}\n-->`)), false, 'a comment is not drawn');
+  });
+});
