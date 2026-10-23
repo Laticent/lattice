@@ -256,6 +256,13 @@ section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch)[data-s="deferred"]
   { --fill-hue: var(--state-mute-hue); --fill-ink: var(--text-secondary); --state-node-ink: var(--text-heading); --state-index-ink: var(--text-heading); --state-chip-ground: color-mix(in oklab, var(--bg-alt) 60%, transparent); }
+/* A hollow tile's status mark sits on the slide, not on a fill, so it wears the tile's name ink (the canvas ink), not
+ * the solid ink, in the painted tile and in the inline row alike. */
+section.state-chart .chart-status-mark[data-s="deferred"] { stroke: var(--text-heading); }
+section.state-chart .state-node-row[data-s="deferred"]::before { background: var(--state-node-ink); }
+/* The ordinal on a hollow tile carries no status (the layout pass marks only a filled tile's), so it is reached through
+ * its tile, and wears the canvas ink too. */
+section.state-chart .state-node-group:has(> .state-node-shape[data-s="deferred"]) .state-index-t { fill: var(--text-heading); }
 /* The badge on a status tile takes the NAME's ink: at ~8px on a tinted tile the body ink
  * measured as low as 3.2:1. */
 section.state-chart :is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"]) .state-index,

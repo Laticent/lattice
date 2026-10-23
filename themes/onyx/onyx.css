@@ -110,7 +110,7 @@
   --pass-solid: light-dark(#314732, #49604A);
   --warn-solid: light-dark(#7E4D1D, #9D6A3C);
   --fail-solid: light-dark(#8F2522, #AE433D);
-  --pass-solid-vivid: light-dark(#124C1C, #2F6635);
+  --pass-solid-vivid: light-dark(#124C1C, #2E6635);
   --warn-solid-vivid: light-dark(#854A00, #A9651B);
   --fail-solid-vivid: light-dark(#981519, #B83834);
   --warn-solid-signal: light-dark(#DEA448, #DBA144);

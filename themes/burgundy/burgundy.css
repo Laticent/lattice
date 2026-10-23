@@ -119,8 +119,8 @@
   --info-solid: light-dark(#015F85, #2F7CA4);
   --info-solid-vivid: light-dark(#005E85, #007DAF);
   --info-solid-edge: light-dark(#015F85, #428DB6);
-  --mute-solid: light-dark(#574E50, #706768);
-  --mute-solid-edge: light-dark(#574E50, #8C8384);
+  --mute-solid: light-dark(#574E50, #6F6668);
+  --mute-solid-edge: light-dark(#574E50, #8C8385);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

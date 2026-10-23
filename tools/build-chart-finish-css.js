@@ -459,10 +459,11 @@ function build() {
     // index numeral beside the tile's shape, a flowchart name beside its node), so it cannot inherit the mark's
     // ink and is reached by name. A caption beside its bar (`data-pos="after"`) sits on the canvas and keeps the
     // member's ink, and an author-colored caption (`data-text`) or an author-filled node (`data-fill`) keeps the
-    // author's: both were chosen for exactly the tier a finish paints.
+    // author's: both were chosen for exactly the tier a finish paints. A DEFERRED mark is hollow (an 18% wash or none),
+    // so its caption or name sits on the slide and keeps the member's canvas ink, in every member alike.
     w(supports(rule(name, [
-      '.gantt-bar-label[data-pos="inside"]',
-      '.state-node-group:not([data-text]) > .state-label-t',
+      '.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"])',
+      '.state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"])',
       '.state-index-t[data-s]',
       '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
       '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
@@ -674,7 +675,7 @@ function build() {
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
         w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklch, var(--fail-solid-vivid) 82%, black)', 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black))', 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
       // The hub-spoke HUB is the one mark with no category and no status: the neutral solid, its name in the solid ink.

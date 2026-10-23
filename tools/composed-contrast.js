@@ -624,6 +624,22 @@ const SURFACES = [
     ink: '--on-status',
     requires: [new RegExp(`--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
   })),
+  // ── risk-matrix · the CRITICAL band, the one status fill a chart mixes for itself ───────
+  // A critical cell and a critical key disc are the vivid fail fill taken 18% away from the ink, so their number (the
+  // solid ink) is scored on the mix itself; the stylesheet pin keeps the measured mix the painted one.
+  {
+    id: 'risk-matrix/critical-key',
+    ctx: 'risk-matrix .risk-key-marker[critical]: the key number on the critical band\'s fill',
+    base: '--bg',
+    groups: [{ bg: 'color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black))' }],
+    ink: '--on-solid',
+    min: 4.5,
+    src: 'lib/components/chart/risk-matrix/risk-matrix.styles.css',
+    requires: [
+      /\.risk-key-marker\[data-band="critical"\] \{\s*fill: color-mix\(in oklab, var\(--fail-solid-vivid\) 82%, var\(--on-solid-shade, black\)\);/,
+      /\.risk-key-number \{ fill: var\(--chart-solid-ink\); \}/,
+    ],
+  },
   // ── state-chart · the name and the ordinal on a status-tinted node ───────
   ...['pass', 'warn', 'fail', 'info'].map((state) => stateChartNode(state)),
   // THE PAINTED TILE'S PAINT LIVES IN JS, and the entries above pin only the CSS. Once the layout pass runs, a
