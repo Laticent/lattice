@@ -31,13 +31,14 @@ const TRIO = ['pass', 'warn', 'fail'];
  * Each INTENSITY of `chart-finish:` names its own fills and inks (base.tokens.css § STATUS, IN TWO JOBS), so the
  * status rows read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule
  * remaps on a slide, and which a flat parse of the stylesheet would see as already remapped). A status fill's EDGE is
- * the fill itself, except vivid amber's light face, which takes the theme's status ink `--warn`.
+ * the fill itself, except where a palette's amber is too light for 3:1 (the a11y palettes), which point
+ * `--warn-solid-edge` at their status ink.
  */
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 const INTENSITIES = {
   muted: (s) => ({ t: `${s}-solid`, ink: s === 'warn' ? 'on-warn' : 'on-solid', edge: s === 'warn' ? 'warn-solid-edge' : null, s }),
   vivid: (s) => (TRIO.includes(s)
-    ? { t: `${s}-solid-vivid`, ink: s === 'warn' ? 'on-warn-vivid' : 'on-solid', edge: s === 'warn' ? 'warn' : null, s }
+    ? { t: `${s}-solid-vivid`, ink: s === 'warn' ? 'on-warn-vivid' : 'on-solid', edge: s === 'warn' ? 'warn-solid-edge' : null, s }
     : { t: `${s}-solid`, ink: 'on-solid', s }),
 };
 const SOLIDS = (intensity) => [

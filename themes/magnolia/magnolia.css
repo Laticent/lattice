@@ -97,18 +97,18 @@
   --fail: light-dark(#500013, #ffabd6);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), in both intensities of `chart-finish:`. MUTED, the
    * default: on the light face a deep green, bronze and oxblood, all under white text; on the dark face a sage,
-   * ochre and rose-brick under the canvas as ink. VIVID: on the light face a true amber under its own dark ink; on
-   * the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
+   * ochre and rose-brick under the canvas as ink. VIVID: on the light face the most saturated green, burnt orange
+   * and crimson white text allows; on the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
    * colorblind floors; a brand theme's fills are held to their recorded separation instead. Solved by
    * tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#276439, #8BBA7C);
   --warn-solid: light-dark(#603800, #E0AC6E);
   --fail-solid: light-dark(#580919, #CE78A6);
   --on-warn: light-dark(#FFFFFF, var(--on-solid));
-  --pass-solid-vivid: light-dark(#00642D, #75CE54);
-  --warn-solid-vivid: light-dark(#FBA02D, #FEA400);
-  --fail-solid-vivid: light-dark(#4F0916, #EB59AE);
-  --on-warn-vivid: light-dark(#1A1A1A, var(--on-solid));
+  --pass-solid-vivid: light-dark(#00662E, #75CE54);
+  --warn-solid-vivid: light-dark(#8E4200, #FEA400);
+  --fail-solid-vivid: light-dark(#B20035, #EB59AE);
+  --on-warn-vivid: light-dark(#FFFFFF, var(--on-solid));
   /* Self-curated semantic trio — warm green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
   --pass: light-dark(#0a4d24, #afff94);
@@ -294,7 +294,7 @@
   --chart-cat1: light-dark(#813743, #CD9393);  /* garnet    */
   --chart-cat2: light-dark(#004E3A, #5DAB96);  /* forest    */
   --chart-cat3: light-dark(#2F5C72, #82A1B3);  /* steel     */
-  --chart-cat4: light-dark(#784B35, #B89483);  /* saddle    */
+  --chart-cat4: light-dark(#6C5144, #B89483);  /* saddle    */
   --chart-cat5: light-dark(#7E3A67, #B898B4);  /* mauve     */
   --chart-cat6: light-dark(#005458, #77A39A);  /* aqua      */
   --chart-cat7: light-dark(#645719, #A19B7A);  /* khaki     */
@@ -309,7 +309,7 @@
   --chart-cat1-ink: light-dark(#813743, #CD9393);
   --chart-cat2-ink: light-dark(#004E3A, #5DAB96);
   --chart-cat3-ink: light-dark(#2F5C72, #82A1B3);
-  --chart-cat4-ink: light-dark(#784B35, #B89483);
+  --chart-cat4-ink: light-dark(#6C5144, #B89483);
   --chart-cat5-ink: light-dark(#7E3A67, #B898B4);
   --chart-cat6-ink: light-dark(#005458, #77A39A);
   --chart-cat7-ink: light-dark(#645719, #A19B7A);

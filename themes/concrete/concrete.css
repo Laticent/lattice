@@ -96,18 +96,18 @@
   --fail: light-dark(#8d0812, #ee8787);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), in both intensities of `chart-finish:`. MUTED, the
    * default: on the light face a deep green, bronze and oxblood, all under white text; on the dark face a sage,
-   * ochre and rose-brick under the canvas as ink. VIVID: on the light face a true amber under its own dark ink; on
-   * the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
+   * ochre and rose-brick under the canvas as ink. VIVID: on the light face the most saturated green, burnt orange
+   * and crimson white text allows; on the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
    * colorblind floors; a brand theme's fills are held to their recorded separation instead. Solved by
    * tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#376138, #80BC85);
   --warn-solid: light-dark(#5F3807, #D9B16B);
   --fail-solid: light-dark(#5D0006, #E98887);
   --on-warn: light-dark(#FFFFFF, var(--on-solid));
-  --pass-solid-vivid: light-dark(#006516, #58D26A);
-  --warn-solid-vivid: light-dark(#F3A34A, #EFAD15);
-  --fail-solid-vivid: light-dark(#4F0A0B, #FF777A);
-  --on-warn-vivid: light-dark(#1A1A1A, var(--on-solid));
+  --pass-solid-vivid: light-dark(#006717, #58D26A);
+  --warn-solid-vivid: light-dark(#8F4200, #EFAD15);
+  --fail-solid-vivid: light-dark(#B40016, #FF777A);
+  --on-warn-vivid: light-dark(#FFFFFF, var(--on-solid));
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -291,7 +291,7 @@
   --chart-cat1: light-dark(#6E3D50, #CBA3B2);  /* dusty rose    */
   --chart-cat2: light-dark(#004E28, #7AB0B1);  /* sage green    */
   --chart-cat3: light-dark(#474479, #A3A3CE);  /* steel blue    */
-  --chart-cat4: light-dark(#6B530C, #B2B6A3);  /* warm taupe    */
+  --chart-cat4: light-dark(#7E2C2C, #B2B6A3);  /* warm taupe    */
   --chart-cat5: light-dark(#722E5E, #CC97BC);  /* mauve         */
   --chart-cat6: light-dark(#305D68, #94AEB1);  /* slate teal    */
   --chart-cat7: light-dark(#615448, #ABA89B);  /* khaki olive   */
@@ -306,7 +306,7 @@
   --chart-cat1-ink: light-dark(#69384B, #CBA3B2);
   --chart-cat2-ink: light-dark(#004E28, #7AB0B1);
   --chart-cat3-ink: light-dark(#454176, #A3A3CE);
-  --chart-cat4-ink: light-dark(#5A4400, #B2B6A3);
+  --chart-cat4-ink: light-dark(#7D2C2C, #B2B6A3);
   --chart-cat5-ink: light-dark(#722E5E, #CC97BC);
   --chart-cat6-ink: light-dark(#204D58, #94AEB1);
   --chart-cat7-ink: light-dark(#52453A, #ABA89B);

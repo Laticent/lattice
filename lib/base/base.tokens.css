@@ -640,8 +640,9 @@
    * fill and an ink are curated separately, and in two intensities the author picks with `chart-finish:`
    * (resolve-chart-finish.js). MUTED, the default (`--X-solid`, `--on-warn`): every fill under one white ink on the
    * light face (a deep green, bronze and oxblood) and a calm set under the canvas on the dark face. VIVID
-   * (`--X-solid-vivid`, `--on-warn-vivid`): a true amber under its own dark ink on the light face, because an amber
-   * deep enough for white text is brown, and a saturated set on the dark face. Text on every fill clears 7:1 on the
+   * (`--X-solid-vivid`, `--on-warn-vivid`): the most saturated green, burnt orange and crimson that white text clears
+   * at 7:1 on the light face (an amber any lighter needs dark text, the owner chose white), and a saturated set on the
+   * dark face. `--on-warn` stays a token so a palette whose amber is light (the a11y palettes) can carry dark ink. Text on every fill clears 7:1 on the
    * light face and 4.5:1 on the dark face (test/unit/palette/chart-solids.test.js). The a11y palettes keep fills that
    * clear every colorblind floor; a brand theme's fills are held to their recorded separation
    * (cvd-trio-floor.test.js), the owner's call. A fill lighter than 3:1 against the slide takes its boundary from its
@@ -664,10 +665,10 @@
   /* The edge of the amber fill: the fill itself, unless a palette's muted amber is too light to clear 3:1 off the
    * slide (the a11y palettes), which points it at its status ink. */
   --warn-solid-edge: var(--warn-solid);
-  --pass-solid-vivid: light-dark(#00642D, #75CE55);
-  --warn-solid-vivid: light-dark(#FF9A62, #F1AC17);
-  --fail-solid-vivid: light-dark(#4F0A0A, #F9557A);
-  --on-warn-vivid: light-dark(#1A1A1A, var(--on-solid));
+  --pass-solid-vivid: light-dark(#00662E, #75CE55);
+  --warn-solid-vivid: light-dark(#973C00, #F1AC17);
+  --fail-solid-vivid: light-dark(#B40012, #F9557A);
+  --on-warn-vivid: light-dark(#FFFFFF, var(--on-solid));
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured

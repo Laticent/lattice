@@ -106,18 +106,18 @@
   --fail: light-dark(#4d0003, #ffaba8);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), in both intensities of `chart-finish:`. MUTED, the
    * default: on the light face a deep green, bronze and oxblood, all under white text; on the dark face a sage,
-   * ochre and rose-brick under the canvas as ink. VIVID: on the light face a true amber under its own dark ink; on
-   * the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
+   * ochre and rose-brick under the canvas as ink. VIVID: on the light face the most saturated green, burnt orange
+   * and crimson white text allows; on the dark face the saturated set. Light-face text clears 7:1, dark-face 4.5:1. The a11y palettes carry the
    * colorblind floors; a brand theme's fills are held to their recorded separation instead. Solved by
    * tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#266439, #8BBA7C);
   --warn-solid: light-dark(#613700, #E8A95C);
   --fail-solid: light-dark(#580C0C, #D87877);
   --on-warn: light-dark(#FFFFFF, var(--on-solid));
-  --pass-solid-vivid: light-dark(#00642E, #75CE55);
-  --warn-solid-vivid: light-dark(#F5A34C, #FEA400);
-  --fail-solid-vivid: light-dark(#4F0A0A, #FB575E);
-  --on-warn-vivid: light-dark(#1A1A1A, var(--on-solid));
+  --pass-solid-vivid: light-dark(#00662E, #75CE55);
+  --warn-solid-vivid: light-dark(#924100, #FEA400);
+  --fail-solid-vivid: light-dark(#B40011, #FB575E);
+  --on-warn-vivid: light-dark(#FFFFFF, var(--on-solid));
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -295,7 +295,7 @@
    * most-distinct-first. Light side = the audited pigment (drives the border
    * at full strength + a 24% tint for the fill); dark side = the same hue
    * lifted toward white so it stays vivid on the deep-brown canvas. */
-  --chart-cat1: light-dark(#834824, #BE967D);  /* umber      */
+  --chart-cat1: light-dark(#704841, #BE967D);  /* umber      */
   --chart-cat2: light-dark(#00606B, #6EA6AF);  /* teal       */
   --chart-cat3: light-dark(#5C397E, #AC93C8);  /* indigo     */
   --chart-cat4: light-dark(#635702, #B6AE95);  /* olive      */
@@ -310,7 +310,7 @@
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
-  --chart-cat1-ink: light-dark(#834824, #BE967D);
+  --chart-cat1-ink: light-dark(#704841, #BE967D);
   --chart-cat2-ink: light-dark(#00606B, #6EA6AF);
   --chart-cat3-ink: light-dark(#5C397E, #AC93C8);
   --chart-cat4-ink: light-dark(#635702, #B6AE95);
@@ -333,13 +333,13 @@
   --heatmap-step1: 18%;
   --heatmap-step1-ink: light-dark(#42403A, #BFB8A8);
   --heatmap-step2: 36.5%;
-  --heatmap-step2-ink: light-dark(#3C3B35, #C1BAA9);
+  --heatmap-step2-ink: light-dark(#3B3934, #C1BAA9);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#272620, #E5DDCD);
+  --heatmap-step3-ink: light-dark(#24231D, #E5DDCD);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#030201, #0B0601);
+  --heatmap-step4-ink: light-dark(#FFFDF9, #0B0601);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#E1DFD7, #2F291D);
+  --heatmap-step5-ink: light-dark(#DAD8D0, #2F291D);
   /* ── end heatmap ramp ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
