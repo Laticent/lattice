@@ -153,6 +153,33 @@ describe('map kernel', () => {
       assert.equal(pickVariant(['map']), 'choropleth');
       assert.equal(pickVariant(['map', 'highlight']), 'highlight');
     });
+    test('the data decides: numbers are a magnitude, labels or no values are a set', () => {
+      const model = (vals) => ({ matched: vals.map((v) => ({ valueRaw: v })) });
+      assert.equal(pickVariant(['map'], model(['48.2', '36.4', '9.6'])), 'choropleth');
+      assert.equal(pickVariant(['map'], model(['$1.2M', '12%', '3k'])), 'choropleth');
+      assert.equal(pickVariant(['map'], model(['East Africa', 'West Africa'])), 'highlight');
+      assert.equal(pickVariant(['map'], model(['48.2', 'pilot'])), 'highlight', 'one label makes it a set');
+      assert.equal(pickVariant(['map'], model(['', ''])), 'highlight', 'names alone are membership');
+      assert.equal(pickVariant(['map', 'highlight'], model(['1', '2'])), 'highlight', 'the class still forces categories');
+    });
+    test('a category is a label: the same label is the same color, and bare names are one set', () => {
+      const engine = require('../../../lib/engine');
+      const hues = (md) => [...engine.render(md).html.matchAll(/class="map-region map-region--hl"[^>]*--region-hue:var\(--chart-cat-(\d)-hue\)/g)].map((m) => m[1]);
+      const labeled = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Brazil `Latin America`\n- Peru `Latin America`\n- Kenya `East Africa`\n';
+      const h = hues(labeled);
+      assert.equal(new Set(h).size, 2, `two labels, two colors: ${h.join(',')}`);
+      const bare = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Brazil\n- Peru\n- Kenya\n';
+      assert.deepEqual([...new Set(hues(bare))], ['1'], 'a set of names is one color');
+    });
+    test('a labeled map renders category solids with no class at all, and lint calls `highlight` redundant', () => {
+      const engine = require('../../../lib/engine');
+      const { lintText } = require('../../../lib/authoring/lint');
+      const md = '---\nmarp: true\n---\n\n<!-- _class: map -->\n\n## Where\n\n- Kenya `East Africa`\n- India `South Asia`\n';
+      assert.match(engine.render(md).html, /map-region--hl/);
+      const hl = md.replace('_class: map', '_class: map highlight');
+      assert.ok(lintText(hl).some((f) => f.rule === 'map-highlight-implied'));
+      assert.ok(!lintText(hl.replace('`East Africa`', '`1`').replace('`South Asia`', '`2`')).some((f) => f.rule === 'map-highlight-implied'));
+    });
   });
 
   describe('normName', () => {

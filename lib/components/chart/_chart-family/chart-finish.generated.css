@@ -424,11 +424,11 @@ figure.chart-finish-pigment :where(.gantt-bar-label[data-pos="inside"], .state-n
 /* RAMP — scaled into the finish's band; --mix stays the datum. */
 section.chart-finish-pigment :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]),
 figure.chart-finish-pigment :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="fill"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) calc(16% + var(--mix) * 0.54), var(--map-base)) !important;
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) calc(0% + var(--mix) * 1.136), var(--map-base)) !important;
 }
 section.chart-finish-pigment :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="bg"]),
 figure.chart-finish-pigment :where(:is(.map-region--on, .map-figure .chart-key-swatch)[data-encodes="ramp"][data-paint="bg"]) {
-  background: color-mix(in oklab, var(--chart-cat-1-hue) calc(16% + var(--mix) * 0.54), var(--map-base)) !important;
+  background: color-mix(in oklab, var(--chart-cat-1-hue) calc(0% + var(--mix) * 1.136), var(--map-base)) !important;
 }
 section.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
 figure.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
