@@ -85,7 +85,7 @@ describe('web-reference probe', { skip: SKIP, timeout: 600000 }, () => {
             return { html: '', err: String(e), ms: 0 };
           }
         }),
-      payloads.map((p) => ({ html: asHtml(p), fonts: p.kind === 'font' })),
+      payloads.map((p) => ({ html: asHtml(p), fonts: p.kind === 'font' || !!p.noPolicy })),
     );
     await page.close();
     const after = await fetched(rewritten.map((r) => r.html));
