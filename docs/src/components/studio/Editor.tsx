@@ -13,7 +13,7 @@ import type { Focus, FocusHub } from '@/lib/fuoco/hub';
 import { partAt, unitAt } from '@/lib/fuoco/outline';
 import { followDeckAdmission } from '@/lib/plugin-admission';
 import type { SparkFitReport } from '@/lib/spark-fit';
-import { buildVocabSets, externalInlineKinds, findingsToDiagnostics } from '@/playground/editor-diagnostics.js';
+import { buildVocabSets, externalInlineKinds, externalPluginsVersion, findingsToDiagnostics, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { type AssetChoice, type CompletionComponent, type CompletionVocab, frontMatterKeyAt, type InlineNext, makeAssetCompletion, makeStudioCompletion, registerValueLists } from './editor-complete';
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
@@ -441,7 +441,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	const completionRegisters = React.useMemo(() => registerValueLists(lintVocab), [lintVocab]);
 	const modifierKey = completionModifiers.join(',');
 	const registersKey = React.useMemo(() => JSON.stringify(completionRegisters), [completionRegisters]);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey / paletteKey are the stable content-proxies; depending on the arrays themselves would rebuild every render.
+	// The zip plugins the Studio holds: a plugin imported after the first lint pass must re-lint it (a deck may already name it).
+	const pluginsVersion = React.useSyncExternalStore(subscribeExternalPlugins, externalPluginsVersion, externalPluginsVersion);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: extraNamesKey / finishKey / paletteKey are the stable content-proxies; depending on the arrays themselves would rebuild every render. pluginsVersion moves when the shared plugin vocabulary does.
 	const vocabSets = React.useMemo(() => {
 		if (!useRealLint) return null;
 		const sets = buildVocabSets(lintVocab);
@@ -461,7 +463,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// `unknown-theme` must not flag it. The lint vocab carries only the shipped ones.
 		if (completionPalettes.length) sets.themeNames = [...(sets.themeNames || []), ...completionPalettes];
 		return sets;
-	}, [lintVocab, useRealLint, extraNamesKey, finishKey, paletteKey]);
+	}, [lintVocab, useRealLint, extraNamesKey, finishKey, paletteKey, pluginsVersion]);
 
 	// The completion + lint extensions live in Compartments so they can be RECONFIGURED
 	// in place when their vocabulary changes (e.g. you save a finish mid-session) —

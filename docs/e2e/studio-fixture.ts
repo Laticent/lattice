@@ -743,7 +743,8 @@ export async function openInspectorTab(page: Page, tab: keyof typeof CHROME.deck
 export async function openSection(page: Page, name: string): Promise<void> {
 	const advanced = page.getByRole('button', { name: CHROME.settings.advanced, pressed: false });
 	if (await advanced.count()) await advanced.first().click();
-	const pill = page.getByRole('tab', { name, exact: true });
+	// Not the Library's section pills: its Plugins pill shares a name with the deck settings' Plugins section.
+	const pill = page.locator('[role="tablist"]:not([aria-label="Library sections"])').getByRole('tab', { name, exact: true });
 	if (await pill.count()) {
 		await pill.first().click();
 		return;

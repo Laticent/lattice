@@ -1,0 +1,2 @@
+- The Studio's Library has a **Plugins** pill. An imported zip plugin is listed there with what it draws (its fence and `@kind{…}` spans), whether this browser has approved its code, and whether the open deck lists it, with a Remove button. A plugin-only zip opens on the pill, the empty state no longer shows beside an installed plugin, and the status line counts plugins. Plugin cards have no select box and no Share: a plugin's code never leaves the browser.
+- The import toast names only what landed ("Imported 1 plugin(s)…"), not "0 theme(s) + 0 component(s) + 1 plugin(s)".

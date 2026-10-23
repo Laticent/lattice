@@ -1,14 +1,16 @@
-import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, Pencil, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
+import { Check, Clapperboard, Download, FileBox, FileText, Image as ImageIcon, Images, Layers, LayoutGrid, ListFilter, Package, Palette, Pencil, Plug, Plus, Shapes, Share2, Upload, Video as VideoIcon } from 'lucide-react';
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PanelDock, PanelEmpty, PanelHeader, PanelSearch, PanelSection, PanelSheet } from '@/components/ui/panel';
 import { PillTabs } from '@/components/ui/pill-tabs';
 import { Tip } from '@/components/ui/tooltip';
+import { isPluginApproved, studioPlugins } from '@/lib/code-packages/door';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
+import { deckPluginList } from '../../../../lib/plugins/deck-plugins.mjs';
 import { AssetVersionsDialog, type VersionedAsset } from './AssetVersions';
 import { createAgentAssets } from './agent-assets-browser';
 import { componentZipName, finishZipName, packBundle, packComponent, packFinish, packTheme, themeZipName, unpackBundle } from './asset-bundle';
@@ -28,6 +30,7 @@ import { deleteMedia, LIBRARY_SCOPE, listMedia, MEDIA_REFUSAL_PREFIX, type Media
 import { MOTION_PALETTE_STYLE } from './motion/palette-fallback';
 import { PhotoFormatDialog } from './PhotoFormatDialog';
 import { LIBRARY_HEADER, LIBRARY_KINDS, LIBRARY_SECTIONS, type LibraryFilter, type LibrarySection, sectionFilter, sectionOf } from './panel-shells';
+import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { formatBytes, REF_DOC_ACCEPT, readReferenceDoc } from './reference-doc';
 import { deleteRefDoc, listRefDocs, migrateLegacyRefDocs, type RefDocRecord, refDocBlob, saveRefDoc } from './reference-doc-store';
 import { deleteStudioScene, listStudioScenes, type StudioScene } from './scene-library';
@@ -277,6 +280,9 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const [versionCounts, setVersionCounts] = React.useState<Record<string, number>>({});
 	const [historyFor, setHistoryFor] = React.useState<VersionedAsset | null>(null);
 	const [scenes, setScenes] = React.useState<StudioScene[]>([]);
+	// The zip plugins this browser holds (plugin-library.ts). They sit on the shelf beside the assets and are NEVER selectable, shared
+	// or exported: a plugin's code stays in this browser, where the person approves it.
+	const [plugins, setPlugins] = React.useState<StudioPluginRecord[]>([]);
 	const [shipped, setShipped] = React.useState<ShippedScene[]>([]);
 	// ONE picker for everything. What a file IS decides where it goes (`classifyDropped`), not which
 	// button it came through, so a person never has to know the kind before they choose.
@@ -315,13 +321,14 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		// The shipped motion library rides beside the user's shelf, not in it: it is read-only,
 		// never selected, shared or deleted, and it does not count toward `total`.
 		listShippedScenes().then(setShipped);
-		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes(), listMedia()]).then(([t, c, f, d, m, md]) => {
+		Promise.all([listStudioThemes(), listStudioComponents(), listStudioFinishes(), listRefDocs(), listStudioScenes(), listMedia(), listStudioPlugins()]).then(([t, c, f, d, m, md, pl]) => {
 			setThemes(t);
 			setComponents(c);
 			setFinishes(f);
 			setDocs(d);
 			setScenes(m);
 			setMedia(md);
+			setPlugins(pl);
 			readOtherSources();
 			// Version counts, and the orphan net, in the same pass.
 			//
@@ -376,6 +383,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	const vComponents = inDesign || filter === 'component' ? components.filter((c) => !q || c.name.includes(q) || (c.bucket || '').includes(q)) : [];
 	const vFinishes = inDesign || filter === 'finish' ? finishes.filter((f) => !q || f.label.toLowerCase().includes(q) || f.name.includes(q)) : [];
 	const vScenes = inDesign || filter === 'motion' ? scenes.filter((m) => !q || m.label.toLowerCase().includes(q) || m.name.includes(q)) : [];
+	const pluginTab = filter === 'plugin';
+	const vPlugins = filter === 'all' || pluginTab ? plugins.filter((p) => !q || p.title.toLowerCase().includes(q) || p.name.includes(q) || p.fence.includes(q) || (p.kinds ?? []).some((k) => k.name.includes(q))) : [];
 	const shownMedia = visibleMedia(media, activeDeckId);
 	// Deferred, so typing in the editor never waits on a count of N assets over M decks.
 	const liveSource = React.useDeferredValue(activeDeckSource);
@@ -402,11 +411,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	// `scenes` belongs in this sum. Without it a Library holding ONLY motion assets rendered its
 	// empty state, which gates the whole card grid — so the shelf the Motion faculty saves to was
 	// invisible, and Insert/Edit/Delete with it. That is the exact defect the card was added to close.
-	const total = themes.length + components.length + finishes.length + docs.length + scenes.length + shownMedia.length;
+	// Plugins count too: a shelf holding only a plugin must not render the empty state (the defect the motion note above closed for scenes).
+	const total = themes.length + components.length + finishes.length + docs.length + scenes.length + shownMedia.length + plugins.length;
 	// Only the reference files carry a byte size (a theme/component/finish is CSS + a
 	// recipe, measured in kilobytes nobody budgets), so the status bar reports the one
 	// number a browser-storage shelf can genuinely run out of rather than a made-up total.
-	const docBytes = docs.reduce((n, d) => n + (d.bytes || 0), 0) + shownMedia.reduce((n, a) => n + (a.bytes || 0), 0);
+	// A plugin is stored as text (its renderer and styles), so its length is its size: the line no longer says "nothing saved yet" beside one.
+	const docBytes = docs.reduce((n, d) => n + (d.bytes || 0), 0) + shownMedia.reduce((n, a) => n + (a.bytes || 0), 0) + plugins.reduce((n, p) => n + p.code.length + p.css.length, 0);
 
 	const tKey = (t: StudioTheme) => `theme:${t.id}`;
 	const cKey = (c: StudioComponent) => `comp:${c.id}`;
@@ -858,7 +869,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			const renamedLine = renamed.length ? `Renamed because a shipped item uses the name: ${renamed.join(', ')}.` : null;
 			const notesLine = notes.length ? `Adjusted on import: ${notes.join('; ')}.` : null;
 			const detail = [refusals.length ? refusedDetail(refusals) : null, renamedLine, notesLine].filter(Boolean).join('\n') || undefined;
-			const tally = `Imported ${nThemes} theme(s) + ${nComps} component(s)${nFinishes ? ` + ${nFinishes} finish(es)` : ''}${nScenes ? ` + ${nScenes} motion(s)` : ''}${nPlugins ? ` + ${nPlugins} plugin(s) (see Deck settings → Plugins)` : ''}.`;
+			// Only what landed: a plugin-only zip used to read "Imported 0 theme(s) + 0 component(s) + 1 plugin(s)".
+			const parts = [nThemes && `${nThemes} theme(s)`, nComps && `${nComps} component(s)`, nFinishes && `${nFinishes} finish(es)`, nScenes && `${nScenes} motion(s)`, nPlugins && `${nPlugins} plugin(s)`].filter(Boolean);
+			const tally = `Imported ${parts.join(' + ') || '0 items'}${nPlugins ? ' (see the Plugins tab, and Deck settings → Plugins to list it)' : ''}.`;
+			// A zip that held only plugins opens on the Plugins pill, where they are; every other import keeps the view it has.
+			if (nPlugins && !(nThemes + nComps + nFinishes + nScenes)) setFilter('plugin');
 			if (failure) {
 				// A throw can still leave items on the shelf, so the tally and the refusals
 				// go UNDER the reason rather than replacing it.
@@ -937,6 +952,11 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 	}
 	// Closes the retired faculty's actual defect: `deleteStudioScene` shipped with ZERO callers, so a
 	// saved scene could not be seen, edited, deleted or placed from any UI — a shelf with no door.
+	function removePlugin(p: StudioPluginRecord) {
+		// Through the shell (`onChanged` re-reads its plugin list), so the lint vocabulary and the code door forget it too. Its approval stays in this
+		// browser, pinned to code that is gone.
+		deleteStudioPlugin(p.id).then(() => { reload(); onChanged(); notify(`Removed ${p.title}.`); });
+	}
 	function removeScene(m: StudioScene) {
 		deleteStudioScene(m.id).then(() => { reload(); onChanged(); notify(`Deleted ${m.label}.`); });
 	}
@@ -1132,6 +1152,32 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			);
 			};
 
+	// A zip plugin: manage-only, like a reference file. No select box and no Share, so no gesture here can put its code in a bundle.
+	const renderPlugin = (p: StudioPluginRecord) => {
+		const k = `plugin:${p.id}`;
+		const draws = [...(p.fence ? [`\`\`\`${p.fence}`] : []), ...(p.kinds ?? []).map((kind) => `@${kind.name}{…}`)];
+		const known = studioPlugins().get(p.name);
+		const approved = !!known && isPluginApproved(known);
+		const listed = activeDeckSource !== undefined && deckPluginList(activeDeckSource).includes(p.name);
+		return (
+			<div key={k} data-library-plugin={p.name} className={cn('relative overflow-hidden rounded-xl border bg-card', isFresh(p.addedAt) ? 'border-[var(--accent)]' : 'border-border')}>
+				<div className="grid h-[88px] w-full place-content-center bg-[var(--accent-soft)]"><span className="grid size-11 place-items-center rounded-xl border border-border bg-card text-[var(--accent)]"><Plug className="size-5" /></span></div>
+				<div className="p-2.5">
+					<div className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--text-heading)]"><Plug className="size-3.5 shrink-0 text-[var(--accent)]" /><span className="truncate">{p.title}</span><span className="rounded-full border border-[color-mix(in_srgb,var(--accent)_30%,transparent)] bg-[var(--accent-soft)] px-1.5 py-0.5 font-mono text-[8.5px] uppercase tracking-wide text-[var(--accent)]">Plugin</span></div>
+					<div className="mt-1 flex min-w-0 flex-wrap gap-1">
+						{draws.map((d) => <code key={d} className="rounded bg-muted px-1 py-px font-mono text-[10.5px] text-muted-foreground">{d}</code>)}
+					</div>
+					<div className={cn('mt-1.5 text-[11px] font-semibold', approved ? 'text-[var(--accent)]' : 'text-muted-foreground')}>{approved ? 'Approved in this browser' : 'Not approved'}{listed ? ' · In this deck' : ''}</div>
+					<p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{approved ? (listed ? 'Drawn in this deck.' : <>Add <code className="font-mono text-[10.5px]">{p.name}</code> to a deck's <code className="font-mono text-[10.5px]">plugins:</code> list to use it.</>) : listed ? 'Run its code from the notice above the preview.' : <>List <code className="font-mono text-[10.5px]">{p.name}</code> in a deck's <code className="font-mono text-[10.5px]">plugins:</code>, then approve it from the notice above the preview.</>}</p>
+					<div className="mt-2.5 flex items-center gap-1.5">
+						<span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-muted-foreground">{p.name}</span>
+						<DeleteBtn labelClass={confirmLabel} armed={armed === k} onArm={() => setArmed(k)} onConfirm={() => { setArmed(null); removePlugin(p); }} onCancel={() => setArmed(null)} label={p.title} />
+					</div>
+				</div>
+			</div>
+		);
+	};
+
 	const renderMedia = (a: MediaRecord) => (
 			<MediaCard key={`media:${a.id}`} m={a} fresh={isFresh(a.addedAt)} activeDeckId={activeDeckId} usedIn={mediaUse[a.name] || 0} usedElsewhere={usedElsewhere[a.name] || 0} armed={armed === `media:${a.id}`} confirmLabel={confirmLabel} onArm={() => setArmed(`media:${a.id}`)} onCancel={() => setArmed(null)} onDelete={() => { setArmed(null); removeMedia(a); }} onScope={(s) => moveMedia(a, s)} onOpen={(opener) => { openerRef.current = opener; setDetailId(a.id); }} />
 	);
@@ -1162,6 +1208,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 		...vScenes.map((m) => ({ at: m.addedAt ?? 0, node: renderScene(m) })),
 		...vMedia.map((a) => ({ at: a.addedAt, node: renderMedia(a) })),
 		...vDocs.map((d) => ({ at: d.addedAt, node: renderDoc(d) })),
+		...vPlugins.map((p) => ({ at: p.addedAt ?? 0, node: renderPlugin(p) })),
 	];
 	rows.sort((a, b) => b.at - a.at);
 
@@ -1180,6 +1227,8 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 					<PillTabs
 						className="min-w-0 flex-1"
 						ariaLabel="Library sections"
+						// Five pills no longer fit one row in the docked panel at the roomy size, and the last one wrapped alone.
+						dense={docked}
 						value={sectionOf(filter)}
 						onValueChange={(v) => React.startTransition(() => setFilter(sectionFilter(v as LibrarySection)))}
 						tabs={LIBRARY_SECTIONS}
@@ -1224,7 +1273,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-4 overscroll-contain [touch-action:pan-y] min-w-0">
-					{total === 0 && vShipped.length === 0 && !mediaTab ? (
+					{total === 0 && vShipped.length === 0 && !mediaTab && !pluginTab ? (
 						/* `PanelEmpty`, not a hand-rolled centered block — one zero-state grammar
 						   across every drawer, the same way there is one header. */
 						<div className="grid h-full place-items-center">
@@ -1234,6 +1283,13 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 						</div>
 					) : (
 						<>
+						{pluginTab && vPlugins.length === 0 && (
+							<div className="grid place-items-center py-10">
+								<PanelEmpty icon={<Plug />} title={q ? 'No plugins match' : 'No plugins yet'}>
+									{q ? 'Try a different search.' : <>A plugin is a zip that draws a fence or an <code className="font-mono">@kind{'{…}'}</code> span in a sandbox. <button type="button" className="font-semibold text-[var(--accent)]" onClick={() => importRef.current?.click()}>Import a plugin zip</button>; it stays in this browser until you approve it.</>}
+								</PanelEmpty>
+							</div>
+						)}
 						{mediaTab && vMedia.length === 0 && (
 							<div className="grid place-items-center py-10">
 								<PanelEmpty icon={<FileBox />} title={q ? `No ${mediaWord} match` : `No ${mediaWord} yet`}>
@@ -1303,6 +1359,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 							shownMedia.length - videoCount && `${shownMedia.length - videoCount} image${shownMedia.length - videoCount === 1 ? '' : 's'}`,
 							videoCount && `${videoCount} video${videoCount === 1 ? '' : 's'}`,
 							docs.length && `${docs.length} file${docs.length === 1 ? '' : 's'}`,
+							plugins.length && `${plugins.length} plugin${plugins.length === 1 ? '' : 's'}`,
 						].filter(Boolean).join(' · ') || 'nothing saved yet'}
 					</span>
 					<span className="ml-auto shrink-0 whitespace-nowrap">

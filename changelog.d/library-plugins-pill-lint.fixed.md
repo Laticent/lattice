@@ -1,0 +1,2 @@
+- Importing a plugin clears the editor's `unknown-plugin` warning on a deck that already listed it, and removing a plugin brings it back, without a keystroke. The editor's lint and the Coach read the plugin names through a shared array and re-ran only on an edit, so a phone user who never typed kept a stale warning beside a plugin that Deck settings showed as installed.
+- In the docked Library the five section pills fit one row (the last used to wrap alone).

@@ -82,6 +82,22 @@ const EXTERNAL_FENCE_OF = {};
 /** @type {Record<string, string[]>} plugin name -> the inline kinds it draws (`@kind{…}`, 2026-10-14-plugin-inline-door.md) */
 const EXTERNAL_INLINE_KINDS = {};
 
+// A VERSION of that shared vocabulary, with subscribers. The arrays above are handed out by reference, so a plugin imported
+// later is known to the NEXT lint pass, but nothing re-ran one: a deck that named the plugin before it was installed kept
+// its `unknown-plugin` warning until the next keystroke (a phone user who never typed kept it for good). A surface that lints
+// subscribes (`React.useSyncExternalStore`) and re-lints when the version moves.
+let EXTERNAL_PLUGINS_VERSION = 0;
+let EXTERNAL_PLUGINS_SIGNATURE = '';
+/** @type {Set<() => void>} */
+const EXTERNAL_PLUGINS_LISTENERS = new Set();
+/** The vocabulary's version: it moves only when what a lint could say about plugins changes. */
+export const externalPluginsVersion = () => EXTERNAL_PLUGINS_VERSION;
+/** @param {() => void} listener @returns {() => void} unsubscribe */
+export function subscribeExternalPlugins(listener) {
+	EXTERNAL_PLUGINS_LISTENERS.add(listener);
+	return () => { EXTERNAL_PLUGINS_LISTENERS.delete(listener); };
+}
+
 /** Every zip plugin's inline kinds, for the editor's `@` menu: `{ name, plugin }`, listed or not (lint says which a deck may call). */
 export function externalInlineKinds() {
 	return Object.entries(EXTERNAL_INLINE_KINDS).flatMap(([plugin, kinds]) => kinds.map((name) => ({ name, plugin })));
@@ -105,6 +121,11 @@ export function setExternalPlugins(names, fences = [], kinds = []) {
 		if (owned[i]) EXTERNAL_FENCE_OF[n] = owned[i];
 		if (Array.isArray(drawn[i]) && drawn[i].length) EXTERNAL_INLINE_KINDS[n] = [...drawn[i]];
 	});
+	const signature = JSON.stringify([list, owned, drawn]);
+	if (signature === EXTERNAL_PLUGINS_SIGNATURE) return;
+	EXTERNAL_PLUGINS_SIGNATURE = signature;
+	EXTERNAL_PLUGINS_VERSION++;
+	for (const listener of EXTERNAL_PLUGINS_LISTENERS) listener();
 }
 
 /** @returns {VocabSets} */
