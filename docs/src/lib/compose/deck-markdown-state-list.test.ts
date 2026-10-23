@@ -72,3 +72,22 @@ describe('state-marker lists across the shipped decks', () => {
 		expect(checked).toBeGreaterThan(20); // anti-vacuity: the corpus has marker slides
 	});
 });
+
+// A list item whose text is `[x]: /u` must render its text. Unescaped it is a link reference definition and the item draws empty
+// (followups.d/2875-p5). Rendered through the engine, since the string alone can look right.
+import { createRequire } from 'node:module';
+
+describe('a marker followed by a colon', () => {
+	const require = createRequire(import.meta.url);
+	const render = (md: string): string => {
+		const { createEngine } = require('../../../../lib/engine/index.js');
+		return createEngine().render(md).html;
+	};
+	it('keeps its escape and the item renders its text', () => {
+		const md = '- \\[x\\]: /u\n- \\[x\\] real marker\n';
+		const out = rt(md);
+		expect(out).toContain('\\[x\\]: /u');
+		expect(render(out)).toContain('[x]: /u');
+		expect(rt('- [x] still a marker')).toBe('- [x] still a marker');
+	});
+});

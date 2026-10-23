@@ -495,7 +495,11 @@ const latticeNodes = {
 		const sub = new SubState(state.nodes, state.marks, state.options);
 		sub.renderInline(node);
 		let out = guardParagraphLines(sub.out, parent?.type.name === 'doc' || parent?.type.name === 'slide'); // the top level, in a prose doc or a deck slide
-		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) out = unescapeLeadingMarker(out);
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) {
+			// `[x]: /u` unescaped is a link reference definition, which renders the item empty; it keeps its escape.
+			const bare = unescapeLeadingMarker(out);
+			if (!/^\[[^\]]\]:/.test(bare)) out = bare;
+		}
 		state.text(out, false);
 		state.closeBlock(node);
 	},

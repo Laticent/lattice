@@ -1,0 +1,1 @@
+- Compose: a list item whose text is `[x]: /u` keeps its escaped brackets when you edit it, so it still draws its text instead of an empty item (it read back as a link reference definition).
