@@ -76,12 +76,11 @@
   fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--map-base));
 }
 
-/* Highlight — categorical: each named region rides its --catN slot hue at
- * the same 82% richness the piechart wedges + funnel bands use, so the
- * three categorical charts read as one family. The kernel sets --region-hue
- * to the slot's var reference. */
+/* Categories (a set, not a magnitude): each named region is its category SOLID, the same flat color a pie wedge or
+ * a bar of that category wears (chart-family.styles.css § THE SOLID TIER). The kernel sets --region-hue to the
+ * slot's var reference; the chart finish repaints it through the mark contract. */
 :is(section.map, figure.chart-frame) .map-region--hl {
-  fill: color-mix(in oklab, var(--region-hue) 82%, var(--chart-cat-base));
+  fill: var(--region-hue);
 }
 
 /* ── Legend ───────────────────────────────────────────────────────────────

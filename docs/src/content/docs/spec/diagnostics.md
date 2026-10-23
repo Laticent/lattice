@@ -155,6 +155,7 @@ distinct, stable ID.
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `pop`. |
 | `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
+| `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |

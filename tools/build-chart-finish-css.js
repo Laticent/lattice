@@ -72,7 +72,10 @@ const F = {
   // tools/chart-finish-reach.mjs measures the span against the unfinished paint on every theme.
   // Pigment IS the solids (chart-family.styles.css § THE SOLID TIER): every body, with text on it or not, is the
   // concept's curated solid at full strength, and its text is `--chart-solid-ink` at 7:1.
-  pigment: { body: [100, 100], backdrop: [100, 100], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
+  // A text-free ramp (a map) climbs to the FULL category solid under pigment, like every other pigment mark: the
+  // kernel's --mix spans 24→88, so ×1.136 lands the top value at 100% of the solid and the lowest near 27% over the
+  // land. The earlier [16, 0.54] band topped out at 64%, which read as tone, not pigment.
+  pigment: { body: [100, 100], backdrop: [100, 100], ramp: [0, 1.136], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
