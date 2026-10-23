@@ -156,6 +156,27 @@ It does not reach 90. With LCP fixed the weighted audits read: FCP 3.6 s (score 
 (100), speed index 3.6 s (87). Reaching 90 needs FCP near 1.8 s (the render-blocking `landing.css`, 35 KB, is 304 ms of it)
 and TBT under 200 ms (React's 800 ms of script, the runtime's 278 ms long task, 1.9 s of unattributable work).
 
+## E7. Lighthouse FCP: the module-preload hints
+
+With the loader fixed the remaining Lighthouse weight is FCP (10%), TBT (30%) and LCP (25%). The Studio's HTML carries 98
+`<link rel="modulepreload">` hints (`docs/scripts/inject-modulepreload.mjs`). Variants of the built page, three Lighthouse
+mobile runs each, and the phone-profile first slide (5 loads):
+
+| Variant | Score | FCP (simulated) | LCP | TBT | First slide |
+|---|---|---|---|---|---|
+| as built | 55-66 | 4.0-4.8 s | 4.7-5.5 s | 320-490 ms | 4.10 s |
+| no hints | 69-74 | 2.4-2.6 s | 3.5-4.2 s | 465-580 ms | 4.25 s |
+| hints at `fetchpriority="low"` | 69-73 | 1.3-1.8 s | 3.0-3.6 s | 740-880 ms | 4.18 s |
+| hints moved to the end of the body | 61-71 | 3.1-4.3 s | 3.8-5.0 s | 370-470 ms | 4.15 s |
+| CSS inlined (34 KB, render-blocking in the report) | 57-69 | 3.4-4.5 s | 4.1-5.2 s | 410-500 ms | not run |
+
+The hints compete with the render-blocking stylesheet on Lighthouse's slow link, so FCP moves a lot; and they are worth
+about 0.15 s of real first slide on the phone profile, so removing them trades the target the PR meets (first slide at the
+09-22 baseline) for a score gain that stays far from 90. TBT rises in every faster-FCP variant because Lighthouse counts
+blocking time from FCP onward, so the same script work lands inside a longer window; it is not new work. **Not applied.**
+Reaching 90 needs the work itself to shrink (React's ~800 ms of script, the runtime's 278 ms task, ~1.9 s of unattributed
+time), which is a boot-order redesign, not a hint or a stylesheet.
+
 ## Where confidence stands now
 
 | Item | Before | After | What moved it |
@@ -165,7 +186,7 @@ and TBT under 200 ms (React's 800 ms of script, the runtime's 278 ms long task, 
 | Settle sooner (E3) | low-medium | **dropped** | built and reviewed; the last 125 ms changes nothing visible (identical screenshots at +30 and +380 ms), so it is not worth a runtime-bytes change |
 | Icon chunk (E4) | low | **high** for the Studio, medium overall | interleaved, disjoint IQRs; cost on two routes is known and in budget |
 | Chart-builder split (E5) | medium | medium | not rebuilt |
-| Lighthouse (E6) | low | LCP fixed and applied (score 51-55 to 59-67); 90 still needs FCP and TBT work | cause confirmed, fix measured on the real build |
+| Lighthouse (E6, E7) | low | LCP fixed and applied (score 51-55 to 59-67); FCP levers measured and not taken; 90 needs the script work to shrink | cause confirmed, fix measured on the real build; hint variants trade first slide for FCP |
 
 Everything is still emulated Chromium, WebKit and Firefox on one machine. A real phone is the one thing that would take
 any of these to `very high`.

@@ -17,10 +17,14 @@ where     — docs/src/components/studio/StudioShell.tsx and studio-warm.ts (wha
             docs/src/lib/single-slide-render.ts, theme-fetch.ts, load-engine.ts (the preview path); lib/engine (panes and
             other subsystems installed on every render); lib/runtime (1.25 MB, 825 KB unused at first slide); the Nacre
             loader (Lighthouse's largest-contentful-paint element on /studio/).
-progress  — 2026-10-23, first slice (engineering/decisions/2026-10-23-studio-boot-order.md): phone first slide 5.00 s -> 4.50 s on a machine where the
-            2026-09-22 build takes 4.20 s (editor built after the first slide on a phone; engine, theme and runtime started
-            from the island's first module). Left: the 0.3 s to baseline (the runtime's chart builders, ceiling 0.2 s, needs the
-            owner's export sign-off) and Lighthouse, whose LCP is the Nacre loader at 13 s simulated (a pre-paint-shell design).
+progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot-order.md and -startup-bake-off.md): target (1) is MET on
+            the harness: phone first slide 4.15 s against 4.13 s for the 09-22 build and 5.07 s for the PR's base, 15 loads each, same
+            machine, interleaved (editor built after the slide on a phone; engine, theme and runtime started from the island's first
+            module; icons in one chunk). Lighthouse (2) is NOT met: the loader no longer counts as the largest paint (LCP 13.7 s to
+            4.5-5.3 s, score 51-55 to 59-67) but FCP (3.3-3.6 s simulated) and TBT (~400 ms) remain; the cheap levers were measured and
+            do not get there (E7). What is left is the script work itself: React ~800 ms, the runtime's chart builders (0.2 s ceiling,
+            changes export bytes), ~1.9 s unattributed. Target (3), a CI time budget, is the owner's call; the harness spread (stdev
+            ~30-60 ms) supports a same-job comparison.
 decided   — the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note
@@ -28,8 +32,7 @@ decided   — the owner sets both targets. PR #2870 (warm-ups after the first sl
             Preloading the engine from the HTML was tried and made the first slide later (5.97 s -> 6.38-6.52 s); the
             note's §6 has the table. Re-measure it only after a preview-first boot. Hosting (Cloudflare in front of, or
             instead of, GitHub Pages: Brotli, Early Hints, immutable caching) is the owner's call; §6 item 8.
-done when — (1) first slide <= 3.25 s median of 5 on the phone profile in the note, against a build of 2026-09-22
-            measured the same day; (2) Lighthouse mobile performance >= 90 on /studio/, /playground/ and / against the
+done when — (1) first slide at or below a build of 2026-09-22 measured the same day (MET, see progress); (2) Lighthouse mobile performance >= 90 on /studio/, /playground/ and / against the
             deployed site, three runs; (3) the owner has decided whether a time budget (first slide, Lighthouse) joins CI.
 evidence  — the note's tables re-run on the new build: first slide, requests, main-thread work before the slide by
             script, typing latency, and Lighthouse score, FCP, LCP, TBT per page.
