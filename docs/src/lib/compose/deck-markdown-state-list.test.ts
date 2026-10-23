@@ -1,7 +1,7 @@
 // @vitest-environment node
 // A checklist item (`- [x] done`) round-trips byte for byte, and its slide is no longer locked.
 import { describe, expect, it } from 'vitest';
-import { roundTripSlideProse } from './deck-markdown';
+import { latticeMarkdownParser, roundTripSlideProse } from './deck-markdown';
 import { hasLossyConstruct } from './deck-source';
 
 const rt = (md: string) => roundTripSlideProse(md).trimEnd();
@@ -103,5 +103,27 @@ describe('an escaped marker followed by a link destination', () => {
 	it('a table cell stays literal text', () => {
 		same('| h |\n|---|\n| \\[x\\](/u) |\n');
 		same('| h |\n|---|\n| \\[!\\][ref] |\n');
+	});
+});
+
+describe('an escaped marker is literal text, and Compose knows it', () => {
+	const flags = (md: string) => {
+		const out: boolean[] = [];
+		latticeMarkdownParser.parse(md).descendants((n) => {
+			if (n.type.name === 'paragraph') out.push(!!n.attrs.literalMarker);
+		});
+		return out;
+	};
+	it('flags the escaped one and not the real one', () => {
+		expect(flags('- \\[x\\] literal\n- [x] real\n- plain\n')).toEqual([true, false, false]);
+	});
+	it('an escaped marker keeps its escape on write, a real one keeps its marker', () => {
+		expect(rt('- \\[x\\] literal\n- [x] real\n')).toBe('- \\[x\\] literal\n- [x] real');
+	});
+	it('the flag survives a paste through the DOM schema', () => {
+		const p = latticeMarkdownParser.parse('- \\[x\\] literal\n');
+		const spec = p.type.schema.nodes.paragraph.spec;
+		const dom = spec.toDOM?.(p.firstChild!.firstChild!.firstChild!) as unknown as [string, Record<string, string>, number];
+		expect(dom[1]).toEqual({ 'data-literal-marker': '' });
 	});
 });

@@ -65,3 +65,29 @@ test('@crosswidth @gecko @webkit-tablet Shift+Enter writes one new line, and Ent
 	await page.keyboard.type('Next paragraph');
 	await expect.poll(() => stored(page)).toContain('Line four\n\nNext paragraph');
 });
+
+const MARKER_DECK = ['---', 'marp: true', 'theme: indaco', '---', '', '## Markers', '', '- \\[x\\]: /u', '- \\[x\\] escaped, so literal', '- [x] real marker', ''].join('\n');
+
+test('@crosswidth @gecko @webkit-tablet an escaped marker draws no chip and keeps its escape; a real one keeps both', async ({ page }) => {
+	await gotoStudio(page);
+	const sourceTab = page.getByRole('button', { name: 'Markdown source', exact: true }).first();
+	if (await sourceTab.isVisible().catch(() => false)) await sourceTab.click();
+	await setEditorContent(page, MARKER_DECK);
+	await page.getByRole('button', { name: COMPOSE, exact: true }).first().click();
+	await page.locator('.cs-host .ProseMirror').waitFor();
+	// Only the real marker is a chip.
+	await expect(page.locator('.cs-host [data-listmark]')).toHaveCount(1);
+	// An edit to the literal items writes their escapes back as they were.
+	const item = page.locator('.cs-host li', { hasText: 'escaped, so literal' });
+	await item.click();
+	await item.evaluate((li) => {
+		const node = [...li.querySelectorAll('*')].flatMap((e) => [...e.childNodes]).filter((n) => n.nodeType === Node.TEXT_NODE).pop();
+		if (!node) throw new Error('no text');
+		document.getSelection()?.setBaseAndExtent(node, node.textContent?.length ?? 0, node, node.textContent?.length ?? 0);
+	});
+	await page.keyboard.type('!');
+	await expect.poll(() => stored(page)).toContain('- \\[x\\] escaped, so literal!');
+	const source = await stored(page);
+	expect(source).toContain('- \\[x\\]: /u');
+	expect(source).toContain('- [x] real marker');
+});
