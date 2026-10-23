@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const { followupProblems, listFollowups, EVIDENCE_CAP } = require(path.join(__dirname, '..', '..', '..', 'tools', 'followups.js'));
 
@@ -140,10 +141,46 @@ test('an evidence folder holds text only, no links, and stays under the cap', ()
   const problems = followupProblems(dir).join('\n');
   assert.match(problems, /shot\.png: binary/);
   assert.match(problems, /link: a symbolic link/);
-  assert.match(problems, /over the 512 KB cap/);
+  assert.match(problems, /over the 524288-byte \(512 KB\) cap/);
 });
 
 test('an evidence folder is named like its item', () => {
   const dir = tree({ 'Probe Kit/README.md': EVIDENCE_README });
   assert.match(followupProblems(dir).join('\n'), /named like its item/);
+});
+
+test('the cap counts every file in every subfolder, and a folder exactly at it passes', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  const rest = EVIDENCE_CAP - Buffer.byteLength(EVIDENCE_README);
+  fs.mkdirSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'deep'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'a.txt'), 'a'.repeat(rest - 10));
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'deep', 'b.txt'), 'b'.repeat(10));
+  assert.deepEqual(followupProblems(dir), []);
+  fs.appendFileSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'deep', 'b.txt'), 'b');
+  assert.match(followupProblems(dir).join('\n'), /524289 bytes, over the/);
+});
+
+test('what git ignores is not evidence: a stray .DS_Store neither fails a folder nor keeps one alive', () => {
+  // CI checks out only what git tracks, so the gate reads the folder the same way.
+  const repo = tree({ '.gitignore': '.DS_Store\n', 'followups.d/42-p1-fix-the-thing.md': GOOD, 'followups.d/42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  assert.equal(spawnSync('git', ['init', '-q', repo]).status, 0);
+  const dir = path.join(repo, 'followups.d');
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', '.DS_Store'), Buffer.from([0, 1, 2]));
+  fs.mkdirSync(path.join(dir, '7-p1-closed-item'));
+  fs.writeFileSync(path.join(dir, '7-p1-closed-item', '.DS_Store'), Buffer.from([0, 1, 2]));
+  assert.deepEqual(followupProblems(dir), []);
+});
+
+test('only regular files count: a named pipe is refused rather than read, and a README must be a file', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md/x.txt': 'x' });
+  const fifo = path.join(dir, '42-p1-fix-the-thing', 'pipe');
+  if (spawnSync('mkfifo', [fifo]).status === 0) assert.match(followupProblems(dir).join('\n'), /pipe: not a regular file/);
+  assert.match(followupProblems(dir).join('\n'), /needs a README\.md/);
+});
+
+test('a symbolic link at the top of followups.d is refused, and is not listed as evidence', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, 'elsewhere/README.md': EVIDENCE_README });
+  fs.symlinkSync(path.join(dir, 'elsewhere'), path.join(dir, '42-p1-fix-the-thing'));
+  assert.match(followupProblems(dir).join('\n'), /42-p1-fix-the-thing: a symbolic link/);
+  assert.equal(listFollowups(dir).find((i) => i.file === '42-p1-fix-the-thing.md').evidence, false);
 });

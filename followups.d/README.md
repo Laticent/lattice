@@ -152,7 +152,9 @@ re-run.
   breaks.
 
 `checkFollowups` (via `build:check`) enforces the name, the item, the README, text only, no
-links and the cap. The rest is discipline.
+links and the cap. It reads a folder as git does: a file `.gitignore` excludes (a `.DS_Store`) is
+not evidence, so it neither fails a folder nor keeps an orphaned one alive. The rest is
+discipline.
 
 ## What the gate cannot do
 

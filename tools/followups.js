@@ -20,6 +20,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIR = path.join(ROOT, 'followups.d');
@@ -86,7 +87,8 @@ function listFollowups(dir = DIR) {
     .map((file) => {
       const p = parse(fs.readFileSync(path.join(dir, file), 'utf8')) || { meta: {} };
       const { origin, priority, area, severity, swimlane } = p.meta;
-      const evidence = fs.existsSync(path.join(dir, file.replace(/\.md$/, ''), 'README.md'));
+      const readme = path.join(dir, file.replace(/\.md$/, ''), 'README.md');
+      const evidence = fs.existsSync(readme) && fs.lstatSync(readme).isFile() && !fs.lstatSync(path.dirname(readme)).isSymbolicLink();
       return { file, origin, priority, area, severity, swimlane, title: p.title, backfill: p.meta.backfill === 'true', evidence };
     });
 }
@@ -99,7 +101,9 @@ function followupProblems(dir = DIR, root = ROOT) {
   for (const file of fs.readdirSync(dir)) {
     if (file === 'README.md') continue;
     const where = `followups.d/${file}`;
-    if (fs.lstatSync(path.join(dir, file)).isDirectory()) {
+    const st = fs.lstatSync(path.join(dir, file));
+    if (st.isSymbolicLink()) { problems.push(`${where}: a symbolic link; an item and its evidence are files and folders.`); continue; }
+    if (st.isDirectory()) {
       problems.push(...evidenceProblems(dir, file));
       continue;
     }
@@ -125,36 +129,57 @@ function followupProblems(dir = DIR, root = ROOT) {
 }
 
 /**
+ * The files under `rel` that git would see, as paths relative to `base`: what `git check-ignore`
+ * reports is left out, so a `.DS_Store` or a local `node_modules/` the clean checkout never holds
+ * does not fail the gate here and pass it in CI. Outside a repository nothing is ignored.
+ */
+function visibleEntries(base, rel) {
+  const entries = fs.readdirSync(path.join(base, rel)).map((e) => path.join(rel, e));
+  if (!entries.length) return entries;
+  const r = spawnSync('git', ['-C', base, 'check-ignore', '--stdin', '-z'], { input: entries.join('\0'), encoding: 'utf8' });
+  // Exit 0: some are ignored; 1: none are; anything else (not a repository): treat none as ignored.
+  const ignored = r.status === 0 ? new Set(r.stdout.split('\0').filter(Boolean)) : new Set();
+  return entries.filter((e) => !ignored.has(e));
+}
+
+/**
  * The defects of one evidence folder: its name, its item, its README, and what it holds. A file
  * is text when its first 8 KB hold no NUL byte, which is how git itself tells binary from text.
+ * Only what git would see counts (`visibleEntries`): a folder holding nothing else is no folder.
  */
 function evidenceProblems(dir, name) {
   const where = `followups.d/${name}/`;
-  if (!EVIDENCE_NAME.test(name)) return [`${where}: an evidence folder is named like its item without \`.md\` (<origin-pr>-p<n>-<slug>/).`];
+  const base = path.join(dir, name);
+  const files = [];
   const problems = [];
-  if (!fs.existsSync(path.join(dir, `${name}.md`))) {
-    problems.push(`${where}: its item followups.d/${name}.md is gone. An evidence folder lives exactly as long as its item: delete it in the PR that deletes the item.`);
-  }
-  if (!fs.existsSync(path.join(dir, name, 'README.md'))) {
-    problems.push(`${where}: needs a README.md saying what the folder holds, the commit it ran against, and how to run it.`);
-  }
-  let bytes = 0;
   const walk = (rel) => {
-    for (const entry of fs.readdirSync(path.join(dir, name, rel))) {
-      const r = path.join(rel, entry);
-      const abs = path.join(dir, name, r);
-      const st = fs.lstatSync(abs);
+    for (const r of visibleEntries(base, rel)) {
+      const st = fs.lstatSync(path.join(base, r));
       if (st.isSymbolicLink()) problems.push(`${where}${r}: a symbolic link; evidence is a copy, not a pointer.`);
       else if (st.isDirectory()) walk(r);
-      else {
-        bytes += st.size;
-        const head = fs.readFileSync(abs).subarray(0, 8192);
-        if (head.includes(0)) problems.push(`${where}${r}: binary. Evidence folders hold text only (scripts, fixtures, data, notes).`);
-      }
+      else if (st.isFile()) files.push([r, st.size]);
+      else problems.push(`${where}${r}: not a regular file; evidence is text files and folders.`);
     }
   };
   walk('');
-  if (bytes > EVIDENCE_CAP) problems.push(`${where}: ${(bytes / 1024).toFixed(0)} KB, over the ${EVIDENCE_CAP / 1024} KB cap. Keep the kit that reproduces the finding, not the corpus it ran on.`);
+  if (!files.length && !problems.length) return [];
+  if (!EVIDENCE_NAME.test(name)) return [`${where}: an evidence folder is named like its item without \`.md\` (<origin-pr>-p<n>-<slug>/).`];
+  if (!fs.existsSync(path.join(dir, `${name}.md`))) {
+    problems.unshift(`${where}: its item followups.d/${name}.md is gone. An evidence folder lives exactly as long as its item: delete it in the PR that deletes the item.`);
+  }
+  if (!files.some(([r]) => r === 'README.md')) {
+    problems.push(`${where}: needs a README.md saying what the folder holds, the commit it ran against, and how to run it.`);
+  }
+  let bytes = 0;
+  for (const [r, size] of files) {
+    bytes += size;
+    const fd = fs.openSync(path.join(base, r), 'r');
+    const head = Buffer.alloc(Math.min(size, 8192));
+    fs.readSync(fd, head, 0, head.length, 0);
+    fs.closeSync(fd);
+    if (head.includes(0)) problems.push(`${where}${r}: binary. Evidence folders hold text only (scripts, fixtures, data, notes).`);
+  }
+  if (bytes > EVIDENCE_CAP) problems.push(`${where}: ${bytes} bytes, over the ${EVIDENCE_CAP}-byte (${EVIDENCE_CAP / 1024} KB) cap. Keep the kit that reproduces the finding, not the corpus it ran on.`);
   return problems;
 }
 
