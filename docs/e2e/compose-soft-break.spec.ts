@@ -19,19 +19,27 @@ async function openDeck(page: import('@playwright/test').Page): Promise<void> {
 	await page.locator('.cs-host .ProseMirror').waitFor();
 }
 
-test('@crosswidth editing a paragraph keeps its line breaks, and deleting a line does not split it', async ({ page }) => {
+test('@crosswidth @gecko @webkit-tablet editing a paragraph keeps its line breaks, and deleting a line does not split it', async ({ page }) => {
 	await openDeck(page);
 	await expect(page.locator('.cs-host .cs-slide-locked, .cs-host [data-locked="true"]')).toHaveCount(0);
-	await page.locator('.cs-host p', { hasText: 'Line one' }).click();
-	await page.keyboard.press('Control+Home'); // the heading
-	await page.keyboard.press('ArrowDown'); // the paragraph's first line
-	await page.keyboard.press('End');
+	const para = page.locator('.cs-host p', { hasText: 'Line one' });
+	await para.click();
+	// Place the caret through the DOM selection, which ProseMirror reads: Home/End and Control+Home move differently in
+	// WebKit, and the test is about the source, not about a browser's caret keys.
+	const select = (text: string, whole: boolean) =>
+		para.evaluate(
+			(p, [text, whole]) => {
+				const node = [...p.childNodes].find((n) => n.nodeType === Node.TEXT_NODE && n.textContent === text);
+				if (!node) throw new Error(`no text node ${text}`);
+				document.getSelection()?.setBaseAndExtent(node, whole ? 0 : text.length, node, text.length);
+			},
+			[text, whole] as const,
+		);
+	await select('Line one', false);
 	await page.keyboard.type('!');
 	await expect.poll(() => stored(page)).toContain('Line one!\nLine two\nLine three');
 	// Delete the middle line's text: two breaks sit side by side, and the paragraph must stay one block.
-	await page.keyboard.press('ArrowDown');
-	await page.keyboard.press('Home');
-	await page.keyboard.press('Shift+End');
+	await select('Line two', true);
 	await page.keyboard.press('Delete');
 	await expect.poll(() => stored(page)).not.toContain('Line two');
 	const source = await stored(page);
