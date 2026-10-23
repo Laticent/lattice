@@ -2,6 +2,7 @@
 // A bare newline inside a paragraph is a line break on the slide (the engine runs markdown-it with `breaks: true`),
 // so editing the paragraph must keep it a line break (followups.d/2846-p6).
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { describe, expect, it } from 'vitest';
@@ -72,6 +73,33 @@ describe('soft breaks never change structure', () => {
 			const doc = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, kids)]);
 			const md = latticeMarkdownSerializer.serialize(doc).trimEnd();
 			expect(blocks(md), JSON.stringify(md)).toBe(1);
+		}
+	});
+});
+
+// The engine is the reader that matters. An escaped `=` or `<` reaches its HTML as `<span data-esc>` (the flowchart reads that as
+// text, not an arrow), so the bytes the author escaped must come back escaped, and the slide must render the same.
+const engine = createRequire(import.meta.url)('../../../../lib/engine/index.js');
+const rendered = (md: string): string => {
+	const html: string = engine.render(`---\ntheme: indaco\n---\n\n${md}\n`, 'indaco').html;
+	return (html.match(/<div class="cell-stage">([\s\S]*?)<\/div>/)?.[1] ?? html).replace(/\s+/g, ' ').trim();
+};
+
+describe('the engine draws the edited paragraph as it drew the original', () => {
+	const cases = ['a\n\\- b', 'a\n\\+ b', 'a\n\\# b', 'a\n\\> b', 'a\n\\---', 'a\n\\===', 'a\n\\= b', 'a\n1\\. b', 'a\n1\\) b', 'a\n\\<div>x', 'a\n\\| b |', '- a\n  \\- b', '> a\n> \\- b', 'line one\nline two', '**bold**\n*it*', 'x\n3 = 3'];
+	for (const md of cases) {
+		it(JSON.stringify(md), () => {
+			expect(rt(md)).toBe(md); // the author's escape comes back byte for byte
+			expect(rendered(rt(md))).toBe(rendered(md));
+		});
+	}
+	it('a line a writer built (no escape in the source) still renders as one paragraph', () => {
+		const sch = latticeMarkdownParser.parse('x').type.schema;
+		for (const line of ['=== b', '<b>x</b>', '| x | y |', '2) two', '- b', '# b', '> b']) {
+			const doc = sch.nodes.doc.create(null, [sch.nodes.paragraph.create(null, [sch.text('a'), sch.nodes.hard_break.create({ soft: true }), sch.text(line)])]);
+			const md = latticeMarkdownSerializer.serialize(doc).trimEnd();
+			expect(rendered(md), md).toMatch(/^<p>a<br \/> [\s\S]*<\/p>$/);
+			expect(latticeMarkdownParser.parse(md).eq(doc), md).toBe(true);
 		}
 	});
 });

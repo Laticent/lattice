@@ -343,8 +343,10 @@ function softBreakIsSafe(parent: PMNode, index: number): boolean {
 const UNESCAPED_LINE_START = /^(\s*)(=|<|\||\d+\))/;
 
 /** After a break, the next text starts a line. The upstream escaper only treats a block's first text as a line start, so mark this
- *  one (it then escapes `-`, `+`, `>`, `#`, `1.`) and write the four starts it does not escape as an entity, which reads back as the
- *  same character. Without this, `a` + break + `- b` wrote a list. */
+ *  one (it then escapes `-`, `+`, `>`, `#`, `1.`) and backslash-escape the four starts it does not: `\=`, `\<`, `\|`, `1\)`. A
+ *  backslash and not an entity, because the engine keeps an escaped `=` or `<` visible to the flowchart reader as `<span data-esc>`
+ *  (plugins.js `escapeMarks`), and an entity would turn the author's literal back into an arrow. Without this, `a` + break + `- b`
+ *  wrote a list. */
 function startLine(state: SerializerState, next: PMNode | null | undefined): void {
 	if (!next?.isText) return;
 	// biome-ignore lint/suspicious/noExplicitAny: `atBlockStart` and `text` are serializer internals.
@@ -354,10 +356,16 @@ function startLine(state: SerializerState, next: PMNode | null | undefined): voi
 		// A mark's opener is written with escaping off; wait for the text itself.
 		if (escaped === false) return text(t, escaped);
 		st.text = text;
-		// The serializer clears `atBlockStart` after rendering the break itself, so set it here, as the text is written.
-		st.atBlockStart = true;
-		// The one character that makes the line a block: `=`, `<`, `|`, or the `)` of `1)`.
-		text(t.replace(UNESCAPED_LINE_START, (_m, ws: string, tok: string) => (tok.endsWith(')') ? `${ws}${tok.slice(0, -1)}&#41;` : `${ws}&#${tok.charCodeAt(0)};`)), escaped);
+		const m = UNESCAPED_LINE_START.exec(t);
+		if (!m) {
+			// The serializer clears `atBlockStart` after rendering the break itself, so set it here, as the text is written.
+			st.atBlockStart = true;
+			return text(t, escaped);
+		}
+		// The token goes out escaped by hand, unescaped by the upstream escaper (which would double the backslash); the rest is mid-line.
+		const [, ws, tok] = m;
+		text(`${ws}${tok.slice(0, -1)}\\${tok.slice(-1)}`, false);
+		return text(t.slice(m[0].length), escaped);
 	};
 }
 
