@@ -128,6 +128,10 @@ const LOSSY_CONSTRUCTS: RegExp[] = [
 	/\[\^[^\]]+\]/, // footnote reference / definition
 	// An HTML block of types 3-5 (`<?php`, `<!DOCTYPE`, `<![CDATA[`): the engine draws raw HTML, Compose would show text.
 	/^\s*<(?:\?|!\[CDATA\[|![A-Za-z])/m,
+	// An indented comment: one inside a list item. Only a comment at the top level or in a quote is modeled (comment-block.ts bails
+	// on an indented block); this one parses as paragraph text, the engine hides it, and writing it back either shows it on the
+	// slide or hides text an author typed.
+	/^[ \t]+<!--/m,
 	// An ESCAPED dollar (`\$5`): the serializer writes it back bare, and next to math one bare `$` changes what the engine draws.
 	/\\\$/,
 ];

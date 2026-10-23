@@ -189,6 +189,60 @@ describe('what the third checker found: the guard reads the line as written', ()
 	});
 });
 
+describe('what the fourth checker found', () => {
+	const sch = latticeMarkdownParser.parse('x').type.schema;
+	const t = (x: string) => sch.text(x);
+	const soft = () => sch.nodes.hard_break.create({ soft: true });
+	const hard = () => sch.nodes.hard_break.create();
+	const para = (kids: import('prosemirror-model').Node[]) => sch.nodes.paragraph.create(null, kids);
+	const write = (...blocks: import('prosemirror-model').Node[]) => latticeMarkdownSerializer.serialize(sch.nodes.doc.create(null, blocks)).trimEnd();
+	const brCount = (md: string) => (rendered(md).match(/<br/g) ?? []).length;
+
+	it('a comment under a list item locks the slide; a top-level or quoted one (both modeled) does not', () => {
+		expect(hasLossyConstruct('- Revenue up\n  <!-- say: 12% -->\n- Costs')).toBe(true);
+		expect(hasLossyConstruct('1. step\n   <!-- speaker note -->')).toBe(true);
+		expect(hasLossyConstruct('> a\n> <!-- x -->')).toBe(false);
+		// The comment atom writes itself as a block of its own: the same bytes as main, and the same quote.
+		expect(rt('> a\n> <!-- x -->\n> b')).toBe('> a\n>\n> <!-- x -->\n>\n> b');
+		expect(hasLossyConstruct('## H\n\n<!-- say: hi -->\n\nbody')).toBe(false);
+	});
+	it('a tab-led line inside a list item or a quote stays in the paragraph', () => {
+		const p = () => para([t('Revenue up'), soft(), t('\t- margins flat')]);
+		const inList = write(sch.nodes.bullet_list.create(null, [sch.nodes.list_item.create(null, [p()])]));
+		expect(rendered(inList), inList).not.toMatch(/<ul>[\s\S]*<ul>/);
+		expect(brCount(inList), inList).toBe(1);
+		for (const line of ['\t# margins flat', ' \t> q']) {
+			const inQuote = write(sch.nodes.blockquote.create(null, [para([t('Revenue up'), soft(), t(line)])]));
+			// A slide that is only a quote takes the quote layout, outside the `cell-stage` slice `rendered` reads; read the whole page.
+			const html: string = engine.render(`---\ntheme: indaco\n---\n\n${inQuote}\n`, 'indaco').html;
+			expect(html, inQuote).not.toMatch(/<h1/);
+			expect((html.match(/<blockquote/g) ?? []).length, inQuote).toBe(1);
+			expect((html.match(/<br/g) ?? []).length, inQuote).toBe(1);
+		}
+	});
+	it('a first line that would open a list is escaped, and no later break is lost', () => {
+		const md = write(para([t('1) a'), hard(), t('x'), hard(), t('#y')]));
+		expect(types(md), md).toEqual(['paragraph']);
+		expect(brCount(md), md).toBe(2);
+		expect(types(rt('1\\) b'))).toEqual(['paragraph']); // was a list on main
+	});
+	it('a first line of only whitespace keeps the break after it', () => {
+		expect(brCount(write(para([t(' '), soft(), t('margins flat')])))).toBe(1);
+	});
+	it('an empty paragraph writes what it wrote on main', () => {
+		expect(write(para([t('a')]), para([]), para([t('b')]))).toBe('a\n\nb');
+		expect(write(sch.nodes.blockquote.create(null, [para([t('a')]), para([]), para([t('b')])]))).toBe('> a\n>\n> b');
+	});
+	it('a long paragraph serializes in linear time', () => {
+		const kids: import('prosemirror-model').Node[] = [t('start')];
+		for (let i = 0; i < 2000; i++) kids.push(soft(), t(i % 2 ? `- item ${i}` : `line ${i}`));
+		const t0 = performance.now();
+		const md = write(para(kids));
+		expect(performance.now() - t0).toBeLessThan(400); // the whole-paragraph probe took ~800 ms here
+		expect(types(md)).toEqual(['paragraph']);
+	});
+});
+
 describe('soft breaks across the shipped decks', () => {
 	const ROOT = path.resolve(__dirname, '../../../..');
 	function mdIn(dir: string, out: string[] = []): string[] {

@@ -334,7 +334,11 @@ function interruptsParagraph(node: PMNode): boolean {
 /** Whether the soft break at `index` can write as a bare newline: not when it opens or ends the paragraph, nor after another
  *  break (a second bare newline is a blank line). The caller falls back to the backslash form, which draws the same `<br>`. */
 function softBreakIsSafe(parent: PMNode, index: number): boolean {
-	if (index === 0 || parent.child(index - 1).type.name === 'hard_break') return false;
+	if (parent.maybeChild(index - 1)?.type.name === 'hard_break') return false;
+	// A first line of only whitespace is a blank line to the parser, and the break after it would vanish.
+	let content = false;
+	for (let j = 0; j < index && !content; j++) content = !parent.child(j).isText || /\S/.test(parent.child(j).text ?? '');
+	if (!content) return false;
 	const next = parent.maybeChild(index + 1);
 	return !!next && next.type.name !== 'hard_break';
 }
@@ -342,9 +346,9 @@ function softBreakIsSafe(parent: PMNode, index: number): boolean {
 // The engine's block grammar, for the one question the guard below asks: is this still one paragraph? The commonmark preset with
 // raw HTML, tables and strikethrough, as lib/engine/index.js builds it. No engine plugin's block rule can interrupt a paragraph.
 let paragraphProbe: MarkdownIt | null = null;
-function isOneParagraph(md: string): boolean {
+function isOneParagraph(md: string, probe?: MarkdownIt): boolean {
 	paragraphProbe ??= new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
-	const top = paragraphProbe.parse(md, {}).filter((t) => t.level === 0).map((t) => t.type);
+	const top = (probe ?? paragraphProbe).parse(md, {}).filter((t) => t.level === 0).map((t) => t.type);
 	return top.length === 2 && top[0] === 'paragraph_open'; // the `inline` token sits one level down
 }
 
@@ -354,38 +358,57 @@ function escapeLineStart(line: string): string | null {
 	return m ? `${m[1]}${m[2] ?? ''}\\${line.slice(m[0].length - 1)}` : null;
 }
 
-/** A line that could open a block once it follows a break; any other line is left alone without parsing. */
-const MAY_OPEN_BLOCK = /^[ \t]*(?:[!-/:-@[-`{-~]|\d|$)/;
+/** A line that could open a block; any other line is left alone without parsing. */
+const MAY_OPEN_BLOCK = /^(?:[!-/:-@[-`{-~]|\d)/;
+
+/** A line's leading whitespace is never drawn (markdown-it strips it), but it moves where a tab stops inside a list or a quote, and
+ *  four columns of it make an indented code block. A line with content loses it; a blank line keeps it. */
+const unindent = (line: string): string => (/\S/.test(line) ? line.replace(/^[ \t]+/, '') : line);
 
 /**
- * A paragraph's inline Markdown, with every line after a break checked against the engine's own block grammar. The text after a
- * break starts a line, but the upstream escaper only treats a block's first text as a line start, and marks, expelled whitespace
- * and node boundaries all sit between a node and the line it lands on. So the guard reads the line as written: a line that would
- * end the paragraph (`- b`, ` ---`, `01) b`, `<div>`, a table delimiter row) gets one backslash before its first marker; an
+ * A paragraph's inline Markdown, with every line checked against the engine's own block grammar. The text after a break starts a
+ * line, but the upstream escaper only treats a block's first text as a line start, and marks, expelled whitespace and node
+ * boundaries all sit between a node and the line it lands on. So the guard reads each line as written, unindented: a line that
+ * would end the paragraph (`- b`, `---`, `01) b`, `<div>`, a table delimiter row) gets one backslash before its first marker; an
  * interior blank line, which no escape can save, becomes a backslash break, which draws the same `<br>`; and a line still not
- * saved is joined to the one above with a space, which is how Compose wrote every soft break before (followups.d/2846-p6).
+ * saved is joined to the one above with a space, which is how Compose wrote every soft break before (followups.d/2846-p6). The
+ * first line gets the same check (`1) a` alone is a list); if it cannot be saved, the paragraph is written as before.
  * A line that does not open a block, such as `<b>x</b>` or `**<div>x**`, is never touched.
+ * Each probe parses at most three lines: whether a line interrupts depends only on the line above it.
  */
 function guardParagraphLines(out: string): string {
 	const lines = out.split('\n');
-	if (lines.length < 2) return out;
-	const kept = [lines[0]];
+	// The first line is asked of Compose's own tokenizer: what matters there is that the paragraph reads back as a paragraph.
+	// (With raw HTML off, Compose keeps `<!-- c --> tail` as text, where the engine has always drawn it as HTML; escaping it would
+	// change a slide nobody edited.)
+	let first = unindent(lines[0]);
+	if (MAY_OPEN_BLOCK.test(first) && !isOneParagraph(first, tableTokenizer)) {
+		const escaped = escapeLineStart(first);
+		if (escaped === null || !isOneParagraph(escaped, tableTokenizer)) return out;
+		first = escaped;
+	}
+	const kept = [first];
+	// The line above, as the parser will meet it: the first line opens the paragraph; any later one continues it.
+	const above = () => (kept.length === 1 ? kept[0] : `x\n${kept[kept.length - 1]}`);
 	for (let i = 1; i < lines.length; i++) {
-		let line = lines[i];
-		if (i < lines.length - 1 && /^[ \t]*$/.test(line)) line = '\\';
-		if (!MAY_OPEN_BLOCK.test(line) || isOneParagraph([...kept, line].join('\n'))) {
+		if (!/\S/.test(lines[i])) {
+			kept.push(i < lines.length - 1 ? '\\' : lines[i]);
+			continue;
+		}
+		const line = unindent(lines[i]);
+		if (!MAY_OPEN_BLOCK.test(line) || isOneParagraph(`${above()}\n${line}`)) {
 			kept.push(line);
 			continue;
 		}
 		const escaped = escapeLineStart(line);
-		if (escaped !== null && isOneParagraph([...kept, escaped].join('\n'))) {
+		if (escaped !== null && isOneParagraph(`${above()}\n${escaped}`)) {
 			kept.push(escaped);
 			continue;
 		}
 		// An odd run of trailing backslashes is a hard break; joined, it would print a backslash.
 		const last = kept[kept.length - 1];
 		const trail = /\\+$/.exec(last)?.[0].length ?? 0;
-		kept[kept.length - 1] = `${trail % 2 ? last.slice(0, -1) : last} ${line.trimStart()}`;
+		kept[kept.length - 1] = `${trail % 2 ? last.slice(0, -1) : last} ${line}`;
 	}
 	return kept.join('\n');
 }
@@ -413,11 +436,16 @@ const latticeNodes = {
 	// Every paragraph's lines after a break go through `guardParagraphLines`. A list item's first paragraph also gets the table
 	// cell's treatment (serializeCell): a leading LFM state marker keeps its brackets, so `- [x] done` writes back as it was read
 	// and not as `- \\[x\\] done`. Otherwise the inline Markdown is the upstream serializer's, byte for byte.
-	paragraph(state: SerializerState, node: PMNode, parent: PMNode) {
+	paragraph(state: SerializerState, node: PMNode, parent: PMNode, index: number) {
+		// An empty paragraph writes nothing of its own, as upstream does; `state.text('')` would still write a line.
+		if (node.childCount === 0) {
+			state.closeBlock(node);
+			return;
+		}
 		const sub = new SubState(state.nodes, state.marks, state.options);
 		sub.renderInline(node);
 		let out = guardParagraphLines(sub.out);
-		if (parent?.type.name === 'list_item' && parent.firstChild === node && node.firstChild?.isText) out = unescapeLeadingMarker(out);
+		if (parent?.type.name === 'list_item' && index === 0 && node.firstChild?.isText) out = unescapeLeadingMarker(out);
 		state.text(out, false);
 		state.closeBlock(node);
 	},

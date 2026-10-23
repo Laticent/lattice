@@ -1,1 +1,2 @@
 - Compose keeps a line break inside a paragraph. Editing a paragraph used to join `line one` and `line two` into one line, though the slide draws each newline as a break; the newline now writes back as written.
+- A Compose slide with a comment indented under a list item (`- a` then `  <!-- note -->`) now opens read-only. Compose read the comment as text, so an edit anywhere on the slide could put it on the slide.
