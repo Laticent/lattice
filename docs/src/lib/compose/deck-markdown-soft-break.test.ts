@@ -200,13 +200,13 @@ describe('what the fourth checker found', () => {
 	const write = (...blocks: import('prosemirror-model').Node[]) => latticeMarkdownSerializer.serialize(sch.nodes.doc.create(null, blocks)).trimEnd();
 	const brCount = (md: string) => (rendered(md).match(/<br/g) ?? []).length;
 
-	it('a comment under a list item locks the slide; a top-level or quoted one (both modeled) does not', () => {
-		expect(hasLossyConstruct('- Revenue up\n  <!-- say: 12% -->\n- Costs')).toBe(true);
-		expect(hasLossyConstruct('1. step\n   <!-- speaker note -->')).toBe(true);
-		expect(hasLossyConstruct('> a\n> <!-- x -->')).toBe(false);
+	it('a comment under a list item stays editable and comes back hidden, as it was written', () => {
+		for (const prose of ['- Revenue up\n  <!-- say: 12% -->\n- Costs', '1. step\n   <!-- speaker note -->', '> a\n> <!-- x -->']) {
+			expect(hasLossyConstruct(prose)).toBe(false);
+		}
+		expect(rt('- Revenue up\n  <!-- say: 12% -->\n- Costs')).toBe('- Revenue up\n  <!-- say: 12% -->\n- Costs');
 		// The comment atom writes itself as a block of its own: the same bytes as main, and the same quote.
 		expect(rt('> a\n> <!-- x -->\n> b')).toBe('> a\n>\n> <!-- x -->\n>\n> b');
-		expect(hasLossyConstruct('## H\n\n<!-- say: hi -->\n\nbody')).toBe(false);
 	});
 	it('a tab-led line inside a list item or a quote stays in the paragraph', () => {
 		const p = () => para([t('Revenue up'), soft(), t('\t- margins flat')]);
