@@ -203,14 +203,18 @@ measurement, and most undo a defect a render or the adversarial review found:
   measured over 140,608 sRGB bodies and in Chromium 131, Firefox 142 and WebKit 26. A
   canvas-colored halo was tried first and dropped: it reads as outlined stickers, and the PDF
   export lost it.
-- **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
-  level, and an HTML mark's own text takes the same black-or-white ink its body
-  clears. A fixed `--text-body` failed on some themes: 2.62:1 on a 40% cuoio
-  matrix-grid cell. A text-bearing
-  STATUS takes tone's text level under pigment too, because a status hue can be
-  near-black (concrete's read 3.6:1 at 40%). Measured after the fix on 33 themes ×
-  3 finishes: no text-bearing mark below 4.5:1 where the shipped paint was above
-  it (worst 4.72).
+- **A text-bearing mark** (the manifest's `bears`) wears the tier the family curates for text, and
+  its text is `--text-heading` under every finish. The chart family has one curated text pair that
+  holds in both modes: a `-fill` tier with `--text-heading` on it (`chart-contrast.test.js`: at least
+  6.9:1 on every category fill and 5.46:1 on every status fill, median 13:1). Pigment paints a
+  text-bearing mark at exactly that tier (`--chart-cat-N-fill`, and the `--state-*-fill` recipe for a
+  status: 24% over the canvas on light, 50% toward black on dark), so in light mode it is a tint and
+  in dark mode a deep fill, and a mark with NO text (a bar, a wedge, a dot) is where pigment is solid.
+  Etch and tone paint quieter text tiers and keep the same ink. A solid text-bearing body was tried
+  and dropped: no ink clears a mid-tone well (black or white picked per body had a median of 5.6:1
+  and read as mud), the text changed color from chart to chart, and `--text-heading` on a solid body
+  fell under 4.5:1 on 104 of 320 gantt bars across the palettes (worst 1.37:1, concrete). A key
+  follows the tier of the marks it keys: the tower's swatches are tints because its shares carry text.
 - **Text waits for the engine that can pick its ink.** Choosing black or white
   from a mark's own color needs relative-color CSS with math on a channel, and
   the guard tests exactly that expression:
@@ -268,17 +272,6 @@ measurement, and most undo a defect a render or the adversarial review found:
   the rendered DOM first, so a deck without the key exports the bytes it did
   before, and `examples/chart-finish.md` exports at 847 KB. The prune now skips
   the dual-mode block by id.
-
-  **Pigment reads a curated ink for its solid tier.** Pigment's body is the family's solid tier
-  (`--chart-cat-N-body`, `--state-X-body`, and the 82% neutral), and the family curates the ink for text on
-  it: `--chart-cat-N-on`, `--state-X-on`, `--muted-mark-on` (`lib/plugins/chart-family/chart-family.styles.css`).
-  `--text-heading` is curated for the PALE `-fill` tier and fails on a solid body: on the gantt bars of all 32
-  palettes it fell under 4.5:1 on 104 of 320 bars (worst 1.37:1, concrete). Each `-on` defaults to black or
-  white by the body's luminance, a palette may set `--chart-state-X-on` / `--chart-catN-on` / `--chart-muted-on`
-  to curate it, and `test/unit/palette/chart-on-ink.test.js` holds every palette, in both modes, to 4.5:1. A
-  member's hue channel (`--fill-hue`, `--fc-hue`, `--chart-status-hue`, `--hs-state-hue`) has an `-on` sibling
-  its status table sets beside it, so a mark reads one channel pair. Etch and tone paint bodies the family has
-  no token for, so they still pick black or white from the body they paint.
 
 **What a finish does not reach, on purpose.** `line`, `slope` and `word-cloud`
 paint with strokes and type (`paint: "none"`), and a finish leaves them whole —

@@ -49,6 +49,18 @@ describe('chart-finish.generated.css', () => {
     }
   });
 
+  test('a mark that carries text wears the curated text tier, and its text is --text-heading, under every finish', () => {
+    // chart-contrast.test.js gates that pair (--text-heading on every -fill tier, every palette, both modes). A finish
+    // that painted a text-bearing mark any stronger needed a second ink per body, which read as mud and changed the
+    // text color from chart to chart (engineering/chart-styling.md §3).
+    for (let n = 1; n <= 8; n++) {
+      assert.match(css, new RegExp(`chart-finish-pigment :where\\(:is\\([^{]*\\):is\\(\\[data-hue="${n}"\\], \\[data-key-hue="${n}"\\]\\)\\[data-encodes="hue"\\]\\[data-paint="bg"\\]\\)[^{]*\\{[^}]*background: var\\(--chart-cat-${n}-fill\\)[^}]*color: var\\(--text-heading\\)`), `slot ${n}`);
+    }
+    // No text ink anywhere is picked per body, except a heatmap value (the member's own ramp, solved per step).
+    const picked = css.split('\n}').filter((b) => /(?:^|\s)(?:color|fill|--tower-ink|--state-node-ink|--state-index-ink):\s*(?:light-dark\()?color\(from/.test(b));
+    for (const b of picked) assert.match(b, /heatmap-value|hub-spoke-icon|lat-pill/, b.slice(0, 160));
+  });
+
   test('a ramp mixes toward its own member base, never through a var() fallback chain', () => {
     assert.doesNotMatch(css, /var\(--[a-z-]+,\s*var\(/, 'a token-to-token fallback chain');
     assert.match(css, /\.heatmap-cell[^{]*\{[^}]*var\(--heatmap-base\)/);
@@ -192,11 +204,15 @@ describe('chart-finish.generated.css', () => {
   test('a key follows the level of the text-bearing mark it keys', () => {
     // The text-level rules are the :is() lists of text-bearing classes. A key swatch rides in
     // the one for its own paint (an HTML key is `bg`, an SVG mark `fill`), beside its mark's peers.
-    const textLists = [...css.matchAll(/chart-finish-tone :where\(:is\(([^)]*)\)\[data-hue="1"\]\[data-encodes="hue"\]/g)].map((m) => m[1]);
+    const textLists = [...css.matchAll(/chart-finish-tone :where\(:is\(([^{]*?)\):is\(\[data-hue="1"\], \[data-key-hue="1"\]\)\[data-encodes="hue"\]/g)].map((m) => m[1]);
     for (const [key, mark] of Object.entries(KEY_FOLLOWS)) {
       assert.ok(textLists.some((l) => l.includes(`.${mark}`)), `${mark} has a text-level rule`);
       assert.ok(textLists.some((l) => l.includes(`.${key}`)), `${key} takes the text level of ${mark}`);
     }
+    // The family's shared key follows its member only where every hue body it keys carries text: the tower's
+    // shares do, a radar's or a quadrant's dots do not.
+    assert.ok(textLists.some((l) => l.includes('.tower-figure .chart-key-swatch')), 'the tower key takes its shares\' tier');
+    assert.ok(!textLists.some((l) => /\.(?:radar|quadrant)-figure \.chart-key-swatch/.test(l)), 'a key that also keys solid dots stays solid');
   });
 
   test('a shared key class is scoped to its member, so map\'s ramp rule cannot reach a heatmap key', () => {

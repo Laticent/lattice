@@ -404,17 +404,6 @@ section.word-cloud,
   --chart-cat-6-body: color-mix(in oklab, var(--chart-cat-6-hue) 82%, var(--chart-cat-base));
   --chart-cat-7-body: color-mix(in oklab, var(--chart-cat-7-hue) 82%, var(--chart-cat-base));
   --chart-cat-8-body: color-mix(in oklab, var(--chart-cat-8-hue) 82%, var(--chart-cat-base));
-
-  /* The ink for text ON a `-body` (the solid tier a finish paints), curated per slot, at least 4.5:1 in both
-   * modes. Default: black or white by the body's luminance; a palette may set `--chart-catN-on`. */
-  --chart-cat-1-on: var(--chart-cat1-on, color(from var(--chart-cat-1-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-2-on: var(--chart-cat2-on, color(from var(--chart-cat-2-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-3-on: var(--chart-cat3-on, color(from var(--chart-cat-3-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-4-on: var(--chart-cat4-on, color(from var(--chart-cat-4-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-5-on: var(--chart-cat5-on, color(from var(--chart-cat-5-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-6-on: var(--chart-cat6-on, color(from var(--chart-cat-6-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-7-on: var(--chart-cat7-on, color(from var(--chart-cat-7-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --chart-cat-8-on: var(--chart-cat8-on, color(from var(--chart-cat-8-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
 }
 
 /* ── THE MARK CONTRACT — one slot table for the whole family ──────────────
@@ -593,33 +582,6 @@ section.chart-frame,
   --state-fail-ink: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 78%, white));
   --state-info-ink: light-dark(var(--state-info-hue), color-mix(in oklab, var(--state-info-hue) 78%, white));
   --state-mute-ink: light-dark(var(--state-mute-hue), color-mix(in oklab, var(--state-mute-hue) 72%, white));
-
-  /* ── THE SOLID TIER: --state-X-body and its curated ink --state-X-on ─────────
-   * The `-fill` above is the PALE tier, and `--text-heading` is the ink curated to sit on it
-   * (chart-contrast.test.js scores exactly that pair). A SOLID status mark that carries text (a gantt
-   * bar under the `pigment` finish, a state tile, a status pill) has no pale fill under its text, and
-   * `--text-heading` fails there: measured on the gantt bars of all 32 palettes, it fell under 4.5:1 on
-   * 104 of 320 bars (worst 1.37:1, concrete). So the solid tier carries its OWN ink, the same way a
-   * category does (`--chart-cat-N-body` / `--chart-cat-N-on` below).
-   *
-   *   --state-X-body   the hue at 82% over --chart-cat-base: the body a finish paints
-   *   --state-X-on     the ink for text ON that body, at least 4.5:1 on it in both modes. The default
-   *                    is black or white, whichever the body's relative luminance calls for (Y 0.1791 is
-   *                    where the two tie, at 4.58:1, so the worse of the two is never lower), and
-   *                    a palette may set `--chart-state-X-on` to curate it.
-   * Gated for every palette in both modes by test/unit/palette/chart-on-ink.test.js. Relative color is
-   * not in every engine, so a rule that reads an `-on` token sits behind the finish's @supports guard. */
-  --state-pass-body: color-mix(in oklab, var(--state-pass-hue) 82%, var(--chart-cat-base));
-  --state-warn-body: color-mix(in oklab, var(--state-warn-hue) 82%, var(--chart-cat-base));
-  --state-fail-body: color-mix(in oklab, var(--state-fail-hue) 82%, var(--chart-cat-base));
-  --state-info-body: color-mix(in oklab, var(--state-info-hue) 82%, var(--chart-cat-base));
-  --state-mute-body: color-mix(in oklab, var(--state-mute-hue) 82%, var(--chart-cat-base));
-  --state-pass-on: var(--chart-state-pass-on, color(from var(--state-pass-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --state-warn-on: var(--chart-state-warn-on, color(from var(--state-warn-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --state-fail-on: var(--chart-state-fail-on, color(from var(--state-fail-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --state-info-on: var(--chart-state-info-on, color(from var(--state-info-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --state-mute-on: var(--chart-state-mute-on, color(from var(--state-mute-body) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
-  --muted-mark-on: var(--chart-muted-on, color(from color-mix(in oklab, var(--muted-mark) 82%, var(--chart-cat-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))));
 
   /* Shared accent header-rule — the hairline under a data header (gantt quarter
    * axis, kanban column headers). One token so every chart's header underline
@@ -1273,7 +1235,7 @@ section.chart-frame .chart-caption::before {
    * as a pill or a bar: hue-into-bg gradient + vivid ink border + the shared
    * --text-heading label (flips dark-on-light / light-on-dark). Defaults to
    * info; each status below re-points --chart-status-hue / --chart-status-ink. */
-  --chart-status-hue: var(--state-info-hue); --chart-status-on: var(--state-info-on);
+  --chart-status-hue: var(--state-info-hue);
   --chart-status-ink: var(--state-info-ink);
   /* THE DARK ARM'S STOPS WERE CALIBRATED FOR DIMMER STATUS HUES, and #1801 respaced
    * every palette's trio to clear the achromatopsia floor — which, for the pass arm,
@@ -1315,22 +1277,22 @@ section.chart-frame .chart-caption::before {
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="on-track"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="done"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="live"] {
-  --chart-status-hue: var(--state-pass-hue); --chart-status-on: var(--state-pass-on); --chart-status-ink: var(--state-pass-ink);
+  --chart-status-hue: var(--state-pass-hue); --chart-status-ink: var(--state-pass-ink);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="at-risk"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="warn"] {
-  --chart-status-hue: var(--state-warn-hue); --chart-status-on: var(--state-warn-on); --chart-status-ink: var(--state-warn-ink);
+  --chart-status-hue: var(--state-warn-hue); --chart-status-ink: var(--state-warn-ink);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="blocked"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="fail"] {
-  --chart-status-hue: var(--state-fail-hue); --chart-status-on: var(--state-fail-on); --chart-status-ink: var(--state-fail-ink);
+  --chart-status-hue: var(--state-fail-hue); --chart-status-ink: var(--state-fail-ink);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="pilot"],
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="decision"] {
-  --chart-status-hue: var(--state-info-hue); --chart-status-on: var(--state-info-on); --chart-status-ink: var(--state-info-ink);
+  --chart-status-hue: var(--state-info-hue); --chart-status-ink: var(--state-info-ink);
 }
 :is(section.chart-frame, figure.chart-frame) .chart-status[data-s="deferred"] {
-  --chart-status-hue: var(--state-mute-hue); --chart-status-on: var(--state-mute-on); --chart-status-ink: var(--state-mute-ink);
+  --chart-status-hue: var(--state-mute-hue); --chart-status-ink: var(--state-mute-ink);
 }
 
 /* (Dark-canvas progress-fill overrides removed — the --state-*-ink tokens are

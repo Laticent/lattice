@@ -70,7 +70,7 @@ const F = {
   // it halved the top-to-empty contrast (3.54 → 1.92 light, 3.03 → 1.51 dark on indaco). The ink is
   // now picked per cell (`inkOn`, behind the @supports below), so the band no longer has to protect it.
   // tools/chart-finish-reach.mjs measures the span against the unfinished paint on every theme.
-  pigment: { body: [82, 82], backdrop: [82, 82], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
+  pigment: { body: [82, 82], backdrop: [24, 50], ramp: [16, 0.54], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
@@ -151,6 +151,15 @@ let BASE = 'var(--chart-cat-base)';
 const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
+/**
+ * The ink for TEXT on a mark, under every finish: the one the chart family curates for a text-bearing body.
+ * `--text-heading` is gated on the `-fill` tier (chart-contrast.test.js: at least 6.9:1 on every category fill and
+ * 5.46:1 on every status fill, in both modes, on every palette). A finish therefore paints a mark that carries
+ * text at that tier or quieter, and never picks a second ink: pigment's earlier solid text marks needed black
+ * or white picked per body, which cleared 4.5:1 and read as mud (median 5.6:1), and changed the text color from
+ * chart to chart. Text-FREE marks are where pigment is solid.
+ */
+const TEXT_INK = 'var(--text-heading)';
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
 const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => `color-mix(in oklab, ${hue} ${pct}, ${BASE})`;
@@ -185,27 +194,6 @@ const inkOn = (cell) => {
  */
 const SUPPORTS = `@supports (color: ${inkOn('red')})`;
 const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
-
-/**
- * The ink for text ON a body. PIGMENT's body is the solid tier the chart family already names (`--chart-cat-N-body`,
- * `--state-X-body`), and the family curates an ink for it (`--chart-cat-N-on`, `--state-X-on`, `--muted-mark-on`;
- * chart-family.styles.css), so pigment reads that token and a palette's own choice wins. A member's hue channel
- * (`--fill-hue`, `--fc-hue`, ...) has an `-on` sibling that its status table sets beside it. Etch and tone paint
- * bodies the family has no token for (a pale wash, a tone step), so those two still pick black or white from the
- * body they paint.
- */
-const ON_TOKEN = [
-  [/^var\(--(fill|fc|chart-status|hs-state)-hue\)$/, (m) => `var(--${m[1]}-on)`],
-  [/^var\(--muted-mark\)$/, () => 'var(--muted-mark-on)'],
-  [/^var\(--chart-cat-([1-8])-hue\)$/, (m) => `var(--chart-cat-${m[1]}-on)`],
-  [/^var\(--state-(pass|warn|fail|info|mute)-hue\)$/, (m) => `var(--state-${m[1]}-on)`],
-];
-function onInk(finish, hue, l, d) {
-  if (finish === 'pigment') {
-    for (const [re, fn] of ON_TOKEN) { const m = re.exec(hue); if (m) return fn(m); }
-  }
-  return ld(inkOn(mix(hue, `${l}%`)), inkOn(mix(hue, `${d}%`)));
-}
 
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);
 
@@ -259,6 +247,9 @@ const STROKE_MEMBERS = ['slope'];
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
 const SHARED_CLASSES = new Set(['chart-key-swatch']);
 
+/** A bearing entry is a class name, or (for a scoped key) a whole selector. */
+const bearSel = (c) => (c.includes(' ') ? c : `.${c}`);
+
 /** The text-bearing mark classes, from every chart manifest's `kernel.marks`. */
 function bearingClasses() {
   const { loadAll } = require('../lib/components');
@@ -270,6 +261,19 @@ function bearingClasses() {
   }
   for (const [key, mark] of Object.entries(KEY_FOLLOWS)) {
     if (out.fill.has(mark) || out.bg.has(mark)) out[swatchPaint(key)].add(key);
+  }
+  // The family's shared key swatch (`chart-key-swatch`) keys whatever its member draws. Where that member's hue mark
+  // carries text (a tower share), the key takes the text tier too, scoped to the member's figure: a solid swatch
+  // beside a tinted share is a key that does not match its mark.
+  for (const m of loadAll()) {
+    const marks = m.kernel?.marks || [];
+    const key = marks.find((r) => r.class === 'chart-key-swatch' && (r.paint === 'fill' || r.paint === 'bg'));
+    const bodies = marks.filter((r) => r.encodes === 'hue' && r.class !== 'chart-key-swatch' && (r.paint === 'fill' || r.paint === 'bg'));
+    // Only where EVERY hue body the key stands for carries text: a radar's or a quadrant's key also keys dots,
+    // which stay solid, so their key stays with the plain rule.
+    if (key && bodies.length && bodies.every((r) => r.bears)) {
+      out[key.paint].add(`.${m.kernel.figureClass} .chart-key-swatch`);
+    }
   }
   return { fill: [...out.fill].sort(), bg: [...out.bg].sort() };
 }
@@ -376,7 +380,7 @@ function build() {
       for (const paint of ['fill', 'bg']) {
         // A text-bearing mark is left to its own rule below, which waits on relative color.
         // Without this it would take the full body here, under ink solved for the shipped one.
-        const notText = bears[paint].length ? `:not(${bears[paint].map((c) => `.${c}`).join(', ')})` : '';
+        const notText = bears[paint].length ? `:not(${bears[paint].map(bearSel).join(', ')})` : '';
         w(rule(name, `:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]${notText}${tone ? notLeft : ''}`, paintDecls(paint, body, ink, f.edge)));
       }
     }
@@ -389,19 +393,20 @@ function build() {
       const [bodyL, bodyD] = tone
         ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
         : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
-      const body = ld(bodyL, bodyD);
+      // Pigment's text-bearing body IS the family's curated fill tier, read as the token.
+      const body = name === 'pigment' ? `var(--chart-cat-${n}-fill)` : ld(bodyL, bodyD);
       const ink = tone ? ONE_INK : inkOf(n);
       for (const paint of ['fill', 'bg']) {
         if (!bears[paint].length) continue;
-        const cls = `:is(${bears[paint].map((c) => `.${c}`).join(', ')})`;
+        const cls = `:is(${bears[paint].map(bearSel).join(', ')})`;
         // An HTML mark's own text was colored for the full-strength body (the journey actor
         // initial is white), so it takes the ink its own body clears. TEXT WAITS: no fixed ink
         // clears every theme (--text-body read 3.54:1 on concrete's status pill, --text-heading
         // 3.34:1 on an a11y heatmap step, measured in WebKit with relative color removed), so
         // on an engine that cannot pick the ink, a mark that carries text keeps its shipped
         // paint and ink, which each theme's gates already hold. Every other mark still moves.
-        const sel = `${cls}[data-hue="${n}"][data-encodes="hue"][data-paint="${paint}"]`;
-        const text = paint === 'bg' ? [`color: ${name === 'pigment' ? `var(--chart-cat-${n}-on)` : ld(inkOn(bodyL), inkOn(bodyD))}`] : [];
+        const sel = `${cls}:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]`;
+        const text = paint === 'bg' ? [`color: ${TEXT_INK}`] : [];
         w(supports(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text])));
       }
     }
@@ -427,80 +432,33 @@ function build() {
       const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       if (s.bears && s.paint === 'bg') {
-        const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-        decls.push(`color: ${onInk(name, s.hue, l, d)}`);
+        decls.push(`color: ${TEXT_INK}`);
         // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
         // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
         // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
         // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
         // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
-        if (s.nodeInk) decls.push(`--state-node-ink: ${onInk(name, s.hue, l, d)}`);
-        if (s.indexInk) decls.push(`--state-index-ink: ${onInk(name, s.hue, l, d)}`);
+        if (s.nodeInk) decls.push(`--state-node-ink: ${TEXT_INK}`);
+        if (s.indexInk) decls.push(`--state-index-ink: ${TEXT_INK}`);
       }
       // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
       // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
       w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
     }
 
-    // A gantt caption printed INSIDE a bar picks the ink its bar's finish body clears. It is a sibling of
-    // the rect, so it names the same hue (`--fill-hue`, gantt.styles.css) and takes the same text level the
-    // bar's status rule above gives; a caption beside the bar sits on the canvas and keeps its heading ink.
-    {
-      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-      w(supports(rule(name, '.gantt-bar-label[data-pos="inside"]', [
-        `fill: ${onInk(name, 'var(--fill-hue)', l, d)}`,
-      ])));
-    }
-
-    // A state chart caption (an SVG <text>, a sibling of its tile's shape) picks the ink the tile's finish
-    // body clears, from the hue it names. An author-colored caption (`data-text` on the group) keeps its ink.
-    {
-      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-      // PIGMENT paints the tile with a solid body, so an author-colored caption (`text=cN`, picked for the shipped pale
-      // tint) would sit on it at 1.01:1 on onyx dark; measured over 32 palettes it failed on 124 of 128 such nodes. Pigment
-      // therefore owns the caption's ink on a tile it paints. Etch and tone paint a pale body and leave the author's ink.
-      const own = name === 'pigment' ? '' : ':not([data-text])';
-      w(supports(rule(name, `.state-node-group${own} > .state-label-t, .state-index-t[data-s]`, [
-        `fill: ${onInk(name, 'var(--fill-hue)', l, d)}`,
-      ])));
-      w(supports(rule(name, `.state-node-group${own} > .sc-icon`, [
-        `color: ${onInk(name, 'var(--fill-hue)', l, d)}`,
-      ])));
-    }
-
-    // A flowchart node's name is a sibling of its shape, so it reads the hue the group names and picks the ink
-    // that hue's finish body clears. A slot node's body is a HUE mark at the text level; a status or neutral
-    // node's is the status level, which is the same level here. An author-colored name (`data-text`) or an
-    // author-filled node keeps its own ink.
-    {
-      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-      // As for the state chart caption: pigment owns the ink on a node it paints solid, even an author-colored one.
-      const own = name === 'pigment' ? '' : ':not([data-text])';
-      const nameSel = (extra, kid = '.fc-name') => `.fc-node-group${extra}${own}:not([data-fill]):not([data-s="deferred"]) > ${kid}`;
-      w(supports(rule(name, nameSel(''), [
-        `fill: ${onInk(name, 'var(--fc-hue)', l, d)}`,
-      ])));
-      w(supports(rule(name, nameSel('', '.fc-icon'), [
-        `color: ${onInk(name, 'var(--fc-hue)', l, d)}`,
-      ])));
-      // Under tone a slot node is one hue at ITS slot's step, not the slot's own hue.
-      if (tone) for (const n of SLOTS) {
-        w(supports(rule(name, nameSel(`[data-slot="${n}"]:not([data-s])`), [
-          `fill: ${ld(inkOn(mix(ONE, `${TONE_TEXT[n - 1]}%`)), inkOn(mix(ONE, `${TONE_TEXT_D[n - 1]}%`)))}`,
-        ])));
-      }
-    }
-
-    // The SVG twin of the unstated tile's index numeral (the HTML one is set in the status row above). A
-    // numeral is a sibling <text> of its shape inside `.state-node-group`, so it cannot inherit from the
-    // shape: it is reached through its group, and picks its ink from the body the finish gave the tile.
-    {
-      const [l, d] = tone ? [TONE_TEXT[0], TONE_TEXT_D[0]] : f.backdrop;
-      const neutral = 'var(--muted-mark)';
-      w(supports(rule(name, '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t', [
-        `fill: ${onInk(name, neutral, l, d)}`,
-      ])));
-    }
+    // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes TEXT_INK ──
+    // Each of these is a sibling of its mark in the SVG (a gantt caption beside its rect, a state caption and its
+    // index numeral beside the tile's shape, a flowchart name beside its node), so it cannot inherit the mark's
+    // ink and is reached by name. A caption beside its bar (`data-pos="after"`) sits on the canvas and keeps the
+    // member's ink, and an author-colored caption (`data-text`) or an author-filled node (`data-fill`) keeps the
+    // author's: both were chosen for exactly the tier a finish paints.
+    w(supports(rule(name, [
+      '.gantt-bar-label[data-pos="inside"]',
+      '.state-node-group:not([data-text]) > .state-label-t',
+      '.state-index-t[data-s]',
+      '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
+      '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
+    ].join(', '), [`fill: ${TEXT_INK}`])));
 
     // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
     // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
@@ -640,26 +598,17 @@ function build() {
     const iconInk = ([a, b]) => ld(inkOn(a), inkOn(b));
     for (const n of SLOTS) {
       const arms = tone ? [mix(ONE, `${TONE[n - 1]}%`), mix(ONE, `${TONE[n - 1]}%`)] : [mix(hueOf(n), `${f.body[0]}%`), mix(hueOf(n), `${f.body[1]}%`)];
-      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${name === 'pigment' ? `var(--chart-cat-${n}-on)` : iconInk(arms)}`])));
+      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${iconInk(arms)}`])));
     }
-    // ── A TOWER SHARE FIGURE — printed on its share, so it takes the ink that share's
-    // finish body clears. Outside a finish the figure reads its ink off --mark-body
-    // (tower.styles.css), but a finish paints the share's `fill` directly and never
-    // touches --mark-body, so that ink was solved against a color no longer there:
-    // measured by the tower checker, a dark pigment slot-2 share fell to about 1.95:1
-    // and a tone share to 1.16:1. A share CARRIES TEXT (`bears: true` in its manifest), so a
-    // finish paints it at the quieter text-bearing level (HUE on a mark that CARRIES TEXT,
-    // above); the ink reads that same level, or it is solved against the wrong fill.
-    w('\n/* TOWER SHARE FIGURE — the ink its share\'s finish body clears. */');
-    for (const n of SLOTS) {
-      const arms = tone
-        ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
-        : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
-      w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${name === 'pigment' ? `var(--chart-cat-${n}-on)` : iconInk(arms)}`])));
-    }
+    // ── A TOWER SHARE FIGURE — printed on its share. Outside a finish the figure reads its ink off --mark-body
+    // (tower.styles.css), solved for the shipped share; a finish paints the share's `fill` directly. A share CARRIES
+    // TEXT (`bears: true`), so every finish paints it at the text-bearing tier, and the figure takes the one ink
+    // curated for that tier (TEXT_INK).
+    w('\n/* TOWER SHARE FIGURE — the ink curated for a text-bearing body. */');
+    for (const n of SLOTS) w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${TEXT_INK}`])));
     const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
     const sArms = tone ? [mix(hsStatus.hue, `${TONE[2]}%`), mix(hsStatus.hue, `${TONE[2]}%`)] : [mix(hsStatus.hue, `${f.body[0]}%`), mix(hsStatus.hue, `${f.body[1]}%`)];
-    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${name === 'pigment' ? 'var(--hs-state-on)' : iconInk(sArms)}`])));
+    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${iconInk(sArms)}`])));
 
     // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
     // A gradient here reads as a fourth color where two polygons cross.
