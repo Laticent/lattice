@@ -16,6 +16,7 @@ import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
+import { insertLineBreak } from '@/lib/compose/line-break-command';
 import { addPaneTitle, applyPaneChoice, type PaneChoice, type PaneDirection, type PaneInfo, paneChoices, paneFit, paneLabel, paneMarkerGuard, paneOwnsTitles, paneStarter, slidePanes, starterEditable } from '@/lib/compose/pane-model';
 import { type PaneCatalogRow, paneNeedsFrom } from '@/lib/compose/pane-needs';
 import { pillSheetReady, releasePillSheet, syncPillSheet } from '@/lib/compose/pill-sheet';
@@ -2548,6 +2549,15 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					}
 				},
 				handleDOMEvents: {
+					// Shift-Enter adds one line inside a paragraph (line-break-command.ts). A DOM handler, not a keymap entry: on iOS
+					// prosemirror-view never passes an Enter keydown to the keymaps and answers it with a plain Enter, which splits the
+					// block. A selected pill or image keeps Shift-Enter as the key that opens its editor, like Enter.
+					keydown(v, event) {
+						if (event.key !== 'Enter' || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return false;
+						if (v.state.selection instanceof NodeSelection) return false;
+						event.preventDefault();
+						return insertLineBreak(v.state, v.dispatch);
+					},
 					// D2: on blur, apply any external source that arrived while focused.
 					blur() {
 						setSelBar(null); // the selection bar never outlives focus
