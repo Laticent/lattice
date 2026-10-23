@@ -3,12 +3,12 @@
  *
  * The chart-family curation contract (chart-family.style.md › "Curating a
  * remaining theme" / design/theming.md › "Curate assessment-first") says a
- * theme's `--chart-cat*` / `--chart-state-*` must, on BOTH canvases:
+ * theme's `--chart-cat*` and its status solids (`--pass` … `--mute`) must, on BOTH canvases:
  *
  *   1. marks clear the canvas      — each hue vs `--bg` ≥ 3:1 (WCAG 1.4.11,
  *                                     non-text graphical contrast)
  *   2. categories are distinct     — adjacent `--chart-cat*` ≥ 0.15 OKLab
- *   3. status roles are distinct   — the 5 `--chart-state-*` mutually ≥ 0.12
+ *   3. status roles are distinct   — the 5 status solids mutually ≥ 0.12
  *
  * This locks that in for all 13 curated themes (cuoio/onyx/indaco were the
  * original exemplars; the rest were brought to parity), so a re-curation that
@@ -60,7 +60,7 @@ const { loadTheme, loadThemeChain, contrast, oklabDist, resolve } = require('../
 // canvas, or two slots collapsing to the same color.
 const TEXT_ON_FILL   = 4.5;   // AA — the --text-heading label on a chart fill
 const MARK_VS_CANVAS = 3.0;   // WCAG 1.4.11 — a saturated mark must clear the canvas
-const MARK_MUTE_MIN  = 2.0;   // --chart-state-mute is the deliberately-quiet "deferred" role
+const MARK_MUTE_MIN  = 2.0;   // --mute is the deliberately-quiet "deferred" role
 const SLOT_DISTINCT  = 0.06;  // adjacent slots must not collapse to the same color
 
 describe('chart palette — curated theme assessment', () => {
@@ -78,12 +78,12 @@ describe('chart palette — curated theme assessment', () => {
         if (rgb) cats.push({ i, rgb, fill: resolve(vars[`chart-cat-${i}-fill`], vars, mode) });
       }
       const states = ['pass', 'warn', 'fail', 'info', 'mute']
-        .map(k => ({ k, rgb: resolve(vars[`chart-state-${k}`], vars, mode), fill: resolve(vars[`state-${k}-fill`], vars, mode) }))
+        .map(k => ({ k, rgb: resolve(vars[k], vars, mode), fill: resolve(vars[`state-${k}-fill`], vars, mode) }))
         .filter(s => s.rgb);
 
       test(`${theme}/${mode}: every chart hue + fill resolves`, () => {
         assert.equal(cats.length, 8, `${theme}/${mode}: expected 8 --chart-cat*, got ${cats.length}`);
-        assert.equal(states.length, 5, `${theme}/${mode}: expected 5 --chart-state-*, got ${states.length}`);
+        assert.equal(states.length, 5, `${theme}/${mode}: expected the 5 status solids, got ${states.length}`);
         for (const c of cats) assert.ok(c.fill, `${theme}/${mode}: --chart-cat-${c.i}-fill must resolve`);
         for (const s of states) assert.ok(s.fill, `${theme}/${mode}: --state-${s.k}-fill must resolve`);
       });
@@ -107,7 +107,7 @@ describe('chart palette — curated theme assessment', () => {
         for (const { k, rgb } of states) {
           const floor = k === 'mute' ? MARK_MUTE_MIN : MARK_VS_CANVAS;
           const r = contrast(rgb, bg);
-          assert.ok(r >= floor, `${theme}/${mode}: --chart-state-${k} vs --bg = ${r.toFixed(2)}:1 (< ${floor})`);
+          assert.ok(r >= floor, `${theme}/${mode}: --${k} vs --bg = ${r.toFixed(2)}:1 (< ${floor})`);
         }
       });
 
@@ -123,7 +123,7 @@ describe('chart palette — curated theme assessment', () => {
         for (let a = 0; a < states.length; a++) {
           for (let b = a + 1; b < states.length; b++) {
             const d = oklabDist(states[a].rgb, states[b].rgb);
-            assert.ok(d >= SLOT_DISTINCT, `${theme}/${mode}: --chart-state-${states[a].k}↔${states[b].k} OKLab = ${d.toFixed(3)} (< ${SLOT_DISTINCT})`);
+            assert.ok(d >= SLOT_DISTINCT, `${theme}/${mode}: --${states[a].k}↔${states[b].k} OKLab = ${d.toFixed(3)} (< ${SLOT_DISTINCT})`);
           }
         }
       });

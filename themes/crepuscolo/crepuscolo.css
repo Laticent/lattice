@@ -96,9 +96,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#0d5026, #9dfb7d);
-  --warn: light-dark(#935800, #cf8a21);
-  --fail: light-dark(#550004, #ffa6a4);
+  --pass: light-dark(#00421B, #D5FFC8);
+  --warn: light-dark(#804C00, #D9932F);
+  --fail: light-dark(#310001, #FFB2B0);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -330,12 +330,9 @@
    * status pills, state-chart, timeline). pass/warn/fail reuse crepuscolo's
    * inherited status trio so a gantt at-risk bar matches a --warn chip; info
    * takes the dusty slate blue, mute a desaturated violet-taupe. */
-  --chart-state-pass: var(--pass);                  /* signal green  */
-  --chart-state-warn: light-dark(#804C00, #D9932F);                  /* signal amber  */
-  --chart-state-fail: var(--fail);                  /* alarm crimson */
-  --chart-state-info: light-dark(#275A90, #76A6D9); /* dusty slate   */
-  --chart-state-mute: light-dark(#704E5E, #AFA18B); /* violet taupe  */
-  --chart-on-solid: light-dark(#FFFFFF, #1A0F2D);
+  --info: light-dark(#215688, #7EAEE1); /* dusty slate   */
+  --mute: light-dark(#6C4A5A, #B7A993); /* violet taupe  */
+  --on-solid: light-dark(#FFFFFF, #1A0F2D);
   --chart-neutral: light-dark(#5D5274, #AA9EC5);
 }
 

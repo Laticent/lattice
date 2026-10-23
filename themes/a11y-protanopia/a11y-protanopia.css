@@ -34,13 +34,10 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#054c86, #82bfff);
-  --warn: light-dark(#926300, #ffdcad);
-  --fail: light-dark(#5f0009, #e9716a);
-  --chart-state-pass: light-dark(#054C86, #5C9ADA);
-  --chart-state-warn: light-dark(#785100, #BE8D3E);
-  --chart-state-fail: light-dark(#5F0009, #E07D75);
-  --chart-on-solid: light-dark(#FFFFFF, #000000);
+  --pass: light-dark(#003A6B, #8FC5FF);
+  --warn: light-dark(#785100, #FFE1B8);
+  --fail: light-dark(#3D0003, #EB726C);
+  --on-solid: light-dark(#FFFFFF, #000000);
   --chart-neutral: light-dark(#575757, #989898);
   --diagram-critical: #5f0009;
 

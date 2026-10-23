@@ -98,9 +98,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#1b4921, #a0f5a8);
-  --warn: light-dark(#835800, #e5b255);
-  --fail: light-dark(#4d0004, #dd7878);
+  --pass: light-dark(#0F3F17, #A1F6A9);
+  --warn: light-dark(#785000, #E6B356);
+  --fail: light-dark(#2C0001, #DE797A);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -334,12 +334,9 @@
 
   /* Status — pass green / warn olive / fail red / info slate / mute gray:
    * the same hues as the categories so status + categorical read as one. */
-  --chart-state-pass: light-dark(#106538, #56C07E);  /* done — green            */
-  --chart-state-warn: light-dark(#765000, #F1AC40);  /* at-risk — olive         */
-  --chart-state-fail: light-dark(#B4001F, #FE6062);  /* blocked — signature red */
-  --chart-state-info: light-dark(#384C81, #85A1D9);  /* decision — slate        */
-  --chart-state-mute: light-dark(#5B555B, #989898);  /* deferred — gray         */
-  --chart-on-solid: light-dark(#FFFFFF, #000000);
+  --info: light-dark(#384C81, #85A1D9);  /* decision — slate        */
+  --mute: light-dark(#5B555B, #9C9C9C);  /* deferred — gray         */
+  --on-solid: light-dark(#FFFFFF, #000000);
   --chart-neutral: light-dark(#575757, #989898);
 
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────

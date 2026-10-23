@@ -12,9 +12,8 @@
  * surfaces, the ink ramp, the accent, and the dark-canvas ramp are
  * retuned to paper/ink; the categorical (--cN) and chart token blocks are
  * inherited verbatim from indaco (contrast-proven), so diagrams stay
- * legible. The SEMANTIC status trio (--pass/--warn/--fail) is carta's own,
- * mirroring its palette-tuned --chart-state-* (AA-safe on cream/charcoal) —
- * not indaco's. Warming the categorical fills to match the paper is tracked
+ * legible. The SEMANTIC status solids (--pass … --mute) are carta's own,
+ * curated on cream/charcoal — not indaco's. Warming the categorical fills to match the paper is tracked
  * as polish in engineering/decisions/2026-06-11-sketch-finish.md.
  *
  * Every text-bearing token clears WCAG AA against the surface it appears
@@ -55,11 +54,9 @@
   --on-accent:   light-dark(#FFFFFF, var(--surface-inverse));
 
   /* ── Semantic signals ──────────────────────────────────────────────── */
-  /* The trio mirrors carta's own palette-tuned --chart-state-* (below), all
-     AA-safe on carta's cream/charcoal surfaces — NOT a generic copy. --pass USED
-     to equal --chart-state-pass, and the respacing below broke that: the trio is a
-     THREE-token group held to 0.11 under a monochromacy, the chart states are a
-     five-token group held to 0.065, so they can no longer be one value. --warn and
+  /* The trio is carta's own, curated on its cream/charcoal surfaces — NOT a
+     generic copy — and since the status solids moved to the base it is also what
+     every chart paints (the chart-only --chart-state-* copies are retired). --warn and
      --fail were added to complete the set (carta previously defined only --pass,
      leaving its own --fail-bg/--warn-bg referencing undefined vars). */
   /* The light --fail is solved against redline's deepest own-hue stack — a 12%
@@ -82,9 +79,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#1e4600, #b0fc8c);
-  --fail: light-dark(#48000b, #ff6b72);
-  --warn: light-dark(#815400, #f1b74c);
+  --pass: light-dark(#1B4100, #E7FFDD);
+  --fail: light-dark(#340006, #FF7F82);
+  --warn: light-dark(#7A4F00, #FFC660);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -287,12 +284,9 @@
   --heatmap-step5-ink: light-dark(#ECE1D4, #393121);
   /* ── end heatmap ramp ── */
 
-  --chart-state-pass: light-dark(#346213, #7FC85A);
-  --chart-state-warn: light-dark(#794F00, #E3A93C);
-  --chart-state-fail: light-dark(#8B001F, #FF7F82);
-  --chart-state-info: light-dark(#38598C, #9DB8DC);
-  --chart-state-mute: light-dark(#635744, #B2A78F);
-  --chart-on-solid: light-dark(#FFFFFF, #1E1A14);
+  --info: light-dark(#335482, #9DB8DC);
+  --mute: light-dark(#5D513E, #B6AB93);
+  --on-solid: light-dark(#FFFFFF, #1E1A14);
   --chart-neutral: light-dark(#635744, #B4A691);
 }
 

@@ -95,9 +95,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#0d5026, #9dfb7d);
-  --warn: light-dark(#935800, #f8af50);
-  --fail: light-dark(#550004, #e87677);
+  --pass: light-dark(#00421B, #B2FF99);
+  --warn: light-dark(#804C00, #FBB253);
+  --fail: light-dark(#310001, #EB797A);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -332,12 +332,9 @@
    * own status trio so a gantt at-risk bar matches a --warn chip; info takes
    * a dusty slate blue (clearly separated from the wine family), mute a
    * desaturated wine-adjacent taupe (derived from --text-muted's family). */
-  --chart-state-pass: var(--pass);                  /* forest green  */
-  --chart-state-warn: light-dark(#804C00, #F8AF50);                  /* amber         */
-  --chart-state-fail: light-dark(#550004, #EB797A);                  /* wine alarm    */
-  --chart-state-info: light-dark(#2D598B, #75A5D9); /* dusty slate   */
-  --chart-state-mute: light-dark(#674B51, #A99B85); /* warm taupe    */
-  --chart-on-solid: light-dark(#FFFFFF, #180609);
+  --info: light-dark(#27537F, #75A5D9); /* dusty slate   */
+  --mute: light-dark(#664A50, #AB9D87); /* warm taupe    */
+  --on-solid: light-dark(#FFFFFF, #180609);
   --chart-neutral: light-dark(#655458, #AD9795);
 }
 

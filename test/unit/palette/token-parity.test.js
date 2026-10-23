@@ -60,8 +60,9 @@ const CONTRACT = [
   // Headroom is a property of the anchor, and only the palette can own it.
   'seq-500',
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
-  'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-state-pass',
-  'chart-state-warn', 'chart-state-fail', 'chart-state-info', 'chart-state-mute',
+  'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral',
+  // the status solids and the one ink on every solid (base.tokens.css)
+  'info', 'mute', 'on-solid',
 ];
 
 function ownTokens(name) {

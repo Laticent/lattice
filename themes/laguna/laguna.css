@@ -98,9 +98,9 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#00432e, #b4ffd1);
-  --warn: light-dark(#7d5201, #f4bf63);
-  --fail: light-dark(#43000d, #f07f92);
+  --pass: light-dark(#00402C, #B4FFD1);
+  --warn: light-dark(#7A4F00, #F4BF63);
+  --fail: light-dark(#300007, #F07F92);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -333,12 +333,9 @@
    * status trio so a gantt at-risk bar matches a --warn chip; info is a
    * deeper indigo-blue (nudged away from the coastal teal of cat1 so the
    * two remain distinct); mute derives from --text-muted's warm-sand gray. */
-  --chart-state-pass: var(--pass);                  /* coastal green  */
-  --chart-state-warn: light-dark(#7A4F00, #F4BF63);                  /* sand amber     */
-  --chart-state-fail: var(--fail);                  /* coral alarm    */
-  --chart-state-info: light-dark(#315896, #85A0E4); /* indigo-blue    */
-  --chart-state-mute: light-dark(#4C5B5E, #AFBBCB); /* sand gray      */
-  --chart-on-solid: light-dark(#FFFFFF, #04181B);
+  --info: light-dark(#2B528A, #93B0F4); /* indigo-blue    */
+  --mute: light-dark(#455457, #AFBBCB); /* sand gray      */
+  --on-solid: light-dark(#FFFFFF, #04181B);
   --chart-neutral: light-dark(#4D5A5C, #99A6AA);
 }
 

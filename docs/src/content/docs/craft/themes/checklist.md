@@ -29,7 +29,8 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--syntax-*` code syntax colors | 12 | each readable on `--code-bg` |
 | `--cat-N-fill` / `--cat-N-mark` | 12 pairs | the [categorical cycle](/craft/themes/categorical/) |
 | `--cat-N-ink` | 12 | generated, not hand-picked |
-| `--chart-cat1…8`, `--chart-state-*` | 13 | the chart family's own palette |
+| `--chart-cat1…8`, `--chart-neutral` | 9 | the chart family's own palette |
+| `--info`, `--mute`, `--on-solid` | 3 | the status solids beyond pass/warn/fail, and the ink on every solid |
 | `--diagram-*` | several | stroke, line, lifecycle, alarm |
 | `--scheme-dark-*` | 10 | the dark inputs your pairs read |
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |

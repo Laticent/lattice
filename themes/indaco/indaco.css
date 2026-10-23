@@ -137,11 +137,11 @@
    * measured before that move and is kept as the reason a value was once chosen,
    * not as a current reading — `npm run palette:bless` holds the live numbers.
    * engineering/decisions/2026-08-24-status-trio-monochromacy-respacing.md */
-  --pass: light-dark(#1c5000, #a0ff7f);
+  --pass: light-dark(#154200, #D6FFC8);
   /* Self-curated semantic trio — cool green/amber/red, AA>=4.5 on
    * both canvases (light value vs --bg, dark value vs --scheme-dark-bg). */
-  --warn: light-dark(#8a5d00, #edb85c);
-  --fail: light-dark(#550014, #e9798c);
+  --warn: light-dark(#785000, #FAC569);
+  --fail: light-dark(#330008, #F78598);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -349,7 +349,7 @@
    * the wedge/bar border at full strength + a 24% tint for the fill); dark
    * side lifts the same hue toward white so it stays vivid on the navy canvas.
    * Categorical and status share the family's recipe; see the chart-family.styles.css
-   * token block for the contract. Each is a chart SOLID: `--chart-on-solid` text clears 7:1 on it
+   * token block for the contract. Each is a chart SOLID: `--on-solid` text clears 7:1 on it
    * and it clears 3:1 off the slide (tools/curate-chart-solids.js, gated by chart-solids.test.js). */
   --chart-cat1: light-dark(#005D8F, #79ADD5);  /* blue    */
   --chart-cat2: light-dark(#933B00, #DE9877);  /* rust    */
@@ -402,12 +402,9 @@
    * --text-muted); warn ports indaco's gold to a saddle-amber; fail is newly
    * curated (indaco's palette had no red) as a cool crimson that sits with the
    * blues. Semantics universal, hues indaco-specific. */
-  --chart-state-pass: light-dark(#296508, #6FCC4D);  /* done — forest green              */
-  --chart-state-warn: light-dark(#794F00, #E3A93C);  /* at-risk — saddle amber           */
-  --chart-state-fail: light-dark(#AE0E2C, #FF8587);  /* blocked — cool crimson           */
-  --chart-state-info: light-dark(#00598C, #7FC8E5);  /* decision — indaco blue           */
-  --chart-state-mute: light-dark(#475973, #A7A5CF);  /* deferred — blue-gray             */
-  --chart-on-solid: light-dark(#FFFFFF, #001D33);
+  --info: light-dark(#00598C, #7FC8E5);  /* decision — indaco blue           */
+  --mute: light-dark(#475973, #ABA9D3);  /* deferred — blue-gray             */
+  --on-solid: light-dark(#FFFFFF, #001D33);
   --chart-neutral: light-dark(#475973, #95AAC6);
 }
 

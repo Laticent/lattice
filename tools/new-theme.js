@@ -81,7 +81,8 @@ function checklistBlock(name) {
  *                          --diagram-critical*, --diagram-today, --diagram-note).
  *                          Borders, edges, gantt state, notes, alarm.
  *   6. Chart palette     — --chart-cat1..--chart-cat8 (hues; fill/ink derived)
- *                          and --chart-state-{pass,warn,fail,info,mute}. Verify
+ *                          --chart-neutral, and the status solids --pass --warn --fail
+ *                          --info --mute (7:1 under --on-solid). Verify
  *                          distinguishability with:
  *                            node tools/contrast-audit.js ${name}
  *   7. Dark-variant      — --scheme-dark-* tokens, the DARK side of every
