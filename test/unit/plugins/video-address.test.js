@@ -102,11 +102,12 @@ describe('lint', () => {
 });
 
 describe('what the inversion found', () => {
-  test('every bullet shape that drew a clip before migrates with the URL token, not the whole line', () => {
-    for (const b of ['<https://youtu.be/dQw4w9WgXcQ>', '**https://youtu.be/dQw4w9WgXcQ**', 'Watch the [clip](https://youtu.be/dQw4w9WgXcQ) here', 'https://youtu.be/dQw4w9WgXcQ (two minutes)']) {
+  test('every bullet shape that drew a clip before migrates with the URL token, and keeps the author\'s words as the title', () => {
+    const cases = [['<https://youtu.be/dQw4w9WgXcQ>', ''], ['**https://youtu.be/dQw4w9WgXcQ**', ''], ['Watch the [clip](https://youtu.be/dQw4w9WgXcQ) here', 'Watch the clip here'], ['https://youtu.be/dQw4w9WgXcQ (two minutes)', '(two minutes)'], ['Our keynote: https://youtu.be/dQw4w9WgXcQ.', 'Our keynote:']];
+    for (const [b, title] of cases) {
       const r = migrateVideoBullets(`<!-- _class: video -->\n\n- ${b}\n`);
       assert.equal(r.changed, 1, b);
-      assert.match(r.source, /`@video\{"https:\/\/youtu\.be\/dQw4w9WgXcQ"\}`/, b);
+      assert.ok(r.source.includes(`\`@video{"https://youtu.be/dQw4w9WgXcQ"${title ? `, title="${title}"` : ''}}\``), `${b} -> ${r.source}`);
     }
   });
 
@@ -164,6 +165,49 @@ describe('what the checker found', () => {
     const r = migrateVideoBullets(src);
     assert.match(r.source, /```md\n- https:\/\/vimeo\.com\/1\n```/);
     assert.match(r.source, /`@video\{"https:\/\/vimeo\.com\/1084537"\}`/);
+  });
+});
+
+describe('what the second checker found', () => {
+  const { withVideoLinks } = require('../../../lib/plugins/video/shared/video-marp-export.js');
+  const REC = (u, extra = '') => `\`@video{"${u}"${extra}}\``;
+
+  test('Marp: a link destination cannot end early, so one record never adds a second link', () => {
+    const out = withVideoLinks(REC('https://www.tiktok.com/@u/video/1234567?x=)[Open](https://evil.example/'));
+    assert.doesNotMatch(out, /\)\[Open\]/);
+    assert.equal((out.match(/\]\(/g) || []).length, 1, out);
+  });
+
+  test('Marp: a title that is text in the engine stays text in the bundle', () => {
+    const out = withVideoLinks(REC('https://youtu.be/dQw4w9WgXcQ', ', title="<img src=x> *b* `c` <https://evil.example/>"'));
+    assert.doesNotMatch(out, /(?<!\\)</);
+    assert.match(out, /\\\*b\\\*/);
+    assert.match(out, /\\`c\\`/);
+  });
+
+  test('Marp: only where the engine draws the record — not off, not under text, not indented, not in any fence', () => {
+    const r = REC('https://youtu.be/dQw4w9WgXcQ');
+    assert.equal(withVideoLinks(r, { off: true }), r, 'plugin off: code, as the engine prints it');
+    assert.equal(withVideoLinks(`para\n${r}`), `para\n${r}`, 'a lazy continuation');
+    assert.equal(withVideoLinks(`    ${r}`), `    ${r}`, 'an indented code block');
+    assert.equal(withVideoLinks(`> \`\`\`\n> ${r}\n`), `> \`\`\`\n> ${r}\n`, 'a fence inside a quote');
+    assert.equal(withVideoLinks(`\`\`\`\n\`\`\`inner\n${r}\n\`\`\``), `\`\`\`\n\`\`\`inner\n${r}\n\`\`\``, 'an info string does not close a fence');
+    assert.match(withVideoLinks(`~~~\n\`\`\`\n${r}\n~~~\n${r}`), /~~~\n\[Watch on YouTube\]/, 'a tilde fence ends on a tilde fence');
+  });
+
+  test('video-not-alone: a record under ANY line of the same block is a lazy continuation and warns', () => {
+    for (const above of ['- An item', '> Quoted text', '1. Step', '*Note* intro', '1.5 million views', '  indented text', '| a |']) {
+      const n = lintText(deck(`${above}\n${REC('https://youtu.be/dQw4w9WgXcQ')}`)).filter((x) => x.rule === 'video-not-alone').length;
+      assert.equal(n, 1, above);
+    }
+    for (const above of ['## A heading', '<!-- a comment -->', '---']) {
+      assert.equal(lintText(deck(`${above}\n${REC('https://youtu.be/dQw4w9WgXcQ')}`)).filter((x) => x.rule === 'video-not-alone').length, 0, above);
+    }
+  });
+
+  test('the migration reads fences by character: a tilde fence around a backtick line does not hide the real bullet', () => {
+    const r = migrateVideoBullets('<!-- _class: video -->\n\n~~~\n```js\n~~~\n\n- https://youtu.be/dQw4w9WgXcQ\n');
+    assert.equal(r.changed, 1);
   });
 });
 

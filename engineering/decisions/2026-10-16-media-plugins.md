@@ -1020,8 +1020,16 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   `video` slide with no record is now a `video-bullet` error); `aria-label` hid the visible "Watch on" words (removed, which is what made the
   five decks identical to `main` apart from `data-lattice-*`); a list-item record left an empty list; Export-to-Marp printed the record as code
   (the bundle now rewrites a lone record to a plain Markdown link, `lib/plugins/video/shared/video-marp-export.js`; no poster, recorded in
-  `marp-fidelity.js`); `video-not-alone` disagreed with the renderer in both directions.
+  `marp-fidelity.js`); `video-not-alone` disagreed with the renderer in both directions (that fix was incomplete; see the next entry).
   **Still open:** `@video` on a slide that is not a `video` slide draws an unstyled figure (all the CSS is scoped to `section.video`); an
   `inline-code: literal` deck draws no video; the `idempotent` marker `class="video-card"` is a fragile string; the old bullet form was dropped,
   where §4.5 rule 4 had said to keep it working by reading bullet tokens: the owner chose the `@video` record over keeping the bullet when asked
   (2026-10-22), knowing it breaks old decks, so this note's rule 4 is superseded for `video`.
+- 2026-10-23: a second checker on the commits after the trio's (`81fb264..40a5fb1`) found, fixed here: the Marp export wrote the provider's
+  URL unescaped, so one record could add a link to any host through TikTok, Instagram or a channel URL (the destination is now
+  percent-encoded and the label escaped); it rewrote records the engine leaves as code (plugin off, under a line of text, indented, in a
+  fence inside a quote, after a fence line with an info string); `video-not-alone` missed a record under a list item, quote, table row or
+  indented line (any non-block-ending line above now warns); the autofix dropped the author's words around the address (they become
+  `title=`); the migrator's fence tracking ignored the fence character. One fence tracker (`fenceStep`, `lib/core/video-migrate.js`) now
+  serves the migrator and the Marp export. **Still open, low:** a CRLF file's autofix mixes line endings; the one-line fix can leave a
+  doubled blank line.
