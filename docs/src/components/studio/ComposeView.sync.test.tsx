@@ -368,4 +368,16 @@ describe('ComposeView: an outside change is shown, not applied twice', () => {
 		pmView.dispatch(pmView.state.tr.insertText('X', pmView.state.doc.content.size - 3));
 		expect(v.container.querySelector('.cs-flash-block')).toBeNull();
 	});
+
+	it('does not move the preview to slide 1 when it paints', () => {
+		const seen: number[] = [];
+		const deck = (t: string) => `## A\n\none\n\n---\n\n## B\n\ntwo\n\n---\n\n## C\n\n${t}`;
+		const v = render(<ComposeView source={deck('three')} onChange={() => {}} onCursorSlide={(i: number) => seen.push(i)} />);
+		const ref = theView();
+		ref.dispatch(ref.state.tr.setSelection(TextSelection.near(ref.state.doc.resolve(ref.state.doc.content.size - 2))));
+		seen.length = 0;
+		v.rerender(<ComposeView source={deck('three changed')} onChange={() => {}} onCursorSlide={(i: number) => seen.push(i)} />);
+		expect(v.container.querySelector('.cs-flash-span')).not.toBeNull();
+		expect(seen).toEqual([]);
+	});
 });

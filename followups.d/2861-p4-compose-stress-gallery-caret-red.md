@@ -1,6 +1,6 @@
 ---
 origin: 2861
-priority: P2
+priority: P4
 recorded: 2026-10-23
 area: website
 severity: medium

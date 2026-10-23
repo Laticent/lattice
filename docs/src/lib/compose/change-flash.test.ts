@@ -44,4 +44,9 @@ describe('diffFlash', () => {
 		const many = (tag: string) => Array.from({ length: FLASH_MAX_BLOCKS + 2 }, (_, i) => `Line ${i} ${tag}.`).join('\n\n');
 		expect(diffFlash(deckToDoc(many('a')), deckToDoc(many('b')))).toBeNull();
 	});
+
+	it('paints nothing when slides only swapped places', () => {
+		const deck = (x: string, y: string) => `## ${x}\n\nbody ${x}\n\n---\n\n## ${y}\n\nbody ${y}\n\n---\n\n## Three\n\nbody three`;
+		expect(diffFlash(deckToDoc(deck('One', 'Two')), deckToDoc(deck('Two', 'One')))).toBeNull();
+	});
 });

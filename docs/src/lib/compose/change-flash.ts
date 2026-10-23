@@ -70,12 +70,19 @@ export function diffFlash(prev: PMNode, next: PMNode): FlashSpec | null {
 		else spec.gaps.push(from);
 	};
 	if (a.length === b.length) {
+		const was: string[] = [];
+		const now: string[] = [];
 		for (let i = 0; i < b.length; i++) {
 			const nb = b[i] as Block;
 			const ob = a[i] as Block;
-			if (!nb.node.eq(ob.node)) mark(nb, ob);
+			if (nb.node.eq(ob.node)) continue;
+			mark(nb, ob);
+			was.push(ob.node.textContent);
+			now.push(nb.node.textContent);
 			if (spec.blocks.length > FLASH_MAX_BLOCKS) return null;
 		}
+		// The same lines in another order is a move (a slide dragged in the rail), not an edit: nothing was written.
+		if (was.slice().sort().join('\n') === now.slice().sort().join('\n')) return null;
 	} else {
 		// A line was added or removed: every line after it shifts, so lines cannot be paired by position. Lines that are equal at the start and at the
 		// end are the same lines; what sits between them changed. Words are pointed out only when one line replaced one line.

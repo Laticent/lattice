@@ -1908,6 +1908,8 @@ function offscreenChip(view: EditorView, spec: FlashSpec): { dir: 'above' | 'bel
 		const el = view.nodeDOM(b.from);
 		if (!(el instanceof Element)) return null;
 		const r = el.getBoundingClientRect();
+		// A line on a folded slide draws nothing and cannot be scrolled to.
+		if (r.width === 0 && r.height === 0) continue;
 		if (r.bottom > box.top && r.top < box.bottom) return null;
 		if (r.bottom <= box.top) {
 			above++;
@@ -2528,6 +2530,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// through and `dispatchTransaction`'s emit branch stays untouched (next.doc === prevDoc).
 			view.dispatch(view.state.tr.setMeta(collapseKey, { restore: folded }));
 		}
+		setFlashChip(null);
 		// Show what the outside change changed. A doc-less transaction, so nothing is emitted and nothing enters the undo history.
 		try {
 			const spec = diffFlash(before, view.state.doc);
@@ -2543,6 +2546,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
 	React.useEffect(() => {
 		if (!hostRef.current) return;
+		setFlashChip(null);
 		setFailed(false); // D3: a prior deck's parse failure must not stick to this one.
 		let view: EditorView;
 		// Apply an outside change that arrived while the editor, or a note field in it, had the caret.
@@ -2624,7 +2628,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// real crossing still edge-fires.
 					const { $from } = next.selection;
 					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
-					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore;
+					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore || tr.getMeta(flashKey) !== undefined;
 					const blockText = $from.parent.textContent;
 					if (!isRestore && blockText !== lastCursorTextRef.current) {
 						lastCursorTextRef.current = blockText;
@@ -2699,6 +2703,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 				} finally {
 					retiringRef.current = null;
 					lastEmittedRef.current = emitted;
+					setSelBar(null);
 				}
 			}
 			view.destroy();
