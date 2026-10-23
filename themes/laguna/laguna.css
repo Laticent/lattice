@@ -295,12 +295,12 @@
    * Light side = the audited pigment (drives border at full strength + a
    * 24% tint for the fill); dark side = same hue lifted toward white 30%
    * in OKLab so it stays vivid on the deep-sea (#04181B) canvas. */
-  --chart-cat1: light-dark(#006067, #76AAAE);  /* teal        */
-  --chart-cat2: light-dark(#831A5A, #DA8CB4);  /* berry       */
+  --chart-cat1: light-dark(#005D76, #76AAAE);  /* teal        */
+  --chart-cat2: light-dark(#831A5A, #DB90BC);  /* berry       */
   --chart-cat3: light-dark(#625800, #A9A36F);  /* bronze      */
   --chart-cat4: light-dark(#3A417F, #98A1D3);  /* slate-blue  */
-  --chart-cat5: light-dark(#00652A, #73AF7F);  /* seafoam     */
-  --chart-cat6: light-dark(#982B2B, #E18E87);  /* rust        */
+  --chart-cat5: light-dark(#175400, #A4B151);  /* seafoam     */
+  --chart-cat6: light-dark(#982B2B, #DF9685);  /* rust        */
   --chart-cat7: light-dark(#42407D, #9C9DCE);  /* indigo      */
   --chart-cat8: light-dark(#803877, #C790BE);  /* plum        */
 
@@ -310,12 +310,12 @@
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
-  --chart-cat1-ink: light-dark(#006067, #76AAAE);
-  --chart-cat2-ink: light-dark(#831A5A, #DA8CB4);
+  --chart-cat1-ink: light-dark(#005D76, #76AAAE);
+  --chart-cat2-ink: light-dark(#831A5A, #DB90BC);
   --chart-cat3-ink: light-dark(#625800, #A9A36F);
   --chart-cat4-ink: light-dark(#3A417F, #98A1D3);
-  --chart-cat5-ink: light-dark(#00652A, #73AF7F);
-  --chart-cat6-ink: light-dark(#982B2B, #E18E87);
+  --chart-cat5-ink: light-dark(#175400, #A4B151);
+  --chart-cat6-ink: light-dark(#982B2B, #DF9685);
   --chart-cat7-ink: light-dark(#42407D, #9C9DCE);
   --chart-cat8-ink: light-dark(#803877, #C790BE);
   /* ── end chart categorical ink ── */
@@ -333,13 +333,13 @@
   --heatmap-step1: 18%;
   --heatmap-step1-ink: light-dark(#3C5357, #A9B7B9);
   --heatmap-step2: 36.5%;
-  --heatmap-step2-ink: light-dark(#2A4145, #B5C3C5);
+  --heatmap-step2-ink: light-dark(#294145, #B5C3C5);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#142B2F, #DAE8EA);
+  --heatmap-step3-ink: light-dark(#142B2E, #DAE8EA);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#000305, #061012);
+  --heatmap-step4-ink: light-dark(#000203, #061012);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#C8E4E8, #232E30);
+  --heatmap-step5-ink: light-dark(#C6E2E6, #232E30);
   /* ── end heatmap ramp ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
@@ -347,7 +347,7 @@
    * status trio so a gantt at-risk bar matches a --warn chip; info is a
    * deeper indigo-blue (nudged away from the coastal teal of cat1 so the
    * two remain distinct); mute derives from --text-muted's warm-sand gray. */
-  --info: light-dark(#2B528A, #93B0F4); /* indigo-blue    */
+  --info: light-dark(#0F56A5, #85BBFF); /* indigo-blue    */
   --mute: light-dark(#455457, #AFBBCB); /* sand gray      */
   --on-solid: light-dark(#FFFFFF, #04181B);
   --chart-neutral: light-dark(#4D5A5C, #99A6AA);

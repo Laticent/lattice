@@ -295,12 +295,12 @@
    * Light side = the audited pigment (drives border + 24%-tint fill);
    * dark side = same hue lifted toward white (color-mix in oklab, white 30%)
    * so it stays vivid on the deep-graphite canvas. */
-  --chart-cat1: light-dark(#1F5F6B, #80A9B2);  /* slate-blue  */
-  --chart-cat2: light-dark(#782E52, #CC91AA);  /* rose        */
-  --chart-cat3: light-dark(#57591E, #A0A47B);  /* moss        */
+  --chart-cat1: light-dark(#245C77, #80A9B2);  /* slate-blue  */
+  --chart-cat2: light-dark(#782E52, #D297B2);  /* rose        */
+  --chart-cat3: light-dark(#5A581C, #A1A47A);  /* moss        */
   --chart-cat4: light-dark(#3E457C, #969EC9);  /* indigo      */
-  --chart-cat5: light-dark(#006342, #73AD90);  /* teal        */
-  --chart-cat6: light-dark(#884247, #CB9395);  /* sienna      */
+  --chart-cat5: light-dark(#1F5600, #54BCC8);  /* teal        */
+  --chart-cat6: light-dark(#884247, #CB9994);  /* sienna      */
   --chart-cat7: light-dark(#504575, #A49DC4);  /* violet      */
   --chart-cat8: light-dark(#754366, #BE96B0);  /* plum        */
 
@@ -310,12 +310,12 @@
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
-  --chart-cat1-ink: light-dark(#1F5F6B, #80A9B2);
-  --chart-cat2-ink: light-dark(#782E52, #CC91AA);
-  --chart-cat3-ink: light-dark(#57591E, #A0A47B);
+  --chart-cat1-ink: light-dark(#245C77, #80A9B2);
+  --chart-cat2-ink: light-dark(#782E52, #D297B2);
+  --chart-cat3-ink: light-dark(#5A581C, #A1A47A);
   --chart-cat4-ink: light-dark(#3E457C, #969EC9);
-  --chart-cat5-ink: light-dark(#006342, #73AD90);
-  --chart-cat6-ink: light-dark(#884247, #CB9395);
+  --chart-cat5-ink: light-dark(#1F5600, #54BCC8);
+  --chart-cat6-ink: light-dark(#884247, #CB9994);
   --chart-cat7-ink: light-dark(#504575, #A49DC4);
   --chart-cat8-ink: light-dark(#754366, #BE96B0);
   /* ── end chart categorical ink ── */
@@ -335,11 +335,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#353F4D, #B3C2D1);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#212A37, #D9E7F7);
+  --heatmap-step3-ink: light-dark(#202A36, #D9E7F7);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#020710, #06101A);
+  --heatmap-step4-ink: light-dark(#010610, #06101A);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#D4E1F2, #232F3A);
+  --heatmap-step5-ink: light-dark(#D2E0F0, #232F3A);
   /* ── end heatmap ramp ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
@@ -348,7 +348,7 @@
    * deeper steel-blue (nudged darker/more-saturated than cat1 #3C697C so it
    * stays clearly distinct on both canvases); mute uses a cool-steel taupe
    * derived from --text-muted. */
-  --info: light-dark(#1E5280, #78B4FE); /* deep steel    */
+  --info: light-dark(#00465D, #78B4FE); /* deep steel    */
   --mute: light-dark(#4D536A, #ABBCCC); /* cool-steel taupe */
   --on-solid: light-dark(#FFFFFF, #0C141C);
   --chart-neutral: light-dark(#4F5963, #93A2B4);

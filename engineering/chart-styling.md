@@ -138,6 +138,13 @@ made that call: the `a11y-*` palettes carry the floor, in both intensities, and 
 a label. `cvd-trio-floor.test.js` holds the a11y fills to their own condition's floor and the brand fills
 to their recorded separation (`test/fixtures/status-fill-cvd-baseline.json`).
 
+**A category is never a status color.** Every category solid stays 0.08 OKLab from every status fill, in
+both modes and both intensities, and `--info` stays that far from every category
+(`test/unit/palette/category-status-separation.test.js`). Where they collided, the smallest move that cleared
+the gap was taken: the category moved (hue first, then lightness inside the 7:1 band), except info against a
+brand blue, where info moved so the brand keeps its color. Apple's HIG: "Avoid using the same color to mean
+different things."
+
 **Status has two jobs** (`base.tokens.css` § STATUS, IN TWO JOBS). `--pass` … `--mute` are the status as INK on
 the slide (text, a rule, a mark's edge), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The
 light-face FILLS `--pass-solid` `--warn-solid` `--fail-solid` are a separate trio: a deep green and red under

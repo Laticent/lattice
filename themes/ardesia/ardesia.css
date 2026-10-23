@@ -298,9 +298,9 @@
    * toward white in OKLab so it stays legible on graphite canvas. */
   --chart-cat1: light-dark(#3B5B6F, #8BA3B3);  /* slate-blue    */
   --chart-cat2: light-dark(#6B4A4A, #B29797);  /* terracotta    */
-  --chart-cat3: light-dark(#5A5A3D, #BDBD9F);  /* olive         */
+  --chart-cat3: light-dark(#3C4940, #BDBD9F);  /* olive         */
   --chart-cat4: light-dark(#4D4C6A, #B4B4D0);  /* periwinkle    */
-  --chart-cat5: light-dark(#355F62, #85A3A5);  /* slate-teal    */
+  --chart-cat5: light-dark(#1D5463, #85A3A5);  /* slate-teal    */
   --chart-cat6: light-dark(#715143, #B2988D);  /* warm-brown    */
   --chart-cat7: light-dark(#5C4F69, #A59BB0);  /* muted-violet  */
   --chart-cat8: light-dark(#694F5C, #AD98A2);  /* dusty-rose    */
@@ -313,9 +313,9 @@
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
   --chart-cat1-ink: light-dark(#3B5B6F, #8BA3B3);
   --chart-cat2-ink: light-dark(#6B4A4A, #B29797);
-  --chart-cat3-ink: light-dark(#5A5A3D, #BDBD9F);
+  --chart-cat3-ink: light-dark(#3C4940, #BDBD9F);
   --chart-cat4-ink: light-dark(#4D4C6A, #B4B4D0);
-  --chart-cat5-ink: light-dark(#355F62, #85A3A5);
+  --chart-cat5-ink: light-dark(#1D5463, #85A3A5);
   --chart-cat6-ink: light-dark(#715143, #B2988D);
   --chart-cat7-ink: light-dark(#5C4F69, #A59BB0);
   --chart-cat8-ink: light-dark(#694F5C, #AD98A2);
@@ -348,7 +348,7 @@
    * inherited status trio so a gantt at-risk bar matches a --warn chip; info
    * takes a deeper, more saturated slate-blue clearly distinct from cat1
    * (#4B5C6C); mute derives from --text-muted's warm neutral. */
-  --info: light-dark(#2A5685, #8BB8E8); /* deep slate-blue  */
+  --info: light-dark(#125498, #7DB9F7); /* deep slate-blue  */
   --mute: light-dark(#5E5243, #C0B29C); /* warm taupe       */
   --on-solid: light-dark(#FFFFFF, #0F0F0F);
   --chart-neutral: light-dark(#565653, #9F9F9C);

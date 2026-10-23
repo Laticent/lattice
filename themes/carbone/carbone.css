@@ -419,9 +419,9 @@
   /* Categorical spectrum — carbone's own vivid dark-canvas pigments, most-
    * distinct-first, anchored to the electric-green identity. All clear ≥3:1
    * on --bg #1A1A1C. */
-  --chart-cat1: light-dark(#00672C, #5BC878);  /* electric green -- brand anchor   4.83 / 8.26 */
+  --chart-cat1: light-dark(#114D1B, #10D6A8);  /* electric green -- brand anchor   4.83 / 8.26 */
   --chart-cat2: light-dark(#0E50BE, #71A5FF);  /* bright blue    -- cool complement 4.74 / 5.37 */
-  --chart-cat3: light-dark(#973A00, #FE854D);  /* vivid orange   -- warm opposite   4.77 / 6.18 */
+  --chart-cat3: light-dark(#973A00, #E69400);  /* vivid orange   -- warm opposite   4.77 / 6.18 */
   --chart-cat4: light-dark(#603EC2, #A99BFF);  /* vivid indigo                      4.63 / 4.66 */
   --chart-cat5: light-dark(#00606E, #3BC8E0);  /* vivid cyan                        4.76 / 8.71 */
   --chart-cat6: light-dark(#A91956, #FF7AA3);  /* vivid magenta                     4.67 / 5.18 */
@@ -434,9 +434,9 @@
    * surfaces. Read via --chart-cat-N-ink in the chart family, which falls back to
    * its own derivation for a palette with no chart cycle. Do not hand-edit: re-run
    * the generator after re-hueing a seed. Gated by `derive-chart-cat-ink.js --check` (inside build:check). */
-  --chart-cat1-ink: light-dark(#00672C, #5BC878);
+  --chart-cat1-ink: light-dark(#114D1B, #10D6A8);
   --chart-cat2-ink: light-dark(#0E50BE, #71A5FF);
-  --chart-cat3-ink: light-dark(#973A00, #FE854D);
+  --chart-cat3-ink: light-dark(#973A00, #E69400);
   --chart-cat4-ink: light-dark(#603EC2, #A99BFF);
   --chart-cat5-ink: light-dark(#00606E, #3BC8E0);
   --chart-cat6-ink: light-dark(#A91956, #FF7AA3);
@@ -458,12 +458,12 @@
   --heatmap-step1-ink: light-dark(#2D3033, #DCDCD7);
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#2D3033, #DCDCD7);
-  --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#292B2E, #F8F8F2);
+  --heatmap-step3: 54%;
+  --heatmap-step3-ink: light-dark(#1D1F22, #FFFFFD);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#080A0D, #23221F);
+  --heatmap-step4-ink: light-dark(#EAEEF2, #2A2926);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#DFE3E6, #3B3B37);
+  --heatmap-step5-ink: light-dark(#BEC2C5, #43423E);
   /* ── end heatmap ramp ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,
@@ -482,7 +482,7 @@
    * the pair with the best WORST case over normal vision and all three simulated
    * CVD axes, with pass/info/mute held: light 0.026 -> 0.075, dark 0.055 -> 0.103;
    * normal vision 0.077 -> 0.126 light, 0.094 -> 0.129 dark. Pass is untouched. */
-  --info: light-dark(#00568F, #5FB3FE);   /* vivid sky-blue -- mark, >=3:1 on both faces */
+  --info: light-dark(#134E8B, #89C1FF);   /* vivid sky-blue -- mark, >=3:1 on both faces */
   --mute: light-dark(#4F5459, #A8AEB5);   /* cool mid-gray  -- mark, >=3:1 on both faces */
   --on-solid: light-dark(#FFFFFF, #1A1A1C);
   --chart-neutral: light-dark(#545658, #A2A7B0);
