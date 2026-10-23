@@ -258,8 +258,13 @@ one. Change one byte of the script and Lattice asks again. A deck that uses an
 unapproved package does not render: Lattice stops, names the package and prints
 the command that approves it.
 
-**In the Studio**, import the zip in the Library. A slide that uses an unapproved
-package shows Lattice's own drawing with a note. A notice above the preview shows
+**In the Studio**, import the zip in the Library (the upload button, or drop it on the
+panel). A plugin lands under the Library's **Plugins** pill, where each one shows
+what it draws, whether this browser has approved it, and whether the open deck lists
+it; Remove is there too. Plugins are never selectable or shareable from the Library,
+because their code stays in this browser. A deck uses one only when its front matter
+lists it (`plugins: [name]`), and Deck settings → Plugins writes that line. A slide
+that uses an unapproved package shows Lattice's own drawing with a note. A notice above the preview shows
 the code's size and SHA-256 and offers to run it. The approval is kept in that
 browser only, never in a deck or a file, so no file can approve itself.
 

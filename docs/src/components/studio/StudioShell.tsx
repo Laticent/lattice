@@ -49,7 +49,7 @@ import { slideFrameShadow } from '@/lib/slide-frame';
 import type { SparkFitReport } from '@/lib/spark-fit';
 import { type Breakpoint, hasFinePointer, readBreakpoint, readLandscapePhone, useBreakpoint, useLandscapePhone } from '@/lib/use-breakpoint';
 import { cn } from '@/lib/utils';
-import { setExternalPlugins } from '@/playground/editor-diagnostics.js';
+import { externalPluginsVersion, setExternalPlugins, subscribeExternalPlugins } from '@/playground/editor-diagnostics.js';
 import { applyReadAloudDebugParam } from '@/playground/readaloud-overlay-prefs';
 import { onToursEnabledChange, toursEnabled } from '@/playground/tour-prefs.js';
 import { collageDragged } from '../../../../lib/core/collage-tap.mjs';
@@ -3553,10 +3553,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Recompute the deck-wide findings list whenever the source (or the known-name
 	// set) changes — only when inline validation is on, mirroring the editor. The
 	// lazy lint bundle loads once; a stale async result is dropped on unmount/change.
+	// The zip plugins' names, which the assessment's lint reads from a shared array: re-assess when they change.
+	const lintPluginsVersion = React.useSyncExternalStore(subscribeExternalPlugins, externalPluginsVersion, externalPluginsVersion);
 	// Debounced 400ms (matching the autosave effect above) — the full lint-core
 	// pass runs the SAME deterministic scan CodeMirror's own linter already does
 	// (Editor.tsx, debounced 750ms by @codemirror/lint's default), so an
 	// undebounced copy here duplicated that work on every keystroke.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `lintPluginsVersion` is read by the lint through a shared array, not by this body: it is the signal to re-assess.
 	React.useEffect(() => {
 		let live = true;
 		setAssessing(true);
@@ -3577,7 +3580,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			live = false;
 			clearTimeout(id);
 		};
-	}, [source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes]);
+	}, [source, lintVocab, components, lintLocalNames, savedFinishLintNames, profileOverride, editorPalettes, lintPluginsVersion]);
 	// Mermaid's own verdict on this deck's diagrams, for the chat's grounding — the answer
 	// to the question the Architect used to fabricate. Keyed on the DIAGRAM TEXT rather
 	// than the source, so editing prose around a diagram doesn't re-parse it; a deck with

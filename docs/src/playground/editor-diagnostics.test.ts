@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
 import { packVocabNames, withUnpackedNames } from '../components/studio/lint-vocab-names';
-import { buildVocabSets, chunkStartLines, findingsToDiagnostics } from './editor-diagnostics.js';
+import { buildVocabSets, chunkStartLines, externalPluginsVersion, findingsToDiagnostics, setExternalPlugins, subscribeExternalPlugins } from './editor-diagnostics.js';
 
 const require = createRequire(import.meta.url);
 
@@ -260,5 +260,36 @@ describe('findingsToDiagnostics', () => {
 	it('maps an unknown severity to info', () => {
 		const [diag] = findingsToDiagnostics(d, [{ slide: 1, rule: 'r', severity: 'suggestion', message: 'm' } as never]);
 		expect(diag.severity).toBe('info');
+	});
+});
+
+describe('the shared plugin vocabulary has a version (importing a plugin must re-lint)', () => {
+	it('moves, and tells subscribers, only when the plugins a lint could name change', () => {
+		setExternalPlugins([]);
+		const before = externalPluginsVersion();
+		let heard = 0;
+		const off = subscribeExternalPlugins(() => { heard++; });
+		setExternalPlugins(['gantt-plugin'], ['gantt'], [[]]);
+		expect(externalPluginsVersion()).toBe(before + 1);
+		expect(heard).toBe(1);
+		// The shell calls this on every plugin read: the same list is not news, or a re-lint would loop.
+		setExternalPlugins(['gantt-plugin'], ['gantt'], [[]]);
+		expect(externalPluginsVersion()).toBe(before + 1);
+		expect(heard).toBe(1);
+		// A plugin that gains an inline kind IS news: `@kind{…}` stops being unknown.
+		setExternalPlugins(['gantt-plugin'], ['gantt'], [['chip']]);
+		expect(heard).toBe(2);
+		off();
+		setExternalPlugins([]);
+		expect(heard).toBe(2);
+	});
+
+	it('hands the lint the names it was just given, by the same reference it built its vocabulary from', () => {
+		setExternalPlugins(['a-plug']);
+		const sets = buildVocabSets({});
+		expect(sets.externalPlugins).toEqual(['a-plug']);
+		setExternalPlugins(['a-plug', 'b-plug']);
+		expect(sets.externalPlugins).toEqual(['a-plug', 'b-plug']);
+		setExternalPlugins([]);
 	});
 });

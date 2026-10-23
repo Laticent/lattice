@@ -12,6 +12,8 @@ import type { StudioPluginKind } from '@/lib/code-packages/door';
 /** A saved zip plugin as the Studio uses it. */
 export type StudioPluginRecord = {
 	id: string;
+	/** When it was saved (the store stamps it), so the Library can sort it among the other assets. */
+	addedAt?: number;
 	name: string; // lowercase slug: the name a deck writes in `plugins:`
 	fence: string; // the one fence it owns (```fence), or '' for a plugin of inline kinds only
 	code: string; // its `render.js`, as text
@@ -29,7 +31,7 @@ export type StudioPluginRecord = {
 
 type PluginAssetRecord = { id: string; kind: 'plugin'; name: string; fence?: string; text?: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown; addedAt?: number };
 
-const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.placeholder ? { placeholder: a.placeholder } : {}), ...(Array.isArray(a.kinds) && a.kinds.length ? { kinds: a.kinds } : {}), ...(a.returns !== undefined ? { returns: a.returns } : {}) });
+const toRecord = (a: PluginAssetRecord): StudioPluginRecord => ({ id: a.id, ...(typeof a.addedAt === 'number' ? { addedAt: a.addedAt } : {}), name: a.name, fence: a.fence ?? '', code: a.text ?? '', css: a.css ?? '', title: a.title ?? a.name, description: a.description ?? '', ...(a.placeholder ? { placeholder: a.placeholder } : {}), ...(Array.isArray(a.kinds) && a.kinds.length ? { kinds: a.kinds } : {}), ...(a.returns !== undefined ? { returns: a.returns } : {}) });
 
 /** Save a plugin; re-saving the same name replaces it in place (the store keys on kind + name, with a history snapshot). */
 export async function saveStudioPlugin(input: { name: string; fence: string; code: string; css?: string; title?: string; description?: string; placeholder?: { placement?: string; aspect?: string; size?: string }; kinds?: StudioPluginKind[]; returns?: unknown }, opts?: { historyLabel?: string }): Promise<StudioPluginRecord> {
