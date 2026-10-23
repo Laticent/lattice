@@ -1511,8 +1511,14 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			const tr = liftParent ? view.state.tr.delete($c.before($c.depth), $c.after($c.depth)) : view.state.tr.delete(at, at + n.nodeSize);
 			// The caret goes to where the note was: a click on a pill never moved the editor's selection, so refocusing without this puts
 			// the next keys at the old caret, which can be the top of the deck.
-			const caret = caretNear(tr.doc, tr.mapping.map(at));
+			// Not on a folded slide, whose text is hidden: keys typed there would edit words the author cannot see (Escape stays in the field
+			// for the same reason). The field is gone with the note, so focus leaves the editor.
+			const anchor = view.domAtPos(at).node;
+			const folded = Boolean((anchor instanceof Element ? anchor : anchor?.parentElement)?.closest('.cs-collapsed'));
+			const caret = folded ? null : caretNear(tr.doc, tr.mapping.map(at));
 			if (caret) tr.setSelection(caret);
+			// WebKit hands focus to the editor when the focused field leaves the page, with its caret in the hidden text, so focus leaves first.
+			if (folded && wrap.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
 			view.dispatch(tr.setMeta(commentOpenKey, { open: null }));
 			if (caret) view.focus();
 		});
@@ -1779,6 +1785,9 @@ export class CommentView {
 				// A TOGGLE, and a radio at the same time: clicking the open pill closes it, clicking any
 				// other pill moves the panel to that one. Selection-only transaction — no doc change —
 				// so the structural guard waves it through and nothing re-emits the deck source.
+				// Another note's words are written first: on a touch screen the tap may not blur the field, and once `openSeq` moves its panel
+				// writes nothing.
+				if (open !== null && open !== pos) this.view.dom.querySelector('.cs-comment-field')?.dispatchEvent(new CustomEvent('cs-note-commit', { detail: { dirty: false } }));
 				if (open !== pos) openSeq++;
 				this.view.dispatch(this.view.state.tr.setMeta(commentOpenKey, { open: open === pos ? null : pos }));
 			},
@@ -1797,7 +1806,7 @@ export class CommentView {
 		// The pill NAMES a channel; it does not read the note out. Putting the whole body in the
 		// accessible name made a screen reader announce the entire note as the button's label and
 		// then again when the panel opened.
-		this.dom.setAttribute('aria-label', `show the ${KIND_LABEL[kind]} comment`);
+		this.dom.setAttribute('aria-label', `open the ${KIND_LABEL[kind]} comment`);
 		// `aria-expanded` and `aria-controls` are NOT set here. They are decoration attributes (see
 		// commentRunPlugin), because decorations are recomputed from state on every transaction while
 		// this view is only updated when its node or decorations change — which is how the old
@@ -2800,11 +2809,10 @@ function ComposeStyles() {
 			.cs-host .cs-comment-actions{display:flex;gap:6px;margin-top:8px}
 			.cs-host .cs-comment-field{display:block;box-sizing:border-box;width:100%;resize:vertical;padding:6px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-body,#16243b);font:inherit;line-height:1.45}
 			.cs-host .cs-comment-why{margin:6px 0 0;font-size:11.5px;color:var(--fail,#b3261e)}
-			.cs-host .cs-comment-edit,.cs-host .cs-comment-remove{margin-top:0;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
-			.cs-host .cs-comment-edit:hover:not(:disabled){color:var(--accent,#2f6fed);border-color:var(--accent,#2f6fed)}
+			.cs-host .cs-comment-remove{margin-top:0;padding:2px 8px;border:1px solid var(--border,#e4eaf2);border-radius:5px;background:var(--bg,#fff);color:var(--text-muted,#6b7f9a);font-family:var(--font-mono,ui-monospace,monospace);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
 			.cs-host .cs-comment-remove:hover:not(:disabled){color:var(--fail,#b3261e);border-color:var(--fail,#b3261e);background:color-mix(in oklab,var(--fail,#b3261e) 10%,var(--bg,#fff))}
 			/* A locked slide takes no edits, so the control says why instead of doing nothing. */
-			.cs-host .cs-comment-edit:disabled,.cs-host .cs-comment-remove:disabled{cursor:default;opacity:.7;text-transform:none;letter-spacing:.02em}
+			.cs-host .cs-comment-remove:disabled{cursor:default;opacity:.7;text-transform:none;letter-spacing:.02em}
 			.cs-host h1{font-family:inherit;font-size:1.95rem;font-weight:700;line-height:1.12;margin:.1em 0 .35em;color:var(--text-heading,#14243a);letter-spacing:-.01em}
 			.cs-host h2{font-family:inherit;font-size:1.45rem;font-weight:700;line-height:1.18;margin:.5em 0 .32em;color:var(--text-heading,#14243a);letter-spacing:-.005em}
 			.cs-host h3{font-family:inherit;font-size:1.15rem;font-weight:600;margin:.5em 0 .25em;color:var(--text-heading,#14243a)}
@@ -3022,7 +3030,7 @@ function ComposeStyles() {
 				.cs-host .cs-comment{min-height:28px;padding:2px 11px 2px 9px;font-size:10px}
 				.cs-host .cs-comment svg{width:13px;height:13px}
 				.cs-host .cs-comment-body{font-size:12px}
-				.cs-host .cs-comment-edit,.cs-host .cs-comment-remove{min-height:28px;font-size:10px}
+				.cs-host .cs-comment-remove{min-height:28px;font-size:10px}
 				/* the chip is a tap target here, not just a label */
 				.cs-code-chip{top:4px;right:5px;min-height:24px;padding:2px 10px;font-size:10px}
 				.cs-host pre.cs-code{padding-top:32px;font-size:13px}

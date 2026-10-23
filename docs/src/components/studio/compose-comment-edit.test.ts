@@ -138,6 +138,14 @@ describe('the note panel', () => {
 		expect(saved()).toContain('<!-- a\n    b -->');
 	});
 
+	it('tapping another note writes the open one first, even when the field never blurs', () => {
+		mount();
+		pills()[1].click();
+		(field() as HTMLTextAreaElement).value = 'typed, no blur';
+		pills()[0].click();
+		expect(saved()).toBe(DECK.replace('a plain note.', 'typed, no blur'));
+	});
+
 	it('writes when the author leaves the field', async () => {
 		mount();
 		pills()[1].click();
@@ -315,15 +323,16 @@ describe('a panel is built once per opening', () => {
 		expect(document.activeElement?.classList.contains('cs-comment-remove')).toBe(false);
 	});
 
-	it('a panel that was replaced by opening another note writes nothing', async () => {
+	it('a panel that was replaced by opening another note writes its words to its own note, once, and never into the new one', async () => {
 		mount();
 		pills()[1].click();
 		const stale = field() as HTMLTextAreaElement;
 		stale.value = 'words for the old panel';
 		pills()[0].click();
+		stale.value = 'later words';
 		stale.dispatchEvent(new FocusEvent('blur'));
 		await Promise.resolve();
-		expect(saved()).toBe(DECK);
+		expect(saved()).toBe(DECK.replace('a plain note.', 'words for the old panel'));
 	});
 
 	it('writes nothing, and throws nothing, when the editor is gone before the blur lands', async () => {

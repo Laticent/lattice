@@ -268,6 +268,17 @@ test.describe('notes and motion in Compose', () => {
 		expect(await savedDeck(page)).not.toContain('## Two');
 	});
 
+	test('@crosswidth @gecko @webkit-tablet Remove on a folded slide never sends the next keys into its hidden text', async ({ page }) => {
+		await openDeckInCompose(page, '<!-- folded note. -->\n\nHidden paragraph.\n\n---\n\n## B\n\nPara b.');
+		await page.getByRole('button', { name: /Collapse slide/ }).first().click();
+		await pill(page, /note/).click();
+		await page.getByRole('button', { name: 'Remove' }).click();
+		await page.keyboard.type('ZZ');
+		await expect.poll(() => savedDeck(page)).not.toContain('folded note.');
+		expect(await savedDeck(page)).toMatch(/^Hidden paragraph\./);
+		expect(await savedDeck(page)).not.toContain('ZZ');
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

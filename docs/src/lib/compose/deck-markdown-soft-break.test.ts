@@ -126,11 +126,20 @@ describe('soft break edge cases', () => {
 		const doc = proseSchema.node('doc', null, [proseSchema.node('paragraph', null, [proseSchema.text('a'), proseSchema.node('soft_break'), proseSchema.node('soft_break'), proseSchema.text('c')])]);
 		expect(serializeSlideProse(doc).trimEnd()).toBe('a\nc');
 	});
-	it('a hard break next to a soft break writes one hard break, never a blank line that splits the paragraph', () => {
+	it('a soft break after a hard break writes nothing, so there is never a blank line that splits the paragraph', () => {
 		const para = (...kids: string[]) => proseSchema.node('doc', null, [proseSchema.node('paragraph', null, kids.map((k) => (k === 'H' ? proseSchema.node('hard_break') : k === 'S' ? proseSchema.node('soft_break') : proseSchema.text(k))))]);
 		expect(serializeSlideProse(para('a', 'H', 'S', 'c')).trimEnd()).toBe('a\\\nc');
-		expect(serializeSlideProse(para('a', 'S', 'H', 'c')).trimEnd()).toBe('a\\\nc');
+		expect(serializeSlideProse(para('a', 'S', 'H', 'c')).trimEnd()).toBe('a\n\\\nc');
 		expect(serializeSlideProse(para('a', 'S', 'H')).trimEnd()).toBe('a');
+	});
+	it('an empty heading keeps its marker, and a setext heading with a hard break keeps the heading and the break', () => {
+		expect(rt('para\n\n## ')).toBe('para\n\n##');
+		expect(rt('# x\n\n## ')).toBe('# x\n\n##');
+		expect(rt('intro\n\na  \nb\n===\n\nafter')).toBe('intro\n\na\\\nb\n===\n\nafter');
+		expect(rt('Title\\\nline two\n---')).toBe('Title\\\nline two\n---');
+	});
+	it('a soft break before a line holding only a backslash keeps both breaks', () => {
+		expect(rt('a\n\\\nb')).toBe('a\n\\\nb');
 	});
 	it('two or three hard breaks in a row stay that many', () => {
 		expect(rt('a\\\n\\\nb')).toBe('a\\\n\\\nb');

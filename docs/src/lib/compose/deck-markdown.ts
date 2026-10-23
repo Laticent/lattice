@@ -185,7 +185,7 @@ export const proseSchema = new Schema({
 		// prosemirror-markdown's heading admits only `text | image`, so an inline object in a heading
 		// (`## A pill sizes itself `{LIVE, c2}``, which examples/inline-pills.md ships) was pushed out into a
 		// paragraph of its own on write. A heading takes the object too.
-		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math | soft_break)*' })
+		.update('heading', { ...(mdSchema.spec.nodes.get('heading') as NodeSpec), content: '(text | image | inline_object | inline_math | soft_break | hard_break)*' })
 		// A list made IN Compose (typing `- ` or the toolbar) starts TIGHT, the shape every Lattice
 		// deck writes. prosemirror-markdown's default is loose, so a list typed into a chart row's
 		// `>` description came back with a blank `>` line between its items (#2690). A list parsed
@@ -354,19 +354,16 @@ function lineStartEscape(text: string): { head: string; length: number } | null 
 
 const isBreak = (n: PMNode) => n.type.name === 'soft_break' || n.type.name === 'hard_break';
 
-/** A soft break writes a line break unless a break sits beside it: one after a break, or before a hard break, writes nothing, because that
- *  break already ends the line (writing both put a blank line in the paragraph, which splits it and, after a hard break, leaves a visible
- *  backslash). Soft breaks that end the block write nothing. */
+/** A soft break writes a line break unless a break sits just before it: that break already ended the line, and writing this one too put a
+ *  blank line in the paragraph, which splits it (after a hard break it also leaves a visible backslash). A soft break before a hard break
+ *  writes its line, which is what the source said (`a`, then a line holding only `\`). Breaks that end the block write nothing. */
 function writeSoftBreak(state: SerializerState, parent: PMNode, index: number) {
 	if (index > 0 && isBreak(parent.child(index - 1))) return;
-	for (let i = index + 1; i < parent.childCount; i++) {
-		const child = parent.child(i);
-		if (child.type.name === 'hard_break') return;
-		if (child.type.name !== 'soft_break') {
+	for (let i = index + 1; i < parent.childCount; i++)
+		if (!isBreak(parent.child(i))) {
 			state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\n');
 			return;
 		}
-	}
 }
 
 /** A hard break writes `\` and a line break, every one of them (two in a row are two `<br>`s), unless only breaks follow it to the end of the
@@ -374,7 +371,8 @@ function writeSoftBreak(state: SerializerState, parent: PMNode, index: number) {
 function writeHardBreak(state: SerializerState, parent: PMNode, index: number) {
 	for (let i = index + 1; i < parent.childCount; i++)
 		if (!isBreak(parent.child(i))) {
-			state.write('\\\n');
+			// An ATX heading is one line (only levels 1 and 2 have the two-line setext form), so the break writes a space there.
+			state.write(parent.type.name === 'heading' && !state.setext ? ' ' : '\\\n');
 			return;
 		}
 }
@@ -384,7 +382,7 @@ function setextLines(heading: PMNode): string[] {
 	const lines = [''];
 	let afterBreak = false;
 	heading.forEach((child) => {
-		if (child.type.name === 'soft_break') {
+		if (child.type.name === 'soft_break' || child.type.name === 'hard_break') {
 			if (!afterBreak) lines.push('');
 			afterBreak = true;
 		} else {
@@ -432,7 +430,7 @@ const latticeNodes = {
 	heading(state: SerializerState, node: PMNode) {
 		let hasBreak = false;
 		node.forEach((child) => {
-			if (child.type.name === 'soft_break') hasBreak = true;
+			if (child.type.name === 'soft_break' || child.type.name === 'hard_break') hasBreak = true;
 		});
 		// A heading that holds a line break is a setext heading (`a\nb\n===`): only levels 1 and 2 have that form, and only when every line is
 		// real text. A blank line would end the heading and a first line indented four spaces is code (a later one is a continuation), so those fall back to one ATX line.
@@ -449,8 +447,9 @@ const latticeNodes = {
 		}
 		state.write(`${state.repeat('#', node.attrs.level)} `);
 		state.renderInline(node, false);
-		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in.
-		state.out = state.out.replace(/(\s)(#+)(\s*)$/, '$1\\$2$3');
+		// A trailing run of `#` after a space reads as an ATX closing sequence and is dropped on the way back in. An empty heading has no
+		// words, and its only `#` run is its own marker, which must stay as written.
+		if (node.textContent.trim()) state.out = state.out.replace(/(\s)(#+)(\s*)$/, '$1\\$2$3');
 		state.closeBlock(node);
 	},
 	// The upstream rule, with every attribute kept on one line and a source that cannot end its destination early. For any
