@@ -279,6 +279,22 @@ test.describe('notes and motion in Compose', () => {
 		expect(await savedDeck(page)).not.toContain('ZZ');
 	});
 
+	test('@parity on a touch screen a note opens for reading, and a tap on its words starts writing', async ({ page }) => {
+		const touch = await page.evaluate(() => matchMedia('(pointer: coarse)').matches);
+		test.skip(!touch, 'the reading-first open is for touch screens; a mouse opens a note to write');
+		await openDeckInCompose(page, DECK);
+		await pill(page, /note/).tap();
+		const field = page.getByRole('textbox', { name: 'note text' });
+		await expect(field).toBeVisible();
+		await expect(field).not.toBeFocused();
+		await field.tap();
+		await expect(field).toBeFocused();
+		await field.press('End');
+		await field.pressSequentially(' more');
+		await field.blur();
+		await expect.poll(() => savedDeck(page)).toContain('a plain note. more');
+	});
+
 	test('the three channels draw three different icons', async ({ page }) => {
 		await openDeckInCompose(page, DECK.replace('<!-- a plain note. -->', '<!-- describe: a bar chart. -->\n\n<!-- a plain note. -->'));
 		const glyphs = await page.locator('.cs-host .cs-comment .cs-comment-glyph').evaluateAll((els) => els.map((e) => e.innerHTML));

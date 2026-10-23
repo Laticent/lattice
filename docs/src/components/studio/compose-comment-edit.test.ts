@@ -102,6 +102,20 @@ describe('the note panel', () => {
 		expect(saved()).toBe(DECK);
 	});
 
+	it('on a touch screen opens for reading: the field is not focused, so no keyboard rises until the author taps it', async () => {
+		const real = window.matchMedia;
+		window.matchMedia = ((q: string) => ({ matches: q.includes('coarse'), media: q, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+		try {
+			mount();
+			pills()[1].click();
+			await Promise.resolve();
+			expect(field()?.value).toBe('a plain note.');
+			expect(document.activeElement).not.toBe(field());
+		} finally {
+			window.matchMedia = real;
+		}
+	});
+
 	it('opens with the caret at the end of the words, where an author adds to a note', async () => {
 		mount();
 		pills()[1].click();

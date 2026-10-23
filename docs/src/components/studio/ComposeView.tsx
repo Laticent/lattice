@@ -1621,9 +1621,11 @@ function buildCommentPanel(view: EditorView, node: PMNode, pos: number, locked: 
 			else field.value = typed;
 		});
 		// Opening a note is the author choosing to write in it: the caret is in the field. The panel is built once per opening, so this
-		// never fires for a panel that is merely redrawn.
+		// never fires for a panel that is merely redrawn. On a touch screen a note opens for READING: focusing the field would raise the
+		// on-screen keyboard over half the slide on every tap, so the author taps the words to write (the owner's call, 2026-10-23).
+		const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 		queueMicrotask(() => {
-			if (!field.isConnected || !isCurrent()) return;
+			if (touch || !field.isConnected || !isCurrent()) return;
 			field.focus();
 			// The caret goes to the end, where an author adds to a note; a bare focus() leaves it at the start.
 			field.setSelectionRange(field.value.length, field.value.length);
