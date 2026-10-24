@@ -211,9 +211,8 @@ this protocol has to record the level, or it is measuring a coin flip.
     - `main`'s runtime, code-server: dead on first paint too, because there the strip and
       the hand-back land before a reader can point.
     - #2734's runtime: everything held on both hosts, first paint and after every edit.
-    The harness is the one above, plus a 25-line launcher extension (open the deck, open the
-    preview to the side, and apply an edit when a trigger file appears). None of it is
-    committed.
+    Rerun it with `tools/vscode-preview-probe.mjs` and its `mermaid-click` deck and probe
+    (below); `--runtime` with main's build reproduces the failures.
   - **The `bierner.markdown-mermaid` clue is not explained.** Installing it shifts what
     loads into the preview and when, which would change who wins the race, but that is a
     guess and was not tested.
@@ -222,8 +221,12 @@ this protocol has to record the level, or it is measuring a coin flip.
   comments in `lib/runtime/index.js` said otherwise; they are corrected. The
   guards were always safe either way.
 
-**HOW TO REPRODUCE IT — about forty minutes, and it needs no VS Code you do not
-already have access to.** Download the official Linux tarball
+**HOW TO REPRODUCE IT — run `tools/vscode-preview-probe.mjs`.** It is the harness below,
+committed: pinned VS Code desktop 1.142.0, code-server 4.141.0 and marp-vscode 3.6.1, a
+launcher extension (`tools/vscode-harness/launcher`), a seeded security level, a real
+pointer, N real edits, JSON and screenshots out. A probe is a small module
+(`tools/vscode-harness/probes/`); the tool's header has the usage. It is on-demand, not a
+CI job. The by-hand route it automates, for when the tool itself needs debugging: Download the official Linux tarball
 (`https://update.code.visualstudio.com/latest/linux-x64/stable`, ~354MB), extract,
 install the extension from **Open VSX** (`npm view @marp-team/marp-vscode` is a
 404 — it is a VSIX, never published to npm), then:
@@ -267,8 +270,17 @@ sign-in modal first, or it covers the preview. Opening the preview needs a comma
 - **Never `pkill -f` a pattern that your own shell command contains.** It kills the
   calling shell. Kill the process group of the `xvfb-run` you started instead.
 
-None of this is committed. Whether it should become a harness or a CI job is a
-CI-contract decision, not one to take on the way past.
+- **No dot-directory and no symlink in the workspace path.** With the workspace under
+  `~/.cache/…`, or reached through a symlinked directory, marp-vscode never registered the
+  workspace's `markdown.marp.themes`. The preview still rendered, without Lattice, and VS
+  Code's built-in Mermaid extension drew the diagrams with its OWN click handling, so a click
+  probe passed against the wrong renderer. The tool defaults to `~/lattice-vscode`, refuses
+  either kind of path, and fails any step where our runtime settled fewer fences than the
+  probe expects.
+
+**Committed 2026-10-16 as the on-demand tool above (the owner's call). It is not a CI job:**
+adding one is a separate CI-contract decision, and each fresh runner would download about
+470MB.
 
 ## `markdown.marp.html` / `html: true` is required or the runtime `<script>` tags print as TEXT
 
