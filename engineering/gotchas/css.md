@@ -932,3 +932,36 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   `test/unit/css/border-image-none-shorthand.test.js` fails on an all-default shorthand (or a
   five-longhand rule) in `lib/` or `themes/`. `tools/palette-slide-parity.js --bundled` measures a bundler's output
   against the CLI when a new minifier is suspected.
+
+## A CSS or HTML scanner calls a stylesheet clean, and the browser fetches a URL from it
+
+- **Symptom:** a web-reference gate (`remoteCssRefs`, `blockWebCss`, `blockWebImages`, the
+  code-package door's `cssRefTargets`) reports nothing, or rewrites nothing, and the page still
+  requests the URL. Found 2026-10-20 to 2026-10-23 in 30 spellings, all now in
+  `test/fixtures/web-ref-beacons.js`: a CSS string a form feed or a carriage return ends
+  (`"x<FF>}p{background:url(…)}"`), an escaped `u\72l(`, a URL in `image-set("…")` or
+  `@import "…"`, a `)` inside `url("…")`, `url&lpar;…` in a style attribute, `<p/style=…>` and
+  `<p title="x"style=…>`, `</style >`, a `<style>` never closed, and, inside `<svg>`, a `<style>`
+  whose `url(` is spelled with a character reference or split by a comment. Seven never
+  reached a scanner at all: an SVG paint attribute (`fill="url(…)"`, `mask`, `clip-path`,
+  `marker-start`), `<feImage href>`, and `background` on a table or a cell, which the sanitizer
+  keeps and `blockWebImages` read only on the five media tags.
+- **Cause:** each scanner was a regex or a hand loop that disagreed with the CSS or HTML
+  tokenizer at one point. CSS reads `\r`, `\f` and CRLF as newlines and decodes escapes before it
+  reads a function name; HTML decodes every named reference in an attribute, takes `/` (or
+  nothing, after a quote) as an attribute separator, and parses an SVG `<style>` as markup. Four
+  copies of the same CSS loop carried the same newline bug. The attribute rows are a third cause:
+  the rewrite read a fixed list of elements, where the browser fetches by attribute.
+- **Fix:** read CSS with `cssRefSpans` and HTML tags with `scanHtml` (lib/core/remote-ref.js),
+  one tokenizer each, and never with a regex. The regexes were also slow: their nested
+  quantifiers took 25-50 s on `'<style"'.repeat(1000)`, where the scanner is linear.
+  `scanHtml` follows the HTML tokenizer for tags, attributes, comments and raw text, and tracks
+  `<svg>`/`<math>`; where foreign content holds something it does not model (a `<style>` inside
+  `<svg>`, a tag that leaves foreign content), `blockWebImages` asks the page's `DOMParser`,
+  which no shipped deck needs. With `{ fonts: true }`, the host with no content-security policy
+  (the Reading view), `blockWebImages` reads every attribute: one that loads on render
+  (`RENDER_FETCH_ATTRS`) loses a refused address, and a paint attribute (`URL_PAINT_ATTRS`) is
+  rewritten as CSS, like `style`. A host with a policy leaves those to it, because `blocked` feeds
+  the policy and the "Load images" offer. `npm run test:integration` loads every
+  payload in Chromium, as written (each must fetch, or the probe cannot see) and rewritten (none
+  may). A new spelling goes in the fixture first.

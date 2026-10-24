@@ -6226,6 +6226,15 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
   },
   {
+    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 1,
+    why: 'ONE ABSENCE ASSERTION on a loopback server\'s request log: the Studio\'s Reading view, with '
+       + 'nothing allowed, must fetch NONE of the deck\'s web references (HARD RULE #22). There is no signal '
+       + 'for a request that must not happen; a poll of the empty log goes green on its first tick. 3000ms '
+       + 'covers the article\'s projection, its two blockWebImages passes and any fetch it would wrongly '
+       + 'start; the same test\'s CONTROL arm (after "Load images", the server sees the control image) '
+       + 'proves the log can see a fetch.',
+  },
+  {
     file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
     why: 'TWO ABSENCE ASSERTIONS on a loopback server\'s request log: a player file opened with a declared '
        + 'consent origin must fetch NOTHING before the reader presses "Load pictures", and nothing at all '
