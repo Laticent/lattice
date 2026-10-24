@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone, and how loud its status colors are: muted or vivid | `pigment muted` |
+| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -842,7 +842,9 @@ chart-finish: tone
 ```
 
 **Intensity: `muted` or `vivid`.** A second word sets how loud the status colors (done, at
-risk, blocked) are, under any finish. Write the two words in either order.
+risk, blocked) are, under any finish, and not only in charts: every status mark on the slide
+takes it, so a checklist disc, a verdict badge, a kpi status pill or a policy badge matches
+the chart beside it. Write the two words in either order.
 
 | Second word | Token | Light slide | Dark slide |
 |---|---|---|---|

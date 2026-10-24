@@ -67,7 +67,7 @@ describe('chart palette — curated theme assessment', () => {
   const BASE_TOKENS = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.tokens.css'), 'utf8');
   const STATE_HUE = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((k) => [`state-${k}-hue`, `var(--${k}-solid)`]));
   test('the base points every status at its muted solid on the slide', () => {
-    const block = BASE_TOKENS.match(/:root, section \{\n {2}--state-pass-hue[^}]*\}/);
+    const block = BASE_TOKENS.match(/:root, section:not\(section section\) \{\n {2}--state-pass-hue[^}]*\}/);
     assert.ok(block, 'base.tokens.css declares the status fill pointer on :root, section');
     for (const [k, v] of Object.entries(STATE_HUE)) assert.ok(block[0].includes(`--${k}: ${v};`), `--${k}: ${v}`);
   });

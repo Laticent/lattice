@@ -184,6 +184,9 @@ const SHARED_SELECTORS = new Set([]);
 // that every root modifier is a declared variant.
 const VARIANT_DECL_IGNORE = new Map([
   ['kpi', new Set(['briefing'])],            // bare default appearance, documented as such
+  // `heat` is the state-markers FAMILY modifier (base.modifiers.css § heat, base.docs.md), documented once there for
+  // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
+  ['checklist', new Set(['heat'])],
   // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
   // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.

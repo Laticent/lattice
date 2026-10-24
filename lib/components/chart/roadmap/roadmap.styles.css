@@ -433,17 +433,16 @@
   font-weight:600;
   letter-spacing:0.10em;
   text-transform:uppercase;
-  color:var(--state-ink, var(--text-muted));
+  color:var(--text-heading);
   padding-bottom:2px; /* sanctioned: hairline-scale label spacing (was margin-bottom, kept in-box) */
   line-height:1.2;
 }
 
-/* `color:` above reads --state-ink, the status as TEXT: the slide ink `--pass` … `--fail`,
- * which clears 4.5:1 off the slide (chart-solids.test.js), not the solid --state-color
- * fill, which is graphical (3:1) and paints the discs
- * (engineering/decisions/2026-10-24-status-is-one-system.md). The neutral states set
- * --state-ink to --muted-mark, which is graphical too, so for them the repair is here, at
- * the read: the label alone takes the 4.5 text tier. Scoped per state, so it also wins against `section.heat`, which re-points
+/* `color:` above is NEUTRAL text, not the status ink: the label sits on the cell's status GROUND (`--X-bg`, a 10% tint
+ * of the ink), and the ink on a tint of itself misses 4.5:1 (amber on amber, 4.31 on carbone light), while the solid is
+ * a mid-tone on the dark face. The label IS the status word, so the cell's ground, ribbon and corner disc carry the
+ * color and the word reads in --text-heading (engineering/decisions/2026-10-24-status-is-one-system.md: text on a
+ * status ground is neutral text). The neutral states below keep their --text-muted override. Scoped per state, so it also wins against `section.heat`, which re-points
  * --state-color later in the bundle at equal specificity and re-broke an earlier version
  * of this fix (#1715).
  *

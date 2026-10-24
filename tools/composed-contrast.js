@@ -139,6 +139,8 @@ const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styl
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
 const CHARTFAMILY = 'lib/plugins/chart-family/chart-family.styles.css';
 const BASETOKENS = 'lib/base/base.tokens.css';
+const ROADMAP = 'lib/components/chart/roadmap/roadmap.styles.css';
+const REGUPDATE = 'lib/components/legal/regulatory-update/regulatory-update.styles.css';
 const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
 const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
 const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.layout.js';
@@ -421,11 +423,11 @@ const SURFACES = [
   // the trio collapses under achromatopsia (0.1174 to 0.034 when last measured).
   ...[
     ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill on the --bg-alt tile',
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\);[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block;[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
     ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on the accent-soft hero tile',
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)/],
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
     ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on the accent-soft hero tile',
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\);[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block;[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
   ].flatMap(([slug, state, tile, ctx, pin]) => {
     const shared = [
       pin,
@@ -497,12 +499,38 @@ const SURFACES = [
     base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: `--${state}`, min: 3,
     src: CHECKLIST,
     requires: [
-      new RegExp(`--state-color:var\\(--state-${state}-hue\\); --state-ink:var\\(--${state}\\);[\\s\\S]{0,200}background:var\\(--${state}-bg`),
-      /border-left-color:var\(--state-ink\)/,
+      // One anchored pin per state: the role line, the rail and the ground of THIS row's rule, in order and inside one
+      // block, so a single row's rail re-pointed at the solid reddens its own surface (an unanchored rail pin let one
+      // state's edit pass on the other two rows' match; a checker caught it by mutation).
+      new RegExp(`li\\.state\\.${state} \\{\\s*--state-color:var\\(--state-${state}-hue\\); --state-ink:var\\(--${state}\\);[^}]*border-left-color:var\\(--state-ink\\);[^}]*background:var\\(--${state}-bg`),
       /0 0 0 var\(--state-ring-outer-w\) color-mix\(in srgb, var\(--state-ink\) var\(--state-ring-mix\), black\)/,
       [BASETOKENS, /--state-ring-outer-w: var\(--state-signal-w\);/],
       [BASETOKENS, /--state-ring-mix: 100%;/],
     ],
+  })),
+  // ── roadmap .status · the cell's label and rail on its status ground ──────
+  // A heavy `status` cell paints its left ribbon as a status LINE (the slide ink) and its state label as NEUTRAL text,
+  // both on the cell's status GROUND (the theme's --X-bg) over the canvas
+  // (engineering/decisions/2026-10-24-status-is-one-system.md). The label is small caps, so it owes the text bar; the
+  // ink on a tint of itself missed it on twelve palette-modes, so the label is neutral and the ground carries the color.
+  ...[['shipped', 'pass'], ['wip', 'warn'], ['missed', 'fail']].map(([cell, state]) => ({
+    id: `roadmap/${cell}-cell-label`,
+    ctx: `roadmap.status: the ${cell} cell's label (neutral text) on its --${state}-bg ground`,
+    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: '--text-heading', min: 4.5,
+    src: ROADMAP,
+    requires: [
+      new RegExp(`td\\.cell-state\\.state-${cell},[^{]*\\{[^}]*--state-ink:var\\(--${state}\\);[^}]*--cell-state-bg:var\\(--${state}-bg\\);`),
+      /background:var\(--cell-state-bg, transparent\);\s*border-left:var\(--chart-fill-accent\) solid var\(--state-ink\);/,
+      /\.cell-state-label \{[^}]*color:var\(--text-heading\);/,
+    ],
+  })),
+  // ── regulatory-update .priority · the tier label on its status solid ─────
+  ...[[1, 'fail'], [2, 'warn'], [3, 'pass']].map(([tier, state]) => ({
+    id: `regulatory-update/tier-${tier}`,
+    ctx: `regulatory-update.priority: TIER ${tier} in the one ink on the --${state}-solid pill`,
+    base: '--bg', groups: [{ bg: `var(--${state}-solid)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+    src: REGUPDATE,
+    requires: [new RegExp(`li:nth-child\\(${tier}\\)::before \\{ background:var\\(--state-${state}-hue\\); color:var\\(--on-solid\\);`)],
   })),
   // ── obligation-matrix .heat · body ink on the cell's status ground ───────
   // NB the component maps the pass CELL to the fail ground and vice versa on purpose (a heat map reads "hot =

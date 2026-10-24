@@ -157,8 +157,10 @@ The contract, held for every palette in both modes and both intensities by
 
 **Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-solid`, the
 default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
-`--X-solid-vivid`, which `chart-family.styles.css` swaps in under `.chart-finish-vivid`: every status rich, done an
-emerald, for a deck that celebrates its wins. Both keep white text, and the rings and edges are shared.
+`--X-solid-vivid`, which `base.tokens.css` swaps in under `.chart-finish-vivid` (§ THE STATUS FILL ON THIS SLIDE):
+every status rich, done an emerald, for a deck that celebrates its wins. Both keep white text, and the rings are
+shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
+the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
 
 **Each theme's status set is its own.** The hues are the theme's own status inks (`--pass` …), each held to its band
 (`HUE_BAND` in `lib/theme/chart-solids.js`): warn a burnt orange (an amber deep enough for white text turns brown),

@@ -1235,8 +1235,7 @@
    * what a gantt bar wears too, and it is load-bearing on a TINTED row: on a
    * dark slide a fill deep enough for white text cannot clear 3:1 against
    * any tint (its luminance tops out near 0.18), so the ink rim is the
-   * disc's edge there. `checks-knockout` drops it, for a disc on the bare
-   * slide. Each class mapping sets the four role colors (`--state-color`,
+   * disc's edge there, so every variant keeps an edge in the ink. Each class mapping sets the four role colors (`--state-color`,
    * `--state-ink`, `--state-signal`, `--state-glyph-mark`) on the LEAF,
    * which is why they are not knobs. The
    * five variants in base.modifiers.css override these knobs.
@@ -1251,7 +1250,7 @@
   --state-ring-outer-w: var(--state-signal-w);  /* the rim: a hairline in the status ink, outside the disc */
   --state-ring-mix: 100%;       /* rim color = this % of --state-ink, rest black (`checks-ringed` darkens it) */
   --state-ring-inner-w: 0px;    /* inner ring width (outline / tonal) */
-  --state-mark-pct: 0%;         /* mark color = this % --state-color, rest --bg (0% = knockout) */
+  --state-mark-pct: 0%;         /* mark color = this % --state-ink, rest --state-glyph-mark (0% = knockout) */
   --state-disc-scale: 1;        /* disc + mark size multiplier (bold bumps it) */
   /* The signal ring's width: 1.3 hairlines, the chart family's `--chart-ring`, so an exception wears one ring weight
    * on a chart and on a disc. Kept as tokens, so `cqi` resolves on the element that draws it. */
@@ -1264,10 +1263,11 @@
  * `--X-solid` by default, the `--X-solid-vivid` set when `chart-finish: … vivid`
  * stamps `chart-finish-vivid` on the slide. A chart, a checklist disc and a kpi
  * pill all read these, so one register sets every status fill on the slide.
- * Declared on `section` as well as `:root` so a slide-level reset of the fills
- * (the print band on `section.print`) is what the pointer resolves to. The
+ * Declared on the slide `section` as well as `:root` so a slide-level reset of
+ * the fills (the print band on `section.print`) is what the pointer resolves to;
+ * not on a nested `section`, which inherits the slide's intensity. The
  * neutral (`--mute-solid`) has no intensity. */
-:root, section {
+:root, section:not(section section) {
   --state-pass-hue: var(--pass-solid);
   --state-warn-hue: var(--warn-solid);
   --state-fail-hue: var(--fail-solid);

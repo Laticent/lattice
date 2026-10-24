@@ -36,6 +36,12 @@ A status has three jobs, and each job has one token family.
 | **Line or text** | a status drawn as a stroke or written as a word on the slide | the slide ink `--pass` … `--mute` | a checklist row's rail, a roadmap cell's label, a kanban header |
 | **Ground** | a tinted background behind body content | `--pass-bg` / `--warn-bg` / `--fail-bg` | a checklist row, a heat cell, a policy's closing ask |
 
+**Text on a status ground is neutral text.** A slide ink on a 10% tint of itself misses 4.5:1 (amber on amber: 4.31 on
+carbone light, twelve palette-modes below the bar), and a status solid is a mid-tone on the dark face, so neither can
+be text on its own ground. A caption or label that sits on a status ground (policy's "The ask", a roadmap `status`
+cell's label) takes `--text-heading`; the ground, the rail and the mark carry the color. Under `heat` the ground
+follows the inverted role, like the mark and the rail.
+
 The mark's knockout changes from the slide (`--bg`) to the one ink. On a deep fill the two match on a light slide;
 on a dark slide the slide is navy or black and the ink is white, so the knockout follows the chart family. The
 unsettled answers (`[ ]` todo and `[?]` unknown) stay hollow rings, and `[/]` skip stays a neutral disc: none of
@@ -43,20 +49,25 @@ them is a status solid.
 
 ## 3. Where it lives
 
-- **The intensity pointer** `--state-pass-hue` … `--state-mute-hue` moves from `.chart-frame` to `section` in the
-  base, with the `chart-finish-vivid` remap. Every component on the slide inherits it. No new token: the pointer
+- **The intensity pointer** `--state-pass-hue` … `--state-mute-hue` moves from `.chart-frame` to `:root` and every
+  top-level `section` in the base (`section:not(section section)`, so an author's nested `<section>` inherits the
+  slide's intensity instead of resetting it), with the `chart-finish-vivid` remap. Every component on the slide inherits it. No new token: the pointer
   already existed, chart-family only.
 - **The disc recipe** is carried five times (checklist, verdict-grid, obligation-matrix, `state-cells`,
-  `.lat-state`). Each copy gains two knobs with fallbacks: `--state-glyph-mark` (the mark's ground, default `--bg`)
-  and `--state-signal` (the exception ring, default transparent). A finding sets them; the `checks-*` variants
-  keep working on the same knobs.
+  `.lat-state`). Each class mapping now sets four ROLE colors on the leaf, in one line: `--state-color` (the fill),
+  `--state-ink` (the rim, the rail, the outline variant's ring and mark), `--state-signal` (the exception ring,
+  transparent otherwise) and `--state-glyph-mark` (the knocked-out mark: the one ink on a finding, the slide on a
+  neutral state). The readers take no fallback, because every generated disc carries a mapped class; a bare
+  `.badge` written by hand gets the neutral roles from its own rule. The `checks-*` variants keep working on the
+  same scalar knobs, and every variant keeps an edge in the ink.
 - **A mark on a tinted ground keeps a rim in the status ink.** The first cut dropped the disc's rim, since a
   status solid clears 3:1 off the slide. The composed-contrast gate then failed 82 pairs, and the cause is
   arithmetic, not tuning: on a dark slide a fill deep enough for white text at 4.6:1 tops out near 0.18
   luminance, and any tint lifts the ground to about 0.03 or more, so no such fill clears 3:1 against a tinted row
   (at most about 2.85). So the default disc wears a hairline rim in its slide ink, the color of its row's rail,
-  as a gantt bar does, and a kpi pill keeps its 1px border in the ink. `checks-knockout` drops the rim, for a
-  disc on the bare slide.
+  as a gantt bar does, and a kpi pill keeps its 1px border in the ink. Every `checks-*` variant keeps an edge in
+  the ink: bold and knockout keep the rim, and outline and tonal draw their ring and mark in the ink, not the
+  solid (a checker measured the solid ring at 2.40:1 on a dark pass row, against 10.91 for the ink).
 - **A caption on a status ground is a heading.** Policy-recommendation's "The ask" moved from the stance ink to
   `--text-heading`: amber text on the 10% amber ground missed 4.5:1 on twelve palette-modes, and the old 9% tint
   was tuned as the knee for exactly that pair. The ground and the bar's border still carry the stance.
