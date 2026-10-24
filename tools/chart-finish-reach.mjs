@@ -205,6 +205,8 @@ function measureInPage(markClasses, finishes, memberNames) {
     const cv = document.createElement('canvas');
     cv.width = cv.height = 1;
     const cx = cv.getContext('2d', { willReadFrequently: true });
+    // A sentinel first: a canvas IGNORES an unparseable color, so without it an invalid `v` would read back as
+    // whatever fill the canvas held before, not as an obvious off value.
     cx.fillStyle = '#010203';
     cx.fillStyle = v;
     cx.fillRect(0, 0, 1, 1);
