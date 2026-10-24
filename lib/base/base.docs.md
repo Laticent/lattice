@@ -1278,12 +1278,16 @@ reads it as a *checked* box, the opposite of what a cross suggests.
 **Style variants (`checks-*`).** The disc treatment is one of five
 boardroom-ready styles, switchable per slide (`_class: checklist
 checks-outline`) or per deck (`class: checks-bold`). The marks and
-status colors never change — only the disc presentation:
+status colors never change — only the disc presentation. A finding's disc is the
+deck's status fill (`--pass-solid` … or their `-vivid` twins, by `chart-finish:`),
+its rail and label the slide ink (`--pass` …), and its row the theme's `--pass-bg` …
+(`engineering/decisions/2026-10-24-status-is-one-system.md`):
 
 | Variant | Disc treatment |
 |---|---|
-| *(default)* / `checks-ringed` | saturated fill + hairline darker ring; knockout mark. Stays crisp on its own status-tinted row. |
-| `checks-knockout` | flat saturated fill, knockout mark. Cleanest/classic. |
+| *(default)* | the deck's status fill, its mark in the one ink, a hairline rim in the status ink (the row's rail color); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
+| `checks-ringed` | the same, with a heavier 1.6px rim taken halfway to black. |
+| `checks-knockout` | no rim: for a disc on the bare slide. |
 | `checks-bold` | larger disc + heavier marks, knockout. Reads across a room. |
 | `checks-outline` | transparent fill + ring + status-color mark. Editorial, low-ink. |
 | `checks-tonal` | soft tint fill + ring + status-color mark. Calm; best on plain (non-tinted) backgrounds. |

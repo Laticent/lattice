@@ -532,17 +532,12 @@ section.word-cloud,
  *                   thin progress fill — lifted toward white on dark.
  *
  * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
- * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`, the rule below this
- * block). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. A
+ * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`); the base sets
+ * `--state-X-hue` on the slide (base.tokens.css § THE STATUS FILL ON THIS SLIDE). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. A
  * status LINE or status TEXT paints the theme's status ink (`--pass` … `--mute`), the color the status is in every
  * other component, which each theme spaces for the colorblind floors (cvd-trio-floor.test.js). The signal is the bright ring an exception wears (§ THE SIGNAL RING below). */
 section.chart-frame,
 .chart-frame {
-  --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
-  --state-warn-hue: var(--warn-solid);  /* amber  — at-risk/warn         */
-  --state-fail-hue: var(--fail-solid);  /* red    — blocked/fail         */
-  --state-info-hue: var(--info-solid);  /* blue   — pilot/decision/info  */
-  --state-mute-hue: var(--mute-solid);  /* gray   — deferred             */
   --state-warn-signal: var(--warn-solid-signal);
   --state-fail-signal: var(--fail-solid-signal);
 
@@ -645,7 +640,7 @@ section.chart-frame,
    * Chromium paints 2. */
   --chart-edge: var(--chart-hairline);            /* every data mark's edge */
   --chart-edge-strong: calc(var(--chart-hairline) * 2);  /* hero / active only */
-  --chart-ring: calc(var(--chart-hairline) * 1.3);  /* the signal ring inside an exception (§ THE SIGNAL RING) */
+  --chart-ring: var(--state-signal-w);  /* 1.3 hairlines: base.tokens.css, shared with every status disc */  /* the signal ring inside an exception (§ THE SIGNAL RING) */
   /* ONE MARK CORNER. `0.46875cqi` was written out five times across progress,
    * kanban and state-chart — the same number, three members, no shared name —
    * next to 13 other radii the family had drifted into. A corner is structure:
@@ -1183,17 +1178,8 @@ section.chart-frame .chart-caption::before {
   border: var(--chart-hairline) solid var(--chart-status-hue);
   color: var(--chart-solid-ink);
 }
-/* THE VIVID INTENSITY. `chart-finish: … vivid` stamps `chart-finish-vivid` on the slide, which points every status at
- * the theme's vivid fills. The neutral (`--mute-solid`) has no intensity, and the edges, signals and ink stay as they
- * are.
- * A chart that IS the slide (`section.chart-frame`) and one that sits inside a slide (a pane) both take it. */
-.chart-finish-vivid.chart-frame,
-.chart-finish-vivid .chart-frame {
-  --state-pass-hue: var(--pass-solid-vivid);
-  --state-warn-hue: var(--warn-solid-vivid);
-  --state-fail-hue: var(--fail-solid-vivid);
-  --state-info-hue: var(--info-solid-vivid);
-}
+/* THE VIVID INTENSITY lives in the base (base.tokens.css § THE STATUS FILL ON THIS SLIDE): `--state-X-hue` is set on
+ * the slide, so every component that shows a status takes the deck's intensity, not only a chart. */
 
 
 /* THE STATUS MARK (lib/core/status-marks.js): the drawn shape an SVG member inlines on a status mark, stroked in that

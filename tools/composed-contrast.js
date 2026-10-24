@@ -138,6 +138,7 @@ const SPLITPANEL = 'lib/components/statement/split-panel/split-panel.styles.css'
 const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styles.css';
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
 const CHARTFAMILY = 'lib/plugins/chart-family/chart-family.styles.css';
+const BASETOKENS = 'lib/base/base.tokens.css';
 const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
 const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
 const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.layout.js';
@@ -202,7 +203,7 @@ function pillStop(state) {
     requires: [
       /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
-      new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`),
+      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`)],
       new RegExp(`--chart-solid-ink: var\\(${SOLID_INK}\\)`),
     ],
   };
@@ -368,117 +369,85 @@ const SURFACES = [
     src: WORDCLOUD,
     requires: [new RegExp(`return 'var\\(--seq-${stop}\\)'`)],
   })),
-  // ── policy-recommendation · the stance badge on its own 9% tint ──────────
-  ...[['adopt', '--pass'], ['amend', '--warn'], ['oppose', '--fail'],
-      ['defer', '--text-secondary'], ['', '--accent']].map(
-    ([variant, tok]) => ({
-      id: `policy-recommendation/${variant || 'default'}-badge`,
-      ctx: `policy-recommendation${variant ? `.${variant}` : ''}: the stance badge ink on --stance-bg`,
-      base: '--bg',
-      groups: [{ bg: `color-mix(in srgb, var(${tok}) 9%, var(--bg))` }],
-      ink: tok, min: 4.5,
+  // ── policy-recommendation · the stance badge, and the ask's label on its ground ──
+  // A stance that is a status paints its badge as a status MARK: the status solid under the one ink
+  // (engineering/decisions/2026-10-24-status-is-one-system.md), so it is scored like a chart pill.
+  ...[['adopt', 'pass'], ['amend', 'warn'], ['oppose', 'fail']].map(([variant, state]) => ({
+    id: `policy-recommendation/${variant}-badge`,
+    ctx: `policy-recommendation.${variant}: the one ink on the badge's status solid`,
+    base: '--bg',
+    groups: [{ bg: `var(--${state}-solid)` }],
+    ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+    src: POLICY,
+    requires: [
+      new RegExp(`section\\.policy-recommendation\\.${variant}\\s*\\{[^}]*--stance-badge-bg: var\\(--state-${state}-hue\\)[^}]*--stance-badge-ink: var\\(${SOLID_INK}\\)`),
+      /color: var\(--stance-badge-ink\);\s*background: var\(--stance-badge-bg\);/,
+    ],
+  })),
+  // A stance that is not a status keeps the outlined chip on its own ground.
+  ...[['default', '--accent', '--accent-soft', /section\.policy-recommendation \{[^}]*--stance: var\(--accent\);[^}]*--stance-bg: var\(--accent-soft\);/],
+      ['defer', '--text-secondary', '--bg-alt', /section\.policy-recommendation\.defer\s*\{[^}]*--stance: var\(--text-secondary\); --stance-bg: var\(--bg-alt\);/]].map(
+    ([variant, ink, ground, pin]) => ({
+      id: `policy-recommendation/${variant}-badge`,
+      ctx: `policy-recommendation${variant === 'default' ? '' : `.${variant}`}: the stance badge ink on ${ground}`,
+      base: '--bg', groups: [{ bg: ground }], ink, min: 4.5,
       src: POLICY,
-      requires: [/--stance-bg: color-mix\(in srgb, var\(--stance\) 9%, var\(--bg\)\)/],
+      requires: [pin, /color: var\(--stance-badge-ink\);\s*background: var\(--stance-badge-bg\);/],
     }),
   ),
-  // ── kpi · the status pill on its own-hue fill ────────────────────────────
-  // The pills plugin inks `--lat-pill-ink` on `--lat-pill-bg`;
-  // kpi points both at a status token and its 12% tint. `.ops` tiles sit on
-  // `--bg-alt` — the same stack `redline/ins` already scores — so the surfaces
-  // listed are the ones that are NOT duplicates: the WARN arm (which redline has
-  // no consumer for) and the two HERO tiles, whose fill is `--accent-soft`.
-  //
-  // BOTH hero arms are here, and the second was missing until #1698. The catalog
-  // had the pass hero (the default variant) and the warn pill over `--bg-alt`,
-  // and inferred from that pair that warn-over-accent-soft was covered. It is
-  // not: `.attention` repoints the HERO tile's pill at `--warn` while the tile
-  // keeps its `--accent-soft` fill, which is a third stack, and it renders on
-  // kpi.gallery.md. It was found by reading a rendered sweep rather than the
-  // token table — 4.44:1 on ardesia, under the bar, invisible to this file.
-  // A missing surface is the failure mode this gate exists to prevent: it does
-  // not report a defect, it reports nothing at all, which reads as a pass.
-  // The ground is now `--kpi-{pass,warn}-pill-bg` -- an OPAQUE 8% mix into `--bg`,
-  // declared once in kpi.styles.css and pointed at from all eight per-modifier sites.
-  // It was the palette's alpha `--{pass,warn}-bg` over whatever tile the pill landed
-  // on, which is why the same pill scored three different ways and thirty pairs were
-  // frozen. Because the ground is opaque the TILE is now inert to the ink score, so
-  // all three surfaces resolve the same ground -- they are kept separate anyway,
-  // because they pin three different CSS sites and the tile still decides whether the
-  // chip is VISIBLE (see the border family below).
-  //
-  // EVERY PIN IS ANCHORED TO THE SELECTOR ITS SURFACE ACTUALLY MODELS, and that is not
-  // decoration. The first cut of these three shared one template with unanchored
-  // `--pill-bg: var\(--kpi-warn-pill-bg\)` pins, so ANY of the eight sites satisfied
-  // ALL THREE surfaces -- deleting the `.attention` hero block left every gate green on
-  // a surface modeling nothing. That is the same defect, in the same file, that the
-  // anchoring on the PREVIOUS version of these entries existed to prevent; it was
-  // reintroduced by generating them from a template and caught by mutation, not by a
-  // gate. Mutate a site and re-run before trusting a pin here.
-  ...[
-    ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill ink on its own 8% ground over the --bg-alt tile',
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-warn-pill-bg\)/,
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-ink: var\(--warn\)/],
-    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on its 8% ground over the accent-soft hero tile',
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-pass-pill-bg\)/,
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-ink: var\(--pass\)/],
-    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on its 8% ground over the accent-soft hero tile',
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-warn-pill-bg\)/,
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-ink: var\(--warn\)/],
-  ].map(([slug, state, tile, ctx, bgPin, fgPin]) => ({
-    id: `kpi/${slug}`,
-    ctx,
-    base: tile,
-    groups: [{ bg: `color-mix(in srgb, var(--${state}) 8%, var(--bg))` }],
-    ink: `--${state}`, min: 4.5,
-    src: KPI,
+  // The ask's caption is a HEADING on the status GROUND (the theme's --X-bg): amber text on the 10% amber ground missed
+  // 4.5:1 on twelve palette-modes, and "The ask" is not a status word.
+  ...[['adopt', 'pass'], ['amend', 'warn'], ['oppose', 'fail']].map(([variant, state]) => ({
+    id: `policy-recommendation/${variant}-ask-label`,
+    ctx: `policy-recommendation.${variant}: the ask's caption on the --${state}-bg ground`,
+    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: '--text-heading', min: 4.5,
+    src: POLICY,
     requires: [
-      // The shared declaration, pinned by VALUE so a depth change reddens the gate.
-      new RegExp(`--kpi-${state}-pill-bg: color-mix\\(in srgb, var\\(--${state}\\) 8%, var\\(--bg\\)\\)`),
-      // ...and that THIS site still points at it and still inks the state hue. The ink
-      // pin matters most: re-inking these in `--text-heading` would score BETTER here
-      // and collapse the trio's achromatopsia separation from 0.1174 to 0.034, which
-      // cvd-trio-floor.test.js cannot see because it scores raw token hexes.
-      // 2026-08-25-status-trio-joint-solve-model.md §8.1.
-      bgPin,
-      fgPin,
-      // The tile the surface is BASED on. `--accent-soft` repaints are additionally
-      // held by NO_TILE_REPAINT below, because a `requires` can only assert presence
-      // and the risk on the hero is something being ADDED.
+      new RegExp(`section\\.policy-recommendation\\.${variant}\\s*\\{ --stance: var\\(--${state}\\); --stance-bg: var\\(--${state}-bg\\);`),
+      /blockquote \{\s*background: var\(--stance-bg\);/,
+      /blockquote::before \{[^}]*color: var\(--text-heading\);/,
+    ],
+  })),
+  // ── kpi · the status pill: a status MARK on the tile it sits on ──────────
+  // The status pill is the deck's status solid under the one ink, led by a drawn mark, with the signal ring on warn
+  // (engineering/decisions/2026-10-24-status-is-one-system.md). Two things are scored per site: the ink on the solid
+  // (the label, and the mark painted in the same ink), and the solid against the TILE under it, which is what makes the
+  // chip a chip now that the fill and the edge are one color. kpi lands pills on two tiles (`--bg-alt` on .ops and
+  // .trajectory, `--accent-soft` on the .briefing / .attention heroes), and the warn arm on the hero is its own stack.
+  //
+  // EVERY PIN IS ANCHORED TO THE SELECTOR ITS SURFACE MODELS: an unanchored pin let one site satisfy all three and a
+  // deleted `.attention` block stay green (caught by mutation, the first time). The MARK pin matters as much as the
+  // ink: the status solids share a lightness, so without the drawn mark a kpi pill carries its status by hue alone and
+  // the trio collapses under achromatopsia (0.1174 to 0.034 when last measured).
+  ...[
+    ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill on the --bg-alt tile',
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\);[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on the accent-soft hero tile',
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)/],
+    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on the accent-soft hero tile',
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\);[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+  ].flatMap(([slug, state, tile, ctx, pin]) => {
+    const shared = [
+      pin,
+      // The mark is painted in the pill's own ink, and drawn only where a row's hook turns its box on.
+      /\.lat-pill::before \{[^}]*display: var\(--kpi-pill-mark-box, none\);[^}]*background-color: currentColor;[^}]*mask: var\(--kpi-pill-mark\)/,
       ...(tile === '--accent-soft'
         ? [/li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/]
         : []),
-    ],
-  })),
-  // ── kpi · the status pill's BORDER, which is what makes it a chip (#1847) ─
-  // Modeled because the ground went opaque. An alpha tint was always N% of the state
-  // hue laid OVER the tile, so the fill could never match it; an opaque mix into `--bg`
-  // ignores the tile, and on the deepest tiles it can land within 1.01:1 of the tile's
-  // own color. The fill therefore no longer carries the chip's edge and the border
-  // does -- the state hue at full saturation, which is also why the INK was left at
-  // full saturation (§8.1).
-  //
-  // THE FLOOR IS PER-TILE, and it is now the SAME number on both tiles: 3, WCAG 1.4.11's
-  // non-text bar. It was 2.5 on the hero, and the reason was a single palette -- the
-  // population was bimodal and carbone|light owned the whole bottom at 2.60 on the hero
-  // and 3.39 on the card, while every other palette-mode read 4.10 or better. That was
-  // not a curation choice: carbone's trio were inks written for a light canvas the
-  // palette did not have, so they were being measured on a ground that never existed
-  // (#1302). Carbone was given a real light face, and the pairs that forced the
-  // exception now read 7.91 (pass) and 4.70 (warn) on the hero. The bimodality is gone,
-  // so the exception goes with it and the hero takes the same 3 the card always had.
-  ...[
-    ['pass', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(2\)[\s\S]{0,120}?--lat-pill-edge: var\(--pass\)/],
-    ['pass', 'hero', '--accent-soft', 3,   /section\.kpi\.briefing[\s\S]{0,200}?--lat-pill-edge: var\(--pass\)/],
-    ['warn', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(1\)[\s\S]{0,120}?--lat-pill-edge: var\(--warn\)/],
-    ['warn', 'hero', '--accent-soft', 3,   /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--lat-pill-edge: var\(--warn\)/],
-  ].map(([state, tile, base, min, pin]) => ({
-    id: `kpi/${state}-pill-border-on-${tile}`,
-    ctx: `kpi: the ${state} pill's 1px border against the ${base} tile it sits on`,
-    base, groups: [], ink: `--${state}`, min,
-    src: KPI,
-    // The 1px border is the pills plugin's own rule, read through --lat-pill-edge; kpi sets the edge.
-    requires: [['lib/plugins/pills/pills.styles.css', /border:1px solid var\(--lat-pill-edge,/], pin],
-  })),
+    ];
+    return [
+      {
+        id: `kpi/${slug}`, ctx: `${ctx}: the one ink on the status solid`,
+        base: tile, groups: [{ bg: `var(--${state}-solid)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+        src: KPI, requires: shared,
+      },
+      {
+        id: `kpi/${slug}-on-tile`, ctx: `${ctx}: the pill's 1px border in the status ink against the tile (the chip's edge)`,
+        base: tile, groups: [], ink: `--${state}`, min: 3,
+        src: KPI, requires: [...shared, new RegExp(`--lat-pill-edge: var\\(--${state}\\);`), ['lib/plugins/pills/pills.styles.css', /border:1px solid var\(--lat-pill-edge,/]],
+      },
+    ];
+  }),
   // ── kanban · the [data-s] card's status wash, and the two inks on it ─────
   // The wash is `--state-{s}-fill` mixed into the card — 55% light, 26% dark — and it is
   // the deepest own-hue ground the engine paints on a card. TWO inks land on it and they
@@ -517,36 +486,39 @@ const SURFACES = [
       ],
     }));
   }),
-  // ── checklist · the state row, whose own-hue wash sits on the CANVAS ─────
-  // Same shape as redline's band one layer up: `--bg` rather than `--bg-alt`.
-  ...[['pass', '--pass'], ['warn', '--warn'], ['fail', '--fail']].map(([state, tok]) => ({
+  // ── checklist · the state row: the disc's rim and the rail, on the status GROUND ──
+  // The disc is the status solid, but on a dark slide no fill deep enough for white text clears 3:1 against a tint, so
+  // the disc's EDGE is its hairline rim in the status ink, the same color as the row's rail
+  // (engineering/decisions/2026-10-24-status-is-one-system.md). Both are graphical (the file's text is --text-heading /
+  // --text-muted / --text-secondary), so they owe WCAG 1.4.11's 3:1 against the row's --X-bg wash over the canvas.
+  ...['pass', 'warn', 'fail'].map((state) => ({
     id: `checklist/${state}-row`,
-    ctx: `checklist: the ${state} row's state DISC and rail on its own --${state}-bg wash`,
-    // 3:1, not 4.5. checklist paints NO text in the state hue — the file's only
-    // `color:` values are --text-heading, --text-muted and --text-secondary. What
-    // carries the hue is the ::before disc (--state-fill-pct:100%) and the
-    // border-left rail, which are non-text graphical objects and owe WCAG 1.4.11's
-    // 3:1. Scoring them at the text bar reported 24 compliant surfaces as defects
-    // and would have red-gated a future palette on a surface that meets WCAG.
-    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: tok, min: 3,
+    ctx: `checklist: the ${state} row's disc rim and rail (the slide ink) on its --${state}-bg wash`,
+    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: `--${state}`, min: 3,
     src: CHECKLIST,
-    requires: [new RegExp(`--state-color:var\\(${tok}\\);[\\s\\S]{0,120}background:var\\(--${state}-bg`)],
+    requires: [
+      new RegExp(`--state-color:var\\(--state-${state}-hue\\); --state-ink:var\\(--${state}\\);[\\s\\S]{0,200}background:var\\(--${state}-bg`),
+      /border-left-color:var\(--state-ink\)/,
+      /0 0 0 var\(--state-ring-outer-w\) color-mix\(in srgb, var\(--state-ink\) var\(--state-ring-mix\), black\)/,
+      [BASETOKENS, /--state-ring-outer-w: var\(--state-signal-w\);/],
+      [BASETOKENS, /--state-ring-mix: 100%;/],
+    ],
   })),
-  // ── obligation-matrix .heat · body ink on the own-hue cell wash ──────────
-  // NB the component maps the pass CELL to a --fail wash and vice versa on
-  // purpose (a heat map reads "hot = attention"), so the tokens below are the
-  // wash hues, not the state names.
-  // The neutral row's wash moved from --text-muted to --muted-mark in #1715: it is a
-  // 6% DECORATIVE wash, and --text-muted is now the AA-floored TEXT half of that split.
-  // Re-derived from the CSS rather than deleted, as the drift check asks.
-  ...[['14', '--fail'], ['14', '--warn'], ['10', '--pass'], ['6', '--muted-mark']].map(([pct, tok]) => ({
-    id: `obligation-matrix/heat-${tok.replace(/^--/, '')}`,
-    ctx: `obligation-matrix.heat: table body ink on the ${pct}% ${tok} cell wash`,
+  // ── obligation-matrix .heat · body ink on the cell's status ground ───────
+  // NB the component maps the pass CELL to the fail ground and vice versa on purpose (a heat map reads "hot =
+  // attention"), so the ids below name the ground, not the state. The grounds are the theme's own --X-bg
+  // (engineering/decisions/2026-10-24-status-is-one-system.md); the exempt row sits on --bg-alt.
+  ...[['fail', '--fail-bg', /dd:has\(> \.state\.pass\) \{\s*background:var\(--fail-bg\);/],
+      ['warn', '--warn-bg', /dd:has\(> \.state\.warn\) \{\s*background:var\(--warn-bg\);/],
+      ['pass', '--pass-bg', /dd:has\(> \.state\.fail\) \{\s*background:var\(--pass-bg\);/],
+      ['muted-mark', '--bg-alt', /dd:has\(> \.state\.skip\) \{\s*background:var\(--bg-alt\);/]].map(([slug, ground, pin]) => ({
+    id: `obligation-matrix/heat-${slug}`,
+    ctx: `obligation-matrix.heat: table body ink on the ${ground} cell ground`,
     base: '--bg',
-    groups: [{ bg: `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg))` }],
+    groups: [{ bg: ground }],
     ink: '--text-body', min: 4.5,
     src: OBLIGATION,
-    requires: [new RegExp(`color-mix\\(in srgb, var\\(${tok}\\) ${pct}%, var\\(--bg\\)\\)`)],
+    requires: [pin],
   })),
   // ── kanban · the inline-code chip inside a card ──────────────────────────
   // Reached WITHOUT any status markup: the card transform consumes a trailing <code>
@@ -622,7 +594,7 @@ const SURFACES = [
     ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the status ink on the vivid fill`,
     groups: [{ bg: `var(--${state}-solid-vivid)` }],
     ink: SOLID_INK,
-    requires: [new RegExp(`--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
+    requires: [[BASETOKENS, new RegExp(`\\.chart-finish-vivid \\{[^}]*--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)]],
   })),
   // ── risk-matrix · the CRITICAL band, the one status fill a chart mixes for itself ───────
   // A critical cell and a critical key disc are the vivid fail fill taken 18% away from the ink, so their number (the
@@ -705,12 +677,6 @@ const SURFACES = [
 const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
-  // ── policy-recommendation/amend-badge ── 2
-  ['carbone-dark|light|policy-recommendation/amend-badge', 4.45],
-  ['carbone|light|policy-recommendation/amend-badge', 4.45],
-  // ── policy-recommendation/oppose-badge ── 2
-  ['concrete-dark|light|policy-recommendation/oppose-badge', 4.17],
-  ['concrete|light|policy-recommendation/oppose-badge', 4.17],
   // ── redline/del ── 2
   ['concrete-dark|dark|redline/del', 3.91],
   ['concrete|dark|redline/del', 3.91],

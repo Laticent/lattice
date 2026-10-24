@@ -94,52 +94,20 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) {
 }
 section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { content: ''; }
 
-/* The status pill's own GROUND, declared once and pointed at from all eight
- * per-modifier sites below.
+/* THE STATUS PILL is a status MARK (engineering/decisions/2026-10-24-status-is-one-system.md): the
+ * deck's status solid (`--state-X-hue`, muted or vivid by `chart-finish:`), its label in the one ink
+ * `--on-solid`, the drawn mark leading it, and on warn the signal ring inside its edge. The modifier's
+ * nth-child hooks below set all five per row (`--lat-pill-edge` / `-bg` / `-ink`, `--kpi-pill-mark`,
+ * `--kpi-pill-signal`); later pills on a row reset to neutral.
  *
- * It used to be the palette's `--pass-bg` / `--warn-bg` directly, which is
- * `color-mix(..., transparent)` — an ALPHA tint, so the ground was N% of the state
- * hue laid over whatever tile the pill happened to land on, and kpi lands pills on
- * three different tiles (`--bg-alt` on .ops/.trajectory, `--accent-soft` on the
- * .briefing/.spotlight heroes, bare `--bg` on .compliance rows). Inking the state
- * hue on a tint OF ITSELF means the ground moves with the ink, so the deeper the
- * tile the less the ink has to work with — THIRTY of the 66 frozen sub-AA pairs
- * were these two pills, worst `carbone|light|hero-warn` at 3.24:1.
- *
- * Two things change and one deliberately does not:
- *  · the mix is OPAQUE, into `--bg`, so the ground no longer inherits the tile;
- *  · 8%, not the palette's 10/12/18% — the DEEPEST depth that passes the whole gate.
- *    5-8% and 10% all leave the same 22 pairs below their bar; 10% costs an already-frozen
- *    carbone entry its ratchet and 11% adds ten unlisted, so the constraint is a ceiling
- *    rather than a floor and 8% keeps the most fill under it;
- *  · the INK stays the state hue at full saturation. That is load-bearing, not
- *    inertia: it is the channel that carries the state under color-vision
- *    deficiency. Re-inking these pills in `--text-heading` on a state-hued ground
- *    — the shape `.chart-status` uses — clears more contrast pairs but collapses
- *    the trio's achromatopsia separation from 0.1174 (above the 0.11 floor #1801
- *    respaced every palette to buy) to 0.034, and `cvd-trio-floor.test.js` cannot
- *    see it because it scores raw token hexes. `.chart-status` gets away with the
- *    inversion because it ships a `[data-s]` glyph as a second channel; a kpi pill
- *    holds arbitrary author text and takes its color from row POSITION, so it has
- *    no `data-s` and cannot have one.
- *
- * The cost, accepted with the border as the mitigation, and it is BROADER than the worst
- * case alone. Over every tile kpi paints a pill on (32 palettes × 2 modes × 2 states ×
- * `--bg-alt` / `--accent-soft` / `--bg`, n=384) the fill-vs-tile separation goes from a
- * floor of 1.120 with NOTHING under 1.05, to a floor of 1.000 with 51 pairs under 1.02 and
- * 116 under 1.05 — 371 of 384 get worse. It is not an `--accent-soft` phenomenon either;
- * `--bg-alt`, the tile under `.ops` and `.trajectory`, reaches 1.003. So on many palettes
- * the FILL no longer guarantees the chip's edge at all, not merely on the worst one. `--lat-pill-edge` does — the state hue at full
- * saturation, 2.60:1 against the tile at worst, above the repo's justified
- * `PANEL_EDGE_MIN` of 1.5 though under WCAG 1.4.11's 3:1. It is modeled and floored
- * per-tile in tools/composed-contrast.js rather than left unmeasured (#1847). The bet was
- * checked, not assumed: the measured worst chip — `.ops` at indaco-dark, fill 1.003 against
- * its tile — was rendered and reads, carried by the border and the full-saturation label.
- * engineering/decisions/2026-08-25-status-trio-joint-solve-model.md §5, §8. */
-section.kpi {
-  --kpi-pass-pill-bg: color-mix(in srgb, var(--pass) 8%, var(--bg));
-  --kpi-warn-pill-bg: color-mix(in srgb, var(--warn) 8%, var(--bg));
-}
+ * The MARK is load-bearing, not decoration. The status solids share one lightness, so a label in one
+ * ink on a status fill carries the status by hue alone, and under achromatopsia the trio collapses
+ * (0.1174 to 0.034 when this was last measured, against the 0.11 floor `cvd-trio-floor.test.js` holds
+ * the inks to). A chart pill keeps the status readable with its drawn mark; a kpi pill takes its status
+ * from row POSITION and has no `data-s`, so the same hooks that pick its color pick its mark. The fill
+ * cannot be its own edge on a TILE: on a dark slide a fill deep enough for white text cannot clear 3:1
+ * against any tint, so the pill keeps its 1px border in the status ink (`--lat-pill-edge`), the rim a
+ * gantt bar and a checklist disc wear too (2026-08-25-status-trio-joint-solve-model.md §5, §8). */
 
 /* Pills — an author writes a pill with the pills plugin's notation (`` `{On plan}` ``) and the
  * plugin draws it (lib/plugins/pills/). First pill on each row carries the status color (set per
@@ -184,6 +152,26 @@ section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([dat
   --lat-pill-edge: var(--muted-mark);
   --lat-pill-bg: var(--bg);
   --lat-pill-ink: var(--text-muted);
+  --kpi-pill-mark-box: none;
+  --kpi-pill-signal: transparent;
+}
+/* The status pill's drawn mark and signal ring (§ THE STATUS PILL above). The mark is masked from the
+ * `--mark-*-bold` tokens and painted in the pill's own ink; its box is wider than the mark so the
+ * space before the label lives inside the box (no margin). A pill whose row sets no status draws
+ * nothing: the box is off (`--kpi-pill-mark-box`) unless a row's hook turns it on, because an unmasked
+ * box would paint a solid square. */
+section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill {
+  box-shadow: inset 0 0 0 var(--state-signal-w) var(--kpi-pill-signal, transparent);
+}
+section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill::before {
+  content: '';
+  display: var(--kpi-pill-mark-box, none);
+  width: 1.2em;
+  height: 0.85em;
+  vertical-align: -0.08em;
+  background-color: currentColor;
+  -webkit-mask: var(--kpi-pill-mark) left center / 0.85em 0.85em no-repeat;
+          mask: var(--kpi-pill-mark) left center / 0.85em 0.85em no-repeat;
 }
 
 /* Shared number / label / target typography. */
@@ -386,16 +374,22 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 section.kpi.briefing > .cell-stage > ol > li,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li {
   --lat-pill-edge: var(--pass);
-  --lat-pill-bg: var(--kpi-pass-pill-bg);
-  --lat-pill-ink: var(--pass);
+  --lat-pill-bg: var(--state-pass-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-check-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: transparent;
 }
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
  * warn-colored and the accent left-border picks up --warn too. Use
  * when the hero metric is below target / off plan. */
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-edge: var(--warn);
-  --lat-pill-bg: var(--kpi-warn-pill-bg);
-  --lat-pill-ink: var(--warn);
+  --lat-pill-bg: var(--state-warn-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-dash-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: var(--warn-solid-signal);
 }
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
@@ -434,14 +428,20 @@ section.kpi.ops > .cell-stage > ol > li > strong {
 section.kpi.ops > .cell-stage > ol > li:nth-child(1),
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn);
-  --lat-pill-bg: var(--kpi-warn-pill-bg);
-  --lat-pill-ink: var(--warn);
+  --lat-pill-bg: var(--state-warn-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-dash-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: var(--warn-solid-signal);
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(2),
 section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-edge: var(--pass);
-  --lat-pill-bg: var(--kpi-pass-pill-bg);
-  --lat-pill-ink: var(--pass);
+  --lat-pill-bg: var(--state-pass-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-check-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: transparent;
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) > strong { color: var(--warn); }
@@ -594,13 +594,19 @@ section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-edge: var(--pass);
-  --lat-pill-bg: var(--kpi-pass-pill-bg);
-  --lat-pill-ink: var(--pass);
+  --lat-pill-bg: var(--state-pass-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-check-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: transparent;
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn);
-  --lat-pill-bg: var(--kpi-warn-pill-bg);
-  --lat-pill-ink: var(--warn);
+  --lat-pill-bg: var(--state-warn-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-dash-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: var(--warn-solid-signal);
 }
 section.kpi.compliance > .cell-stage > p:last-of-type {
   font-family: var(--font-label);
@@ -664,8 +670,11 @@ section.kpi.trajectory > .cell-stage > ol > li > strong {
 }
 section.kpi.trajectory > .cell-stage > ol > li {
   --lat-pill-edge: var(--pass);
-  --lat-pill-bg: var(--kpi-pass-pill-bg);
-  --lat-pill-ink: var(--pass);
+  --lat-pill-bg: var(--state-pass-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-check-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: transparent;
 }
 
 /* ─ MODIFIER · SPOTLIGHT (single hero metric) ───────────────────────── */
@@ -742,8 +751,11 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li + li {
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-edge: var(--pass);
-  --lat-pill-bg: var(--kpi-pass-pill-bg);
-  --lat-pill-ink: var(--pass);
+  --lat-pill-bg: var(--state-pass-hue);
+  --lat-pill-ink: var(--on-solid);
+  --kpi-pill-mark: var(--mark-check-bold);
+  --kpi-pill-mark-box: inline-block;
+  --kpi-pill-signal: transparent;
 }
 /* Every support belongs in the rail column. Only children 2-4 were placed, so a 5th
  * metric auto-placed into COLUMN 1 — under the hero card — and the separator rule
