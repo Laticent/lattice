@@ -38,7 +38,8 @@ test('every shipped palette declares every color the engine has a default for', 
   const gaps = [];
   for (const p of palettes) {
     const declared = themeChain(p, THEME_EDGES).map((n) => read(`themes/${n}/${n}.css`)).join('\n');
-    for (const t of tokens) if (!new RegExp(`${t.replace(/-/g, '\\-')}\\s*:`).test(declared)) gaps.push(`${p}: ${t}`);
+    // Escape every regex metacharacter in the name, not just the hyphen.
+    for (const t of tokens) if (!new RegExp(`${t.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}\\s*:`).test(declared)) gaps.push(`${p}: ${t}`);
   }
   assert.deepEqual(gaps, [], 'a palette leans on an engine color instead of curating its own');
 });
