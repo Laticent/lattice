@@ -102,16 +102,59 @@ format is defined once, in `tools/followups.js`.
 ## The lifecycle
 
 - **Add** the file in the same PR whose brief leaves the item pending.
-- **Delete** the file in the PR that finishes the item, or that finds it already done.
-  If a handoff issue lists the item, tick its box in the same PR.
-  The deletion is the record, as a closed issue would be.
+- **Delete** the file in the PR that finishes the item, or that finds it already done,
+  with its evidence folder if it has one. If a handoff issue lists the item, tick its box
+  in the same PR. The deletion is the record, as a closed issue would be.
 - **Promote** an item to an issue when it needs a board column, an owner or a
-  discussion. Delete the file in the same PR and tag the brief `[#N]` from then on.
+  discussion. Delete the file and its evidence folder in the same PR, link the issue to the
+  folder at the last commit that held it, and tag the brief `[#N]` from then on.
 
 `npm run followups` lists every item, one line each, grouped by area and sorted by
 severity. `npm run backlog` lists these together with the open issues in
 [`backlog.d/`](../backlog.d/README.md), and filters by `--area` and `--min <severity>`.
 Run it at the start of a session.
+
+## Evidence folders
+
+An item can carry the code and data behind its findings: the probe that measured a number,
+the script that reproduced a bug, the fixture a fix will need. They go in a folder named
+like the item without `.md`, beside it:
+
+```
+followups.d/2871-p1-red-team-the-web-reference-scanners.md
+followups.d/2871-p1-red-team-the-web-reference-scanners/
+  README.md        what this holds, the commit it ran against, how to run it
+  probe.mjs
+```
+
+Before this, that code lived in the session's `.scratch/`, which disappears with the
+container, so an item that said "measured 23 bypasses" left the next session nothing to
+re-run.
+
+- **It lives exactly as long as its item.** The gate refuses a folder whose item is gone, so
+  the PR that deletes or promotes an item deletes its folder too.
+- **A `README.md` is required.** It names the commit the evidence ran against and how to run
+  it. The code is a snapshot, not maintained: it may stop running as `main` moves, and the
+  commit says against what it was true.
+- **Text only, 512 KB at most.** Scripts, fixtures, small data and notes, not screenshots,
+  archives or the corpus a probe ran on. A file is text when its first 8 KB hold no NUL
+  byte. No symbolic links: evidence is a copy, not a pointer.
+- **Every gate reads it.** Its scripts pass Biome like any tracked JavaScript, and its prose
+  passes the US-English audit. The lint-exclusion rule (`biome.jsonc`, #1223) admits only
+  vendor, generated and unparseable code, and evidence is none of those.
+- **Nothing for an unfixed vulnerability.** The repository is public. A working exploit goes
+  in only once its fix has merged. Before that, describe the class of the problem and keep
+  the payloads out of the tree.
+- **Code that proves generally useful graduates.** Move it to `tools/` with a row in
+  `dist/engineering/capabilities.md` (HARD RULE #15), and delete it here.
+- **It is never imported.** Nothing in `lib/`, `tools/`, `test/` or CI may require a file from
+  an evidence folder: when the item closes, the folder goes, and anything leaning on it
+  breaks.
+
+`checkFollowups` (via `build:check`) enforces the name, the item, the README, text only, no
+links and the cap. It reads a folder as git does: a file `.gitignore` excludes (a `.DS_Store`) is
+not evidence, so it neither fails a folder nor keeps an orphaned one alive. The rest is
+discipline.
 
 ## What the gate cannot do
 
