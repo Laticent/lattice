@@ -14,7 +14,7 @@
  * (`c1` when the icon names none):
  *   pigment  the INK is the tile and the lines knock out to the page — the curated ink clears AA
  *            on `--bg`, so the knocked-out line clears it on the ink
- *   etching  a clear tile with an ink edge, and thinner ink lines
+ *   etch  a clear tile with an ink edge, and thinner ink lines
  *   tone     a pale tint tile, a mid-value edge, the lines in the ink
  * `bare` drops the tile: ink lines at the size of the text around them.
  *
@@ -82,8 +82,8 @@ section .lat-icon > .lat-icon-svg {
   --icon-line:var(--icon-ink);
 }
 :is(section.icon-bare .lat-icon:not([data-frame='framed'], [data-corners]), section .lat-icon[data-icon][data-frame='bare'])::before { content:none; }
-/* `etching` — the hue is the LINE: a clear tile, the edge and a thinner line in the ink. */
-:is(section.icon-etching .lat-icon:not([data-look]), section .lat-icon[data-icon][data-look='etching']) {
+/* `etch` — the hue is the LINE: a clear tile, the edge and a thinner line in the ink. */
+:is(section.icon-etch .lat-icon:not([data-look]), section .lat-icon[data-icon][data-look='etch']) {
   --icon-tile:transparent;
   --icon-line:var(--icon-ink);
   --icon-stroke:1.5;
@@ -154,13 +154,13 @@ section.sketch .lat-icon {
   --rough-ink-width: 1.6;
 }
 /* PIGMENT, the default look, fills its tile with the edge's own color, so a thin line shows only
- * where it wobbles past the fill: it takes the heavier 1.6 above. Etching and tone have a pale or
+ * where it wobbles past the fill: it takes the heavier 1.6 above. Etch and tone have a pale or
  * clear tile, where the spark's 0.9 already reads. Written as plain compounds, never a nested
  * `:not(:is(…))`: the Playground's first-paint snapshot (docs/src/playground/snapshot-cache.js)
  * keeps any rule it cannot test against the captured slide, and it sits close to its size cap. */
-section.sketch .lat-icon[data-look='etching'],
+section.sketch .lat-icon[data-look='etch'],
 section.sketch .lat-icon[data-look='tone'],
-section.sketch.icon-etching .lat-icon:not([data-look]),
+section.sketch.icon-etch .lat-icon:not([data-look]),
 section.sketch.icon-tone .lat-icon:not([data-look]) { --rough-ink-width: 0.9; }
 /* The handover: once the slide has ink, the crisp edge goes, except in the header and footer,
  * which are not inked. */

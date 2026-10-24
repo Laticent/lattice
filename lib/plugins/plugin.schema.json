@@ -188,7 +188,7 @@
         },
         "registers": {
           "type": "object",
-          "description": "Front-matter registers declared as DATA, keyed by the register's key and class prefix (`icon` → `icon: bare etching` and the `icon-bare` slide classes). The host's register factory (lib/core/register-factory.js) builds each one exactly as it builds `spark:`: one word per axis, a slide's word evicting the deck's on that axis only. A prefix a first-party register owns, or a word two axes share, fails the build.",
+          "description": "Front-matter registers declared as DATA, keyed by the register's key and class prefix (`icon` → `icon: bare etch` and the `icon-bare` slide classes). The host's register factory (lib/core/register-factory.js) builds each one exactly as it builds `spark:`: one word per axis, a slide's word evicting the deck's on that axis only. A prefix a first-party register owns, or a word two axes share, fails the build.",
           "minProperties": 1,
           "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
           "additionalProperties": {

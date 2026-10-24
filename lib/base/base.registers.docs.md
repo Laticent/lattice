@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etching or tone | `off` |
+| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone | `off` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -828,7 +828,7 @@ it never adds any, never removes any, and never changes a chart's structure.
 |---|---|---|---|
 | `off` | *(none)* | each chart's own design. **The default** (omit the key). | charts exactly as they ship |
 | `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color | a colorful deck |
-| `etching` | `chart-finish-etching` | the line: a whisper of color under a doubled edge | a modern look |
+| `etch` | `chart-finish-etch` | the line: a whisper of color under a doubled edge | a modern look |
 | `tone` | `chart-finish-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
 ```markdown
@@ -838,7 +838,7 @@ chart-finish: tone
 ---
 ```
 
-**Per slide.** `<!-- _class: bar chart-finish-etching -->` gives one chart its own finish.
+**Per slide.** `<!-- _class: bar chart-finish-etch -->` gives one chart its own finish.
 `<!-- _class: bar chart-finish-off -->` keeps one chart's shipped paint inside a finished
 deck. The slide token replaces the deck's; it never stacks with it.
 
@@ -852,7 +852,7 @@ quieter level.
 
 **Limits.** Under `tone`, a mark that carries text (a flowchart shape, a matrix-grid
 cell) can use only the quiet top of the one hue, so about four of its categories separate
-by eye. `etching` puts identity on a thin edge, the hardest place to tell hues apart: for
+by eye. `etch` puts identity on a thin edge, the hardest place to tell hues apart: for
 colorblind readers on an ordinary theme, prefer `pigment` or an a11y theme. A container,
 such as a slotted flowchart group, a tinted kanban column or a roadmap phase, is never repainted as a mark:
 it keeps its own faint tint, and under `tone` that tint joins the one hue.
@@ -1130,14 +1130,14 @@ It takes up to three words, one per axis, in any order:
 | Frame | `framed` | `spark-framed` | The squared frame. **The default** (omit the key) |
 | Frame | `bare` | `spark-bare` | No frame: the spark is bare ink in the line |
 | Look | `pigment` | `spark-pigment` | The color fills the tile; the marks read on it. **The default** |
-| Look | `etching` | `spark-etching` | The color is the line: a clear tile, ink edge and marks |
+| Look | `etch` | `spark-etch` | The color is the line: a clear tile, ink edge and marks |
 | Look | `tone` | `spark-tone` | One hue by value: a pale tile, a mid edge and body, a deep line |
 | Corners | `square` | `spark-square` | Hard corners. **The default** |
 | Corners | `rounded` | `spark-rounded` | The theme's small radius (`--radius-sm`) |
 
 ```markdown
 ---
-spark: etching rounded
+spark: etch rounded
 ---
 
 <!-- _class: table spark-bare -->
@@ -1147,7 +1147,7 @@ spark: etching rounded
 the slide's class, then the deck's `spark:`, then the default. A spark that names its own
 corners keeps a frame in a bare deck unless it also says `bare`. A ring's frame is
 square rather than 3:2. The table slide above drops the
-frame and keeps the deck's etching and rounded words for any spark that asks for a frame back.
+frame and keeps the deck's etch and rounded words for any spark that asks for a frame back.
 `lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
 
 ## The `callout:` front-matter register (chart callouts)

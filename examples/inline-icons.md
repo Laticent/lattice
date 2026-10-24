@@ -22,9 +22,9 @@ Written like a spark, colored by the deck, and never a font glyph or an emoji.
 | Look | `database` | `bucket` | `shield` | `rocket` |
 | --- | --- | --- | --- | --- |
 | `pigment`, the default | `^{database, c1}` | `^{bucket, c4}` | `^{shield, c3}` | `^{rocket, c5}` |
-| `etching` | `^{database, c1, etching}` | `^{bucket, c4, etching}` | `^{shield, c3, etching}` | `^{rocket, c5, etching}` |
+| `etch` | `^{database, c1, etch}` | `^{bucket, c4, etch}` | `^{shield, c3, etch}` | `^{rocket, c5, etch}` |
 | `tone` | `^{database, c1, tone}` | `^{bucket, c4, tone}` | `^{shield, c3, tone}` | `^{rocket, c5, tone}` |
-| `rounded` | `^{database, c1, rounded}` | `^{bucket, c4, etching, rounded}` | `^{shield, c3, tone, rounded}` | `^{rocket, c5, rounded}` |
+| `rounded` | `^{database, c1, rounded}` | `^{bucket, c4, etch, rounded}` | `^{shield, c3, tone, rounded}` | `^{rocket, c5, rounded}` |
 | `bare` | `^{database, c1, bare}` | `^{bucket, c4, bare}` | `^{shield, c3, bare}` | `^{rocket, c5, bare}` |
 
 ---
@@ -99,7 +99,7 @@ A deck sets the same thing for every slide with `icon: bare` in its front matter
 
 ## On a sketch slide, the tile is drawn by hand.
 
-Framed icons `^{database, c1}` `^{bucket, c4, etching}` `^{shield, c3, tone}` and a spark `~{12 14 13 17 16 21 24}` share one hand.
+Framed icons `^{database, c1}` `^{bucket, c4, etch}` `^{shield, c3, tone}` and a spark `~{12 14 13 17 16 21 24}` share one hand.
 
 The drawing inside stays crisp, and a bare icon `^{rocket, c5, bare}` has no tile to ink. `mode: sketch` does the same for a whole deck.
 

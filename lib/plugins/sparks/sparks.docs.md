@@ -107,12 +107,12 @@ the whole deck:
 | Axis | Words | Default |
 |---|---|---|
 | Frame | `framed` · `bare` (no frame, just ink) | `framed` |
-| Look | `pigment` · `etching` · `tone` (how the color is spent, below) | `pigment` |
+| Look | `pigment` · `etch` · `tone` (how the color is spent, below) | `pigment` |
 | Corners | `square` · `rounded` (the theme's small radius) | `square` |
 
-- **One spark:** the word in the spark, `` `~{1 3 2, bare}` `` or `` `~{1 3 2, etching, rounded}` ``.
+- **One spark:** the word in the spark, `` `~{1 3 2, bare}` `` or `` `~{1 3 2, etch, rounded}` ``.
 - **One slide:** the word as a class with `spark-` in front, `<!-- _class: table spark-bare -->`.
-- **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: etching rounded`
+- **The deck:** the `spark:` front-matter register, `spark: bare` or `spark: etch rounded`
   ([`base.registers.docs.md`](../../base/base.registers.docs.md) § `spark:`).
 
 The most specific wins, one axis at a time: the spark, then the slide, then the deck, then the
@@ -123,7 +123,7 @@ deck unless it also says `bare`. A look is about color, not the tile, so it does
 the whole tile (0.85× / 1× / 1.6×). A frame adds a little height to a line of prose, so a
 paragraph with several sparks may read better with `spark-bare` on that slide.
 
-## Look — `pigment`, `etching`, `tone`
+## Look — `pigment`, `etch`, `tone`
 
 A spark has four parts one color can go to: the **tile**, its **edge**, the **ink** every line,
 dot and ring arc draws in, and the **body** that fills bars, an area and a bullet's value. A
@@ -134,7 +134,7 @@ never come from two slots. The names are the chart family's three finishes
 | Look | Tile | Edge | Ink | Body |
 |---|---|---|---|---|
 | `pigment` (default) | the slot's fill | the slot's ink | the ink that reads on the fill | the ink |
-| `etching` | clear | the slot's ink | the slot's ink | a 30% wash, ink-edged |
+| `etch` | clear | the slot's ink | the slot's ink | a 30% wash, ink-edged |
 | `tone` | a 12% tint | a 45% tint | the hue pulled toward the heading ink | a 55% tint |
 
 Every look keeps the edge: no fill clears the 3:1 graphical floor on its own, and the edge does.

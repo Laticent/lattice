@@ -116,7 +116,7 @@ and a slide can pin its own with `_class: chart-finish-<name>`.
 | | identity lives in | choose it for | body | edge |
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | 82% | ink, 1× |
-| **`etching`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
+| **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
 | **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
 
 **No finish is the default.** A deck without `chart-finish:` keeps every chart's own
@@ -144,14 +144,14 @@ measurement, and most undo a defect a render or the adversarial review found:
   member's paint (no member marks paint `!important`) and loses to an a11y
   theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
   finish never strips the pattern channel from a colorblind reader.
-- **Etching and tone mix toward the canvas; pigment mixes toward
+- **Etch and tone mix toward the canvas; pigment mixes toward
   `--chart-cat-base`.** That base is black in dark mode, which is right for
   pigment's shipped body tier. A whisper mixed toward black lands darker than the
   slide and reads as a hole.
 - **A ramp scales from its own member's empty end** (`--heatmap-base`,
   `--map-base`). A ramp that prints its value takes a shorter band: tone tops out
   at 70% on light and every finish near 50% on dark, where light text stopped
-  clearing carbone's lime top step (3.39:1). Etching's ramp is wider than its
+  clearing carbone's lime top step (3.39:1). Etch's ramp is wider than its
   whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
   flat navy, and a ramp's identity is value.
 - **A heatmap value picks its own ink.** The theme solves each step's ink against
@@ -254,7 +254,7 @@ dots and the edges, but their composited fills converge, and on a dark canvas th
 steps compress further. Measured, not tuned away: a finish that claims one hue
 cannot also keep three.
 
-**`etching` and color vision.** Etching carries identity on a thin ink edge over
+**`etch` and color vision.** Etch carries identity on a thin ink edge over
 a whisper of a body, and thin strokes are where hues are hardest to tell apart.
 The a11y themes and print keep their patterns under it; on an ordinary theme, a
 deck read by colorblind viewers is better served by `pigment` or an a11y theme.
@@ -289,7 +289,7 @@ nothing.
 
 Floors: **4.5:1** for text, **3:1** for large (≥24px, or ≥18.66px bold) and for
 any graphical object carrying information (WCAG 1.4.11). A mark passes on **either**
-channel — body-vs-backdrop or edge-vs-backdrop — because `etching` leans on the
+channel — body-vs-backdrop or edge-vs-backdrop — because `etch` leans on the
 edge by design.
 
 ### Six ways a contrast measurement lies
