@@ -13,8 +13,8 @@
  *
  * A status that shares a category's hue is told apart by what the chart family adds to it, not by its fill: every
  * status carries its drawn MARK (lib/core/status-marks.js), and the two exceptions, at risk and blocked, carry a
- * SIGNAL ring (`--warn-solid-signal`, `--fail-solid-signal`): the bright amber and coral-red, 3:1 off their fill. Each
- * status also has an EDGE (`--X-solid-edge`): its own hue at 4.6:1 off the slide, for a status drawn as a line or text.
+ * SIGNAL ring (`--warn-solid-signal`, `--fail-solid-signal`): the bright amber and coral-red, 3:1 off their fill. A
+ * status drawn as a line or text paints the theme's own status ink (`--pass` … `--mute`), so it needs no seed here.
  *
  * Each move keeps a seed's hue and moves lightness (and chroma, only down, when a hue leaves the sRGB gamut). The
  * category and neutral hues are the theme's own; the status hues are the theme's own status inks (`--pass` …), with
@@ -54,12 +54,12 @@ const TRIO = ['pass', 'warn', 'fail'];
 const STATES = [...TRIO, 'info', 'mute'];
 const FILL = (s) => `${s}-solid`;
 const VIVID = (s) => `${s}-solid-vivid`;
-const EDGE_OF = (s) => `${s}-solid-edge`;
 /** Every status seed a trio-owning theme declares. `--mute-solid` has no vivid: a neutral has no intensity. */
 const SIGNAL_OF = (s) => `${s}-solid-signal`;
-const STATUS_SEEDS = [...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...STATES.map(EDGE_OF), ...['warn', 'fail'].map(SIGNAL_OF)];
-/** Retired: amber is no longer the one status with its own ink. */
-const RETIRED = ['on-warn', 'on-warn-vivid', 'on-status'];
+const STATUS_SEEDS = [...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...['warn', 'fail'].map(SIGNAL_OF)];
+/** Retired: amber is no longer the one status with its own ink; a status ink is `--on-solid`, and a status line or
+ * text is the slide ink, so neither keeps a token of its own. */
+const RETIRED = ['on-warn', 'on-warn-vivid', 'on-status', ...STATES.map((s) => `${s}-solid-edge`)];
 
 /**
  * THE THEME'S CHARACTER, so a status set is on brand rather than one set for every palette. Two measurements of the
@@ -189,14 +189,14 @@ function solveTheme(theme) {
   // fills carry `--on-solid`, the same ink as the categories. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
   // (bright fills under a near-black ink), so the brand set it would inherit from its parent would carry the wrong ink.
   if (owns('pass') || a11y) {
-    const face = (dark) => [R(raw.bg, dark), R(raw['bg-alt'], dark)].filter(isHex);
+    const darkFace = [R(raw.bg, true), R(raw['bg-alt'], true)].filter(isHex);
     const hue = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((s) => [s, hexToOklch(arm(s, false)).h]));
     const accent = R(raw.accent, false);
     if (!a11y && isHex(accent) && hexToOklch(accent).C >= 0.05) for (const s of ['pass', 'fail']) hue[s] = lean(hue[s], hexToOklch(accent).h);
     const meanC = CATS.slice(0, 6).reduce((sum, seed) => sum + hexToOklch(arm(seed, false)).C, 0) / 6;
     const strength = a11y ? 1 : Math.min(STRENGTH[1], Math.max(STRENGTH[0], meanC / TYPICAL_CHROMA));
     const darkInk = a11y ? DARK_INK : WHITE;
-    let set = solveStatusSet({ hue, strength, light: face(false), dark: face(true), darkInk });
+    let set = solveStatusSet({ hue, strength, dark: darkFace, darkInk });
     if (a11y && theme !== 'a11y-base') {
       // A colorblind palette solves its trio against its own condition, near the scheme's own fills, on each face; the
       // trio's hues are its own (a colorblind palette picks hues for its condition, not for a band). One set serves
@@ -204,7 +204,7 @@ function solveTheme(theme) {
       const type = theme.slice('a11y-'.length);
       const trio = [false, true].map((dark) => solveCvdTrio(hue, Object.fromEntries(TRIO.map((s) => [s, set[FILL(s)][dark ? 1 : 0]])), TEXT_ON_SOLID, type, [R(raw.bg, dark)], dark ? darkInk : WHITE));
       const override = Object.fromEntries(TRIO.map((s) => [s, [trio[0][s], trio[1][s]]]));
-      set = solveStatusSet({ hue, strength, light: face(false), dark: face(true), override, darkInk });
+      set = solveStatusSet({ hue, strength, dark: darkFace, override, darkInk });
     }
     for (const [token, [l, d]] of Object.entries(set)) out[token] = `light-dark(${l}, ${d})`;
     // A colorblind palette has one intensity: `a11y-base` aliases vivid to the solid once, and each child inherits the

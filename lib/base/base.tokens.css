@@ -646,8 +646,8 @@
    * neutral and has no vivid. A status shares a lightness with the categories, so the chart family tells it apart by
    * what it adds: a drawn MARK on every status, and a SIGNAL ring on the two exceptions.
    *
-   * `--pass-solid-edge` … `--mute-solid-edge` are each status's EDGE: its own hue at 4.6:1 off the slide, for a status
-   * that is a LINE or TEXT (a slope, a waterfall step, a kanban header). On the light face it is the fill itself.
+   * A status that is a LINE or TEXT (a slope, a waterfall step, a kanban header) paints its slide ink, `--pass` …
+   * `--mute`, the same color the status is everywhere else on the slide.
    *
    * `--warn-solid-signal` and `--fail-solid-signal` are the RING round an at-risk or blocked shape: the bright amber
    * and coral-red, 3:1 off the deep fill on a light slide and off the slide itself on a dark one, so an exception
@@ -669,11 +669,6 @@
   --warn-solid-vivid: light-dark(#924100, #BF5600);
   --fail-solid-vivid: light-dark(#9E000E, #D5101C);
   --info-solid-vivid: light-dark(#005E85, #007DAF);
-  --pass-solid-edge: light-dark(#264930, #62876A);
-  --warn-solid-edge: light-dark(#8F420C, #BA693A);
-  --fail-solid-edge: light-dark(#971B1A, #D3564D);
-  --info-solid-edge: light-dark(#125E82, #4185AA);
-  --mute-solid-edge: light-dark(#4C5157, #7A7F86);
   --warn-solid-signal: light-dark(#F99705, #F69400);
   --fail-solid-signal: light-dark(#FD7468, #FF7E72);
   /* The ink on a solid: white, on a category, the neutral and a status alike. */

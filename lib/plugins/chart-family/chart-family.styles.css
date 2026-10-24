@@ -533,9 +533,9 @@ section.word-cloud,
  *
  * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
  * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`, the rule below this
- * block). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. The
- * ink is the status's curated EDGE (`--X-solid-edge`): its own hue at 4.6:1 off the slide, what a status LINE or
- * status TEXT paints. The signal is the bright ring an exception wears (§ THE SIGNAL RING below). */
+ * block). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. A
+ * status LINE or status TEXT paints the theme's status ink (`--pass` … `--mute`), the color the status is in every
+ * other component, which each theme spaces for the colorblind floors (cvd-trio-floor.test.js). The signal is the bright ring an exception wears (§ THE SIGNAL RING below). */
 section.chart-frame,
 .chart-frame {
   --state-pass-hue: var(--pass-solid);  /* green  — done/on-track/live   */
@@ -576,11 +576,11 @@ section.chart-frame,
   --state-info-fill: light-dark(color-mix(in oklab, var(--state-info-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-info-hue) 50%, black));
   --state-mute-fill: light-dark(color-mix(in oklab, var(--state-mute-hue) 22%, var(--bg)), color-mix(in oklab, var(--state-mute-hue) 46%, black));
 
-  --state-pass-ink: var(--pass-solid-edge);
-  --state-warn-ink: var(--warn-solid-edge);
-  --state-fail-ink: var(--fail-solid-edge);
-  --state-info-ink: var(--info-solid-edge);
-  --state-mute-ink: var(--mute-solid-edge);
+  --state-pass-ink: var(--pass);
+  --state-warn-ink: var(--warn);
+  --state-fail-ink: var(--fail);
+  --state-info-ink: var(--info);
+  --state-mute-ink: var(--mute);
 
 
   /* Shared accent header-rule — the hairline under a data header (gantt quarter

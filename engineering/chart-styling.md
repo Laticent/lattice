@@ -139,7 +139,7 @@ brand green bar and a "done" bar can look alike. Two things separate them:
   an arrowhead at the shape's edge. HTML boxes take an inset shadow (`!important`, because every finish paints a
   status member's edge with `!important`); an SVG member's kernel draws the shape's own outline clipped to the shape
   (`.chart-signal-ring`). A risk matrix rings its whole critical band once, inside the band, and marks each critical
-  cell. A hub-spoke alarm halo stands apart from its disc, so its only neighbor is the slide: it wears the status EDGE.
+  cell. A hub-spoke alarm halo stands apart from its disc, so its only neighbor is the slide: it wears the status ink.
 
 The contract, held for every palette in both modes and both intensities by
 `test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`:
@@ -147,8 +147,9 @@ The contract, held for every palette in both modes and both intensities by
 - white clears **7:1** on every light-face solid and **4.5:1** on every dark-face one, where a fill is the lightest
   tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
 - every solid clears **3:1** against the slide (WCAG 1.4.11) by itself;
-- each status's EDGE (`--X-solid-edge`, its own hue at 4.6:1 off the slide) is what a status LINE or status TEXT
-  paints: a slope, a waterfall step, a kanban header, the status ink `--state-X-ink`;
+- a status LINE or status TEXT (a slope, a waterfall step, a kanban header: `--state-X-ink`) paints the theme's
+  status ink `--pass` … `--mute`, the color that status is in every other component, so a deck has one color per
+  status for text and one fill per status for a mark;
 - each ring sits at the opposite lightness to its fill and clears **3:1** against the neighbor opposite it in
   lightness: a bright ring on a deep fill against the fill (light slide); a bright ring on a mid-tone fill against the
   slide, with a **2:1** step off the fill (dark slide; held to 3:1 off a mid-tone fill it washes out to near white); a
@@ -183,14 +184,17 @@ there it is deep. Every `a11y-*` trio clears its own condition's floor outright,
 (`cvd-trio-floor.test.js`).
 
 **Status has two jobs** (`base.tokens.css` § STATUS, IN TWO JOBS). `--pass` … `--mute` are the status as INK on
-the slide (text, a rule, a mark), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The FILLS and
-EDGES are a separate set. The first cut used one color for both jobs and pushed the trio apart by lightness alone,
-which turned red near-black and green near-white.
+the slide (text, a rule, a mark), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The FILLS are a
+separate set. The first cut used one color for both jobs and pushed the trio apart by lightness alone, which turned
+red near-black and green near-white. A later cut gave charts a third set, an EDGE per status (the fill's hue at
+4.6:1 off the slide) for status lines and text. It was retired: solved to one contrast, the three edges shared one
+lightness, so 568 of 672 brand-theme pairs fell under the colorblind floor (the slide inks: 142), and it made a
+deck say each status in two text colors. Charts now paint lines and text in the slide ink.
 
 `tools/curate-chart-solids.js` seeds the values with the solvers in `lib/theme/chart-solids.js`
 (`solveStatusSet` for the status set), the same ones the Studio's generator (`lib/theme/derive.js`) calls: it keeps
-each seed's hue, moves lightness (and chroma only down, where the gamut runs out), and writes every solid, edge,
-signal and ink. It is not part of the build, so a hand-tuned seed
+each seed's hue, moves lightness (and chroma only down, where the gamut runs out), and writes every solid, signal
+and ink. It is not part of the build, so a hand-tuned seed
 stays tuned as long as it clears the gates. A gray category keeps its light-face order on the dark face (a deeper
 gray stays deeper), and onyx's olive sits between two grays, because two adjacent grays under white cannot stay
 0.06 OKLab apart (`chart-contrast.test.js`). A solid is
