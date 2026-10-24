@@ -345,11 +345,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#2A2A2A, #C8C8C5);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#2A2A2A, #C8C8C5);
+  --heatmap-step3-ink: light-dark(#2A2A2A, #F3F3EF);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#080808, #D8D8D4);
+  --heatmap-step4-ink: light-dark(#080808, #22211F);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#E0E0E0, #F4F4F0);
+  --heatmap-step5-ink: light-dark(#E0E0E0, #3E3D3B);
   /* ── end heatmap ramp ── */
 
   /* Semantic spectrum — charts that encode meaning (gantt bars, progress,

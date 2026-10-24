@@ -414,11 +414,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#1E3A5F, #CBD9E8);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#122E51, #CBD9E8);
+  --heatmap-step3-ink: light-dark(#122E51, #FCFEFF);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#000E27, #D0DEEE);
+  --heatmap-step4-ink: light-dark(#000E27, #1D2733);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#D1E4FF, #ECF5FF);
+  --heatmap-step5-ink: light-dark(#D1E4FF, #343F4C);
   /* ── end heatmap ramp ── */
 
   /* Status — pass/info/mute REUSE indaco's own palette (--pass, brand blue,

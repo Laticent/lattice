@@ -263,11 +263,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#333333, #BFBFBF);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#0B0B0B, #E3E3E3);
+  --heatmap-step3-ink: light-dark(#0B0B0B, #FAFAFA);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#D4D4D4, #202020);
+  --heatmap-step4-ink: light-dark(#D4D4D4, #333333);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#A7A7A7, #434343);
+  --heatmap-step5-ink: light-dark(#A7A7A7, #545454);
   /* ── end heatmap ramp ── */
 
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
