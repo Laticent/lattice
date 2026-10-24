@@ -111,26 +111,27 @@ section.obligation-matrix .label-set-key-mark {
   text-indent:200%;
   white-space:nowrap;
   line-height:1;
-  /* Disc fill + ring + lift from the scalar knobs (default Ringed Solid or
+  /* Disc fill + ring + lift from the scalar knobs (default flat status solid or
    * a .checks-* variant). Colors mixed here from --state-color. Mirror
    * recipe: checklist.styles.css, verdict-grid.styles.css. */
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-signal-w) var(--state-signal, transparent),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
 }
 section.obligation-matrix td .state.pass,
 section.obligation-matrix .ct-card dd .state.pass,
-section.obligation-matrix .label-set-key-mark.pass { --state-color:var(--pass); }
+section.obligation-matrix .label-set-key-mark.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
 section.obligation-matrix td .state.warn,
 section.obligation-matrix .ct-card dd .state.warn,
-section.obligation-matrix .label-set-key-mark.warn { --state-color:var(--warn); }
+section.obligation-matrix .label-set-key-mark.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
 section.obligation-matrix td .state.fail,
 section.obligation-matrix .ct-card dd .state.fail,
-section.obligation-matrix .label-set-key-mark.fail { --state-color:var(--fail); }
+section.obligation-matrix .label-set-key-mark.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
 section.obligation-matrix td .state.skip,
 section.obligation-matrix .ct-card dd .state.skip,
-section.obligation-matrix .label-set-key-mark.skip { --state-color:var(--muted-mark); }
+section.obligation-matrix .label-set-key-mark.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
 /* undetermined `[ ]` and unclear `[?]` — the two UNSETTLED answers, NEUTRAL (not
  * a gap): true hollow rings (see `.state.todo` in base.modifiers); unclear
  * carries a drawn `?`. Exempt is `[/]`, the muted slash above.
@@ -143,7 +144,7 @@ section.obligation-matrix .ct-card dd .state.todo,
 section.obligation-matrix .label-set-key-mark.todo,
 section.obligation-matrix td .state.unknown,
 section.obligation-matrix .ct-card dd .state.unknown,
-section.obligation-matrix .label-set-key-mark.unknown { --state-color:var(--muted-mark); }
+section.obligation-matrix .label-set-key-mark.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
 /* Mark overlay — masked symbol (check / dash / x / slash) on the disc.
  * Mark color from --state-mark-pct (0% = knockout to --bg). */
 section.obligation-matrix td .state::after,
@@ -151,14 +152,15 @@ section.obligation-matrix .ct-card dd .state::after,
 section.obligation-matrix .label-set-key-mark::after {
   content:'';
   position:absolute; inset:0;
-  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }
 
 /* .heat chrome — palette inversion comes from the universal
- * section.heat overlay; this block adds the cell-background tint that
- * makes the table read as a heat map at a glance. */
+ * section.heat overlay; this block adds the cell ground that makes the
+ * table read as a heat map at a glance: the theme's status grounds
+ * (`--fail-bg` …), following the remapped role, not a local tint. */
 section.obligation-matrix.heat tbody tr td:not(:first-child) { background:none; }
 
 /* THE INVERSION ITSELF, ON THE SPLIT-CARD SURFACE. Base's universal overlay
@@ -174,32 +176,32 @@ section.obligation-matrix.heat tbody tr td:not(:first-child) { background:none; 
  * `.heat` adds a class, so these are (0,4,2) against the (0,3,2) defaults above —
  * they win outright, not on the source-order tie base's header describes. */
 section.obligation-matrix.heat .ct-card dd .state.pass,
-section.obligation-matrix.heat .label-set-key-mark.pass { --state-color:var(--fail); }
+section.obligation-matrix.heat .label-set-key-mark.pass { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
 section.obligation-matrix.heat .ct-card dd .state.warn,
-section.obligation-matrix.heat .label-set-key-mark.warn { --state-color:var(--warn); }
+section.obligation-matrix.heat .label-set-key-mark.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
 section.obligation-matrix.heat .ct-card dd .state.fail,
-section.obligation-matrix.heat .label-set-key-mark.fail { --state-color:var(--pass); }
+section.obligation-matrix.heat .label-set-key-mark.fail { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
 section.obligation-matrix.heat .ct-card dd .state.skip,
-section.obligation-matrix.heat .label-set-key-mark.skip { --state-color:var(--muted-mark); }
+section.obligation-matrix.heat .label-set-key-mark.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
 /* The KEY takes the remap too. It is drawn outside any `td`, so base's `td .state`
  * overlay never reached it, and the shipped heat slide keyed "Applies" with a GREEN
  * disc under a grid of red ones — a key contradicting its cells, the bug #2327 began
  * with. The swatch shares the cells' classes, so it follows them here. */
 section.obligation-matrix.heat td:has(> .state.pass),
 section.obligation-matrix.heat .ct-card dd:has(> .state.pass) {
-  background:color-mix(in srgb, var(--fail) 14%, var(--bg));
+  background:var(--fail-bg);
 }
 section.obligation-matrix.heat td:has(> .state.warn),
 section.obligation-matrix.heat .ct-card dd:has(> .state.warn) {
-  background:color-mix(in srgb, var(--warn) 14%, var(--bg));
+  background:var(--warn-bg);
 }
 section.obligation-matrix.heat td:has(> .state.fail),
 section.obligation-matrix.heat .ct-card dd:has(> .state.fail) {
-  background:color-mix(in srgb, var(--pass) 10%, var(--bg));
+  background:var(--pass-bg);
 }
 section.obligation-matrix.heat td:has(> .state.skip),
 section.obligation-matrix.heat .ct-card dd:has(> .state.skip) {
-  background:color-mix(in srgb, var(--muted-mark) 6%, var(--bg));
+  background:var(--bg-alt);
 }
 /* Bracket-frame echo at the row level. Each row carries a doubled left
  * border (matching the authority-chain.bracket aesthetic) so the matrix

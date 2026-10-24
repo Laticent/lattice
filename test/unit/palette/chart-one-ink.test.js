@@ -33,6 +33,7 @@ const { SIGNAL_DARK_FILL } = require('../../../lib/theme/chart-solids.js');
 const { STATUS_MARK } = require('../../../lib/core/status-marks.js');
 
 const FAMILY = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'plugins', 'chart-family', 'chart-family.styles.css'), 'utf8');
+const BASE_TOKENS = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'lib', 'base', 'base.tokens.css'), 'utf8');
 const THEMES = [...baseThemeNames(), 'a11y-achromatopsia', 'a11y-deuteranopia', 'a11y-protanopia', 'a11y-tritanopia'];
 const RING = 3;
 const hex = (o) => (typeof o === 'string' ? o : `#${[o.r, o.g, o.b].map((v) => v.toString(16).padStart(2, '0')).join('')}`);
@@ -60,7 +61,8 @@ describe('one ink: rings and marks are wired', () => {
     assert.match(FAMILY, /\.chart-signal-ring \{\s*fill: none !important;\s*stroke: var\(--chart-signal\) !important;/);
     // The ring takes no space: an inset shadow on HTML, a clipped outline on SVG, 1.3 hairlines wide.
     assert.match(FAMILY, /box-shadow: inset 0 0 0 var\(--chart-ring\) var\(--chart-signal\) !important;/);
-    assert.match(FAMILY, /--chart-ring: calc\(var\(--chart-hairline\) \* 1\.3\);/);
+    assert.match(FAMILY, /--chart-ring: var\(--state-signal-w\);/);
+    assert.match(BASE_TOKENS, /--state-signal-w: calc\(clamp\(1px, 0\.078cqi, 2px\) \* 1\.3\);/);
   });
 
   test('every status the marks kernel names has its mask', () => {

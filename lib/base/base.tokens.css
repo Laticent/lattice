@@ -1215,7 +1215,7 @@
    * behind it and the whole mark takes one paint color. */
   --shape-warning: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.6L23 21H1zM11 9h2v6h-2zM11 16.6h2v2.1h-2z' fill='black' fill-rule='evenodd'/></svg>");
 
-  /* ── State-disc recipe — SCALAR KNOBS (default = "Ringed Solid") ──────
+  /* ── State-disc recipe — SCALAR KNOBS (default = a flat status solid) ──
    * The disc is painted by each consumer from --state-color + these
    * scalar knobs. Knobs hold ONLY numbers/lengths/percentages — never a
    * value embedding --state-color or --bg — because the variant classes
@@ -1226,9 +1226,20 @@
    * inherit the guaranteed-invalid result — the disc then never paints.
    * See engineering/gotchas.md "state disc never paints".
    *
-   * Default = Ringed Solid: saturated fill + hairline darker ring,
-   * knockout mark. Stays crisp on its own status-tinted row. The five
-   * variants in base.modifiers.css override these knobs.
+   * Default = the status SOLID with an ink rim: a finding's disc is the
+   * deck's status fill (`--state-X-hue`), its mark knocked out in the one
+   * ink (`--state-glyph-mark`, `--on-solid`), a hairline RIM outside it in
+   * the status's slide ink (`--state-ink`, the row's rail color), and at
+   * risk and blocked wear the signal ring inside the edge (`--state-signal`)
+   * (engineering/decisions/2026-10-24-status-is-one-system.md). The rim is
+   * what a gantt bar wears too, and it is load-bearing on a TINTED row: on a
+   * dark slide a fill deep enough for white text cannot clear 3:1 against
+   * any tint (its luminance tops out near 0.18), so the ink rim is the
+   * disc's edge there. `checks-knockout` drops it, for a disc on the bare
+   * slide. Each class mapping sets the four role colors (`--state-color`,
+   * `--state-ink`, `--state-signal`, `--state-glyph-mark`) on the LEAF,
+   * which is why they are not knobs. The
+   * five variants in base.modifiers.css override these knobs.
    *
    * NOTE: the recipe is intentionally VECTOR-ONLY (solid fills + 0-blur
    * spread rings) — no blurred drop-shadow. A blurred box-shadow on a
@@ -1237,11 +1248,37 @@
    * an opaque gray square around the disc. See engineering/gotchas.md
    * "blurred box-shadow → gray box in some PDF viewers". */
   --state-fill-pct: 100%;       /* disc fill = this % of --state-color, rest transparent */
-  --state-ring-outer-w: 1.6px;  /* outer ring width (ringed default) */
-  --state-ring-mix: 50%;        /* outer ring color = --state-color mixed toward black */
+  --state-ring-outer-w: var(--state-signal-w);  /* the rim: a hairline in the status ink, outside the disc */
+  --state-ring-mix: 100%;       /* rim color = this % of --state-ink, rest black (`checks-ringed` darkens it) */
   --state-ring-inner-w: 0px;    /* inner ring width (outline / tonal) */
   --state-mark-pct: 0%;         /* mark color = this % --state-color, rest --bg (0% = knockout) */
   --state-disc-scale: 1;        /* disc + mark size multiplier (bold bumps it) */
+  /* The signal ring's width: 1.3 hairlines, the chart family's `--chart-ring`, so an exception wears one ring weight
+   * on a chart and on a disc. Kept as tokens, so `cqi` resolves on the element that draws it. */
+  --state-signal-w: calc(clamp(1px, 0.078cqi, 2px) * 1.3);
+}
+
+/* ── THE STATUS FILL ON THIS SLIDE ─────────────────────────────────────────
+ * `--state-pass-hue` … `--state-mute-hue` point every status MARK at the deck's
+ * fill (engineering/decisions/2026-10-24-status-is-one-system.md): the muted
+ * `--X-solid` by default, the `--X-solid-vivid` set when `chart-finish: … vivid`
+ * stamps `chart-finish-vivid` on the slide. A chart, a checklist disc and a kpi
+ * pill all read these, so one register sets every status fill on the slide.
+ * Declared on `section` as well as `:root` so a slide-level reset of the fills
+ * (the print band on `section.print`) is what the pointer resolves to. The
+ * neutral (`--mute-solid`) has no intensity. */
+:root, section {
+  --state-pass-hue: var(--pass-solid);
+  --state-warn-hue: var(--warn-solid);
+  --state-fail-hue: var(--fail-solid);
+  --state-info-hue: var(--info-solid);
+  --state-mute-hue: var(--mute-solid);
+}
+.chart-finish-vivid {
+  --state-pass-hue: var(--pass-solid-vivid);
+  --state-warn-hue: var(--warn-solid-vivid);
+  --state-fail-hue: var(--fail-solid-vivid);
+  --state-info-hue: var(--info-solid-vivid);
 }
 
 /* ── Spacing scale (proportional to the 1280px HD baseline) ────────────
