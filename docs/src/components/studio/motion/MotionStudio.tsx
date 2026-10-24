@@ -504,7 +504,7 @@ function Empty({ paste, setPaste, busy, replacing, describe, setDescribe, genera
 								<DropdownMenuContent align="end" className="w-60">
 									<DropdownMenuItem
 										onSelect={() => {
-											connectOpenRouter().catch(() => notify('Could not start the OpenRouter connect flow — try Workspace.'));
+											connectOpenRouter().catch(() => notify('Could not connect OpenRouter — try Workspace.'));
 										}}
 									>
 										<Cloud className="size-4" />

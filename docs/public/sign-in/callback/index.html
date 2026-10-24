@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Signing in… · Lattice</title>
+<style>
+	body { font: 15px/1.5 system-ui, sans-serif; display: grid; place-items: center; min-height: 100vh; margin: 0; padding: 0 16px; text-align: center; }
+</style>
+</head>
+<body>
+<p id="status">Signing in…</p>
+<script>
+// The sign-in popup's last stop (docs/src/lib/sign-in.js). It hands its own URL, which
+// carries the service's `?code=`, to the tab that opened it, and closes. The tab exchanges
+// the code; this page never does.
+(function () {
+	var back = location.href;
+	var status = document.getElementById('status');
+	// The code is single-use and short-lived, but it still has no business in this page's
+	// history entry once read.
+	try { history.replaceState(null, '', location.pathname); } catch (e) {}
+	var msg = { type: 'sign-in-callback', url: back };
+	var acked = false;
+	var channel = null;
+	try { channel = new BroadcastChannel('lattice-sign-in'); } catch (e) {}
+	if (channel) {
+		channel.onmessage = function (e) {
+			if (e.data && e.data.type === 'sign-in-ack') {
+				acked = true;
+				status.textContent = 'Signed in. You can close this window.';
+				window.close();
+			}
+		};
+		channel.postMessage(msg);
+	}
+	try { if (window.opener) window.opener.postMessage(msg, location.origin); } catch (e) {}
+	// No tab answered: the one that started the sign-in was reloaded or closed. Go back to
+	// the page it started from, which finishes the sign-in on load (resumePendingAuth).
+	setTimeout(function () {
+		if (acked) return;
+		var to = null;
+		try { to = localStorage.getItem('lattice-sign-in-return'); } catch (e) {}
+		var target = null;
+		try { target = to ? new URL(to, location.origin) : null; } catch (e) {}
+		var next = null;
+		// Rebuilt on this origin and re-checked: a path starting `//` would otherwise leave it.
+		try { next = target ? new URL(target.pathname + back.slice(back.indexOf('?')), location.origin) : null; } catch (e) {}
+		if (next && target.origin === location.origin && next.origin === location.origin && back.indexOf('?') !== -1) {
+			try { localStorage.removeItem('lattice-sign-in-return'); } catch (e) {}
+			location.replace(next.href);
+		} else {
+			status.textContent = 'Sign-in could not reach Lattice. Close this window and try again.';
+		}
+	}, 4000);
+})();
+</script>
+</body>
+</html>
