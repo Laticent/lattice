@@ -327,8 +327,10 @@ nothing, and that the author's own typing does not.
 edit and Apply path with the model mocked (HARD RULE #24): Apply on a rewrite paints the changed words "Tuesday morning" and the line, the saved
 deck is exactly the rewrite, and the paint clears.
 
-**Not verified.** The dark theme at phone width (one dark frame at desktop width was checked); an AI apply with a live model (the mocked one
-exercises every step after the reply).
+**Dark theme.** One frame at 1440 px and one at 390 px (`desktop-dark-peak.png`, `phone-dark-peak.png`): the line tint, the accent rule and the word tint
+are all readable on the dark canvas.
+
+**Not verified.** An AI apply with a live model: the mocked one exercises every step after the reply, and HARD RULE #24 keeps our key out of per-PR tests.
 
 ## 9. Decisions put to the owner
 
