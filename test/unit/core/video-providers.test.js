@@ -132,6 +132,8 @@ describe('the registry is one table, and every row is whole', () => {
 				const rel = path.relative(REPO, full);
 				if (rel === path.join('lib', 'core', 'video-providers.mjs')) continue;
 				if (/\.test\.(js|mjs|cjs|jsx|ts|tsx)$/.test(e.name)) continue;
+				// A generated playground bundle (`authoring-core.generated.js`) is the kernel COPIED in by the bundler, not a second table.
+				if (/\.generated\.js$/.test(e.name) && rel.startsWith(path.join('docs', 'src', 'playground'))) continue;
 				for (const [i, line] of fs.readFileSync(full, 'utf8').split('\n').entries()) {
 					// A comment mentioning a provider is fine; a REGEX or a URL TEMPLATE
 					// naming one is the thing that drifts.

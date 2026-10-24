@@ -105,7 +105,7 @@ describe('activation: the deck’s plugins: line', () => {
 		expect(html).toMatch(/<div data-lattice-plugin-off="gantt-plugin" data-placement="figure" role="note"><span class="lattice-plugin-mark" aria-hidden="true"><\/span><span class="lattice-plugin-words"><strong>gantt-plugin<\/strong>/);
 		expect(html).not.toMatch(/Design 1|Build 3/);
 		// The shipped passes' slides keep the code block the author wrote: a placeholder there would sit in a slide the door does not draw on.
-		expect(html).toContain('video slide, not drawn');
+		expect(html).toContain('qr slide, not drawn');
 	});
 
 	it('the offered plugin is reported to the strip, from the source and from the render', async () => {

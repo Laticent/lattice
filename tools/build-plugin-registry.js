@@ -785,7 +785,7 @@ function renderInline(ordered) {
   const lines = ordered.flatMap((p) => Object.entries(p.manifest.contributes.inline || {}).map(([kind, decl]) => {
     const m = p.manifest;
     // An untagged kind (the bare record `{…}`, the pill) has no sigil; the dispatcher keeps its row between the marks and the sparks.
-    const tag = decl.untagged ? `sigil: null, untagged: true` : `sigil: ${JSON.stringify(decl.sigil)}`;
+    const tag = decl.untagged ? `sigil: null, untagged: true` : decl.named ? `sigil: null, namedOnly: true${decl.address ? ', address: true' : ''}` : `sigil: ${JSON.stringify(decl.sigil)}${decl.address ? ', address: true' : ''}`;
     const embedded = m.embedded === true ? ', embedded: true' : '';
     return `  Object.freeze({ name: ${JSON.stringify(kind)}, plugin: ${JSON.stringify(m.name)}${embedded}, ${tag}, ...require('./${p.folder}/${m.name}.inline.js').inline${/^[a-z_][a-z0-9_]*$/i.test(kind) ? `.${kind}` : `[${JSON.stringify(kind)}]`} }),`;
   }));

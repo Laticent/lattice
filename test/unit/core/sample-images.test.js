@@ -81,7 +81,7 @@ describe('sample: — every engine path that paints a picture', () => {
   });
 
   test('a video poster', () => {
-    assert.match(render('<!-- _class: video -->\n\n## T\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n- sample:video-poster.svg `poster`\n'), new RegExp(`${S}video-poster\\.svg`));
+    assert.match(render('<!-- _class: video -->\n\n## T\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ", poster="sample:video-poster.svg"}`\n'), new RegExp(`${S}video-poster\\.svg`));
   });
 
   test('a deck logo', () => {

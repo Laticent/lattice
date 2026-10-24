@@ -853,7 +853,7 @@ describe('html-player export — a slide link opens a new tab, the deck stays', 
 	test.before(async () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-link-'));
 		const deck = path.join(dir, 'deck.md');
-		fs.writeFileSync(deck, `---\nmarp: true\n---\n\n<!-- _class: video -->\n\n## Watch the tour.\n\n- ${WATCH}\n`);
+		fs.writeFileSync(deck, `---\nmarp: true\n---\n\n<!-- _class: video -->\n\n## Watch the tour.\n\n\`@video{"${WATCH}"}\`\n`);
 		const out = path.join(dir, 'deck.pdf');
 		const r = spawnSync(process.execPath, [EMULATOR, deck, out, '--quiet', '--player'], { cwd: ROOT, encoding: 'utf8', env: { ...process.env }, timeout: TIMEOUT });
 		assert.equal(r.status, 0, `emulator failed: ${r.stderr}`);

@@ -34,8 +34,9 @@ describe('the generated fence-door data', () => {
   });
 
   test('the shipped inline kinds are the live dispatcher table\'s, so a zip plugin cannot take one', () => {
-    const { FIRST_PARTY, KINDS } = require('../../../lib/core/inline-code-directives.js');
-    assert.deepEqual(DATA.shippedKinds, [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin)].map((k) => k.name))].sort());
+    const { FIRST_PARTY, KINDS, NAMED_ONLY_KINDS } = require('../../../lib/core/inline-code-directives.js');
+    assert.deepEqual(DATA.shippedKinds, [...new Set([...FIRST_PARTY, ...KINDS.filter((k) => k.plugin), ...NAMED_ONLY_KINDS].map((k) => k.name))].sort());
+    assert.ok(DATA.shippedKinds.includes('video'), 'a named-only kind is shipped too: a zip plugin cannot take `@video`');
     assert.equal(DATA.shippedKinds.includes('named'), false, 'the dispatcher\'s own row is not a kind');
     for (const k of ['state', 'pill', 'spark', 'icon', 'avatar']) assert.ok(DATA.shippedKinds.includes(k), k);
   });
@@ -43,9 +44,10 @@ describe('the generated fence-door data', () => {
   test('a function built from the generated list answers as the live one does, on every class set the registry names', async () => {
     const { rebuiltFromAlternatives } = await load();
     const studio = rebuiltFromAlternatives(DATA.rebuilt);
-    const sets = [[], ['content'], ['dark'], ['video', 'dark'], ['closing', 'qr'], ['closing'], ...DATA.rebuilt.map((a) => a.classes), ...DATA.rebuilt.map((a) => [...a.classes, 'extra'])];
+    const sets = [[], ['content'], ['dark'], ['contact', 'dark'], ['closing', 'qr'], ['closing'], ...DATA.rebuilt.map((a) => a.classes), ...DATA.rebuilt.map((a) => [...a.classes, 'extra'])];
     for (const set of sets) assert.equal(studio(set), rebuiltBy(set), `class set ${JSON.stringify(set)}`);
-    assert.equal(studio(['video']), 'video');
+    assert.equal(studio(['contact']), 'contact');
+    assert.equal(studio(['video']), null, 'a video slide reads no text into an address: nothing to deny');
     assert.equal(studio(['split-panel']), null, 'a layout-only set denies nothing');
   });
 });

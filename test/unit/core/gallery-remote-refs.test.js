@@ -53,7 +53,7 @@ const FETCHES = {
   'background directive': '<!-- _backgroundImage: url(https://evil.test/a) -->\n\n# hi',
   'logo: front matter': '---\nlogo: https://evil.test/a.png\n---\n\n# hi\n',
   'meta refresh': '<meta http-equiv="refresh" content="0;url=https://evil.test/">\n',
-  'the video component\'s poster bullet': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- https://evil.test/p.png `poster`\n',
+  'the video component\'s poster bullet': '<!-- _class: video -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="https://evil.test/p.png"}`\n',
   'a mermaid label spelled with Mermaid\'s numeric codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#58;#47;#47;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with named codes': '```mermaid\nflowchart LR\n  A["<img src=\'https#colon;#sol;#sol;evil.test/l.png\'>"]\n```\n',
   'a mermaid label spelled with HTML entities': '```mermaid\nflowchart LR\n  A["<img src=\'https&#58;&#x2f;&#x2F;evil.test/l.png\'>"]\n```\n',
@@ -138,7 +138,7 @@ const BENIGN = {
   // Dropped at render by the scheme allowlist (lib/core/url-scheme.js), so nothing is fetched and nothing is reported.
   'a protocol-relative Marp background image': '![bg right](//evil.test/a.jpg)',
   'a plain mermaid diagram': '```mermaid\nflowchart LR\nA-->B\n```\n',
-  'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n',
+  'the video component with a video URL alone': '<!-- _class: video -->\n\n## V\n\n`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ"}`\n',
 };
 
 // Front matter has to open the file, so a row that starts with it goes in bare.

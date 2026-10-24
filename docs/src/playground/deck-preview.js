@@ -319,7 +319,7 @@ export function linkGuardAgent() {
 		'    if(!a)return;',
 		'    var href=a.getAttribute("href")||"";',
 		'    if(!/^https?:/i.test(href))return;',
-		'    if(a.classList.contains("video-poster")&&typeof window.__videoPlay==="function"){',
+		'    if(a.classList.contains("video-poster")&&a.closest("figure.video-embed[data-lattice-media=video]")&&!a.closest("[data-lattice-plugin]")&&typeof window.__videoPlay==="function"){',
 		'      try{if(window.__videoPlay(a)){e.preventDefault();return;}}catch(_p){}',
 		'    }',
 		'    e.preventDefault();',

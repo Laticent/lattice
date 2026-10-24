@@ -22,8 +22,7 @@ A video as a static, PDF-safe embed: a poster that links to the clip, a play bad
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind"}`
 
 
 ---
@@ -35,9 +34,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind", poster="sample:video-poster.svg"}`
 
 
 ---
@@ -47,9 +44,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ## gallery mats the player like an exhibit.
 
-- https://vimeo.com/1084537
-- The reference onboarding walkthrough, contained on its matte. `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://vimeo.com/1084537", title="The reference onboarding walkthrough, contained on its matte.", poster="sample:video-poster.svg"}`
 
 
 ---
@@ -61,9 +56,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 The full 90-second tour — scan to open it on your phone.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Scan to watch `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Scan to watch", poster="sample:video-poster.svg"}`
 
 
 ---
@@ -75,8 +68,7 @@ The full 90-second tour — scan to open it on your phone.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind"}`
 
 
 ---
@@ -88,8 +80,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind"}`
 
 
 ---
@@ -101,8 +92,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 Ninety seconds, unscripted: signup to a published deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind"}`
 
 
 ---
@@ -125,7 +115,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ## When NOT to reach for video.
 
 - Instagram with no poster
-  - Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster` bullet falls back to a plain placeholder tile. Author a `poster` for a real still.
+  - Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster=` word falls back to a plain placeholder tile. Author a `poster` for a real still.
 
 ---
 

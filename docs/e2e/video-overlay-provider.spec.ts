@@ -57,23 +57,32 @@ marp: true
 
 ## Watch the tour.
 
-- ${url}
-- Scan to watch \`caption\`
+\`@video{"${url}", title="Scan to watch"}\`
 `;
 
 // The engine paint is not the subject here; stub the heavy externals the way
 // playground-state.spec.ts does so nothing is network-gated. The provider embed is
 // stubbed too: the assertion is the iframe's SRC, and a real cross-origin load would
 // make this spec depend on youtube-nocookie.com being reachable from the runner.
+// What the stub player says to its parent. TikTok and Instagram post a message as soon as they load; a blocked frame
+// posts nothing, which is what the lightbox's "didn't load" notice listens for.
+let stubSignals = false;
+const SIGNAL_SCRIPT: Record<string, string> = {
+	'www.tiktok.com': "parent.postMessage({type:'onPlayerReady','x-tiktok-player':true},'*')",
+	'www.instagram.com': "parent.postMessage(JSON.stringify({type:'LOADING',details:{}}),'*')",
+};
+
 test.beforeEach(async ({ context }) => {
+	stubSignals = false;
 	await context.route(/mermaid.*\.js($|\?)/, (route) =>
 		route.fulfill({ contentType: 'text/javascript', body: 'window.mermaid={initialize(){},run(){},render(){return{svg:""}}};' }),
 	);
 	await context.route(/katex.*\.css($|\?)/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
 	await context.route(/fonts\.googleapis|fonts\.gstatic/, (route) => route.fulfill({ contentType: 'text/css', body: '' }));
-	await context.route(/youtube-nocookie\.com/, (route) =>
-		route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>stub player</title>' }),
-	);
+	await context.route(/youtube-nocookie\.com|player\.vimeo\.com|(?:www\.)?tiktok\.com|(?:www\.)?instagram\.com/, (route) => {
+		const say = stubSignals ? (SIGNAL_SCRIPT[new URL(route.request().url()).hostname] ?? '') : '';
+		return route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>stub player</title><script>${say}</script>` });
+	});
 });
 
 async function openDeck(page: import('@playwright/test').Page, source: string) {
@@ -145,6 +154,29 @@ test('@smoke the registry drives the poster AND the parent-hosted player', async
 	expect(page.url()).toContain('/playground/');
 });
 
+// EVERY provider the registry names, on the same surface: the poster, the badge, the QR and the parent-hosted player. The first arm
+// above drives YouTube only; a row whose `embed` template or `id` extractor drifted would still pass it.
+const PROVIDER_CASES = [
+	{ key: 'vimeo', label: 'Vimeo', url: 'https://vimeo.com/1084537', watch: 'https://vimeo.com/1084537', embed: 'https://player.vimeo.com/video/1084537?autoplay=1' },
+	{ key: 'tiktok', label: 'TikTok', url: 'https://www.tiktok.com/@scout2015/video/6718335390845095173', watch: 'https://www.tiktok.com/@scout2015/video/6718335390845095173', embed: 'https://www.tiktok.com/player/v1/6718335390845095173?autoplay=1' },
+	{ key: 'instagram', label: 'Instagram', url: 'https://www.instagram.com/p/DWm0UOZgVVf/', watch: 'https://www.instagram.com/p/DWm0UOZgVVf/', embed: 'https://www.instagram.com/p/DWm0UOZgVVf/embed/' },
+] as const;
+for (const c of PROVIDER_CASES) {
+	test(`the ${c.key} row drives the poster, the badge, the QR and the player`, async ({ page }) => {
+		const preview = await openDeck(page, deck(c.url));
+		await expect(preview.locator(`figure.video-embed[data-provider="${c.key}"]`)).toHaveCount(1, { timeout: 30_000 });
+		await expect(preview.locator('.video-provider')).toHaveText(`Watch on ${c.label}`);
+		await expect(preview.locator('.video-qr .qr-tile svg')).toBeVisible();
+		await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch);
+		await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+		await preview.locator('a.video-poster').click();
+		await expect(page.locator('.pg-video-modal[role="dialog"] iframe')).toHaveAttribute('src', c.embed, { timeout: 15_000 });
+		// A tracker-blocking browser can blank the frame unseen, so the way out is always on screen.
+		await expect(page.locator('.pg-video-modal a[target="_blank"]')).toHaveText(`Not playing? Open on ${c.label} ↗`);
+		await expect(page.locator('.pg-video-modal a[target="_blank"]')).toHaveAttribute('href', c.watch);
+	});
+}
+
 test('@smoke a provider name in a URL fragment wears no provider badge', async ({ page }) => {
 	// The exact string both former tables resolved as Instagram. `instagram.com` is in
 	// the FRAGMENT, so the parsed host is evil.example and no provider owns it.
@@ -192,4 +224,78 @@ test('@smoke the Studio preview plays a poster tapped at its screen position', a
 	await expect(modal).toBeVisible({ timeout: 15_000 });
 	await expect(modal.locator('iframe')).toHaveAttribute('src', EMBED);
 	expect(popped, 'a tap opened a tab instead of the in-page player').toBe(false);
+});
+
+// A browser's tracking protection can blank TikTok's or Instagram's frame with no error the page can read. Both players
+// post a message to their parent when they load, so silence for 8 seconds is the signal. The pair below is the control:
+// the same click, with and without the stub saying it loaded, so the notice cannot pass by being always on or always off.
+for (const c of PROVIDER_CASES.filter((p) => p.key === 'tiktok' || p.key === 'instagram')) {
+	for (const signals of [false, true]) {
+		test(`the ${c.key} player ${signals ? 'that loads shows no notice' : 'that never loads gets the "didn\'t load" notice'}`, async ({ page }) => {
+			stubSignals = signals;
+			const preview = await openDeck(page, deck(c.url));
+			await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch, { timeout: 30_000 });
+			await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+			await page.clock.install();
+			await page.evaluate(() => {
+				(window as unknown as { __heard: boolean }).__heard = false;
+				window.addEventListener('message', () => { (window as unknown as { __heard: boolean }).__heard = true; });
+			});
+			await preview.locator('a.video-poster').click();
+			const modal = page.locator('.pg-video-modal[role="dialog"]');
+			await expect(modal.locator('iframe')).toHaveAttribute('src', c.embed, { timeout: 15_000 });
+			const notice = modal.locator('[role="status"]');
+			await expect(notice).toBeHidden();
+			// Wait for the stub frame to finish loading, and for its message when it sends one, before the clock moves.
+			await (await modal.locator('iframe').elementHandle())!.contentFrame().then((f) => f!.waitForLoadState('load'));
+			if (signals) await page.waitForFunction(() => (window as unknown as { __heard: boolean }).__heard);
+			await page.clock.fastForward(9_000);
+			if (signals) await expect(notice).toBeHidden();
+			else await expect(notice).toContainText(`${c.label} didn't load`);
+			// The close button sits on the backdrop, clear of the player's own corner controls.
+			const close = await modal.getByRole('button', { name: 'Close video' }).boundingBox();
+			const frame = await modal.locator('iframe').boundingBox();
+			expect(close && frame && (close.y + close.height <= frame.y || close.x >= frame.x + frame.width || close.x + close.width <= frame.x), 'the close button overlaps the player').toBe(true);
+		});
+	}
+}
+
+// The lightbox closes on a tap of the dark area around the player, as it did before the footer was added. The first 400ms
+// of a lightbox ignore backdrop taps (iOS sends a ghost click after the tap that opened it), so the tap retries until that
+// window has passed instead of sleeping for it.
+test('a tap on the backdrop closes the player, and a tap on the player does not', async ({ page }) => {
+	const preview = await openDeck(page, deck(PROVIDER_CASES[0].url));
+	await expect(preview.locator('a.video-poster')).toHaveAttribute('href', PROVIDER_CASES[0].watch, { timeout: 30_000 });
+	await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+	await preview.locator('a.video-poster').click();
+	const modal = page.locator('.pg-video-modal[role="dialog"]');
+	await expect(modal.locator('iframe')).toBeVisible();
+	await modal.locator('iframe').click({ position: { x: 20, y: 20 } });
+	await expect(modal).toBeVisible();
+	await expect(async () => {
+		await modal.click({ position: { x: 4, y: 200 } });
+		await expect(modal).toBeHidden({ timeout: 250 });
+	}).toPass({ timeout: 10_000 });
+});
+
+// On a short screen (a phone turned sideways) the notice and the link used to run over the bottom of the player.
+test('the "didn\'t load" notice stays clear of the player on a short screen', async ({ page }) => {
+	const c = PROVIDER_CASES.find((p) => p.key === 'tiktok')!;
+	const preview = await openDeck(page, deck(c.url));
+	await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch, { timeout: 30_000 });
+	await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+	await page.clock.install();
+	await preview.locator('a.video-poster').click();
+	const modal = page.locator('.pg-video-modal[role="dialog"]');
+	await expect(modal.locator('iframe')).toBeVisible();
+	await page.setViewportSize({ width: 844, height: 390 });
+	await page.clock.fastForward(9_000);
+	const notice = modal.locator('[role="status"]');
+	await expect(notice).toContainText("didn't load");
+	const link = modal.locator('a[target="_blank"]');
+	const frame = (await modal.locator('iframe').boundingBox())!;
+	for (const el of [notice, link]) {
+		const box = (await el.boundingBox())!;
+		expect(box.y, `${await el.innerText()} runs over the player`).toBeGreaterThanOrEqual(frame.y + frame.height - 0.5);
+	}
 });

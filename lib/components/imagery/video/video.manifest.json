@@ -16,7 +16,9 @@
     "figure": "bare"
   },
   "stage": "canvas",
-  "coda": { "dock": "row" },
+  "coda": {
+    "dock": "row"
+  },
   "conformance": "strict",
   "orientation": [
     "landscape",
@@ -28,7 +30,7 @@
     "pitch"
   ],
   "description": "A video as a static, PDF-safe embed: a poster that links to the clip, a play badge, the provider's name, and a scannable QR to the same URL — never a live iframe.",
-  "purpose": "Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the URL as a bare bullet; add an optional `caption` and an optional `poster` override. Provider is auto-detected.",
+  "purpose": "Use to put a YouTube / Vimeo / TikTok / Instagram video on a slide. Because the deck renders to a static PDF (and the engine bars iframes), a `video` slide shows a POSTER with a play badge + provider label — the poster is a clickable link in the HTML/PDF — and, when you add the `qr` modifier, a scannable code the room can scan to watch. Two compositions: `companion` (a claim leads on the left, the clip proves it on the right) and `gallery` (a contained, matted exhibit). Author the clip as one `@video{\"https://…\", title=\"…\", poster=…}` record on a line of its own (the video plugin draws it); the provider is auto-detected.",
   "variants": [
     "companion",
     "gallery",
@@ -43,16 +45,16 @@
     "video": {
       "selector": ".video-embed",
       "required": true,
-      "description": "The video URL, authored as a bare bullet (`- https://youtube.com/watch?v=…`). Provider is auto-detected; the transform builds the poster + play badge + QR."
+      "description": "The clip, written as a `@video{\"https://…\"}` record on a line of its own. The video plugin draws the poster, play badge and provider label from that record; the layout adds the QR on a `qr` slide."
     },
     "caption": {
       "selector": ".video-embed figcaption",
       "required": false,
-      "description": "Optional caption bullet — a plain bullet line ending with the `caption` marker (see Authoring below for the full syntax)."
+      "description": "Optional: the record's `title=\"…\"`, shown under the poster."
     }
   },
-  "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- A guided walkthrough `caption`\n",
-  "sample": "<!-- _class: video companion -->\n\n## The video card plays beside its context.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n",
+  "skeleton": "<!-- _class: video companion -->\n\n## Watch the 90-second product tour.\n\nOne screen, one story — the fastest way to see the product work.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"A guided walkthrough\"}`\n",
+  "sample": "<!-- _class: video companion -->\n\n## The video card plays beside its context.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\"}`\n",
   "whenToUse": [
     {
       "title": "A clip makes the point better than a screenshot",
@@ -60,7 +62,7 @@
     },
     {
       "title": "The URL is all you have to write",
-      "body": "Paste the YouTube / Vimeo / TikTok / Instagram link as a bare bullet; the provider is detected and the QR is generated for you. Add a `poster` bullet only when you want a specific still (required for Instagram, whose thumbnails aren't fetchable)."
+      "body": "Write the YouTube / Vimeo / TikTok / Instagram link in one `@video{…}` record; the provider is detected and the QR is generated for you. Add `poster=…` only when you want a specific still (required for Instagram, whose thumbnails aren't fetchable)."
     },
     {
       "title": "Closing / hand-off slides",
@@ -78,7 +80,7 @@
     },
     {
       "title": "Instagram with no poster",
-      "body": "Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster` bullet falls back to a plain placeholder tile. Author a `poster` for a real still."
+      "body": "Instagram's public thumbnails aren't fetchable, so an Instagram `video` with no `poster=` word falls back to a plain placeholder tile. Author a `poster` for a real still."
     }
   ],
   "related": [
@@ -99,27 +101,35 @@
     "companion": {
       "label": "companion",
       "summary": "The player beside the claim it proves.",
-      "sample": "<!-- _class: video companion -->\n\n## companion seats the player beside its pitch.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Ree A., Head of Ops at Northwind `caption`\n- sample:video-poster.svg `poster`\n"
+      "sample": "<!-- _class: video companion -->\n\n## companion seats the player beside its pitch.\n\nNinety seconds, unscripted: signup to a published deck without touching support.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Ree A., Head of Ops at Northwind\", poster=\"sample:video-poster.svg\"}`\n"
     },
     "gallery": {
       "label": "gallery",
       "summary": "A contained, matted exhibit.",
-      "sample": "<!-- _class: video gallery -->\n\n## gallery mats the player like an exhibit.\n\n- https://vimeo.com/1084537\n- The reference onboarding walkthrough, contained on its matte. `caption`\n- sample:video-poster.svg `poster`\n"
+      "sample": "<!-- _class: video gallery -->\n\n## gallery mats the player like an exhibit.\n\n`@video{\"https://vimeo.com/1084537\", title=\"The reference onboarding walkthrough, contained on its matte.\", poster=\"sample:video-poster.svg\"}`\n"
     },
     "qr": {
       "label": "qr",
       "summary": "Adds a scannable code; combines with any look.",
-      "sample": "<!-- _class: video companion qr -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n- https://www.youtube.com/watch?v=aqz-KE-bpKQ\n- Scan to watch `caption`\n- sample:video-poster.svg `poster`\n"
+      "sample": "<!-- _class: video companion qr -->\n\n## qr hands the video to the room’s phones.\n\nThe full 90-second tour — scan to open it on your phone.\n\n`@video{\"https://www.youtube.com/watch?v=aqz-KE-bpKQ\", title=\"Scan to watch\", poster=\"sample:video-poster.svg\"}`\n"
     }
   },
   "commonMistakes": [
     {
-      "mistake": "The caption or poster bullet has no trailing `` `caption` ``/`` `poster` `` inline-code key.",
-      "fix": "The transform only recognizes a caption/poster bullet by its trailing key — a plain bullet with no key is invisible to the payload resolver, so the caption never appears and the poster override is silently dropped."
+      "mistake": "The clip is still a bare bullet, with `caption` and `poster` bullets beside it.",
+      "fix": "The bullet form is gone: the address comes only from your own `@video{…}` record, never from slide text. `lint:deck --fix` rewrites the bullets into the record (`video-bullet`)."
     },
     {
-      "mistake": "Authoring more than one URL bullet, expecting a second clip or a contact-sheet grid.",
-      "fix": "The transform stops at the FIRST bullet whose text or link a provider recognizes — any additional URL bullets are silently ignored, not turned into a second video; only one clip renders per section."
+      "mistake": "Writing a second `@video{…}` expecting a second clip or a contact-sheet grid.",
+      "fix": "The layout seats one clip; the first record on the slide is the one it lays out, and the second is drawn below it and runs off the slide. `lint:deck` says so (`video-extra-record`); give each clip its own slide."
+    },
+    {
+      "mistake": "Writing `@video{…}` on a slide that is not a `video` slide.",
+      "fix": "The layout and the poster picture belong to this class, so any other slide draws the clip only as a plain text link. `lint:deck` says so (`video-slide-class`); add `<!-- _class: video -->`."
+    },
+    {
+      "mistake": "The address holds `=` or `,` unquoted (`@video{https://youtu.be/x?t=90}`).",
+      "fix": "Quote it: `@video{\"https://youtu.be/x?t=90\"}`. Segno names the fix."
     }
   ],
   "variantDecisionRule": [
@@ -133,7 +143,7 @@
     },
     {
       "variant": "gallery",
-      "useWhen": "The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be."
+      "useWhen": "The video is more exhibit than pitch — contained on a matte the way a diagram or screenshot would be. The provider's badge sits on the matte's lower edge, so it stays with the frame when the poster is portrait or square (TikTok and Instagram thumbnails usually are)."
     },
     {
       "variant": "qr",
@@ -154,5 +164,10 @@
   },
   "gesture": {
     "archetype": "media"
+  },
+  "plugins": {
+    "requires": [
+      "video"
+    ]
   }
 }

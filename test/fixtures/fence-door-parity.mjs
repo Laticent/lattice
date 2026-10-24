@@ -19,12 +19,12 @@ export const PLUGIN = { name: 'gantt-plugin', fence: 'gantt', code: RENDERER };
 
 const fence = (body) => `\`\`\`gantt\n${body}\n\`\`\`\n`;
 
-/** Slide 1 draws; slide 2 is another language; slide 3 is rebuilt by the shipped `video` pass; slide 4 holds a raw nested section. */
+/** Slide 1 draws; slide 2 is another language; slide 3 is rebuilt by the shipped `qr-general` pass (a `closing qr` slide reads its bullet into a code; `video` left this slot when its address began to come only from the author's `@video{…}` span); slide 4 holds a raw nested section. */
 export const DECK = [
   '---\ntheme: indaco\nplugins: [gantt-plugin]\n---\n',
   `## Plan\n\n${fence('Design 1 < 2\nBuild 3')}`,
   '## Code\n\n```js\nconst x = 1;\n```\n',
-  `<!-- _class: video -->\n\n## Clip\n\n- https://example.com/v\n\n${fence('video slide, not drawn')}`,
+  `<!-- _class: closing qr -->\n\n## Clip\n\n- https://example.com/v\n\n${fence('qr slide, not drawn')}`,
   `## Nested\n\n<section class="x"><p>raw</p></section>\n\n${fence('nested, not drawn')}`,
 ].join('\n---\n\n').replace('\n---\n\n## Plan', '\n## Plan');
 
@@ -43,5 +43,5 @@ export const CHECKS = [
   ['a script, a remote image and a link go', (h) => !/<script|evil\.example|alert\(/i.test(h)],
   ['a media element with no source left to show is dropped (an empty <img> fails the Studio’s PDF writer)', (h) => root(h) !== '' && !/<img|<video|<audio|<image/i.test(root(h))],
   ['a fence of another language is still code', (h) => /language-js/.test(h)],
-  ['exactly one fence is drawn: a slide a shipped pass rebuilds, and one with a raw <section>, stay code', (h) => (h.match(/data-lattice-plugin="gantt-plugin"/g) || []).length === 1 && /language-gantt/.test(h) && h.includes('video slide, not drawn') && h.includes('nested, not drawn')],
+  ['exactly one fence is drawn: a slide a shipped pass rebuilds, and one with a raw <section>, stay code', (h) => (h.match(/data-lattice-plugin="gantt-plugin"/g) || []).length === 1 && /language-gantt/.test(h) && h.includes('qr slide, not drawn') && h.includes('nested, not drawn')],
 ];

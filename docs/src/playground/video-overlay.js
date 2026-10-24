@@ -58,6 +58,25 @@ const ownsHost = (row, hostname) => {
 	return Boolean(row) && row.hosts.some((owned) => h === owned || h.endsWith(`.${owned}`));
 };
 
+/** Height of the band under the player that holds the notice and the "Open on" link, so the player never reaches into it. */
+const FOOT_ROOM = 84;
+/** The tallest the player may be: the viewport, less the lightbox's padding and the footer band. */
+const SHELL_ROOM = `calc(100vh - 8vmin - ${FOOT_ROOM}px)`;
+/** How long a TikTok or Instagram player may stay silent before the lightbox says it did not load. */
+const SIGNAL_TIMEOUT_MS = 8000;
+/** Per provider: is this message the player saying it loaded? (Measured: TikTok `onPlayerReady`, Instagram `LOADING`/`MEASURE`.) */
+const SIGNALS = {
+	tiktok: (d) => !!d && typeof d === 'object' && d['x-tiktok-player'] === true && typeof d.type === 'string',
+	instagram: (d) => {
+		try {
+			const m = typeof d === 'string' ? JSON.parse(d) : d;
+			return !!m && (m.type === 'LOADING' || m.type === 'MEASURE');
+		} catch (_e) {
+			return false;
+		}
+	},
+};
+
 /** Host tests, read off the shared registry so they cannot drift from it. */
 const isProvider = (href, key) => providerFor(href)?.key === key;
 const isTikTok = (href) => isProvider(href, 'tiktok');
@@ -115,6 +134,8 @@ function close() {
 	if (!modal) return;
 	document.removeEventListener('keydown', modal.onKey, true);
 	if (modal.onMessage) window.removeEventListener('message', modal.onMessage, false); // IG auto-fit
+	if (modal.onSignal) window.removeEventListener('message', modal.onSignal, false);
+	clearTimeout(modal.signalTimer);
 	document.documentElement.style.overflow = modal.prevOverflow; // restore page scroll
 	modal.root.remove();
 	try { modal.prevFocus?.focus?.(); } catch (_e) { /* focus best-effort */ }
@@ -131,6 +152,8 @@ function close() {
 // viewport-relative even under a transformed ancestor) gives full-size controls.
 function play(poster) {
 	try {
+		// The guard in the frame already checks, but the frame is page code: ask again here, in the parent, before an embed is built.
+		if (!ownPoster(poster)) return false;
 		const href = poster?.getAttribute ? poster.getAttribute('href') : null;
 		const direct = embedSrc(href); // YouTube/Vimeo: id is in the URL (sync)
 		if (!direct && !isTikTok(href)) return false; // not embeddable → guard opens the tab
@@ -144,7 +167,7 @@ function play(poster) {
 		root.setAttribute('aria-label', 'Video player');
 		root.style.cssText =
 			'position:fixed;inset:0;z-index:2147483000;background:rgba(6,10,18,.8);' +
-			'display:flex;align-items:center;justify-content:center;padding:4vmin;' +
+			'display:flex;align-items:center;justify-content:center;padding:4vmin 4vmin calc(4vmin + ' + FOOT_ROOM + 'px);' +
 			'opacity:0;transition:opacity .18s ease;'; // fade-in (set to 1 after mount)
 		const shell = document.createElement('div');
 		// Size to the provider's native shape — a 16:9 box for YouTube/Vimeo, a tall
@@ -154,8 +177,8 @@ function play(poster) {
 		shell.style.cssText =
 			'position:relative;' +
 			(portrait
-				? 'width:min(92vw,420px);height:min(86vh,760px);'
-				: 'width:min(92vw,960px);aspect-ratio:16/9;max-height:86vh;') +
+				? `width:min(92vw,420px);height:min(${SHELL_ROOM},760px);`
+				: `width:min(92vw,960px);aspect-ratio:16/9;max-height:${SHELL_ROOM};`) +
 			'border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6);background:#000;' +
 			// Centered "Loading…" shown until the player <iframe> is added (TikTok resolve).
 			"display:grid;place-items:center;color:rgba(255,255,255,.7);font:500 14px system-ui,sans-serif;";
@@ -164,12 +187,14 @@ function play(poster) {
 		btn.type = 'button';
 		btn.setAttribute('aria-label', 'Close video');
 		btn.textContent = '✕';
-		// Top-right, clear of the player's own bottom control bar so it never overlaps.
+		// On the backdrop's corner, not inside the player: TikTok draws its logo and Instagram its menu in
+		// the player's own top-right, and a button laid over either hides it and takes its taps.
 		btn.style.cssText =
-			'position:absolute;top:8px;right:8px;z-index:1;width:34px;height:34px;border:0;border-radius:50%;cursor:pointer;' +
+			'position:absolute;top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right));z-index:1;' +
+			'width:34px;height:34px;border:0;border-radius:50%;cursor:pointer;' +
 			'background:rgba(0,0,0,.65);color:#fff;font-size:16px;line-height:34px;padding:0;';
 		btn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
-		shell.appendChild(btn);
+		root.appendChild(btn);
 		root.appendChild(shell);
 		// Backdrop tap closes; a tap on the player/shell does not (it drives playback).
 		// GHOST-CLICK GUARD (iOS): the tap that OPENS the modal is followed ~300ms later
@@ -183,6 +208,27 @@ function play(poster) {
 			if (Date.now() - openedAt < 400) return; // the opening gesture's ghost click
 			close();
 		});
+		// Always-visible way out: a browser with its own tracker blocking (Firefox, Orion) can blank a third-party
+		// player and the page cannot read the frame to tell. A real <a> the user taps opens the provider's own page.
+		const providerLabel = providerFor(href)?.label || 'the site';
+		const foot = document.createElement('div');
+		foot.style.cssText =
+			'position:absolute;inset-inline:0;bottom:max(10px,env(safe-area-inset-bottom));padding:0 16px;display:flex;' +
+			'flex-direction:column;align-items:center;gap:4px;text-align:center;font:500 13px system-ui,sans-serif;pointer-events:none;';
+		const note = document.createElement('div');
+		note.setAttribute('role', 'status');
+		note.style.cssText = 'color:#fff;display:none;max-width:min(92vw,420px);';
+		foot.appendChild(note);
+		if (/^https?:/i.test(href || '')) {
+			const out = document.createElement('a');
+			out.href = href;
+			out.target = '_blank';
+			out.rel = 'noreferrer noopener';
+			out.textContent = `Not playing? Open on ${providerLabel} ↗`;
+			out.style.cssText = 'color:rgba(255,255,255,.82);text-decoration:underline;pointer-events:auto;';
+			foot.appendChild(out);
+		}
+		root.appendChild(foot);
 
 		const onKey = (e) => { if (e.key === 'Escape') close(); };
 		const prevOverflow = document.documentElement.style.overflow;
@@ -191,7 +237,7 @@ function play(poster) {
 		// AUTO-FIT Instagram: its /embed/ page is a CARD (header + video + caption), whose
 		// height varies per post, and it reports its own rendered height to the parent via
 		// postMessage ({type:'MEASURE', details:{height}}). Size the shell to that height
-		// (capped at 86vh) so the card fits with no letterbox. If the message never arrives
+		// (capped to the room above the footer) so the card fits with no letterbox. If the message never arrives
 		// (or isn't Instagram), the fixed portrait box above stands. Origin-checked — we
 		// only trust a height from instagram.com, never arbitrary cross-frame chatter.
 		let onMessage = null;
@@ -202,7 +248,7 @@ function play(poster) {
 					if (!ownsHost(rowFor('instagram'), new URL(e.origin).hostname)) return;
 					const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
 					const h = d && d.type === 'MEASURE' && d.details && Number(d.details.height);
-					if (h && h > 0) shell.style.height = Math.min(Math.round(h), Math.round(window.innerHeight * 0.86)) + 'px';
+					if (h && h > 0) shell.style.height = Math.min(Math.round(h), Math.round(window.innerHeight - 0.08 * Math.min(window.innerWidth, window.innerHeight) - FOOT_ROOM)) + 'px';
 				} catch (_e) { /* ignore malformed / non-JSON messages */ }
 			};
 			window.addEventListener('message', onMessage, false);
@@ -228,7 +274,27 @@ function play(poster) {
 			player.referrerPolicy = 'strict-origin-when-cross-origin';
 			player.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;display:block;';
 			shell.appendChild(player);
-			shell.appendChild(btn); // keep close on top of the player
+			watchPlayerSignal(player);
+		};
+
+		// TikTok and Instagram players post a message to their parent as soon as they load. Hearing nothing from
+		// our own frame means it did not load, whatever the cause: tracking protection, a content blocker, the
+		// network. The page cannot name the cause, so the notice says "may". A late signal clears the notice.
+		const watchPlayerSignal = (player) => {
+			const key = providerFor(href)?.key;
+			const isSignal = SIGNALS[key];
+			if (!isSignal || !modal || modal.root !== root) return;
+			const onSignal = (e) => {
+				if (e.source !== player.contentWindow || !isSignal(e.data)) return;
+				clearTimeout(modal.signalTimer);
+				note.style.display = 'none';
+			};
+			window.addEventListener('message', onSignal, false);
+			modal.onSignal = onSignal;
+			modal.signalTimer = setTimeout(() => {
+				note.textContent = `${providerLabel} didn't load. Your browser's tracking protection or a content blocker may be blocking it.`;
+				note.style.display = 'block';
+			}, SIGNAL_TIMEOUT_MS);
 		};
 
 		// Fallback shown IN the lightbox if we can't build a player (e.g. TikTok
@@ -237,6 +303,7 @@ function play(poster) {
 		// "nothing happened". A real <a> the user taps IS a gesture → never blocked.
 		const mountFallbackLink = () => {
 			if (!modal || modal.root !== root) return;
+			foot.remove(); // this card carries its own "Open on" link
 			shell.textContent = '';
 			shell.style.background = 'rgba(6,10,18,.96)';
 			shell.style.padding = '24px';
@@ -252,7 +319,6 @@ function play(poster) {
 			a.style.cssText = 'color:#fff;font:600 15px system-ui,sans-serif;text-decoration:underline;';
 			shell.appendChild(msg);
 			shell.appendChild(a);
-			shell.appendChild(btn);
 		};
 
 		if (direct) {
@@ -270,6 +336,13 @@ function play(poster) {
 	} catch (_e) {
 		return false;
 	}
+}
+
+/** The poster anchor under `el` when it belongs to the video plugin's own figure (not a plugin's drawing), else null. */
+function ownPoster(el) {
+	const a = el?.closest?.('a.video-poster[href]');
+	if (!a) return null;
+	return a.closest('figure.video-embed[data-lattice-media="video"]') && !a.closest('[data-lattice-plugin]') ? a : null;
 }
 
 /**
@@ -296,7 +369,9 @@ export function tapVideoAt(frame, clientX, clientY) {
 		if (!doc || !g || !g.S) return false;
 		const x = (clientX - g.fr.left) / g.S;
 		const y = (clientY - g.fr.top) / g.S;
-		const poster = doc.elementFromPoint(x, y)?.closest?.('a.video-poster[href]');
+		// Only the video plugin's own figure, never one inside a plugin's drawing: that is hostile text, whatever classes it wears
+		// (engineering/decisions/2026-10-16-media-plugins.md § 4.5, rule 3).
+		const poster = ownPoster(doc.elementFromPoint(x, y));
 		if (!poster) return false;
 		const href = poster.getAttribute('href') || '';
 		if (!/^https?:/i.test(href)) return false;

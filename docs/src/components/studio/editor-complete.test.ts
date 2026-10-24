@@ -530,7 +530,7 @@ describe('inlineCodeCompletion — the named form, `@kind{…}` (2026-10-14-plug
 
 	it('`@` lists every kind with its open brace, and typing narrows it', () => {
 		// Table order: the first-party pill, then the plugin kinds in plugin order (sparks became one 2026-10-16).
-		expect(labels('Status `@')).toEqual(['@pill{', '@avatar{', '@icon{', '@spark{']);
+		expect(labels('Status `@')).toEqual(['@pill{', '@avatar{', '@icon{', '@spark{', '@video{']);
 		expect(labels('Status `@ic')).toEqual(['@icon{']);
 		expect(inlineCodeCompletion('Status `@zz', next)).toBeNull();
 		// Outside a code span `@` is prose (a mention, an email): no menu.

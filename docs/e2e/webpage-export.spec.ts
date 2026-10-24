@@ -405,8 +405,7 @@ test('the Studio webpage export embeds same-origin pictures and reports the rest
 		'',
 		'## Watch the tour.',
 		'',
-		'- https://www.youtube.com/watch?v=aqz-KE-bpKQ',
-		'- /showcase/kpi.light.webp `poster`',
+		'`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="/showcase/kpi.light.webp"}`',
 		'',
 	].join('\n');
 	const file = await exportWebpage(page, testInfo, DECK, { as: 'url-media.html' });

@@ -255,9 +255,10 @@ describe('through the real engine: capture, then substitute', () => {
   });
 
   test('a fence on a slide a shipped pass rebuilds from its text is NOT claimed: it stays code, and the door says why', () => {
-    // `video` turns a bullet into a poster and a link, in the engine's pass AND in the runtime's DOM pass over
-    // the finished page; the door's last slot cannot stop the second, so the door does not draw there.
-    for (const [classes, pass] of [['video', 'video'], ['contact', 'contact'], ['wifi', 'wifi'], ['closing qr', 'qr-general'], ['team-profile', 'team-profile']]) {
+    // `contact`, `wifi`, `qr` and the rest turn a bullet into a QR or a link, in the engine's pass AND in the runtime's DOM pass
+    // over the finished page; the door's last slot cannot stop the second, so the door does not draw there. (`video` left this
+    // list when its pass stopped reading slide text: the address comes only from the author's `@video{…}` span.)
+    for (const [classes, pass] of [['contact', 'contact'], ['wifi', 'wifi'], ['closing qr', 'qr-general'], ['team-profile', 'team-profile']]) {
       const src = `---\ntheme: indaco\n---\n\n<!-- _class: ${classes} -->\n\n## Slide\n\n- https://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n\`\`\`gantt\nx\n\`\`\`\n`;
       const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
       const html = render(src, cap);
@@ -265,6 +266,15 @@ describe('through the real engine: capture, then substitute', () => {
       assert.deepEqual(cap.shadowed.map((x) => [x.slide, x.pass]), [[0, pass]], `${classes}: named the pass`);
       assert.match(html, /language-gantt/, `${classes}: the block is still code`);
     }
+  });
+
+  test('a video slide is NOT shadowed: its address comes only from the author\'s record, so a fence draws there and nothing leaks', () => {
+    const src = '---\ntheme: indaco\n---\n\n<!-- _class: video -->\n\n## Slide\n\n`@video{"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`\n\n```gantt\nx\n```\n';
+    const cap = captureFences(fences, { ...slides, rebuilt: rebuiltBy });
+    render(src, cap);
+    assert.equal(rebuiltBy(['video']), null);
+    assert.equal(cap.claims.length, 1, 'the fence is the plugin\'s');
+    assert.equal(cap.shadowed.length, 0);
   });
 
   test('ANY raw <section> nested in a slide denies it: every way of writing class=video, and ones that are not video, fail closed', () => {
@@ -299,7 +309,7 @@ describe('through the real engine: capture, then substitute', () => {
 
   test('the rebuilt-slide list is read off the registry: a pass added tomorrow denies its slides today', () => {
     const alt = rebuiltAlternatives();
-    for (const c of ['video', 'contact', 'wifi', 'team-profile', 'bar', 'logo-wall', 'scene']) assert.ok(alt.some((a) => a.classes.includes(c)), `${c} is denied`);
+    for (const c of ['contact', 'wifi', 'team-profile', 'bar', 'logo-wall', 'scene']) assert.ok(alt.some((a) => a.classes.includes(c)), `${c} is denied`);
     assert.ok(alt.some((a) => a.pass === 'qr-general' && a.classes.join('.') === 'closing.qr'), 'a compound selector denies only the compound');
     assert.equal(rebuiltBy(['closing']), null);
     assert.equal(rebuiltBy(['closing', 'qr']), 'qr-general');

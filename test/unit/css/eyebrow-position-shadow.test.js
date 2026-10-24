@@ -39,7 +39,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { ROOT, shippedDecks, codeOnlyParagraphs } = require('../../helpers/decks.js');
-const { dispatches } = require(path.join(ROOT, 'lib/core/inline-code-directives.js'));
+const { dispatches, isBlockKind } = require(path.join(ROOT, 'lib/core/inline-code-directives.js'));
 const { isLiteralFromSource } = require(path.join(ROOT, 'lib/core/resolve-inline-code.js'));
 
 /**
@@ -95,7 +95,7 @@ test('no shipped deck writes an eyebrow the directive grammar would swallow', ()
     `found only ${spans.length} eyebrow-position spans — the scanner is probably broken, not the decks fixed`,
   );
 
-  const swallowed = spans.filter((s) => dispatches(s.text));
+  const swallowed = spans.filter((s) => dispatches(s.text) && !isBlockKind(s.text));
   assert.deepEqual(
     swallowed,
     [],
@@ -131,7 +131,7 @@ test('no shipped deck writes a SUBTITLE the directive grammar would swallow', ()
     `found only ${spans.length} subtitle-position spans — the scanner is probably broken, not the decks fixed`,
   );
 
-  const swallowed = spans.filter((s) => dispatches(s.text));
+  const swallowed = spans.filter((s) => dispatches(s.text) && !isBlockKind(s.text));
   assert.deepEqual(
     swallowed,
     [],

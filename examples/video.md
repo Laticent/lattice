@@ -16,9 +16,7 @@ theme: indaco
 
 Ninety seconds, unscripted: a first-day admin goes from signup to a published board deck without touching support.
 
-- https://www.youtube.com/watch?v=aqz-KE-bpKQ
-- Ree A., Head of Ops at Northwind `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", title="Ree A., Head of Ops at Northwind", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -28,9 +26,7 @@ Ninety seconds, unscripted: a first-day admin goes from signup to a published bo
 
 Two minutes on why the category needed rebuilding from the data layer up — the poster is a plain link when you don't opt into `qr`.
 
-- https://vimeo.com/1084537
-- The 2-minute director's cut `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://vimeo.com/1084537", title="The 2-minute director's cut", poster="sample:video-poster.svg"}`
 
 ---
 
@@ -38,9 +34,7 @@ Two minutes on why the category needed rebuilding from the data layer up — the
 
 ## Exhibit 1 — the onboarding flow, end to end.
 
-- https://vimeo.com/1084537
-- The reference onboarding walkthrough, contained on its matte. `caption`
-- sample:video-poster.svg `poster`
+`@video{"https://vimeo.com/1084537", title="The reference onboarding walkthrough, contained on its matte.", poster="sample:video-poster.svg"}`
 
 ---
 

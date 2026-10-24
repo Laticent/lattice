@@ -1,5 +1,5 @@
 ---
-// The Plugins hub — what a plugin is, the eight an author writes, how they load, and how to
+// The Plugins hub — what a plugin is, the nine an author writes, how they load, and how to
 // write one. The cards come from src/content/catalog/plugins/; the explainer below them is the
 // author's view of lib/plugins/README.md and spec/LPM.md, without the internals. Two shipped
 // plugins get a note rather than a card (chart-family is plumbing; anima's format is not
@@ -17,7 +17,7 @@ const GH = 'https://github.com/Laticent/lattice/blob/main/';
 
 <CatalogLayout
 	title="Plugins — new things you can write on any slide"
-	description="Math, Mermaid diagrams, sparks, pills, icons, avatars, function plots and highlighted code: plugins add a syntax that works on any Lattice slide. Each has a live demo and a plain-language guide."
+	description="Math, Mermaid diagrams, sparks, pills, icons, avatars, function plots, highlighted code and video: plugins add a syntax that works on any Lattice slide. Each has a live demo and a plain-language guide."
 >
 	<section class="cat-hero">
 		<div class="wrap">
@@ -25,7 +25,7 @@ const GH = 'https://github.com/Laticent/lattice/blob/main/';
 				<p class="cat-eyebrow">Plugins</p>
 				<h1 class="cat-h1">Plugins teach your Markdown new tricks.</h1>
 				<p class="cat-lede">
-					A plugin adds something you can write on any slide: an equation, a diagram, a word-sized chart, a label, an icon, a face, a graph.
+					A plugin adds something you can write on any slide: an equation, a diagram, a word-sized chart, a label, an icon, a face, a graph, a clip.
 					Every one is on by default, and costs nothing until a slide uses it. Pills are always on. The Studio is Lattice's editor in the
 					browser; the Playground is the try-it page on this site. Both draw everything below.
 				</p>
@@ -41,7 +41,7 @@ const GH = 'https://github.com/Laticent/lattice/blob/main/';
 
 	<section class="cat-section" aria-labelledby="the-plugins" style="padding-top: 0">
 		<div class="wrap cat-group">
-			<h2 class="cat-group-title" id="the-plugins">The eight you write</h2>
+			<h2 class="cat-group-title" id="the-plugins">The nine you write</h2>
 			<ul class="cat-cards">
 				{plugins.map((e) => <CatalogCard entry={e} />)}
 			</ul>

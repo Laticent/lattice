@@ -10,14 +10,14 @@ describe('mayReferenceWebImage', () => {
 		expect(mayReferenceWebImage('<div style="background:url(https://example.com/a.png)"></div>')).toBe(true);
 	});
 
-	it("sees a video slide's `poster` bullet", () => {
-		expect(mayReferenceWebImage('<!-- _class: video -->\n\n## Tour\n\n- https://youtu.be/x\n- https://example.com/still.jpg `poster`\n')).toBe(true);
-		expect(mayReferenceWebImage('- //cdn.example.com/still.jpg `poster`')).toBe(true);
+	it("sees a video record's `poster=` word", () => {
+		expect(mayReferenceWebImage('<!-- _class: video -->\n\n## Tour\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", poster="https://example.com/still.jpg"}`\n')).toBe(true);
+		expect(mayReferenceWebImage('`@video{"https://youtu.be/dQw4w9WgXcQ", poster=//cdn.example.com/still.jpg}`')).toBe(true);
 	});
 
 	it('does not wake for an ordinary link, a video URL alone, or a local poster', () => {
 		expect(mayReferenceWebImage('See [the docs](https://example.com/docs).')).toBe(false);
-		expect(mayReferenceWebImage('- https://youtu.be/x\n- Ree A., Head of Ops `caption`')).toBe(false);
-		expect(mayReferenceWebImage('- assets/still.jpg `poster`')).toBe(false);
+		expect(mayReferenceWebImage('`@video{"https://youtu.be/dQw4w9WgXcQ", title="Ree A., Head of Ops"}`')).toBe(false);
+		expect(mayReferenceWebImage('`@video{"https://youtu.be/dQw4w9WgXcQ", poster="assets/still.jpg"}`')).toBe(false);
 	});
 });

@@ -125,7 +125,7 @@ test('engine output: ![bg], ![bg left] and a video poster each fetch ONCE, the r
 		'---', 'theme: indaco', '---', '',
 		'![bg](/img/full.webp)', '', '# Full', '', '---', '',
 		'![bg left](/img/half.webp)', '', '# Half', '', '---', '',
-		'<!-- _class: video -->', '', '## Watch.', '', '- https://www.youtube.com/watch?v=aqz-KE-bpKQ', '- /img/poster.webp `poster`', '',
+		'<!-- _class: video -->', '', '## Watch.', '', '`@video{"https://www.youtube.com/watch?v=aqz-KE-bpKQ", poster="/img/poster.webp"}`', '',
 	].join('\n');
 	const { html } = await engine.render(md);
 	const table = Object.fromEntries(['full', 'half', 'poster'].map((n) => [`https://studio.test/img/${n}.webp`, { dataUri: 'data:image/webp;base64,UklG' }]));

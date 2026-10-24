@@ -69,7 +69,7 @@ const SHAPES: Record<string, string> = {
 	'a bare mention in prose follows the rename': 'Write asset:hero to use it.\n\n![](asset:hero)\n',
 	'a bare mention in a list item and a heading': '# About asset:hero\n\n- say asset:hero here\n- ![](asset:hero)\n',
 	// references the engine draws that are not an image destination
-	'a video poster bullet': '<!-- _class: video -->\n\n- asset:hero `poster`\n\n![](asset:hero)\n',
+	'a video record\'s poster word': '<!-- _class: video -->\n\n`@video{"https://youtu.be/dQw4w9WgXcQ", poster="asset:hero"}`\n\n![](asset:hero)\n',
 	'a per-slide background directive': '<!-- _backgroundImage: url(asset:hero) -->\n\n![](asset:hero)\n',
 	'an inline img tag in a paragraph': 'Text <img src="asset:hero"> more\n',
 	'a definition destination on the next line': '![r][r]\n\n[r]:\n  asset:hero\n',

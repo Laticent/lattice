@@ -1,0 +1,45 @@
+{
+  "$schema": "../plugin.schema.json",
+  "type": "plugin",
+  "format": 1,
+  "name": "video",
+  "api": 1,
+  "title": "Video",
+  "description": "A video as a static, PDF-safe poster that links to the clip, written in inline code on a line of its own: `@video{\"https://youtu.be/dQw4w9WgXcQ\", title=\"The 90-second tour\", poster=sample:photo-pano.jpg}`. The address comes from the author's own record and nowhere else: nothing here reads a slide's text or its rendered page, so a plugin's drawing can never become a video address. The `video` slide class lays the figure out.",
+  "icon": {
+    "viewBox": "0 0 128 128",
+    "paths": [
+      {
+        "ink": "line",
+        "d": "M32 20H96A16 16 0 0 1 112 36V70A16 16 0 0 1 96 86H32A16 16 0 0 1 16 70V36A16 16 0 0 1 32 20Z",
+        "width": 7
+      },
+      {
+        "ink": "accent",
+        "d": "M53 36L79 52L53 68Z",
+        "width": 7
+      },
+      {
+        "ink": "line",
+        "d": "M28 108H100",
+        "width": 7
+      },
+      {
+        "ink": "fill",
+        "d": "M68 108A7 7 0 1 0 82 108A7 7 0 1 0 68 108Z"
+      }
+    ]
+  },
+  "contributes": {
+    "inline": {
+      "video": {
+        "named": true,
+        "address": true
+      }
+    }
+  },
+  "render": {
+    "parity": "equivalent",
+    "degradesTo": "source"
+  }
+}

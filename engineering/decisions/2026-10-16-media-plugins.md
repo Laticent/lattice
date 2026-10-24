@@ -990,3 +990,58 @@ Slices 2 and 3 do not start until #2725's check is on `main`, because they delet
   service `fileConfine`) with the stand-in, and names it on stderr, which the bake forwards to the CLI's. Measured on the real page: before the guard both the outside and the
   inside picture were requested; after it the outside one is refused and the inside one loads (`mermaid-worker-confine.test.js`). The
   CLI also builds its file URLs with `pathToFileURL` now; `export-confine-windows` runs it on a Windows runner (run 39266738239), after `npm run build` was made to pass there.
+- 2026-10-22: slice 2 started (branch `claude/video-plugin`), built to §4.5 before #2725's `checkSlideTextAddressReaders` is on `main`, so
+  there is no `SANCTIONED_SLIDE_TEXT_ADDRESS_READERS` row to delete yet; whoever merges second removes the `video` row if #2725 lands one.
+  Landed: `lib/plugins/video/` (`@video{"https://…", title=, description=, poster=}`), declared `named` and `address` in its manifest.
+  - **The old pass is gone.** `lib/transformers/video.js` no longer reads bullets from the rendered page or the runtime DOM. It lays out the
+    figure the plugin drew (found by `data-lattice-media="video"`), adds the `qr` tile from the figure's own address after re-running
+    `detectProvider` on it, and is `readsText: false`, so `rebuilt-classes.js` no longer denies `video` slides to a plugin's fence. Poster
+    painting selects only `figure[data-lattice-media="video"]` and skips `[data-lattice-plugin]`; so do the Studio's video overlay and the
+    Reading view's video card.
+  - **Marker: `data-lattice-media`, as §4.4 decided,** not `data-lattice-figure` as the continuation brief for this slice wrote. The brief's
+    rule 3 (a browser half touches only its own figure) holds either way; the note's reason (author markup can forge `data-lattice-figure`
+    and the diagram rules match it with no value check) still stands.
+  - **Deviation, for the owner: no `>` sigil yet.** Decision 3 gives video `>`. Widening Segno's TAGS touches the hand-tuned char-code fast
+    path in `notation.ts` and a published library, and needs the proof that no deck reads an inline code span starting with `>`. This slice
+    adds the manifest field `named` (reached only as `@video{…}`; the bare record `{…}` is a pill's) instead, so `>` is a later, separate
+    change that adds an alias to an existing kind.
+  - **A block kind.** A video is a figure, so a lone `@video{…}` span leaves its paragraph (markdown-it core pass, `renderBlockHtml`); in
+    running text it stays code and `lint:deck` says `video-not-alone`. §4.3's "inline at text height" for video is not built.
+  - **The note's own example does not parse.** `@video{https://youtu.be/dQw4w9WgXcQ?t=90, …}` fails in Segno: `=` ends a bare value. The
+    address is quoted in every example here, and Segno's diagnostic offers the fix. Worth a line in §4.7.
+  - **Migration.** `lib/core/video-migrate.js` (shared by `lint:deck --fix`'s `video-bullet` and the sweep of the five shipped decks).
+    Rendered before and after, the five decks are byte-identical once the new `data-lattice-*` attributes are dropped from both sides.
+  - **Not built in this slice:** the `file` provider row, the poster chain's later links, `description` narration, the Studio overlay for a
+    `<video>`, oEmbed title offers, and the demo deck for the new syntax (the migrated `examples/video.md` is the demo until it is).
+- 2026-10-22: the trio on slice 2 (red team, inversion, checker) found no way to make Lattice build an address from a plugin's text.
+  It found these, fixed in the same PR: a zip plugin could claim `@video` (`shippedKinds` now includes named-only kinds); the autofix took the
+  whole bullet line as the address, joined the record to a paragraph above it, and could not apply across lines (it now takes the URL token,
+  puts the record in a paragraph of its own, and offers a one-line fix only); three bullet shapes that drew a clip before got no finding (any
+  `video` slide with no record is now a `video-bullet` error); `aria-label` hid the visible "Watch on" words (removed, which is what made the
+  five decks identical to `main` apart from `data-lattice-*`); a list-item record left an empty list; Export-to-Marp printed the record as code
+  (the bundle now rewrites a lone record to a plain Markdown link, `lib/plugins/video/shared/video-marp-export.js`; no poster, recorded in
+  `marp-fidelity.js`); `video-not-alone` disagreed with the renderer in both directions (that fix was incomplete; see the next entry).
+  **Still open:** `@video` on a slide that is not a `video` slide draws an unstyled figure (all the CSS is scoped to `section.video`); an
+  `inline-code: literal` deck draws no video; the `idempotent` marker `class="video-card"` is a fragile string; the old bullet form was dropped,
+  where §4.5 rule 4 had said to keep it working by reading bullet tokens: the owner chose the `@video` record over keeping the bullet when asked
+  (2026-10-22), knowing it breaks old decks, so this note's rule 4 is superseded for `video`.
+- 2026-10-23: a second checker on the commits after the trio's (`81fb264..40a5fb1`) found, fixed here: the Marp export wrote the provider's
+  URL unescaped, so one record could add a link to any host through TikTok, Instagram or a channel URL (the destination is now
+  percent-encoded and the label escaped); it rewrote records the engine leaves as code (plugin off, under a line of text, indented, in a
+  fence inside a quote, after a fence line with an info string); `video-not-alone` missed a record under a list item, quote, table row or
+  indented line (any non-block-ending line above now warns); the autofix dropped the author's words around the address (they become
+  `title=`); the migrator's fence tracking ignored the fence character. One fence tracker (`fenceStep`, `lib/core/video-migrate.js`) now
+  serves the migrator and the Marp export. **Still open, low:** a CRLF file's autofix mixes line endings; the one-line fix can leave a
+  doubled blank line.
+- 2026-10-23: a third checker, on `40a5fb1..8eb3ef5`, found a real breach in the Marp rewrite and a regression, and the pattern behind both: the
+  rewrite tried to mirror every CommonMark rule for "the engine draws this record", and each rule it missed was a divergence. A named HTML
+  entity (`&sol;`) in a TikTok or Instagram address (those providers pass the author's URL through) was decoded by Markdown into a `/`, moving the
+  link to another host; a record under a heading or comment was no longer rewritten; fence tracking ignored containers; the migrator cut an
+  address that ends in `_`. **Decision: stop mirroring, narrow instead.** The bundle now rewrites a record ONLY when it is its own paragraph at
+  the left margin (a blank line above and below, or the edge of the file) and outside a fence, and a fence-looking run inside a quote, list item
+  or indented block switches the rewrite off for the rest of the file. Everything else stays as code, the safe failure; a list-item or quote
+  record loses its link in a bundle. `&` is written `&amp;` and a backslash is percent-encoded in the destination. `video-not-alone` now also
+  warns for text directly below the record. Proof on the real artifact: `test/integration/export/marp-video-link.test.js` (real marp-cli,
+  real Chromium: the title stays text, a hostile address adds no second link, the parsed host stays on a provider, a record in running text stays
+  code). The Studio attack spec also ran on WebKit and Firefox (`@crosswidth @webkit-tablet @gecko`) at 1440, 820 and 390: 9 of 9 pass. Its first
+  WebKit run failed because `page.route()` interception broke the plugin sandbox's loads in WebKit; the spec no longer routes.

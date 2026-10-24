@@ -194,12 +194,6 @@
       ]
     },
     {
-      "pass": "video",
-      "classes": [
-        "video"
-      ]
-    },
-    {
       "pass": "cycle",
       "classes": [
         "cycle"
@@ -275,7 +269,8 @@
     "icon",
     "pill",
     "spark",
-    "state"
+    "state",
+    "video"
   ],
   "highlightLanguages": [
     "1c",
