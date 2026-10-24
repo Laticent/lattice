@@ -211,7 +211,6 @@
   --chart-cat7: light-dark(#585858, #A5A5A5);
   --chart-cat8: light-dark(#585858, #A5A5A5);
   --on-solid: light-dark(#FFFFFF, #1A1A1A);
-  --on-status: light-dark(#FFFFFF, #1A1A1A);
   --pass-solid: light-dark(#2B492D, #8CAE8D);
   --pass-solid-vivid: var(--pass-solid);
   --warn-solid: light-dark(#854A00, #DD9653);

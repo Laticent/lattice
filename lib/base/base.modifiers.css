@@ -1044,7 +1044,6 @@ section.print {
   --info: var(--print-info);
   --mute: var(--print-mute);
   --on-solid: var(--print-on-solid);
-  --on-status: var(--print-on-status);
   --pass-solid: var(--print-pass-solid);
   --warn-solid: var(--print-warn-solid);
   --fail-solid: var(--print-fail-solid);

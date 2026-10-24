@@ -113,7 +113,6 @@
   --fail-solid-vivid: light-dark(#9B003C, #D50055);
   --warn-solid-signal: light-dark(#FF9C01, #FF9C00);
   --fail-solid-signal: light-dark(#FF7277, #FF7278);
-  --on-status: #FFFFFF;
   --pass-solid-edge: light-dark(#144B37, #61967F);
   --warn-solid-edge: light-dark(#854A00, #C77A2B);
   --fail-solid-edge: light-dark(#95173E, #E1627C);

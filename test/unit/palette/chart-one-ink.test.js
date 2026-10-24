@@ -7,8 +7,8 @@
  * at risk and blocked, a SIGNAL ring in the bright classic hue. So, for every palette, in both modes and both
  * `chart-finish:` intensities:
  *
- *   1. the chart family hands every kind the same ink: a category reads `--on-solid`, a status `--state-X-on`, which
- *      is `--on-status`, and the two resolve to one color;
+ *   1. the chart family hands every kind the same ink: the frame declares `--chart-solid-ink` once, as `--on-solid`,
+ *      and no rule re-points it, so a category and a status cannot drift apart;
  *   2. every category, the neutral and every status fill sits on the far side of that ink: darker than a white ink,
  *      brighter than the near-black one the colorblind palettes wear on the dark face (how far, the 7:1 and 4.6:1
  *      bars, is chart-solids.test.js);
@@ -44,14 +44,9 @@ const STATUS_FILLS = {
 };
 
 describe('one ink: the chart family hands every kind the same ink', () => {
-  // Read from the source, not a flat parse: the frame's `--chart-solid-ink` is overridden per status by a later rule,
-  // so a flattened stylesheet sees only the last declaration.
-  test('a category reads --on-solid; a status mark re-points it at its --state-X-on, which is --on-status', () => {
-    assert.match(FAMILY, /--chart-solid-ink: var\(--on-solid\);/);
-    for (const s of ['pass', 'warn', 'fail', 'info', 'mute']) {
-      assert.match(FAMILY, new RegExp(`--state-${s}-on: var\\(--on-status\\);`));
-      assert.match(FAMILY, new RegExp(`\\{ --chart-solid-ink: var\\(--state-${s}-on\\); \\}`));
-    }
+  // Read from the source, not a flat parse: a second declaration anywhere in the family would be a second ink.
+  test('the frame declares --chart-solid-ink once, as --on-solid, and nothing re-points it', () => {
+    assert.deepEqual([...FAMILY.matchAll(/--chart-solid-ink\s*:\s*([^;]+);/g)].map((m) => m[1].trim()), ['var(--on-solid)']);
   });
 });
 
@@ -91,7 +86,6 @@ describe('one ink: every fill sits under the one ink', () => {
           const c = (t) => resolve(`var(--${t})`, vars, mode);
           const ink = c('on-solid');
           const bad = [];
-          if (hex(c('on-status')).toUpperCase() !== hex(ink).toUpperCase()) bad.push(`--on-status ${hex(c('on-status'))} is not --on-solid ${hex(ink)}`);
           const lightInk = L(ink) > 0.5;
           if (!lightInk && !(theme.startsWith('a11y-') && mode === 'dark')) bad.push('only a colorblind palette\'s dark face wears the near-black ink');
           for (const t of [...CATEGORIES, ...fills]) {

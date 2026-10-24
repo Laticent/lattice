@@ -84,7 +84,7 @@ function checklistBlock(name) {
  *                          fills under white --on-solid), the deep status fills
  *                          --pass-solid … --mute-solid with their -vivid twins,
  *                          --X-solid-edge and the --warn/--fail-solid-signal
- *                          rings, under white --on-status. Solve them
+ *                          rings, all under the same --on-solid. Solve them
  *                          with node tools/curate-chart-solids.js. Verify
  *                          distinguishability with:
  *                            node tools/contrast-audit.js ${name}

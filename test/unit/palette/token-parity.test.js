@@ -61,8 +61,8 @@ const CONTRACT = [
   'seq-500',
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral',
-  // the status inks beyond the trio, and the inks on a solid (both white: one ink)
-  'info', 'mute', 'on-solid', 'on-status',
+  // the status inks beyond the trio, and the one ink on every chart fill
+  'info', 'mute', 'on-solid',
   // the status FILLS in both intensities, each status's EDGE, and the two exceptions' SIGNAL rings
   // (base.tokens.css § STATUS, IN TWO JOBS)
   'pass-solid', 'warn-solid', 'fail-solid', 'info-solid', 'mute-solid',

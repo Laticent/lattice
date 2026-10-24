@@ -120,8 +120,7 @@ Every chart concept has **one flat solid**, curated per theme: a category is `--
 neither `--chart-neutral-hue` (seed `--chart-neutral`).
 
 **One ink.** Every chart fill, a category, the neutral or a status, is DEEP enough to carry white text
-(`--chart-solid-ink`: `--on-solid` on a category or the neutral, `--state-X-on` → `--on-status` inside any mark that
-carries a `data-s`, both white). At most two charts share a slide, and two text colors side by side read as two
+(`--chart-solid-ink`, which is `--on-solid` on every one: one token, declared once on the frame and never re-pointed). At most two charts share a slide, and two text colors side by side read as two
 systems, so the ink never changes with the kind. This replaced a scheme where a status was a BRIGHT fill under
 near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
 chart wore two inks, and on a light slide the bright fills were the quietest marks on it.

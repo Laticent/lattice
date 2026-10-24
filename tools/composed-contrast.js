@@ -180,13 +180,13 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` pill as a scored surface: the status's flat DEEP fill (the base's `--X-solid`) under the status
- * ink `--on-status`, white like every chart ink (ONE INK, base.tokens.css § STATUS, IN TWO JOBS): 7:1 on the light
+ * One `.chart-status` pill as a scored surface: the status's flat DEEP fill (the base's `--X-solid`) under the solid
+ * ink `--on-solid`, white like every chart ink (ONE INK, base.tokens.css § STATUS, IN TWO JOBS): 7:1 on the light
  * face, 4.5:1 on the dark face, where a fill is the lightest mid-tone white still clears so it stands off the dark
  * slide. `requires` pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of
  * them reddens the gate instead of silently re-pointing what is measured. */
 const TRIO_STATES = ['pass', 'warn', 'fail'];
-const SOLID_INK = '--on-status';
+const SOLID_INK = '--on-solid';
 const SOLID_MIN_DARK = 4.5;
 
 function pillStop(state) {
@@ -203,7 +203,7 @@ function pillStop(state) {
       /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
       new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`),
-      new RegExp(`--state-${state}-on: var\\(${SOLID_INK}\\)`),
+      new RegExp(`--chart-solid-ink: var\\(${SOLID_INK}\\)`),
     ],
   };
 }
@@ -212,7 +212,7 @@ function pillStop(state) {
  * One state-chart NODE surface: text on a status-filled tile.
  *
  * A status paints the node itself, as a flat FILL (chart-family.styles.css § THE SOLID TIER), and the state NAME
- * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink`: per status, `--state-X-on`. The bar is
+ * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink`, the one solid ink `--on-solid`. The bar is
  * the pill's. `requires` pins the fill, the ink and the tone mapping, so a retune of any of them reddens the gate
  * instead of silently moving what is measured. The neutral tile is the neutral solid, gated with the rest by
  * test/unit/palette/chart-solids.test.js.
@@ -621,7 +621,7 @@ const SURFACES = [
     id: `chart/status-pill-${state}-vivid`,
     ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the status ink on the vivid fill`,
     groups: [{ bg: `var(--${state}-solid-vivid)` }],
-    ink: '--on-status',
+    ink: SOLID_INK,
     requires: [new RegExp(`--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
   })),
   // ── risk-matrix · the CRITICAL band, the one status fill a chart mixes for itself ───────

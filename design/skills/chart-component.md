@@ -124,10 +124,9 @@ palette:
   colour from the wedge it labelled. A rule with nothing to point at is a rule
   that gets retyped wrong.
 - **Semantic / status — `--state-{pass,warn,fail,info,mute}-*`**, seeded from the
-  base status fills `--pass-solid` … `--mute-solid` (the hue) and inks `--pass` …
-  `--mute` (the edge) that every theme curates. Text on a status fill reads
-  `--chart-solid-ink`, white on a category, which the family re-points at `--on-status` (white too) inside any mark
-  that carries a `data-s`: one ink (`engineering/chart-styling.md` §3). A status is told apart by its drawn mark
+  base status fills `--pass-solid` … `--mute-solid` (the hue) and edges `--pass-solid-edge` …
+  `--mute-solid-edge` (a status drawn as a line or text) that every theme curates. Text on any chart fill, a
+  category or a status, reads `--chart-solid-ink`, which is `--on-solid`: one ink (`engineering/chart-styling.md` §3). A status is told apart by its drawn mark
   (`lib/core/status-marks.js`) and, for at risk and blocked, the signal ring; draw the mark on any new status shape.
   Encodes meaning: green=good, amber=caution, red=stop, blue=info/pilot,
   gray=deferred. Used by gantt bars, progress fills, status pills.

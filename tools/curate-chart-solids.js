@@ -2,7 +2,7 @@
 /**
  * Curate every theme's chart SOLIDS: one flat color per chart concept, and the ink that reads on it.
  *
- * ONE INK. Every chart fill carries WHITE text (`--on-solid`, and `--on-status` on a status), so two charts side by side
+ * ONE INK. Every chart fill carries WHITE text (`--on-solid`, on a category and a status alike), so two charts side by side
  * never wear two text colors (engineering/chart-styling.md §3):
  *
  *   - a CATEGORY (`--chart-catN`) or the neutral (`--chart-neutral`) is a DEEP fill: 7:1 under white on the light face;
@@ -50,7 +50,6 @@ const { deepFill, midFill, brightFill, solveStatusSet, DARK_INK, TEXT_ON_SOLID, 
 const CATS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `chart-cat${n}`);
 const NEUTRAL = 'chart-neutral';
 const ON_SOLID = 'on-solid';
-const ON_STATUS = 'on-status';
 const TRIO = ['pass', 'warn', 'fail'];
 const STATES = [...TRIO, 'info', 'mute'];
 const FILL = (s) => `${s}-solid`;
@@ -58,9 +57,9 @@ const VIVID = (s) => `${s}-solid-vivid`;
 const EDGE_OF = (s) => `${s}-solid-edge`;
 /** Every status seed a trio-owning theme declares. `--mute-solid` has no vivid: a neutral has no intensity. */
 const SIGNAL_OF = (s) => `${s}-solid-signal`;
-const STATUS_SEEDS = [ON_STATUS, ...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...STATES.map(EDGE_OF), ...['warn', 'fail'].map(SIGNAL_OF)];
+const STATUS_SEEDS = [...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...STATES.map(EDGE_OF), ...['warn', 'fail'].map(SIGNAL_OF)];
 /** Retired: amber is no longer the one status with its own ink. */
-const RETIRED = ['on-warn', 'on-warn-vivid'];
+const RETIRED = ['on-warn', 'on-warn-vivid', 'on-status'];
 
 /**
  * THE THEME'S CHARACTER, so a status set is on brand rather than one set for every palette. Two measurements of the
@@ -187,12 +186,10 @@ function solveTheme(theme) {
   out[ON_SOLID] = a11y ? `light-dark(${WHITE}, ${DARK_INK})` : WHITE;
 
   // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's. One ink: the status
-  // fills carry the same ink as the categories, so `--on-status` is `--on-solid`; it stays a token so a palette can
-  // still differ. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
+  // fills carry `--on-solid`, the same ink as the categories. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
   // (bright fills under a near-black ink), so the brand set it would inherit from its parent would carry the wrong ink.
   if (owns('pass') || a11y) {
     const face = (dark) => [R(raw.bg, dark), R(raw['bg-alt'], dark)].filter(isHex);
-    out[ON_STATUS] = out[ON_SOLID];
     const hue = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((s) => [s, hexToOklch(arm(s, false)).h]));
     const accent = R(raw.accent, false);
     if (!a11y && isHex(accent) && hexToOklch(accent).C >= 0.05) for (const s of ['pass', 'fail']) hue[s] = lean(hue[s], hexToOklch(accent).h);
@@ -210,7 +207,12 @@ function solveTheme(theme) {
       set = solveStatusSet({ hue, strength, light: face(false), dark: face(true), override, darkInk });
     }
     for (const [token, [l, d]] of Object.entries(set)) out[token] = `light-dark(${l}, ${d})`;
-    if (a11y) for (const s of ['pass', 'warn', 'fail', 'info']) out[VIVID(s)] = `var(--${FILL(s)})`;
+    // A colorblind palette has one intensity: `a11y-base` aliases vivid to the solid once, and each child inherits the
+    // aliases, which resolve against the child's own fills (both declare on `:root`).
+    if (a11y) for (const s of ['pass', 'warn', 'fail', 'info']) {
+      if (theme === 'a11y-base') out[VIVID(s)] = `var(--${FILL(s)})`;
+      else delete out[VIVID(s)];
+    }
   }
   return out;
 }
@@ -261,7 +263,9 @@ function main() {
       if (!current && isStatus) statusAnchor = `--${seed}:`;
       else if (!current) catAnchor = `--${seed}:`;
     }
-    for (const seed of RETIRED) if (mine(seed)) { changed += 1; total += 1; if (!report) css = dropSeed(css, seed); }
+    // A colorblind child inherits its vivid aliases from `a11y-base` (solveTheme), so it stops declaring them.
+    const retired = theme.startsWith('a11y-') && theme !== 'a11y-base' ? [...RETIRED, ...['pass', 'warn', 'fail', 'info'].map(VIVID)] : RETIRED;
+    for (const seed of retired) if (mine(seed)) { changed += 1; total += 1; if (!report) css = dropSeed(css, seed); }
     if (!report && css !== before) fs.writeFileSync(file, css);
   }
   console.log(`curate-chart-solids: ${owners.length} palettes, ${changed} of ${total} seeds ${report ? 'would change' : 'written'}`);
@@ -269,4 +273,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { solveTheme, solveCvdTrio, CATS, STATES, NEUTRAL, ON_SOLID, ON_STATUS, STATUS_SEEDS };
+module.exports = { solveTheme, solveCvdTrio, CATS, STATES, NEUTRAL, ON_SOLID, STATUS_SEEDS };

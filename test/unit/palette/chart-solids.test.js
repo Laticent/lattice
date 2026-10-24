@@ -3,7 +3,7 @@
  *
  * ONE INK (engineering/chart-styling.md §3). Every solid, a category (`--chart-cat-N-hue`), the neutral
  * (`--chart-neutral-hue`) or a status (the base's `--X-solid`, `--X-solid-vivid`), is a DEEP fill under white (`--on-solid`,
- * and `--on-status` on a status). Each theme curates the seeds (tools/curate-chart-solids.js seeded them; a theme may
+ * the one ink). Each theme curates the seeds (tools/curate-chart-solids.js seeded them; a theme may
  * hand-tune any of them), and this holds every palette, in both modes and both intensities, to the bar:
  *
  *   1. text on a solid      >= 7:1 on the light face; >= 4.5:1 on the dark face, where a solid is a mid-tone white
@@ -36,8 +36,8 @@ const EDGE_TEXT = 4.5;
  */
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 const INTENSITIES = {
-  muted: (s) => ({ t: `${s}-solid`, ink: 'on-status', edge: `${s}-solid-edge`, status: true }),
-  vivid: (s) => ({ t: s === 'mute' ? 'mute-solid' : `${s}-solid-vivid`, ink: 'on-status', edge: `${s}-solid-edge`, status: true }),
+  muted: (s) => ({ t: `${s}-solid`, ink: 'on-solid', edge: `${s}-solid-edge`, status: true }),
+  vivid: (s) => ({ t: s === 'mute' ? 'mute-solid' : `${s}-solid-vivid`, ink: 'on-solid', edge: `${s}-solid-edge`, status: true }),
 };
 const SOLIDS = (intensity) => [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'on-solid' })),
