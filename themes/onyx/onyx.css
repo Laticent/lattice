@@ -350,11 +350,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#3A3A3A, #BFBFBF);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#2C2C2C, #BFBFBF);
+  --heatmap-step3-ink: light-dark(#2C2C2C, #D9D9D9);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#0B0B0B, #C9C9C9);
+  --heatmap-step4-ink: light-dark(#0B0B0B, #161616);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#E3E3E3, #EFEFEF);
+  --heatmap-step5-ink: light-dark(#E3E3E3, #3A3A3A);
   /* ── end heatmap ramp ── */
 
   /* Status — pass green / warn olive / fail red / info slate / mute gray:

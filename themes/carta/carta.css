@@ -300,11 +300,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#3A3127, #E7DDC9);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#322920, #E7DDC9);
+  --heatmap-step3-ink: light-dark(#322920, #FFFDF8);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#100903, #E7DDC9);
+  --heatmap-step4-ink: light-dark(#100903, #2D2516);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#ECE1D4, #FEF3DF);
+  --heatmap-step5-ink: light-dark(#ECE1D4, #463D2D);
   /* ── end heatmap ramp ── */
 
   --info: light-dark(#494972, #AEBCDC);

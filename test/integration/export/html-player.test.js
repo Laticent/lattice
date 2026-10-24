@@ -585,24 +585,26 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 		});
 	}
 
-	test('the inline gradient stops are collapsed, and their dark arms ride the attribute-keyed block', () => {
+	// THE GRADIENT STOPS READ A TOKEN NOW. Every chart paints one flat solid (chart-family § THE SOLID TIER), so a stop
+	// is `stop-color:var(--state-X-hue)` and carries no inline pair; its dark arm reaches it through the token, which the
+	// player collapses like every other. The inline-attribute hoist (#1643) still guards an author's raw `style=` and is
+	// held by its unit tests (test/unit/export/html-player.test.js § hoistInlineLightDark); this asserts the shipped
+	// deck's stops are the token-reading kind, so the hoist is not their only path to the dark scheme.
+	test('the gradient stops read a token, and the token carries its dark arm under the viewer scheme', () => {
 		const html = exported['portrait-gantt-statechart'];
 		const doc = new JSDOM(html).window.document;
-		// Guard the guard FIRST: without gradients the assertion below passes on a document
-		// that never had anything to fix. (`examples/state-chart.md` is exactly that document —
-		// it ships no gradient stops at all, which is how this test found its right deck.)
-		// Counted on the raw markup, not with a selector: jsdom matches a camelCase SVG type
-		// selector (`linearGradient`) against nothing, so the DOM route reports zero on a
-		// document full of them — a guard that lies is worse than no guard.
-		assert.ok((html.match(/<stop\b/g) || []).length > 0, 'the deck really does ship gradient stops');
+		// Guard the guard FIRST: without stops the assertions below pass on a document that never had any. Counted on
+		// the raw markup: jsdom matches a camelCase SVG type selector (`linearGradient`) against nothing.
+		const stops = html.match(/<stop\b[^>]*>/g) || [];
+		assert.ok(stops.length > 0, 'the deck really does ship gradient stops');
 		const inline = [...doc.querySelectorAll('[style]')].filter((el) => (el.getAttribute('style') || '').includes('light-dark('));
 		assert.equal(inline.length, 0, `${inline.length} inline style attribute(s) still carry light-dark()`);
-		assert.match(html, /:root\[data-lp-scheme=dark\] \.lp-sd-\d+\{/, 'the dark arms are re-applied, not dropped');
-		// `[,{]`, not `{`: see the kanban test below — in a minified list only the last arm meets a
-		// brace, so anchoring on `{` would assert three times over that ONE arm is suffixed.
-		for (const arm of DARK_SLIDE_ARMS) {
-			assert.match(html, new RegExp(`${arm} \\.lp-sd-\\d+[,{]`), `including on an author-pinned dark slide — arm ${arm}`);
-		}
+		for (const stop of stops) assert.match(stop, /style="stop-color:var\(--[a-z0-9-]+\)"/, `a stop reads a token: ${stop}`);
+		// The status a gantt bar and a state tile paint has a dark arm of its own under the viewer's dark scheme.
+		const dark = [...html.matchAll(/data-lp-scheme=dark\][^{]*\{[^}]*?--pass-solid:(#[0-9A-Fa-f]{6})/g)].map((m) => m[1]);
+		const light = /:root[^{]*\{[^}]*?--pass-solid:(#[0-9A-Fa-f]{6})/.exec(html)?.[1];
+		assert.ok(dark.length > 0, 'the status fill is re-declared under the dark viewer scheme');
+		assert.ok(dark.some((d) => d !== light), 'and its dark arm differs from the light one');
 	});
 
 	// The real-property half (#1645). The kanban card is the guard because its `box-shadow` is
