@@ -37,7 +37,7 @@
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--text-heading);
-  text-align: right;
+  text-align: end;
 }
 :is(section.progress, figure.progress) .progress-track {
   position: relative;
@@ -57,11 +57,12 @@
 }
 :is(section.progress, figure.progress) .progress-fill {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline-start: 0;
   width: calc(var(--pct) * 1%);
   /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
-   * and the fill carries 4px of accent border + a 1px hairline + 0.625cqi of
-   * right padding for the in-bar readout. Under the CSS default (content-box)
+   * and the fill carries a 1px hairline + 0.625cqi of inline-end padding for
+   * the in-bar readout. Under the CSS default (content-box)
    * every one of those sits OUTSIDE the percentage, so each bar rendered a
    * constant ~11px too long: measured at portrait, a 551px track drew 92% as
    * 518.0px (94.0%) and 12% as 77.2px (14.0%). The offset is additive, so
@@ -73,30 +74,16 @@
    * Matches .chart-body / .chart-key (chart-family.styles.css) — the family default;
    * this rule was the outlier. See #1210. */
   box-sizing: border-box;
-  /* CHART-FAMILY MATERIAL, progress-SPECIALIZED GEOMETRY. Progress shares the
-   * family's hue/ink palette (--fill-* below), 1px hue-tint border, and 4px
-   * vivid left accent — the same MATERIAL as the kanban card / gantt bar /
-   * state node. What it specializes is the GRADIENT: progress is the only
-   * family member with a magnitude (--pct), so it encodes that magnitude in the
-   * fill rather than wearing the shared vertical wash. The gradient runs
-   * HORIZONTALLY (the direction the bar grows) and "shoots forward" — pale/dark
-   * tail at the origin ramping to a saturated LEADING-EDGE head whose intensity
-   * scales with --pct: a 92% bar ramps to a vivid head, a 12% bar stays dim and
-   * stalled. So value is double-encoded (length AND intensity). The head mix %
-   * is calc(base + --pct * k); canvas-aware via light-dark() — mixes into --bg
-   * on light, toward black on dark (mirrors --state-*-fill, mud-free). The other
-   * members keep the shared --chart-fill-* vertical wash (they have no --pct).
-   * A bar with no status is the categorical cat1 slot; status variants re-point
-   * the --fill-* pair. Authors pin a categorical hue with `--fill`. */
+  /* The bar is the family's flat SOLID for its status (chart-family.styles.css § THE SOLID TIER), the same paint
+   * as a gantt bar or a state tile. Its LENGTH is the magnitude; nothing else about it varies. A bar with no status
+   * is the categorical cat1 slot; status variants re-point the --fill-* pair. Authors pin a categorical hue with
+   * `--fill`. */
   --fill-hue: var(--fill, var(--chart-cat-1-hue));
   --fill-ink: var(--chart-cat-1-ink);
-  background: linear-gradient(90deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) 12%, var(--bg)),
-               color-mix(in oklab, var(--fill-hue) 30%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) calc(20% + var(--pct) * 0.52%), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) calc(38% + var(--pct) * 0.58%), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+  /* The fill is its status's flat SOLID (chart-family.styles.css § THE SOLID TIER): no wash, no ramp, no
+   * leading accent. Its length is the datum; its color is the status. */
+  background: var(--fill-hue);
+  border: var(--chart-hairline) solid var(--fill-hue);
   border-radius: var(--chart-mark-radius);
   transition: none;
   /* The % readout rides the bar's leading edge: right-aligned ON the colored
@@ -112,7 +99,10 @@
   display: flex;
   align-items: center;
   justify-content: safe flex-end;
-  padding-right: 0.625cqi;
+  /* One INSET, 0.45cqi, frames everything inside the bar: the readout plate's end gap here, its top and bottom gap
+   * (its own padding, below), and the status mark's start gap (chart-family.styles.css). Uneven gaps read as the
+   * plate pressing against the rim. */
+  padding-inline-end: 0.45cqi;
   overflow: visible;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
@@ -132,19 +122,13 @@
   font-size: var(--fs-meta);
   font-weight: 700;
   color: var(--text-heading);
-  /* The readout rides the fill's LEADING EDGE — exactly where the gradient ramps
-   * to its most saturated head (calc(20% + --pct*0.52%), up to 72%), so a high-%
-   * bar's dark --text-heading lost contrast on the LIGHT canvas (gantt sidesteps
-   * this by capping its flat fill at 38%; progress can't — its vivid head IS the
-   * magnitude signal, and on the DARK canvas it reads great). Rather than flatten
-   * the fill, the number sits on a small READOUT PLATE: the bar's own hue mixed
-   * hard toward the canvas (pale on light, deep on dark) so --text-heading always
-   * clears it, on either canvas, at any --pct. Stays in-family (hue-tinted, not a
-   * jarring white box) and reads as an intentional data badge. */
-  background: light-dark(color-mix(in oklab, var(--fill-hue) 16%, var(--bg)),
-                         color-mix(in oklab, var(--fill-hue) 22%, black));
-  padding: 0.16cqi 0.55cqi;
-  border-radius: 0.55cqi;
+  /* The readout rides the fill's leading edge on a small READOUT PLATE in the canvas color, so --text-heading
+   * clears it on any status and at any --pct, including a bar too short to hold the number. */
+  background: var(--bg);
+  /* Sized so the plate clears the bar's rim by the same 0.45cqi inset on every side, with its corners concentric to
+   * the bar's (the bar's radius less the inset, held to a visible minimum). */
+  padding: 0 0.45cqi;
+  border-radius: max(0.25cqi, calc(var(--chart-mark-radius) - 0.45cqi));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   line-height: 1;
@@ -241,7 +225,7 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
   grid-area: label;
   /* Left-aligned now that it heads the row instead of butting against the
    * bar's origin — right-alignment only reads as a gutter beside the track. */
-  text-align: left;
+  text-align: start;
   /* Back to the body step. The ≤1.05 block above bumps the label to
    * `--fs-message` to help a narrow three-column row fill a taller box — but
    * once the label has its OWN full-width row that bump only buys height, and

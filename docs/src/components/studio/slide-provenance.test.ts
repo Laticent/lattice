@@ -212,20 +212,27 @@ describe('backdrop provenance (the register over any finish)', () => {
 
 describe('chart-finish provenance + override', () => {
 	const slide = '<!-- _class: bar -->\n\n## Revenue';
-	it('off (not inheritable) when the deck sets no finish or sets off', () => {
+	it('off (not inheritable) when the deck sets no finish or names the default', () => {
 		expect(chartFinishProvenance(slide, deck('theme: indaco', slide))).toMatchObject({ state: 'off', inheritable: false });
+		expect(chartFinishProvenance(slide, deck('chart-finish: pigment', slide))).toMatchObject({ state: 'off', inheritable: false });
+	});
+	it('a word that is not a finish reads as the default, as the engine renders it', () => {
 		expect(chartFinishProvenance(slide, deck('chart-finish: off', slide))).toMatchObject({ state: 'off', inheritable: false });
 	});
 	it('inherited from the deck finish', () => {
 		expect(chartFinishProvenance(slide, deck('chart-finish: tone', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
 	});
-	it('a slide opts out of a finished deck with chart-finish-off — its own token, not the default', () => {
-		const own = '<!-- _class: bar chart-finish-off -->\n\n## Revenue';
-		expect(chartFinishProvenance(own, deck('chart-finish: tone', own))).toMatchObject({ state: 'on', value: 'off', deckValue: 'tone' });
+	it('a slide asks for the default inside a finished deck with its own pigment token', () => {
+		const own = '<!-- _class: bar chart-finish-pigment -->\n\n## Revenue';
+		expect(chartFinishProvenance(own, deck('chart-finish: tone', own))).toMatchObject({ state: 'on', value: 'pigment', deckValue: 'tone' });
+	});
+	it('chart-finish-off is not a finish token any more, so it is just an unknown class', () => {
+		const stale = '<!-- _class: bar chart-finish-off -->\n\n## Revenue';
+		expect(chartFinishProvenance(stale, deck('chart-finish: tone', stale))).toMatchObject({ state: 'inherited', value: 'tone' });
 	});
 	it('setChartFinish swaps the one token and keeps the component; null clears it', () => {
-		const on = setChartFinish(slide, 'etching');
-		expect(getClassTokens(on)).toEqual(['bar', 'chart-finish-etching']);
+		const on = setChartFinish(slide, 'etch');
+		expect(getClassTokens(on)).toEqual(['bar', 'chart-finish-etch']);
 		expect(getClassTokens(setChartFinish(on, 'tone'))).toEqual(['bar', 'chart-finish-tone']);
 		expect(getClassTokens(setChartFinish(on, null))).toEqual(['bar']);
 	});

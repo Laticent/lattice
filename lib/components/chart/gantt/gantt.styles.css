@@ -158,6 +158,11 @@
  * re-pointed per status below, exactly as it was for the <div> bars. */
 :is(section.gantt, figure.gantt) .gantt-bar,
 :is(section.gantt, figure.gantt) .gantt-milestone {
+  /* Every bar and milestone is its status's flat SOLID, and an unstated one the neutral solid
+   * (chart-family.styles.css § THE SOLID TIER). The status rules below re-point `--fill-hue`; the fill reads it
+   * here, so the kernel's paint server is only a fallback for a reader without this stylesheet. */
+  --fill-hue: var(--chart-neutral-hue);
+  fill: var(--fill-hue);
   /* No status means no status — a neutral ink. This was --state-info-ink, the
    * same blue a declared `pilot` or `decision` takes, so every gallery page drew
    * a blue bar the legend never named.
@@ -182,6 +187,16 @@
   stroke-width: var(--chart-edge);
 }
 
+:is(section.gantt, figure.gantt) .gantt-legend-swatch:not([data-s]) {
+  /* The "no status" key chip names the same neutral the unstated bar wears. */
+  --fill-hue: var(--chart-neutral-hue);
+  --fill-ink: var(--text-secondary);
+}
+
+/* A caption inside a bar names the bar's hue too (`--fill-hue`), so a chart finish can pick the ink
+ * its body clears: the label is a sibling of the rect, not a child, and cannot read the bar's paint. */
+:is(section.gantt, figure.gantt) .gantt-bar-label { --fill-hue: var(--chart-neutral-hue); }
+
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
  * gradient is selected by the kernel (`GANTT_STATUS_FILL`) from the same
  * status, so the two can never disagree. `--fill-hue` names the same status's
@@ -195,18 +210,18 @@
  * pass to info here left the chip's EDGE green while the kernel filled its body
  * blue, so the key showed a two-color chip for a one-color status. One table
  * cannot disagree with itself. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="on-track"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="done"]     { --fill-ink: var(--state-pass-ink); --fill-hue: var(--state-pass-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="on-track"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="done"]     { --fill-ink: var(--state-pass-ink); --fill-hue: var(--state-pass-hue); }
 /* `live` is RUNNING work, not finished work. It shared --state-pass-ink with
  * `done` here and shared the 'pass' fill gradient in the kernel, so the legend
  * named three statuses and painted two of them identically. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="live"]     { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="at-risk"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); --fill-hue: var(--state-warn-hue); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="blocked"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); --fill-hue: var(--state-fail-hue); }
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="pilot"],
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="decision"] { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="live"]     { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="at-risk"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="warn"]     { --fill-ink: var(--state-warn-ink); --fill-hue: var(--state-warn-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="blocked"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="fail"]     { --fill-ink: var(--state-fail-ink); --fill-hue: var(--state-fail-hue); }
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="pilot"],
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="decision"] { --fill-ink: var(--state-info-ink); --fill-hue: var(--state-info-hue); }
 
 /* DEFERRED IS HOLLOW, and that is the one status whose paint is not just an
  * ink. It takes the same mute ramp a status-LESS bar takes, so on color alone
@@ -217,7 +232,7 @@
  * what a deferred item looks like in every schedule a reader has seen. The
  * earlier arrangement put the collision on `pilot` instead of `deferred`; this
  * removes it rather than moving it again. */
-:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent)[data-s="deferred"] {
+:is(section.gantt, figure.gantt) :is(.gantt-bar, .gantt-milestone, .gantt-legend-swatch, .gantt-bar-accent, .gantt-bar-label)[data-s="deferred"] {
   /* The same neutral as the unstated default, for the reason given there: this
    * edge is the ONLY thing carrying the mark once the fill drops to a wash, so
    * it needs the tier with headroom against the lane band, not just the
@@ -261,6 +276,11 @@
   fill-opacity: 0.18;
   stroke-dasharray: 4 2.5;
 }
+/* A hollow bar's status mark sits on the slide, not on a fill, so it wears the canvas ink its caption wears, not the
+ * solid ink (white would be about 1.3:1 on an 18% wash). */
+:is(section.gantt, figure.gantt) .chart-status-mark[data-s="deferred"] {
+  stroke: var(--text-heading);
+}
 /* Unparseable / missing span — a muted full-width placeholder so the task stays
  * visible (lint-core flags the cause); never a silent drop. */
 :is(section.gantt, figure.gantt) .gantt-bar--unscaled {
@@ -269,14 +289,18 @@
 }
 
 /* Bar caption. The kernel places it inside the bar when it fits and beside it
- * when it does not, tagging which via data-pos — so the ink has to work on the
- * bar's tinted fill AND on the canvas. --text-heading clears both (the fill is
- * capped at ~54% hue precisely so this stays legible). */
+ * when it does not, tagging which via data-pos. Beside a bar it sits on the canvas
+ * and takes --text-heading; inside one it sits on the bar's solid and takes the ink
+ * curated for every solid, --chart-solid-ink (7:1, chart-solids.test.js). A deferred
+ * bar is hollow, so its caption sits on the canvas too. */
 :is(section.gantt, figure.gantt) .gantt-bar-label,
 :is(section.gantt, figure.gantt) .gantt-mlabel {
   fill: var(--text-heading);
   font-family: var(--font-body);
   font-weight: 600;
+}
+:is(section.gantt, figure.gantt) .gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]) {
+  fill: var(--chart-solid-ink);
 }
 
 /* ── The "today" / now line — opt-in (eyebrow `today <point>` only) ──────────
@@ -354,10 +378,10 @@
  * bar's own x — so it must INHERIT `--fill-ink` from the bar's rules, never
  * re-derive it. It cannot disagree with a table it does not have. */
 :is(section.gantt, figure.gantt) .gantt-bar-accent {
-  /* THE INK ONLY — never the bar's outline. The accent is a solid fill; adding
-   * it to the bars' rule handed it their `stroke` too, which outlined a 4px
-   * sliver in its own color and pushed it under the 3:1 floor on four themes. */
-  fill: var(--fill-ink);
+  /* The bar's own SOLID, never the bar's outline: on a filled bar it reads as part of the bar, and on a deferred
+   * (hollow) bar it is the one solid mark of where the task starts. Adding it to the bars' rule handed it their
+   * `stroke` too, which outlined a 4px sliver and pushed it under the 3:1 floor on four themes. */
+  fill: var(--fill-hue);
 }
 
 /* AN UNSTATED BAR HAS NO ACCENT, because the accent has nothing to do. Its one

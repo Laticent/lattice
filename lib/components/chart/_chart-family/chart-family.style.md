@@ -22,8 +22,8 @@ axis each — that is the whole of "different yet similar."
 ## The shared spine — what every curation does
 
 1. **Two spectrums, same hooks.** Every theme curates the same two token sets
-   through the same `:root` override hooks: `--chart-cat1..8` (categorical) and
-   `--chart-state-{pass,warn,fail,info,mute}` (semantic). A theme sets only the
+   through the same `:root` hooks: `--chart-cat1..8` (categorical) and the base
+   status solids `--pass` `--warn` `--fail` `--info` `--mute` (semantic). A theme sets only the
    slots it wants to flavor; the `var()` indirection means the theme always
    wins, and unset slots inherit the default.
 
@@ -61,8 +61,8 @@ a theme whose identity forbids a chromatic spectrum differs by **value**.
 
 Categories adopt the palette audit's top-scored **earth "Brand triad"** — the
 same `--cN` pigments cuoio's Mermaid diagrams use, so a pie and a flowchart are
-one warm-leather palette. Status is **full reuse**: `--chart-state-*` points
-straight at cuoio's own `--pass` / `--warn` / `--fail`, so a gantt at-risk bar
+one warm-leather palette. Status is **full reuse**: the chart family reads
+cuoio's own `--pass` / `--warn` / `--fail` directly, so a gantt at-risk bar
 matches a `--warn` chip. The shipped default theme; the worked example.
 
 ### onyx — value, not hue (achromatic + red)
@@ -112,8 +112,9 @@ of these followed:
 2. **Port `--chart-cat1..8`** from the theme's *own* `--cN` pigment spectrum
    (most-distinct-first), so charts and the theme's Mermaid diagrams speak one
    color language. Eight slots max; past ~6, consolidate rather than cycle.
-3. **Reuse `--chart-state-{pass,warn,fail,info,mute}`** from the theme's living
-   semantic palette (`--pass` / `--warn` / `--fail`, brand accent, muted).
+3. **Reuse the base status solids** — the chart family reads the theme's own
+   `--pass` / `--warn` / `--fail` / `--info` / `--mute` directly; there is no
+   chart-only status hook.
    *Curate only the roles the theme genuinely lacks*, and tune any new hue to the
    theme's canvas — not a generic red (cf. indaco's crimson `fail`).
 4. **Assess before committing** (the procedure in `design/theming.md`): resolve

@@ -92,6 +92,12 @@ section.flowchart .fc-node {
   border-radius: var(--chart-mark-radius);
 }
 
+/* A shape that carries a STATUS MARK (the painted node's drawn shape in its leading top corner, flowchart.layout.js)
+ * reserves the mark's room on both sides, so the name, centered in the painted node, clears the corner mark. */
+section.flowchart .fc-node:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"]) {
+  padding-inline: calc(1.5625cqi + 0.8em);
+}
+
 /* A shape with an ICON (`icon=`, lib/components/chart/_chart-family/graph-icons.js): the
  * drawing sits before the name, or above it when the chart is pinned `tb` (the icons note
  * § 11 q1), and the measured box holds both. `icon-only` keeps the name in the harness for its
@@ -222,10 +228,10 @@ section.flowchart .fc-name {
 }
 
 /* The status table: one tone per word, the chart family's (gantt's) mapping. */
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-hue-mark: var(--state-pass-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-hue-mark: var(--state-warn-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-hue-mark: var(--state-fail-ink); }
-section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-hue-mark: var(--state-info-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="on-track"], [data-s="done"]) { --fc-hue: var(--state-pass-hue); --fc-hue-mark: var(--state-pass-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"]) { --fc-hue: var(--state-warn-hue); --fc-hue-mark: var(--state-warn-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"]) { --fc-hue: var(--state-fail-hue); --fc-hue-mark: var(--state-fail-ink); }
+section:is(.flowchart, .state-chart) :is(.fc-node, .fc-node-group, .fc-shape, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --fc-hue: var(--state-info-hue); --fc-hue-mark: var(--state-info-ink); }
 section:is(.flowchart, .state-chart) :is(.fc-node, .fc-shape, .fc-key-swatch)[data-s]:not([data-s="deferred"]) {
   --fc-status-fill: light-dark(color-mix(in oklab, var(--fc-hue) 22%, var(--bg)), color-mix(in oklab, var(--fc-hue) 46%, black));
 }
@@ -233,7 +239,21 @@ section.flowchart .fc-shape[data-s]:not([data-s="deferred"]) { fill: var(--fc-st
 section.flowchart .fc-node[data-s]:not([data-s="deferred"]) { background: var(--fc-status-fill); border-color: var(--fc-hue-mark); }
 /* Deferred is hollow and dashed: on hue alone it would read as "no status". */
 section.flowchart .fc-shape[data-s="deferred"] { fill: none; stroke: var(--text-secondary); stroke-dasharray: 4px 2.5px; }
+/* A hollow node's status mark sits on the slide, so it wears the canvas ink, not the solid ink. */
+section.flowchart .chart-status-mark[data-s="deferred"] { stroke: var(--text-heading); }
 section.flowchart .fc-node[data-s="deferred"] { background: none; border-style: dashed; border-color: var(--text-secondary); }
+
+/* The group names the hue its shape wears, so the caption (a sibling) and a chart finish can read it:
+ * a status word through the table above, a slot here, and otherwise the neutral tile. */
+section.flowchart :is(.fc-node-group, .fc-node) { --fc-hue: var(--chart-neutral-hue); --fc-hue-mark: var(--text-secondary); }
+section.flowchart .fc-node-group[data-slot="1"]:not([data-s]) { --fc-hue: var(--chart-cat-1-hue); }
+section.flowchart .fc-node-group[data-slot="2"]:not([data-s]) { --fc-hue: var(--chart-cat-2-hue); }
+section.flowchart .fc-node-group[data-slot="3"]:not([data-s]) { --fc-hue: var(--chart-cat-3-hue); }
+section.flowchart .fc-node-group[data-slot="4"]:not([data-s]) { --fc-hue: var(--chart-cat-4-hue); }
+section.flowchart .fc-node-group[data-slot="5"]:not([data-s]) { --fc-hue: var(--chart-cat-5-hue); }
+section.flowchart .fc-node-group[data-slot="6"]:not([data-s]) { --fc-hue: var(--chart-cat-6-hue); }
+section.flowchart .fc-node-group[data-slot="7"]:not([data-s]) { --fc-hue: var(--chart-cat-7-hue); }
+section.flowchart .fc-node-group[data-slot="8"]:not([data-s]) { --fc-hue: var(--chart-cat-8-hue); }
 
 /* Slots: a whole shape, or one channel of it. A channel beats the whole-shape slot
  * because it is the narrower instruction. */
@@ -274,7 +294,7 @@ section.flowchart .fc-icon {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-section.icon-etching .flowchart-svg .fc-icon { stroke-width: 1.5; }
+section.icon-etch .flowchart-svg .fc-icon { stroke-width: 1.5; }
 section.flowchart .fc-node-group[data-text="1"] .fc-icon { color: var(--chart-cat-1-ink); }
 section.flowchart .fc-node-group[data-text="2"] .fc-icon { color: var(--chart-cat-2-ink); }
 section.flowchart .fc-node-group[data-text="3"] .fc-icon { color: var(--chart-cat-3-ink); }

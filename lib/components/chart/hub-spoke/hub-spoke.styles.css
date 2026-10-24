@@ -144,7 +144,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
  * above holds with no finish. Both bodies mix toward a dark base, so their L stays at or
  * under 0.82 (pigment) and 0.92 (tone) of the hue's; the hub goes back to the full heading
  * ink it wears on light. Measured on the 14 flat-fill palettes in both modes, the nearest
- * group disc then sits at ΔE >= 0.15 from the hub under every finish. Etching's body (40%)
+ * group disc then sits at ΔE >= 0.15 from the hub under every finish. Etch's body (40%)
  * never comes near, so it keeps the dimmed hub. Only a chart that draws a GROUP needs this:
  * a neutral satellite is held under the hub by its own mix, so a neutral or status-only
  * chart keeps the dimmed hub. The finish class sits on the section (or on Read·Article's
@@ -154,7 +154,9 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke: var(--text-heading);
 }
 
-/* ── emphasis halo and direction heads: filled ink, no edge ─────────────────── */
+/* ── emphasis halo and direction heads: filled ink, no edge. The halo on an at-risk or blocked disc stands apart from
+ * the disc, so its only neighbor is the slide: it wears the status EDGE (4.6:1 off the slide), not the signal, which is
+ * solved against a fill it touches and can sit near 2:1 off a light slide. ── */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-halo { fill: var(--hs-state-ink); stroke: none; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow { fill: var(--hs-neutral-ink); stroke: none; }
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-arrow[data-hue] { fill: var(--hs-group-ink); }
@@ -189,7 +191,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
  * there (3.14:1 at worst, a group on onyx). On dark the plain heading ink clears neutral and
  * group discs (4.12:1 at worst), and a status disc, which is light on dark, takes the canvas
  * ink (3.9:1 at worst). Its stroke is the drawing's own on its 24-unit grid, so it scales with
- * the disc; a deck's `icon: etching` look thins it as it does every icon. `overflow: visible`
+ * the disc; a deck's `icon: etch` look thins it as it does every icon. `overflow: visible`
  * lets a round cap at the grid's edge finish; the kernel holds the square inside the disc. */
 :is(section.hub-spoke, figure.chart-frame) .hub-spoke-icon-svg {
   overflow: visible;
@@ -199,7 +201,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-section.icon-etching .hub-spoke-icon-svg { stroke-width: 1.5; }
+section.icon-etch .hub-spoke-icon-svg { stroke-width: 1.5; }
 /* Plain inks first, for an engine without relative color: a custom property is not checked
  * when declared, so an `oklch(from …)` such an engine cannot parse would leave the stroke unset
  * and the icon undrawn. The measured inks replace them where the engine can compute them. */

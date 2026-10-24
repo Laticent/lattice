@@ -61,9 +61,21 @@
   --pass: light-dark(#054c86, #82bfff);
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
-  --chart-state-pass: #054c86;
-  --chart-state-warn: #926300;
-  --chart-state-fail: #5f0009;
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), one ink per slide like every chart fill: DEEP under
+   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-solid` at
+   * 7:1, as every a11y palette's chart fills are (engineering/chart-styling.md §3). Solved as a trio that clears this
+   * palette's own colorblind floor on both faces, one set for both intensities (the vivid aliases come from `a11y-base`). A status line or text
+   * paints the status ink above; the two exceptions also wear a SIGNAL ring, the status color at
+   * the opposite lightness to its fill. Solved by tools/curate-chart-solids.js. */
+  --pass-solid: light-dark(#314D6A, #96AAC1);
+  --warn-solid: light-dark(#3F2903, #D99A2B);
+  --fail-solid: light-dark(#9E0016, #FFBEB8);
+  --warn-solid-signal: light-dark(#E79F00, #6F4A00);
+  --fail-solid-signal: light-dark(#FE746D, #C43F3D);
+  --info-solid: light-dark(#125E82, #68ADD4);
+  --mute-solid: light-dark(#544F54, #B5AEB5);
+  --on-solid: light-dark(#FFFFFF, #1A1A1A);
+  --chart-neutral: light-dark(#575757, #A5A5A5);
   /* Diagram alarm — a deep-red attention signal (not a green/red pair). */
   --diagram-critical: #5f0009;
 
@@ -171,11 +183,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#333333, #BFBFBF);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#0B0B0B, #EDEDED);
+  --heatmap-step3-ink: light-dark(#0B0B0B, #FAFAFA);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#D4D4D4, #292929);
+  --heatmap-step4-ink: light-dark(#D4D4D4, #333333);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#A7A7A7, #4A4A4A);
+  --heatmap-step5-ink: light-dark(#A7A7A7, #545454);
   /* ── end heatmap ramp ── */
 }
 

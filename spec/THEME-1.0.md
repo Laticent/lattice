@@ -73,7 +73,7 @@ override any subset of them.
 | Ink | `--text-display` `--text-heading` `--text-body` `--text-secondary` `--text-label` `--text-muted` `--code-inline-fg` |
 | Graphical ink | `--muted-mark` |
 | Accent | `--accent` `--accent-soft` `--on-accent` `--on-accent-soft` † `--accent-soft-body` † |
-| Status | `--pass` `--fail` `--warn` `--pass-bg` `--fail-bg` `--warn-bg` |
+| Status | `--pass` `--fail` `--warn` `--info` `--mute` `--on-solid` `--pass-solid` `--warn-solid` `--fail-solid` `--info-solid` `--mute-solid` `--pass-solid-vivid` `--warn-solid-vivid` `--fail-solid-vivid` `--info-solid-vivid` `--warn-solid-signal` `--fail-solid-signal` `--pass-bg` `--fail-bg` `--warn-bg` |
 | The dark face | `--scheme-dark-bg` `--scheme-dark-bg-alt` `--scheme-dark-border` `--scheme-dark-text-heading` `--scheme-dark-text-body` `--scheme-dark-text-display` `--scheme-dark-text-secondary` `--scheme-dark-text-label` `--scheme-dark-text-muted` `--scheme-dark-muted-mark` |
 | Categorical slots | `--cat-1-fill` `--cat-2-fill` `--cat-3-fill` `--cat-4-fill` `--cat-5-fill` `--cat-6-fill` `--cat-7-fill` `--cat-8-fill` `--cat-9-fill` `--cat-10-fill` `--cat-11-fill` `--cat-12-fill` `--cat-1-mark` `--cat-2-mark` `--cat-3-mark` `--cat-4-mark` `--cat-5-mark` `--cat-6-mark` `--cat-7-mark` `--cat-8-mark` `--cat-9-mark` `--cat-10-mark` `--cat-11-mark` `--cat-12-mark` `--cat-1-ink` `--cat-2-ink` `--cat-3-ink` `--cat-4-ink` `--cat-5-ink` `--cat-6-ink` `--cat-7-ink` `--cat-8-ink` `--cat-9-ink` `--cat-10-ink` `--cat-11-ink` `--cat-12-ink` `--cat-on-fill` `--cat-on-mark` `--diagram-stroke` `--diagram-line` `--diagram-accent-warm` |
 | Heatmap ramp | `--heatmap-step1` ‡ `--heatmap-step2` ‡ `--heatmap-step3` ‡ `--heatmap-step4` ‡ `--heatmap-step5` ‡ `--heatmap-step1-ink` ‡ `--heatmap-step2-ink` ‡ `--heatmap-step3-ink` ‡ `--heatmap-step4-ink` ‡ `--heatmap-step5-ink` ‡ |
@@ -82,10 +82,23 @@ override any subset of them.
 | Sequential | `--seq-500` |
 | Universal signal | `--diagram-critical` |
 | Code highlighting | `--syntax-comment` `--syntax-keyword` `--syntax-builtin` `--syntax-number` `--syntax-constant` `--syntax-string` `--syntax-entity` `--syntax-type` `--syntax-variable` `--syntax-punctuation` |
-| Charts | `--chart-cat1` `--chart-cat2` `--chart-cat3` `--chart-cat4` `--chart-cat5` `--chart-cat6` `--chart-cat7` `--chart-cat8` `--chart-state-pass` `--chart-state-warn` `--chart-state-fail` `--chart-state-info` `--chart-state-mute` |
+| Charts | `--chart-cat1` `--chart-cat2` `--chart-cat3` `--chart-cat4` `--chart-cat5` `--chart-cat6` `--chart-cat7` `--chart-cat8` `--chart-neutral` |
 
 † the engine defaults it (`ENGINE_DEFAULTED_TOKENS`). ‡ every reader has a fallback
 (`FALLBACK_ONLY_TOKENS`). Both live in `lib/theme/gate.js`, and a test holds this table to them.
+
+**Status has two jobs, chart colors are SOLIDS, and every solid carries one ink.** `--pass` `--warn` `--fail`
+`--info` `--mute` are the status as INK on the slide: each clears 4.5:1 as text on `--bg` and `--bg-alt`.
+`--pass-solid` … `--mute-solid` are the status as a FILL a label sits on, in the default `muted` intensity, and the
+`-vivid` set is the `vivid` one (`chart-finish: … vivid`; `--mute-solid` has none). Every chart fill, a status, one of
+the eight `--chart-catN` or `--chart-neutral`, is DEEP: text on it is white (`--on-solid`, the one ink), at 7:1 on the light face and 4.5:1 on the dark face, and the fill clears 3:1 against `--bg` by itself.
+A status drawn as a line or as text paints its ink, `--pass` … `--mute`, so it needs no token of its own.
+`--warn-solid-signal` and `--fail-solid-signal` are the rings an at-risk or blocked shape
+wears, at the opposite lightness to its fill: bright on a deep fill, clearing 3:1 against the fill on the light face
+and against `--bg` on the dark face; deep on an `a11y-` palette's bright dark-face fill, clearing 3:1 against the
+fill. The status fills of an `a11y-` palette stay apart for its own colorblind condition; on the dark face an `a11y-`
+palette's chart fills are BRIGHT under a near-black `--on-solid` (still one ink per slide), and its
+rings deep.
 
 The code-highlighting tokens name ROLES, not a highlighter's classes: Lattice's code plugin maps
 each highlight.js class onto one of them, so a theme never names highlight.js. Four more roles are

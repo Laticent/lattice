@@ -36,6 +36,7 @@
 // for every real stylesheet, so no snapshot's bytes move.
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
+import chartFinish from '../../../lib/core/resolve-chart-finish.js';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 
@@ -125,15 +126,41 @@ const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 // the probe was left invalid and the rule kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
-const FINISH_ARM = /(?<![\w-])chart-finish-(pigment|etching|tone)(?![\w-])/;
+const FINISH_ARM = new RegExp(`(?<![\\w-])(${chartFinish.CHART_FINISH_TOKENS.join('|')})(?![\\w-])`);
 const finishArmAbsent = (doc, sel) => {
 	const m = FINISH_ARM.exec(sel);
-	return !!m && !doc.querySelector(`.chart-finish-${m[1]}`);
+	return !!m && !doc.querySelector(`.${m[1]}`);
+};
+
+// EVERY slide wears a finish class now (resolve-chart-finish.js: a look with no absent state), so the
+// class test above no longer says whether a slide holds a mark the arm reaches. Left at that, all ~160
+// rules of the deck's finish rode into every snapshot, which on a bar slide roughly doubled it
+// (53K to 100K units against a 246K cap, 174 finish rules kept against 2) and left heavy chart slides
+// unable to store. The arm is exactly
+// `section.chart-finish-X :where(<marks>)`, and the marks are an ordinary selector, so ask the page
+// whether any exists. Any other shape, or a selector the engine refuses, stays conservatively kept.
+const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)\\.(?:${chartFinish.CHART_FINISH_TOKENS.join('|')}) :where\\(`);
+const finishMarksAbsent = (doc, sel) => {
+	const lead = FINISH_MARK_ARM.exec(sel);
+	if (!lead) return false;
+	let depth = 1;
+	let i = lead[0].length;
+	for (; i < sel.length && depth > 0; i++) {
+		if (sel[i] === '(') depth++;
+		else if (sel[i] === ')') depth--;
+	}
+	if (depth !== 0) return false;
+	try {
+		return !doc.querySelector(sel.slice(lead[0].length, i - 1));
+	} catch {
+		return false;
+	}
 };
 
 function selectorMatches(doc, selectorText, hasPane) {
 	if (isPaneArm(selectorText) && !hasPane) return false;
 	if (finishArmAbsent(doc, selectorText)) return false;
+	if (finishMarksAbsent(doc, selectorText)) return false;
 	const probe = stripPseudo(selectorText).replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {

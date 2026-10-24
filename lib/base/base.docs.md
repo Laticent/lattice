@@ -1278,15 +1278,19 @@ reads it as a *checked* box, the opposite of what a cross suggests.
 **Style variants (`checks-*`).** The disc treatment is one of five
 boardroom-ready styles, switchable per slide (`_class: checklist
 checks-outline`) or per deck (`class: checks-bold`). The marks and
-status colors never change — only the disc presentation:
+status colors never change — only the disc presentation. A finding's disc is the
+deck's status fill (`--pass-solid` … or their `-vivid` twins, by `chart-finish:`),
+its rail and label the slide ink (`--pass` …), and its row the theme's `--pass-bg` …
+(`engineering/decisions/2026-10-24-status-is-one-system.md`):
 
 | Variant | Disc treatment |
 |---|---|
-| *(default)* / `checks-ringed` | saturated fill + hairline darker ring; knockout mark. Stays crisp on its own status-tinted row. |
-| `checks-knockout` | flat saturated fill, knockout mark. Cleanest/classic. |
-| `checks-bold` | larger disc + heavier marks, knockout. Reads across a room. |
-| `checks-outline` | transparent fill + ring + status-color mark. Editorial, low-ink. |
-| `checks-tonal` | soft tint fill + ring + status-color mark. Calm; best on plain (non-tinted) backgrounds. |
+| *(default)* | the deck's status fill, its mark in the one ink, a hairline rim in the status ink (the row's rail color); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
+| `checks-ringed` | the same, with a heavier 1.6px rim taken halfway to black. |
+| `checks-knockout` | the same as the default; kept so a deck that names it can reset an inherited variant. |
+| `checks-bold` | larger disc + heavier marks, the hairline ink rim kept. Reads across a room. |
+| `checks-outline` | transparent fill + ring + mark in the status ink; at risk and blocked take the signal ring. Editorial, low-ink. |
+| `checks-tonal` | soft tint of the status fill + ring + mark in the status ink. Calm; best on plain (non-tinted) backgrounds. |
 
 Each variant flips only scalar CSS knobs (`--state-fill-pct`,
 `--state-ring-*`, `--state-mark-pct`, `--state-disc-scale`) at section

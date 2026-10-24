@@ -27,7 +27,7 @@ import { connectOpenRouter, generateDescription, useArchitectStatus } from './ar
 import { autoHeadLabel } from './auto-mark';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
-import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
+import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -574,18 +574,18 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
 	const headlineProv = React.useMemo(() => headlineProvenance(chunk, source), [chunk, source]);
-	// Chart finish — its own axis rather than overrideAxis, because its default (`off`, "As
-	// designed") is ALSO a real per-slide choice: inside a finished deck, `chart-finish-off` is
-	// how one slide keeps its shipped paint. So the head follows the deck and "As designed" stays
-	// in the list whenever the deck has a finish to opt out of. Shown on chart slides only.
+	// Chart finish — its own axis rather than overrideAxis, because its default (`pigment`) is ALSO a
+	// real per-slide choice: inside a `tone` deck, `chart-finish-pigment` is how one slide asks for the
+	// default. So the head follows the deck and every OTHER finish stays in the list. Shown on chart
+	// slides only.
 	// Any token, not only the first: `_class: chart-finish-tone bar` is a chart slide too.
 	const isChart = tokens.some((t) => catalog.find((c) => c.name === t)?.bucket === 'chart');
 	const chartFinishProv = React.useMemo(() => chartFinishProvenance(chunk, source), [chunk, source]);
 	const chartFinishOpt = React.useMemo(() => {
-		const deck = chartFinishProv.inheritable ? chartFinishProv.deckValue : 'off';
+		const deck = chartFinishProv.inheritable ? chartFinishProv.deckValue : DEFAULT_CHART_FINISH;
 		const head: CatalogOption = { label: autoHead(activeChartFinish(deck).label), value: '__inherit__', swatch: activeChartFinish(deck).swatch };
 		const rest = CHART_FINISHES.filter((e) => e.name !== deck).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }));
-		// A slide token that restates the deck (`chart-finish-off` in a deck with no finish, or
+		// A slide token that restates the deck (`chart-finish-pigment` in a deck with no finish, or
 		// the deck's own value) is what the head already says, so it selects the head.
 		const own = chartFinishProv.state === 'on' ? chartFinishProv.value : undefined;
 		return { value: own && own !== deck ? own : '__inherit__', options: [head, ...rest] };
@@ -798,7 +798,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
 							{isChart && (
-								<Row label="Chart finish" hint={chartFinishProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etching tone color" help={<><strong>Pigment</strong> puts the color in the body, <strong>Etching</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. <strong>As designed</strong> keeps the chart's own paint, even inside a deck that sets a finish. Written as <code>_class: chart-finish-*</code>.</>}>
+								<Row label="Chart finish" hint={chartFinishProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: chart-finish-*</code>.</>}>
 									<Picker ariaLabel="Chart finish" value={chartFinishOpt.value} onChange={onChartFinish} options={chartFinishOpt.options} />
 								</Row>
 							)}

@@ -71,7 +71,7 @@ HTML table (the sole exception is `roadmap`, whose body is a markdown table).
 ```text
 lib/components/chart/<name>/
   <name>.manifest.json     ← function evidence/progression · form canvas · substance series · bucket chart
-  <name>.styles.css        ← interior only; consumes --chart-cat-N-* / --chart-state-*
+  <name>.styles.css        ← interior only; consumes --chart-cat-N-* / --state-X-*
   <name>.transform.js      ← the pure kernel: parse<Name> → build<Name> SVG
   <name>.docs.md           ← GENERATED
   <name>.gallery.md        ← GENERATED
@@ -123,15 +123,19 @@ palette:
   two spellings agree, and on dark it painted a pie's legend swatch a different
   colour from the wedge it labelled. A rule with nothing to point at is a rule
   that gets retyped wrong.
-- **Semantic / status — `--chart-state-{pass,warn,fail,info,mute}`.** Same
-  construction, but encodes meaning: green=good, amber=caution, red=stop,
-  blue=info/pilot, gray=deferred. Used by gantt bars, progress fills, status pills.
+- **Semantic / status — `--state-{pass,warn,fail,info,mute}-*`**, seeded from the
+  base status fills `--pass-solid` … `--mute-solid` (the hue) and inks `--pass` … `--mute`
+  (a status drawn as a line or text) that every theme curates. Text on any chart fill, a
+  category or a status, reads `--chart-solid-ink`, which is `--on-solid`: one ink (`engineering/chart-styling.md` §3). A status is told apart by its drawn mark
+  (`lib/core/status-marks.js`) and, for at risk and blocked, the signal ring; draw the mark on any new status shape.
+  Encodes meaning: green=good, amber=caution, red=stop, blue=info/pilot,
+  gray=deferred. Used by gantt bars, progress fills, status pills.
 - **Sequential** — the choropleth ramp, `map` only: each region carries a `--mix`
   percentage on one hue mixed into a neutral base (so the ramp stays monotonic
   above the neutral in both canvases). **No diverging set ships.**
 
 Your kernel consumes **only** `--chart-cat-N-fill` / `-body` / `-ink` (or
-`--chart-state-*`) and stays palette-blind. If you find yourself writing
+`--state-X-*`) and stays palette-blind. If you find yourself writing
 `color-mix(… var(--chart-cat-N-hue) …)` in a kernel, you are rebuilding a level
 that already exists — take the token. Cycle categorical marks with `nth-of-type(<path>)` — the
 first SVG child is `<defs>`, so `nth-child` is off by one.
@@ -170,7 +174,7 @@ mud and value-collapse hide there.
    kernel actually writes: get it wrong and the figure renders unwrapped.
    `checkChartKernels` (`tools/check-ownership.js`) catches all three.
 5. **Write CSS** `<name>.styles.css`: style only the interior; consume
-   `--chart-cat-N-fill/-ink` or `--chart-state-*`. The `.chart-frame` chrome is
+   `--chart-cat-N-fill/-ink` or `--state-X-*`. The `.chart-frame` chrome is
    already styled. **Unlayered** — no `@layer` wrapper (inert here; a layered rule
    loses to unlayered base rules, cascade.md) — and anchor every selector on
    `:is(section.<name>, figure.chart-frame)` so the fills also resolve in the
@@ -383,7 +387,7 @@ re-parents the chart SVG outside its `section`. Consumes tokens, cycles by hue:
       `chart-family.dispatch.js`. (`checkChartKernels` in `tools/check-ownership.js` ties
       the declaration to the kernel source, so a mismatch is caught.)
 - [ ] Added to every hand-maintained roster in step 9 — none of them is gated.
-- [ ] CSS consumes `--chart-cat-N-*` / `--chart-state-*` only; cycles via
+- [ ] CSS consumes `--chart-cat-N-*` / `--state-X-*` only; cycles via
       `nth-of-type`; **unlayered** (no `@layer` wrapper, cascade.md) and anchored on
       `:is(section.<name>, figure.chart-frame)`.
 - [ ] Contrast green on light AND dark (`chart-contrast.test.js`); dark checked

@@ -113,14 +113,109 @@ A finish moves color; it never adds or removes it, and it never touches
 structure. A deck picks one with `chart-finish:` (`lib/base/base.registers.docs.md`),
 and a slide can pin its own with `_class: chart-finish-<name>`.
 
+### The solids — the base every finish styles
+
+Every chart concept has **one flat solid**, curated per theme: a category is `--chart-cat-N-hue`
+(seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-solid`), and a mark with
+neither `--chart-neutral-hue` (seed `--chart-neutral`).
+
+**One ink.** Every chart fill, a category, the neutral or a status, is DEEP enough to carry white text
+(`--chart-solid-ink`, which is `--on-solid` on every one: one token, declared once on the frame and never re-pointed). At most two charts share a slide, and two text colors side by side read as two
+systems, so the ink never changes with the kind. This replaced a scheme where a status was a BRIGHT fill under
+near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
+chart wore two inks, and on a light slide the bright fills were the quietest marks on it.
+
+**A status is told apart by what it adds, not by its fill.** A status shares a lightness with the categories, so a
+brand green bar and a "done" bar can look alike. Two things separate them:
+
+- **the MARK.** Every status that names a state carries its drawn shape (`lib/core/status-marks.js`): a check for
+  done, a dash for at risk, a cross for blocked, a slash for deferred. An SVG member inlines the path, an HTML member
+  masks the `--mark-*-bold` token; live, pilot and decision carry none. The shape also reaches a reader who sees no
+  color.
+- **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-solid-signal`
+  amber, `--fail-solid-signal` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
+  opposite lightness to its fill. Nothing else rings, so a ring means "exception" on every chart. It is an outline
+  that takes no space: 1.3 hairlines wide (`--chart-ring`), drawn INSIDE the shape, so it never grows a mark or covers
+  an arrowhead at the shape's edge. HTML boxes take an inset shadow (`!important`, because every finish paints a
+  status member's edge with `!important`); an SVG member's kernel draws the shape's own outline clipped to the shape
+  (`.chart-signal-ring`). A risk matrix rings its whole critical band once, inside the band, and marks each critical
+  cell. A hub-spoke alarm halo stands apart from its disc, so its only neighbor is the slide: it wears the status ink.
+
+The contract, held for every palette in both modes and both intensities by
+`test/unit/palette/chart-solids.test.js` and `chart-one-ink.test.js`:
+
+- white clears **7:1** on every light-face solid and **4.5:1** on every dark-face one, where a fill is the lightest
+  tone of its hue white still clears (4.6:1 by construction), so it stands off the dark slide;
+- every solid clears **3:1** against the slide (WCAG 1.4.11) by itself;
+- a status LINE or status TEXT (a slope, a waterfall step, a kanban header: `--state-X-ink`) paints the theme's
+  status ink `--pass` … `--mute`, the color that status is in every other component, so a deck has one color per
+  status for text and one fill per status for a mark;
+- each ring sits at the opposite lightness to its fill and clears **3:1** against the neighbor opposite it in
+  lightness: a bright ring on a deep fill against the fill (light slide); a bright ring on a mid-tone fill against the
+  slide, with a **2:1** step off the fill (dark slide; held to 3:1 off a mid-tone fill it washes out to near white); a
+  deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
+
+**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-solid`, the
+default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
+`--X-solid-vivid`, which `base.tokens.css` swaps in under `.chart-finish-vivid` (§ THE STATUS FILL ON THIS SLIDE):
+every status rich, done an emerald, for a deck that celebrates its wins. Both keep white text, and the rings are
+shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
+the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
+
+**Each theme's status set is its own.** The hues are the theme's own status inks (`--pass` …), each held to its band
+(`HUE_BAND` in `lib/theme/chart-solids.js`): warn a burnt orange (an amber deep enough for white text turns brown),
+fail a crimson, pass short of teal, info in the cyan band. Pass and fail lean 20% toward the theme's accent, at most
+18 degrees, so a leather palette's green is olive-sage and a frost palette's red a cool rose; warn does not lean.
+Saturation follows the theme's own categories, held to 0.75-1.2 of typical. Done sits a step deeper than the
+exceptions (`STATUS_BAR`): a settled status should be the quietest mark on the slide.
+
+**Colorblind readers.** The marks carry status by shape for every reader. The deep band is narrow, so the statuses
+are spread across it: on the light face at risk and info sit at the white bar, blocked a step deeper, done deepest
+(`STATUS_BAR`); on the dark face each takes a fixed position across the band between 4.6:1 under white and 3:1 off
+its slide (`DARK_SPREAD`). Measured across the brand palettes against the bright scheme this replaced, the
+worst-separated pair holds or rises under every condition (protanopia 0.008 to 0.020, deuteranopia 0.003 to 0.003,
+tritanopia 0.057 to 0.064, achromatopsia 0.019 to 0.018; the p10 rises under all four), while the median falls under
+protanopia and achromatopsia. A brand palette is held to that record (`test/fixtures/status-fill-cvd-baseline.json`).
+
+**The `a11y-*` palettes are the answer for a colorblind reader, and they share one design.** On the light face they
+follow the scheme above. On the dark face the deep band under white is too narrow for three statuses a colorblind
+reader can tell apart (achromatopsia needs 0.22 of lightness; the band holds 0.10), so every chart fill there, a
+category or a status, is BRIGHT under a near-black ink (`DARK_INK` in `lib/theme/chart-solids.js`): still one ink per
+slide, and the bright band holds 0.3. A ring is always the status color at the opposite lightness to its fill, so
+there it is deep. Every `a11y-*` trio clears its own condition's floor outright, in both modes and both intensities
+(`cvd-trio-floor.test.js`).
+
+**Status has two jobs** (`base.tokens.css` § STATUS, IN TWO JOBS). `--pass` … `--mute` are the status as INK on
+the slide (text, a rule, a mark), and the CVD trio gate holds `--pass` `--warn` `--fail` as before. The FILLS are a
+separate set. The first cut used one color for both jobs and pushed the trio apart by lightness alone, which turned
+red near-black and green near-white. A later cut gave charts a third set, an EDGE per status (the fill's hue at
+4.6:1 off the slide) for status lines and text. It was retired: solved to one contrast, the three edges shared one
+lightness, so 568 of 672 brand-theme pairs fell under the colorblind floor (the slide inks: 142), and it made a
+deck say each status in two text colors. Charts now paint lines and text in the slide ink.
+
+`tools/curate-chart-solids.js` seeds the values with the solvers in `lib/theme/chart-solids.js`
+(`solveStatusSet` for the status set), the same ones the Studio's generator (`lib/theme/derive.js`) calls: it keeps
+each seed's hue, moves lightness (and chroma only down, where the gamut runs out), and writes every solid, signal
+and ink. It is not part of the build, so a hand-tuned seed
+stays tuned as long as it clears the gates. A gray category keeps its light-face order on the dark face (a deeper
+gray stays deeper), and onyx's olive sits between two grays, because two adjacent grays under white cannot stay
+0.06 OKLab apart (`chart-contrast.test.js`). A solid is
+flat: no chart grades, mixes or filters its fill, and a finish styles the solids rather than inventing colors.
+
 | | identity lives in | choose it for | body | edge |
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | 82% | ink, 1× |
-| **`etching`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
+| **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
 | **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
 
-**No finish is the default.** A deck without `chart-finish:` keeps every chart's own
-paint, so the register changed nothing that already renders. Two things hold in
+**A finish is always on, and `pigment` is the default.** `chart-finish:` is a look
+like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
+a word that is not a finish, wears `pigment`, and every `<section>` is stamped with its
+finish (including a chart inside a pane, where the section never names the chart). There is
+no `off`. It used to be the default, and it meant "each chart as its own stylesheet draws it",
+which made the default look differ from chart to chart. That own paint still exists in each
+member's CSS, and it is what `tools/chart-finish-reach.mjs` measures a finish against: the
+tool swaps the finish class for none on a real render and compares. Two things hold in
 **all three**, and they are floors, not style:
 
 1. **Every mark carries an ink edge.** Measured: no body clears the 3:1 graphical
@@ -133,6 +228,36 @@ paint, so the register changed nothing that already renders. Two things hold in
    channel the edge uses. Sending names to a neutral is a floor violation, and it
    is an easy one to write by accident because it looks like an accommodation.
 
+A third floor binds the **default** only, because it is the one every deck gets:
+
+3. **No finish may push a text run under its threshold that the unfinished paint cleared.**
+   This is the floor the finish design always stated, and it is now measured on every text run of
+   every chart (66,000 per state, 96 theme × mode combinations) with the repo's own contrast probe:
+   `node tools/chart-finish-reach.mjs --all-themes --check`, arm RUNS. Measuring it found what the
+   per-finish numbers had hidden: the radar's scale ticks, small muted text on the overlap of every
+   series polygon, fell to 3.20:1 (pigment), 4.18:1 (etch) and 1.60:1 (tone) on indaco, and a state
+   tile's index numeral fell from 5.95:1 to 4.31:1 on cuoio once its body went darker than its shipped
+   tint. A finish may not trade text legibility for a flatter body.
+
+   A second floor binds the **default** only, because it is the one every deck gets: **it never takes
+   a ramp's magnitude away.** A heatmap's top step against its empty cell is the datum. Pigment's ramp
+   once took a shorter band than the member ships (3.54:1 fell to 1.92:1 light and 3.03:1 to 1.51:1
+   dark on indaco), an acceptable trade for an opt-in look and a silent loss on every deck once it
+   became the default. Pigment now carries the member's own span, which is the member's own paint, so
+   it emits no heatmap rule at all and the theme's hand-solved cell inks stay. Etch and tone keep their
+   quieter bands; that is their identity, and it is reported, not gated.
+
+   **The reference is frozen.** A comparison with "the unfinished paint" is only a reference while each
+   member keeps that paint. The numbers are committed in `test/fixtures/chart-finish-baseline.json`
+   (`--freeze` rewrites them, as a deliberate act), the span gate measures against them, and a live
+   baseline that has moved is reported as DRIFT instead of followed. So converging a member onto a
+   finish cannot turn the gate into pigment measured against pigment.
+
+A related floor on the body: **a finish owns the body.** A mark that keeps its own gradient
+beside flat siblings reads as two looks in one chart (an unstated gantt bar, a progress bar with
+no status). The census arm `KEPT` in the same tool fails on any reached mark that still shows a
+gradient, and `REACH` lists every mark no finish reaches with its reason.
+
 ### How the engine applies them
 
 `tools/build-chart-finish-css.js` generates the rules from each manifest's
@@ -144,36 +269,46 @@ measurement, and most undo a defect a render or the adversarial review found:
   member's paint (no member marks paint `!important`) and loses to an a11y
   theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
   finish never strips the pattern channel from a colorblind reader.
-- **Etching and tone mix toward the canvas; pigment mixes toward
+- **Etch and tone mix toward the canvas; pigment mixes toward
   `--chart-cat-base`.** That base is black in dark mode, which is right for
   pigment's shipped body tier. A whisper mixed toward black lands darker than the
   slide and reads as a hole.
 - **A ramp scales from its own member's empty end** (`--heatmap-base`,
   `--map-base`). A ramp that prints its value takes a shorter band: tone tops out
   at 70% on light and every finish near 50% on dark, where light text stopped
-  clearing carbone's lime top step (3.39:1). Etching's ramp is wider than its
+  clearing carbone's lime top step (3.39:1). Etch's ramp is wider than its
   whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
   flat navy, and a ramp's identity is value.
-- **A heatmap value picks its own ink.** The theme solves each step's ink against
-  the shipped fill, and a finish changes the fill, so no fixed ink holds (the
-  strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
-  body taken through relative-color syntax to black above OKLCH L 0.565 and white
-  below it. That clears 4.5:1 on 13 theme faces × 3 finishes (worst 4.62). A
-  canvas-colored halo was tried first and dropped: it reads as outlined stickers,
-  and the PDF export lost it.
-- **A text-bearing mark** (the manifest's `bears`) takes the quieter backdrop
-  level, and an HTML mark's own text takes the same black-or-white ink its body
-  clears. A fixed `--text-body` failed on some themes: 2.62:1 on a 40% cuoio
-  matrix-grid cell. A text-bearing
-  STATUS takes tone's text level under pigment too, because a status hue can be
-  near-black (concrete's read 3.6:1 at 40%). Measured after the fix on 33 themes ×
-  3 finishes: no text-bearing mark below 4.5:1 where the shipped paint was above
-  it (worst 4.72).
+- **A heatmap value picks its own ink, under etch and tone.** The theme solves each step's
+  ink against the shipped fill, and a finish that changes the fill leaves no fixed ink that
+  holds (the strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
+  body taken through relative-color syntax to black above CIE luminance Y 0.1791 and white
+  below it. **Pigment changes nothing here**: it carries the member's own span, so it emits no
+  heatmap rule and the theme's hand-solved inks stay on the cells they were solved for. The
+  luminance switch replaced an OKLCH-lightness one (L 0.565): lightness is not luminance for a
+  saturated hue (a red cell at L 0.571 took black at 4.31:1 where white gives 4.87:1), and its
+  blend zone returned a near-invisible grey (1.003:1 on `rgb(210 40 70)`). The luminance
+  switch is never worse than 4.582:1, the point where black and white contrast are equal,
+  measured over 140,608 sRGB bodies and in Chromium 131, Firefox 142 and WebKit 26. A
+  canvas-colored halo was tried first and dropped: it reads as outlined stickers, and the PDF
+  export lost it.
+- **A text-bearing mark** (the manifest's `bears`) wears the tier the family curates for text, and
+  its text is `--text-heading` under every finish. The chart family has one curated text pair that
+  holds in both modes: a `-fill` tier with `--text-heading` on it (`chart-contrast.test.js`: at least
+  6.9:1 on every category fill and 5.46:1 on every status fill, median 13:1). Pigment paints a
+  text-bearing mark at exactly that tier (`--chart-cat-N-fill`, and the `--state-*-fill` recipe for a
+  status: 24% over the canvas on light, 50% toward black on dark), so in light mode it is a tint and
+  in dark mode a deep fill, and a mark with NO text (a bar, a wedge, a dot) is where pigment is solid.
+  Etch and tone paint quieter text tiers and keep the same ink. A solid text-bearing body was tried
+  and dropped: no ink clears a mid-tone well (black or white picked per body had a median of 5.6:1
+  and read as mud), the text changed color from chart to chart, and `--text-heading` on a solid body
+  fell under 4.5:1 on 104 of 320 gantt bars across the palettes (worst 1.37:1, concrete). A key
+  follows the tier of the marks it keys: the tower's swatches are tints because its shares carry text.
 - **Text waits for the engine that can pick its ink.** Choosing black or white
   from a mark's own color needs relative-color CSS with math on a channel, and
   the guard tests exactly that expression:
-  `@supports (color: oklch(from red clamp(0, (0.565 - l) * 999, 1) 0 0))`. A bare
-  `oklch(from red l c h)` guard would let an engine that parses relative color
+  `@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) …))`.
+  A bare `color(from red xyz-d65 x y z)` guard would let an engine that parses relative color
   but not the clamp apply the body and drop the ink. No fixed ink clears every
   theme: measured in WebKit with the guarded blocks removed, `--text-body` read
   3.54:1 on concrete's status pill and `--text-heading` 3.34:1 on an a11y heatmap
@@ -254,7 +389,7 @@ dots and the edges, but their composited fills converge, and on a dark canvas th
 steps compress further. Measured, not tuned away: a finish that claims one hue
 cannot also keep three.
 
-**`etching` and color vision.** Etching carries identity on a thin ink edge over
+**`etch` and color vision.** Etch carries identity on a thin ink edge over
 a whisper of a body, and thin strokes are where hues are hardest to tell apart.
 The a11y themes and print keep their patterns under it; on an ordinary theme, a
 deck read by colorblind viewers is better served by `pigment` or an a11y theme.
@@ -289,7 +424,7 @@ nothing.
 
 Floors: **4.5:1** for text, **3:1** for large (≥24px, or ≥18.66px bold) and for
 any graphical object carrying information (WCAG 1.4.11). A mark passes on **either**
-channel — body-vs-backdrop or edge-vs-backdrop — because `etching` leans on the
+channel — body-vs-backdrop or edge-vs-backdrop — because `etch` leans on the
 edge by design.
 
 ### Six ways a contrast measurement lies
@@ -383,16 +518,10 @@ assumes hue is available breaks there and nowhere else.
   path — where nothing carries `non-scaling-stroke` — every one of those extra
   declarations is a no-op.
 - **An INHERITED custom property loses to the element's own declaration**, and no
-  specificity beats that. A palette declares in `:root`; `chart-family.styles.css` declares
-  the fill wash on `.chart-frame` itself, so a palette setting `--chart-fill-top-l`
-  looks like an override and does nothing. The wash is read through
-  `var(--palette-fill-*, <default>)` for that reason. Note what this is NOT: a
-  palette scoped to `.chart-frame` would win, because then it is an own declaration
-  too. (Zero of the 15 shipped palettes do that for any of the 72 properties this
-  file sets there.)
-- **The wash's own contract is per-theme, and one theme breaks it.** "The wash
-  only tints, so `--text-heading` labels clear it on both canvases" holds on a
-  canvas near either end of the range and fails on a mid-toned one. concrete
-  (canvas `#B8B8B5`) measured 4.14:1 light and 3.49:1 dark for a label on a mark,
-  and no ink fixes it — its `--text-heading` is already 15,15,14 and pure black
-  reaches 4.20:1. The wash is what has to move.
+  specificity beats that. A palette declares in `:root`; anything `chart-family.styles.css`
+  declares on `.chart-frame` itself is out of a palette's reach that way. That is why a
+  palette curates the chart SOLIDS through seeds the family READS (`--chart-catN`,
+  `--pass`…`--mute`, `--chart-neutral`, `--on-solid`) and never sets the consumed
+  token. The gradient wash this note used to describe (`--chart-fill-top-*`, overridable as
+  `--palette-fill-*`, and flattened by concrete because no ink cleared its mid-tone canvas)
+  is retired: every fill is a flat solid with its own curated ink.

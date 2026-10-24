@@ -37,7 +37,7 @@
  *
  * Usage:
  *   node tools/chart-finish-divergence.js [deck.md] \
- *     --variant pigment=path/to/pigment.css --variant etching=path/to/etching.css \
+ *     --variant pigment=path/to/pigment.css --variant etch=path/to/etch.css \
  *     [--theme indaco] [--dark] [--threshold 0.5] [--json out.json]
  *
  * A baseline (no injected CSS) is always included, so `base>pigment` tells you

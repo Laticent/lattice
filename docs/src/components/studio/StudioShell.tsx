@@ -68,7 +68,7 @@ import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
-import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
+import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
@@ -2305,10 +2305,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Corners (`corners:`) — whether the slide surface itself is rounded. lib/core/resolve-corners.js.
 	const corners = registerValue(source, 'corners');
 	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeRegister(s, 'corners', value));
-	// `off` is the baseline, so it REMOVES the line rather than writing `chart-finish: off`:
-	// chart-finish is not a preset key, and writeRegister drops a line only at the baseline ''.
+	// The default finish REMOVES the line rather than writing `chart-finish: pigment`: a deck that says
+	// nothing wears it, chart-finish is not a preset key, and writeRegister drops a line only at the
+	// baseline ''.
 	const chartFinish = registerValue(source, 'chart-finish');
-	const setChartFinish = (value: string) => settingsWrite(`Chart finish → ${activeChartFinish(value).label}`, (s) => writeRegister(s, 'chart-finish', value === 'off' ? '' : value));
+	const setChartFinish = (value: string) => settingsWrite(`Chart finish → ${activeChartFinish(value).label}`, (s) => writeRegister(s, 'chart-finish', value === DEFAULT_CHART_FINISH ? '' : value));
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
@@ -5417,7 +5418,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				{/* Chart finish — how every chart spends its color. Deck-wide here; a slide
 				    overrides it from its own settings (`_class: chart-finish-*`). */}
-				<Field label="Chart finish" desc="How every chart spends its color." find="chart finish pigment etching tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> puts it in the body: full-strength, flat color. <strong>Etching</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. <strong>As designed</strong> (the default) keeps each chart's own paint. Every mark keeps an ink edge, and the a11y themes keep their patterns, under all three. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
+				<Field label="Chart finish" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
 					<CatalogSelect ariaLabel="Choose chart finish" value={activeChartFinish(chartFinish).name} onValueChange={setChartFinish} className="w-full" groups={[{ options: catalogOptions(CHART_FINISHES) }]} />
 				</Field>
 				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each

@@ -1,0 +1,394 @@
+{
+ "note": "The UNFINISHED heatmap contrast per theme and mode, frozen by `node tools/chart-finish-reach.mjs --all-themes --freeze`. tools/chart-finish-reach.mjs measures every finish against THESE numbers, so the span gate keeps its reference after a member converges its own paint onto a finish. Re-freeze only on purpose, with the reason in the commit.",
+ "modes": [
+  "light",
+  "dark",
+  "print"
+ ],
+ "entries": {
+  "a11y-achromatopsia/dark": {
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
+  },
+  "a11y-achromatopsia/light": {
+   "topVsEmpty": 8.975,
+   "heatmapText": 4.65
+  },
+  "a11y-achromatopsia/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "a11y-deuteranopia/dark": {
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
+  },
+  "a11y-deuteranopia/light": {
+   "topVsEmpty": 8.975,
+   "heatmapText": 4.65
+  },
+  "a11y-deuteranopia/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "a11y-protanopia/dark": {
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
+  },
+  "a11y-protanopia/light": {
+   "topVsEmpty": 8.975,
+   "heatmapText": 4.65
+  },
+  "a11y-protanopia/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "a11y-tritanopia/dark": {
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
+  },
+  "a11y-tritanopia/light": {
+   "topVsEmpty": 8.975,
+   "heatmapText": 4.65
+  },
+  "a11y-tritanopia/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "ardesia-dark/dark": {
+   "topVsEmpty": 7.233,
+   "heatmapText": 4.655
+  },
+  "ardesia-dark/light": {
+   "topVsEmpty": 4.84,
+   "heatmapText": 4.64
+  },
+  "ardesia-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "ardesia/dark": {
+   "topVsEmpty": 7.233,
+   "heatmapText": 4.655
+  },
+  "ardesia/light": {
+   "topVsEmpty": 4.84,
+   "heatmapText": 4.64
+  },
+  "ardesia/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "atelier-dark/dark": {
+   "topVsEmpty": 7.19,
+   "heatmapText": 4.652
+  },
+  "atelier-dark/light": {
+   "topVsEmpty": 4.358,
+   "heatmapText": 4.655
+  },
+  "atelier-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "atelier/dark": {
+   "topVsEmpty": 7.19,
+   "heatmapText": 4.652
+  },
+  "atelier/light": {
+   "topVsEmpty": 4.358,
+   "heatmapText": 4.655
+  },
+  "atelier/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "brina-dark/dark": {
+   "topVsEmpty": 6.865,
+   "heatmapText": 4.657
+  },
+  "brina-dark/light": {
+   "topVsEmpty": 4.802,
+   "heatmapText": 4.652
+  },
+  "brina-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "brina/dark": {
+   "topVsEmpty": 6.865,
+   "heatmapText": 4.657
+  },
+  "brina/light": {
+   "topVsEmpty": 4.802,
+   "heatmapText": 4.652
+  },
+  "brina/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "burgundy-dark/dark": {
+   "topVsEmpty": 7.492,
+   "heatmapText": 4.608
+  },
+  "burgundy-dark/light": {
+   "topVsEmpty": 5.144,
+   "heatmapText": 4.654
+  },
+  "burgundy-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "burgundy/dark": {
+   "topVsEmpty": 7.492,
+   "heatmapText": 4.608
+  },
+  "burgundy/light": {
+   "topVsEmpty": 5.144,
+   "heatmapText": 4.654
+  },
+  "burgundy/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "carbone-dark/dark": {
+   "topVsEmpty": 6.414,
+   "heatmapText": 4.607
+  },
+  "carbone-dark/light": {
+   "topVsEmpty": 6.529,
+   "heatmapText": 4.664
+  },
+  "carbone-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "carbone/dark": {
+   "topVsEmpty": 6.414,
+   "heatmapText": 4.607
+  },
+  "carbone/light": {
+   "topVsEmpty": 6.529,
+   "heatmapText": 4.664
+  },
+  "carbone/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "carta-dark/dark": {
+   "topVsEmpty": 6.367,
+   "heatmapText": 4.622
+  },
+  "carta-dark/light": {
+   "topVsEmpty": 4.675,
+   "heatmapText": 4.665
+  },
+  "carta-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "carta/dark": {
+   "topVsEmpty": 6.367,
+   "heatmapText": 4.622
+  },
+  "carta/light": {
+   "topVsEmpty": 4.675,
+   "heatmapText": 4.665
+  },
+  "carta/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "concrete-dark/dark": {
+   "topVsEmpty": 6.336,
+   "heatmapText": 4.665
+  },
+  "concrete-dark/light": {
+   "topVsEmpty": 3.17,
+   "heatmapText": 4.652
+  },
+  "concrete-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "concrete/dark": {
+   "topVsEmpty": 6.336,
+   "heatmapText": 4.665
+  },
+  "concrete/light": {
+   "topVsEmpty": 3.17,
+   "heatmapText": 4.652
+  },
+  "concrete/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "crepuscolo-dark/dark": {
+   "topVsEmpty": 6.633,
+   "heatmapText": 4.653
+  },
+  "crepuscolo-dark/light": {
+   "topVsEmpty": 5.599,
+   "heatmapText": 4.653
+  },
+  "crepuscolo-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "crepuscolo/dark": {
+   "topVsEmpty": 6.633,
+   "heatmapText": 4.653
+  },
+  "crepuscolo/light": {
+   "topVsEmpty": 5.599,
+   "heatmapText": 4.653
+  },
+  "crepuscolo/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "cuoio-dark/dark": {
+   "topVsEmpty": 6.717,
+   "heatmapText": 4.607
+  },
+  "cuoio-dark/light": {
+   "topVsEmpty": 4.779,
+   "heatmapText": 4.653
+  },
+  "cuoio-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "cuoio/dark": {
+   "topVsEmpty": 6.717,
+   "heatmapText": 4.607
+  },
+  "cuoio/light": {
+   "topVsEmpty": 4.779,
+   "heatmapText": 4.653
+  },
+  "cuoio/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "indaco-dark/dark": {
+   "topVsEmpty": 6.318,
+   "heatmapText": 4.652
+  },
+  "indaco-dark/light": {
+   "topVsEmpty": 4.969,
+   "heatmapText": 4.612
+  },
+  "indaco-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "indaco/dark": {
+   "topVsEmpty": 6.318,
+   "heatmapText": 4.652
+  },
+  "indaco/light": {
+   "topVsEmpty": 4.969,
+   "heatmapText": 4.612
+  },
+  "indaco/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "laguna-dark/dark": {
+   "topVsEmpty": 6.751,
+   "heatmapText": 4.607
+  },
+  "laguna-dark/light": {
+   "topVsEmpty": 4.714,
+   "heatmapText": 4.65
+  },
+  "laguna-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "laguna/dark": {
+   "topVsEmpty": 6.751,
+   "heatmapText": 4.607
+  },
+  "laguna/light": {
+   "topVsEmpty": 4.714,
+   "heatmapText": 4.65
+  },
+  "laguna/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "magnolia-dark/dark": {
+   "topVsEmpty": 7.153,
+   "heatmapText": 4.621
+  },
+  "magnolia-dark/light": {
+   "topVsEmpty": 5.467,
+   "heatmapText": 4.674
+  },
+  "magnolia-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "magnolia/dark": {
+   "topVsEmpty": 7.153,
+   "heatmapText": 4.621
+  },
+  "magnolia/light": {
+   "topVsEmpty": 5.467,
+   "heatmapText": 4.674
+  },
+  "magnolia/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "mustard-dark/dark": {
+   "topVsEmpty": 7.52,
+   "heatmapText": 4.657
+  },
+  "mustard-dark/light": {
+   "topVsEmpty": 4.399,
+   "heatmapText": 4.637
+  },
+  "mustard-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "mustard/dark": {
+   "topVsEmpty": 7.52,
+   "heatmapText": 4.657
+  },
+  "mustard/light": {
+   "topVsEmpty": 4.399,
+   "heatmapText": 4.637
+  },
+  "mustard/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "onyx-dark/dark": {
+   "topVsEmpty": 8.525,
+   "heatmapText": 4.603
+  },
+  "onyx-dark/light": {
+   "topVsEmpty": 4.823,
+   "heatmapText": 4.691
+  },
+  "onyx-dark/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  },
+  "onyx/dark": {
+   "topVsEmpty": 8.525,
+   "heatmapText": 4.603
+  },
+  "onyx/light": {
+   "topVsEmpty": 4.823,
+   "heatmapText": 4.691
+  },
+  "onyx/print": {
+   "topVsEmpty": 8.438,
+   "heatmapText": 4.651
+  }
+ }
+}

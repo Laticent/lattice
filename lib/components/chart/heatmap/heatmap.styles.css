@@ -35,6 +35,12 @@
    * reading on the slide — and the low end of the ramp sank into it. Exactly the
    * failure this docblock claims not to have, which is how it was caught. */
   --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  /* THE RAMP'S FAR END. On a light slide it is the category solid itself. On a dark slide the solid is a MID-tone
+   * (white text clears it at 4.6:1, so it stands off the slide), and a ramp that tops out there barely clears its
+   * own empty cell (carbone's dark top step fell to 2.87:1), so the dark ramp climbs toward the solid lifted halfway
+   * to white: dark canvas to bright, the way a dark-slide magnitude reads. tools/derive-chart-cat-ink.js solves
+   * every step's ink against this same pole. */
+  --heatmap-pole: light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 50%, white));
 }
 
 /* Also on the SVG itself, not just the figure: Read·Article re-hosts the bare
@@ -43,6 +49,7 @@
  * same reason. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-svg {
   --heatmap-base: color-mix(in oklab, var(--muted-mark) 16%, var(--bg));
+  --heatmap-pole: light-dark(var(--chart-cat-1-hue), color-mix(in oklab, var(--chart-cat-1-hue) 50%, white));
 }
 
 /* THE `:not(.journey)` GUARD, and why a zero-leak collision still gets one.
@@ -62,7 +69,7 @@
  * `data-step` per cell and the stop rules below turn that into --mix: low →
  * faint hue over the base, high → saturated. Low→high on the ramp. */
 :is(section.heatmap:where(:not(.journey)), figure.chart-frame) .heatmap-cell {
-  fill: color-mix(in oklab, var(--chart-cat-1-hue) var(--mix), var(--heatmap-base));
+  fill: color-mix(in oklab, var(--heatmap-pole) var(--mix), var(--heatmap-base));
   /* A hairline in the canvas color, NOT a gap in the grid. At a 1.2-unit cell
    * gap the slide's own background shows through, and on a dark canvas that
    * reads as a black lattice laid over the data. Stroking each cell with the

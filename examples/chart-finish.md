@@ -4,7 +4,6 @@ size: 16:9
 theme: indaco
 paginate: true
 header: "Chart finish"
-chart-finish: pigment
 ---
 
 <!-- _class: title -->
@@ -15,12 +14,12 @@ chart-finish: pigment
 
 `Charts · chart-finish`
 
-Pigment, etching or tone, set once for the deck and overridden per slide.
+Pigment, etch or tone, set once for the deck and overridden per slide. Say nothing and it is pigment.
 
 ---
 
 <!-- _class: bar -->
-<!-- _footer: "chart-finish: pigment · the deck's setting" -->
+<!-- _footer: "no chart-finish: key · a finish is always on, and the default is pigment" -->
 
 `Pigment · identity in the body`
 
@@ -41,10 +40,10 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 
 ---
 
-<!-- _class: bar chart-finish-etching -->
-<!-- _footer: "_class: chart-finish-etching · one slide overrides the deck" -->
+<!-- _class: bar chart-finish-etch -->
+<!-- _footer: "_class: chart-finish-etch · one slide overrides the deck" -->
 
-`Etching · identity in the line`
+`Etch · identity in the line`
 
 ## Every region grew, and EMEA grew fastest.
 
@@ -100,7 +99,7 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 
 ---
 
-<!-- _class: heatmap chart-finish-etching -->
+<!-- _class: heatmap chart-finish-etch -->
 <!-- _footer: "Each value picks black or white from its own cell" -->
 
 `Retention · 2026 cohorts`
@@ -116,8 +115,8 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 
 ---
 
-<!-- _class: gantt chart-finish-tone -->
-<!-- _footer: "A status keeps its own color under every finish" -->
+<!-- _class: gantt -->
+<!-- _footer: "One ink: every bar is deep under white; a status carries its mark, an exception its ring" -->
 
 `[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
@@ -129,29 +128,39 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
   - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
 - Adoption
   - Pilot onboarding `Q1..Q2` `done`
+  - Training plan `Q2..Q3`
   - Org-wide rollout `Q3..Q4` `blocked` `after=Per-team weighting`
 
 ---
 
-<!-- _class: bar chart-finish-off -->
-<!-- _footer: "_class: chart-finish-off · this slide keeps the chart as designed" -->
+<!-- _class: progress chart-finish-vivid -->
+<!-- _footer: "_class: chart-finish-vivid · every status rich, done an emerald, the same white text" -->
 
-`As designed · the default`
+`H1 2026 · readiness`
 
-## Every region grew, and EMEA grew fastest.
+## Three of the four workstreams are on pace.
 
-- North America
-  - FY24 `3.1`
-  - FY25 `3.6`
-  - FY26 `4.2`
-- EMEA
-  - FY24 `1.7`
-  - FY25 `2.4`
-  - FY26 `3.1`
-- APAC
-  - FY24 `1.2`
-  - FY25 `1.5`
-  - FY26 `1.8`
+- Signal intake `92%` `on-track`
+- Scoring policy `68%` `at-risk`
+- Calibration cadence `34%` `deferred`
+- Adoption `12%` `blocked`
+- Rollout `55%`
+
+---
+
+<!-- _class: risk-matrix -->
+<!-- _footer: "Every band is a status fill; critical is the deepest, ringed and marked as an exception" -->
+
+`Enterprise risk register · Q4 2026`
+
+## Cyber and hurricane risk sit in the red; both have a plan.
+
+- Cyber outage `{4, 5}` `{2, 4}`
+- Hurricane season `{3, 5}` `{3, 3}`
+- Reserve shortfall `{3, 4}`
+- FX swing `{4, 2}`
+- Key person loss `{2, 3}`
+- Pandemic `{1, 5}`
 
 ---
 
@@ -159,6 +168,6 @@ Pigment, etching or tone, set once for the deck and overridden per slide.
 <!-- _header: '' -->
 <!-- _footer: "Chart finish · closing" -->
 
-`chart-finish: pigment · etching · tone`
+`chart-finish: pigment · etch · tone`
 
-## Omit the key and every chart renders exactly as before.
+## Omit the key and every chart wears pigment.

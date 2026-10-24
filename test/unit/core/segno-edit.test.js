@@ -185,7 +185,7 @@ describe('editRecord — icons', () => {
     assert.equal(icons.edit('^{database}', { color: 'c3', size: 'lg' }), '^{database, c3, lg}');
     assert.equal(icons.edit('^{database, c3, lg}', { size: 'sm' }), '^{database, c3, sm}');
     assert.equal(icons.edit('^{database, c3, lg}', { color: null }), '^{database, lg}');
-    assert.equal(icons.edit('^{database}', { look: 'etching', frame: 'bare', corners: 'rounded' }), '^{database, etching, bare, rounded}');
+    assert.equal(icons.edit('^{database}', { look: 'etch', frame: 'bare', corners: 'rounded' }), '^{database, etch, bare, rounded}');
   });
 
   test('an unknown name and a non-icon are refused', () => {

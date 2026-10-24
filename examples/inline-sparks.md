@@ -32,12 +32,12 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 
 <!-- _class: table table-fill -->
 
-## One color, three looks: pigment fills, etching draws, tone steps.
+## One color, three looks: pigment fills, etch draws, tone steps.
 
 | Look | Line and area | Bars | Ring | Bullet |
 | --- | --- | --- | --- | --- |
 | `pigment`, the default | `~{12 14 13 17 16 21 24, c2, end}` `~{12 14 13 17 16 21 24, area, c2}` | `~{3 5 4 6 7 5 8, bar, c2}` | `~{72%, c2}` | `~{72/80, bullet, c2}` |
-| `etching` | `~{12 14 13 17 16 21 24, c2, etching, end}` `~{12 14 13 17 16 21 24, area, c2, etching}` | `~{3 5 4 6 7 5 8, bar, c2, etching}` | `~{72%, c2, etching}` | `~{72/80, bullet, c2, etching}` |
+| `etch` | `~{12 14 13 17 16 21 24, c2, etch, end}` `~{12 14 13 17 16 21 24, area, c2, etch}` | `~{3 5 4 6 7 5 8, bar, c2, etch}` | `~{72%, c2, etch}` | `~{72/80, bullet, c2, etch}` |
 | `tone` | `~{12 14 13 17 16 21 24, c2, tone, end}` `~{12 14 13 17 16 21 24, area, c2, tone}` | `~{3 5 4 6 7 5 8, bar, c2, tone}` | `~{72%, c2, tone}` | `~{72/80, bullet, c2, tone}` |
 | `tone`, no color (`c1`) | `~{12 14 13 17 16 21 24, tone, end}` `~{12 14 13 17 16 21 24, area, tone}` | `~{3 5 4 6 7 5 8, bar, tone}` | `~{72%, tone}` | `~{72/80, bullet, tone}` |
 
@@ -52,7 +52,7 @@ Written like a pill, drawn like a chart, and it goes wherever text goes.
 | `end` `minmax` | dot the latest value; the low and the high | `~{31 28 33 30 38 35 41 44, lg, end}` `~{31 28 33 30 38 35 41 44, lg, minmax}` |
 | `c3` `c5` | a categorical color slot | `~{31 28 33 30 38 35 41 44, lg, c3, end}` `~{44 41 35 38 30 33 28 31, lg, c5, end}` |
 | default | a squared 3:2 frame, a step taller than a pill | `~{31 28 33 30 38 35 41 44, end}` `{ON PLAN}` `~{72%}` |
-| `rounded` | the theme's small radius | `~{31 28 33 30 38 35 41 44, rounded}` `~{3 4 2 5, bar, c4, etching, rounded}` |
+| `rounded` | the theme's small radius | `~{31 28 33 30 38 35 41 44, rounded}` `~{3 4 2 5, bar, c4, etch, rounded}` |
 | `bare` | no frame, just ink | `~{31 28 33 30 38 35 41 44, bare, end}` `~{3 4 2 5, bar, bare}` |
 | negatives | zero line appears when data crosses it | `~{4 2 -1 -3 1 3 5, bar, lg}` `~{4 2 -1 -3 1 3 5, lg, end}` |
 
@@ -120,7 +120,7 @@ Weekly signups climbed from 1,200 to 2,050 `~{12 13 12 15 17 16 19 21, end}` ove
 | Look | Line | Bars | Ring | Bullet |
 | --- | --- | --- | --- | --- |
 | `pigment` | `~{12 14 13 17 16 21 24, c2, lg, end}` | `~{3 5 4 6 7 5 8, bar, c2, lg}` | `~{72%, c2, lg}` | `~{72/80, bullet, c2, lg}` |
-| `etching` | `~{12 14 13 17 16 21 24, c2, lg, etching, end}` | `~{3 5 4 6 7 5 8, bar, c2, lg, etching}` | `~{72%, c2, lg, etching}` | `~{72/80, bullet, c2, lg, etching}` |
+| `etch` | `~{12 14 13 17 16 21 24, c2, lg, etch, end}` | `~{3 5 4 6 7 5 8, bar, c2, lg, etch}` | `~{72%, c2, lg, etch}` | `~{72/80, bullet, c2, lg, etch}` |
 | `tone` | `~{12 14 13 17 16 21 24, c2, lg, tone, end}` | `~{3 5 4 6 7 5 8, bar, c2, lg, tone}` | `~{72%, c2, lg, tone}` | `~{72/80, bullet, c2, lg, tone}` |
 
 ---

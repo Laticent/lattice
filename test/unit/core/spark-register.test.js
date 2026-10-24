@@ -31,14 +31,14 @@ const classesOf = (fm, body) => {
 
 test('a deck value becomes one class per axis, in axis order, whatever the word order', () => {
   assert.deepEqual(sparkClasses('rounded bare'), ['spark-bare', 'spark-rounded']);
-  assert.deepEqual(sparkClasses('etching'), ['spark-etching']);
+  assert.deepEqual(sparkClasses('etch'), ['spark-etch']);
   assert.deepEqual(sparkClasses(''), []);
   assert.deepEqual(sparkClassesFromFrontMatter('marp: true\nspark: bare tone square'),
     ['spark-bare', 'spark-tone', 'spark-square']);
 });
 
 test('a YAML flow list reads as its words', () => {
-  assert.deepEqual(sparkClasses('[bare, etching]'), ['spark-bare', 'spark-etching']);
+  assert.deepEqual(sparkClasses('[bare, etch]'), ['spark-bare', 'spark-etch']);
 });
 
 test('unknown words and second words on an axis are reported, and never reach the slide', () => {
@@ -59,10 +59,10 @@ test('every token knows its axis, and every token rides a split page (it decorat
 });
 
 test(`engine: the deck stamps every slide, and a slide's word evicts the deck's on its own axis only`, () => {
-  const [a, b] = classesOf(['spark: bare etching'], TWO);
-  assert.ok(a.includes('spark-bare') && a.includes('spark-etching'), a.join(' '));
+  const [a, b] = classesOf(['spark: bare etch'], TWO);
+  assert.ok(a.includes('spark-bare') && a.includes('spark-etch'), a.join(' '));
   assert.ok(b.includes('spark-framed') && !b.includes('spark-bare'), `slide 2 frames: ${b.join(' ')}`);
-  assert.ok(b.includes('spark-etching'), `slide 2 keeps the deck's look: ${b.join(' ')}`);
+  assert.ok(b.includes('spark-etch'), `slide 2 keeps the deck's look: ${b.join(' ')}`);
   const [c] = classesOf([], TWO);
   assert.ok(!c.some((t) => t.startsWith('spark-')), `control: ${c.join(' ')}`);
 });
@@ -70,7 +70,7 @@ test(`engine: the deck stamps every slide, and a slide's word evicts the deck's 
 test('runtime: stamps the tokens from a baked block, and evicts per axis', async () => {
   const bundle = fs.readFileSync(path.join(ROOT, 'dist', 'lattice-runtime.js'), 'utf8');
   // CONTENT, not mtime: the look axis is the register's fingerprint in the bundle.
-  assert.ok(/"pigment", *"etching", *"tone"/.test(bundle), 'dist/lattice-runtime.js predates the spark register — run `npm run build`.');
+  assert.ok(/"pigment", *"etch", *"tone"/.test(bundle), 'dist/lattice-runtime.js predates the spark register — run `npm run build`.');
   const markup = '<section class="content"><h2>One</h2></section><section class="content spark-framed"><h2>Two</h2></section>';
   const dom = new JSDOM(
     `<!DOCTYPE html><html><head></head><body>${markup}${frontMatterBlock(deck(['spark: bare rounded'], ''))}</body></html>`,
@@ -88,10 +88,10 @@ test('runtime: stamps the tokens from a baked block, and evicts per axis', async
 });
 
 test('lint: an unknown word and a second word on an axis warn; the slide classes are known', () => {
-  const found = lintText(deck(['spark: bare glossy framed'], '<!-- _class: content spark-etching -->\n\n## One\n\nText.'));
+  const found = lintText(deck(['spark: bare glossy framed'], '<!-- _class: content spark-etch -->\n\n## One\n\nText.'));
   const spark = found.filter((f) => f.rule === 'unknown-spark');
   assert.equal(spark.length, 2, spark.map((f) => f.message).join(' | '));
   assert.ok(spark.some((f) => /'glossy' isn't a valid `spark:` value/.test(f.message)));
   assert.ok(spark.some((f) => /two frame values; only the first is used, so 'framed' is ignored/.test(f.message)));
-  assert.equal(found.filter((f) => f.rule === 'unknown-class').length, 0, 'spark-etching is a known slide class');
+  assert.equal(found.filter((f) => f.rule === 'unknown-class').length, 0, 'spark-etch is a known slide class');
 });

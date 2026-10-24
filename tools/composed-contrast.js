@@ -138,6 +138,9 @@ const SPLITPANEL = 'lib/components/statement/split-panel/split-panel.styles.css'
 const SPLITCOMPARE = 'lib/components/comparison/split-compare/split-compare.styles.css';
 const CHECKLIST = 'lib/components/inventory/checklist/checklist.styles.css';
 const CHARTFAMILY = 'lib/plugins/chart-family/chart-family.styles.css';
+const BASETOKENS = 'lib/base/base.tokens.css';
+const ROADMAP = 'lib/components/chart/roadmap/roadmap.styles.css';
+const REGUPDATE = 'lib/components/legal/regulatory-update/regulatory-update.styles.css';
 const KANBAN   = 'lib/components/chart/kanban/kanban.styles.css';
 const STATECHART = 'lib/components/chart/state-chart/state-chart.styles.css';
 const STATECHART_JS = 'lib/components/chart/state-chart/state-chart.layout.js';
@@ -180,78 +183,57 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` gradient stop as a scored surface.
- *
- * The pill's ground is `color-mix(in oklab, var(--chart-status-hue) N%, <base>)` — `--bg` on the
- * light arm, `black` on the dark one — and its label is the shared `--text-heading`,
- * which flips dark-on-light / light-on-dark. So each stop is a real, separately-failing
- * surface on each arm, and both are listed rather than one being argued safe.
- *
- * `requires` pins the stop percentages AND the state's hue mapping in the component CSS,
- * so a retune of either reddens the gate instead of silently re-pointing what is measured.
- */
-const PILL_STATE_FALLBACK = {
-  pass: 'light-dark(#1E9E48, #34D058)',
-  warn: 'light-dark(#C2790A, #FFB02E)',
-  fail: 'light-dark(#CE2F2F, #FF5B52)',
-  info: 'light-dark(#0A6CE0, #2E8BFF)',
-  mute: 'light-dark(#6B7480, #9AA7B6)',
-};
+ * One `.chart-status` pill as a scored surface: the status's flat DEEP fill (the base's `--X-solid`) under the solid
+ * ink `--on-solid`, white like every chart ink (ONE INK, base.tokens.css § STATUS, IN TWO JOBS): 7:1 on the light
+ * face, 4.5:1 on the dark face, where a fill is the lightest mid-tone white still clears so it stands off the dark
+ * slide. `requires` pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of
+ * them reddens the gate instead of silently re-pointing what is measured. */
+const TRIO_STATES = ['pass', 'warn', 'fail'];
+const SOLID_INK = '--on-solid';
+const SOLID_MIN_DARK = 4.5;
 
-function pillStop(state, which, lightPct, darkPct) {
-  const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
-  const stop = which === 'high' ? '100%' : '0%';
+function pillStop(state) {
   return {
-    id: `chart/status-pill-${state}${which === 'low' ? '-low' : ''}`,
-    ctx: `chart-family .chart-status[${state}]: --text-heading on the pill gradient's ${stop} stop`,
+    id: `chart/status-pill-${state}`,
+    ctx: `chart-family .chart-status[${state}]: the status ink on the pill's flat fill`,
     base: '--bg',
-    groups: [{
-      bg: `light-dark(color-mix(in oklab, ${hue} ${lightPct}%, var(--bg)), `
-        + `color-mix(in oklab, ${hue} ${darkPct}%, black))`,
-    }],
-    ink: '--text-heading',
-    min: 4.5,
+    groups: [{ bg: `var(--${state}-solid)` }],
+    ink: SOLID_INK,
+    min: 7,
+    minDark: SOLID_MIN_DARK,
     src: CHARTFAMILY,
     requires: [
-      new RegExp(`color-mix\\(in oklab, var\\(--chart-status-hue\\) ${lightPct}%, var\\(--bg\\)\\)`),
-      new RegExp(`color-mix\\(in oklab, var\\(--chart-status-hue\\) ${darkPct}%, black\\)`),
+      /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
+      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`)],
+      new RegExp(`--chart-solid-ink: var\\(${SOLID_INK}\\)`),
     ],
   };
 }
 
 /**
- * One state-chart NODE surface: text on a status-tinted tile.
+ * One state-chart NODE surface: text on a status-filled tile.
  *
- * Since 2026-09-24 a status paints the node itself, and the corner badge these entries
- * used to model is gone. A status tile takes the PILL's stops (18/30 light, 42/54 dark)
- * rather than the family bar ramp: measured here, the bar ramp put the state's name
- * sub-AA on forty dark theme pairs. Two inks sit on the tile — the state NAME and the
- * ORDINAL — and both are `--state-node-ink` (`--text-heading`) on a status tile, so one
- * surface per stop covers both; `requires` pins that, and the stops, and the tone
- * mapping, so a retune of any of them reddens the gate instead of silently moving what
- * is measured. The neutral tile (no status) is unchanged by that work and is not scored
- * here: its hue, `--muted-mark`, does not resolve in this tool.
+ * A status paints the node itself, as a flat FILL (chart-family.styles.css § THE SOLID TIER), and the state NAME
+ * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink`, the one solid ink `--on-solid`. The bar is
+ * the pill's. `requires` pins the fill, the ink and the tone mapping, so a retune of any of them reddens the gate
+ * instead of silently moving what is measured. The neutral tile is the neutral solid, gated with the rest by
+ * test/unit/palette/chart-solids.test.js.
  */
-function stateChartNode(state, which) {
-  const hue = `var(--chart-state-${state}, ${PILL_STATE_FALLBACK[state]})`;
-  const top = which === 'top';
-  const [l, d] = top ? [18, 42] : [30, 54];
+function stateChartNode(state) {
   return {
-    id: `state-chart/node-${state}${top ? '-top' : ''}`,
-    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's ${top ? '0%' : '100%'} stop`,
+    id: `state-chart/node-${state}`,
+    ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat fill`,
     base: '--bg',
-    groups: [{
-      bg: `light-dark(color-mix(in oklab, ${hue} ${l}%, var(--bg)), color-mix(in oklab, ${hue} ${d}%, black))`,
-    }],
-    ink: '--text-heading',
-    min: 4.5,
+    groups: [{ bg: `var(--${state}-solid)` }],
+    ink: SOLID_INK,
+    min: 7,
+    minDark: SOLID_MIN_DARK,
     src: STATECHART,
     requires: [
-      /--state-node-ink: var\(--text-heading\)/,
+      /--state-node-ink: var\(--chart-solid-ink\)/,
       /\.state-index-t\[data-s\] \{\s*color: var\(--state-node-ink\);\s*fill: var\(--state-node-ink\);/,
-      new RegExp(`--state-tile-${top ? 'top' : 'bottom'}-l: ${l}%;`),
-      new RegExp(`--state-tile-${top ? 'top' : 'bottom'}-d: ${d}%;`),
+      /background: var\(--fill-hue\);/,
       new RegExp(`--fill-hue: var\\(--state-${state}-hue\\)`),
     ],
   };
@@ -389,117 +371,85 @@ const SURFACES = [
     src: WORDCLOUD,
     requires: [new RegExp(`return 'var\\(--seq-${stop}\\)'`)],
   })),
-  // ── policy-recommendation · the stance badge on its own 9% tint ──────────
-  ...[['adopt', '--pass'], ['amend', '--warn'], ['oppose', '--fail'],
-      ['defer', '--text-secondary'], ['', '--accent']].map(
-    ([variant, tok]) => ({
-      id: `policy-recommendation/${variant || 'default'}-badge`,
-      ctx: `policy-recommendation${variant ? `.${variant}` : ''}: the stance badge ink on --stance-bg`,
-      base: '--bg',
-      groups: [{ bg: `color-mix(in srgb, var(${tok}) 9%, var(--bg))` }],
-      ink: tok, min: 4.5,
+  // ── policy-recommendation · the stance badge, and the ask's label on its ground ──
+  // A stance that is a status paints its badge as a status MARK: the status solid under the one ink
+  // (engineering/decisions/2026-10-24-status-is-one-system.md), so it is scored like a chart pill.
+  ...[['adopt', 'pass'], ['amend', 'warn'], ['oppose', 'fail']].map(([variant, state]) => ({
+    id: `policy-recommendation/${variant}-badge`,
+    ctx: `policy-recommendation.${variant}: the one ink on the badge's status solid`,
+    base: '--bg',
+    groups: [{ bg: `var(--${state}-solid)` }],
+    ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+    src: POLICY,
+    requires: [
+      new RegExp(`section\\.policy-recommendation\\.${variant}\\s*\\{[^}]*--stance-badge-bg: var\\(--state-${state}-hue\\)[^}]*--stance-badge-ink: var\\(${SOLID_INK}\\)`),
+      /color: var\(--stance-badge-ink\);\s*background: var\(--stance-badge-bg\);/,
+    ],
+  })),
+  // A stance that is not a status keeps the outlined chip on its own ground.
+  ...[['default', '--accent', '--accent-soft', /section\.policy-recommendation \{[^}]*--stance: var\(--accent\);[^}]*--stance-bg: var\(--accent-soft\);/],
+      ['defer', '--text-secondary', '--bg-alt', /section\.policy-recommendation\.defer\s*\{[^}]*--stance: var\(--text-secondary\); --stance-bg: var\(--bg-alt\);/]].map(
+    ([variant, ink, ground, pin]) => ({
+      id: `policy-recommendation/${variant}-badge`,
+      ctx: `policy-recommendation${variant === 'default' ? '' : `.${variant}`}: the stance badge ink on ${ground}`,
+      base: '--bg', groups: [{ bg: ground }], ink, min: 4.5,
       src: POLICY,
-      requires: [/--stance-bg: color-mix\(in srgb, var\(--stance\) 9%, var\(--bg\)\)/],
+      requires: [pin, /color: var\(--stance-badge-ink\);\s*background: var\(--stance-badge-bg\);/],
     }),
   ),
-  // ── kpi · the status pill on its own-hue fill ────────────────────────────
-  // The pills plugin inks `--lat-pill-ink` on `--lat-pill-bg`;
-  // kpi points both at a status token and its 12% tint. `.ops` tiles sit on
-  // `--bg-alt` — the same stack `redline/ins` already scores — so the surfaces
-  // listed are the ones that are NOT duplicates: the WARN arm (which redline has
-  // no consumer for) and the two HERO tiles, whose fill is `--accent-soft`.
-  //
-  // BOTH hero arms are here, and the second was missing until #1698. The catalog
-  // had the pass hero (the default variant) and the warn pill over `--bg-alt`,
-  // and inferred from that pair that warn-over-accent-soft was covered. It is
-  // not: `.attention` repoints the HERO tile's pill at `--warn` while the tile
-  // keeps its `--accent-soft` fill, which is a third stack, and it renders on
-  // kpi.gallery.md. It was found by reading a rendered sweep rather than the
-  // token table — 4.44:1 on ardesia, under the bar, invisible to this file.
-  // A missing surface is the failure mode this gate exists to prevent: it does
-  // not report a defect, it reports nothing at all, which reads as a pass.
-  // The ground is now `--kpi-{pass,warn}-pill-bg` -- an OPAQUE 8% mix into `--bg`,
-  // declared once in kpi.styles.css and pointed at from all eight per-modifier sites.
-  // It was the palette's alpha `--{pass,warn}-bg` over whatever tile the pill landed
-  // on, which is why the same pill scored three different ways and thirty pairs were
-  // frozen. Because the ground is opaque the TILE is now inert to the ink score, so
-  // all three surfaces resolve the same ground -- they are kept separate anyway,
-  // because they pin three different CSS sites and the tile still decides whether the
-  // chip is VISIBLE (see the border family below).
-  //
-  // EVERY PIN IS ANCHORED TO THE SELECTOR ITS SURFACE ACTUALLY MODELS, and that is not
-  // decoration. The first cut of these three shared one template with unanchored
-  // `--pill-bg: var\(--kpi-warn-pill-bg\)` pins, so ANY of the eight sites satisfied
-  // ALL THREE surfaces -- deleting the `.attention` hero block left every gate green on
-  // a surface modeling nothing. That is the same defect, in the same file, that the
-  // anchoring on the PREVIOUS version of these entries existed to prevent; it was
-  // reintroduced by generating them from a template and caught by mutation, not by a
-  // gate. Mutate a site and re-run before trusting a pin here.
-  ...[
-    ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill ink on its own 8% ground over the --bg-alt tile',
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-warn-pill-bg\)/,
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-ink: var\(--warn\)/],
-    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on its 8% ground over the accent-soft hero tile',
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-pass-pill-bg\)/,
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-ink: var\(--pass\)/],
-    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on its 8% ground over the accent-soft hero tile',
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--kpi-warn-pill-bg\)/,
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-ink: var\(--warn\)/],
-  ].map(([slug, state, tile, ctx, bgPin, fgPin]) => ({
-    id: `kpi/${slug}`,
-    ctx,
-    base: tile,
-    groups: [{ bg: `color-mix(in srgb, var(--${state}) 8%, var(--bg))` }],
-    ink: `--${state}`, min: 4.5,
-    src: KPI,
+  // The ask's caption is a HEADING on the status GROUND (the theme's --X-bg): amber text on the 10% amber ground missed
+  // 4.5:1 on twelve palette-modes, and "The ask" is not a status word.
+  ...[['adopt', 'pass'], ['amend', 'warn'], ['oppose', 'fail']].map(([variant, state]) => ({
+    id: `policy-recommendation/${variant}-ask-label`,
+    ctx: `policy-recommendation.${variant}: the ask's caption on the --${state}-bg ground`,
+    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: '--text-heading', min: 4.5,
+    src: POLICY,
     requires: [
-      // The shared declaration, pinned by VALUE so a depth change reddens the gate.
-      new RegExp(`--kpi-${state}-pill-bg: color-mix\\(in srgb, var\\(--${state}\\) 8%, var\\(--bg\\)\\)`),
-      // ...and that THIS site still points at it and still inks the state hue. The ink
-      // pin matters most: re-inking these in `--text-heading` would score BETTER here
-      // and collapse the trio's achromatopsia separation from 0.1174 to 0.034, which
-      // cvd-trio-floor.test.js cannot see because it scores raw token hexes.
-      // 2026-08-25-status-trio-joint-solve-model.md §8.1.
-      bgPin,
-      fgPin,
-      // The tile the surface is BASED on. `--accent-soft` repaints are additionally
-      // held by NO_TILE_REPAINT below, because a `requires` can only assert presence
-      // and the risk on the hero is something being ADDED.
+      new RegExp(`section\\.policy-recommendation\\.${variant}\\s*\\{ --stance: var\\(--${state}\\); --stance-bg: var\\(--${state}-bg\\);`),
+      /blockquote \{\s*background: var\(--stance-bg\);/,
+      /blockquote::before \{[^}]*color: var\(--text-heading\);/,
+    ],
+  })),
+  // ── kpi · the status pill: a status MARK on the tile it sits on ──────────
+  // The status pill is the deck's status solid under the one ink, led by a drawn mark, with the signal ring on warn
+  // (engineering/decisions/2026-10-24-status-is-one-system.md). Two things are scored per site: the ink on the solid
+  // (the label, and the mark painted in the same ink), and the solid against the TILE under it, which is what makes the
+  // chip a chip now that the fill and the edge are one color. kpi lands pills on two tiles (`--bg-alt` on .ops and
+  // .trajectory, `--accent-soft` on the .briefing / .attention heroes), and the warn arm on the hero is its own stack.
+  //
+  // EVERY PIN IS ANCHORED TO THE SELECTOR ITS SURFACE MODELS: an unanchored pin let one site satisfy all three and a
+  // deleted `.attention` block stay green (caught by mutation, the first time). The MARK pin matters as much as the
+  // ink: the status solids share a lightness, so without the drawn mark a kpi pill carries its status by hue alone and
+  // the trio collapses under achromatopsia (0.1174 to 0.034 when last measured).
+  ...[
+    ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill on the --bg-alt tile',
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block;[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+    ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on the accent-soft hero tile',
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
+    ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on the accent-soft hero tile',
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block;[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+  ].flatMap(([slug, state, tile, ctx, pin]) => {
+    const shared = [
+      pin,
+      // The mark is painted in the pill's own ink, and drawn only where a row's hook turns its box on.
+      /\.lat-pill::before \{[^}]*display: var\(--kpi-pill-mark-box, none\);[^}]*background-color: currentColor;[^}]*mask: var\(--kpi-pill-mark\)/,
       ...(tile === '--accent-soft'
         ? [/li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/]
         : []),
-    ],
-  })),
-  // ── kpi · the status pill's BORDER, which is what makes it a chip (#1847) ─
-  // Modeled because the ground went opaque. An alpha tint was always N% of the state
-  // hue laid OVER the tile, so the fill could never match it; an opaque mix into `--bg`
-  // ignores the tile, and on the deepest tiles it can land within 1.01:1 of the tile's
-  // own color. The fill therefore no longer carries the chip's edge and the border
-  // does -- the state hue at full saturation, which is also why the INK was left at
-  // full saturation (§8.1).
-  //
-  // THE FLOOR IS PER-TILE, and it is now the SAME number on both tiles: 3, WCAG 1.4.11's
-  // non-text bar. It was 2.5 on the hero, and the reason was a single palette -- the
-  // population was bimodal and carbone|light owned the whole bottom at 2.60 on the hero
-  // and 3.39 on the card, while every other palette-mode read 4.10 or better. That was
-  // not a curation choice: carbone's trio were inks written for a light canvas the
-  // palette did not have, so they were being measured on a ground that never existed
-  // (#1302). Carbone was given a real light face, and the pairs that forced the
-  // exception now read 7.91 (pass) and 4.70 (warn) on the hero. The bimodality is gone,
-  // so the exception goes with it and the hero takes the same 3 the card always had.
-  ...[
-    ['pass', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(2\)[\s\S]{0,120}?--lat-pill-edge: var\(--pass\)/],
-    ['pass', 'hero', '--accent-soft', 3,   /section\.kpi\.briefing[\s\S]{0,200}?--lat-pill-edge: var\(--pass\)/],
-    ['warn', 'card', '--bg-alt',      3,   /section\.kpi\.ops[^{]*li:nth-child\(1\)[\s\S]{0,120}?--lat-pill-edge: var\(--warn\)/],
-    ['warn', 'hero', '--accent-soft', 3,   /section\.kpi\.attention[^{]*li:nth-child\(1\)[\s\S]{0,120}?--lat-pill-edge: var\(--warn\)/],
-  ].map(([state, tile, base, min, pin]) => ({
-    id: `kpi/${state}-pill-border-on-${tile}`,
-    ctx: `kpi: the ${state} pill's 1px border against the ${base} tile it sits on`,
-    base, groups: [], ink: `--${state}`, min,
-    src: KPI,
-    // The 1px border is the pills plugin's own rule, read through --lat-pill-edge; kpi sets the edge.
-    requires: [['lib/plugins/pills/pills.styles.css', /border:1px solid var\(--lat-pill-edge,/], pin],
-  })),
+    ];
+    return [
+      {
+        id: `kpi/${slug}`, ctx: `${ctx}: the one ink on the status solid`,
+        base: tile, groups: [{ bg: `var(--${state}-solid)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+        src: KPI, requires: shared,
+      },
+      {
+        id: `kpi/${slug}-on-tile`, ctx: `${ctx}: the pill's 1px border in the status ink against the tile (the chip's edge)`,
+        base: tile, groups: [], ink: `--${state}`, min: 3,
+        src: KPI, requires: [...shared, new RegExp(`--lat-pill-edge: var\\(--${state}\\);`), ['lib/plugins/pills/pills.styles.css', /border:1px solid var\(--lat-pill-edge,/]],
+      },
+    ];
+  }),
   // ── kanban · the [data-s] card's status wash, and the two inks on it ─────
   // The wash is `--state-{s}-fill` mixed into the card — 55% light, 26% dark — and it is
   // the deepest own-hue ground the engine paints on a card. TWO inks land on it and they
@@ -508,7 +458,7 @@ const SURFACES = [
   // #1788 stepped it up.
   //
   // MODELING NOTE, because getting this wrong is silent. `--state-{s}-fill` and
-  // `--chart-state-*` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
+  // `--state-{s}-hue` are declared on `section.chart-frame`, not `:root`, so `mergedVars()`
   // cannot see them and they are seeded here from chart-family.styles.css. And the card must stay a
   // TOKEN (`--kanban-card`) rather than being inlined: `resolveTokenExpr` reduces a
   // `color-mix()` nested directly inside another `color-mix()`'s argument to a WRONG hex
@@ -538,36 +488,65 @@ const SURFACES = [
       ],
     }));
   }),
-  // ── checklist · the state row, whose own-hue wash sits on the CANVAS ─────
-  // Same shape as redline's band one layer up: `--bg` rather than `--bg-alt`.
-  ...[['pass', '--pass'], ['warn', '--warn'], ['fail', '--fail']].map(([state, tok]) => ({
+  // ── checklist · the state row: the disc's rim and the rail, on the status GROUND ──
+  // The disc is the status solid, but on a dark slide no fill deep enough for white text clears 3:1 against a tint, so
+  // the disc's EDGE is its hairline rim in the status ink, the same color as the row's rail
+  // (engineering/decisions/2026-10-24-status-is-one-system.md). Both are graphical (the file's text is --text-heading /
+  // --text-muted / --text-secondary), so they owe WCAG 1.4.11's 3:1 against the row's --X-bg wash over the canvas.
+  ...['pass', 'warn', 'fail'].map((state) => ({
     id: `checklist/${state}-row`,
-    ctx: `checklist: the ${state} row's state DISC and rail on its own --${state}-bg wash`,
-    // 3:1, not 4.5. checklist paints NO text in the state hue — the file's only
-    // `color:` values are --text-heading, --text-muted and --text-secondary. What
-    // carries the hue is the ::before disc (--state-fill-pct:100%) and the
-    // border-left rail, which are non-text graphical objects and owe WCAG 1.4.11's
-    // 3:1. Scoring them at the text bar reported 24 compliant surfaces as defects
-    // and would have red-gated a future palette on a surface that meets WCAG.
-    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: tok, min: 3,
+    ctx: `checklist: the ${state} row's disc rim and rail (the slide ink) on its --${state}-bg wash`,
+    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: `--${state}`, min: 3,
     src: CHECKLIST,
-    requires: [new RegExp(`--state-color:var\\(${tok}\\);[\\s\\S]{0,120}background:var\\(--${state}-bg`)],
+    requires: [
+      // One anchored pin per state: the role line, the rail and the ground of THIS row's rule, in order and inside one
+      // block, so a single row's rail re-pointed at the solid reddens its own surface (an unanchored rail pin let one
+      // state's edit pass on the other two rows' match; a checker caught it by mutation).
+      new RegExp(`li\\.state\\.${state} \\{\\s*--state-color:var\\(--state-${state}-hue\\); --state-ink:var\\(--${state}\\);[^}]*border-left-color:var\\(--state-ink\\);[^}]*background:var\\(--${state}-bg`),
+      /0 0 0 var\(--state-ring-outer-w\) color-mix\(in srgb, var\(--state-ink\) var\(--state-ring-mix\), black\)/,
+      [BASETOKENS, /--state-ring-outer-w: var\(--state-signal-w\);/],
+      [BASETOKENS, /--state-ring-mix: 100%;/],
+    ],
   })),
-  // ── obligation-matrix .heat · body ink on the own-hue cell wash ──────────
-  // NB the component maps the pass CELL to a --fail wash and vice versa on
-  // purpose (a heat map reads "hot = attention"), so the tokens below are the
-  // wash hues, not the state names.
-  // The neutral row's wash moved from --text-muted to --muted-mark in #1715: it is a
-  // 6% DECORATIVE wash, and --text-muted is now the AA-floored TEXT half of that split.
-  // Re-derived from the CSS rather than deleted, as the drift check asks.
-  ...[['14', '--fail'], ['14', '--warn'], ['10', '--pass'], ['6', '--muted-mark']].map(([pct, tok]) => ({
-    id: `obligation-matrix/heat-${tok.replace(/^--/, '')}`,
-    ctx: `obligation-matrix.heat: table body ink on the ${pct}% ${tok} cell wash`,
+  // ── roadmap .status · the cell's label and rail on its status ground ──────
+  // A heavy `status` cell paints its left ribbon as a status LINE (the slide ink) and its state label as NEUTRAL text,
+  // both on the cell's status GROUND (the theme's --X-bg) over the canvas
+  // (engineering/decisions/2026-10-24-status-is-one-system.md). The label is small caps, so it owes the text bar; the
+  // ink on a tint of itself missed it on twelve palette-modes, so the label is neutral and the ground carries the color.
+  ...[['shipped', 'pass'], ['wip', 'warn'], ['missed', 'fail']].map(([cell, state]) => ({
+    id: `roadmap/${cell}-cell-label`,
+    ctx: `roadmap.status: the ${cell} cell's label (neutral text) on its --${state}-bg ground`,
+    base: '--bg', groups: [{ bg: `--${state}-bg` }], ink: '--text-heading', min: 4.5,
+    src: ROADMAP,
+    requires: [
+      new RegExp(`td\\.cell-state\\.state-${cell},[^{]*\\{[^}]*--state-ink:var\\(--${state}\\);[^}]*--cell-state-bg:var\\(--${state}-bg\\);`),
+      /background:var\(--cell-state-bg, transparent\);\s*border-left:var\(--chart-fill-accent\) solid var\(--state-ink\);/,
+      /\.cell-state-label \{[^}]*color:var\(--text-heading\);/,
+    ],
+  })),
+  // ── regulatory-update .priority · the tier label on its status solid ─────
+  ...[[1, 'fail'], [2, 'warn'], [3, 'pass']].map(([tier, state]) => ({
+    id: `regulatory-update/tier-${tier}`,
+    ctx: `regulatory-update.priority: TIER ${tier} in the one ink on the --${state}-solid pill`,
+    base: '--bg', groups: [{ bg: `var(--${state}-solid)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+    src: REGUPDATE,
+    requires: [new RegExp(`li:nth-child\\(${tier}\\)::before \\{ background:var\\(--state-${state}-hue\\); color:var\\(--on-solid\\);`)],
+  })),
+  // ── obligation-matrix .heat · body ink on the cell's status ground ───────
+  // NB the component maps the pass CELL to the fail ground and vice versa on purpose (a heat map reads "hot =
+  // attention"), so the ids below name the ground, not the state. The grounds are the theme's own --X-bg
+  // (engineering/decisions/2026-10-24-status-is-one-system.md); the exempt row sits on --bg-alt.
+  ...[['fail', '--fail-bg', /dd:has\(> \.state\.pass\) \{\s*background:var\(--fail-bg\);/],
+      ['warn', '--warn-bg', /dd:has\(> \.state\.warn\) \{\s*background:var\(--warn-bg\);/],
+      ['pass', '--pass-bg', /dd:has\(> \.state\.fail\) \{\s*background:var\(--pass-bg\);/],
+      ['muted-mark', '--bg-alt', /dd:has\(> \.state\.skip\) \{\s*background:var\(--bg-alt\);/]].map(([slug, ground, pin]) => ({
+    id: `obligation-matrix/heat-${slug}`,
+    ctx: `obligation-matrix.heat: table body ink on the ${ground} cell ground`,
     base: '--bg',
-    groups: [{ bg: `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg))` }],
+    groups: [{ bg: ground }],
     ink: '--text-body', min: 4.5,
     src: OBLIGATION,
-    requires: [new RegExp(`color-mix\\(in srgb, var\\(${tok}\\) ${pct}%, var\\(--bg\\)\\)`)],
+    requires: [pin],
   })),
   // ── kanban · the inline-code chip inside a card ──────────────────────────
   // Reached WITHOUT any status markup: the card transform consumes a trailing <code>
@@ -635,28 +614,44 @@ const SURFACES = [
   // stop was itself sub-AA at 4.38:1 on concrete|pass while every gate was green (#1807).
   // A stop nobody lists is a stop nobody scores, which is the fourth time in this
   // swimlane that a raw color-mix ground has been invisible.
-  ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((state) => [
-    pillStop(state, 'high', 30, 54),
-    pillStop(state, 'low', 18, 42),
-  ]),
+  ...['pass', 'warn', 'fail', 'info', 'mute'].map((state) => pillStop(state)),
+  // The VIVID intensity's fills (`chart-finish: … vivid`): the same pill, re-pointed by the rule that stamps it.
+  ...[...TRIO_STATES, 'info'].map((state) => ({
+    ...pillStop(state),
+    id: `chart/status-pill-${state}-vivid`,
+    ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the status ink on the vivid fill`,
+    groups: [{ bg: `var(--${state}-solid-vivid)` }],
+    ink: SOLID_INK,
+    requires: [[BASETOKENS, new RegExp(`\\.chart-finish-vivid \\{[^}]*--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)]],
+  })),
+  // ── risk-matrix · the CRITICAL band, the one status fill a chart mixes for itself ───────
+  // A critical cell and a critical key disc are the vivid fail fill taken 18% away from the ink, so their number (the
+  // solid ink) is scored on the mix itself; the stylesheet pin keeps the measured mix the painted one.
+  {
+    id: 'risk-matrix/critical-key',
+    ctx: 'risk-matrix .risk-key-marker[critical]: the key number on the critical band\'s fill',
+    base: '--bg',
+    groups: [{ bg: 'color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black))' }],
+    ink: '--on-solid',
+    min: 4.5,
+    src: 'lib/components/chart/risk-matrix/risk-matrix.styles.css',
+    requires: [
+      /\.risk-key-marker\[data-band="critical"\] \{\s*fill: color-mix\(in oklab, var\(--fail-solid-vivid\) 82%, var\(--on-solid-shade, black\)\);/,
+      /\.risk-key-number \{ fill: var\(--chart-solid-ink\); \}/,
+    ],
+  },
   // ── state-chart · the name and the ordinal on a status-tinted node ───────
-  ...['pass', 'warn', 'fail', 'info'].flatMap((state) => [
-    stateChartNode(state, 'top'),
-    stateChartNode(state, 'bottom'),
-  ]),
-  // THE PAINTED TILE'S STOPS LIVE IN JS, and the entries above pin only the CSS.
-  // Once the layout pass runs, what a reader sees is the SVG tile, whose gradient
-  // the adapter emits from literals (`paint`, the status ramp) — so a drift there would
-  // leave every CSS pin green over a sub-AA painted state. Scored once, at the
-  // darker (100%) stop of the pass tone, with both literal stops pinned: a
-  // duplicate ratio adds nothing, the drift protection is the point.
-  { ...stateChartNode('pass', 'bottom'),
+  ...['pass', 'warn', 'fail', 'info'].map((state) => stateChartNode(state)),
+  // THE PAINTED TILE'S PAINT LIVES IN JS, and the entries above pin only the CSS. Once the layout pass runs, a
+  // reader sees the SVG tile, whose one-stop paint server the adapter emits (`ramp`); this pins that it carries the
+  // status's own solid, so a drift there cannot leave every CSS pin green over a different color.
+  { ...stateChartNode('pass'),
     id: 'state-chart/node-svg-stops',
-    ctx: 'state-chart SVG tile: the adapter\'s literal gradient stops match the CSS tile',
+    ctx: 'state-chart SVG tile: the adapter paints the status solid the CSS tile wears',
     src: STATECHART_JS,
     requires: [
-      /lit\(`--state-\$\{tone\}-hue`, '0%', 18, 42\)/,
-      /lit\(`--state-\$\{tone\}-hue`, '100%', 30, 54\)/,
+      /defs \+= ramp\(id, `--state-\$\{tone\}-hue`\)/,
+      /stop-color:var\(\$\{hue\}\)/,
     ] },
 ];
 
@@ -710,12 +705,6 @@ const SURFACES = [
 const DEGRADE_TOLERANCE = 0.02;
 
 const KNOWN_SUB_THRESHOLD = new Map([
-  // ── policy-recommendation/amend-badge ── 2
-  ['carbone-dark|light|policy-recommendation/amend-badge', 4.45],
-  ['carbone|light|policy-recommendation/amend-badge', 4.45],
-  // ── policy-recommendation/oppose-badge ── 2
-  ['concrete-dark|light|policy-recommendation/oppose-badge', 4.17],
-  ['concrete|light|policy-recommendation/oppose-badge', 4.17],
   // ── redline/del ── 2
   ['concrete-dark|dark|redline/del', 3.91],
   ['concrete|dark|redline/del', 3.91],
@@ -963,7 +952,7 @@ const CHART_FAMILY_TOKENS = Object.freeze(Object.fromEntries([
   ['kanban-card-dark', 'color-mix(in oklab, var(--bg-alt) 88%, white)'],
   ...['pass', 'warn', 'fail', 'info', 'mute'].flatMap((s) => {
     const [lp, dp] = s === 'mute' ? [22, 46] : [24, 50];
-    const hue = `var(--chart-state-${s}, ${PILL_STATE_FALLBACK[s]})`;
+    const hue = `var(--${s})`;
     return [
       [`state-${s}-hue`, hue],
       [`state-${s}-fill`, `light-dark(color-mix(in oklab, ${hue} ${lp}%, var(--bg)), `
@@ -1055,9 +1044,12 @@ function auditTheme(theme) {
       const res  = evalSurface(vars, s, isDark);
       const base = evalSurface(baseVars, s, isDark);
       if (!res || !base) { rows.push({ key, theme, mode, surface: s, unresolved: true }); continue; }
-      const below = res.ratio < s.min;
+      // A surface may hold its dark face to a different bar (`minDark`): a status fill on the dark face is the
+      // status ink itself, at 4.5:1 under its text (base.tokens.css § STATUS, IN TWO JOBS).
+      const min = isDark && s.minDark != null ? s.minDark : s.min;
+      const below = res.ratio < min;
       rows.push({
-        key, theme, mode, surface: s,
+        key, theme, mode, surface: s, min,
         ratio: res.ratio, fgHex: res.fgHex, bgHex: res.bgHex,
         baseRatio: base.ratio,
         below,
@@ -1299,7 +1291,7 @@ if (require.main === module) {
       if (r.unresolved) { console.log(`  ?     ${r.key}`); continue; }
       const mark = r.regressed ? '  ✗  ' : r.below ? 'under' : '  ✓  ';
       console.log(
-        `  ${mark} ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.surface.min}, ` +
+        `  ${mark} ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.min ?? r.surface.min}, ` +
         `base ${r.baseRatio.toFixed(2)})  ${r.key}`,
       );
     }
@@ -1310,14 +1302,14 @@ if (require.main === module) {
   for (const r of res.unresolved) console.log(`  ? unresolved: ${r.key} — ${r.surface.ctx}`);
   for (const r of res.regressions) {
     console.log(
-      `  ✗ ${r.baseRatio.toFixed(2)} -> ${r.ratio.toFixed(2)}:1 (need ${r.surface.min})  ${r.key}`,
+      `  ✗ ${r.baseRatio.toFixed(2)} -> ${r.ratio.toFixed(2)}:1 (need ${r.min ?? r.surface.min})  ${r.key}`,
     );
     console.log(`       ${r.surface.ctx}`);
     console.log(`       ink ${r.fgHex} on ${r.bgHex}  ·  ${r.surface.src}`);
   }
 
   for (const r of res.unlisted) {
-    console.log(`  ✗ ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.surface.min})  ${r.key}  — NOT in the frozen baseline`);
+    console.log(`  ✗ ${r.ratio.toFixed(2).padStart(6)}:1 (need ${r.min ?? r.surface.min})  ${r.key}  — NOT in the frozen baseline`);
     console.log(`       ${r.surface.ctx}`);
     console.log(`       ink ${r.fgHex} on ${r.bgHex}  ·  ${r.surface.src}`);
   }
