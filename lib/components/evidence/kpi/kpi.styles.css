@@ -160,6 +160,12 @@ section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([dat
  * space before the label lives inside the box (no margin). A pill whose row sets no status draws
  * nothing: the box is off (`--kpi-pill-mark-box`) unless a row's hook turns it on, because an unmasked
  * box would paint a solid square. */
+/* A category pill (`data-c`) names a category, not a status, wherever it sits in the row: it never draws the row's
+ * status mark or ring (the pills plugin repaints only its colors). */
+section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill[data-c] {
+  --kpi-pill-mark-box: none;
+  --kpi-pill-signal: transparent;
+}
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill {
   box-shadow: inset 0 0 0 var(--state-signal-w) var(--kpi-pill-signal, transparent);
 }

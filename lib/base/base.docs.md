@@ -1287,10 +1287,10 @@ its rail and label the slide ink (`--pass` …), and its row the theme's `--pass
 |---|---|
 | *(default)* | the deck's status fill, its mark in the one ink, a hairline rim in the status ink (the row's rail color); at risk and blocked wear the signal ring. The same mark a gantt bar draws. |
 | `checks-ringed` | the same, with a heavier 1.6px rim taken halfway to black. |
-| `checks-knockout` | no rim: for a disc on the bare slide. |
-| `checks-bold` | larger disc + heavier marks, knockout. Reads across a room. |
-| `checks-outline` | transparent fill + ring + status-color mark. Editorial, low-ink. |
-| `checks-tonal` | soft tint fill + ring + status-color mark. Calm; best on plain (non-tinted) backgrounds. |
+| `checks-knockout` | the same as the default; kept so a deck that names it can reset an inherited variant. |
+| `checks-bold` | larger disc + heavier marks, the hairline ink rim kept. Reads across a room. |
+| `checks-outline` | transparent fill + ring + mark in the status ink; at risk and blocked take the signal ring. Editorial, low-ink. |
+| `checks-tonal` | soft tint of the status fill + ring + mark in the status ink. Calm; best on plain (non-tinted) backgrounds. |
 
 Each variant flips only scalar CSS knobs (`--state-fill-pct`,
 `--state-ring-*`, `--state-mark-pct`, `--state-disc-scale`) at section

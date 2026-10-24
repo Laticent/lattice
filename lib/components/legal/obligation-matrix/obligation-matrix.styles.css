@@ -111,14 +111,14 @@ section.obligation-matrix .label-set-key-mark {
   text-indent:200%;
   white-space:nowrap;
   line-height:1;
-  /* Disc fill + ring + lift from the scalar knobs (default flat status solid or
+  /* Disc fill + ring + lift from the scalar knobs (default status solid with an ink rim or
    * a .checks-* variant). Colors mixed here from --state-color. Mirror
    * recipe: checklist.styles.css, verdict-grid.styles.css. */
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
     inset 0 0 0 var(--state-signal-w) var(--state-signal, transparent),
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-ink);
 }
 section.obligation-matrix td .state.pass,
 section.obligation-matrix .ct-card dd .state.pass,
@@ -152,7 +152,7 @@ section.obligation-matrix .ct-card dd .state::after,
 section.obligation-matrix .label-set-key-mark::after {
   content:'';
   position:absolute; inset:0;
-  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--state-glyph-mark));
+  background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }
