@@ -309,3 +309,25 @@ test.describe('notes and motion in Compose', () => {
 		await expect(page.getByRole('tab', { name: 'Design' })).toHaveAttribute('aria-selected', 'true');
 	});
 });
+
+test.describe('a note half written when the deck changes', () => {
+	test('the words are written to the deck being left, and the new deck is untouched', async ({ page }) => {
+		await openDeckInCompose(page, DECK);
+		await pill(page, /say/).click();
+		const field = page.getByRole('textbox', { name: 'say text' });
+		await expect(field).toBeFocused();
+		await page.keyboard.press('ControlOrMeta+a');
+		await page.keyboard.type('half typed, never blurred.');
+		// A deck switch from the menu moves focus first, so the field blurs and writes. Some switches do not (a shared deck opening, a
+		// programmatic load), and the field is then removed with the caret still in it. Hold the blur back to reach that path.
+		await field.evaluate((el) => el.addEventListener('blur', (e) => e.stopImmediatePropagation(), true));
+		await page.locator('header').getByRole('button', { name: /\d+ slides?$/ }).first().click();
+		await page.getByRole('menuitem', { name: 'New deck' }).click();
+		await expect(page.getByRole('button', { name: /Untitled deck/ })).toBeVisible();
+		const decks = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('lattice-studio-src-')).map((k) => localStorage.getItem(k) ?? ''));
+		expect(decks.some((d) => d.includes('say: half typed, never blurred.'))).toBe(true);
+		// The new deck shows none of it.
+		await expect(page.locator('.cs-host .cs-comment', { hasText: /half typed/ })).toHaveCount(0);
+		expect(decks.filter((d) => d.includes('half typed')).length).toBe(1);
+	});
+});

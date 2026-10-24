@@ -20,7 +20,7 @@ vi.mock('prosemirror-view', async (importOriginal) => {
 	return { ...actual, EditorView: CapturingView };
 });
 
-import { type ComposeHandle, ComposeView } from './ComposeView';
+import { type ComposeHandle, ComposeView, collapseKey } from './ComposeView';
 
 // #1288 — Compose had no sync with the preview in EITHER direction: moving the caret
 // never moved the previewed slide, and picking a slide in the preview never moved
@@ -284,5 +284,100 @@ describe('ComposeView: an outside change while a note is being written', () => {
 		render(<ComposeView ref={ref} source={'## A\n\nPara a.\n\n---\n\n<!-- n2. -->\n\nPara two.'} onChange={() => {}} />);
 		ref.current?.revealSlide(1);
 		expect(theView().state.selection.toJSON().type).toBe('text');
+	});
+});
+
+describe('ComposeView: the caret a reload starts on', () => {
+	const FOLD_DECK = 'first paragraph, no heading.\n\nsecond paragraph, hidden when folded.\n\n---\n\n## B\n\nPara b.';
+	const FOLD_DECK_EDITED = FOLD_DECK.replace('Para b.', 'Para b changed.');
+
+	it('never starts in the text of a folded slide', () => {
+		const v = render(<ComposeView source={FOLD_DECK} onChange={() => {}} />);
+		const pmView = theView();
+		// Fold slide 0 (a slide with no heading, so only its first block shows), then reload the deck from outside.
+		pmView.dispatch(pmView.state.tr.setMeta(collapseKey, { pos: 0 }));
+		expect(v.container.querySelectorAll('.cs-slide')[0]?.classList.contains('cs-collapsed')).toBe(true);
+		v.rerender(<ComposeView source={FOLD_DECK_EDITED} onChange={() => {}} />);
+		expect(v.container.querySelector('h2')?.nextElementSibling?.textContent).toBe('Para b changed.');
+		const { $from } = theView().state.selection;
+		expect($from.index(0), 'the caret sits on the open slide, not the folded one').toBe(1);
+	});
+
+	it('starts at the top of the deck when no slide is folded', () => {
+		render(<ComposeView source={FOLD_DECK} onChange={() => {}} />);
+		expect(theView().state.selection.$from.index(0)).toBe(0);
+	});
+});
+
+describe('ComposeView: a note half written when the deck switches', () => {
+	const A = '<!-- _class: content -->\n\n# One\n\nbody one\n\n<!-- a plain note. -->';
+	const B = '<!-- _class: content -->\n\n# Other deck\n\nbody other';
+
+	it('writes the words to the deck being left, not to the next deck', async () => {
+		const onChange = vi.fn();
+		const onRetire = vi.fn();
+		const v = render(<ComposeView source={A} resetKey="deck-a" onChange={onChange} onRetire={onRetire} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		const field = v.container.querySelector('.cs-comment-field') as HTMLTextAreaElement;
+		field.focus();
+		field.value = 'a plain note, half typed';
+		field.dispatchEvent(new Event('input', { bubbles: true }));
+		// The deck switch: new source and a new key in the same render, no blur on the field.
+		onChange.mockClear();
+		v.rerender(<ComposeView source={B} resetKey="deck-b" onChange={onChange} onRetire={onRetire} />);
+		expect(onRetire).toHaveBeenCalledTimes(1);
+		expect(onRetire.mock.calls[0]?.[0]).toBe(A.replace('a plain note.', 'a plain note, half typed'));
+		expect(onRetire.mock.calls[0]?.[1]).toBe('deck-a');
+		expect(onChange, 'nothing reaches the next deck').not.toHaveBeenCalled();
+		expect(v.container.querySelector('h1')?.textContent).toBe('Other deck');
+	});
+
+	it('writes nothing when the field was only opened', async () => {
+		const onRetire = vi.fn();
+		const v = render(<ComposeView source={A} resetKey="deck-a" onChange={() => {}} onRetire={onRetire} />);
+		(v.container.querySelector('.cs-comment') as HTMLElement).click();
+		await Promise.resolve();
+		v.rerender(<ComposeView source={B} resetKey="deck-b" onChange={() => {}} onRetire={onRetire} />);
+		expect(onRetire).not.toHaveBeenCalled();
+	});
+});
+
+describe('ComposeView: an outside change is shown, not applied twice', () => {
+	const BASE = '<!-- _class: content -->\n\n## Plan\n\nThe launch is on Monday.\n\nClosing words.';
+	const CHANGED = BASE.replace('Monday', 'Tuesday morning');
+
+	it('paints the changed line and words, and leaves the deck bytes and undo history alone', () => {
+		const onChange = vi.fn();
+		const v = render(<ComposeView source={BASE} onChange={onChange} />);
+		const docBefore = theView().state.doc;
+		v.rerender(<ComposeView source={CHANGED} onChange={onChange} />);
+		expect(v.container.querySelectorAll('.cs-flash-block')).toHaveLength(1);
+		expect(v.container.querySelector('.cs-flash-span')?.textContent).toBe('Tuesday morning');
+		// The flash is decorations only: nothing is emitted, and the doc is the one the re-import built.
+		expect(onChange).not.toHaveBeenCalled();
+		expect(theView().state.doc.textContent).toContain('Tuesday morning');
+		expect(theView().state.doc).not.toBe(docBefore);
+	});
+
+	it('does not paint the author\u2019s own edits', () => {
+		const v = render(<ComposeView source={BASE} onChange={() => {}} />);
+		const pmView = theView();
+		const at = pmView.state.doc.textContent.indexOf('Closing');
+		expect(at).toBeGreaterThan(-1);
+		pmView.dispatch(pmView.state.tr.insertText('X', pmView.state.doc.content.size - 3));
+		expect(v.container.querySelector('.cs-flash-block')).toBeNull();
+	});
+
+	it('does not move the preview to slide 1 when it paints', () => {
+		const seen: number[] = [];
+		const deck = (t: string) => `## A\n\none\n\n---\n\n## B\n\ntwo\n\n---\n\n## C\n\n${t}`;
+		const v = render(<ComposeView source={deck('three')} onChange={() => {}} onCursorSlide={(i: number) => seen.push(i)} />);
+		const ref = theView();
+		ref.dispatch(ref.state.tr.setSelection(TextSelection.near(ref.state.doc.resolve(ref.state.doc.content.size - 2))));
+		seen.length = 0;
+		v.rerender(<ComposeView source={deck('three changed')} onChange={() => {}} onCursorSlide={(i: number) => seen.push(i)} />);
+		expect(v.container.querySelector('.cs-flash-span')).not.toBeNull();
+		expect(seen).toEqual([]);
 	});
 });

@@ -9,6 +9,7 @@ import { goToNextCell, isInTable, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { CHANGE_FLASH_CSS, changeFlashPlugin, diffFlash, type FlashSpec, flashKey } from '@/lib/compose/change-flash';
 import { defaultFenceTag, exitCodeOnBlankLine, indentInCode, isInCode, leadingTag, type SlideFences, slideClassToken } from '@/lib/compose/code-commands';
 import { type CommentKind, commentInner, commentKind, editableNote, stripChannelPrefix, writeNote } from '@/lib/compose/comment-block';
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
@@ -247,6 +248,22 @@ export function collapsedKeys(state: EditorState): string[] {
 	return keys;
 }
 
+/** The offsets of the slides a restore folds: each remembered key claims the FIRST slide that still matches it and is not already claimed
+ *  (greedy, one-for-one; see the plugin below). One matcher for the plugin and for the load caret, so the two cannot disagree on which slides are folded. */
+function restoredSlideOffsets(doc: PMNode, keys: string[]): number[] {
+	const want = new Map<string, number>();
+	for (const k of keys) want.set(k, (want.get(k) ?? 0) + 1);
+	const offsets: number[] = [];
+	doc.forEach((node, offset) => {
+		const k = slideKeyOf(node);
+		const left = want.get(k) ?? 0;
+		if (left <= 0) return;
+		want.set(k, left - 1);
+		offsets.push(offset);
+	});
+	return offsets;
+}
+
 type CollapseMeta = { pos: number } | { restore: string[] };
 
 export function collapsePlugin() {
@@ -284,15 +301,9 @@ export function collapsePlugin() {
 					// matches it and is not already claimed, so "duplicate slide" on a collapsed
 					// slide folds one of the two copies rather than both — the copy stays where the
 					// author left it and the new one arrives open, which is the one you want to read.
-					const want = new Map<string, number>();
-					for (const k of meta.restore) want.set(k, (want.get(k) ?? 0) + 1);
-					const decos: Decoration[] = [];
-					tr.doc.forEach((node, offset) => {
-						const k = slideKeyOf(node);
-						const left = want.get(k) ?? 0;
-						if (left <= 0) return;
-						want.set(k, left - 1);
-						decos.push(Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true }));
+					const decos = restoredSlideOffsets(tr.doc, meta.restore).map((offset) => {
+						const node = tr.doc.nodeAt(offset) as PMNode;
+						return Decoration.node(offset, offset + node.nodeSize, { class: 'cs-collapsed' }, { collapsed: true });
 					});
 					return DecorationSet.create(tr.doc, decos);
 				}
@@ -1444,8 +1455,19 @@ function noteSafe(doc: PMNode, sel: Selection): Selection {
 	return caretNear(doc, sel.to) ?? sel;
 }
 
-/** Where a new editor state starts: the first text of the deck when the deck opens with a note. */
-function startSelection(doc: PMNode): Selection {
+/** Where a new editor state starts: the first text of the deck when the deck opens with a note, and never text on a folded slide (`folded` holds
+ *  the slides' offsets): a folded slide hides everything but its heading, so keys typed at a caret in it edit words the author cannot see. When every
+ *  slide is folded there is no visible text to prefer, and the start of the deck stands. */
+function startSelection(doc: PMNode, folded?: ReadonlySet<number>): Selection {
+	if (folded?.size) {
+		let open: Selection | null = null;
+		doc.forEach((slide, offset) => {
+			if (open || folded.has(offset)) return;
+			const sel = Selection.findFrom(doc.resolve(offset + 1), 1, true);
+			if (sel && sel.from < offset + slide.nodeSize) open = sel;
+		});
+		if (open) return open;
+	}
 	const start = Selection.atStart(doc);
 	const safe = noteSafe(doc, start);
 	// A first slide that is only a note has no text to put a caret in; the start of the deck may be the first text of a later slide.
@@ -1873,8 +1895,38 @@ export class CommentView {
 	}
 }
 
+/** Where the flashed lines are relative to what the author can see. Null when any of them is on screen (the eye finds it) or the lines have no drawing. */
+function offscreenChip(view: EditorView, spec: FlashSpec): { dir: 'above' | 'below'; n: number; pos: number } | null {
+	const host = view.dom.closest('.cs-host');
+	if (!host) return null;
+	const box = host.getBoundingClientRect();
+	let above = 0;
+	let below = 0;
+	let nearestAbove: number | null = null;
+	let nearestBelow: number | null = null;
+	for (const b of spec.blocks) {
+		const el = view.nodeDOM(b.from);
+		if (!(el instanceof Element)) return null;
+		const r = el.getBoundingClientRect();
+		// A line on a folded slide draws nothing and cannot be scrolled to.
+		if (r.width === 0 && r.height === 0) continue;
+		if (r.bottom > box.top && r.top < box.bottom) return null;
+		if (r.bottom <= box.top) {
+			above++;
+			nearestAbove = b.from;
+		} else {
+			below++;
+			nearestBelow ??= b.from;
+		}
+	}
+	// Changes on both sides: the one below, because a deck is written downward.
+	if (nearestBelow != null) return { dir: 'below', n: below, pos: nearestBelow };
+	if (nearestAbove != null) return { dir: 'above', n: above, pos: nearestAbove };
+	return null;
+}
+
 type PaneOpen = (getPos: () => number | undefined, paneIndex: number) => void;
-function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions) {
+function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen | undefined = () => undefined, notation?: ObjectsPluginOptions, onFlashClear?: () => void) {
 	return [
 		structuralGuard(),
 		commentRunPlugin(),
@@ -1883,6 +1935,7 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		panePlugin(getPaneOpen),
 		collapsePlugin(),
 		activeSlidePlugin(),
+		changeFlashPlugin({ onClear: onFlashClear }),
 		stateMarkerPlugin(),
 		...(notation ? [inlineObjectsPlugin(notation)] : []),
 		codeHighlightPlugin(),
@@ -1977,17 +2030,24 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[] }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
 	onChangeRef.current = onChange;
+	// Where an emit goes while the editor is being torn down for another deck: to that deck's own id (`onRetire`), never to `onChange`, which by
+	// then belongs to the next deck. Null the rest of the time.
+	const onRetireRef = React.useRef(onRetire);
+	onRetireRef.current = onRetire;
+	const retiringRef = React.useRef<((src: string) => void) | null>(null);
 	const lastEmittedRef = React.useRef(source);
 	const baselineRef = React.useRef<EmitBaseline | null>(null);
 	// An external source change that arrived while the editor held focus — parked here
 	// and flushed on blur so it is never silently lost (D2). null = nothing pending.
 	const pendingResyncRef = React.useRef<string | null>(null);
 	const [failed, setFailed] = React.useState(false);
+	// A change painted by the flash that is out of view: a chip says how many lines are above or below and scrolls to the nearest on a tap.
+	const [flashChip, setFlashChip] = React.useState<{ dir: 'above' | 'below'; n: number; pos: number } | null>(null);
 	// The floating selection bar (inline marks over a text selection) on DESKTOP, or null when there
 	// is no non-empty selection — Bold / Italic / Code on the selected run. The block registers now
 	// live on the slide's divider bar (context-sensitive), not a persistent gutter/rail.
@@ -2448,8 +2508,9 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		// everything. Read first, restore after — the doc the keys are matched against has to be
 		// the new one.
 		const folded = collapsedKeys(view.state);
+		const before = view.state.doc;
 		const doc = deckToDoc(src);
-		view.updateState(EditorState.create({ doc, selection: startSelection(doc), plugins: view.state.plugins }));
+		view.updateState(EditorState.create({ doc, selection: startSelection(doc, new Set(restoredSlideOffsets(doc, folded))), plugins: view.state.plugins }));
 		// BASELINE FIRST, DISPATCH SECOND. Both callers wrap this in a try/catch that only
 		// logs, so a throw from the restore below would leave `updateState` already landed on
 		// the NEW doc while `baselineRef` still held the OLD doc's node identities — every
@@ -2469,11 +2530,23 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			// through and `dispatchTransaction`'s emit branch stays untouched (next.doc === prevDoc).
 			view.dispatch(view.state.tr.setMeta(collapseKey, { restore: folded }));
 		}
+		setFlashChip(null);
+		// Show what the outside change changed. A doc-less transaction, so nothing is emitted and nothing enters the undo history.
+		try {
+			const spec = diffFlash(before, view.state.doc);
+			if (spec) {
+				view.dispatch(view.state.tr.setMeta(flashKey, { flash: spec }).setMeta('addToHistory', false));
+				setFlashChip(offscreenChip(view, spec));
+			}
+		} catch (e) {
+			console.error('[compose] change flash', e);
+		}
 	}, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
 	React.useEffect(() => {
 		if (!hostRef.current) return;
+		setFlashChip(null);
 		setFailed(false); // D3: a prior deck's parse failure must not stick to this one.
 		let view: EditorView;
 		// Apply an outside change that arrived while the editor, or a note field in it, had the caret.
@@ -2498,7 +2571,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						getKernels: () => kernelsRef.current,
 						getDeckLiteral: () => kernelsRef.current?.isLiteralFromSource(sourceRef.current) ?? false,
 						onOpenChange: (open) => setObjEdit(open),
-					}),
+					}, () => setFlashChip(null)),
 				}),
 				nodeViews: {
 					slide: (node, nodeView, getPos, decorations) =>
@@ -2539,7 +2612,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
-						onChangeRef.current(src);
+						(retiringRef.current ?? onChangeRef.current)(src);
 					}
 					// The caret's slide index — the top-level `slide` node it sits in. Edge-
 					// triggered so the shell only hears about real crossings.
@@ -2555,7 +2628,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// real crossing still edge-fires.
 					const { $from } = next.selection;
 					const slideIdx = $from.depth >= 1 ? next.doc.resolve($from.before(1)).index() : -1;
-					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore;
+					const isRestore = !!(tr.getMeta(collapseKey) as { restore?: string[] } | undefined)?.restore || tr.getMeta(flashKey) !== undefined;
 					const blockText = $from.parent.textContent;
 					if (!isRestore && blockText !== lastCursorTextRef.current) {
 						lastCursorTextRef.current = blockText;
@@ -2617,6 +2690,22 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		host?.addEventListener('scroll', onScroll, { passive: true });
 		return () => {
 			host?.removeEventListener('scroll', onScroll);
+			// A note still being written has not blurred (a deck switch removes the field without one), so its words are written now, to THIS deck:
+			// `resetKey` is the deck this effect built the view for. The emit baseline is restored after, because the next deck's view does not share it.
+			const field = view.dom.querySelector('.cs-comment-field');
+			if (field && onRetireRef.current) {
+				const emitted = lastEmittedRef.current;
+				retiringRef.current = (src) => onRetireRef.current?.(src, resetKey);
+				try {
+					field.dispatchEvent(new CustomEvent('cs-note-commit', { detail: { dirty: false } }));
+				} catch (e) {
+					console.error('[compose] note write on teardown', e);
+				} finally {
+					retiringRef.current = null;
+					lastEmittedRef.current = emitted;
+					setSelBar(null);
+				}
+			}
 			view.destroy();
 			viewRef.current = null;
 			baselineRef.current = null;
@@ -2675,6 +2764,22 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
 				<div ref={hostRef} className="cs-host" />
+				{flashChip && (
+					<button
+						type="button"
+						className="cs-flash-chip"
+						data-dir={flashChip.dir}
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={() => {
+							const v = viewRef.current;
+							const el = v && !v.isDestroyed ? v.nodeDOM(flashChip.pos) : null;
+							if (el instanceof Element) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+							setFlashChip(null);
+						}}
+					>
+						{flashChip.n === 1 ? '1 change' : `${flashChip.n} changes`} {flashChip.dir}
+					</button>
+				)}
 			</div>
 			{selBar &&
 				createPortal(
@@ -2738,7 +2843,8 @@ function ComposeStyles() {
 	return (
 		<style>{`
 			.cs-surface{height:100%;overflow:hidden;background:var(--bg,#fff)}
-			.cs-frame{display:flex;height:100%}
+			.cs-frame{display:flex;height:100%;position:relative}
+			${CHANGE_FLASH_CSS}
 			/* the serif page — no persistent gutter; formatting lives on each slide's divider bar. */
 			.cs-host{flex:1;min-width:0;overflow-y:auto;container-type:inline-size}
 			/* The bottom give — the Compose twin of the markdown editor's scrollPastEnd

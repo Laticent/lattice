@@ -252,6 +252,86 @@ A checker and a red team read the uncommitted diff (HARD RULE #25). Every findin
   instead of deleting it; the picker's thumbnails load lazily; the corpus test now asserts that avatars and icons convert.
 - **Tests that could not fail** (a locked-slide check with nothing clicked, a selection test with no selection) now click and select.
 
+## 8c. The note's words: a field, written on teardown (followups.d/2861-p2)
+
+**Teardown.** A deck switch re-creates the editor (`resetKey` is the deck id) and removes the note field without a blur, so
+half-typed words were lost. The cleanup of the editor effect now commits the field first, and the write goes to a new `onRetire(source, resetKey)`
+prop, never to `onChange`: the shell's `onChange` writes to whichever deck is current, and by cleanup time that is the next one. The shell passes
+`saveSourceGuarded(deckId, source)`, so the words land in the old deck's saved source. Words `writeNote` refuses (empty, or a directive word)
+are not written; the panel's reason was only ever shown on a commit the author asked for, so a refused half-sentence on a deck switch is dropped.
+Tests: `ComposeView.sync.test.tsx` (the words go to `onRetire` with the old key and `onChange` stays silent) and `e2e/compose-note-motion.spec.ts`
+(a real deck switch with the blur held back; the old deck's stored source has the words and the new deck has none). Both fail without the fix.
+
+**Model: keep the `<textarea>`.** Counted by reading `ComposeView.tsx`, not by prototype: fifteen mechanisms exist only because the words live
+outside ProseMirror. (1) `isCurrent()` stale-panel guard; (2) the `cs-note-commit` flush before a structural op, at two call sites; (3) the
+`cs-note-left` event; (4) the focus predicate that parks an outside change while the field has the caret; (5) the blur-then-microtask commit on
+the field; (6) the same on Remove; (7) the native-undo `beforeinput` guard; (8) the `typed` mirror that undoes changes made while unfocused;
+(9) the `isComposing` check; (10) the "nothing written if unchanged" comparison; (11) the field re-sync after a write; (12) Remove's `mousedown`
+`preventDefault`; (13) the touch check that skips auto-focus; (14) the folded-slide caret guards on Escape and Remove; (15) the teardown commit above.
+A text-only isolating node with a `filterTransaction` would delete 1 to 11 and 15 (twelve), because the words would be in the document: undo,
+input methods and selection come from ProseMirror, and nothing has to be flushed. It would keep 12 to 14 and add a node spec, a node view, the
+serializer rules, arrow-key entry into an isolating node and a paste rule.
+The cost is the byte-exact round trip. A note's text is a node attribute today, so an untouched slide re-emits its cached bytes (`baselineRef`);
+moving it into content puts every note in the serializer path, and `writeNote`'s opener, closer and channel rules would have to hold
+on every transaction, not once per commit. That is the surface this change set out not to touch, for a gain that the fifteen guards
+do not yet justify. **Revisit when a sixteenth bridge is needed**, or when the notes panel gains a
+second field. *(A recommendation taken on the reversible default while the owner was away; reversing it is a new design, not a revert.)*
+
+## 8d. Showing an outside change (followups.d/2861-p3)
+
+**The ask (owner, 2026-10-23).** An AI edit applies on its own and is undone with Ctrl/Cmd+Z or the undo toast. Compose should let the author
+SEE what changed: a tint and an accent rule on the line, a stronger tint on the exact words, then both fade slowly.
+
+**Built, on the recommended curve.** `docs/src/lib/compose/change-flash.ts` holds the diff (`diffFlash`), the plugin (`changeFlashPlugin`) and the
+stylesheet. `ComposeView.tsx`'s `resyncFrom` is the one place every outside change meets (an AI apply, the Inspector, a rename, an undo from the
+shell, a parked change that lands on blur), so it takes the doc before and after the re-import, diffs them, and dispatches a doc-less
+transaction that carries the paint. Each axis of the design model, as decided:
+
+1. **What counts as changed.** Textblocks compare pairwise when the deck has the same number of them; the changed words are the stretch
+   between the common prefix and suffix of the two lines (`Fragment.findDiffStart` / `findDiffEnd`). When a line was added or removed, the lines
+   equal at the start and at the end are the same lines, and what sits between is painted as lines only. A deletion with nothing inserted leaves a
+   thin accent mark where the words were. A change to a slide's directive comment (an Inspector `_class` stamp) is not a text change and paints
+   nothing; so does a deck where more than eight lines changed (a slide moved, a deck replaced): there is nothing to point at.
+2. **Two layers**, both ProseMirror decorations (`Decoration.node` for the line, `Decoration.inline` for the words, a widget for the mark), so
+   the paint never reaches the deck's bytes or the undo history. The transaction carries `addToHistory: false` and changes no document.
+3. **Motion**, CSS only. The Studio defines no `--motion-*` duration tokens (a grep of `docs/src` finds none), so the timing is four variables on
+   `.cs-host`: `--cs-flash-in`, `--cs-flash-hold`, `--cs-flash-out`, `--cs-flash-lag`; colors are the Studio's `--accent` mixed with transparent, the
+   pair the note panel already uses. The plugin removes the paint when the last fade ends (`animationend`), with a seven-second limit if nothing
+   ever animates (a folded slide draws nothing).
+4. **Reduced motion.** No fade: the tint appears, holds 1.4 s, and goes in one step.
+5. **Off screen.** A chip under the slide's sticky control bar reads "N changes above" or "below" and scrolls to the nearest on a tap. The
+   paint never scrolls the page, and a change waits for the caret to leave the editor in any case (the parked resync), so it cannot move text
+   the author is typing in. The chip is under the sticky bar for both directions because the bottom is where the undo toast of an AI edit lands: a first try at the bottom hid behind the toast on a phone.
+6. **Which changes.** Every one that reaches Compose from outside. The author's own keystrokes never come through `resyncFrom`.
+7. **Undo.** The shell's undo (the toast) restores the source, which re-enters through the same path, so it flashes what it restored. Compose's own
+   Ctrl/Cmd+Z undoes the author's keystrokes in the editor and is not an outside change; it does not flash.
+
+**Curves, for the owner to pick.** Three are in the stylesheet, selected by `data-flash-curve` on `.cs-host` (none set means the first):
+
+| Curve | Fade in | Hold | Fade out | Words start |
+|---|---|---|---|---|
+| settle (default, recommended) | 150 ms | 1.2 s | 1.6 s | +80 ms |
+| quick | 100 ms | 0.5 s | 0.8 s | +60 ms |
+| linger | 200 ms | 2.2 s | 2.4 s | +120 ms |
+
+Filmstrips of all three, six frames each (about 0.3, 0.8, 1.5, 2.3, 3.0 and 3.8 s after the change), at 1440 px and 390 px, are in
+`2026-10-23-change-flash/filmstrip-1440.png` and `filmstrip-390.png`; the chip is in `desktop-chip.png` and `phone-chip.png`, and the paint in the dark
+theme in `desktop-dark-peak.png`. Screen recordings of the same runs were sent with the PR. Once a curve is picked, the other two rules and the attribute go.
+
+**Evidence.** `docs/e2e/compose-change-flash.spec.ts`: a rename paints the heading line and the word "Pilot", the saved deck is exactly the renamed
+source, and the paint is gone after the fade; with reduced motion the animation is `none`, the tint is still drawn and it clears. `change-flash.test.ts` pins
+the diff (words, deletion mark, added line, identical deck, too-wide change); `ComposeView.sync.test.tsx` pins that an outside change paints, emits
+nothing, and that the author's own typing does not.
+
+**Also driven (2026-10-23).** The same spec passes on WebKit at tablet and phone widths and on Firefox. A second test runs the Architect's real
+edit and Apply path with the model mocked (HARD RULE #24): Apply on a rewrite paints the changed words "Tuesday morning" and the line, the saved
+deck is exactly the rewrite, and the paint clears.
+
+**Dark theme.** One frame at 1440 px and one at 390 px (`desktop-dark-peak.png`, `phone-dark-peak.png`): the line tint, the accent rule and the word tint
+are all readable on the dark canvas.
+
+**Not verified.** An AI apply with a live model: the mocked one exercises every step after the reply, and HARD RULE #24 keeps our key out of per-PR tests.
+
 ## 9. Decisions put to the owner
 
 Taken on a reversible default, because the owner was away; each is one commit to undo.
@@ -264,6 +344,10 @@ Taken on a reversible default, because the owner was away; each is one commit to
    (`followups.d/2739-p4`), so a share control would promise what the slide does not do.
 4. **The Library photo picker has no upload**, so a new author with an empty Library is sent to the Library first. *(Reversed 2026-10-22: the picker now adds a photo; see §7.)*
 5. **Motion has no insert door.** *(Reversed 2026-10-22: the Insert menu's Motion item opens the Library on its scenes; see §7.)*
+
+6. **The note's words stay in a `<textarea>`** (§8c). Alternative: a text-only isolating ProseMirror node. Twelve of fifteen guards go; the byte-exact note round trip is put at risk.
+
+7. **The change flash ships on the `settle` curve** (§8d), with the chip under the sticky bar. The owner picks the curve from the recordings; the other two are one commit to remove.
 
 ## 10. References
 
