@@ -259,3 +259,43 @@ for (const c of PROVIDER_CASES.filter((p) => p.key === 'tiktok' || p.key === 'in
 		});
 	}
 }
+
+// The lightbox closes on a tap of the dark area around the player, as it did before the footer was added. The first 400ms
+// of a lightbox ignore backdrop taps (iOS sends a ghost click after the tap that opened it), so the tap retries until that
+// window has passed instead of sleeping for it.
+test('a tap on the backdrop closes the player, and a tap on the player does not', async ({ page }) => {
+	const preview = await openDeck(page, deck(PROVIDER_CASES[0].url));
+	await expect(preview.locator('a.video-poster')).toHaveAttribute('href', PROVIDER_CASES[0].watch, { timeout: 30_000 });
+	await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+	await preview.locator('a.video-poster').click();
+	const modal = page.locator('.pg-video-modal[role="dialog"]');
+	await expect(modal.locator('iframe')).toBeVisible();
+	await modal.locator('iframe').click({ position: { x: 20, y: 20 } });
+	await expect(modal).toBeVisible();
+	await expect(async () => {
+		await modal.click({ position: { x: 4, y: 200 } });
+		await expect(modal).toBeHidden({ timeout: 250 });
+	}).toPass({ timeout: 10_000 });
+});
+
+// On a short screen (a phone turned sideways) the notice and the link used to run over the bottom of the player.
+test('the "didn\'t load" notice stays clear of the player on a short screen', async ({ page }) => {
+	const c = PROVIDER_CASES.find((p) => p.key === 'tiktok')!;
+	const preview = await openDeck(page, deck(c.url));
+	await expect(preview.locator('a.video-poster')).toHaveAttribute('href', c.watch, { timeout: 30_000 });
+	await expect.poll(async () => page.evaluate(() => typeof ((document.querySelector('#preview') as HTMLIFrameElement | null)?.contentWindow as unknown as { __videoPlay?: unknown })?.__videoPlay), { timeout: 30_000 }).toBe('function');
+	await page.clock.install();
+	await preview.locator('a.video-poster').click();
+	const modal = page.locator('.pg-video-modal[role="dialog"]');
+	await expect(modal.locator('iframe')).toBeVisible();
+	await page.setViewportSize({ width: 844, height: 390 });
+	await page.clock.fastForward(9_000);
+	const notice = modal.locator('[role="status"]');
+	await expect(notice).toContainText("didn't load");
+	const link = modal.locator('a[target="_blank"]');
+	const frame = (await modal.locator('iframe').boundingBox())!;
+	for (const el of [notice, link]) {
+		const box = (await el.boundingBox())!;
+		expect(box.y, `${await el.innerText()} runs over the player`).toBeGreaterThanOrEqual(frame.y + frame.height - 0.5);
+	}
+});

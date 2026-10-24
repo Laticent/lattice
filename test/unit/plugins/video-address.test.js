@@ -313,6 +313,10 @@ describe('the video placement rules say what the engine does', () => {
     ['a record inside a multi-line HTML comment', `<!--\n${REC}\n-->`, 0],
     ['a record after mixed fence markers that have all closed', '```\nx\n```\n~~~\ny\n~~~\n\n' + REC, 1],
     ['a record inside a four-backtick fence holding a three-backtick line', '````markdown\n```\n' + REC + '\n````', 0],
+    ['a record directly over `---` (a setext heading)', `${REC}\n---`, 0],
+    ['a record directly over `===` (a setext heading)', `${REC}\n===`, 0],
+    ['a record, a blank line, then `---` (a thematic break)', `${REC}\n\n---`, 1],
+    ['a `<!--` inside an inline code span is text, not a comment', '`<!--` is how a comment opens\n\n' + REC, 1],
   ];
   for (const [name, body, drawn] of CASES) {
     test(`video-slide-class on ${name}: fires only when the engine draws a figure`, () => {

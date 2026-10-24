@@ -58,6 +58,10 @@ const ownsHost = (row, hostname) => {
 	return Boolean(row) && row.hosts.some((owned) => h === owned || h.endsWith(`.${owned}`));
 };
 
+/** Height of the band under the player that holds the notice and the "Open on" link, so the player never reaches into it. */
+const FOOT_ROOM = 84;
+/** The tallest the player may be: the viewport, less the lightbox's padding and the footer band. */
+const SHELL_ROOM = `calc(100vh - 8vmin - ${FOOT_ROOM}px)`;
 /** How long a TikTok or Instagram player may stay silent before the lightbox says it did not load. */
 const SIGNAL_TIMEOUT_MS = 8000;
 /** Per provider: is this message the player saying it loaded? (Measured: TikTok `onPlayerReady`, Instagram `LOADING`/`MEASURE`.) */
@@ -163,7 +167,7 @@ function play(poster) {
 		root.setAttribute('aria-label', 'Video player');
 		root.style.cssText =
 			'position:fixed;inset:0;z-index:2147483000;background:rgba(6,10,18,.8);' +
-			'display:flex;align-items:center;justify-content:center;padding:4vmin;' +
+			'display:flex;align-items:center;justify-content:center;padding:4vmin 4vmin calc(4vmin + ' + FOOT_ROOM + 'px);' +
 			'opacity:0;transition:opacity .18s ease;'; // fade-in (set to 1 after mount)
 		const shell = document.createElement('div');
 		// Size to the provider's native shape — a 16:9 box for YouTube/Vimeo, a tall
@@ -173,8 +177,8 @@ function play(poster) {
 		shell.style.cssText =
 			'position:relative;' +
 			(portrait
-				? 'width:min(92vw,420px);height:min(80vh,760px);'
-				: 'width:min(92vw,960px);aspect-ratio:16/9;max-height:80vh;') +
+				? `width:min(92vw,420px);height:min(${SHELL_ROOM},760px);`
+				: `width:min(92vw,960px);aspect-ratio:16/9;max-height:${SHELL_ROOM};`) +
 			'border-radius:12px;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.6);background:#000;' +
 			// Centered "Loading…" shown until the player <iframe> is added (TikTok resolve).
 			"display:grid;place-items:center;color:rgba(255,255,255,.7);font:500 14px system-ui,sans-serif;";
@@ -192,6 +196,18 @@ function play(poster) {
 		btn.addEventListener('click', (e) => { e.stopPropagation(); close(); });
 		root.appendChild(btn);
 		root.appendChild(shell);
+		// Backdrop tap closes; a tap on the player/shell does not (it drives playback).
+		// GHOST-CLICK GUARD (iOS): the tap that OPENS the modal is followed ~300ms later
+		// by a synthesized `click` at the same coordinates — which now land on the
+		// just-mounted backdrop, instantly dismissing it (the "shutter" + "kicked back to
+		// edit" bug on the first tap). Ignore backdrop closes fired within 400ms of open;
+		// the close button + Escape are separate handlers and stay live immediately.
+		const openedAt = Date.now();
+		root.addEventListener('click', (e) => {
+			if (e.target !== root) return;
+			if (Date.now() - openedAt < 400) return; // the opening gesture's ghost click
+			close();
+		});
 		// Always-visible way out: a browser with its own tracker blocking (Firefox, Orion) can blank a third-party
 		// player and the page cannot read the frame to tell. A real <a> the user taps opens the provider's own page.
 		const providerLabel = providerFor(href)?.label || 'the site';
@@ -221,7 +237,7 @@ function play(poster) {
 		// AUTO-FIT Instagram: its /embed/ page is a CARD (header + video + caption), whose
 		// height varies per post, and it reports its own rendered height to the parent via
 		// postMessage ({type:'MEASURE', details:{height}}). Size the shell to that height
-		// (capped at 80vh) so the card fits with no letterbox. If the message never arrives
+		// (capped to the room above the footer) so the card fits with no letterbox. If the message never arrives
 		// (or isn't Instagram), the fixed portrait box above stands. Origin-checked — we
 		// only trust a height from instagram.com, never arbitrary cross-frame chatter.
 		let onMessage = null;
@@ -232,7 +248,7 @@ function play(poster) {
 					if (!ownsHost(rowFor('instagram'), new URL(e.origin).hostname)) return;
 					const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
 					const h = d && d.type === 'MEASURE' && d.details && Number(d.details.height);
-					if (h && h > 0) shell.style.height = Math.min(Math.round(h), Math.round(window.innerHeight * 0.8)) + 'px';
+					if (h && h > 0) shell.style.height = Math.min(Math.round(h), Math.round(window.innerHeight - 0.08 * Math.min(window.innerWidth, window.innerHeight) - FOOT_ROOM)) + 'px';
 				} catch (_e) { /* ignore malformed / non-JSON messages */ }
 			};
 			window.addEventListener('message', onMessage, false);

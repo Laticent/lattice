@@ -1,4 +1,4 @@
-studio: +544
-playground: +576
-home: +576
-The video plugin puts its own marker on the video figure, and the Studio's overlay and its in-frame tap guard now check it (`figure[data-lattice-media=video]` outside `[data-lattice-plugin]`) before they build an embed from a poster. The player also gets a footer: an always-visible "Open on {provider}" link, and a notice when a TikTok or Instagram player stays silent for 8 seconds, because a browser's tracking protection (Firefox, Orion) can blank a third-party frame with no error the page can read. The close button moved from inside the player to the backdrop's corner so it no longer covers TikTok's logo. Measured locally as gzip of the minified overlay, 2420 bytes on main and 2945 here (+525), plus deck-preview +37 and slide-boundaries +5; the web-image-hint pattern gave back 34 in the studio.
+studio: +640
+playground: +672
+home: +672
+The video plugin puts its own marker on the video figure, and the Studio's overlay and its in-frame tap guard now check it (`figure[data-lattice-media=video]` outside `[data-lattice-plugin]`) before they build an embed from a poster. The player also gets a footer: an always-visible "Open on {provider}" link, and a notice when a TikTok or Instagram player stays silent for 8 seconds, because a browser's tracking protection (Firefox, Orion) can blank a third-party frame with no error the page can read. The close button moved from inside the player to the backdrop's corner so it no longer covers TikTok's logo, and the player leaves a band under it for the footer. Measured locally as gzip of the minified overlay, 2420 bytes on main and 3038 here (+618), plus deck-preview +37 and slide-boundaries +5; the web-image-hint pattern gave back 34 in the studio.
