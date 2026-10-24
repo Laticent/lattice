@@ -62,24 +62,19 @@
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), one ink per slide like every chart fill: DEEP under
-   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-solid` / `--on-status` at
+   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-solid` at
    * 7:1, as every a11y palette's chart fills are (engineering/chart-styling.md §3). Solved as a trio that clears this
-   * palette's own colorblind floor on both faces, one set for both intensities. Each status's EDGE, in its own hue at
+   * palette's own colorblind floor on both faces, one set for both intensities (the vivid aliases come from `a11y-base`). Each status's EDGE, in its own hue at
    * 4.6:1 off the slide, serves as its line and text; the two exceptions also wear a SIGNAL ring, the status color at
    * the opposite lightness to its fill. Solved by tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#314D6A, #96AAC1);
   --warn-solid: light-dark(#3F2903, #D99A2B);
   --fail-solid: light-dark(#9E0016, #FFBEB8);
-  --pass-solid-vivid: var(--pass-solid);
-  --warn-solid-vivid: var(--warn-solid);
-  --fail-solid-vivid: var(--fail-solid);
   --warn-solid-signal: light-dark(#E79F00, #6F4A00);
   --fail-solid-signal: light-dark(#FE746D, #C43F3D);
-  --on-status: light-dark(#FFFFFF, #1A1A1A);
   --pass-solid-edge: light-dark(#314D6A, #8DABCD);
   --fail-solid-edge: light-dark(#971A1F, #FFBEB8);
   --info-solid: light-dark(#125E82, #68ADD4);
-  --info-solid-vivid: var(--info-solid);
   --info-solid-edge: light-dark(#125E82, #68ADD4);
   --mute-solid: light-dark(#544F54, #B5AEB5);
   --mute-solid-edge: light-dark(#544F54, #B5AEB5);

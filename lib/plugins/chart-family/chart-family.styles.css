@@ -548,9 +548,8 @@ section.chart-frame,
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
-   * mark with neither `--chart-neutral-hue`. Text on every solid is `--chart-solid-ink`, white: `--on-solid` on a
-   * category or the neutral, and inside a mark that carries a status, that status's `--state-X-on` (`--on-status`,
-   * white too), by the rules below. ONE INK, so two charts on one slide never wear two text colors. Where a category
+   * mark with neither `--chart-neutral-hue`. Text on every solid is `--chart-solid-ink`, which is `--on-solid`: white on a
+   * category, the neutral and a status alike, and near-black on an `a11y-*` dark face. ONE INK, so two charts on one slide never wear two text colors. Where a category
    * and a status share a hue, the status is told apart by its drawn MARK and, for an exception, its SIGNAL ring.
    * Each theme curates the seeds (`--chart-catN`, the base's status fills, edges and signals, `--chart-neutral`, and
    * the inks) so white clears 7:1 on every light-face solid and 4.6:1 on every dark-face one, and every solid has a
@@ -583,13 +582,6 @@ section.chart-frame,
   --state-info-ink: var(--info-solid-edge);
   --state-mute-ink: var(--mute-solid-edge);
 
-  /* The ink for TEXT on each status fill: `--on-status`, white, on every one. Five tokens rather than one so a palette
-   * can still carry a different ink on one status without a code change. */
-  --state-pass-on: var(--on-status);
-  --state-warn-on: var(--on-status);
-  --state-fail-on: var(--on-status);
-  --state-info-on: var(--on-status);
-  --state-mute-on: var(--on-status);
 
   /* Shared accent header-rule — the hairline under a data header (gantt quarter
    * axis, kanban column headers). One token so every chart's header underline
@@ -1203,14 +1195,6 @@ section.chart-frame .chart-caption::before {
   --state-info-hue: var(--info-solid-vivid);
 }
 
-/* TEXT ON A STATUS FILL. Every member marks a status with `data-s`, in one shared vocabulary, and its label sits on
- * that mark or inside it, so the ink on a fill is set here once, by status, for every chart: `--state-X-on`, white
- * like the frame's own `--chart-solid-ink`. The five rules keep the ink a theme decision rather than a code one. */
-:is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="live"], [data-s="pass"]) { --chart-solid-ink: var(--state-pass-on); }
-:is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --chart-solid-ink: var(--state-warn-on); }
-:is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --chart-solid-ink: var(--state-fail-on); }
-:is(section.chart-frame, figure.chart-frame) :is([data-s="pilot"], [data-s="decision"], [data-s="info"]) { --chart-solid-ink: var(--state-info-on); }
-:is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --chart-solid-ink: var(--state-mute-on); }
 
 /* THE STATUS MARK (lib/core/status-marks.js): the drawn shape an SVG member inlines on a status mark, stroked in that
  * status's text ink, so it reads with the label beside it. */

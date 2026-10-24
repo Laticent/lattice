@@ -246,13 +246,13 @@ section.state-chart .state-chart-figure[data-sc-drawn="1"] .sc-harness {
  * painted gradient from the same mapping (state-chart.layout.js `STATUS_TONE`), and the
  * key groups words by it (graph-key.js). */
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="on-track"], [data-s="done"])
-  { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); --state-node-ink: var(--state-pass-on); --state-index-ink: var(--state-pass-on); }
+  { --fill-hue: var(--state-pass-hue); --fill-ink: var(--state-pass-ink); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="at-risk"], [data-s="warn"])
-  { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); --state-node-ink: var(--state-warn-on); --state-index-ink: var(--state-warn-on); }
+  { --fill-hue: var(--state-warn-hue); --fill-ink: var(--state-warn-ink); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="blocked"], [data-s="fail"])
-  { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); --state-node-ink: var(--state-fail-on); --state-index-ink: var(--state-fail-on); }
+  { --fill-hue: var(--state-fail-hue); --fill-ink: var(--state-fail-ink); }
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch):is([data-s="live"], [data-s="pilot"], [data-s="decision"])
-  { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); --state-node-ink: var(--state-info-on); --state-index-ink: var(--state-info-on); }
+  { --fill-hue: var(--state-info-hue); --fill-ink: var(--state-info-ink); }
 /* `deferred` takes the neutral hue and is told apart by being HOLLOW and dashed. */
 section.state-chart :is(.state-node, .state-node-row, .state-node-shape, .state-node-accent, .state-label-t, .state-index-t, .fc-key-swatch)[data-s="deferred"]
   { --fill-hue: var(--state-mute-hue); --fill-ink: var(--text-secondary); --state-node-ink: var(--text-heading); --state-index-ink: var(--text-heading); --state-chip-ground: color-mix(in oklab, var(--bg-alt) 60%, transparent); }

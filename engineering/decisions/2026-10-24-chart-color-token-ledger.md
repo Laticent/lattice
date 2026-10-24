@@ -4,7 +4,8 @@ summary: >
   A ledger of the chart color tokens every theme now declares (+16 per brand theme on #2887): the concept each
   belongs to, its job, who reads it, whether pure CSS could derive it, and whether it bears load. Seven concepts
   (ink, solid, intensity, edge, signal, neutral, seed) cover all 21 additions. 17 bear load; on-status repeats
-  on-solid in all 18 themes; info and mute are solver seeds that nothing renders. Status is one concept painted
+  on-solid in all 18 themes and is retired; the a11y children inherit their vivid aliases; info and mute are solver
+  seeds that nothing renders. The edge stays: the slide inks cannot stand in for it. Status is one concept painted
   two ways (charts read the solids, eleven components read the inks), which is the reuse question.
 ---
 
@@ -55,7 +56,7 @@ not plain CSS, so a token whose value is the answer to a contrast bar is not der
 | Token | Concept | Readers | Repeats another token? | Derivable in plain CSS? | Bears load |
 |---|---|---|---|---|---|
 | `--on-solid` | Ink | 1 (chart-family) | no | no | **yes** |
-| `--on-status` | Ink | 14 (chart-family, roadmap) | equals `--on-solid` in 18 of 18 themes, both faces | yes: `var(--on-solid)` | **no** (the hook is worth keeping in the engine, not in every theme file) |
+| `--on-status` | Ink | 14 (chart-family, roadmap) | equals `--on-solid` in 18 of 18 themes, both faces | yes: `var(--on-solid)` | **no**: retired (section 8) |
 | `--chart-neutral` | Neutral | 1 | no | no (solved for contrast) | **yes** |
 | `--info`, `--mute` | Seed | 1 each: base aliases `--status-info`/`--status-mute`, which nothing reads | no | n/a | **not as paint**: the solver reads their hue |
 | `--X-solid` (5) | Solid | 1 each (chart-family) | no | no (solved for contrast) | **yes** |
@@ -98,6 +99,39 @@ today. Adopting it is separate work, one component at a time; the open choice is
 
 ## 7. Open choices (the owner's)
 
-- Which of section 5's trims to take.
+- Whether the slide inks and the edges become one token (section 8, "The edge").
 - Whether `--info`/`--mute` get a paint job or leave the theme files.
 - Whether the non-chart status components move onto the solids (section 6), and in what order.
+
+## 8. What #2887 took (2026-10-24)
+
+**`--on-status` is retired, not aliased.** An engine alias at `:root` (`--on-status: var(--on-solid)`) computes once,
+at `:root`, so it does not follow a later `--on-solid` override on a section: the print band resets `--on-solid` on
+`section.print`, and the alias would have kept the screen value there. Every future override would have walked into
+the same trap. The token never shipped on `main`, so retiring it costs nothing. The chart family declares
+`--chart-solid-ink: var(--on-solid)` once on the frame, and its five private `--state-X-on` hooks and the five rules
+that re-pointed the ink per status are gone too: each resolved to the same color. `chart-one-ink.test.js` now
+asserts the frame declares `--chart-solid-ink` exactly once. The contract goes from 114 to 113.
+
+**The `a11y-*` children inherit their vivid aliases** from `a11y-base`. Both files declare on `:root`, so the alias
+`var(--X-solid)` resolves against the child's own fill. `tools/curate-chart-solids.js` writes the aliases into
+`a11y-base` only, and `solveTheme` leaves them out of a child.
+
+Both changes are pixel-identical: 180 slides (`status-markers` and `chart-finish`, vivid, in `a11y-protanopia`,
+`a11y-tritanopia` and `indaco`, light and dark) render byte for byte the same PNGs before and after.
+
+**The edge.** The plan was to merge the edge into the slide ink (`--state-X-ink: var(--X)`) and retire the five
+`--X-solid-edge` tokens. Measured, the slide inks are not a stand-in. On the dark face every brand theme's `--pass`
+is a neon green (indaco `#a0ff7f`, 14:1, 0.30 OKLab away from its edge, the sage `#689a7a` that matches the pill
+fill); on the light face `--fail` is near-black maroon (indaco `#550014`, 15:1) where the edge is crimson. Swapping
+them puts neon lines beside sage pills. The edge stays, and the real question is the other direction: a deck now
+says "pass" in TEXT in two colors, `--pass` in a KPI or a checklist and `--pass-solid-edge` in a chart. Making
+them one token (the slide inks take the fill-matched edge values, and the edge name retires) changes the status text
+of eleven non-chart components in every brand theme, so it is the owner's call, with section 6.
+
+| Per brand theme | Before #2887 | After |
+|---|---|---|
+| Added | 21 | 20 |
+| Dropped | 5 | 5 |
+| Net | +16 | +15 |
+| Net per `a11y-*` child | +16 | +11 |

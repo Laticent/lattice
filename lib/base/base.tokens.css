@@ -676,10 +676,8 @@
   --mute-solid-edge: light-dark(#4C5157, #7A7F86);
   --warn-solid-signal: light-dark(#F99705, #F69400);
   --fail-solid-signal: light-dark(#FD7468, #FF7E72);
-  /* The ink on a solid: white, on a category, the neutral and a status alike. Two tokens so a palette can still
-   * differ on a status. */
+  /* The ink on a solid: white, on a category, the neutral and a status alike. */
   --on-solid: #FFFFFF;
-  --on-status: #FFFFFF;
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured
@@ -881,7 +879,6 @@
   --print-fail-solid:      #262626;
   --print-info-solid:      #4F4F4F;
   --print-mute-solid:      #545454;
-  --print-on-status:       #FFFFFF;
   --print-signal:          #A0A0A0;
 
   /* Categorical fills → stepped grays; the border + (for series) pattern fills
