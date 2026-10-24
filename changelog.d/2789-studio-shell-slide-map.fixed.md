@@ -1,0 +1,1 @@
+- Studio: with the slide map remembered as on, the pre-paint shell now draws the taller footer (the 88px thumbnail row replaces the pills), so the slide no longer jumps when the app loads. Checked at 1440, 820 and 390 px, and at the Read stop.

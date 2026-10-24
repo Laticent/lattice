@@ -1,0 +1,1 @@
+- Panes: a pane no longer draws its own page number. With page numbers on by default, each pane's one-slide render grew a footer cell holding "1" that printed under every pane; the host slide's footer and number are the only ones now, as the panes design says. Demo: `examples/pane-no-chrome.md`.

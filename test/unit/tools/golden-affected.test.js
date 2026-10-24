@@ -115,6 +115,46 @@ describe('golden-affected — shared changes', () => {
   });
 });
 
+describe('golden-affected — the cap covers decks too', () => {
+  const many = Array.from({ length: 130 }, (_, i) => `examples/d${String(i).padStart(3, '0')}`);
+  const deckPdfs = many.map((d) => `${d}.pdf`);
+  const plan = (changed, { cap = 40, newDeckPdf } = {}) =>
+    affectedGoldens(changed, { galleries: [], deckGoldens: deckPdfs, cap, newDeckPdf });
+  test('130 changed decks render at most the cap and report the rest', async () => {
+    await load();
+    const r = plan(many.map((d) => `${d}.md`));
+    assert.equal(r.decks.length, 40);
+    assert.equal(r.omittedDecks.length, 90);
+    assert.equal(new Set([...r.decks, ...r.omittedDecks]).size, 130);
+  });
+  test('a new deck is rendered first, even when a shared change fills the cap', async () => {
+    await load();
+    const r = affectedGoldens(['lib/core/fit.js', 'examples/new.md', ...many.map((d) => `${d}.md`)], {
+      galleries: GALLERIES, deckGoldens: deckPdfs, cap: 6,
+      newDeckPdf: (md) => (md === 'examples/new.md' ? 'examples/new.pdf' : null),
+    });
+    assert.ok(r.decks.includes('examples/new.pdf'));
+    assert.equal(r.decks.length + r.galleries.length * 2, 6);
+    assert.equal(r.omittedDecks.includes('examples/new.pdf'), false);
+  });
+  test('an edited deck still renders beside a shared change, and does not starve the galleries', async () => {
+    await load();
+    const r = affectedGoldens(['lib/core/fit.js', 'examples/d000.md'], { galleries: GALLERIES, deckGoldens: deckPdfs, cap: 6 });
+    assert.deepEqual(r.decks, ['examples/d000.pdf']);
+    assert.ok(r.galleries.length >= 1);
+    const wide = affectedGoldens(['lib/core/fit.js', ...many.map((d) => `${d}.md`)], { galleries: GALLERIES, deckGoldens: deckPdfs, cap: 6 });
+    assert.ok(wide.galleries.length >= 1, 'edited decks leave room for galleries');
+    assert.ok(wide.decks.length >= 1);
+    assert.ok(wide.decks.length + wide.galleries.length * 2 <= 6);
+  });
+  test('under the cap nothing is omitted', async () => {
+    await load();
+    const r = plan(['examples/d000.md', 'examples/d001.md']);
+    assert.deepEqual(r.decks, ['examples/d000.pdf', 'examples/d001.pdf']);
+    assert.deepEqual(r.omittedDecks, []);
+  });
+});
+
 describe('golden-affected — nothing to render', () => {
   for (const f of [
     'lib/authoring/lint-core.js',
