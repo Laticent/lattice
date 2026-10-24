@@ -7,8 +7,8 @@
  ],
  "entries": {
   "a11y-achromatopsia/dark": {
-   "topVsEmpty": 10.913,
-   "heatmapText": 4.616
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
   },
   "a11y-achromatopsia/light": {
    "topVsEmpty": 8.975,
@@ -19,8 +19,8 @@
    "heatmapText": 4.651
   },
   "a11y-deuteranopia/dark": {
-   "topVsEmpty": 10.913,
-   "heatmapText": 4.616
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
   },
   "a11y-deuteranopia/light": {
    "topVsEmpty": 8.975,
@@ -31,8 +31,8 @@
    "heatmapText": 4.651
   },
   "a11y-protanopia/dark": {
-   "topVsEmpty": 10.913,
-   "heatmapText": 4.616
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
   },
   "a11y-protanopia/light": {
    "topVsEmpty": 8.975,
@@ -43,8 +43,8 @@
    "heatmapText": 4.651
   },
   "a11y-tritanopia/dark": {
-   "topVsEmpty": 10.913,
-   "heatmapText": 4.616
+   "topVsEmpty": 12.767,
+   "heatmapText": 4.659
   },
   "a11y-tritanopia/light": {
    "topVsEmpty": 8.975,
@@ -55,7 +55,7 @@
    "heatmapText": 4.651
   },
   "ardesia-dark/dark": {
-   "topVsEmpty": 5.548,
+   "topVsEmpty": 7.233,
    "heatmapText": 4.655
   },
   "ardesia-dark/light": {
@@ -67,7 +67,7 @@
    "heatmapText": 4.651
   },
   "ardesia/dark": {
-   "topVsEmpty": 5.548,
+   "topVsEmpty": 7.233,
    "heatmapText": 4.655
   },
   "ardesia/light": {
@@ -79,8 +79,8 @@
    "heatmapText": 4.651
   },
   "atelier-dark/dark": {
-   "topVsEmpty": 5.42,
-   "heatmapText": 4.679
+   "topVsEmpty": 7.19,
+   "heatmapText": 4.652
   },
   "atelier-dark/light": {
    "topVsEmpty": 4.358,
@@ -91,8 +91,8 @@
    "heatmapText": 4.651
   },
   "atelier/dark": {
-   "topVsEmpty": 5.42,
-   "heatmapText": 4.679
+   "topVsEmpty": 7.19,
+   "heatmapText": 4.652
   },
   "atelier/light": {
    "topVsEmpty": 4.358,
@@ -103,32 +103,32 @@
    "heatmapText": 4.651
   },
   "brina-dark/dark": {
-   "topVsEmpty": 5.42,
-   "heatmapText": 4.645
+   "topVsEmpty": 6.865,
+   "heatmapText": 4.657
   },
   "brina-dark/light": {
-   "topVsEmpty": 4.739,
-   "heatmapText": 4.653
+   "topVsEmpty": 4.802,
+   "heatmapText": 4.652
   },
   "brina-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "brina/dark": {
-   "topVsEmpty": 5.42,
-   "heatmapText": 4.645
+   "topVsEmpty": 6.865,
+   "heatmapText": 4.657
   },
   "brina/light": {
-   "topVsEmpty": 4.739,
-   "heatmapText": 4.653
+   "topVsEmpty": 4.802,
+   "heatmapText": 4.652
   },
   "brina/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "burgundy-dark/dark": {
-   "topVsEmpty": 5.596,
-   "heatmapText": 4.644
+   "topVsEmpty": 7.492,
+   "heatmapText": 4.608
   },
   "burgundy-dark/light": {
    "topVsEmpty": 5.144,
@@ -139,8 +139,8 @@
    "heatmapText": 4.651
   },
   "burgundy/dark": {
-   "topVsEmpty": 5.596,
-   "heatmapText": 4.644
+   "topVsEmpty": 7.492,
+   "heatmapText": 4.608
   },
   "burgundy/light": {
    "topVsEmpty": 5.144,
@@ -151,32 +151,32 @@
    "heatmapText": 4.651
   },
   "carbone-dark/dark": {
-   "topVsEmpty": 6.094,
-   "heatmapText": 4.651
+   "topVsEmpty": 6.414,
+   "heatmapText": 4.607
   },
   "carbone-dark/light": {
-   "topVsEmpty": 4.691,
-   "heatmapText": 4.657
+   "topVsEmpty": 6.529,
+   "heatmapText": 4.664
   },
   "carbone-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "carbone/dark": {
-   "topVsEmpty": 6.094,
-   "heatmapText": 4.651
+   "topVsEmpty": 6.414,
+   "heatmapText": 4.607
   },
   "carbone/light": {
-   "topVsEmpty": 4.691,
-   "heatmapText": 4.657
+   "topVsEmpty": 6.529,
+   "heatmapText": 4.664
   },
   "carbone/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "carta-dark/dark": {
-   "topVsEmpty": 5.316,
-   "heatmapText": 4.668
+   "topVsEmpty": 6.367,
+   "heatmapText": 4.622
   },
   "carta-dark/light": {
    "topVsEmpty": 4.675,
@@ -187,8 +187,8 @@
    "heatmapText": 4.651
   },
   "carta/dark": {
-   "topVsEmpty": 5.316,
-   "heatmapText": 4.668
+   "topVsEmpty": 6.367,
+   "heatmapText": 4.622
   },
   "carta/light": {
    "topVsEmpty": 4.675,
@@ -199,8 +199,8 @@
    "heatmapText": 4.651
   },
   "concrete-dark/dark": {
-   "topVsEmpty": 5.341,
-   "heatmapText": 4.66
+   "topVsEmpty": 6.336,
+   "heatmapText": 4.665
   },
   "concrete-dark/light": {
    "topVsEmpty": 3.17,
@@ -211,8 +211,8 @@
    "heatmapText": 4.651
   },
   "concrete/dark": {
-   "topVsEmpty": 5.341,
-   "heatmapText": 4.66
+   "topVsEmpty": 6.336,
+   "heatmapText": 4.665
   },
   "concrete/light": {
    "topVsEmpty": 3.17,
@@ -223,8 +223,8 @@
    "heatmapText": 4.651
   },
   "crepuscolo-dark/dark": {
-   "topVsEmpty": 5.337,
-   "heatmapText": 4.654
+   "topVsEmpty": 6.633,
+   "heatmapText": 4.653
   },
   "crepuscolo-dark/light": {
    "topVsEmpty": 5.599,
@@ -235,8 +235,8 @@
    "heatmapText": 4.651
   },
   "crepuscolo/dark": {
-   "topVsEmpty": 5.337,
-   "heatmapText": 4.654
+   "topVsEmpty": 6.633,
+   "heatmapText": 4.653
   },
   "crepuscolo/light": {
    "topVsEmpty": 5.599,
@@ -247,8 +247,8 @@
    "heatmapText": 4.651
   },
   "cuoio-dark/dark": {
-   "topVsEmpty": 5.206,
-   "heatmapText": 4.651
+   "topVsEmpty": 6.717,
+   "heatmapText": 4.607
   },
   "cuoio-dark/light": {
    "topVsEmpty": 4.779,
@@ -259,8 +259,8 @@
    "heatmapText": 4.651
   },
   "cuoio/dark": {
-   "topVsEmpty": 5.206,
-   "heatmapText": 4.651
+   "topVsEmpty": 6.717,
+   "heatmapText": 4.607
   },
   "cuoio/light": {
    "topVsEmpty": 4.779,
@@ -271,7 +271,7 @@
    "heatmapText": 4.651
   },
   "indaco-dark/dark": {
-   "topVsEmpty": 5.324,
+   "topVsEmpty": 6.318,
    "heatmapText": 4.652
   },
   "indaco-dark/light": {
@@ -283,7 +283,7 @@
    "heatmapText": 4.651
   },
   "indaco/dark": {
-   "topVsEmpty": 5.324,
+   "topVsEmpty": 6.318,
    "heatmapText": 4.652
   },
   "indaco/light": {
@@ -295,32 +295,32 @@
    "heatmapText": 4.651
   },
   "laguna-dark/dark": {
-   "topVsEmpty": 5.283,
-   "heatmapText": 4.598
+   "topVsEmpty": 6.751,
+   "heatmapText": 4.607
   },
   "laguna-dark/light": {
-   "topVsEmpty": 4.644,
-   "heatmapText": 4.662
+   "topVsEmpty": 4.714,
+   "heatmapText": 4.65
   },
   "laguna-dark/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "laguna/dark": {
-   "topVsEmpty": 5.283,
-   "heatmapText": 4.598
+   "topVsEmpty": 6.751,
+   "heatmapText": 4.607
   },
   "laguna/light": {
-   "topVsEmpty": 4.644,
-   "heatmapText": 4.662
+   "topVsEmpty": 4.714,
+   "heatmapText": 4.65
   },
   "laguna/print": {
    "topVsEmpty": 8.438,
    "heatmapText": 4.651
   },
   "magnolia-dark/dark": {
-   "topVsEmpty": 5.251,
-   "heatmapText": 4.655
+   "topVsEmpty": 7.153,
+   "heatmapText": 4.621
   },
   "magnolia-dark/light": {
    "topVsEmpty": 5.467,
@@ -331,8 +331,8 @@
    "heatmapText": 4.651
   },
   "magnolia/dark": {
-   "topVsEmpty": 5.251,
-   "heatmapText": 4.655
+   "topVsEmpty": 7.153,
+   "heatmapText": 4.621
   },
   "magnolia/light": {
    "topVsEmpty": 5.467,
@@ -343,8 +343,8 @@
    "heatmapText": 4.651
   },
   "mustard-dark/dark": {
-   "topVsEmpty": 5.476,
-   "heatmapText": 4.641
+   "topVsEmpty": 7.52,
+   "heatmapText": 4.657
   },
   "mustard-dark/light": {
    "topVsEmpty": 4.399,
@@ -355,8 +355,8 @@
    "heatmapText": 4.651
   },
   "mustard/dark": {
-   "topVsEmpty": 5.476,
-   "heatmapText": 4.641
+   "topVsEmpty": 7.52,
+   "heatmapText": 4.657
   },
   "mustard/light": {
    "topVsEmpty": 4.399,
@@ -367,8 +367,8 @@
    "heatmapText": 4.651
   },
   "onyx-dark/dark": {
-   "topVsEmpty": 5.765,
-   "heatmapText": 4.635
+   "topVsEmpty": 8.525,
+   "heatmapText": 4.603
   },
   "onyx-dark/light": {
    "topVsEmpty": 4.823,
@@ -379,8 +379,8 @@
    "heatmapText": 4.651
   },
   "onyx/dark": {
-   "topVsEmpty": 5.765,
-   "heatmapText": 4.635
+   "topVsEmpty": 8.525,
+   "heatmapText": 4.603
   },
   "onyx/light": {
    "topVsEmpty": 4.823,
