@@ -2,12 +2,12 @@
 	"bar.light": {
 		"src": "lib/components/chart/bar/bar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "c83f1bdf249d2484c202fe29cf5475c5f9f5f1334aa5fee62e9679eff4a2aa73"
+		"srcSha256": "a197d0806353c6278fba3a1d47e642ca97363c83286ebe1c8a544b4fbb0a09f7"
 	},
 	"bar.dark": {
 		"src": "lib/components/chart/bar/bar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "120ce93d950655d5d0ca1decb5e36a51c465ce14ca1de4f8efabdd530008add0"
+		"srcSha256": "795329bbe0f75db59df6126176c179492af9b8feea917537257330214d50da12"
 	},
 	"big-number.light": {
 		"src": "lib/components/statement/big-number/big-number.gallery.light.pdf",
@@ -52,22 +52,22 @@
 	"diagram.light": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.light.pdf",
 		"page": 4,
-		"srcSha256": "6a1ec26ce1332104b8cb6e6977706c24129d5c81991cf272a3753b08410a7da5"
+		"srcSha256": "776f2bf7d22b1944ffe0b6b62e1876baf01b7afcc73cd13fbc093a8f351b2c87"
 	},
 	"diagram.dark": {
 		"src": "lib/components/diagram/diagram/diagram.gallery.dark.pdf",
 		"page": 4,
-		"srcSha256": "30d4994c949b03cc3d687f3d2c01fc2a2d3c188f3af94af2cae2dfbca5cf2fa6"
+		"srcSha256": "4dfbaa383943cc0678b5cfca8000e297f6ed0ade543f34818a70ed0c9a848001"
 	},
 	"divider.light": {
 		"src": "lib/components/anchor/divider/divider.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "41e21ae4c9dbb0f0d42ab63f577d35fdab51c3548210043bd932d954815e42f1"
+		"srcSha256": "fabc18677943bcc709e08bbf707a337dda9201a928d9b2610deefd65a7acd77c"
 	},
 	"divider.dark": {
 		"src": "lib/components/anchor/divider/divider.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "971eacc5b2a7f0894ed43f9514f23c03b174c60199837ab1f25ed883145ca298"
+		"srcSha256": "3b59db75d1955de9f18d44395b074ec20b4da85f5ff568d6ba32adb276d4a2f5"
 	},
 	"funnel.light": {
 		"src": "lib/components/chart/funnel/funnel.gallery.light.pdf",
@@ -82,12 +82,12 @@
 	"image.light": {
 		"src": "lib/components/imagery/image/image.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "180176d6d45e0e2df5aaa03fb7cd86b3070fef345dd2a7b0b344a36d564e8537"
+		"srcSha256": "b92c0cfa413ae8e603f5f35c7b3b0e8caf56fe77a2604dadc72967687b1ae9ed"
 	},
 	"image.dark": {
 		"src": "lib/components/imagery/image/image.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "01bf49932ef65df77af49e9f435308f2e8b3bd05d1c2673d8fc7e42b0a5f47d3"
+		"srcSha256": "e1897162872c4249666edb8ae68b75bfab75a49b0d83a2fccf8439548e5ca245"
 	},
 	"inventory.light": {
 		"src": "lib/components/inventory/inventory/inventory.gallery.light.pdf",
@@ -102,12 +102,12 @@
 	"kpi.light": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "96ef990f1b635804696c18b0523deb600b49058940cdbea67029658aa52683d1"
+		"srcSha256": "5edc4c26f4822f1daabb353d5e1d21368f23397e563709b7cfc59a186b12f501"
 	},
 	"kpi.dark": {
 		"src": "lib/components/evidence/kpi/kpi.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "7a0dd7465dee219ca5d0ae5b9fc84b8d64e82437cd5f38e9a7c4f3a2d2ec079d"
+		"srcSha256": "733a3bc0e684a5e038e698261d4b740508e554f53ef29a6d6a2e29e181d676f6"
 	},
 	"pricing.light": {
 		"src": "lib/components/comparison/pricing/pricing.gallery.light.pdf",
@@ -132,12 +132,12 @@
 	"radar.light": {
 		"src": "lib/components/chart/radar/radar.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "256b60abbd9654f0cda82a787b0240d67bdc0945854ba7e210d96c8eb28d8f14"
+		"srcSha256": "36a629845c10294451988d4c75a6f607a2ad2a756460475e218e4b48fb6d8b86"
 	},
 	"radar.dark": {
 		"src": "lib/components/chart/radar/radar.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "af89ce547e9a934e703b6dc5afc7c0a3b53799e0b96e2bf576ce75c98510c4c1"
+		"srcSha256": "1f03aed52f4c26028480e5fbc1afc003054337caf4414c04a3fc0f19a45dc11b"
 	},
 	"roadmap.light": {
 		"src": "lib/components/chart/roadmap/roadmap.gallery.light.pdf",
@@ -172,11 +172,11 @@
 	"waterfall.light": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.light.pdf",
 		"page": 2,
-		"srcSha256": "66f4424d8ef455b6453a28e90c37472760023f77b74694c3dd51f13141c6054e"
+		"srcSha256": "c18bea9049a372124feeffc361c21d59f43f5027a98301b8efd3067919370bee"
 	},
 	"waterfall.dark": {
 		"src": "lib/components/chart/waterfall/waterfall.gallery.dark.pdf",
 		"page": 2,
-		"srcSha256": "45a79db79d7951403d88347e13c44101602f9d527d5506e355a91ba6371e30ce"
+		"srcSha256": "3f43f28ba5667c7d41b3579090864816b7a8c6063c2a3174a67742cb2f364072"
 	}
 }
