@@ -135,7 +135,7 @@ async function settleFonts(page) {
   });
 }
 
-/** Browser-side: WCAG contrast of every HEADING vs its nearest opaque background.
+/** Browser-side: WCAG contrast of every HEADING against its composited background.
  *  Returns the worst (lowest) ratio, or null if the slide has no heading. NOTE:
  *  headings only — body-text contrast (and palette-token resolution) are phase-2
  *  (see decision §0). Headings are the highest contrast-risk surface. */
@@ -147,10 +147,14 @@ function worstHeadingContrast(slideSelector) {
   // notably big-number's giant figure (a styled <li>) — are not contrast-checked.
   const heads = [...sec.querySelectorAll('h1, h2, h3, blockquote')];
   if (!heads.length) return null;
-  const toRgb = (c) => {
+  const toRgba = (c) => {
     const cv = document.createElement('canvas'); cv.width = cv.height = 1;
     const ctx = cv.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1);
-    const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
+    return [...ctx.getImageData(0, 0, 1, 1).data];
+  };
+  const composite = (fg, bg) => {
+    const a = fg[3] / 255;
+    return [0, 1, 2].map((i) => Math.round(fg[i] * a + bg[i] * (1 - a))).concat(255);
   };
   const lum = ([r, g, b]) => {
     const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -159,14 +163,12 @@ function worstHeadingContrast(slideSelector) {
   let worst = Infinity;
   for (const h of heads) {
     if (!h.textContent.trim()) continue;
-    let el = h, bg = null;
-    while (el) {
-      const b = getComputedStyle(el).backgroundColor;
-      if (b && b !== 'transparent' && !/^rgba\(0, 0, 0, 0\)/.test(b)) { bg = b; break; }
-      el = el.parentElement;
-    }
-    const l1 = lum(toRgb(getComputedStyle(h).color));
-    const l2 = lum(toRgb(bg || 'rgb(255,255,255)'));
+    const ancestors = [];
+    for (let el = h; el; el = el.parentElement) ancestors.push(el);
+    let bg = [255, 255, 255, 255];
+    for (const el of ancestors.reverse()) bg = composite(toRgba(getComputedStyle(el).backgroundColor), bg);
+    const l1 = lum(composite(toRgba(getComputedStyle(h).color), bg));
+    const l2 = lum(bg);
     worst = Math.min(worst, (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05));
   }
   return Number.isFinite(worst) ? worst : null;
