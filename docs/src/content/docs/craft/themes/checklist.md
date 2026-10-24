@@ -31,7 +31,7 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--cat-N-ink` | 12 | generated, not hand-picked |
 | `--chart-cat1…8`, `--chart-neutral` | 9 | the chart family's own palette |
 | `--info`, `--mute`, `--on-solid` | 3 | the status colors beyond pass/warn/fail, and the one ink on every chart fill |
-| `--pass-solid` … `--mute-solid`, their `-vivid` twins, `--pass-solid-edge` … `--mute-solid-edge`, `--warn-solid-signal`, `--fail-solid-signal` | 16 | the deep status fills in both intensities, each status's edge, and the two exceptions' signal rings (run `node tools/curate-chart-solids.js` rather than picking them) |
+| `--pass-solid` … `--mute-solid`, their `-vivid` twins, `--warn-solid-signal`, `--fail-solid-signal` | 11 | the deep status fills in both intensities, and the two exceptions' signal rings (run `node tools/curate-chart-solids.js` rather than picking them) |
 | `--diagram-*` | several | stroke, line, lifecycle, alarm |
 | `--scheme-dark-*` | 10 | the dark inputs your pairs read |
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |

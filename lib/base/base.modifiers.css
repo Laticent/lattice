@@ -1050,16 +1050,11 @@ section.print {
   --pass-solid-vivid: var(--print-pass-solid);
   --warn-solid-vivid: var(--print-warn-solid);
   --fail-solid-vivid: var(--print-fail-solid);
-  --pass-solid-edge: var(--print-pass);
-  --warn-solid-edge: var(--print-warn);
-  --fail-solid-edge: var(--print-fail);
   --warn-solid-signal: var(--print-signal);
   --fail-solid-signal: var(--print-signal);
   --info-solid: var(--print-info-solid);
   --info-solid-vivid: var(--print-info-solid);
   --mute-solid: var(--print-mute-solid);
-  --info-solid-edge: var(--print-info);
-  --mute-solid-edge: var(--print-mute);
   --chart-neutral: var(--print-mute);
   --seq-500: var(--print-seq-500);
   /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp

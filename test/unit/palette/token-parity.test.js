@@ -63,11 +63,10 @@ const CONTRACT = [
   'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral',
   // the status inks beyond the trio, and the one ink on every chart fill
   'info', 'mute', 'on-solid',
-  // the status FILLS in both intensities, each status's EDGE, and the two exceptions' SIGNAL rings
+  // the status FILLS in both intensities and the two exceptions' SIGNAL rings
   // (base.tokens.css § STATUS, IN TWO JOBS)
   'pass-solid', 'warn-solid', 'fail-solid', 'info-solid', 'mute-solid',
   'pass-solid-vivid', 'warn-solid-vivid', 'fail-solid-vivid', 'info-solid-vivid',
-  'pass-solid-edge', 'warn-solid-edge', 'fail-solid-edge', 'info-solid-edge', 'mute-solid-edge',
   'warn-solid-signal', 'fail-solid-signal',
 ];
 

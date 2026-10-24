@@ -10,8 +10,8 @@
  *                           still clears, so it can stand off the dark slide (an `a11y-*` palette's dark face is
  *                           bright under a near-black ink, at 7:1, chart-one-ink.test.js).
  *   2. a solid on the slide >= 3:1 against `--bg` (WCAG 1.4.11, a graphical object), by itself: no rim rescues it.
- *   3. the edge as ink      a status edge (`--X-solid-edge`) is the status's LINE and TEXT, so it clears 4.5:1 off the
- *                           slide on both faces.
+ *   3. a status as ink      a status LINE or TEXT paints the slide ink `--pass` … `--mute`, so it clears 4.5:1 off the
+ *                           slide on both faces (cvd-trio-floor.test.js holds the trio apart for the colorblind floors).
  *
  * That the two inks are one, that the chart family wires each kind to it, and the signal rings, are
  * chart-one-ink.test.js (a flat parse of the stylesheet sees only the last `--chart-solid-ink`, so the inks are read as
@@ -28,7 +28,7 @@ const THEMES = [...baseThemeNames(), 'a11y-achromatopsia', 'a11y-deuteranopia', 
 const TEXT = 7;
 const MARK = 3;
 const DARK = 4.5;
-const EDGE_TEXT = 4.5;
+const INK_TEXT = 4.5;
 /**
  * Each INTENSITY of `chart-finish:` names its own fills (base.tokens.css § STATUS, IN TWO JOBS), so the status rows
  * read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule remaps on a slide,
@@ -36,8 +36,8 @@ const EDGE_TEXT = 4.5;
  */
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 const INTENSITIES = {
-  muted: (s) => ({ t: `${s}-solid`, ink: 'on-solid', edge: `${s}-solid-edge`, status: true }),
-  vivid: (s) => ({ t: s === 'mute' ? 'mute-solid' : `${s}-solid-vivid`, ink: 'on-solid', edge: `${s}-solid-edge`, status: true }),
+  muted: (s) => ({ t: `${s}-solid`, ink: 'on-solid' }),
+  vivid: (s) => ({ t: s === 'mute' ? 'mute-solid' : `${s}-solid-vivid`, ink: 'on-solid' }),
 };
 const SOLIDS = (intensity) => [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'on-solid' })),
@@ -53,18 +53,20 @@ describe('chart solids: text on every solid clears its bar, and every solid has 
         const bg = resolve('var(--bg)', vars, mode);
         assert.ok(bg, 'the canvas resolves');
         const bad = [];
-        for (const { t, ink: inkTok, edge, status } of SOLIDS(intensity)) {
+        for (const { t, ink: inkTok } of SOLIDS(intensity)) {
           const c = resolve(`var(--${t})`, vars, mode);
           const ink = resolve(`var(--${inkTok})`, vars, mode);
           if (!c || !ink) { bad.push(`--${t} or its ink --${inkTok} did not resolve`); continue; }
           const text = contrast(c, ink);
           const bar = mode === 'dark' ? DARK : TEXT;
           if (text < bar) bad.push(`--${t}: text ${text.toFixed(2)}:1 (bar ${bar})`);
-          const e = edge && resolve(`var(--${edge})`, vars, mode);
-          if (edge && !e) { bad.push(`--${edge} did not resolve`); continue; }
           const mark = contrast(c, bg);
           if (mark < MARK) bad.push(`--${t}: against the slide ${mark.toFixed(2)}:1`);
-          if (status && contrast(e, bg) < EDGE_TEXT) bad.push(`--${edge}: as ink ${contrast(e, bg).toFixed(2)}:1 (bar ${EDGE_TEXT})`);
+        }
+        for (const s of STATUS) {
+          const ink = resolve(`var(--${s})`, vars, mode);
+          if (!ink) bad.push(`--${s} did not resolve`);
+          else if (contrast(ink, bg) < INK_TEXT) bad.push(`--${s}: as text ${contrast(ink, bg).toFixed(2)}:1 (bar ${INK_TEXT})`);
         }
         assert.deepEqual(bad, []);
       });

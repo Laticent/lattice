@@ -1,12 +1,13 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   A ledger of the chart color tokens every theme now declares (+16 per brand theme on #2887): the concept each
   belongs to, its job, who reads it, whether pure CSS could derive it, and whether it bears load. Seven concepts
   (ink, solid, intensity, edge, signal, neutral, seed) cover all 21 additions. 17 bear load; on-status repeats
-  on-solid in all 18 themes and is retired; the a11y children inherit their vivid aliases; info and mute are solver
-  seeds that nothing renders. The edge stays: the slide inks cannot stand in for it. Status is one concept painted
-  two ways (charts read the solids, eleven components read the inks), which is the reuse question.
+  on-solid in all 18 themes and is retired; the a11y children inherit their vivid aliases; the five edges retire,
+  because charts now paint a status line or text in the slide ink (`--pass` … `--mute`), which also gives info and
+  mute a paint job. Net per brand theme: +10, every one load-bearing. Status is still one concept painted two ways
+  for a FILL (charts read the solids, eleven components mix their own tints), which is the reuse question.
 ---
 
 # The chart color tokens: what each is for, and which bear load (2026-10-24)
@@ -38,14 +39,14 @@ theme fills it in.
 | **Ink** | the one text color on every chart fill, per slide | `--on-solid`, `--on-status` | white on brand themes; near-black on an `a11y-*` dark face |
 | **Solid** | a concept's one flat fill: a category, a status, or neither | `--chart-catN` (already declared), `--X-solid`, `--chart-neutral` | the ink clears 7:1 light, 4.6:1 dark; 3:1 off the slide |
 | **Intensity** | how loud the status fills are, picked per deck | `--X-solid-vivid` | the same bars as the solid |
-| **Edge** | a status drawn as a LINE or TEXT (a slope, a waterfall step, a kanban header) | `--X-solid-edge` | 4.5:1 off the slide |
+| **Edge** (retired, section 8) | a status drawn as a LINE or TEXT (a slope, a waterfall step, a kanban header) | was `--X-solid-edge`; now the slide ink `--X` | 4.5:1 off the slide |
 | **Signal** | the ring that marks an exception, and only an exception | `--warn-solid-signal`, `--fail-solid-signal` | 3:1 against the neighbor opposite it in lightness |
 | **Neutral** | the solid for a mark with no category and no status | `--chart-neutral` | as a solid |
 | **Seed** | an input the solver reads a hue from, not a color anything paints | `--info`, `--mute` | none of its own |
 
 How a component uses them: a mark that shows a status paints its **solid**, writes its label in the **ink**,
 draws its shape (`lib/core/status-marks.js`), and, if it is an exception, wears the **signal** inside its edge. A
-status that is a line or text paints the **edge**. A deck picks the **intensity**.
+status that is a line or text paints its slide **ink** (`--X`). A deck picks the **intensity**.
 
 ## 4. The ledger
 
@@ -61,7 +62,7 @@ not plain CSS, so a token whose value is the answer to a contrast bar is not der
 | `--info`, `--mute` | Seed | 1 each: base aliases `--status-info`/`--status-mute`, which nothing reads | no | n/a | **not as paint**: the solver reads their hue |
 | `--X-solid` (5) | Solid | 1 each (chart-family) | no | no (solved for contrast) | **yes** |
 | `--X-solid-vivid` (4) | Intensity | 1 each; fail also 3 in risk-matrix | equals muted on the light face in 36 of 72 (16 of them the a11y aliases; the rest a gamut ceiling) | only with relative color syntax (`oklch(from …)`), which keeps neither contrast nor gamut and failed the finish gates once already | **yes** |
-| `--X-solid-edge` (5) | Edge | 1 each | equals its fill on the light face in 68 of 90; on the dark face only in the 18 a11y bright fills | no: the dark arm is a lifted tone solved off the slide | **yes** |
+| `--X-solid-edge` (5) | Edge | 1 each | equals its fill on the light face in 68 of 90; on the dark face only in the 18 a11y bright fills | no: the dark arm is a lifted tone solved off the slide | **retired**: the slide ink does the job and clears the colorblind floor (section 8) |
 | `--warn/fail-solid-signal` | Signal | 1 each | no | no | **yes** |
 | `--on-solid-shade` (a11y-base only) | Ink | 4 | no | no | **yes** |
 
@@ -99,7 +100,6 @@ today. Adopting it is separate work, one component at a time; the open choice is
 
 ## 7. Open choices (the owner's)
 
-- Whether the slide inks and the edges become one token (section 8, "The edge").
 - Whether `--info`/`--mute` get a paint job or leave the theme files.
 - Whether the non-chart status components move onto the solids (section 6), and in what order.
 
@@ -120,18 +120,28 @@ asserts the frame declares `--chart-solid-ink` exactly once. The contract goes f
 Both changes are pixel-identical: 180 slides (`status-markers` and `chart-finish`, vivid, in `a11y-protanopia`,
 `a11y-tritanopia` and `indaco`, light and dark) render byte for byte the same PNGs before and after.
 
-**The edge.** The plan was to merge the edge into the slide ink (`--state-X-ink: var(--X)`) and retire the five
-`--X-solid-edge` tokens. Measured, the slide inks are not a stand-in. On the dark face every brand theme's `--pass`
-is a neon green (indaco `#a0ff7f`, 14:1, 0.30 OKLab away from its edge, the sage `#689a7a` that matches the pill
-fill); on the light face `--fail` is near-black maroon (indaco `#550014`, 15:1) where the edge is crimson. Swapping
-them puts neon lines beside sage pills. The edge stays, and the real question is the other direction: a deck now
-says "pass" in TEXT in two colors, `--pass` in a KPI or a checklist and `--pass-solid-edge` in a chart. Making
-them one token (the slide inks take the fill-matched edge values, and the edge name retires) changes the status text
-of eleven non-chart components in every brand theme, so it is the owner's call, with section 6.
+**The edge retires; a status line or text paints the slide ink.** The first plan ran the other way, and was
+measured before it was built. The slide inks are not a drop-in for the edges by eye: on the dark face every brand
+theme's `--pass` is a bright green (indaco `#a0ff7f`, 14:1) where the edge was a sage matched to the pill fill
+(`#689a7a`). But making the EDGES the one status color fails the colorblind floor: solved to one contrast (4.6:1
+off the slide), the three edges share one lightness, so on the dark face every pair is 0.000 apart under
+achromatopsia, and 568 of 672 brand-theme pairs (theme, face, pair, deficiency) fall below the
+`cvd-trio-floor.test.js` floors, against 142 for the slide inks. The slide inks were spread in lightness for exactly
+that reason (`2026-08-24-status-trio-monochromacy-respacing.md`). So the owner's "one color" is the slide ink: the
+chart family's `--state-X-ink` reads `--X`, the five edges leave the contract, the themes, the base, the print band,
+the solver and the Studio, and a deck says each status in one text color. Main's chart status colors were no better
+off (54 of 96 pairs under the floor, worst 0.000); this is the first time a chart's status lines clear it.
 
-| Per brand theme | Before #2887 | After |
-|---|---|---|
-| Added | 21 | 20 |
-| Dropped | 5 | 5 |
-| Net | +16 | +15 |
-| Net per `a11y-*` child | +16 | +11 |
+What moves on a slide: a status line or status text in a chart (a kanban column header and its rule, a gantt bar's
+rim, a slope, a waterfall step, a progress fill). Fills, pills, marks and rings do not move. The bar the edge held,
+4.5:1 off the slide, moves onto the slide inks in `chart-solids.test.js`, so no coverage is lost.
+
+| Per theme | Added | Dropped | Net |
+|---|---|---|---|
+| Brand, as #2887 first shipped | 21 | 5 | +16 |
+| Brand, now | 15 | 5 | +10 |
+| `a11y-*` child, now | | | +6 |
+
+The contract goes from 114 to 108. What a brand theme adds now, by concept: Ink `--on-solid`; Neutral
+`--chart-neutral`; Seed and ink `--info`, `--mute` (charts paint them as status lines and text); Solid
+`--X-solid` (5); Intensity `--X-solid-vivid` (4); Signal `--warn-solid-signal`, `--fail-solid-signal`.

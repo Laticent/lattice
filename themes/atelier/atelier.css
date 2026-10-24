@@ -106,9 +106,8 @@
   --fail: light-dark(#4d0003, #ffaba8);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
    * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
-   * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. Each status
-   * also has an EDGE in its own hue, 4.6:1 off the slide, for a status line or text, and the two exceptions a SIGNAL
-   * ring in the bright classic hue. The hues are this theme's own status inks, leaning toward its accent; the a11y
+   * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
+   * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
   --pass-solid: light-dark(#2B4832, #496750);
   --warn-solid: light-dark(#824B0D, #A16831);
@@ -118,14 +117,9 @@
   --fail-solid-vivid: light-dark(#9E000D, #C5302D);
   --warn-solid-signal: light-dark(#EF9C40, #EB983B);
   --fail-solid-signal: light-dark(#F17D72, #EE7B6F);
-  --pass-solid-edge: light-dark(#26492F, #709679);
-  --warn-solid-edge: light-dark(#824B0D, #BB804A);
-  --fail-solid-edge: light-dark(#971A1A, #E3655A);
   --info-solid: light-dark(#265E7C, #447B9A);
   --info-solid-vivid: light-dark(#005E85, #1A7CAA);
-  --info-solid-edge: light-dark(#265E7C, #5B93B2);
   --mute-solid: light-dark(#564E52, #70676B);
-  --mute-solid-edge: light-dark(#564E52, #948A8E);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);

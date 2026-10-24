@@ -83,7 +83,7 @@ function checklistBlock(name) {
  *   6. Chart palette     — --chart-cat1..--chart-cat8 and --chart-neutral (deep
  *                          fills under white --on-solid), the deep status fills
  *                          --pass-solid … --mute-solid with their -vivid twins,
- *                          --X-solid-edge and the --warn/--fail-solid-signal
+ *                          the --warn/--fail-solid-signal
  *                          rings, all under the same --on-solid. Solve them
  *                          with node tools/curate-chart-solids.js. Verify
  *                          distinguishability with:
