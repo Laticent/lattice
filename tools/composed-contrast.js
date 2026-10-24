@@ -186,8 +186,8 @@ const REGRESSION_EPSILON = 0.01;
  * slide. `requires` pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of
  * them reddens the gate instead of silently re-pointing what is measured. */
 const TRIO_STATES = ['pass', 'warn', 'fail'];
-const solidInk = () => '--on-status';
-const solidMinDark = () => 4.5;
+const SOLID_INK = '--on-status';
+const SOLID_MIN_DARK = 4.5;
 
 function pillStop(state) {
   return {
@@ -195,15 +195,15 @@ function pillStop(state) {
     ctx: `chart-family .chart-status[${state}]: the status ink on the pill's flat fill`,
     base: '--bg',
     groups: [{ bg: `var(--${state}-solid)` }],
-    ink: solidInk(state),
+    ink: SOLID_INK,
     min: 7,
-    minDark: solidMinDark(state),
+    minDark: SOLID_MIN_DARK,
     src: CHARTFAMILY,
     requires: [
       /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
       new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`),
-      new RegExp(`--state-${state}-on: var\\(${solidInk(state)}\\)`),
+      new RegExp(`--state-${state}-on: var\\(${SOLID_INK}\\)`),
     ],
   };
 }
@@ -223,9 +223,9 @@ function stateChartNode(state) {
     ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat fill`,
     base: '--bg',
     groups: [{ bg: `var(--${state}-solid)` }],
-    ink: solidInk(state),
+    ink: SOLID_INK,
     min: 7,
-    minDark: solidMinDark(state),
+    minDark: SOLID_MIN_DARK,
     src: STATECHART,
     requires: [
       /--state-node-ink: var\(--chart-solid-ink\)/,
