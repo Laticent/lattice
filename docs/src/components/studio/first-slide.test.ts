@@ -64,4 +64,24 @@ describe('first-slide', () => {
 		await vi.advanceTimersByTimeAsync(5000);
 		expect(fn).not.toHaveBeenCalled();
 	});
+
+	it('useFirstSlideShown is false until the slide is marked, then true', async () => {
+		const m = await fresh();
+		const { renderHook, act } = await import('@testing-library/react');
+		const { result } = renderHook(() => m.useFirstSlideShown());
+		expect(result.current).toBe(false);
+		await act(async () => {
+			m.markFirstSlideShown();
+			await Promise.resolve();
+		});
+		expect(result.current).toBe(true);
+	});
+
+	it('useFirstSlideShown starts true when the slide was already shown', async () => {
+		const m = await fresh();
+		m.markFirstSlideShown();
+		const { renderHook } = await import('@testing-library/react');
+		const { result } = renderHook(() => m.useFirstSlideShown());
+		expect(result.current).toBe(true);
+	});
 });

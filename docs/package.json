@@ -29,6 +29,8 @@
     "perf:frame:bless": "node scripts/frame-bench.mjs --bless",
     "perf:frame:check": "node scripts/frame-bench.mjs --check",
     "perf:first-paint": "node scripts/first-paint-bench.mjs",
+    "perf:startup": "node scripts/startup-bench.mjs",
+    "preview:h2": "node scripts/serve-h2.mjs",
     "perf:fouc": "node scripts/fouc-bench.mjs",
     "bench:flash": "node scripts/diagram-flash-bench.mjs",
     "perf:handoff": "node scripts/handoff-bench.mjs",

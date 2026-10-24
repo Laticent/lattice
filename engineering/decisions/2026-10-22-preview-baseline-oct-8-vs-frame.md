@@ -46,6 +46,35 @@ Run-to-run noise on this machine is about ±15 ms; read the frame counts first.
 A keystroke inside a diagram label measured about 300 ms in page and 350 ms through the frame earlier in
 #2822 (flat in the number of diagrams).
 
+## The Playground column (2026-10-23)
+
+`diagram-flash-bench.mjs --surface playground`, the same machine and build as the Studio rows, 5 runs per arm, Chromium,
+frame on. The Playground shows the whole deck in one scrolling frame, so its edit arms use a one-diagram deck (with two
+diagrams, the sampler's "first SVG" flips to the other diagram while the edited one redraws and scored 13 wrong frames that
+were not wrong). The rail arms (`nav`, `type`) are the Studio's.
+
+| Arm | Studio | Playground, as found | Playground, fixed |
+|---|---|---|---|
+| `edit`, warm: source / blank frames | 0 / 0 | 0 / **11** | 0 / 0 |
+| `edit`, warm: held frames | 13 | **0** | 11 |
+| `edit`, warm: diagram repaints in | 211 ms | 215 ms | 201 ms |
+| `edit-burst`, warm: blank / held frames | 0 / 71 | **59** / 0 | 0 / 64 |
+| `edit-burst`, warm: diagram repaints in | 1180 ms | 1095 ms | 1091 ms |
+| `mount`: reload to `.lattice` in the DOM | 977 ms | 1004 ms | |
+| `mount`: reload to preview revealed | 1087 ms | 1105 ms | |
+| Mermaid fetched into the page, any run | 0 of 5 | 0 of 5 | |
+| wrong ink, layout shift | 0 | 0 | 0 |
+
+**One gap, found and fixed.** The Playground did not hold the previous diagram on an edit: the slot was empty for about 11
+frames per keystroke and for 59 of the burst's frames. Cause, traced with the runtime's own guards logged: the host stamps
+the swap `in-place` and the runtime moves the old SVG into the new slot, but only when the old and new sections have the
+same diagram scope key, and that key reads the section's class list. The Playground marks the slide in focus with
+`db-active` (`reading-page.ts`), and the replacement section did not carry it, so the keys differed and the hold was
+refused. `patchSections` (`docs/src/playground/deck-render.js`) now copies `db-active` onto the replacement. The alternative,
+adding `db-active` to `RUNTIME_MARKER_CLASSES` in `lib/core/diagram-scope.js`, would fix every host but changes the bytes of
+`lattice-runtime-min.js`, which exports embed, so it needs the owner's export sign-off; it is the more general fix and is
+worth considering. `playground-draw-frame.spec.ts` (Chromium, Firefox, WebKit) pins the matching rows and the hold.
+
 ## What the numbers say
 
 1. **The tag-at-once and hold-the-last rules survived the frame.** Zero source frames and zero blank

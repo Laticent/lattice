@@ -14,6 +14,8 @@ why now   — the owner wants to manage and distribute state through focus, deco
             runtime pass and a sandboxed frame, and no single place knows what is on screen and what is stale.
 where     — docs/src/lib/playground-sync.ts and docs/src/lib/fuoco; the Studio's preview wiring in
             docs/src/components/studio/StudioShell.tsx and single-slide-render.ts.
+progress  — 2026-10-23: engineering/decisions/2026-10-23-fuoco-owns-preview-state.md names the axes, prices designs A/B/C and
+            recommends A then C. Waiting on the owner's pick; nothing built.
 decided   — nothing. This is "rethink X": per CLAUDE.md, write the design model first (axes, candidate moves,
             a recommendation) and confirm it in one `AskUserQuestion` round before editing code.
 done when — a decision note names the axes (who owns focus, what is stale, which stages may run in parallel),

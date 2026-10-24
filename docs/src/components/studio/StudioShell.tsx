@@ -89,7 +89,7 @@ import { FocusedPreview } from './FocusedPreview';
 import { activeFinish } from './finish-catalog';
 import { coerceRecipe, generateSwatch as finishSwatch, generateFinishCss, mergeFinishOverride } from './finish-generate';
 import { deleteStudioFinish, listStudioFinishes, type StudioFinish } from './finish-library';
-import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown } from './first-slide';
+import { afterFirstSlideAndPause, firstSlideShown, markFirstSlideShown, useFirstSlideShown } from './first-slide';
 import { type AcronymEntry, frontMatterBlock, getFrontMatter, getFrontMatterName, innerFrontMatter, mergeClassTokens, parseFinishOverride, removeClassTokens, setFrontMatterAcronyms, setFrontMatterBlock, stripFrontMatter, writeFrontMatterLine } from './front-matter';
 import { activeGuards, GUARDS } from './guards-catalog';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -145,7 +145,7 @@ import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edg
 import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
-import { formatCodeNotice, type StudioCommand } from './studio-commands';
+import { runFormatCode, type StudioCommand } from './studio-commands';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -1499,18 +1499,21 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return () => window.removeEventListener(SETTINGS_EVENT, sync);
 	}, []);
 	const editorRef = React.useRef<EditorHandle>(null);
+	const slideShown = useFirstSlideShown();
+	// Hold the editor's build until the first slide only while nothing needs it. Once it has been wanted (the pane
+	// opened, the slide shown, a wide window) it stays built: a window dragged across the 700 px breakpoint before the
+	// first slide would otherwise unmount a live editor and rebuild it later.
+	const [editorWanted, setEditorWanted] = React.useState(false);
 	const composeRef = React.useRef<ComposeHandle>(null);
-	// Warm the lazy Editor chunk right after hydration (off the critical path, but
-	// eagerly once the island is live) so the CodeMirror module is cached and the
-	// component mounts within ~a frame of the default markdown view — keeping
-	// `editorRef.current` ready before any realistic first interaction. Notably this
-	// closes the narrow cold-load window where the self-driving demo's synchronous
-	// `resetDoc('')` / first `typeTail` (which race a duplicate slide-1, see
-	// createDemoFirstDeck) could no-op against a not-yet-mounted editor. Fire-and-forget:
-	// a warm failure is harmless — React.lazy re-imports on real render. This is the
-	// "load the rest in the background" half of the deferral (decision doc 2026-07-19).
+	// Warm the lazy Editor chunk once the first slide is on screen (or the backstop passes). On a phone the
+	// editor mounts then too (`slideShown`, at the Editor's JSX): CodeMirror's evaluation and view are the largest
+	// piece of startup the first slide does not need there, worth 0.18 s on its own and 0.43 s with studio-boot.ts
+	// (engineering/decisions/2026-10-23-studio-boot-order.md). Elsewhere the lazy import starts at render.
+	// The chunk is still cached before any realistic first interaction, so `editorRef.current` is ready
+	// within a frame of the pane showing; `editorReady` (the demo's probe) reports the gap honestly.
+	// Fire-and-forget: a warm failure is harmless, since React.lazy re-imports on real render.
 	React.useEffect(() => {
-		import('./Editor').catch(() => {});
+		void firstSlideShown.then(() => import('./Editor')).catch(() => {});
 	}, []);
 	// The six panels, once the first slide is on screen and the user has paused (`first-slide.ts`), then
 	// `lazy-panel.tsx` › warmPanels' idle scheduling. Scheduled from here, as #2402 shipped it, so their
@@ -1633,6 +1636,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The mobile pane the shell actually shows. Normally the user's Edit/Preview choice;
 	// on a landscape phone it is FORCED to preview (no editing surface → no keyboard).
 	const effPane: 'edit' | 'preview' = landscapePhone ? 'preview' : mobilePane;
+	const holdEditor = !editorWanted && !slideShown && mobile && effPane !== 'edit';
+	React.useEffect(() => {
+		if (!holdEditor) setEditorWanted(true);
+	}, [holdEditor]);
 	// At the narrow end of desktop the rail can't share the row with BOTH open panels
 	// without breaking the split's zero-void invariant (#721: pair-space ≥ 560). There
 	// it collapses to 48px icons (when shown), and — when both panels are open — folds
@@ -6088,7 +6095,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
-					<Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" />
+					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
+					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
+					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 		</section>
@@ -6765,7 +6775,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		...(fixableIssues > 0 ? [{ id: 'fix-all', group: 'actions', label: 'Fix all issues', icon: ListChecks, keywords: ['fix', 'repair', 'clean up'], run: () => editorRef.current?.fixAll() } satisfies StudioCommand] : []),
 		// Formatting is an authoring step (lib/authoring/code-format/): it rewrites the source in the
 		// editor, so the row is offered only while the deck has a fenced block to format.
-		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => { void editorRef.current?.formatCode().then((r) => notify(formatCodeNotice(r))); } } satisfies StudioCommand] : []),
+		...(/^\s{0,3}(?:```|~~~)/m.test(source) ? [{ id: 'format-code', group: 'actions', label: 'Format code blocks', icon: Braces, keywords: ['format', 'prettier', 'pretty print', 'indent', 'code'], run: () => runFormatCode(editorRef.current, notify) } satisfies StudioCommand] : []),
 		{ id: 'toggle-mode', group: 'actions', label: 'Switch light / dark mode', icon: SunMoon, keywords: ['dark', 'light', 'night', 'mode'], run: toggleMode },
 		{ id: 'slide-settings', group: 'actions', label: 'Slide settings — look, notes', icon: FileSliders, keywords: ['speaker notes', 'notes', 'slide options'], run: () => { revealCraftDock(); setInspectorScope('slide'); setInspectorOpen(true); } },
 		{ id: 'fabricate', group: 'actions', label: 'Fabricate — Theme & Component Studio', icon: PencilRuler, run: () => setView('fabricate') },

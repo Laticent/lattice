@@ -51,6 +51,9 @@
 //                         decides the whole race: `type` leaves the fence source alone, so the
 //                         rendered SVG is in cache and comes back in one microtask, while `edit`
 //                         changes the source, which no cache can answer
+//   --surface studio|playground
+//                         the page the preview is in (default studio). The Playground has no slide rail, so
+//                         `nav` and `type` are the Studio's; edit, edit-burst, edit-broken and mount run on both
 //   --deck diagram|prose  `mount` only: which of the two mount decks to reload. They
 //                         differ in ONE slide — the third is a diagram, or prose in its
 //                         place — and the shown slide is prose in both, so the difference
@@ -78,8 +81,18 @@ const DOCS = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4321;
 const BASE = `http://localhost:${PORT}`;
 
+// THE TWO SURFACES. The preview, the runtime and the draw host are shared; what differs is the page around the
+// frame. The Studio shows ONE slide in a frame and a rail of slide buttons; the Playground shows the WHOLE deck as
+// a scrolling filmstrip in `#preview` and has no rail, so the scenarios that click a rail (`nav`, `type`) are the
+// Studio's, and the edit and mount scenarios run on both. `--surface playground` is what puts the Playground's rows
+// beside the Studio's in engineering/decisions/2026-10-22-preview-baseline-oct-8-vs-frame.md.
+const SURFACES = {
+	studio: { path: '/studio/', frame: '[aria-label="Live deck preview"] iframe.live', hasRail: true },
+	playground: { path: '/playground/?view=edit', frame: '#preview', hasRail: false },
+};
+
 function parseArgs(argv) {
-	const o = { runs: 5, json: false, variant: 'baseline', cpu: 1, shots: false, order: [1, 2, 4, 3], css: '', js: '', scenario: 'nav', deck: 'diagram' };
+	const o = { runs: 5, json: false, variant: 'baseline', cpu: 1, shots: false, order: [1, 2, 4, 3], css: '', js: '', scenario: 'nav', deck: 'diagram', surface: 'studio' };
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i];
 		if (a === '--runs') o.runs = Number(argv[++i]);
@@ -110,9 +123,13 @@ function parseArgs(argv) {
 		// `mount` only. The paired decks below differ in one slide, so running the bench
 		// once with each and subtracting is the whole measurement.
 		else if (a === '--deck') o.deck = argv[++i];
+		// `studio` (default) or `playground`; see SURFACES.
+		else if (a === '--surface') o.surface = argv[++i];
 		else throw new Error(`unknown arg: ${a}`);
 	}
 	if (!['nav', 'type', 'edit', 'edit-burst', 'edit-broken', 'mount'].includes(o.scenario)) throw new Error(`unknown --scenario: ${o.scenario} (nav|type|edit|edit-burst|edit-broken|mount)`);
+	if (!SURFACES[o.surface]) throw new Error(`unknown --surface: ${o.surface} (${Object.keys(SURFACES).join('|')})`);
+	if (!SURFACES[o.surface].hasRail && ['nav', 'type'].includes(o.scenario)) throw new Error(`--scenario ${o.scenario} clicks the Studio's slide rail; on --surface ${o.surface} use edit, edit-burst, edit-broken or mount`);
 	if (!['diagram', 'prose'].includes(o.deck)) throw new Error(`unknown --deck: ${o.deck} (diagram|prose)`);
 	// `--deck` only means anything to `mount`; accepting it silently elsewhere let a run be
 	// LABELLED `--deck prose` while measuring the diagram deck.
@@ -181,6 +198,12 @@ can see one slide's ink land in another slide's box only fired for some \`--orde
 values: the transplant needs a COLD arriving diagram AND a rendered outgoing one in the
 same swap, and a warm last slide removes half of that pairing by accident.
 `;
+
+// THE PLAYGROUND'S EDIT DECK. The Studio shows one slide at a time, so the sampler's "the first SVG in the frame" is
+// the edited slide's. The Playground shows every slide in one scrolling frame, so with two diagrams the first SVG
+// becomes the OTHER diagram while the edited one redraws, and those frames score as wrong ink though nothing was
+// painted wrong (measured: 13 of 13 frames). One diagram per frame keeps the instrument's assumption true.
+const DECK_ONE = DECK.slice(0, DECK.indexOf('---\n\n## A second plain slide')) + DECK.slice(DECK.indexOf('---\n\n## A trailing plain slide'));
 
 // THE MOUNT PAIR. One variable: the third slide is a diagram, or prose in its place.
 // Everything else — front matter, slide count, the shown slide — is byte-identical, so
@@ -444,6 +467,7 @@ function scoreWindow(frames, from, baseGen = 0, expectInk = 0) {
 
 async function main() {
 	const opts = parseArgs(process.argv.slice(2));
+	const SURFACE = SURFACES[opts.surface];
 	// REFUSE A SERVER WE DID NOT START. `astro preview` from an earlier run (or from
 	// another checkout) can outlive it and keep 4321; the server this run spawns then
 	// fails to bind, SILENTLY, and every number below describes whatever tree that
@@ -452,7 +476,7 @@ async function main() {
 	try {
 		// ANY answer, not just a 2xx. A server that 404s `/studio/` still owns the port, so
 		// the one this run spawns still fails to bind and the numbers still come from it.
-		await fetch(`${BASE}/studio/`);
+		await fetch(`${BASE}${SURFACE.path}`);
 		console.error(`something is already serving ${BASE} — stop it first (this bench must own the port,\nor it measures that server's build instead of this one).`);
 		process.exit(2);
 	} catch {
@@ -468,7 +492,7 @@ async function main() {
 	// Wait for the server.
 	for (let i = 0; i < 120; i++) {
 		try {
-			const r = await fetch(`${BASE}/studio/`);
+			const r = await fetch(`${BASE}${SURFACE.path}`);
 			if (r.ok) break;
 		} catch {}
 		await new Promise((r) => setTimeout(r, 500));
@@ -515,18 +539,18 @@ async function main() {
 		await cdp.send('Emulation.setCPUThrottlingRate', { rate: opts.cpu });
 	}
 
-	await page.goto(`${BASE}/studio/`, { waitUntil: 'domcontentloaded' });
-	const frame = page.frameLocator('[aria-label="Live deck preview"] iframe.live');
+	await page.goto(`${BASE}${SURFACE.path}`, { waitUntil: 'domcontentloaded' });
+	const frame = page.frameLocator(SURFACE.frame);
 	await frame.locator('.lattice').first().waitFor({ timeout: 60_000 });
 
 	// Type the bench deck in.
-	await page.getByLabel('Deck source').click();
+	await (opts.surface === 'studio' ? page.getByLabel('Deck source') : page.locator('.cm-content').first()).click();
 	await page.keyboard.press('ControlOrMeta+a');
 	await page.keyboard.press('Delete');
-	await page.keyboard.insertText(opts.scenario === 'mount' ? MOUNT_DECKS[opts.deck] : DECK);
+	await page.keyboard.insertText(opts.scenario === 'mount' ? MOUNT_DECKS[opts.deck] : opts.surface === 'playground' ? DECK_ONE : DECK);
 	await page.waitForTimeout(2500);
 
-	const rail = page.getByRole('button', { name: /^Slide \d+/ });
+	const rail = opts.surface === 'studio' ? page.getByRole('button', { name: /^Slide \d+/ }) : page.locator('[data-bench-no-rail]');
 	const railCount = await rail.count();
 
 	// MOUNT. A different question from the other two scenarios, so a different loop: not
@@ -546,7 +570,7 @@ async function main() {
 		const mounts = [];
 		for (let r = 0; r < opts.runs; r++) {
 			await page.reload({ waitUntil: 'domcontentloaded' });
-			const f = page.frameLocator('[aria-label="Live deck preview"] iframe.live');
+			const f = page.frameLocator(SURFACE.frame);
 			await f.locator('.lattice').first().waitFor({ timeout: 120_000 });
 			// One more settle so `shown` (the parent revealing the frame) and any Mermaid
 			// resource entry have landed before we read them.
@@ -611,7 +635,7 @@ async function main() {
 		};
 		if (opts.json) console.log(JSON.stringify(out, null, 2));
 		else {
-			console.log(`\nvariant: ${opts.variant}   scenario: mount   deck: ${opts.deck}   cpu×${opts.cpu}   runs: ${mounts.length}\n`);
+			console.log(`\nvariant: ${opts.variant}   surface: ${opts.surface}   scenario: mount   deck: ${opts.deck}   cpu×${opts.cpu}   runs: ${mounts.length}\n`);
 			// Each row's median and range are over the runs that RECORDED that mark, so two rows
 			// can describe different subsets. `n=` says how many, per row, so a row built from
 			// three of eleven runs cannot be read as if it were built from all of them.
@@ -636,7 +660,7 @@ async function main() {
 	// rewrite that did not happen, and the cold aggregate then says `1/2` for a run that
 	// patched twice.
 	let lastDoc = await page
-		.frameLocator('[aria-label="Live deck preview"] iframe.live')
+		.frameLocator(SURFACE.frame)
 		.locator('.lattice')
 		.first()
 		.evaluate(() => window.__flash?.doc ?? null)
@@ -648,7 +672,7 @@ async function main() {
 	// In the `type` scenario every step is a keystroke on the SAME (diagram) slide, so
 	// the target never changes and every sample is a re-render of a diagram.
 	if (opts.scenario === 'type') {
-		await rail.nth(1).click();
+		if (SURFACE.hasRail) await rail.nth(1).click();
 		await page.waitForTimeout(2500);
 		await page.getByText('## Signals move from input to decision.').first().click();
 		await page.keyboard.press('End');
@@ -669,7 +693,7 @@ async function main() {
 	// on a build whose single-keystroke arm reported a clean sweep. An arm that cannot fail
 	// on the interaction it is named for is not a measurement.
 	if (opts.scenario === 'edit' || opts.scenario === 'edit-burst') {
-		await rail.nth(1).click();
+		if (SURFACE.hasRail) await rail.nth(1).click();
 		await page.waitForTimeout(2500);
 		await page.getByText('A[Input] --> B[Process]').first().click();
 		await page.keyboard.press('End');
@@ -682,7 +706,7 @@ async function main() {
 	// the paint: with the slot empty on every pass, a policy that renders eagerly shows one
 	// `mermaid.render` per character on a serial queue.
 	if (opts.scenario === 'edit-broken') {
-		await rail.nth(1).click();
+		if (SURFACE.hasRail) await rail.nth(1).click();
 		await page.waitForTimeout(2500);
 		await page.getByText('A[Input] --> B[Process]').first().click();
 		await page.keyboard.press('End');
@@ -693,7 +717,7 @@ async function main() {
 		const target = typing ? 2 : order[i];
 		// Clear the sampler window, then act.
 		await page
-			.frameLocator('[aria-label="Live deck preview"] iframe.live')
+			.frameLocator(SURFACE.frame)
 			.locator('.lattice')
 			.first()
 			// `(element, arg)` — a locator's evaluate hands the ELEMENT first and the argument
@@ -727,7 +751,7 @@ async function main() {
 		else if (railCount >= target) await rail.nth(target - 1).click();
 		await page.waitForTimeout(1600);
 		const sample = await page
-			.frameLocator('[aria-label="Live deck preview"] iframe.live')
+			.frameLocator(SURFACE.frame)
 			.locator('.lattice')
 			.first()
 			.evaluate(() => {
@@ -801,7 +825,7 @@ async function main() {
 		};
 		return { n: rows.length, sourceFrames: med('source'), sourceInk: med('sourceInk'), blankFrames: med('blank'), heldFrames: med('held'), wrongFrames: worst('wrong'), renders: med('renders'), diagramMs: med('diagramMs'), shift: med('shift'), rewrites: rows.filter((r) => r.rewrite).length, phaseShown: medPhase('shown'), phaseTagged: medPhase('tagged'), phaseSvg: medPhase('svg') };
 	};
-	const out = { variant: opts.variant, cpu: opts.cpu, runs: opts.runs, cold: agg(cold), warm: agg(warm), all: agg(diagrams), samples: results };
+	const out = { variant: opts.variant, surface: opts.surface, cpu: opts.cpu, runs: opts.runs, cold: agg(cold), warm: agg(warm), all: agg(diagrams), samples: results };
 	if (opts.shots) {
 		const dir = join(DOCS, '..', '.scratch', 'flash-shots', opts.variant);
 		await mkdir(dir, { recursive: true });
@@ -810,7 +834,7 @@ async function main() {
 	if (opts.json) {
 		console.log(JSON.stringify(out, null, 2));
 	} else {
-		console.log(`\nvariant: ${opts.variant}   cpu×${opts.cpu}   runs: ${opts.runs}\n`);
+		console.log(`\nvariant: ${opts.variant}   surface: ${opts.surface}   cpu×${opts.cpu}   runs: ${opts.runs}\n`);
 		console.log('                 raw-source frames   (ink-weighted)   blank frames   held frames   WRONG ink   time-to-diagram   layout shift   renders');
 		// `cold` is the FIRST pass through `--order` and nothing else (see the `cold:` field),
 		// so it holds at most one row per diagram slide however many `--runs` are asked for.

@@ -7,6 +7,8 @@
 // its host) still gets its lint and warm-ups after FIRST_SLIDE_BACKSTOP_MS from this module's load. A Studio that opens
 // with the preview hidden (split collapsed, Present open, another view) releases the gate at once (StudioShell).
 
+import { useEffect, useState } from 'react';
+
 export const FIRST_SLIDE_BACKSTOP_MS = 6_000;
 
 let resolveShown: () => void = () => {};
@@ -63,4 +65,23 @@ export function afterFirstSlideAndPause(fn: () => void, quietMs = 3000): () => v
 		stopListening();
 		if (timer !== undefined) window.clearTimeout(timer);
 	};
+}
+
+/**
+ * React hook over the gate: false until the first slide is on screen (or the backstop passes), then true for good.
+ * A surface the first slide does not need uses it to mount after the slide instead of beside it.
+ */
+export function useFirstSlideShown(): boolean {
+	const [shown, setShown] = useState(isFirstSlideShown);
+	useEffect(() => {
+		if (shown) return;
+		let live = true;
+		void firstSlideShown.then(() => {
+			if (live) setShown(true);
+		});
+		return () => {
+			live = false;
+		};
+	}, [shown]);
+	return shown;
 }

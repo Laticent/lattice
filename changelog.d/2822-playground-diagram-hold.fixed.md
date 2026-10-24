@@ -1,0 +1,1 @@
+- The Playground now holds the previous Mermaid diagram on screen while an edited one redraws, as the Studio does, instead of leaving the slot empty for about 11 frames per keystroke.
