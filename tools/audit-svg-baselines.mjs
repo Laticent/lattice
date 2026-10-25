@@ -172,6 +172,13 @@ for (const g of table) {
 	console.log(`${mark} ${String(g.n).padStart(4)}  ${g.mean.toFixed(2).padStart(8)}  ${g.worst.toFixed(2).padStart(8)}  ${g.baseline.padEnd(10)} ${g.src.padEnd(5)} ${g.cls}`);
 }
 console.log(`\n${over.length} of ${rows.length} labels drift more than ${TOLERANCE}px.`);
+// NAME the offenders. The table groups by emitter and marks a group only when its MEAN is past
+// tolerance, so two bad labels in a group of twenty were counted here and named nowhere: #2405
+// read "2 of 365 labels drift" every night with no way to tell which two. One line per label,
+// worst first, printed right under the verdict so the nightly's `tail` keeps them.
+for (const r of [...over].sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift))) {
+	console.log(`  over ${r.shift.toFixed(2).padStart(7)}  ${r.baseline.padEnd(10)} ${r.src.padEnd(9)} ${r.cls || '(no class)'}  "${r.txt}"`);
+}
 
 if (JSON_OUT) {
 	writeFileSync(JSON_OUT, JSON.stringify({ deck: DECK, theme: THEME, tolerance: TOLERANCE, table, rows, skipped }, null, 2));
