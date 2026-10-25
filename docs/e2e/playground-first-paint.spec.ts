@@ -162,6 +162,24 @@ async function throttle(page: import('@playwright/test').Page) {
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
 }
 
+/** A locator's width once it has a LAID-OUT box (non-null, wider than 0). `boundingBox()` returns null while hydration
+ *  detaches and remounts a pane, and a read that lands in that gap died on a TypeError instead of
+ *  on the assertion it fed (#1851). The box comes from the same call that proved it exists, so a
+ *  flicker between "visible" and the read cannot re-resolve it to nothing. */
+async function laidOutWidth(loc: import('@playwright/test').Locator): Promise<number> {
+	let box: Awaited<ReturnType<typeof loc.boundingBox>> = null;
+	await expect
+		.poll(
+			async () => {
+				box = await loc.boundingBox();
+				return box && box.width > 0 ? box.width : null;
+			},
+			{ timeout: 15_000 },
+		)
+		.not.toBeNull();
+	return box!.width;
+}
+
 /** Drive a real session until it has produced a real snapshot, then drag the real divider —
  *  the state the reload under test restores. A value hand-written into localStorage exercises
  *  clamping and content-sizing paths the app's own value never reaches. */
@@ -181,7 +199,7 @@ async function seedRealSession(page: import('@playwright/test').Page) {
 	await page.mouse.down();
 	await page.mouse.move(box.x + box.width / 2 - 200, box.y + box.height / 2, { steps: 12 });
 	await page.mouse.up();
-	const dragged = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
+	const dragged = Math.round(await laidOutWidth(page.locator('#pg-split-editor')));
 	expect(dragged, 'the drag did not move the divider — the reload below would prove nothing').toBeLessThan(500);
 	// What the reload actually needs is the drag PERSISTED, and the hook writes it on the
 	// group's `onLayoutChanged` — so ask for it rather than sleeping on it. (The snapshot is
@@ -253,7 +271,7 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 // The sampling case above stays: it covers every OTHER element, and Explore.
 test('@smoke the editor pane holds its width before the preview pane has parsed', async ({ page }) => {
 	await seedRealSession(page);
-	const settled = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
+	const settled = Math.round(await laidOutWidth(page.locator('#pg-split-editor')));
 
 	await page.route('**/playground/**', async (route) => {
 		// Only the document — every asset the cut page still needs must load normally.
@@ -284,23 +302,12 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	// the rate to 1 in 16 and no further, because the pane FLICKERS — hydration detaches and
 	// remounts it, so a `boundingBox()` issued after visibility can still land in the gap and
 	// re-resolve to nothing. The box therefore has to come from the same call that proved it
-	// exists, which is what capturing it inside the poll does.
+	// exists, which is what `laidOutWidth` does.
 	//
 	// Waiting does not weaken what is measured. The preview pane is absent by construction (the
 	// fetch above cut it out), so there is nothing left to wait FOR except this pane laying
 	// out — which is the thing being measured.
-	const editor = page.locator('#pg-split-editor');
-	let box: Awaited<ReturnType<typeof editor.boundingBox>> = null;
-	await expect
-		.poll(
-			async () => {
-				box = await editor.boundingBox();
-				return box?.width ?? null;
-			},
-			{ timeout: 15_000 },
-		)
-		.not.toBeNull();
-	const width = box!.width;
+	const width = await laidOutWidth(page.locator('#pg-split-editor'));
 	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
 });
 
