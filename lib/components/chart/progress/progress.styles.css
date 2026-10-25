@@ -44,16 +44,17 @@
   /* NO rail. The track is a transparent positioning context only — the fill is
    * a self-contained bordered tile that "shoots forward" on the bare canvas
    * (like a gantt bar floating on its lane). A gray rail behind it diluted the
-   * row and washed the fill out; the magnitude is carried by the bar's length,
-   * its leading-edge intensity (see the fill), and the printed %. overflow:hidden
-   * + radius clip the fill's rounded corners. */
-  /* The readout plate rides inside this clipped box, and its text is `--fs-meta`, which a venue
+   * row and washed the fill out; the magnitude is carried by the bar's length
+   * and the printed %. NO CLIP: the fill rounds its own corners at the track's
+   * radius, so `overflow: hidden` here changed no pixel (antialiasing only,
+   * measured), and it kept the editable office export (Calco) from lifting the
+   * fill as a native shape (`paint:overflow-clipped`). */
+  /* The readout plate rides inside this box, and its text is `--fs-meta`, which a venue
    * lifts (29px at hall) past a fixed 2.5cqi (32px) once the plate's padding is added, so the
    * number was cut by its own track. The track is at least as tall as its label. */
   height: max(2.5cqi, calc(var(--fs-meta) + 0.8cqi));
   background: transparent;
   border-radius: var(--chart-mark-radius);
-  overflow: hidden;
 }
 :is(section.progress, figure.progress) .progress-fill {
   position: absolute;
@@ -94,7 +95,7 @@
    * readout ~44px) used to overflow to the LEFT of an `overflow: hidden` fill, so the number lost
    * its first digit ("2%" for 12%). `safe` sends the overflow the other way — the readout starts
    * at the bar's origin and runs on over the empty track on its own plate — and the fill no longer
-   * clips it. The track (`overflow: hidden`, above) still rounds the fill's corners. A readout that
+   * clips it. The fill rounds its own corners. A readout that
    * fits is placed exactly as before. */
   display: flex;
   align-items: center;
@@ -132,6 +133,10 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   line-height: 1;
+  /* Positioned, so the plate paints OVER the bar's status mark (an absolute ::before at the leading end,
+   * chart-family.styles.css § THE STATUS MARK) when a short bar puts the two in one place: on a 2% bar the white check
+   * was drawn across the readout's "%". A later positioned sibling paints above an earlier one; no z-index needed. */
+  position: relative;
 }
 /* A row with no percent still emits the span. The fill used to clip its empty plate out of
  * sight; now that the fill no longer clips (the `safe` readout above), hide it outright. */
