@@ -9,8 +9,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
-const { followupProblems, listFollowups } = require(path.join(__dirname, '..', '..', '..', 'tools', 'followups.js'));
+const { followupProblems, listFollowups, EVIDENCE_CAP } = require(path.join(__dirname, '..', '..', '..', 'tools', 'followups.js'));
 
 const GOOD = `---
 origin: 42
@@ -101,4 +102,90 @@ test('swimlane must name a path that exists', () => {
 test('the listing carries area, severity and swimlane', () => {
   const [i] = listFollowups(folder({ '42-p1-x.md': GOOD }));
   assert.deepEqual([i.area, i.severity, i.swimlane], ['engine', 'medium', 'followups.d/README.md §The contract']);
+});
+
+// ── Evidence folders: `<item name>/` beside its item, living exactly as long as it ────────────
+
+/** Write `files` (paths may hold `/`) under a fresh followups folder. */
+function tree(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'followups-'));
+  for (const [name, body] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+    fs.writeFileSync(path.join(dir, name), body);
+  }
+  return dir;
+}
+const EVIDENCE_README = '# Evidence\n\nRan against abc1234. Run: node probe.mjs\n';
+
+test('an evidence folder beside its item, with a README, passes and is listed', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md': EVIDENCE_README, '42-p1-fix-the-thing/probe.mjs': 'console.log(1);\n' });
+  assert.deepEqual(followupProblems(dir), []);
+  assert.equal(listFollowups(dir)[0].evidence, true);
+});
+
+test('an evidence folder whose item is gone is refused: it lives exactly as long as the item', () => {
+  const dir = tree({ '42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  assert.match(followupProblems(dir).join('\n'), /its item followups\.d\/42-p1-fix-the-thing\.md is gone/);
+});
+
+test('an evidence folder needs a README naming the commit and how to run it', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/probe.mjs': 'x\n' });
+  assert.match(followupProblems(dir).join('\n'), /needs a README\.md/);
+});
+
+test('an evidence folder holds text only, no links, and stays under the cap', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1]));
+  fs.symlinkSync('/etc/hostname', path.join(dir, '42-p1-fix-the-thing', 'link'));
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'corpus.txt'), 'a'.repeat(EVIDENCE_CAP + 1));
+  const problems = followupProblems(dir).join('\n');
+  assert.match(problems, /shot\.png: binary/);
+  assert.match(problems, /link: a symbolic link/);
+  assert.match(problems, /over the 524288-byte \(512 KB\) cap/);
+});
+
+test('an evidence folder is named like its item', () => {
+  const dir = tree({ 'Probe Kit/README.md': EVIDENCE_README });
+  assert.match(followupProblems(dir).join('\n'), /named like its item/);
+});
+
+test('the cap counts every file in every subfolder, and a folder exactly at it passes', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  const rest = EVIDENCE_CAP - Buffer.byteLength(EVIDENCE_README);
+  fs.mkdirSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'deep'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'a.txt'), 'a'.repeat(rest - 10));
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'deep', 'b.txt'), 'b'.repeat(10));
+  assert.deepEqual(followupProblems(dir), []);
+  fs.appendFileSync(path.join(dir, '42-p1-fix-the-thing', 'data', 'deep', 'b.txt'), 'b');
+  assert.match(followupProblems(dir).join('\n'), /524289 bytes, over the/);
+});
+
+test('what git ignores is not evidence: a stray .DS_Store neither fails a folder nor keeps one alive', () => {
+  // CI checks out only what git tracks, so the gate reads the folder the same way.
+  const repo = tree({ '.gitignore': '.DS_Store\n', 'followups.d/42-p1-fix-the-thing.md': GOOD, 'followups.d/42-p1-fix-the-thing/README.md': EVIDENCE_README });
+  assert.equal(spawnSync('git', ['init', '-q', repo]).status, 0);
+  const dir = path.join(repo, 'followups.d');
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', '.DS_Store'), Buffer.from([0, 1, 2]));
+  fs.mkdirSync(path.join(dir, '7-p1-closed-item'));
+  fs.writeFileSync(path.join(dir, '7-p1-closed-item', '.DS_Store'), Buffer.from([0, 1, 2]));
+  assert.deepEqual(followupProblems(dir), []);
+  // A name git could read as a pattern is still a name: it must not switch ignoring off.
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', ':(icase)x.DS_Store'), 'x');
+  fs.appendFileSync(path.join(repo, '.gitignore'), '*.log\n');
+  fs.writeFileSync(path.join(dir, '42-p1-fix-the-thing', 'b.log'), Buffer.from([0, 1]));
+  assert.deepEqual(followupProblems(dir), []);
+});
+
+test('only regular files count: a named pipe is refused rather than read, and a README must be a file', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, '42-p1-fix-the-thing/README.md/x.txt': 'x' });
+  const fifo = path.join(dir, '42-p1-fix-the-thing', 'pipe');
+  if (spawnSync('mkfifo', [fifo]).status === 0) assert.match(followupProblems(dir).join('\n'), /pipe: not a regular file/);
+  assert.match(followupProblems(dir).join('\n'), /needs a README\.md/);
+});
+
+test('a symbolic link at the top of followups.d is refused, and is not listed as evidence', () => {
+  const dir = tree({ '42-p1-fix-the-thing.md': GOOD, 'elsewhere/README.md': EVIDENCE_README });
+  fs.symlinkSync(path.join(dir, 'elsewhere'), path.join(dir, '42-p1-fix-the-thing'));
+  assert.match(followupProblems(dir).join('\n'), /42-p1-fix-the-thing: a symbolic link/);
+  assert.equal(listFollowups(dir).find((i) => i.file === '42-p1-fix-the-thing.md').evidence, false);
 });
