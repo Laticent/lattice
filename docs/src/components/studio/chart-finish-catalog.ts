@@ -7,6 +7,8 @@
 // `icon:` and `spark:` it is a look with no absent state: a deck that says nothing wears
 // DEFAULT_CHART_FINISH (the engine's CHART_FINISH_DEFAULT; chart-finish-catalog.test.ts pins them).
 
+import { DEFAULT_CHART_FINISH } from './chart-finish-words';
+
 export type ChartFinishEntry = {
 	/** the `chart-finish:` register value (and engine CHART_FINISH_NAMES member) */
 	name: string;
@@ -47,8 +49,7 @@ function chip(layers: Layer[]): ChartFinishEntry['swatch'] {
 const bar = (image: string, b: (typeof BARS)[number], inset = 0): Layer =>
 	({ image, left: b.left + inset, bottom: FLOOR + inset, w: W - 2 * inset, h: b.h - 2 * inset });
 
-/** What a deck wears when it names no finish; omitting the key renders it. */
-export const DEFAULT_CHART_FINISH = 'pigment';
+export { DEFAULT_CHART_FINISH };
 
 // Ordered as the picker shows them.
 export const CHART_FINISHES: ChartFinishEntry[] = [

@@ -10,7 +10,7 @@
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
-import { DEFAULT_CHART_FINISH } from './chart-finish-catalog';
+import { CHART_FINISH_NAMES, DEFAULT_CHART_FINISH } from './chart-finish-words';
 import { registerValue } from './deck-preset';
 import { getFrontMatter } from './front-matter';
 import { getClassTokens, setClassTokens } from './slide-directives';
@@ -261,7 +261,7 @@ export function setRule(chunk: string, name: string | null): string {
 // The chart finish (resolve-chart-finish.js). A look with no absent state, so the deck default is
 // `pigment` (DEFAULT_CHART_FINISH) and every value, the default included, is a real per-slide token:
 // a slide inside a `tone` deck can ask for `pigment`.
-const CHART_FINISH_VALUES = ['pigment', 'etch', 'tone'];
+const CHART_FINISH_VALUES = [...CHART_FINISH_NAMES];
 export function chartFinishProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'chart-finish', 'chart-finish-', CHART_FINISH_VALUES, DEFAULT_CHART_FINISH);
 }
