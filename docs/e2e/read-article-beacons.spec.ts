@@ -28,7 +28,10 @@ const { webRefBeacons, asHtml } = require('../../test/fixtures/web-ref-beacons.j
 
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
 
-test('the Reading view fetches none of a deck’s web references until the reader allows them', async ({ page }) => {
+// Every engine family runs it: the browser decides what fetches, and engines disagree (WebKit and
+// Firefox, for one, never fetch an external SVG paint server). `@gecko` runs on desktop Chromium
+// and on Firefox; `@webkit-tablet` runs on WebKit only, so the body is registered twice.
+const readingViewRefusesTheWeb = async ({ page }: { page: import('@playwright/test').Page }) => {
 	const hits: string[] = [];
 	const server = http.createServer((req, res) => {
 		hits.push((req.url || '').slice(1).split('?')[0]);
@@ -86,4 +89,7 @@ test('the Reading view fetches none of a deck’s web references until the reade
 	} finally {
 		await new Promise<void>((r) => server.close(() => r()));
 	}
-});
+};
+
+test('the Reading view fetches none of a deck’s web references until the reader allows them @gecko', readingViewRefusesTheWeb);
+test('the Reading view fetches none of a deck’s web references until the reader allows them (WebKit) @webkit-tablet', readingViewRefusesTheWeb);
