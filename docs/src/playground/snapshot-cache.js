@@ -36,7 +36,7 @@
 // for every real stylesheet, so no snapshot's bytes move.
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
-import chartFinish from '../../../lib/core/resolve-chart-finish.js';
+import { CHART_FINISH_TOKENS } from '@/components/studio/chart-finish-words';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 
@@ -126,7 +126,7 @@ const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 // the probe was left invalid and the rule kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
-const FINISH_ARM = new RegExp(`(?<![\\w-])(${chartFinish.CHART_FINISH_TOKENS.join('|')})(?![\\w-])`);
+const FINISH_ARM = new RegExp(`(?<![\\w-])(${CHART_FINISH_TOKENS.join('|')})(?![\\w-])`);
 const finishArmAbsent = (doc, sel) => {
 	const m = FINISH_ARM.exec(sel);
 	return !!m && !doc.querySelector(`.${m[1]}`);
@@ -139,7 +139,7 @@ const finishArmAbsent = (doc, sel) => {
 // unable to store. The arm is exactly
 // `section.chart-finish-X :where(<marks>)`, and the marks are an ordinary selector, so ask the page
 // whether any exists. Any other shape, or a selector the engine refuses, stays conservatively kept.
-const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)\\.(?:${chartFinish.CHART_FINISH_TOKENS.join('|')}) :where\\(`);
+const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)\\.(?:${CHART_FINISH_TOKENS.join('|')}) :where\\(`);
 const finishMarksAbsent = (doc, sel) => {
 	const lead = FINISH_MARK_ARM.exec(sel);
 	if (!lead) return false;

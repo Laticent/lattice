@@ -48,9 +48,9 @@
    * radius, so `overflow: hidden` here changed no pixel (antialiasing only,
    * measured), and it kept the editable office export (Calco) from lifting the
    * fill as a native shape (`paint:overflow-clipped`). */
-  /* The readout plate rides inside this box, and its text is `--fs-meta`, which a venue
-   * lifts (29px at hall) past a fixed 2.5cqi (32px) once the plate's padding is added, so the
-   * number was cut by its own track. The track is at least as tall as its label. */
+  /* The readout rides inside this box, and its text is `--fs-meta`, which a venue lifts (29px
+   * at hall) close to a fixed 2.5cqi (32px), so the number was once cut by its own track. The
+   * track is at least as tall as its label. */
   height: max(2.5cqi, calc(var(--fs-meta) + 0.8cqi));
   /* The END GUTTER the readout rides in: room for "100%" at the meta step plus the gap before it, so a full bar's
    * number ends inside the track and never reaches the status pill. A bar's length is its share of the track LESS
@@ -65,9 +65,9 @@
   inset-inline-start: 0;
   width: calc((100% - var(--progress-readout)) * var(--pct) / 100);
   /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
-   * and the fill carries a 1px hairline + 0.625cqi of inline-end padding for
-   * the in-bar readout. Under the CSS default (content-box)
-   * every one of those sits OUTSIDE the percentage, so each bar rendered a
+   * and the fill carries a 1px hairline (it once carried inline-end padding for
+   * an in-bar readout too). Under the CSS default (content-box)
+   * all of that sits OUTSIDE the percentage, so each bar rendered a
    * constant ~11px too long: measured at portrait, a 551px track drew 92% as
    * 518.0px (94.0%) and 12% as 77.2px (14.0%). The offset is additive, so
    * ranking survived and the defect read as cosmetic — but the whole point of
@@ -91,7 +91,7 @@
   border-radius: var(--chart-mark-radius);
   transition: none;
   /* The bar holds nothing: it is pure length from zero. Its status mark is drawn once, by the row's status pill, and
-   * its number rides just past its end (`.progress-pct`), so a 2% bar and a 100% bar read the same way and nothing
+   * its number, the fill's sibling in the track, rides just past its end (`.progress-pct`), so a 2% bar and a 100% bar read the same way and nothing
    * crowds a short bar's first stretch. */
   overflow: visible;
 }
@@ -116,7 +116,8 @@
   color: var(--text-heading);
   position: absolute;
   inset-block: 0;
-  inset-inline-start: calc(100% + 0.6cqi);
+  /* The fill's end, plus a gap: the fill's own width formula, so the two can never disagree. */
+  inset-inline-start: calc((100% - var(--progress-readout)) * var(--pct) / 100 + 0.6cqi);
   display: flex;
   align-items: center;
   font-variant-numeric: tabular-nums;

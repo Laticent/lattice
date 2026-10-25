@@ -8,13 +8,14 @@ import {
 	CHART_FINISH_NAMES,
 	CHART_FINISH_AXES as ENGINE_AXES,
 	CHART_FINISH_INTENSITIES as ENGINE_INTENSITIES,
+	CHART_FINISH_TOKENS as ENGINE_TOKENS,
 } from '../../../../lib/core/resolve-chart-finish.js';
 import {
 	activeChartFinish,
 	CHART_FINISHES,
 	DEFAULT_CHART_FINISH,
 } from './chart-finish-catalog';
-import { CHART_FINISH_AXES, CHART_FINISH_INTENSITIES, CHART_FINISH_NAMES as WORD_NAMES } from './chart-finish-words';
+import { CHART_FINISH_AXES, CHART_FINISH_INTENSITIES, CHART_FINISH_TOKENS, CHART_FINISH_NAMES as WORD_NAMES } from './chart-finish-words';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
 // Without it, a register change silently drifts the picker — a value that renders but
@@ -43,6 +44,7 @@ describe('chart-finish-catalog ↔ CHART_FINISH_NAMES', () => {
 
 	it('the editor axes match the engine axes, word for word and in order', () => {
 		expect([...WORD_NAMES]).toEqual([...CHART_FINISH_NAMES]);
+		expect(CHART_FINISH_TOKENS).toEqual([...ENGINE_TOKENS]);
 		expect([...CHART_FINISH_INTENSITIES]).toEqual([...ENGINE_INTENSITIES]);
 		expect(CHART_FINISH_AXES.map((a) => [...a])).toEqual(ENGINE_AXES.map((a: readonly string[]) => [...a]));
 	});
