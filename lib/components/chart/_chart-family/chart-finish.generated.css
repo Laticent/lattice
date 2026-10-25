@@ -683,6 +683,66 @@ section.chart-finish-pigment :where(.journey-stage),
 figure.chart-finish-pigment :where(.journey-stage) {
   --section-accent: var(--chart-neutral-hue) !important;
 }
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="1"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="1"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="2"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="2"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-2-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-2-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="3"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="3"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-3-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-3-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="4"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="4"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-4-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-4-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="5"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="5"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-5-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-5-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="6"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="6"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-6-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-6-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="7"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="7"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-7-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-7-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-pigment :where(.radar-sector[data-hue="8"]),
+figure.chart-finish-pigment :where(.radar-sector[data-hue="8"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-8-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-8-hue) 22%, var(--bg))) !important;
+  fill-opacity: 1 !important;
+}
+}
+section.chart-finish-pigment :where(.line-area),
+figure.chart-finish-pigment :where(.line-area) {
+  fill-opacity: 0.62 !important;
+}
 
 /* The quadrant ZONE tints — colored furniture, so they move with the finish. */
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {

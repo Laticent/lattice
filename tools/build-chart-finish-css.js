@@ -687,6 +687,18 @@ function build() {
       w(supports(rule(name, '.roadmap td:first-child', ['background: var(--bg-alt)'])));
       // A journey stage's top rule was a category color per stage, decoration that read as data.
       w(rule(name, '.journey-stage', ['--section-accent: var(--chart-neutral-hue)']));
+      // A radar's compass quarters (`radar quadrant`) are GROUND under the series, so each wears a pale tint of its
+      // category, the way a status ground is a tint of its status: the shading the variant exists for, with the
+      // polygon and the scale numbers readable on it. As a text-bearing mark they took the deep category fill, which
+      // drowned the polygon of the same hue and put dark scale numbers on dark blue.
+      for (const n of SLOTS) {
+        // A sector carries its quarter's name, so it moves with the other text-bearing marks (TEXT WAITS).
+        w(supports(rule(name, `.radar-sector[data-hue="${n}"]`, [`fill: light-dark(color-mix(in oklab, var(--chart-cat-${n}-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-${n}-hue) 22%, var(--bg)))`, 'fill-opacity: 1'])));
+      }
+      // A free-standing area under a line is a quantity, not the line: held back on BOTH canvases. The member sets
+      // full strength on dark for its old darkened wash; at the deep solid that covered the line, its dots and the
+      // grid. A stacked band (`.line-band`) is the data itself and keeps its full strength.
+      w(rule(name, '.line-area', ['fill-opacity: 0.62']));
     }
 
     // ── the quadrant's zone tints ────────────────────────────────────────────
