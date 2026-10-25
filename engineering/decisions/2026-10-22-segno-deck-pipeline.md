@@ -47,6 +47,20 @@ and `examples/card-tags.md` (3 KB). P0 commits this as `parser:bakeoff:deck`.
 | Has that cost correctness? | Repeatedly. The headers of `slide-split.js`, `slide-boundaries.mjs`, `section-source-split.js` and `boundary-parser.mjs` each record a bug where one reader disagreed with the engine about where a slide starts (`***`, setext underlines, `---` in fences, empty sections). |
 | What does Segno's generated parser look like to a pipeline? | `parse(input, rule)` over a whole string, state at module scope, the tree written into one module-level `Int32Array` that the next call overwrites (lib/core/list-text.generated.js:658, docs/src/lib/segno/codegen.ts:397). Tokenizer speed on whole CSS/HTML/Markdown files: 150-210 MB/s in V8, faster in WebKit (2026-09-28 note, § Generated-parser speed). |
 
+**Three editing layers, three Markdown parsers.** The owner's stack is LFM at the foundation,
+with three layers on it: CodeMirror edits the source, ProseMirror (Compose) is the hybrid text and
+visual editor, and the engine renders. Today each reads LFM with its own parser and its own
+settings:
+
+| Layer | Parser | Settings |
+|---|---|---|
+| CodeMirror (`docs/src/components/studio/Editor.tsx`) | `@codemirror/lang-markdown`, a Lezer grammar | its own |
+| Compose (`docs/src/lib/compose/deck-markdown.ts`) | `prosemirror-markdown` over its own markdown-it | CommonMark + `table` |
+| The renderer (`buildMd`, `lib/engine/index.js`) | markdown-it | CommonMark + `table` + `strikethrough` + `breaks: true` |
+
+So `~~a~~` renders struck through and is plain text in Compose, and a single newline is a `<br>`
+in the render and nothing in Compose. That is the boundary-bug class again, across editors.
+
 Two conclusions follow.
 
 1. **A faster parser is not where the speed is.** A parser ten times faster than markdown-it
@@ -134,6 +148,19 @@ slide boundary is empty by definition. After an edit, S1 re-runs from the edited
 boundaries line up with the old ones again (shifted by the edit's length), and S2 re-runs only
 the leaves in between. A keystroke in a 124-slide deck re-reads one slide.
 
+**What the three layers need from the model.**
+
+- **CodeMirror: incremental, with every position.** Highlighting, folding and lint need a tree
+  updated per keystroke. The model feeds CodeMirror through an adapter from the tape to a Lezer
+  tree, so the source editor reads LFM the way the renderer does instead of with its own grammar.
+- **Compose: lossless.** A visual edit must re-emit the author's spelling everywhere it did not
+  touch: list markers, spacing, table pipes. The model keeps concrete syntax (the characters as
+  typed), not only meaning, so Compose builds its document from the model and serializes back
+  without reformatting the deck.
+- **All three: one coordinate system.** A cursor in the source, a selection in Compose and a click
+  on the rendered slide name the same range of LFM text. Every node on the tape already carries
+  `from` and `to`, so the three sync through the model.
+
 ## What Segno has to gain
 
 | Gap | Why the pipeline needs it | Cost |
@@ -184,6 +211,7 @@ Each phase ships on its own and is worth having if the next never comes.
 | **P2. S0 + S1, CommonMark** | `deckModel(source)`: slides, boundaries, front matter, directive and fence ranges, leaf ranges, incremental re-parse | `slide-boundaries.mjs`, `boundary-parser.mjs`, `split-slides.js`, `section-source-split.js`, and the markdown-it boundary parser in the Studio's startup JavaScript |
 | **P3. S3 islands** | The directive grammar for HTML comments; inline code, fence records and chart rows read through the model | `lib/engine/directives.js`'s regexes, lint-core's own scanners, `mermaid-fences.js` |
 | **P4. S2, CommonMark** | Inline structure to spec | Compose's and the narrator's inline needs; a later token adapter that lets markdown-it render from the model |
+| **P4b. The editors on the model** | CodeMirror's tree from the tape; Compose's document built from the model and serialized losslessly | `@codemirror/lang-markdown`'s grammar and Compose's own markdown-it, so all three layers read LFM one way |
 | **P5. CSS dialect** | One CSS tokenizer on the spine, as an island and as a whole stylesheet: `lib/core/remote-ref.js`'s `cssRefSpans` (#2871) is its first reader | Every hand-written CSS scan in `lib/`, one at a time, each held to the browser |
 | **P6. Djot** | Djot's S1 and S2, sharing S0 and S3 | Djot authoring, if chosen (2026-10-19 conformance probe) |
 | **P7. Render from the model** | A renderer that reads the document model; markdown-it removed | The dependency the owner cannot rely on long term. Held to byte-identical HTML on the corpus against today's renderer before the switch |
