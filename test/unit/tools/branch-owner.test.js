@@ -12,6 +12,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+// A scratch repo must not reach the REAL one. A git hook exports GIT_DIR (and GIT_INDEX_FILE,
+// GIT_WORK_TREE) to everything it runs, and from a worktree that GIT_DIR names the real repo, so
+// `git init` / `git config user.name t` below would rewrite its config. Strip them once, here, so
+// every git call and the script under test start clean (the leak #2404 found). `node --test` runs
+// each file in its own process, so nothing outside this file sees the change.
+for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete process.env[k];
+
 const SCRIPT = path.join(__dirname, '../../../tools/branch-owner.sh');
 const ME = 'session_BBBB';
 const THEM = 'session_AAAA';
