@@ -240,7 +240,25 @@ is_our_waiter() {
   printf '%s\n' "$args" | grep -qxF -- "$job"
 }
 
+# The holder writes its record just AFTER it takes the lock (below), so a
+# refuser can land in that window and read an empty file. Give the record a
+# moment to appear. Both the refusal and --force need it: a refusal printed
+# `pid , since` and --force had nobody to signal. macOS widens the window,
+# because its perl lock spawns a process (#2878). A REUSED job name is not
+# covered: the file then still holds the previous holder's record, so the
+# refusal can name that dead pid for the same instant. The record is only ever
+# informational; the lock decides.
+await_holder() {
+  [ -n "$(holder_pid)" ] && return 0
+  for _ in 1 2 3 4 5 6; do
+    sleep 0.5
+    [ -n "$(holder_pid)" ] && return 0
+  done
+  return 0
+}
+
 if ! take_lock; then
+  await_holder
   if [ "$force" -ne 1 ]; then
     printf 'wait-for: refused — job "%s" is already being waited on (pid %s, since %s).\n' \
       "$job" "$(holder_pid)" "$(holder_since)" >&2
@@ -250,18 +268,8 @@ if ! take_lock; then
 
   # --force REPLACES the holder, so it must stop the holder: leaving it running
   # is the two-waiters case this lock exists to prevent.
-  # The holder is written just after the lock is taken, so --force can still
-  # land in a window where the file is empty (or on a job's first-ever use).
-  # Give it a moment to appear rather than sending no signal at all and then
-  # timing out against a holder we were meant to replace.
+  # await_holder (above) already gave an empty record its moment to appear.
   victim=$(holder_pid)
-  if [ -z "$victim" ]; then
-    for _ in 1 2 3 4 5 6; do
-      sleep 0.5
-      victim=$(holder_pid)
-      [ -n "$victim" ] && break
-    done
-  fi
   if is_our_waiter "$victim"; then
     kill -TERM "$victim" 2>/dev/null || true
   fi

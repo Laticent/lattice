@@ -369,12 +369,38 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
     const job = jobName('record');
     const holder = spawnHolder(job, 20);
     assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    // The holder writes its record just after it takes the lock, so lockHeld can
+    // be true while the file is still empty. macOS hit that window (#2878).
+    assert.ok(until(() => fs.readFileSync(lockPath(job), 'utf8').trim() !== ''),
+      'holder never wrote its record');
     const [pid, recordedJob] = fs.readFileSync(lockPath(job), 'utf8').split('\n');
     const { err } = run(['--job', job, '--', 'true']);
     reap(holder);
     assert.equal(pid.trim(), String(holder.pid));
     assert.equal(recordedJob.trim(), job);
     assert.match(err, new RegExp(`pid ${holder.pid}`), 'the refusal should name the live holder');
+  });
+
+  // The window #2878 hit, held open on purpose. A holder takes the lock and only THEN writes its
+  // record, so a refuser can find the file empty. Here the "holder" is perl holding flock(2) on an
+  // empty file and writing the record a second later; the refusal must wait for it and name the
+  // pid, not print `pid , since`. Remove await_holder from wait-for.sh and this goes red.
+  test('names a holder that writes its record after the refuser arrives', () => {
+    const job = jobName('window');
+    const f = lockPath(job);
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, '');
+    const holder = spawn('perl', ['-e',
+      'use Fcntl ":flock"; open(my $fh, ">>", $ARGV[0]) or exit 3; flock($fh, LOCK_EX) or exit 4; '
+      + 'select(undef, undef, undef, 1); open(my $w, ">", $ARGV[0]) or exit 5; '
+      + 'print $w "4242\n$ARGV[1]\nT0\n"; close $w; sleep 10;', f, job],
+    { stdio: 'ignore', detached: true });
+    assert.ok(until(() => lockHeld(job)), 'the fake holder never took the lock');
+    assert.equal(fs.readFileSync(f, 'utf8'), '', 'the record appeared before the refuser ran — the window was not held open');
+    const { code, err } = run(['--job', job, '--', 'true']);
+    reap(holder);
+    assert.equal(code, 2, 'a held job must be refused');
+    assert.match(err, /pid 4242, since T0/, 'the refusal must wait for the record and name the holder');
   });
 
   // A pid can be reused, and --force signals whatever the lock names. An
