@@ -4484,8 +4484,9 @@ async function renderBody(browser, g, closeBrowser) {
     }
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
     const jpegBuffers = [];
-    for (const h of handles) {
-      jpegBuffers.push(await g(() => h.screenshot({ type: 'jpeg', quality: 95 }), 'screenshot slide'));
+    const rasterCam = await slideCameraFor(page);
+    for (const [i, h] of handles.entries()) {
+      jpegBuffers.push(await g(() => (rasterCam ? rasterCam.shoot(i, { type: 'jpeg', quality: 95, opaque: true }) : h.screenshot({ type: 'jpeg', quality: 95 })), 'screenshot slide'));
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
@@ -4545,8 +4546,10 @@ async function renderBody(browser, g, closeBrowser) {
       : (/-dark$/.test(paletteName) ? 'dark' : 'light');
     let effectiveSvgBackground = IMAGE_SET_OPTS.svgBackground;
     const images = [];
-    for (const h of handles) {
-      images.push(await g(() => h.screenshot(shot), 'screenshot slide'));
+    const setCam = await slideCameraFor(page);
+    const setShot = (i, h) => (setCam ? setCam.shoot(i, { type: fmt, quality: IMAGE_SET_OPTS.quality, opaque: !OMIT_BG }) : h.screenshot(shot));
+    for (const [i, h] of handles.entries()) {
+      images.push(await g(() => setShot(i, h), 'screenshot slide'));
     }
 
     // (2) Thumbnails — re-raster the same sections at a small device scale (thumbWidth
@@ -4557,8 +4560,8 @@ async function renderBody(browser, g, closeBrowser) {
       const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW, rasterScale);
       await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
       const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
-      for (const h of thumbHandles) {
-        thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
+      for (const [i, h] of thumbHandles.entries()) {
+        thumbs.push(await g(() => setShot(i, h), 'screenshot thumb'));
       }
     }
 
@@ -4888,7 +4891,7 @@ async function renderBody(browser, g, closeBrowser) {
     // hides and restores each slide's text around the screenshot (lib/export/office-export.js).
     if (OUT_FORMAT === 'odp' || EDITABLE) {
       const office = require('./lib/export/office-export');
-      const captured = await office.captureSlides(handles, pngShot, EDITABLE, g);
+      const captured = await office.captureSlides(handles, pngShot, EDITABLE, g, { camera: await slideCameraFor(page) });
       await closeBrowser();
       const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;
       const res = await office.writeOffice(outFile, OUT_FORMAT, captured, {
@@ -4909,9 +4912,11 @@ async function renderBody(browser, g, closeBrowser) {
       }
     } else {
       const pngBuffers = [];
-      for (const h of handles) {
+      const picCam = await slideCameraFor(page);
+      for (const [i, h] of handles.entries()) {
+        const cam = picCam ? { png: () => picCam.shoot(i, { type: 'png', opaque: !OMIT_BG }), jpeg: (q) => picCam.shoot(i, { type: 'jpeg', quality: q }) } : null;
         // A `.pptx` slide picture is opaque, so a photographic one is stored as a JPEG (lib/export/slide-picture.js).
-        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot) : h.screenshot(pngShot)), 'screenshot slide'));
+        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot, cam) : cam ? cam.png() : h.screenshot(pngShot)), 'screenshot slide'));
       }
       await closeBrowser();
 
@@ -5373,6 +5378,22 @@ async function prunePlayerCssInPage(playerHtml) {
 /** The shared writer's local-file reader: the deck's folder and Lattice's install only. */
 const pdfAssets = require('./lib/export/pdf-asset-reader.js').createAssetReader([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
 
+// The shared slide camera for this run (lib/core/slide-camera.mjs): the one way a slide becomes a picture, here and in the
+// Studio. Null when its bundle is missing, and every caller then keeps Chrome's own screenshot.
+async function slideCameraFor(page) {
+  slideCameraFor.cache ||= new WeakMap();
+  if (!slideCameraFor.cache.has(page)) {
+    let cam = null;
+    try {
+      cam = await require('./lib/export/cli-camera.js').createCliCamera(page, { bundlePath: path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js'), confine: DECK_CONFINE, allowRemote: !!flags['allow-remote'] });
+    } catch (e) {
+      if (!QUIET) console.error(`  ⚠ slide camera unavailable (${e?.message || e}); using Chrome's screenshot`);
+    }
+    slideCameraFor.cache.set(page, cam);
+  }
+  return slideCameraFor.cache.get(page);
+}
+
 async function composePdfInPage(g, page) {
   composePdfInPage.pages ||= new WeakSet();
   const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js');
@@ -5394,6 +5415,13 @@ async function composePdfInPage(g, page) {
     if (!composePdfInPage.pages.has(page)) {
       composePdfInPage.pages.add(page);
       await page.exposeFunction(PHOTO_FN, async (i, scale, type) => {
+        // THE SHARED CAMERA (lib/core/slide-camera.mjs), the one the Studio's PDF takes: the same pixels from either
+        // host. Chrome's own screenshot is the fallback when the bundle cannot be read.
+        const cam = await slideCameraFor(page);
+        if (cam) {
+          const buf = await cam.shoot(i, { scale, type: type === 'jpeg' ? 'jpeg' : 'png', quality: PDF_PHOTO_QUALITY, face: 'screen' });
+          return buf.toString('base64');
+        }
         const h = composePdfInPage.handles[i];
         // deviceScaleFactor changes pixel density only, never layout.
         if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale });
@@ -5401,11 +5429,6 @@ async function composePdfInPage(g, page) {
           // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
-          // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
-          // A real export takes Chrome's default PNG encoder. Under a test (PDF_PHOTO_FAST) it takes the
-          // fast one instead: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms), same pixels, about
-          // 3x the bytes on a flat slide. CI's integration job renders hundreds of decks and sat 25 s
-          // from its timeout before #2503; a shipped PDF and a committed golden keep the small bytes.
           const buf = await h.screenshot(type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
             : { type: 'png', optimizeForSpeed: PDF_PHOTO_FAST, captureBeyondViewport: false });

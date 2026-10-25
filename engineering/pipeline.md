@@ -430,6 +430,40 @@ Not done: the player still stores a repeated `<img src>` (a logo on every slide;
 Read article) once per use, because a no-JavaScript-safe store exists only for CSS backgrounds
 (`hoistRepeatedAssets`).
 
+## 4a2. One camera: how a slide becomes a picture
+
+A slide becomes pixels in six places (the PDF's photo layer, PowerPoint, LibreOffice, a PNG set, a raster PDF, and
+thumbnails). Until 2026-10-25 the two hosts photographed it differently: the CLI took a native Chrome screenshot and the
+Studio ran html-to-image, which copies computed styles onto a clone and floors every `font-size` to `floor(px) - 0.1`
+(`html-to-image/es/clone-node.js:96`). Measured on a 52-slide deck, every slide differed between hosts (median 3.2% of
+pixels off by more than 8 levels, worst 21%) and the Studio's PNG set was 39 MB against 26 MB.
+
+`lib/core/slide-camera.mjs` is now the only camera. It runs in a page (the Studio's tab, the CLI's headless Chrome) and
+needs one thing from its host, `toDataUri(url)`, which turns a picture address into a `data:` URI: the Studio fetches
+`blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js`).
+
+- **No style is copied.** The slide and a shallow clone of its ancestors go into an SVG `foreignObject` with the page's own
+  stylesheet text, `html`, `body` and `:root` re-pointed at two wrapper divs. The same selectors match the same elements, so
+  nothing can drift.
+- **Ancestors keep what inherits, lose their box.** The Studio's preview wraps a slide in a frame (shadow, margin, backdrop);
+  a native screenshot of the slide never includes it, so the wrappers get `ISOLATE` (`display:block`, no margin, padding,
+  background, shadow or transform). Custom properties, `color-scheme`, fonts and `container-type` still inherit.
+- **Face.** `face: 'screen'` is the slide as the live preview shows it: PowerPoint, LibreOffice, PNG and image sets, in both
+  hosts. `face: 'export'` adds `.lattice-exporting` (the flat finish): the PDF's photo layer only, because PDF viewers such as
+  poppler draw soft finishes and directional fades badly (`base.finish.css`, THE OPAQUE FLIP). That is a workaround for a
+  viewer deficiency, not a design choice, and the PDF therefore lacks, for example, a topic slide's lighter shelf.
+- **One PNG encoder** (`encodePng`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
+  The browser's `toBlob('image/png')` wrote files about 40% larger.
+
+Measured against a native screenshot on the 52-slide deck: at most 0.0065% of pixels differ by more than 8 levels at scale 1
+and at most 0.0003% at scale 2 (4 slides checked). Studio against CLI, same deck, same format: PNG set worst slide 0.03%, PowerPoint and
+LibreOffice 0.06%, PDF 0.14%; file sizes agree to 2 decimals. `test/integration/export/slide-camera.test.js` holds the
+camera to the native screenshot.
+
+What the camera does not do: video, live `<canvas>` beyond a PNG snapshot, and pictures the host cannot read (they are
+hidden, not left broken, and counted). `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
+hack worked around html-to-image's border-image bug.
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes, with one measured
