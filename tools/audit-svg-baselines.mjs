@@ -17,10 +17,21 @@
  * the tolerance sits.
  *
  * WHAT IT MEASURES. One deck, rendered once by the real CLI, loaded in both
- * engines. For every `<text>` inside an `<svg>`, the vertical center of its box,
- * expressed in SLIDE px (the section's own 720-unit space, so the two engines'
- * page scales cancel). The reported number is WebKit minus Chromium: negative
- * means WebKit paints it higher.
+ * engines. For every `<text>` inside an `<svg>`, how far the vertical center of
+ * its painted box sits from the label's own anchor (its `x`/`y`, located by
+ * measuring a throwaway rect in the same parent), expressed in SLIDE px (the
+ * section's own 720-unit space, so the two engines' page scales cancel). The
+ * reported number is WebKit minus Chromium: negative means WebKit paints it
+ * higher than its anchor. Every label past the tolerance is listed by name.
+ *
+ * WHAT IT NO LONGER MEASURES (dropped 2026-10-25, #2405, logged here per HARD
+ * RULE #25). Until then the number was the center's position on the SLIDE, which
+ * also counted a label the two engines LAID OUT in different places: WebKit's
+ * text metrics send the state-chart router to a different layout, and "reject"
+ * really does sit 7.64px lower on the slide in WebKit. That is engine-dependent
+ * layout, not a baseline that misses its glyphs, and it filed #2405 every night.
+ * Nothing in the repo reports cross-engine LAYOUT drift now; if that is ever
+ * wanted, it is a separate measurement with its own tolerance.
  *
  * WHAT IT IS NOT. Not a gate, and not a CI arm — CI runs no WebKit, and adding one
  * is a CI-contract decision (#2297 "The gap this leaves open"). This is the
@@ -48,8 +59,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { chromium, webkit } = await import(join(ROOT, 'docs/node_modules/@playwright/test/index.mjs'));
@@ -156,7 +167,9 @@ const probe = () => {
 async function measure(engine) {
 	const b = await engine.launch();
 	const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
-	await p.goto('file://' + html, { waitUntil: 'load' });
+	// pathToFileURL, not 'file://' + path: a relative `--html` (the usage example below) became
+	// `file://.scratch/x.html`, which no browser opens (ERR_INVALID_URL).
+	await p.goto(pathToFileURL(resolve(html)).href, { waitUntil: 'load' });
 	// The export's own runtime lays slides out after load; give it a frame budget
 	// rather than a fixed sleep, then one more settle for font swap-in.
 	await p.evaluate(() => document.fonts?.ready);

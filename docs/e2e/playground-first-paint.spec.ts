@@ -67,8 +67,20 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 		// The visible slide, in page coordinates: the replayed cached slide while the
 		// instant-shell is up, otherwise the live filmstrip's first section offset by its
 		// iframe. Same-origin srcdoc, so the frame's document is readable.
+		// The replayed slide as a person can SEE it: the box clips it (`overflow:hidden`), so a
+		// slide inside a zero-height box has a rect and paints nothing. On the shipped build the
+		// captured snapshot CSS made exactly that box (position:relative, height 0) while the
+		// shell was on, and this sampler credited the invisible slide as painted.
+		const shellSlide = (): [number, number, number, number] | null => {
+			const box = rectOf(document.querySelector('#pg-ssr-slidebox'));
+			const sec = rectOf(document.querySelector('#pg-ssr-slidebox section'));
+			if (!box || !sec) return null;
+			const visibleW = Math.min(box[0] + box[2], sec[0] + sec[2]) - Math.max(box[0], sec[0]);
+			const visibleH = Math.min(box[1] + box[3], sec[1] + sec[3]) - Math.max(box[1], sec[1]);
+			return visibleW >= 1 && visibleH >= 1 ? sec : null;
+		};
 		const visibleSlide = (): [number, number, number, number] | null => {
-			const shell = rectOf(document.querySelector('#pg-ssr-slidebox section'));
+			const shell = shellSlide();
 			if (shell) return shell;
 			try {
 				const f = document.querySelector('#preview') as HTMLIFrameElement | null;
@@ -107,9 +119,10 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				walkBar: rectOf(document.querySelector('#pg-walk')),
 				slide: visibleSlide(),
 			};
-			// Did the replay actually fire? Recorded as a sample so the assertions can tell a
-			// shell that landed exactly on the live slide from one that never painted at all.
-			if (document.documentElement?.getAttribute('data-pg-shell') === 'on') {
+			// Did the replay actually fire, AND can a person see it? Recorded as a sample so the
+			// assertions can tell a shell that landed exactly on the live slide from one that never
+			// painted at all, including one switched on inside a box that clips it to nothing.
+			if (document.documentElement?.getAttribute('data-pg-shell') === 'on' && shellSlide()) {
 				const arr = (log.shellFired ||= []);
 				if (!arr.length) arr.push({ t: now, rect: [1, 1, 1, 1] });
 			}

@@ -461,11 +461,15 @@
    than the re-targeted `body{…}` the capture folds onto the box).
    TWO classes, not one, and that is load-bearing. The capture folds the filmstrip's `body`
    rule onto `.pg-ssr-shell` itself (display:flex, position:relative, min-height:100vh), at
-   the same one-class specificity this box rule used to have, so SOURCE ORDER decided. The
-   dev build happened to put this sheet last; the shipped build (`hoist-stylesheets`) puts it
-   first, and the capture won: after the hand-off drops `data-pg-shell`, the emptied box
+   the same one-class specificity this box rule used to have, so SOURCE ORDER decided, and in
+   the shipped build (`npm run build`) the capture won, twice:
+   while the shell was on, the box was `position:relative` with a height of 0, so the cached
+   slide was clipped to nothing; after the hand-off dropped `data-pg-shell`, the emptied box
    stayed in flow at 100vh and pushed the live slide one viewport below the pane, a blank
-   preview on every returning visit (first-paint @smoke, 20 of 20 against `npm run build`).
+   preview on every returning desktop visit (also measured live on lattice.style).
+   `build:e2e`, which CI's e2e runs against, resolved the order the other way, which is
+   why no gate saw it; why the two builds differ
+   was not established, and this selector no longer depends on it.
    `.pg-preview-wrap .pg-ssr-shell` outranks the capture in any order; the `data-pg-shell`
    rule below still outranks this one. */
 .pg-preview-wrap .pg-ssr-shell {

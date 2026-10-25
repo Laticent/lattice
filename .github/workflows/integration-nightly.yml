@@ -479,6 +479,10 @@ jobs:
       # subtest and its error, so `^not ok ` caught only the suite line ("not ok 3 -
       # component-galleries") and the comment never said WHY. The causes were one line below
       # it, e.g. "light PDF missing: …/tower.gallery.light.pdf", every night since 10-19.
+      # Those lines scale with the failure (one suite missing every gallery PDF printed 374
+      # lines, 32 KB), so the list is capped at 150 lines: a body past GitHub's 65,536
+      # characters is rejected and the night files nothing. `awk`, not `head`, so grep is
+      # never killed by SIGPIPE under `pipefail`.
       #
       # `FAIL (want ` was added 2026-08-24 for the same class of loss, found the hard
       # way. `check-family-tiers` has TWO halves, and only the oracle half prints markers
@@ -534,8 +538,8 @@ jobs:
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^ *not ok |^ +error: |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
-              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
+            { grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^ *not ok |^ +error: |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
+              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'; } | awk 'NR<=150; NR==151 {print "… more failure lines: see the run artifact"}'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
             echo ''
@@ -580,8 +584,8 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^ *not ok |^ +error: |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
-              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
+            { grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^ *not ok |^ +error: |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
+              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'; } | awk 'NR<=150; NR==151 {print "… more failure lines: see the run artifact"}'
             echo '```'
             echo ""
             echo "<details><summary>Last 120 lines</summary>"
