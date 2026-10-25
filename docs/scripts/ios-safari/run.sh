@@ -6,7 +6,7 @@
 # The simulator recipe is the one that is known to work on hosted runners (aletheia-works/formicarium#129):
 # a FRESH device (the image ships a booted one that safaridriver times out on), the remote-automation defaults
 # written inside it, a reboot so Safari reads them, Safari launched before safaridriver connects, and Xcode 26
-# (Xcode 27 replaced Simulator.app, and safaridriver then finds no iOS session host).
+# (Xcode 27 replaced Simulator.app, and safaridriver then finds no iOS session host) left as the image's default.
 set -euo pipefail
 
 ROOT=$(pwd)
@@ -14,13 +14,17 @@ OUT="$ROOT/platform-suite-artifacts/ios-safari"
 mkdir -p "$OUT"
 PORT=4321
 
-xcodebuild -version
-if ! xcodebuild -version | grep -q '^Xcode 26\.'; then
-  pick=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n 1 || true)
-  if [ -z "$pick" ]; then echo 'no Xcode 26 on this runner: safaridriver needs Simulator.app' >&2; exit 1; fi
-  sudo xcode-select -s "$pick"
-  xcodebuild -version
-fi
+# KEEP THE IMAGE'S DEFAULT XCODE; only check it. Switching with `xcode-select -s`, even to the same 26.x, is what
+# makes safaridriver fail every session with "Could not find Simulator.app or a devices:// URL handler" (seen on
+# this suite's first run, and on formicarium#129). Read the version into a variable first: `xcodebuild -version |
+# grep -q` fails under pipefail when grep exits early and xcodebuild dies of SIGPIPE; that is how the switch ran.
+xcode=$(xcodebuild -version)
+echo "$xcode"
+case "$xcode" in
+  'Xcode 26.'*) ;;
+  *) echo 'the default Xcode is not an Xcode 26: Xcode 27 replaced Simulator.app, and safaridriver then finds no iOS session host' >&2; exit 1 ;;
+esac
+test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
 # The docs site, built and served the way the e2e suite serves it.
 (cd docs && npm ci && npm run build:e2e)
