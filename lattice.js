@@ -833,7 +833,6 @@ const REOPENABLE = !!flags.reopenable;
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
-const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
 // Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
 // On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
 // integration tier fits its CI timeout; off for a real export. LATTICE_PDF_PHOTO_FAST=1/0 overrides.
@@ -1067,7 +1066,15 @@ const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.m
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
 // one `size:` (lib/engine/sizes.js `withSize`). An unknown name fails at the size check below.
-const mdSized = flags.size ? require('./lib/engine/sizes').withSize(mdRaw, flags.size) : mdRaw;
+//
+// A 4K deck exports at HD unless `--size 4k` says otherwise (lib/core/export-canvas.js): the pixels are what make a
+// PDF or PowerPoint big, and the author owns that choice.
+const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({ deckSize: frontMatterValue((mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '', 'size'), requested: flags.size, format: OUT_FORMAT });
+const mdSized = EXPORT_CANVAS.size ? require('./lib/engine/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
+if (EXPORT_CANVAS.loweredFrom4k && !flags.quiet) {
+  const f = require('./lib/core/export-canvas').FOUR_K_FACTOR[OUT_FORMAT];
+  console.log(`  Deck size is 4K; exporting at HD (1280x720) to keep the file small. --size 4k keeps 4K, typically ${f}x larger.`);
+}
 const md = WANT_PRINT ? withPrintColorMode(mdSized) : mdSized;
 
 // THE PLUGINS THIS DECK LOADS UNDER THIS RUN'S HOST, decided once (`admitPlugins`, the kernel the
@@ -1963,7 +1970,18 @@ const fm      = fmMatch ? fmMatch[1] : '';
 // What the exports do to pictures (lib/core/image-policy.js): the flag wins over the deck's `images:` line
 // (`original`, `90`, `optimized 90`); both hosts read the same key, so Studio and CLI make the same choice.
 let imageEncoderBrowser = null; // the player's short-lived encoder browser, closed on every path
+// The finished file's size, so the author sees what a choice (HD or 4K, optimized or original) cost: " · 5.9 MB".
+function sizeNote(file) {
+  try {
+    const n = fs.statSync(file).size;
+    return ` · ${n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`}`;
+  } catch {
+    return '';
+  }
+}
 const IMAGE_SETTING = flags.images ?? frontMatterValue(fm, 'images');
+// The PDF's slide-photo layer takes the same JPEG quality as every other picture; the env var still overrides it.
+const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).quality));
 require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`
@@ -4447,7 +4465,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
       if (REOPENABLE) tags.push('re-openable in Lattice');
-      console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
+      console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else if (OUT_FORMAT === 'pdf') {
@@ -4492,7 +4510,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
       if (REOPENABLE) tags.push('re-openable in Lattice');
-      console.log(`PDF: ${outFile} (${tags.join(', ')})`);
+      console.log(`PDF: ${outFile} (${tags.join(', ')})${sizeNote(outFile)}`);
     }
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
@@ -4887,7 +4905,7 @@ async function renderBody(browser, g, closeBrowser) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
-        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
+        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}${sizeNote(outFile)}`);
       }
     } else {
       const pngBuffers = [];
@@ -4920,7 +4938,7 @@ async function renderBody(browser, g, closeBrowser) {
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
         }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
-        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}`);
+        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
       }
     }
   }
@@ -5019,24 +5037,32 @@ async function renderBody(browser, g, closeBrowser) {
         playerDocHtml = placeheld.html;
         webBlockedAtRender.push(...placeheld.blocked);
       }
-      // The shared JPEG encoder (lib/export/chrome-recode.js), in its own short-lived hardened browser like the CSS
-      // prune below: the render browser is closed by now. Only when the deck did not ask for `images: original`;
-      // a failure to start it keeps every picture as it was.
+      // The shared JPEG encoder (lib/export/chrome-recode.js) runs in its own short-lived hardened browser, like the CSS
+      // prune below: the render browser is closed by now.
+      // LAZY: the browser starts on the first picture the policy wants to re-encode, so a deck with no big photo
+      // pays nothing, and a failure to start it keeps every picture as it was.
       let chromeEncoder = null;
-      if (require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).mode === 'optimized') {
-        try {
-          const encOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS], headless: 'new' };
-          if (CHROME_EXEC) encOpts.executablePath = CHROME_EXEC;
-          imageEncoderBrowser = await puppeteer.launch(encOpts);
-          chromeEncoder = await require('./lib/export/chrome-recode.js').createChromeEncoder(imageEncoderBrowser);
-        } catch (e) {
-          await imageEncoderBrowser?.close().catch(() => {});
-          if (!QUIET) console.error(`  ⚠ picture optimizer unavailable (${e?.message || e}); pictures keep their original bytes`);
+      let encoderFailed = false;
+      const lazyEncode = async (bytes, mime, plan) => {
+        if (encoderFailed) return null;
+        if (!chromeEncoder) {
+          try {
+            const encOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS], headless: 'new' };
+            if (CHROME_EXEC) encOpts.executablePath = CHROME_EXEC;
+            imageEncoderBrowser = await puppeteer.launch(encOpts);
+            chromeEncoder = await require('./lib/export/chrome-recode.js').createChromeEncoder(imageEncoderBrowser);
+          } catch (e) {
+            encoderFailed = true;
+            await imageEncoderBrowser?.close().catch(() => {});
+            if (!QUIET) console.error(`  ⚠ picture optimizer unavailable (${e?.message || e}); pictures keep their original bytes`);
+            return null;
+          }
         }
-      }
+        return chromeEncoder.encode(bytes, mime, plan);
+      };
       const { html: playerHtml, report } = await buildPlayerHtml({
         images: IMAGE_SETTING,
-        encodeImage: chromeEncoder ? chromeEncoder.encode : undefined,
+        encodeImage: lazyEncode,
         // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
         // asset inliner can bake in. Without it every prose image in a shared player is a
         // dangling relative path (see the note in html-player.js).

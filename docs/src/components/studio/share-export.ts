@@ -21,6 +21,7 @@ import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
+import { exportSourceFor } from './export/images-override.js';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { LatticeMedia } from './lattice-file';
@@ -1157,7 +1158,7 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
+	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pdf'), palette, mode, extra, extraCss));
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
@@ -1172,7 +1173,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
+	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pptx'), palette, mode, extra, extraCss));
 	const ex = await exporters();
 	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource, images: ex.deckImageSetting(source) }), source);
 }
@@ -1181,7 +1182,7 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
  *  picture per slide, or with `editable` every paragraph as a real text box over a picture
  *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
+	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, format), palette, mode, extra, extraCss));
 	const ex = await exporters();
 	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source) }), source);
 }

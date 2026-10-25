@@ -31,10 +31,10 @@ test('resolveImagePolicy: optimized by default, original on request, quality cla
   assert.equal(resolveImagePolicy().mode, 'optimized');
   assert.equal(resolveImagePolicy({ mode: ' Original ' }).mode, 'original');
   assert.equal(resolveImagePolicy({ mode: 'bogus' }).mode, 'optimized');
-  assert.equal(resolveImagePolicy().quality, 88);
+  assert.equal(resolveImagePolicy().quality, 90);
   assert.equal(resolveImagePolicy({ quality: '200' }).quality, 100);
   assert.equal(resolveImagePolicy({ quality: 0 }).quality, 1);
-  assert.equal(resolveImagePolicy({ quality: 'x' }).quality, 88);
+  assert.equal(resolveImagePolicy({ quality: 'x' }).quality, 90);
 });
 
 test('the images: line takes a mode and a quality in any order, like the other multi-word registers', () => {
@@ -45,7 +45,7 @@ test('the images: line takes a mode and a quality in any order, like the other m
   assert.equal(p.mode, 'optimized');
   assert.equal(p.quality, 90);
   assert.equal(resolveImagePolicy('original').mode, 'original');
-  assert.equal(resolveImagePolicy(undefined).quality, 88);
+  assert.equal(resolveImagePolicy(undefined).quality, 90);
 });
 
 test('readImageInfo reads size, format and a PNG alpha hint from the header', () => {
@@ -62,7 +62,7 @@ test('planRecode: skips small files, original mode, and tight JPEGs; shrinks the
   const p = resolveImagePolicy();
   const big = readImageInfo(png(4000, 3000, 2));
   assert.equal(planRecode(big, 100 * 1024, p), null, 'under 150 KB');
-  assert.deepEqual(planRecode(big, 5e6, p), { width: 2560, height: 1920, quality: 88, checkAlpha: false, formatChange: true });
+  assert.deepEqual(planRecode(big, 5e6, p), { width: 2560, height: 1920, quality: 90, checkAlpha: false, formatChange: true });
   assert.equal(planRecode(big, 5e6, resolveImagePolicy({ mode: 'original' })), null);
   const tight = readImageInfo(jpeg(1920, 1280));
   assert.equal(planRecode(tight, 600 * 1024, p), null, '0.24 bytes per pixel is already tight');

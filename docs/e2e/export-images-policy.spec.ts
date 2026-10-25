@@ -99,3 +99,24 @@ test('@smoke Share → PDF shrinks a big photo by default, and Original quality 
 	expect(optimized.filter, 'the default re-encodes it as a JPEG').toBe('/DCTDecode');
 	expect(optimized.bytes, 'and the file is much smaller').toBeLessThan(original.bytes * 0.5);
 });
+
+test('@smoke a 4K deck exports its PDF at HD by default, and 4K when the author picks it', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, '---\nsize: 4k\n---\n\n# Resolution probe\n\n- One\n- Two\n');
+	const pageWidth = async (resolution: RegExp | null) => {
+		await page.getByRole('button', { name: 'Share', exact: true }).click();
+		const dialog = page.getByRole('dialog');
+		await expect(dialog).toBeVisible();
+		await dialog.getByRole('button', { name: /^PDF/ }).click();
+		// The control exists only because the deck is 4K, and says what the bigger file costs.
+		await expect(dialog.getByRole('radiogroup', { name: 'Resolution' })).toContainText(/about 1\.6.? larger/);
+		if (resolution) await dialog.getByRole('radio', { name: resolution }).check();
+		const download = page.waitForEvent('download', { timeout: 240_000 });
+		await dialog.getByRole('button', { name: /^Download PDF/ }).click();
+		const bytes = new Uint8Array(readFileSync((await (await download).path()) as string));
+		await page.keyboard.press('Escape');
+		return (await PDFDocument.load(bytes, { updateMetadata: false })).getPage(0).getSize().width;
+	};
+	expect(await pageWidth(null), 'HD: 1280 px is 960 pt').toBe(960);
+	expect(await pageWidth(/^4K/), '4K: 3840 px is 2880 pt').toBe(2880);
+});

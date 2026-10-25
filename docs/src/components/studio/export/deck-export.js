@@ -1632,7 +1632,7 @@ let pictureImages = null;
 async function canvasToPictureBlob(canvas, section) {
 	const policy = imagePolicyCore.resolveImagePolicy(pictureImages || {});
 	if (policy.mode === 'original') return canvasToPng(canvas);
-	const { worthTryingJpeg, jpegWins, isContinuousTone, PICTURE_JPEG_QUALITY, PICTURE_TONE_JPEG_BYTES } = await import('@/lib/calco');
+	const { worthTryingJpeg, jpegWins, isContinuousTone, PICTURE_TONE_JPEG_BYTES } = await import('@/lib/calco');
 	const encode = (c, type, quality) => new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality));
 	const jpegOf = async () => {
 		const flat = document.createElement('canvas');
@@ -1642,7 +1642,7 @@ async function canvasToPictureBlob(canvas, section) {
 		ctx.fillStyle = '#fff';
 		ctx.fillRect(0, 0, flat.width, flat.height);
 		ctx.drawImage(canvas, 0, 0);
-		const jpeg = await encode(flat, 'image/jpeg', Number.isFinite(Number.parseInt(String(pictureImages?.quality ?? ''), 10)) ? policy.quality / 100 : PICTURE_JPEG_QUALITY);
+		const jpeg = await encode(flat, 'image/jpeg', policy.quality / 100);
 		// A browser that cannot encode JPEG hands back a PNG; that is no saving.
 		return jpeg.type === 'image/jpeg' ? jpeg : null;
 	};
@@ -2075,7 +2075,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		} catch (e) {
 			throw captureError(e);
 		}
-	}, 0.92);
+	}, imagePolicyCore.resolveImagePolicy(images || {}).quality / 100);
 	const withSlide = (section, fn) => {
 		const restore = forceSectionVisibleForCapture(section);
 		const had = section.classList.contains('lattice-exporting');

@@ -4,6 +4,9 @@
 // Module state, not a parameter: eight share* helpers sit between the panel and the exporter, and none of
 // them has an opinion about pictures.
 
+import exportCanvasCore from '../../../../../lib/core/export-canvas.js';
+import sizesCore from '../../../../../lib/engine/sizes.js';
+
 let override = { mode: 'deck', quality: '' };
 
 export function setImagesOverride(next) {
@@ -14,6 +17,21 @@ export function setImagesOverride(next) {
 export function applyImagesOverride(fromDeck) {
 	if (override.mode === 'deck') return fromDeck;
 	return { mode: override.mode, quality: override.quality || fromDeck.quality };
+}
+
+// The export canvas (lib/core/export-canvas.js): 'hd' (default) or '4k'. A 4K deck exports its PDF, PowerPoint and
+// LibreOffice at HD unless the author picks 4K here; a deck that is not 4K has nothing to choose.
+let canvasChoice = '';
+
+export function setCanvasChoice(next) {
+	canvasChoice = next === '4k' ? '4k' : '';
+}
+
+/** The deck source an export of `format` renders: the deck's own, or its `size:` lowered to HD. Never edits the author's deck. */
+export function exportSourceFor(source, format) {
+	const deckSize = (/^size:[ \t]*(.+?)[ \t]*$/m.exec(/^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '') || [])[1];
+	const { size } = exportCanvasCore.exportCanvas({ deckSize, requested: canvasChoice, format });
+	return size ? sizesCore.withSize(source, size) : source;
 }
 
 const KEY = (deckId) => `lattice-studio-images:${deckId}`;

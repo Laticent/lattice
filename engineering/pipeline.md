@@ -366,7 +366,7 @@ golden take the default encoder: `examples/topic.pdf` is 109 KB, against 245 KB 
 for the all-JPEG writer before #2503. On a flat slide background that is the PNG, which keeps
 a 1 px colored rule exact; JPEG stores color at half resolution at every quality, and wrote the
 top keyline of a dark slide as rgb(42,132,176) for rgb(0,146,216). On a photograph the JPEG is
-smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY`, default 92, sets its quality).
+smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY` overrides the quality, which otherwise is the shared picture quality, 90 by default).
 
 **The CLI's file reader is a trust boundary.** The page calls back into Node for local images and
 fonts, and a deck's own scripts can call it too. So `lib/export/pdf-asset-reader.js` reads local
@@ -396,7 +396,7 @@ The plan is `lib/core/image-policy.js` (pure, no dependencies). `planRecode` say
 `acceptRecode` says whether the result replaces the original:
 
 - **Optimized (default).** A PNG or JPEG of 150 KB or more is capped to 2560 px on its long edge and
-  re-encoded as JPEG at quality 88. A format change (PNG to JPEG) is kept only if it comes in under 70% of
+  re-encoded as JPEG at quality 90. A format change (PNG to JPEG) is kept only if it comes in under 70% of
   the original; a resize that keeps JPEG must come in under 90%. A JPEG that is already at or under 0.5 bytes
   per pixel at a size we would not shrink is skipped without an encode. A PNG that has any non-opaque pixel
   stays a PNG (the header gives the hint; the encoder checks the pixels). GIF, WebP, AVIF and SVG are never touched.
@@ -413,6 +413,14 @@ not the source files, so for them the policy decides the slide picture: optimize
 PNG-or-JPEG rule (`lib/export/slide-picture.js`, `canvasToPictureBlob`), and `images: original` keeps every slide a
 lossless PNG (the same deck: 13.7 MB optimized, 26.3 MB original). The image-set zip keeps its own
 `--image-format` / `--image-quality` controls; those already are the author's choice.
+
+**One quality, one canvas rule.** Every picture an export writes takes `policy.quality` (90): source photos,
+PPTX/ODP slide pictures (`slide-picture.js`, `canvasToPictureBlob`) and the PDF's slide-photo layer
+(`PDF_PHOTO_QUALITY`, `canvasCamera`). 90 is measured: against 88 it costs 10% more bytes for about 1 dB, and
+the worst of 21 photos stays above 38 dB PSNR. The canvas rule is `lib/core/export-canvas.js`: a deck whose `size:` is
+4K exports PDF, PPTX and ODP at HD unless `--size 4k` (CLI) or the panel's Resolution (Studio) says otherwise; the deck is
+never rewritten. The design is resolution-independent, so HD vs 4K is only pixels: on the 52-slide photo deck the PDF is
+5.5 MB vs 8.4 MB and the PPTX 11.9 MB vs 27.5 MB (quality 90). The player, the HTML and the image set do not follow the canvas.
 
 **Where the author chooses.** One front-matter line, `images:` (`original`, `90`, `optimized 90`); the CLI flag `--images` takes the same words
 (the flag wins); and in the Studio, a **Pictures** control in each export panel (PDF, PowerPoint, LibreOffice,

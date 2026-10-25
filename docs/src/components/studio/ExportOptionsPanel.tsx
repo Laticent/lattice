@@ -21,7 +21,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
 import { OffFencesNotice } from './OffFencesNotice';
-import { PicturesControl } from './PicturesControl';
+import { PicturesControl, ResolutionControl } from './PicturesControl';
 
 export function ExportOptionsPanel({
 	format = 'pdf',
@@ -135,6 +135,7 @@ export function ExportOptionsPanel({
 					</div>
 				)}
 
+				<ResolutionControl deckId={deckId} source={source} busy={busy} format={format} />
 				<PicturesControl deckId={deckId} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
 
 				{/* Re-openable: the deck's source rides inside the file. */}
