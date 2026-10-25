@@ -1,0 +1,1 @@
+- **Fixed: the Chat header keeps its title beside a long model name on a phone.** A model named like "Anthropic: Claude Sonnet 4.5" squeezed the title to "C". The model chip now shortens first, so the header reads "Chat" with the model name ending in an ellipsis. The docked Library's title, which its search field hid entirely at desktop width, shows too.

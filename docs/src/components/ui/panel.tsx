@@ -704,7 +704,12 @@ export function PanelHeader({
 					{icon}
 				</span>
 			) : null}
-			<div className="min-w-0 flex-1">
+			{/* With `fluidActions` the title starts at its own width (`basis-auto`) and the actions
+			    take the squeeze first (`shrink-[1000]` against the title's 1): the title is the
+			    panel's name and the fluid slot is a chip or a field that can give way. With a basis
+			    of 0 the title had no width to defend, so the Chat sheet at 390px showed "C" beside a
+			    long model name (followup 2821-p1). A title wider than the row still truncates. */}
+			<div className={cn('min-w-0 flex-1', fluidActions && 'basis-auto')}>
 				<Title className="truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">{title}</Title>
 				{inSheet ? <SheetDescription className="sr-only">{srDescription ?? title}</SheetDescription> : null}
 			</div>
@@ -725,7 +730,7 @@ export function PanelHeader({
 			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
 			    independent checker. */}
 			{actions ? (
-				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
 			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}

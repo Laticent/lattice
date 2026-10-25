@@ -107,3 +107,21 @@ the details.
   `thoughtTail` starts the snippet on a word boundary and marks the cut with an ellipsis.
 - **Not changed:** the streaming row is not tappable. It lasts seconds and is replaced by the finished row, so a live sheet was not
   worth a second code path. Say so if you want it.
+
+## 9. Follow-up: the header title beside a long model name (2026-10-25)
+
+On a phone the Chat sheet's header carries the model chip and the session figure (§3). With a model named like "Anthropic:
+Claude Sonnet 4.5" the owner's iPhone showed the title as "C". Reproduced in WebKit on the iPhone 15 Pro profile and in
+Chromium at 390 px: the title's box was 11 px wide for 32 px of text.
+
+**Cause.** `PanelHeader` gave the title `flex: 1 1 0%` and the actions slot `shrink-0`. A title with a zero basis has no width
+of its own to defend, so the actions took their full width (the chip's `max-w-[10.5rem]`) and the title got what was left.
+
+**Fix.** The Chat sheet passes `fluidActions`, and in that mode `PanelHeader` gives the title its own width as a basis
+(`basis-auto`) and lets the actions take the squeeze first (`shrink-[1000]`). The chip already truncates (`min-w-0`), so it
+shows "Anthropic Claude S…" and the title shows "Chat". Measured title `scrollWidth`/`clientWidth` 32/32 at 390 and 820 in
+Chromium, WebKit and Firefox; `e2e/chat-header-title.spec.ts` holds it in `mobile` and `webkit-phone`.
+
+**The other header it touches.** The Library is the one other `fluidActions` header. Docked at 1440 its "Library" title
+measured **0 px wide** before (the search field took the row) in all three engines, and is whole after; at 820 and 390 its
+header is unchanged. A header without `fluidActions` is unchanged. Real iOS is UNVERIFIED.
