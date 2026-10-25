@@ -38,6 +38,7 @@ import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capa
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import dataBlockCore from '../../../../../lib/core/data-block.js';
+import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
@@ -2009,7 +2010,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 		// image-per-page lanes below stay as the fallback, so a deck is never lost to it.
 		if (opts?.writer !== 'photo') {
 			try {
-				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log);
+				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, opts?.images);
 			} catch (e) {
 				console.warn('[lattice-export] shared PDF writer failed (' + (e?.message || e) + ') — falling back to one photo per page.');
 			}
@@ -2040,7 +2041,13 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *     where `sweepWebRefsForCapture` already replaces it;
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
-async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log) {
+/** The deck's `images:` / `images-quality:` (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
+export function deckImageSetting(source) {
+	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
+	return { mode: frontMatterKeyCore.frontMatterValue(fm, 'images'), quality: frontMatterKeyCore.frontMatterValue(fm, 'images-quality') };
+}
+
+async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images) {
 	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, { toCanvas }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
@@ -2112,7 +2119,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
 	// Fonts through the same guard as images: no web font is fetched from the author's machine.
-	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });

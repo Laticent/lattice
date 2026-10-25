@@ -88,6 +88,8 @@ instead.
 | `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
+| `--images optimized\|original` | PDF and `--player` pictures. `optimized` (default) caps a large photo to 2560 px and re-encodes it as JPEG when that saves at least 10-30%; `original` embeds every file as added. Same as the `images:` front-matter key |
+| `--images-quality N` | JPEG quality 1-100 for optimized pictures (default 88). Same as `images-quality:` |
 
 ## Office options
 

@@ -385,6 +385,36 @@ name in its box's color. `test/integration/export/pdf-svg-text-owner-fill.test.j
 real PDF and counts ink inside each box. After editing `read-slide.mjs`, run
 `node tools/build-pdf-compose.js`: the CLI runs the built `dist/` bundle, not the source.
 
+## 4a1. Pictures: one policy for PDF, player, Studio and CLI
+
+Before 2026-10-25 the PDF and the HTML player embedded every picture at the bytes the author added
+(a 2.5 MB PNG screenshot stayed 2.5 MB, and the player held each `<img>` twice), while the PPTX and ODP
+wrote slide pictures and already chose JPEG for photographs. One 52-slide deck of 21 PNG screenshots
+(23.9 MB) came out at 33.5 MB as a PDF and 66.6 MB as a player, against 13.7 MB as a PPTX.
+
+The plan is `lib/core/image-policy.js` (pure, no dependencies). `planRecode` says what to do per picture and
+`acceptRecode` says whether the result replaces the original:
+
+- **Optimized (default).** A PNG or JPEG of 150 KB or more is capped to 2560 px on its long edge and
+  re-encoded as JPEG at quality 88. A format change (PNG to JPEG) is kept only if it comes in under 70% of
+  the original; a resize that keeps JPEG must come in under 90%. A JPEG that is already at or under 0.5 bytes
+  per pixel at a size we would not shrink is skipped without an encode. A PNG that has any non-opaque pixel
+  stays a PNG (the header gives the hint; the encoder checks the pixels). GIF, WebP, AVIF and SVG are never touched.
+- **Original.** `images: original` in the front matter, or `--images original`, embeds every file as added.
+  `images-quality: N` / `--images-quality N` sets the JPEG quality.
+- **Same answer in both hosts.** The encoder is `encodeJpegInPage` (`lib/core/image-recode.mjs`), Chromium's canvas.
+  The Studio calls it in the tab; the CLI sends the same source into a page (`lib/export/chrome-recode.js`).
+  The PDF applies it in `compose.mjs` (one place, both hosts run it in a page); the player applies it in
+  `assemblePlayer` (`lib/export/player-images.mjs`), after the host has baked pictures into `data:` URIs.
+
+Measured with the CLI on the deck above: PDF 33.5 to 6.0 MB, player 66.6 to 12.6 MB. A 35-slide deck of photos
+that were already 1920 px JPEGs: no change in either, because no re-encode won. The PPTX and ODP are
+unchanged: they store one picture per slide, not the source files, so their size follows the slide, not the policy.
+
+Not done: the player still stores a repeated `<img src>` (a logo on every slide; each photo again in the
+Read article) once per use, because a no-JavaScript-safe store exists only for CSS backgrounds
+(`hoistRepeatedAssets`).
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes, with one measured

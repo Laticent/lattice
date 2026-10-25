@@ -1160,7 +1160,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
 	// `embedSource` — the `.lattice` to carry when the author chose "Re-openable in Lattice".
-	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource }), source);
+	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource, images: ex.deckImageSetting(source) }), source);
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's

@@ -1960,6 +1960,13 @@ const autoGlossaryEntries = resolveGlossaryMode(preGlossaryMd) === 'auto' ? glos
 // so the exact newlines at the capture's edges do not matter.
 const fmMatch = rawMd.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 const fm      = fmMatch ? fmMatch[1] : '';
+// What the exports do to pictures (lib/core/image-policy.js): the flag wins over the deck's `images:` /
+// `images-quality:`; both hosts read the same two keys, so Studio and CLI make the same choice.
+let imageEncoderBrowser = null; // the player's short-lived encoder browser, closed on every path
+const IMAGE_SETTING = {
+  mode: flags.images ?? frontMatterValue(fm, 'images'),
+  quality: flags['images-quality'] ?? frontMatterValue(fm, 'images-quality'),
+};
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`
 // flag OR a `fluid: true` front-matter key. The PDF/PPTX/PNG outputs are
@@ -5014,7 +5021,24 @@ async function renderBody(browser, g, closeBrowser) {
         playerDocHtml = placeheld.html;
         webBlockedAtRender.push(...placeheld.blocked);
       }
+      // The shared JPEG encoder (lib/export/chrome-recode.js), in its own short-lived hardened browser like the CSS
+      // prune below: the render browser is closed by now. Only when the deck did not ask for `images: original`;
+      // a failure to start it keeps every picture as it was.
+      let chromeEncoder = null;
+      if (require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).mode === 'optimized') {
+        try {
+          const encOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS], headless: 'new' };
+          if (CHROME_EXEC) encOpts.executablePath = CHROME_EXEC;
+          imageEncoderBrowser = await puppeteer.launch(encOpts);
+          chromeEncoder = await require('./lib/export/chrome-recode.js').createChromeEncoder(imageEncoderBrowser);
+        } catch (e) {
+          await imageEncoderBrowser?.close().catch(() => {});
+          if (!QUIET) console.error(`  ⚠ picture optimizer unavailable (${e?.message || e}); pictures keep their original bytes`);
+        }
+      }
       const { html: playerHtml, report } = await buildPlayerHtml({
+        images: IMAGE_SETTING,
+        encodeImage: chromeEncoder ? chromeEncoder.encode : undefined,
         // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
         // asset inliner can bake in. Without it every prose image in a shared player is a
         // dangling relative path (see the note in html-player.js).
@@ -5086,6 +5110,7 @@ async function renderBody(browser, g, closeBrowser) {
         playerVersion: PLAYER_VERSION,
         host: 'cli',
       });
+      await imageEncoderBrowser?.close().catch(() => {});
       // P6 — used-selector CSS prune + used-family FONT prune. Authoritative Chromium
       // matching (+ a computed-style gate for CSS); a gate failure or css-tree-absent
       // silently keeps the full CSS, an empty font detection keeps every face. Never
@@ -5151,6 +5176,7 @@ async function renderBody(browser, g, closeBrowser) {
         console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
       }
     } catch (err) {
+      await imageEncoderBrowser?.close().catch(() => {});
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
   } else if (FLUID_VIEW && FLUID_BEATS_READ) {
@@ -5373,7 +5399,7 @@ async function composePdfInPage(g, page) {
     // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.min(COMPOSE_MAX_MS, Math.max(RENDER_WATCHDOG_MS, handles.length * 4000));
-    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality) => {
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality, imageSetting) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
       // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
@@ -5409,7 +5435,7 @@ async function composePdfInPage(g, page) {
       let composed;
       try {
         const readFontFaceRules = (href) => window[facesFn](href);
-        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide });
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide, images: imageSetting });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
         return { error: String(e?.stack || e) };
@@ -5418,7 +5444,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {

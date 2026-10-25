@@ -3,6 +3,8 @@
 // (test/integration/export/player-host-parity.test.js) bundles and drives exactly what the Webpage
 // export runs, rather than a copy of it (decisions/2026-10-16-player-as-library-audit.md §11).
 
+import { encodeJpegInPage } from '../../../../lib/core/image-recode.mjs';
+
 /** The injected capabilities `assemblePlayer` needs, backed by browser APIs. */
 export type PlayerCaps = {
 	parseHtml: (html: string) => Document;
@@ -11,6 +13,7 @@ export type PlayerCaps = {
 	inlineAssets: (html: string) => { html: string; count: number; missing: string[] };
 	katexCss?: () => string | null;
 	subsetFonts?: (html: string) => Promise<{ html: string; applied: boolean; saved: number }>;
+	encodeImage?: (bytes: Uint8Array, mime: string, plan: object) => Promise<Uint8Array | null>;
 };
 
 /**
@@ -47,6 +50,8 @@ export function browserPlayerCaps(p: {
 		sha256: sha256Base64,
 		inlineAssets: (html: string) => ({ html, count: media.count, missing: media.missing }),
 		katexCss: p.katexCss ?? (() => null),
+		// The shared image policy's encoder: this tab's canvas, the same function the CLI runs in its Chrome.
+		encodeImage: encodeJpegInPage,
 		...(p.subsetFonts ? { subsetFonts: p.subsetFonts } : {}),
 	};
 }
