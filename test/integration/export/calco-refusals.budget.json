@@ -34,6 +34,18 @@
     "pictures": 7,
     "reasons": {}
   },
+  "chart-finish@etch": {
+    "refused": 0,
+    "shapes": 21,
+    "pictures": 7,
+    "reasons": {}
+  },
+  "chart-finish@tone": {
+    "refused": 0,
+    "shapes": 21,
+    "pictures": 7,
+    "reasons": {}
+  },
   "backdrop-register": {
     "refused": 0,
     "shapes": 12,

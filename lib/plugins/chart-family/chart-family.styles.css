@@ -1163,8 +1163,12 @@ section.chart-frame .chart-caption::before {
    * laptop landscape slide keeps the old 1.71875cqi / 0.78125cqi / 0.859375cqi exactly:
    * the height still matches the gantt/progress bar there, and still does the vertical
    * centering (the padding is horizontal-only). The --card-tag-pad-* kernel is the model. */
+  /* The border's width is private (`--_status-bw`) so a finish can drop it without moving the pill: whatever the
+   * border gives up, the PADDING takes back on every side, so the outer box is the same in every finish whether the
+   * host sizes the pill border-box (the height holds) or content-box (the padding restores it). */
+  --_status-bw: var(--chart-hairline);
   height: calc(1.71875em / 1.17);
-  padding: 0 calc(0.78125em / 1.17);
+  padding: calc(var(--chart-hairline) - var(--_status-bw)) calc(0.78125em / 1.17 + var(--chart-hairline) - var(--_status-bw));
   border-radius: calc(0.859375em / 1.17);
   font-family: var(--font-body);
   font-size: var(--fs-meta);
@@ -1178,16 +1182,16 @@ section.chart-frame .chart-caption::before {
    * Without this default an unknown word ("slipped", "at risk" with a space) painted white text on no fill. */
   --chart-status-hue: var(--state-info-hue);
   background: var(--chart-status-hue);
-  border: var(--chart-hairline) solid transparent;
+  border: var(--_status-bw) solid transparent;
   color: var(--chart-on-mark);
 }
-/* Under `etch` and `tone` the pill is a pale wash inside an ink edge drawn as an inset ring, and its border is
- * transparent (Calco lifts a border plus an inset ring only as a picture). Left at border-box, the wash showed through
- * that transparent hairline as a pale halo OUTSIDE the ink edge, so it is clipped to the padding box. The finish rules
- * set the `background` shorthand `!important`, which resets the clip, hence `!important` here; `pigment`'s fill runs
- * to the edge and is left alone. */
+/* Under `etch` and `tone` the pill is a pale wash inside an ink edge drawn as an inset ring. Its transparent border
+ * would let that wash show through as a pale halo OUTSIDE the ink edge, so the pill has NO border there: the size
+ * moves into its height and padding (above), so the box does not move. Not a `background-clip`: Calco lifts a clipped
+ * fill under an inset ring only as a picture (`paint:bg-clip`); `pigment`'s fill runs to the edge and keeps its
+ * border. */
 :is(section, figure):is(.chart-finish-etch, .chart-finish-tone) .chart-status {
-  background-clip: padding-box !important;
+  --_status-bw: 0px;
 }
 /* THE VIVID INTENSITY lives in the base (base.tokens.css § THE STATUS FILL ON THIS SLIDE): `--state-X-hue` is set on
  * the slide, so every component that shows a status takes the deck's intensity, not only a chart. */

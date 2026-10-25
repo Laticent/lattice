@@ -106,11 +106,12 @@
    * crowds a short bar's first stretch. */
   overflow: visible;
 }
-/* `etch` and `tone` paint the bar as a pale wash inside an inset ink edge; clipped to the padding box so the wash does
- * not show through the transparent hairline as a halo outside that edge (the same rule as the status pill,
- * chart-family.styles.css). `!important` because the finish's `background` shorthand is. */
+/* `etch` and `tone` paint the bar as a pale wash inside an inset ink edge, so the bar has no border there: a
+ * transparent one let the wash show through as a halo outside that edge. The bar is border-box, so its length (the
+ * datum) does not move. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture
+ * (the same rule as the status pill, chart-family.styles.css). */
 :is(section.progress, figure.progress):is(.chart-finish-etch, .chart-finish-tone) .progress-fill {
-  background-clip: padding-box !important;
+  border-width: 0;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */

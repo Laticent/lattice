@@ -429,19 +429,24 @@ section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"][data-s="de
 }
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"] {
   background: var(--fc-status-fill, var(--fc-slot-fill, var(--fc-tile-fill)));
-  border: var(--chart-hairline) solid var(--fc-hue-mark, var(--fc-slot-mark, var(--fc-stroke-mark)));
+  /* The border's width is private so a finish can drop it without moving the swatch: the padding takes back what the
+   * border gives up. */
+  --_swatch-bw: var(--chart-hairline);
+  border: var(--_swatch-bw) solid var(--fc-hue-mark, var(--fc-slot-mark, var(--fc-stroke-mark)));
+  padding: calc(var(--chart-hairline) - var(--_swatch-bw));
 }
 /* Stronger on a dark canvas, as the group it decodes is: 14% of a hue over near-black read
  * as a gray lozenge that decoded nothing. */
 /* A stated tile swatch takes its edge from the chart finish (an inset ring, the signal on an exception), so its own
  * hairline goes transparent: Calco lifts a border plus an inset ring only as a picture, as on the status pill. Under
- * `etch` and `tone` the wash is clipped to the padding box so it does not show through that hairline as a halo. A
- * deferred swatch keeps its dashed border (no finish paints it). */
+ * `etch` and `tone` it has no border at all, so the wash cannot show through as a halo outside the ink edge; the
+ * padding keeps its size. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture.
+ * A deferred swatch keeps its dashed border (no finish paints it). */
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
   border-color: transparent;
 }
 section:is(.flowchart, .state-chart):is(.chart-finish-etch, .chart-finish-tone) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
-  background-clip: padding-box !important;
+  --_swatch-bw: 0px;
 }
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="group"] {
   background: light-dark(color-mix(in oklab, var(--fc-group-hue) 14%, transparent), color-mix(in oklab, var(--fc-group-hue) 28%, transparent));
