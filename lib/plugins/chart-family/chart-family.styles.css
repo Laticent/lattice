@@ -1189,8 +1189,8 @@ section.chart-frame .chart-caption::before {
   pointer-events: none;
 }
 
-/* The same marks on the HTML members, masked from the `--mark-*-bold` tokens: a status pill leads with its mark, and a
- * progress bar carries it at its leading end. `--status-mark` names the shape per status; a status with none (live,
+/* The same marks on the HTML members, masked from the `--mark-*-bold` tokens: a status pill leads with its mark. A
+ * progress bar draws none: its row's status pill carries the mark, and the bar stays pure length from zero. `--status-mark` names the shape per status; a status with none (live,
  * pilot, decision) draws nothing. */
 :is(section.chart-frame, figure.chart-frame) [data-s] { --status-mark: none; }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="pass"]) { --status-mark: var(--mark-check-bold); }
@@ -1202,7 +1202,7 @@ section.chart-frame .chart-caption::before {
   align-items: center;
   gap: 0.3em;
 }
-:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .progress-fill, .state-node-row):is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"])::before {
+:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .state-node-row):is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"])::before {
   content: '';
   flex: none;
   width: 0.95em;
@@ -1210,13 +1210,6 @@ section.chart-frame .chart-caption::before {
   background: var(--chart-solid-ink);
   -webkit-mask: var(--status-mark) center / contain no-repeat;
           mask: var(--status-mark) center / contain no-repeat;
-}
-:is(section.chart-frame, figure.chart-frame) .progress-fill:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"])::before {
-  position: absolute;
-  inset-inline-start: 0.45cqi;
-  inset-block: 0;
-  height: auto;
-  font-size: max(var(--chart-text-min), 2cqi);
 }
 
 /* THE SIGNAL RING. A status fill is deep, like a category, so its fill alone cannot say "exception". The two

@@ -126,8 +126,7 @@
     "--mark-dash-bold",
     "--mark-x-bold",
     "--mark-slash-bold",
-    "--status-mark",
-    "--chart-text-min"
+    "--status-mark"
   ],
   "render": {
     "parity": "equivalent",

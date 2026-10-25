@@ -26,9 +26,8 @@
 }
 :is(section.progress, figure.progress) .progress-row {
   display: grid;
-  /* label · track · pill — the % readout now lives INSIDE the fill (right-
-   * aligned on the colored bar, like a gantt bar's in-bar label), so it no
-   * longer needs its own column. */
+  /* label · track · pill. The % readout rides just past the bar's end, inside the track's own end gutter
+   * (`--progress-readout`, below), so it needs no column of its own. */
   grid-template-columns: 18.75cqi 1fr 7.5cqi;
   align-items: center;
   column-gap: var(--sp-md);
@@ -53,6 +52,10 @@
    * lifts (29px at hall) past a fixed 2.5cqi (32px) once the plate's padding is added, so the
    * number was cut by its own track. The track is at least as tall as its label. */
   height: max(2.5cqi, calc(var(--fs-meta) + 0.8cqi));
+  /* The END GUTTER the readout rides in: room for "100%" at the meta step plus the gap before it, so a full bar's
+   * number ends inside the track and never reaches the status pill. A bar's length is its share of the track LESS
+   * this gutter, so every bar on the slide keeps one scale and 100% ends where the gutter begins. */
+  --progress-readout: calc(var(--fs-meta) * 2.9 + 0.6cqi);
   background: transparent;
   border-radius: var(--chart-mark-radius);
 }
@@ -60,7 +63,7 @@
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  width: calc(var(--pct) * 1%);
+  width: calc((100% - var(--progress-readout)) * var(--pct) / 100);
   /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
    * and the fill carries a 1px hairline + 0.625cqi of inline-end padding for
    * the in-bar readout. Under the CSS default (content-box)
@@ -87,23 +90,9 @@
   border: var(--chart-hairline) solid transparent;
   border-radius: var(--chart-mark-radius);
   transition: none;
-  /* The % readout rides the bar's leading edge: right-aligned ON the colored
-   * fill, like a gantt bar's in-bar label. --text-heading clears the wash on
-   * both canvases.
-   *
-   * SAFE, and not clipped: a readout wider than its bar (12% of a pane's track is ~30px, the
-   * readout ~44px) used to overflow to the LEFT of an `overflow: hidden` fill, so the number lost
-   * its first digit ("2%" for 12%). `safe` sends the overflow the other way — the readout starts
-   * at the bar's origin and runs on over the empty track on its own plate — and the fill no longer
-   * clips it. The fill rounds its own corners. A readout that
-   * fits is placed exactly as before. */
-  display: flex;
-  align-items: center;
-  justify-content: safe flex-end;
-  /* One INSET, 0.45cqi, frames everything inside the bar: the readout plate's end gap here, its top and bottom gap
-   * (its own padding, below), and the status mark's start gap (chart-family.styles.css). Uneven gaps read as the
-   * plate pressing against the rim. */
-  padding-inline-end: 0.45cqi;
+  /* The bar holds nothing: it is pure length from zero. Its status mark is drawn once, by the row's status pill, and
+   * its number rides just past its end (`.progress-pct`), so a 2% bar and a 100% bar read the same way and nothing
+   * crowds a short bar's first stretch. */
   overflow: visible;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
@@ -122,24 +111,19 @@
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 700;
+  /* On the slide, just past the bar's end, in heading ink: it sits on the canvas at every --pct, so it needs no plate
+   * and no threshold that would move it in or out of the bar as the value changes. */
   color: var(--text-heading);
-  /* The readout rides the fill's leading edge on a small READOUT PLATE in the canvas color, so --text-heading
-   * clears it on any status and at any --pct, including a bar too short to hold the number. */
-  background: var(--bg);
-  /* Sized so the plate clears the bar's rim by the same 0.45cqi inset on every side, with its corners concentric to
-   * the bar's (the bar's radius less the inset, held to a visible minimum). */
-  padding: 0 0.45cqi;
-  border-radius: max(0.25cqi, calc(var(--chart-mark-radius) - 0.45cqi));
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(100% + 0.6cqi);
+  display: flex;
+  align-items: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   line-height: 1;
-  /* Positioned, so the plate paints OVER the bar's status mark (an absolute ::before at the leading end,
-   * chart-family.styles.css § THE STATUS MARK) when a short bar puts the two in one place: on a 2% bar the white check
-   * was drawn across the readout's "%". A later positioned sibling paints above an earlier one; no z-index needed. */
-  position: relative;
 }
-/* A row with no percent still emits the span. The fill used to clip its empty plate out of
- * sight; now that the fill no longer clips (the `safe` readout above), hide it outright. */
+/* A row with no percent still emits the span; hide it outright. */
 :is(section.progress, figure.progress) .progress-pct:empty {
   display: none;
 }
