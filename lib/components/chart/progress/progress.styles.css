@@ -15,22 +15,25 @@
   align-items: stretch;
   gap: var(--sp-md);
 }
-/* Every row uses the SAME fixed grid template, so the 1fr track is
- * identical across rows. `auto` columns would size to per-row content
- * (varying status-pill widths) and make tracks disagree. */
+/* ONE GRID FOR ALL ROWS: the list owns the columns and every row is a `subgrid` of them, so the track is the same
+ * width in every row (one scale for every bar) while the pill column still fits the widest pill. When each row was
+ * its own grid, the pill column had to be a fixed 7.5cqi to keep the tracks equal, and at `venue: hall` a pill
+ * outgrew it and overprinted the readout ("99.5%" under "blocked"). The 7.5cqi floor keeps every slide whose pills
+ * already fit exactly as it was. */
 :is(section.progress, figure.progress) .progress-bars {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 18.75cqi 1fr minmax(7.5cqi, max-content);
+  column-gap: var(--sp-md);
   row-gap: 0.46875cqi;
   width: 100%;
 }
 :is(section.progress, figure.progress) .progress-row {
   display: grid;
-  /* label · track · pill. The % readout rides just past the bar's end, inside the track's own end gutter
-   * (`--progress-readout`, below), so it needs no column of its own. */
-  grid-template-columns: 18.75cqi 1fr 7.5cqi;
+  /* label · track · pill, from the list's grid (above). The % readout rides just past the bar's end, inside the
+   * track's own end gutter (`--progress-readout`, below), so it needs no column of its own. */
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  column-gap: var(--sp-md);
 }
 :is(section.progress, figure.progress) .progress-label {
   font-size: var(--fs-body);
@@ -91,13 +94,21 @@
   /* The fill is its status's flat SOLID (chart-family.styles.css § THE SOLID TIER): no wash, no ramp, no
    * leading accent. Its length is the datum; its color is the status. */
   background: var(--fill-hue);
-  border: var(--chart-hairline) solid transparent;
+  /* The hairline counts inside the datum (border-box, above), so at 0 its two sides alone drew a 2px sliver of
+   * "progress". It thins to nothing as the length does: zero draws no bar. */
+  border: min(var(--chart-hairline), calc(var(--progress-len) * 1px)) solid transparent;
   border-radius: var(--chart-mark-radius);
   transition: none;
   /* The bar holds nothing: it is pure length from zero. Its status mark is drawn once, by the row's status pill, and
    * its number, the fill's sibling in the track, rides just past its end (`.progress-pct`), so a 2% bar and a 100% bar read the same way and nothing
    * crowds a short bar's first stretch. */
   overflow: visible;
+}
+/* `etch` and `tone` paint the bar as a pale wash inside an inset ink edge; clipped to the padding box so the wash does
+ * not show through the transparent hairline as a halo outside that edge (the same rule as the status pill,
+ * chart-family.styles.css). `!important` because the finish's `background` shorthand is. */
+:is(section.progress, figure.progress):is(.chart-finish-etch, .chart-finish-tone) .progress-fill {
+  background-clip: padding-box !important;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */
@@ -156,7 +167,10 @@
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-bars {
   height: 100%;
-  justify-content: space-evenly;
+  /* track · pill, shared by every row's subgrid, so every bar has the same lane (STACK below). */
+  grid-template-columns: 1fr max-content;
+  column-gap: var(--sp-sm);
+  align-content: space-evenly;
   /* Rows are two lines tall once the label takes its own row, so the
    * between-row rhythm tightens to keep five of them inside the stage. Declared
    * HERE rather than on a second rule sharing this selector — see the note on
@@ -208,12 +222,12 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
  *
  * See #1209, #1210, #1920 and 2026-06-19-chart-adaptive-sizing.md. */
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row {
-  grid-template-columns: 1fr auto;
+  /* The columns come from the list (the FILL arm above): a per-row `1fr auto` sized each track to its own pill, so
+   * a 100% bar and a 99.5% bar on one slide drew 697px and 652px. */
   grid-template-areas:
     "label label"
     "track pill";
   row-gap: var(--sp-2xs);
-  column-gap: var(--sp-sm);
 }
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-label {
   grid-area: label;

@@ -145,9 +145,16 @@ const finishMarksAbsent = (doc, sel) => {
 	if (!lead) return false;
 	let depth = 1;
 	let i = lead[0].length;
+	let quote = '';
 	for (; i < sel.length && depth > 0; i++) {
-		if (sel[i] === '(') depth++;
-		else if (sel[i] === ')') depth--;
+		const c = sel[i];
+		// A paren inside a quoted attribute value (`[title="(a"]`) is text, not nesting.
+		if (quote) {
+			if (c === '\\') i++;
+			else if (c === quote) quote = '';
+		} else if (c === '"' || c === "'") quote = c;
+		else if (c === '(') depth++;
+		else if (c === ')') depth--;
 	}
 	if (depth !== 0) return false;
 	try {

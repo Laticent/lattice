@@ -65,12 +65,18 @@ them is a status solid.
   arithmetic, not tuning: on a dark slide a fill deep enough for white text at 4.6:1 tops out near 0.18
   luminance, and any tint lifts the ground to about 0.03 or more, so no such fill clears 3:1 against a tinted row
   (at most about 2.85). So the default disc wears a hairline rim in its slide ink, the color of its row's rail,
-  as a gantt bar does, and a kpi pill keeps its 1px border in the ink. Every `checks-*` variant keeps an edge in
+  as a gantt bar does, and a kpi pill wears a 1px outer ring in the ink. Every `checks-*` variant keeps an edge in
   the ink: bold and knockout keep the rim, and outline and tonal draw their ring and mark in the ink, not the
   solid (a checker measured the solid ring at 2.40:1 on a dark pass row, against 10.91 for the ink).
 - **A caption on a status ground is a heading.** Policy-recommendation's "The ask" moved from the stance ink to
   `--text-heading`: amber text on the 10% amber ground missed 4.5:1 on twelve palette-modes, and the old 9% tint
   was tuned as the knee for exactly that pair. The ground and the bar's border still carry the stance.
+- **kpi's pill is built for the office export.** Calco lifts a border plus one OUTER ring as a native shape, but not a
+  border plus an inset ring, so the kpi pill cannot wear the chart pill's inset signal. Its 1px border carries the
+  role instead: the pill's own fill on pass (so it reads as no border) and `--warn-solid-signal` on warn, 1px wide
+  rather than the chart ring's `--state-signal-w`. The ink rim is the one outer ring
+  (`box-shadow: 0 0 0 1px var(--kpi-pill-rim)`). Its mark is masked centered in a box 0.3em wider than the mark,
+  and the pill gives the 0.15em that lands before the mark back from its own leading padding.
 - **kpi's status pill draws its mark.** The status solids share one lightness, so a label in one ink on a status
   fill carries the status by hue alone; under achromatopsia the trio collapsed from 0.1174 to 0.034 the last time
   it was measured. The row-position hooks that pick the pill's color pick its mark (check, dash) too.

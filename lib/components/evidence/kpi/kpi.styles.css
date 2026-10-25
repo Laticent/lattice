@@ -153,6 +153,7 @@ section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([dat
   --lat-pill-bg: var(--bg);
   --lat-pill-ink: var(--text-muted);
   --kpi-pill-mark-box: none;
+  --kpi-pill-lead-trim: 0em;
   --kpi-pill-rim: transparent;
 }
 /* The status pill's drawn mark, its rim and its signal ring (§ THE STATUS PILL above), each in a form the editable
@@ -169,10 +170,16 @@ section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([dat
  * status mark or ring (the pills plugin repaints only its colors). */
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill[data-c] {
   --kpi-pill-mark-box: none;
+  --kpi-pill-lead-trim: 0em;
   --kpi-pill-rim: transparent;
 }
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill {
   box-shadow: 0 0 0 1px var(--kpi-pill-rim, transparent);
+  /* The mark's box is 0.3em wider than the mark (the gap before the label lives inside it), and Calco lifts only a
+   * CENTERED mask, so half of that sits before the mark too. The pill pulls its first line back by the same 0.15em
+   * whenever the mark is on, so the space before the mark matches the space after the label. A text-indent, not a
+   * padding change: the pill's padding is the pills plugin's to set (check-ownership SANCTIONED_PILL_READS). */
+  text-indent: calc(-1 * var(--kpi-pill-lead-trim, 0em));
 }
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill::before {
   content: '';
@@ -390,6 +397,7 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
  * warn-colored and the accent left-border picks up --warn too. Use
@@ -401,6 +409,7 @@ section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
@@ -444,6 +453,7 @@ section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(2),
 section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
@@ -453,6 +463,7 @@ section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) > strong { color: var(--warn); }
@@ -610,6 +621,7 @@ section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-edge: var(--warn-solid-signal);
@@ -618,6 +630,7 @@ section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 section.kpi.compliance > .cell-stage > p:last-of-type {
   font-family: var(--font-label);
@@ -686,6 +699,7 @@ section.kpi.trajectory > .cell-stage > ol > li {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 
 /* ─ MODIFIER · SPOTLIGHT (single hero metric) ───────────────────────── */
@@ -767,6 +781,7 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
+  --kpi-pill-lead-trim: 0.15em;
 }
 /* Every support belongs in the rail column. Only children 2-4 were placed, so a 5th
  * metric auto-placed into COLUMN 1 — under the hero card — and the separator rule

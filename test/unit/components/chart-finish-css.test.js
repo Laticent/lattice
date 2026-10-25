@@ -172,7 +172,7 @@ describe('chart-finish.generated.css', () => {
     assert.match(gantt, /--fill-hue: var\(--state-mute-hue\)/);
   });
 
-  test('a progress fill is not a text-bearing mark: its readout sits on its own plate, so pigment gives it a full body', () => {
+  test('a progress fill is not a text-bearing mark: its readout sits on the slide past its end, so pigment gives it a full body', () => {
     const rows = STATUS_MARKS.filter((m) => m.sel.startsWith('.progress-fill'));
     assert.equal(rows.length, 2, 'stated and unstated');
     for (const r of rows) assert.equal(r.bears, false, r.sel);

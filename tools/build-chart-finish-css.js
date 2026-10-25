@@ -128,8 +128,9 @@ const STATUS_MARKS = [
   // key's swatch is reached once per chart, scoped by the key's `data-chart`.
   { sel: '[data-chart="state-chart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fill-hue)', ink: 'var(--fill-ink)', paint: 'bg', bears: false, keysText: true },
   { sel: '[data-chart="flowchart"] .fc-key-swatch[data-s]:not([data-s="deferred"])', hue: 'var(--fc-hue)', ink: 'var(--fc-hue-mark)', paint: 'bg', bears: false, keysText: true },
-  // The progress fill's readout sits on its OWN plate (`.progress-pct`, progress.styles.css), so the
-  // text never lands on the body and the fill does not need a text level: `bears: false`. As `true`
+  // The progress fill carries no text: its readout sits on the slide past the bar's end (`.progress-pct`,
+  // the fill's sibling in progress.styles.css), so the text never lands on the body and the fill does
+  // not need a text level: `bears: false`. As `true`
   // it took pigment's 40%/46% text level, which in dark mode is near-black against the slide. An
   // UNSTATED bar is the categorical slot (cat 1) and wears the same finish as a stated one, so a
   // chart never has one gradient bar among flat siblings.

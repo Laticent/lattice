@@ -196,6 +196,17 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(finished?.css).toContain('chart-finish-tone');
 	});
 
+	it('reads past a paren inside a quoted attribute value when it finds the arm\'s marks', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		// The `)` in the value is text. Counted as nesting, it ended the arm early, the selector failed to parse, and
+		// the rule rode along kept; read correctly, the page holds no such mark and the rule is dropped.
+		doc.head.innerHTML = '<style>section.title{color:blue} section.chart-finish-tone :where(.bar-mark[data-note=")"]){fill:red}</style>';
+		(doc.querySelector('.lattice > section') as HTMLElement).classList.add('chart-finish-tone');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).not.toContain('chart-finish-tone');
+	});
+
 	it('keeps a finish arm it cannot read, rather than dropping a rule the page may need', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;

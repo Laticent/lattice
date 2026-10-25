@@ -1178,6 +1178,14 @@ section.chart-frame .chart-caption::before {
   border: var(--chart-hairline) solid transparent;
   color: var(--chart-solid-ink);
 }
+/* Under `etch` and `tone` the pill is a pale wash inside an ink edge drawn as an inset ring, and its border is
+ * transparent (Calco lifts a border plus an inset ring only as a picture). Left at border-box, the wash showed through
+ * that transparent hairline as a pale halo OUTSIDE the ink edge, so it is clipped to the padding box. The finish rules
+ * set the `background` shorthand `!important`, which resets the clip, hence `!important` here; `pigment`'s fill runs
+ * to the edge and is left alone. */
+:is(section, figure):is(.chart-finish-etch, .chart-finish-tone) .chart-status {
+  background-clip: padding-box !important;
+}
 /* THE VIVID INTENSITY lives in the base (base.tokens.css § THE STATUS FILL ON THIS SLIDE): `--state-X-hue` is set on
  * the slide, so every component that shows a status takes the deck's intensity, not only a chart. */
 
@@ -1207,7 +1215,10 @@ section.chart-frame .chart-caption::before {
   flex: none;
   width: 0.95em;
   height: 0.95em;
-  background: var(--chart-solid-ink);
+  /* The mark is drawn in its pill's TEXT color, never a fixed ink: under `pigment` the pill's text is the one ink on
+   * a deep fill, but `etch` and `tone` repaint the pill as a pale wash with `--text-heading` text, and a fixed white
+   * mark there all but vanished (about 1.3:1). currentColor keeps mark and word one color in every finish. */
+  background: currentColor;
   -webkit-mask: var(--status-mark) center / contain no-repeat;
           mask: var(--status-mark) center / contain no-repeat;
 }
