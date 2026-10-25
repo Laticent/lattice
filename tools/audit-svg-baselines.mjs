@@ -82,9 +82,41 @@ if (!html) {
 }
 
 // Runs INSIDE the page. Every `<text>` under an `<svg>`, in document order, with
-// the one number that survives a page-scale difference: the box center as a
-// fraction of its slide, multiplied back up to the 720px slide height.
+// the one number that isolates the BASELINE: how far the painted box's center sits
+// from the label's own anchor point (its `y`), as a fraction of its slide,
+// multiplied back up to the 720px slide height.
+//
+// Relative to the anchor, not to the slide. This used to be the center's position
+// on the slide, which also moves whenever the two engines LAY THE CHART OUT
+// differently, and a chart that places labels from measured text does exactly that:
+// WebKit's state-chart router put "reject" at y=86.5 where Chromium put it at 81.4,
+// and #2405 reported that layout difference as baseline drift (7.64px) every night.
+// Measured from each label's own anchor, both engines read 0.00 on every state-chart
+// edge label, while a tspan that drops `dominant-baseline` (the defect this audit
+// exists for, 2026-09-22-webkit-tspan-baseline.md) still reads high in WebKit only.
+//
+// The anchor is found by MEASURING a throwaway 0.01px rect placed at the label's
+// (x, y) in the same parent, so it shares every transform. getScreenCTM() is not used
+// because WebKit's ignores the slide's CSS scale (off by 3-39px on this deck). The
+// loop is synchronous, so the probe is gone before any observer can see it.
 const probe = () => {
+	const first = (v) => parseFloat(String(v ?? '').trim().split(/[\s,]+/)[0]) || 0;
+	const anchorTop = (t, tsp) => {
+		const y = first(t.getAttribute('y') ?? tsp?.getAttribute('y'));
+		const x = first(t.getAttribute('x') ?? tsp?.getAttribute('x'));
+		const pr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+		pr.setAttribute('x', String(x));
+		pr.setAttribute('y', String(y));
+		pr.setAttribute('width', '0.01');
+		pr.setAttribute('height', '0.01');
+		// A label placed by its OWN transform must carry it to the probe, or the probe sits
+		// where the label would be without it.
+		if (t.hasAttribute('transform')) pr.setAttribute('transform', t.getAttribute('transform'));
+		t.parentNode.insertBefore(pr, t);
+		const top = pr.getBoundingClientRect().top;
+		pr.remove();
+		return top;
+	};
 	const rows = [];
 	for (const t of document.querySelectorAll('svg text')) {
 		const sec = t.closest('section');
@@ -115,7 +147,7 @@ const probe = () => {
 			src,
 			tspanDb: tsp ? (tspanAttr != null ? 'attr'
 				: (getComputedStyle(tsp).dominantBaseline || 'auto') !== 'auto' ? 'css' : 'none') : null,
-			cy: ((r.top + r.height / 2) - sr.top) / sr.height * 720,
+			cy: ((r.top + r.height / 2) - anchorTop(t, tsp)) / sr.height * 720,
 		});
 	}
 	return rows;
