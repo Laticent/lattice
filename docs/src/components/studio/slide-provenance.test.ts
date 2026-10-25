@@ -222,6 +222,11 @@ describe('chart-finish provenance + override', () => {
 	it('inherited from the deck finish', () => {
 		expect(chartFinishProvenance(slide, deck('chart-finish: tone', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
 	});
+	it('reads the finish word out of a two-word value, in either order', () => {
+		expect(chartFinishProvenance(slide, deck('chart-finish: tone vivid', slide))).toMatchObject({ state: 'inherited', value: 'tone', deckValue: 'tone' });
+		expect(chartFinishProvenance(slide, deck('chart-finish: vivid etch', slide))).toMatchObject({ state: 'inherited', value: 'etch', deckValue: 'etch' });
+		expect(chartFinishProvenance(slide, deck('chart-finish: pigment vivid', slide))).toMatchObject({ state: 'off', inheritable: false });
+	});
 	it('a slide asks for the default inside a finished deck with its own pigment token', () => {
 		const own = '<!-- _class: bar chart-finish-pigment -->\n\n## Revenue';
 		expect(chartFinishProvenance(own, deck('chart-finish: tone', own))).toMatchObject({ state: 'on', value: 'pigment', deckValue: 'tone' });

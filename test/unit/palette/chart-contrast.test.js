@@ -69,7 +69,12 @@ describe('chart palette — curated theme assessment', () => {
   test('the base points every status at its muted solid on the slide', () => {
     const block = BASE_TOKENS.match(/:root, section:not\(section section\) \{\n {2}--state-pass-hue[^}]*\}/);
     assert.ok(block, 'base.tokens.css declares the status fill pointer on :root, section');
-    for (const [k, v] of Object.entries(STATE_HUE)) assert.ok(block[0].includes(`--${k}: ${v};`), `--${k}: ${v}`);
+    // The four statuses with a vivid fill read it through the register's private pointer, muted when the slide
+    // sets none; mute has no vivid fill. The seed above is that muted value.
+    for (const [k, v] of Object.entries(STATE_HUE)) {
+      const decl = k === 'state-mute-hue' ? `--${k}: ${v};` : `--${k}: var(--_${k}, ${v});`;
+      assert.ok(block[0].includes(decl), decl);
+    }
   });
   for (const theme of CURATED) {
     const vars = { ...loadTheme(theme), ...STATE_HUE };

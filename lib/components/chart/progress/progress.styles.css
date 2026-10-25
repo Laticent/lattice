@@ -56,8 +56,10 @@
    * track is at least as tall as its label. */
   height: max(2.5cqi, calc(var(--fs-meta) + 0.8cqi));
   /* The END GUTTER the readout rides in: room for "100%" at the meta step plus the gap before it, so a full bar's
-   * number ends inside the track and never reaches the status pill. A bar's length is its share of the track LESS
-   * this gutter, so every bar on the slide keeps one scale and 100% ends where the gutter begins. */
+   * number ends inside the track. A longer readout ("99.75%") runs a few pixels past the track's end into the
+   * column gap, and the gap keeps it off the pill. A bar's length is its share of the track LESS this gutter, and
+   * every row's track is one width (the list's subgrid), so every bar on the slide keeps one scale and 100% ends
+   * where the gutter begins. */
   --progress-readout: calc(var(--fs-meta) * 2.9 + 0.6cqi);
   /* The bar's LENGTH, 0–100. An author may write 130% ("130% of budget"), and the readout prints it as written,
    * but the bar stops at the end of its lane: past it lie the readout and the status pill, and with no clip on

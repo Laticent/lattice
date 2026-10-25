@@ -81,18 +81,18 @@
  * state below sets its own. */
 :is(section.roadmap, figure.roadmap) { --state-glyph-mark: var(--bg); }
 /* Per-state tokens, legend scope — mirror the cell tokens above. */
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); --state-mark:var(--mark-check); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-shipped { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); --state-mark:var(--mark-check); }
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-wip     { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); --state-mark:var(--mark-dash);  }
 /* planned = the neutral "not started" tier (#1821) — --muted-mark, not
  * --text-label, which is accent-hued emphasis since #1801. Matches the cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-missed  { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); --state-mark:var(--mark-x);     }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);  --state-mark:var(--mark-question); }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
-:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);  --state-mark:var(--mark-slash); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);  --state-mark:var(--mark-question); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-planned { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+:is(section.roadmap, figure.roadmap) .roadmap-legend-item.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);  --state-mark:var(--mark-slash); }
 /* Under `heat` the key takes the cells' remap, or it would decode a red shipped disc
  * as "green = shipped" beside it. Same mapping as base.modifiers.css's heat block. */
 :is(section.roadmap, figure.roadmap).heat .roadmap-legend-item.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
-:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
+:is(section.roadmap, figure.roadmap).heat .roadmap-legend-item:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
 /* Disc (::before) + canvas-knockout glyph (::after) — same recipe as cells. */
 :is(section.roadmap, figure.roadmap) .roadmap-legend-mark::before {
   content:'';
@@ -264,7 +264,7 @@
 /* Per-state color tokens — used by both light + heavy treatments. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-shipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-shipped {
-  --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid);
+  --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid);
   --state-mark:var(--mark-check);
   --cell-state-bg:var(--pass-bg);
 }
@@ -286,7 +286,7 @@
  * lands. A hollow ring like planned, carrying a drawn `?`. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-unknown,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-unknown {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
   --state-mark:var(--mark-question);
   --cell-state-bg:var(--bg-alt);
 }
@@ -297,12 +297,12 @@
  * row under the amber --wip it was supposed to contrast with. */
 :is(section.roadmap, figure.roadmap) td.cell-state.state-planned,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-planned {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
   --cell-state-bg:var(--bg-alt);
 }
 :is(section.roadmap, figure.roadmap) td.cell-state.state-skipped,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state.state-skipped {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
   --state-mark:var(--mark-slash);
   --cell-state-bg:transparent;
 }
@@ -313,14 +313,14 @@
  * `heat` entirely: its cards kept the delivery colors while the table form remapped. */
 :is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
 :is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
-:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
-:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
+:is(section.roadmap, figure.roadmap).horizons.heat .horizon-rows > li.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 /* The same remap on the TABLE cells, in fills: base.modifiers.css's shared heat block maps the status INKS, which a
  * checklist mark wears, but a roadmap disc is a status FILL with its edge and a dark glyph (text color carries the
  * kind), so it remaps the fill tokens here, one class heavier than the shared block. */
 :is(section.roadmap, figure.roadmap).heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
 :is(section.roadmap, figure.roadmap).heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
-:is(section.roadmap, figure.roadmap).heat td.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
+:is(section.roadmap, figure.roadmap).heat td.cell-state:is(.state-missed, .state-planned) { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
 
 /* Light treatment (default, any variant): a small state-colored
    indicator with an inset white glyph sits before the cell text.

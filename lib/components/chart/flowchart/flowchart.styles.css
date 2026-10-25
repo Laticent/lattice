@@ -433,6 +433,16 @@ section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"] {
 }
 /* Stronger on a dark canvas, as the group it decodes is: 14% of a hue over near-black read
  * as a gray lozenge that decoded nothing. */
+/* A stated tile swatch takes its edge from the chart finish (an inset ring, the signal on an exception), so its own
+ * hairline goes transparent: Calco lifts a border plus an inset ring only as a picture, as on the status pill. Under
+ * `etch` and `tone` the wash is clipped to the padding box so it does not show through that hairline as a halo. A
+ * deferred swatch keeps its dashed border (no finish paints it). */
+section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
+  border-color: transparent;
+}
+section:is(.flowchart, .state-chart):is(.chart-finish-etch, .chart-finish-tone) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
+  background-clip: padding-box !important;
+}
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="group"] {
   background: light-dark(color-mix(in oklab, var(--fc-group-hue) 14%, transparent), color-mix(in oklab, var(--fc-group-hue) 28%, transparent));
   border: var(--chart-hairline) solid light-dark(color-mix(in oklab, var(--fc-group-hue) 42%, transparent), color-mix(in oklab, var(--fc-group-hue) 60%, transparent));

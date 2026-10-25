@@ -56,10 +56,14 @@ them is a status solid.
 - **The disc recipe** is carried five times (checklist, verdict-grid, obligation-matrix, `state-cells`,
   `.lat-state`). Each class mapping now sets four ROLE colors on the leaf, in one line: `--state-color` (the fill),
   `--state-ink` (the rim, the rail, the outline variant's ring and mark), `--state-signal` (the exception ring,
-  transparent otherwise) and `--state-glyph-mark` (the knocked-out mark: the one ink on a finding, the slide on a
-  neutral state). The readers take no fallback, because every generated disc carries a mapped class; a bare
-  `.badge` written by hand gets the neutral roles from its own rule. The `checks-*` variants keep working on the
-  same scalar knobs, and every variant keeps an edge in the ink.
+  left unset with `initial` otherwise) and `--state-glyph-mark` (the knocked-out mark: the one ink on a finding, the
+  slide on a neutral state). The readers of color, ink and glyph mark take no fallback, because every generated disc
+  carries a mapped class; a bare `.badge` written by hand gets the neutral roles from its own rule. The signal is
+  read with one, and that is what it is unset for: the default disc reads `var(--state-signal, transparent)` for its
+  ring layer, and `checks-outline` / `checks-tonal` read `var(--state-signal, var(--state-ink))` for their inner ring,
+  so on warn and fail that ring IS the signal. One visible inset ring is a native shape in the office export
+  (Calco); the first cut drew the signal as a second inset ring over the ink ring, which Calco keeps as a picture.
+  The `checks-*` variants keep working on the same scalar knobs, and every variant keeps an edge in the ink.
 - **A mark on a tinted ground keeps a rim in the status ink.** The first cut dropped the disc's rim, since a
   status solid clears 3:1 off the slide. The composed-contrast gate then failed 82 pairs, and the cause is
   arithmetic, not tuning: on a dark slide a fill deep enough for white text at 4.6:1 tops out near 0.18

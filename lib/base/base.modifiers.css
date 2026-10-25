@@ -1710,7 +1710,7 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
+section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1719,7 +1719,7 @@ section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
-section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
+section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS
@@ -1818,16 +1818,16 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state {
   line-height: 1;
   background: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    inset 0 0 0 var(--state-signal-w) var(--state-signal, transparent),
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-ink);
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo,
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
   content: '';
   position: absolute;
@@ -1889,7 +1889,7 @@ section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.
  * hairline ink rim (base.tokens.css § State-disc recipe). Every variant keeps an edge in the
  * status INK (`--state-ink`), never the solid: on a dark slide no solid clears 3:1 against a
  * tinted row, and the ink does. outline and tonal draw their ring and mark in the ink; on
- * warn and fail the signal ring paints over the inner ring, as it does on every status mark. */
+ * warn and fail that ring IS the signal (one inset ring, which Calco lifts as a native shape). */
 section.checks-ringed {            /* a heavier 1.6px rim, its ink taken halfway to black */
   --state-fill-pct:100%; --state-ring-outer-w:1.6px; --state-ring-mix:50%;
   --state-ring-inner-w:0px; --state-mark-pct:0%; --state-disc-scale:1;
@@ -1906,11 +1906,11 @@ section.checks-bold {              /* larger disc + heavier marks, knockout, the
   --mark-question:var(--mark-question-bold);
 }
 section.checks-outline {           /* transparent fill, inner ring + mark in the status ink */
-  --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px;
+  --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px; --state-ring-signal-w:0px;
   --state-mark-pct:100%; --state-disc-scale:1;
 }
 section.checks-tonal {             /* soft tint of the solid, inner ring + mark in the status ink */
-  --state-fill-pct:17%; --state-ring-outer-w:0px; --state-ring-inner-w:1.6px;
+  --state-fill-pct:17%; --state-ring-outer-w:0px; --state-ring-inner-w:1.6px; --state-ring-signal-w:0px;
   --state-mark-pct:100%; --state-disc-scale:1;
 }
 
@@ -4280,9 +4280,9 @@ section .lat-state {
   line-height:1;
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    inset 0 0 0 var(--state-signal-w) var(--state-signal, transparent),
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-ink);
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
   /* Same sanctioned horizontal margin as the pill above, and for the same measured
    * reason. On the disc padding is worse than useless: the box is a fixed 1em square
    * with `box-sizing:border-box`, so padding-inline shrinks the CIRCLE rather than
@@ -4297,12 +4297,12 @@ section .lat-state {
    * centres on the text with `vertical-align`. */
   margin-inline:0.22em;
 }
-section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid); }
+section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
 section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
 section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
-section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
+section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section .lat-state.todo,
-section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg); }
+section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section .lat-state::after {
   content:'';
   position:absolute;

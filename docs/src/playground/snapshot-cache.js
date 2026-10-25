@@ -126,10 +126,12 @@ const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 // the probe was left invalid and the rule kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
-const FINISH_ARM = new RegExp(`(?<![\\w-])(${CHART_FINISH_TOKENS.join('|')})(?![\\w-])`);
+const FINISH_ARM = new RegExp(`(?<![\\w-])(${CHART_FINISH_TOKENS.join('|')})(?![\\w-])`, 'g');
+// An arm may name several finishes (`:is(.chart-finish-etch, .chart-finish-tone)`), and any ONE of them on the page
+// can make it match, so it is absent only when none is.
 const finishArmAbsent = (doc, sel) => {
-	const m = FINISH_ARM.exec(sel);
-	return !!m && !doc.querySelector(`.${m[1]}`);
+	const names = [...sel.matchAll(FINISH_ARM)].map((m) => m[1]);
+	return names.length > 0 && names.every((name) => !doc.querySelector(`.${name}`));
 };
 
 // EVERY slide wears a finish class now (resolve-chart-finish.js: a look with no absent state), so the

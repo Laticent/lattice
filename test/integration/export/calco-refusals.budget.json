@@ -24,19 +24,33 @@
   },
   "cards-stats-actors-kpi": {
     "refused": 0,
-    "shapes": 60,
+    "shapes": 74,
     "pictures": 0,
     "reasons": {}
   },
   "chart-finish": {
     "refused": 0,
-    "shapes": 7,
+    "shapes": 21,
     "pictures": 7,
     "reasons": {}
   },
   "backdrop-register": {
     "refused": 0,
     "shapes": 12,
+    "pictures": 0,
+    "reasons": {}
+  },
+  "state-marks": {
+    "refused": 23,
+    "shapes": 237,
+    "pictures": 24,
+    "reasons": {
+      "pseudo:mask-effect-or-clip": 23
+    }
+  },
+  "policy-recommendation": {
+    "refused": 0,
+    "shapes": 44,
     "pictures": 0,
     "reasons": {}
   }

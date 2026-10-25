@@ -196,6 +196,17 @@ describe('captureFirstSectionFromFrame (Playground filmstrip → first slide onl
 		expect(finished?.css).toContain('chart-finish-tone');
 	});
 
+	it('keeps an arm that names several finishes when any one of them is on the page', () => {
+		const frame = fakeFrame();
+		const doc = frame.contentDocument as Document;
+		doc.head.innerHTML = '<style>section.title{color:blue} :is(section, figure):is(.chart-finish-etch, .chart-finish-tone) .chart-status{background-clip:padding-box}</style>';
+		const section = doc.querySelector('.lattice > section') as HTMLElement;
+		section.classList.add('chart-finish-tone');
+		section.insertAdjacentHTML('beforeend', '<span class="chart-status" data-s="done">done</span>');
+		const snap = captureFirstSectionFromFrame(frame, { box: fakeBox(), palette: 'indaco', mode: 'light', srcHash: 'abc', ts: 1 });
+		expect(snap?.css).toContain('chart-finish-tone');
+	});
+
 	it('reads past a paren inside a quoted attribute value when it finds the arm\'s marks', () => {
 		const frame = fakeFrame();
 		const doc = frame.contentDocument as Document;

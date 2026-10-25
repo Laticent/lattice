@@ -205,7 +205,7 @@ function pillStop(state) {
     requires: [
       /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
-      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--${state}-solid\\)`)],
+      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\((?:--_state-${state}-hue, var\\()?--${state}-solid\\)`)],
       new RegExp(`--chart-solid-ink: var\\(${SOLID_INK}\\)`),
     ],
   };
@@ -622,7 +622,10 @@ const SURFACES = [
     ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the status ink on the vivid fill`,
     groups: [{ bg: `var(--${state}-solid-vivid)` }],
     ink: SOLID_INK,
-    requires: [[BASETOKENS, new RegExp(`\\.chart-finish-vivid \\{[^}]*--state-${state}-hue: var\\(--${state}-solid-vivid\\)`)]],
+    requires: [
+      [BASETOKENS, new RegExp(`\\.chart-finish-vivid \\{[^}]*--_state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
+      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--_state-${state}-hue, var\\(--${state}-solid\\)\\)`)],
+    ],
   })),
   // ── risk-matrix · the CRITICAL band, the one status fill a chart mixes for itself ───────
   // A critical cell and a critical key disc are the vivid fail fill taken 18% away from the ink, so their number (the

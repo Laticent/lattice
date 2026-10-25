@@ -69,6 +69,7 @@ import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
+import { chartFinishValue, parseChartFinishValue } from './chart-finish-words';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
@@ -2308,8 +2309,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// The default finish REMOVES the line rather than writing `chart-finish: pigment`: a deck that says
 	// nothing wears it, chart-finish is not a preset key, and writeRegister drops a line only at the
 	// baseline ''.
-	const chartFinish = registerValue(source, 'chart-finish');
-	const setChartFinish = (value: string) => settingsWrite(`Chart finish → ${activeChartFinish(value).label}`, (s) => writeRegister(s, 'chart-finish', value === DEFAULT_CHART_FINISH ? '' : value));
+	// The value carries one word per axis (`tone vivid`), so it is read by axis, and choosing a finish keeps the
+	// deck's intensity.
+	const chartFinish = parseChartFinishValue(getFrontMatter(source, 'chart-finish')).finish || DEFAULT_CHART_FINISH;
+	const setChartFinish = (value: string) => settingsWrite(`Chart finish → ${activeChartFinish(value).label}`, (s) => writeFrontMatterLine(s, 'chart-finish', chartFinishValue(value, parseChartFinishValue(getFrontMatter(s, 'chart-finish')).intensity) || null));
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));

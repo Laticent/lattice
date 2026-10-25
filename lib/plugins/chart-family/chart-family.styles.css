@@ -1174,6 +1174,9 @@ section.chart-frame .chart-caption::before {
   /* The status's flat SOLID with the ink curated for every solid (chart-family.styles.css § THE SOLID TIER), the
    * same paint as a gantt bar or a state tile, so a status reads identically as a pill or a bar. 7:1 on every
    * palette in both modes (chart-solids.test.js). */
+  /* A word outside the status table draws in the info fill, as the docs promise; each status below re-points it.
+   * Without this default an unknown word ("slipped", "at risk" with a space) painted white text on no fill. */
+  --chart-status-hue: var(--state-info-hue);
   background: var(--chart-status-hue);
   border: var(--chart-hairline) solid transparent;
   color: var(--chart-solid-ink);

@@ -27,7 +27,7 @@ const { readSlide } = require('@laticent/calco');
 
 const ROOT = path.join(__dirname, '../../..');
 const BUDGET = path.join(__dirname, 'calco-refusals.budget.json');
-const DECKS = ['card-tags', 'accent-finishes', 'cards-stats-actors-kpi', 'chart-finish', 'backdrop-register'];
+const DECKS = ['card-tags', 'accent-finishes', 'cards-stats-actors-kpi', 'chart-finish', 'backdrop-register', 'state-marks', 'policy-recommendation'];
 const BLESS = process.env.CALCO_REFUSALS_BLESS === '1';
 
 describe('calco refusal budget', () => {

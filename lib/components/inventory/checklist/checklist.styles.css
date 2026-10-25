@@ -80,7 +80,7 @@ section.checklist > .cell-stage > ol > li::marker { content:''; }
  * ::before below. */
 section.checklist > .cell-stage > ul > li.state.pass,
 section.checklist > .cell-stage > ol > li.state.pass {
-  --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:transparent; --state-glyph-mark:var(--on-solid);
+  --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid);
   border-left-color:var(--state-ink);
   background:var(--pass-bg, var(--bg-alt));
 }
@@ -126,13 +126,13 @@ section.checklist > .cell-stage > ul > li.state.todo,
 section.checklist > .cell-stage > ol > li.state.todo,
 section.checklist > .cell-stage > ul > li.state.unknown,
 section.checklist > .cell-stage > ol > li.state.unknown {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
   border-left-color:var(--state-ink);
   background:var(--bg-alt);
 }
 section.checklist > .cell-stage > ul > li.state.skip,
 section.checklist > .cell-stage > ol > li.state.skip {
-  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:transparent; --state-glyph-mark:var(--bg);
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);
   border-left-color:var(--state-ink);
   background:var(--bg-alt);
   color:var(--text-muted);
@@ -166,9 +166,9 @@ section.checklist > .cell-stage > ol > li.state::before {
   border-radius:50%;
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    inset 0 0 0 var(--state-signal-w) var(--state-signal, transparent),
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-ink);
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
 section.checklist > .cell-stage > ul > li.state::after,
 section.checklist > .cell-stage > ol > li.state::after {

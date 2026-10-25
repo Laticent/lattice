@@ -53,8 +53,11 @@
     letter-spacing: 0.14em;
     color: var(--stance-badge-ink);
     background: var(--stance-badge-bg);
-    border: 1px solid var(--stance-badge-edge);
-    box-shadow: inset 0 0 0 var(--state-signal-w) var(--stance-signal);
+    /* The kpi pill's shape, for the same reason: Calco lifts a border plus one OUTER ring as a native shape, never a
+     * border plus an inset ring. The border carries the signal on amend and oppose and is transparent on adopt (the
+     * fill shows through it, so it reads as no border), and the ink edge is the outer ring. */
+    border: 1px solid var(--stance-signal);
+    box-shadow: 0 0 0 1px var(--stance-badge-edge);
     border-radius: var(--radius-sm);
     padding: var(--sp-3xs) var(--sp-sm);
     white-space: nowrap;

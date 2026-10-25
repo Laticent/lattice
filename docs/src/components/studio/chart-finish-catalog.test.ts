@@ -5,17 +5,27 @@ import { describe, expect, it } from 'vitest';
 // The engine's single source of truth for the `chart-finish:` register (CommonJS).
 import {
 	CHART_FINISH_DEFAULT,
+	CHART_FINISH_INTENSITY_DEFAULT,
 	CHART_FINISH_NAMES,
 	CHART_FINISH_AXES as ENGINE_AXES,
 	CHART_FINISH_INTENSITIES as ENGINE_INTENSITIES,
 	CHART_FINISH_TOKENS as ENGINE_TOKENS,
+	parseChartFinish,
 } from '../../../../lib/core/resolve-chart-finish.js';
 import {
 	activeChartFinish,
 	CHART_FINISHES,
 	DEFAULT_CHART_FINISH,
 } from './chart-finish-catalog';
-import { CHART_FINISH_AXES, CHART_FINISH_INTENSITIES, CHART_FINISH_TOKENS, CHART_FINISH_NAMES as WORD_NAMES } from './chart-finish-words';
+import {
+	CHART_FINISH_AXES,
+	CHART_FINISH_INTENSITIES,
+	CHART_FINISH_TOKENS,
+	chartFinishValue,
+	DEFAULT_CHART_FINISH_INTENSITY,
+	parseChartFinishValue,
+	CHART_FINISH_NAMES as WORD_NAMES,
+} from './chart-finish-words';
 
 // Rot-guard: the Studio display catalog MUST stay in step with the engine register.
 // Without it, a register change silently drifts the picker — a value that renders but
@@ -47,5 +57,23 @@ describe('chart-finish-catalog ↔ CHART_FINISH_NAMES', () => {
 		expect(CHART_FINISH_TOKENS).toEqual([...ENGINE_TOKENS]);
 		expect([...CHART_FINISH_INTENSITIES]).toEqual([...ENGINE_INTENSITIES]);
 		expect(CHART_FINISH_AXES.map((a) => [...a])).toEqual(ENGINE_AXES.map((a: readonly string[]) => [...a]));
+	});
+
+	it('reads a deck value by axis exactly as the engine does', () => {
+		expect(DEFAULT_CHART_FINISH_INTENSITY).toBe(CHART_FINISH_INTENSITY_DEFAULT);
+		for (const raw of ['tone vivid', 'vivid tone', 'Pigment  VIVID', '[etch, vivid]', 'vivid', 'tone', 'muted etch', 'etch tone', 'wibble vivid', '']) {
+			const engine = parseChartFinish(raw);
+			expect(parseChartFinishValue(raw), raw).toEqual({ finish: engine.finish, intensity: engine.intensity });
+		}
+		expect(parseChartFinishValue('tone vivid # house')).toEqual({ finish: 'tone', intensity: 'vivid' });
+	});
+
+	it('writes a finish without dropping the deck\'s intensity, and removes the line at the defaults', () => {
+		expect(chartFinishValue('etch', 'vivid')).toBe('etch vivid');
+		expect(chartFinishValue('pigment', 'vivid')).toBe('pigment vivid');
+		expect(chartFinishValue('tone', '')).toBe('tone');
+		expect(chartFinishValue('tone', 'muted')).toBe('tone');
+		expect(chartFinishValue('pigment', 'muted')).toBe('');
+		expect(chartFinishValue('pigment', '')).toBe('');
 	});
 });
