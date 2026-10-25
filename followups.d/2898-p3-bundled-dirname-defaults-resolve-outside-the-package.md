@@ -17,8 +17,8 @@ found     — `lib/authoring/lint.js` `themeNames()` defaults to `__dirname/../.
             `unknown-class` findings today, so nothing visible was shown). `lib/core/marp-fidelity.js`
             reads `__dirname/../plugins`, missing in the bundle, which may drop plugin rows from the
             Export-to-Marp fidelity report. `lib/theme/files.js` `ROOT_THEMES` and `lib/packages/fs.js` `ROOT`
-            have the same shape but every bundled caller passes a path. Also: no test catches a loader
-            that resolves an existing folder with no components and returns an empty catalog.
+            have the same shape but every bundled caller passes a path. (`loadAll` itself is pinned by
+            `test/unit/components/loader-bundle-root.test.js`.)
 where     — resolve each through `pkgRootFrom` (`lib/core/pkg-root.js`), as `SCHEMA_PATH` and `loadAll` do.
 done when — no inlined module resolves a package file from a bare `__dirname`, or each one says why it is safe.
 verify    — run the bundled CLI from an installed copy and show the theme vocabulary and fidelity rows are filled.
