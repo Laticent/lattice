@@ -3,7 +3,7 @@
 // test/integration/invariants/web-ref-beacon.test.js that reports each payload instead of
 // asserting the set. See README.md in this folder.
 //
-//   node --test followups.d/2871-p1-red-team-the-web-reference-scanners/probe.test.js
+//   node --test followups.d/2871-p1-fuzz-test-the-web-reference-scanners/probe.test.js
 //   PAYLOADS=/abs/path/payloads.js   a module exporting { webRefBeacons(base), asHtml(p) }
 //   REF=main                         probe origin/main's remote-ref.js instead of the working tree's
 const { test, describe } = require('node:test');

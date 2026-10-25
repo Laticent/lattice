@@ -121,8 +121,8 @@ the script that reproduced a bug, the fixture a fix will need. They go in a fold
 like the item without `.md`, beside it:
 
 ```
-followups.d/2871-p1-red-team-the-web-reference-scanners.md
-followups.d/2871-p1-red-team-the-web-reference-scanners/
+followups.d/2871-p1-fuzz-test-the-web-reference-scanners.md
+followups.d/2871-p1-fuzz-test-the-web-reference-scanners/
   README.md        what this holds, the commit it ran against, how to run it
   probe.mjs
 ```
