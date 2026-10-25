@@ -1979,7 +1979,7 @@ function sizeNote(file) {
     return '';
   }
 }
-const IMAGE_SETTING = flags.images ?? frontMatterValue(fm, 'images');
+const IMAGE_SETTING = require('./lib/core/image-policy.js').mergeImagesSettings(frontMatterValue(fm, 'images'), flags.images);
 // The PDF's slide-photo layer takes the same JPEG quality as every other picture; the env var still overrides it.
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).quality));
 require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
@@ -5385,7 +5385,9 @@ async function slideCameraFor(page) {
   if (!slideCameraFor.cache.has(page)) {
     let cam = null;
     try {
-      cam = await require('./lib/export/cli-camera.js').createCliCamera(page, { bundlePath: path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js'), confine: DECK_CONFINE, allowRemote: !!flags['allow-remote'] });
+      // The same places the page itself may read: the deck, Lattice's install, and the folders of the stylesheet and palettes the command line names.
+      const camConfine = require('./lib/export/file-confine.js').createFileConfiner([...DECK_CONFINE.roots, ...(cssFile ? [path.dirname(path.resolve(cssFile))] : []), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
+      cam = await require('./lib/export/cli-camera.js').createCliCamera(page, { bundlePath: path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js'), confine: camConfine, allowRemote: !!flags['allow-remote'], warn: (m) => { if (!QUIET) console.error(m); } });
     } catch (e) {
       if (!QUIET) console.error(`  ⚠ slide camera unavailable (${e?.message || e}); using Chrome's screenshot`);
     }
@@ -5407,8 +5409,8 @@ async function composePdfInPage(g, page) {
     // THE CAMERA is the one piece each host supplies. Here it is Chrome itself: the page
     // calls back into Node, which screenshots the slide as it stands (the drawn text and
     // shapes already hidden). Chrome sees exactly what is on the slide — local images,
-    // CSS backgrounds, filters — where html-to-image would have to fetch each one from a
-    // file:// page and cannot. The Studio's camera is html-to-image, on the same face.
+    // CSS backgrounds, filters. Both hosts now take the picture with the SAME camera (lib/core/slide-camera.mjs):
+    // this binding is only where the CLI answers its request for a picture's bytes, and the fallback when the camera cannot run.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
     const PHOTO_FN = '__latticePdfPhoto', ASSET_FN = '__latticePdfAsset', FACES_FN = '__latticePdfFontFaces';
     composePdfInPage.handles = handles;
@@ -5419,7 +5421,7 @@ async function composePdfInPage(g, page) {
         // host. Chrome's own screenshot is the fallback when the bundle cannot be read.
         const cam = await slideCameraFor(page);
         if (cam) {
-          const buf = await cam.shoot(i, { scale, type: type === 'jpeg' ? 'jpeg' : 'png', quality: PDF_PHOTO_QUALITY, face: 'screen' });
+          const buf = await cam.shoot(i, { scale, type: type === 'jpeg' ? 'jpeg' : 'png', quality: PDF_PHOTO_QUALITY, face: 'screen', fastPng: PDF_PHOTO_FAST });
           return buf.toString('base64');
         }
         const h = composePdfInPage.handles[i];

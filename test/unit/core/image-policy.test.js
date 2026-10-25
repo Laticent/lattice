@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { parseImagesSetting, resolveImagePolicy, readImageInfo, planRecode, acceptRecode, IMAGE_MODES } = require('../../../lib/core/image-policy.js');
+const { mergeImagesSettings, parseImagesSetting, resolveImagePolicy, readImageInfo, planRecode, acceptRecode, IMAGE_MODES } = require('../../../lib/core/image-policy.js');
 
 // A minimal PNG header: signature, IHDR (w, h, depth 8, color type), then IEND.
 function png(w, h, colorType, extra = []) {
@@ -49,12 +49,12 @@ test('the images: line takes a mode and a quality in any order, like the other m
 });
 
 test('readImageInfo reads size, format and a PNG alpha hint from the header', () => {
-  assert.deepEqual(readImageInfo(png(1179, 1179, 2)), { mime: 'image/png', width: 1179, height: 1179, alpha: false });
+  assert.deepEqual(readImageInfo(png(1179, 1179, 2)), { mime: 'image/png', width: 1179, height: 1179, alpha: false, orientation: 1 });
   assert.equal(readImageInfo(png(10, 10, 6)).alpha, true);
   const chunk = (name) => [0, 0, 0, 0, ...Buffer.from(name), 0, 0, 0, 0];
   assert.equal(readImageInfo(png(10, 10, 3, chunk('tRNS'))).alpha, true, 'a palette PNG with a tRNS chunk may be transparent');
   assert.equal(readImageInfo(png(10, 10, 3, [...chunk('IDAT'), ...chunk('tRNS')])).alpha, false, 'a tRNS after the first IDAT is not read');
-  assert.deepEqual(readImageInfo(jpeg(1920, 1280)), { mime: 'image/jpeg', width: 1920, height: 1280, alpha: false });
+  assert.deepEqual(readImageInfo(jpeg(1920, 1280)), { mime: 'image/jpeg', width: 1920, height: 1280, alpha: false, orientation: 1 });
   assert.equal(readImageInfo(Buffer.from('GIF89a'.padEnd(40, 'x'))), null);
 });
 
@@ -78,4 +78,45 @@ test('acceptRecode: a format change needs a 30% win, a resize 10%, and never a l
   assert.equal(acceptRecode(1000, 890, { formatChange: false }, p), true);
   assert.equal(acceptRecode(1000, 950, { formatChange: false }, p), false);
   assert.equal(acceptRecode(1000, 0, { formatChange: true }, p), false);
+});
+
+// A JPEG header with an EXIF Orientation tag: SOI, APP1 (Exif, little-endian TIFF, one IFD entry 0x0112), SOF0 with the size.
+function jpegWithOrientation(w, h, orientation) {
+  const tiff = Buffer.alloc(8 + 2 + 12 + 4);
+  tiff.write('II', 0);
+  tiff.writeUInt16LE(42, 2);
+  tiff.writeUInt32LE(8, 4);
+  tiff.writeUInt16LE(1, 8); // one entry
+  tiff.writeUInt16LE(0x0112, 10);
+  tiff.writeUInt16LE(3, 12); // SHORT
+  tiff.writeUInt32LE(1, 14);
+  tiff.writeUInt16LE(orientation, 18);
+  const exif = Buffer.concat([Buffer.from('Exif\0\0'), tiff]);
+  const app1 = Buffer.alloc(4);
+  app1[0] = 0xff;
+  app1[1] = 0xe1;
+  app1.writeUInt16BE(exif.length + 2, 2);
+  const sof = Buffer.alloc(19);
+  sof[0] = 0xff;
+  sof[1] = 0xc0;
+  sof.writeUInt16BE(17, 2);
+  sof[4] = 8;
+  sof.writeUInt16BE(h, 5);
+  sof.writeUInt16BE(w, 7);
+  return Buffer.concat([Buffer.from([0xff, 0xd8]), app1, exif, sof]);
+}
+
+test('a rotated JPEG (EXIF Orientation 2 to 8) is never re-encoded: the frame stores it sideways and the encoder would squeeze it', () => {
+  const p = resolveImagePolicy();
+  assert.equal(readImageInfo(jpegWithOrientation(4000, 3000, 6)).orientation, 6);
+  assert.equal(readImageInfo(jpegWithOrientation(4000, 3000, 1)).orientation, 1);
+  assert.equal(planRecode(readImageInfo(jpegWithOrientation(4000, 3000, 6)), 5e6, p), null);
+  assert.ok(planRecode(readImageInfo(jpegWithOrientation(4000, 3000, 1)), 5e6, p), 'an upright one still shrinks');
+});
+
+test('the flag and the panel merge over the deck word by word', () => {
+  assert.deepEqual(mergeImagesSettings('original', '70'), { mode: 'original', quality: '70', unknown: [] });
+  assert.deepEqual(mergeImagesSettings('optimized 70', 'original'), { mode: 'original', quality: '70', unknown: [] });
+  assert.deepEqual(mergeImagesSettings(undefined, undefined), { mode: '', quality: '', unknown: [] });
+  assert.equal(resolveImagePolicy(mergeImagesSettings('70', 'optimized')).quality, 70);
 });

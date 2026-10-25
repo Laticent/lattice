@@ -3,7 +3,7 @@
 import { Image as ImageIcon } from 'lucide-react';
 import * as React from 'react';
 import exportCanvasCore from '../../../../lib/core/export-canvas.js';
-import { loadImagesChoice, saveImagesChoice, setCanvasChoice, setImagesOverride } from './export/images-override.js';
+import { deckSizeOf, loadImagesChoice, saveImagesChoice, setCanvasChoice, setImagesOverride } from './export/images-override.js';
 
 type Mode = 'deck' | 'optimized' | 'original';
 const CHOICES: { value: Mode; title: string; blurb: string }[] = [
@@ -51,8 +51,7 @@ export function PicturesControl({ deckId, busy, applies }: { deckId?: string; bu
 
 /** Is this deck's own canvas 4K? Only then is there a resolution to choose. */
 export function deckIs4k(source?: string): boolean {
-	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source ?? ''))?.[1] ?? '';
-	return /^size:[ \t]*4k[ \t]*$/im.test(fm);
+	return exportCanvasCore.is4k(deckSizeOf(source));
 }
 
 const KEY = (deckId?: string) => `lattice-studio-canvas:${deckId ?? ''}`;

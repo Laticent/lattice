@@ -1124,6 +1124,11 @@ function slideGeom(section) {
 // `content-visibility:auto` (subtree rendering skipped) and the whole `.lattice`
 // starts `visibility:hidden`, revealed by the in-iframe FIT agent only once the
 // preview has a non-zero width — i.e. once it has actually been SHOWN. Neither
+// NOTE (2026-10-25): every comment from here to `shootSection` that names html-to-image describes the camera this module
+// used before the shared slide camera (lib/core/slide-camera.mjs). The mechanisms they describe (computed-style copying, the
+// font-size floor, the ribbon and border-image repaints, a clone with no ancestors) no longer apply: the camera lays the slide
+// out with the page's own stylesheet. They stay as the record of why each fixup below exists; the fixups still serve the
+// camera where they act on the LIVE section (visibility, web references, corners, the export face).
 // state survives an export: html-to-image clones the section and copies its
 // COMPUTED styles, so a skipped or hidden slide rasterizes to a blank page. That
 // is exactly what happens when you export straight from the Drawing Board's Edit

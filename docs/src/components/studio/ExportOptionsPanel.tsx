@@ -135,8 +135,8 @@ export function ExportOptionsPanel({
 					</div>
 				)}
 
-				<ResolutionControl deckId={deckId} source={source} busy={busy} format={format} />
-				<PicturesControl deckId={deckId} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
+				<ResolutionControl key={deckId} deckId={deckId} source={source} busy={busy} format={format} />
+				<PicturesControl key={deckId} deckId={deckId} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
 
 				{/* Re-openable: the deck's source rides inside the file. */}
 				{format !== 'odp' && (

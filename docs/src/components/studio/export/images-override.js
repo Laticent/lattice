@@ -5,6 +5,8 @@
 // them has an opinion about pictures.
 
 import exportCanvasCore from '../../../../../lib/core/export-canvas.js';
+import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
+import imagePolicyCore from '../../../../../lib/core/image-policy.js';
 import sizesCore from '../../../../../lib/engine/sizes.js';
 
 let override = { mode: 'deck', quality: '' };
@@ -13,10 +15,16 @@ export function setImagesOverride(next) {
 	override = { mode: next?.mode === 'optimized' || next?.mode === 'original' ? next.mode : 'deck', quality: String(next?.quality ?? '').trim() };
 }
 
-/** The front-matter setting with the panel's override applied on top. */
+/** The front-matter setting with the panel's override applied on top, word by word, as the command line's `--images` does over the deck's line. */
 export function applyImagesOverride(fromDeck) {
 	if (override.mode === 'deck') return fromDeck;
-	return { mode: override.mode, quality: override.quality || fromDeck.quality };
+	return imagePolicyCore.mergeImagesSettings(fromDeck, `${override.mode} ${override.quality}`);
+}
+
+/** The deck's own `size:`, read the way the command line reads it (quotes and a trailing comment stripped). */
+export function deckSizeOf(source) {
+	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
+	return frontMatterKeyCore.frontMatterValue(fm, 'size') || '';
 }
 
 // The export canvas (lib/core/export-canvas.js): 'hd' (default) or '4k'. A 4K deck exports its PDF, PowerPoint and
@@ -29,8 +37,9 @@ export function setCanvasChoice(next) {
 
 /** The deck source an export of `format` renders: the deck's own, or its `size:` lowered to HD. Never edits the author's deck. */
 export function exportSourceFor(source, format) {
-	const deckSize = (/^size:[ \t]*(.+?)[ \t]*$/m.exec(/^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '') || [])[1];
-	const { size } = exportCanvasCore.exportCanvas({ deckSize, requested: canvasChoice, format });
+	const deckSize = deckSizeOf(source);
+	// A remembered 4K only matters to a deck that is 4K: another deck (edited since, or a different one) keeps its own canvas.
+	const { size } = exportCanvasCore.exportCanvas({ deckSize, requested: exportCanvasCore.is4k(deckSize) ? canvasChoice : '', format });
 	return size ? sizesCore.withSize(source, size) : source;
 }
 

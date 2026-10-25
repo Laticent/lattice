@@ -310,7 +310,8 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    the alternates those features draw their own widths and text, which pdf-lib leaves out.
 3. **Photograph** what is left. The drawn text, shapes and images are hidden, and the slide is
    photographed on its export face (`.lattice-exporting`). The camera is the one piece each host
-   supplies: the CLI uses Chrome's own screenshot, the Studio uses html-to-image.
+   supplies. It used to be a native Chrome screenshot in the CLI and html-to-image in the Studio; both now run one camera
+   (`lib/core/slide-camera.mjs`, § 4a2), and only the bytes of a picture come from the host.
 4. **Write** (`write-pdf.mjs`, pdf-lib): the photo, then images at their original bytes, then
    chart shapes as vectors, then every word as real text, tagged (Document › H1…/P/LI/Figure)
    with the title and `/Lang`.
@@ -460,8 +461,19 @@ and at most 0.0003% at scale 2 (4 slides checked). Studio against CLI, same deck
 LibreOffice 0.06%, PDF 0.14%; file sizes agree to 2 decimals. `test/integration/export/slide-camera.test.js` holds the
 camera to the native screenshot.
 
-What the camera does not do: video, live `<canvas>` beyond a PNG snapshot, and pictures the host cannot read (they are
-hidden, not left broken, and counted). `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
+Defects the independent review found, and what holds them now (`test/integration/export/slide-camera.test.js`):
+the page-level `<svg><defs>` that accessibility and print textures fill from (cloned into the image, or every textured wedge
+came out empty); a form feed or other XML-illegal character pasted into a slide (stripped, or the SVG would not parse and
+the export failed); relative `url()` in author CSS, inline styles and Marp's `backgroundImage:` (made absolute, since a
+data: SVG has no base); `<picture>` and `<video poster>`; and a stylesheet cache keyed on a count, which served slide 1's
+Calco freeze sheet to every later slide (now keyed on the text). A slide the camera still cannot photograph falls back, for
+that slide only, to Chrome's own screenshot with a warning on stderr; a picture the CLI cannot read is named once on stderr.
+
+What the camera does not do: video playback frames, an `<iframe>`'s content, `:nth-*`, sibling and cross-slide counter rules
+(the slide is the only child of its clone, so `section:nth-of-type(2)` and a `counter()` that runs across slides resolve
+against one slide), live `<canvas>` beyond a PNG snapshot, and a stylesheet comment or string that contains the word `html`
+or `body` (the rewrite is textual). Shipped engine CSS uses none of these; an author's own CSS might. A picture the host
+cannot read is hidden, not left broken, and counted. `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
 hack worked around html-to-image's border-image bug.
 
 ## 4a. CLI PDF output is byte-reproducible
