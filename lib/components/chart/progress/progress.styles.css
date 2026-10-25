@@ -83,7 +83,7 @@
   /* The fill is its status's flat SOLID (chart-family.styles.css § THE SOLID TIER): no wash, no ramp, no
    * leading accent. Its length is the datum; its color is the status. */
   background: var(--fill-hue);
-  border: var(--chart-hairline) solid var(--fill-hue);
+  border: var(--chart-hairline) solid transparent;
   border-radius: var(--chart-mark-radius);
   transition: none;
   /* The % readout rides the bar's leading edge: right-aligned ON the colored

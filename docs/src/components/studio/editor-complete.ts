@@ -2,12 +2,15 @@ import type { Completion, CompletionContext, CompletionResult } from '@codemirro
 import { altFromAssetName } from '@/lib/photo-alt';
 import { PACE_NAMES } from '@/lib/resolve-pace';
 import { classDirectiveCompletion, classTokenResult, deckSplit, slideBodyAfter } from '@/playground/slide-context.js';
-import { CHART_FINISH_AXES } from '../../../../lib/core/resolve-chart-finish.js';
+import resolveChartFinish from '../../../../lib/core/resolve-chart-finish.js';
 import sizes from '../../../../lib/engine/sizes.js';
 import { FRONT_MATTER_KEYS, OFFERED_SETTINGS } from './front-matter-keys';
 import { LOGO_FINISH_AXIS_ORDER, logoFinishWords } from './logo-finish';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, CARD_TAG_AXES, IMAGE_CARD_AXIS_ORDER, imageCardWords } from './slide-provenance';
 import { STUDIO_LANGUAGES } from './studio-language';
+
+// A CommonJS engine module: default-import it, then destructure (vite-cjs-lib-dev.test.ts).
+const { CHART_FINISH_AXES } = resolveChartFinish;
 
 // Studio editor autocomplete — context-aware completion for the three things an
 // author types most: the component on a `_class:` line, a front-matter directive

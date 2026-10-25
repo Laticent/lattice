@@ -423,16 +423,16 @@ const SURFACES = [
   // the trio collapses under achromatopsia (0.1174 to 0.034 when last measured).
   ...[
     ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill on the --bg-alt tile',
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block;[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-edge: var\(--warn-solid-signal\);\s*--kpi-pill-rim: var\(--warn\);[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
     ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on the accent-soft hero tile',
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-edge: var\(--state-pass-hue\);\s*--kpi-pill-rim: var\(--pass\);[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
     ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on the accent-soft hero tile',
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block;[^}]*--kpi-pill-signal: var\(--warn-solid-signal\)/],
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-edge: var\(--warn-solid-signal\);\s*--kpi-pill-rim: var\(--warn\);[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
   ].flatMap(([slug, state, tile, ctx, pin]) => {
     const shared = [
       pin,
       // The mark is painted in the pill's own ink, and drawn only where a row's hook turns its box on.
-      /\.lat-pill::before \{[^}]*display: var\(--kpi-pill-mark-box, none\);[^}]*background-color: currentColor;[^}]*mask: var\(--kpi-pill-mark\)/,
+      /\.lat-pill::before \{[^}]*display: var\(--kpi-pill-mark-box, none\);[^}]*background-color: currentColor;[^}]*mask: var\(--kpi-pill-mark\) center \/ contain no-repeat;/,
       ...(tile === '--accent-soft'
         ? [/li:nth-child\(1\)[^{]*\{[^}]*background:\s*var\(\s*--accent-soft\s*\)/]
         : []),
@@ -444,9 +444,9 @@ const SURFACES = [
         src: KPI, requires: shared,
       },
       {
-        id: `kpi/${slug}-on-tile`, ctx: `${ctx}: the pill's 1px border in the status ink against the tile (the chip's edge)`,
+        id: `kpi/${slug}-on-tile`, ctx: `${ctx}: the pill's 1px rim in the status ink against the tile (the chip's edge)`,
         base: tile, groups: [], ink: `--${state}`, min: 3,
-        src: KPI, requires: [...shared, new RegExp(`--lat-pill-edge: var\\(--${state}\\);`), ['lib/plugins/pills/pills.styles.css', /border:1px solid var\(--lat-pill-edge,/]],
+        src: KPI, requires: [...shared, /\.lat-pill \{\s*box-shadow: 0 0 0 1px var\(--kpi-pill-rim, transparent\);/],
       },
     ];
   }),

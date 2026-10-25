@@ -1175,7 +1175,7 @@ section.chart-frame .chart-caption::before {
    * same paint as a gantt bar or a state tile, so a status reads identically as a pill or a bar. 7:1 on every
    * palette in both modes (chart-solids.test.js). */
   background: var(--chart-status-hue);
-  border: var(--chart-hairline) solid var(--chart-status-hue);
+  border: var(--chart-hairline) solid transparent;
   color: var(--chart-solid-ink);
 }
 /* THE VIVID INTENSITY lives in the base (base.tokens.css § THE STATUS FILL ON THIS SLIDE): `--state-X-hue` is set on

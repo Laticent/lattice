@@ -96,9 +96,9 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { 
 
 /* THE STATUS PILL is a status MARK (engineering/decisions/2026-10-24-status-is-one-system.md): the
  * deck's status solid (`--state-X-hue`, muted or vivid by `chart-finish:`), its label in the one ink
- * `--on-solid`, the drawn mark leading it, and on warn the signal ring inside its edge. The modifier's
- * nth-child hooks below set all five per row (`--lat-pill-edge` / `-bg` / `-ink`, `--kpi-pill-mark`,
- * `--kpi-pill-signal`); later pills on a row reset to neutral.
+ * `--on-solid`, the drawn mark leading it, a rim in the status ink, and on warn the signal ring as its
+ * border. The modifier's nth-child hooks below set them per row (`--lat-pill-edge` / `-bg` / `-ink`,
+ * `--kpi-pill-mark`, `--kpi-pill-mark-box`, `--kpi-pill-rim`); later pills on a row reset to neutral.
  *
  * The MARK is load-bearing, not decoration. The status solids share one lightness, so a label in one
  * ink on a status fill carries the status by hue alone, and under achromatopsia the trio collapses
@@ -153,31 +153,36 @@ section.kpi > .cell-stage > :where(ol, ul) > li > .lat-pill ~ .lat-pill:not([dat
   --lat-pill-bg: var(--bg);
   --lat-pill-ink: var(--text-muted);
   --kpi-pill-mark-box: none;
-  --kpi-pill-signal: transparent;
+  --kpi-pill-rim: transparent;
 }
-/* The status pill's drawn mark and signal ring (§ THE STATUS PILL above). The mark is masked from the
- * `--mark-*-bold` tokens and painted in the pill's own ink; its box is wider than the mark so the
- * space before the label lives inside the box (no margin). A pill whose row sets no status draws
- * nothing: the box is off (`--kpi-pill-mark-box`) unless a row's hook turns it on, because an unmasked
- * box would paint a solid square. */
+/* The status pill's drawn mark, its rim and its signal ring (§ THE STATUS PILL above), each in a form the editable
+ * office export (Calco) lifts as a native shape rather than a picture:
+ *  · the MARK is masked from the `--mark-*-bold` tokens, centered and sized `contain` in a box a little wider than the
+ *    mark, so the space before the label lives inside the box (no margin), painted in the pill's own ink;
+ *  · the pill's 1px BORDER carries the role: its own fill on pass (so it reads as no border), the signal on warn;
+ *  · the RIM in the status ink, which is the chip's edge against its tile (3:1), is one outer ring outside the border.
+ * Calco lifts a border and one outer ring together, but not a border and an inset ring, which is why the signal
+ * is the border here and not an inset ring as on a chart. A pill whose row sets no status draws no mark and no rim:
+ * the box is off (`--kpi-pill-mark-box`) unless a row's hook turns it on, because an unmasked box would paint a
+ * solid square. */
 /* A category pill (`data-c`) names a category, not a status, wherever it sits in the row: it never draws the row's
  * status mark or ring (the pills plugin repaints only its colors). */
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill[data-c] {
   --kpi-pill-mark-box: none;
-  --kpi-pill-signal: transparent;
+  --kpi-pill-rim: transparent;
 }
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill {
-  box-shadow: inset 0 0 0 var(--state-signal-w) var(--kpi-pill-signal, transparent);
+  box-shadow: 0 0 0 1px var(--kpi-pill-rim, transparent);
 }
 section.kpi > .cell-stage > :where(ol, ul) > li .lat-pill::before {
   content: '';
   display: var(--kpi-pill-mark-box, none);
-  width: 1.2em;
+  width: 1.15em;
   height: 0.85em;
   vertical-align: -0.08em;
   background-color: currentColor;
-  -webkit-mask: var(--kpi-pill-mark) left center / 0.85em 0.85em no-repeat;
-          mask: var(--kpi-pill-mark) left center / 0.85em 0.85em no-repeat;
+  -webkit-mask: var(--kpi-pill-mark) center / contain no-repeat;
+          mask: var(--kpi-pill-mark) center / contain no-repeat;
 }
 
 /* Shared number / label / target typography. */
@@ -379,23 +384,23 @@ section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) 
 }
 section.kpi.briefing > .cell-stage > ol > li,
 section.kpi:where(:not(.ops):not(.compliance):not(.trajectory):not(.spotlight)) > .cell-stage > ol > li {
-  --lat-pill-edge: var(--pass);
+  --lat-pill-edge: var(--state-pass-hue);
+  --kpi-pill-rim: var(--pass);
   --lat-pill-bg: var(--state-pass-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: transparent;
 }
 /* `attention` modifier — the hero is the one slipping. Hero pill turns
  * warn-colored and the accent left-border picks up --warn too. Use
  * when the hero metric is below target / off plan. */
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
-  --lat-pill-edge: var(--warn);
+  --lat-pill-edge: var(--warn-solid-signal);
+  --kpi-pill-rim: var(--warn);
   --lat-pill-bg: var(--state-warn-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: var(--warn-solid-signal);
 }
 section.kpi.attention > .cell-stage > ol > li:nth-child(1) {
   border-left-color: var(--warn);
@@ -433,21 +438,21 @@ section.kpi.ops > .cell-stage > ol > li > strong {
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1),
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) {
-  --lat-pill-edge: var(--warn);
+  --lat-pill-edge: var(--warn-solid-signal);
+  --kpi-pill-rim: var(--warn);
   --lat-pill-bg: var(--state-warn-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: var(--warn-solid-signal);
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(2),
 section.kpi.ops > .cell-stage > ol > li:nth-child(4) {
-  --lat-pill-edge: var(--pass);
+  --lat-pill-edge: var(--state-pass-hue);
+  --kpi-pill-rim: var(--pass);
   --lat-pill-bg: var(--state-pass-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: transparent;
 }
 section.kpi.ops > .cell-stage > ol > li:nth-child(1) > strong,
 section.kpi.ops > .cell-stage > ol > li:nth-child(3) > strong { color: var(--warn); }
@@ -599,20 +604,20 @@ section.kpi.compliance > .cell-stage > ol > li > ul > li:nth-child(n+3) {
 section.kpi.compliance > .cell-stage > ol > li:nth-child(1),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(2),
 section.kpi.compliance > .cell-stage > ol > li:nth-child(4) {
-  --lat-pill-edge: var(--pass);
+  --lat-pill-edge: var(--state-pass-hue);
+  --kpi-pill-rim: var(--pass);
   --lat-pill-bg: var(--state-pass-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: transparent;
 }
 section.kpi.compliance > .cell-stage > ol > li:nth-child(3) {
-  --lat-pill-edge: var(--warn);
+  --lat-pill-edge: var(--warn-solid-signal);
+  --kpi-pill-rim: var(--warn);
   --lat-pill-bg: var(--state-warn-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-dash-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: var(--warn-solid-signal);
 }
 section.kpi.compliance > .cell-stage > p:last-of-type {
   font-family: var(--font-label);
@@ -675,12 +680,12 @@ section.kpi.trajectory > .cell-stage > ol > li > strong {
   line-height: 1;
 }
 section.kpi.trajectory > .cell-stage > ol > li {
-  --lat-pill-edge: var(--pass);
+  --lat-pill-edge: var(--state-pass-hue);
+  --kpi-pill-rim: var(--pass);
   --lat-pill-bg: var(--state-pass-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: transparent;
 }
 
 /* ─ MODIFIER · SPOTLIGHT (single hero metric) ───────────────────────── */
@@ -756,12 +761,12 @@ section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) > ul > li + li {
   line-height: var(--lh-snug);
 }
 section.kpi.spotlight > .cell-stage > ol > li:nth-child(1) {
-  --lat-pill-edge: var(--pass);
+  --lat-pill-edge: var(--state-pass-hue);
+  --kpi-pill-rim: var(--pass);
   --lat-pill-bg: var(--state-pass-hue);
   --lat-pill-ink: var(--on-solid);
   --kpi-pill-mark: var(--mark-check-bold);
   --kpi-pill-mark-box: inline-block;
-  --kpi-pill-signal: transparent;
 }
 /* Every support belongs in the rail column. Only children 2-4 were placed, so a 5th
  * metric auto-placed into COLUMN 1 — under the hero card — and the separator rule
