@@ -445,7 +445,9 @@ function build() {
       // THE SIGNAL RING SCALES WITH THE EDGE. An exception's ring replaces its edge, and "nothing else rings" only
       // reads if the ring is the heavier line: 1.3x the edge this finish gives the mark. Fixed at 1.3 hairlines it
       // sat under etch's 2-3x and tone's 2.5x edges, so a done bar outlined louder than an at-risk one (#2887).
-      if (k !== 1) decls.push(`--chart-ring: ${ring(k)}`);
+      // Only an HTML box draws its ring from its own `--chart-ring` (an inset shadow); an SVG shape's ring is a sibling
+      // element, set by name below.
+      if (k !== 1 && s.paint === 'bg') decls.push(`--chart-ring: ${ring(k)}`);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       if (s.bears && s.paint === 'bg') {
         decls.push(`color: ${textInk(name)}`);
@@ -464,7 +466,11 @@ function build() {
 
     // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
     // inherit the shape's width and is reached by name, at the edge of the text-bearing mark it rings.
-    if (f.edgeBackdrop !== 1) w(rule(name, '.chart-signal-ring', [`--chart-ring: ${ring(f.edgeBackdrop)}`]));
+    // It waits behind the same guard as the bar's own wider edge (TEXT WAITS), so an engine that keeps the bar's
+    // shipped edge keeps its shipped ring too.
+    if (f.edgeBackdrop !== 1) w(supports(rule(name, '.chart-signal-ring', [`--chart-ring: ${ring(f.edgeBackdrop)}`])));
+    // A milestone diamond and a key swatch carry no text, so their edge is the plain one and their ring follows it.
+    if (f.edgeBackdrop !== f.edge) w(supports(rule(name, ':is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)', [`--chart-ring: ${ring(f.edge)}`])));
 
     // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes the finish's text ink ──
     // Each of these is a sibling of its mark in the SVG (a gantt caption beside its rect, a state caption and its
@@ -563,6 +569,10 @@ function build() {
           ...(name === 'etch' ? ['vector-effect: non-scaling-stroke'] : []),
         ]));
       }
+      // Etch draws every cell's edge in its band's ink, so the critical band's ring and its key disc's ring scale with
+      // that edge, as a status mark's ring does (STATUS above): the exception stays the heaviest line. Tone's cell
+      // line is a canvas seam (`--bg`), not an ink edge, so its ring needs nothing.
+      if (name === 'etch') w(rule(name, ':is(.risk-band-ring, .risk-key-marker[data-band="critical"])', [`--chart-ring: ${ring(f.edge)}`]));
     }
 
     // ── A NEUTRAL hub-spoke node — no status and no hue ─────────────────────

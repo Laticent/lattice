@@ -136,7 +136,7 @@ brand green bar and a "done" bar can look alike. Two things separate them:
   amber, `--fail-signal-mark` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
   opposite lightness to its fill. Nothing else rings, so a ring means "exception" on every chart. It is an outline
   that takes no space: 1.3 hairlines wide (`--chart-ring`), and 1.3 times the edge wherever a finish widens a
-  status mark's edge (etch, tone), so the ring is always the heavier line; drawn INSIDE the shape, so it never grows a mark or covers
+  status mark's edge (etch, tone; and etch's risk cells), so the ring is always the heavier line; drawn INSIDE the shape, so it never grows a mark or covers
   an arrowhead at the shape's edge. HTML boxes take an inset shadow (`!important`, because every finish paints a
   status member's edge with `!important`); an SVG member's kernel draws the shape's own outline clipped to the shape
   (`.chart-signal-ring`). A risk matrix rings its whole critical band once, inside the band, and marks each critical
@@ -367,8 +367,9 @@ measurement, and most undo a defect a render or the adversarial review found:
 paint with strokes and type (`paint: "none"`): a stroke is all edge and no body. Tone's one
 hue is for bodies, and an edge and a name keep their category ink, so tone leaves these whole,
 their dots and bands too, since a tonal dot on a line that kept its hue no longer matches its
-series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6) and changes
-nothing else: under etch the line is the identity. The family slot table is
+series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6), because under
+etch the line is the identity, and gives its dots, areas and bands etch's whisper body and ink
+edge like any other mark. The family slot table is
 never re-pointed; an earlier cut did, under tone, and washed line's series 5–8
 out to near-white. A finish also never repaints a CONTAINER as a mark (a slotted
 flowchart group, a tinted kanban column): that buried a group's title under an 82%

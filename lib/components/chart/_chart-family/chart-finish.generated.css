@@ -1020,7 +1020,6 @@ figure.chart-finish-etch :where(.gantt-bar[data-s]) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 3) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 3) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1030,7 +1029,6 @@ figure.chart-finish-etch :where(.gantt-bar:not([data-s])) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 3) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 3) !important;
 }
 }
 section.chart-finish-etch :where(.gantt-milestone:not([data-s])),
@@ -1039,7 +1037,6 @@ figure.chart-finish-etch :where(.gantt-milestone:not([data-s])) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-etch :where(.gantt-legend-swatch:not([data-s])),
@@ -1048,7 +1045,6 @@ figure.chart-finish-etch :where(.gantt-legend-swatch:not([data-s])) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 }
 section.chart-finish-etch :where(.gantt-milestone[data-s]),
@@ -1057,7 +1053,6 @@ figure.chart-finish-etch :where(.gantt-milestone[data-s]) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-etch :where(.gantt-legend-swatch[data-s]),
@@ -1066,7 +1061,6 @@ figure.chart-finish-etch :where(.gantt-legend-swatch[data-s]) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1096,7 +1090,6 @@ figure.chart-finish-etch :where(.state-node-shape:not([data-s])) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 3) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 3) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1106,7 +1099,6 @@ figure.chart-finish-etch :where(.state-node-shape[data-s]) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 3) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 3) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1144,7 +1136,6 @@ figure.chart-finish-etch :where(.fc-shape[data-s]:not([data-s="deferred"])) {
   stroke: var(--fc-hue-mark) !important;
   stroke-width: calc(var(--chart-edge) * 3) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 3) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1154,7 +1145,6 @@ figure.chart-finish-etch :where(.fc-shape:not([data-s]):not([data-slot]):not([da
   stroke: var(--fc-hue-mark) !important;
   stroke-width: calc(var(--chart-edge) * 3) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 3) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1190,7 +1180,6 @@ figure.chart-finish-etch :where(.waterfall-bar[data-s="up"]) {
   stroke: var(--state-pass-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 section.chart-finish-etch :where(.waterfall-bar[data-s="down"]),
 figure.chart-finish-etch :where(.waterfall-bar[data-s="down"]) {
@@ -1198,7 +1187,6 @@ figure.chart-finish-etch :where(.waterfall-bar[data-s="down"]) {
   stroke: var(--state-fail-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 section.chart-finish-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]),
 figure.chart-finish-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]) {
@@ -1206,11 +1194,18 @@ figure.chart-finish-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]) {
   stroke: var(--hs-state-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-etch :where(.chart-signal-ring),
 figure.chart-finish-etch :where(.chart-signal-ring) {
   --chart-ring: calc(var(--state-signal-w) * 3) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-etch :where(:is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)),
+figure.chart-finish-etch :where(:is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)) {
+  --chart-ring: calc(var(--state-signal-w) * 2) !important;
+}
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-etch :where(.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]), .state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"]), .state-index-t[data-s], .state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t, .fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
@@ -1309,6 +1304,10 @@ figure.chart-finish-etch :where(.risk-cell[data-band="critical"]) {
   stroke: var(--state-fail-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
+}
+section.chart-finish-etch :where(:is(.risk-band-ring, .risk-key-marker[data-band="critical"])),
+figure.chart-finish-etch :where(:is(.risk-band-ring, .risk-key-marker[data-band="critical"])) {
+  --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
 section.chart-finish-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
 figure.chart-finish-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
@@ -1819,7 +1818,6 @@ figure.chart-finish-tone :where(.gantt-bar[data-s]) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1829,7 +1827,6 @@ figure.chart-finish-tone :where(.gantt-bar:not([data-s])) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
 }
 }
 section.chart-finish-tone :where(.gantt-milestone:not([data-s])),
@@ -1891,7 +1888,6 @@ figure.chart-finish-tone :where(.state-node-shape:not([data-s])) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1901,7 +1897,6 @@ figure.chart-finish-tone :where(.state-node-shape[data-s]) {
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1935,7 +1930,6 @@ figure.chart-finish-tone :where(.fc-shape[data-s]:not([data-s="deferred"])) {
   stroke: var(--fc-hue-mark) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1945,7 +1939,6 @@ figure.chart-finish-tone :where(.fc-shape:not([data-s]):not([data-slot]):not([da
   stroke: var(--fc-hue-mark) !important;
   stroke-width: calc(var(--chart-edge) * 2.5) !important;
   vector-effect: non-scaling-stroke !important;
-  --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1996,9 +1989,17 @@ figure.chart-finish-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]) {
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-tone :where(.chart-signal-ring),
 figure.chart-finish-tone :where(.chart-signal-ring) {
   --chart-ring: calc(var(--state-signal-w) * 2.5) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.chart-finish-tone :where(:is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)),
+figure.chart-finish-tone :where(:is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)) {
+  --chart-ring: calc(var(--state-signal-w) * 1) !important;
+}
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-tone :where(.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]), .state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"]), .state-index-t[data-s], .state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t, .fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),

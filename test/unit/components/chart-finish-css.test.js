@@ -247,18 +247,29 @@ describe('chart-finish.generated.css', () => {
   // by the same factor. Fixed at 1.3 hairlines it sat under those edges, and a done bar outlined louder than an
   // at-risk one (#2887; measured on the render, before and after, in tools/ and the PR body).
   test('a status mark\'s signal ring is 1.3x its finished edge, in every finish', () => {
-    const blocks = css.split('\n}');
+    // Each rule's own selector list, read exactly: a block whose FIRST selector is this finish over this mark.
+    const rules = [...css.matchAll(/(?:^|\n)([^{}@\n][^{}]*)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+    const ruleFor = (name, mark) => rules.filter((r) => r.sel.startsWith(`section.chart-finish-${name} :where(${mark}),`));
     for (const [name, f] of Object.entries(F)) {
       for (const s of STATUS_MARKS) {
         const k = s.bears ? f.edgeBackdrop : f.edge;
-        const head = `section.chart-finish-${name} :where(${s.sel})`;
-        const blk = blocks.find((b) => b.includes(head + ',') && /(?:box-shadow|stroke-width):/.test(b));
-        assert.ok(blk, `${name} paints ${s.sel}`);
-        if (k === 1) assert.doesNotMatch(blk, /--chart-ring:/, `${name} ${s.sel}: a 1x edge keeps the shared ring`);
-        else assert.match(blk, new RegExp(`--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${k}\\) !important`), `${name} ${s.sel}: ring scales with its ${k}x edge`);
+        const own = ruleFor(name, s.sel).filter((r) => /(?:box-shadow|stroke-width):/.test(r.body));
+        assert.equal(own.length, 1, `${name} paints ${s.sel} once`);
+        const scaled = k !== 1 && s.paint === 'bg';
+        if (scaled) assert.match(own[0].body, new RegExp(`--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${k}\\) !important`), `${name} ${s.sel}: ring scales with its ${k}x edge`);
+        else assert.doesNotMatch(own[0].body, /--chart-ring:/, `${name} ${s.sel}: no ring width where nothing reads it`);
       }
-      if (f.edgeBackdrop !== 1) assert.match(css, new RegExp(`chart-finish-${name} :where\\(\\.chart-signal-ring\\)[^{]*\\{\\s*--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${f.edgeBackdrop}\\)`), `${name}: the SVG ring element follows its bar`);
+      // A gantt bar's ring is its own SVG element, set by name, behind the same guard as the bar's wider edge.
+      const svgRing = ruleFor(name, '.chart-signal-ring');
+      if (f.edgeBackdrop === 1) assert.equal(svgRing.length, 0, `${name}: the shared ring`);
+      else {
+        assert.match(svgRing[0]?.body || '', new RegExp(`--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${f.edgeBackdrop}\\)`), `${name}: the SVG ring follows its bar`);
+        assert.match(css, new RegExp(`@supports[^{]*\\{\\s*section\\.chart-finish-${name} :where\\(\\.chart-signal-ring\\)`), `${name}: the SVG ring waits behind the guard`);
+      }
     }
+    // Etch draws each risk cell's edge in its band's ink at its 2x edge, so the critical ring follows it.
+    const risk = ruleFor('etch', ':is(.risk-band-ring, .risk-key-marker[data-band="critical"])');
+    assert.match(risk[0]?.body || '', new RegExp(`--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${F.etch.edge}\\)`), 'etch: the critical band ring scales with the cell edge');
   });
 
   test('a container is re-pointed under tone, never repainted, and a status lane keeps its hue', () => {
