@@ -42,6 +42,31 @@ describe('the CSS scanners list every spelling', () => {
     assert.ok(galleryRemoteRefs(md).some((u) => u === `${BASE}/beacon.png`));
   });
 
+  // The engine escapes these as text (`&lt;p/style=…`): CommonMark does not read them as HTML, so
+  // nothing reaches the page to fetch, and the gate has nothing to list.
+  const ESCAPED_BY_THE_ENGINE = new Set(['slash-before-style', 'no-space-before-src', 'quote-in-unquoted-value']);
+  test('the gallery gate lists every payload the engine renders as markup', () => {
+    const engine = require('../../../lib/engine/index.js');
+    for (const p of PAYLOADS) {
+      const md = `# Sample\n\n${asHtml(p)}\n`;
+      if (ESCAPED_BY_THE_ENGINE.has(p.name)) {
+        assert.ok(!holds(engine.render(md).html, `<${asHtml(p).slice(1, 4)}`), `${p.name} now reaches the page as markup`);
+        continue;
+      }
+      // The gate reports the whole value that holds the address (a style attribute), not only the URL.
+      assert.ok(galleryRemoteRefs(md).some((u) => holds(u, `${BASE}/${p.name}`)), p.name);
+    }
+  });
+
+  test("the code-package door's cssRefTargets lists every CSS payload a style attribute can fetch", async () => {
+    const { cssRefTargets } = await import('../../../lib/core/door-attr.mjs');
+    // The door reads attribute values only; `@import` in a style attribute is ignored (measured in
+    // Chromium 2026-10-25: 0 requests, against 1 for the same text in a <style>).
+    for (const p of PAYLOADS.filter((x) => x.kind !== 'html' && x.name !== 'import-string')) {
+      assert.ok(cssRefTargets(p.text).some((u) => u.startsWith(`${BASE}/${p.name}`)), p.name);
+    }
+  });
+
   test("the code-package door's cssRefTargets lists a url() after a string a form feed ends", async () => {
     const { cssRefTargets } = await import('../../../lib/core/door-attr.mjs');
     assert.deepEqual(cssRefTargets(`color:red;content:"x\f;background:url(${BASE}/door.png)`), [`${BASE}/door.png`]);

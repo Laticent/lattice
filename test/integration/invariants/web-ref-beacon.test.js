@@ -84,6 +84,22 @@ describe('web references: a rewritten deck fetches nothing', { skip: SKIP, timeo
     assert.deepEqual(await fetched(rewritten), []);
   });
 
+  test('the rewrite is a fixed point: a second pass, or a re-parse of its output, refuses nothing new', async () => {
+    // The parser check re-serializes markup it rewrites. If serializing could CREATE a reference
+    // the rewrite did not see, the page's own parser would show it here. Measured 2026-10-25 over
+    // these rows and 430 decks: none. A diagram reference is counted and left for the policy.
+    const page = await browser.newPage();
+    await page.addScriptTag({ content: bundle });
+    const leftover = await page.evaluate((items) => items.flatMap((html) => {
+      const first = RemoteRef.blockWebImages(html, [], { fonts: true });
+      const doc = new DOMParser().parseFromString(`<!doctype html><body>${first.html}`, 'text/html');
+      const again = [RemoteRef.blockWebImages(first.html, [], { fonts: true }), RemoteRef.blockWebImages(doc.body.innerHTML, [], { fonts: true })];
+      return again.flatMap((r) => r.blocked.filter((b) => b.kind !== 'diagram').map((b) => b.url));
+    }), webRefBeacons(base).map(asHtml));
+    await page.close();
+    assert.deepEqual(leftover, []);
+  });
+
   test('blockWebCss leaves nothing that fetches', async () => {
     const payloads = webRefBeacons(base).filter((p) => p.kind !== 'html');
     const remoteRef = require('../../../lib/core/remote-ref.js');
