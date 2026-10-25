@@ -12,10 +12,10 @@ summary: >
 
 **Answer first.** 685 cards were checked against `main` at `ca84df8`: 333 open issues and 352 `followups.d/` files. **94 should close** (55 issues, 39 follow-up files), **87 wait on an owner call**, and 504 stay open. Three are P0 for a release this week, 49 are P1.
 
-**P0, fix before release:**
-- `F2779-p3` — the published CLI crashes on any deck with a pane slide (`Invalid manifest: dist/styles/manifest.json`). An installed 1.0.0 would fail the same way. The packaged-install test misses it because its deck has no pane slide.
-- `F2853-p1` — `inline-run` turns attribute text into live markup after sanitizing (`<img onerror>`). Reproduced on `main`. Whether a code-package slide reaches it end to end is untested.
-- `F2640-p2` — the Studio's PowerPoint export on Safari drops every picture and still says "PowerPoint ready."
+**P0, fix before release** (re-checked by hand on 2026-10-25; see the verification section):
+- `F2779-p3` — the published CLI crashes on any deck with a pane slide (`Invalid manifest: dist/styles/manifest.json`). I reproduced it: `node dist/lattice.js examples/pane-photo-fit.md` throws, while `node lattice.js` on the same deck renders. `bin` is `dist/lattice.js` and `files` ships `dist/`. The packaged-install test misses it because its deck has no pane slide.
+- `F2853-p1` — **downgraded to P1.** `wrapHtml` does write its span into a quoted attribute (unit-level repro holds), but in a `--player` (sanitized) export my payload came out with no `onerror`, and in a plain export the author's raw HTML is already trusted. No end-to-end path is shown yet; the card's guess is a code-package slide.
+- `F2640-p2` — the Studio's PowerPoint export on Safari drops every picture and still says "PowerPoint ready." The evidence is real Playwright WebKit (2026-10-12), not literal Safari.
 
 **No confirmed live exploit** in the security set. The nearest are #1993 (sanitized HTML is parsed twice into a same-origin frame, a theoretical mXSS shape), #1890 (a measured cubic-time regex freezes the Studio on a shared deck), vendored Mermaid's older DOMPurify, and an undisclosed IP exposure on Live links.
 
@@ -493,7 +493,7 @@ Features, docs, process and refactors. P0-P2 only here; the rest are P3 in the t
 
 The owner approved closing the confident set. A label change leaves no diff, and neither does a close, so this list is the audit trail. Reopen any one if its evidence row proves wrong. Per-card evidence is in `2026-10-25-issue-queue-triage/cards.json`.
 
-- **Closed 52 issues** (open count 333 → 281, verified against the API):
+- **Closed 52 issues** (open count 333 → 281 at the time; 11 were reopened afterward, see section 5, so 292 are open):
   - #596 — completed
   - #668 — not_planned
   - #1507 — not_planned
@@ -550,3 +550,16 @@ The owner approved closing the confident set. A label change leaves no diff, and
 - **Deleted 39 follow-up files** from `followups.d/`: those marked CLOSE in section 1.
 - #1437 also got a warning comment, because its steps put a raw npm token in `.npmrc`.
 - No labels, milestones or board columns were changed.
+
+## 5. Verification of the closes (added 2026-10-25, after the first 52 were closed)
+
+Two independent checker agents tried to refute every close verdict, plus the three held back.
+Of the 55: 27 confirmed, 24 partial, 2 refuted, 2 unclear (the checkers' own tallies differ by a few because two marked caveats as CONFIRMED).
+
+**Reopened (11)**, because a stated done-when item has no evidence: #1539 (the pool allows 28 slots, the slice cache holds 24, and a walk back through 40 slides missed 16), #1586 (its survivor asks for a decision only, not a tail-time check), #1558 (its survivor does not carry ctrl+wheel zoom), #1945 (`variantDecisionRule` 46 of 79, `dataShapeGuidance` 21 of 79), #2731 (host parity holds, but no evidence the packer features shipped), #1605 (drops are reported, not prevented), #1911 (fix holds when run; the required real-Chromium screenshots are missing, HARD RULE #23), #1429 (no scale canary or split-panel legibility evidence), #1410 (the contrast test loads only `indaco`; the card names `atelier`), #1966 (the 10/10 rubric was never applied to a named sample), #1912 (items 3 and 4 absent).
+
+**Still closed with a caveat** (the fix is real, a test or note is missing): #668 (studio-smoke is advisory, not blocking), #1848 and #2288 (no regression test), #1406 (a test also accepts the broken relative src), #1683 (the test walks the engine's size list, not every Studio key), #1549 (no title-position test for `math matrix`), #2475 (phase P3 lives in a follow-up file), #2099 (the cited commit is wrong, `f205b6619` deleted the file, and there is no `.gitignore` guard or recorded reason), #1437 (the closing pointer should also name `2595-p2-bootstrap-publish-1-0-0` and `2595-p3-weekly-automatic-release`), #1562 (carry "add `--cat-N-texture` to REQUIRED_TOKENS" and the golden re-bless into #1865), #1517 and #1876 (oracle lives in another file; #1876's spec tests only 820px). Three evidence citations are wrong but their verdicts hold: #2181 (about 5 specs, not 8), #2266 (stylesheet is `lib/plugins/chart-family/chart-family.styles.css`), #2511 (spike is `4db398956`, not `9c7fda9`).
+
+**Held, still open:** #2004 refuted (a trailing code chip is still outside its wrapper), #2098 plausibly fixed but has no PDF evidence, #2310 unclear.
+
+**Not verified by anyone:** no checker rendered a PDF or drove a real surface, so every visual criterion above is UNVERIFIED (HARD RULE #23).

@@ -93,7 +93,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "ci.yml:903 studio-smoke is advisory and absent from the ci job's needs (gotchas/ci.md §studio-smoke)",
+  "evidence": "ci.yml:903 studio-smoke is advisory and absent from the ci job's needs (gotchas/ci.md \u00a7studio-smoke)",
   "why": "Promotion is a CI-contract change and needs a nightly green streak first.",
   "question": "Promote studio-smoke to a required check now, or wait until the open smoke flakes (#1851, #1748) are fixed and a streak is recorded?"
  },
@@ -107,7 +107,7 @@
   "effort": "L",
   "risk": "med",
   "agentReady": "yes",
-  "evidence": "No voice-rewrite outside Lenses ships; engineering/decisions/2026-07-13-lente-reader-lenses.md §9.5 still requires the diff gate",
+  "evidence": "No voice-rewrite outside Lenses ships; engineering/decisions/2026-07-13-lente-reader-lenses.md \u00a79.5 still requires the diff gate",
   "why": "Feature work; not release-relevant."
  },
  {
@@ -226,7 +226,7 @@
  },
  {
   "id": "I1586",
-  "verdict": "CLOSE-dupe(F2868-p1-studio-startup-back-to-baseline)",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": "F2868-p1-studio-startup-back-to-baseline",
   "class": "P",
   "tags": [
@@ -446,7 +446,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "2026-08-25-carbone-light-face.md §9.5 still says 'Both are a change to what CI runs, so neither is taken here.'",
+  "evidence": "2026-08-25-carbone-light-face.md \u00a79.5 still says 'Both are a change to what CI runs, so neither is taken here.'",
   "why": "The note still cites the CI-contract row instead of HARD RULE #18's off-path rule."
  },
  {
@@ -514,7 +514,7 @@
   "effort": "L",
   "risk": "low",
   "agentReady": "no: needs a measured coverage target per axis first",
-  "evidence": "Website a11y gate scope unchanged per engineering/decisions/2026-08-19-website-accessibility-gate.md §7",
+  "evidence": "Website a11y gate scope unchanged per engineering/decisions/2026-08-19-website-accessibility-gate.md \u00a77",
   "why": "The site a11y gate still scans one palette and few routes."
  },
  {
@@ -529,7 +529,7 @@
   "effort": "M",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "Studio edit-paint bench still drives no theme/mode/size change (2026-08-25-studio-edit-paint-budget.md §5)",
+  "evidence": "Studio edit-paint bench still drives no theme/mode/size change (2026-08-25-studio-edit-paint-budget.md \u00a75)",
   "why": "The ratchet guards only the light edit regime."
  },
  {
@@ -727,7 +727,7 @@
   "effort": "M",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "Handoff per engineering/decisions/2026-09-21-manifest-handles.md §7; acceptance is npm run sweep:guide",
+  "evidence": "Handoff per engineering/decisions/2026-09-21-manifest-handles.md \u00a77; acceptance is npm run sweep:guide",
   "why": "Feature follow-up; not release-relevant."
  },
  {
@@ -1006,7 +1006,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "test/benchmark/baseline.json datasets.math and 'edit · math' now record 17 slides (last bless 9c1b5dd79)",
+  "evidence": "test/benchmark/baseline.json datasets.math and 'edit \u00b7 math' now record 17 slides (last bless 9c1b5dd79)",
   "why": "The math rows were re-blessed at the new workload."
  },
  {
@@ -1048,7 +1048,7 @@
   "effort": "M",
   "risk": "med",
   "agentReady": "no: needs the owner decision (CI contract)",
-  "evidence": "Merge-queue runs now fail a cancelled tier (gotchas/ci.md §The ci check is green...); PR runs still pass one",
+  "evidence": "Merge-queue runs now fail a cancelled tier (gotchas/ci.md \u00a7The ci check is green...); PR runs still pass one",
   "why": "A green PR check can still hide a timed-out tier.",
   "question": "Should a PR-run tier killed by its own timeout fail the ci gate, read via the jobs API, accepting more red on superseded runs?"
  },
@@ -1217,7 +1217,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "Same CI-only route-budget byte delta as F2718; gate now names the grown files (gotchas/ci.md §markdown-only route budget)",
+  "evidence": "Same CI-only route-budget byte delta as F2718; gate now names the grown files (gotchas/ci.md \u00a7markdown-only route budget)",
   "why": "Duplicate; F2718 carries the root-cause hunt."
  },
  {
@@ -1243,7 +1243,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "no: needs a real iPhone",
-  "evidence": "Linux WebKit done per 2026-10-18-on-demand-styles.md §11",
+  "evidence": "Linux WebKit done per 2026-10-18-on-demand-styles.md \u00a711",
   "why": "The style loader is UNVERIFIED on iOS Safari."
  },
  {
@@ -2550,7 +2550,7 @@
  },
  {
   "id": "I1558",
-  "verdict": "CLOSE-dupe",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": "I1578",
   "class": "I",
   "tags": [],
@@ -3077,7 +3077,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "hasTopLevelTag('<h2>A</h3><ul>…','ul') and mirror both return false on ca84df8 (ran it)",
+  "evidence": "hasTopLevelTag('<h2>A</h3><ul>\u2026','ul') and mirror both return false on ca84df8 (ran it)",
   "why": "Kernel disagrees with a real parser on mismatched heading end tags."
  },
  {
@@ -3090,7 +3090,7 @@
   "effort": "M",
   "risk": "med",
   "agentReady": "yes",
-  "evidence": "top-level-h2.mjs:57 still says 5 files/15; grep finds <h2 regexes in ~20 lib files (carousel 9, split-envelope 9, premise 4…)",
+  "evidence": "top-level-h2.mjs:57 still says 5 files/15; grep finds <h2 regexes in ~20 lib files (carousel 9, split-envelope 9, premise 4\u2026)",
   "why": "Hand-rolled h2 regexes bypass the kernel; census header is stale."
  },
  {
@@ -3187,7 +3187,7 @@
  },
  {
   "id": "I2731",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": "",
   "class": "K",
   "tags": [],
@@ -3195,7 +3195,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "n/a",
-  "evidence": "6119db7 (#2739), e6cb9ed (#2817); audit note §11.9: 25 of 25 decks byte-identical; §11.3 reveal.js falsifier done",
+  "evidence": "6119db7 (#2739), e6cb9ed (#2817); audit note \u00a711.9: 25 of 25 decks byte-identical; \u00a711.3 reveal.js falsifier done",
   "why": "Host parity and connector falsifier shipped; leftovers live in 2739-p* followups."
  },
  {
@@ -3208,7 +3208,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "n/a",
-  "evidence": "bridges note §9 line 614: D1 decided 2026-10-16 \"no presets\"; D2-D4, D6 also decided",
+  "evidence": "bridges note \u00a79 line 614: D1 decided 2026-10-16 \"no presets\"; D2-D4, D6 also decided",
   "why": "The owner ruled out environment presets, so this handoff premise is gone."
  },
  {
@@ -3748,7 +3748,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "no (needs PowerPoint)",
-  "evidence": "Body: checked in LibreOffice only; decision note §6 UNVERIFIED",
+  "evidence": "Body: checked in LibreOffice only; decision note \u00a76 UNVERIFIED",
   "why": "Editable .pptx never opened in PowerPoint."
  },
  {
@@ -3859,7 +3859,7 @@
   "risk": "med",
   "agentReady": "yes",
   "evidence": "Still at surfaces.js:82, cli-deck-sheet.js:64, player-core.mjs:1196/1239, resolve.js:572, build-forms.js:61; new one in export/author-css.js:14",
-  "why": "Naive /*…*/ strip misreads strings/url(); one new site added since."
+  "why": "Naive /*\u2026*/ strip misreads strings/url(); one new site added since."
  },
  {
   "id": "F2612-p3-pill-unknown-word-unreported",
@@ -4199,7 +4199,7 @@
   "effort": "S",
   "risk": "med",
   "agentReady": "yes",
-  "evidence": "engine render of ![bg](data:image/svg+xml;base64,…) keeps literal ![bg], no data-img-composition (ran it)",
+  "evidence": "engine render of ![bg](data:image/svg+xml;base64,\u2026) keeps literal ![bg], no data-img-composition (ran it)",
   "why": "A pasted SVG data URI shows as card text with no diagnostic."
  },
  {
@@ -4339,12 +4339,12 @@
    "sec",
    "release-blocker"
   ],
-  "pri": "P0",
+  "pri": "P1",
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "wrapHtml('<li title=\"a><img src=x onerror=alert(1)>\">…') returns a live <img onerror> (lib/core/inline-run.js:71 TAG_RE, ran it)",
-  "why": "Turns attribute text into live markup after sanitize; a code-package slide may reach it."
+  "evidence": "wrapHtml('<li title=\"a><img src=x onerror=alert(1)>\">\u2026') returns a live <img onerror> (lib/core/inline-run.js:71 TAG_RE, ran it)",
+  "why": "Unit-level repro holds; no end-to-end path shown (sanitized player export is clean)."
  },
  {
   "id": "F2862-p2-per-canvas-venue-budgets",
@@ -4721,7 +4721,7 @@
  },
  {
   "id": "I1945",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "J",
   "tags": [],
@@ -4747,7 +4747,7 @@
  },
  {
   "id": "I1966",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "J",
   "tags": [],
@@ -4874,7 +4874,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "no",
-  "evidence": "Depends on three live \"❓ Decisions\" PR comments existing; not checkable from the tree",
+  "evidence": "Depends on three live \"\u2753 Decisions\" PR comments existing; not checkable from the tree",
   "why": "This is a review task that waits for live cards, and it gates F2778-p2."
  },
  {
@@ -5009,7 +5009,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "no",
-  "evidence": "engineering/decisions/2026-10-07-first-npm-release.md §5 supersedes it; the body targets SlideWright/lattice and an unscoped \"lattice\" package, not Laticent/@laticent",
+  "evidence": "engineering/decisions/2026-10-07-first-npm-release.md \u00a75 supersedes it; the body targets SlideWright/lattice and an unscoped \"lattice\" package, not Laticent/@laticent",
   "why": "Superseded by the 2595 slices. The pasted pipeline names the wrong org for the trusted publisher and must not be followed."
  },
  {
@@ -5121,7 +5121,7 @@
  },
  {
   "id": "I1912",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "J",
   "tags": [],
@@ -5130,7 +5130,7 @@
   "risk": "low",
   "agentReady": "yes",
   "evidence": "engineering/workflow.md:1235-1259 documents the auto_merge verify step and the method question, and bans routing around the queue",
-  "why": "The trap and the verify step are now in workflow.md §Merging."
+  "why": "The trap and the verify step are now in workflow.md \u00a7Merging."
  },
  {
   "id": "I1924",
@@ -5412,7 +5412,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "Owner ruling 2026-10-07: publish all nine (first-npm-release.md §5); docs/src/lib/*/package.json now carry publishConfig.access: public (slice B)",
+  "evidence": "Owner ruling 2026-10-07: publish all nine (first-npm-release.md \u00a75); docs/src/lib/*/package.json now carry publishConfig.access: public (slice B)",
   "why": "Slices A/B landed. Slice E's first publish carries the rest."
  },
  {
@@ -5556,7 +5556,7 @@
   "effort": "L",
   "risk": "high",
   "agentReady": "no",
-  "evidence": "first-npm-release.md §8: Changesets cannot version the root package; slice C waits on an owner pick of A/B/C; no packages/ dir; 1270 fragments in changelog.d/",
+  "evidence": "first-npm-release.md \u00a78: Changesets cannot version the root package; slice C waits on an owner pick of A/B/C; no packages/ dir; 1270 fragments in changelog.d/",
   "why": "The first publish waits on this one owner choice. Option A (publish folder) is recommended and was measured.",
   "question": "Pick slice C's shape: A packages/lattice publish folder (recommended), B two release paths, or C our own versioner?"
  },
@@ -5573,7 +5573,7 @@
   "effort": "M",
   "risk": "high",
   "agentReady": "no",
-  "evidence": "first-npm-release.md §5 E: the owner adds a short-lived token, the agent releases, OIDC is attached, the token is revoked; it waits on slice C and on the F2779 bin crash",
+  "evidence": "first-npm-release.md \u00a75 E: the owner adds a short-lived token, the agent releases, OIDC is attached, the token is revoked; it waits on slice C and on the F2779 bin crash",
   "why": "This is the release itself. Token handling is the owner's job, and the bin must not crash first.",
   "question": "Is the 1.0.0 publish this week? If so, settle slice C now and fix F2779 first."
  },
@@ -5589,7 +5589,7 @@
   "effort": "S",
   "risk": "med",
   "agentReady": "yes",
-  "evidence": "Slice D (first-npm-release.md §5): retag 5979ae9 as v0.9.0 and delete v1.0.0; this is externally visible",
+  "evidence": "Slice D (first-npm-release.md \u00a75): retag 5979ae9 as v0.9.0 and delete v1.0.0; this is externally visible",
   "why": "A mechanical step that needs the owner's go-ahead at the time.",
   "question": "Go ahead to retag August's v1.0.0 as the v0.9.0 preview when slice E is ready?"
  },
@@ -5689,7 +5689,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "engineering/decisions/2026-10-18-on-demand-styles.md §8 has the measured table; dist/styles (191 files) ships in the tarball today",
+  "evidence": "engineering/decisions/2026-10-18-on-demand-styles.md \u00a78 has the measured table; dist/styles (191 files) ships in the tarball today",
   "why": "This decides what 1.0.0's tarball carries, and it ties into the F2779 crash.",
   "question": "Ship dist/styles in the package or generate it on install, and which index does the runtime loader use?"
  },
@@ -5705,7 +5705,7 @@
   "effort": "M",
   "risk": "med",
   "agentReady": "yes",
-  "evidence": "Tarball measured at 24.1 MB gzipped, 80 MB unpacked (2026-10-18-on-demand-styles.md §10); dist/lattice.js is unminified",
+  "evidence": "Tarball measured at 24.1 MB gzipped, 80 MB unpacked (2026-10-18-on-demand-styles.md \u00a710); dist/lattice.js is unminified",
   "why": "A big install-size win before the first publish, but not a blocker."
  },
  {
@@ -5778,7 +5778,7 @@
  },
  {
   "id": "I1410",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "D",
   "tags": [],
@@ -5981,7 +5981,7 @@
   "effort": "L",
   "risk": "high",
   "agentReady": "no",
-  "evidence": "There is no adjacent-slot ΔE gate for --cat-N-fill; it is upstream of I1861, I1862, I1865 and I1866",
+  "evidence": "There is no adjacent-slot \u0394E gate for --cat-N-fill; it is upstream of I1861, I1862, I1865 and I1866",
   "why": "This is the root of the texture cluster. Large, and the bytes it changes need export sign-off."
  },
  {
@@ -6301,7 +6301,7 @@
  },
  {
   "id": "I1429",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "E",
   "tags": [
@@ -6342,7 +6342,7 @@
  },
  {
   "id": "I1605",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "C",
   "tags": [],
@@ -6844,7 +6844,7 @@
  },
  {
   "id": "I1911",
-  "verdict": "CLOSE-fixed",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "C",
   "tags": [],
@@ -6956,7 +6956,7 @@
   "effort": "M",
   "risk": "low",
   "agentReady": "no - needs the crash-sentinel record from the owner's tablet",
-  "evidence": "engineering/decisions/2026-09-07-diagram-render-latency.md §17B ruled out local causes; no record attached",
+  "evidence": "engineering/decisions/2026-09-07-diagram-render-latency.md \u00a717B ruled out local causes; no record attached",
   "why": "Nothing can move until a record from the real tablet exists."
  },
  {
@@ -7543,7 +7543,7 @@
  },
  {
   "id": "I1539",
-  "verdict": "CLOSE-obsolete",
+  "verdict": "KEEP (reopened after checker pass)",
   "dupeOf": null,
   "class": "P",
   "tags": [],
@@ -7696,7 +7696,7 @@
   "effort": "M",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "2026-08-25-carbone-light-face.md §8 still says render evidence is PDF only",
+  "evidence": "2026-08-25-carbone-light-face.md \u00a78 still says render evidence is PDF only",
   "why": "Carbone light, now the default face, was never opened on the web surfaces."
  },
  {
@@ -7873,7 +7873,7 @@
   "effort": "M",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "2026-09-07-diagram-render-latency.md §17B: peak unidentified",
+  "evidence": "2026-09-07-diagram-render-latency.md \u00a717B: peak unidentified",
   "why": "Nothing names the 96 documents yet."
  },
  {
@@ -7985,7 +7985,7 @@
   "effort": "L",
   "risk": "med",
   "agentReady": "no: needs the signaling choice",
-  "evidence": "2026-10-06-studio-live-collaboration.md §12.2: mono, no Trystero stereo hook in 0.26",
+  "evidence": "2026-10-06-studio-live-collaboration.md \u00a712.2: mono, no Trystero stereo hook in 0.26",
   "why": "Stereo needs an architecture pick first.",
   "question": "Build our own signaling, or wait for or patch a Trystero hook, for stereo High fidelity?"
  },
@@ -8428,7 +8428,7 @@
   "effort": "S",
   "risk": "low",
   "agentReady": "yes",
-  "evidence": "PresentOverlay.tsx:1677 still hard-codes 'Aria · local'/'Aria · cloud'",
+  "evidence": "PresentOverlay.tsx:1677 still hard-codes 'Aria \u00b7 local'/'Aria \u00b7 cloud'",
   "why": "Button names the wrong voice for non-Kokoro cloud voices."
  },
  {
