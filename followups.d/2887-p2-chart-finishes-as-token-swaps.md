@@ -35,6 +35,15 @@ source: https://github.com/Laticent/lattice/pull/2887
                    or removed.
 ```
 
+**Tone's edges must keep their category ink (owner's pick, 2026-10-25).** On `main` and on #2887,
+every tone edge reads `--chart-cat-1-ink`, so a category's hue survives nowhere under tone on pie,
+tower, stacked-bar and quadrant (closest pair of edges 0 OKLab apart, measured). The design note
+says the edge is "the only place the categorical hue survives"
+(`engineering/decisions/2026-09-07-chart-design-language/tone-is-the-third-finish.md`). The
+per-slot edge token above is where this lands: under tone, slot N's edge is `--chart-cat-N-ink`.
+Verify with the closest-pair measurement on tower and matrix-grid, where tone's bodies alone sit
+0.008-0.016 apart.
+
 Design first (CLAUDE.md, design-before-code): name the per-slot tokens and show the owner
 before the generator changes. Its own PR, after #2887 merges (HARD RULE #17).
 

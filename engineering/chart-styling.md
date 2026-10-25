@@ -204,7 +204,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 
 | | identity lives in | choose it for | body | edge |
 |---|---|---|---|---|
-| **`pigment`** | the body's **hue** | you want color | 82% | ink, 1× |
+| **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
 | **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
 
@@ -362,10 +362,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, and `examples/chart-finish.md` exports at 847 KB. The prune now skips
   the dual-mode block by id.
 
-**What a finish does not reach, on purpose.** `line`, `slope` and `word-cloud`
-paint with strokes and type (`paint: "none"`), and a finish leaves them whole —
-under tone, their dots and bands too, since a tonal dot on a line that kept its
-hue no longer matches its series (`STROKE_MEMBERS`). The family slot table is
+**What a finish does not reach, on purpose.** `line`, `ep-curve`, `slope` and `word-cloud`
+paint with strokes and type (`paint: "none"`): a stroke is all edge and no body. Tone's one
+hue is for bodies, and an edge and a name keep their category ink, so tone leaves these whole,
+their dots and bands too, since a tonal dot on a line that kept its hue no longer matches its
+series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6) and changes
+nothing else: under etch the line is the identity. The family slot table is
 never re-pointed; an earlier cut did, under tone, and washed line's series 5–8
 out to near-white. A finish also never repaints a CONTAINER as a mark (a slotted
 flowchart group, a tinted kanban column): that buried a group's title under an 82%

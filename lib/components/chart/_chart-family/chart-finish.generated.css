@@ -1550,99 +1550,99 @@ figure.chart-finish-tone :where(:is(.roadmap .horizon-head > .lat-pill, .roadmap
 }
 
 /* HUE — the body a finish is named for, under the mark's ink edge. */
-section.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 61%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 61%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 34%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 34%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
-section.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="fill"]:not(.tower-figure .chart-key-swatch, .fc-shape, .gantt-bar, .quadrant-bubble, .quadrant-tint, .radar-sector, .state-node-shape, .tower-share):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 9%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where(:is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]:not(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 9%, var(--bg)) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
 }
@@ -2017,124 +2017,6 @@ figure.chart-finish-tone :where(.heatmap-value[data-step="5"]) {
   fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(10% + var(--heatmap-step5, 92%) * 0.65), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) calc(10% + var(--heatmap-step5, 92%) * 0.43), var(--heatmap-base)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="1"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="1"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="1"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="1"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="1"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="1"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="2"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="2"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="2"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="2"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="2"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="2"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="3"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="3"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="3"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="3"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="3"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="3"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="4"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="4"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="4"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="4"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="4"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="4"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="5"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="5"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
-  stroke-dasharray: 5 3 !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="5"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="5"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="5"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="5"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="6"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="6"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
-  stroke-dasharray: 5 3 !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="6"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="6"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="6"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="6"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="7"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="7"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
-  stroke-dasharray: 5 3 !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="7"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="7"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="7"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="7"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-section.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="8"]),
-figure.chart-finish-tone :where(:is(.line-path, .ep-path)[data-hue="8"]) {
-  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
-  stroke-dasharray: 5 3 !important;
-}
-section.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="8"]),
-figure.chart-finish-tone :where(:is(.line-dot, .ep-dot)[data-hue="8"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
-}
-section.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="8"]),
-figure.chart-finish-tone :where(:is(.line-area, .line-band)[data-hue="8"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
-  fill-opacity: 0.38 !important;
-}
-@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.chart-finish-tone :where(.wc-word[style*="--chart-cat-"]),
-figure.chart-finish-tone :where(.wc-word[style*="--chart-cat-"]) {
-  fill: color-mix(in oklab, var(--chart-cat-1-ink) 60%, var(--text-heading)) !important;
-}
-}
-section.chart-finish-tone :where(.cart-series[data-hue]),
-figure.chart-finish-tone :where(.cart-series[data-hue]) {
-  fill: var(--chart-cat-1-ink) !important;
-}
 
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */
 section.chart-finish-tone :where(.risk-cell[data-band="low"]),
@@ -2269,40 +2151,40 @@ figure.chart-finish-tone :where(.hub-spoke-icon[data-s]) {
 }
 
 /* LAYERED — a flat alpha of the series body; the edge carries the series. */
-section.chart-finish-tone :where([data-hue="1"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="1"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="1"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="1"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg)) !important;
   fill-opacity: 0.2 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where([data-hue="2"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="2"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="2"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="2"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
   fill-opacity: 0.176 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where([data-hue="3"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="3"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="3"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="3"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 61%, var(--bg)) !important;
   fill-opacity: 0.153 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where([data-hue="4"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="4"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="4"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="4"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--bg)) !important;
   fill-opacity: 0.132 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
-section.chart-finish-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 34%, var(--bg)) !important;
   fill-opacity: 0.112 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
@@ -2310,8 +2192,8 @@ figure.chart-finish-tone :where([data-hue="5"][data-encodes="layered"][data-pain
   vector-effect: non-scaling-stroke !important;
   stroke-dasharray: 5 3 !important;
 }
-section.chart-finish-tone :where([data-hue="6"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="6"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="6"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="6"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) !important;
   fill-opacity: 0.093 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg)) !important;
@@ -2319,8 +2201,8 @@ figure.chart-finish-tone :where([data-hue="6"][data-encodes="layered"][data-pain
   vector-effect: non-scaling-stroke !important;
   stroke-dasharray: 5 3 !important;
 }
-section.chart-finish-tone :where([data-hue="7"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="7"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="7"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="7"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) !important;
   fill-opacity: 0.081 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg)) !important;
@@ -2328,8 +2210,8 @@ figure.chart-finish-tone :where([data-hue="7"][data-encodes="layered"][data-pain
   vector-effect: non-scaling-stroke !important;
   stroke-dasharray: 5 3 !important;
 }
-section.chart-finish-tone :where([data-hue="8"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
-figure.chart-finish-tone :where([data-hue="8"][data-encodes="layered"][data-paint="fill"]:not(.slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
+section.chart-finish-tone :where([data-hue="8"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
+figure.chart-finish-tone :where([data-hue="8"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 9%, var(--bg)) !important;
   fill-opacity: 0.074 !important;
   stroke: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;

@@ -220,17 +220,22 @@ describe('chart-finish.generated.css', () => {
     assert.match(css, /\.map-figure \.chart-key-swatch/);
   });
 
-  // Checked on the render: a tonal dot on a line that kept its category hue no longer matched its own series, and
-  // a stroke is never given a body (a stroke stepped to 2.18:1 on light). So line and ep-curve have rules of their
-  // own: every series stroke, dot, band and area takes one step of the one ink under tone, and slope stays whole.
-  test('tone paints a line chart\'s stroke, dots and areas from one table of ink steps; slope is left alone', () => {
+  // Tone's one hue is for BODIES; an edge and a name keep their category ink (tone-is-the-third-finish.md). A series
+  // stroke is all edge, so tone leaves line, ep-curve and slope whole, their dots and bands too (a tonal dot on a
+  // line that kept its hue no longer matches its series), and their names and the word cloud keep their inks.
+  // #2887 once stepped the strokes and names into the one ink: the names collapsed from three colors to one.
+  test('tone leaves a series stroke, its dots and its name in the category ink; etch draws the line heavier', () => {
     const toneHue = css.match(/section\.chart-finish-tone :where\(:is\(\[data-hue="1"\][^{]*/)[0];
-    assert.ok(toneHue.includes('.slope-dot'), 'slope-dot is still excluded under tone');
-    for (const c of ['line-dot', 'line-band', 'line-area']) assert.ok(toneHue.includes(`.${c}`) === false, `${c} has no body rule of its own under tone`);
-    for (const c of ['line-path', 'ep-path', 'line-dot', 'ep-dot', 'line-area']) {
-      assert.match(css, new RegExp(`chart-finish-tone :where\\([^)]*\\.${c}[^{]*data-hue="1"`), `${c} takes tone's ink step`);
+    for (const c of ['slope-dot', 'line-dot', 'line-band', 'line-area', 'ep-dot']) assert.ok(toneHue.includes(`.${c}`), `${c} is excluded from tone's body rule`);
+    // A selector's `:not(...)` NAMES the classes it skips, so read each tone selector with those removed.
+    const dropNots = (sel) => { let out = ''; for (let i = 0; i < sel.length; i++) {
+      if (sel.startsWith(':not(', i)) { let d = 0; for (i += 4; i < sel.length; i++) { if (sel[i] === '(') d++; else if (sel[i] === ')' && --d === 0) break; } continue; }
+      out += sel[i]; } return out; };
+    const toneSelectors = css.split('\n}').map((blk) => blk.split('{').slice(-2, -1)[0] || '').filter((sel) => /chart-finish-tone /.test(sel)).map(dropNots);
+    for (const c of ['line-path', 'ep-path', 'line-dot', 'ep-dot', 'line-area', 'cart-series', 'wc-word']) {
+      assert.ok(!toneSelectors.some((sel) => new RegExp(`\\.${c}\\b`).test(sel)), `no tone rule repaints .${c}`);
     }
-    assert.match(css, /chart-finish-tone :where\(:is\(\.line-path, \.ep-path\)\[data-hue="5"\]\)[^}]*stroke-dasharray/, 'series 5 repeats the steps dashed');
+    assert.match(css, /chart-finish-etch :where\(:is\(\.line-path, \.ep-path\)\)[^}]*stroke-width: 2\.6/, 'etch draws the series line heavier');
     const pigmentHue = css.match(/section\.chart-finish-pigment :where\(:is\(\[data-hue="1"\][^{]*/)[0];
     for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) {
       assert.ok(!pigmentHue.includes(`.${c}`), `pigment keeps ${c} in its own hue, so it may repaint it`);

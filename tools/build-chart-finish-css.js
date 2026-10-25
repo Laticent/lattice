@@ -246,12 +246,12 @@ function rampMembers() {
 const KEY_FOLLOWS = { 'fc-key-swatch': 'fc-shape' };
 
 /**
- * Members whose identity is a STROKE (`paint: "none"` series path), which no finish reaches.
+ * Members whose identity is a STROKE (`paint: "none"` series path): all edge and no body.
  * Tone leaves every mark of theirs alone, dots and bands included: a tonal dot on a line that
  * kept its category hue is a mark that no longer matches its own series. Pigment and etch
  * keep a dot's hue, so they may repaint it.
  */
-const STROKE_MEMBERS = ['slope'];
+const STROKE_MEMBERS = ['line', 'slope', 'ep-curve'];
 
 /** Mark classes more than one member writes; a ramp rule scopes them to its own figure. */
 const SHARED_CLASSES = new Set(['chart-key-swatch']);
@@ -522,30 +522,12 @@ function build() {
     });
 
     // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────
-    // The stroke IS the mark (paint `none`: no body, no edge to carry identity), so a finish may not give it the
-    // body rule above; that stepped a stroke to 2.18:1 on light. It gets rules of its own, and every rule keeps
-    // the stroke at or above the graphical 3:1 the family holds. ETCH draws the line heavier, because under
-    // etch the line is the identity and a line chart has no outline to make it one. TONE draws every series
-    // in the one ink at four steps (a step is a mix of the INK, which is far darker than the hue, so the
-    // lightest step still clears the canvas), and series 5-8 repeat the steps dashed, so a series is never
-    // told apart by a lightness step alone and the order survives grayscale print.
+    // The stroke IS the mark (paint `none`: no body, so all of it is edge). ETCH draws the line heavier,
+    // because under etch the line is the identity and a line chart has no outline to make it one. TONE leaves
+    // the series whole (STROKE_MEMBERS): tone's one hue is for BODIES, and an edge and a name keep their
+    // category ink, so a stroke that is all edge keeps its hue and its name still matches it by color.
     if (name === 'etch') {
       w(rule(name, ':is(.line-path, .ep-path)', ['stroke-width: 2.6']));
-    }
-    if (tone) {
-      const LINE_STEP = [100, 80, 64, 52];
-      for (const n of SLOTS) {
-        const step = `color-mix(in oklab, ${ONE_INK} ${LINE_STEP[(n - 1) % 4]}%, var(--bg))`;
-        const dash = n > 4 ? ['stroke-dasharray: 5 3'] : [];
-        w(rule(name, `:is(.line-path, .ep-path)[data-hue="${n}"]`, [`stroke: ${step}`, ...dash]));
-        w(rule(name, `:is(.line-dot, .ep-dot)[data-hue="${n}"]`, [`fill: ${step}`]));
-        w(rule(name, `:is(.line-area, .line-band)[data-hue="${n}"]`, [`fill: ${step}`, 'fill-opacity: 0.38']));
-      }
-      // A word-cloud word colored from a category (`--wc-color: var(--chart-cat-N-ink)`, baked inline) wears the one
-      // ink; the accent word and the muted words are emphasis, not category, and keep theirs.
-      w(supports(rule(name, '.wc-word[style*="--chart-cat-"]', [`fill: color-mix(in oklab, ${ONE_INK} 60%, var(--text-heading))`])));
-      // A series NAME wears the one ink: under tone the line it names is no longer its category hue.
-      w(rule(name, '.cart-series[data-hue]', [`fill: ${ONE_INK}`]));
     }
 
     // ── RISK BANDS — a severity ramp whose hue is the meaning ───────────────

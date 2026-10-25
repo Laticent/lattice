@@ -159,15 +159,12 @@ describe('ep-curve — the checker repros', () => {
     assert.doesNotMatch(name, / data-series="/);
   });
 
-  test('under the tone finish a dot and its curve take the SAME step of the one ink', () => {
-    // A dot that took the body ramp while the stroke kept its hue sat off-color on its own curve. Tone now paints
-    // the stroke and the dot from one table of ink steps (build-chart-finish-css.js § A SERIES STROKE).
+  test('under the tone finish a dot keeps its curve\'s hue', () => {
+    // Tone recolors every open hue rule's mark to one ramp; a dot that took it would sit off-color on a
+    // curve whose stroke no finish reaches (build-chart-finish-css.js § STROKE_MEMBERS).
     const css = require('node:fs').readFileSync(require.resolve('../../../lib/components/chart/_chart-family/chart-finish.generated.css'), 'utf8');
-    const step = (sel) => {
-      const m = css.match(new RegExp(`section\\.chart-finish-tone :where\\(${sel}\\[data-hue="2"\\]\\),\\nfigure[^{]*\\{\\n  (?:stroke|fill): (color-mix[^;]*?) !important`));
-      assert.ok(m, sel);
-      return m[1];
-    };
-    assert.equal(step(':is\\(\\.line-dot, \\.ep-dot\\)'), step(':is\\(\\.line-path, \\.ep-path\\)'));
+    const toneHue = css.split('\n').filter((l) => l.startsWith('section.chart-finish-tone :where(:is([data-hue=') && l.includes('[data-paint="fill"]'));
+    assert.ok(toneHue.length > 0);
+    for (const l of toneHue) assert.match(l, /\.ep-dot[,)]/);
   });
 });
