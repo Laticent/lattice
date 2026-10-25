@@ -563,3 +563,13 @@ Of the 55: 27 confirmed, 24 partial, 2 refuted, 2 unclear (the checkers' own tal
 **Held, still open:** #2004 refuted (a trailing code chip is still outside its wrapper), #2098 plausibly fixed but has no PDF evidence, #2310 unclear.
 
 **Not verified by anyone:** no checker rendered a PDF or drove a real surface, so every visual criterion above is UNVERIFIED (HARD RULE #23).
+
+## 6. Real-surface checks run afterward (2026-10-25)
+
+Run to raise the merge card's confidence. Each names its surface.
+
+- **#1911, `--player` export of `examples/anima-scene.md` in real Chromium:** the scene control paints correctly in all four modes — pause bars while playing, a play triangle when paused, the refresh arrow after a one-shot scene ends, and the labeled "Play the motion" pill under `prefers-reduced-motion: reduce`. In `replay` mode the control sits at opacity 0 until the pointer is over it, so a screenshot taken without a hover shows nothing. Done-when items 1 and 3 hold. The issue can close once someone confirms the safelist entry (item 2) is scoped as intended.
+- **#1410, atelier title slide, real Chromium:** bold lede text is `rgb(240,237,230)` on `rgb(15,14,12)`, 16.5:1. Done-when item 1 holds. Item 2 (a test of strong's resolved color on the inverse surface) is still missing, so it stays open.
+- **#2098, `list` slide rendered to PNG:** the spaces around `**class**` and a mid-bullet code chip render correctly. The "measured page counts" item is still missing, so it stays open.
+- **`F2640-p2`, real Playwright WebKit (`webkit-tablet` project, the PowerPoint test with its WebKit skip removed in a temporary copy):** reproduced. The export carries picture entries, but the photo share is 0 (expected above 0.02), and no "could not load every image" toast appeared. The WebKit lane is Playwright's WebKit build, not literal Safari.
+- **`F2779-p3`:** reproduced earlier. `node dist/lattice.js examples/pane-photo-fit.md` throws `Invalid manifest: dist/styles/manifest.json`, and `node lattice.js` on the same deck renders.
