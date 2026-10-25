@@ -172,7 +172,18 @@ test('pngIsFlat: at or under FLAT_PNG_BYTES_PER_PX is flat; a busier photo is no
 
 test('canvasCamera: a busy slide is captured once and encoded twice', async () => {
 	let captures = 0;
-	const canvas = { toDataURL: (mime) => `data:${mime};base64,${Buffer.from(mime).toString('base64')}` };
+	// A canvas that is enough of one for the shared encoders: pixels to read, a sibling canvas to draw on, and toBlob.
+	const makeCanvas = () => {
+		const c = {
+			width: 2,
+			height: 2,
+			getContext: () => ({ getImageData: () => ({ data: new Uint8ClampedArray(16).fill(255) }), fillRect() {}, drawImage() {}, set fillStyle(_v) {} }),
+			toBlob: (cb, mime) => cb(new Blob([mime], { type: mime })),
+		};
+		c.ownerDocument = { createElement: () => makeCanvas() };
+		return c;
+	};
+	const canvas = makeCanvas();
 	const camera = compose.canvasCamera(async () => { captures++; return canvas; });
 	const section = {};
 	const png = await camera(section, { scale: 1, type: 'png' });
@@ -181,6 +192,7 @@ test('canvasCamera: a busy slide is captured once and encoded twice', async () =
 	assert.equal(png.type, 'png');
 	assert.equal(jpeg.type, 'jpeg');
 	assert.equal(Buffer.from(jpeg.bytes).toString(), 'image/jpeg');
+	assert.deepEqual([...png.bytes.slice(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 'the PNG is written by the shared encoder');
 	await camera({}, { scale: 1, type: 'png' });
 	assert.equal(captures, 2, 'another slide is captured afresh');
 	await camera(section, { scale: 1, type: 'png' });
