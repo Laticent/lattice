@@ -12,6 +12,8 @@ import { orSupportsCache } from '@/components/studio/ai/or-cache.js';
 import { buildCanonContext } from '@/components/studio/ai/presentation-canon.js';
 import { buildRefinePrompt, cleanRewrite, REFINE_ACTIONS } from '@/components/studio/ai/refine.js';
 import { adjustSpend, budgetStatus, getSpendDeck, readBudgetCap, readBudgetFloor, readBudgetMode, readCachingEnabled, readDedupEnabled, readSpend, recordSpend } from '@/components/studio/ai/spend.js';
+import { notify } from '@/lib/notify';
+import { openSignInWindow } from '@/lib/sign-in-window';
 import type { AgentRawEdit, DeckCheck, ToolCall } from './architect-agent';
 import { FINISHES } from './finish-catalog';
 import { EDGE_TYPES, MARK_TYPES, PLACEMENTS, TEXTURE_TYPES, WASH_TYPES } from './finish-generate';
@@ -2020,13 +2022,52 @@ export async function architectAccount(): Promise<ORAccount | null> {
 	}
 }
 
-/** Start the OpenRouter one-click OAuth (PKCE) — navigates to the auth page. */
-export async function connectOpenRouter(): Promise<void> {
+// The code exchange of the last sign-in, shared by every caller that joined it.
+let lastExchange: { back: string; done: Promise<void> } | null = null;
+
+/**
+ * Start the OpenRouter one-click OAuth (PKCE). OpenRouter's page opens in a popup and the
+ * code is exchanged here, so the Studio never leaves the screen (lib/sign-in.js). Resolves
+ * `true` once connected and `false` when the popup closed first; a code that arrives after
+ * that still connects, with the same toast. Where no popup can open, the page goes to
+ * OpenRouter and comes back with `?code=` (resumePendingAuth), and this never resolves.
+ *
+ * Callers must call this synchronously from the click: the popup opens before the first
+ * `await`, or the browser blocks it.
+ */
+export async function connectOpenRouter(): Promise<boolean> {
+	const popup = openSignInWindow();
 	const m = await architectModel();
-	if (!m) throw new Error('AI model unavailable in this environment.');
-	const callback = location.href.split('?')[0];
-	const url = await m.beginOpenRouterAuth(callback);
-	if (url) location.href = url;
+	if (!m) {
+		popup?.close();
+		throw new Error('AI model unavailable in this environment.');
+	}
+	// One exchange per code: callers that joined one sign-in get the same URL back, and the
+	// code is single-use, so a second exchange would fail after the first succeeded.
+	const finish = (back: string): Promise<void> => {
+		if (lastExchange?.back === back) return lastExchange.done;
+		const done = (async () => {
+			const code = new URL(back).searchParams.get('code');
+			if (!code) throw new Error('OpenRouter did not return a sign-in code.');
+			// The callback page's own fallback (a Studio it opened in the popup) can get there
+			// first: the key is stored and no verifier is left to exchange with.
+			// Announce it here, since this tab's status read the key before it existed.
+			if (!m.hasPendingOpenRouterAuth() && m.availability().openRouterReady) window.dispatchEvent(new Event('db-model-changed'));
+			else await m.resumeOpenRouterAuth(code);
+			notify('OpenRouter connected — the Architect can now edit your deck.');
+		})();
+		lastExchange = { back, done };
+		return done;
+	};
+	// Loaded on click: the rest of the seam stays out of the Studio's startup bundle.
+	const { signIn } = await import('@/lib/sign-in');
+	const back = await signIn((callback) => m.beginOpenRouterAuth(callback), location.href.split('?')[0], {
+		popup,
+		onLate: (url) => { finish(url).catch((e) => notify(`Connect failed: ${(e as Error)?.message || 'try again'}`)); },
+	});
+	if (!back) return false;
+	await finish(back);
+	return true;
 }
 
 /** On return from OAuth (`?code=`), exchange the code and clean the URL. */
