@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { CHROME, expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
@@ -7,6 +7,12 @@ import { CHROME, expect, gotoStudio, setEditorContent, test } from './studio-fix
 // choice decides whether a large photo is embedded as the PNG the author added or re-encoded as a JPEG.
 // The oracle is the downloaded FILE: the encoding and size of the page's largest image stream.
 test.describe.configure({ timeout: 300_000 });
+
+// `desktop` (Chromium) drops a title carrying `@webkit-*` unless it also carries `@crosswidth`, so each oracle is
+// defined twice: the `@gecko` copy runs on Chromium desktop AND Firefox, the `@webkit-tablet` copy on real WebKit.
+const onEveryEngine = (title: string, body: (fixtures: { page: Page; browser: Browser }) => Promise<void>) => {
+	for (const tag of [' @gecko', ' @webkit-tablet']) test(`${title}${tag}`, body);
+};
 
 async function addBigPhoto(page: Page, name: string) {
 	await page.evaluate(async (fileName) => {
@@ -80,7 +86,7 @@ async function exportPdfWith(page: Page, pictures: RegExp | null) {
 	return biggestImage(bytes);
 }
 
-test('@smoke Share → PDF shrinks a big photo by default, and Original quality embeds it as added', async ({ page }) => {
+onEveryEngine('@smoke Share → PDF shrinks a big photo by default, and Original quality embeds it as added', async ({ page }) => {
 	await gotoStudio(page);
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await page.getByRole('button', { name: CHROME.library }).click();
@@ -100,7 +106,7 @@ test('@smoke Share → PDF shrinks a big photo by default, and Original quality 
 	expect(optimized.bytes, 'and the file is much smaller').toBeLessThan(original.bytes * 0.5);
 });
 
-test('@smoke a 4K deck exports its PDF at HD by default, and 4K when the author picks it', async ({ page }) => {
+onEveryEngine('@smoke a 4K deck exports its PDF at HD by default, and 4K when the author picks it', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, '---\nsize: 4k\n---\n\n# Resolution probe\n\n- One\n- Two\n');
 	const pageWidth = async (resolution: RegExp | null) => {
