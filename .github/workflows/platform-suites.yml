@@ -123,6 +123,16 @@ jobs:
             printf '%s\n' "$SUITE_WHY"
           } >> "$GITHUB_STEP_SUMMARY"
           bash -c "$SUITE_RUN"
+      # A suite that writes evidence (screenshots, result JSON) puts it under platform-suite-artifacts/; most write
+      # nothing, and then this step uploads nothing. The iOS Simulator suite is the first that does.
+      - name: Upload suite artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-suite-${{ matrix.suite }}-${{ matrix.os }}
+          path: platform-suite-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
   alert:
     # Runs when `plan` or any suite failed on a scheduled or manual run, and files the failure where a person will see it.
