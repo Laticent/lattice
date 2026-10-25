@@ -125,3 +125,10 @@ Chromium, WebKit and Firefox; `e2e/chat-header-title.spec.ts` holds it in `mobil
 **The other header it touches.** The Library is the one other `fluidActions` header. Docked at 1440 its "Library" title
 measured **0 px wide** before (the search field took the row) in all three engines, and is whole after; at 820 and 390 its
 header is unchanged. A header without `fluidActions` is unchanged. Real iOS is UNVERIFIED.
+
+**The Library's header search, found by the owner on a tablet (2026-10-25).** In the same header the search field was 44 px
+tall beside the 32 px Import button. It predates this change: on a touch screen the field's text is 16 px (the coarse-pointer
+rule that stops iOS zooming) and the box grew around it. `PanelSearch` now has `size="sm"`, a fixed 32 px box for a header
+row, which the Library and its loading shell use off the phone. Measured on an 810 px and a 1080 px iPad profile in WebKit:
+44 → 32 px, equal to the button. `e2e/library-header-search.spec.ts` holds it at 1440 and 820 in Chromium, WebKit and
+Firefox with touch on.

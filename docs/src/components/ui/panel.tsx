@@ -892,6 +892,7 @@ export function PanelSearch({
 	label,
 	onClear,
 	onClose,
+	size = 'default',
 	className,
 }: {
 	inputRef?: React.Ref<HTMLInputElement>;
@@ -921,6 +922,15 @@ export function PanelSearch({
 	 * has to be caught on a row this component does not draw.
 	 */
 	onClose?: () => void;
+	/**
+	 * `sm` is the field for a HEADER ROW: a fixed 32px box, the height of the `size="sm"`
+	 * buttons it sits beside. The default box is as tall as its padding and its text make
+	 * it, and on a touch screen that text is 16px (the coarse-pointer rule that stops iOS
+	 * zooming into a focused field), so in the Library's tablet header it came out 44px tall
+	 * beside a 32px Import button, filling the 56px row. Measured on an 810px iPad profile;
+	 * reported from the owner's tablet. A field in a dock or a body keeps the default.
+	 */
+	size?: 'default' | 'sm';
 	className?: string;
 }) {
 	// CLEARING MUST LEAVE THE CARET IN THE FIELD, and that is the whole reason clear-and-stay
@@ -948,7 +958,7 @@ export function PanelSearch({
 			? { run: onClose, label: 'Close search' }
 			: null;
 	return (
-		<div className={cn(PANEL_SEARCH_BOX, className)}>
+		<div className={cn(PANEL_SEARCH_BOX, size === 'sm' && 'h-8 py-0', className)}>
 			<SearchIcon className="size-4 shrink-0 text-muted-foreground" />
 			<input
 				ref={setInput}
@@ -963,7 +973,8 @@ export function PanelSearch({
 				// 28px of TARGET in the space a 24px one used to take. `-my-0.5` pulls the two
 				// extra pixels back so the button's MARGIN box is 24px — exactly what the
 				// previous `size-6` contributed — which is what keeps this height-neutral for
-				// the Library and Add-a-slide fields that also render it.
+				// the default-size fields that render it (Add a slide, the phone Library).
+				// A `size="sm"` field has a fixed 32px box, so it takes a plain `size-6`.
 				// It does NOT make the field a flat 40px, and an earlier version of this
 				// comment said it did: measured, the box is 39.59px empty and 42px once a
 				// trailing button exists, because 24px was already taller than the 21.59px
@@ -973,7 +984,7 @@ export function PanelSearch({
 					type="button"
 					onClick={trailing.run}
 					aria-label={trailing.label}
-					className="-my-0.5 grid size-7 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"
+					className={cn('grid shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground', size === 'sm' ? 'size-6' : '-my-0.5 size-7')}
 				>
 					<XIcon className="size-4" />
 				</button>
