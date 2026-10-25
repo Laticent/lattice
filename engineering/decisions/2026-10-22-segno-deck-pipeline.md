@@ -198,7 +198,17 @@ sibling package. The options as they were put follow.
 **Set by the owner on 2026-10-25:** the end state is P7, rendering without markdown-it; the
 priority order is shared parse, then consistency, then speed; CSS and Lattice's own semantics are
 dialects of the same spine. D1 stands as the first milestone, now on the way to P7 rather than
-the destination. Open: what "LFM" in the owner's list of dialects names.
+the destination. "LFM" in the owner's list is Lattice-flavored Markdown: Markdown plus Lattice's
+own semantics, which is what P2-P4 parse. The owner would rather Lattice's semantics did not live
+inside Markdown at all; Djot (P6) is the candidate, because John MacFarlane, who wrote the
+CommonMark spec, designed it so that every input has one reading.
+
+**Leave room for spreadsheets.** The owner's longer aim is documents and spreadsheets on the same
+spine. Nothing here builds that, but two choices must not close it off: the document model holds
+a table as data (typed cells in rows and columns), not only as something to render, so a deck
+table, a document table and a sheet share one structure; and the island interface takes a formula
+language the way it takes CSS. A formula grammar needs operator precedence, so like the container
+and emphasis drivers it would pair a generated tokenizer with a small hand-written driver.
 
 - **D1. Scope of the first milestone.** *Recommended:* the structure model (P0-P3), with
   markdown-it still rendering. *Alternative:* aim straight at a full parse (through P4) so the
