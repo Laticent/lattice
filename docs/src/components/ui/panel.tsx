@@ -385,8 +385,13 @@ export const SETTING_SCOPE = '@container/settings';
 export const SETTING_LABEL_COL = 'min-w-0 flex-1 basis-[45%] @max-[320px]/settings:basis-auto';
 /** The control half of a `SETTING_ROW` — right-aligned, so an intrinsic control needs nothing.
  *  Stacked, it keeps `justify-end` so a Switch stays on the right where the eye expects a
- *  toggle, while a filling control (already `w-full`) spans the row either way. */
-export const SETTING_CONTROL_COL = 'flex min-w-0 flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
+ *  toggle, while a filling control (already `w-full`) spans the row either way.
+ *
+ *  `max-w-full` caps the column at the row. `min-w-0` alone cannot: a one-line control inside
+ *  it keeps its own `min-width: auto`, so the deck Language select ("Auto — English (United
+ *  States)", 258px of nowrap text) pushed the column past a 251px row and the whole panel
+ *  scrolled sideways in General (#2203). Capped, the trigger truncates its label instead. */
+export const SETTING_CONTROL_COL = 'flex min-w-0 max-w-full flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
 
 export const PINNED_FIELD_ROW =
 	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +

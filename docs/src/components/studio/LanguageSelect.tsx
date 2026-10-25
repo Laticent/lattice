@@ -64,7 +64,10 @@ export function LanguageSelect({
 	const known = shown === LANG_AUTO || STUDIO_LANGUAGES.some((l) => l.code === shown);
 	return (
 		<Select value={shown} onValueChange={onValueChange}>
-			<SelectTrigger className={cn('w-full', className)} aria-label={ariaLabel}>
+			{/* The label ends in an ellipsis when the row is narrower than it. The shared trigger clips
+			    its value without one, so in a settings row capped at its width ("Auto — English (United
+			    States)" in 251px, #2203) the text stopped mid-word at "United State". */}
+			<SelectTrigger className={cn('w-full [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]>span]:min-w-0 [&_[data-slot=select-value]>span]:truncate', className)} aria-label={ariaLabel}>
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
