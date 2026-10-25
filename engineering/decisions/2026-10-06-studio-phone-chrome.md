@@ -123,3 +123,25 @@ strip are shared chrome every Studio session uses.
 - **The icon** for a menu that is now a search.
 - **iOS:** none of this can be checked on WebKit from the cloud sandbox; the build PR inherits the
   open iPhone follow-up.
+
+## A tap that ends the typing lands where the finger is (2026-10-25)
+
+Followup 2547-p2. On a phone three rules move the layout while a text field has focus: `MOBILE_HEIGHT` (the sheet is 54 px
+taller), `MOBILE_BASE` (the sheet lifts by `--kb`) and `PINNED_FIELD_ROW` (the typed-in settings row is pinned above the
+keyboard). A tap on a control blurs the field at `mousedown`, all three undo at once, and the `click` lands on whatever moved
+under the finger. Reproduced with real touch taps in WebKit on the iPhone 15 Pro profile and in Chromium at 390 px:
+
+- **Library:** type a search, tap the Design tab. The sheet shrank, the tab slid 54 px down, nothing was selected.
+- **Deck settings › General:** type a deck name, tap Language. The pinned row dropped back into the list, Language slid
+  94 px down, and the tap hit the help line above it.
+
+**Fix, in the primitive.** `useSheetTapHold` (`ui/panel.tsx`, called by `PanelSheet` and `StudioDrawer`) marks the field that
+had focus with `data-typing-held` from the press until its click has landed, and all three rules count that mark as focus. The
+blur still happens, so a field that saves on blur (Deck name, the spending cap) has saved before the button's handler runs —
+the reason this does not generalize the Live panel's and the command palette's `onMouseDown` preventDefault. The mark goes on
+the next task after the click, at once on `pointercancel`, and 500 ms after a release with no click.
+
+**Verified, labeled:** `e2e/phone-sheet-tap-after-typing.spec.ts` taps both cases in `webkit-phone` and `mobile` (touch
+EMULATION), and runs each once with the hold stripped to prove the arm fails without it. **Real iOS is UNVERIFIED:** the
+keyboard closing on that blur moves the visual viewport too, and whether Safari hit-tests before that move needs the owner's
+iPhone.

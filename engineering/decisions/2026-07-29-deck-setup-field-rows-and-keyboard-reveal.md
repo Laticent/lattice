@@ -217,3 +217,5 @@ keyboard number here is *injected*. What that means concretely:
   numbers were taken against a box that had already re-expanded.
 
 Both fixes want a pass on a real phone before they are called done.
+
+**2026-10-25:** the pin now also holds through the tap that ends the typing (`[data-typing-held]`, `useSheetTapHold`), so a tap below a pinned row lands on what it was aimed at. `engineering/decisions/2026-10-06-studio-phone-chrome.md` has the measurement.

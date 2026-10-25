@@ -143,7 +143,8 @@ export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
 // height over the Studio on the owner's iPhone (Firefox for iOS, after a Webpage export,
 // PR #2555); the Share sheet has no text field, so it has no reason to make room for one.
 // Written out, not `${MOBILE_OFFSET}`: inside a variant it must be a literal for the scan.
-const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select:focus)]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
+// `[data-typing-held]` counts as focus through the tap that ends the typing — see `useSheetTapHold`.
+const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select:focus,[data-typing-held])]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
 
 /**
  * THE height for every mobile panel — see the block above for why there is one.
@@ -196,7 +197,81 @@ const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select
  * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
 export const MOBILE_HEIGHT =
-	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus,select:focus)]:h-[var(--vvh)]';
+	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus,select:focus,[data-typing-held])]:h-[var(--vvh)]';
+
+/**
+ * HOLDS A PHONE SHEET STILL THROUGH THE TAP THAT ENDS THE TYPING.
+ *
+ * Three rules on a phone change the layout while a text field has focus: `MOBILE_HEIGHT` makes
+ * the sheet 54px taller, `MOBILE_BASE` lifts it by `--kb`, and `PINNED_FIELD_ROW` takes the
+ * typed-in settings row out of flow and pins it above the keyboard. A tap on a control blurs the
+ * field at `mousedown`, all three undo at once, and the `click` that follows lands on whatever
+ * moved under the finger (followup 2547-p2). Measured in WebKit on the iPhone 15 Pro profile and
+ * in Chromium at 390px with touch: in the phone Library, typing a search and tapping the Design
+ * tab selected nothing (the sheet shrank and the tab slid 54px down); in Deck settings, typing a
+ * deck name and tapping Language hit the help line above it (the pinned row dropped back into
+ * the list and Language slid 94px down).
+ *
+ * The Live panel and the command palette fixed their own buttons by keeping focus in the field
+ * (`onMouseDown` preventDefault). That is wrong as a rule for every sheet: the field never blurs
+ * before the click, so a field that saves on blur (Deck name, the Workspace sheet's spending cap)
+ * has not saved when the button's handler runs. So this keeps the blur and holds the LAYOUT: from
+ * the press until its click has landed, the field that had focus carries `data-typing-held`, and
+ * all three rules count `[data-typing-held]` as focus. It lets go on the next task after the
+ * click, at once on `pointercancel` (the press became a scroll), and `HOLD_AFTER_UP_MS` after a
+ * release that brings no click.
+ *
+ * A press on another field is left alone: focus moves field to field and the layout stays.
+ *
+ * On a real iPhone the keyboard also closes on that blur and iOS moves the visual viewport
+ * itself; whether its hit test runs before that move is UNVERIFIED (no iOS device here).
+ */
+const HOLD_AFTER_UP_MS = 500;
+const HOLD_MAX_MS = 5000;
+export function useSheetTapHold(active: boolean): void {
+	React.useEffect(() => {
+		if (!active || typeof document === 'undefined') return;
+		let held: Element | null = null;
+		let timer = 0;
+		const release = () => {
+			window.clearTimeout(timer);
+			held?.removeAttribute('data-typing-held');
+			held = null;
+		};
+		const later = (ms: number) => {
+			window.clearTimeout(timer);
+			timer = window.setTimeout(release, ms);
+		};
+		const onDown = (e: PointerEvent) => {
+			const target = e.target instanceof Element ? e.target : null;
+			const sheet = target?.closest('[role="dialog"]');
+			const field = document.activeElement;
+			if (!target || !sheet || !field || target.closest('input,textarea,select')) return;
+			if (!field.matches('input,textarea,select') || !sheet.contains(field)) return;
+			release();
+			held = field;
+			field.setAttribute('data-typing-held', '');
+			later(HOLD_MAX_MS);
+		};
+		const onUp = () => {
+			if (held) later(HOLD_AFTER_UP_MS);
+		};
+		const onClick = () => {
+			if (held) later(0);
+		};
+		document.addEventListener('pointerdown', onDown, true);
+		document.addEventListener('pointerup', onUp, true);
+		document.addEventListener('pointercancel', release, true);
+		document.addEventListener('click', onClick, true);
+		return () => {
+			document.removeEventListener('pointerdown', onDown, true);
+			document.removeEventListener('pointerup', onUp, true);
+			document.removeEventListener('pointercancel', release, true);
+			document.removeEventListener('click', onClick, true);
+			release();
+		};
+	}, [active]);
+}
 
 /**
  * Publishes the on-screen keyboard's height as `--kb`, and the VISIBLE height as
@@ -394,9 +469,9 @@ export const SETTING_LABEL_COL = 'min-w-0 flex-1 basis-[45%] @max-[320px]/settin
 export const SETTING_CONTROL_COL = 'flex min-w-0 max-w-full flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
 
 export const PINNED_FIELD_ROW =
-	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +
-	'max-[699px]:[&:has(input:focus)]:z-50 max-[699px]:[&:has(input:focus)]:bg-[var(--bg)] max-[699px]:[&:has(input:focus)]:border-t ' +
-	'max-[699px]:[&:has(input:focus)]:border-border max-[699px]:[&:has(input:focus)]:px-3.5 max-[699px]:[&:has(input:focus)]:py-3';
+	'max-[699px]:[&:has(input:focus,input[data-typing-held])]:fixed max-[699px]:[&:has(input:focus,input[data-typing-held])]:inset-x-0 max-[699px]:[&:has(input:focus,input[data-typing-held])]:bottom-[var(--kb)] ' +
+	'max-[699px]:[&:has(input:focus,input[data-typing-held])]:z-50 max-[699px]:[&:has(input:focus,input[data-typing-held])]:bg-[var(--bg)] max-[699px]:[&:has(input:focus,input[data-typing-held])]:border-t ' +
+	'max-[699px]:[&:has(input:focus,input[data-typing-held])]:border-border max-[699px]:[&:has(input:focus,input[data-typing-held])]:px-3.5 max-[699px]:[&:has(input:focus,input[data-typing-held])]:py-3';
 
 type PanelWidth = 'sm' | 'md' | 'lg';
 
@@ -550,6 +625,7 @@ export function PanelSheet({
 	const nav = React.useContext(PanelNavCtx);
 	const instant = React.useContext(PanelSheetInstantCtx);
 	useKeyboardInset(mobile && open);
+	useSheetTapHold(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
 	// only — a pointer surface has no back gesture, and binding history there would be
 	// a regression, not a fix. Registering HERE rather than per call site is what makes
