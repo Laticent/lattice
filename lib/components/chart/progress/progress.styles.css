@@ -56,6 +56,10 @@
    * number ends inside the track and never reaches the status pill. A bar's length is its share of the track LESS
    * this gutter, so every bar on the slide keeps one scale and 100% ends where the gutter begins. */
   --progress-readout: calc(var(--fs-meta) * 2.9 + 0.6cqi);
+  /* The bar's LENGTH, 0–100. An author may write 130% ("130% of budget"), and the readout prints it as written,
+   * but the bar stops at the end of its lane: past it lie the readout and the status pill, and with no clip on
+   * the track an unclamped bar painted over both. Both width formulas read this one value. */
+  --progress-len: clamp(0, var(--pct), 100);
   background: transparent;
   border-radius: var(--chart-mark-radius);
 }
@@ -63,7 +67,7 @@
   position: absolute;
   inset-block: 0;
   inset-inline-start: 0;
-  width: calc((100% - var(--progress-readout)) * var(--pct) / 100);
+  width: calc((100% - var(--progress-readout)) * var(--progress-len) / 100);
   /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
    * and the fill carries a 1px hairline (it once carried inline-end padding for
    * an in-bar readout too). Under the CSS default (content-box)
@@ -117,7 +121,7 @@
   position: absolute;
   inset-block: 0;
   /* The fill's end, plus a gap: the fill's own width formula, so the two can never disagree. */
-  inset-inline-start: calc((100% - var(--progress-readout)) * var(--pct) / 100 + 0.6cqi);
+  inset-inline-start: calc((100% - var(--progress-readout)) * var(--progress-len) / 100 + 0.6cqi);
   display: flex;
   align-items: center;
   font-variant-numeric: tabular-nums;

@@ -308,7 +308,7 @@ describe('theme-contrast', () => {
       return map;
     };
 
-    test('a 134-token map of oklch() does NOT return ok:true', () => {
+    test('a 128-token map of oklch() does NOT return ok:true', () => {
       const map = allOklch();
       // 107 when the note measured it; 108 since `--seq-500` joined the contract
       // (the sequential ramp's anchor — the base's `var(--accent)` fallback is
