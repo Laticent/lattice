@@ -1,0 +1,3 @@
+studio: +40
+home: +40
+`patchSlideBody` (docs/src/lib/single-slide-render.ts) now moves the sanitized holder's parsed nodes with `lattice.replaceChildren(...(fresh || holder).childNodes)` instead of `lattice.innerHTML = (fresh || holder).innerHTML`, so the live preview frame no longer parses DOMPurify's output a second time (#1993, the mutation-XSS round trip). The call is a few characters longer than the assignment it replaces: CI measured +11 B gz on both routes against main; the declared figures leave room for gzip spread. Nothing else in the eager chunk changed, and there is no shorter spelling of the same single mutation.
