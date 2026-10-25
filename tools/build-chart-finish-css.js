@@ -205,6 +205,8 @@ const SUPPORTS = `@supports (color: ${inkOn('red')})`;
 const supports = (css) => `${SUPPORTS} {\n${css}\n}`;
 
 const edge = (k) => (k === 1 ? 'var(--chart-edge)' : `calc(var(--chart-edge) * ${k})`);
+/** The signal ring for a mark whose edge is `k` edges wide: 1.3 hairlines times k (`--state-signal-w` is the 1.3). */
+const ring = (k) => `calc(var(--state-signal-w) * ${k})`;
 
 /**
  * Every member that paints a RAMP, with its ramp classes and the base it mixes toward. A ramp
@@ -438,7 +440,12 @@ function build() {
       const body = tone
         ? (textLevel ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
         : pair(s.hue, lvl);
-      const decls = paintDecls(s.paint, body, s.ink, s.bears ? f.edgeBackdrop : f.edge);
+      const k = s.bears ? f.edgeBackdrop : f.edge;
+      const decls = paintDecls(s.paint, body, s.ink, k);
+      // THE SIGNAL RING SCALES WITH THE EDGE. An exception's ring replaces its edge, and "nothing else rings" only
+      // reads if the ring is the heavier line: 1.3x the edge this finish gives the mark. Fixed at 1.3 hairlines it
+      // sat under etch's 2-3x and tone's 2.5x edges, so a done bar outlined louder than an at-risk one (#2887).
+      if (k !== 1) decls.push(`--chart-ring: ${ring(k)}`);
       // A status pill's gradient is a background-IMAGE; the shorthand clears it.
       if (s.bears && s.paint === 'bg') {
         decls.push(`color: ${textInk(name)}`);
@@ -454,6 +461,10 @@ function build() {
       // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
       w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
     }
+
+    // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
+    // inherit the shape's width and is reached by name, at the edge of the text-bearing mark it rings.
+    if (f.edgeBackdrop !== 1) w(rule(name, '.chart-signal-ring', [`--chart-ring: ${ring(f.edgeBackdrop)}`]));
 
     // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes the finish's text ink ──
     // Each of these is a sibling of its mark in the SVG (a gantt caption beside its rect, a state caption and its

@@ -135,7 +135,8 @@ brand green bar and a "done" bar can look alike. Two things separate them:
 - **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-signal-mark`
   amber, `--fail-signal-mark` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
   opposite lightness to its fill. Nothing else rings, so a ring means "exception" on every chart. It is an outline
-  that takes no space: 1.3 hairlines wide (`--chart-ring`), drawn INSIDE the shape, so it never grows a mark or covers
+  that takes no space: 1.3 hairlines wide (`--chart-ring`), and 1.3 times the edge wherever a finish widens a
+  status mark's edge (etch, tone), so the ring is always the heavier line; drawn INSIDE the shape, so it never grows a mark or covers
   an arrowhead at the shape's edge. HTML boxes take an inset shadow (`!important`, because every finish paints a
   status member's edge with `!important`); an SVG member's kernel draws the shape's own outline clipped to the shape
   (`.chart-signal-ring`). A risk matrix rings its whole critical band once, inside the band, and marks each critical

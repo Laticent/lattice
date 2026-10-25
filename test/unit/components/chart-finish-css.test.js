@@ -13,7 +13,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { build, STATUS_MARKS, KEY_FOLLOWS } = require('../../../tools/build-chart-finish-css');
+const { build, F, STATUS_MARKS, KEY_FOLLOWS } = require('../../../tools/build-chart-finish-css');
 const { loadAll } = require('../../../lib/components');
 
 const OUT = path.join(__dirname, '../../../lib/components/chart/_chart-family/chart-finish.generated.css');
@@ -239,6 +239,25 @@ describe('chart-finish.generated.css', () => {
     const pigmentHue = css.match(/section\.chart-finish-pigment :where\(:is\(\[data-hue="1"\][^{]*/)[0];
     for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) {
       assert.ok(!pigmentHue.includes(`.${c}`), `pigment keeps ${c} in its own hue, so it may repaint it`);
+    }
+  });
+
+  // "Nothing else rings" reads only if an exception's ring is the HEAVIER line. The ring replaces the mark's edge,
+  // so wherever a finish widens a status mark's edge (etch 2-3x, tone 2.5x on a text-bearing mark) the ring widens
+  // by the same factor. Fixed at 1.3 hairlines it sat under those edges, and a done bar outlined louder than an
+  // at-risk one (#2887; measured on the render, before and after, in tools/ and the PR body).
+  test('a status mark\'s signal ring is 1.3x its finished edge, in every finish', () => {
+    const blocks = css.split('\n}');
+    for (const [name, f] of Object.entries(F)) {
+      for (const s of STATUS_MARKS) {
+        const k = s.bears ? f.edgeBackdrop : f.edge;
+        const head = `section.chart-finish-${name} :where(${s.sel})`;
+        const blk = blocks.find((b) => b.includes(head + ',') && /(?:box-shadow|stroke-width):/.test(b));
+        assert.ok(blk, `${name} paints ${s.sel}`);
+        if (k === 1) assert.doesNotMatch(blk, /--chart-ring:/, `${name} ${s.sel}: a 1x edge keeps the shared ring`);
+        else assert.match(blk, new RegExp(`--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${k}\\) !important`), `${name} ${s.sel}: ring scales with its ${k}x edge`);
+      }
+      if (f.edgeBackdrop !== 1) assert.match(css, new RegExp(`chart-finish-${name} :where\\(\\.chart-signal-ring\\)[^{]*\\{\\s*--chart-ring: calc\\(var\\(--state-signal-w\\) \\* ${f.edgeBackdrop}\\)`), `${name}: the SVG ring element follows its bar`);
     }
   });
 
