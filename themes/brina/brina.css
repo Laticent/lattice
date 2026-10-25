@@ -106,17 +106,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#234939, #446B5A);
-  --warn-solid: light-dark(#834A07, #A2672E);
-  --fail-solid: light-dark(#98150A, #BE3F30);
-  --pass-solid-vivid: light-dark(#004C35, #007151);
-  --warn-solid-vivid: light-dark(#854A00, #AD6200);
-  --fail-solid-vivid: light-dark(#9D0800, #C93021);
-  --warn-solid-signal: light-dark(#E7A02B, #E39C24);
-  --fail-solid-signal: light-dark(#EF7F57, #F08058);
-  --info-solid: light-dark(#1A5F79, #3B7C98);
-  --info-solid-vivid: light-dark(#00607E, #007EA4);
-  --mute-solid: light-dark(#4E5057, #696B73);
+  --pass-mark: light-dark(#234939, #446B5A);
+  --warn-mark: light-dark(#834A07, #A2672E);
+  --fail-mark: light-dark(#98150A, #BE3F30);
+  --pass-vivid-mark: light-dark(#004C35, #007151);
+  --warn-vivid-mark: light-dark(#854A00, #AD6200);
+  --fail-vivid-mark: light-dark(#9D0800, #C93021);
+  --warn-signal-mark: light-dark(#E7A02B, #E39C24);
+  --fail-signal-mark: light-dark(#EF7F57, #F08058);
+  --info-mark: light-dark(#1A5F79, #3B7C98);
+  --info-vivid-mark: light-dark(#00607E, #007EA4);
+  --mute-mark: light-dark(#4E5057, #696B73);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -352,8 +352,8 @@
    * derived from --text-muted. */
   --info: light-dark(#00465D, #78B4FE); /* deep steel    */
   --mute: light-dark(#4D536A, #ABBCCC); /* cool-steel taupe */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#4F5963, #677786);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#4F5963, #677786);
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip

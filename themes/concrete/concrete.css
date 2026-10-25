@@ -99,17 +99,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#314731, #556D55);
-  --warn-solid: light-dark(#7E4C1A, #9D6939);
-  --fail-solid: light-dark(#912322, #B94943);
-  --pass-solid-vivid: light-dark(#134C19, #3C733F);
-  --warn-solid-vivid: light-dark(#854A00, #AA6416);
-  --fail-solid-vivid: light-dark(#9A0F17, #C33F3B);
-  --warn-solid-signal: light-dark(#E89E4D, #E59B4A);
-  --fail-solid-signal: light-dark(#EA8177, #EE857B);
-  --info-solid: light-dark(#2B5D78, #497B97);
-  --info-solid-vivid: light-dark(#005E85, #2A7CA5);
-  --mute-solid: light-dark(#515149, #6D6D66);
+  --pass-mark: light-dark(#314731, #556D55);
+  --warn-mark: light-dark(#7E4C1A, #9D6939);
+  --fail-mark: light-dark(#912322, #B94943);
+  --pass-vivid-mark: light-dark(#134C19, #3C733F);
+  --warn-vivid-mark: light-dark(#854A00, #AA6416);
+  --fail-vivid-mark: light-dark(#9A0F17, #C33F3B);
+  --warn-signal-mark: light-dark(#E89E4D, #E59B4A);
+  --fail-signal-mark: light-dark(#EA8177, #EE857B);
+  --info-mark: light-dark(#2B5D78, #497B97);
+  --info-vivid-mark: light-dark(#005E85, #2A7CA5);
+  --mute-mark: light-dark(#515149, #6D6D66);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -347,8 +347,8 @@
    * sides lift to clear the espresso-gray canvas. mute is the system greige. */
   --info: light-dark(#043159, #A2CFFF); /* deep slate     */
   --mute: light-dark(#31312B, #D9CAB4); /* warm greige — light arm held 0.065 off --warn */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#4F4F4C, #757572);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#4F4F4C, #757572);
 
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
    * concrete is near-monochrome (light chips all ~#DDD). Opt into its BESPOKE

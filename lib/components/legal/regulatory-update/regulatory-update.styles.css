@@ -262,11 +262,11 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
   padding:0.3em 0.75em;
 }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1) { border-left-color:var(--fail); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1)::before { background:var(--state-fail-hue); color:var(--on-solid); box-shadow:inset 0 0 0 var(--state-signal-w) var(--fail-solid-signal); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1)::before { background:var(--state-fail-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) var(--fail-signal-mark); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2) { border-left-color:var(--warn); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2)::before { background:var(--state-warn-hue); color:var(--on-solid); box-shadow:inset 0 0 0 var(--state-signal-w) var(--warn-solid-signal); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2)::before { background:var(--state-warn-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) var(--warn-signal-mark); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--state-pass-hue); color:var(--on-solid); box-shadow:inset 0 0 0 var(--state-signal-w) transparent; }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--state-pass-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) transparent; }
 
 /* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid

@@ -381,10 +381,10 @@ character by setting the override hooks at `:root`, each a
 | Hook | Overrides |
 |---|---|
 | `--chart-cat1` … `--chart-cat8` | the 8 categorical hues |
-| `--chart-neutral` | the solid for a mark with no category or status (a deferred node, a neutral bar) |
+| `--chart-neutral-mark` | the solid for a mark with no category or status (a deferred node, a neutral bar) |
 | `--pass` / `--warn` / `--fail` / `--info` / `--mute` | the 5 status INKS — base tokens every theme curates, not chart-only hooks; `--info` and `--mute` are also their own fills |
-| `--pass-solid` / `--warn-solid` / `--fail-solid` | the light-face status FILLS (the dark face uses the ink); see `base.tokens.css` § STATUS, IN TWO JOBS |
-| `--on-solid` | the ink on a fill: white on every chart fill, a category, the neutral or a status (near-black on an `a11y-*` dark face). One ink; a status is told apart by its drawn mark and, for an exception, its signal ring |
+| `--pass-mark` / `--warn-mark` / `--fail-mark` | the light-face status FILLS (the dark face uses the ink); see `base.tokens.css` § STATUS, IN TWO JOBS |
+| `--on-mark` | the ink on a fill: white on every chart fill, a category, the neutral or a status (near-black on an `a11y-*` dark face). One ink; a status is told apart by its drawn mark and, for an exception, its signal ring |
 
 The `var()` indirection means a theme always wins, and it need only set the
 slots it wants to flavor.

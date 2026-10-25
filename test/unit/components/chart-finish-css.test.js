@@ -49,13 +49,13 @@ describe('chart-finish.generated.css', () => {
     }
   });
 
-  test('pigment paints every mark with its solid, and text on a solid is --chart-solid-ink; etch and tone use --text-heading', () => {
-    // chart-solids.test.js holds --chart-solid-ink at 7:1 on every solid; chart-contrast.test.js holds --text-heading
+  test('pigment paints every mark with its solid, and text on a solid is --chart-on-mark; etch and tone use --text-heading', () => {
+    // chart-solids.test.js holds --chart-on-mark at 7:1 on every solid; chart-contrast.test.js holds --text-heading
     // on the family's -fill tier, which etch's and tone's text tiers are paler than. No text ink is ever picked per
     // body: that read as mud and changed the text color from chart to chart (engineering/chart-styling.md §3).
     for (let n = 1; n <= 8; n++) {
       const re = (finish, bg, ink) => new RegExp(`chart-finish-${finish} :where\\(:is\\([^{]*\\):is\\(\\[data-hue="${n}"\\], \\[data-key-hue="${n}"\\]\\)\\[data-encodes="hue"\\]\\[data-paint="bg"\\]\\)[^{]*\\{[^}]*background: ${bg}[^}]*color: ${ink}`);
-      assert.match(css, re('pigment', `var\\(--chart-cat-${n}-hue\\)`, 'var\\(--chart-solid-ink\\)'), `pigment slot ${n}`);
+      assert.match(css, re('pigment', `var\\(--chart-cat-${n}-hue\\)`, 'var\\(--chart-on-mark\\)'), `pigment slot ${n}`);
       assert.match(css, re('etch', '[^;]*', 'var\\(--text-heading\\)'), `etch slot ${n}`);
     }
     const picked = css.split('\n}').filter((b) => /(?:^|\s)(?:color|fill|--tower-ink|--state-node-ink|--state-index-ink):\s*(?:light-dark\()?color\(from/.test(b));

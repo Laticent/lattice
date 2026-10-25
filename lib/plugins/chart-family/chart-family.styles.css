@@ -531,27 +531,27 @@ section.word-cloud,
  *   --state-X-ink   the saturated mark — bar border, pill text, the
  *                   thin progress fill — lifted toward white on dark.
  *
- * The hue IS the base's status FILL (`--pass-solid` … `--mute-solid`, base.tokens.css), which each theme curates
+ * The hue IS the base's status FILL (`--pass-mark` … `--mute-mark`, base.tokens.css), which each theme curates
  * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`); the base sets
  * `--state-X-hue` on the slide (base.tokens.css § THE STATUS FILL ON THIS SLIDE). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. A
  * status LINE or status TEXT paints the theme's status ink (`--pass` … `--mute`), the color the status is in every
  * other component, which each theme spaces for the colorblind floors (cvd-trio-floor.test.js). The signal is the bright ring an exception wears (§ THE SIGNAL RING below). */
 section.chart-frame,
 .chart-frame {
-  --state-warn-signal: var(--warn-solid-signal);
-  --state-fail-signal: var(--fail-solid-signal);
+  --state-warn-signal: var(--warn-signal-mark);
+  --state-fail-signal: var(--fail-signal-mark);
 
   /* ── THE SOLID TIER ──────────────────────────────────────────────────────────
    * Every chart concept has ONE flat solid: a category is `--chart-cat-N-hue`, a status `--state-X-hue`, and a
-   * mark with neither `--chart-neutral-hue`. Text on every solid is `--chart-solid-ink`, which is `--on-solid`: white on a
+   * mark with neither `--chart-neutral-hue`. Text on every solid is `--chart-on-mark`, which is `--on-mark`: white on a
    * category, the neutral and a status alike, and near-black on an `a11y-*` dark face. ONE INK, so two charts on one slide never wear two text colors. Where a category
    * and a status share a hue, the status is told apart by its drawn MARK and, for an exception, its SIGNAL ring.
-   * Each theme curates the seeds (`--chart-catN`, the base's status fills, edges and signals, `--chart-neutral`, and
+   * Each theme curates the seeds (`--chart-catN`, the base's status fills, edges and signals, `--chart-neutral-mark`, and
    * the inks) so white clears 7:1 on every light-face solid and 4.6:1 on every dark-face one, and every solid has a
    * 3:1 boundary off the canvas: tools/curate-chart-solids.js seeded them, and test/unit/palette/chart-solids.test.js
    * and chart-one-ink.test.js hold every palette to it. No chart mixes or grades its own fill. */
-  --chart-neutral-hue: var(--chart-neutral, light-dark(#4F5863, #697686));
-  --chart-solid-ink: var(--on-solid);
+  --chart-neutral-hue: var(--chart-neutral-mark, light-dark(#4F5863, #697686));
+  --chart-on-mark: var(--on-mark);
 
   /* Light: a 24% tint into the canvas (proven, like catN). Dark: deepen the
    * hue toward BLACK, not the navy --bg — mixing amber/orange into a blue
@@ -1179,7 +1179,7 @@ section.chart-frame .chart-caption::before {
   --chart-status-hue: var(--state-info-hue);
   background: var(--chart-status-hue);
   border: var(--chart-hairline) solid transparent;
-  color: var(--chart-solid-ink);
+  color: var(--chart-on-mark);
 }
 /* Under `etch` and `tone` the pill is a pale wash inside an ink edge drawn as an inset ring, and its border is
  * transparent (Calco lifts a border plus an inset ring only as a picture). Left at border-box, the wash showed through
@@ -1196,7 +1196,7 @@ section.chart-frame .chart-caption::before {
 /* THE STATUS MARK (lib/core/status-marks.js): the drawn shape an SVG member inlines on a status mark, stroked in that
  * status's text ink, so it reads with the label beside it. */
 :is(section.chart-frame, figure.chart-frame) .chart-status-mark {
-  stroke: var(--chart-solid-ink);
+  stroke: var(--chart-on-mark);
   pointer-events: none;
 }
 

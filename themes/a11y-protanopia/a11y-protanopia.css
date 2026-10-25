@@ -38,20 +38,20 @@
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), one ink per slide like every chart fill: DEEP under
-   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-solid` at
+   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-mark` at
    * 7:1, as every a11y palette's chart fills are (engineering/chart-styling.md §3). Solved as a trio that clears this
    * palette's own colorblind floor on both faces, one set for both intensities (the vivid aliases come from `a11y-base`). A status line or text
    * paints the status ink above; the two exceptions also wear a SIGNAL ring, the status color at
    * the opposite lightness to its fill. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#1B4268, #9EBEE0);
-  --warn-solid: light-dark(#764F00, #FEB42E);
-  --fail-solid: light-dark(#7C000F, #FF847C);
-  --warn-solid-signal: light-dark(#E79F00, #8A5D00);
-  --fail-solid-signal: light-dark(#E45C57, #A31B22);
-  --info-solid: light-dark(#125E82, #68ADD4);
-  --mute-solid: light-dark(#544F54, #B5AEB5);
-  --on-solid: light-dark(#FFFFFF, #1A1A1A);
-  --chart-neutral: light-dark(#575757, #A5A5A5);
+  --pass-mark: light-dark(#1B4268, #9EBEE0);
+  --warn-mark: light-dark(#764F00, #FEB42E);
+  --fail-mark: light-dark(#7C000F, #FF847C);
+  --warn-signal-mark: light-dark(#E79F00, #8A5D00);
+  --fail-signal-mark: light-dark(#E45C57, #A31B22);
+  --info-mark: light-dark(#125E82, #68ADD4);
+  --mute-mark: light-dark(#544F54, #B5AEB5);
+  --on-mark: light-dark(#FFFFFF, #1A1A1A);
+  --chart-neutral-mark: light-dark(#575757, #A5A5A5);
   --diagram-critical: #5f0009;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────

@@ -20,9 +20,9 @@ const FILES = [
 ];
 
 const ROLE_SETS = new Set([
-  '--state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid);',
-  '--state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid);',
-  '--state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid);',
+  '--state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark);',
+  '--state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark);',
+  '--state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark);',
   '--state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg);',
 ]);
 

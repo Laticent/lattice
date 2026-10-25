@@ -1043,19 +1043,19 @@ section.print {
   --heatmap-step5: var(--print-heatmap-step5); --heatmap-step5-ink: var(--print-heatmap-step5-ink);
   --info: var(--print-info);
   --mute: var(--print-mute);
-  --on-solid: var(--print-on-solid);
-  --pass-solid: var(--print-pass-solid);
-  --warn-solid: var(--print-warn-solid);
-  --fail-solid: var(--print-fail-solid);
-  --pass-solid-vivid: var(--print-pass-solid);
-  --warn-solid-vivid: var(--print-warn-solid);
-  --fail-solid-vivid: var(--print-fail-solid);
-  --warn-solid-signal: var(--print-signal);
-  --fail-solid-signal: var(--print-signal);
-  --info-solid: var(--print-info-solid);
-  --info-solid-vivid: var(--print-info-solid);
-  --mute-solid: var(--print-mute-solid);
-  --chart-neutral: var(--print-mute);
+  --on-mark: var(--print-on-mark);
+  --pass-mark: var(--print-pass-mark);
+  --warn-mark: var(--print-warn-mark);
+  --fail-mark: var(--print-fail-mark);
+  --pass-vivid-mark: var(--print-pass-mark);
+  --warn-vivid-mark: var(--print-warn-mark);
+  --fail-vivid-mark: var(--print-fail-mark);
+  --warn-signal-mark: var(--print-signal);
+  --fail-signal-mark: var(--print-signal);
+  --info-mark: var(--print-info-mark);
+  --info-vivid-mark: var(--print-info-mark);
+  --mute-mark: var(--print-mute-mark);
+  --chart-neutral-mark: var(--print-mute);
   --seq-500: var(--print-seq-500);
   /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp
    * follows the canvas (#1697), and this band ALREADY pins `color-scheme: light`
@@ -1690,7 +1690,7 @@ section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
 section.heat .badge.pass,
 section.heat td .state.pass,
-section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 
 /* half → caution (unchanged, but redeclared for symmetry and so per-layout
  * source-order overrides under .heat resolve to the universal palette) */
@@ -1700,7 +1700,7 @@ section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
 section.heat .badge.warn,
 section.heat td .state.warn,
-section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
 
 /* empty → relief */
 section.heat > ul > li.state.fail,
@@ -1710,7 +1710,7 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
+section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1822,9 +1822,9 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state {
     0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
     inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo,
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
@@ -4297,9 +4297,9 @@ section .lat-state {
    * centres on the text with `vertical-align`. */
   margin-inline:0.22em;
 }
-section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
-section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
-section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
+section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section .lat-state.todo,
 section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }

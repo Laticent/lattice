@@ -106,17 +106,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#314732, #49604A);
-  --warn-solid: light-dark(#7E4D1D, #9D6A3C);
-  --fail-solid: light-dark(#8F2522, #AE433D);
-  --pass-solid-vivid: light-dark(#124C1C, #2E6635);
-  --warn-solid-vivid: light-dark(#854A00, #A9651B);
-  --fail-solid-vivid: light-dark(#981519, #B83834);
-  --warn-solid-signal: light-dark(#DEA448, #DBA144);
-  --fail-solid-signal: light-dark(#E88278, #E27C73);
-  --info-solid: light-dark(#2E5D78, #4B7A96);
-  --info-solid-vivid: light-dark(#005E85, #2E7CA5);
-  --mute-solid: light-dark(#544F54, #6A646A);
+  --pass-mark: light-dark(#314732, #49604A);
+  --warn-mark: light-dark(#7E4D1D, #9D6A3C);
+  --fail-mark: light-dark(#8F2522, #AE433D);
+  --pass-vivid-mark: light-dark(#124C1C, #2E6635);
+  --warn-vivid-mark: light-dark(#854A00, #A9651B);
+  --fail-vivid-mark: light-dark(#981519, #B83834);
+  --warn-signal-mark: light-dark(#DEA448, #DBA144);
+  --fail-signal-mark: light-dark(#E88278, #E27C73);
+  --info-mark: light-dark(#2E5D78, #4B7A96);
+  --info-vivid-mark: light-dark(#005E85, #2E7CA5);
+  --mute-mark: light-dark(#544F54, #6A646A);
   --pass-bg: color-mix(in srgb, var(--pass) 12%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 12%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 12%, transparent);
@@ -354,8 +354,8 @@
    * the same hues as the categories so status + categorical read as one. */
   --info: light-dark(#373B7D, #549ADE);  /* decision — slate        */
   --mute: light-dark(#5B555B, #9C9C9C);  /* deferred — gray         */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#575757, #757575);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#575757, #757575);
 
   /* ── Categorical TEXTURE — adopt the universal channel ─────────────────
    * onyx is monochrome (pure black↔white), so color can't separate categories.

@@ -601,8 +601,8 @@ describe('html-player export — nothing shipped depends on light-dark()', () =>
 		assert.equal(inline.length, 0, `${inline.length} inline style attribute(s) still carry light-dark()`);
 		for (const stop of stops) assert.match(stop, /style="stop-color:var\(--[a-z0-9-]+\)"/, `a stop reads a token: ${stop}`);
 		// The status a gantt bar and a state tile paint has a dark arm of its own under the viewer's dark scheme.
-		const dark = [...html.matchAll(/data-lp-scheme=dark\][^{]*\{[^}]*?--pass-solid:(#[0-9A-Fa-f]{6})/g)].map((m) => m[1]);
-		const light = /:root[^{]*\{[^}]*?--pass-solid:(#[0-9A-Fa-f]{6})/.exec(html)?.[1];
+		const dark = [...html.matchAll(/data-lp-scheme=dark\][^{]*\{[^}]*?--pass-mark:(#[0-9A-Fa-f]{6})/g)].map((m) => m[1]);
+		const light = /:root[^{]*\{[^}]*?--pass-mark:(#[0-9A-Fa-f]{6})/.exec(html)?.[1];
 		assert.ok(dark.length > 0, 'the status fill is re-declared under the dark viewer scheme');
 		assert.ok(dark.some((d) => d !== light), 'and its dark arm differs from the light one');
 	});

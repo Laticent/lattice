@@ -317,12 +317,12 @@ describe('theme-contrast', () => {
       // solved against them, which are on the contract rather than a var()
       // fallback because the ink sits on a SATURATED FILL where --text-body is
       // wrong by construction; 117 since the status solids moved to the base
-      // (five `--chart-state-*` out; `--chart-neutral`, `--info`, `--mute`,
-      // `--on-solid` in); 121 since the light-face status fills and `--on-warn` joined it; 125 since their vivid set did;
-      // 132 since text color took over the kind (`--on-warn` and `--on-warn-vivid` out; `--on-status`, `--info-solid`,
-      // `--mute-solid`, `--info-solid-vivid` and the five `--X-solid-edge` in); 134 since one ink gave the two exceptions
-      // a ring (`--warn-solid-signal`, `--fail-solid-signal`); 133 since the status fills took the one ink
-      // (`--on-status` out: it repeated `--on-solid` in every palette); 128 since a status line or text paints its slide
+      // (five `--chart-state-*` out; `--chart-neutral-mark`, `--info`, `--mute`,
+      // `--on-mark` in); 121 since the light-face status fills and `--on-warn` joined it; 125 since their vivid set did;
+      // 132 since text color took over the kind (`--on-warn` and `--on-warn-vivid` out; `--on-status`, `--info-mark`,
+      // `--mute-mark`, `--info-vivid-mark` and the five `--X-solid-edge` in); 134 since one ink gave the two exceptions
+      // a ring (`--warn-signal-mark`, `--fail-signal-mark`); 133 since the status fills took the one ink
+      // (`--on-status` out: it repeated `--on-mark` in every palette); 128 since a status line or text paints its slide
       // ink (the five `--X-solid-edge` out). The count is pinned deliberately: it is the
       // tripwire for the map silently SHRINKING, which is what would make the
       // "nothing was measured" finding unreproducible.

@@ -18,7 +18,7 @@
   /* ── Stance seams. Base = a neutral recommendation with no verdict. ──────────
    * A stance that IS a status (adopt, amend, oppose) paints it as every status is painted
    * (engineering/decisions/2026-10-24-status-is-one-system.md): the verdict badge is a status
-   * MARK (the deck's status solid under the one ink `--on-solid`, and amend and oppose wear the
+   * MARK (the deck's status solid under the one ink `--on-mark`, and amend and oppose wear the
    * signal ring), the badge's border and the rules are status LINES (the slide ink `--pass` …),
    * and the ask bar is a status GROUND (the theme's `--pass-bg` …) whose "The ask" caption is a heading,
    * not a status word: amber text on the 10% amber ground misses 4.5:1 on twelve palette-modes. A stance that is not a
@@ -33,9 +33,9 @@
     --stance-signal: transparent;
     --stance-label: "Recommendation";
   }
-  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-bg: var(--pass-bg); --stance-badge-bg: var(--state-pass-hue); --stance-badge-ink: var(--on-solid); --stance-label: "Adopt"; }
-  section.policy-recommendation.amend  { --stance: var(--warn); --stance-bg: var(--warn-bg); --stance-badge-bg: var(--state-warn-hue); --stance-badge-ink: var(--on-solid); --stance-signal: var(--warn-solid-signal); --stance-label: "Amend"; }
-  section.policy-recommendation.oppose { --stance: var(--fail); --stance-bg: var(--fail-bg); --stance-badge-bg: var(--state-fail-hue); --stance-badge-ink: var(--on-solid); --stance-signal: var(--fail-solid-signal); --stance-label: "Oppose"; }
+  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-bg: var(--pass-bg); --stance-badge-bg: var(--state-pass-hue); --stance-badge-ink: var(--on-mark); --stance-label: "Adopt"; }
+  section.policy-recommendation.amend  { --stance: var(--warn); --stance-bg: var(--warn-bg); --stance-badge-bg: var(--state-warn-hue); --stance-badge-ink: var(--on-mark); --stance-signal: var(--warn-signal-mark); --stance-label: "Amend"; }
+  section.policy-recommendation.oppose { --stance: var(--fail); --stance-bg: var(--fail-bg); --stance-badge-bg: var(--state-fail-hue); --stance-badge-ink: var(--on-mark); --stance-signal: var(--fail-signal-mark); --stance-label: "Oppose"; }
   section.policy-recommendation.defer  { --stance: var(--text-secondary); --stance-bg: var(--bg-alt); --stance-label: "Defer"; }
 
   /* ── Masthead: the legislative letterhead. A stance hairline under the band, and

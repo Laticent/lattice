@@ -44,10 +44,10 @@
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="medium"] { fill: var(--state-warn-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="high"] { fill: var(--state-fail-hue); }
 /* Critical is the step FURTHEST FROM THE INK: the vivid fail fill taken 18% away from it, toward black under a white
- * ink and toward white on an `a11y-*` palette's bright dark face (`--on-solid-shade`), so it outranks `high` in both
+ * ink and toward white on an `a11y-*` palette's bright dark face (`--on-mark-shade`), so it outranks `high` in both
  * intensities, keeps its text and ring clear on every face, and stays ordered in print. What says "exception" is the ring round the band and the cross in each cell, below. */
 :is(section.risk-matrix, figure.chart-frame) .risk-cell[data-band="critical"] {
-  fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black));
+  fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black));
 }
 /* The critical band's SIGNAL RING (chart-family § THE SIGNAL RING), traced round the whole band by the kernel and
  * clipped to the band: twice the ring's width, so the half inside the band is the ring. */
@@ -80,13 +80,13 @@
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="medium"] { fill: var(--state-warn-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="high"] { fill: var(--state-fail-hue); }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band="critical"] {
-  fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black));
+  fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black));
   stroke: var(--state-fail-signal);
   stroke-width: var(--chart-ring);
   paint-order: stroke fill;
 }
 :is(section.risk-matrix, figure.chart-frame) .risk-key-marker[data-band]:not([data-band="critical"]) { stroke: none; }
-:is(section.risk-matrix, figure.chart-frame) .risk-key-number { fill: var(--chart-solid-ink); }
+:is(section.risk-matrix, figure.chart-frame) .risk-key-number { fill: var(--chart-on-mark); }
 
 /* Under the Present Guide a focused risk's number keeps the heading ink of its disk.
  * The Guide paints focused SVG text in the accent (base.focus.css), right for text on
@@ -97,21 +97,21 @@ section[data-guide] svg text:is(.risk-number, .risk-key-number):is(.lat-guide-fo
 }
 
 /* Where a risk is meant to land once mitigated: a dashed ring, and the arrow to it. Both lie ON the bands, never on
- * the canvas, so they wear the ink every band carries (`--chart-solid-ink`, one ink: white on a deep band, near-black
+ * the canvas, so they wear the ink every band carries (`--chart-on-mark`, one ink: white on a deep band, near-black
  * on an `a11y-*` palette's bright dark-face band). The heading ink they used to wear was right for bright bands and
  * all but vanished on deep ones. */
 :is(section.risk-matrix, figure.chart-frame) .risk-target {
   fill: none;
-  stroke: var(--chart-solid-ink);
+  stroke: var(--chart-on-mark);
   stroke-width: 1;
   stroke-dasharray: 2 1.4;
 }
 :is(section.risk-matrix, figure.chart-frame) .risk-path {
-  stroke: var(--chart-solid-ink);
+  stroke: var(--chart-on-mark);
   stroke-width: 1;
 }
 :is(section.risk-matrix, figure.chart-frame) .risk-arrowhead {
-  fill: var(--chart-solid-ink);
+  fill: var(--chart-on-mark);
 }
 
 :is(section.risk-matrix, figure.chart-frame) .risk-tick {

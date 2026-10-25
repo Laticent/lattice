@@ -122,13 +122,13 @@ section.obligation-matrix .label-set-key-mark {
 }
 section.obligation-matrix td .state.pass,
 section.obligation-matrix .ct-card dd .state.pass,
-section.obligation-matrix .label-set-key-mark.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
+section.obligation-matrix .label-set-key-mark.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
 section.obligation-matrix td .state.warn,
 section.obligation-matrix .ct-card dd .state.warn,
-section.obligation-matrix .label-set-key-mark.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.obligation-matrix .label-set-key-mark.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
 section.obligation-matrix td .state.fail,
 section.obligation-matrix .ct-card dd .state.fail,
-section.obligation-matrix .label-set-key-mark.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.obligation-matrix .label-set-key-mark.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 section.obligation-matrix td .state.skip,
 section.obligation-matrix .ct-card dd .state.skip,
 section.obligation-matrix .label-set-key-mark.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
@@ -176,11 +176,11 @@ section.obligation-matrix.heat tbody tr td:not(:first-child) { background:none; 
  * `.heat` adds a class, so these are (0,4,2) against the (0,3,2) defaults above —
  * they win outright, not on the source-order tie base's header describes. */
 section.obligation-matrix.heat .ct-card dd .state.pass,
-section.obligation-matrix.heat .label-set-key-mark.pass { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.obligation-matrix.heat .label-set-key-mark.pass { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 section.obligation-matrix.heat .ct-card dd .state.warn,
-section.obligation-matrix.heat .label-set-key-mark.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
+section.obligation-matrix.heat .label-set-key-mark.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
 section.obligation-matrix.heat .ct-card dd .state.fail,
-section.obligation-matrix.heat .label-set-key-mark.fail { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
+section.obligation-matrix.heat .label-set-key-mark.fail { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
 section.obligation-matrix.heat .ct-card dd .state.skip,
 section.obligation-matrix.heat .label-set-key-mark.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 /* The KEY takes the remap too. It is drawn outside any `td`, so base's `td .state`

@@ -15,9 +15,9 @@
   /* A badge with no state class (hand-written HTML) takes the neutral roles, so its disc still draws: the readers
    * below take no fallback (base.tokens.css § State-disc recipe). */
   --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
-.badge.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-solid); }
-.badge.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-solid-signal); --state-glyph-mark:var(--on-solid); }
-.badge.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-solid-signal); --state-glyph-mark:var(--on-solid); }
+.badge.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+.badge.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+.badge.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 /* The two unsettled answers — `[ ]` open (todo) and `[?]` unknown — are hollow
  * rings on --muted-mark. Ring geometry: `.badge.todo` / `.badge.unknown` beside
  * `.state.todo` in base.modifiers.css. */

@@ -780,11 +780,11 @@ describe('hub-spoke — icon ink under a chart finish', () => {
         // Pigment's disc is the slot's solid, so its icon takes the solid ink curated for it (chart-solids.test.js);
         // etch and tone paint a body the family has no ink for, and compute it from the body they paint.
         const re = finish === 'pigment'
-          ? new RegExp(`chart-finish-pigment :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: var\\(--chart-solid-ink\\)`)
+          ? new RegExp(`chart-finish-pigment :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: var\\(--chart-on-mark\\)`)
           : new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-hue="${n}"\\]\\)[^{]*\\{\\s*--hs-icon-ink: [^;]*clamp\\(0, \\(0\\.1791 - y\\)`);
         assert.match(css, re, `${finish} slot ${n}`);
       }
-      assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: ${finish === 'pigment' ? 'var\\(--chart-solid-ink\\)' : '[^;]*var\\(--hs-state-hue\\)'}`), `${finish} status`);
+      assert.match(css, new RegExp(`chart-finish-${finish} :where\\(\\.hub-spoke-icon\\[data-s\\]\\)[^{]*\\{\\s*--hs-icon-ink: ${finish === 'pigment' ? 'var\\(--chart-on-mark\\)' : '[^;]*var\\(--hs-state-hue\\)'}`), `${finish} status`);
     }
   });
 
@@ -816,7 +816,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
       for (const [disc, icon] of pairs) {
         const body = decl(disc, 'fill');
         const ink = decl(icon, '--hs-icon-ink');
-        if (finish === 'pigment') { assert.equal(ink, 'var(--chart-solid-ink)', icon); continue; }
+        if (finish === 'pigment') { assert.equal(ink, 'var(--chart-on-mark)', icon); continue; }
         for (const arm of arms(body)) assert.ok(ink.includes(`color(from ${arm} xyz-d65`), `${icon}: ${ink} does not derive from ${arm}`);
       }
     }

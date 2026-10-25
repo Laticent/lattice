@@ -15,7 +15,7 @@ source: https://github.com/Laticent/lattice/pull/2887
        why now   — #2887 moved the status fills to the base and retired the chart-only hooks. The
                    inversion review found two silent paths for a theme this repository did not curate
                    (hand-written, or an older theme package):
-                   1. the fallback solids in lib/base/base.tokens.css (`--pass-solid` … and the
+                   1. the fallback solids in lib/base/base.tokens.css (`--pass-mark` … and the
                       `-vivid` and `-signal` sets) are fixed indaco-like literals, not derived from
                       the theme's own `--pass` / `--warn` / `--fail`, so its discs, pills and bars
                       wear the engine's green and crimson beside its own status inks;

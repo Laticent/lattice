@@ -117,7 +117,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="1"], [data-key-hue="1"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-1-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-1-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -134,7 +134,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="2"], [data-key-hue="2"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-2-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-2-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -151,7 +151,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="3"], [data-key-hue="3"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-3-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-3-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -168,7 +168,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="4"], [data-key-hue="4"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-4-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-4-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -185,7 +185,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="5"], [data-key-hue="5"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-5-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-5-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -202,7 +202,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="6"], [data-key-hue="6"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-6-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-6-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -219,7 +219,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="7"], [data-key-hue="7"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-7-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-7-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -236,7 +236,7 @@ section.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swa
 figure.chart-finish-pigment :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]) {
   background: var(--chart-cat-8-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-cat-8-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 
@@ -296,8 +296,8 @@ section.chart-finish-pigment :where(:is(.state-node, .state-node-row)[data-s]:no
 figure.chart-finish-pigment :where(:is(.state-node, .state-node-row)[data-s]:not([data-s="deferred"])) {
   background: var(--fill-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fill-ink) !important;
-  color: var(--chart-solid-ink) !important;
-  --state-node-ink: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
+  --state-node-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -305,8 +305,8 @@ section.chart-finish-pigment :where(:is(.state-node, .state-node-row):not([data-
 figure.chart-finish-pigment :where(:is(.state-node, .state-node-row):not([data-s])) {
   background: var(--fill-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fill-ink) !important;
-  color: var(--chart-solid-ink) !important;
-  --state-index-ink: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
+  --state-index-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -374,7 +374,7 @@ section.chart-finish-pigment :where(.fc-node[data-s]:not([data-s="deferred"])),
 figure.chart-finish-pigment :where(.fc-node[data-s]:not([data-s="deferred"])) {
   background: var(--fc-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fc-hue-mark) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -382,7 +382,7 @@ section.chart-finish-pigment :where(.fc-node:not([data-s]):not([data-slot]):not(
 figure.chart-finish-pigment :where(.fc-node:not([data-s]):not([data-slot]):not([data-fill])) {
   background: var(--fc-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--fc-hue-mark) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -390,7 +390,7 @@ section.chart-finish-pigment :where(.chart-status[data-s]),
 figure.chart-finish-pigment :where(.chart-status[data-s]) {
   background: var(--chart-status-hue) !important;
   box-shadow: inset 0 0 0 var(--chart-edge) var(--chart-status-ink) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 section.chart-finish-pigment :where(.waterfall-bar[data-s="up"]),
@@ -417,7 +417,7 @@ figure.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf)[data-s]
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]), .state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"]), .state-index-t[data-s], .state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t, .fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name),
 figure.chart-finish-pigment :where(.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]), .state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"]), .state-index-t[data-s], .state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t, .fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name) {
-  fill: var(--chart-solid-ink) !important;
+  fill: var(--chart-on-mark) !important;
 }
 }
 
@@ -440,14 +440,14 @@ figure.chart-finish-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([da
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon:not([data-s]):not([data-hue])),
 figure.chart-finish-pigment :where(.hub-spoke-icon:not([data-s]):not([data-hue])) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(:is(.journey-stage, .journey-vstage-name)),
 figure.chart-finish-pigment :where(:is(.journey-stage, .journey-vstage-name)) {
   background: var(--chart-neutral-hue) !important;
-  color: var(--chart-solid-ink) !important;
+  color: var(--chart-on-mark) !important;
 }
 }
 
@@ -455,49 +455,49 @@ figure.chart-finish-pigment :where(:is(.journey-stage, .journey-vstage-name)) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="1"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="1"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="2"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="2"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="3"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="3"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="4"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="4"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="5"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="5"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="6"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="6"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="7"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="7"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 
@@ -505,55 +505,55 @@ figure.chart-finish-pigment :where(.hub-spoke-icon[data-hue="8"]) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="1"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="1"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="2"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="2"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="3"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="3"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="4"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="4"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="5"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="5"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="6"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="6"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="7"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="7"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.tower-share-value[data-hue="8"]),
 figure.chart-finish-pigment :where(.tower-share-value[data-hue="8"]) {
-  --tower-ink: var(--chart-solid-ink) !important;
+  --tower-ink: var(--chart-on-mark) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.hub-spoke-icon[data-s]),
 figure.chart-finish-pigment :where(.hub-spoke-icon[data-s]) {
-  --hs-icon-ink: var(--chart-solid-ink) !important;
+  --hs-icon-ink: var(--chart-on-mark) !important;
 }
 }
 
@@ -655,7 +655,7 @@ figure.chart-finish-pigment :where(.risk-cell[data-band="high"]) {
 }
 section.chart-finish-pigment :where(.risk-cell[data-band="critical"]),
 figure.chart-finish-pigment :where(.risk-cell[data-band="critical"]) {
-  fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black)) !important;
+  fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black)) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
@@ -671,7 +671,7 @@ figure.chart-finish-pigment :where(.hub-spoke-hub) {
 }
 section.chart-finish-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)),
 figure.chart-finish-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
-  fill: var(--chart-solid-ink) !important;
+  fill: var(--chart-on-mark) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.chart-finish-pigment :where(.roadmap td:first-child),

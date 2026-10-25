@@ -86,17 +86,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#1F4A2F, #467154);
-  --warn-solid: light-dark(#854A00, #AD6200);
-  --fail-solid: light-dark(#9B003C, #D31C58);
-  --pass-solid-vivid: light-dark(#004D28, #007740);
-  --warn-solid-vivid: light-dark(#854A00, #AD6200);
-  --fail-solid-vivid: light-dark(#9B003C, #D90057);
-  --warn-solid-signal: light-dark(#FBA700, #FFAE26);
-  --fail-solid-signal: light-dark(#FF7277, #FF777C);
-  --info-solid: light-dark(#005E85, #297CA6);
-  --info-solid-vivid: light-dark(#005E85, #007DAF);
-  --mute-solid: light-dark(#54504A, #726D66);
+  --pass-mark: light-dark(#1F4A2F, #467154);
+  --warn-mark: light-dark(#854A00, #AD6200);
+  --fail-mark: light-dark(#9B003C, #D31C58);
+  --pass-vivid-mark: light-dark(#004D28, #007740);
+  --warn-vivid-mark: light-dark(#854A00, #AD6200);
+  --fail-vivid-mark: light-dark(#9B003C, #D90057);
+  --warn-signal-mark: light-dark(#FBA700, #FFAE26);
+  --fail-signal-mark: light-dark(#FF7277, #FF777C);
+  --info-mark: light-dark(#005E85, #297CA6);
+  --info-vivid-mark: light-dark(#005E85, #007DAF);
+  --mute-mark: light-dark(#54504A, #726D66);
   --warn: light-dark(#815400, #f1b74c);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
@@ -302,8 +302,8 @@
 
   --info: light-dark(#494972, #AEBCDC);
   --mute: light-dark(#5D513E, #B6AB93);
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#635744, #7F735F);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#635744, #7F735F);
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip

@@ -71,7 +71,7 @@ const F = {
   // now picked per cell (`inkOn`, behind the @supports below), so the band no longer has to protect it.
   // tools/chart-finish-reach.mjs measures the span against the unfinished paint on every theme.
   // Pigment IS the solids (chart-family.styles.css § THE SOLID TIER): every body, with text on it or not, is the
-  // concept's curated solid at full strength, and its text is `--chart-solid-ink` at 7:1.
+  // concept's curated solid at full strength, and its text is `--chart-on-mark` at 7:1.
   // A text-free ramp (a map) climbs to the FULL category solid under pigment, like every other pigment mark: the
   // kernel's --mix spans 24→88, so ×1.136 lands the top value at 100% of the solid and the lowest near 27% over the
   // land. The earlier [16, 0.54] band topped out at 64%, which read as tone, not pigment.
@@ -163,12 +163,12 @@ const ONE_INK = 'var(--chart-cat-1-ink)';
 /**
  * The ink for TEXT on a mark, one per finish and never picked per body (a per-body black-or-white cleared 4.5:1,
  * read as mud at a median of 5.6:1, and changed the text color from chart to chart).
- *   pigment  `--chart-solid-ink`: each theme curates it with its solids, at 7:1 on every one of them
+ *   pigment  `--chart-on-mark`: each theme curates it with its solids, at 7:1 on every one of them
  *            (chart-solids.test.js).
  *   etch, tone  `--text-heading`: their text tiers are paler than the family's `-fill` tier, on which
  *            chart-contrast.test.js holds `--text-heading` (at least 6.9:1 on a category fill, 5.46:1 on a status).
  */
-const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-solid-ink)' : 'var(--text-heading)');
+const textInk = (finish) => (finish === 'pigment' ? 'var(--chart-on-mark)' : 'var(--text-heading)');
 const hueOf = (n) => `var(--chart-cat-${n}-hue)`;
 const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${pct}, ${BASE})`);
@@ -676,12 +676,12 @@ function build() {
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
         w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black))', 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
       // The hub-spoke HUB is the one mark with no category and no status: the neutral solid, its name in the solid ink.
       w(rule(name, '.hub-spoke-hub', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
-      w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-solid-ink)']));
+      w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-on-mark)']));
       // A roadmap workstream cell is a row header: neutral ground, its phase kept on the left rule.
       // It carries the workstream's name, so it moves with the other text-bearing marks (TEXT WAITS).
       w(supports(rule(name, '.roadmap td:first-child', ['background: var(--bg-alt)'])));

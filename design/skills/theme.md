@@ -250,7 +250,7 @@ rather than by eye. Also define **all 12**
 `--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,
 `--text-label`, `--code-text`; `--pass-bg` / `--fail-bg` / `--warn-bg`; the
 `--scheme-dark-*` block; the `--diagram-*` semantic palette; `--c-container` /
-`--c-subcontainer`; the `--chart-cat1..8` / `--chart-neutral` chart palette; the status inks `--pass` … `--mute`; the status FILLS `--pass-solid` … `--mute-solid` and their vivid twins, the two exceptions' SIGNAL rings `--warn-solid-signal` and `--fail-solid-signal`, and the one ink on every fill, `--on-solid`, white (base.tokens.css § STATUS, IN TWO JOBS; run `node tools/curate-chart-solids.js` rather than picking them by eye); and
+`--c-subcontainer`; the `--chart-cat1..8` / `--chart-neutral-mark` chart palette; the status inks `--pass` … `--mute`; the status FILLS `--pass-mark` … `--mute-mark` and their vivid twins, the two exceptions' SIGNAL rings `--warn-signal-mark` and `--fail-signal-mark`, and the one ink on every fill, `--on-mark`, white (base.tokens.css § STATUS, IN TWO JOBS; run `node tools/curate-chart-solids.js` rather than picking them by eye); and
 `--seq-500`, the sequential ramp's anchor. That last one is a `light-dark()`
 **pair**, and BOTH arms must sit mid-range on their own canvas — the engine
 derives nine more stops from it, receding toward `--seq-pole-low` and advancing

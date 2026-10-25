@@ -116,11 +116,11 @@ and a slide can pin its own with `_class: chart-finish-<name>`.
 ### The solids — the base every finish styles
 
 Every chart concept has **one flat solid**, curated per theme: a category is `--chart-cat-N-hue`
-(seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-solid`), and a mark with
-neither `--chart-neutral-hue` (seed `--chart-neutral`).
+(seed `--chart-catN`), a status `--state-X-hue` (seed the base status FILL `--X-mark`), and a mark with
+neither `--chart-neutral-hue` (seed `--chart-neutral-mark`).
 
 **One ink.** Every chart fill, a category, the neutral or a status, is DEEP enough to carry white text
-(`--chart-solid-ink`, which is `--on-solid` on every one: one token, declared once on the frame and never re-pointed). At most two charts share a slide, and two text colors side by side read as two
+(`--chart-on-mark`, which is `--on-mark` on every one: one token, declared once on the frame and never re-pointed). At most two charts share a slide, and two text colors side by side read as two
 systems, so the ink never changes with the kind. This replaced a scheme where a status was a BRIGHT fill under
 near-black text ("text color carries the kind"); it kept the meanings apart, but a status chart beside a category
 chart wore two inks, and on a light slide the bright fills were the quietest marks on it.
@@ -132,8 +132,8 @@ brand green bar and a "done" bar can look alike. Two things separate them:
   done, a dash for at risk, a cross for blocked, a slash for deferred. An SVG member inlines the path, an HTML member
   masks the `--mark-*-bold` token; live, pilot and decision carry none. The shape also reaches a reader who sees no
   color.
-- **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-solid-signal`
-  amber, `--fail-solid-signal` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
+- **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-signal-mark`
+  amber, `--fail-signal-mark` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
   opposite lightness to its fill. Nothing else rings, so a ring means "exception" on every chart. It is an outline
   that takes no space: 1.3 hairlines wide (`--chart-ring`), drawn INSIDE the shape, so it never grows a mark or covers
   an arrowhead at the shape's edge. HTML boxes take an inset shadow (`!important`, because every finish paints a
@@ -155,9 +155,9 @@ The contract, held for every palette in both modes and both intensities by
   slide, with a **2:1** step off the fill (dark slide; held to 3:1 off a mid-tone fill it washes out to near white); a
   deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
 
-**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-solid`, the
+**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-mark`, the
 default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
-`--X-solid-vivid`, which `base.tokens.css` swaps in under `.chart-finish-vivid` (§ THE STATUS FILL ON THIS SLIDE):
+`--X-vivid-mark`, which `base.tokens.css` swaps in under `.chart-finish-vivid` (§ THE STATUS FILL ON THIS SLIDE):
 every status rich, done an emerald, for a deck that celebrates its wins. Both keep white text, and the rings are
 shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
 the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
@@ -521,7 +521,7 @@ assumes hue is available breaks there and nowhere else.
   specificity beats that. A palette declares in `:root`; anything `chart-family.styles.css`
   declares on `.chart-frame` itself is out of a palette's reach that way. That is why a
   palette curates the chart SOLIDS through seeds the family READS (`--chart-catN`,
-  `--pass`…`--mute`, `--chart-neutral`, `--on-solid`) and never sets the consumed
+  `--pass`…`--mute`, `--chart-neutral-mark`, `--on-mark`) and never sets the consumed
   token. The gradient wash this note used to describe (`--chart-fill-top-*`, overridable as
   `--palette-fill-*`, and flattened by concrete because no ink cleared its mid-tone canvas)
   is retired: every fill is a flat solid with its own curated ink.

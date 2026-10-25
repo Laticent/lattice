@@ -2,7 +2,7 @@
  * Unit: the chart SOLIDS — one flat color per chart concept, and the ink that reads on it.
  *
  * ONE INK (engineering/chart-styling.md §3). Every solid, a category (`--chart-cat-N-hue`), the neutral
- * (`--chart-neutral-hue`) or a status (the base's `--X-solid`, `--X-solid-vivid`), is a DEEP fill under white (`--on-solid`,
+ * (`--chart-neutral-hue`) or a status (the base's `--X-mark`, `--X-vivid-mark`), is a DEEP fill under white (`--on-mark`,
  * the one ink). Each theme curates the seeds (tools/curate-chart-solids.js seeded them; a theme may
  * hand-tune any of them), and this holds every palette, in both modes and both intensities, to the bar:
  *
@@ -14,7 +14,7 @@
  *                           slide on both faces (cvd-trio-floor.test.js holds the trio apart for the colorblind floors).
  *
  * That the two inks are one, that the chart family wires each kind to it, and the signal rings, are
- * chart-one-ink.test.js (a flat parse of the stylesheet sees only the last `--chart-solid-ink`, so the inks are read as
+ * chart-one-ink.test.js (a flat parse of the stylesheet sees only the last `--chart-on-mark`, so the inks are read as
  * the base tokens here). If a test fails, a theme's seed fell short: re-run `node tools/curate-chart-solids.js`, or
  * move the seed's lightness away from its ink (keep its hue).
  * Do not lower the bar.
@@ -32,17 +32,17 @@ const INK_TEXT = 4.5;
 /**
  * Each INTENSITY of `chart-finish:` names its own fills (base.tokens.css § STATUS, IN TWO JOBS), so the status rows
  * read the base tokens directly rather than the chart family's `--state-*` (which the `vivid` rule remaps on a slide,
- * and which a flat parse of the stylesheet would see as already remapped). `--mute-solid` has no vivid.
+ * and which a flat parse of the stylesheet would see as already remapped). `--mute-mark` has no vivid.
  */
 const STATUS = ['pass', 'warn', 'fail', 'info', 'mute'];
 const INTENSITIES = {
-  muted: (s) => ({ t: `${s}-solid`, ink: 'on-solid' }),
-  vivid: (s) => ({ t: s === 'mute' ? 'mute-solid' : `${s}-solid-vivid`, ink: 'on-solid' }),
+  muted: (s) => ({ t: `${s}-mark`, ink: 'on-mark' }),
+  vivid: (s) => ({ t: s === 'mute' ? 'mute-mark' : `${s}-vivid-mark`, ink: 'on-mark' }),
 };
 const SOLIDS = (intensity) => [
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'on-solid' })),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ t: `chart-cat-${n}-hue`, ink: 'on-mark' })),
   ...STATUS.map(INTENSITIES[intensity]),
-  { t: 'chart-neutral-hue', ink: 'on-solid' },
+  { t: 'chart-neutral-hue', ink: 'on-mark' },
 ];
 
 describe('chart solids: text on every solid clears its bar, and every solid has a 3:1 boundary on the slide', () => {

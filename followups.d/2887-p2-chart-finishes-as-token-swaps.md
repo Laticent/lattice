@@ -8,7 +8,7 @@ swimlane: tools/build-chart-finish-css.js
 source: https://github.com/Laticent/lattice/pull/2887
 ---
 
-# Rebuild the chart finishes as token swaps, the way `dark` works
+# Rebuild the chart finishes as token swaps, the way `dark` works, under one `marks:` key
 
 ```text
   P2 · each chart finish repeats ~200 mark rules instead of swapping a few tokens
@@ -37,3 +37,18 @@ source: https://github.com/Laticent/lattice/pull/2887
 
 Design first (CLAUDE.md, design-before-code): name the per-slot tokens and show the owner
 before the generator changes. Its own PR, after #2887 merges (HARD RULE #17).
+
+## The owner's pick for the key (2026-10-25, on #2887)
+
+One front-matter key controls the look of EVERY mark on the deck, so a slide can never show two looks:
+
+- **`marks:`** replaces `chart-finish:` (which stays as an alias the linter nudges toward the new name). Its two
+  words are unchanged: the finish (`pigment` · `etch` · `tone`) and the intensity (`muted` · `vivid`).
+- **Every mark follows it**, not only chart marks: chart bars and pills, checklist and verdict discs, kpi pills,
+  roadmap discs. Today `etch` and `tone` restyle chart marks only, so under them a chart's status pill is a pale
+  wash while a checklist disc on the same slide stays solid. The token swap fixes this by construction: a finish
+  sets the mark tokens (`--pass-mark`, `--cat-N-mark`, …) on the slide, and every component reads them.
+- **Not in `finish:`.** That key is the backdrop (layers behind the content); its values would share one list
+  with the mark words, and `preset:` already sets it.
+- **`preset:` sets `marks:`** so a named look covers marks too.
+- No new key net: `marks:` replaces `chart-finish:`.

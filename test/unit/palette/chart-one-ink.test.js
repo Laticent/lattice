@@ -7,7 +7,7 @@
  * at risk and blocked, a SIGNAL ring in the bright classic hue. So, for every palette, in both modes and both
  * `chart-finish:` intensities:
  *
- *   1. the chart family hands every kind the same ink: the frame declares `--chart-solid-ink` once, as `--on-solid`,
+ *   1. the chart family hands every kind the same ink: the frame declares `--chart-on-mark` once, as `--on-mark`,
  *      and no rule re-points it, so a category and a status cannot drift apart;
  *   2. every category, the neutral and every status fill sits on the far side of that ink: darker than a white ink,
  *      brighter than the near-black one the colorblind palettes wear on the dark face (how far, the 7:1 and 4.6:1
@@ -40,14 +40,14 @@ const hex = (o) => (typeof o === 'string' ? o : `#${[o.r, o.g, o.b].map((v) => v
 const L = (c) => hexToOklch(hex(c)).L;
 const CATEGORIES = [...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `chart-cat-${n}-hue`), 'chart-neutral-hue'];
 const STATUS_FILLS = {
-  muted: ['pass-solid', 'warn-solid', 'fail-solid', 'info-solid', 'mute-solid'],
-  vivid: ['pass-solid-vivid', 'warn-solid-vivid', 'fail-solid-vivid', 'info-solid-vivid', 'mute-solid'],
+  muted: ['pass-mark', 'warn-mark', 'fail-mark', 'info-mark', 'mute-mark'],
+  vivid: ['pass-vivid-mark', 'warn-vivid-mark', 'fail-vivid-mark', 'info-vivid-mark', 'mute-mark'],
 };
 
 describe('one ink: the chart family hands every kind the same ink', () => {
   // Read from the source, not a flat parse: a second declaration anywhere in the family would be a second ink.
-  test('the frame declares --chart-solid-ink once, as --on-solid, and nothing re-points it', () => {
-    assert.deepEqual([...FAMILY.matchAll(/--chart-solid-ink\s*:\s*([^;]+);/g)].map((m) => m[1].trim()), ['var(--on-solid)']);
+  test('the frame declares --chart-on-mark once, as --on-mark, and nothing re-points it', () => {
+    assert.deepEqual([...FAMILY.matchAll(/--chart-on-mark\s*:\s*([^;]+);/g)].map((m) => m[1].trim()), ['var(--on-mark)']);
   });
 });
 
@@ -86,7 +86,7 @@ describe('one ink: every fill sits under the one ink', () => {
         test(`${theme} ${mode} ${intensity}`, () => {
           const vars = loadThemeChain(theme);
           const c = (t) => resolve(`var(--${t})`, vars, mode);
-          const ink = c('on-solid');
+          const ink = c('on-mark');
           const bad = [];
           const lightInk = L(ink) > 0.5;
           if (!lightInk && !(theme.startsWith('a11y-') && mode === 'dark')) bad.push('only a colorblind palette\'s dark face wears the near-black ink');
@@ -109,16 +109,16 @@ describe('one ink: each signal ring stands off the neighbor opposite it', () => 
           const c = (t) => resolve(`var(--${t})`, vars, mode);
           const bad = [];
           for (const s of ['warn', 'fail']) {
-            const ring = c(`${s}-solid-signal`);
-            const fill = c(intensity === 'vivid' ? `${s}-solid-vivid` : `${s}-solid`);
-            const brightFill = L(fill) > L(c('on-solid'));
+            const ring = c(`${s}-signal-mark`);
+            const fill = c(intensity === 'vivid' ? `${s}-vivid-mark` : `${s}-mark`);
+            const brightFill = L(fill) > L(c('on-mark'));
             const r = contrast(ring, fill);
             const bg = contrast(ring, c('bg'));
-            if (brightFill ? L(ring) >= L(fill) : L(ring) <= L(fill)) bad.push(`--${s}-solid-signal is not at the opposite lightness to its fill`);
+            if (brightFill ? L(ring) >= L(fill) : L(ring) <= L(fill)) bad.push(`--${s}-signal-mark is not at the opposite lightness to its fill`);
             // The neighbor opposite the ring in lightness takes 3:1; the other, SIGNAL_DARK_FILL.
             const [main, other] = brightFill || mode === 'light' ? [r, mode === 'light' ? null : bg] : [bg, r];
-            if (main < RING) bad.push(`--${s}-solid-signal: ${main.toFixed(2)}:1 off its opposite neighbor (bar ${RING})`);
-            if (other != null && other < SIGNAL_DARK_FILL - 0.05) bad.push(`--${s}-solid-signal: ${other.toFixed(2)}:1 off its other neighbor (bar ${SIGNAL_DARK_FILL})`);
+            if (main < RING) bad.push(`--${s}-signal-mark: ${main.toFixed(2)}:1 off its opposite neighbor (bar ${RING})`);
+            if (other != null && other < SIGNAL_DARK_FILL - 0.05) bad.push(`--${s}-signal-mark: ${other.toFixed(2)}:1 off its other neighbor (bar ${SIGNAL_DARK_FILL})`);
           }
           assert.deepEqual(bad, []);
         });

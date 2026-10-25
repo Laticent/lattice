@@ -183,13 +183,13 @@ const CARD = (tok, pct) => `color-mix(in srgb, var(${tok}) ${pct}%, var(--bg-alt
 const REGRESSION_EPSILON = 0.01;
 
 /**
- * One `.chart-status` pill as a scored surface: the status's flat DEEP fill (the base's `--X-solid`) under the solid
- * ink `--on-solid`, white like every chart ink (ONE INK, base.tokens.css § STATUS, IN TWO JOBS): 7:1 on the light
+ * One `.chart-status` pill as a scored surface: the status's flat DEEP fill (the base's `--X-mark`) under the solid
+ * ink `--on-mark`, white like every chart ink (ONE INK, base.tokens.css § STATUS, IN TWO JOBS): 7:1 on the light
  * face, 4.5:1 on the dark face, where a fill is the lightest mid-tone white still clears so it stands off the dark
  * slide. `requires` pins the fill, the ink and the state's hue mapping in the component CSS, so a retune of any of
  * them reddens the gate instead of silently re-pointing what is measured. */
 const TRIO_STATES = ['pass', 'warn', 'fail'];
-const SOLID_INK = '--on-solid';
+const SOLID_INK = '--on-mark';
 const SOLID_MIN_DARK = 4.5;
 
 function pillStop(state) {
@@ -197,16 +197,16 @@ function pillStop(state) {
     id: `chart/status-pill-${state}`,
     ctx: `chart-family .chart-status[${state}]: the status ink on the pill's flat fill`,
     base: '--bg',
-    groups: [{ bg: `var(--${state}-solid)` }],
+    groups: [{ bg: `var(--${state}-mark)` }],
     ink: SOLID_INK,
     min: 7,
     minDark: SOLID_MIN_DARK,
     src: CHARTFAMILY,
     requires: [
-      /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-solid-ink\);/,
+      /\.chart-status \{[^}]*background: var\(--chart-status-hue\);[^}]*color: var\(--chart-on-mark\);/,
       new RegExp(`--chart-status-hue: var\\(--state-${state}-hue\\)`),
-      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\((?:--_state-${state}-hue, var\\()?--${state}-solid\\)`)],
-      new RegExp(`--chart-solid-ink: var\\(${SOLID_INK}\\)`),
+      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\((?:--_state-${state}-hue, var\\()?--${state}-mark\\)`)],
+      new RegExp(`--chart-on-mark: var\\(${SOLID_INK}\\)`),
     ],
   };
 }
@@ -215,7 +215,7 @@ function pillStop(state) {
  * One state-chart NODE surface: text on a status-filled tile.
  *
  * A status paints the node itself, as a flat FILL (chart-family.styles.css § THE SOLID TIER), and the state NAME
- * and ORDINAL on it are both `--state-node-ink`, which is `--chart-solid-ink`, the one solid ink `--on-solid`. The bar is
+ * and ORDINAL on it are both `--state-node-ink`, which is `--chart-on-mark`, the one solid ink `--on-mark`. The bar is
  * the pill's. `requires` pins the fill, the ink and the tone mapping, so a retune of any of them reddens the gate
  * instead of silently moving what is measured. The neutral tile is the neutral solid, gated with the rest by
  * test/unit/palette/chart-solids.test.js.
@@ -225,13 +225,13 @@ function stateChartNode(state) {
     id: `state-chart/node-${state}`,
     ctx: `state-chart [data-s] node (${state} tone): the name and ordinal on the tile's flat fill`,
     base: '--bg',
-    groups: [{ bg: `var(--${state}-solid)` }],
+    groups: [{ bg: `var(--${state}-mark)` }],
     ink: SOLID_INK,
     min: 7,
     minDark: SOLID_MIN_DARK,
     src: STATECHART,
     requires: [
-      /--state-node-ink: var\(--chart-solid-ink\)/,
+      /--state-node-ink: var\(--chart-on-mark\)/,
       /\.state-index-t\[data-s\] \{\s*color: var\(--state-node-ink\);\s*fill: var\(--state-node-ink\);/,
       /background: var\(--fill-hue\);/,
       new RegExp(`--fill-hue: var\\(--state-${state}-hue\\)`),
@@ -378,7 +378,7 @@ const SURFACES = [
     id: `policy-recommendation/${variant}-badge`,
     ctx: `policy-recommendation.${variant}: the one ink on the badge's status solid`,
     base: '--bg',
-    groups: [{ bg: `var(--${state}-solid)` }],
+    groups: [{ bg: `var(--${state}-mark)` }],
     ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
     src: POLICY,
     requires: [
@@ -423,11 +423,11 @@ const SURFACES = [
   // the trio collapses under achromatopsia (0.1174 to 0.034 when last measured).
   ...[
     ['warn-pill', 'warn', '--bg-alt', 'kpi.ops: the warn pill on the --bg-alt tile',
-      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-edge: var\(--warn-solid-signal\);\s*--kpi-pill-rim: var\(--warn\);[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
+      /section\.kpi\.ops[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-edge: var\(--warn-signal-mark\);\s*--kpi-pill-rim: var\(--warn\);[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-mark\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
     ['hero-pass-pill', 'pass', '--accent-soft', 'kpi (default/briefing): the pass pill on the accent-soft hero tile',
-      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-edge: var\(--state-pass-hue\);\s*--kpi-pill-rim: var\(--pass\);[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
+      /section\.kpi\.briefing[^{]*\{[^}]*--lat-pill-edge: var\(--state-pass-hue\);\s*--kpi-pill-rim: var\(--pass\);[^}]*--lat-pill-bg: var\(--state-pass-hue\);[^}]*--lat-pill-ink: var\(--on-mark\);[^}]*--kpi-pill-mark: var\(--mark-check-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
     ['hero-warn-pill', 'warn', '--accent-soft', 'kpi.attention: the warn pill on the accent-soft hero tile',
-      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-edge: var\(--warn-solid-signal\);\s*--kpi-pill-rim: var\(--warn\);[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-solid\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
+      /section\.kpi\.attention[^{]*li:nth-child\(1\)[^{]*\{[^}]*--lat-pill-edge: var\(--warn-signal-mark\);\s*--kpi-pill-rim: var\(--warn\);[^}]*--lat-pill-bg: var\(--state-warn-hue\);[^}]*--lat-pill-ink: var\(--on-mark\);[^}]*--kpi-pill-mark: var\(--mark-dash-bold\)[^}]*--kpi-pill-mark-box: inline-block/],
   ].flatMap(([slug, state, tile, ctx, pin]) => {
     const shared = [
       pin,
@@ -440,7 +440,7 @@ const SURFACES = [
     return [
       {
         id: `kpi/${slug}`, ctx: `${ctx}: the one ink on the status solid`,
-        base: tile, groups: [{ bg: `var(--${state}-solid)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+        base: tile, groups: [{ bg: `var(--${state}-mark)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
         src: KPI, requires: shared,
       },
       {
@@ -527,10 +527,10 @@ const SURFACES = [
   // ── regulatory-update .priority · the tier label on its status solid ─────
   ...[[1, 'fail'], [2, 'warn'], [3, 'pass']].map(([tier, state]) => ({
     id: `regulatory-update/tier-${tier}`,
-    ctx: `regulatory-update.priority: TIER ${tier} in the one ink on the --${state}-solid pill`,
-    base: '--bg', groups: [{ bg: `var(--${state}-solid)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
+    ctx: `regulatory-update.priority: TIER ${tier} in the one ink on the --${state}-mark pill`,
+    base: '--bg', groups: [{ bg: `var(--${state}-mark)` }], ink: SOLID_INK, min: 7, minDark: SOLID_MIN_DARK,
     src: REGUPDATE,
-    requires: [new RegExp(`li:nth-child\\(${tier}\\)::before \\{ background:var\\(--state-${state}-hue\\); color:var\\(--on-solid\\);`)],
+    requires: [new RegExp(`li:nth-child\\(${tier}\\)::before \\{ background:var\\(--state-${state}-hue\\); color:var\\(--on-mark\\);`)],
   })),
   // ── obligation-matrix .heat · body ink on the cell's status ground ───────
   // NB the component maps the pass CELL to the fail ground and vice versa on purpose (a heat map reads "hot =
@@ -620,11 +620,11 @@ const SURFACES = [
     ...pillStop(state),
     id: `chart/status-pill-${state}-vivid`,
     ctx: `chart-family .chart-finish-vivid .chart-status[${state}]: the status ink on the vivid fill`,
-    groups: [{ bg: `var(--${state}-solid-vivid)` }],
+    groups: [{ bg: `var(--${state}-vivid-mark)` }],
     ink: SOLID_INK,
     requires: [
-      [BASETOKENS, new RegExp(`\\.chart-finish-vivid \\{[^}]*--_state-${state}-hue: var\\(--${state}-solid-vivid\\)`)],
-      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--_state-${state}-hue, var\\(--${state}-solid\\)\\)`)],
+      [BASETOKENS, new RegExp(`\\.chart-finish-vivid \\{[^}]*--_state-${state}-hue: var\\(--${state}-vivid-mark\\)`)],
+      [BASETOKENS, new RegExp(`--state-${state}-hue: var\\(--_state-${state}-hue, var\\(--${state}-mark\\)\\)`)],
     ],
   })),
   // ── risk-matrix · the CRITICAL band, the one status fill a chart mixes for itself ───────
@@ -634,13 +634,13 @@ const SURFACES = [
     id: 'risk-matrix/critical-key',
     ctx: 'risk-matrix .risk-key-marker[critical]: the key number on the critical band\'s fill',
     base: '--bg',
-    groups: [{ bg: 'color-mix(in oklab, var(--fail-solid-vivid) 82%, var(--on-solid-shade, black))' }],
-    ink: '--on-solid',
+    groups: [{ bg: 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))' }],
+    ink: '--on-mark',
     min: 4.5,
     src: 'lib/components/chart/risk-matrix/risk-matrix.styles.css',
     requires: [
-      /\.risk-key-marker\[data-band="critical"\] \{\s*fill: color-mix\(in oklab, var\(--fail-solid-vivid\) 82%, var\(--on-solid-shade, black\)\);/,
-      /\.risk-key-number \{ fill: var\(--chart-solid-ink\); \}/,
+      /\.risk-key-marker\[data-band="critical"\] \{\s*fill: color-mix\(in oklab, var\(--fail-vivid-mark\) 82%, var\(--on-mark-shade, black\)\);/,
+      /\.risk-key-number \{ fill: var\(--chart-on-mark\); \}/,
     ],
   },
   // ── state-chart · the name and the ordinal on a status-tinted node ───────

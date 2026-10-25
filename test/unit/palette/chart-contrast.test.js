@@ -65,7 +65,7 @@ describe('chart palette — curated theme assessment', () => {
   // the LAST `--state-X-hue`, which is a component's local swap (waterfall's `.waterfall-lower` up/down), not the
   // slide's default, so the default is seeded here from the base, and pinned there so the seed cannot drift.
   const BASE_TOKENS = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', '..', 'lib', 'base', 'base.tokens.css'), 'utf8');
-  const STATE_HUE = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((k) => [`state-${k}-hue`, `var(--${k}-solid)`]));
+  const STATE_HUE = Object.fromEntries(['pass', 'warn', 'fail', 'info', 'mute'].map((k) => [`state-${k}-hue`, `var(--${k}-mark)`]));
   test('the base points every status at its muted solid on the slide', () => {
     const block = BASE_TOKENS.match(/:root, section:not\(section section\) \{\n {2}--state-pass-hue[^}]*\}/);
     assert.ok(block, 'base.tokens.css declares the status fill pointer on :root, section');

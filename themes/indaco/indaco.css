@@ -147,17 +147,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#194B30, #417254);
-  --warn-solid: light-dark(#854A00, #AD6200);
-  --fail-solid: light-dark(#9D0800, #DC1000);
-  --pass-solid-vivid: light-dark(#004D2B, #007846);
-  --warn-solid-vivid: light-dark(#854A00, #AD6200);
-  --fail-solid-vivid: light-dark(#9D0800, #DC1000);
-  --warn-solid-signal: light-dark(#F9AB00, #FFB114);
-  --fail-solid-signal: light-dark(#FF7744, #FF7D4D);
-  --info-solid: light-dark(#005E85, #1E7CA9);
-  --info-solid-vivid: light-dark(#005E85, #007DAF);
-  --mute-solid: light-dark(#4C5157, #6A6E75);
+  --pass-mark: light-dark(#194B30, #417254);
+  --warn-mark: light-dark(#854A00, #AD6200);
+  --fail-mark: light-dark(#9D0800, #DC1000);
+  --pass-vivid-mark: light-dark(#004D2B, #007846);
+  --warn-vivid-mark: light-dark(#854A00, #AD6200);
+  --fail-vivid-mark: light-dark(#9D0800, #DC1000);
+  --warn-signal-mark: light-dark(#F9AB00, #FFB114);
+  --fail-signal-mark: light-dark(#FF7744, #FF7D4D);
+  --info-mark: light-dark(#005E85, #1E7CA9);
+  --info-vivid-mark: light-dark(#005E85, #007DAF);
+  --mute-mark: light-dark(#4C5157, #6A6E75);
   --pass-bg: color-mix(in srgb, var(--pass) 10%, transparent);
   --fail-bg: color-mix(in srgb, var(--fail) 10%, transparent);
   --warn-bg: color-mix(in srgb, var(--warn) 10%, transparent);
@@ -365,7 +365,7 @@
    * the wedge/bar border at full strength + a 24% tint for the fill); dark
    * side lifts the same hue toward white so it stays vivid on the navy canvas.
    * Categorical and status share the family's recipe; see the chart-family.styles.css
-   * token block for the contract. Each is a chart SOLID: `--on-solid` text clears 7:1 on it
+   * token block for the contract. Each is a chart SOLID: `--on-mark` text clears 7:1 on it
    * and it clears 3:1 off the slide (tools/curate-chart-solids.js, gated by chart-solids.test.js). */
   --chart-cat1: light-dark(#005D8F, #2E7AAE);  /* blue    */
   --chart-cat2: light-dark(#933B00, #B65B2C);  /* rust    */
@@ -420,8 +420,8 @@
    * blues. Semantics universal, hues indaco-specific. */
   --info: light-dark(#184183, #82CBE8);  /* decision — indaco blue           */
   --mute: light-dark(#475973, #ABA9D3);  /* deferred — blue-gray             */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#475973, #637691);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#475973, #637691);
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip

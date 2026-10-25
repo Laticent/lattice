@@ -10,7 +10,8 @@
 // so the drawer's controls tell the truth. Pure; mirrors the engine's resolution.
 // See engineering/decisions/2026-07-03-slide-context-editor.md §6.
 
-import { CHART_FINISH_NAMES, DEFAULT_CHART_FINISH, parseChartFinishValue } from './chart-finish-words';
+import { parseChartFinishValue } from './chart-finish-value';
+import { CHART_FINISH_NAMES, DEFAULT_CHART_FINISH } from './chart-finish-words';
 import { registerValue } from './deck-preset';
 import { getFrontMatter } from './front-matter';
 import { getClassTokens, setClassTokens } from './slide-directives';

@@ -857,7 +857,7 @@ chart-finish: pigment vivid
 ---
 ```
 
-Each theme curates both sets (`--pass-solid` … and `--pass-solid-vivid` …), and text on every
+Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …), and text on every
 fill clears 7:1 on a light slide and 4.5:1 on a dark one. For a reader who is colorblind,
 pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
 in both intensities.

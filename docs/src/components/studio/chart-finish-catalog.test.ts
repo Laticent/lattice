@@ -17,13 +17,12 @@ import {
 	CHART_FINISHES,
 	DEFAULT_CHART_FINISH,
 } from './chart-finish-catalog';
+import { chartFinishValue, parseChartFinishValue } from './chart-finish-value';
 import {
 	CHART_FINISH_AXES,
 	CHART_FINISH_INTENSITIES,
 	CHART_FINISH_TOKENS,
-	chartFinishValue,
 	DEFAULT_CHART_FINISH_INTENSITY,
-	parseChartFinishValue,
 	CHART_FINISH_NAMES as WORD_NAMES,
 } from './chart-finish-words';
 

@@ -168,17 +168,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#254A28, #4A704B);
-  --warn-solid: light-dark(#8B4600, #B65D00);
-  --fail-solid: light-dark(#9D0800, #DA1000);
-  --pass-solid-vivid: light-dark(#004E11, #007820);
-  --warn-solid-vivid: light-dark(#8B4600, #B65D00);
-  --fail-solid-vivid: light-dark(#9D0800, #DA1000);
-  --warn-solid-signal: light-dark(#FD9900, #FD9800);
-  --fail-solid-signal: light-dark(#FF7744, #FF7A4A);
-  --info-solid: light-dark(#005E85, #1E7CA9);
-  --info-solid-vivid: light-dark(#005E85, #007DAF);
-  --mute-solid: light-dark(#4B5157, #686E74);
+  --pass-mark: light-dark(#254A28, #4A704B);
+  --warn-mark: light-dark(#8B4600, #B65D00);
+  --fail-mark: light-dark(#9D0800, #DA1000);
+  --pass-vivid-mark: light-dark(#004E11, #007820);
+  --warn-vivid-mark: light-dark(#8B4600, #B65D00);
+  --fail-vivid-mark: light-dark(#9D0800, #DA1000);
+  --warn-signal-mark: light-dark(#FD9900, #FD9800);
+  --fail-signal-mark: light-dark(#FF7744, #FF7A4A);
+  --info-mark: light-dark(#005E85, #1E7CA9);
+  --info-vivid-mark: light-dark(#005E85, #007DAF);
+  --mute-mark: light-dark(#4B5157, #686E74);
   --warn: light-dark(#A55400, #fa7419);   /* 4.60 on card; pills sanctioned both faces */
   /* THE WASHES ARE CURATED ON THE LIGHT FACE, not derived from the ink.
    *
@@ -476,7 +476,7 @@
    * split the tier; the text half is now #8A9098. */
   /* Status is ONE set now: these are the base status solids every chart reads
    * (the chart-only `--chart-state-*` copies are retired). Each is a solid that
-   * `--on-solid` text clears 7:1 on, solved by tools/curate-chart-solids.js with
+   * `--on-mark` text clears 7:1 on, solved by tools/curate-chart-solids.js with
    * the trio spread for the CVD floors (test/unit/palette/cvd-trio-floor.test.js). */
   /* WARN AND FAIL SPLIT BY HUE AND LIGHTNESS. They were orange (#E26400) beside coral
    * (#DC6464): 0.077 apart in OKLab to normal vision and 0.026 under tritanopia --
@@ -486,8 +486,8 @@
    * normal vision 0.077 -> 0.126 light, 0.094 -> 0.129 dark. Pass is untouched. */
   --info: light-dark(#134E8B, #89C1FF);   /* vivid sky-blue -- mark, >=3:1 on both faces */
   --mute: light-dark(#4F5459, #A8AEB5);   /* cool mid-gray  -- mark, >=3:1 on both faces */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#545658, #737577);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#545658, #737577);
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip

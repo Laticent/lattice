@@ -31,16 +31,16 @@ section.state-chart {
   /* Every tile is its concept's flat SOLID (chart-family.styles.css § THE SOLID TIER), so the name and the
    * ordinal on it take the ink curated for every solid, at 7:1 (chart-solids.test.js). A deferred tile is
    * hollow and takes the heading ink instead (below). */
-  --state-node-ink: var(--chart-solid-ink);
+  --state-node-ink: var(--chart-on-mark);
   --state-node-stroke: var(--diagram-stroke);
   --state-edge: var(--diagram-line);
   /* THE ORDINAL PRINTS ON THE TILE, NOT ON THE CANVAS, so it takes the solid ink too. Both inks are declared here
    * for a tile with no status (the solid ink on the neutral solid) and re-declared per status below: a custom property
    * resolves where it is declared, so the section's value cannot follow a status. */
-  --state-index-ink: var(--chart-solid-ink);
+  --state-index-ink: var(--chart-on-mark);
   /* A chip steps AWAY from the ink: toward black under a white ink, toward white under the near-black ink an `a11y-*`
-   * palette wears on its dark face (`--on-solid-shade`, declared by that palette). */
-  --state-chip-ground: color-mix(in oklab, var(--on-solid-shade, black) 24%, transparent);
+   * palette wears on its dark face (`--on-mark-shade`, declared by that palette). */
+  --state-chip-ground: color-mix(in oklab, var(--on-mark-shade, black) 24%, transparent);
   --state-marker: var(--diagram-line);
   /* The paints the shared key (flowchart.styles.css, "The key") reads. */
   --fc-line-mark: var(--state-edge);

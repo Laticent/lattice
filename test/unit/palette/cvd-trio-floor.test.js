@@ -950,7 +950,7 @@ describe('CVD status-trio separation (frozen distances)', () => {
 });
 
 /**
- * THE STATUS FILLS (`--X-solid` and `--X-solid-vivid`, base.tokens.css § STATUS, IN TWO JOBS) are a trio of their
+ * THE STATUS FILLS (`--X-mark` and `--X-vivid-mark`, base.tokens.css § STATUS, IN TWO JOBS) are a trio of their
  * own: a gantt bar or a state tile is told apart by its fill. Two postures, the owner's call:
  *
  *   · a COLORBLIND palette (a11y-<condition>) clears the floor for ITS condition OUTRIGHT, in both intensities and
@@ -963,7 +963,7 @@ describe('CVD status-trio separation (frozen distances)', () => {
  * say why in the PR.
  */
 const FILL_BASELINE = path.join(__dirname, '..', '..', 'fixtures', 'status-fill-cvd-baseline.json');
-const FILL_TOKENS = { muted: (s) => `${s}-solid`, vivid: (s) => `${s}-solid-vivid` };
+const FILL_TOKENS = { muted: (s) => `${s}-mark`, vivid: (s) => `${s}-vivid-mark` };
 function measureFills() {
   const out = {};
   for (const theme of listAllThemes()) {

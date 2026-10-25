@@ -2,18 +2,18 @@
 /**
  * Curate every theme's chart SOLIDS: one flat color per chart concept, and the ink that reads on it.
  *
- * ONE INK. Every chart fill carries WHITE text (`--on-solid`, on a category and a status alike), so two charts side by side
+ * ONE INK. Every chart fill carries WHITE text (`--on-mark`, on a category and a status alike), so two charts side by side
  * never wear two text colors (engineering/chart-styling.md §3):
  *
- *   - a CATEGORY (`--chart-catN`) or the neutral (`--chart-neutral`) is a DEEP fill: 7:1 under white on the light face;
+ *   - a CATEGORY (`--chart-catN`) or the neutral (`--chart-neutral-mark`) is a DEEP fill: 7:1 under white on the light face;
  *     on the dark face a mid-tone that white still clears at 4.6:1 and that stands off the dark slide.
- *   - a STATUS (`--pass-solid` … `--mute-solid`) is deep too, in its own hue at its own chroma: done a quiet sage, at
+ *   - a STATUS (`--pass-mark` … `--mute-mark`) is deep too, in its own hue at its own chroma: done a quiet sage, at
  *     risk a burnt orange, blocked a crimson, info a deep cyan-blue, deferred a deep gray, in two intensities
  *     (`chart-finish: pigment muted|vivid`; vivid makes done an emerald).
  *
  * A status that shares a category's hue is told apart by what the chart family adds to it, not by its fill: every
  * status carries its drawn MARK (lib/core/status-marks.js), and the two exceptions, at risk and blocked, carry a
- * SIGNAL ring (`--warn-solid-signal`, `--fail-solid-signal`): the bright amber and coral-red, 3:1 off their fill. A
+ * SIGNAL ring (`--warn-signal-mark`, `--fail-signal-mark`): the bright amber and coral-red, 3:1 off their fill. A
  * status drawn as a line or text paints the theme's own status ink (`--pass` … `--mute`), so it needs no seed here.
  *
  * Each move keeps a seed's hue and moves lightness (and chroma, only down, when a hue leaves the sRGB gamut). The
@@ -48,16 +48,16 @@ const FAMILY = path.join(ROOT, 'lib', 'plugins', 'chart-family', 'chart-family.s
 const { deepFill, midFill, brightFill, solveStatusSet, DARK_INK, TEXT_ON_SOLID, CAT_DARK } = require('../lib/theme/chart-solids.js');
 
 const CATS = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `chart-cat${n}`);
-const NEUTRAL = 'chart-neutral';
-const ON_SOLID = 'on-solid';
+const NEUTRAL = 'chart-neutral-mark';
+const ON_SOLID = 'on-mark';
 const TRIO = ['pass', 'warn', 'fail'];
 const STATES = [...TRIO, 'info', 'mute'];
-const FILL = (s) => `${s}-solid`;
-const VIVID = (s) => `${s}-solid-vivid`;
-/** Every status seed a trio-owning theme declares. `--mute-solid` has no vivid: a neutral has no intensity. */
-const SIGNAL_OF = (s) => `${s}-solid-signal`;
+const FILL = (s) => `${s}-mark`;
+const VIVID = (s) => `${s}-vivid-mark`;
+/** Every status seed a trio-owning theme declares. `--mute-mark` has no vivid: a neutral has no intensity. */
+const SIGNAL_OF = (s) => `${s}-signal-mark`;
 const STATUS_SEEDS = [...STATES.map(FILL), ...['pass', 'warn', 'fail', 'info'].map(VIVID), ...['warn', 'fail'].map(SIGNAL_OF)];
-/** Retired: amber is no longer the one status with its own ink; a status ink is `--on-solid`, and a status line or
+/** Retired: amber is no longer the one status with its own ink; a status ink is `--on-mark`, and a status line or
  * text is the slide ink, so neither keeps a token of its own. */
 const RETIRED = ['on-warn', 'on-warn-vivid', 'on-status', ...STATES.map((s) => `${s}-solid-edge`)];
 
@@ -186,7 +186,7 @@ function solveTheme(theme) {
   out[ON_SOLID] = a11y ? `light-dark(${WHITE}, ${DARK_INK})` : WHITE;
 
   // Status: only a theme that owns its trio declares fills; one that inherits wears its owner's. One ink: the status
-  // fills carry `--on-solid`, the same ink as the categories. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
+  // fills carry `--on-mark`, the same ink as the categories. A colorblind palette always declares its set, `a11y-base` included: it turns the dark face around
   // (bright fills under a near-black ink), so the brand set it would inherit from its parent would carry the wrong ink.
   if (owns('pass') || a11y) {
     const darkFace = [R(raw.bg, true), R(raw['bg-alt'], true)].filter(isHex);
@@ -250,7 +250,7 @@ function main() {
     // A new category or neutral seed lands after the last chart seed the theme owns; a new status seed after its fills.
     const lastCat = [...CATS].reverse().find(mine);
     let catAnchor = lastCat ? `--${lastCat}:` : null;
-    let statusAnchor = mine('fail-solid-vivid') ? '--fail-solid-vivid:' : mine('fail-solid') ? '--fail-solid:' : '--on-solid:';
+    let statusAnchor = mine('fail-vivid-mark') ? '--fail-vivid-mark:' : mine('fail-mark') ? '--fail-mark:' : '--on-mark:';
     for (const [seed, value] of Object.entries(solved)) {
       const current = (own.match(new RegExp(`--${seed}\\s*:\\s*([^;]+);`)) || [])[1]?.trim();
       total += 1;
@@ -258,7 +258,7 @@ function main() {
       changed += 1;
       if (report) { console.log(`${theme.padEnd(20)} --${seed.padEnd(18)} ${current ?? '(new)'}  ->  ${value}`); continue; }
       const isStatus = STATUS_SEEDS.includes(seed);
-      css = writeSeed(css, seed, value, isStatus ? statusAnchor : (catAnchor ?? '--on-solid:'));
+      css = writeSeed(css, seed, value, isStatus ? statusAnchor : (catAnchor ?? '--on-mark:'));
       // A new seed lands after the one written before it, so the block reads in the solver's order.
       if (!current && isStatus) statusAnchor = `--${seed}:`;
       else if (!current) catAnchor = `--${seed}:`;

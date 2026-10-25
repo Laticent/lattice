@@ -2,7 +2,7 @@
 status: in-progress
 summary: >
   Every component that shows a status paints it the way the chart family does: a status MARK is the deck's status
-  solid with its drawn mark in the one ink (`--on-solid`), and at risk and blocked wear the signal ring; a status
+  solid with its drawn mark in the one ink (`--on-mark`), and at risk and blocked wear the signal ring; a status
   LINE or TEXT is the slide ink (`--pass` … `--mute`); a status GROUND is the theme's `--pass-bg` / `--warn-bg` /
   `--fail-bg`. The deck's intensity register (`chart-finish: … muted | vivid`) moves from the chart family to the
   base, so it sets every status fill on the slide. Owner's picks on #2887.
@@ -32,7 +32,7 @@ A status has three jobs, and each job has one token family.
 
 | Job | What it is | Paints | Example |
 |---|---|---|---|
-| **Mark** | a shape that says the status: a disc, a pill, a badge, a bar | the deck's status solid (`--state-X-hue`, which is `--X-solid` or `--X-solid-vivid` by the register), its drawn mark in `--on-solid`, and on warn and fail the signal ring inside the edge | a checklist disc, a verdict badge's disc, a kpi status pill, a gantt bar |
+| **Mark** | a shape that says the status: a disc, a pill, a badge, a bar | the deck's status solid (`--state-X-hue`, which is `--X-mark` or `--X-vivid-mark` by the register), its drawn mark in `--on-mark`, and on warn and fail the signal ring inside the edge | a checklist disc, a verdict badge's disc, a kpi status pill, a gantt bar |
 | **Line or text** | a status drawn as a stroke or written as a word on the slide | the slide ink `--pass` … `--mute` | a checklist row's rail, a roadmap cell's label, a kanban header |
 | **Ground** | a tinted background behind body content | `--pass-bg` / `--warn-bg` / `--fail-bg` | a checklist row, a heat cell, a policy's closing ask |
 
@@ -77,7 +77,7 @@ them is a status solid.
   was tuned as the knee for exactly that pair. The ground and the bar's border still carry the stance.
 - **kpi's pill is built for the office export.** Calco lifts a border plus one OUTER ring as a native shape, but not a
   border plus an inset ring, so the kpi pill cannot wear the chart pill's inset signal. Its 1px border carries the
-  role instead: the pill's own fill on pass (so it reads as no border) and `--warn-solid-signal` on warn, 1px wide
+  role instead: the pill's own fill on pass (so it reads as no border) and `--warn-signal-mark` on warn, 1px wide
   rather than the chart ring's `--state-signal-w`. The ink rim is the one outer ring
   (`box-shadow: 0 0 0 1px var(--kpi-pill-rim)`). Its mark is masked centered in a box 0.3em wider than the mark,
   and the pill gives the 0.15em that lands before the mark back from its own leading padding.

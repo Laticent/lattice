@@ -33,7 +33,7 @@ function engineColorTokens() {
 
 test('every shipped palette declares every color the engine has a default for', () => {
   const tokens = engineColorTokens();
-  assert.ok(tokens.includes('--pass') && tokens.includes('--on-solid') && tokens.includes('--chart-cat1'), 'the scan sees the status trio, the solid ink and the chart seeds');
+  assert.ok(tokens.includes('--pass') && tokens.includes('--on-mark') && tokens.includes('--chart-cat1'), 'the scan sees the status trio, the solid ink and the chart seeds');
   const palettes = fs.readdirSync(path.join(ROOT, 'themes')).filter((d) => fs.existsSync(path.join(ROOT, 'themes', d, `${d}.css`)));
   const gaps = [];
   for (const p of palettes) {

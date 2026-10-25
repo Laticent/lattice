@@ -291,7 +291,7 @@
 /* Bar caption. The kernel places it inside the bar when it fits and beside it
  * when it does not, tagging which via data-pos. Beside a bar it sits on the canvas
  * and takes --text-heading; inside one it sits on the bar's solid and takes the ink
- * curated for every solid, --chart-solid-ink (7:1, chart-solids.test.js). A deferred
+ * curated for every solid, --chart-on-mark (7:1, chart-solids.test.js). A deferred
  * bar is hollow, so its caption sits on the canvas too.
  *
  * WEIGHT 500, NOT 600. The lane name (.gantt-lane-label) is 600, and a caption
@@ -307,7 +307,7 @@
   font-weight: 500;
 }
 :is(section.gantt, figure.gantt) .gantt-bar-label[data-pos="inside"]:not([data-s="deferred"]) {
-  fill: var(--chart-solid-ink);
+  fill: var(--chart-on-mark);
 }
 
 /* ── The "today" / now line — opt-in (eyebrow `today <point>` only) ──────────

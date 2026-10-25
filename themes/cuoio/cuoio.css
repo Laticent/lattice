@@ -163,17 +163,17 @@
    * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
-  --pass-solid: light-dark(#2F4826, #4E6945);
-  --warn-solid: light-dark(#854A00, #AB630C);
-  --fail-solid: light-dark(#9D0800, #CC2718);
-  --pass-solid-vivid: light-dark(#1A4C00, #317013);
-  --warn-solid-vivid: light-dark(#854A00, #AD6200);
-  --fail-solid-vivid: light-dark(#9D0800, #D50F00);
-  --warn-solid-signal: light-dark(#FBA500, #FFAC2C);
-  --fail-solid-signal: light-dark(#FF764B, #FE7347);
-  --info-solid: light-dark(#035E84, #307CA4);
-  --info-solid-vivid: light-dark(#005E85, #007DAF);
-  --mute-solid: light-dark(#574E4C, #716866);
+  --pass-mark: light-dark(#2F4826, #4E6945);
+  --warn-mark: light-dark(#854A00, #AB630C);
+  --fail-mark: light-dark(#9D0800, #CC2718);
+  --pass-vivid-mark: light-dark(#1A4C00, #317013);
+  --warn-vivid-mark: light-dark(#854A00, #AD6200);
+  --fail-vivid-mark: light-dark(#9D0800, #D50F00);
+  --warn-signal-mark: light-dark(#FBA500, #FFAC2C);
+  --fail-signal-mark: light-dark(#FF764B, #FE7347);
+  --info-mark: light-dark(#035E84, #307CA4);
+  --info-vivid-mark: light-dark(#005E85, #007DAF);
+  --mute-mark: light-dark(#574E4C, #716866);
   /* The light --warn was darkened from #B47200 to clear AA (the original was
      3.4-3.7:1); the respacing below then re-solved it again, so the value here is
      not the #885800 that fix landed. */
@@ -494,8 +494,8 @@
    * slate blue, mute a warm taupe (not the engine's cool gray). */
   --info: light-dark(#40426F, #45B1FD); /* dusty slate   */
   --mute: light-dark(#6E4C46, #AC9E88); /* warm taupe    */
-  --on-solid: #FFFFFF;
-  --chart-neutral: light-dark(#635742, #80735D);
+  --on-mark: #FFFFFF;
+  --chart-neutral-mark: light-dark(#635742, #80735D);
 }
 
 /* The status trio is declared ONCE, at plain `:root` above — #1527's cascade flip
