@@ -1,0 +1,9 @@
+{
+  "name": "lattice-preview-probe-launcher",
+  "publisher": "lattice",
+  "version": "0.0.1",
+  "private": true,
+  "engines": { "vscode": "^1.80.0" },
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js"
+}
