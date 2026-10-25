@@ -281,6 +281,13 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 		expect(at, 'the preview panel is not in the served document — this test would prove nothing').toBeGreaterThan(0);
 		await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html.slice(0, html.lastIndexOf('<div', at)) });
 	});
+	// HELD STILL means no hydration. The island's bundles are external modules; the pre-paint
+	// seeds that size the pane are inline and still run. Without this, React hydrated the cut page
+	// and re-created `#pg-split-preview` 50-150ms after `domcontentloaded` (10 of 10 runs against
+	// `npm run build`, whose modulepreload brings hydration forward), so the count below raced it
+	// and the width read could measure a pane whose preview had come back. Same block as the walk
+	// bar's cut case below.
+	await page.route(/\/_astro\/.*\.js/, (route) => route.abort());
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 
 	expect(await page.locator('#pg-split-preview').count(), 'the cut did not remove the preview panel').toBe(0);
@@ -292,22 +299,17 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	// failing at a rounding boundary — reintroducing, inside the guard, the flake class this case
 	// exists to remove. The defect is 856px wide; ±1 catches it with room to spare, and it is the
 	// tolerance the sampler beside it already uses (`sameRect`, ±2).
-	// MEASURE A LAID-OUT PANE, NOT A HYDRATING ONE. This read the box straight after a
-	// `domcontentloaded` goto, so it raced the hydration that mounts the panel group. When it
-	// lost, `boundingBox()` returned null and the case died on a TypeError rather than on the
-	// width it exists to assert — 3 of 8 runs under 3x CPU contention here, and once on a CI
-	// runner.
-	//
-	// `await expect(editor).toBeVisible()` first is NOT enough, which is worth knowing: it cut
-	// the rate to 1 in 16 and no further, because the pane FLICKERS — hydration detaches and
-	// remounts it, so a `boundingBox()` issued after visibility can still land in the gap and
-	// re-resolve to nothing. The box therefore has to come from the same call that proved it
-	// exists, which is what `laidOutWidth` does.
+	// MEASURE A LAID-OUT PANE, NOT A HYDRATING ONE. This read used to race the hydration that
+	// mounts the panel group: hydration detaches and remounts the pane, a `boundingBox()` that
+	// landed in the gap returned null, and the case died on a TypeError rather than on the width
+	// it exists to assert (3 of 8 runs under 3x CPU contention, and once on a CI runner, #1851).
+	// Hydration is now blocked above, so that remount cannot happen here at all; `laidOutWidth`
+	// still waits for the box to lay out, which is the thing being measured.
 	//
 	// Waiting does not weaken what is measured. The preview pane is absent by construction (the
-	// fetch above cut it out), so there is nothing left to wait FOR except this pane laying
-	// out — which is the thing being measured.
+	// fetch above cut it out), and the check after the read proves it stayed absent.
 	const width = await laidOutWidth(page.locator('#pg-split-editor'));
+	expect(await page.locator('#pg-split-preview').count(), 'the preview panel came back before the read — the width below is not the cut state').toBe(0);
 	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
 });
 
