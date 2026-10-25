@@ -1967,6 +1967,7 @@ const IMAGE_SETTING = {
   mode: flags.images ?? frontMatterValue(fm, 'images'),
   quality: flags['images-quality'] ?? frontMatterValue(fm, 'images-quality'),
 };
+require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`
 // flag OR a `fluid: true` front-matter key. The PDF/PPTX/PNG outputs are

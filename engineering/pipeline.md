@@ -408,8 +408,15 @@ The plan is `lib/core/image-policy.js` (pure, no dependencies). `planRecode` say
   `assemblePlayer` (`lib/export/player-images.mjs`), after the host has baked pictures into `data:` URIs.
 
 Measured with the CLI on the deck above: PDF 33.5 to 6.0 MB, player 66.6 to 12.6 MB. A 35-slide deck of photos
-that were already 1920 px JPEGs: no change in either, because no re-encode won. The PPTX and ODP are
-unchanged: they store one picture per slide, not the source files, so their size follows the slide, not the policy.
+that were already 1920 px JPEGs: no change in either, because no re-encode won. PPTX and ODP store one picture per slide,
+not the source files, so for them the policy decides the slide picture: optimized keeps the existing
+PNG-or-JPEG rule (`lib/export/slide-picture.js`, `canvasToPictureBlob`), and `images: original` keeps every slide a
+lossless PNG (the same deck: 13.7 MB optimized, 26.3 MB original). The image-set zip keeps its own
+`--image-format` / `--image-quality` controls; those already are the author's choice.
+
+**Where the author chooses.** Front matter `images:` / `images-quality:`; the CLI flags `--images` / `--images-quality`
+(the flag wins); and in the Studio, a **Pictures** control in each export panel (PDF, PowerPoint, LibreOffice,
+Webpage), remembered per deck, seeded to "Deck setting" (`PicturesControl.tsx`, `export/images-override.js`).
 
 Not done: the player still stores a repeated `<img src>` (a logo on every slide; each photo again in the
 Read article) once per use, because a no-JavaScript-safe store exists only for CSS backgrounds

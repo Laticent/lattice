@@ -345,6 +345,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<ExportOptionsPanel format="odp" source={source} onWrite={onWrite} deckId={deckId} slideCount={slideCount} busy={busy === 'odp'} status={progress} onBack={() => setView('menu')} onExport={exportOdp} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
+							deckId={deckId}
 							busy={busy === 'html'}
 							status={progress}
 							defaultScheme={deckDefaultScheme}

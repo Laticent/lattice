@@ -323,6 +323,7 @@ type PlayerCore = {
 			/** `false` ships the still even when the deck asks for motion; undefined inherits
 			 *  the deck's own `motion:` / `player-motion:` registers. Suppression only. */
 			playerMotion?: boolean;
+			images?: { mode?: string; quality?: string | number };
 			glossary?: { term: string; definition: string }[];
 			narration?: unknown;
 			/** `false` leaves the Guide out of a narrated export; otherwise it ships (player-core). */
@@ -878,6 +879,8 @@ export async function shareHtmlPlayer(
 			theme: { name: palette, mode: scheme },
 			// The deck's front-matter directives, read by the engine's own parser, as the CLI records them.
 			config: coreMod.parseFrontMatter(source).directives,
+			// The deck's `images:` with the export panel's choice on top: the same plan the command line runs.
+			images: (await import('./export/deck-export.js')).deckImageSetting(source),
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
@@ -1171,7 +1174,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource }), source);
+	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource, images: ex.deckImageSetting(source) }), source);
 }
 
 /** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
@@ -1180,7 +1183,7 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource }), source);
+	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source) }), source);
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config

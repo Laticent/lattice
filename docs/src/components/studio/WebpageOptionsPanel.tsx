@@ -16,6 +16,7 @@ import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { webPictureOrigins } from '../../../../lib/export/inline-url-media.mjs';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 import { OffFencesNotice } from './OffFencesNotice';
+import { PicturesControl } from './PicturesControl';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
 
@@ -47,7 +48,10 @@ export function WebpageOptionsPanel({
 	onExport,
 	onCancel,
 	onWrite,
+	deckId,
 }: {
+	/** The deck's id, so the Pictures choice is remembered per deck. */
+	deckId?: string;
 	busy?: boolean;
 	status?: string | null;
 	// The color mode the export defaults to — the deck's authored `color-mode:` when it has
@@ -171,6 +175,8 @@ export function WebpageOptionsPanel({
 						))}
 					</div>
 				</div>
+
+				<PicturesControl deckId={deckId} busy={busy} applies="the player stores" />
 
 				{/* Strip speaker notes — a privacy opt-in for a shared file. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">

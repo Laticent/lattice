@@ -35,10 +35,11 @@ import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
-// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
-// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import dataBlockCore from '../../../../../lib/core/data-block.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
+// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
+// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import imagePolicyCore from '../../../../../lib/core/image-policy.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
@@ -53,6 +54,7 @@ import { embedComponentsInMarkdown } from '../../../playground/layout-core.gener
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { ribbonCaptureStyle } from './capture-ribbon.js';
+import { applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
@@ -1622,7 +1624,14 @@ function canvasToPng(canvas) {
 	return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
 }
 
+// The author's `images:` / `images-quality:` for the slide pictures of the PPTX and Office exports
+// (lib/core/image-policy.js): `original` keeps every slide a lossless PNG, and an explicit quality
+// replaces calco's default. Set by exportPptx / exportOffice for the length of one export.
+let pictureImages = null;
+
 async function canvasToPictureBlob(canvas, section) {
+	const policy = imagePolicyCore.resolveImagePolicy(pictureImages || {});
+	if (policy.mode === 'original') return canvasToPng(canvas);
 	const { worthTryingJpeg, jpegWins, isContinuousTone, PICTURE_JPEG_QUALITY, PICTURE_TONE_JPEG_BYTES } = await import('@/lib/calco');
 	const encode = (c, type, quality) => new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality));
 	const jpegOf = async () => {
@@ -1633,7 +1642,7 @@ async function canvasToPictureBlob(canvas, section) {
 		ctx.fillStyle = '#fff';
 		ctx.fillRect(0, 0, flat.width, flat.height);
 		ctx.drawImage(canvas, 0, 0);
-		const jpeg = await encode(flat, 'image/jpeg', PICTURE_JPEG_QUALITY);
+		const jpeg = await encode(flat, 'image/jpeg', Number.isFinite(Number.parseInt(String(pictureImages?.quality ?? ''), 10)) ? policy.quality / 100 : PICTURE_JPEG_QUALITY);
 		// A browser that cannot encode JPEG hands back a PNG; that is no saving.
 		return jpeg.type === 'image/jpeg' ? jpeg : null;
 	};
@@ -2044,7 +2053,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 /** The deck's `images:` / `images-quality:` (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
 export function deckImageSetting(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
-	return { mode: frontMatterKeyCore.frontMatterValue(fm, 'images'), quality: frontMatterKeyCore.frontMatterValue(fm, 'images-quality') };
+	return applyImagesOverride({ mode: frontMatterKeyCore.frontMatterValue(fm, 'images'), quality: frontMatterKeyCore.frontMatterValue(fm, 'images-quality') });
 }
 
 async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images) {
@@ -2273,6 +2282,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 
 /** `opts.embedSource`: the `.lattice` bytes to carry, as for `exportPdf`. */
 export async function exportPptx(render, name, onStatus, meta, opts) {
+	pictureImages = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
@@ -2381,6 +2391,7 @@ const OFFICE = {
  * into a text box; `opts.embedSource` (PowerPoint only) carries the `.lattice`.
  */
 export async function exportOffice(format, render, name, onStatus, meta, opts) {
+	pictureImages = opts?.images || null;
 	const kind = OFFICE[format];
 	if (!kind) throw new Error(`Unknown office format: ${format}`);
 	const editable = !!opts?.editable;
