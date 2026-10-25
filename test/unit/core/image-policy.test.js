@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { resolveImagePolicy, readImageInfo, planRecode, acceptRecode, IMAGE_MODES } = require('../../../lib/core/image-policy.js');
+const { parseImagesSetting, resolveImagePolicy, readImageInfo, planRecode, acceptRecode, IMAGE_MODES } = require('../../../lib/core/image-policy.js');
 
 // A minimal PNG header: signature, IHDR (w, h, depth 8, color type), then IEND.
 function png(w, h, colorType, extra = []) {
@@ -35,6 +35,17 @@ test('resolveImagePolicy: optimized by default, original on request, quality cla
   assert.equal(resolveImagePolicy({ quality: '200' }).quality, 100);
   assert.equal(resolveImagePolicy({ quality: 0 }).quality, 1);
   assert.equal(resolveImagePolicy({ quality: 'x' }).quality, 88);
+});
+
+test('the images: line takes a mode and a quality in any order, like the other multi-word registers', () => {
+  assert.deepEqual(parseImagesSetting('optimized 90'), { mode: 'optimized', quality: '90', unknown: [] });
+  assert.deepEqual(parseImagesSetting('90 Original'), { mode: 'original', quality: '90', unknown: [] });
+  assert.deepEqual(parseImagesSetting('original, lossless 0 101'), { mode: 'original', quality: '', unknown: ['lossless', '0', '101'] });
+  const p = resolveImagePolicy('optimized 90');
+  assert.equal(p.mode, 'optimized');
+  assert.equal(p.quality, 90);
+  assert.equal(resolveImagePolicy('original').mode, 'original');
+  assert.equal(resolveImagePolicy(undefined).quality, 88);
 });
 
 test('readImageInfo reads size, format and a PNG alpha hint from the header', () => {

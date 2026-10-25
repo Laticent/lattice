@@ -1960,13 +1960,10 @@ const autoGlossaryEntries = resolveGlossaryMode(preGlossaryMd) === 'auto' ? glos
 // so the exact newlines at the capture's edges do not matter.
 const fmMatch = rawMd.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 const fm      = fmMatch ? fmMatch[1] : '';
-// What the exports do to pictures (lib/core/image-policy.js): the flag wins over the deck's `images:` /
-// `images-quality:`; both hosts read the same two keys, so Studio and CLI make the same choice.
+// What the exports do to pictures (lib/core/image-policy.js): the flag wins over the deck's `images:` line
+// (`original`, `90`, `optimized 90`); both hosts read the same key, so Studio and CLI make the same choice.
 let imageEncoderBrowser = null; // the player's short-lived encoder browser, closed on every path
-const IMAGE_SETTING = {
-  mode: flags.images ?? frontMatterValue(fm, 'images'),
-  quality: flags['images-quality'] ?? frontMatterValue(fm, 'images-quality'),
-};
+const IMAGE_SETTING = flags.images ?? frontMatterValue(fm, 'images');
 require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`

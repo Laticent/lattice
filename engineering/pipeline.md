@@ -401,7 +401,7 @@ The plan is `lib/core/image-policy.js` (pure, no dependencies). `planRecode` say
   per pixel at a size we would not shrink is skipped without an encode. A PNG that has any non-opaque pixel
   stays a PNG (the header gives the hint; the encoder checks the pixels). GIF, WebP, AVIF and SVG are never touched.
 - **Original.** `images: original` in the front matter, or `--images original`, embeds every file as added.
-  `images-quality: N` / `--images-quality N` sets the JPEG quality.
+  A number on the same line sets the JPEG quality: `images: optimized 90`.
 - **Same answer in both hosts.** The encoder is `encodeJpegInPage` (`lib/core/image-recode.mjs`), Chromium's canvas.
   The Studio calls it in the tab; the CLI sends the same source into a page (`lib/export/chrome-recode.js`).
   The PDF applies it in `compose.mjs` (one place, both hosts run it in a page); the player applies it in
@@ -414,7 +414,7 @@ PNG-or-JPEG rule (`lib/export/slide-picture.js`, `canvasToPictureBlob`), and `im
 lossless PNG (the same deck: 13.7 MB optimized, 26.3 MB original). The image-set zip keeps its own
 `--image-format` / `--image-quality` controls; those already are the author's choice.
 
-**Where the author chooses.** Front matter `images:` / `images-quality:`; the CLI flags `--images` / `--images-quality`
+**Where the author chooses.** One front-matter line, `images:` (`original`, `90`, `optimized 90`); the CLI flag `--images` takes the same words
 (the flag wins); and in the Studio, a **Pictures** control in each export panel (PDF, PowerPoint, LibreOffice,
 Webpage), remembered per deck, seeded to "Deck setting" (`PicturesControl.tsx`, `export/images-override.js`).
 

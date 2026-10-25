@@ -1,6 +1,6 @@
 // The author's per-export choice for pictures (lib/core/image-policy.js), set by the export panels
 // and read by `deckImageSetting` in deck-export.js. `deck` (the default) defers to the deck's own
-// `images:` / `images-quality:` front matter; `optimized` or `original` overrides it for this deck's exports.
+// `images:` front matter line; `optimized` or `original` overrides it for this deck's exports.
 // Module state, not a parameter: eight share* helpers sit between the panel and the exporter, and none of
 // them has an opinion about pictures.
 

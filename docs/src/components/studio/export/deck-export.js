@@ -1624,7 +1624,7 @@ function canvasToPng(canvas) {
 	return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
 }
 
-// The author's `images:` / `images-quality:` for the slide pictures of the PPTX and Office exports
+// The author's `images:` line for the slide pictures of the PPTX and Office exports
 // (lib/core/image-policy.js): `original` keeps every slide a lossless PNG, and an explicit quality
 // replaces calco's default. Set by exportPptx / exportOffice for the length of one export.
 let pictureImages = null;
@@ -2050,10 +2050,10 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *     where `sweepWebRefsForCapture` already replaces it;
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
-/** The deck's `images:` / `images-quality:` (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
+/** The deck's `images:` line (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
 export function deckImageSetting(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
-	return applyImagesOverride({ mode: frontMatterKeyCore.frontMatterValue(fm, 'images'), quality: frontMatterKeyCore.frontMatterValue(fm, 'images-quality') });
+	return applyImagesOverride(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images')));
 }
 
 async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images) {
