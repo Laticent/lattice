@@ -1798,6 +1798,8 @@ Node's `import` resolves the ESM build, which is its own way to fool yourself).
   string — the classic mXSS amplifier, and the one place in that file where the bytes reaching the
   live document are not the bytes DOMPurify returned. Pre-existing, untouched by this change, and
   the red team's own "where I would look next".
+  *Fixed 2026-10-25 (#1993): `patchSlideBody` now moves the holder's parsed nodes with
+  `replaceChildren`, so the live frame holds the tree DOMPurify's output parsed to, parsed once.*
 - **`PG.addThemes` overwrites by name unconditionally**, so a Studio theme named after a built-in
   palette replaces it permanently — while both render caches and the patch signature key on that
   name. Pre-existing; reasoned, not reproduced.

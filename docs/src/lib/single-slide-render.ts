@@ -310,7 +310,13 @@ function patchSlideBody(fr: HTMLIFrameElement, safeHtml: string, inPlace: boolea
 		// (`isSpecimenDocument` in lib/runtime/index.js routes it there), so the flag on <html>
 		// answers it without guessing. Any other document is left alone — it has a watcher.
 		(doc.documentElement.hasAttribute('data-lattice-specimen') ? 'off' : null);
-	lattice.innerHTML = (fresh || holder).innerHTML;
+	// MOVE THE PARSED NODES; NEVER SERIALIZE AND PARSE AGAIN. `safeHtml` is the string DOMPurify
+	// returned, and the holder's parse above is the one parse of that string. Writing
+	// `(fresh || holder).innerHTML` back into `lattice.innerHTML` serialized the holder's tree and parsed
+	// the text once more, in a same-origin frame: one more round trip of the parse-serialize-parse kind
+	// that mutation XSS lives in (#1993). `replaceChildren` keeps the tree the holder's parse built, in
+	// one mutation, so the runtime's observer still sees a single swap.
+	lattice.replaceChildren(...(fresh || holder).childNodes);
 	if (level) {
 		for (const s of lattice.children) {
 			if (s.tagName === 'SECTION') s.setAttribute('data-lattice-overflow-marker', level);
