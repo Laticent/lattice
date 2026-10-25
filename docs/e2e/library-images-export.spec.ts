@@ -176,7 +176,8 @@ test('@smoke the PowerPoint export carries the photo, and does not report a miss
 	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
 	expect(toasts, 'the PowerPoint toast').not.toMatch(/could not load every image/i);
 	const zip = await JSZip.loadAsync(readFileSync(path));
-	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.png$/i.test(n));
+	// A slide picture is a PNG or, when the slide is mostly photograph, a JPEG (Firefox's JPEG encoder writes larger files than Chromium's, so the same size rule picks JPEG there). The oracle is the photo's own color, whichever it is.
+	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.(png|jpe?g)$/i.test(n));
 	expect(media.length, `ppt/media holds pictures (found: ${Object.keys(zip.files).filter((n) => n.includes('media')).join(', ') || 'nothing'})`).toBeGreaterThan(0);
 	let best = 0;
 	for (const name of media) best = Math.max(best, await greenShare(page, Buffer.from(await (zip.file(name) as JSZip.JSZipObject).async('uint8array'))));

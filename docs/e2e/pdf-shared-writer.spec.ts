@@ -19,11 +19,13 @@ const DECK = [
 	'<!-- _class: bar -->\n\n## Coverage by region\n\n- EMEA `4.2`\n- Americas `3.1`\n- APAC `2.4`\n',
 ].join('\n\n---\n\n');
 
-async function exportPdf(page: Parameters<typeof gotoStudio>[0]) {
+async function exportPdf(page: Parameters<typeof gotoStudio>[0], opts: { fourK?: boolean } = {}) {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: /^PDF/ }).click();
+	// A 4K deck exports at HD unless the author picks 4K (lib/core/export-canvas.js); this arm is about 4K, so it picks it.
+	if (opts.fourK) await dialog.getByRole('radio', { name: /^4K/ }).check();
 	const download = page.waitForEvent('download', { timeout: 180_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const path = await (await download).path();
@@ -106,7 +108,7 @@ test('Share → PDF at 4K draws the slide edge crisp: the dark hairline and the 
 	await setEditorContent(page, readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'test', 'fixtures', 'pdf-photo-hairline-4k.md'), 'utf8'));
 	await expect(railButtons(page)).toHaveCount(3);
 	const file = join(tmpdir(), `shared-writer-4k-${Date.now()}.pdf`);
-	writeFileSync(file, await exportPdf(page));
+	writeFileSync(file, await exportPdf(page, { fourK: true }));
 	// One pixel row, across the middle half of the page, at the slide's own 96 dpi.
 	const row = (pageNo: number, y: number) => {
 		const base = file.replace(/\.pdf$/, `-p${pageNo}-y${y}`);

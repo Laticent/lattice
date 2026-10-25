@@ -221,7 +221,8 @@ theme: indaco
 				/http-equiv="Content-Security-Policy"/i,
 				'the kept .html sidecar beside a raster export is a live document and carries the policy'
 			);
-			return hits.sort();
+			// Each address once: the page loads it and the slide camera reads it for the picture, and what matters is WHICH were reached.
+			return [...new Set(hits)].sort();
 		} finally {
 			await new Promise((res) => server.close(res));
 		}
