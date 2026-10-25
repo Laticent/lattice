@@ -18,7 +18,10 @@
 // It errs toward rendering MORE: an unknown path under lib/ counts as shared. A deck whose
 // only change is a shared input is NOT rendered here; ~200 decks is a nightly budget, not a
 // per-PR one, and the nightly bless covers them. The cap bounds the per-PR cost; whatever
-// it drops is counted and reported, never silently skipped (HARD RULE #25).
+// it drops is counted and reported, never silently skipped (HARD RULE #25). The cap counts
+// every render, deck or gallery·mood: a PR that edits 130 decks once rendered all 130 with no
+// bound and hit the job's 25-minute timeout. A new deck (a PR's own demo, HARD RULE #9) is
+// spent first so its PDF is always linked; edited decks and galleries then split what is left.
 
 // Paths that cannot change how any golden renders.
 const RENDER_IRRELEVANT = [
@@ -109,16 +112,18 @@ const BUCKET_FILE_RE = /^lib\/components\/([^/]+)\/[^/]+$/;
  *        committed PDF yet: the PDF it should produce, or null when it is not a deck.
  *        Pull requests no longer commit PDFs (goldens step 3), so a new deck has none, and
  *        without this it would never be rendered on its PR.
- * @returns {{ galleries: string[], decks: string[], omitted: string[], scope: 'none'|'targeted'|'shared', reasons: string[] }}
+ * @returns {{ galleries: string[], decks: string[], omitted: string[], omittedDecks: string[], scope: 'none'|'targeted'|'shared', reasons: string[] }}
  *   galleries — `*.gallery.md` to render in both moods (within the cap)
- *   decks     — deck-golden `.pdf` paths to render
+ *   decks     — deck-golden `.pdf` paths to render (within the cap, new decks first)
  *   omitted   — galleries the cap dropped (left to the nightly bless)
+ *   omittedDecks — decks the cap dropped (left to the nightly bless)
  */
 export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT_RENDER_CAP, newDeckPdf = () => null }) {
   const gallerySet = new Set(galleries);
   const deckSet = new Set(deckGoldens);
   const wantGalleries = new Set();
   const decks = new Set();
+  const newDecks = new Set();
   const reasons = [];
   let shared = false;
 
@@ -140,7 +145,7 @@ export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT
     }
     if (f.endsWith('.md')) {
       const pdf = newDeckPdf(f);
-      if (pdf) { decks.add(pdf); continue; }
+      if (pdf) { decks.add(pdf); newDecks.add(pdf); continue; }
     }
     if (f.endsWith('.pdf')) continue; // committed PDFs are golden-diff's other path
     const comp = f.match(COMPONENT_RE);
@@ -174,12 +179,26 @@ export function affectedGoldens(changed, { galleries, deckGoldens, cap = DEFAULT
   const isBucket = (g) => /^lib\/components\/([^/]+)\/\1\.gallery\.md$/.test(g);
   const ordered = [...wantGalleries].sort((a, b) => Number(isBucket(b)) - Number(isBucket(a)) || a.localeCompare(b));
   const perGallery = 2; // light + dark
-  const fit = Math.max(0, Math.floor(cap / perGallery));
+  // New decks first (alphabetical), then the decks the PR edited, then galleries, then any decks
+  // still waiting. An edited deck is something the author changed on purpose; a gallery is a
+  // guess about what a shared file reaches. But 130 edited decks must not starve every gallery,
+  // so edited decks take at most half of what the new decks leave.
+  const isNew = (d) => newDecks.has(d);
+  const deckOrder = [...decks].sort((a, b) => Number(isNew(b)) - Number(isNew(a)) || a.localeCompare(b));
+  const keptNew = deckOrder.filter(isNew).slice(0, Math.max(0, cap));
+  const rest = deckOrder.filter((d) => !isNew(d));
+  const room = Math.max(0, cap - keptNew.length);
+  const firstDecks = rest.slice(0, ordered.length ? Math.ceil(room / 2) : room);
+  const fit = Math.floor((room - firstDecks.length) / perGallery);
+  const keptGalleries = ordered.slice(0, fit);
+  const left = room - firstDecks.length - keptGalleries.length * perGallery;
+  const keptDecks = new Set([...keptNew, ...firstDecks, ...rest.slice(firstDecks.length, firstDecks.length + left)]);
   const scope = shared ? 'shared' : ordered.length || decks.size ? 'targeted' : 'none';
   return {
-    galleries: ordered.slice(0, fit),
-    decks: [...decks].sort(),
+    galleries: keptGalleries,
+    decks: [...keptDecks].sort(),
     omitted: ordered.slice(fit),
+    omittedDecks: deckOrder.filter((d) => !keptDecks.has(d)),
     scope,
     reasons,
   };

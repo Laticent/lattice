@@ -189,6 +189,11 @@ export const PREVIEW_CHROME = {
 	// is derived (`footerWrite - statusH`) so the total stays the one source of truth.
 	// Measured 2026-08-09 at 393x651: navigator 51, status 30.6.
 	statusH: 30.6,
+	// With the slide map on (`lattice-studio-map` = '1') the strip holds the 88px thumbnail row in
+	// place of the pills: 88 + `py-2` (16) + `border-t` (1) = 105. Read has the strip alone; Write and
+	// Craft add the status strip (105 + 30.6).
+	footerReadMap: 105,
+	footerWriteMap: 135.6,
 	// Desktop at the CRAFT stop only: the left activity rail (`w-[52px]`). It sits OUTSIDE the
 	// editor|preview split, so the split divides `vw - railW`, not `vw` — miss it and every band
 	// right of it lands ~29px off while the editor band lands 52px off. That was the shape of the

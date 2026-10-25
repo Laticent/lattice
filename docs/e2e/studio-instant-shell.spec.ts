@@ -79,6 +79,8 @@ type Case = {
 	split?: number;
 	/** Persisted collapsed side — 'a' is the editor, 'b' the preview. */
 	collapsed?: 'a' | 'b';
+	/** The slide map remembered as on (`lattice-studio-map`): the strip holds its 88px thumbnail row. */
+	map?: boolean;
 	/** Resize mid-load, after the shell has painted — a phone rotated during the engine fetch. */
 	rotateTo?: { w: number; h: number };
 	/** Also run on the PER-PR path (`test:e2e:smoke`), not just the nightly. See the note below. */
@@ -126,6 +128,13 @@ const CASES: Case[] = [
 	{ w: 820, h: 1180, stop: 'write', split: 40, why: 'tablet, pane below the lens-label threshold' },
 	{ w: 1440, h: 900, stop: 'write', collapsed: 'a', why: 'editor collapsed to its 46px rail' },
 	{ w: 390, h: 844, stop: 'write', rotateTo: { w: 844, h: 390 }, why: 'rotated while the engine was still loading' },
+	// The slide map is REMEMBERED, and with it on the strip is 88px of thumbnails instead of the
+	// pills, so the footer band is taller and the slide box shorter. The shell read nothing of it
+	// and the slide jumped on load. One case per tier, plus Read where the strip stands alone.
+	{ w: 1440, h: 900, stop: 'write', map: true, why: 'desktop with the slide map on' },
+	{ w: 820, h: 1180, stop: 'write', map: true, why: 'tablet with the slide map on' },
+	{ w: 390, h: 844, stop: 'write', map: true, why: 'phone with the slide map on' },
+	{ w: 1440, h: 900, stop: 'read', map: true, why: 'desktop at Read with the slide map on' },
 ];
 
 // A viewport change mid-load is TWO steps in Chromium: `innerWidth` and every media query
@@ -251,8 +260,9 @@ for (const c of CASES) {
 	const title = `${c.smoke ? '@smoke ' : ''}the instant shell frames the app — ${c.w}x${c.h} @ ${c.stop} (${c.why})`;
 	test(title, async ({ page }) => {
 		await page.addInitScript(
-			([stop, split, collapsed]) => {
+			([stop, split, collapsed, map]) => {
 				try {
+					if (map) localStorage.setItem('lattice-studio-map', '1');
 					const k = 'lattice-studio-settings';
 					localStorage.setItem(k, JSON.stringify({ ...JSON.parse(localStorage.getItem(k) || '{}'), posture: stop }));
 					if (split) localStorage.setItem('lattice-docs-split-studio', split);
@@ -261,7 +271,7 @@ for (const c of CASES) {
 					/* storage blocked — both surfaces fall back to the same defaults */
 				}
 			},
-			[c.stop, c.split ? splitLayout(c.split) : '', c.collapsed ?? ''] as const,
+			[c.stop, c.split ? splitLayout(c.split) : '', c.collapsed ?? '', !!c.map] as const,
 		);
 		await page.setViewportSize({ width: c.w, height: c.h });
 		await page.route(ENGINE_GLOB, async (route) => {
@@ -300,6 +310,9 @@ for (const c of CASES) {
 		await page.locator('[aria-label="Live deck preview"] iframe.live').waitFor({ state: 'visible', timeout: 45_000 });
 		await expect(page.locator('#studio-ssr-shell')).toHaveCount(0);
 		await page.evaluate(() => document.fonts.ready);
+		// The app shows the pills until the map's chunk has mounted, then swaps in the thumbnails.
+		// Measure the settled state: the one the shell has to hand off to.
+		if (c.map) await page.waitForFunction(() => !!document.querySelector('[aria-label="Live deck preview"]')?.closest('section')?.querySelector('div.h-\\[88px\\]:not([hidden])'));
 
 		const app = await page.evaluate(READ_APP, shell.titleText);
 

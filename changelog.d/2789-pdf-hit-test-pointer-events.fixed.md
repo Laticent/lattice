@@ -1,0 +1,1 @@
+- PDF export: an image or SVG that sets `pointer-events: none` is now seen by the writer's cover check, so it is placed as an original image or vector instead of staying in the photo. Sketch-finish decks change most (`sketch-ledger` draws 28 shapes as vectors, up from 12); the rendered pages match Chrome's own print more closely.

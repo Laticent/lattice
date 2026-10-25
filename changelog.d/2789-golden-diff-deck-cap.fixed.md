@@ -1,0 +1,1 @@
+- `golden-diff` now counts changed decks against the per-PR render cap (40), new decks first, so a PR that edits ~130 decks finishes instead of timing out; decks past the cap are listed as left to the nightly bless.
