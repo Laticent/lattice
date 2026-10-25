@@ -491,7 +491,7 @@ Features, docs, process and refactors. P0-P2 only here; the rest are P3 in the t
 
 ## 4. What was applied (2026-10-25)
 
-The owner approved closing the confident set. A label change leaves no diff, and neither does a close, so this list is the audit trail. Reopen any one if its evidence row proves wrong. Per-card evidence is in `2026-10-25-issue-queue-triage/cards.tsv`.
+The owner approved closing the confident set. A label change leaves no diff, and neither does a close, so this list is the audit trail. Reopen any one if its evidence row proves wrong. Per-card evidence is in `2026-10-25-issue-queue-triage/cards.json`.
 
 - **Closed 52 issues** (open count 333 → 281, verified against the API):
   - #596 — completed
