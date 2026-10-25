@@ -13,7 +13,7 @@ export type PlayerCaps = {
 	inlineAssets: (html: string) => { html: string; count: number; missing: string[] };
 	katexCss?: () => string | null;
 	subsetFonts?: (html: string) => Promise<{ html: string; applied: boolean; saved: number }>;
-	encodeImage?: (bytes: Uint8Array, mime: string, plan: object) => Promise<Uint8Array | null>;
+	encodeImage?: (bytes: Uint8Array, mime: string, plan: { width: number; height: number; quality: number; checkAlpha: boolean }) => Promise<Uint8Array | null>;
 };
 
 /**
