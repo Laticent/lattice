@@ -25,7 +25,7 @@ summary: >
 
 ## 1. Close these (94)
 
-**Issues (55).** Ask-to-close list; none has been closed.
+**Issues (55).** Closed on 2026-10-25 except the three held back (see section 4).
 
 | issue | verdict | evidence |
 |---|---|---|
@@ -488,3 +488,65 @@ Features, docs, process and refactors. P0-P2 only here; the rest are P3 in the t
 - #2644 (P3) — Build our own signaling, or wait for or patch a Trystero hook, for stereo High fidelity?
 - `2547-p2-live-sessions-outlive-host` (P3) — Peer-held persistence (last member keeps the room) or the server-backed step?
 - `2822-p1-fuoco-owns-preview-state` (P3) — Pick design A then C from the 2026-10-23 Fuoco note?
+
+## 4. What was applied (2026-10-25)
+
+The owner approved closing the confident set. A label change leaves no diff, and neither does a close, so this list is the audit trail. Reopen any one if its evidence row proves wrong. Per-card evidence is in `2026-10-25-issue-queue-triage/cards.tsv`.
+
+- **Closed 52 issues** (open count 333 → 281, verified against the API):
+  - #596 — completed
+  - #668 — not_planned
+  - #1507 — not_planned
+  - #1586 — not_planned (target is a follow-up file)
+  - #1848 — completed
+  - #1860 — completed
+  - #1936 — duplicate
+  - #1949 — not_planned
+  - #2181 — completed
+  - #2231 — duplicate
+  - #2266 — completed
+  - #2288 — completed
+  - #2349 — completed
+  - #2401 — completed
+  - #287 — completed
+  - #1406 — completed
+  - #1558 — duplicate
+  - #1602 — completed
+  - #1683 — completed
+  - #2475 — completed
+  - #2511 — completed
+  - #2731 — completed
+  - #2741 — not_planned
+  - #500 — completed
+  - #1407 — completed
+  - #1549 — completed
+  - #280 — not_planned
+  - #1945 — completed
+  - #1966 — completed
+  - #290 — not_planned
+  - #1437 — not_planned (target is a follow-up file)
+  - #1874 — completed
+  - #1912 — completed
+  - #1924 — not_planned
+  - #2099 — completed
+  - #1410 — completed
+  - #1460 — not_planned
+  - #1536 — duplicate
+  - #1562 — duplicate
+  - #581 — not_planned
+  - #1429 — completed
+  - #1605 — completed
+  - #1867 — completed
+  - #1911 — completed
+  - #297 — not_planned
+  - #414 — not_planned
+  - #1517 — completed
+  - #1539 — not_planned
+  - #1876 — completed
+  - #2275 — completed
+  - #2296 — completed
+  - #2426 — completed
+- **Held back:** #2004, #2098, #2310.
+- **Deleted 39 follow-up files** from `followups.d/`: those marked CLOSE in section 1.
+- #1437 also got a warning comment, because its steps put a raw npm token in `.npmrc`.
+- No labels, milestones or board columns were changed.
