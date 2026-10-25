@@ -97,6 +97,10 @@ jobs:
           name: preview-e2e-${{ github.run_id }}
           path: .preview-e2e-out/**
           if-no-files-found: warn
+          # The folder is a dot-folder, and upload-artifact@v4 skips hidden files by default:
+          # every run logged "No files were found" and uploaded nothing, so #1530's comments
+          # pointed at screenshots that never existed. It holds only this probe's output.
+          include-hidden-files: true
           retention-days: 14
 
       # Publish the failure screenshots to a dedicated artifacts branch so they
