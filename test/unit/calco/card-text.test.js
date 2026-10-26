@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
-const { flowLines, paragraphGap, placeFrame, mergeCardText, writeOdp, writePptx } = require('@laticent/calco');
+const { flowLines, labelInsets, paragraphGap, placeFrame, mergeCardText, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, style, frame } = require('./_fixtures');
 const { checkPptxSchema, checkOdp } = require('../../conformance/office/office-conformance');
 
@@ -15,12 +15,16 @@ const run = (text) => ({ text, style: style() });
 const metrics = { ascent: 1, descent: 0.26, lineGap: 0 };
 
 describe('calco flow frames', () => {
-  test('flowLines joins soft wraps with the space the browser dropped, and drops a later line\'s start spacer', () => {
-    const spacer = { text: ' ', style: style({ size: 2, letterSpacing: 9 }) };
-    const f = frame([[run('Three tiers —')], [spacer, run('quiet by')], [run('default')]], { flow: true });
+  test('flowLines joins soft wraps with the space the browser dropped, drawn without the run\'s underline or highlight', () => {
+    const chip = style({ underline: true, strike: true, highlight: '#ffee00' });
+    const f = frame([[run('Three tiers —'), { text: 'quiet', style: chip }], [run('by')], [run('default')]], { flow: true });
     const [one] = flowLines(f);
     assert.equal(flowLines(f).length, 1);
-    assert.equal(one.map((r) => r.text).join(''), 'Three tiers — quiet by default');
+    assert.equal(one.map((r) => r.text).join(''), 'Three tiers —quiet by default');
+    const space = one.find((r) => r.text === ' ' && r.style.underline === false);
+    assert.ok(space, 'the join space after the chip carries no underline');
+    assert.equal(space.style.highlight, undefined);
+    assert.equal(space.style.strike, false);
   });
 
   test('a frame that is not flow keeps its lines', () => {
@@ -76,6 +80,45 @@ describe('calco mergeCardText', () => {
     const narrow = { ...body, w: 500 };
     const wide = { ...body, y: 340, w: 600 };
     assert.equal(mergeCardText(deck([title, narrow, wide])).frames.length, 3);
+  });
+
+  test('a <br> heading (several lines, not flow) keeps its own box instead of joining into one line', () => {
+    const br = frame([[run('First line')], [run('Second line')]], { x: 100, y: 200, w: 600, h: 80, group: 0 });
+    const out = mergeCardText(deck([br, { ...body, y: 300 }]));
+    assert.equal(out.frames.length, 2);
+    assert.equal(out.frames[0].next, undefined);
+  });
+
+  test('a one-line heading wider than the body\'s column is not squeezed into it', () => {
+    const narrowBody = { ...body, w: 300, y: 260 };
+    const wideHead = { ...title, w: 560 };
+    const out = mergeCardText(deck([wideHead, narrowBody]));
+    assert.equal(out.frames.length, 2, 'the heading stays its own box');
+  });
+
+  test('a shadow with no opaque fill stays unmerged, an opaque one merges', () => {
+    const shadow = { x: 0, y: 4, blur: 8, color: '#000000', alpha: 0.3 };
+    const stroked = { ...card, fill: undefined, stroke: { color: '#999999', alpha: 1, width: 1 }, shadow };
+    assert.equal(mergeCardText({ image: ONE_PX_PNG, shapes: [stroked], frames: [title, body] }).frames.length, 2);
+    const translucent = { ...card, fill: { color: '#eeeeee', alpha: 0.5 }, shadow };
+    assert.equal(mergeCardText({ image: ONE_PX_PNG, shapes: [translucent], frames: [title, body] }).frames.length, 2);
+    const opaque = { ...card, shadow };
+    assert.equal(mergeCardText({ image: ONE_PX_PNG, shapes: [opaque], frames: [title, body] }).frames.length, 1);
+  });
+
+  test('an unmerged frame between the paragraphs, or a later shape over one, leaves the card alone', () => {
+    const list = frame([[run('indented item')]], { x: 140, y: 230, w: 300, h: 20, group: 0 });
+    assert.equal(mergeCardText(deck([title, list, body])).frames.length, 3);
+    const above = { kind: 'box', x: 100, y: 255, w: 200, h: 30, fill: { color: '#ffffff', alpha: 1 }, group: 0 };
+    assert.equal(mergeCardText({ image: ONE_PX_PNG, shapes: [card, above], frames: [title, body] }).frames.length, 2);
+  });
+});
+
+describe('calco wrapping label insets', () => {
+  test('a wrapping label whose column runs a hair past the card keeps a zero far inset, not a refusal', () => {
+    const geom = { x: 80, y: 180, w: 640, h: 200 };
+    const placed = { x: 100, y: 200, w: 621, h: 40 };
+    assert.deepEqual(labelInsets(geom, placed, 'left', true), { l: 20, t: 20, r: 0 });
   });
 });
 

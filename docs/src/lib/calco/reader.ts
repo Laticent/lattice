@@ -845,7 +845,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// FLOW: ordinary prose that wrapped is one paragraph in the office file, wrapped by the
 		// suite at the column. Code, `<br>` lines and blank lines keep their breaks.
 		const wrapStyle = bcs.getPropertyValue('text-wrap-style') || bcs.getPropertyValue('text-wrap') || '';
-		const flow = lines.length > 1 && !preformatted && bcs.whiteSpace === 'normal' && !block.querySelector('br') && lines.every((l) => l.length > 0);
+		// A line that starts to the right of the column (a hanging indent, room left for an inline picture or
+		// pill that wrapped there) cannot be re-wrapped by the suite, and an inline child that forbids
+		// wrapping (`nowrap`, `pre`) breaks where the suite would not: both stay pinned.
+		const startsInColumn = lines.slice(1).every((l) => !l.length || l[0].x - x <= Math.max(2, 0.15 * l[0].style.size));
+		const inlineWraps = Array.from(block.querySelectorAll('*')).every((el) => /^(normal|break-spaces)$/.test(win.getComputedStyle(el).whiteSpace));
+		const flow = lines.length > 1 && !preformatted && bcs.whiteSpace === 'normal' && !block.querySelector('br') && lines.every((l) => l.length > 0) && startsInColumn && inlineWraps;
 		if (flow) {
 			// A greedy wrap at the widest line reproduces every break of a balanced or centered
 			// paragraph; the full column does so only for plain left-aligned text.

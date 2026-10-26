@@ -151,7 +151,7 @@ export function labelInsets(geom: ShapeGeometry, placed: PlacedBox, align: TextF
 	else {
 		l = placed.x - geom.x;
 		// A wrapping label ends where its column ends.
-		if (flow) r = geom.x + geom.w - (placed.x + placed.w);
+		if (flow) r = Math.max(0, geom.x + geom.w - (placed.x + placed.w));
 	}
 	if (t < -0.5 || l < -0.5 || r < -0.5) return null;
 	return { l: Math.max(0, l), t: Math.max(0, t), r: Math.max(0, r) };

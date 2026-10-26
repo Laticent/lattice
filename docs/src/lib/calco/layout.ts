@@ -92,27 +92,26 @@ export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetric
 				: slideW - frame.x - frame.w;
 	// A flow frame wraps at `w`, so its slack is a hair for the suite's own measure, not room
 	// for an overhang: a word the browser wrapped must still not fit.
-	const wanted = frame.flow ? Math.max(1.5, 0.01 * frame.w) : Math.max(0.1 * frame.w, 3 * maxSize);
+	const wanted = frame.flow ? Math.max(1, 0.004 * frame.w) : Math.max(0.1 * frame.w, 3 * maxSize);
 	const slack = Math.max(0, Math.min(wanted, room));
 	const x = frame.align === 'center' ? frame.x - slack / 2 : frame.align === 'right' ? frame.x - slack : frame.x;
-	return { x, y, w: frame.w + slack, h: frame.lineHeight * frame.lines.length };
+	return { x, y, w: frame.w + slack, h: frame.next ? frame.h : frame.lineHeight * frame.lines.length };
 }
 
 /**
- * A flow frame's lines as one paragraph: the browser's soft wraps become a space (the one the
- * browser dropped at each wrap) and the spacer that held a later line at its start is
- * dropped. Other frames keep their lines.
+ * A flow frame's lines as one paragraph: each soft wrap becomes the space the browser dropped
+ * there, drawn without the run's underline, strike or highlight (a chip that ends a line must
+ * not reach across it). The reader marks a frame `flow` only when no later line starts off the
+ * column, so no line-start spacer needs dropping. Other frames keep their lines.
  */
 export function flowLines(frame: TextFrame): TextRun[][] {
 	if (!frame.flow) return frame.lines;
-	const isSpacer = (r: TextRun) => r.style.size === 2 && r.text === '\u00A0';
 	const out: TextRun[] = [];
 	frame.lines.forEach((line, li) => {
-		const runs = li ? line.filter((r, i) => !(i === 0 && isSpacer(r))) : line;
 		const prev = out[out.length - 1];
-		const next = runs[0];
-		if (li && prev && next && !/\s$/.test(prev.text) && !/^\s/.test(next.text)) out.push({ text: ' ', style: prev.style });
-		out.push(...runs);
+		const next = line[0];
+		if (li && prev && next && !/\s$/.test(prev.text) && !/^\s/.test(next.text)) out.push({ text: ' ', style: { ...prev.style, underline: false, strike: false, highlight: undefined } });
+		out.push(...line);
 	});
 	return [out];
 }

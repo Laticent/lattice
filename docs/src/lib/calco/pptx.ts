@@ -749,8 +749,9 @@ export function applyRoles(xml: string): string {
  * Mend what PptxGenJS 3.12 writes against the OOXML schema (see the header): one `<a:pPr>`
  * per paragraph in every slide and notes slide, `p:notesMasterIdLst` straight after
  * `p:sldMasterIdLst`, and no content-type override for a part the package does not hold.
- * The repeated `<a:pPr>` are identical (paragraph options are the box's), so nothing renders
- * differently; a strict reader no longer has an invalid part to repair. It also wraps each
+ * The repeated `<a:pPr>` of a paragraph carry the same options, except that a card's later paragraphs set
+ * their own line spacing and space-before on their first run, which is the one kept; a strict reader no
+ * longer has an invalid part to repair. It also wraps each
  * card's tagged members in a `p:grpSp` (`groupShapes`), which PptxGenJS cannot write.
  */
 async function tidyPptx(zip: ZipLike): Promise<void> {

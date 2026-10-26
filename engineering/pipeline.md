@@ -244,14 +244,18 @@ pinner. Two modes:
   Charts, diagrams, equations, `::before`/`::after` text, rotated text and
   ellipsized lines stay in the picture.
   **Wrapping and padding (since 2026-10-26).** Ordinary prose that wrapped in the browser is one
-  paragraph in the file (`TextFrame.flow`), in a box as wide as the browser's column plus 1% for
-  the suite's own measure, with wrapping on. A balanced or centered paragraph gets a box as wide as
+  paragraph in the file (`TextFrame.flow`), in a box as wide as the browser's column plus a hair (0.4%, at least 1px)
+  for the suite's own measure, with wrapping on; a wrapped title is one title paragraph, and it is still the title
+  placeholder. A balanced or centered paragraph gets a box as wide as
   its widest line, which a greedy wrap breaks at the same places. A card's heading and body that
   share its left edge become ONE text body inside the card's own shape (`mergeCardText`,
   `docs/src/lib/calco/cardtext.ts`): the card's padding is the shape's insets, the gap between
-  paragraphs is space-before, and the suite wraps the text inside the card. Code, `<br>` lines,
-  roles (title placeholder, header, footer, number), indented lists and a pill on the title row keep
-  their pinned, no-wrap boxes. **The card keeps the browser's height**: a reader whose face runs
+  paragraphs is space-before, and the suite wraps the text inside the card. **Stays pinned, no wrap:**
+  code, `<br>` lines and blank lines; a paragraph with a line that starts off the column (a hanging indent, room
+  left for an inline picture or pill) or an inline child that forbids wrapping (`nowrap`, `pre`); the header, footer
+  and page number; indented lists, a pill on the title row, and any card with text or a shape between or over its
+  paragraphs, a shadow its fill does not stop, or a one-line heading wider than its body's column.
+  **The card keeps the browser's height**: a reader whose face runs
   wider wraps to more lines and the text can run past the card's bottom edge, because an office
   file cannot push the next row down. Measured in LibreOffice only; PowerPoint and Google Slides
   are UNVERIFIED.
