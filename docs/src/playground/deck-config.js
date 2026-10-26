@@ -362,12 +362,14 @@ function quoteIfNeeded(value) {
   //   - a `\` or `"` and no `'`: single quotes, which neither the engine nor YAML reads escapes in;
   //   - a `'` too, but no `"` and no trailing `\`: double quotes, raw, which the engine reads back
   //     whole (a `\` only skips the character after it while it looks for the closing quote).
-  // The old code escaped `"` and left a trailing `\` to swallow the closing quote. What is left,
-  // a value holding both quote marks, has no form both readers take; it keeps the old escape.
+  // What is left (a `'` together with a `"` or a trailing `\`) has no form both readers take
+  // unchanged, so it is escaped the YAML way, `\` and `"` both: the closing quote stays a quote,
+  // and the engine shows the escapes raw. The old code escaped only `"`, so a trailing `\` still
+  // swallowed the closing quote and ran the string into the next key.
   if (!/[\\"]/.test(v)) return `"${v}"`;
   if (!v.includes("'")) return `'${v}'`;
   if (!v.includes('"') && !v.endsWith('\\')) return `"${v}"`;
-  return `"${v.replace(/"/g, '\\"')}"`;
+  return `"${v.replace(/[\\"]/g, '\\$&')}"`;
 }
 
 // Set (or clear) ONE managed field and return the rewritten source. Re-reads the

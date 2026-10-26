@@ -90,3 +90,8 @@ hardened are gone, and nothing else moved, except one new alert:
   and hide a real note from `--strip-notes`, which is the leak direction. Dismiss with that reason.
 
 The remaining 36 are the 9 false positives in §2 and the 27 test, fixture and script alerts in §3.
+
+GitHub's own CodeQL run on the PR flagged one more, which the local run above predates: the
+last branch of `quoteIfNeeded` (a value holding `'` together with `"` or a trailing `\`)
+escaped `"` but not `\`, so `it's C:\` still swallowed its closing quote. It now escapes
+both; a regression arm in `deck-config.quote.test.ts` fails without it.

@@ -22,6 +22,15 @@ describe('front-matter quoting round-trips a value through both readers', () => 
 		for (let i = 0; i < 3; i++) src = writeFrontMatter(src, 'paginate', i % 2 ? 'true' : 'false');
 		expect(readFrontMatter(src).header).toBe("Q3's C:\\drive: plan");
 	});
+	// CodeQL on PR 2910: the last branch escaped `"` but not `\`, so `it's C:\` still ended in `\"`.
+	it('a value with an apostrophe and a trailing backslash cannot swallow the next key', () => {
+		for (const v of ["it's C:\\", 'it\'s "q": x\\']) {
+			const src = writeFrontMatter(writeFrontMatter(SRC, 'header', v), 'footer', 'next: key');
+			expect(readFrontMatter(src).footer).toBe('next: key');
+			const line = /^header: (.*)$/m.exec(src)?.[1] ?? '';
+			expect(line.endsWith('"') && !line.endsWith('\\"') || line.endsWith('\\\\"')).toBe(true);
+		}
+	});
 	it('an ordinary value is written exactly as before', () => {
 		expect(written('Q3: review')).toBe('"Q3: review"');
 	});
