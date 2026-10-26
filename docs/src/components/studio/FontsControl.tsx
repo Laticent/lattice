@@ -64,8 +64,8 @@ export function FontsControl({ deckId, source, busy, format = 'webpage' }: { dec
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Fonts</span>
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{BLURB[format]} Same words as the deck’s `fonts:` line.</span>
 					<ChoiceSelect label="Text fonts" value={choice.text} choices={named(format === 'pdf' ? TEXT.map((c) => (c.value === 'system' ? PDF_SYSTEM : c)) : TEXT, auto.text as Tier)} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
-					{/* Only a web page carries the emoji font as text: in a PDF or an Office file emoji are in the picture either way. */}
-					{format === 'webpage' && <ChoiceSelect label="Emoji font" value={choice.emoji} choices={named(EMOJI, auto.emoji as Tier)} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />}
+					<ChoiceSelect label="Emoji font" value={choice.emoji} choices={named(EMOJI, auto.emoji as Tier)} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />
+					{format !== 'webpage' && <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">In a {format === 'pdf' ? 'PDF' : 'PowerPoint or LibreOffice file'} the emoji are part of the slide picture, so this choice does not change the file. It applies to web pages and the player.</span>}
 				</span>
 			</span>
 		</div>

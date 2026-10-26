@@ -5,4 +5,3 @@
 - The published `lattice` command now cuts the emoji font too (the color wasm is found through the package's `lib/`), and so do `--read` and `--fluid` pages; a character written as an entity (`&#x1F389;`) keeps its glyph, and an emoji in the `title:` gets its slice. The Studio's slide camera no longer inlines every emoji slice into every slide.
 - The Studio's Pictures, Resolution and Fonts choices in the Share panel share one dropdown: each row has a title and a one-line explanation, the closed control stays one row tall, and the follow-the-deck row reads `Auto — <what it lands on>` like the other pickers.
 - The plain `.html`, `--read` and `--fluid` exports now cut the KaTeX math faces to the glyphs the page uses, as the player already did. Text drawn only at view time falls back to another font.
-- In the Studio's PDF and Office panels the Fonts choice offers only the text faces; the emoji choice appears for web pages, where the file carries the emoji font as text.
