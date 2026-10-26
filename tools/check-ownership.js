@@ -11858,7 +11858,7 @@ const NUL_TEXT_EXTENSIONS = [
 // the one thing that mattered, a MISSING extension.
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
-  '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
 ];
 
 /**

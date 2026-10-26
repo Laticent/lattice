@@ -415,6 +415,7 @@
     "prettier": "3.9.10",
     "prettier-plugin-java": "2.11.0",
     "sql-formatter": "15.9.0",
+    "fontverter": "^2.0.0",
     "subset-font": "^2.5.0"
   }
 }

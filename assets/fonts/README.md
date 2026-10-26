@@ -48,6 +48,8 @@ An export does the same by hand: `slicesFor(text)` names the slices a deck needs
 those are inlined, so a deck with no emoji carries none and a deck with a rocket and a check
 mark carries about 0.1 to 0.3 MB. To refresh, re-download the slices from the Google Fonts
 CSS API with a current Chrome user agent and regenerate the rows in `lib/fonts/emoji-faces.js`.
+The player then cuts each slice to the deck's own emoji (`fonts: exact-emoji`, the default), about 2 KB per emoji, with the
+color build of the subsetter in `lib/fonts/hb/`.
 The OFL license that covers the other faces covers this one.
 
 See `engineering/decisions/2026-06-26-local-font-library.md` for the full design,

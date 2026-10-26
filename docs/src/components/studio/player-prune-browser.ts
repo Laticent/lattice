@@ -13,7 +13,7 @@
 //
 // The bundle (css-tree, `subset-font`, the woff2 codec) is heavy, so this module loads on
 // demand, only when the author exports a webpage, never on the initial Studio load.
-import { prunePlayerHtml, setSubsetWasm, subsetEmbeddedFonts } from '@/playground/player-prune.generated.js';
+import { prunePlayerHtml, setColorWasm, setSubsetWasm, subsetEmbeddedFonts } from '@/playground/player-prune.generated.js';
 
 export type PruneResult = {
 	html: string;
@@ -82,6 +82,10 @@ export async function subsetFontsInBrowser(html: string, fonts?: { text: string;
 			const res = await fetch(url);
 			if (!res.ok) throw new Error(`hb-subset.wasm: HTTP ${res.status}`);
 			setSubsetWasm(new Uint8Array(await res.arrayBuffer()));
+			// The color build, for the emoji font only (lib/fonts/hb/README.md); the browser caches the one fetch.
+			const { default: colorUrl } = await import('../../../../lib/fonts/hb/hb-subset-color.wasm?url');
+			const colorRes = await fetch(colorUrl);
+			if (colorRes.ok) setColorWasm(new Uint8Array(await colorRes.arrayBuffer()));
 		})();
 		await wasmReady;
 	} catch {

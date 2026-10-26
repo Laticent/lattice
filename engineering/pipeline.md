@@ -485,12 +485,15 @@ hack worked around html-to-image's border-image bug.
   in an `.odp`). A face is left out when the host has no file for the family (a system font such as Arial) or its OS/2 `fsType`
   forbids embedding; since 2026-10-26 that is REPORTED (stderr in the CLI, the "ready" message in the Studio), not silent. Every
   font file Lattice ships has an installable `fsType`.
-- **Emoji are self-hosted and embedded as slices.** Noto Color Emoji ships as 11 unicode-range woff2 slices
+- **Emoji are self-hosted and embedded as a font.** Noto Color Emoji ships as 11 unicode-range woff2 slices
   (`lib/fonts/emoji-faces.js`, `assets/fonts/noto-color-emoji-*.woff2`, about 2 MB together) and leads every emoji fallback, so a
-  deck draws the same emoji on every machine. An export inlines only the slices its text needs (`slicesFor` in the CLI's
-  `emojiFaceCss`, the Studio's `buildFontEmbedCss(text)`): none for a deck with no emoji, about 0.1 to 0.3 MB for a handful. The
-  font is COLR v1, which PDF and PPTX cannot use, so in a PDF a text run that holds an emoji stays in the photo (not real text)
-  and in an editable PPTX/ODP the emoji is part of the slide picture. The HTML player keeps real emoji text. HARD RULE #29 and
+  deck draws the same emoji on every machine. The `fonts:` line (`lib/core/font-policy.js`) says how much a file carries:
+  `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
+  `full-emoji` all 11, `system-emoji` none. The cut runs through a COLOR build of HarfBuzz's subsetter
+  (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
+  drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use, so in a PDF a
+  text run that holds an emoji stays in the photo (not real text) and an emoji typed into PowerPoint later uses that machine's own
+  emoji font. The HTML player keeps real emoji text. HARD RULE #29 and
   `lint:deck` steer authors to drawn shapes for the glyphs that
   do a drawing's job (a check mark, an arrow).
 
