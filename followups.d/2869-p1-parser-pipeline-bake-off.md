@@ -16,10 +16,10 @@ why now   — #2869's decision note picks a four-stage parsing pipeline on one S
             Segno-generated arm at 1.17x (0.99-1.30x), and the line pass at 665 vs 361 MB/s.
             The sandbox moves a lot: the markdown-it baseline alone spans 19% across the five.
             Still missing: the same five runs on a second machine.
-where     — the scripts in the evidence folder beside this file; the engine change is in
+where     — `npm run parser:bakeoff:deck -- --arms --runs 5` (the scripts moved to
+            tools/parser-bakeoff/deck/ with a capabilities row in P0); the engine change is in
             docs/src/lib/segno/ (code generation for terminator runs).
 done when — the numbers are re-run with variance (at least 5 runs per arm, median and spread)
-            on a second machine (the first is done), the decision note is updated with them, and the scripts move to
-            tools/parser-bakeoff/ with a capabilities row (HARD RULE #15) or are deleted.
+            on a second machine (the first is done), and the decision note is updated with them.
 evidence  — the re-run table, and the commit each number ran against.
 verify    — tier 0: a measurement, with nothing shipped.

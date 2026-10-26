@@ -5,9 +5,9 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { languageGrammars } from '../../tools/parser-bakeoff/languages-grammars.mjs';
+import { languageGrammars } from '../languages-grammars.mjs';
 
-const ROOT = fileURLToPath(new URL('../../', import.meta.url)); // the repo root: this folder is followups.d/<item>/
+const ROOT = fileURLToPath(new URL('../../../', import.meta.url)); // the repo root
 const require = createRequire(path.join(ROOT, 'package.json'));
 const esbuild = require('esbuild');
 const LIB = path.join(ROOT, 'docs/src/lib/segno');

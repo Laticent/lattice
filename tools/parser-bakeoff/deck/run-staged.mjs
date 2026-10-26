@@ -3,7 +3,7 @@ import { files, MB } from './corpus.mjs';
 import { md2 } from './lines-arm.mjs';
 import { mdWithStage, stageHand, stageSegno } from './staged.mjs';
 
-const require = createRequire(new URL('../../package.json', import.meta.url));
+const require = createRequire(new URL('../../../package.json', import.meta.url));
 const MarkdownIt = require('markdown-it');
 const base = new MarkdownIt('commonmark', { html: true, breaks: true }).enable(['table', 'strikethrough']);
 base.core.ruler.disable(['inline', 'text_join']);

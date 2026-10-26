@@ -1,7 +1,7 @@
 // markdown-it's BLOCK structure for a document, as a list of strings: the oracle every arm must match.
 import { createRequire } from 'node:module';
 
-const require = createRequire(new URL('../../package.json', import.meta.url));
+const require = createRequire(new URL('../../../package.json', import.meta.url));
 const MarkdownIt = require('markdown-it');
 export const md = new MarkdownIt('commonmark', { html: true, breaks: true }).enable(['table', 'strikethrough']);
 md.core.ruler.disable(['inline', 'text_join']);

@@ -36,14 +36,14 @@ and `strikethrough` enabled, `parse(src, {})`, against `createEngine().render(sr
 wrapping `MarkdownIt.prototype.parse`, and normalizations by wrapping `String.prototype.replace`
 for the regex source `\r\n?`; profile lint with `node --cpu-prof` over 30 runs. The decks are
 `test/integration/baseline-decks/gallery.md` (59 KB), `examples/data-viz-gallery.md` (12 KB)
-and `examples/card-tags.md` (3 KB). P0 commits this as `parser:bakeoff:deck`.
+and `examples/card-tags.md` (3 KB). P0 committed this as `npm run parser:bakeoff:deck` (§ What P0 measured).
 
 | Question | Answer |
 |---|---|
 | How much of a render is markdown-it's parse? | **2-7%.** The 59 KB gallery: 3.6 ms parse of a 96.7 ms render. A 12 KB deck: 1.0 of 47.8 ms. A 3 KB deck: 0.2 of 2.1 ms. |
 | How long does one lint pass take, and how often does it call markdown-it's `parse`? | 72.9 / 37.6 / 19.2 ms for the same three decks, and **zero** `parse` calls: `lib/authoring/lint-core.js` reads the deck with its own line and regex scanners. |
 | Where does lint's time go? | Spread over repeated structure work, not one hot spot. `splitSlideChunks` (lib/core/slide-boundaries.mjs) 9.7% of self time, a `\r\n?` normalization regex 7.1%, then dozens of rule bodies. On the 124-slide gallery one lint applies that normalization **1,261 times**, about ten per slide, because each helper normalizes its own copy. |
-| How many modules read deck structure themselves? | Dozens, and the number depends on the pattern: greps for slide splits, fences, front matter and `_class` under `lib/` match 175-210 files, many of them only touching the text. 8 files besides the engine build their own markdown-it (12 construction sites in 9 files under `lib/`). P0's census replaces the greps with an exact count of the readers that matter. |
+| How many modules read deck structure themselves? | Dozens, and the number depends on the pattern: greps for slide splits, fences, front matter and `_class` under `lib/` match 175-210 files, many of them only touching the text. 8 files besides the engine build their own markdown-it (12 construction sites in 9 files under `lib/`). § What P0 measured replaces the greps with a count from the syntax tree. |
 | Has that cost correctness? | Repeatedly. The headers of `slide-split.js`, `slide-boundaries.mjs`, `section-source-split.js` and `boundary-parser.mjs` each record a bug where one reader disagreed with the engine about where a slide starts (`***`, setext underlines, `---` in fences, empty sections). |
 | What does Segno's generated parser look like to a pipeline? | `parse(input, rule)` over a whole string, state at module scope, the tree written into one module-level `Int32Array` that the next call overwrites (lib/core/list-text.generated.js:658, docs/src/lib/segno/codegen.ts:397). Tokenizer speed on whole CSS/HTML/Markdown files: 150-210 MB/s in V8, faster in WebKit (2026-09-28 note, § Generated-parser speed). |
 
@@ -77,7 +77,7 @@ Two conclusions follow.
 Can one generic spine be fast, or does every stage need hand code? The bake-off runs each arm over
 every tracked deck, gallery and design or engineering doc (1,258 files, 19.7 MB at `1fc891b`) and
 counts an arm only when its block structure matches markdown-it's on every file. Every arm matched
-on all 1,258 in every run. The scripts are in `followups.d/2869-p1-parser-pipeline-bake-off/`.
+on all 1,258 in every run. The scripts are in `tools/parser-bakeoff/deck/` (`npm run parser:bakeoff:deck -- --arms`).
 
 Five runs, each a separate process, on one machine (4-core Intel Xeon at 2.10 GHz, Node 22.22,
 a shared cloud sandbox). The median and the range over the five; a ratio is against markdown-it in
@@ -106,6 +106,74 @@ baseline alone spans 19%). Three conclusions hold across all five:
    search, where the generated code steps a character at a time. With today's codegen the
    generic arm is not reliably faster than markdown-it (one run in five read 0.99x). Teaching
    codegen to emit that search (G6 below) is what makes a generic spine the fast one at all.
+
+## What P0 measured (2026-10-26)
+
+`npm run parser:bakeoff:deck` (tools/parser-bakeoff/deck.mjs) now reproduces the audit table, counts
+the readers, and runs the corpus differential harness. It ran on a tree at `00f4785` plus this change, on a 4-core Intel Xeon at
+2.10 GHz, Node 22.22. Flags: `--audit`, `--census`, `--arms`, `--runs N` (median and range over N
+processes), `--json`.
+
+**The audit table reproduces.** One run, same method as above:
+
+| Deck | markdown-it parse | Render | Parse share | One lint | `parse()` calls in lint | `\r\n?` runs in lint |
+|---|---|---|---|---|---|---|
+| gallery (59 KB) | 3.44 ms | 102.2 ms | 3.4% | 74.9 ms | 0 | 1,650 |
+| data-viz (12 KB) | 1.11 ms | 51.7 ms | 2.2% | 32.2 ms | 0 | 507 |
+| card-tags (3 KB) | 0.22 ms | 2.8 ms | 8.0% | 17.9 ms | 0 | 302 |
+
+Parse share, lint time and the zero `parse()` calls match the audit. The normalization count does
+not: 1,650 on the gallery against the 1,261 recorded on 2026-10-22. Counting at older commits (the
+checker's run) gives 1,264 at the audit's date and 1,271 just before `514beea` (the video plugin,
+#2874), which adds 379 normalizations to every lint and takes it to 1,650. The audit's own commit
+was not recorded, so the 1,261 itself is not reproduced to the digit.
+
+**The reader census.** A reader is a source file that does one of four things itself, found by
+walking the syntax tree of every tracked, non-generated, non-test file under `lib/`, `docs/src/` and
+`tools/` (1,600 JavaScript and TypeScript files at `00f4785`, none unparsed; TypeScript through
+esbuild, then acorn; the harness's own directory is left out, as it reads patterns on purpose):
+
+| Reader of | What the census looks for | `lib/` + `docs/src/` | `tools/` |
+|---|---|---|---|
+| a private markdown-it | `new MarkdownIt(...)`, `markdownit(...)`, `require('markdown-it')(...)` | **12 files**, 9 of them under `lib/` | 6 |
+| fences | a regular expression that matches a run of three backticks or tildes | **46** | 12 |
+| slide boundaries and front matter | one that matches a `---`, `***` or `___` line, or a front-matter block | **89** | 31 |
+| directives | one that matches `<!--` | **37** | 18 |
+| **Any of the four** | | **136 files** | 42 |
+
+35 of the 136 read two or more of the four. 18 product files import one of the shared splitters
+(`slide-boundaries`, `boundary-parser`, `split-slides`, `section-source-split`, `slide-split`; six
+files, because `boundary-parser` has a `.js` and an `.mjs` form, and they are not counted as
+readers). 11 of those 18 also read for themselves; 7 only call the splitter.
+
+A pattern is classified by what it matches, not how it is spelled: each is run against probe strings
+(a fenced block, a front-matter block, `***` between paragraphs, a comment) and against negatives (an
+inline code span, a list item, a date, `key: value`), and it counts only when the text it matches holds
+the marker. A text search for `---` finds every em-dash replacement; this does not. **Accuracy, from the
+checker's hand review:** of a seeded sample of 25 product readers, 20 were right, 3 were false
+positives (a number list, a CSS custom-property name, a Mermaid diagram's own front matter) and 2
+read `<!--` in rendered HTML, not in deck source. The directive class is the weakest: about 16 of its
+37 name a directive key, the rest match any comment (stripping, escaping, notes). Missed readers:
+files that split with `startsWith`, `indexOf` or a `=== '---'` test use no regular expression, and a
+10-minute grep found about 10 of them (`comment-directive.mjs` among them); `.astro` pages are not
+scanned. Read each count as accurate to about ±15 files in each direction, and the two errors
+partly cancel. `--census --json` lists every file.
+
+**One render and one lint of the gallery run code in 46 of those readers** (39 in the render, 20 in
+the lint; 4 of the 46 are false positives), from V8's precise coverage after warm-up. The figures
+below count every function call in the file, not only the reading: `lib/authoring/lint-core.js` about
+86,000 in one lint, `meta-record.mjs` 10,100, `shape-glyphs.js` 7,600; the render's
+`integrations/markdown-it/plugins.js` 15,900 and `engine/slides.js` 5,000. **Not covered:** the Studio's own layers in the browser (CodeMirror,
+Compose, the outline) run in a page, not in this process, so this is the engine-side census; a live
+per-keystroke census of the Studio is still open and is not claimed here.
+
+**The corpus differential harness** (`--arms`, scripts in tools/parser-bakeoff/deck/) is the bake-off
+above, graduated from the follow-up folder: 1,259 files at `00f4785`, every arm at exact parity. The
+first run reads markdown-it 60.9 MB/s, the typed line index 1.31x, the hand-written staged arm 1.57x,
+the Segno-generated arm 1.18x, and the line pass alone 582 (hand) against 268 (Segno) MB/s. One run
+is not comparable with the five above: markdown-it itself read 60.9 MB/s here against their 75.9-90.1,
+and the hand-written arm's 1.57x is above their 1.15-1.36x range. `--runs N` is what the second-machine re-run (follow-up #2869)
+uses.
 
 ## The design: four stages, one tape
 
