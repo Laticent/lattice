@@ -256,7 +256,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -392,7 +392,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 		const r = await fetch(exportBase + baseName(from)).catch(() => null);
 		if (!r?.ok) return;
 		if (to === 'lattice.css') {
-			bundledCssText = marpScopableCss(await r.text());
+			bundledCssText = marpScopableCss(withoutEmojiFont(await r.text()));
 			dir.file(to, bundledCssText);
 			return;
 		}

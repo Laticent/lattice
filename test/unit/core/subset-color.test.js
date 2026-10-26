@@ -28,9 +28,17 @@ test('the player cuts an emoji slice to the deck on exact and keeps it whole on 
   const { EMOJI_SLICES } = require('../../../lib/fonts/emoji-faces.js');
   const row = EMOJI_SLICES[5];
   const b64 = slice(5).toString('base64');
-  const html = `<style>@font-face{font-family:'Noto Color Emoji';src:url(data:font/woff2;base64,${b64}) format('woff2');unicode-range:${row.range};}</style><p>\u{1F680}</p>`;
+  const html = `<style id="lattice-embedded-fonts">@font-face{font-family:'Noto Color Emoji';src:url(data:font/woff2;base64,${b64}) format('woff2');unicode-range:${row.range};}</style><p>\u{1F680}</p>`;
   const exact = await subsetEmbeddedFonts(html, { text: 'used', emoji: 'exact' });
   assert.ok(exact.html.length < html.length / 10, `${exact.html.length} of ${html.length}`);
   const used = await subsetEmbeddedFonts(html, { text: 'used', emoji: 'used' });
   assert.ok(used.html.includes(b64), 'used keeps the slice whole');
+});
+
+test('a font too big for the heap fails cleanly and the next job still works', async () => {
+  const big = Buffer.alloc(70 * 1024 * 1024);
+  big.writeUInt32BE(0x00010000, 0);
+  await assert.rejects(subsetColorFont(big, 'a', { targetFormat: 'truetype' }));
+  const out = await subsetColorFont(slice(5), '\u{1F680}');
+  assert.ok(out.length < 6000);
 });

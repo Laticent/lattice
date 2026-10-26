@@ -30,4 +30,12 @@ test('every slice is on disk and the emoji sheet inlines only the needed ones', 
   assert.equal((css.match(/@font-face/g) || []).length, 1);
   assert.match(css, /font-family:'Noto Color Emoji'/);
   assert.match(css, /unicode-range:U\+1f1e6-1f1ff/);
+  assert.match(css, /format\('woff2'\) tech\(color-COLRv1\)/, 'a renderer without COLR v1 must skip the face, not draw an empty box');
+});
+
+test('dist/lattice.css declares every slice with the COLR v1 guard', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'dist', 'lattice.css'), 'utf8');
+  const rules = css.match(/@font-face\{font-family:'Noto Color Emoji'[^}]*\}/g) || [];
+  assert.equal(rules.length, EMOJI_SLICES.length);
+  for (const r of rules) assert.match(r, /tech\(color-COLRv1\)/);
 });

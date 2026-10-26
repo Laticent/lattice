@@ -145,7 +145,7 @@ async function emojiSliceRule({ file, range }) {
 			faceBase64(url).then(
 				(b64) =>
 					`@font-face{font-family:'${emojiCore.EMOJI_FAMILY}';font-style:normal;font-weight:400;font-display:swap;` +
-					`src:url(data:font/woff2;base64,${b64}) format('woff2');unicode-range:${range};}`,
+					`src:url(data:font/woff2;base64,${b64}) ${emojiCore.EMOJI_SRC_FORMAT};unicode-range:${range};}`,
 			),
 		);
 	}

@@ -6,7 +6,7 @@ const { subsetEmbeddedFonts } = require('../../../lib/export/player-fonts.js');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const b64 = fs.readFileSync(path.join(ROOT, 'assets', 'fonts', 'outfit-400.woff2')).toString('base64');
-const html = `<style>@font-face{font-family:'Outfit';font-weight:400;src:url(data:font/woff2;base64,${b64}) format('woff2');}</style><p>Hello</p>`;
+const html = `<style id="lattice-embedded-fonts">@font-face{font-family:'Outfit';font-weight:400;src:url(data:font/woff2;base64,${b64}) format('woff2');}</style><p>Hello</p>`;
 
 test('exact cuts a text face to the characters shown', async () => {
   const out = await subsetEmbeddedFonts(html, { text: 'exact', emoji: 'exact' });
@@ -30,4 +30,14 @@ test('system drops the text faces and nothing else', async () => {
 test('without a policy it cuts like exact (the old behavior)', async () => {
   const out = await subsetEmbeddedFonts(html);
   assert.ok(out.html.length < html.length * 0.7);
+});
+
+test('system drops only the engine faces: KaTeX stays, and slide text that looks like a rule is untouched', async () => {
+  const katex = "@font-face{font-family:KaTeX_Main;src:url(data:font/woff2;base64," + b64 + ") format('woff2');}";
+  const rule = "@font-face { font-family: Brand; src: url(brand.woff2); }";
+  const page = html.replace('</style>', katex + '</style>').replace('<p>Hello</p>', `<p>Write <code>${rule}</code> in your sheet.</p>`);
+  const out = await subsetEmbeddedFonts(page, { text: 'system', emoji: 'system' });
+  assert.ok(out.html.includes('KaTeX_Main'), 'math keeps its faces');
+  assert.ok(!out.html.includes("font-family:'Outfit'"), 'the engine face is gone');
+  assert.ok(out.html.includes(rule), 'slide text is not a font rule');
 });

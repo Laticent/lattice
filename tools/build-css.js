@@ -106,7 +106,7 @@ function stampSizeDirectives(css) {
 const { distributeLeadingIs } = require('../lib/core/leading-is');
 const { typographyTokensCss } = require('../lib/typography/emit');
 const { TEXT_FACES } = require('../lib/fonts/text-faces');
-const { EMOJI_FAMILY, EMOJI_SLICES } = require('../lib/fonts/emoji-faces');
+const { EMOJI_FAMILY, EMOJI_SLICES, EMOJI_SRC_FORMAT } = require('../lib/fonts/emoji-faces');
 const cssModules = require('./css-modules');
 
 const ROOT = path.join(__dirname, '..');
@@ -381,7 +381,7 @@ function localFontFacesCss() {
   for (const { file, range } of EMOJI_SLICES) {
     faces.push(
       `@font-face{font-family:'${EMOJI_FAMILY}';font-style:normal;font-weight:400;` +
-        `font-display:swap;src:url('fonts/${file}.woff2') format('woff2');unicode-range:${range};}`,
+        `font-display:swap;src:url('fonts/${file}.woff2') ${EMOJI_SRC_FORMAT};unicode-range:${range};}`,
     );
   }
   return faces.join('\n');
@@ -409,6 +409,8 @@ function syncDistFonts() {
     fs.copyFileSync(path.join(ASSET_FONTS, name), path.join(DIST_FONTS, name));
     written.add(name);
   }
+  // The OFL notice the font license asks to travel with every copy of the faces.
+  fs.copyFileSync(path.join(ASSET_FONTS, 'OFL.txt'), path.join(DIST_FONTS, 'OFL.txt'));
   // Guarded like every sibling (katexBaseCss/katexFontFiles/distFontsStale) so the bundle still
   // builds — sans math glyphs — if the copy ever goes missing, instead of crashing the build.
   try {
@@ -429,7 +431,7 @@ function syncDistFonts() {
 // True when dist/fonts/ is byte-identical to what syncDistFonts() would write
 // (used by --check; pure read, no writes).
 function distFontsStale() {
-  const want = new Map();
+  const want = new Map([['OFL.txt', path.join(ASSET_FONTS, 'OFL.txt')]]);
   for (const { file } of [...TEXT_FACES, ...EMOJI_SLICES]) want.set(`${file}.woff2`, path.join(ASSET_FONTS, `${file}.woff2`));
   try {
     for (const name of katexFontFiles()) want.set(name, path.join(KATEX_FONTS, name));

@@ -30,6 +30,7 @@ CFG
 make hb-subset        # writes hb-subset.wasm
 ```
 
-Licenses: HarfBuzz is "Old MIT" (https://github.com/harfbuzz/harfbuzz/blob/main/COPYING), harfbuzzjs is MIT.
+Licenses: HarfBuzz is "Old MIT" and harfbuzzjs is MIT; their notices are `LICENSE-harfbuzz.txt` and `LICENSE-harfbuzzjs.txt` beside the wasm, which
+the license requires to appear in every copy (the wasm ships in the npm package and on the docs site).
 Check: subsetting `assets/fonts/noto-color-emoji-5.woff2` to U+1F680 gives about 2.5 KB with COLR and CPAL kept
 (`test/unit/core/subset-color.test.js`).

@@ -45,12 +45,11 @@ ship the 11 woff2 slices Google Fonts cuts it into (`noto-color-emoji-0` to `-10
 together, each with its own `unicode-range`; the manifest is `lib/fonts/emoji-faces.js`).
 `dist/lattice.css` declares all 11, and a browser fetches only the slices a page's emoji use.
 An export does the same by hand: `slicesFor(text)` names the slices a deck needs and only
-those are inlined, so a deck with no emoji carries none and a deck with a rocket and a check
-mark carries about 0.1 to 0.3 MB. To refresh, re-download the slices from the Google Fonts
+those are inlined, so a deck with no emoji carries none, and the HTML player cuts what is left to the deck's own emoji (about 2 KB each). To refresh, re-download the slices from the Google Fonts
 CSS API with a current Chrome user agent and regenerate the rows in `lib/fonts/emoji-faces.js`.
 The player then cuts each slice to the deck's own emoji (`fonts: exact-emoji`, the default), about 2 KB per emoji, with the
 color build of the subsetter in `lib/fonts/hb/`.
-The OFL license that covers the other faces covers this one.
+The SIL OFL 1.1 that covers the other faces covers this one; `OFL.txt` carries the notice and the build copies it to `dist/fonts/`.
 
 See `engineering/decisions/2026-06-26-local-font-library.md` for the full design,
 and `2026-06-12-export-font-embedding.md` for the export-embedding precursor.

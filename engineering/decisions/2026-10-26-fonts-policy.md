@@ -29,6 +29,7 @@ Nobody types a new emoji in our face, and PowerPoint cannot use it (the font is 
 |---|---|---|
 | player (CLI and Studio) | `exact` cuts to the characters shown; `used`/`full` keep the face; `system` drops it | `exact` cuts each slice to the deck's emoji; `used` keeps the slices that hold them; `full` all 11; `system` none |
 | editable PPTX/ODP | every tier but `system` embeds the whole face (no tier cuts an Office face, or edited text would lose glyphs); `system` embeds nothing | emoji stay in the slide picture |
+| plain `.html` | as the player: the finished file is cut by the same function | as the player |
 | PDF, image sets | `system` leaves the engine's faces out of the page, so the text is laid out in the machine's fonts | same, for the emoji drawn into the picture |
 
 CLI and Studio read the same words, merged class by class (`--fonts full` keeps the deck's emoji tier).
@@ -37,6 +38,18 @@ CLI and Studio read the same words, merged class by class (`--fonts full` keeps 
 
 Google serves Noto Color Emoji (v47) as 11 woff2 slices with a `unicode-range` each, about 2 MB together; the single file is 25 MB. They live in `assets/fonts/`, ship in `dist/fonts/` and are declared in `dist/lattice.css`, so a browser fetches only the slices a page needs.
 An export inlines `slicesFor(text)` (`lib/fonts/emoji-faces.js`). Google puts some code points in two slices (a rocket is in slice 5 and 8), so `used-emoji` can carry both; `exact-emoji` cuts each to a few KB anyway.
+
+## Where the emoji font does not load, and what happens
+
+- **A renderer without COLR v1 (Safari and every iOS browser, as far as we know).** The slices are COLR v1 fonts; such a renderer would draw an
+  empty box and never fall back, because the face claims the code point. Every emoji rule therefore ends `format('woff2') tech(color-COLRv1)`,
+  so the browser skips the source and the stack falls through to the platform's own emoji font. **UNVERIFIED on real Safari or iOS:** neither is
+  reachable from the Linux sandbox, and Playwright's Linux WebKit is a different renderer. The Chromium, Firefox and WebKit e2e check the size of the
+  emitted rules, not pixels.
+- **An Export-to-Marp bundle** has the emoji rules removed (`withoutEmojiFont`, lib/core/marp-bundle.js): marp-core draws emoji as twemoji images.
+- **The player's Read view** names `'Noto Color Emoji'` in its font stacks, so an emoji in the article draws from the embedded font like the slides.
+- **`fonts: system`** drops only the engine's text faces and the emoji faces, inside the `lattice-embedded-fonts` block. KaTeX's faces and slide
+  text that looks like a rule are not touched.
 
 ## Why a rebuilt wasm
 
@@ -53,4 +66,4 @@ Measured, one emoji out of its slice: 🚀 121 KB to 2.5 KB, ✅ 65 KB to 0.8 KB
 
 ## Enforcement
 
-`unknown-fonts` lints a bad word. `test/unit/core/font-policy.test.js`, `emoji-faces.test.js`, `subset-color.test.js` and `player-fonts-policy.test.js` pin the kernel, the slice picker, the color cut and the per-tier player behavior. `docs/e2e/export-fonts-policy.spec.ts` drives the real Studio's web-page export. `tools/check-fonts.js` checks every slice is on disk.
+`unknown-fonts` lints a bad word. `test/unit/core/font-policy.test.js`, `emoji-faces.test.js`, `subset-color.test.js` and `player-fonts-policy.test.js` pin the kernel, the slice picker, the color cut and the per-tier player behavior. `docs/e2e/export-fonts-policy.spec.ts` drives the real Studio's web-page export. `tools/check-fonts.js` checks every slice is on disk. The color wasm's license notices sit beside it (`lib/fonts/hb/LICENSE-*.txt`); `assets/fonts/OFL.txt` goes to `dist/fonts/`.

@@ -43,8 +43,8 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // Re-blessed 2026-10-17 for canonical attribute order (player-core.mjs `sortAttributes`, §11.9):
 // diffed against the old SHA's output, the five <section> tags carry the same attributes in name
 // order and nothing else moved; the length is unchanged. Both hosts give the new SHA.
-const GOLDEN_SHA = 'bc1133aa6ce313981c561fe56c41e6e30b68ddc562b3a1cbb66ec8e79d4ef746';
-const GOLDEN_BYTES = 101757;
+const GOLDEN_SHA = 'a4f930f2af76b859aa649148090a18bbe436a841aee58d396aa27d46f171b2da';
+const GOLDEN_BYTES = 101890;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

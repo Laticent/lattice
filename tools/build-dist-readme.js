@@ -123,7 +123,7 @@ const DESCRIPTIONS = {
     consume: '`@laticent/lattice/default/min`',
   },
   'lattice-emoji.css': {
-    purpose: 'Retired: Noto Color Emoji now ships inside `lattice.css` as sliced woff2. This file is empty and stays only so existing imports resolve. Without it, emoji fall back to the installed system font.',
+    purpose: 'Retired: Noto Color Emoji now ships inside `lattice.css` as sliced woff2. This file is empty and stays only so existing imports resolve.',
     consume: '`@laticent/lattice/dist/lattice-emoji.css` (no longer needed)',
   },
   'lattice-runtime.js': {
