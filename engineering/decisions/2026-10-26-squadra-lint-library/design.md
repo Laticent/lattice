@@ -15,7 +15,7 @@ Read it by section. §1 is a two-minute tour. §3 defines every term the rest us
 4. The core API
 5. Language plugins
 6. Rules
-7. The fix engine: Rettifica
+7. The fix engine
 8. The guarantee: what Squadra refuses
 9. Waivers, suppressions, ratchets and baselines
 10. Configuration
@@ -118,29 +118,55 @@ const { text: fixedText, applied } = fix(rules, { path: 'deck.md', text, languag
 
 Everything else in this file is the detail behind those three calls.
 
-## 2. Packages and entry points
+## 2. Packages, interfaces and implementations
 
-| Package | Entry | Holds | Depends on |
-|---|---|---|---|
-| `@laticent/squadra` | `.` | Types, rule compiler and refusals, selector engine, lint driver, fix driver, waivers, reporters | `@laticent/rettifica` |
-| `@laticent/squadra` | `./segno` | `fromSegno()`: turns any Segno grammar into a Squadra language | `@laticent/segno` (peer) |
-| `@laticent/squadra` | `./node` | The Node host: files, globs, worker pool, disk cache, CLI | Node built-ins |
-| `@laticent/squadra` | `./testing` | `testRuleset()`, fixture loader, assertion helpers for rule authors | none beyond the core |
-| `@laticent/rettifica` | `.` | Text edits: plan, check for conflicts, apply, diff, map offsets | none |
+### 2.1 One package
 
-Both live as workspace packages under `docs/src/lib/` beside Segno and Cadenza. Rules follow the family:
+Squadra is one package, `@laticent/squadra`, with an entry point per part:
+
+| Entry | Holds | Depends on |
+|---|---|---|
+| `.` | The interfaces, the rule compiler and its refusals, the selector engine, the lint driver, the fix driver and its edit kernel, waivers, the reference `edits` fix engine, the reference reporters | nothing |
+| `./segno` | `fromSegno()`: turns any Segno grammar into a Squadra language | `@laticent/segno` |
+| `./languages/markdown`, `./languages/css`, `./languages/json`, `./languages/yaml` | The reference languages, each built with `fromSegno` | `@laticent/segno` |
+| `./node` | The reference Node host: files, globs, worker pool, disk cache, CLI | Node built-ins |
+| `./testing` | `testRuleset()`, the fixture loader, assertion helpers for rule authors | nothing beyond the core |
+
+It lives as a workspace package at `docs/src/lib/squadra/`, beside Segno and Cadenza, and follows the family's rules:
 
 - **No DOM, no `fs` in the core.** The core runs unchanged in a browser, a worker, Node or an edge function. Only
   `./node` touches the filesystem. That is the property `lib/authoring/lint-core.js` has today ("NO `fs` and NO `require`
   of lib/components, so it bundles cleanly for the browser"), and Squadra keeps it.
-- **No runtime dependencies beyond a sibling library.** `@laticent/squadra` depends on `@laticent/rettifica`. The Segno
-  adapter is a separate entry with Segno as a peer, so a user who brings a different parser never installs Segno.
+- **The core has no dependencies.** The Segno adapter and the reference languages depend on `@laticent/segno`, a
+  sibling library, the way Cadenza depends on `@laticent/ltt`. A user who brings their own parser imports `.` only and
+  never loads Segno.
 - **Each entry is bundled on its own**, as Segno's `.`, `./read` and `./values` are, so the browser bundle carries only
   what it imports.
 
-**Why Rettifica is a separate library.** Applying a set of text edits safely is useful without any linter: codemods,
-editor servers, refactoring tools and template engines all need it. Rettifica has no idea what a rule is. It takes edits
-and returns text, or refuses with a reason. See §7.
+### 2.2 Extension points and who implements them
+
+Squadra defines four interfaces and ships a reference implementation of each. A user can replace any of them.
+Lattice uses the reference implementations where its needs are generic, and adds its own where they are not.
+
+| Interface | What it does | Squadra's reference implementation | Lattice's own implementation |
+|---|---|---|---|
+| `Language` (§5) | Turns a source into a tree, marks inert ranges, supplies facts | Markdown, CSS, JSON, YAML, all built on Segno | `lattice-deck`, which extends the reference Markdown with slides, directives and Segno notation; a JS/TS adapter over acorn or the TypeScript API |
+| `FixEngine` (§7) | Turns a fix into text edits | `edits`: the declarative operations (delete, replace, insert, wrap, rename) | `lattice-line`: today's line-based fixers, for the migration only |
+| Host (`Project` + `Cache`, §4, §11.3) | Supplies sources, stores the cache, writes results | Node: files, globs, workers, disk cache, CLI | The Studio: the editor's text, an in-memory cache |
+| `Reporter` (§12.2) | Turns findings into output | text, JSON, SARIF, GitHub annotations, LSP | The Studio's findings panel |
+
+**The reference implementations are the ones Lattice needs that are not about decks.** The census counts which
+languages Lattice's rules read: deck markdown 111, YAML front matter 43, JS 37, CSS 36, JSON 22. So the reference set
+is Markdown, YAML, CSS and JSON. Lattice exercises every one of them, so none ships untested. Lattice's own
+implementations are the domain-specific ones, plus JS/TS, whose parser is a dependency the library should not carry.
+
+**Lattice tests the interfaces.** `lattice-deck` extends the reference Markdown language instead of standing alone. So
+the `Language` interface has to support building one language on another, or Lattice cannot use it. `lattice-line`
+wraps an existing fixer rather than starting from declarative ops. So the `FixEngine` interface has to accept a fix
+format it did not design. If either needs a special case in the core, the interface is wrong.
+
+**What is not an extension point.** The fix *driver* (plan, apply, verify, §7.4) and the rule compiler's refusals (§8)
+are not pluggable. They are where Squadra's guarantees live, so every engine and every language goes through them.
 
 ## 3. Terms
 
@@ -316,12 +342,12 @@ plugin adds that code as `refine(root, source)`. It takes the token tree and ret
 
 ### 5.5 Lattice's deck language: `lattice-deck`
 
-This lives in the Lattice repo (`lib/authoring/squadra/deck-language.js`), not in the library. It is the first real
-consumer of `fromSegno`.
+This lives in the Lattice repo (`lib/authoring/squadra/deck-language.js`), not in the library. It extends the reference
+Markdown language (§5.6) with Lattice's structure, so it is the first test of building one language on another.
 
 | Layer | Built from | Produces |
 |---|---|---|
-| Tokens | Segno's Markdown grammar, promoted from `tools/parser-bakeoff/languages-grammars.mjs` into `lib/` | `heading`, `para`, `item`, `olist`, `quote`, `table`, `fence`, `code`, `rule`, `indent` |
+| Tokens | Squadra's reference Markdown language, which starts from Segno's Markdown grammar in `tools/parser-bakeoff/languages-grammars.mjs` | `heading`, `para`, `item`, `olist`, `quote`, `table`, `fence`, `code`, `rule`, `indent` |
 | Slides | `separatorLines` from `lib/authoring/slide-split.js`, derived from the engine's own parser (`lib/core/slide-boundaries.mjs`) | `deck` → `front-matter`, `slide` nodes; `slide` carries `attrs.index` |
 | Front matter | `lib/core/front-matter-key.js` | `fm-key` with `attrs.name`, `attrs.value` |
 | Directives | `scanMetaSource` (`lib/core/meta-record.mjs`), the shared reader `lint-core.js` already imports | `directive` (`_class`, `say`, `track`…) with `attrs.name`, `attrs.tokens` |
@@ -336,14 +362,16 @@ layer reuses the kernels the engine uses (slide separators, front-matter reader,
 them. M1 adds a conformance test: over every tracked deck (examples, galleries, baseline decks), `lattice-deck`'s slide
 and fence spans must equal the engine's. A mismatch fails the test.
 
-### 5.6 Other languages
+### 5.6 The reference languages, and the rest
 
-| Language | Built on | Ships in | When |
-|---|---|---|---|
-| `json`, `yaml` | a Segno grammar each (small) | the library, as examples and for config | M2 |
-| `css` | Segno's CSS grammar + a rule/declaration refine | the library | M3 |
-| `js`, `ts` | an adapter for acorn or the TypeScript API, both already used by `tools/check-ownership.js` | Lattice (the adapter carries a dependency the library must not) | M3 |
-| outside-domain fixture (Dockerfile or OpenAPI YAML) | a Segno grammar | the library's tests and the learn page | M1 |
+| Language | Built on | Ships in | When | Lattice uses it for |
+|---|---|---|---|---|
+| `markdown` | Segno's Markdown grammar + a block refine | Squadra (`./languages/markdown`) | M1 | the base of `lattice-deck`; `*.docs.md` and `engineering/` docs |
+| `yaml` | a Segno grammar | Squadra (`./languages/yaml`) | M1 | deck front matter, through `lattice-deck`; workflow files |
+| `json` | a Segno grammar | Squadra (`./languages/json`) | M2 | component, plugin and theme manifests (22 ownership checks) |
+| `css` | Segno's CSS grammar + a rule/declaration refine | Squadra (`./languages/css`) | M3 | themes and component styles (36 ownership checks) |
+| `js`, `ts` | an adapter over acorn or the TypeScript API, both already used by `tools/check-ownership.js` | Lattice | M3 | the 37 ownership checks that read JS |
+| outside-domain fixture (Dockerfile or OpenAPI YAML) | a Segno grammar | Squadra's tests and the learn page | M1 | nothing: it proves the interfaces are not shaped only by Lattice |
 
 ## 6. Rules
 
@@ -611,10 +639,10 @@ Small rules may put examples inline instead:
 "examples": { "bad": ["autosplit: off"], "good": ["size: story"], "fixed": [""] }
 ```
 
-## 7. The fix engine: Rettifica
+## 7. The fix engine
 
-**Rettifica** (Italian: rectification, and in machining the grinding pass that brings a part to tolerance after it has
-been measured). The square, *squadra*, measures; *rettifica* corrects. The name is a proposal and is listed in §21.
+The fix engine is an interface in Squadra, not a separate library. Squadra ships one reference engine, `edits`, and
+Lattice ships `lattice-line` for its migration (§2.2).
 
 ### 7.1 The model
 
@@ -623,9 +651,9 @@ verifies those edits. So the safety properties (no overlap, atomic fixes, idempo
 enforced in one place whatever produced the fix. An engine only decides what the edits are.
 
 ```
-finding.fixes[]  ──engine.lower()──▶  Edit[] per fix  ──Rettifica.plan()──▶  non-conflicting set
+finding.fixes[]  ──engine.lower()──▶  Edit[] per fix  ──plan()──────────▶  non-conflicting set
       ▲                                                                              │
-      │                                                     Rettifica.apply() ◀──────┘
+      │                                                     apply() ◀────────────────┘
       └──── re-lint ◀── reparse + verify ◀── new text
 ```
 
@@ -659,7 +687,7 @@ same run already removed the line. The driver records that as `stale` and moves 
 
 | Engine | Where | Payload | Lowers to |
 |---|---|---|---|
-| `edits` | Rettifica, always present | `{ edits: Edit[] }`, or the declarative ops of §7.3 | itself |
+| `edits` | Squadra core, always present | `{ edits: Edit[] }`, or the declarative ops of §7.3 | itself |
 | `lattice-line` | the Lattice repo, during migration only | today's finding fields: `line`, `slide`, `chunkLine`, `replace`, `replaceLine`, `autofixable` | one edit replacing the located line, found by the chunk walk `applyFix` uses today |
 | `whole-file` (example) | the library's docs | a function from text to text, such as an external formatter | one edit over the whole file; `exclusive: true` |
 
@@ -691,7 +719,7 @@ For one source, each pass:
 
 1. **Lint** the current text and collect fixes at or below the requested safety grade.
 2. **Lower** each fix through its engine. A `null` result is recorded as `stale`.
-3. **Plan** with Rettifica:
+3. **Plan** with the edit kernel (§7.6):
    - Order fixes by the ruleset's `order` list, then severity (errors first), then position, then rule id.
      Deterministic, so the same input always yields the same output.
    - Take each fix in order. Accept it if none of its edits overlap an accepted edit. Two insertions at the same offset
@@ -722,7 +750,7 @@ placed by the last pass), `no-candidate`, `broke-parse`, `cycle`, `engine-missin
 
 A rule that must never be fixed by machine says `"fix": null` with a `noFixReason`.
 
-### 7.6 Rettifica's own API
+### 7.6 The edit kernel
 
 ```ts
 export interface Edit { readonly from: number; readonly to: number; readonly text: string }
@@ -735,7 +763,8 @@ export function diff(before: string, after: string, opts?: { context?: number })
 export class EditError extends Error { readonly code: 'out-of-range' | 'inverted' | 'overlap-in-group' }
 ```
 
-It has nothing to do with linting, and it is documented as a library of its own: "apply many text edits at once, safely".
+The fix driver uses these, and the core exports them for engine authors and tests. They know nothing about rules. If a
+use outside linting appears, they can move to their own entry point without changing their shape.
 
 ## 8. The guarantee: what Squadra refuses
 
@@ -1027,7 +1056,7 @@ squadra bench                 the benchmark scenarios (§11.6)
 | `autofixable` / `replace` / `replaceLine` / the `fixReplacement` switch | A declarative fix (§7.3), or the `lattice-line` engine until the rule moves |
 | `applyFix` / `applyAllFixes` (one fix per pass, 500-pass cap) | `fix()` (§7.4) |
 | Vocabulary built from manifests in `lib/authoring/lint.js` | `vocab` passed to `compileRuleset` |
-| The Studio's Architect panel and "Fix all" | The core plus `lattice-deck` plus Rettifica, bundled for the browser |
+| The Studio's Architect panel and "Fix all" | The core plus `lattice-deck`, bundled for the browser |
 | A `checkX(…, errors)` function in `tools/check-ownership.js` | A project rule (§6.6), or a per-file rule when its core detector is declarative |
 | 35 `SANCTIONED_*` allowlists | Entries in `squadra.waivers.json` |
 | `TYPED_GLYPH_BUDGET` and other budget tables | Ratchet entries (§9.3) |
@@ -1079,7 +1108,7 @@ These need the owner's explicit sign-off, per CLAUDE.md's second filter:
 
 | Layer | Tests |
 |---|---|
-| Rettifica | Property tests: random non-overlapping edit sets give the same result in any order; `plan` never accepts an overlap; `mapOffset` round-trips; `apply` on an empty plan is the identity |
+| Edit kernel | Property tests: random non-overlapping edit sets give the same result in any order; `plan` never accepts an overlap; `mapOffset` round-trips; `apply` on an empty plan is the identity |
 | Selectors | A fuzzer feeds random selectors to the Segno-built selector parser; parse time stays linear; matching agrees with a naive reference matcher |
 | Driver | Idempotence (fixing twice equals fixing once) over every fixture; determinism at 1 and N workers, cold and warm cache |
 | Languages | `fromSegno` over Segno's own fuzz corpus; `lattice-deck` render-agreement test over every tracked deck (§5.5) |
@@ -1097,15 +1126,14 @@ These need the owner's explicit sign-off, per CLAUDE.md's second filter:
 
 ## 19. Documentation deliverables
 
-Squadra and Rettifica each get the set every library in the family has:
+Squadra gets the set every library in the family has:
 
 | Deliverable | Where | Contents |
 |---|---|---|
-| README | `docs/src/lib/squadra/README.md` | Install, what is stable, write a rule, write a language, fix engines, the guarantee, speed (with measurements), first user: Lattice, build, license. The Italian etymology under the title. |
+| README | `docs/src/lib/squadra/README.md` | Install, what is stable, write a rule, write a language, the four interfaces and their reference implementations, fix engines, the guarantee, speed (with measurements), first user: Lattice, build, license. The Italian etymology under the title. |
 | Learn page | `docs/src/content/catalog/libraries/squadra.md` | The catalog fields (`promise`, `intro`, `group`, `inLattice`, `useWhen`, `facts`, `reference`) and the sections the other entries use: The problem · The idea · How to use it · Where else it fits · How Lattice uses it · What it doesn't do |
 | Demo page | `docs/src/pages/libraries/squadra/index.astro` | Live sections: write a rule and watch it refuse until its examples pass; fix all, with conflicting fixes shown and resolved; try to make it slow (a hostile input, timed in the browser); first user: Lattice |
 | Mark | `docs/public/squadra-mark.svg` | A set-square |
-| Rettifica | the same three, smaller | "Apply many edits at once, safely": the conflict rules, atomic groups, offset mapping |
 | Generated rule docs | built from each ruleset | One page per rule: summary, docs, the fixtures rendered as examples, fixable or not and why |
 
 The demo and learn pages are website changes, so each ships with `tools/screenshot.js` evidence at 1440, 820 and 390 px
@@ -1125,8 +1153,9 @@ The demo and learn pages are website changes, so each ships with `tools/screensh
 
 | # | Decision | Options | Recommendation | Default if no answer |
 |---|---|---|---|---|
-| 1 | The fix engine's name | **Rettifica** (rectification; the machining pass after measuring) · Ritocco (retouch) · Rammendo (mending) · Restauro (restoration) | Rettifica: it pairs with Squadra, measure then correct | Rettifica |
-| 2 | Rettifica as its own package, or a module inside Squadra | own package · `@laticent/squadra/fix` | Own package: it is useful without a linter, and it has no dependencies | Own package |
-| 3 | Manifest format | JSON with `$schema` · YAML | JSON: Lattice's component and plugin manifests are JSON, it needs no parser in the browser, and the schemas give editors completion | JSON |
-| 4 | Selector syntax | CSS-like (§6.4) · a JSON tree pattern · ast-grep-style code patterns | CSS-like: people already read it, and it parses LL(1) | CSS-like |
-| 5 | Whether a code rule's fixtures may live inline in the `.rule.js` | yes · fixtures file only | Fixtures file only: one format to load, and the examples double as docs | Fixtures file only |
+| 1 | Manifest format | JSON with `$schema` · YAML | JSON: Lattice's component and plugin manifests are JSON, it needs no parser in the browser, and the schemas give editors completion | JSON |
+| 2 | Selector syntax | CSS-like (§6.4) · a JSON tree pattern · ast-grep-style code patterns | CSS-like: people already read it, and it parses LL(1) | CSS-like |
+| 3 | Whether a code rule's fixtures may live inline in the `.rule.js` | yes · fixtures file only | Fixtures file only: one format to load, and the examples double as docs | Fixtures file only |
+
+Settled on 2026-10-26: the fix engine and the parser are interfaces inside Squadra with reference implementations,
+not separate named libraries (§2.2). An earlier draft proposed a separate fix-engine library named Rettifica.

@@ -12,7 +12,7 @@ summary: >
 # Squadra: a lint-and-fix library (2026-10-26)
 
 Status: proposed. No code changes. The census behind the numbers is `2026-10-26-squadra-lint-library/census.md`. The
-full design (API, language plugins, the Rettifica fix engine, manifest files, configuration, how Lattice adopts it) is
+full design (API, the language and fix-engine interfaces with their reference implementations, manifest files, configuration, how Lattice adopts it) is
 `2026-10-26-squadra-lint-library/design.md`. Where this note's §5 summary and the design differ, the design wins.
 
 ## 1. The answer
@@ -102,8 +102,8 @@ files or manifests, or checks an allowlist against the tree. Where a rule mixes 
 
 A library, not a kernel. Segno is the precedent: general-purpose, framework-free, zero-dependency, no DOM, with Lattice
 as "first user", an Italian name with a one-line etymology, a README that teaches, and a demo. Squadra follows that
-shape. It lives at `docs/src/lib/squadra/` as a workspace package, with language plugins as sibling packages so the core
-imports no parser.
+shape. It lives at `docs/src/lib/squadra/` as one workspace package. Languages and fix engines are interfaces it
+defines; it ships reference implementations as separate entry points, so the core imports no parser.
 
 ### 5.2 The guarantee
 
@@ -135,7 +135,7 @@ All three checks run when a rule is registered:
   checks need.
 - **Waivers and ratchets:** `{rule, target, reason, expires?}` records with built-in stale detection and budget ratchets.
   They replace the 35 hand-built allowlists and close the 8 that have no staleness check.
-- **Fix engine (Rettifica, a proposed name):** pluggable; every engine lowers its fix to text edits, and Lattice's
+- **Fix engine:** an interface, with a reference implementation in Squadra; every engine lowers its fix to text edits, and Lattice's
   current line-based fixers become one engine. The driver collects the fixes, drops overlapping edits deterministically, applies the rest in one pass, re-parses,
   re-runs the touched rules, and caps the passes. It offers dry-run, diff, and flags per rule and per safety grade.
   The Studio's "Fix all" and the CLI's `--fix` call the same function.
