@@ -1723,12 +1723,22 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			// Only <path>: a circle or a text node in the mask would be dropped.
 			if (!paths.length || dom.querySelectorAll('*').length !== paths.length + 1) return null;
 			if ((ps.maskRepeat || ps.webkitMaskRepeat || 'no-repeat').split(/\s+/).some((v) => v !== 'no-repeat')) return null;
+			// Every size below is placed CENTERED in the box, so a mask placed anywhere else is not this shape.
+			const pos = (ps.maskPosition || ps.webkitMaskPosition || '50% 50%').trim();
+			if (!/^50%\s+50%$/.test(pos)) return null;
 			const size = (ps.maskSize || ps.webkitMaskSize || 'auto').trim();
 			let sx = r.w / vb[2];
 			let sy = r.h / vb[3];
+			const pct = size.match(/^(\d+(?:\.\d+)?)%(?:\s+(\d+(?:\.\d+)?)%)?$/);
 			if (size === 'contain' || size === 'auto' || size === 'auto auto') {
 				// Uniform, centered (mask-position 50% 50%).
 				const s = size === 'auto' || size === 'auto auto' ? 1 : Math.min(sx, sy);
+				sx = s;
+				sy = s;
+			} else if (pct && !(pct[1] === '100' && (pct[2] ?? '100') === '100')) {
+				// A mark drawn at a share of its box (a status glyph at 72% of its disc): the image fills that centered
+				// area and the SVG meets it uniformly, as the browser draws a viewBox with the default aspect ratio.
+				const s = Math.min((r.w * Number(pct[1])) / 100 / vb[2], (r.h * Number(pct[2] ?? pct[1])) / 100 / vb[3]);
 				sx = s;
 				sy = s;
 			} else if (!/^100%\s+100%$/.test(size)) return null;

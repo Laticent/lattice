@@ -35,6 +35,10 @@ const FIXTURE = `<!doctype html><html><head><style>
   .counted::before { content: '01'; position: absolute; left: 6px; top: 6px; color: #00a; font-size: 14px; }
   .oddmask { position: absolute; left: 40px; top: 340px; width: 80px; height: 40px; background: #eef; }
   .oddmask::after { content: ''; position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; background-color: #a0a; -webkit-mask: ${CIRCLE} center / 100% 100% no-repeat; mask: ${CIRCLE} center / 100% 100% no-repeat; }
+  .disc { position: absolute; left: 340px; top: 340px; width: 24px; height: 24px; border-radius: 50%; background: #0a5; }
+  .disc::after { content: ''; position: absolute; inset: 0; background-color: #fff; -webkit-mask: ${CHECK} center / 72% 72% no-repeat; mask: ${CHECK} center / 72% 72% no-repeat; }
+  .offdisc { position: absolute; left: 400px; top: 340px; width: 24px; height: 24px; border-radius: 50%; background: #0a5; }
+  .offdisc::after { content: ''; position: absolute; inset: 0; background-color: #fff; -webkit-mask: ${CHECK} left top / 72% 72% no-repeat; mask: ${CHECK} left top / 72% 72% no-repeat; }
   .rot { position: absolute; left: 200px; top: 340px; width: 80px; height: 40px; background: #eef; }
   .rot::before { content: ''; position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; background: #d70; transform: rotate(20deg); }
 </style></head><body>
@@ -45,6 +49,8 @@ const FIXTURE = `<!doctype html><html><head><style>
   <div class="counted" id="counted"></div>
   <div class="oddmask" id="oddmask"></div>
   <div class="rot" id="rot"></div>
+  <div class="disc" id="disc"></div>
+  <div class="offdisc" id="offdisc"></div>
 </section></body></html>`;
 
 const COUNTERS = `<!doctype html><html><head><style>
@@ -189,6 +195,22 @@ describe('calco lifts pseudo-elements in Chromium', () => {
     const rule = res.shapes.findIndex((s) => s.pseudo && near(s.h, 4) && near(s.x, barBox.x + 12) && near(s.y, barBox.y));
     assert.ok(rule >= 0, `the in-flow block ::before: ${JSON.stringify(res.shapes.filter((s) => s.pseudo))}`);
     assert.ok(near(res.shapes[rule].w, 260 - 24), 'as wide as the content box');
+  });
+
+  // A status glyph drawn at a share of its disc (`mask-size: 72%`, the engine's roadmap and state discs): the SVG meets
+  // that centered area uniformly, so the path is the check at 0.72 of the disc, centered on it, its stroke scaled too.
+  // Placed off center it is not that shape, and stays in the picture.
+  test('a mask sized to a share of its box lifts as a centered path; one placed off center does not', async () => {
+    const disc = await rectOf('#disc');
+    const k = 24 * 0.72 / 24;
+    const mark = res.shapes.find((s) => s.kind === 'path' && s.x > disc.x && s.x < disc.x + disc.w && s.y > disc.y - 1 && s.y < disc.y + disc.h);
+    assert.ok(mark, `the 72% check is a path: ${JSON.stringify(res.shapes.filter((s) => s.kind === 'path'))}`);
+    assert.ok(near(mark.stroke.width, 2.5 * k, 0.05), `stroke scales with the share: ${mark.stroke.width}`);
+    assert.ok(near(mark.w, 12 * k, 0.1) && near(mark.h, 9 * k, 0.1), `size: ${mark.w} x ${mark.h}`);
+    // The check spans 6..18 of a 24 viewBox, so its box starts 6 units in from the centered area's left edge.
+    assert.ok(near(mark.x, disc.x + (24 - 24 * 0.72) / 2 + 6 * k, 0.1), `centered: x ${mark.x}`);
+    const off = await rectOf('#offdisc');
+    assert.equal(res.shapes.some((s) => s.kind === 'path' && s.x > off.x - 1 && s.x < off.x + off.w), false, 'an off-center mask stays in the picture');
   });
 
   test('a mask that is not a path, and a rotated pseudo, stay in the picture; generated text is read', async () => {
