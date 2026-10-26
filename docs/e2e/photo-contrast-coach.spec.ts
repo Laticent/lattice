@@ -11,7 +11,7 @@ const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight
 // With a paragraph the muted body ink on this photo stays under 4.5:1 even pinned dark, so no pin is offered.
 const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![bg](sample:photo-wide.svg)\n';
 // The mirror case: a bright photo under light ink (a dark deck), where the fix is to pin the slide light.
-const BRIGHT_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAJCAIAAAC0SDtlAAAAFElEQVR4nGP49O4RSYhhVMOg0AAALNONMNBv9UUAAAAASUVORK5CYII=';
+const BRIGHT_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
 const BRIGHT_PHOTO_DECK = `---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![bg](${BRIGHT_PHOTO})\n`;
 // A solid card carries the theme's own contrast, whatever the photo is.
 const SOLID_CARD_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight -->\n\n## A quiet harbor.\n\nThe words sit on a card.\n\n![bg](sample:photo-wide.svg)\n';
@@ -24,6 +24,13 @@ async function openCoach(page: import('@playwright/test').Page): Promise<void> {
 		await page.getByRole('menuitem', { name: /^Coach/ }).first().click();
 	}
 	await expect(page.getByText('Deck read').filter({ visible: true }).first()).toBeVisible();
+}
+
+// An absence needs a signal that the read FINISHED, not a moment when nothing is shown: typing a deck clears the editor first, and
+// that empty deck briefly shows no finding. So wait for the source to hold the new deck, then for the read of that slide to settle.
+async function readSettled(page: import('@playwright/test').Page, marker: string): Promise<void> {
+	await expect.poll(() => persistedSource(page)).toContain(marker);
+	await expect(page.locator('[data-photo-read="done"]')).toBeAttached({ timeout: 20_000 });
 }
 
 const WIDTHS = [1440, 820, 390];
@@ -71,7 +78,8 @@ test('a solid card raises no photo warning, and a warning clears when the card g
 	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true });
 	await expect(warning.first()).toBeVisible({ timeout: 20_000 });
 	await typeDeck(page, SOLID_CARD_DECK);
-	await expect(warning).toHaveCount(0, { timeout: 20_000 });
+	await readSettled(page, 'image spotlight -->');
+	await expect(warning).toHaveCount(0);
 });
 
 test('a pin that would not clear the floor is not offered', async ({ page }) => {
@@ -111,4 +119,38 @@ test('a thin card on a slide that is not on screen offers both inks', async ({ p
 	await page.locator('.cm-lintRange-warning').first().hover();
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toBeVisible();
+});
+
+// A statement's backing is a scrim gradient the reader does not model, so a statement is never flagged: white ink on the
+// default scrim reads over a bright photo, and reading it as "no backing" would report about 1:1.
+test('a statement slide over a bright photo is not flagged', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	// A spotlight slide first, so the read is proven to run on this deck before the absence means anything.
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await openCoach(page);
+	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true });
+	await expect(warning.first()).toBeVisible({ timeout: 20_000 });
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('image spotlight card-clear', 'image statement'));
+	await readSettled(page, 'image statement');
+	await expect(warning).toHaveCount(0);
+});
+
+// The verdict depends on more than the slide's own text: a deck-level register changes what the preview paints, and the
+// finding must follow it. Here only the front matter changes; the slide's chunk is byte-identical.
+test('a deck-level image-card register change clears the finding without touching the slide', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await openCoach(page);
+	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true });
+	await expect(warning.first()).toBeVisible({ timeout: 20_000 });
+	// An in-place edit, not typeDeck: that clears the editor first, and the empty deck would re-trigger the read by itself.
+	await page.locator('.cm-content').click();
+	await page.keyboard.press('ControlOrMeta+Home');
+	await page.keyboard.press('ArrowDown');
+	await page.keyboard.press('End');
+	await page.keyboard.insertText('\nimage-card: light');
+	await readSettled(page, 'image-card: light');
+	await expect(warning).toHaveCount(0);
 });

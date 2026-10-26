@@ -589,9 +589,13 @@ export const Editor = React.forwardRef<EditorHandle, {
 					if (thin.length) {
 						const text = view.state.doc.toString();
 						const ix = buildDeckIndex(text);
-						const fix = await import('./thin-card-fix');
+						// A chunk that will not load (offline after a deploy) must not take the editor's diagnostics with it.
+						const fix = await import('./thin-card-fix').catch(() => null);
 						for (const d of thin) {
+							if (!fix) break;
 							const read = await fix.pickedInk(text, Math.max(0, unitAt(ix, d.from))).catch(() => null);
+							// Buttons that do the fix, not prose that tells you how: drop lint's "Fix: …" paragraph (#1658).
+							d.message = d.message.split('\n\nFix:')[0];
 							d.actions = (read ? [read] : (['light', 'dark'] as const)).map((ink) => ({
 								name: `Add ink-${ink}`,
 								apply: (v: EditorView, at: number) => {

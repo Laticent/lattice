@@ -21,6 +21,8 @@ export function addCardInk(source: string, slideIndex: number, ink: 'light' | 'd
 	return out === source ? null : out;
 }
 
+const READ_CAP_MS = 1200;
+
 /**
  * The ink that reads on the photo behind slide `slideIndex`'s card, read from the live preview with the same
  * sampler and kernel as the Card backing slider (card-ink-pick.ts), or null when it cannot be read: the
@@ -30,6 +32,7 @@ export async function pickedInk(source: string, slideIndex: number): Promise<'li
 	const chunk = splitSlides(stripFrontMatter(source))[slideIndex];
 	if (chunk == null) return null;
 	const pick = await import('./card-ink-pick');
-	const behind = await pick.readBehindCard(chunk, slideIndex + 1);
+	// A slow or dead photo host must not hold the lint pass: past the cap, offer both inks.
+	const behind = await Promise.race([pick.readBehindCard(chunk, slideIndex + 1), new Promise<null>((r) => setTimeout(() => r(null), READ_CAP_MS))]);
 	return behind ? pick.applyLateRead(chunk, source, behind).picked : null;
 }

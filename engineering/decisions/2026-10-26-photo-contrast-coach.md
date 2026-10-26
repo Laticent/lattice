@@ -36,14 +36,13 @@ reads on this photo.
 
 ## Scope and what it does not do
 
-- Spotlight and statement compositions only. `clean`, `split` and `gallery` put the text beside the photo.
+- Spotlight compositions only. `clean`, `split` and `gallery` put the text beside the photo, and a statement's ink is fixed white on a scrim.
 - Text over a photo outside the `image` component does not exist in Lattice: `![bg]` photos are painted by the `image`
   layout's own `.lattice-bg` panel.
 - Mean colour, not a per-pixel worst case. A busy photo can pass the mean and still lose a word. The 24 by 24 sample is
   the existing card sampler's, kept so the two features agree.
 - Large text is not given 3:1, the stance `check-slide-contrast.js` already takes.
-- A statement's scrim is fixed white ink on a dark scrim; with `card-clear` the scrim is gone and the warning applies, but a
-  pin cannot fix it. The message then says to raise the backing or choose another photo.
+- **A statement is not measured.** Its backing is the `.image-scrim` gradient (up to 0.86 alpha dark, two layers), not a fill on the text box, and the reader does not model it. The first cut read a statement as "no backing" and, over a bright photo, reported 1.2:1 for text that reads fine on the real scrim; an independent check found it and a probe reproduced it. Measuring a statement with the scrim off (`card-clear`) would need the gradient modelled.
 
 ## Reuse (HARD RULE #15)
 
@@ -62,3 +61,15 @@ The Studio now reads the photo itself: `pickedInk` in `thin-card-fix.ts` runs th
 (`readBehindCard`, `applyLateRead`) and the tooltip offers the one ink that reads. A probe showed the preview frame is mounted and laid out
 even on the phone's Source tab, so the read works there. It falls back to both buttons only when it cannot read: the preview shows another slide
 (it holds one at a time), or the photo is cross-origin. The edit is `addCardInk`; the slide is read from the position when a button is pressed.
+
+## Found by the independent check (2026-10-26)
+
+One checker read the diff cold. Four findings were real and are fixed in this PR, each with a test that fails on the bug:
+
+- **A statement was flagged although its scrim made it read** (above). The e2e puts a statement over a bright photo and expects no finding.
+- **The finding went stale** when the theme, mode or front matter changed, because the hook keyed on the slide's own text only. It now re-reads on a `context` (mode, palette, source). The e2e edits the front matter in place and expects the finding to clear.
+- **"Fix all" and the panel disagreed** when the photo finding displaced the sixth lint finding. The photo finding now rides alongside the lint top six instead of competing for a slot.
+- **One failed chunk load emptied the editor's diagnostics**, and a slow photo host could hold a lint pass for 4 s. The tooltip's import is caught and the photo read is capped at 1.2 s, after which both inks are offered. The tooltip also drops lint's "Fix:" prose now that buttons carry the fix.
+
+My first negative tests were vacuous: `typeDeck` clears the editor, and the empty deck briefly shows no finding, so "count is 0" passed before the read ran. They now wait on `data-photo-read="done"` (derived in render, so it flips the moment the slide changes) and each was shown to fail with its bug put back.
+Not fixed, by decision: each read toggles two classes on the preview section, which wakes the runtime's mutation observer for one idempotent pass.

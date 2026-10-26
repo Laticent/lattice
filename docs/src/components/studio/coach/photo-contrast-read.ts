@@ -71,9 +71,9 @@ function readPinned(section: HTMLElement, card: HTMLElement, pin: Pin): Scene | 
 
 /**
  * The verdict for slide `slideNumber` (1-based), or null when it cannot be measured or is not a
- * slide whose text sits on the photo. Only a spotlight or statement composition puts text over the
- * picture (`clean`, `split` and `gallery` set it beside); a card at full backing has the theme's own
- * contrast, and the photo then only shows around it, so the measure covers whatever the card lets through.
+ * slide whose text sits on the photo. Only a spotlight card puts the theme's ink over the picture (`clean`, `split`
+ * and `gallery` set text beside it, and a statement's ink is fixed white on a scrim); a card at full backing has the
+ * theme's own contrast, so the measure covers whatever the card lets through.
  */
 export async function readPhotoContrast(slideNumber: number, heading: string | null, photoRef: string | null, classes: string[] | null): Promise<PhotoRead | null> {
 	try {
@@ -81,8 +81,9 @@ export async function readPhotoContrast(slideNumber: number, heading: string | n
 		if (!doc) return null;
 		const sections = doc.querySelectorAll<HTMLElement>('section');
 		const section = sections[slideNumber - 1] ?? sections[0];
-		const composition = section?.getAttribute('data-img-composition');
-		if (!section || (composition !== 'spotlight' && composition !== 'statement')) return null;
+		// Spotlight only. A statement's backing is the `.image-scrim` gradient, not a fill on the text box, and that
+		// gradient is not modelled here, so reading it as "no backing" would flag statements whose scrim makes them read.
+		if (!section || section.getAttribute('data-img-composition') !== 'spotlight') return null;
 		if (!sameSlide(heading, section.querySelector('h1, h2')?.textContent ?? null)) return null;
 		const panel = section.querySelector<HTMLElement>('.lattice-bg');
 		const card = section.querySelector<HTMLElement>('.image-text');

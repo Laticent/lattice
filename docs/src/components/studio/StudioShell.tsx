@@ -4785,7 +4785,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
 	// The Coach's photo-contrast read of the slide on screen (measured in the preview, so it only runs while the Coach is open).
-	const photoFindings = usePhotoContrast(activeChunk, activeFullIndex + 1, coachOpen);
+	const { findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex + 1, coachOpen, `${mode}|${palette}|${source}`);
 	// Pin the slide light or dark: the one click the photo-contrast warning offers. Never applied on its own.
 	const pinActiveSlide = React.useCallback(
 		(pin: 'dark' | 'light') => mutateSlideFromPanel((c) => (canEditClass(c) ? setClassTokens(c, [...getClassTokens(c).filter((t) => t !== 'dark' && t !== 'light'), pin]) : c)),
@@ -4844,8 +4844,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		splitApiRef.current.expand('b');
 	};
 
-	const rankedFindings = rankFindings([...findings, ...photoFindings]);
-	const shownFindings = rankedFindings.slice(0, 6);
+	// The photo finding is measured, not linted, and "Fix all" cannot draft it, so it rides alongside the lint top six
+	// instead of competing with them for a slot: the count the panel shows and the set "Fix all" drafts stay one set.
+	const rankedFindings = rankFindings(findings);
+	const shownFindings = rankFindings([...rankedFindings.slice(0, 6), ...photoFindings]);
 	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
 	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
 	const isDraftable = (f: Finding): boolean => {
@@ -5095,8 +5097,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</ArchCard>
 			{/* Slide-level findings — severity-ranked full-width cards; per-finding AI fix
 			    cycles IN the pill then splits into Apply / Discard, the diff below. */}
-			{rankedFindings.length > 0 && (
-				<ArchCard tag={<IntentTag intent={rankedFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length} to address`}>
+			{shownFindings.length > 0 && (
+				<ArchCard tag={<IntentTag intent={shownFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length + photoFindings.length} to address`}>
 					<p className="text-xs leading-relaxed text-muted-foreground">Ranked by severity. {ai.ready ? 'Fix one with AI — review the diff before it lands (spends on your key; billed to generate, not to apply).' : 'Connect a model in Workspace to fix these with AI.'}</p>
 					{/* Batch actions — DRAFT every fixable finding, or apply the reviewed proposals
 					    at once. Never a blind apply-all: "Draft all" only drafts (each still gets a
@@ -5137,6 +5139,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{rankedFindings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{rankedFindings.length - 6} more — the editor underlines them all.</p>}
 				</ArchCard>
 			)}
+			{/* The photo-contrast read's progress, for specs that must wait for an ABSENCE: it flips to "pending" in the render that changes the slide. */}
+			<span hidden data-photo-read={photoSettled ? 'done' : 'pending'} />
 		</>
 	);
 

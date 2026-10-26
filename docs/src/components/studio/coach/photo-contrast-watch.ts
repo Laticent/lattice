@@ -14,25 +14,33 @@ export type PhotoFinding = Finding & { pin: Pin | null };
 
 const SETTLE_MS = 900;
 
-export function usePhotoContrast(chunk: string, slideNumber: number, enabled: boolean): PhotoFinding[] {
-	const [found, setFound] = React.useState<PhotoFinding[]>([]);
+/**
+ * `context` is everything outside the slide that changes what the preview paints (the site's mode and palette, the deck's
+ * front matter): a new value re-reads the slide, so a theme or mode switch cannot leave an old verdict on screen.
+ */
+export function usePhotoContrast(chunk: string, slideNumber: number, enabled: boolean, context: string): { findings: PhotoFinding[]; settled: boolean } {
+	const [state, setState] = React.useState<{ key: string; list: PhotoFinding[] }>({ key: '', list: [] });
+	const photo = enabled && /!\[bg[^\]]*\]\(/.test(chunk);
+	// Derived in render, so it flips the moment the slide changes: `settled` means the read for THIS slide, in THIS context, has
+	// finished (or there is no photo to read). The old finding stays on screen meanwhile rather than flickering on every keystroke.
+	const key = `${slideNumber}|${context}|${chunk}`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `context` is not read in the body; a new value is the signal to re-read the preview.
 	React.useEffect(() => {
 		let live = true;
-		const photo = enabled && /!\[bg[^\]]*\]\(/.test(chunk);
 		if (!photo) {
-			setFound((prev) => (prev.length ? [] : prev));
+			setState((prev) => (prev.list.length ? { key: '', list: [] } : prev));
 			return;
 		}
 		const id = setTimeout(async () => {
 			const [{ readPhotoContrast }, { headingOf, photoRefOf }] = await Promise.all([import('./photo-contrast-read'), import('../card-ink-pick')]);
 			const read = await readPhotoContrast(slideNumber, headingOf(chunk), photoRefOf(chunk), getClassTokens(chunk));
 			if (!live) return;
-			setFound(read ? [{ slide: slideNumber, rule: PHOTO_RULE, severity: 'warning', message: read.message, pin: read.fix }] : []);
+			setState({ key, list: read ? [{ slide: slideNumber, rule: PHOTO_RULE, severity: 'warning', message: read.message, pin: read.fix }] : [] });
 		}, SETTLE_MS);
 		return () => {
 			live = false;
 			clearTimeout(id);
 		};
-	}, [chunk, slideNumber, enabled]);
-	return found;
+	}, [chunk, slideNumber, enabled, context, photo, key]);
+	return { findings: state.list, settled: !photo || state.key === key };
 }
