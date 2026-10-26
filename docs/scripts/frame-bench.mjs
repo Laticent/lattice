@@ -6,8 +6,13 @@
 // reports the needles the live perf panel shows, by REGIME (the #917 split):
 //   • LCP        — newcomer first paint of /studio (Studio-specific, vs Lighthouse's generic run)
 //   • FRAME patch — a warm edit's body-swap (the #913 fast path) — should be single-digit ms
-//   • FRAME write — a full rebuild (theme/mode/size change) — the stylesheet reparse cost
+//   • FRAME restyle — a theme / mode change: the resident theme <style> swapped in place
+//   • FRAME write — a full srcdoc rewrite (a new frame box, or a diagram added or removed)
 //   • RENDER / TOTAL — engine render + whole edit→paint, per regime
+//
+// Each regime is its own metric, so a heavy-regime regression cannot hide behind a light-regime
+// win in an average (#1939). The run DRIVES each one through the real UI: typing (patch), the
+// mode button (restyle), and a Mermaid fence typed then undone (write).
 //
 // It reads RAW per-render samples from `window.__latticeRenderMetrics` (the tooling hook
 // in render-metrics.ts), not the EMA the overlay shows, so the numbers are per-render.
@@ -106,6 +111,8 @@ const median = (xs) => {
 async function oneRun(browser, base, opts) {
 	const ctx = await browser.createBrowserContext(); // clean storage → a true newcomer
 	const page = await ctx.newPage();
+	// Desktop width: the mode button the restyle step clicks lives in the xl toolbar.
+	await page.setViewport({ width: 1440, height: 900 });
 	await page.setCacheEnabled(false);
 	const client = await page.target().createCDPSession();
 	if (opts.cpu > 1) await client.send('Emulation.setCPUThrottlingRate', { rate: opts.cpu });
@@ -141,28 +148,47 @@ async function oneRun(browser, base, opts) {
 		await page.keyboard.type('x', { delay: 20 });
 		await settle();
 	}
-	// A COLD WRITE render: flip the color mode → the render sig changes → a full srcdoc write.
-	await page.evaluate(() => {
-		const r = document.documentElement;
-		r.setAttribute('data-mode', r.getAttribute('data-mode') === 'dark' ? 'light' : 'dark');
-	});
-	await page.keyboard.type('y', { delay: 20 });
-	await settle();
-	await settle();
+	// RESTYLE renders: the toolbar's mode button. A theme or mode change keeps the frame box, so the
+	// preview swaps its theme <style> in place. (This step used to flip `data-mode` on the page's
+	// <html>, which the preview never reads, so the heavy regimes were never measured: #1939.)
+	for (let i = 0; i < 3; i++) {
+		await page.click('[data-demo="mode"]');
+		await settle();
+	}
+	// WRITE renders: a Mermaid fence typed in as one input, then undone, twice. The diagram flag is
+	// part of what the resident frame cannot change in place, so each edit rewrites the whole srcdoc.
+	await page.evaluate(() => document.querySelector('.cm-content')?.focus());
+	for (let i = 0; i < 2; i++) {
+		await page.keyboard.down('Control');
+		await page.keyboard.press('End');
+		await page.keyboard.up('Control');
+		await page.keyboard.sendCharacter('\n\n```mermaid\nflowchart LR\n  A --> B\n```\n');
+		await settle();
+		await settle();
+		await page.keyboard.down('Control');
+		await page.keyboard.press('z');
+		await page.keyboard.up('Control');
+		await settle();
+		await settle();
+	}
 
 	const samples = await page.evaluate(() => window.__bench || []);
 	await ctx.close();
 
 	const patch = samples.filter((s) => s.writePath === 'patch');
+	const restyle = samples.filter((s) => s.writePath === 'restyle');
 	const write = samples.filter((s) => s.writePath === 'write');
 	return {
 		lcp,
 		framePatch: median(patch.map((s) => s.frameMs)),
+		frameRestyle: median(restyle.map((s) => s.frameMs)),
 		frameWrite: median(write.map((s) => s.frameMs)),
 		totalPatch: median(patch.map((s) => s.totalMs)),
+		totalRestyle: median(restyle.map((s) => s.totalMs)),
 		totalWrite: median(write.map((s) => s.totalMs)),
 		engine: median(samples.map((s) => s.engineMs)),
 		nPatch: patch.length,
+		nRestyle: restyle.length,
 		nWrite: write.length,
 	};
 }
@@ -190,10 +216,15 @@ const BASELINE = join(DOCS, 'scripts', 'frame-baseline.json');
  *   real regression (1.1 → 4ms) still does.
  *
  * A metric the run could not measure is stored as null and skipped rather than blessed as
- * a number — `frameWriteMs` comes back NaN in a headless sandbox that never triggers the
- * heavy regime, and recording that as 0 would silently pin the strictest possible budget.
+ * a number, because recording 0 would pin the strictest possible budget. But a metric the
+ * BASELINE has and this run did not measure FAILS the check on any machine: the run drives
+ * every regime, so a missing one means the driver broke (a renamed button, a changed write
+ * rule), and a skip would quietly put the ratchet back to guarding half the loop (#1939).
  */
-const FLOOR_MS = { lcpMs: 300, framePatchMs: 2, frameWriteMs: 8, totalPatchMs: 4, totalWriteMs: 12, engineMs: 2 };
+// The write floors are sized from the first measured runs (2026-10-26, 4× CPU): a write is a
+// whole new iframe realm, ~300-500 ms, and five runs spread 287-413 ms on one tree, so a floor of
+// a few ms would let that spread alone fail the band.
+const FLOOR_MS = { lcpMs: 300, framePatchMs: 2, frameRestyleMs: 8, frameWriteMs: 120, totalPatchMs: 4, totalRestyleMs: 10, totalWriteMs: 150, engineMs: 2 };
 const TOLERANCE_PCT = 25; // browser-noisy; the floor above is what actually keeps it honest
 const METRICS = Object.keys(FLOOR_MS);
 
@@ -230,9 +261,15 @@ function check(agg) {
 	const gates = sameMachine(base.blessedOn, here);
 	console.log(`\nframe-bench --check  ·  ${gates ? 'TIMING GATES (machine matches the baseline)' : 'REPORT ONLY (different machine — timing does not gate)'}\n`);
 	const regressions = [];
+	const unmeasured = [];
 	for (const k of METRICS) {
 		const was = base.metrics?.[k] ?? null;
 		const now = num(agg[k]);
+		if (was !== null && now === null) {
+			unmeasured.push(k);
+			console.log(`  ${k.padEnd(14)} ${String(`${was}ms`).padStart(8)} →  not measured  ✗ REGIME MISSING`);
+			continue;
+		}
 		if (was === null || now === null) { console.log(`  ${k.padEnd(14)} ${was === null ? 'no baseline' : 'not measured'} — skipped`); continue; }
 		const deltaPct = ((now - was) / was) * 100;
 		const overPct = deltaPct > (base.tolerancePct ?? TOLERANCE_PCT);
@@ -240,6 +277,10 @@ function check(agg) {
 		const bad = overPct && overAbs;
 		if (bad) regressions.push(`${k}: ${was}ms → ${now}ms (+${deltaPct.toFixed(0)}%, +${(now - was).toFixed(1)}ms)`);
 		console.log(`  ${k.padEnd(14)} ${String(`${was}ms`).padStart(8)} → ${String(`${now}ms`).padStart(8)}  ${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(0)}%  ${bad ? '✗ REGRESSION' : ''}`);
+	}
+	if (unmeasured.length) {
+		console.error(`\nframe-bench: ${unmeasured.join(', ')} had a baseline and this run measured none. The bench drives every regime, so its driver broke; fix it before trusting the rest.\n`);
+		return 1; // machine-independent: a sample count is not a timing
 	}
 	if (!regressions.length) { console.log('\nframe-bench: within band.\n'); return 0; }
 	console.error(`\nframe-bench: ${regressions.length} regression(s) past BOTH the ${base.tolerancePct}% band and the absolute floor:`);
@@ -264,7 +305,7 @@ async function main() {
 		try {
 			const r = await oneRun(browser, base, opts);
 			runs.push(r);
-			if (!opts.json) console.error(`  run ${i + 1}/${opts.runs}: patch ${Math.round(r.framePatch)}ms · write ${Math.round(r.frameWrite)}ms · LCP ${Math.round(r.lcp)}ms`);
+			if (!opts.json) console.error(`  run ${i + 1}/${opts.runs}: patch ${Math.round(r.framePatch)}ms ×${r.nPatch} · restyle ${Math.round(r.frameRestyle)}ms ×${r.nRestyle} · write ${Math.round(r.frameWrite)}ms ×${r.nWrite} · LCP ${Math.round(r.lcp)}ms`);
 		} catch (e) {
 			console.error(`  run ${i + 1}/${opts.runs}: FAILED — ${e.message}`);
 		}
@@ -282,8 +323,10 @@ async function main() {
 		runs: runs.length,
 		lcpMs: Math.round(median(runs.map((r) => r.lcp))),
 		framePatchMs: +median(runs.map((r) => r.framePatch)).toFixed(1),
+		frameRestyleMs: +median(runs.map((r) => r.frameRestyle)).toFixed(1),
 		frameWriteMs: Math.round(median(runs.map((r) => r.frameWrite))),
 		totalPatchMs: +median(runs.map((r) => r.totalPatch)).toFixed(1),
+		totalRestyleMs: +median(runs.map((r) => r.totalRestyle)).toFixed(1),
 		totalWriteMs: Math.round(median(runs.map((r) => r.totalWrite))),
 		engineMs: +median(runs.map((r) => r.engine)).toFixed(1),
 	};
@@ -298,9 +341,11 @@ async function main() {
 	const row = (k, v, note) => console.log(`  ${k.padEnd(16)} ${String(v).padStart(7)}  ${note}`);
 	row('LCP', `${agg.lcpMs}ms`, 'newcomer first paint of /studio');
 	row('FRAME patch', `${agg.framePatchMs}ms`, 'warm edit — body swap (#913 fast path)');
-	row('FRAME write', `${agg.frameWriteMs}ms`, 'full rebuild — stylesheet reparse (theme/mode/size)');
+	row('FRAME restyle', `${agg.frameRestyleMs}ms`, 'theme/mode change — theme <style> swapped in place');
+	row('FRAME write', `${agg.frameWriteMs}ms`, 'full srcdoc rewrite — new frame box or a diagram added/removed');
 	row('TOTAL patch', `${agg.totalPatchMs}ms`, 'whole edit→paint, warm');
-	row('TOTAL write', `${agg.totalWriteMs}ms`, 'whole edit→paint, rebuild');
+	row('TOTAL restyle', `${agg.totalRestyleMs}ms`, 'whole edit→paint, restyle');
+	row('TOTAL write', `${agg.totalWriteMs}ms`, 'whole edit→paint, rewrite');
 	row('RENDER', `${agg.engineMs}ms`, 'engine (Markdown→HTML), regime-independent');
 	console.log('');
 }
