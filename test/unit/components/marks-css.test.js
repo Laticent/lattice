@@ -125,7 +125,8 @@ describe('marks.generated.css', () => {
     assert.equal(text.length, 1);
     assert.match(text[0].body, /color: var\(--finish-ink\) !important/);
     const picked = css.split('\n}').filter((b) => /(?:^|\s)(?:color|fill|--tower-ink|--state-node-ink|--state-index-ink):\s*(?:light-dark\()?color\(from/.test(b));
-    for (const b of picked) assert.match(b, /heatmap-value|hub-spoke-icon|lat-pill/, b.slice(0, 160));
+    // Tone's text-bearing marks also pick their ink from their own body (one ladder, any shade): the finish's text-level colors.
+    for (const b of picked) assert.match(b, /heatmap-value|hub-spoke-icon|lat-pill|finish-mark-text/, b.slice(0, 160));
   });
 
   test('a ramp mixes toward its own member base, never through a var() fallback chain', () => {
@@ -344,23 +345,36 @@ describe('marks.generated.css', () => {
     assert.match(css, /marks-etch :where\(:is\(\.line-path, \.ep-path\)\)[^}]*stroke-width: 2\.6/, 'etch draws the series line heavier');
   });
 
-  // THE OWNER'S PICK (2026-10-25): under tone a category's hue survives in its EDGE. #2887 once read every tone edge from
-  // the first category's ink, so on a pie, a tower, a stacked bar and a quadrant the edges were one color (closest pair 0 OKLab).
-  test('tone\'s edge is the mark\'s own category ink, as in every other finish', () => {
-    const edgeRules = rules.filter((r) => /stroke: var\(--finish-mark-edge\)|box-shadow: inset 0 0 0 [^;]* var\(--finish-mark-edge\)/.test(r.body));
-    assert.ok(edgeRules.length >= 4, 'plain and text-bearing, fill and bg');
-    // Every edge rule serves tone, except the companion that puts a series stroke's dots and bands back under pigment and
-    // etch: tone leaves those whole, so its dots keep matching their own series.
-    const companion = new Set(headed('pigment', 'etch'));
-    for (const r of edgeRules.filter((x) => !companion.has(x))) assert.ok(serving('tone').includes(r), `tone takes the shared edge rule: ${r.sel.slice(0, 80)}`);
-    // The edge comes from the slot, once per category, never from category 1.
+  // THE EDGE RULE. Pigment and etch outline a mark in its own category ink. Tone has ONE ladder of shades that already tells
+  // the categories apart by depth, so its outline is one ink (category 1's) on every mark: a tone chart is one color plus
+  // status. (Until 2026-10-26 tone's edges carried the category hue, because the shades did not tell categories apart on a
+  // text-bearing mark; the one ladder below is what makes the one-ink edge safe.)
+  test('pigment and etch outline a mark in its category ink; tone outlines every mark in one ink', () => {
     for (let n = 1; n <= 8; n++) {
       const slot = rules.find((r) => r.sel.startsWith(`section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is([data-hue="${n}"], [data-key-hue="${n}"]))`));
       assert.match(slot.body, new RegExp(`--finish-mark-edge: var\\(--chart-cat-${n}-ink\\);`), `slot ${n}`);
     }
-    // The one ink survives only where it is not an edge on a hue mark: a container's title, a quadrant cell's name, a roadmap phase.
-    // A RAMP's cell gap is etch's own line, not a hue mark's edge.
-    assert.deepEqual(rules.filter((x) => !/data-encodes="ramp"/.test(x.sel) && /(?:stroke|box-shadow)[^;]*var\(--chart-cat-1-ink\)/.test(x.body)).map((r) => r.sel.slice(0, 100)), [], 'no hue mark edge reads category 1');
+    const toneEdge = headed('tone').find((r) => /^section\.marks-tone :where\(:is\(\[data-hue="1"\], \[data-key-hue="1"\], /.test(r.sel) && r.body.includes('--finish-mark-edge'));
+    assert.match(toneEdge?.body || '', /--finish-mark-edge: var\(--chart-cat-1-ink\)/, 'tone re-points every slot\'s edge to the one ink');
+    // The tone rule is a plain declaration like the slot rules and comes AFTER them, so at equal specificity it wins.
+    const slot8 = rules.findIndex((r) => r.sel.startsWith('section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is([data-hue="8"], [data-key-hue="8"]))'));
+    assert.ok(rules.indexOf(toneEdge) > slot8, 'after the slot rules');
+  });
+
+  // ONE LADDER. A text-bearing mark used a second, paler ladder so a fixed text ink could stay readable, which gave category N
+  // a different shade on a tower than on a pie (closest pair of tower bodies 0.017 OKLab, pie 0.072). Each text-bearing
+  // mark now picks black or white from its own body, so tone's text levels ARE its body levels.
+  test('tone has one ladder: its text-bearing levels equal its body levels, and the text ink is picked per mark', () => {
+    const t = tokens('tone');
+    for (let n = 1; n <= 8; n++) {
+      assert.equal(t[`--finish-text-${n}`], t[`--finish-body-${n}`], `slot ${n}, light`);
+      assert.equal(t[`--finish-text-d-${n}`], t[`--finish-body-d-${n}`], `slot ${n}, dark`);
+    }
+    const pick = rules.filter((r) => serving('tone').includes(r) && /color\(from var\(--finish-mark-text-l\)/.test(r.body));
+    assert.ok(pick.some((r) => /^\s*color: light-dark\(/m.test(r.body)), 'a text-bearing HTML mark picks its ink from its own body');
+    assert.ok(pick.some((r) => /^\s*fill: light-dark\(/m.test(r.body) && r.sel.includes('tower-share-value')), 'a tower share figure does too');
+    // Pigment and etch keep their curated pairs: their text levels stay a second, paler tier.
+    for (const f of ['pigment', 'etch']) assert.ok(!pick.some((r) => serving(f).includes(r)), `${f} does not pick per mark`);
   });
 
   // "Nothing else rings" reads only if an exception's ring is the HEAVIER line. The ring replaces the mark's edge,

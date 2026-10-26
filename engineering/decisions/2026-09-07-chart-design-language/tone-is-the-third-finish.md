@@ -143,9 +143,12 @@ audit that found them is `followups.d/2887-p2-tone-etch-open-decisions.md`.
   its own status hue under tone, at tone's quiet level, and its edge is the status ink
   (`engineering/chart-styling.md` §3, `STATUS_MARKS` in `tools/build-marks-css.js`).
 - **"its top step is 92%, louder than `pigment`'s 82%" is stale.** Pigment is the flat solid now (100%).
-- **"ink, 1×" on the edge now means the mark's own category ink.** Tone's edges once all read category 1's ink, so on
-  a pie, a tower, a stacked bar and a quadrant the closest pair of edges was 0 OKLab apart. Each edge is its category's
-  ink again, as this note always said ("the only place the categorical hue survives"). Measured, tone's closest edge
-  pair now equals pigment's and etch's (median 0.079 on tower, 0.093 on pie, 0.180 on stacked bar; 0.004 only on
-  `a11y-achromatopsia` light, a grayscale palette that separates categories by texture).
-- **The ramp is no longer doubled for ramps.** See `chart-styling.md` §3: a heatmap's text band is the same as its plain band.
+- **Tone's edge is one ink on every mark, and the categories are told apart by the one ladder.** This note said the
+  edge is "the only place the categorical hue survives". That held while a text-bearing mark took a second, paler
+  ladder whose steps sat 0.017 OKLab apart on a tower. With ONE ladder (text ink picked per mark) the bodies carry the
+  category by depth, so the outline is one ink and a tone chart is one color plus status. (A brief intermediate state
+  in the same PR gave each edge its category ink; the owner's goal, "consistent, clear and clean across charts within
+  a finish", chose the one-ink edge once the ladder made it safe.)
+- **The ramp is no longer doubled, for ramps or for marks.** See `chart-styling.md` §3: a heatmap's text band is the same
+  as its plain band, and a text-bearing mark takes the same eight steps as every other body, with its text ink picked
+  from its own body.

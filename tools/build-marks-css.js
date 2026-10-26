@@ -82,7 +82,7 @@ const F = {
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.82], rampText: [[6, 0.82], [6, 0.82]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -360,7 +360,7 @@ function finishTokens(name) {
     const i = n - 1;
     d.push(`${T.hue(n)}: ${tone ? ONE : hueOf(n)}`);
     d.push(`${T.body(n)}: ${tone ? TONE[i] : f.body[0]}%`, `${T.bodyD(n)}: ${tone ? TONE[i] : f.body[1]}%`);
-    d.push(`${T.text(n)}: ${tone ? TONE_TEXT[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE_TEXT_D[i] : f.backdrop[1]}%`);
+    d.push(`${T.text(n)}: ${tone ? TONE[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE[i] : f.backdrop[1]}%`);
     // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
     // translucent polygons at that strength stack to a mid-tone center that no ink can read a scale tick on
     // (near-black on concrete's overlap measured 3.73:1, the unfinished paint 4.67:1). tools/chart-finish-reach.mjs
@@ -679,6 +679,16 @@ function build() {
       // satellite is held under the hub by its own mix, so a neutral or status-only chart keeps the dimmed hub.
       // Pigment's hub is the neutral solid (REGIONS); etch's body (40%) never comes near the hub.
       w(rule(name, '.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub', ['fill: var(--text-heading)', 'stroke: var(--text-heading)']));
+      // ONE INK FOR EVERY EDGE. With one ladder the bodies already tell the categories apart by depth, so the outline no
+      // longer has to carry the category's hue: every mark wears the one tone ink, and a tone chart is one hue plus status.
+      w(rule(name, SLOT_SEL, ['--finish-mark-edge: var(--chart-cat-1-ink)'], false));
+      // ONE LADDER. A text-bearing mark takes the same eight steps as every other body, so category N is the same shade on
+      // a tower, a matrix grid and a pie. Its text picks black or white from its OWN body (inkOn clears 4.58:1 on any
+      // body), instead of one fixed ink curated for a pale ladder.
+      const pickInk = `light-dark(${inkOn('var(--finish-mark-text-l)')}, ${inkOn('var(--finish-mark-text-d)')})`;
+      if (bears.bg.length) w(supports(rule(name, `:is(${bears.bg.map(bearSel).join(', ')})${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [`color: ${pickInk}`])));
+      // A real property, not the member's `--tower-ink` custom property: the player's dual-mode pass hoists a light-dark() in a custom property to :root.
+      w(supports(rule(name, `.tower-share-value${HUE_SEL}`, [`fill: ${pickInk}`])));
       // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
       for (const n of SLOTS.filter((x) => x > 4)) w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${notLeft}`, ['stroke-dasharray: 5 3']));
     }

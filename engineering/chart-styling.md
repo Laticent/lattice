@@ -207,7 +207,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | the mark's own category ink, 1× (2.5× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue, the same ladder on every chart | one ink for every mark, 1× (2.5× on a text-bearing mark) |
 
 **A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
@@ -280,10 +280,15 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, 79 KB and 5.9 KB after, with every computed fill, stroke, edge, shadow and ring on the chart gallery
   unchanged under pigment and etch (1.17M property reads, five themes, light and dark) and under tone changed
   only in the edge, below.
-- **Under every finish the edge is the mark's own category ink.** Tone has one hue for bodies, and the edge is
-  the one place the category survives (`engineering/decisions/2026-09-07-chart-design-language/tone-is-the-third-finish.md`).
-  Tone's edges once all read category 1, so on a pie, a tower, a stacked bar and a quadrant the closest pair of
-  edges was 0 OKLab apart. A status mark keeps its status ink for its edge.
+- **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
+  ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
+  tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status
+  (`engineering/decisions/2026-09-07-chart-design-language/tone-is-the-third-finish.md`). Until 2026-10-26 a
+  text-bearing mark took a second, paler ladder (30…9%) so one fixed text ink could stay readable, which made
+  category 2 a different shade on a tower (closest pair of bodies 0.017 OKLab) than on a pie (0.072), and the
+  outline had to carry the category. A text-bearing tone mark now picks black or white from its own body
+  (`inkOn`, at least 4.58:1 on any body), so its text level IS its body level. A status mark keeps its status
+  ink for its edge.
 - **Specificity (0,1,1), on purpose.** Every rule is
   `section.marks-X :where(<mark>)` (X one finish, or an `:is()` of several, which takes a class's
   specificity) with `!important`. That beats every
@@ -301,9 +306,10 @@ measurement, and most undo a defect a render or the adversarial review found:
   to clear the top step; each value now picks its own ink, which clears 4.58:1 on any body, so the band
   no longer protects the text. Measured on the heatmap gallery (5 themes), the contrast of the top step
   against the empty cell under tone went from 3.10 to 4.19 at its worst on light and from 1.67 to 2.64 on
-  dark (pigment 4.78 and 6.32). Etch's ramp is wider than its
-  whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
-  flat navy, and a ramp's identity is value.
+  dark (pigment 4.78 and 6.32). Etch's ramp is 6% plus 0.82 of
+  the step (6→82%): at the prototype's 6→28% a dark heatmap read as one flat navy, and at today's earlier 6→43% the
+  top step beat an empty cell by only 1.5 to 2.3:1 on dark. 0.82 reaches about 2.5:1 worst case on 8 themes; 1.0
+  would reach 3:1 but looks like pigment, which erases what makes etch etch.
 - **A heatmap value picks its own ink, under etch and tone.** The theme solves each step's
   ink against the shipped fill, and a finish that changes the fill leaves no fixed ink that
   holds (the strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's
@@ -324,7 +330,8 @@ measurement, and most undo a defect a render or the adversarial review found:
   text-bearing mark at exactly that tier (`--chart-cat-N-fill`, and the `--state-*-fill` recipe for a
   status: 24% over the canvas on light, 50% toward black on dark), so in light mode it is a tint and
   in dark mode a deep fill, and a mark with NO text (a bar, a wedge, a dot) is where pigment is solid.
-  Etch and tone paint quieter text tiers and keep the same ink. A solid text-bearing body was tried
+  Etch paints a quieter text tier and keeps the same ink; tone paints its one ladder and picks the ink per mark
+  (above). A solid text-bearing body was tried
   and dropped: no ink clears a mid-tone well (black or white picked per body had a median of 5.6:1
   and read as mud), the text changed color from chart to chart, and `--text-heading` on a solid body
   fell under 4.5:1 on 104 of 320 gantt bars across the palettes (worst 1.37:1, concrete). A key
@@ -389,7 +396,7 @@ measurement, and most undo a defect a render or the adversarial review found:
 
 **What a finish does not reach, on purpose.** `line`, `ep-curve`, `slope` and `word-cloud`
 paint with strokes and type (`paint: "none"`): a stroke is all edge and no body. Tone's one
-hue is for bodies, and an edge and a name keep their category ink, so tone leaves these whole,
+hue is for bodies, and a name keeps its category ink, so tone leaves these whole,
 their dots and bands too, since a tonal dot on a line that kept its hue no longer matches its
 series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6), because under
 etch the line is the identity, and gives its dots, areas and bands etch's whisper body and ink

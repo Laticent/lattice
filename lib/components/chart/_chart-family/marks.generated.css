@@ -154,11 +154,11 @@ figure.marks-etch,
   --finish-status-text: 14%;
   --finish-status-text-d: 19%;
   --finish-ramp-lo: 6%;
-  --finish-ramp-k: 0.4;
+  --finish-ramp-k: 0.82;
   --finish-ramp-text-lo: 6%;
-  --finish-ramp-text-k: 0.4;
+  --finish-ramp-text-k: 0.82;
   --finish-ramp-text-d-lo: 6%;
-  --finish-ramp-text-d-k: 0.4;
+  --finish-ramp-text-d-k: 0.82;
 }
 
 /* tone */
@@ -173,49 +173,49 @@ figure.marks-tone,
   --finish-hue-1: var(--chart-cat-1-hue);
   --finish-body-1: 92%;
   --finish-body-d-1: 92%;
-  --finish-text-1: 30%;
-  --finish-text-d-1: 35%;
+  --finish-text-1: 92%;
+  --finish-text-d-1: 92%;
   --finish-layer-1: 0.2;
   --finish-layer-ink-1: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg));
   --finish-hue-2: var(--chart-cat-1-hue);
   --finish-body-2: 76%;
   --finish-body-d-2: 76%;
-  --finish-text-2: 27%;
-  --finish-text-d-2: 31%;
+  --finish-text-2: 76%;
+  --finish-text-d-2: 76%;
   --finish-layer-2: 0.176;
   --finish-layer-ink-2: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg));
   --finish-hue-3: var(--chart-cat-1-hue);
   --finish-body-3: 61%;
   --finish-body-d-3: 61%;
-  --finish-text-3: 24%;
-  --finish-text-d-3: 28%;
+  --finish-text-3: 61%;
+  --finish-text-d-3: 61%;
   --finish-layer-3: 0.153;
   --finish-layer-ink-3: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg));
   --finish-hue-4: var(--chart-cat-1-hue);
   --finish-body-4: 47%;
   --finish-body-d-4: 47%;
-  --finish-text-4: 21%;
-  --finish-text-d-4: 24%;
+  --finish-text-4: 47%;
+  --finish-text-d-4: 47%;
   --finish-layer-4: 0.132;
   --finish-layer-ink-4: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg));
   --finish-hue-5: var(--chart-cat-1-hue);
   --finish-body-5: 34%;
   --finish-body-d-5: 34%;
-  --finish-text-5: 18%;
-  --finish-text-d-5: 21%;
+  --finish-text-5: 34%;
+  --finish-text-d-5: 34%;
   --finish-layer-5: 0.112;
   --finish-layer-ink-5: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg));
   --finish-hue-6: var(--chart-cat-1-hue);
   --finish-body-6: 22%;
   --finish-body-d-6: 22%;
-  --finish-text-6: 15%;
-  --finish-text-d-6: 17%;
+  --finish-text-6: 22%;
+  --finish-text-d-6: 22%;
   --finish-layer-6: 0.093;
   --finish-layer-ink-6: color-mix(in oklab, var(--chart-cat-1-ink) 80%, var(--bg));
   --finish-hue-7: var(--chart-cat-1-hue);
   --finish-body-7: 14%;
   --finish-body-d-7: 14%;
-  --finish-text-7: 12%;
+  --finish-text-7: 14%;
   --finish-text-d-7: 14%;
   --finish-layer-7: 0.081;
   --finish-layer-ink-7: color-mix(in oklab, var(--chart-cat-1-ink) 64%, var(--bg));
@@ -223,7 +223,7 @@ figure.marks-tone,
   --finish-body-8: 9%;
   --finish-body-d-8: 9%;
   --finish-text-8: 9%;
-  --finish-text-d-8: 10%;
+  --finish-text-d-8: 9%;
   --finish-layer-8: 0.074;
   --finish-layer-ink-8: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg));
   --finish-status: 61%;
@@ -1002,6 +1002,22 @@ section.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-lea
 figure.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub) {
   fill: var(--text-heading) !important;
   stroke: var(--text-heading) !important;
+}
+section.marks-tone :where(:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])),
+figure.marks-tone :where(:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])) {
+  --finish-mark-edge: var(--chart-cat-1-ink);
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]),
+figure.marks-tone :where(:is(.cell-filled, .chart-status, .fc-key-swatch, .fc-node, .journey-actor-dot, .kanban-column, .state-node, .state-node-row):is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]) {
+  color: light-dark(color(from var(--finish-mark-text-l) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from var(--finish-mark-text-d) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.tower-share-value:is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])),
+figure.marks-tone :where(.tower-share-value:is([data-hue="1"], [data-hue="2"], [data-hue="3"], [data-hue="4"], [data-hue="5"], [data-hue="6"], [data-hue="7"], [data-hue="8"])) {
+  fill: light-dark(color(from var(--finish-mark-text-l) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from var(--finish-mark-text-d) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+}
 }
 section.marks-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
 figure.marks-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
