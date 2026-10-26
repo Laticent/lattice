@@ -907,6 +907,12 @@ describe('notes-core: say channel (say:)', () => {
         'a \\`<!-- S -->` b\n', // an escaped backtick opens no span
         '``<!-- S -->`\n', // mismatched runs are not a span
         '>\n--\n\t<!-- S -->\n', // `--` under no paragraph is text, not a setext underline
+        // The checker on the second cut: a lazy line after a container is not surely a paragraph,
+        // and indented code needs a blank line before it.
+        '> a\nb\n===\n    <!-- S -->\n',
+        '[r]: x\n    a\n===\n    <!-- S -->\n',
+        '[r]: x\n    a\n<x-y>\n```\n<!-- S -->\n',
+        '| a |\n|---|\n    b\n<x-y>\n```\n<!-- S -->\n',
       ];
       for (const src of cases) assert.doesNotMatch(core.stripNotesFromSource(src, new Set(['S'])), /S -->/, JSON.stringify(src));
     });
