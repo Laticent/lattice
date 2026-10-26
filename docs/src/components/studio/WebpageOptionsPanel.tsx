@@ -137,7 +137,7 @@ export function WebpageOptionsPanel({
 	];
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5 pb-24">
 			<button type="button" onClick={onBack} disabled={busy} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-[var(--text-heading)] disabled:opacity-50">
 				<ArrowLeft className="size-3.5" />All formats
 			</button>

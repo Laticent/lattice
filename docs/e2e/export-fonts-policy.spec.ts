@@ -37,3 +37,34 @@ onEveryEngine('@smoke Share → Webpage cuts the emoji font to the deck by defau
 	const none = await webpage(page, 'system');
 	expect(emojiFaces(none).length).toBe(0);
 });
+
+// The same policy on the other Studio exports: the oracle is the downloaded file.
+const WORDS = '# Fonts policy\n\nA slide with some real text to embed.\n\n---\n\n## Second\n\n- One\n- Two\n';
+
+async function openShare(page: Page, row: RegExp) {
+	await gotoStudio(page);
+	await setEditorContent(page, WORDS);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: row }).click();
+	return dialog;
+}
+
+async function editablePptxEntries(page: Page, text?: string): Promise<string[]> {
+	const dialog = await openShare(page, /^PowerPoint/);
+	const editable = dialog.getByRole('switch', { name: 'Editable text' });
+	if ((await editable.getAttribute('aria-checked')) !== 'true') await editable.click();
+	if (text) await dialog.getByRole('combobox', { name: 'Text fonts' }).selectOption(text);
+	const download = page.waitForEvent('download', { timeout: 240_000 });
+	await dialog.getByRole('button', { name: /^Download PowerPoint/ }).click();
+	const { default: JSZip } = await import('jszip');
+	const zip = await JSZip.loadAsync(readFileSync((await (await download).path()) as string));
+	return Object.keys(zip.files).filter((n) => /^ppt\/fonts\//.test(n));
+}
+
+onEveryEngine('@smoke Share → editable PowerPoint embeds the deck faces by default, and System embeds none', async ({ page }) => {
+	const embedded = await editablePptxEntries(page);
+	expect(embedded.length, 'the default embeds the deck’s faces').toBeGreaterThan(0);
+	const none = await editablePptxEntries(page, 'system');
+	expect(none, 'System embeds nothing').toEqual([]);
+});
