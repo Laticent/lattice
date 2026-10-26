@@ -1,13 +1,14 @@
 ---
 status: shipped
 summary: >
-  Lighthouse mobile, reproduced on the built site over HTTP/2: Studio 48-55, Playground 42-51, home 60-66, against a target
+  Lighthouse mobile, reproduced on the built site over HTTP/2: Studio 48-55, Playground 42-51, home 56-66, against a target
   of 90. Two causes dominate. Total blocking time is script work (React, the island, the preview runtime). The simulated
   first and largest paints count every download that starts before the real paint. On home, the largest single such
-  download was the 461 KB preview-runtime prefetch in the page head. Starting that prefetch on `load` moves home's LCP from
-  4.6-4.9 s to 2.5-2.7 s and its score from 56-63 to 66-76, and the hero's first slide does not move. Studio and Playground are held by
-  ~750-900 KB of module-preloaded JavaScript before the paint, which 2026-10-23-startup-bake-off.md E7 already measured
-  and declined, so 90 there still needs the boot-order redesign.
+  download was the 461 KB preview-runtime prefetch in the page head. Dropping it from the home page moves home's LCP from
+  4.7-5.6 s to 2.2-2.7 s and its score from 56-61 to 66-76, and the hero's first slide gets about 0.15 s faster. Starting
+  the prefetch on `load` instead was built first and measured slower for the hero, so it did not ship. Studio and
+  Playground are held by ~750-900 KB of module-preloaded JavaScript before the paint, which
+  2026-10-23-startup-bake-off.md E7 already measured and declined, so 90 there still needs the boot-order redesign.
 ---
 
 # Lighthouse: what holds each page below 90, and the home page's runtime prefetch
@@ -36,7 +37,7 @@ paint time, whatever its priority.
 
 | Page | Score | FCP | LCP | TBT | What the paint waits on in the graph |
 |---|---|---|---|---|---|
-| home | 60-66 | 1.66-1.81 s | 4.73-4.88 s | 662-907 ms | 38 requests, 805 KB, of which the runtime prefetch is 461 KB |
+| home | 60-66 (first pass; 56-63 interleaved, §5) | 1.66-1.81 s | 4.73-4.88 s | 662-907 ms | 38 requests, 805 KB, of which the runtime prefetch is 461 KB |
 | Studio | 48-55 | 3.77-4.14 s | 4.22-4.82 s | 754-1419 ms | 138 requests, 757 KB: the island and its module-preloaded chunks |
 | Playground | 42-51 | 2.87-4.67 s | 5.57-5.72 s | 1050-1542 ms | 88 requests, 918 KB: the editor, island and engine chunks |
 
@@ -48,20 +49,27 @@ on every page (home 1.5 s, Playground 2.3 s, Studio 4.0 s).
 On home the LCP element is the hero `h1`. It paints at 137 ms in the real trace, at the same moment as FCP, and its
 simulated LCP is 87% render delay: the graph makes it wait for everything that started in those 137 ms.
 
-## 3. The change: the home page's runtime prefetch starts on `load`
+## 3. The change: no runtime prefetch on the home page
 
 `RuntimeWarm.astro` warms the preview runtime (`lattice-runtime.js`, 461 KB on the wire) for pages that render a slide on
-load: home's hero and every component page's specimen. It was a static `<link rel="prefetch">` in the head, so the browser
-started the download during HTML parse, beside the fonts and the render-blocking stylesheet. Variant measured first by
-deleting the tag from the built home page: LCP 4.73-4.88 s to 2.63-2.79 s, score 60-66 to 71-78, FCP unchanged.
+load. It was on home (for the hero) and on every component page (for the specimen), as a static `<link rel="prefetch">` in
+the head, so the browser started the download during HTML parse, beside the fonts and the render-blocking stylesheet.
+Deleting the tag from the built home page moved LCP from 4.73-4.88 s to 2.63-2.79 s (first pass).
 
-Removing it does not cost the hero anything measurable: the hero's first slide on the phone profile (`npm run
-perf:startup`, HTTP/2, eight loads each, two interleaved batches) read 4.17-4.23 s median with the tag and 4.06-4.15 s
-without. The hero asks for the runtime only after the engine has downloaded and rendered, seconds after `load`, so a
-prefetch started at `load` still lands first. The shipped form keeps the warm and moves its start: an inline script appends
-the same `<link rel="prefetch" as="script">` on `load` (at once if the page has already loaded). Same URL, same cache entry.
+Three forms of the home page were then compared on the hero's first slide (`npm run perf:startup`, phone profile, HTTP/2,
+interleaved, two batches of four loads, batch medians):
 
-**Results, base against head:** see §5.
+| Home page form | Hero first slide |
+|---|---|
+| static prefetch in the head (main) | 4.30 s, 4.31 s |
+| prefetch appended on `load` (built first, not shipped) | 4.31 s, 4.44 s |
+| **no prefetch (shipped)** | **4.08 s, 4.09 s** |
+
+The hero asks for the runtime only after the engine (`lattice-playground.js`) has downloaded and rendered, and a prefetch
+started any earlier shares the link with that download, so it delays the engine more than it saves on the runtime. The
+deferred form was the first fix in this branch; the maker-checker pass flagged that its "the hero does not move" claim came
+from the deletion variant, the measurement above refuted it, and it was replaced. The home page now has no `RuntimeWarm`, and
+`RuntimeWarm.test.ts` pins that. The component pages keep it unchanged: their specimen was not measured in this pass.
 
 ## 4. Why Studio and Playground were not changed here
 
@@ -74,18 +82,24 @@ design note first. Nothing in this pass changes that conclusion.
 
 ## 5. Results
 
-Interleaved, same machine, same session (§1). The ranges are min-max across runs.
+Interleaved, same machine, same session (§1). The ranges are min-max across runs. The first pass measured the deferred form
+(not shipped); the final pass measured the shipped form against the same base build.
 
 | Page | Build | Runs | Score | FCP | LCP | TBT |
 |---|---|---|---|---|---|---|
-| home | base | 5 | 56, 57, 60, 60, 63 | 1.44-1.81 s | 4.58-4.89 s | 820-1608 ms |
-| home | **head** | 5 | **66, 71, 73, 75, 76** | 1.66-1.92 s | **2.49-2.67 s** | 941-2481 ms |
+| home | base | 5 | 56, 58, 60, 60, 61 | 1.67-1.81 s | 4.74-5.63 s | 774-1384 ms |
+| home | **head (shipped: no prefetch)** | 5 | **66, 71, 74, 74, 76** | 1.36-1.89 s | **2.19-2.71 s** | 922-3472 ms |
+| home | head (first pass: on `load`) | 5 | 66, 71, 73, 75, 76 | 1.66-1.92 s | 2.49-2.67 s | 941-2481 ms |
 | Studio | base | 3 | 52, 56, 60 | 2.88-3.51 s | 3.49-4.83 s | 1136-1338 ms |
 | Studio | head | 3 | 50, 53, 65 | 2.33-4.08 s | 2.92-4.83 s | 1083-1688 ms |
 | Playground | base | 3 | 42, 44, 46 | 3.93-4.69 s | 5.58-5.73 s | 1133-1520 ms |
 | Playground | head | 3 | 43, 43, 47 | 1.82-4.81 s | 5.57-5.74 s | 1224-3057 ms |
 
+Hero first slide, the shipped form against base in the same final pass: 3.99 s and 4.12 s against 4.15 s and 4.27 s (batch
+medians, four loads each).
+
 Home's LCP ranges do not overlap: the change is the whole gap. Studio and Playground do not use `RuntimeWarm` and are
-unchanged within their spread, as expected. TBT is the noisiest metric on this sandbox (git hooks ran during part of the
-pass and land on both builds), and it is now home's largest remaining weight. None of the three pages reaches 90.
-**UNVERIFIED:** the deployed site, and any real phone.
+unchanged within their spread, as expected. TBT is the noisiest metric on this sandbox and is now home's largest remaining
+weight. None of the three pages reaches 90. Screenshots of all three pages at 1440, 820 and 390 px are pixel-identical
+between base and head.
+**UNVERIFIED:** the deployed site, any real phone, and the component pages' specimen timing.
