@@ -567,12 +567,11 @@ section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video)
   --_edge-t: 1;                      /* so the engine keyline draws the top edge (base.modifiers.css) */
   --_bar-t: 0px;
   --_bar-room-t: 0px;                /* it bleeds to the true edge: no bar room to hold either */
-  /* Media at the true edge has no inset to give a bar, so it takes no side or bottom bar either
-   * (as `image` and `scene` do): a border here would shrink the media by the bar's width. These
-   * sit after the placement rules' specificity, so they win the tie (check:edge-shift). */
+  /* Media at the true edge has no inset to give a bar border, so its side and bottom bars are the
+   * `.slide-bar` overlay (lib/core/slide-bar.js), as for `image` and `scene`: a border here would
+   * shrink the media by the bar's width. These out-rank the placement rules (check:edge-shift). */
   border-inline: 0; border-bottom: 0;
   --_bar-l: 0px; --_bar-r: 0px; --_bar-b: 0px;
-  --_edge-l: 1; --_edge-r: 1; --_edge-b: 1; /* no bar there now, so the host keyline draws those edges */
 }
 /* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
  * slide (as hero). Title + page number stay unless the layout is edge-media. */

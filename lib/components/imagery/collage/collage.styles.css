@@ -300,12 +300,11 @@ section.collage.bleed {
 	--_bar-t: 0px; --_bar-room-t: 0px; --_edge-t: 1;
 }
 /* …and the same for the sides. Scoped to the placement classes so this out-ranks their side borders
- * (base.variants.css) without a specificity trick. Each edge goes back to the host keyline, which the
- * placement rule had handed to a bar that is no longer there. */
+ * (base.variants.css) without a specificity trick. The bar there is the `.slide-bar` overlay
+ * (lib/core/slide-bar.js), which takes no room. */
 section.collage.bleed:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom) {
 	border-inline: 0; border-bottom: 0; /* both sides together, so it reads as logical */
 	--_bar-l: 0px; --_bar-r: 0px; --_bar-b: 0px;
-	--_edge-l: 1; --_edge-r: 1; --_edge-b: 1;
 }
 section.collage.bleed > .cell-masthead,
 section.collage.bleed > p {

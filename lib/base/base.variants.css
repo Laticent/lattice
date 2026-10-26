@@ -352,8 +352,8 @@ section.divider:not(.light).spectrum-off {
    The deck-wide "no bar" value (`spectrum-edge: off`) still clears the divider rail below.
    The full-bleed frames (`image`, `scene`, `split-panel`, `split-compare`) are exempt for the same
    reason as `divider`: they own their edge and set `padding: 0`, so a side border would shrink their
-   panels by a bar width and make the slide shift with the placement (check:edge-shift). They show no
-   side or bottom bar, as they show no top bar in the default placement. */
+   panels by a bar width and make the slide shift with the placement (check:edge-shift). Their bar is
+   the `.slide-bar` overlay below instead, which takes no room (lib/core/slide-bar.js). */
 section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off) {
   border-top: none;
   --_edge-t: 1;
@@ -378,6 +378,59 @@ section.spectrum-edge-bottom:not(.divider, .image, .scene, .split-panel, .split-
   border-bottom: var(--_bar-w) solid;
   border-image-source: var(--spectrum-bar);
 }
+/* THE BAR AS AN OVERLAY — the full-bleed frames (lib/core/slide-bar.js lists them).
+   They claim the whole slide and set `padding: 0`, so a bar border could only shrink the photo or panel.
+   Their bar is `<i class="slide-bar">`, appended by the engine, the splitter and the runtime: an
+   absolutely positioned strip on the chrome plane, so it takes no layout room and paints above the
+   art. The layer is the STRIP, not a slide-sized box with a border: an editable export lifts a
+   gradient strip as one small shape, where a slide-sized box became a slide-sized picture laid over
+   every editable shape. It is zero-size until a placement, a `spectrum:` style, `accent` or
+   `tone-edge` asks for a bar, as the border rules are for the frames that have one. The element
+   exists only on those frames, so these rules never touch another slide. */
+section > .slide-bar {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: var(--z-chrome); /* above the content and the art, below the alarm tabs and the stamps */
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+section.spectrum-edge-left > .slide-bar {
+  inset: 0 auto 0 0; width: var(--_bar-w); height: auto;
+  background-image: var(--spectrum-bar-vertical);
+}
+section.spectrum-edge-right > .slide-bar {
+  inset: 0 0 0 auto; width: var(--_bar-w); height: auto;
+  background-image: var(--spectrum-bar-vertical);
+}
+section.spectrum-edge-bottom > .slide-bar {
+  inset: auto 0 0 0; height: var(--_bar-w); width: auto;
+  background-image: var(--spectrum-bar);
+}
+/* The top bar: only when something asks for one. Same gates as the border rules above (`solid` /
+   `duo` / `mono` unless a placement owns the bar; `accent` and `tone-edge` win over the style). The
+   split frames paint their own ribbon on the panels, so they keep it and get no overlay on top. */
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"]):not(.split-panel, .split-compare, .accent, .tone-edge) > .slide-bar {
+  inset: 0 0 auto 0; height: var(--_bar-w); width: auto;
+  background-image: var(--spectrum-bar);
+}
+section.accent:not(.split-panel, .split-compare) > .slide-bar {
+  inset: 0 0 auto 0; height: var(--_bar-w); width: auto;
+  background-image: none; background-color: var(--accent);
+}
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-panel, .split-compare) > .slide-bar {
+  inset: 0 0 auto 0; height: var(--_bar-w); width: auto;
+  background-image: none; background-color: var(--tone-color);
+}
+/* The host keyline yields to a bar on the same edge, as it does to a border bar. The placement rules
+   set these flags for the frames that take a border; the frames that do not need it said here. */
+section.spectrum-edge-left:has(> .slide-bar)   { --_edge-l: 0; }
+section.spectrum-edge-right:has(> .slide-bar)  { --_edge-r: 0; }
+section.spectrum-edge-bottom:has(> .slide-bar) { --_edge-b: 0; }
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"], .split-panel, .split-compare, .accent, .tone-edge):has(> .slide-bar),
+section.accent:not(.split-panel, .split-compare):has(> .slide-bar),
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-panel, .split-compare):has(> .slide-bar) { --_edge-t: 0; }
+
 /* dark slides paint the top bar as a background line; drop it when an edge is chosen.
  * `background-image: none` for the reason the `off` block above gives at length: the
  * shorthand restated the color at (0,3,1) and took a frame's own canvas with the bar.

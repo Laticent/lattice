@@ -32,6 +32,8 @@
  *   --family NAME      canvas family (wide|square|tall|strip, default wide)
  *   --tolerance PX     movement below this is rounding (default 0.5)
  *   --detail           list every moved element, not just the worst per slide
+ *   --bars             also list the components that draw NO bar under a placement (a border OR the
+ *                      `.slide-bar` overlay counts), so a bar lost silently cannot read as stable
  *   --positions FILE   write every element's measured position to FILE (JSON), to diff two builds
  *   --dump DIR         also save each placement's rendered HTML as DIR/edge-<placement>.html
  *   --json             machine-readable result
@@ -58,13 +60,13 @@ const { resolveChrome } = require('./lib/resolve-chrome.js');
 
 const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] '
   + '[--components a,b] [--limit N] [--no-dark] [--variants] [--each-class a,b|all] [--classes "a b"] [--front-matter "k: v"] [--no-chrome] [--family wide] [--tolerance 0.5] '
-  + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--positions FILE]';
+  + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--bars] [--positions FILE]';
 
 function die(msg, code = 2) { console.error(`check-edge-shift: ${msg}`); process.exit(code); }
 
 // ── argv — parsed, and unknown flags are refusals (the check-jank lesson) ──────────────────
 const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions', 'classes', 'front-matter', 'each-class']);
-const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help', 'variants']);
+const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help', 'variants', 'bars']);
 const opts = new Map();
 for (let i = 2; i < process.argv.length; i++) {
   const m = /^--([\w-]+)(?:=(.*))?$/.exec(process.argv[i]);
@@ -249,7 +251,20 @@ function measureInPage() {
         edges: [l + bl, t + bt, rr + br, bb + bbw], size: [w, h],
       };
     }
+    // The `.slide-bar` overlay is a strip: the side it sits on is the edge it touches, and it is
+    // absent (zero-size) until a placement or register asks for a bar.
+    const overlay = sec.querySelector(':scope > .slide-bar');
+    let overlaySide = null;
+    if (overlay) {
+      const r = overlay.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        const near = (a, b) => Math.abs(a - b) < 1;
+        if (r.width < r.height) overlaySide = near(r.left, sb.left) ? 'left' : 'right';
+        else overlaySide = near(r.top, sb.top) ? 'top' : 'bottom';
+      }
+    }
     return {
+      overlay: overlaySide,
       cls: sec.className,
       border: [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth].map(px),
       els,
@@ -349,12 +364,26 @@ async function main() {
 
   if (compared === 0) die('no element was comparable across placements: nothing was measured.');
 
+  const sideOf = { top: 0, right: 1, bottom: 2, left: 3 };
+  const barless = {};
+  if (opts.has('bars')) {
+    Array.from({ length: count }, (_, i) => i).forEach((i) => {
+      const label = labelOf(i);
+      if (/^(plain-content|content\+)/.test(label) || /\+dark$/.test(label)) return;
+      const miss = ['top', 'left', 'right', 'bottom'].filter((pl) => {
+        if (!byPlacement[pl]) return false;
+        const sec = byPlacement[pl][i];
+        return !(sec.border[sideOf[pl]] > 0 || sec.overlay === pl);
+      });
+      if (miss.length) (barless[miss.join('+')] ||= []).push(label);
+    });
+  }
   const slidesMoved = new Set(moved.map((m) => m.slide));
   const result = {
     placements: PLACEMENTS, reference: REFERENCE, tolerance: TOL, slides: slides.length,
     elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size,
     slidesStable: Array.from({ length: count }, (_, i) => labelOf(i)).filter((l) => !slidesMoved.has(l)),
-    byKind: totals, vsReference: vsRef,
+    byKind: totals, vsReference: vsRef, ...(opts.has('bars') ? { barless } : {}),
     worst: [...moved].sort((a, b) => b.worst - a.worst).slice(0, opts.has('detail') ? Infinity : 25),
   };
 
@@ -363,6 +392,12 @@ async function main() {
   } else {
     const f = (n) => n.toFixed(1).padStart(5);
     console.log(`\nCompared ${compared} elements across ${count} slides; ${moved.length} moved more than ${TOL}px between placements (${slidesMoved.size} slides affected).\n`);
+    if (opts.has('bars')) {
+      console.log('Bars: components that draw no bar under a placement (a border or the overlay counts):');
+      for (const [k, v] of Object.entries(barless)) console.log(`  none on ${k.padEnd(22)} ${v.length}: ${v.join(', ')}`);
+      if (!Object.keys(barless).length) console.log('  none: every component draws a bar on every placement measured');
+      console.log('');
+    }
     if (result.slidesStable.length) console.log(`Slides that do not move: ${result.slidesStable.join(', ')}\n`);
     console.log('By kind (spread = largest difference for ONE element across all placements):');
     console.log('  kind         elements   moved   max spread');

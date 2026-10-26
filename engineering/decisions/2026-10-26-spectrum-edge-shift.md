@@ -11,7 +11,7 @@ summary: >
   modifiers, all 493 reserved classes, four canvas shapes and three themes. At the default placement a
   deck is unchanged except `premise` (2 px). The same rule means adding or removing the bar with
   `accent`, `tone-edge` or the `spectrum:` register no longer moves content, which changes decks that use
-  them by 2 to 4 px. Cost: the full-bleed layouts show no side or bottom bar. `npm run check:edge-shift`
+  them by 2 to 4 px. Full-bleed layouts draw the bar as an overlay strip instead of a border. `npm run check:edge-shift`
   is the gate. An independent checker found the first version incomplete (modifiers, variants, registers
   were unswept); this note records both rounds.
 ---
@@ -112,11 +112,15 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
 
 **Decisions that change what an author sees:**
 
-1. **No side or bottom bar on full-bleed frames.** `image`, `scene`, `split-panel`, `split-compare`,
-   `claim-bleed` media (chart, diagram, video, big-number) and `collage bleed` have no inset to give a bar,
-   so a side border could only shrink the photo or panel. They show no bar there, as they show none on top
-   in the default placement. A deck-wide `spectrum: solid|duo|mono` no longer adds a top bar to `image`
-   and `scene`. Reversing it means reserving a strip around full-bleed art, which leaves a visible gutter.
+1. **Full-bleed frames draw the bar as an overlay.** `image`, `scene`, `split-panel`, `split-compare`,
+   `claim-bleed` media (chart, diagram, video, big-number) and `collage bleed` have no inset to give a bar
+   border, so a border could only shrink the photo or panel. Round 1 and 2 dropped their side and bottom
+   bars. That broke "every component supports spectrum", so round 3 replaced it: the engine, the splitter
+   and the runtime append `<i class="slide-bar">` (lib/core/slide-bar.js, the pattern of the finish
+   `.backdrop`), an absolutely positioned strip on the chrome plane. It takes no room and paints above the
+   art. They still show no top bar by default; a placement, `spectrum: solid|duo|mono`, `accent` or
+   `tone-edge` asks for one, and the split frames keep their own ribbon. Two lists name the frames, the JS
+   one (`lib/core/bleed-frames.js`) and the CSS `:not(...)` on the placement rules; a unit test pins them.
 2. **`premise` reserves one bar width top and bottom.** A default light `premise` slide's content sits
    2 px higher (centered, 4 px less room).
 3. **Adding or removing the bar no longer moves content.** Before, `accent`, `tone-edge`, a deck-wide
@@ -134,8 +138,8 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
    Light content slides under `solid`, `duo` and `mono` do not move. Each is one rule to reverse.
 
    Decks that already set `spectrum-edge: left|right|bottom|off` move once too (4 px): content and chrome now
-   sit where the default placement puts them. `accent`, `tone-edge` and a deck-wide `spectrum:` no longer add
-   a top bar to `image`, `scene` or `collage bleed`, which draw their own edge.
+   sit where the default placement puts them. On `image`, `scene` and `collage bleed`, `accent`, `tone-edge`
+   and a deck-wide `spectrum:` draw their top bar as the overlay, so they no longer push the content down.
 4. **`safe` no longer displaces `progress` chart rows.** Its selector `[class*='progress']` matched the
    chart's `.progress-track` and `.progress-row`; it now matches the section-dot rail. The old behavior
    moved the tracks about 290 px on a portrait canvas.
@@ -171,6 +175,23 @@ sentence and one harness blind spot, all confirmed and fixed:
 Two limits it found stay, and are stated in the docs: CSS `zoom` (the print sheet) can floor a border by up
 to half a pixel on a canvas whose bar is not a whole number of pixels, and a canvas under about 320 px wide
 now keeps a 1 px bar instead of rounding it to nothing.
+
+## Round 3: the overlay for the full-bleed frames
+
+Decided with the owner after round 2: one mechanism per kind of frame, the border where there is a margin
+to give and an overlay where the frame claims the canvas. A single overlay for every frame is the likelier
+end state and is left for later analysis; it would delete the padding math and the `finish:` exception, and
+it changes every slide in every export.
+
+- **The layer is the strip, not a slide-sized box.** A first version was a full-slide box with a
+  border-image. The editable PPTX export (`@laticent/calco`) cropped it as a slide-sized picture over every
+  editable shape and doubled the media. As a small filled strip it exports as one native shape per slide,
+  with the pictures and media byte-identical to before (checked on a 14-slide deck of the six frames).
+- **Verified:** 0 elements move across the same sweeps as round 2 plus the bleed states; `--bars` shows
+  every component but `divider` drawing a bar on left, right and bottom, and the bar-less top is the default.
+  Real renders show the bar over a photo, a dark panel, a media slide and (accent) a collage.
+- **Not verified:** the ODP export (same engine, not run), the Studio and Playground (the runtime twin is
+  pinned by a unit test, not driven), and export-to-Marp, which loses the bar on these frames.
 
 ## How it was checked, and what the first round missed
 
