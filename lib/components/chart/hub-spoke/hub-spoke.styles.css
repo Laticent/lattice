@@ -137,23 +137,6 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
   stroke: light-dark(var(--text-heading), color-mix(in oklab, var(--text-heading) 74%, var(--bg)));
 }
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-hub-name, .hub-spoke-hub-value) { fill: var(--bg); }
-/* Under the `pigment` and `tone` chart finishes a group disc takes the finish's body, without
- * the lightness step above (a finish's paint wins), and on dark both reach the dimmed hub's
- * own lightness: onyx-dark slot 4 under pigment measured OKLab ΔE 0.003 from the hub (a
- * second hub), and tone's top step 0.08 on mustard-dark, both under the 0.15 floor the step
- * above holds with no finish. Both bodies mix toward a dark base, so their L stays at or
- * under 0.82 (pigment) and 0.92 (tone) of the hue's; the hub goes back to the full heading
- * ink it wears on light. Measured on the 14 flat-fill palettes in both modes, the nearest
- * group disc then sits at ΔE >= 0.15 from the hub under every finish. Etch's body (40%)
- * never comes near, so it keeps the dimmed hub. Only a chart that draws a GROUP needs this:
- * a neutral satellite is held under the hub by its own mix, so a neutral or status-only
- * chart keeps the dimmed hub. The finish class sits on the section (or on Read·Article's
- * chart figure), not on a hub-spoke variant. */
-:is(section, figure):is(.marks-pigment, .marks-tone) .hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub {
-  fill: var(--text-heading);
-  stroke: var(--text-heading);
-}
-
 /* ── emphasis halo and direction heads: filled ink, no edge. The halo on an at-risk or blocked disc stands apart from
  * the disc, so its only neighbor is the slide: it wears the status EDGE (4.6:1 off the slide), not the signal, which is
  * solved against a fill it touches and can sit near 2:1 off a light slide. ── */

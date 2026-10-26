@@ -122,6 +122,7 @@
     "--state-signal-w",
     "--warn-signal-mark",
     "--fail-signal-mark",
+    "--finish-border",
     "--mark-check-bold",
     "--mark-dash-bold",
     "--mark-x-bold",

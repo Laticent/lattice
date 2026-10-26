@@ -207,7 +207,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | the mark's own category ink, 1× (2.5× on a text-bearing mark) |
 
 **A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
@@ -265,11 +265,32 @@ gradient, and `REACH` lists every mark no finish reaches with its reason.
 `kernel.marks`; its header is the long form. Each choice below was settled by
 measurement, and most undo a defect a render or the adversarial review found:
 
+- **A finish is a block of values, the way `dark` is.** Each finish sets about 90 `--finish-*` values on its
+  section (`section.marks-etch, figure.marks-etch { … }`): the base it mixes toward, the text ink, the edge
+  weights, a body level and a text-bearing level per category slot (light and dark), a status level, a ramp band,
+  a layered alpha, and `--finish-border` (0 where an ink edge is an inset ring, so a pill, a bar or a key tile
+  drops its border). **One set of mark rules reads them and names no finish.** A mark's slot picks its own
+  values once (`--finish-mark-body`, `--finish-mark-text`, `--finish-mark-edge`, set on every `[data-hue="N"]`),
+  and the rules after it say which KIND of mark paints with them, so there is no rule per slot. Only a
+  treatment one finish owns is written under its name (tone's containers, pigment's neutral regions, etch's
+  heavier line), in the generator's `ONLY` blocks. **A member stylesheet never names a finish**
+  (`marks-css.test.js` fails on one): what differs between finishes is a value the member reads
+  (`var(--finish-border, 1)`), or a rule in the generator. Adding a finish is a new block of values; adding
+  a mark is a manifest row, not three rules. Measured on the generated file: 194 KB raw and 9.8 KB gzipped
+  before, 79 KB and 5.9 KB after, with every computed fill, stroke, edge, shadow and ring on the chart gallery
+  unchanged under pigment and etch (1.17M property reads, five themes, light and dark) and under tone changed
+  only in the edge, below.
+- **Under every finish the edge is the mark's own category ink.** Tone has one hue for bodies, and the edge is
+  the one place the category survives (`engineering/decisions/2026-09-07-chart-design-language/tone-is-the-third-finish.md`).
+  Tone's edges once all read category 1, so on a pie, a tower, a stacked bar and a quadrant the closest pair of
+  edges was 0 OKLab apart. A status mark keeps its status ink for its edge.
 - **Specificity (0,1,1), on purpose.** Every rule is
-  `section.marks-X :where(<mark>)` with `!important`. That beats every
+  `section.marks-X :where(<mark>)` (X one finish, or an `:is()` of several, which takes a class's
+  specificity) with `!important`. That beats every
   member's paint (no member marks paint `!important`) and loses to an a11y
   theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
-  finish never strips the pattern channel from a colorblind reader.
+  finish never strips the pattern channel from a colorblind reader. The `--finish-*` values themselves are plain
+  declarations: nothing in a block paints, and a deck may re-point one.
 - **Etch and tone mix toward the canvas; pigment mixes toward
   `--chart-cat-base`.** That base is black in dark mode, which is right for
   pigment's shipped body tier. A whisper mixed toward black lands darker than the

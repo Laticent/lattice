@@ -1166,7 +1166,7 @@ section.chart-frame .chart-caption::before {
   /* The border's width is private (`--_status-bw`) so a finish can drop it without moving the pill: whatever the
    * border gives up, the PADDING takes back on every side, so the outer box is the same in every finish whether the
    * host sizes the pill border-box (the height holds) or content-box (the padding restores it). */
-  --_status-bw: var(--chart-hairline);
+  --_status-bw: calc(var(--chart-hairline) * var(--finish-border, 1));
   height: calc(1.71875em / 1.17);
   padding: calc(var(--chart-hairline) - var(--_status-bw)) calc(0.78125em / 1.17 + var(--chart-hairline) - var(--_status-bw));
   border-radius: calc(0.859375em / 1.17);
@@ -1186,13 +1186,10 @@ section.chart-frame .chart-caption::before {
   color: var(--chart-on-mark);
 }
 /* Under `etch` and `tone` the pill is a pale wash inside an ink edge drawn as an inset ring. Its transparent border
- * would let that wash show through as a pale halo OUTSIDE the ink edge, so the pill has NO border there: the size
- * moves into its height and padding (above), so the box does not move. Not a `background-clip`: Calco lifts a clipped
- * fill under an inset ring only as a picture (`paint:bg-clip`); `pigment`'s fill runs to the edge and keeps its
- * border. */
-:is(section, figure):is(.marks-etch, .marks-tone) .chart-status {
-  --_status-bw: 0px;
-}
+ * would let that wash show through as a pale halo OUTSIDE the ink edge, so the finish drops the border by setting
+ * `--finish-border` to 0 (tools/build-marks-css.js): the size moves into the height and padding (above), so the box
+ * does not move. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture
+ * (`paint:bg-clip`); `pigment`'s fill runs to the edge and keeps its border. */
 /* THE VIVID INTENSITY lives in the base (base.tokens.css § THE STATUS FILL ON THIS SLIDE): `--state-X-hue` is set on
  * the slide, so every component that shows a status takes the deck's intensity, not only a chart. */
 

@@ -75,11 +75,11 @@ const F = {
   // A text-free ramp (a map) climbs to the FULL category solid under pigment, like every other pigment mark: the
   // kernel's --mix spans 24→88, so ×1.136 lands the top value at 100% of the solid and the lowest near 27% over the
   // land. The earlier [16, 0.54] band topped out at 64%, which read as tone, not pigment.
-  pigment: { body: [100, 100], backdrop: [100, 100], ramp: [0, 1.136], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1 },
+  pigment: { body: [100, 100], backdrop: [100, 100], ramp: [0, 1.136], rampText: [[0, 1], [0, 1]], layered: 0.22, edge: 1, edgeBackdrop: 1, border: 1 },
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.1, edge: 2, edgeBackdrop: 3 },
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp
   // that PRINTS ITS VALUE takes (a heatmap cell), as [light, dark]: shorter, because its top
   // step must still carry text at 4.5:1. Tone's text band tops out at 70% on light, not the
@@ -88,7 +88,7 @@ const F = {
   // LIGHT tone, and on a bright hue (carbone's lime) light text stopped clearing it at 3.39:1.
   // A ramp already encodes VALUE, which is tone's whole idea, so on a ramp member tone and
   // pigment differ only by band — that is the honest result, not a gap.
-  tone: { ramp: [10, 0.82], rampText: [[10, 0.65], [10, 0.43]], edge: 1, edgeBackdrop: 2.5 },
+  tone: { ramp: [10, 0.82], rampText: [[10, 0.65], [10, 0.43]], edge: 1, edgeBackdrop: 2.5, border: 0 },
 };
 
 /**
@@ -296,15 +296,19 @@ function swatchPaint(cls) {
   throw new Error(`KEY_FOLLOWS names ${cls}, which no manifest declares`);
 }
 
-function rule(finish, mark, decls) {
-  const sel = [`section.marks-${finish} :where(${mark})`, `figure.marks-${finish} :where(${mark})`].join(',\n');
-  return `${sel} {\n${decls.map((d) => `  ${d} !important;`).join('\n')}\n}`;
+/**
+ * The selector head for a rule that serves `finishes`. One finish keeps the class on both arms
+ * (`section.marks-etch`); a set of them takes `:is()`, which is as specific as its most specific
+ * member, so every head stays (0,1,1) with `:where()` after it.
+ */
+function head(tag, finishes) {
+  const names = [].concat(finishes);
+  return names.length === 1 ? `${tag}.marks-${names[0]}` : `${tag}:is(${names.map((n) => `.marks-${n}`).join(', ')})`;
 }
 
-/** Paint declarations for one body + edge, in the property set `paint` names. */
-function paintDecls(paint, body, ink, k) {
-  if (paint === 'fill') return [`fill: ${body}`, `stroke: ${ink}`, `stroke-width: ${edge(k)}`, 'vector-effect: non-scaling-stroke'];
-  return [`background: ${body}`, `box-shadow: inset 0 0 0 ${edge(k)} ${ink}`];
+function rule(finishes, mark, decls, important = true) {
+  const sel = [`${head('section', finishes)} :where(${mark})`, `${head('figure', finishes)} :where(${mark})`].join(',\n');
+  return `${sel} {\n${decls.map((d) => `  ${d}${important ? ' !important' : ''};`).join('\n')}\n}`;
 }
 
 /** Every mark class a stroke member declares, for tone to leave alone. */
@@ -315,22 +319,309 @@ function strokeMemberClasses() {
     .filter((c) => !SHARED_CLASSES.has(c)).sort();
 }
 
+// ── THE FINISH TOKENS ────────────────────────────────────────────────────────────────────────────────────────────────
+// A finish is a block of VALUES on the section, the way `dark` is, and every mark rule below reads them. No rule names
+// a finish except the ones that are that finish's alone (tone's containers, pigment's neutral regions). The tokens carry
+// numbers and a base, never a color the mark would resolve differently (the hue and the ink edge are read at the mark),
+// so a rule's only job is to say WHICH mark takes WHICH token. They are plain declarations: nothing here is `!important`,
+// because nothing here paints.
+const T = {
+  base: '--finish-base', ink: '--finish-ink', edge: '--finish-edge', edgeText: '--finish-edge-text',
+  hue: (n) => `--finish-hue-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
+  text: (n) => `--finish-text-${n}`, textD: (n) => `--finish-text-d-${n}`,
+  layer: (n) => `--finish-layer-${n}`, layerInk: (n) => `--finish-layer-ink-${n}`,
+  status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d',
+  rampLo: '--finish-ramp-lo', rampK: '--finish-ramp-k',
+  rampTextLo: '--finish-ramp-text-lo', rampTextK: '--finish-ramp-text-k',
+  rampTextDLo: '--finish-ramp-text-d-lo', rampTextDK: '--finish-ramp-text-d-k',
+};
+const tv = (name) => `var(${name})`;
+/** A hue taken to a percent toward the finish base: the one expression every body, text body and ink picker reads. */
+const tmix = (hue, pct) => `color-mix(in oklab, ${hue} ${tv(pct)}, ${tv(T.base)})`;
+const tld = (hue, l, d) => `light-dark(${tmix(hue, l)}, ${tmix(hue, d)})`;
+const tEdge = (token) => `calc(var(--chart-edge) * ${tv(token)})`;
+const tRing = (token) => `calc(var(--state-signal-w) * ${tv(token)})`;
+const num = (v) => String(v);
+
+/** The values one finish sets on its section. */
+function finishTokens(name) {
+  const f = F[name];
+  const tone = name === 'tone';
+  const d = [
+    `${T.base}: ${BODY_BASE[name]}`,
+    `${T.ink}: ${textInk(name)}`,
+    `${T.edge}: ${num(f.edge)}`,
+    `${T.edgeText}: ${num(f.edgeBackdrop)}`,
+    // 1 keeps a pill's, bar's and key tile's border; 0 drops it, so an ink edge drawn as an inset ring has no halo outside it.
+    `--finish-border: ${f.border}`,
+  ];
+  for (const n of SLOTS) {
+    const i = n - 1;
+    d.push(`${T.hue(n)}: ${tone ? ONE : hueOf(n)}`);
+    d.push(`${T.body(n)}: ${tone ? TONE[i] : f.body[0]}%`, `${T.bodyD(n)}: ${tone ? TONE[i] : f.body[1]}%`);
+    d.push(`${T.text(n)}: ${tone ? TONE_TEXT[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE_TEXT_D[i] : f.backdrop[1]}%`);
+    // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
+    // translucent polygons at that strength stack to a mid-tone center that no ink can read a scale tick on
+    // (near-black on concrete's overlap measured 3.73:1, the unfinished paint 4.67:1). tools/chart-finish-reach.mjs
+    // RUNS holds it: no theme or mode may push a text run under its threshold that the unfinished paint cleared.
+    d.push(`${T.layer(n)}: ${tone ? Math.round((0.06 + 0.14 * (TONE[i] / 92)) * 1000) / 1000 : f.layered}`);
+    // The outline is the series: 1px under pigment and tone, 2px under etch. Under tone it takes the series' step of the
+    // one ink (the same steps a line uses), dashed from the fifth series, so overlapping polygons stay apart.
+    d.push(`${T.layerInk(n)}: ${tone ? `color-mix(in oklab, ${ONE_INK} ${[100, 80, 64, 52][i % 4]}%, var(--bg))` : inkOf(n)}`);
+  }
+  // A status keeps its own hue under every finish; the finish sets only the level. A mark that carries text takes the
+  // quieter one. Under tone the plain level is the middle step and the text level is the first text step.
+  d.push(`${T.status}: ${tone ? TONE[2] : f.body[0]}%`, `${T.statusD}: ${tone ? TONE[2] : f.body[1]}%`);
+  d.push(`${T.statusText}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
+  d.push(`${T.rampLo}: ${f.ramp[0]}%`, `${T.rampK}: ${f.ramp[1]}`);
+  d.push(`${T.rampTextLo}: ${f.rampText[0][0]}%`, `${T.rampTextK}: ${f.rampText[0][1]}`);
+  d.push(`${T.rampTextDLo}: ${f.rampText[1][0]}%`, `${T.rampTextDK}: ${f.rampText[1][1]}`);
+  // The values name the chart family's own variables (`--chart-cat-N-hue`, `--chart-on-mark`), and a custom property
+  // resolves where it is DECLARED. Those variables live on the chart's own frame (`section.chart-frame`, `.chart-frame`),
+  // which is the slide in a plain chart slide and a nested element in a pane, where the slide is a `lat-pane-host` that
+  // carries none of them. A block on the slide alone gave every pane chart a black fill; a second target on the frame
+  // resolves the values where the variables are.
+  const heads = [`section.marks-${name}`, `figure.marks-${name}`, `:is(section, figure).marks-${name} .chart-frame`];
+  return [`${heads.join(',\n')} {`, ...d.map((x) => `  ${x};`), '}'].join('\n');
+}
+
+const ALL = MARKS_FINISHES;
+// Etch and tone move a ramp's text band, a heatmap value and a hub-spoke icon; pigment is the member's own span there.
+const MOVERS = ALL.filter((n) => n !== 'pigment');
+
 function build() {
   const bears = bearingClasses();
   const leave = strokeMemberClasses();
   const notLeft = `:not(${leave.map((c) => `.${c}`).join(', ')})`;
+  const onlyLeft = `:is(${leave.map((c) => `.${c}`).join(', ')})`;
+  // Tone paints a series stroke's dots and bands in their own hue, so a tonal dot never stops matching its series.
+  const keepsHue = ALL.filter((n) => n !== 'tone');
   const ramps = rampMembers();
   const out = [];
   const w = (s) => out.push(s);
   w('/* GENERATED by tools/build-marks-css.js — do not edit by hand.');
   w(' * The `marks:` register\'s rules. The header of the generator explains every choice');
-  w(' * below; engineering/chart-styling.md §3 is the design. */');
+  w(' * below; engineering/chart-styling.md §3 is the design.');
+  w(' *');
+  w(' * A finish is a block of --finish-* values on the section, the way `dark` is. The rules after the');
+  w(' * three blocks read those values and name no finish, except the few that are one finish\'s alone. */');
 
-  for (const name of MARKS_FINISHES) {
+  w('\n/* ══ THE FINISHES — the values each one sets ══ */');
+  for (const name of ALL) w(`\n/* ${name} */\n${finishTokens(name)}`);
+
+  const MARK_BODY = 'light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))';
+  const MARK_TEXT = 'light-dark(var(--finish-mark-text-l), var(--finish-mark-text-d))';
+  const paintShared = (paint, body, ink, edgeToken) => {
+    if (paint === 'fill') return [`fill: ${body}`, `stroke: ${ink}`, `stroke-width: ${tEdge(edgeToken)}`, 'vector-effect: non-scaling-stroke'];
+    return [`background: ${body}`, `box-shadow: inset 0 0 0 ${tEdge(edgeToken)} ${ink}`];
+  };
+
+  // ── THE SLOT — which category a mark is, said once per slot ──────────────
+  // A mark's slot picks its own values from the finish's tokens and sets them as private properties on the mark; the
+  // rules below then say which KIND of mark paints with them, and name no slot. The category ink is read at the mark,
+  // so a member that re-points its inks below the section (the word cloud) keeps its own.
+  const SLOT_SEL = `:is(${SLOTS.map((n) => `[data-hue="${n}"], [data-key-hue="${n}"]`).join(', ')})`;
+  const HUE_SEL = `:is(${SLOTS.map((n) => `[data-hue="${n}"]`).join(', ')})`;
+  w('\n/* ══ THE SLOT — the finish\'s values for the category a mark is. ══ */');
+  for (const n of SLOTS) {
+    w(rule(ALL, `:is([data-hue="${n}"], [data-key-hue="${n}"])`, [
+      // Two plain colors per level, never one light-dark(): the HTML player's dual-mode pass hoists a light-dark() in a
+      // custom property to :root, where a mark's own value beats it, so dark mode kept the light level. In a real
+      // property (the fill, below) it is scoped to its own rule and survives.
+      `--finish-mark-body-l: ${tmix(tv(T.hue(n)), T.body(n))}`,
+      `--finish-mark-body-d: ${tmix(tv(T.hue(n)), T.bodyD(n))}`,
+      `--finish-mark-text-l: ${tmix(tv(T.hue(n)), T.text(n))}`,
+      `--finish-mark-text-d: ${tmix(tv(T.hue(n)), T.textD(n))}`,
+      // The edge is the mark's own category ink under EVERY finish, tone included: tone has one hue for bodies, and the
+      // edge is the one place the category survives (tone-is-the-third-finish.md).
+      `--finish-mark-edge: ${inkOf(n)}`,
+      `--finish-mark-layer: ${tv(T.layer(n))}`,
+      `--finish-mark-layer-ink: ${tv(T.layerInk(n))}`,
+    ], false));
+  }
+
+  // ── HUE — the body a finish is named for ────────────────────────────────
+  w('\n/* ══ HUE — the body a finish is named for, under the mark\'s category-ink edge. ══ */');
+  for (const paint of ['fill', 'bg']) {
+    // A text-bearing mark is left to its own rule below, which waits on relative color.
+    // Without this it would take the full body here, under ink solved for the shipped one.
+    const notText = bears[paint].length ? `:not(${bears[paint].map(bearSel).join(', ')})` : '';
+    const base = `${SLOT_SEL}[data-encodes="hue"][data-paint="${paint}"]${notText}`;
+    const decls = paintShared(paint, MARK_BODY, 'var(--finish-mark-edge)', T.edge);
+    w(rule(ALL, base + notLeft, decls));
+    // A series stroke's dots and bands: tone leaves them whole, pigment and etch repaint them.
+    w(rule(keepsHue, base + onlyLeft, decls));
+  }
+
+  w('\n/* HUE on a mark that CARRIES TEXT — the quieter level its text was measured against. */');
+  for (const paint of ['fill', 'bg']) {
+    if (!bears[paint].length) continue;
+    const cls = `:is(${bears[paint].map(bearSel).join(', ')})`;
+    // An HTML mark's own text was colored for the full-strength body (the journey actor
+    // initial is white), so it takes the ink its own body clears. TEXT WAITS: no fixed ink
+    // clears every theme (--text-body read 3.54:1 on concrete's status pill, --text-heading
+    // 3.34:1 on an a11y heatmap step, measured in WebKit with relative color removed), so
+    // on an engine that cannot pick the ink, a mark that carries text keeps its shipped
+    // paint and ink, which each theme's gates already hold. Every other mark still moves.
+    const sel = `${cls}${SLOT_SEL}[data-encodes="hue"][data-paint="${paint}"]`;
+    const text = paint === 'bg' ? [`color: ${tv(T.ink)}`] : [];
+    w(supports(rule(ALL, sel, [...paintShared(paint, MARK_TEXT, 'var(--finish-mark-edge)', T.edgeText), ...text])));
+  }
+
+  // ── STATUS — a meaning, so it keeps its own hue under every finish ───────
+  // The prototype sent a status body to the one hue under tone and left the status on the
+  // edge. On the render that made a gantt key of four identical swatches — done, live,
+  // at-risk and blocked told apart by a 1px outline — which is the flattening defect
+  // (finish-render-defects.md) in the status channel. A status is not one of the eight
+  // categories tone collapses; it is a meaning the reader must decode. So under tone it
+  // keeps its hue at tone's quiet level, and the finish still quiets it.
+  w('\n/* STATUS — the member\'s own status channel; the hue is the meaning, so it stays. */');
+  for (const s of STATUS_MARKS) {
+    // A status that carries text takes the text level under every finish: a status hue can be far darker than a
+    // category's (concrete's is near-black), and at pigment's 40% the text on it read 3.6:1 where tone's 30% held.
+    const textLevel = s.bears || s.keysText;
+    const body = textLevel ? tld(s.hue, T.statusText, T.statusTextD) : tld(s.hue, T.status, T.statusD);
+    const kTok = s.bears ? T.edgeText : T.edge;
+    const decls = paintShared(s.paint, body, s.ink, kTok);
+    // THE SIGNAL RING SCALES WITH THE EDGE. An exception's ring replaces its edge, and "nothing else rings" only
+    // reads if the ring is the heavier line: 1.3x the edge this finish gives the mark. Fixed at 1.3 hairlines it
+    // sat under etch's 2-3x and tone's 2.5x edges, so a done bar outlined louder than an at-risk one (#2887).
+    // Only an HTML box draws its ring from its own `--chart-ring` (an inset shadow); an SVG shape's ring is a sibling
+    // element, set by name below.
+    if (s.paint === 'bg') decls.push(`--chart-ring: ${tRing(kTok)}`);
+    // A status pill's gradient is a background-IMAGE; the shorthand clears it.
+    if (s.bears && s.paint === 'bg') {
+      decls.push(`color: ${tv(T.ink)}`);
+      // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
+      // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
+      // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
+      // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
+      // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
+      if (s.nodeInk) decls.push(`--state-node-ink: ${tv(T.ink)}`);
+      if (s.indexInk) decls.push(`--state-index-ink: ${tv(T.ink)}`);
+    }
+    // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
+    // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
+    w(textLevel ? supports(rule(ALL, s.sel, decls)) : rule(ALL, s.sel, decls));
+  }
+
+  // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
+  // inherit the shape's width and is reached by name, at the edge of the text-bearing mark it rings.
+  // It waits behind the same guard as the bar's own wider edge (TEXT WAITS), so an engine that keeps the bar's
+  // shipped edge keeps its shipped ring too.
+  w(supports(rule(ALL, '.chart-signal-ring', [`--chart-ring: ${tRing(T.edgeText)}`])));
+  // A milestone diamond and a key swatch carry no text, so their edge is the plain one and their ring follows it.
+  w(supports(rule(ALL, ':is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)', [`--chart-ring: ${tRing(T.edge)}`])));
+
+  // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes the finish's text ink ──
+  // Each of these is a sibling of its mark in the SVG (a gantt caption beside its rect, a state caption and its
+  // index numeral beside the tile's shape, a flowchart name beside its node), so it cannot inherit the mark's
+  // ink and is reached by name. A caption beside its bar (`data-pos="after"`) sits on the canvas and keeps the
+  // member's ink, and an author-colored caption (`data-text`) or an author-filled node (`data-fill`) keeps the
+  // author's: both were chosen for exactly the tier a finish paints. A DEFERRED mark is hollow (an 18% wash or none),
+  // so its caption or name sits on the slide and keeps the member's canvas ink, in every member alike.
+  w(supports(rule(ALL, [
+    '.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"])',
+    '.state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"])',
+    '.state-index-t[data-s]',
+    '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
+    '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
+  ].join(', '), [`fill: ${tv(T.ink)}`])));
+
+  // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
+  // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
+  // (the cell gap) is the member's, except under etch, where the line is the identity.
+  w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
+  const rampAt = (lo, k, base) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--mix) * ${tv(k)}), ${base})`;
+  const rampStroke = [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke'];
+  for (const m of ramps) {
+    // A ramp that prints its value takes the shorter text band (see `rampText`), as two whole colors inside
+    // light-dark(), never a percentage. Pigment's text band IS the member's own span ([0, 1]: `--mix` as shipped), so it
+    // changes nothing about the cells and emits nothing for them nor for their values: the theme-solved ink
+    // (--heatmap-stepN-ink, ~100 hand-tuned declarations) keeps the cell it was solved for.
+    for (const [classes, body, who] of [
+      [m.plain, rampAt(T.rampLo, T.rampK, m.base), ALL],
+      [m.text, `light-dark(${rampAt(T.rampTextLo, T.rampTextK, m.base)}, ${rampAt(T.rampTextDLo, T.rampTextDK, m.base)})`, MOVERS],
+    ]) {
+      if (!classes.length) continue;
+      const cls = `:is(${classes.map((c) => `.${c}`).join(', ')})`;
+      // A ramp that prints its value waits with its text (TEXT WAITS, above).
+      const wrap = classes === m.text ? supports : (css) => css;
+      w(wrap(rule(who, `${cls}[data-encodes="ramp"][data-paint="fill"]`, [`fill: ${body}`])));
+      w(wrap(rule(who, `${cls}[data-encodes="ramp"][data-paint="bg"]`, [`background: ${body}`])));
+      if (MOVERS.includes('etch')) w(wrap(rule('etch', `${cls}[data-encodes="ramp"][data-paint="fill"]`, rampStroke)));
+    }
+  }
+  // A HEATMAP VALUE is printed on its cell, and the theme solves its ink per step against
+  // the SHIPPED fill (--heatmap-stepN-ink). A finish changes the fill under the text, so no
+  // fixed ink holds: measured, the strong ink fell to 3.34:1 on the a11y themes' top step,
+  // where white clears 6.4:1, and on indaco the reverse. So the browser picks the ink from
+  // the cell's own color: the value's fill is the step's body, taken to black above relative
+  // luminance 0.1791 and white below it (inkOn). The step's --mix is the heatmap's own
+  // (--heatmap-stepN, else the member's default, which marks-css.test.js pins to
+  // heatmap.styles.css). It sits behind @supports with its cell's text band (TEXT WAITS):
+  // a declaration carrying var() always parses, so a plain one would fail at computed-value
+  // time on an engine without relative color. There, the cell and its value keep the shipped
+  // fill and the ink the theme solved for it.
+  const STEP_MIX = [18, 36.5, 55, 73.5, 92];
+  STEP_MIX.forEach((pct, i) => {
+    const at = (lo, k) => `color-mix(in oklab, ${ONE} calc(${tv(lo)} + var(--heatmap-step${i + 1}, ${pct}%) * ${tv(k)}), var(--heatmap-base))`;
+    w(supports(rule(MOVERS, `.heatmap-value[data-step="${i + 1}"]`, [
+      `fill: light-dark(${inkOn(at(T.rampTextLo, T.rampTextK))}, ${inkOn(at(T.rampTextDLo, T.rampTextDK))})`,
+    ])));
+  });
+
+  // ── A TOWER SHARE FIGURE — printed on its share. Outside a finish the figure reads its ink off --mark-body
+  // (tower.styles.css), solved for the shipped share; a finish paints the share's `fill` directly. A share CARRIES
+  // TEXT (`bears: true`), so every finish paints it at the text-bearing tier, and the figure takes the one ink
+  // curated for that tier.
+  w('\n/* TOWER SHARE FIGURE — the ink curated for a text-bearing body. */');
+  w(supports(rule(ALL, `.tower-share-value${HUE_SEL}`, [`--tower-ink: ${tv(T.ink)}`])));
+
+  // ── A HUB-SPOKE ICON — a drawing on a disc, so it takes the ink its disc clears ──
+  // The icon (`{icon=…}`, engineering/decisions/2026-09-29-inline-icons.md § 14) is a sibling
+  // of its disc, not a child, so it cannot read the disc's paint. Under a finish the disc takes the bodies
+  // above, and measured, no fixed ink held (a pigment group disc 2.27:1 on onyx dark, an etch status disc
+  // 1.62:1). So under etch and tone the icon picks black or white from the SAME body its disc gets (the
+  // finish tokens the group rule and the status rule read, so the two cannot drift), and waits on relative
+  // color like every text ink here. Pigment's disc is a curated solid, so its icon takes the curated ink.
+  w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');
+  w(supports(rule('pigment', `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${tv(T.ink)}`])));
+  // The disc's body is the mark's own (THE SLOT), and the icon is a mark of the same slot: one rule for every slot.
+  w(supports(rule(MOVERS, `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${`light-dark(${inkOn('var(--finish-mark-body-l)')}, ${inkOn('var(--finish-mark-body-d)')})`}`])));
+  const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
+  w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${tv(T.ink)}`])));
+  w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status))}, ${inkOn(tmix(hsStatus.hue, T.statusD))})`])));
+
+  // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
+  // A gradient here reads as a fourth color where two polygons cross.
+  w('\n/* LAYERED — a flat alpha of the series body; the edge carries the series. */');
+  {
+    const base = `${HUE_SEL}[data-encodes="layered"][data-paint="fill"]`;
+    const decls = [
+      `fill: ${MARK_BODY}`, 'fill-opacity: var(--finish-mark-layer)', 'stroke: var(--finish-mark-layer-ink)',
+      `stroke-width: ${tEdge(T.edge)}`, 'vector-effect: non-scaling-stroke',
+    ];
+    w(rule(ALL, base + notLeft, decls));
+    w(rule(keepsHue, base + onlyLeft, decls));
+  }
+  // The radar's scale ticks sit in the CENTER, where every series polygon overlaps, and they are small
+  // muted text (`--text-muted`, 9px). The member's own fill is a gradient that is nearly clear there
+  // (stop-opacity 0.10 at the center); a finish's fill is FLAT, so the overlap builds up and the tick
+  // fell from 5.13:1 to 3.20:1 (pigment), 4.18:1 (etch) and 1.60:1 (tone) on indaco. Lowering the alpha
+  // enough to hold the tick would erase the polygons, so the tick takes the strongest ink instead.
+  // tools/chart-finish-reach.mjs RUNS measures it on every theme and mode.
+  w('\n/* The radar scale ticks sit on the overlap of every series, so they take the heading ink. */');
+  w(rule(ALL, '.radar-tick', ['fill: var(--text-heading)']));
+
+  // ════════════════════════════════════════════════════════════════════════
+  // What follows is ONE finish's alone: a treatment the others do not have, so it cannot be a value.
+  // ════════════════════════════════════════════════════════════════════════
+  for (const name of ALL) {
     const f = F[name];
     const tone = name === 'tone';
     BASE = BODY_BASE[name];
-    w(`\n/* ══ ${name.toUpperCase()} ${'═'.repeat(70 - name.length)} */`);
+    w(`\n/* ══ ${name.toUpperCase()} ONLY ${'═'.repeat(66 - name.length)} */`);
 
     // ── quadrant's own cell table, under tone ───────────────────────────────
     // The quadrant keeps a per-cell slot table of its own (`--cell-ink`), which its zone names
@@ -381,162 +672,15 @@ function build() {
         ]),
         rule(name, pill, [`--lat-pill-ink: ${inkOn(ONE)}`]),
       ].join('\n')));
+      // A group disc takes tone's body, and on dark it reaches the dimmed hub's own lightness (tone's top step sat
+      // OKLab 0.08 from the hub on mustard-dark, under the 0.15 floor the dimmed hub holds with no finish), so the hub
+      // goes back to the full heading ink it wears on light. Only a chart that draws a GROUP needs it: a neutral
+      // satellite is held under the hub by its own mix, so a neutral or status-only chart keeps the dimmed hub.
+      // Pigment's hub is the neutral solid (REGIONS); etch's body (40%) never comes near the hub.
+      w(rule(name, '.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub', ['fill: var(--text-heading)', 'stroke: var(--text-heading)']));
+      // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
+      for (const n of SLOTS.filter((x) => x > 4)) w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${notLeft}`, ['stroke-dasharray: 5 3']));
     }
-
-    // ── HUE — the body a finish is named for ────────────────────────────────
-    w('\n/* HUE — the body a finish is named for, under the mark\'s ink edge. */');
-    for (const n of SLOTS) {
-      const body = tone ? mix(ONE, `${TONE[n - 1]}%`) : pair(hueOf(n), f.body);
-      const ink = tone ? ONE_INK : inkOf(n);
-      for (const paint of ['fill', 'bg']) {
-        // A text-bearing mark is left to its own rule below, which waits on relative color.
-        // Without this it would take the full body here, under ink solved for the shipped one.
-        const notText = bears[paint].length ? `:not(${bears[paint].map(bearSel).join(', ')})` : '';
-        w(rule(name, `:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]${notText}${tone ? notLeft : ''}`, paintDecls(paint, body, ink, f.edge)));
-      }
-    }
-
-    // ── HUE on a mark that carries text ─────────────────────────────────────
-    // The register CAPS the level; the finish still picks one inside the cap. Emitted after
-    // the plain rule at the same specificity, so source order hands it the mark.
-    w('\n/* HUE on a mark that CARRIES TEXT — the quieter level its text was measured against. */');
-    for (const n of SLOTS) {
-      const [bodyL, bodyD] = tone
-        ? [mix(ONE, `${TONE_TEXT[n - 1]}%`), mix(ONE, `${TONE_TEXT_D[n - 1]}%`)]
-        : [mix(hueOf(n), `${f.backdrop[0]}%`), mix(hueOf(n), `${f.backdrop[1]}%`)];
-      // Pigment's text-bearing body IS the family's curated fill tier, read as the token.
-      const body = ld(bodyL, bodyD);
-      const ink = tone ? ONE_INK : inkOf(n);
-      for (const paint of ['fill', 'bg']) {
-        if (!bears[paint].length) continue;
-        const cls = `:is(${bears[paint].map(bearSel).join(', ')})`;
-        // An HTML mark's own text was colored for the full-strength body (the journey actor
-        // initial is white), so it takes the ink its own body clears. TEXT WAITS: no fixed ink
-        // clears every theme (--text-body read 3.54:1 on concrete's status pill, --text-heading
-        // 3.34:1 on an a11y heatmap step, measured in WebKit with relative color removed), so
-        // on an engine that cannot pick the ink, a mark that carries text keeps its shipped
-        // paint and ink, which each theme's gates already hold. Every other mark still moves.
-        const sel = `${cls}:is([data-hue="${n}"], [data-key-hue="${n}"])[data-encodes="hue"][data-paint="${paint}"]`;
-        const text = paint === 'bg' ? [`color: ${textInk(name)}`] : [];
-        w(supports(rule(name, sel, [...paintDecls(paint, body, ink, f.edgeBackdrop), ...text])));
-      }
-    }
-
-    // ── STATUS — a meaning, so it keeps its own hue under every finish ───────
-    // The prototype sent a status body to the one hue under tone and left the status on the
-    // edge. On the render that made a gantt key of four identical swatches — done, live,
-    // at-risk and blocked told apart by a 1px outline — which is the flattening defect
-    // (finish-render-defects.md) in the status channel. A status is not one of the eight
-    // categories tone collapses; it is a meaning the reader must decode. So under tone it
-    // keeps its hue at tone's quiet level (the text-bearing step for a mark that carries text,
-    // the middle step for one that does not), and the finish still quiets it.
-    w('\n/* STATUS — the member\'s own status channel; the hue is the meaning, so it stays. */');
-    for (const s of STATUS_MARKS) {
-      // A status that carries text takes tone's text level under pigment too: a status hue can
-      // be far darker than a category's (concrete's is near-black), and at pigment's 40% the
-      // text on it read 3.6:1 where tone's 30% held on every theme.
-      const textLevel = s.bears || s.keysText;
-      const lvl = textLevel ? f.backdrop : f.body;
-      const body = tone
-        ? (textLevel ? pair(s.hue, [TONE_TEXT[0], TONE_TEXT_D[0]]) : pair(s.hue, [TONE[2], TONE[2]]))
-        : pair(s.hue, lvl);
-      const k = s.bears ? f.edgeBackdrop : f.edge;
-      const decls = paintDecls(s.paint, body, s.ink, k);
-      // THE SIGNAL RING SCALES WITH THE EDGE. An exception's ring replaces its edge, and "nothing else rings" only
-      // reads if the ring is the heavier line: 1.3x the edge this finish gives the mark. Fixed at 1.3 hairlines it
-      // sat under etch's 2-3x and tone's 2.5x edges, so a done bar outlined louder than an at-risk one (#2887).
-      // Only an HTML box draws its ring from its own `--chart-ring` (an inset shadow); an SVG shape's ring is a sibling
-      // element, set by name below.
-      if (k !== 1 && s.paint === 'bg') decls.push(`--chart-ring: ${ring(k)}`);
-      // A status pill's gradient is a background-IMAGE; the shorthand clears it.
-      if (s.bears && s.paint === 'bg') {
-        decls.push(`color: ${textInk(name)}`);
-        // A state tile's INDEX numeral takes its ink from `--state-index-ink`, which the member fixes to
-        // `--text-body` (state-chart.styles.css). That held on the shipped tint, and on a stated tile's
-        // vivid hue, but the neutral tile's finish body is darker than its shipped tint: cuoio's numeral fell
-        // from 5.95:1 to 4.31:1. Where the finish moves the body, the numeral picks its ink from it too.
-        // A status tile's own name and badge read `--state-node-ink` (the status ink), solved for the shipped tint.
-        if (s.nodeInk) decls.push(`--state-node-ink: ${textInk(name)}`);
-        if (s.indexInk) decls.push(`--state-index-ink: ${textInk(name)}`);
-      }
-      // TEXT WAITS (above): a status that carries text, and a key that follows one, move only
-      // where the engine can pick the text's ink; elsewhere both keep the shipped paint.
-      w(textLevel ? supports(rule(name, s.sel, decls)) : rule(name, s.sel, decls));
-    }
-
-    // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
-    // inherit the shape's width and is reached by name, at the edge of the text-bearing mark it rings.
-    // It waits behind the same guard as the bar's own wider edge (TEXT WAITS), so an engine that keeps the bar's
-    // shipped edge keeps its shipped ring too.
-    if (f.edgeBackdrop !== 1) w(supports(rule(name, '.chart-signal-ring', [`--chart-ring: ${ring(f.edgeBackdrop)}`])));
-    // A milestone diamond and a key swatch carry no text, so their edge is the plain one and their ring follows it.
-    if (f.edgeBackdrop !== f.edge) w(supports(rule(name, ':is(polygon.chart-signal-ring, .gantt-legend .chart-signal-ring)', [`--chart-ring: ${ring(f.edge)}`])));
-
-    // ── TEXT ON A MARK — every caption, numeral and name printed on a finished body takes the finish's text ink ──
-    // Each of these is a sibling of its mark in the SVG (a gantt caption beside its rect, a state caption and its
-    // index numeral beside the tile's shape, a flowchart name beside its node), so it cannot inherit the mark's
-    // ink and is reached by name. A caption beside its bar (`data-pos="after"`) sits on the canvas and keeps the
-    // member's ink, and an author-colored caption (`data-text`) or an author-filled node (`data-fill`) keeps the
-    // author's: both were chosen for exactly the tier a finish paints. A DEFERRED mark is hollow (an 18% wash or none),
-    // so its caption or name sits on the slide and keeps the member's canvas ink, in every member alike.
-    w(supports(rule(name, [
-      '.gantt-bar-label[data-pos="inside"]:not([data-s="deferred"])',
-      '.state-node-group:not([data-text]) > .state-label-t:not([data-s="deferred"])',
-      '.state-index-t[data-s]',
-      '.state-node-group:has(> .state-node-shape:not([data-s])) .state-index-t',
-      '.fc-node-group:not([data-text]):not([data-fill]):not([data-s="deferred"]) > .fc-name',
-    ].join(', '), [`fill: ${textInk(name)}`])));
-
-    // ── RAMP — a magnitude, so the finish SCALES the band ────────────────────
-    // --mix stays the datum; the floor and the span are the finish's. A ramp's own stroke
-    // (the cell gap) is the member's, except under etch, where the line is the identity.
-    w('\n/* RAMP — scaled into the finish\'s band; --mix stays the datum. */');
-    const rampAt = ([lo, k], base) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--mix) * ${k}), ${base})`;
-    const rampStroke = name === 'etch'
-      ? [`stroke: color-mix(in oklab, ${ONE_INK} 75%, transparent)`, `stroke-width: ${edge(1)}`, 'vector-effect: non-scaling-stroke']
-      : [];
-    // A finish whose text band IS the member's own span ([0, 1]: `--mix` as shipped) changes nothing about
-    // the cells, so it emits nothing for them and nothing for their values: the theme-solved ink
-    // (--heatmap-stepN-ink, ~100 hand-tuned declarations) keeps the cell it was solved for. Only pigment
-    // is the identity, and it is the default, so most decks never see a heatmap rule from a finish.
-    const memberSpan = f.rampText.every(([lo, k]) => lo === 0 && k === 1);
-    for (const m of ramps) {
-      // A ramp that prints its value takes the shorter text band (see `rampText`), as two
-      // whole colors inside light-dark(), never a percentage.
-      for (const [classes, body] of [
-        [m.plain, rampAt(f.ramp, m.base)],
-        [m.text, ld(rampAt(f.rampText[0], m.base), rampAt(f.rampText[1], m.base))],
-      ]) {
-        if (!classes.length) continue;
-        if (memberSpan && classes === m.text) continue;
-        const cls = `:is(${classes.map((c) => `.${c}`).join(', ')})`;
-        // A ramp that prints its value waits with its text (TEXT WAITS, above).
-        const wrap = classes === m.text ? supports : (css) => css;
-        w(wrap(rule(name, `${cls}[data-encodes="ramp"][data-paint="fill"]`, [`fill: ${body}`, ...rampStroke])));
-        w(wrap(rule(name, `${cls}[data-encodes="ramp"][data-paint="bg"]`, [`background: ${body}`])));
-      }
-    }
-    // A HEATMAP VALUE is printed on its cell, and the theme solves its ink per step against
-    // the SHIPPED fill (--heatmap-stepN-ink). A finish changes the fill under the text, so no
-    // fixed ink holds: measured, the strong ink fell to 3.34:1 on the a11y themes' top step,
-    // where white clears 6.4:1, and on indaco the reverse. So the browser picks the ink from
-    // the cell's own color: the value's fill is the step's body, taken through relative-color
-    // syntax to black above OKLCH L 0.565 and white below it. That lightness is where the two
-    // meet (relative luminance ~0.18), so either side clears ~4.5:1 on every theme. The step's
-    // --mix is the heatmap's own (--heatmap-stepN, else the member's default, which
-    // marks-css.test.js pins to heatmap.styles.css). It sits behind @supports with its
-    // cell's text band (TEXT WAITS, above): a declaration carrying var() always parses, so a
-    // plain one would fail at computed-value time on an engine without relative color and
-    // leave the value on the default black fill. There, the cell and its value keep the
-    // shipped fill and the ink the theme solved for it.
-    const STEP_MIX = [18, 36.5, 55, 73.5, 92];
-    const textBand = f.rampText;
-    if (!memberSpan) STEP_MIX.forEach((pct, i) => {
-      const at = ([lo, k]) => `color-mix(in oklab, ${ONE} calc(${lo}% + var(--heatmap-step${i + 1}, ${pct}%) * ${k}), var(--heatmap-base))`;
-      w(supports(rule(name, `.heatmap-value[data-step="${i + 1}"]`, [
-        `fill: ${ld(inkOn(at(textBand[0])), inkOn(at(textBand[1])))}`,
-      ])));
-    });
 
     // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────
     // The stroke IS the mark (paint `none`: no body, so all of it is edge). ETCH draws the line heavier,
@@ -612,58 +756,6 @@ function build() {
       ]));
     }
 
-    // ── A HUB-SPOKE ICON — a drawing on a disc, so it takes the ink its disc clears ──
-    // The icon (`{icon=…}`, engineering/decisions/2026-09-29-inline-icons.md § 14) is a sibling
-    // of its disc, not a child, so it cannot read the disc's paint. Its ink is fixed per mode
-    // for the shipped bodies and clears 3:1 there; under a finish the disc takes the bodies
-    // above, and measured, no fixed ink held (a pigment group disc 2.27:1 on onyx dark, an
-    // etch status disc 1.62:1). So the icon picks black or white from the SAME body this
-    // finish gives its disc (the group rule and the status rule above, read from the same
-    // tables, so the two cannot drift), and waits on relative color like every text ink here.
-    w('\n/* HUB-SPOKE ICON — the ink its disc\'s finish body clears. */');
-    const iconInk = ([a, b]) => ld(inkOn(a), inkOn(b));
-    for (const n of SLOTS) {
-      const arms = tone ? [mix(ONE, `${TONE[n - 1]}%`), mix(ONE, `${TONE[n - 1]}%`)] : [mix(hueOf(n), `${f.body[0]}%`), mix(hueOf(n), `${f.body[1]}%`)];
-      w(supports(rule(name, `.hub-spoke-icon[data-hue="${n}"]`, [`--hs-icon-ink: ${name === 'pigment' ? textInk(name) : iconInk(arms)}`])));
-    }
-    // ── A TOWER SHARE FIGURE — printed on its share. Outside a finish the figure reads its ink off --mark-body
-    // (tower.styles.css), solved for the shipped share; a finish paints the share's `fill` directly. A share CARRIES
-    // TEXT (`bears: true`), so every finish paints it at the text-bearing tier, and the figure takes the one ink
-    // curated for that tier (`textInk`).
-    w('\n/* TOWER SHARE FIGURE — the ink curated for a text-bearing body. */');
-    for (const n of SLOTS) w(supports(rule(name, `.tower-share-value[data-hue="${n}"]`, [`--tower-ink: ${textInk(name)}`])));
-    const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
-    const sArms = tone ? [mix(hsStatus.hue, `${TONE[2]}%`), mix(hsStatus.hue, `${TONE[2]}%`)] : [mix(hsStatus.hue, `${f.body[0]}%`), mix(hsStatus.hue, `${f.body[1]}%`)];
-    w(supports(rule(name, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${name === 'pigment' ? textInk(name) : iconInk(sArms)}`])));
-
-    // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
-    // A gradient here reads as a fourth color where two polygons cross.
-    w('\n/* LAYERED — a flat alpha of the series body; the edge carries the series. */');
-    for (const n of SLOTS) {
-      const body = tone ? mix(ONE, `${TONE[n - 1]}%`) : pair(hueOf(n), f.body);
-      // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
-      // translucent polygons at that strength stack to a mid-tone center that no ink can read a scale tick on
-      // (near-black on concrete's overlap measured 3.73:1, the unfinished paint 4.67:1). tools/chart-finish-reach.mjs
-      // RUNS holds it: no theme or mode may push a text run under its threshold that the unfinished paint cleared.
-      const alpha = tone ? String(Math.round((0.06 + 0.14 * (TONE[n - 1] / 92)) * 1000) / 1000) : String(f.layered);
-      // The outline is the series: 1px under pigment and tone, 2px under etch. Under tone it takes the series' step of
-      // the one ink (the same steps a line uses), dashed from the fifth series, so overlapping polygons stay apart.
-      const lstep = `color-mix(in oklab, ${ONE_INK} ${[100, 80, 64, 52][(n - 1) % 4]}%, var(--bg))`;
-      w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${tone ? notLeft : ''}`, [
-        `fill: ${body}`, `fill-opacity: ${alpha}`, `stroke: ${tone ? lstep : inkOf(n)}`,
-        `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
-        ...(tone && n > 4 ? ['stroke-dasharray: 5 3'] : []),
-      ]));
-    }
-    // The radar's scale ticks sit in the CENTER, where every series polygon overlaps, and they are small
-    // muted text (`--text-muted`, 9px). The member's own fill is a gradient that is nearly clear there
-    // (stop-opacity 0.10 at the center); a finish's fill is FLAT, so the overlap builds up and the tick
-    // fell from 5.13:1 to 3.20:1 (pigment), 4.18:1 (etch) and 1.60:1 (tone) on indaco. Lowering the alpha
-    // enough to hold the tick would erase the polygons, so the tick takes the strongest ink instead.
-    // tools/chart-finish-reach.mjs RUNS measures it on every theme and mode.
-    w('\n/* The radar scale ticks sit on the overlap of every series, so they take the heading ink. */');
-    w(rule(name, '.radar-tick', ['fill: var(--text-heading)']));
-
     // ── REGIONS — pigment puts color on the MARKS and keeps the ground under them neutral ──
     // Apple's HIG: "use color sparingly" and "add visual separation between contiguous areas of color". A zone, a
     // band header or a total is ground, not data, so the base finish paints it neutral and lets the marks on it carry
@@ -690,6 +782,11 @@ function build() {
       w(supports(rule(name, '.roadmap td:first-child', ['background: var(--bg-alt)'])));
       // A journey stage's top rule was a category color per stage, decoration that read as data.
       w(rule(name, '.journey-stage', ['--section-accent: var(--chart-neutral-hue)']));
+      // Under pigment a quadrant bubble is its DEEP category fill, so a value printed inside it takes the one ink of
+      // every chart mark, as a bar's label does; heading ink there was dark on a deep fill on the light face. A value
+      // printed above a small bubble sits on the canvas and keeps the heading ink, and etch and tone keep it too: their
+      // bubble is a pale wash.
+      w(rule(name, '.quadrant-bubble-value[data-pos="inside"]', ['fill: var(--chart-on-mark)']));
       // A radar's compass quarters (`radar quadrant`) are GROUND under the series, so each wears a pale tint of its
       // category, the way a status ground is a tint of its status: the shading the variant exists for, with the
       // polygon and the scale numbers readable on it. As a text-bearing mark they took the deep category fill, which
