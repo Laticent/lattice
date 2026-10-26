@@ -86,7 +86,7 @@ Use for a variance walk — budget to actual, an EBITDA bridge, price/volume/mix
 
 ### `zoom`
 
-Re-bases the axis on the walk itself and tears the anchors it clips. For a compressed bridge — a 12.0M to 9.8M walk moved by steps of a few hundred thousand — where the zero-based default spends most of the plot on the two anchors and renders every driver as a hairline. Opt-in, because a silently re-based axis is the truncated-axis lie; the tear is what makes it honest.
+Re-bases the axis on the walk; the tear marks the clipped anchors.
 
 ```markdown
 <!-- _class: waterfall zoom -->
@@ -105,7 +105,7 @@ Re-bases the axis on the walk itself and tears the anchors it clips. For a compr
 
 ### `lower-is-better`
 
-Swaps the meaning hues for a walk where a rise is bad news — a loss ratio, claims, cost, churn — so a rise wears the fail hue and a fall wears pass. Direction itself does not change: the bar still climbs or falls, the label keeps its sign, and print textures still mark up and down.
+For walks where a rise is bad news: a rise wears the fail hue.
 
 ```markdown
 <!-- _class: waterfall lower-is-better -->

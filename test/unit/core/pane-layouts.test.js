@@ -481,3 +481,21 @@ test('lint: a folded marker, columns with rows, a ### above the title, a bare ##
 test('lint: a deck-wide class: columns lays out nothing, and says so', () => {
   assert.ok(lintText('---\nclass: columns\n---\n\n## T\n\n### A\n\nx\n\n### B\n\ny\n').some((f) => f.rule === 'pane-layout' && /front matter/.test(f.message)));
 });
+
+// Page numbers are on by default (#2826), which numbered every pane's own render: each
+// `<lat-pane>` grew a footer Cell holding a stray "1" that took height from the pane, and a
+// stacked pane clipped (examples/panes.md p8, rows.gallery.md p4). The host owns the one number.
+test('a pane carries no page number of its own; the host slide keeps its one', () => {
+  const html = render([
+    '---', 'theme: indaco', '---', '',
+    '<!-- _class: rows -->', '<!-- _pane: table -->', '',
+    '| Quarter | Revenue |', '|---|---|', '| Q1 | $12M |', '',
+    '<!-- _pane: bar -->', '', '- Q1 `12`', '- Q2 `18`', '',
+  ].join('\n'));
+  const doc = new JSDOM(html).window.document;
+  assert.equal(doc.querySelectorAll('lat-pane').length, 2, 'both panes rendered');
+  assert.equal(doc.querySelectorAll('lat-pane .lat-pagination').length, 0, 'no page number inside a pane');
+  assert.equal(doc.querySelectorAll('lat-pane .cell-footer').length, 0, 'no footer Cell inside a pane');
+  const host = doc.querySelector('section');
+  assert.ok(host.querySelector(':scope > .cell-footer > .lat-pagination, :scope > .lat-pagination'), 'the host slide keeps its number');
+});
