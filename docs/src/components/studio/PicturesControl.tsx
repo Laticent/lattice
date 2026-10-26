@@ -3,17 +3,21 @@
 import { Image as ImageIcon } from 'lucide-react';
 import * as React from 'react';
 import exportCanvasCore from '../../../../lib/core/export-canvas.js';
+import { autoHeadLabel } from './auto-mark';
 import { type Choice, ChoiceSelect } from './ChoiceSelect';
-import { deckSizeOf, loadImagesChoice, saveImagesChoice, setCanvasChoice, setImagesOverride } from './export/images-override.js';
+import { deckPolicyOf, deckSizeOf, loadImagesChoice, saveImagesChoice, setCanvasChoice, setImagesOverride } from './export/images-override.js';
 
 type Mode = 'deck' | 'optimized' | 'original';
 const CHOICES: Choice<Mode>[] = [
-	{ value: 'deck', title: 'Deck setting', blurb: 'Follow `images:` in the deck’s front matter (optimized when it says nothing).' },
+	{ value: 'deck', title: 'Auto', blurb: 'Follow `images:` in the deck’s front matter (optimized when it says nothing).' },
 	{ value: 'optimized', title: 'Smaller file', blurb: 'Large photos shrink to 2560 px and re-encode as JPEG, only when that saves space. Differences are not visible at slide size.' },
 	{ value: 'original', title: 'Original quality', blurb: 'Every picture is embedded exactly as added. PowerPoint and LibreOffice slides stay lossless PNG. Larger file.' },
 ];
 
-export function PicturesControl({ deckId, busy, applies }: { deckId?: string; busy?: boolean; applies: string }) {
+export function PicturesControl({ deckId, source, busy, applies }: { deckId?: string; source?: string; busy?: boolean; applies: string }) {
+	// "Auto" reads as what it lands on: the deck's own `images:` line, else the built-in default.
+	const autoMode = React.useMemo(() => deckPolicyOf(source).images as Mode, [source]);
+	const choices = CHOICES.map((c) => (c.value === 'deck' ? { ...c, title: autoHeadLabel(CHOICES.find((x) => x.value === autoMode)?.title) } : c));
 	const [choice, setChoice] = React.useState(() => loadImagesChoice(deckId ?? ''));
 	// Every change reaches the exporter at once, so the Download button needs no extra wiring.
 	React.useEffect(() => {
@@ -27,7 +31,7 @@ export function PicturesControl({ deckId, busy, applies }: { deckId?: string; bu
 				<span className="min-w-0 flex-1">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Pictures</span>
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">How {applies} treat your photos and screenshots.</span>
-					<ChoiceSelect label="Pictures" value={choice.mode} choices={CHOICES} disabled={busy} onChange={(mode) => setChoice({ ...choice, mode })} />
+					<ChoiceSelect label="Pictures" value={choice.mode} choices={choices} disabled={busy} onChange={(mode) => setChoice({ ...choice, mode })} />
 					{choice.mode === 'optimized' && (
 						<label className="mt-2 flex items-center gap-2 text-[11.5px] text-muted-foreground">
 							JPEG quality

@@ -34,6 +34,15 @@ export function applyFontsOverride(fromDeck) {
 	return fontsOverride ? fontPolicyCore.mergeFontsSettings(fromDeck, fontsOverride) : fromDeck;
 }
 
+/** What the deck's own lines settle to with no panel choice on top: the value "Deck setting" lands on. */
+export function deckPolicyOf(source) {
+	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
+	return {
+		images: imagePolicyCore.resolveImagePolicy(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images'))).mode,
+		fonts: fontPolicyCore.resolveFontPolicy(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts'))),
+	};
+}
+
 /** The deck's own `size:`, read the way the command line reads it (quotes and a trailing comment stripped). */
 export function deckSizeOf(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';

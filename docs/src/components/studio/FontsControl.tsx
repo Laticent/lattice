@@ -2,19 +2,20 @@
 // Same plan as the command line's --fonts (lib/core/font-policy.js). Remembered per deck.
 import { Type } from 'lucide-react';
 import * as React from 'react';
+import { autoHeadLabel } from './auto-mark';
 import { type Choice, ChoiceSelect } from './ChoiceSelect';
-import { setFontsOverride } from './export/images-override.js';
+import { deckPolicyOf, setFontsOverride } from './export/images-override.js';
 
 type Tier = '' | 'exact' | 'used' | 'full' | 'system';
 const TEXT: Choice<Tier>[] = [
-	{ value: '', title: 'Deck setting', blurb: 'Follow `fonts:` in the deck’s front matter (the whole face when it says nothing).' },
+	{ value: '', title: 'Auto', blurb: 'Follow `fonts:` in the deck’s front matter (the whole face when it says nothing).' },
 	{ value: 'exact', title: 'Exact', blurb: 'Only the characters the deck shows. The smallest file.' },
 	{ value: 'used', title: 'Used', blurb: 'The whole face, so edited text keeps every glyph.' },
 	{ value: 'full', title: 'Full', blurb: 'The whole face, every script.' },
 	{ value: 'system', title: 'System', blurb: 'Embed nothing; the viewer’s fonts draw the text.' },
 ];
 const EMOJI: Choice<Tier>[] = [
-	{ value: '', title: 'Deck setting', blurb: 'Follow `fonts:` in the deck’s front matter (exact when it says nothing).' },
+	{ value: '', title: 'Auto', blurb: 'Follow `fonts:` in the deck’s front matter (exact when it says nothing).' },
 	{ value: 'exact', title: 'Exact', blurb: 'Only the emoji the deck shows.' },
 	{ value: 'used', title: 'Used', blurb: 'Whole slices holding the deck’s emoji.' },
 	{ value: 'full', title: 'Full', blurb: 'The whole emoji font, about 2 MB.' },
@@ -27,6 +28,8 @@ const BLURB = {
 	office: 'Editable PowerPoint and LibreOffice files embed the whole face for every choice but System, so edited text keeps the deck’s type.',
 };
 
+const titleOf = (list: Choice<Tier>[], tier: Tier) => list.find((c) => c.value === tier)?.title ?? '';
+
 const KEY = (deckId?: string) => `lattice-studio-fonts:${deckId ?? ''}`;
 
 function load(deckId?: string): { text: Tier; emoji: Tier } {
@@ -38,7 +41,10 @@ function load(deckId?: string): { text: Tier; emoji: Tier } {
 	}
 }
 
-export function FontsControl({ deckId, busy, format = 'webpage' }: { deckId?: string; busy?: boolean; format?: 'webpage' | 'pdf' | 'office' }) {
+export function FontsControl({ deckId, source, busy, format = 'webpage' }: { deckId?: string; source?: string; busy?: boolean; format?: 'webpage' | 'pdf' | 'office' }) {
+	// "Auto" reads as what it lands on: the deck's own `fonts:` line, else the built-in default.
+	const auto = React.useMemo(() => deckPolicyOf(source).fonts, [source]);
+	const named = (list: Choice<Tier>[], tier: Tier) => list.map((c) => (c.value === '' ? { ...c, title: autoHeadLabel(titleOf(list, tier)) } : c));
 	const [choice, setChoice] = React.useState(() => load(deckId));
 	React.useEffect(() => {
 		setFontsOverride([choice.text, choice.emoji && `${choice.emoji}-emoji`].filter(Boolean).join(' '));
@@ -55,8 +61,8 @@ export function FontsControl({ deckId, busy, format = 'webpage' }: { deckId?: st
 				<span className="min-w-0 flex-1">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Fonts</span>
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{BLURB[format]} Same words as the deck’s `fonts:` line.</span>
-					<ChoiceSelect label="Text fonts" value={choice.text} choices={TEXT} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
-					<ChoiceSelect label="Emoji font" value={choice.emoji} choices={EMOJI} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />
+					<ChoiceSelect label="Text fonts" value={choice.text} choices={named(TEXT, auto.text as Tier)} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
+					<ChoiceSelect label="Emoji font" value={choice.emoji} choices={named(EMOJI, auto.emoji as Tier)} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />
 				</span>
 			</span>
 		</div>

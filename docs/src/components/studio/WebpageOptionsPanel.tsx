@@ -177,8 +177,8 @@ export function WebpageOptionsPanel({
 					</div>
 				</div>
 
-				<PicturesControl key={deckId} deckId={deckId} busy={busy} applies="the player stores" />
-				<FontsControl key={`fonts-${deckId}`} deckId={deckId} busy={busy} />
+				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies="the player stores" />
+				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} />
 
 				{/* Strip speaker notes — a privacy opt-in for a shared file. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">
