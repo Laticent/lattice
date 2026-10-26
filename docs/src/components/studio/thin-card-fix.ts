@@ -3,10 +3,9 @@ import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
 import { setImageCard } from './slide-provenance';
 
-// The edit behind the `thin-card-no-ink` tooltip's two buttons (`Add ink-light`, `Add ink-dark`).
-// Lint cannot see the photo, so it cannot say which ink reads: the author picks, and the Card backing
-// slider (card-ink-pick.ts) is the one that samples the pixels. Loaded when a button is pressed, so
-// the editor carries only the button names.
+// The edit and the pick behind the `thin-card-no-ink` tooltip's buttons. Lint cannot see the photo, so the Studio
+// reads it from the live preview (`pickedInk`) and offers the ink that reads; when it cannot, the tooltip offers
+// `Add ink-light` and `Add ink-dark` and the author chooses. Loaded when a thin card is linted, never on the shell's path.
 
 /**
  * The deck with `ink-<ink>` set on slide `slideIndex` (0-based, front matter not counted), or null when
@@ -20,4 +19,17 @@ export function addCardInk(source: string, slideIndex: number, ink: 'light' | 'd
 	if (next === chunk) return null;
 	const out = replaceSlide(source, slideIndex, next).source;
 	return out === source ? null : out;
+}
+
+/**
+ * The ink that reads on the photo behind slide `slideIndex`'s card, read from the live preview with the same
+ * sampler and kernel as the Card backing slider (card-ink-pick.ts), or null when it cannot be read: the
+ * preview shows another slide, the photo will not load, or the browser refuses to read it (cross-origin).
+ */
+export async function pickedInk(source: string, slideIndex: number): Promise<'light' | 'dark' | null> {
+	const chunk = splitSlides(stripFrontMatter(source))[slideIndex];
+	if (chunk == null) return null;
+	const pick = await import('./card-ink-pick');
+	const behind = await pick.readBehindCard(chunk, slideIndex + 1);
+	return behind ? pick.applyLateRead(chunk, source, behind).picked : null;
 }

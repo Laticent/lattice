@@ -83,17 +83,31 @@ test('a pin that would not clear the floor is not offered', async ({ page }) => 
 	await expect(page.getByRole('button', { name: /Pin this slide/ })).toHaveCount(0);
 });
 
-// The editor's own tooltip on the same slide (`thin-card-no-ink`) is not auto-fixable, so it carries two buttons
-// and the author picks the ink.
-test('the thin-card tooltip offers Add ink-light and Add ink-dark, and a button writes the class', async ({ page }) => {
+// The editor's own tooltip on the same slide (`thin-card-no-ink`) is not auto-fixable in lint, so the Studio reads the
+// photo from the preview and offers the ONE ink that reads (the dark sample photo wants light ink). Only when the slide is
+// not the one on screen, so the photo cannot be read, does it offer both.
+for (const width of [1440, 390]) {
+	test(`the thin-card tooltip offers the one ink that reads, and the button writes it (${width}px)`, async ({ page }) => {
+		await page.setViewportSize({ width, height: 844 });
+		await gotoStudio(page);
+		await typeDeck(page, DARK_PHOTO_DECK);
+		if (width < 700) await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		await page.locator('.cm-lintRange-warning').first().hover();
+		await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
+		await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toHaveCount(0);
+		await page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' }).click();
+		await expect.poll(() => persistedSource(page)).toMatch(/_class: image spotlight card-clear ink-light/);
+		await expect(page.locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
+	});
+}
+
+test('a thin card on a slide that is not on screen offers both inks', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
-	await typeDeck(page, DARK_PHOTO_DECK);
+	const second = DARK_PHOTO_DECK.replace('A quiet harbor.', 'A second harbor.');
+	await typeDeck(page, `${DARK_PHOTO_DECK}\n---\n\n${second.split('---\n\n').pop()}`);
+	// The caret is on slide 2 after typing, so the preview shows slide 2; slide 1's warning cannot read its photo.
 	await page.locator('.cm-lintRange-warning').first().hover();
-	const light = page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' });
-	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toBeVisible({ timeout: 20_000 });
-	await light.click();
-	await expect.poll(() => persistedSource(page)).toMatch(/_class: image spotlight card-clear ink-light/);
-	// The slide now names an ink, so the warning is gone.
-	await expect(page.locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toBeVisible();
 });

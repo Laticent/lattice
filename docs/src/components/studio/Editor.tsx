@@ -581,19 +581,26 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					reportLint(view, measuredFindings.length ? findings.concat(measuredFindings) : findings);
 					const diags = findingsToDiagnostics(view.state.doc, findings, fixOpts) as Diagnostic[];
-					// `thin-card-no-ink` is not auto-fixable (which ink reads depends on the photo, which lint cannot see),
-					// so it gets two buttons and the author picks. The slide is read from the position when pressed.
-					for (const d of diags) {
-						if (d.source !== 'thin-card-no-ink') continue;
-						d.actions = (['light', 'dark'] as const).map((ink) => ({
-							name: `Add ink-${ink}`,
-							apply: (v: EditorView, at: number) =>
-								void import('./thin-card-fix').then((m) => {
-									const text = v.state.doc.toString();
-									const next = m.addCardInk(text, Math.max(0, unitAt(buildDeckIndex(text), at)), ink);
-									if (next != null) v.dispatch({ changes: { from: 0, to: text.length, insert: next } });
-								}),
-						}));
+					// `thin-card-no-ink` is not auto-fixable in lint (which ink reads depends on the photo, which lint cannot
+					// see), so the Studio reads the photo from the live preview and offers the one ink that reads. When it
+					// cannot read it (another slide is on screen, a cross-origin photo) it offers both and the author picks.
+					// The slide is read from the position when a button is pressed.
+					const thin = diags.filter((d) => d.source === 'thin-card-no-ink');
+					if (thin.length) {
+						const text = view.state.doc.toString();
+						const ix = buildDeckIndex(text);
+						const fix = await import('./thin-card-fix');
+						for (const d of thin) {
+							const read = await fix.pickedInk(text, Math.max(0, unitAt(ix, d.from))).catch(() => null);
+							d.actions = (read ? [read] : (['light', 'dark'] as const)).map((ink) => ({
+								name: `Add ink-${ink}`,
+								apply: (v: EditorView, at: number) => {
+									const now = v.state.doc.toString();
+									const next = fix.addCardInk(now, Math.max(0, unitAt(buildDeckIndex(now), at)), ink);
+									if (next != null) v.dispatch({ changes: { from: 0, to: now.length, insert: next } });
+								},
+							}));
+						}
 					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
 				})
