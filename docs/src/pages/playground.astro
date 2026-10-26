@@ -158,7 +158,14 @@ const galleryGroups = GALLERY_GROUPS.map((grp) => ({
 // at the top otherwise) while the frame is still hidden. `data-pg-bake` then holds the frame visible
 // until the app goes live; it only moves loading → shown, and the app removes it the moment it takes
 // over, or before it writes a document of its own.
-const bake = { component: resolveComponent(catalog, null).name, palette: 'cuoio', base: url(pg + 'newcomer/'), runtime: url(pg + 'lattice-runtime.js') };
+const bakeName = resolveComponent(catalog, null).name;
+// The newcomer's first Walk caption, read from the SAME `galleryPlan` that stages plans/<name>.json, so it is the text the plan fetch
+// delivers a second later. Server-rendered into the Walk bar: without it the bar's caption is empty until hydration and the plan
+// land, and Lighthouse then picks that late <p> as the page's largest paint (simulated LCP 10 s, followup 2868-p1).
+const { galleryPlan } = require(join(repoRoot, 'tools', 'build-component-docs.js'));
+const bakeManifest = manifests.find((m) => m.name === bakeName);
+const bakeCaption = (bakeManifest && galleryPlan(bakeManifest)[0]?.caption) || '';
+const bake = { component: bakeName, palette: 'cuoio', base: url(pg + 'newcomer/'), runtime: url(pg + 'lattice-runtime.js') };
 
 const pgData = {
 	catalog,
@@ -178,6 +185,7 @@ const pgData = {
 	finishes: FINISH_NAMES,
 	lintVocab,
 	starter,
+	bakeCaption,
 };
 ---
 
@@ -379,6 +387,8 @@ const pgData = {
 						var bconn = navigator.connection || {};
 						var bslow = bconn.saveData === true || /^(slow-2g|2g|3g)$/.test(bconn.effectiveType || '');
 						if (!bslow && view === 'read' && !hasHandoff && !bq.get('s') && bcomp === bake.component && (r.getAttribute('data-palette') || 'cuoio') === bake.palette) {
+							// The baked Walk caption (WalkBar `baked`) is true only for this visitor: playground.css hides it for anyone else.
+							r.setAttribute('data-pg-newcomer', '');
 							window.__pgBoot.bake = bake.base + (r.getAttribute('data-mode') === 'dark' ? 'dark' : 'light') + '/';
 							window.__pgBoot.bakeDoc = fetch(window.__pgBoot.bake, { credentials: 'same-origin', priority: 'high' })
 								.then(function (res) { return res.ok ? res.text() : null; })

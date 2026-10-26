@@ -144,3 +144,18 @@ download a visitor who leaves before the hero renders never needed, and wins on 
 improvement and must not be cited as one. This also means the deployed home page already scores 73-80, so the remaining gap
 to 90 there is TBT, not LCP. The lesson for the next pass: measure Lighthouse candidates on a CDN preview before calling a
 local win, because the simulation depends on when requests start in the real trace.
+
+## 8. The Playground walk caption goes into the HTML (followup 2868-p1)
+
+`playground.astro` now reads the default component's first caption from the same `galleryPlan` that stages `plans/<name>.json`
+and passes it to the island as `bakeCaption`. The Walk bar renders it (`data-baked`) while no walk exists, so the server HTML
+holds the text that used to arrive after hydration and the plan fetch. A visitor who is not the newcomer the bake was built
+for (a remembered component, `?c=`, `?s=`, a hand-off, a slow connection, Edit first) must not see another slide's words, so
+the head script marks `data-pg-newcomer` only in the branch that starts the bake, and `playground.css` hides `[data-baked]`
+without it (`visibility: hidden`, so the box holds its height and a hidden element is not an LCP candidate). Checked in
+Chromium with a remembered `kpi` and a 3 s plan delay: the baked caption is hidden, then replaced by the KPI caption.
+
+**What the sandbox can and cannot show.** On the local HTTP/2 server, five runs each, base and head alternating: the LCP element
+is still the caption and LCP equals FCP (5.4-5.7 s base, 5.4 s head; one head run scored 51 with FCP 2.5 s). Locally the caption was
+only 0.9 s behind FCP already, so the 10 s gap in §6 does not exist here: §7's warning applies. The CDN number is in the PR
+body once its preview is up.
