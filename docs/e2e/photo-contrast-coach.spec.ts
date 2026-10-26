@@ -87,7 +87,8 @@ test('a pin that would not clear the floor is not offered', async ({ page }) => 
 // photo from the preview and offers the ONE ink that reads (the dark sample photo wants light ink). Only when the slide is
 // not the one on screen, so the photo cannot be read, does it offer both.
 for (const width of [1440, 390]) {
-	test(`the thin-card tooltip offers the one ink that reads, and the button writes it (${width}px)`, async ({ page }) => {
+	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
+	test(`the thin-card tooltip offers the one ink that reads, and the button writes it (${width}px)${engines}`, async ({ page }) => {
 		await page.setViewportSize({ width, height: 844 });
 		await gotoStudio(page);
 		await typeDeck(page, DARK_PHOTO_DECK);
