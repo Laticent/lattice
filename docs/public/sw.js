@@ -185,7 +185,9 @@ async function put(cacheName, request, response) {
 	// ONE LISTING SERVES BOTH PASSES. `cache.keys()` on a full cache (~700 entries) costs about
 	// 7 ms in Chromium, and a cold load puts hundreds of assets; listing again for the cap below
 	// made each versioned put 18 ms instead of 11.5 (#1930). The cap reads this listing minus
-	// what the loop deleted, which is what a second listing would return.
+	// what the loop deleted, which is what a second listing would return when no other put runs
+	// meanwhile. A concurrent put can leave the cache a few entries over the cap (the old code had
+	// the same race over a shorter window); the next put trims it, and the cap is coarse by design.
 	let keys = await cache.keys();
 	const cur = new URL(request.url).pathname.match(VERSIONED);
 	if (cur) {

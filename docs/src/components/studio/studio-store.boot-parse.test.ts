@@ -35,7 +35,8 @@ describe('the Studio boot splits each deck once', () => {
 		expect(decks).toBeGreaterThan(2);
 		split.calls = 0;
 		boot();
-		// The memo may already hold every deck from the read above; the bound is what matters.
+		// The read above warms the memo, so this boot may split nothing; the bound is the pin. The old
+		// code split every deck on each of the five reads (5x decks), which this fails.
 		expect(split.calls).toBeLessThanOrEqual(decks);
 	});
 
