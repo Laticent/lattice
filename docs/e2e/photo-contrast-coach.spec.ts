@@ -34,7 +34,10 @@ const CASES = [
 ] as const;
 for (const { mode, deck, pin } of CASES) {
 	for (const width of WIDTHS) {
-		test(`a thin card on a ${pin === 'dark' ? 'dark' : 'bright'} photo is flagged, and the ${pin} pin fixes it (${mode}, ${width}px)`, async ({ page }, info) => {
+		// WebKit reads computed colors and the photo canvas its own way (HARD RULE #23): the light-mode case also runs there,
+		// the wide one in the tablet project and the narrow one in the phone project, each keeping its desktop run (@crosswidth).
+		const engines = mode === 'light' && width === 1440 ? ' @webkit-tablet @crosswidth' : mode === 'light' && width === 390 ? ' @webkit-phone @crosswidth' : '';
+		test(`a thin card on a ${pin === 'dark' ? 'dark' : 'bright'} photo is flagged, and the ${pin} pin fixes it (${mode}, ${width}px)${engines}`, async ({ page }, info) => {
 			await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
 			await page.addInitScript((m) => localStorage.setItem('lattice-docs-mode', m), mode);
 			await gotoStudio(page);
