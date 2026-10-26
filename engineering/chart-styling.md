@@ -296,9 +296,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   pigment's shipped body tier. A whisper mixed toward black lands darker than the
   slide and reads as a hole.
 - **A ramp scales from its own member's empty end** (`--heatmap-base`,
-  `--map-base`). A ramp that prints its value takes a shorter band: tone tops out
-  at 70% on light and every finish near 50% on dark, where light text stopped
-  clearing carbone's lime top step (3.39:1). Etch's ramp is wider than its
+  `--map-base`). Tone's ramp is one band, 10% plus 0.82 of the step, whether or not it prints its value.
+  It used to take a shorter band when it printed (70% on light, near 50% on dark) because a fixed ink had
+  to clear the top step; each value now picks its own ink, which clears 4.58:1 on any body, so the band
+  no longer protects the text. Measured on the heatmap gallery (5 themes), the contrast of the top step
+  against the empty cell under tone went from 3.10 to 4.19 at its worst on light and from 1.67 to 2.64 on
+  dark (pigment 4.78 and 6.32). Etch's ramp is wider than its
   whisper of a body (6→43%): at the prototype's 6→28% a dark heatmap read as one
   flat navy, and a ramp's identity is value.
 - **A heatmap value picks its own ink, under etch and tone.** The theme solves each step's

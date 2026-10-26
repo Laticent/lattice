@@ -233,9 +233,9 @@ figure.marks-tone,
   --finish-ramp-lo: 10%;
   --finish-ramp-k: 0.82;
   --finish-ramp-text-lo: 10%;
-  --finish-ramp-text-k: 0.65;
+  --finish-ramp-text-k: 0.82;
   --finish-ramp-text-d-lo: 10%;
-  --finish-ramp-text-d-k: 0.43;
+  --finish-ramp-text-d-k: 0.82;
 }
 
 /* ══ THE SLOT — the finish's values for the category a mark is. ══ */
@@ -913,6 +913,17 @@ section.marks-etch :where(.hub-spoke-icon:not([data-s]):not([data-hue])),
 figure.marks-etch :where(.hub-spoke-icon:not([data-s]):not([data-hue])) {
   --hs-icon-ink: light-dark(color(from color-mix(in oklab, var(--text-body) 14%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--text-body) 19%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
+}
+section.marks-etch :where(.hub-spoke-hub),
+figure.marks-etch :where(.hub-spoke-hub) {
+  fill: light-dark(color-mix(in oklab, var(--hs-neutral-ink) 14%, var(--bg)), color-mix(in oklab, var(--hs-neutral-ink) 19%, var(--bg))) !important;
+  stroke: var(--hs-neutral-ink) !important;
+  stroke-width: calc(var(--chart-edge) * 2) !important;
+  vector-effect: non-scaling-stroke !important;
+}
+section.marks-etch :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)),
+figure.marks-etch :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
+  fill: var(--text-heading) !important;
 }
 section.marks-etch :where(:is(.journey-stage, .journey-vstage-name)),
 figure.marks-etch :where(:is(.journey-stage, .journey-vstage-name)) {

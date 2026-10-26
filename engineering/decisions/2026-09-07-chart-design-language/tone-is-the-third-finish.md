@@ -133,3 +133,19 @@ see `engineering/chart-styling.md` §3. The two items below are still open.*
 - **The register audit.** Three of the eight destinations in the design's reach
   table are implemented (mark body, mark edge, and now the mark's name). The
   mark's VALUE and its own chrome are not.
+
+## Update 2026-10-26 (chart-finish token swaps, PR on branch claude/chart-status-continuation-c46lvj)
+
+This note is the record of the design as first written. Four statements in it no longer match the code, and the
+audit that found them is `followups.d/2887-p2-tone-etch-open-decisions.md`.
+
+- **"A STATUS mark's body joins the one hue; the status stays on the edge" is not what ships.** A status body keeps
+  its own status hue under tone, at tone's quiet level, and its edge is the status ink
+  (`engineering/chart-styling.md` §3, `STATUS_MARKS` in `tools/build-marks-css.js`).
+- **"its top step is 92%, louder than `pigment`'s 82%" is stale.** Pigment is the flat solid now (100%).
+- **"ink, 1×" on the edge now means the mark's own category ink.** Tone's edges once all read category 1's ink, so on
+  a pie, a tower, a stacked bar and a quadrant the closest pair of edges was 0 OKLab apart. Each edge is its category's
+  ink again, as this note always said ("the only place the categorical hue survives"). Measured, tone's closest edge
+  pair now equals pigment's and etch's (median 0.079 on tower, 0.093 on pie, 0.180 on stacked bar; 0.004 only on
+  `a11y-achromatopsia` light, a grayscale palette that separates categories by texture).
+- **The ramp is no longer doubled for ramps.** See `chart-styling.md` §3: a heatmap's text band is the same as its plain band.

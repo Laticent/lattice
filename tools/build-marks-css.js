@@ -80,15 +80,13 @@ const F = {
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
   etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.4], rampText: [[6, 0.4], [6, 0.4]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
-  // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp
-  // that PRINTS ITS VALUE takes (a heatmap cell), as [light, dark]: shorter, because its top
-  // step must still carry text at 4.5:1. Tone's text band tops out at 70% on light, not the
-  // prototype's 85% (at 85% neither the strong ink nor the canvas clears every curated theme:
-  // measured 2.98–4.71). Every dark text band tops out near 50%: a dark ramp's top step is a
-  // LIGHT tone, and on a bright hue (carbone's lime) light text stopped clearing it at 3.39:1.
-  // A ramp already encodes VALUE, which is tone's whole idea, so on a ramp member tone and
-  // pigment differ only by band — that is the honest result, not a gap.
-  tone: { ramp: [10, 0.82], rampText: [[10, 0.65], [10, 0.43]], edge: 1, edgeBackdrop: 2.5, border: 0 },
+  // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
+  // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
+  // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
+  // body, so the band no longer protects the text, and a finish whose premise is "value is the datum" may not flatten the
+  // ramp for it: tone's dark top step against an empty cell was 1.67:1 and is measured in the PR. Etch keeps its whisper.
+  // A ramp already encodes VALUE, which is tone's whole idea, so on a ramp member tone and pigment differ only by band.
+  tone: { ramp: [10, 0.82], rampText: [[10, 0.82], [10, 0.82]], edge: 1, edgeBackdrop: 2.5, border: 0 },
 };
 
 /**
@@ -731,6 +729,15 @@ function build() {
       w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [
         `--hs-icon-ink: ${ld(inkOn(mix('var(--text-body)', `${f.backdrop[0]}%`)), inkOn(mix('var(--text-body)', `${f.backdrop[1]}%`)))}`,
       ])));
+    }
+    // The HUB is the one mark with no category and no status, and the member makes it the page's heading ink, solid. Under
+    // etch every other body retreats to a whisper, so the hub was the loudest mark on the slide, louder than the blocked and
+    // at-risk discs it exists to be read beside. It takes the neutral satellite's whisper and 2x edge, its name in the heading
+    // ink. Tone keeps the member's solid hub: tone's claim is depth, and the largest mark is its deepest step.
+    if (name === 'etch') {
+      const body = ld(mix('var(--hs-neutral-ink)', `${f.backdrop[0]}%`), mix('var(--hs-neutral-ink)', `${f.backdrop[1]}%`));
+      w(rule(name, '.hub-spoke-hub', [`fill: ${body}`, 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
+      w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--text-heading)']));
     }
     if (name === 'pigment') {
       // Pigment paints the neutral node with the neutral SOLID, like every other unstated mark in the family.
