@@ -42,7 +42,7 @@ section.compact {
  * removed, and the tie on specificity (both `section.<class>`) would be settled by
  * source order in this file's favor. They honor `accent` by recoloring their own
  * ribbon segment instead; see each component's styles file. */
-section.accent:not(.split-panel, .split-compare) {
+section.accent:not(.split-panel, .split-compare):where(:not(.image, .scene, .collage.bleed)) {
   border-top: var(--_bar-w) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
   --_edge-t: 0; /* this bar is the top edge, even in a `spectrum: off` deck (base.modifiers.css) */

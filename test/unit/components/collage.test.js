@@ -245,7 +245,7 @@ test('bleed takes the whole slide: no header or footer, a stretched grid, a tran
   assert.match(css, /section\.collage\.bleed > header,\s*section\.collage\.bleed > footer\s*\{\s*display:\s*none;\s*\}/, 'the header and footer are off');
   assert.match(css, /section\.collage\.bleed \.collage-list\s*\{\s*--collage-h:\s*100cqh;\s*--collage-w:\s*100cqw;\s*\}/, 'the grid is stretched to the slide, not kept at its own shape');
   assert.match(css, /section\.collage\.bleed > \.cell-masthead,\s*section\.collage\.bleed > p\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--bg\) \d+%, transparent\)/, 'the card is translucent');
-  assert.match(css, /section\.collage\.bleed\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*fit-content\(50%\);[^}]*padding:\s*calc\(var\(--_bar-room-t, 0px\) - var\(--_bar-t, 0px\)\) 0 0 var\(--frame-x\);/, 'the text is a one-column grid pinned to the top edge at the frame inset, giving up the bar like every other frame');
+  assert.match(css, /section\.collage\.bleed\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*fit-content\(50%\);[^}]*padding:\s*0 0 0 var\(--frame-x\);/, 'the text is a one-column grid pinned to the top edge at the frame inset');
   assert.doesNotMatch(css, /section\.collage\.bleed > p\s*\{\s*display:\s*none;/, 'the description is shown on bleed, not hidden');
   assert.match(css, /section\.collage\.bleed > p\s*\{\s*padding-block:\s*var\(--sp-md\);/, 'a description alone keeps the card padding');
   assert.match(css, /section\.collage\.bleed\.bleed\.bleed > \.cell-masthead \+ p\s*\{[^}]*grid-row:\s*2;/, 'the description is the second row of the same card');

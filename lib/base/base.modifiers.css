@@ -2225,7 +2225,7 @@ section.divider.numbered {
     var(--_mark-top) + var(--fs-hero) + var(--_mark-rule-gap) + 1px +
     var(--_sec-1cqi, 1cqi) * 2.5
   );
-  padding-top: var(--_mark-band);
+  padding-top: calc(var(--_mark-band) - var(--_bar-t, 0px)); /* gives up a top bar `accent`, `tone-edge` or a deck-wide `spectrum:` adds */
   padding-bottom: var(--_mark-band);
   justify-content: safe center;
 }
@@ -2997,9 +2997,9 @@ img.deck-logo {
  * slide's FINAL word on each axis. `no-logo` removes the mark itself (the injectors skip the
  * slide), which is why the stand-down rules guard on `:not(.no-logo)`. */
 section.logo-top-left img.deck-logo { right: auto; left: var(--frame-inset-l); }
-section.logo-top-center img.deck-logo { right: auto; left: 50%; transform: translateX(-50%); }
+section.logo-top-center img.deck-logo { right: auto; left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2); transform: translateX(-50%); }
 section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: var(--frame-inset-l); }
-section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: 50%; transform: translateX(-50%); }
+section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2); transform: translateX(-50%); }
 section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-b); }
 section.logo-sm img.deck-logo { --logo-scale: 0.75; }
 section.logo-lg img.deck-logo { --logo-scale: 1.5; }

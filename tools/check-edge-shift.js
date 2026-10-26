@@ -57,7 +57,7 @@ const {
 const { resolveChrome } = require('./lib/resolve-chrome.js');
 
 const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] '
-  + '[--components a,b] [--limit N] [--no-dark] [--variants] [--classes "a b"] [--front-matter "k: v"] [--no-chrome] [--family wide] [--tolerance 0.5] '
+  + '[--components a,b] [--limit N] [--no-dark] [--variants] [--each-class a,b|all] [--classes "a b"] [--front-matter "k: v"] [--no-chrome] [--family wide] [--tolerance 0.5] '
   + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--positions FILE]';
 
 function die(msg, code = 2) { console.error(`check-edge-shift: ${msg}`); process.exit(code); }
@@ -223,6 +223,15 @@ function measureInPage() {
       });
     };
     walk(sec, '');
+    // The area the section's own background image paints in (an `![bg]` photo, a gradient line): where
+    // it starts depends on `background-origin` and on the borders, so it is measured like a box.
+    if (cs.backgroundImage && cs.backgroundImage !== 'none') {
+      const bw = [px(cs.borderLeftWidth), px(cs.borderTopWidth), px(cs.borderRightWidth), px(cs.borderBottomWidth)];
+      const pw = [px(cs.paddingLeft), px(cs.paddingTop), px(cs.paddingRight), px(cs.paddingBottom)];
+      const origin = cs.backgroundOrigin.split(',')[0].trim();
+      const edges = origin === 'border-box' ? [0, 0, 0, 0] : origin === 'content-box' ? bw.map((b, i) => b + pw[i]) : bw;
+      els['::background'] = { name: 'section background', kind: 'content', edges, size: [sb.width - edges[0] - edges[2], sb.height - edges[1] - edges[3]] };
+    }
     // Generated boxes hung on the section itself (the state stamp, the paginator): not in the
     // DOM, so read their resolved inset and size from computed style.
     for (const pseudo of ['::before', '::after']) {

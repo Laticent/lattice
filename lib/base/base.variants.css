@@ -134,8 +134,8 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip, [data-split-mods~="to
    spectrum untouched; where the spectrum is absent (dark/divider slides set
    border-top:none) it is a clean no-op. See
    engineering/decisions/2026-07-03-status-marker-style-variants.md §spectrum. */
-section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge,
-section.tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]) {
+section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:where(:not(.image, .scene, .collage.bleed)),
+section.tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]):where(:not(.image, .scene, .collage.bleed)) {
   --tone-rail: 0 0 transparent;   /* no box-shadow band — the recolored border carries the tone */
   --_edge-t: 0;                   /* the tone bar is the top edge, even under `spectrum: off` */
   --_bar-t: var(--_bar-w);
@@ -288,7 +288,7 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    they do over the default rainbow (2026-07-03-status-marker-style-variants.md §9). The
    exclusion mirrors those rules' own gates and sits in `:where()` so this rule keeps its
    (0,3,1) specificity against everything else. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]):not(:where(.split-panel, .split-compare, .image, .scene, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]):not(:where(.split-panel, .split-compare, .image, .scene, .collage.bleed, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
   --_edge-t: 0; /* the bar is the top edge — the engine keyline yields to it (base.modifiers.css) */
   --_bar-t: var(--_bar-w);
   border-top: var(--_bar-w) solid;

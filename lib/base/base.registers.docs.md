@@ -466,13 +466,16 @@ bar-off deck keeps its table rails and `---` rules.
 
 **Placement never moves the slide's content or chrome.** The bar takes its room out of the slide's
 margin, not out of the content: the content box, the header, the footer, the page number, the state
-stamps, the `mark-*` decorations and the overflow marker sit in the same place under every
-`spectrum-edge:` value, light and dark. The same goes for adding or removing the bar with `accent`,
-`tone-edge` or the `spectrum:` register. `npm run check:edge-shift` measures it across every component,
-its variants and the layout modifiers. Two things are deliberate exceptions. The `finish:` backdrop ends
-where the bar begins, because a backdrop reaching under the bar would paint over it. And the full-bleed
-layouts `image`, `scene`, `split-panel`, `split-compare`, a `claim-bleed` media slide and `collage bleed`
-draw their own edge and show no side or bottom bar, because a bar there would shrink the photo or panel.
+stamps, the `mark-*` decorations, a centered logo, a background photo and the overflow marker sit in
+the same place under every `spectrum-edge:` value, light and dark. The same goes for adding or removing
+the bar with `accent`, `tone-edge` or the `spectrum:` register. `npm run check:edge-shift` measures it
+across every component, its variants and the layout modifiers. Three things are deliberate exceptions.
+The `finish:` backdrop ends where the bar begins, because a backdrop reaching under the bar would paint
+over it. The full-bleed layouts `image`, `scene`, `split-panel`, `split-compare`, a `claim-bleed` media
+slide and `collage bleed` draw their own edge and show no bar (a bar there would shrink the photo or
+panel), and that includes the bar `accent`, `tone-edge` and a deck-wide `spectrum:` would add to `image`,
+`scene` and `collage bleed`. And a browser that scales the slide with CSS `zoom` (the print sheet) can
+shift content by half a pixel on a canvas whose bar is not a whole number of pixels.
 
 **`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
 Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /

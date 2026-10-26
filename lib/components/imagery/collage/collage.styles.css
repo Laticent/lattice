@@ -268,11 +268,9 @@ section.collage.bleed {
 }
 section.collage.bleed > .collage-fit {
 	position: absolute;
-	/* From the bar's room at the top to the slide's other three edges, whatever the placement
-	 * (the side and bottom bars are dropped below), so the photos hold still (check:edge-shift). */
-	inset: calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px)) 0 0 0;
+	inset: 0;
 	width: 100%;
-	height: calc(100% - (var(--_bar-room-t, 0px) - var(--_bar-t, 0px)));
+	height: 100%;
 	z-index: 0;
 }
 section.collage.bleed .collage-list {
@@ -295,14 +293,19 @@ section.collage.bleed {
 	row-gap: 0;
 	align-content: start;
 	justify-content: start;
-	padding: calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px)) 0 0 var(--frame-x);
+	padding: 0 0 0 var(--frame-x);
+	/* The photos run to all four slide edges, so a bleed collage draws no bar and the photos hold still
+	 * under every placement (check:edge-shift). `--_edge-t: 1` hands the top edge to the host keyline. */
+	border-top: 0;
+	--_bar-t: 0px; --_bar-room-t: 0px; --_edge-t: 1;
 }
-/* The photos run to the slide's left, right and bottom edges, so those take no bar (as `image` does).
- * Scoped to the placement classes so this out-ranks their side borders (base.variants.css) without
- * a specificity trick; check:edge-shift fails if a placement moves the photos. */
+/* …and the same for the sides. Scoped to the placement classes so this out-ranks their side borders
+ * (base.variants.css) without a specificity trick. Each edge goes back to the host keyline, which the
+ * placement rule had handed to a bar that is no longer there. */
 section.collage.bleed:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom) {
 	border-inline: 0; border-bottom: 0; /* both sides together, so it reads as logical */
 	--_bar-l: 0px; --_bar-r: 0px; --_bar-b: 0px;
+	--_edge-l: 1; --_edge-r: 1; --_edge-b: 1;
 }
 section.collage.bleed > .cell-masthead,
 section.collage.bleed > p {

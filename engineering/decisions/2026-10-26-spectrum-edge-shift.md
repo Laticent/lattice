@@ -132,6 +132,10 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
    | `spectrum: off` | ordinary slides 4 px down (they now keep the 4 px a default slide has) |
 
    Light content slides under `solid`, `duo` and `mono` do not move. Each is one rule to reverse.
+
+   Decks that already set `spectrum-edge: left|right|bottom|off` move once too (4 px): content and chrome now
+   sit where the default placement puts them. `accent`, `tone-edge` and a deck-wide `spectrum:` no longer add
+   a top bar to `image`, `scene` or `collage bleed`, which draw their own edge.
 4. **`safe` no longer displaces `progress` chart rows.** Its selector `[class*='progress']` matched the
    chart's `.progress-track` and `.progress-row`; it now matches the section-dot rail. The old behavior
    moved the tracks about 290 px on a portrait canvas.
@@ -144,6 +148,29 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
 - The `finish:` backdrop ends where the bar begins. A backdrop reaching under the bar would paint over it
   (negative z-planes paint above the section's own border), so its edge differs by the bar's strip. The
   harness does not measure it.
+
+## Round 2: the second independent check
+
+A second checker (Opus, fresh context) ran against the fix and found three regressions of mine, one false
+sentence and one harness blind spot, all confirmed and fixed:
+
+- **`collage bleed`** left a blank 4 px strip above its photos in every placement but `top`, and showed no
+  bar. The harness read 0 because the photos were equally inset everywhere: the inset itself was the
+  defect. It now draws no bar and the photos reach the top edge in every placement.
+- **Centered logos** (`top-center`, `bottom-center`) sat at `left: 50%` of the padding box and moved 2 px
+  with a side bar. They now centre on the slide.
+- **`claim-bleed` media and `collage bleed`** dropped their side bars but left the host keyline handed to a
+  bar that was no longer there, so a Studio or player slide had no edge on that side. They hand it back.
+- **The claim that `accent`, `tone-edge` and `spectrum:` never move content was false** for `image`, `scene`
+  and `divider numbered`. `section.accent` out-ranks `section.image { border: none; padding: 0 }`. The
+  three are now handled, and the harness runs `--variants --classes accent` clean.
+- **The harness never measured the section's background.** An `![bg]` photo measured from the padding box
+  and moved with the bar. The harness now records the background's area, and a section's background
+  measures from the border box.
+
+Two limits it found stay, and are stated in the docs: CSS `zoom` (the print sheet) can floor a border by up
+to half a pixel on a canvas whose bar is not a whole number of pixels, and a canvas under about 320 px wide
+now keeps a 1 px bar instead of rounding it to nothing.
 
 ## How it was checked, and what the first round missed
 
@@ -159,9 +186,9 @@ longer sit 4 px higher. The harness now takes `--variants`, `--classes`, `--each
 | Sweep (16:9, indaco unless noted) | Elements | Moved > 0.5 px |
 |---|---|---|
 | Before the change: skeletons, light and dark | 4,208 | 4,038 (162 of 164 slides) |
-| After: skeletons, light and dark | 4,208 | 0 |
+| After: skeletons, light and dark | 4,209 | 0 |
 | After: every manifest variant | 10,402 | 0 |
-| After: every one of the 493 reserved classes | 5,943 | 0 |
+| After: every one of the 493 reserved classes | 5,964 | 0 |
 | After: `footer-inset`, `fill-optical`, `claim-bleed`, `claim-hero`, `accent`, `tone-edge` | about 2,000 each | 0 |
 | After: deck `spectrum: solid`, `duo`, `mono`, `off`, `finish: atrium`; no chrome | 4,208 each | 0 |
 | After: all state stamps, `safe` on tall and square | 273 / 2,150 | 0 |
@@ -172,6 +199,6 @@ Old CSS against new at the default placement (`--positions`, element by element)
 65 px appears only between a worktree and the main checkout, also at identical commits; two runs of the
 same CSS in one checkout agree exactly.
 
-**Not covered:** RTL (rendered nowhere; the bar and its flags are physical sides), canvases wider than
-16:9, the Studio and Playground previews, the PPTX and ODP exports, `logo:` placements other than the
-default corner, and the `fixme-tab` alarm.
+**Not covered:** RTL (rendered nowhere; the bar and its flags are physical sides), the Studio and Playground
+previews, the PPTX and ODP exports, real browser zoom, `chart-frame:not(.form)`, and the `fixme-tab` alarm.
+A canvas wider than 16:9 (`mobile-landscape`) and the centered and corner logos were swept clean.
