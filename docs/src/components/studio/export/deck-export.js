@@ -43,6 +43,7 @@ import dataBlockCore from '../../../../../lib/core/data-block.js';
 import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
+import officePolicyCore from '../../../../../lib/core/office-export-policy.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
@@ -1608,7 +1609,7 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 
 // A slide picture as a Blob: PNG, or JPEG when that is much smaller. A flat slide stays a
 // lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a JPEG (quality 90 by default) of a fifth the
-// size. The rule and its thresholds are the shared kernel's (lib/core/image-policy.js `choosePicture`). The ORDER
+// size. The rule and its thresholds are the shared kernel's (lib/core/office-export-policy.js `choosePicture`). The ORDER
 // is the cost: a PNG of a photograph takes about 1.2 s to encode and its JPEG 0.36 s, so a
 // continuous-tone slide (`isContinuousTone(section)`: raster images or smooth gradients cover a
 // quarter of it) is a JPEG first, and the PNG is never encoded when the JPEG is large; any other
@@ -1624,14 +1625,15 @@ function canvasToPng(canvas) {
 // replaces the default. Set by exportPptx / exportOffice for the length of one export.
 let pictureImages = null;
 
-/** What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/image-policy.js `cropRules`). */
+/** What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/office-export-policy.js `cropRules`). */
 function officePicturePolicy() {
-	return imagePolicyCore.cropRules(pictureImages || {});
+	return officePolicyCore.cropRules(pictureImages || {});
 }
 
 async function canvasToPictureBlob(canvas, section) {
 	const setting = pictureImages || {};
-	const { choosePicture, resolveImagePolicy } = imagePolicyCore;
+	const { resolveImagePolicy } = imagePolicyCore;
+	const { choosePicture } = officePolicyCore;
 	const { isContinuousTone } = await import('@/lib/calco');
 	const encode = (c, type, quality) => (type === 'image/png' ? encodePng(c).then((bytes) => new Blob([bytes], { type: 'image/png' })) : new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality)));
 	const jpegOf = async (quality) => {

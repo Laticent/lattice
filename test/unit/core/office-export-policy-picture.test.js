@@ -1,10 +1,10 @@
 /**
- * Unit: the one rule for a picture an Office export writes (lib/core/image-policy.js `choosePicture`, `cropRules`, `PICTURE`). The command line and
+ * Unit: the one rule for a picture an Office export writes (lib/core/office-export-policy.js `choosePicture`, `cropRules`, `PICTURE`). The command line and
  * the Studio both call `choosePicture`, so these tests stand in for both: a fake shooter records which shots were taken. Calco holds none of this.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { choosePicture, cropRules, PICTURE } = require('../../../lib/core/image-policy.js');
+const { choosePicture, cropRules, PICTURE } = require('../../../lib/core/office-export-policy.js');
 
 /** A shooter that hands back byte counts, and records its calls. */
 function shooter({ png, jpeg }) {

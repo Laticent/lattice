@@ -80,8 +80,8 @@ caps included) and asks your host for each one:
 - return `null` when you have no file for the face (a system font such as Arial): Calco leaves it out and `onSkip` hears `'unavailable'`;
 - throw, and `onSkip` hears `'failed'` with the error and the other faces still embed.
 
-A face whose license forbids embedding is left out too (`embeddingAllowed`, `'license'`). Lattice's own host reads its `fonts:` tiers in
-`lib/core/font-policy.js` (`faceCut`); Calco never sees the words.
+A face whose license forbids embedding is left out too (`embeddingAllowed`, `'license'`). Lattice's own host reads its `fonts:` tiers through
+`lib/core/office-export-policy.js` (`faceCut`); Calco never sees the words.
 
 **Emoji.** `splitEmojiRuns(deck, family)` splits each text run at its emoji, naming the emoji run's family (and marking it `style.emoji`, so a line's
 height still comes from its text), so a host can embed an emoji font like any other face. A color emoji font is often sliced by code point range and

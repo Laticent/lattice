@@ -28,7 +28,7 @@ Nobody types a new emoji in our face, and PowerPoint cannot use it (the font is 
 | Output | text | emoji |
 |---|---|---|
 | player (CLI and Studio) | `exact` cuts to the characters shown; `used`/`full` keep the face; `system` drops it | `exact` cuts each slice to the deck's emoji; `used` keeps the slices that hold them; `full` all 11; `system` none |
-| editable PPTX/ODP | the host applies the tier through `faceCut` (lib/core/font-policy.js) and hands Calco finished fonts: `exact` cuts each face to the characters the deck draws in it, `used` and `full` keep the whole face we ship, `system` embeds nothing | `system` leaves the emoji font out of every picture (a whole-slide picture, the shared background); an emoji in an editable text box is drawn by the viewer's own font under every tier (an embedded COLR v1 emoji face draws blank in LibreOffice 24.2) |
+| editable PPTX/ODP | the host applies the tier through `faceCut` (lib/core/office-export-policy.js) and hands Calco finished fonts: `exact` cuts each face to the characters the deck draws in it, `used` and `full` keep the whole face we ship, `system` embeds nothing | `system` leaves the emoji font out of every picture (a whole-slide picture, the shared background); an emoji in an editable text box is drawn by the viewer's own font under every tier (an embedded COLR v1 emoji face draws blank in LibreOffice 24.2) |
 | plain `.html`, `--read`, `--fluid` | as the player: the finished file is cut by the same function, counting what its entities spell (`&#x1F389;`, `&laquo;`) | as the player |
 | PDF | `system` embeds no font file: the writer skips the engine's faces, so those words stay in the page picture (drawn in our faces) and the PDF has no selectable or searchable text in them. CLI and Studio do the same | no emoji font file rides in a PDF under any tier, so `exact`, `used` and `full` draw the same picture; `system` leaves our font out of the camera, so the picture's emoji come from the drawing machine's own emoji font |
 | image sets | no font file to embed; the pictures are drawn as always | as the PDF: `system` draws the machine's own emoji |
@@ -86,11 +86,13 @@ purpose: its layout was measured in the engine's faces, so `system` text never c
 **The model, from the owner:** Calco is handed the fonts and the pictures it needs and does nothing but use them. Policy (what `exact` means, whether
 `original` is lossless, the JPEG thresholds) belongs in one shared place Lattice owns; Calco lists what a deck uses, crops, and writes the file.
 
-- **Fonts.** `lib/core/font-policy.js` `faceCut(tier, chars)` is the one decision: `undefined` embeds nothing, a string is the characters to keep,
+- **Fonts.** `lib/core/office-export-policy.js` `faceCut(tier, chars)` is the one decision: `undefined` embeds nothing, a string is the characters to keep,
   `null` keeps the whole face. Calco's `prepareFonts(deck, host, onSkip)` lists the faces and the characters drawn in each (capitals from
   `text-transform` and small caps included) and asks `host.font(face)` for the finished font. The CLI (`lib/export/office-export.js`) and the Studio
   (`calco-font-host.js`) each load and pin their own way and both ask `faceCut`. Calco has no tier words; the duplicate list it carried is gone.
-- **Pictures.** `lib/core/image-policy.js` owns `choosePicture` (the PNG-or-JPEG rule for a slide), `PICTURE` (the thresholds, measured on a 35-slide
+  These Office-only rules sit in their own file, not in `font-policy.js` and `image-policy.js`, because the deck linter bundles those two (route
+  budget `lintCoreGz`, which the first version of this change tipped over its ceiling) and has no use for them.
+- **Pictures.** `lib/core/office-export-policy.js` owns `choosePicture` (the PNG-or-JPEG rule for a slide), `PICTURE` (the thresholds, measured on a 35-slide
   deck) and `cropRules` (what Calco is told for the pictures it crops). The CLI and the Studio call `choosePicture`; each used to carry a copy.
   Calco's `captureOfficeSlides` takes plain crop instructions (`pictures`); absent, every crop is a lossless PNG. The crop quality now follows the
   policy (default 90; it was a fixed 92, which contradicted "one quality for every picture").

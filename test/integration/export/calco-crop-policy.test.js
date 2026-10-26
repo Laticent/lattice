@@ -8,7 +8,7 @@ const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
 const { cropPictures, captureOfficeSlides } = require('@laticent/calco');
-const { cropRules } = require('../../../lib/core/image-policy.js');
+const { cropRules } = require('../../../lib/core/office-export-policy.js');
 
 describe('calco crops follow the picture policy', () => {
   let browser;
@@ -49,7 +49,7 @@ describe('calco crops follow the picture policy', () => {
       { rules },
     );
 
-  // What a host passes Calco for the crops (lib/core/image-policy.js `cropRules`), and the geometry rule Calco adds itself.
+  // What a host passes Calco for the crops (lib/core/office-export-policy.js `cropRules`), and the geometry rule Calco adds itself.
   const rulesFor = (setting) => ({ maxOutside: 0.0002, ...cropRules(setting) });
 
   test('by default a photographic crop is a JPEG', async () => {

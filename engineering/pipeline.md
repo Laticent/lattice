@@ -220,7 +220,7 @@ shot (`isContinuousTone`: raster images or gradients cover a quarter of it), so 
 (`lib/export/slide-picture.js`) and the Studio (`canvasToPictureBlob`, `deck-export.js`) shoot a
 continuous-tone slide as a JPEG first and never take its PNG when the JPEG is 100 KB or more, and
 shoot any other slide as a PNG first, trying a JPEG only when the PNG is over 600 KB and keeping it
-only when it is under 70% of the PNG. The rule and its thresholds live in `lib/core/image-policy.js` (`choosePicture`, `PICTURE`), not in Calco; the
+only when it is under 70% of the PNG. The rule and its thresholds live in `lib/core/office-export-policy.js` (`choosePicture`, `PICTURE`), not in Calco; the
 writers name the part by the bytes (`imageMime`). A capture that keeps a rounded corner as
 transparency (`.png` output only) is never a JPEG. A 35-slide photo deck: 76.6 MB and 44 s before,
 16 MB and 15.5 s now; the Studio, 8 photo slides: 38.2 MB and 7.4 s before, 8.9 MB and 5.3 s now.

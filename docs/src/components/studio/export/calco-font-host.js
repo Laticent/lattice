@@ -7,18 +7,18 @@
 // engineering/decisions/2026-10-06-calco-office-export-library.md.
 
 export async function calcoFontHost(textTier) {
-	const [{ FACES }, { createFontSubsetter }, { default: hbUrl }, { nearestFace, pinFeatures }, { default: fontPolicyCore }] = await Promise.all([
+	const [{ FACES }, { createFontSubsetter }, { default: hbUrl }, { nearestFace, pinFeatures }, { default: officePolicy }] = await Promise.all([
 		import('../../../playground/font-embed.js'),
 		import('../../../../../lib/core/pdf-compose/font-subset.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
 		import('@/lib/calco'),
-		import('../../../../../lib/core/font-policy.js'),
+		import('../../../../../lib/core/office-export-policy.js'),
 	]);
 	let subset = null;
 	return {
-		// Calco lists the faces the deck draws with; this decides what goes in the file for each (lib/core/font-policy.js `faceCut`).
+		// Calco lists the faces the deck draws with; this decides what goes in the file for each (lib/core/office-export-policy.js `faceCut`).
 		async font(face) {
-			const cut = fontPolicyCore.faceCut(textTier, face.chars);
+			const cut = officePolicy.faceCut(textTier, face.chars);
 			if (cut === undefined) return 'system';
 			const hit = nearestFace(FACES, face);
 			const res = hit ? await fetch(hit.url) : null;
