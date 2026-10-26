@@ -200,11 +200,6 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
     const payload = inputs.map((p) => ({ name: p.name, kind: p.kind, html: asHtml(p), css: p.kind === 'css' ? p.text : '', compose }));
     const rewriteInPage = (items) => items.map(({ name, kind, html, css, compose: how }) => {
       const out = { name };
-      const time = (fn) => {
-        const t = performance.now();
-        const v = fn();
-        return [v, performance.now() - t];
-      };
       try {
         let doc;
         let sheet;
