@@ -208,7 +208,11 @@ const FALSEY = /^(false|no|off|0)$/i;
 
 function stripQuotes(v) {
   const t = (v || '').trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) return t.slice(1, -1);
+  // A double-quoted value undoes exactly the two escapes `quoteIfNeeded` writes (`\\` and `\"`), so
+  // writing and reading back is a round trip and repeated panel edits cannot pile escapes up (the
+  // checker on #1958's second cut: three unrelated writes left 15 backslashes in one header).
+  if (t.length > 1 && t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/\\([\\"])/g, '$1');
+  if (t.length > 1 && t.startsWith("'") && t.endsWith("'")) return t.slice(1, -1);
   return t;
 }
 
@@ -368,7 +372,7 @@ function quoteIfNeeded(value) {
   // swallowed the closing quote and ran the string into the next key.
   if (!/[\\"]/.test(v)) return `"${v}"`;
   if (!v.includes("'")) return `'${v}'`;
-  if (!v.includes('"') && !v.endsWith('\\')) return `"${v}"`;
+  if (!v.includes('"') && !v.endsWith('\\') && !v.includes('\\\\')) return `"${v}"`;
   return `"${v.replace(/[\\"]/g, '\\$&')}"`;
 }
 

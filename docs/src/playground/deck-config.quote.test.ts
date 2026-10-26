@@ -31,6 +31,17 @@ describe('front-matter quoting round-trips a value through both readers', () => 
 			expect(line.endsWith('"') && !line.endsWith('\\"') || line.endsWith('\\\\"')).toBe(true);
 		}
 	});
+	// The checker on the second cut: a value holding both quote marks took the escaping branch,
+	// neither reader undid it, and every unrelated panel edit escaped the escapes again.
+	it('values holding both quote marks are stable across repeated panel edits', () => {
+		for (const v of ['Acme\'s "Q3": plan', 'a\'b:"c', "it's C:\\", "it's a\\\\b: x"]) {
+			let src = writeFrontMatter(SRC, 'header', v);
+			const first = src;
+			for (let i = 0; i < 3; i++) src = writeFrontMatter(src, 'paginate', i % 2 ? 'true' : 'false');
+			expect(readFrontMatter(src).header).toBe(v);
+			expect(/^header: .*$/m.exec(src)?.[0]).toBe(/^header: .*$/m.exec(first)?.[0]);
+		}
+	});
 	it('an ordinary value is written exactly as before', () => {
 		expect(written('Q3: review')).toBe('"Q3: review"');
 	});
