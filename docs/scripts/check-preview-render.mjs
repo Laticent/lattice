@@ -11,7 +11,8 @@
 //
 // Per viewport (mobile + desktop), after loading a gallery from Edit view — the
 // exact reported flow — it asserts:
-//   1. the active tab AND body[data-pane] both read "preview" (pane-sync), and
+//   1. body[data-pane] reads "preview" AND the #preview frame is laid out on
+//      screen (a non-zero box, no display:none ancestor) — pane-sync, measured, and
 //   2. the preview iframe's `.lattice` becomes visibility:visible with its slides
 //      scaled to the container (the FIT agent ran) — i.e. the deck is on screen.
 //
@@ -84,6 +85,22 @@ async function stubExternals(page) {
 	});
 }
 
+// Enter Edit view: the state both bugs start from. The Playground boots in EXPLORE now
+// (body[data-view="read"], preview pane showing), so a probe that loads straight from
+// boot never leaves the preview and cannot see a deck rendered into a hidden pane. This
+// clicks Edit and confirms the precondition: on the phone the preview frame is then
+// display:none (0×0), which is exactly the pane the bug renders into.
+async function enterEdit(page) {
+	await page.waitForSelector('[data-pg-mode="edit"]', { timeout: 20000 });
+	await page.click('[data-pg-mode="edit"]');
+	const ok = await page
+		.waitForFunction(() => document.body.getAttribute('data-view') === 'edit', { timeout: 5000 })
+		.then(() => true)
+		.catch(() => false);
+	if (!ok) throw new Error(`could not enter Edit view — body[data-view]="${await page.evaluate(() => document.body.getAttribute('data-view'))}"`);
+	return page.evaluate(() => document.body.getAttribute('data-pane'));
+}
+
 // Open the Galleries sheet and click the first gallery deck in it.
 async function loadFirstGallery(page) {
 	await page.waitForSelector('#pg-galleries-trigger', { timeout: 20000 });
@@ -104,7 +121,7 @@ async function loadFirstGallery(page) {
 // (non-zero-width) pane and the FIT gate can reveal it. The bug this guards: picks
 // did NOT auto-switch, so on the mobile single-pane layout the deck rendered into
 // the still-hidden Edit pane (zero-width) and stayed blank — the shared assertion
-// below (tab AND body[data-pane] must both read "preview", deck painted + scaled)
+// below (body[data-pane] reads "preview" and the frame is laid out, deck painted + scaled)
 // fails when the pick leaves you stranded in Edit.
 async function pickComponent(page) {
 	await page.waitForSelector('#pg-template-trigger', { timeout: 20000 });
@@ -122,8 +139,22 @@ async function pickComponent(page) {
 	return `${picked} component pick`;
 }
 
-// Poll the preview iframe until the deck reveals (or time out).
-async function waitForDeck(page) {
+// What deck is in the preview right now: its first slide's opening text. A gallery
+// load fetches the deck before it renders (measured: still the boot deck 300 ms after
+// the click, the gallery at 3 s), and the boot deck is already painted, so a poll that
+// only asks "is a deck visible?" passes on the OLD deck. waitForDeck therefore waits
+// for this to CHANGE. Every scenario loads a deck different from the boot one.
+const deckSignature = (page) =>
+	page.evaluate(() => {
+		try {
+			return (document.getElementById('preview')?.contentDocument?.querySelector('section')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+		} catch {
+			return '';
+		}
+	});
+
+// Poll the preview iframe until the NEW deck reveals (or time out).
+async function waitForDeck(page, before) {
 	const deadline = Date.now() + REVEAL_TIMEOUT;
 	let last = null;
 	while (Date.now() < deadline) {
@@ -136,6 +167,7 @@ async function waitForDeck(page) {
 					const s = m?.querySelector(':scope>section');
 					const tf = s ? getComputedStyle(s).transform : 'none';
 					return {
+						sig: (document.querySelector('section')?.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 160),
 						hasMarpit: !!m,
 						visible: m ? getComputedStyle(m).visibility === 'visible' : false,
 						sections: document.querySelectorAll('section').length,
@@ -143,18 +175,29 @@ async function waitForDeck(page) {
 					};
 				})
 				.catch(() => null);
-			if (last?.visible && last.sections > 0) return last;
+			if (last?.visible && last.sections > 0 && last.sig !== before) return last;
 		}
 		await new Promise((r) => setTimeout(r, 150));
 	}
 	return last;
 }
 
+// Pane-sync, MEASURED. This used to read the text of `[role="tab"][data-state="active"]`
+// and require "preview". The toolbar has since become an icon-only Explore / Edit pair
+// marked with aria-selected, so that query matched nothing, read "", and filed #1530
+// every night while the deck rendered fine. The text of a control was only ever a proxy
+// for the real question, so this asks it directly: is the preview frame laid out on
+// screen? `mode` (the selected toggle's aria-label) is reported for the issue, not asserted.
 const paneState = (page) =>
-	page.evaluate(() => ({
-		body: document.body.getAttribute('data-pane'),
-		tab: (document.querySelector('[role="tab"][data-state="active"]')?.textContent || '').trim().toLowerCase(),
-	}));
+	page.evaluate(() => {
+		const f = document.getElementById('preview');
+		const box = f?.getBoundingClientRect();
+		return {
+			body: document.body.getAttribute('data-pane'),
+			mode: (document.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute('aria-label') || '').toLowerCase(),
+			frame: box ? { w: Math.round(box.width), h: Math.round(box.height), shown: f.checkVisibility() } : null,
+		};
+	});
 
 // A human-readable, copy-pasteable reproduction for the filed issue.
 function reproSteps(bp, w, h, scenario = 'gallery') {
@@ -204,21 +247,28 @@ async function main() {
 	for (const [bp, w, h] of VIEWPORTS) {
 		for (const sc of SCENARIOS) {
 			if (!sc.viewports.includes(bp)) continue;
-			const page = await browser.newPage();
+			// A fresh context per case: the Playground keeps its deck and view in localStorage, so a
+			// shared profile would boot each case on the deck the previous one left behind.
+			const ctx = await browser.createBrowserContext();
+			const page = await ctx.newPage();
 			await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
 			await stubExternals(page);
-			const r = { bp, w, h, scenario: sc.key, ok: false, deck: null, pane: null, deck_state: null, error: null, shot: `${bp}-${sc.key}.png` };
+			const r = { bp, w, h, scenario: sc.key, ok: false, startPane: null, deck: null, pane: null, deck_state: null, error: null, shot: `${bp}-${sc.key}.png` };
 			try {
 				await page.goto(`http://127.0.0.1:${PORT}/lattice/playground/`, { waitUntil: 'networkidle0', timeout: 45000 });
 				await new Promise((res) => setTimeout(res, 3500)); // chrome hydrate + engine load
+				r.startPane = await enterEdit(page);
+				const before = await deckSignature(page);
 				r.deck = await sc.load(page);
-				r.pane = await paneState(page);
-				r.deck_state = await waitForDeck(page);
-				const paneOk = r.pane.tab === 'preview' && r.pane.body === 'preview';
+				r.deck_state = await waitForDeck(page, before);
+				r.pane = await paneState(page); // after the swap: a gallery switches panes once its fetch lands
+				const swapped = !!r.deck_state && r.deck_state.sig !== before;
+				const paneOk = r.pane.body === 'preview' && !!r.pane.frame?.shown && r.pane.frame.w > 0 && r.pane.frame.h > 0;
 				const painted = !!(r.deck_state?.visible && r.deck_state.sections > 0);
 				const scaledOk = !!r.deck_state?.scaled;
-				r.ok = paneOk && painted && scaledOk;
-				if (!paneOk) r.error = `pane desync — tab="${r.pane.tab}" body[data-pane]="${r.pane.body}" (both must be "preview")`;
+				r.ok = paneOk && swapped && painted && scaledOk;
+				if (!paneOk) r.error = `pane desync — body[data-pane]="${r.pane.body}" frame=${JSON.stringify(r.pane.frame)} (data-pane must be "preview" and the frame laid out on screen)`;
+				else if (!swapped) r.error = `the preview still shows the deck from before the load — "${before.slice(0, 60)}"`;
 				else if (!painted) r.error = `the preview never revealed — ${JSON.stringify(r.deck_state)} (the deck is rendered into a hidden / zero-width pane)`;
 				else if (!scaledOk) r.error = `revealed but slides weren't scaled to fit — ${JSON.stringify(r.deck_state)}`;
 			} catch (e) {
@@ -232,7 +282,7 @@ async function main() {
 			}
 			results.push(r);
 			console.log(`${r.ok ? '✓' : '✗'} ${bp} (${sc.label}): ${r.ok ? `"${r.deck}" rendered (${r.deck_state.sections} slides)` : r.error}`);
-			await page.close();
+			await ctx.close();
 		}
 	}
 
@@ -262,7 +312,7 @@ async function main() {
 				`### ${r.bp} (${r.w}×${r.h}) — ${r.scenario} — ❌`,
 				'',
 				`- **Problem:** ${r.error}`,
-				`- **Observed:** tab=\`${r.pane?.tab}\`, body[data-pane]=\`${r.pane?.body}\`, iframe=\`${JSON.stringify(r.deck_state)}\`, deck=\`${r.deck}\``,
+				`- **Observed:** mode=\`${r.pane?.mode}\`, frame=\`${JSON.stringify(r.pane?.frame)}\`, body[data-pane]=\`${r.pane?.body}\`, iframe=\`${JSON.stringify(r.deck_state)}\`, deck=\`${r.deck}\``,
 				'',
 				'**Steps to reproduce**',
 				'',

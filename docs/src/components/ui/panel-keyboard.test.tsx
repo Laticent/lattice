@@ -1,6 +1,6 @@
 import { render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MOBILE_OFFSET, PINNED_FIELD_ROW, useKeyboardInset } from './panel';
+import { MOBILE_HEIGHT, MOBILE_OFFSET, PINNED_FIELD_ROW, useKeyboardInset, useSheetTapHold } from './panel';
 
 /**
  * The `--kb` keyboard inset — the mechanism, not the layout.
@@ -127,13 +127,13 @@ describe('useKeyboardInset', () => {
  */
 describe('PINNED_FIELD_ROW', () => {
 	it('pins on focus, at the bottom, above the content it overlays', () => {
-		expect(PINNED_FIELD_ROW).toContain('[&:has(input:focus)]:fixed');
+		expect(PINNED_FIELD_ROW).toContain('[&:has(input:focus,input[data-typing-held])]:fixed');
 		// `bottom: var(--kb)` — the SAME declaration as `MOBILE_OFFSET`, so the row and the
 		// sheet's own bottom edge are positioned by one variable and cannot disagree.
-		expect(PINNED_FIELD_ROW).toContain(`[&:has(input:focus)]:${MOBILE_OFFSET}`);
+		expect(PINNED_FIELD_ROW).toContain(`[&:has(input:focus,input[data-typing-held])]:${MOBILE_OFFSET}`);
 		// It overlays the rows it covers while pinned, so it needs a stacking order AND an
 		// opaque background — without either it is unreadable text over text.
-		expect(PINNED_FIELD_ROW).toContain('[&:has(input:focus)]:z-50');
+		expect(PINNED_FIELD_ROW).toContain('[&:has(input:focus,input[data-typing-held])]:z-50');
 		expect(PINNED_FIELD_ROW).toContain('bg-[var(--bg)]');
 	});
 
@@ -159,7 +159,7 @@ describe('PINNED_FIELD_ROW', () => {
 		// interpolation type-checks, lints, ships — and generates no CSS whatsoever. This file
 		// already documents that trap costing twelve drawers their height. Guard the shape by
 		// asserting the arbitrary variants survive verbatim.
-		expect(PINNED_FIELD_ROW).toMatch(/max-\[699px\]:\[&:has\(input:focus\)\]:fixed/);
+		expect(PINNED_FIELD_ROW).toMatch(/max-\[699px\]:\[&:has\(input:focus,input\[data-typing-held\]\)\]:fixed/);
 		expect(PINNED_FIELD_ROW).not.toMatch(/\$\{|undefined|NaN/);
 	});
 });
@@ -205,5 +205,72 @@ describe('useKeyboardInset — refcounted across concurrent callers', () => {
 		vv.set(800);
 		expect(vvh(), 'the remaining caller stopped tracking when the other closed').toBe('800px');
 		b.unmount();
+	});
+});
+
+// ── The tap hold (followup 2547-p2) ──────────────────────────────────────────────────
+//
+// The layout it holds is measured in Playwright (e2e/phone-sheet-tap-after-typing.spec.ts);
+// this pins the bookkeeping jsdom can see: which element is marked, and when it lets go.
+describe('useSheetTapHold — the typed-in field counts as focused until the tap lands', () => {
+	function Sheet() {
+		useSheetTapHold(true);
+		return (
+			<div role="dialog">
+				<input aria-label="name" />
+				<input aria-label="other" />
+				<button type="button">Go</button>
+			</div>
+		);
+	}
+	const press = (el: Element, type: string) => el.dispatchEvent(new Event(type, { bubbles: true }));
+
+	it('every focus rule reads the mark', () => {
+		expect(MOBILE_HEIGHT).toContain('[data-typing-held]');
+		expect(PINNED_FIELD_ROW).toContain('input[data-typing-held]');
+	});
+
+	it('marks the focused field on a press elsewhere in the sheet, and lets go after the click', async () => {
+		const { getByLabelText, getByRole, unmount } = render(<Sheet />);
+		const name = getByLabelText('name');
+		name.focus();
+		press(getByRole('button'), 'pointerdown');
+		expect(name.hasAttribute('data-typing-held')).toBe(true);
+		name.blur();
+		press(getByRole('button'), 'pointerup');
+		press(getByRole('button'), 'click');
+		await waitFor(() => expect(name.hasAttribute('data-typing-held')).toBe(false));
+		unmount();
+	});
+
+	it('lets go at once when the press becomes a scroll', () => {
+		const { getByLabelText, getByRole, unmount } = render(<Sheet />);
+		const name = getByLabelText('name');
+		name.focus();
+		press(getByRole('button'), 'pointerdown');
+		press(getByRole('button'), 'pointercancel');
+		expect(name.hasAttribute('data-typing-held')).toBe(false);
+		unmount();
+	});
+
+	it('leaves a press on another field alone, and marks nothing with no field focused', () => {
+		const { getByLabelText, getByRole, unmount } = render(<Sheet />);
+		const name = getByLabelText('name');
+		name.focus();
+		press(getByLabelText('other'), 'pointerdown');
+		expect(name.hasAttribute('data-typing-held')).toBe(false);
+		name.blur();
+		press(getByRole('button'), 'pointerdown');
+		expect(document.querySelector('[data-typing-held]')).toBeNull();
+		unmount();
+	});
+
+	it('lets go on unmount, so a closed sheet leaves no mark behind', () => {
+		const { getByLabelText, getByRole, unmount } = render(<Sheet />);
+		const name = getByLabelText('name');
+		name.focus();
+		press(getByRole('button'), 'pointerdown');
+		unmount();
+		expect(name.hasAttribute('data-typing-held')).toBe(false);
 	});
 });

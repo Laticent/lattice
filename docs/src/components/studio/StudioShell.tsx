@@ -7485,7 +7485,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							srDescription="A conversation with the AI Architect about this deck, with reviewable edits."
 							// The chat portals its cost readout in here, rather than spending a row of its
 							// own on it directly under this header — see ArchitectChat's header note.
-							actions={<span ref={setChatCostSlot} className="flex items-center" />}
+							// Fluid, so a long model name truncates in the chip instead of the title.
+							actions={<span ref={setChatCostSlot} className="flex min-w-0 items-center" />}
+							fluidActions
 						/>
 						<div className="flex min-h-0 flex-1 flex-col overflow-hidden">{chatBodyWith(undefined, chatCostSlot)}</div>
 					</PanelSheet>

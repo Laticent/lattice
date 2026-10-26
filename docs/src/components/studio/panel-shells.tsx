@@ -199,7 +199,7 @@ export function LibraryShell({ docked, open, onOpenChange, children }: { docked?
 	const landscape = useLandscapePhone();
 	const phone = !docked && (bp === 'mobile' || landscape);
 	const search = (
-		<PanelSearch value="" onChange={() => {}} onClear={() => {}} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" className={phone ? undefined : 'ml-1 flex-1'} />
+		<PanelSearch value="" onChange={() => {}} onClear={() => {}} placeholder={LIBRARY_HEADER.searchPlaceholder} label="Search library" size={phone ? 'default' : 'sm'} className={phone ? undefined : 'ml-1 flex-1'} />
 	);
 	const inner = (
 		<>

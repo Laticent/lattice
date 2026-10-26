@@ -20,10 +20,17 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIR = path.join(ROOT, 'followups.d');
 const NAME = /^(\d+)-p(\d+)-[a-z0-9][a-z0-9-]*\.md$/;
+// An item's EVIDENCE FOLDER: the same name without `.md`, beside it. It holds what a reader needs
+// to reproduce the item's findings (scripts, fixtures, small data, notes), and it lives exactly as
+// long as the item: the gate refuses a folder whose item is gone. Text only, and capped, so it stays
+// an evidence kit rather than a corpus. Contract: followups.d/README.md §Evidence folders.
+const EVIDENCE_NAME = /^(\d+)-p(\d+)-[a-z0-9][a-z0-9-]*$/;
+const EVIDENCE_CAP = 512 * 1024;
 // The fields a continuation brief carries per item (engineering/workflow.md §The continuation
 // brief). A new item must carry `done when`: without an acceptance check, nobody can close it.
 // Anchored to a line start, so a title that merely says "done when" does not count.
@@ -80,7 +87,9 @@ function listFollowups(dir = DIR) {
     .map((file) => {
       const p = parse(fs.readFileSync(path.join(dir, file), 'utf8')) || { meta: {} };
       const { origin, priority, area, severity, swimlane } = p.meta;
-      return { file, origin, priority, area, severity, swimlane, title: p.title, backfill: p.meta.backfill === 'true' };
+      const readme = path.join(dir, file.replace(/\.md$/, ''), 'README.md');
+      const evidence = fs.existsSync(readme) && fs.lstatSync(readme).isFile() && !fs.lstatSync(path.dirname(readme)).isSymbolicLink();
+      return { file, origin, priority, area, severity, swimlane, title: p.title, backfill: p.meta.backfill === 'true', evidence };
     });
 }
 
@@ -92,6 +101,12 @@ function followupProblems(dir = DIR, root = ROOT) {
   for (const file of fs.readdirSync(dir)) {
     if (file === 'README.md') continue;
     const where = `followups.d/${file}`;
+    const st = fs.lstatSync(path.join(dir, file));
+    if (st.isSymbolicLink()) { problems.push(`${where}: a symbolic link; an item and its evidence are files and folders.`); continue; }
+    if (st.isDirectory()) {
+      problems.push(...evidenceProblems(dir, file));
+      continue;
+    }
     const name = file.match(NAME);
     if (!name) { problems.push(`${where}: name must be <origin-pr>-p<n>-<slug>.md (lower-case slug).`); continue; }
     const p = parse(fs.readFileSync(path.join(dir, file), 'utf8'));
@@ -113,6 +128,63 @@ function followupProblems(dir = DIR, root = ROOT) {
   return problems;
 }
 
+/**
+ * The files under `rel` that git would see, as paths relative to `base`: what `git check-ignore`
+ * reports is left out, so a `.DS_Store` or a local `node_modules/` the clean checkout never holds
+ * does not fail the gate here and pass it in CI. Outside a repository nothing is ignored. Each path
+ * goes in as `./name`: git reads a leading `:` as pattern syntax (`:(icase)x`), and fails the
+ * whole batch on it.
+ */
+function visibleEntries(base, rel) {
+  const entries = fs.readdirSync(path.join(base, rel)).map((e) => path.join(rel, e));
+  if (!entries.length) return entries;
+  const r = spawnSync('git', ['-C', base, 'check-ignore', '--stdin', '-z'], { input: entries.map((e) => `./${e}`).join('\0'), encoding: 'utf8' });
+  // Exit 0: some are ignored; 1: none are; anything else (not a repository): treat none as ignored.
+  const ignored = r.status === 0 ? new Set(r.stdout.split('\0').filter(Boolean).map((e) => e.replace(/^\.\//, ''))) : new Set();
+  return entries.filter((e) => !ignored.has(e));
+}
+
+/**
+ * The defects of one evidence folder: its name, its item, its README, and what it holds. A file
+ * is text when its first 8 KB hold no NUL byte, which is how git itself tells binary from text.
+ * Only what git would see counts (`visibleEntries`): a folder holding nothing else is no folder.
+ */
+function evidenceProblems(dir, name) {
+  const where = `followups.d/${name}/`;
+  const base = path.join(dir, name);
+  const files = [];
+  const problems = [];
+  const walk = (rel) => {
+    for (const r of visibleEntries(base, rel)) {
+      const st = fs.lstatSync(path.join(base, r));
+      if (st.isSymbolicLink()) problems.push(`${where}${r}: a symbolic link; evidence is a copy, not a pointer.`);
+      else if (st.isDirectory()) walk(r);
+      else if (st.isFile()) files.push([r, st.size]);
+      else problems.push(`${where}${r}: not a regular file; evidence is text files and folders.`);
+    }
+  };
+  walk('');
+  if (!files.length && !problems.length) return [];
+  if (!EVIDENCE_NAME.test(name)) return [`${where}: an evidence folder is named like its item without \`.md\` (<origin-pr>-p<n>-<slug>/).`];
+  if (!fs.existsSync(path.join(dir, `${name}.md`))) {
+    problems.unshift(`${where}: its item followups.d/${name}.md is gone. An evidence folder lives exactly as long as its item: delete it in the PR that deletes the item.`);
+  }
+  if (!files.some(([r]) => r === 'README.md')) {
+    problems.push(`${where}: needs a README.md saying what the folder holds, the commit it ran against, and how to run it.`);
+  }
+  let bytes = 0;
+  for (const [r, size] of files) {
+    bytes += size;
+    const fd = fs.openSync(path.join(base, r), 'r');
+    const head = Buffer.alloc(Math.min(size, 8192));
+    fs.readSync(fd, head, 0, head.length, 0);
+    fs.closeSync(fd);
+    if (head.includes(0)) problems.push(`${where}${r}: binary. Evidence folders hold text only (scripts, fixtures, data, notes).`);
+  }
+  if (bytes > EVIDENCE_CAP) problems.push(`${where}: ${bytes} bytes, over the ${EVIDENCE_CAP}-byte (${EVIDENCE_CAP / 1024} KB) cap. Keep the kit that reproduces the finding, not the corpus it ran on.`);
+  return problems;
+}
+
 function main() {
   if (process.argv.includes('--check')) {
     const problems = followupProblems();
@@ -121,7 +193,7 @@ function main() {
   }
   const items = listFollowups().sort((a, b) => (a.area || '~').localeCompare(b.area || '~')
     || (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9) || a.file.localeCompare(b.file));
-  for (const i of items) console.log(`${i.area} · ${i.severity}  ·  ${i.file}  ·  ${i.title}`);
+  for (const i of items) console.log(`${i.area} · ${i.severity}  ·  ${i.file}${i.evidence ? ' (+ evidence/)' : ''}  ·  ${i.title}`);
   console.log(`\n${items.length} pending item(s) with no issue — contract: followups.d/README.md`);
   // A backfilled item was copied from an old brief and never checked against main, so it
   // may be done or duplicated. Say so on every listing until the triage pass clears them.
@@ -131,4 +203,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { followupProblems, listFollowups, knownAreas, SEVERITIES, SEVERITY_RANK };
+module.exports = { followupProblems, listFollowups, knownAreas, SEVERITIES, SEVERITY_RANK, EVIDENCE_CAP };

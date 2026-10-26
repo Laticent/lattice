@@ -33,7 +33,7 @@
 // (the toolbar's Settings cell owns it) nor Workspace settings (promoted to the header).
 import { Check, ChevronRight, FileBox, History as HistoryIcon, ListChecks, Menu as MenuIcon, MonitorPlay, Palette, Plus, Search, UsersRound } from 'lucide-react';
 import * as React from 'react';
-import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset } from '@/components/ui/panel';
+import { MOBILE_HEIGHT, MOBILE_OFFSET, PanelBack, useKeyboardInset, useSheetTapHold } from '@/components/ui/panel';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
 import { cn } from '@/lib/utils';
@@ -244,6 +244,7 @@ export function StudioDrawer({
 	// made the Themes door and the index different sizes, which is the same "which of
 	// these is a rule and which is an accident" problem the tiers exist to end (#1211).
 	useKeyboardInset(open);
+	useSheetTapHold(open);
 	const [level, setLevel] = React.useState<Level>('index');
 	const backRef = React.useRef<HTMLButtonElement>(null);
 	const doorRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});

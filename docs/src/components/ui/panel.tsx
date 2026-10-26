@@ -143,7 +143,8 @@ export const MOBILE_OFFSET = 'bottom-[var(--kb)]';
 // height over the Studio on the owner's iPhone (Firefox for iOS, after a Webpage export,
 // PR #2555); the Share sheet has no text field, so it has no reason to make room for one.
 // Written out, not `${MOBILE_OFFSET}`: inside a variant it must be a literal for the scan.
-const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select:focus)]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
+// `[data-typing-held]` counts as focus through the tap that ends the typing — see `useSheetTapHold`.
+const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select:focus,[data-typing-held])]:bottom-[var(--kb)] rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]';
 
 /**
  * THE height for every mobile panel — see the block above for why there is one.
@@ -196,7 +197,81 @@ const MOBILE_BASE = 'inset-x-0 bottom-0 [&:has(input:focus,textarea:focus,select
  * keyboard while every other sheet lifted clear). See that declaration's comment.
  */
 export const MOBILE_HEIGHT =
-	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus,select:focus)]:h-[var(--vvh)]';
+	'h-[calc(100dvh-3.375rem)] [&:has(input:focus,textarea:focus,select:focus,[data-typing-held])]:h-[var(--vvh)]';
+
+/**
+ * HOLDS A PHONE SHEET STILL THROUGH THE TAP THAT ENDS THE TYPING.
+ *
+ * Three rules on a phone change the layout while a text field has focus: `MOBILE_HEIGHT` makes
+ * the sheet 54px taller, `MOBILE_BASE` lifts it by `--kb`, and `PINNED_FIELD_ROW` takes the
+ * typed-in settings row out of flow and pins it above the keyboard. A tap on a control blurs the
+ * field at `mousedown`, all three undo at once, and the `click` that follows lands on whatever
+ * moved under the finger (followup 2547-p2). Measured in WebKit on the iPhone 15 Pro profile and
+ * in Chromium at 390px with touch: in the phone Library, typing a search and tapping the Design
+ * tab selected nothing (the sheet shrank and the tab slid 54px down); in Deck settings, typing a
+ * deck name and tapping Language hit the help line above it (the pinned row dropped back into
+ * the list and Language slid 94px down).
+ *
+ * The Live panel and the command palette fixed their own buttons by keeping focus in the field
+ * (`onMouseDown` preventDefault). That is wrong as a rule for every sheet: the field never blurs
+ * before the click, so a field that saves on blur (Deck name, the Workspace sheet's spending cap)
+ * has not saved when the button's handler runs. So this keeps the blur and holds the LAYOUT: from
+ * the press until its click has landed, the field that had focus carries `data-typing-held`, and
+ * all three rules count `[data-typing-held]` as focus. It lets go on the next task after the
+ * click, at once on `pointercancel` (the press became a scroll), and `HOLD_AFTER_UP_MS` after a
+ * release that brings no click.
+ *
+ * A press on another field is left alone: focus moves field to field and the layout stays.
+ *
+ * On a real iPhone the keyboard also closes on that blur and iOS moves the visual viewport
+ * itself; whether its hit test runs before that move is UNVERIFIED (no iOS device here).
+ */
+const HOLD_AFTER_UP_MS = 500;
+const HOLD_MAX_MS = 5000;
+export function useSheetTapHold(active: boolean): void {
+	React.useEffect(() => {
+		if (!active || typeof document === 'undefined') return;
+		let held: Element | null = null;
+		let timer = 0;
+		const release = () => {
+			window.clearTimeout(timer);
+			held?.removeAttribute('data-typing-held');
+			held = null;
+		};
+		const later = (ms: number) => {
+			window.clearTimeout(timer);
+			timer = window.setTimeout(release, ms);
+		};
+		const onDown = (e: PointerEvent) => {
+			const target = e.target instanceof Element ? e.target : null;
+			const sheet = target?.closest('[role="dialog"]');
+			const field = document.activeElement;
+			if (!target || !sheet || !field || target.closest('input,textarea,select')) return;
+			if (!field.matches('input,textarea,select') || !sheet.contains(field)) return;
+			release();
+			held = field;
+			field.setAttribute('data-typing-held', '');
+			later(HOLD_MAX_MS);
+		};
+		const onUp = () => {
+			if (held) later(HOLD_AFTER_UP_MS);
+		};
+		const onClick = () => {
+			if (held) later(0);
+		};
+		document.addEventListener('pointerdown', onDown, true);
+		document.addEventListener('pointerup', onUp, true);
+		document.addEventListener('pointercancel', release, true);
+		document.addEventListener('click', onClick, true);
+		return () => {
+			document.removeEventListener('pointerdown', onDown, true);
+			document.removeEventListener('pointerup', onUp, true);
+			document.removeEventListener('pointercancel', release, true);
+			document.removeEventListener('click', onClick, true);
+			release();
+		};
+	}, [active]);
+}
 
 /**
  * Publishes the on-screen keyboard's height as `--kb`, and the VISIBLE height as
@@ -385,13 +460,18 @@ export const SETTING_SCOPE = '@container/settings';
 export const SETTING_LABEL_COL = 'min-w-0 flex-1 basis-[45%] @max-[320px]/settings:basis-auto';
 /** The control half of a `SETTING_ROW` — right-aligned, so an intrinsic control needs nothing.
  *  Stacked, it keeps `justify-end` so a Switch stays on the right where the eye expects a
- *  toggle, while a filling control (already `w-full`) spans the row either way. */
-export const SETTING_CONTROL_COL = 'flex min-w-0 flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
+ *  toggle, while a filling control (already `w-full`) spans the row either way.
+ *
+ *  `max-w-full` caps the column at the row. `min-w-0` alone cannot: a one-line control inside
+ *  it keeps its own `min-width: auto`, so the deck Language select ("Auto — English (United
+ *  States)", 258px of nowrap text) pushed the column past a 251px row and the whole panel
+ *  scrolled sideways in General (#2203). Capped, the trigger truncates its label instead. */
+export const SETTING_CONTROL_COL = 'flex min-w-0 max-w-full flex-1 basis-[45%] items-center justify-end @max-[320px]/settings:basis-auto';
 
 export const PINNED_FIELD_ROW =
-	'max-[699px]:[&:has(input:focus)]:fixed max-[699px]:[&:has(input:focus)]:inset-x-0 max-[699px]:[&:has(input:focus)]:bottom-[var(--kb)] ' +
-	'max-[699px]:[&:has(input:focus)]:z-50 max-[699px]:[&:has(input:focus)]:bg-[var(--bg)] max-[699px]:[&:has(input:focus)]:border-t ' +
-	'max-[699px]:[&:has(input:focus)]:border-border max-[699px]:[&:has(input:focus)]:px-3.5 max-[699px]:[&:has(input:focus)]:py-3';
+	'max-[699px]:[&:has(input:focus,input[data-typing-held])]:fixed max-[699px]:[&:has(input:focus,input[data-typing-held])]:inset-x-0 max-[699px]:[&:has(input:focus,input[data-typing-held])]:bottom-[var(--kb)] ' +
+	'max-[699px]:[&:has(input:focus,input[data-typing-held])]:z-50 max-[699px]:[&:has(input:focus,input[data-typing-held])]:bg-[var(--bg)] max-[699px]:[&:has(input:focus,input[data-typing-held])]:border-t ' +
+	'max-[699px]:[&:has(input:focus,input[data-typing-held])]:border-border max-[699px]:[&:has(input:focus,input[data-typing-held])]:px-3.5 max-[699px]:[&:has(input:focus,input[data-typing-held])]:py-3';
 
 type PanelWidth = 'sm' | 'md' | 'lg';
 
@@ -545,6 +625,7 @@ export function PanelSheet({
 	const nav = React.useContext(PanelNavCtx);
 	const instant = React.useContext(PanelSheetInstantCtx);
 	useKeyboardInset(mobile && open);
+	useSheetTapHold(mobile && open);
 	// The back gesture closes this sheet instead of leaving the page (#1226). Phone
 	// only — a pointer surface has no back gesture, and binding history there would be
 	// a regression, not a fix. Registering HERE rather than per call site is what makes
@@ -704,7 +785,12 @@ export function PanelHeader({
 					{icon}
 				</span>
 			) : null}
-			<div className="min-w-0 flex-1">
+			{/* With `fluidActions` the title starts at its own width (`basis-auto`) and the actions
+			    take the squeeze first (`shrink-[1000]` against the title's 1): the title is the
+			    panel's name and the fluid slot is a chip or a field that can give way. With a basis
+			    of 0 the title had no width to defend, so the Chat sheet at 390px showed "C" beside a
+			    long model name (followup 2821-p1). A title wider than the row still truncates. */}
+			<div className={cn('min-w-0 flex-1', fluidActions && 'basis-auto')}>
 				<Title className="truncate text-[15px] font-semibold leading-tight text-[var(--text-heading)]">{title}</Title>
 				{inSheet ? <SheetDescription className="sr-only">{srDescription ?? title}</SheetDescription> : null}
 			</div>
@@ -725,7 +811,7 @@ export function PanelHeader({
 			    a minimum; expressing it as a fixed size made it a ceiling too. Found by the
 			    independent checker. */}
 			{actions ? (
-				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
+				<span className={cn('flex items-center gap-1', fluidActions ? 'min-w-0 shrink-[1000]' : 'shrink-0', phone && '[&_button]:min-h-11 [&_button]:min-w-11 [&_button]:rounded-lg [&_button_svg]:size-[18px]')}>{actions}</span>
 			) : null}
 			{/* The X is the POINTER affordance now; on a phone `back` above replaced it. */}
 			{showClose && !phone ? <PanelCloseButton label={closeLabel} onClose={onClose} /> : null}
@@ -806,6 +892,7 @@ export function PanelSearch({
 	label,
 	onClear,
 	onClose,
+	size = 'default',
 	className,
 }: {
 	inputRef?: React.Ref<HTMLInputElement>;
@@ -835,6 +922,15 @@ export function PanelSearch({
 	 * has to be caught on a row this component does not draw.
 	 */
 	onClose?: () => void;
+	/**
+	 * `sm` is the field for a HEADER ROW: a fixed 32px box, the height of the `size="sm"`
+	 * buttons it sits beside. The default box is as tall as its padding and its text make
+	 * it, and on a touch screen that text is 16px (the coarse-pointer rule that stops iOS
+	 * zooming into a focused field), so in the Library's tablet header it came out 44px tall
+	 * beside a 32px Import button, filling the 56px row. Measured on an 810px iPad profile;
+	 * reported from the owner's tablet. A field in a dock or a body keeps the default.
+	 */
+	size?: 'default' | 'sm';
 	className?: string;
 }) {
 	// CLEARING MUST LEAVE THE CARET IN THE FIELD, and that is the whole reason clear-and-stay
@@ -862,7 +958,7 @@ export function PanelSearch({
 			? { run: onClose, label: 'Close search' }
 			: null;
 	return (
-		<div className={cn(PANEL_SEARCH_BOX, className)}>
+		<div className={cn(PANEL_SEARCH_BOX, size === 'sm' && 'h-8 py-0', className)}>
 			<SearchIcon className="size-4 shrink-0 text-muted-foreground" />
 			<input
 				ref={setInput}
@@ -877,7 +973,8 @@ export function PanelSearch({
 				// 28px of TARGET in the space a 24px one used to take. `-my-0.5` pulls the two
 				// extra pixels back so the button's MARGIN box is 24px — exactly what the
 				// previous `size-6` contributed — which is what keeps this height-neutral for
-				// the Library and Add-a-slide fields that also render it.
+				// the default-size fields that render it (Add a slide, the phone Library).
+				// A `size="sm"` field has a fixed 32px box, so it takes a plain `size-6`.
 				// It does NOT make the field a flat 40px, and an earlier version of this
 				// comment said it did: measured, the box is 39.59px empty and 42px once a
 				// trailing button exists, because 24px was already taller than the 21.59px
@@ -887,7 +984,7 @@ export function PanelSearch({
 					type="button"
 					onClick={trailing.run}
 					aria-label={trailing.label}
-					className="-my-0.5 grid size-7 shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground"
+					className={cn('grid shrink-0 place-items-center rounded text-muted-foreground hover:text-foreground', size === 'sm' ? 'size-6' : '-my-0.5 size-7')}
 				>
 					<XIcon className="size-4" />
 				</button>

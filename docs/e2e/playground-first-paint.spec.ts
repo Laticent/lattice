@@ -67,8 +67,20 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 		// The visible slide, in page coordinates: the replayed cached slide while the
 		// instant-shell is up, otherwise the live filmstrip's first section offset by its
 		// iframe. Same-origin srcdoc, so the frame's document is readable.
+		// The replayed slide as a person can SEE it: the box clips it (`overflow:hidden`), so a
+		// slide inside a zero-height box has a rect and paints nothing. On the shipped build the
+		// captured snapshot CSS made exactly that box (position:relative, height 0) while the
+		// shell was on, and this sampler credited the invisible slide as painted.
+		const shellSlide = (): [number, number, number, number] | null => {
+			const box = rectOf(document.querySelector('#pg-ssr-slidebox'));
+			const sec = rectOf(document.querySelector('#pg-ssr-slidebox section'));
+			if (!box || !sec) return null;
+			const visibleW = Math.min(box[0] + box[2], sec[0] + sec[2]) - Math.max(box[0], sec[0]);
+			const visibleH = Math.min(box[1] + box[3], sec[1] + sec[3]) - Math.max(box[1], sec[1]);
+			return visibleW >= 1 && visibleH >= 1 ? sec : null;
+		};
 		const visibleSlide = (): [number, number, number, number] | null => {
-			const shell = rectOf(document.querySelector('#pg-ssr-slidebox section'));
+			const shell = shellSlide();
 			if (shell) return shell;
 			try {
 				const f = document.querySelector('#preview') as HTMLIFrameElement | null;
@@ -107,9 +119,10 @@ async function sampleFrames(page: import('@playwright/test').Page, ms = 12_000) 
 				walkBar: rectOf(document.querySelector('#pg-walk')),
 				slide: visibleSlide(),
 			};
-			// Did the replay actually fire? Recorded as a sample so the assertions can tell a
-			// shell that landed exactly on the live slide from one that never painted at all.
-			if (document.documentElement?.getAttribute('data-pg-shell') === 'on') {
+			// Did the replay actually fire, AND can a person see it? Recorded as a sample so the
+			// assertions can tell a shell that landed exactly on the live slide from one that never
+			// painted at all, including one switched on inside a box that clips it to nothing.
+			if (document.documentElement?.getAttribute('data-pg-shell') === 'on' && shellSlide()) {
 				const arr = (log.shellFired ||= []);
 				if (!arr.length) arr.push({ t: now, rect: [1, 1, 1, 1] });
 			}
@@ -162,6 +175,24 @@ async function throttle(page: import('@playwright/test').Page) {
 	await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
 }
 
+/** A locator's width once it has a LAID-OUT box (non-null, wider than 0). `boundingBox()` returns null while hydration
+ *  detaches and remounts a pane, and a read that lands in that gap died on a TypeError instead of
+ *  on the assertion it fed (#1851). The box comes from the same call that proved it exists, so a
+ *  flicker between "visible" and the read cannot re-resolve it to nothing. */
+async function laidOutWidth(loc: import('@playwright/test').Locator): Promise<number> {
+	let box: Awaited<ReturnType<typeof loc.boundingBox>> = null;
+	await expect
+		.poll(
+			async () => {
+				box = await loc.boundingBox();
+				return box && box.width > 0 ? box.width : null;
+			},
+			{ timeout: 15_000 },
+		)
+		.not.toBeNull();
+	return box!.width;
+}
+
 /** Drive a real session until it has produced a real snapshot, then drag the real divider —
  *  the state the reload under test restores. A value hand-written into localStorage exercises
  *  clamping and content-sizing paths the app's own value never reaches. */
@@ -181,7 +212,7 @@ async function seedRealSession(page: import('@playwright/test').Page) {
 	await page.mouse.down();
 	await page.mouse.move(box.x + box.width / 2 - 200, box.y + box.height / 2, { steps: 12 });
 	await page.mouse.up();
-	const dragged = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
+	const dragged = Math.round(await laidOutWidth(page.locator('#pg-split-editor')));
 	expect(dragged, 'the drag did not move the divider — the reload below would prove nothing').toBeLessThan(500);
 	// What the reload actually needs is the drag PERSISTED, and the hook writes it on the
 	// group's `onLayoutChanged` — so ask for it rather than sleeping on it. (The snapshot is
@@ -253,7 +284,7 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 // The sampling case above stays: it covers every OTHER element, and Explore.
 test('@smoke the editor pane holds its width before the preview pane has parsed', async ({ page }) => {
 	await seedRealSession(page);
-	const settled = Math.round((await page.locator('#pg-split-editor').boundingBox())!.width);
+	const settled = Math.round(await laidOutWidth(page.locator('#pg-split-editor')));
 
 	await page.route('**/playground/**', async (route) => {
 		// Only the document — every asset the cut page still needs must load normally.
@@ -263,6 +294,13 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 		expect(at, 'the preview panel is not in the served document — this test would prove nothing').toBeGreaterThan(0);
 		await route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html.slice(0, html.lastIndexOf('<div', at)) });
 	});
+	// HELD STILL means no hydration. The island's bundles are external modules; the pre-paint
+	// seeds that size the pane are inline and still run. Without this, React hydrated the cut page
+	// and re-created `#pg-split-preview` 50-150ms after `domcontentloaded` (10 of 10 runs against
+	// `npm run build`, whose modulepreload brings hydration forward), so the count below raced it
+	// and the width read could measure a pane whose preview had come back. Same block as the walk
+	// bar's cut case below.
+	await page.route(/\/_astro\/.*\.js/, (route) => route.abort());
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 
 	expect(await page.locator('#pg-split-preview').count(), 'the cut did not remove the preview panel').toBe(0);
@@ -274,33 +312,17 @@ test('@smoke the editor pane holds its width before the preview pane has parsed'
 	// failing at a rounding boundary — reintroducing, inside the guard, the flake class this case
 	// exists to remove. The defect is 856px wide; ±1 catches it with room to spare, and it is the
 	// tolerance the sampler beside it already uses (`sameRect`, ±2).
-	// MEASURE A LAID-OUT PANE, NOT A HYDRATING ONE. This read the box straight after a
-	// `domcontentloaded` goto, so it raced the hydration that mounts the panel group. When it
-	// lost, `boundingBox()` returned null and the case died on a TypeError rather than on the
-	// width it exists to assert — 3 of 8 runs under 3x CPU contention here, and once on a CI
-	// runner.
-	//
-	// `await expect(editor).toBeVisible()` first is NOT enough, which is worth knowing: it cut
-	// the rate to 1 in 16 and no further, because the pane FLICKERS — hydration detaches and
-	// remounts it, so a `boundingBox()` issued after visibility can still land in the gap and
-	// re-resolve to nothing. The box therefore has to come from the same call that proved it
-	// exists, which is what capturing it inside the poll does.
+	// MEASURE A LAID-OUT PANE, NOT A HYDRATING ONE. This read used to race the hydration that
+	// mounts the panel group: hydration detaches and remounts the pane, a `boundingBox()` that
+	// landed in the gap returned null, and the case died on a TypeError rather than on the width
+	// it exists to assert (3 of 8 runs under 3x CPU contention, and once on a CI runner, #1851).
+	// Hydration is now blocked above, so that remount cannot happen here at all; `laidOutWidth`
+	// still waits for the box to lay out, which is the thing being measured.
 	//
 	// Waiting does not weaken what is measured. The preview pane is absent by construction (the
-	// fetch above cut it out), so there is nothing left to wait FOR except this pane laying
-	// out — which is the thing being measured.
-	const editor = page.locator('#pg-split-editor');
-	let box: Awaited<ReturnType<typeof editor.boundingBox>> = null;
-	await expect
-		.poll(
-			async () => {
-				box = await editor.boundingBox();
-				return box?.width ?? null;
-			},
-			{ timeout: 15_000 },
-		)
-		.not.toBeNull();
-	const width = box!.width;
+	// fetch above cut it out), and the check after the read proves it stayed absent.
+	const width = await laidOutWidth(page.locator('#pg-split-editor'));
+	expect(await page.locator('#pg-split-preview').count(), 'the preview panel came back before the read — the width below is not the cut state').toBe(0);
 	expect(Math.abs(width - settled), `the editor pane is ${Math.round(width)}px with the preview pane absent and ${settled}px with it present — a person watches it narrow`).toBeLessThanOrEqual(1);
 });
 

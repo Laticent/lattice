@@ -128,7 +128,7 @@ describe('deck-context render (renderInto opts.slideIndex)', () => {
 		await r.renderInto(host, DECK_SCOPED, false, undefined, undefined, undefined, undefined, { slideIndex: 2, slideCount: 3 });
 		const doc = srcdocOf(host);
 		// `article.lattice > section` is the engine's own selector shape (lib/engine/css.js), and
-		// patchSlideBody swaps `.lattice`'s innerHTML — losing the wrapper would break both.
+		// patchSlideBody swaps `.lattice`'s children — losing the wrapper would break both.
 		expect(doc).toContain('<article class="lattice">');
 		expect(doc).toContain('</article>');
 		expect(doc).toContain('data-lattice-pagination="3"');

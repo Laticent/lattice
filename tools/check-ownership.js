@@ -6218,12 +6218,29 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/phone-sheet-tap-after-typing.spec.ts', ms: 500, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS, the arms that prove the spec can fail: with the tap hold stripped, a tap '
+       + 'after typing must NOT select the Library tab and must NOT open the Language list (followup 2547-p2). '
+       + 'There is no signal for a selection or a listbox that must not appear; a poll goes green on its first '
+       + 'tick. 500ms outlasts a tap\'s click and the Select\'s open; the same file\'s POSITIVE arms (hold '
+       + 'on, same tap) see the selection and the list, so the assertion can see what it says is absent.',
+  },
+  {
     file: 'docs/e2e/studio-dock-sizing.spec.ts', ms: 4000, count: 1,
     why: 'ONE ABSENCE ASSERTION: a reload that restores the person\'s stored editor collapse must NOT '
        + 'show the "Editor collapsed." toast (the restore used to be read as a fresh collapse). There '
        + 'is no signal for a toast that must not appear. 4000ms outlasts the restore\'s two-rAF settle '
        + 'and the toast\'s ~1.5s life; the same test\'s POSITIVE arm (their own collapse sets the same '
        + 'MutationObserver flag) proves the observer can see it, and the test fails without the fix.',
+  },
+  {
+    file: 'docs/e2e/read-article-beacons.spec.ts', ms: 3000, count: 1,
+    why: 'ONE ABSENCE ASSERTION on a loopback server\'s request log: the Studio\'s Reading view, with '
+       + 'nothing allowed, must fetch NONE of the deck\'s web references (HARD RULE #22). There is no signal '
+       + 'for a request that must not happen; a poll of the empty log goes green on its first tick. 3000ms '
+       + 'covers the article\'s projection, its two blockWebImages passes and any fetch it would wrongly '
+       + 'start; the same test\'s CONTROL arm (after "Load images", the server sees the control image) '
+       + 'proves the log can see a fetch.',
   },
   {
     file: 'docs/e2e/studio-player-consent.spec.ts', ms: 1500, count: 2,
