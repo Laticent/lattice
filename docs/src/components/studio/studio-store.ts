@@ -4,7 +4,7 @@ import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
 import { splitSlides } from './lint';
-import { clearComments } from './slide-comments';
+import { COMMENTS_KEY_PREFIX, clearComments } from './slide-comments';
 import { DEFAULT_LANGUAGE, detectLanguage } from './studio-language';
 
 // Studio persistence — localStorage-backed, Studio-scoped (lattice-studio-*).
@@ -374,8 +374,24 @@ export function loadDeckList(): StudioDeck[] {
 		const derived = titleFromSource(source, e.title);
 		// The restore tag is appended for DISPLAY only — two copies of the same deck would
 		// otherwise sit in the switcher under one identical name.
-		return { id: e.id, title: e.restored ? `${derived} (restored)` : derived, meta: metaFor(source), slides: splitSlides(stripFrontMatter(source)) };
+		return { id: e.id, title: e.restored ? `${derived} (restored)` : derived, meta: metaFor(source), slides: slidesFor(source) };
 	});
+}
+
+// One boot calls loadDeckList five times (the list, loadBootDeck twice, the checkpoints, and
+// loadBootSlide), and each call used to split every deck again: 41 ms for 16 gallery-size decks
+// on a desktop, about four times that on a phone (#1930). Remembered by text like `metaFor`,
+// so an edited deck simply misses. A copy goes out each time: deck-ops splice the array.
+const SLIDES_MAX = 64;
+const slidesMemo = new Map<string, readonly string[]>();
+function slidesFor(source: string): string[] {
+	let slides = slidesMemo.get(source);
+	if (slides === undefined) {
+		slides = splitSlides(stripFrontMatter(source));
+		if (slidesMemo.size >= SLIDES_MAX) slidesMemo.delete(slidesMemo.keys().next().value as string);
+		slidesMemo.set(source, slides);
+	}
+	return [...slides];
 }
 
 /** Every index row's stable creation/rename LABEL (not the derived title) — the handle
@@ -538,9 +554,7 @@ export function deckContentStats(): { count: number; bytes: number } {
 		for (let i = 0; i < localStorage.length; i++) {
 			const k = localStorage.key(i);
 			if (!k) continue;
-			// 'lattice-studio-comments-' is slide-comments.ts's PREFIX — kept in sync
-			// by hand, scanning SRC_PREFIX directly.
-			if (k === INDEX_LS || k === ACTIVE_LS || k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-')) {
+			if (k === INDEX_LS || k === ACTIVE_LS || isDeckContentKey(k)) {
 				bytes += k.length + (localStorage.getItem(k)?.length ?? 0);
 			}
 		}
@@ -588,7 +602,7 @@ export function clearAllDecks(): void {
 		const orphaned: string[] = [];
 		for (let i = 0; i < localStorage.length; i++) {
 			const k = localStorage.key(i);
-			if (k && (k.startsWith(SRC_PREFIX) || k.startsWith(SNAP_PREFIX) || k.startsWith(CHAT_PREFIX) || k.startsWith(CHAT_DRAFT_PREFIX) || k.startsWith('lattice-studio-comments-'))) orphaned.push(k);
+			if (k && isDeckContentKey(k)) orphaned.push(k);
 		}
 		for (const k of orphaned) remove(k);
 	} catch {
@@ -794,6 +808,16 @@ export function saveChat(deckId: string, messages: ChatMessage[]): void {
 // chat's full state survives the panel going away (the activity-bar model closes
 // it entirely; nothing should be lost on the way out).
 export const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → string (exported for the storage-overlay drift test)
+
+/**
+ * Every per-deck CONTENT key prefix, in one list: `deckContentStats` counts these, `clearAllDecks`
+ * sweeps them, and the storage overlay's drift test checks each routes to its own category. The
+ * test also reads this file and slide-comments.ts for any `lattice-studio-…-` prefix literal, so a
+ * new content prefix fails CI until it is listed here (#1930; the two sweeps used to spell the
+ * set out inline, and a prefix with no export of its own could drift past the overlay).
+ */
+export const DECK_CONTENT_PREFIXES: readonly string[] = Object.freeze([SRC_PREFIX, SNAP_PREFIX, CHAT_PREFIX, CHAT_DRAFT_PREFIX, COMMENTS_KEY_PREFIX]);
+const isDeckContentKey = (k: string) => DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
 export function loadChatDraft(deckId: string): string {
 	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';
 }

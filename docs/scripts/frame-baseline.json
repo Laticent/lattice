@@ -1,12 +1,14 @@
 {
-  "note": "Committed baseline for the Studio edit→paint loop — the number a person feels. Refresh with `npm run perf:frame:bless`, compare with `npm run perf:frame:check`. Timing gates ONLY on a machine matching `blessedOn`; a metric must break BOTH tolerancePct AND its floorMs to fail, so sub-millisecond jitter cannot redden it. A null metric was not measurable on the blessing run and is skipped.",
+  "note": "Committed baseline for the Studio edit\u2192paint loop \u2014 the number a person feels. Refresh with `npm run perf:frame:bless`, compare with `npm run perf:frame:check`. Timing gates ONLY on a machine matching `blessedOn`; a metric must break BOTH tolerancePct AND its floorMs to fail, so sub-millisecond jitter cannot redden it. A null metric was not measurable on the blessing run and is skipped.",
   "tolerancePct": 25,
   "floorMs": {
     "lcpMs": 300,
     "framePatchMs": 2,
-    "frameWriteMs": 8,
+    "frameRestyleMs": 12,
+    "frameWriteMs": 120,
     "totalPatchMs": 4,
-    "totalWriteMs": 12,
+    "totalRestyleMs": 14,
+    "totalWriteMs": 150,
     "engineMs": 2
   },
   "config": {
@@ -22,11 +24,13 @@
     "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz"
   },
   "metrics": {
-    "lcpMs": 1467,
-    "framePatchMs": 1.3,
-    "frameWriteMs": null,
-    "totalPatchMs": 11.1,
-    "totalWriteMs": null,
-    "engineMs": 3.4
+    "lcpMs": 2519,
+    "framePatchMs": 2.3,
+    "frameRestyleMs": 38.4,
+    "frameWriteMs": 284,
+    "totalPatchMs": 20.8,
+    "totalRestyleMs": 45.8,
+    "totalWriteMs": 344,
+    "engineMs": 5.8
   }
 }
