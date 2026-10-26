@@ -4,6 +4,12 @@
 // third proves the runner and the ledger bite, so a green matrix cannot be a vacuous one.
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
+// A scratch repo must not reach the REAL one. A git hook exports GIT_DIR (and GIT_INDEX_FILE,
+// GIT_WORK_TREE) to everything it runs, and from a worktree that GIT_DIR names the real repo, so
+// the `git init` / `git commit` calls below would write into it. Strip them once, at the top
+// (the leak #2404 found). `node --test` runs each file in its own process, so nothing outside
+// this file sees the change.
+for (const k of Object.keys(process.env)) if (k.startsWith('GIT_')) delete process.env[k];
 const { loadContracts, runContract, fixtureProblems, readLedger, ledgerProblems, ledgerGitProblems, formatEntry, contractProblems } = require('../../../lib/conformance');
 
 const contracts = loadContracts();
