@@ -102,7 +102,7 @@
   --fail: light-dark(#47000f, #f07f92);
   /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS). ONE INK: a status is a DEEP fill under white, like a
    * category: done a quiet sage, at risk a burnt orange, blocked a crimson. Two intensities, picked with
-   * `chart-finish: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
+   * `marks: pigment muted|vivid`; white clears 7:1 on the light face and 4.6:1 on the dark face. The two
    * exceptions also wear a SIGNAL ring in the bright classic hue; a status line or text paints the status ink above. The hues are this theme's own status inks, leaning toward its accent; the a11y
    * palettes carry the colorblind floors. Solved by tools/curate-chart-solids.js. */
   --pass-mark: light-dark(#2B4838, #496756);

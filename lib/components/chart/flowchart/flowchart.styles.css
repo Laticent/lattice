@@ -445,7 +445,7 @@ section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"] {
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
   border-color: transparent;
 }
-section:is(.flowchart, .state-chart):is(.chart-finish-etch, .chart-finish-tone) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
+section:is(.flowchart, .state-chart):is(.marks-etch, .marks-tone) .fc-key-swatch[data-kind="tile"][data-s]:not([data-s="deferred"]) {
   --_swatch-bw: 0px;
 }
 section:is(.flowchart, .state-chart) .fc-key-swatch[data-kind="group"] {

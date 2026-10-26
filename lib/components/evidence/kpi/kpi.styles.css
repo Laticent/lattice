@@ -95,7 +95,7 @@ section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) {
 section.kpi > .cell-stage > :where(ol, ul) > li > :where(ul, ol) > li::marker { content: ''; }
 
 /* THE STATUS PILL is a status MARK (engineering/decisions/2026-10-24-status-is-one-system.md): the
- * deck's status solid (`--state-X-hue`, muted or vivid by `chart-finish:`), its label in the one ink
+ * deck's status solid (`--state-X-hue`, muted or vivid by `marks:`), its label in the one ink
  * `--on-mark`, the drawn mark leading it, a rim in the status ink, and on warn the signal ring as its
  * border. The modifier's nth-child hooks below set them per row (`--lat-pill-edge` / `-bg` / `-ink`,
  * `--kpi-pill-mark`, `--kpi-pill-mark-box`, `--kpi-pill-rim`); later pills on a row reset to neutral.

@@ -26,19 +26,19 @@
     "pictures": 0,
     "reasons": {}
   },
-  "chart-finish": {
+  "marks": {
     "refused": 0,
     "shapes": 21,
     "pictures": 7,
     "reasons": {}
   },
-  "chart-finish@etch": {
+  "marks@etch": {
     "refused": 0,
     "shapes": 21,
     "pictures": 7,
     "reasons": {}
   },
-  "chart-finish@tone": {
+  "marks@tone": {
     "refused": 0,
     "shapes": 21,
     "pictures": 7,

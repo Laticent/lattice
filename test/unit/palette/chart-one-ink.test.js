@@ -5,7 +5,7 @@
  * A status shares a lightness with the categories, so its fill alone cannot tell it from a category of the same hue.
  * The chart family adds what does: a drawn MARK on every status (lib/core/status-marks.js), and on the two exceptions,
  * at risk and blocked, a SIGNAL ring in the bright classic hue. So, for every palette, in both modes and both
- * `chart-finish:` intensities:
+ * `marks:` intensities:
  *
  *   1. the chart family hands every kind the same ink: the frame declares `--chart-on-mark` once, as `--on-mark`,
  *      and no rule re-points it, so a category and a status cannot drift apart;
@@ -56,7 +56,7 @@ describe('one ink: rings and marks are wired', () => {
     const signals = [...FAMILY.matchAll(/:is\(([^)]*)\) \{ --chart-signal: var\(--state-(\w+)-signal\); \}/g)].map((m) => [m[1], m[2]]);
     assert.deepEqual(signals.map(([, s]) => s), ['warn', 'fail']);
     assert.deepEqual(signals.map(([sel]) => sel), ['[data-s="at-risk"], [data-s="warn"]', '[data-s="blocked"], [data-s="fail"]']);
-    // Every finish paints a status member's edge with !important (chart-finish.generated.css), so the ring must too.
+    // Every finish paints a status member's edge with !important (marks.generated.css), so the ring must too.
     // An SVG shape's ring is its own element, drawn inside the shape by the member's kernel.
     assert.match(FAMILY, /\.chart-signal-ring \{\s*fill: none !important;\s*stroke: var\(--chart-signal\) !important;/);
     // The ring takes no space: an inset shadow on HTML, a clipped outline on SVG, 1.3 hairlines wide.

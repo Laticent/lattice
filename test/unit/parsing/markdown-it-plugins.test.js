@@ -30,10 +30,10 @@ const BERTHS_PER_SLIDE = fitBerth.BERTHS.length + 1;
 
 /**
  * The chart finish is stamped on EVERY section by deckClassPropagate's own pass (a look with no
- * absent state: lib/core/resolve-chart-finish.js), so it is not one of the DECK class tokens the
+ * absent state: lib/core/resolve-marks.js), so it is not one of the DECK class tokens the
  * "adds nothing" cases below count. They assert the deck-wide registers, not that stamp.
  */
-const noFinishStamp = (c) => !c.startsWith('chart-finish-');
+const noFinishStamp = (c) => !c.startsWith('marks-');
 
 describe('markdown-it-plugins', () => {
   // Apply ONE plugin in isolation on the owned slide pipeline (markdown-it +

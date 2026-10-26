@@ -534,7 +534,7 @@ section.journey .journey-mood-line {
   position: absolute;
   /* Centered by its position, not a transform: half the 2px rule back from the middle. A transform is an effect the
    * office export (Calco) cannot carry, so a translated line went out as a picture. */
-  left: calc(50% - 1px);
+  left: calc(50% - 1px); /* sanctioned: half of this line's own 2px border, so the rule sits on the center */
   /* Anchor the top of the line at the top of the moods band; the line
    * extends down to the top of the face cell. For mood-5 (row 1) the
    * height collapses to 0; mood-1 (row 5) is the full band tall. */

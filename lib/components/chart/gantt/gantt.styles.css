@@ -200,7 +200,7 @@
 /* Status — each re-points --fill-ink at a semantic --state-* ink. The FILL
  * gradient is selected by the kernel (`GANTT_STATUS_FILL`) from the same
  * status, so the two can never disagree. `--fill-hue` names the same status's
- * hue for a chart finish to mix from (tools/build-chart-finish-css.js); the
+ * hue for a chart finish to mix from (tools/build-marks-css.js); the
  * shipped paint reads the gradient and never this. Canvas-aware via the token, so one
  * rule per status, both modes.
  *

@@ -4,7 +4,7 @@ priority: P2
 recorded: 2026-10-25
 area: chart
 severity: medium
-swimlane: tools/build-chart-finish-css.js
+swimlane: tools/build-marks-css.js
 source: https://github.com/Laticent/lattice/pull/2887
 ---
 
@@ -18,8 +18,8 @@ source: https://github.com/Laticent/lattice/pull/2887
                    its own rule per color slot, paint property and text-bearing variant. The
                    same weight forced the playground snapshot cache to add a finish-mark test.
                    The owner picked token swaps over retiring etch and tone (2026-10-25).
-       where     — tools/build-chart-finish-css.js and its output
-                   lib/components/chart/_chart-family/chart-finish.generated.css;
+       where     — tools/build-marks-css.js and its output
+                   lib/components/chart/_chart-family/marks.generated.css;
                    docs/src/playground/snapshot-cache.js (finishArmAbsent / finishMarksAbsent).
        done when — one shared set of mark rules reads per-slot tokens (fill, text-bearing
                    fill, edge, edge width), and each finish is a small block of token values on
@@ -29,7 +29,7 @@ source: https://github.com/Laticent/lattice/pull/2887
                    win (keep each rule at (0,1,1)).
        evidence  — pigment's own rules are 52KB raw today, so the rebuilt file is projected
                    near 55KB; measure it, do not quote the projection.
-       verify    — node tools/build-chart-finish-css.js --check; the golden diff shows no
+       verify    — node tools/build-marks-css.js --check; the golden diff shows no
                    pixel change under each finish; palette-sweep and composed-contrast stay
                    green; the snapshot-cache tests pass with the finish-mark test simplified
                    or removed.
@@ -51,8 +51,10 @@ before the generator changes. Its own PR, after #2887 merges (HARD RULE #17).
 
 One front-matter key controls the look of EVERY mark on the deck, so a slide can never show two looks:
 
-- **`marks:`** replaces `chart-finish:` (which stays as an alias the linter nudges toward the new name). Its two
-  words are unchanged: the finish (`pigment` · `etch` · `tone`) and the intensity (`muted` · `vivid`).
+- **`marks:`** replaces `chart-finish:`. **Done in #2887**: the key, the `marks-*` slide classes, lint
+  (`marks-renamed`, info, for the old spelling, which still renders), the Studio and the docs. Its two words are
+  unchanged: the finish (`pigment` · `etch` · `tone`) and the intensity (`muted` · `vivid`). The diagnostic
+  tools keep their `chart-finish-*` file names, since the nightly CI calls `check:chart-finish-reach`.
 - **Every mark follows it**, not only chart marks: chart bars and pills, checklist and verdict discs, kpi pills,
   roadmap discs. Today `etch` and `tone` restyle chart marks only, so under them a chart's status pill is a pale
   wash while a checklist disc on the same slide stays solid. The token swap fixes this by construction: a finish
@@ -60,4 +62,5 @@ One front-matter key controls the look of EVERY mark on the deck, so a slide can
 - **Not in `finish:`.** That key is the backdrop (layers behind the content); its values would share one list
   with the mark words, and `preset:` already sets it.
 - **`preset:` sets `marks:`** so a named look covers marks too.
-- No new key net: `marks:` replaces `chart-finish:`.
+- No new key net: `marks:` replaced `chart-finish:`. Still for this PR: every mark following the finish (above) and
+  `preset:` setting `marks:`.

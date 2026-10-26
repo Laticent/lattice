@@ -9,7 +9,7 @@
  *     on the dark face a mid-tone that white still clears at 4.6:1 and that stands off the dark slide.
  *   - a STATUS (`--pass-mark` … `--mute-mark`) is deep too, in its own hue at its own chroma: done a quiet sage, at
  *     risk a burnt orange, blocked a crimson, info a deep cyan-blue, deferred a deep gray, in two intensities
- *     (`chart-finish: pigment muted|vivid`; vivid makes done an emerald).
+ *     (`marks: pigment muted|vivid`; vivid makes done an emerald).
  *
  * A status that shares a category's hue is told apart by what the chart family adds to it, not by its fill: every
  * status carries its drawn MARK (lib/core/status-marks.js), and the two exceptions, at risk and blocked, carry a

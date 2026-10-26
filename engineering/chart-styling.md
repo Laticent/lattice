@@ -110,8 +110,8 @@ too, with one sanctioned entry (`journey-face`, an icon on an `<svg>` wrapper).
 ## 3 · The three finishes
 
 A finish moves color; it never adds or removes it, and it never touches
-structure. A deck picks one with `chart-finish:` (`lib/base/base.registers.docs.md`),
-and a slide can pin its own with `_class: chart-finish-<name>`.
+structure. A deck picks one with `marks:` (`lib/base/base.registers.docs.md`),
+and a slide can pin its own with `_class: marks-<name>`.
 
 ### The solids — the base every finish styles
 
@@ -156,9 +156,9 @@ The contract, held for every palette in both modes and both intensities by
   slide, with a **2:1** step off the fill (dark slide; held to 3:1 off a mid-tone fill it washes out to near white); a
   deep ring on an `a11y-*` palette's bright dark-face fill against the fill.
 
-**Two intensities** (`chart-finish: … muted | vivid`, `lib/core/resolve-chart-finish.js`). Muted is `--X-mark`, the
+**Two intensities** (`marks: … muted | vivid`, `lib/core/resolve-marks.js`). Muted is `--X-mark`, the
 default: done a quiet SAGE, the exceptions carrying the color as a burnt orange and a crimson. Vivid is
-`--X-vivid-mark`, which `base.tokens.css` swaps in under `.chart-finish-vivid` (§ THE STATUS FILL ON THIS SLIDE):
+`--X-vivid-mark`, which `base.tokens.css` swaps in under `.marks-vivid` (§ THE STATUS FILL ON THIS SLIDE):
 every status rich, done an emerald, for a deck that celebrates its wins. Both keep white text, and the rings are
 shared. The register sets every status fill on the slide, so a checklist disc, a kpi pill or a policy badge takes
 the same intensity as the chart beside it (`engineering/decisions/2026-10-24-status-is-one-system.md`).
@@ -209,7 +209,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
 | **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue | ink, 1× (2.5× on a text-bearing mark) |
 
-**A finish is always on, and `pigment` is the default.** `chart-finish:` is a look
+**A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
 a word that is not a finish, wears `pigment`, and every `<section>` is stamped with its
 finish (including a chart inside a pane, where the section never names the chart). There is
@@ -261,12 +261,12 @@ gradient, and `REACH` lists every mark no finish reaches with its reason.
 
 ### How the engine applies them
 
-`tools/build-chart-finish-css.js` generates the rules from each manifest's
+`tools/build-marks-css.js` generates the rules from each manifest's
 `kernel.marks`; its header is the long form. Each choice below was settled by
 measurement, and most undo a defect a render or the adversarial review found:
 
 - **Specificity (0,1,1), on purpose.** Every rule is
-  `section.chart-finish-X :where(<mark>)` with `!important`. That beats every
+  `section.marks-X :where(<mark>)` with `!important`. That beats every
   member's paint (no member marks paint `!important`) and loses to an a11y
   theme's texture fill, which is `!important` at (0,3,1) and loads later. So a
   finish never strips the pattern channel from a colorblind reader.
@@ -358,9 +358,9 @@ measurement, and most undo a defect a render or the adversarial review found:
   into its `#lattice-dual-mode` block once per scheme scope, a block the CSS prune
   never touches. Carried whole, the rules outweighed the deck stylesheet (1.37 MB),
   and the prune, which then chose its target by size, pruned the wrong block.
-  `dropUnusedChartFinishRules` (`lib/export/player-core.mjs`) cuts them against
+  `dropUnusedMarksRules` (`lib/export/player-core.mjs`) cuts them against
   the rendered DOM first, so a deck without the key exports the bytes it did
-  before, and `examples/chart-finish.md` exports at 847 KB. The prune now skips
+  before, and `examples/marks.md` exports at 847 KB. The prune now skips
   the dual-mode block by id.
 
 **What a finish does not reach, on purpose.** `line`, `ep-curve`, `slope` and `word-cloud`

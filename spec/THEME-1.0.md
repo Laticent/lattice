@@ -90,7 +90,7 @@ override any subset of them.
 **Status has two jobs, chart colors are SOLIDS, and every solid carries one ink.** `--pass` `--warn` `--fail`
 `--info` `--mute` are the status as INK on the slide: each clears 4.5:1 as text on `--bg` and `--bg-alt`.
 `--pass-mark` … `--mute-mark` are the status as a FILL a label sits on, in the default `muted` intensity, and the
-`-vivid` set is the `vivid` one (`chart-finish: … vivid`; `--mute-mark` has none). Every chart fill, a status, one of
+`-vivid` set is the `vivid` one (`marks: … vivid`; `--mute-mark` has none). Every chart fill, a status, one of
 the eight `--chart-catN` or `--chart-neutral-mark`, is DEEP: text on it is white (`--on-mark`, the one ink), at 7:1 on the light face and 4.5:1 on the dark face, and the fill clears 3:1 against `--bg` by itself.
 A status drawn as a line or as text paints its ink, `--pass` … `--mute`, so it needs no token of its own.
 `--warn-signal-mark` and `--fail-signal-mark` are the rings an at-risk or blocked shape

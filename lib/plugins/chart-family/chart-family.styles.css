@@ -532,7 +532,7 @@ section.word-cloud,
  *                   thin progress fill — lifted toward white on dark.
  *
  * The hue IS the base's status FILL (`--pass-mark` … `--mute-mark`, base.tokens.css), which each theme curates
- * once for every component, in the intensity the deck picks (`chart-finish: … muted | vivid`); the base sets
+ * once for every component, in the intensity the deck picks (`marks: … muted | vivid`); the base sets
  * `--state-X-hue` on the slide (base.tokens.css § THE STATUS FILL ON THIS SLIDE). A chart keeps no status color of its own. ONE INK: a status fill is deep under white, like a category. A
  * status LINE or status TEXT paints the theme's status ink (`--pass` … `--mute`), the color the status is in every
  * other component, which each theme spaces for the colorblind floors (cvd-trio-floor.test.js). The signal is the bright ring an exception wears (§ THE SIGNAL RING below). */
@@ -1190,7 +1190,7 @@ section.chart-frame .chart-caption::before {
  * moves into its height and padding (above), so the box does not move. Not a `background-clip`: Calco lifts a clipped
  * fill under an inset ring only as a picture (`paint:bg-clip`); `pigment`'s fill runs to the edge and keeps its
  * border. */
-:is(section, figure):is(.chart-finish-etch, .chart-finish-tone) .chart-status {
+:is(section, figure):is(.marks-etch, .marks-tone) .chart-status {
   --_status-bw: 0px;
 }
 /* THE VIVID INTENSITY lives in the base (base.tokens.css § THE STATUS FILL ON THIS SLIDE): `--state-X-hue` is set on
@@ -1238,7 +1238,7 @@ section.chart-frame .chart-caption::before {
  * The ring is an OUTLINE THAT TAKES NO SPACE: `--chart-ring` wide (1.3 hairlines, 1.3px on a standard slide), drawn
  * INSIDE the shape, so it never grows a mark, never covers an arrowhead a router ends at the shape's edge, and is never
  * cut by a clipping parent. On an HTML box (a pill, a progress bar, a kanban card) it is an inset shadow. Every finish
- * paints a status member's edge with `!important` (chart-finish.generated.css), so the ring is `!important` too, and
+ * paints a status member's edge with `!important` (marks.generated.css), so the ring is `!important` too, and
  * wins on its higher specificity. The ring REPLACES the edge, so it must be the heavier line: where a finish widens a
  * status mark's edge (etch 2-3x, tone 2.5x on a mark that carries text) it sets `--chart-ring` to the same multiple of
  * the 1.3 hairlines, and the exception stays the loudest outline in every finish.

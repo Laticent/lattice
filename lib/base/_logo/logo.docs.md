@@ -51,7 +51,7 @@ The words are class tokens on the section, so a slide can also change one axis f
 `_class: logo-ink` recolors the mark on that slide and leaves the deck's placement and size alone.
 `no-logo` is the one switch most decks need.
 
-**Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `chart-finish:`), `logo-on:`,
+**Migrating an old deck.** `logo-style:` (renamed `logo-finish:`, like `finish:` and `marks:`), `logo-on:`,
 `logo-x:`, `logo-y:` and `logo-scale:` are retired and no longer render. `lint:deck --fix` (and the Studio's Fix all) folds them into one `logo-finish:` line and
 deletes them: `logo-style: brand` becomes `logo-finish: brand plate`, `logo-on: title` becomes the `title` word, `logo-scale` becomes `sm` or `lg`, and a free
 `logo-x`/`logo-y` position snaps to the nearest of the six berths (`50` / `82` is `bottom-center`).

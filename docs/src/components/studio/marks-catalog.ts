@@ -1,16 +1,16 @@
-// The Studio chart-finish catalog — DISPLAY metadata for the `chart-finish:` register (how
+// The Studio marks catalog — DISPLAY metadata for the `marks:` register (how
 // every chart on the deck spends its color). Sibling of corners-catalog.ts / rule-catalog.ts.
-// The engine's single source of truth is CHART_FINISH_NAMES (lib/core/resolve-chart-finish.js);
-// THIS file adds only the human layer the picker needs. Rot-guard: chart-finish-catalog.test.ts.
+// The engine's single source of truth is MARKS_NAMES (lib/core/resolve-marks.js);
+// THIS file adds only the human layer the picker needs. Rot-guard: marks-catalog.test.ts.
 //
-// Authored deck-wide via `chart-finish:` or per-slide via `_class: chart-finish-<name>`. Like
+// Authored deck-wide via `marks:` or per-slide via `_class: marks-<name>`. Like
 // `icon:` and `spark:` it is a look with no absent state: a deck that says nothing wears
-// DEFAULT_CHART_FINISH (the engine's CHART_FINISH_DEFAULT; chart-finish-catalog.test.ts pins them).
+// DEFAULT_MARKS (the engine's MARKS_DEFAULT; marks-catalog.test.ts pins them).
 
-import { DEFAULT_CHART_FINISH } from './chart-finish-words';
+import { DEFAULT_MARKS } from './marks-words';
 
-export type ChartFinishEntry = {
-	/** the `chart-finish:` register value (and engine CHART_FINISH_NAMES member) */
+export type MarksEntry = {
+	/** the `marks:` register value (and engine MARKS_NAMES member) */
 	name: string;
 	label: string;
 	blurb: string;
@@ -40,7 +40,7 @@ const flat = (color: string) => `linear-gradient(${color}, ${color})`;
 // offset from the top-left is `(100 - size) * p`. Solving for p places every layer by its box
 // offset, which keeps an inset layer centered on the bar it sits in.
 const at = (offset: number, size: number) => (size >= 100 ? 0 : +((offset / (100 - size)) * 100).toFixed(2));
-function chip(layers: Layer[]): ChartFinishEntry['swatch'] {
+function chip(layers: Layer[]): MarksEntry['swatch'] {
 	return {
 		background: [...layers.map((l) => `${l.image} ${at(l.left, l.w)}% ${at(100 - l.bottom - l.h, l.h)}% no-repeat`), 'var(--bg)'].join(', '),
 		backgroundSize: [...layers.map((l) => `${l.w}% ${+l.h.toFixed(2)}%`), 'auto'].join(', '),
@@ -49,10 +49,10 @@ function chip(layers: Layer[]): ChartFinishEntry['swatch'] {
 const bar = (image: string, b: (typeof BARS)[number], inset = 0): Layer =>
 	({ image, left: b.left + inset, bottom: FLOOR + inset, w: W - 2 * inset, h: b.h - 2 * inset });
 
-export { DEFAULT_CHART_FINISH };
+export { DEFAULT_MARKS };
 
 // Ordered as the picker shows them.
-export const CHART_FINISHES: ChartFinishEntry[] = [
+export const MARKS_FINISHES: MarksEntry[] = [
 	{
 		name: 'pigment', label: 'Pigment',
 		blurb: 'Identity in the body: full-strength, flat color under a fine edge. The colorful one, and the default.',
@@ -75,12 +75,12 @@ export const CHART_FINISHES: ChartFinishEntry[] = [
 	},
 ];
 
-export const CHART_FINISHES_BY_NAME: Record<string, ChartFinishEntry> = Object.fromEntries(
-	CHART_FINISHES.map((s) => [s.name, s]),
+export const MARKSES_BY_NAME: Record<string, MarksEntry> = Object.fromEntries(
+	MARKS_FINISHES.map((s) => [s.name, s]),
 );
 
-/** The active chart-finish entry for a value; unknown / empty → the default finish. */
-export function activeChartFinish(value: string | undefined | null): ChartFinishEntry {
+/** The active marks entry for a value; unknown / empty → the default finish. */
+export function activeMarks(value: string | undefined | null): MarksEntry {
 	const key = (value ?? '').trim().toLowerCase();
-	return CHART_FINISHES_BY_NAME[key] ?? CHART_FINISHES_BY_NAME[DEFAULT_CHART_FINISH];
+	return MARKSES_BY_NAME[key] ?? MARKSES_BY_NAME[DEFAULT_MARKS];
 }

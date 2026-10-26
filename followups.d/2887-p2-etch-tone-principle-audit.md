@@ -4,7 +4,7 @@ priority: P2
 recorded: 2026-10-25
 area: chart
 severity: medium
-swimlane: tools/build-chart-finish-css.js
+swimlane: tools/build-marks-css.js
 source: https://github.com/Laticent/lattice/pull/2887
 ---
 
@@ -16,7 +16,7 @@ source: https://github.com/Laticent/lattice/pull/2887
                    (the session's own, then an independent reviewer that worked cold) measured
                    the indaco renders on main and on #2887. The items below are the same on
                    main; #2887's own regression (tone stripping line names) is fixed in it.
-       where     — tools/build-chart-finish-css.js; engineering/chart-styling.md §3;
+       where     — tools/build-marks-css.js; engineering/chart-styling.md §3;
                    engineering/decisions/2026-09-07-chart-design-language/tone-is-the-third-finish.md
        done when — each item below is fixed or the principle it breaks is rewritten on purpose:
          1. Tone cannot tell categories apart on a mark that carries text. Tower and
@@ -45,7 +45,7 @@ source: https://github.com/Laticent/lattice/pull/2887
        evidence  — closest-pair OKLab distance per chart and finish, both modes, main vs
                    branch: the session's .scratch/finish-audit.mjs probe (re-create it: per
                    section, read each [data-hue] mark's computed fill and stroke under each
-                   chart-finish-* class and compare). Reviewer numbers are quoted above.
+                   marks-* class and compare). Reviewer numbers are quoted above.
        verify    — re-run the probe and node tools/chart-finish-reach.mjs --all-themes; each
                    item above moves past its floor, or its principle is rewritten with the
                    owner's sign-off.

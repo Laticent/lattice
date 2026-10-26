@@ -300,7 +300,7 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
  * ink of every chart mark, as a bar's label does; heading ink there was dark on a deep fill on the light face. A value
  * printed above a small bubble sits on the canvas and keeps the heading ink, and `etch` / `tone` keep it too: their
  * bubble is a pale wash. */
-:is(section, figure).chart-finish-pigment .quadrant-bubble-value[data-pos="inside"] {
+:is(section, figure).marks-pigment .quadrant-bubble-value[data-pos="inside"] {
   fill: var(--chart-on-mark);
 }
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble-label {

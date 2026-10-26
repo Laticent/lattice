@@ -93,13 +93,13 @@
  * relative-color idiom the status pills use, so it holds contrast on every
  * slot in both canvases instead of trusting one ink to suit eight hues. */
 /* Under a chart finish the share is re-painted, so the finish sets --tower-ink from
- * the body it paints (tools/build-chart-finish-css.js), and that ink wins. */
+ * the body it paints (tools/build-marks-css.js), and that ink wins. */
 :is(section.tower, figure.chart-frame) .tower-share-value {
   --tower-share-ink: var(--tower-ink, var(--text-heading));
   fill: var(--tower-share-ink);
 }
 /* The ink is picked on CIE luminance, the same switch the chart finishes use (`inkOn` in
- * tools/build-chart-finish-css.js, which records why OKLCH lightness is the wrong axis: a red body
+ * tools/build-marks-css.js, which records why OKLCH lightness is the wrong axis: a red body
  * took black at 4.31:1 and the blend zone returned a near-invisible grey, 1.003:1). Both write the
  * same expression, so the shipped paint and a finished one pick alike. */
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {

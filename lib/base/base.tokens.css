@@ -641,7 +641,7 @@
    * charts on one slide never wear two text colors. A status fill is DEEP in its own hue: done a quiet sage, at risk a
    * burnt orange, blocked a crimson, info a deep cyan-blue, deferred a deep gray. Text on it clears 7:1 on the light
    * face and 4.6:1 on the dark face (test/unit/palette/chart-solids.test.js). Two intensities, picked with
-   * `chart-finish:` (resolve-chart-finish.js): MUTED, the default (`--X-mark`), where done stays quiet and the
+   * `marks:` (resolve-marks.js): MUTED, the default (`--X-mark`), where done stays quiet and the
    * exceptions carry the color; VIVID (`--X-vivid-mark`), every status rich, done an emerald. `--mute-mark` is a
    * neutral and has no vivid. A status shares a lightness with the categories, so the chart family tells it apart by
    * what it adds: a drawn MARK on every status, and a SIGNAL ring on the two exceptions.
@@ -1264,8 +1264,8 @@
 /* ── THE STATUS FILL ON THIS SLIDE ─────────────────────────────────────────
  * `--state-pass-hue` … `--state-mute-hue` point every status MARK at the deck's
  * fill (engineering/decisions/2026-10-24-status-is-one-system.md): the muted
- * `--X-mark` by default, the `--X-vivid-mark` set when `chart-finish: … vivid`
- * stamps `chart-finish-vivid` on the slide. A chart, a checklist disc and a kpi
+ * `--X-mark` by default, the `--X-vivid-mark` set when `marks: … vivid`
+ * stamps `marks-vivid` on the slide. A chart, a checklist disc and a kpi
  * pill all read these, so one register sets every status fill on the slide.
  * Declared on the slide `section` as well as `:root` so a slide-level reset of
  * the fills (the print band on `section.print`) is what the pointer resolves to;
@@ -1275,7 +1275,7 @@
  * `--state-X-hue` under the vivid class. Two exports copy the line above into scopes of their own: the
  * `--player` re-declares every `:root` token in each of its light and dark scheme blocks (so `var()` chains
  * re-resolve per scheme), at a specificity no single class beats; and Marpit scopes a bare class selector as
- * a DESCENDANT of the slide, so `.chart-finish-vivid` never matched the slide that carries it. Read through the
+ * a DESCENDANT of the slide, so `.marks-vivid` never matched the slide that carries it. Read through the
  * pointer, every copy of the line above still lands on the vivid fill wherever the slide sets the pointer.
  * `section.` / `figure.` name the slide and Read·Article's re-hosted chart, which Marpit maps to the slide
  * itself; the bare class keeps any other element that carries the token. */
@@ -1286,7 +1286,7 @@
   --state-info-hue: var(--_state-info-hue, var(--info-mark));
   --state-mute-hue: var(--mute-mark);
 }
-section.chart-finish-vivid, figure.chart-finish-vivid, .chart-finish-vivid {
+section.marks-vivid, figure.marks-vivid, .marks-vivid {
   --_state-pass-hue: var(--pass-vivid-mark);
   --_state-warn-hue: var(--warn-vivid-mark);
   --_state-fail-hue: var(--fail-vivid-mark);

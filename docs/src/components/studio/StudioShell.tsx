@@ -68,8 +68,6 @@ import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
-import { activeChartFinish, CHART_FINISHES, DEFAULT_CHART_FINISH } from './chart-finish-catalog';
-import { chartFinishValue, parseChartFinishValue } from './chart-finish-value';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
@@ -117,6 +115,8 @@ import { type LiveLook, type LiveRecords, NO_RECORDS } from './live/live-store';
 import { storedLiveName, useLiveSession } from './live/use-live-session';
 import { LOGO_PLACEMENT_HIDES, type LogoFinishAxis, logoFinishLabel, logoFinishOptions, logoFinishValue, logoFinishWords, parseLogoFinish } from './logo-finish';
 import { MotionTargets } from './MotionTargets';
+import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
+import { marksValue, parseMarksValue } from './marks-value';
 import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
@@ -2306,13 +2306,18 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Corners (`corners:`) — whether the slide surface itself is rounded. lib/core/resolve-corners.js.
 	const corners = registerValue(source, 'corners');
 	const setCorners = (value: string) => settingsWrite(`Corners → ${value}`, (s) => writeRegister(s, 'corners', value));
-	// The default finish REMOVES the line rather than writing `chart-finish: pigment`: a deck that says
-	// nothing wears it, chart-finish is not a preset key, and writeRegister drops a line only at the
+	// The default finish REMOVES the line rather than writing `marks: pigment`: a deck that says
+	// nothing wears it, `marks:` is not a preset key, and writeRegister drops a line only at the
 	// baseline ''.
 	// The value carries one word per axis (`tone vivid`), so it is read by axis, and choosing a finish keeps the
-	// deck's intensity.
-	const chartFinish = parseChartFinishValue(getFrontMatter(source, 'chart-finish')).finish || DEFAULT_CHART_FINISH;
-	const setChartFinish = (value: string) => settingsWrite(`Chart finish → ${activeChartFinish(value).label}`, (s) => writeFrontMatterLine(s, 'chart-finish', chartFinishValue(value, parseChartFinishValue(getFrontMatter(s, 'chart-finish')).intensity) || null));
+	// deck's intensity. A deck still on the old `chart-finish:` key is read from it, and a pick moves it to `marks:`
+	// (the old line goes, so the deck never carries both).
+	const marksOf = (s: string) => getFrontMatter(s, 'marks') || getFrontMatter(s, 'chart-finish');
+	const marks = parseMarksValue(marksOf(source)).finish || DEFAULT_MARKS;
+	const setMarks = (value: string) =>
+		settingsWrite(`Marks → ${activeMarks(value).label}`, (s) =>
+			writeFrontMatterLine(writeFrontMatterLine(s, 'marks', marksValue(value, parseMarksValue(marksOf(s)).intensity) || null), 'chart-finish', null),
+		);
 	// Claim (`claim:`) — how much frame the content sits inside. lib/core/resolve-claim.js.
 	const claim = getFrontMatter(source, 'claim') || 'framed';
 	const setClaim = (value: string) => settingsWrite(`Claim → ${value}`, (s) => writeFrontMatterLine(s, 'claim', value === 'framed' ? null : value));
@@ -5420,9 +5425,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    alongside Finish; per-slide `_class: lifted`/`flat` override. */}
 				<Field label="Card lift" desc="A soft shadow under card surfaces." find="shadow elevation struck" help={<>The "Struck" elevation — a zero-blur shadow that lifts cards, KPI tiles and stats off the slide. It reads in both light and dark and survives the PDF export. A slide opts out with <code>_class: flat</code>.</>}><Toggle label="Card lift" on={lift} onClick={toggleLift} /></Field>
 				{/* Chart finish — how every chart spends its color. Deck-wide here; a slide
-				    overrides it from its own settings (`_class: chart-finish-*`). */}
-				<Field label="Chart finish" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: chart-finish-*</code>.</>}>
-					<CatalogSelect ariaLabel="Choose chart finish" value={activeChartFinish(chartFinish).name} onValueChange={setChartFinish} className="w-full" groups={[{ options: catalogOptions(CHART_FINISHES) }]} />
+				    overrides it from its own settings (`_class: marks-*`). */}
+				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: marks-*</code>.</>}>
+					<CatalogSelect ariaLabel="Choose marks" value={activeMarks(marks).name} onValueChange={setMarks} className="w-full" groups={[{ options: catalogOptions(MARKS_FINISHES) }]} />
 				</Field>
 				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each
 				    (the Backdrop pattern). Auto on every axis removes the key. */}

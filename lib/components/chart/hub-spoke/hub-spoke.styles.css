@@ -68,7 +68,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
 /* ── a group's hue, for the marks that carry it at a faint level or as ink ─────
  * The connector band, twig, arrowhead and name of a grouped spoke read the group's slot
  * through this member property rather than the family's --mark-hue / --mark-ink directly,
- * so the `tone` chart finish can re-point it to the one hue (tools/build-chart-finish-css.js)
+ * so the `tone` chart finish can re-point it to the one hue (tools/build-marks-css.js)
  * while the family slot table stays untouched. The discs and key swatches are not here:
  * they carry the mark contract and every finish repaints them. */
 :is(section.hub-spoke, figure.chart-frame) :is(.hub-spoke-neck, .hub-spoke-twig, .hub-spoke-arrow, .hub-spoke-name)[data-hue] {
@@ -149,7 +149,7 @@ section.form.hub-spoke:not(.claim-hero):not(.claim-bleed) .hub-spoke-figure {
  * a neutral satellite is held under the hub by its own mix, so a neutral or status-only
  * chart keeps the dimmed hub. The finish class sits on the section (or on Read·Article's
  * chart figure), not on a hub-spoke variant. */
-:is(section, figure):is(.chart-finish-pigment, .chart-finish-tone) .hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub {
+:is(section, figure):is(.marks-pigment, .marks-tone) .hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub {
   fill: var(--text-heading);
   stroke: var(--text-heading);
 }

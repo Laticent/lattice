@@ -110,7 +110,7 @@
  * transparent one let the wash show through as a halo outside that edge. The bar is border-box, so its length (the
  * datum) does not move. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture
  * (the same rule as the status pill, chart-family.styles.css). */
-:is(section.progress, figure.progress):is(.chart-finish-etch, .chart-finish-tone) .progress-fill {
+:is(section.progress, figure.progress):is(.marks-etch, .marks-tone) .progress-fill {
   border-width: 0;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.

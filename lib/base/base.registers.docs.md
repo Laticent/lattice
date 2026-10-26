@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
+| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -819,25 +819,31 @@ neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the fro
 angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
 "Venue". Resolver: `lib/core/resolve-venue.js`.
 
-## The `chart-finish:` front-matter register (how charts spend color)
+## The `marks:` front-matter register (how charts spend color)
 
-`chart-finish:` picks how every chart on the deck spends its color. A finish moves color;
-it never adds any, never removes any, and never changes a chart's structure.
+`marks:` picks how every chart on the deck spends its color. A finish moves color;
+it never adds any, never removes any, and never changes a chart's structure. Its second word, the
+intensity, sets every status mark on the slide, not only a chart's: a checklist disc, a kpi pill,
+a policy badge.
+
+**It was called `chart-finish:`.** The old key and the old `chart-finish-*` slide classes still
+render, and `lint:deck` names the new spelling (`marks-renamed`, info). When a deck sets both keys,
+`marks:` wins.
 
 Like `icon:` and `spark:`, it is a look rather than a layer that can be switched off: a chart
 always spends its color some way, so there is no `off`. A deck that names none wears `pigment`,
-and so does one that names a word that is not a finish (`unknown-chart-finish` catches it).
+and so does one that names a word that is not a finish (`unknown-marks` catches it).
 
-| `chart-finish:` value | Token | Identity lives in | Choose it for |
+| `marks:` value | Token | Identity lives in | Choose it for |
 |---|---|---|---|
-| `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
-| `etch` | `chart-finish-etch` | the line: a whisper of color under a doubled edge | a modern look |
-| `tone` | `chart-finish-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
+| `pigment` | `marks-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
+| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge | a modern look |
+| `tone` | `marks-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
 ```markdown
 ---
 theme: indaco
-chart-finish: tone
+marks: tone
 ---
 ```
 
@@ -848,12 +854,12 @@ the chart beside it. Write the two words in either order.
 
 | Second word | Token | Light slide | Dark slide |
 |---|---|---|---|
-| `muted` | `chart-finish-muted` | deep status fills under white text, each theme's own: done a quiet sage, at risk a burnt orange, blocked a crimson. **The default** (omit the word). | the same hues as mid-tones |
-| `vivid` | `chart-finish-vivid` | every status rich under white text, done an emerald | the same, as mid-tones |
+| `muted` | `marks-muted` | deep status fills under white text, each theme's own: done a quiet sage, at risk a burnt orange, blocked a crimson. **The default** (omit the word). | the same hues as mid-tones |
+| `vivid` | `marks-vivid` | every status rich under white text, done an emerald | the same, as mid-tones |
 
 ```markdown
 ---
-chart-finish: pigment vivid
+marks: pigment vivid
 ---
 ```
 
@@ -862,10 +868,10 @@ fill clears 7:1 on a light slide and 4.5:1 on a dark one. For a reader who is co
 pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
 in both intensities.
 
-**Per slide.** `<!-- _class: bar chart-finish-etch -->` gives one chart its own finish, and
-`<!-- _class: bar chart-finish-pigment -->` asks for the default inside a `tone` deck. The slide
+**Per slide.** `<!-- _class: bar marks-etch -->` gives one chart its own finish, and
+`<!-- _class: bar marks-pigment -->` asks for the default inside a `tone` deck. The slide
 token replaces the deck's; it never stacks with it. The two axes are separate:
-`<!-- _class: bar chart-finish-vivid -->` changes only the intensity and keeps the deck's finish.
+`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish.
 Every slide is stamped, including a chart
 in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 
@@ -897,11 +903,11 @@ white from its own cell's color and clears 4.5:1 on every step of every theme. O
 themes and in print, the categorical **pattern fills win over any finish**, so a colorblind
 reader keeps the texture channel.
 
-In the Studio, pick it in deck settings (**Look → Chart finish**). A chart slide's own
-settings carry a **Chart finish** row (**Look**) that follows the deck unless you pin one.
-`unknown-chart-finish` catches a typo. The design is `engineering/chart-styling.md` §3. The
+In the Studio, pick it in deck settings (**Look → Marks**). A chart slide's own
+settings carry a **Marks** row (**Look**) that follows the deck unless you pin one.
+`unknown-marks` catches a typo. The design is `engineering/chart-styling.md` §3. The
 rules are generated from each chart manifest's `kernel.marks` by
-`tools/build-chart-finish-css.js`. Resolver: `lib/core/resolve-chart-finish.js`.
+`tools/build-marks-css.js`. Resolver: `lib/core/resolve-marks.js`.
 
 ## The `cards:` front-matter register (where a card row puts its spare height)
 

@@ -3,23 +3,23 @@ marp: true
 size: 16:9
 theme: indaco
 paginate: true
-header: "Chart finish"
+header: "Marks"
 ---
 
 <!-- _class: title -->
 <!-- _header: '' -->
-<!-- _footer: "Chart finish · title" -->
+<!-- _footer: "Marks · title" -->
 
 # One line sets how every chart spends its color
 
-`Charts · chart-finish`
+`Charts · marks`
 
 Pigment, etch or tone, set once for the deck and overridden per slide. Say nothing and it is pigment.
 
 ---
 
 <!-- _class: bar -->
-<!-- _footer: "no chart-finish: key · a finish is always on, and the default is pigment" -->
+<!-- _footer: "no marks: key · a finish is always on, and the default is pigment" -->
 
 `Pigment · identity in the body`
 
@@ -40,8 +40,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: bar chart-finish-etch -->
-<!-- _footer: "_class: chart-finish-etch · one slide overrides the deck" -->
+<!-- _class: bar marks-etch -->
+<!-- _footer: "_class: marks-etch · one slide overrides the deck" -->
 
 `Etch · identity in the line`
 
@@ -62,8 +62,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: bar chart-finish-tone -->
-<!-- _footer: "_class: chart-finish-tone · one hue in stepped shades" -->
+<!-- _class: bar marks-tone -->
+<!-- _footer: "_class: marks-tone · one hue in stepped shades" -->
 
 `Tone · identity in value`
 
@@ -84,7 +84,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: piechart donut chart-finish-tone -->
+<!-- _class: piechart donut marks-tone -->
 <!-- _footer: "The key repaints with the wedges it names" -->
 
 `H1 2026 · 1,840 person-hours`
@@ -99,7 +99,7 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: heatmap chart-finish-etch -->
+<!-- _class: heatmap marks-etch -->
 <!-- _footer: "Each value picks black or white from its own cell" -->
 
 `Retention · 2026 cohorts`
@@ -133,8 +133,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 ---
 
-<!-- _class: progress chart-finish-vivid -->
-<!-- _footer: "_class: chart-finish-vivid · every status rich, done an emerald, the same white text" -->
+<!-- _class: progress marks-vivid -->
+<!-- _footer: "_class: marks-vivid · every status rich, done an emerald, the same white text" -->
 
 `H1 2026 · readiness`
 
@@ -166,8 +166,8 @@ Pigment, etch or tone, set once for the deck and overridden per slide. Say nothi
 
 <!-- _class: closing -->
 <!-- _header: '' -->
-<!-- _footer: "Chart finish · closing" -->
+<!-- _footer: "Marks · closing" -->
 
-`chart-finish: pigment · etch · tone`
+`marks: pigment · etch · tone`
 
 ## Omit the key and every chart wears pigment.

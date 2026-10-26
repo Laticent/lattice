@@ -248,7 +248,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     assert.match(out, /class="masthead-lede"><h2>Launch plan<\/h2>/);
     assert.match(out, /<ol class="dateline-rows" style="color:var\(--cat-1-mark\)">/);
     // The engine's classes, which a package drawing from facts cannot know, are put back by the door.
-    assert.match(out, /<section[^>]*class="dateline content chart-finish-pigment chart-finish-muted form dateline-drawn"/);
+    assert.match(out, /<section[^>]*class="dateline content marks-pigment marks-muted form dateline-drawn"/);
     assert.match(out, /<li class="dateline-row"><b class="dateline-date">2026-01-10<\/b> Kickoff<\/li>/, 'list text arrives as plain text, markup gone');
     assert.match(out, /<b class="dateline-date">2026-03-02<\/b> Beta &amp; pilot/);
     assert.match(out, /<b class="dateline-date">2026-06-30<\/b> General availability<\/li>/);
@@ -291,7 +291,7 @@ describe('code packages: the CLI door', { timeout: TIMEOUT }, () => {
     assert.match(out, /<li class="dateline-row"><b class="dateline-date">2026-01-10<\/b> Kickoff<\/li>/, 'the page says Kickoff arrives without its asterisks');
     assert.match(out, /<b class="dateline-date">2026-03-02<\/b> Beta &amp; pilot<\/li>/);
     assert.match(out, /<b class="dateline-date">2026-06-30<\/b> General availability<\/li>/, 'the page says the link arrives as its words');
-    assert.match(out, /<section[^>]*class="dateline content chart-finish-pigment chart-finish-muted form"/, 'the page says the door puts the engine’s classes back');
+    assert.match(out, /<section[^>]*class="dateline content marks-pigment marks-muted form"/, 'the page says the door puts the engine’s classes back');
     assert.deepEqual(hits, [], 'the example reached the network');
   });
 
