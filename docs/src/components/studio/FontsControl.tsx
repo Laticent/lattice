@@ -14,6 +14,8 @@ const TEXT: Choice<Tier>[] = [
 	{ value: 'full', title: 'Full', blurb: 'The whole face, every script.' },
 	{ value: 'system', title: 'System', blurb: 'Embed nothing; the viewer’s fonts draw the text.' },
 ];
+// In a PDF the engine's own faces stay in the page picture under System; no viewer font draws them.
+const PDF_SYSTEM: Choice<Tier> = { value: 'system', title: 'System', blurb: 'Embed none of the engine’s fonts; those words stay in the page picture.' };
 const EMOJI: Choice<Tier>[] = [
 	{ value: '', title: 'Auto', blurb: 'Follow `fonts:` in the deck’s front matter (exact when it says nothing).' },
 	{ value: 'exact', title: 'Exact', blurb: 'Only the emoji the deck shows.' },
@@ -61,8 +63,9 @@ export function FontsControl({ deckId, source, busy, format = 'webpage' }: { dec
 				<span className="min-w-0 flex-1">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Fonts</span>
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{BLURB[format]} Same words as the deck’s `fonts:` line.</span>
-					<ChoiceSelect label="Text fonts" value={choice.text} choices={named(TEXT, auto.text as Tier)} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
-					<ChoiceSelect label="Emoji font" value={choice.emoji} choices={named(EMOJI, auto.emoji as Tier)} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />
+					<ChoiceSelect label="Text fonts" value={choice.text} choices={named(format === 'pdf' ? TEXT.map((c) => (c.value === 'system' ? PDF_SYSTEM : c)) : TEXT, auto.text as Tier)} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
+					{/* Only a web page carries the emoji font as text: in a PDF or an Office file emoji are in the picture either way. */}
+					{format === 'webpage' && <ChoiceSelect label="Emoji font" value={choice.emoji} choices={named(EMOJI, auto.emoji as Tier)} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />}
 				</span>
 			</span>
 		</div>

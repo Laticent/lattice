@@ -1728,7 +1728,7 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// Diffed before/after: the runtime script's two list declarations (and their comment) move,
 	// and the CSP `script-src` sha256 moves with them. No markup, CSS or block order moved.
 	// Re-blessed 2026-10-26 (#2904) on top of that: the Read view's font stacks (Outfit and Playfair) end in
-	// 'Noto Color Emoji', so an emoji in the article draws from the embedded font like the slides do. Nine stacks
+	// 'Noto Color Emoji', so an emoji in the article draws from the embedded font like the slides do. Seven stacks
 	// in the player CSS moved; nothing else.
 	assert.equal(sha, 'db5ca48f826216584dad6b6d423ec6330ebbe6eb76ce9bba4454b08f487df2b5', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
