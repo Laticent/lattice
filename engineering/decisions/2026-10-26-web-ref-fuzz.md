@@ -4,8 +4,9 @@ summary: >
   A seeded grammar fuzz of the web-reference scanners (blockWebImages, blockWebCss) now runs in
   Chromium, WebKit and Firefox against a loopback server. Its first runs found seven spellings of a
   web fetch that 30 known payloads and a red-team pass had not: all are fixed and in the payload
-  table. After the fixes, 100,000 seeded inputs per engine produce no request at all. The note says
-  what that does and does not show.
+  table. After the fixes, 100,000 seeded inputs per engine produce no request at all, and so do 40,000 per
+  engine through the Reading view and the preview frame's compositions in current Chromium, Firefox
+  and WebKit. The note says what that does and does not show.
 ---
 
 # Fuzzing the web-reference scanners (#2871 follow-up)
@@ -71,6 +72,44 @@ halves, `--from 0` and `--from 50000`, 50,000 each).
 inputs in Chromium: 22 leaks and 64 unattributed requests. Slowest rewrite in any run: 443 ms
 (WebKit; the median is a few milliseconds).
 
+## Through the shipped compositions, in current browsers (added 2026-10-26)
+
+The first table runs the scanner alone, in Chromium 131. The adversarial review asked for the shipped
+compositions in current builds, and `--compose` now provides them (`test/helpers/web-ref-fuzz.js`):
+
+- `reading`: the Studio's Reading view. The scanner, then the slide sanitizer (DOMPurify, the docs-site
+  binding), then the scanner again; the stylesheet through `blockWebCss` and the style sanitizer. Loaded as
+  a document and as a fragment (`innerHTML`).
+- `preview`: a preview frame. `withOwnOrigin` allows the site's own origin, `fonts: false`, the slide sanitizer,
+  and the content-security policy built from what the scanner refused, first in the head. Loaded as a document.
+
+`node tools/fuzz-web-refs.mjs --seed 20261026 --count 40000 --engines <engine> --compose <reading|preview>`,
+with `--playwright-chromium` for Chromium 153.
+
+| Composition | Engine | Inputs | Fetch as written | Requests after the rewrite |
+|---|---|---|---|---|
+| reading | Chromium 153.0.8010.12 | 40,000 | 6,283 | 0 |
+| reading | Firefox 155.0 | 40,000 | 6,078 | 0 |
+| reading | WebKit 26.6 | 40,000 | 5,888 | 0 |
+| preview | Chromium 153.0.8010.12 | 40,000 | 6,285 | 0 |
+| preview | Firefox 155.0 | 40,000 | 6,069 | 0 |
+| preview | WebKit 26.6 | 40,000 | 5,875 | 0 |
+
+Leaks, unattributed requests, scanner errors and hung inputs: 0 in every run.
+
+**What these runs say about the layers.** The compositions can fail, and the scanner is what holds them.
+With a scanner that refuses nothing (`--scanner-file` pointing at a stub), the Reading view leaks 85
+requests in 600 inputs (the sanitizer leaves images, a video `poster`, table backgrounds and styled
+attributes in place), and a preview frame leaks 11 in 1,200 (the policy does not cover a stylesheet
+`@import`, the one shape in the sample). With the scanner **before** this change, both compositions leaked nothing
+at seed 20261026 over 1,200 inputs: on these two surfaces the sanitizer and the policy already stopped the
+spellings the scanner-alone fuzz found (the sanitizer deletes `base`, `meta`, `style`, `iframe` and
+`srcdoc`; the policy closes `base-uri`, `object-src` and `img-src`). Those fixes are defense in depth for
+the surfaces that run no sanitizer, such as the CLI's `.html` export, and for any future caller that
+forgets one.
+
+Limits 2 and 5 below are therefore closed for `reading` and `preview`; the rest stand.
+
 ## What this does not show
 
 The honest reading of "zero in 100,000" is narrow; an adversarial review (the Munger inversion) of
@@ -78,24 +117,23 @@ this harness listed the gaps, and none is closed here.
 
 1. **About 15% of the inputs fetch as written.** The rest are syntax the browser rejects. The
    claim covers the 15,000 per engine that do, by construct unevenly: the CSS half fetches at 5%.
-2. **The scanner runs alone**, with `{ fonts: true }` and no allowed origin. No shipped surface
-   uses exactly that: the Reading view puts the sanitizer and the scanner in series, and the
-   previews run `fonts: false` with an allowlist and a content-security policy. The `blocked` list
-   those policies depend on is not checked for completeness.
+2. **The first table runs the scanner alone** (closed for the Reading view and the preview frame by the
+   section above). Still open: the CLI `.html` export composition, and the `blocked` list the policy depends
+   on is not checked for completeness.
 3. **The oracle is HTTP requests to one loopback server.** A late request (a refresh with a delay, an animation),
    a connection with no request, and a request to another origin are not seen. The address is always `127.0.0.1`.
 4. **Fetch classes the generator does not emit:** `<picture>`, `<a ping>`, `<form action>`, `xml:base`,
    the Mermaid fence reader, `@media print`, a refresh with a non-zero delay.
-5. **Chromium is the puppeteer build (131)**, older than current stable. Newer builds parse `<select>` content
-   differently, which is why the `<select>` rule above exists; no newer build was run.
+5. **The first table's Chromium is the puppeteer build (131).** The composition runs use Chromium 153, Firefox 155
+   and WebKit 26.6 (closed for them); the scanner-alone 100,000-input runs were not repeated on the newer builds.
 6. The Studio's Reading view itself is covered by `docs/e2e/read-article-beacons.spec.ts`
    (every row of the payload table), not by the fuzz.
 
 ## Confidence
 
 HIGH that the scanners agree with three engines on the grammar the fuzz generates, at 100,000
-inputs per engine, with the failing arm demonstrated. MEDIUM, not higher, on "no web fetch can
-survive them": limits 2 to 4 are untested classes, not tested-and-clean ones. To raise it: run the
-fuzz through the real compositions (scanner, then the sanitizer, then the scanner again for the
-Reading view; `fonts: false` with an allowlist and the policy for previews), add the fetch classes
-in item 4, and run a current-stable Chromium.
+inputs per engine alone and 40,000 through each shipped composition in current builds, with the failing
+arm demonstrated for each. MEDIUM, not higher, on "no web fetch can survive them": limits 3 and 4 are
+untested classes, not tested-and-clean ones. To raise it further: add the fetch classes in item 4
+(`<picture>`, `xml:base`, Mermaid fences, a refresh with a delay) and an oracle that sees late requests,
+connections with no request, and other origins.

@@ -52,11 +52,29 @@ async function startServer() {
   return { hits, homeHits, base, home: homeUrl, close: () => Promise.all([beacon, home].map((srv) => new Promise((r) => srv.close(r)))) };
 }
 
-/** The scanners, bundled for a browser page. */
-async function bundleRemoteRef() {
+/**
+ * The scanners and the pieces that sit beside them on a shipped surface, bundled for a browser page:
+ * `RemoteRef` (lib/core/remote-ref.js, or the file at `remoteRefPath`), and `Compose` with the slide
+ * sanitizer (DOMPurify, the docs-site binding), the stylesheet sanitizer and the preview frames'
+ * content-security policy.
+ */
+async function bundleRemoteRef(remoteRefPath = path.join(__dirname, '../../lib/core/remote-ref.js')) {
+  const root = path.join(__dirname, '../..');
   const built = await require('esbuild').build({
-    entryPoints: [path.join(__dirname, '../../lib/core/remote-ref.js')],
-    bundle: true, write: false, format: 'iife', globalName: 'RemoteRef', platform: 'browser', logLevel: 'silent',
+    stdin: {
+      contents: `
+        import * as RemoteRefMod from ${JSON.stringify(remoteRefPath)};
+        import DOMPurify from ${JSON.stringify(path.join(root, 'docs/node_modules/dompurify'))};
+        import { createSlideSanitizer } from ${JSON.stringify(path.join(root, 'lib/core/sanitize-slide-html.mjs'))};
+        import { sanitizeStyleText } from ${JSON.stringify(path.join(root, 'lib/core/sanitize-style-text.mjs'))};
+        import { subresourceCspMeta } from ${JSON.stringify(path.join(root, 'lib/core/subresource-csp.mjs'))};
+        globalThis.RemoteRef = RemoteRefMod.default ?? RemoteRefMod;
+        globalThis.Compose = { sanitizeSlideHtml: createSlideSanitizer(DOMPurify, window), sanitizeStyleText, subresourceCspMeta };
+      `,
+      resolveDir: root,
+      loader: 'js',
+    },
+    bundle: true, write: false, format: 'iife', platform: 'browser', logLevel: 'silent',
   });
   return built.outputFiles[0].text;
 }
@@ -83,6 +101,10 @@ const nameOf = (url) => url.slice(1).split(/[?#/]/)[0].replace(/-d$/, '');
  * @param {object} o
  * @param {any} o.page            a page with RemoteRef loaded (see `loadPage`)
  * @param {() => Promise<any>} o.openPage  opens a fresh page; used when an input hangs the renderer
+ * @param {'plain'|'reading'|'preview'} [o.compose]  how the scanners are composed before the load: `plain` is the scanner alone
+ *   (`fonts: true`, nothing allowed); `reading` is the Studio's Reading view (scanner, slide sanitizer, scanner again; the
+ *   stylesheet through the scanner and the style sanitizer); `preview` is a preview frame (`fonts: false`, the site's own
+ *   origin allowed, the slide sanitizer, and the content-security policy built from what the scanner refused)
  * @param {string} [o.home]       the home origin's URL; the page is served from it (see `startServer`)
  * @param {string} o.bundle       the scanners' bundle; reloaded into the page if an input navigated it away
  * @param {string[]} o.hits       the server's shared request log
@@ -94,9 +116,9 @@ const nameOf = (url) => url.slice(1).split(/[?#/]/)[0].replace(/-d$/, '');
  * @param {boolean} [o.control]   also load each input unrewritten (default true)
  * @param {(msg: string) => void} [o.log]
  */
-async function runFuzz({ page: firstPage, openPage, bundle, home, hits, base, seed, count, from = 0, batch = 300, control = true, log = () => {} }) {
+async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'plain', hits, base, seed, count, from = 0, batch = 300, control = true, log = () => {} }) {
   let page = firstPage;
-  const report = { seed, from, count, controlFetched: 0, controlRan: 0, controlByKind: { css: [0, 0], html: [0, 0] }, kinds: { css: 0, html: 0 }, leaks: [], bent: [], hung: [], unattributed: [], errors: [], slowest: { ms: 0, name: '' }, requests: 0, rewrittenRequests: 0 };
+  const report = { compose, seed, from, count, controlFetched: 0, controlRan: 0, controlByKind: { css: [0, 0], html: [0, 0] }, kinds: { css: 0, html: 0 }, leaks: [], bent: [], hung: [], unattributed: [], errors: [], slowest: { ms: 0, name: '' }, requests: 0, rewrittenRequests: 0 };
   const loadDocs = (docs, mode) => page.evaluate(async ({ docs: d, mode: m }) => {
     const root = document.getElementById('root');
     root.textContent = '';
@@ -175,8 +197,8 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, hits, base, se
       }
     }
 
-    const payload = inputs.map((p) => ({ name: p.name, kind: p.kind, html: asHtml(p), css: p.kind === 'css' ? p.text : '' }));
-    const rewriteInPage = (items) => items.map(({ name, kind, html, css }) => {
+    const payload = inputs.map((p) => ({ name: p.name, kind: p.kind, html: asHtml(p), css: p.kind === 'css' ? p.text : '', compose }));
+    const rewriteInPage = (items) => items.map(({ name, kind, html, css, compose: how }) => {
       const out = { name };
       const time = (fn) => {
         const t = performance.now();
@@ -184,14 +206,37 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, hits, base, se
         return [v, performance.now() - t];
       };
       try {
-        const [h, ms1] = time(() => RemoteRef.blockWebImages(html, [], { fonts: true }).html);
-        out.viaImages = h;
-        out.ms = ms1;
-        if (kind === 'css') {
-          const [c, ms2] = time(() => RemoteRef.blockWebCss(css).css);
-          out.viaCss = `<style>${c}</style><p>x</p>`;
-          out.ms += ms2;
+        let doc;
+        let sheet;
+        const t0 = performance.now();
+        if (how === 'reading') {
+          // the Studio's Reading view: the scanner, the slide sanitizer, the scanner again; the stylesheet through the
+          // scanner and the style sanitizer. Nothing is allowed, and the page has no policy of its own.
+          const first = RemoteRef.blockWebImages(html, [], { fonts: true }).html;
+          doc = RemoteRef.blockWebImages(Compose.sanitizeSlideHtml(first), [], { fonts: true }).html;
+          if (kind === 'css') sheet = Compose.sanitizeStyleText(RemoteRef.blockWebCss(css, []).css);
+        } else if (how === 'preview') {
+          // a preview frame: the site's own origin allowed, no fonts refusal (the policy does that), the sanitizer, and the
+          // content-security policy built from what the scanner refused, first in the head
+          const allowed = RemoteRef.withOwnOrigin([], location.origin);
+          const r = RemoteRef.blockWebImages(html, allowed, { fonts: false });
+          let blocked = r.blocked;
+          let body = Compose.sanitizeSlideHtml(r.html);
+          let style = '';
+          if (kind === 'css') {
+            const c = RemoteRef.blockWebCss(css, allowed);
+            blocked = blocked.concat(c.blocked);
+            style = `<style>${Compose.sanitizeStyleText(c.css)}</style>`;
+            body = '<p>x</p>';
+          }
+          doc = `<!doctype html><html><head>${Compose.subresourceCspMeta({ webOrigins: [], blocked })}${style}</head><body>${body}</body></html>`;
+        } else {
+          doc = RemoteRef.blockWebImages(html, [], { fonts: true }).html;
+          if (kind === 'css') sheet = RemoteRef.blockWebCss(css).css;
         }
+        out.viaImages = doc;
+        if (kind === 'css' && sheet !== undefined) out.viaCss = `<style>${sheet}</style><p>x</p>`;
+        out.ms = performance.now() - t0;
       } catch (e) {
         out.err = String(e && e.message ? e.message : e);
       }
@@ -218,7 +263,8 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, hits, base, se
     const paths = [['blockWebImages', 'viaImages'], ['blockWebCss', 'viaCss']];
     for (const [via, key] of paths) {
       const docs = rewritten.filter((r) => typeof r[key] === 'string');
-      for (const mode of ['doc', 'frag']) {
+      // a content-security policy lives in a document's own head, so a preview frame is only ever loaded as a document
+      for (const mode of compose === 'preview' ? ['doc'] : ['doc', 'frag']) {
         const got = await fetchedBy(docs.map((r) => r[key]), mode);
         report.rewrittenRequests += got.urls.length;
         for (const u of got.urls) {
