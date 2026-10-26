@@ -122,6 +122,23 @@ describe('calco wrapping label insets', () => {
   });
 });
 
+describe('calco .odp wrapping label', () => {
+  test('a card with wrapping text is a custom shape with a full-width text area; a one-line label stays a rectangle', async () => {
+    const card = { kind: 'box', x: 100, y: 100, w: 360, h: 220, radii: [16, 16, 16, 16], fill: { color: '#eeeeee', alpha: 1 }, group: 0 };
+    const head = frame([[run('Heading')]], { x: 130, y: 130, w: 300, h: 30, group: 0 });
+    const body = frame([[run('A body that wraps')], [run('onto a second line')]], { x: 130, y: 180, w: 300, h: 60, group: 0, flow: true });
+    const odp = async (frames) => (await JSZip.loadAsync(Buffer.from(await writeOdp(JSZip, { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, shapes: [card], frames }] }, 'nodebuffer')))).file('content.xml').async('string');
+    const wrapped = await odp([head, body]);
+    // LibreOffice never wraps the text of a draw:rect, and a `left` text area is as wide as its text.
+    assert.match(wrapped, /<draw:custom-shape [^>]*name="Label/);
+    assert.doesNotMatch(wrapped, /<draw:rect /);
+    assert.match(wrapped, /draw:textarea-horizontal-align="justify"/);
+    assert.match(wrapped, /fo:wrap-option="wrap"/);
+    const oneLine = await odp([frame([[run('Only one line')]], { x: 130, y: 130, w: 300, h: 30, group: 0 })]);
+    assert.match(oneLine, /<draw:rect /);
+  });
+});
+
 describe('calco writers wrap a flow frame', () => {
   test('the .odp text box of a flow frame is one paragraph', async () => {
     const f = frame([[run('one two')], [run('three')]], { flow: true });

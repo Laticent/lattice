@@ -271,7 +271,9 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		} else attrs.push('draw:shadow="hidden"');
 		if (label) {
 			// The text does not wrap and sits at the top; the edge its alignment grows from is inset.
-			const h = label.align === 'center' ? 'center' : label.align === 'right' ? 'right' : 'left';
+			// A text area that is `left`, `center` or `right` is as wide as its text and never wraps; a wrapping label
+			// takes `justify` (the whole box between its paddings) and the paragraph's own `fo:text-align` places the lines.
+			const h = label.flow ? 'justify' : label.align === 'center' ? 'center' : label.align === 'right' ? 'right' : 'left';
 			attrs.push(
 				`draw:textarea-vertical-align="top" draw:textarea-horizontal-align="${h}" fo:wrap-option="${label.flow ? 'wrap' : 'no-wrap'}" draw:auto-grow-height="false" draw:auto-grow-width="false" ` +
 					`fo:padding-top="${cm(label.ins.t)}" fo:padding-bottom="0cm" fo:padding-left="${cm(label.ins.l)}" fo:padding-right="${cm(label.ins.r)}"`,
@@ -304,7 +306,9 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			text = t.para;
 		}
 		// A rectangle (rounded or not) keeps its corners when resized; any other outline is a path.
-		if (geom.preset === 'rect') {
+		// LibreOffice never wraps the text of a `draw:rect`; a custom shape wraps it (measured, 24.2). A label whose text
+		// wraps is therefore written as one, which gives up the rectangle's corners staying round when it is resized.
+		if (geom.preset === 'rect' && !label?.flow) {
 			const radius = geom.radius ? ` draw:corner-radius="${cm(geom.radius)}"` : '';
 			return `<draw:rect draw:style-name="${style}" draw:name="${xmlEscape(name)}" ${pos}${radius}>${text}</draw:rect>`;
 		}
