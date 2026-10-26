@@ -4881,6 +4881,13 @@ async function renderBody(browser, g, closeBrowser) {
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
+    // The `fonts:` policy on the file we just finished (lib/core/font-policy.js): the emoji slices are cut to the deck's own
+    // emoji, `fonts: system` drops the engine's faces, `fonts: exact` cuts the text faces. The same function the player runs.
+    try {
+      const done = fs.readFileSync(outFile, 'utf8');
+      const cut = await require('./lib/export/player-fonts.js').subsetEmbeddedFonts(done, FONT_POLICY);
+      if (cut.applied) fs.writeFileSync(outFile, cut.html);
+    } catch { /* the finished render stays as written */ }
     // materializedNotes, NOT slideNotes — under --strip-notes the former is all-null. The
     // sidecar is a SHAREABLE file, so handing it the unstripped array leaks exactly the
     // text the flag exists to remove, and it did (red-team, this PR): the same deck+flags
