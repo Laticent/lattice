@@ -128,9 +128,9 @@ test('the slide camera draws what an author can put on a slide: control characte
       <video class="vid" poster="blue.png"></video><svg class="tex" viewBox="0 0 200 200"><rect width="200" height="200"/></svg></section></main></body></html>`.replace(/\\u000C/g, '\u000C').replace(/\\u000B/g, '\u000B');
   const file = path.join(tmp, 'features.html');
   fs.writeFileSync(file, page_);
-  // No hinting: a CI runner's fontconfig grid-fits the oracle's glyphs (0.1% to 1.3% of pixels moved on four decks there) while
-    // an SVG image draws them unhinted, so with hinting left on this measured the runner's fonts, not the camera.
-    const launch = { headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files', '--font-render-hinting=none'] };
+  // This page asserts no text pixels (it checks the picture, video, texture and control-character paths), so the runner's fontconfig
+  // does not matter here; the deck tests above launch on a neutral one.
+  const launch = { headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] };
   if (process.env.CHROME_PATH) launch.executablePath = process.env.CHROME_PATH;
   const browser = await puppeteer.launch(launch);
   try {

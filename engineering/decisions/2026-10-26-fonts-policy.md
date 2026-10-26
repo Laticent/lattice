@@ -29,8 +29,9 @@ Nobody types a new emoji in our face, and PowerPoint cannot use it (the font is 
 |---|---|---|
 | player (CLI and Studio) | `exact` cuts to the characters shown; `used`/`full` keep the face; `system` drops it | `exact` cuts each slice to the deck's emoji; `used` keeps the slices that hold them; `full` all 11; `system` none |
 | editable PPTX/ODP | every tier but `system` embeds the whole face (no tier cuts an Office face, or edited text would lose glyphs); `system` embeds nothing | emoji stay in the slide picture |
-| plain `.html` | as the player: the finished file is cut by the same function | as the player |
-| PDF, image sets | `system` leaves the engine's faces out of the page, so the text is laid out in the machine's fonts | same, for the emoji drawn into the picture |
+| plain `.html`, `--read`, `--fluid` | as the player: the finished file is cut by the same function, counting what its entities spell (`&#x1F389;`, `&laquo;`) | as the player |
+| PDF | `system` embeds no font file: the writer skips the engine's faces, so those words stay in the page picture (drawn in our faces) and the PDF has no selectable or searchable text in them. CLI and Studio do the same | the emoji are in the picture either way |
+| image sets | no font file to embed; the pictures are drawn as always | same |
 
 CLI and Studio read the same words, merged class by class (`--fonts full` keeps the deck's emoji tier).
 
@@ -48,6 +49,7 @@ An export inlines `slicesFor(text)` (`lib/fonts/emoji-faces.js`). Google puts so
   emitted rules, not pixels.
 - **An Export-to-Marp bundle** has the emoji rules removed (`withoutEmojiFont`, lib/core/marp-bundle.js): marp-core draws emoji as twemoji images.
 - **The player's Read view** names `'Noto Color Emoji'` in its font stacks, so an emoji in the article draws from the embedded font like the slides.
+- **The published bundle.** `dist/lattice.js` is one file, where `__dirname` is `dist/`; the color wasm is found through the package's `lib/` (`lib/fonts/subset-color.js`) and `test/integration/export/emoji-font-cut.test.js` renders from the bundle as well as from source, because a missing wasm only makes the cut silently skip.
 - **`fonts: system`** drops only the engine's text faces and the emoji faces, inside the `lattice-embedded-fonts` block. KaTeX's faces and slide
   text that looks like a rule are not touched.
 

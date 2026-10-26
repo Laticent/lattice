@@ -22,7 +22,7 @@ const EMOJI: { value: Tier; title: string }[] = [
 
 const BLURB = {
 	webpage: 'How much of each typeface the web page carries.',
-	pdf: 'The PDF writer embeds the glyphs it draws. System leaves the engine’s fonts out, so the text is laid out in this device’s fonts.',
+	pdf: 'The PDF writer embeds the glyphs it draws. System embeds none of the engine’s fonts: those words stay in the page picture, so they are not selectable or searchable.',
 	office: 'Editable PowerPoint and LibreOffice files embed the whole face for every choice but System, so edited text keeps the deck’s type.',
 };
 

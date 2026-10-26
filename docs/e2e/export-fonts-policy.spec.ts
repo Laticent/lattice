@@ -68,3 +68,24 @@ onEveryEngine('@smoke Share → editable PowerPoint embeds the deck faces by def
 	const none = await editablePptxEntries(page, 'system');
 	expect(none, 'System embeds nothing').toEqual([]);
 });
+
+async function pdfFontFiles(page: Page, text?: string): Promise<number> {
+	const dialog = await openShare(page, /^PDF/);
+	if (text) await dialog.getByRole('combobox', { name: 'Text fonts' }).selectOption(text);
+	const download = page.waitForEvent('download', { timeout: 240_000 });
+	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
+	const { PDFDocument, PDFName, PDFDict } = await import('pdf-lib');
+	const pdf = await PDFDocument.load(new Uint8Array(readFileSync((await (await download).path()) as string)), { updateMetadata: false });
+	let files = 0;
+	for (const [, ref] of pdf.context.enumerateIndirectObjects()) {
+		if (ref instanceof PDFDict && (ref.has(PDFName.of('FontFile2')) || ref.has(PDFName.of('FontFile3')) || ref.has(PDFName.of('FontFile')))) files++;
+	}
+	return files;
+}
+
+onEveryEngine('@smoke Share → PDF embeds the deck faces by default, and System embeds none', async ({ page }) => {
+	const embedded = await pdfFontFiles(page);
+	const none = await pdfFontFiles(page, 'system');
+	expect(embedded, 'the default carries the deck’s faces').toBeGreaterThan(0);
+	expect(none, 'System leaves the engine’s faces out of the PDF').toBeLessThan(embedded);
+});

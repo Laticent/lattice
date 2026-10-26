@@ -2001,7 +2001,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 		// image-per-page lanes below stay as the fallback, so a deck is never lost to it.
 		if (opts?.writer !== 'photo') {
 			try {
-				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, opts?.images);
+				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, opts?.images, opts?.fonts);
 			} catch (e) {
 				console.warn('[lattice-export] shared PDF writer failed (' + (e?.message || e) + ') — falling back to one photo per page.');
 			}
@@ -2044,7 +2044,7 @@ export function deckImageSetting(source) {
 	return applyImagesOverride(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images')));
 }
 
-async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images) {
+async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images, fonts) {
 	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
@@ -2115,7 +2115,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
 	// Fonts through the same guard as images: no web font is fetched from the author's machine.
-	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts) });
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });

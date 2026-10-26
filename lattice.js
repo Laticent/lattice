@@ -2803,15 +2803,17 @@ const { faces: katexFaces, rules: katexRules } = splitKatexSheet(katexInline);
 const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
 const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 // Noto Color Emoji: only the slices this deck's emoji need (lib/fonts/emoji-faces.js), so a deck
-// without emoji carries none of the font. Numeric character references count as the emoji they spell.
-const deckText = highlightedSlides.join('\n').replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (m, hex, dec) => {
-  const cp = Number.parseInt(hex || dec, hex ? 16 : 10);
-  return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
-});
-const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
+// without emoji carries none of the font. The slides AND the title count: the player's bar shows the title. `slicesFor` reads numeric
+// character references as the emoji they spell.
+const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}`;
+// `fonts: system` means the FILE carries none of that class. A `.html` deliverable then leaves the faces out; a PDF, PowerPoint or image
+// set still renders its pictures in the engine's faces (the Studio's preview does too) and simply embeds no font file
+// (the PDF writer skips them, lib/core/pdf-compose/compose.mjs; the Office export embeds none).
+const FILE_IS_HTML = OUT_FORMAT === 'html';
+const emojiCss = FONT_POLICY.emoji === 'system' && FILE_IS_HTML ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
 const extraFontCss = katexFacesCss + emojiCss;
-// `fonts: system`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
-const textFonts = FONT_POLICY.text === 'system' ? '' : embeddedFonts;
+// `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
+const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
 const docFonts = !extraFontCss
   ? textFonts
   : textFonts
@@ -4881,13 +4883,6 @@ async function renderBody(browser, g, closeBrowser) {
       if (n > 0) pageCount = n;
     } catch { /* keep the authored count */ }
     await closeBrowser();
-    // The `fonts:` policy on the file we just finished (lib/core/font-policy.js): the emoji slices are cut to the deck's own
-    // emoji, `fonts: system` drops the engine's faces, `fonts: exact` cuts the text faces. The same function the player runs.
-    try {
-      const done = fs.readFileSync(outFile, 'utf8');
-      const cut = await require('./lib/export/player-fonts.js').subsetEmbeddedFonts(done, FONT_POLICY);
-      if (cut.applied) fs.writeFileSync(outFile, cut.html);
-    } catch { /* the finished render stays as written */ }
     // materializedNotes, NOT slideNotes — under --strip-notes the former is all-null. The
     // sidecar is a SHAREABLE file, so handing it the unstripped array leaks exactly the
     // text the flag exists to remove, and it did (red-team, this PR): the same deck+flags
@@ -5470,7 +5465,7 @@ async function composePdfInPage(g, page) {
     // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.min(COMPOSE_MAX_MS, Math.max(RENDER_WATCHDOG_MS, handles.length * 4000));
-    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality, imageSetting) => {
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality, imageSetting, fontPolicy) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
       // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
@@ -5506,7 +5501,7 @@ async function composePdfInPage(g, page) {
       let composed;
       try {
         const readFontFaceRules = (href) => window[facesFn](href);
-        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide, images: imageSetting });
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide, images: imageSetting, fonts: fontPolicy });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
         return { error: String(e?.stack || e) };
@@ -5515,7 +5510,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING, FONT_POLICY), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {
@@ -5682,6 +5677,18 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   return swapped;
 }
 
+// The characters a finished page shows: its raw text, plus what its entities spell (`&#x1F389;`, `&laquo;`). A face is cut to these, so a
+// character written only as an entity must be counted, or it loses its glyph. Decoded by the DOM, as a browser reads it.
+async function applyFontPolicyToHtml(file) {
+  try {
+    const done = fs.readFileSync(file, 'utf8');
+    const { JSDOM } = require('jsdom');
+    const shown = new JSDOM(done).window.document.documentElement.textContent;
+    const cut = await require('./lib/export/player-fonts.js').subsetEmbeddedFonts(done, { ...FONT_POLICY, extraChars: shown });
+    if (cut.applied) fs.writeFileSync(file, cut.html);
+  } catch { /* the finished render stays as written */ }
+}
+
 // Driver: render once; on a Chrome target crash / wedge (NOT an author-fixable
 // layout error) retry exactly once with hardening flags before giving up loud
 // and non-zero. This turns a transient, environmental Chrome failure into a
@@ -5697,6 +5704,10 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
       throw e;
     }
   }
+  // The `fonts:` policy on every finished `.html` that is not a sealed player (lib/core/font-policy.js): the plain page, `--read` and
+  // `--fluid`. The emoji slices are cut to the deck's own emoji, `fonts: system` drops the engine's faces, `fonts: exact` cuts the text
+  // faces. The player cuts inside its own assembly, where its policy hashes are written, so it is left alone here.
+  if (OUT_FORMAT === 'html' && !PLAYER) await applyFontPolicyToHtml(outFile);
   // Only here, on a fully successful render: the raster has been captured from the sidecar
   // and any viewer rewrite is done, so a byproduct `.html` can go (see removeSidecarHtml).
   removeSidecarHtml();

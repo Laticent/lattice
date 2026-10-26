@@ -39,3 +39,9 @@ test('dist/lattice.css declares every slice with the COLR v1 guard', () => {
   assert.equal(rules.length, EMOJI_SLICES.length);
   for (const r of rules) assert.match(r, /tech\(color-COLRv1\)/);
 });
+
+test('a numeric character reference is the emoji it spells', () => {
+  assert.deepEqual(slicesFor('&#x1F1EB;&#x1F1F7;'), ['noto-color-emoji-0']);
+  assert.deepEqual(slicesFor('&#127467;&#127479;'), ['noto-color-emoji-0']);
+  assert.deepEqual(slicesFor('&#x41; &amp; &#0;'), []);
+});
