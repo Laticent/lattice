@@ -251,20 +251,27 @@ function measureInPage() {
         edges: [l + bl, t + bt, rr + br, bb + bbw], size: [w, h],
       };
     }
-    // The `.slide-bar` overlay is a strip: the side it sits on is the edge it touches, and it is
-    // absent (zero-size) until a placement or register asks for a bar.
-    const overlay = sec.querySelector(':scope > .slide-bar');
-    let overlaySide = null;
-    if (overlay) {
-      const r = overlay.getBoundingClientRect();
-      if (r.width > 0 && r.height > 0) {
-        const near = (a, b) => Math.abs(a - b) < 1;
-        if (r.width < r.height) overlaySide = near(r.left, sb.left) ? 'left' : 'right';
-        else overlaySide = near(r.top, sb.top) ? 'top' : 'bottom';
-      }
+    // The `.slide-bar` overlay is two strips, a placement strip and a top strip. A strip counts as a bar
+    // only when it has a box AND paints (a background image or a visible color): geometry alone would
+    // call a strip whose gradient resolved to nothing (print mode once did) a bar. The side it sits on is
+    // the edge it touches. `strayBars` counts any `.slide-bar` that is not a direct child of the section:
+    // a pass that folded the bar into a panel or a cell moved it off the edge.
+    const bars = [...sec.querySelectorAll(':scope > .slide-bar')];
+    const overlaySides = [];
+    for (const bar of bars) {
+      const r = bar.getBoundingClientRect();
+      const bc = getComputedStyle(bar);
+      const paints = bc.backgroundImage !== 'none' || !/^rgba\(\s*0,\s*0,\s*0,\s*0\)$|^transparent$/.test(bc.backgroundColor);
+      if (!(r.width > 0 && r.height > 0 && paints)) continue;
+      const near = (a, b) => Math.abs(a - b) < 1;
+      if (r.width < r.height) overlaySides.push(near(r.left, sb.left) ? 'left' : 'right');
+      else overlaySides.push(near(r.top, sb.top) ? 'top' : 'bottom');
     }
+    const strayBars = sec.querySelectorAll('.slide-bar').length - bars.length;
     return {
-      overlay: overlaySide,
+      overlay: overlaySides,
+      barCount: bars.length,
+      strayBars,
       cls: sec.className,
       border: [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth].map(px),
       els,
@@ -369,19 +376,29 @@ async function main() {
   if (opts.has('bars')) {
     Array.from({ length: count }, (_, i) => i).forEach((i) => {
       const label = labelOf(i);
-      if (/^(plain-content|content\+)/.test(label) || /\+dark$/.test(label)) return;
-      const miss = ['top', 'left', 'right', 'bottom'].filter((pl) => {
+      if (/^(plain-content|content\+)/.test(label)) return;
+      // A dark slide paints its top bar as a background line, which this census does not read.
+      const miss = (/\+dark$/.test(label) ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']).filter((pl) => {
         if (!byPlacement[pl]) return false;
         const sec = byPlacement[pl][i];
-        return !(sec.border[sideOf[pl]] > 0 || sec.overlay === pl);
+        return !(sec.border[sideOf[pl]] > 0 || sec.overlay.includes(pl));
       });
       if (miss.length) (barless[miss.join('+')] ||= []).push(label);
     });
   }
+  // INTEGRITY: a bleed slide carries exactly two strips, both direct children of the section, in every
+  // placement. A stray one means a pass folded the bar away from the edge; a third means two passes injected.
+  const integrity = [];
+  Array.from({ length: count }, (_, i) => i).forEach((i) => {
+    for (const pl of PLACEMENTS) {
+      const sec = byPlacement[pl][i];
+      if (sec.strayBars > 0 || ![0, 2].includes(sec.barCount)) integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars });
+    }
+  });
   const slidesMoved = new Set(moved.map((m) => m.slide));
   const result = {
     placements: PLACEMENTS, reference: REFERENCE, tolerance: TOL, slides: slides.length,
-    elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size,
+    elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size, integrity,
     slidesStable: Array.from({ length: count }, (_, i) => labelOf(i)).filter((l) => !slidesMoved.has(l)),
     byKind: totals, vsReference: vsRef, ...(opts.has('bars') ? { barless } : {}),
     worst: [...moved].sort((a, b) => b.worst - a.worst).slice(0, opts.has('detail') ? Infinity : 25),
@@ -416,9 +433,13 @@ async function main() {
     for (const m of result.worst) {
       console.log(`  ${m.slide.padEnd(34)} ${m.name.padEnd(36)} ${m.spread.map(f).join(' ')}`);
     }
-    console.log(moved.length ? '\nFAIL: the bar placement moves content.' : '\nPASS: no element moves with the bar placement.');
+    if (integrity.length) {
+      console.log('\nBar integrity (each bleed slide must carry exactly two strips, direct children of the section):');
+      for (const x of integrity.slice(0, 25)) console.log(`  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} direct ${x.direct}, stray ${x.stray}`);
+    }
+    console.log(moved.length || integrity.length ? `\nFAIL: ${moved.length ? 'the bar placement moves content' : 'the bar overlay is malformed'}.` : '\nPASS: no element moves with the bar placement.');
   }
-  process.exit(moved.length && !opts.has('advisory') ? 1 : 0);
+  process.exit((moved.length || integrity.length) && !opts.has('advisory') ? 1 : 0);
 }
 
 main().catch((e) => die(e.stack || String(e)));

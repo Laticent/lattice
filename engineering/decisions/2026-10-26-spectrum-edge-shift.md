@@ -191,7 +191,31 @@ it changes every slide in every export.
   every component but `divider` drawing a bar on left, right and bottom, and the bar-less top is the default.
   Real renders show the bar over a photo, a dark panel, a media slide and (accent) a collage.
 - **Not verified:** the ODP export (same engine, not run), the Studio and Playground (the runtime twin is
-  pinned by a unit test, not driven), and export-to-Marp, which loses the bar on these frames.
+  pinned by a unit test, not driven), and Marp-for-VS-Code. (Round 4 corrects an earlier line here: export-to-Marp ships the runtime and does inject the strips.)
+
+## Round 4: the third independent check
+
+A third checker (Opus, fresh context, run on commit `ffdadf4`) refuted the shipped state. Findings, all
+confirmed and fixed:
+
+- **Gatherers swallowed the strip.** Passes that collect a section's children (`split-panels`,
+  `masthead-lift`, `coda`, the transform DSL, `carousel`, `split-envelope`, `compare-code`, `guards-trim`,
+  `prose-projection`) treated `<i class="slide-bar">` as content. Each now skips it, and three regression
+  tests fail with the skip reverted. The strips are the last children only at the moment of injection.
+- **Auto-split grew a closing page** holding only the strips on a `split-compare` slide. Fixed in the
+  splitter's chrome list and pinned by a test.
+- **Two strips, not one.** A slide can want a placement bar and a top bar at once (`accent`, `tone-edge`,
+  `spectrum: solid|duo|mono`), so the injector appends `slide-bar` and `slide-bar slide-bar-top`.
+- **Print** lost the gradient bar (`background-image:none` needs a color); `section.print` now fills it.
+- **The PDF composer painted collage photos over the bar.** `paintedAbove` in
+  `lib/core/pdf-compose/read-slide.mjs` now tests each strip's box against the image box.
+  `test/integration/export/slide-bar-pdf.test.js` rasterizes left, right and bottom and checks the edge
+  pixels differ from the bar-off render.
+- **Export-to-Marp does get the bar**, through the bundled runtime. Earlier text saying otherwise was wrong.
+- **The harness** now checks overlay integrity (each bleed slide has exactly 0 or 2 direct-child strips and
+  no stray ones) and detects strips by paint, and `--bars` includes dark slides' left, right and bottom.
+
+Still unverified: the Studio and Playground live preview, `mode: sketch`, RTL, marp-cli PDF output.
 
 ## How it was checked, and what the first round missed
 
