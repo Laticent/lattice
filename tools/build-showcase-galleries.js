@@ -167,7 +167,7 @@ function buildOne(showcase, groups, theme, mdFresh) {
   const outPdf = galleryPdfPath(showcase.id, theme);
   try {
     fs.writeFileSync(tmpPath, mdSource);
-    execFileSync(process.execPath, [EMULATOR, tmpPath, THEME_CSS, outPdf, 'indaco', '-q', '--size', 'deck'],
+    execFileSync(process.execPath, [EMULATOR, tmpPath, THEME_CSS, '--size', 'deck', outPdf, 'indaco', '-q'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
   } finally {
     for (const p of [tmpPath, tmpPath.replace(/\.md$/, '.html'), outPdf.replace(/\.pdf$/, '.html')]) {
