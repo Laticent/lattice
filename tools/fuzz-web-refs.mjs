@@ -49,11 +49,12 @@ const TYPES = { chromium, firefox, webkit };
 
 /** The scanner bundle: the working tree's, or `ref`'s (with its one dependency). */
 async function bundle() {
-  if (scannerFile) return F.bundleRemoteRef(path.resolve(scannerFile));
-  if (!ref) return F.bundleRemoteRef();
+  const withCompose = compose !== 'plain';
+  if (scannerFile) return F.bundleRemoteRef(path.resolve(scannerFile), { withCompose });
+  if (!ref) return F.bundleRemoteRef(undefined, { withCompose });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-ref-'));
   for (const f of ['remote-ref.js', 'media-sources.js']) fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT }));
-  return F.bundleRemoteRef(path.join(dir, 'remote-ref.js'));
+  return F.bundleRemoteRef(path.join(dir, 'remote-ref.js'), { withCompose: compose !== 'plain' });
 }
 
 const out = { compose, seed, from, count, ref: ref || 'working tree', commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(), engines: {} };

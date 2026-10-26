@@ -53,23 +53,27 @@ async function startServer() {
 }
 
 /**
- * The scanners and the pieces that sit beside them on a shipped surface, bundled for a browser page:
- * `RemoteRef` (lib/core/remote-ref.js, or the file at `remoteRefPath`), and `Compose` with the slide
- * sanitizer (DOMPurify, the docs-site binding), the stylesheet sanitizer and the preview frames'
- * content-security policy.
+ * The scanner bundled for a browser page: `RemoteRef` (lib/core/remote-ref.js, or the file at `remoteRefPath`).
+ * With `withCompose`, also `Compose`: the slide sanitizer (DOMPurify, the docs-site binding), the stylesheet
+ * sanitizer and the preview frames' content-security policy, for `--compose reading|preview`.
  */
-async function bundleRemoteRef(remoteRefPath = path.join(__dirname, '../../lib/core/remote-ref.js')) {
+async function bundleRemoteRef(remoteRefPath = path.join(__dirname, '../../lib/core/remote-ref.js'), { withCompose = false } = {}) {
   const root = path.join(__dirname, '../..');
-  const built = await require('esbuild').build({
-    stdin: {
-      contents: `
-        import * as RemoteRefMod from ${JSON.stringify(remoteRefPath)};
+  // The sanitizer comes from the docs site's dependencies (DOMPurify), which the integration job does not install:
+  // the composition is bundled only when a run asks for it, so the scanner-alone slice needs nothing from docs/.
+  const compose = withCompose
+    ? `
         import DOMPurify from ${JSON.stringify(path.join(root, 'docs/node_modules/dompurify'))};
         import { createSlideSanitizer } from ${JSON.stringify(path.join(root, 'lib/core/sanitize-slide-html.mjs'))};
         import { sanitizeStyleText } from ${JSON.stringify(path.join(root, 'lib/core/sanitize-style-text.mjs'))};
         import { subresourceCspMeta } from ${JSON.stringify(path.join(root, 'lib/core/subresource-csp.mjs'))};
-        globalThis.RemoteRef = RemoteRefMod.default ?? RemoteRefMod;
-        globalThis.Compose = { sanitizeSlideHtml: createSlideSanitizer(DOMPurify, window), sanitizeStyleText, subresourceCspMeta };
+        globalThis.Compose = { sanitizeSlideHtml: createSlideSanitizer(DOMPurify, window), sanitizeStyleText, subresourceCspMeta };`
+    : '';
+  const built = await require('esbuild').build({
+    stdin: {
+      contents: `
+        import * as RemoteRefMod from ${JSON.stringify(remoteRefPath)};
+        globalThis.RemoteRef = RemoteRefMod.default ?? RemoteRefMod;${compose}
       `,
       resolveDir: root,
       loader: 'js',

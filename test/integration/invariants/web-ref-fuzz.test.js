@@ -22,10 +22,14 @@ const COUNT = 600;
 
 describe('web references: a seeded fuzz slice fetches nothing once rewritten', { skip: SKIP, timeout: 300000 }, () => {
   test(`seed ${SEED}, ${COUNT} inputs`, async () => {
-    const server = await F.startServer();
-    const bundle = await F.bundleRemoteRef();
-    const browser = await require('puppeteer').launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    // Acquire in order and release whatever was acquired: a server left listening after a failed bundle keeps
+    // node:test from ever exiting, which holds a CI shard until its timeout.
+    let server;
+    let browser;
     try {
+      server = await F.startServer();
+      const bundle = await F.bundleRemoteRef();
+      browser = await require('puppeteer').launch({ headless: 'new', executablePath: CHROME, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
       const page = await browser.newPage();
       await F.loadPage(page, bundle, server.home);
       const r = await F.runFuzz({ page, openPage: () => browser.newPage(), bundle, home: server.home, hits: server.hits, base: server.base, seed: SEED, count: COUNT });
@@ -44,8 +48,8 @@ describe('web references: a seeded fuzz slice fetches nothing once rewritten', {
       assert.deepEqual(r.errors, []);
       assert.deepEqual(r.hung, []);
     } finally {
-      await browser.close();
-      await server.close();
+      await browser?.close();
+      await server?.close();
     }
   });
 });
