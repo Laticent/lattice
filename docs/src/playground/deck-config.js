@@ -355,8 +355,19 @@ function normalize(key, value, preset) {
 // sizes and keywords never trip this, so they stay bare like the example decks.
 function quoteIfNeeded(value) {
   const v = String(value);
-  if (/[:#]/.test(v) || /^\s|\s$/.test(v) || v === '') return `"${v.replace(/"/g, '\\"')}"`;
-  return v;
+  if (!(/[:#]/.test(v) || /^\s|\s$/.test(v) || v === '')) return v;
+  // The engine reads a quoted span RAW (`frontMatterScalar` unfolds no escape), so the value goes
+  // in unescaped wherever a quote can hold it unchanged (#1958):
+  //   - no `\` and no `"`: double quotes, as before;
+  //   - a `\` or `"` and no `'`: single quotes, which neither the engine nor YAML reads escapes in;
+  //   - a `'` too, but no `"` and no trailing `\`: double quotes, raw, which the engine reads back
+  //     whole (a `\` only skips the character after it while it looks for the closing quote).
+  // The old code escaped `"` and left a trailing `\` to swallow the closing quote. What is left,
+  // a value holding both quote marks, has no form both readers take; it keeps the old escape.
+  if (!/[\\"]/.test(v)) return `"${v}"`;
+  if (!v.includes("'")) return `'${v}'`;
+  if (!v.includes('"') && !v.endsWith('\\')) return `"${v}"`;
+  return `"${v.replace(/"/g, '\\"')}"`;
 }
 
 // Set (or clear) ONE managed field and return the rewritten source. Re-reads the
