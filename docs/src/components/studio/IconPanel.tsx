@@ -25,7 +25,7 @@ import { ChoiceRow, ColorRow, Field, PanelFooter, TextRow } from './object-contr
 
 const SIZE_NAMES: Record<string, string> = { sm: 'Small', md: 'Standard', lg: 'Large' };
 const FRAME_NAMES: Record<string, string> = { framed: 'Framed', bare: 'Bare' };
-const LOOK_NAMES: Record<string, string> = { pigment: 'Pigment', etching: 'Etching', tone: 'Tone' };
+const LOOK_NAMES: Record<string, string> = { pigment: 'Pigment', etch: 'Etch', tone: 'Tone' };
 const CORNER_NAMES: Record<string, string> = { square: 'Square', rounded: 'Rounded' };
 
 /** The deck's color slots, `c1` … `c12`, from the schema's own `color` parameter. */

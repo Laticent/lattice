@@ -49,7 +49,7 @@ test('the trailing Key Insight and below-note belong to the slide, not to pane 2
 });
 
 test('the host never gains `content` or keeps a component class, and keeps its own classes', () => {
-  assert.equal(hostClass(render(DECK)), 'lat-pane-host form');
+  assert.equal(hostClass(render(DECK)), 'lat-pane-host marks-pigment marks-muted form'); // the HOST carries the finish; a pane cell below never does
   // A spot directive placed AFTER the panes still applies to the slide.
   const late = hostClass(render(`## T\n\n${PANES}\n\n<!-- _class: invert -->\n`));
   assert.match(late, /\binvert\b/);

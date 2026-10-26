@@ -38,7 +38,7 @@
           ],
           "look": [
             "pigment",
-            "etching",
+            "etch",
             "tone"
           ],
           "corners": [

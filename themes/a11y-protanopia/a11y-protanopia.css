@@ -37,9 +37,21 @@
   --pass: light-dark(#054c86, #82bfff);
   --warn: light-dark(#926300, #ffdcad);
   --fail: light-dark(#5f0009, #e9716a);
-  --chart-state-pass: #054c86;
-  --chart-state-warn: #926300;
-  --chart-state-fail: #5f0009;
+  /* The status FILLS (base.tokens.css § STATUS, IN TWO JOBS), one ink per slide like every chart fill: DEEP under
+   * white at 7:1 on the light face, and on the dark face BRIGHT under the near-black `--on-mark` at
+   * 7:1, as every a11y palette's chart fills are (engineering/chart-styling.md §3). Solved as a trio that clears this
+   * palette's own colorblind floor on both faces, one set for both intensities (the vivid aliases come from `a11y-base`). A status line or text
+   * paints the status ink above; the two exceptions also wear a SIGNAL ring, the status color at
+   * the opposite lightness to its fill. Solved by tools/curate-chart-solids.js. */
+  --pass-mark: light-dark(#1B4268, #9EBEE0);
+  --warn-mark: light-dark(#764F00, #FEB42E);
+  --fail-mark: light-dark(#7C000F, #FF847C);
+  --warn-signal-mark: light-dark(#E79F00, #8A5D00);
+  --fail-signal-mark: light-dark(#E45C57, #A31B22);
+  --info-mark: light-dark(#125E82, #68ADD4);
+  --mute-mark: light-dark(#544F54, #B5AEB5);
+  --on-mark: light-dark(#FFFFFF, #1A1A1A);
+  --chart-neutral-mark: light-dark(#575757, #A5A5A5);
   --diagram-critical: #5f0009;
 
   /* ── Syntax colors for the SLIDE's code panel (#1715) ─────────────────────
@@ -146,11 +158,11 @@
   --heatmap-step2: 36.5%;
   --heatmap-step2-ink: light-dark(#333333, #BFBFBF);
   --heatmap-step3: 55%;
-  --heatmap-step3-ink: light-dark(#0B0B0B, #EDEDED);
+  --heatmap-step3-ink: light-dark(#0B0B0B, #FAFAFA);
   --heatmap-step4: 73.5%;
-  --heatmap-step4-ink: light-dark(#D4D4D4, #292929);
+  --heatmap-step4-ink: light-dark(#D4D4D4, #333333);
   --heatmap-step5: 92%;
-  --heatmap-step5-ink: light-dark(#A7A7A7, #4A4A4A);
+  --heatmap-step5-ink: light-dark(#A7A7A7, #545454);
   /* ── end heatmap ramp ── */
 }
 

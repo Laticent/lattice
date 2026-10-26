@@ -521,8 +521,8 @@
   --status-pass: var(--pass);  --status-pass-bg: var(--pass-bg);
   --status-warn: var(--warn);  --status-warn-bg: var(--warn-bg);
   --status-fail: var(--fail);  --status-fail-bg: var(--fail-bg);
-  --status-info: var(--chart-state-info, light-dark(#0A6CE0, #2E8BFF));
-  --status-mute: var(--chart-state-mute, light-dark(#6B7480, #9AA7B6));
+  --status-info: var(--info);
+  --status-mute: var(--mute);
 
   /* ── diagram lifecycle / annotation (group 3, CANONICAL) ──────────────
    * The Mermaid gantt lifecycle + note/error annotation colors, off the
@@ -630,9 +630,49 @@
    *
    * Background soft-tints (--pass-bg, --warn-bg, --fail-bg) live in
    * each theme and derive from these via color-mix with 10% alpha. */
+  /* STATUS, IN TWO JOBS. A theme curates each status once, and every component that shows one reads these, a chart
+   * included (chart-family.styles.css § THE SOLID TIER).
+   *
+   * `--pass` … `--mute` are the status as INK on the slide: text, a rule, a mark. They clear 4.5:1 on the canvas, and
+   * the pass/warn/fail trio stays apart for a colorblind reader (test/unit/palette/cvd-trio-floor.test.js).
+   *
+   * `--pass-mark` … `--mute-mark` are the status as a FILL a label sits on: a gantt bar, a state tile, a pill.
+   * ONE INK (engineering/chart-styling.md §3): every chart fill, a category or a status, carries WHITE text, so two
+   * charts on one slide never wear two text colors. A status fill is DEEP in its own hue: done a quiet sage, at risk a
+   * burnt orange, blocked a crimson, info a deep cyan-blue, deferred a deep gray. Text on it clears 7:1 on the light
+   * face and 4.6:1 on the dark face (test/unit/palette/chart-solids.test.js). Two intensities, picked with
+   * `marks:` (resolve-marks.js): MUTED, the default (`--X-mark`), where done stays quiet and the
+   * exceptions carry the color; VIVID (`--X-vivid-mark`), every status rich, done an emerald. `--mute-mark` is a
+   * neutral and has no vivid. A status shares a lightness with the categories, so the chart family tells it apart by
+   * what it adds: a drawn MARK on every status, and a SIGNAL ring on the two exceptions.
+   *
+   * A status that is a LINE or TEXT (a slope, a waterfall step, a kanban header) paints its slide ink, `--pass` …
+   * `--mute`, the same color the status is everywhere else on the slide.
+   *
+   * `--warn-signal-mark` and `--fail-signal-mark` are the RING round an at-risk or blocked shape: the bright amber
+   * and coral-red, 3:1 off the deep fill on a light slide and off the slide itself on a dark one, so an exception
+   * stands out from a category of the same hue.
+   *
+   * These engine values are the fallback for a palette that has not curated them, solved by
+   * lib/theme/chart-solids.js `solveStatusSet` on a white and a near-black canvas. */
   --pass: light-dark(#2D6A3F, #4ADE80);
   --warn: light-dark(#B45309, #F97316);
   --fail: light-dark(#991B1B, #F87171);
+  --info: light-dark(#0053B3, #5AA1FF);
+  --mute: light-dark(#4F5863, #9AA7B6);
+  --pass-mark: light-dark(#274930, #466A4E);
+  --warn-mark: light-dark(#8F420C, #B06031);
+  --fail-mark: light-dark(#9E000E, #C82F2C);
+  --info-mark: light-dark(#125E82, #377CA1);
+  --mute-mark: light-dark(#4C5157, #666B72);
+  --pass-vivid-mark: light-dark(#004D21, #017235);
+  --warn-vivid-mark: light-dark(#924100, #BF5600);
+  --fail-vivid-mark: light-dark(#9E000E, #D5101C);
+  --info-vivid-mark: light-dark(#005E85, #007DAF);
+  --warn-signal-mark: light-dark(#F99705, #F69400);
+  --fail-signal-mark: light-dark(#FD7468, #FF7E72);
+  /* The ink on a solid: white, on a category, the neutral and a status alike. */
+  --on-mark: #FFFFFF;
 
   /* ── Panel edge mark ──────────────────────────────────────────────────
    * The color of the top-edge rule the split frames paint over their featured
@@ -714,7 +754,7 @@
    * --code-text is theme-defined for syntax-on-dark legibility. The
    * fallbacks below match the indaco values so unstyled renders are still
    * usable as a diagnostic. */
-  --code-bg:   var(--surface-inverse, #001D33);
+  --code-bg:   var(--surface-inverse);
   --code-text: #CBD9E8;
   /* The panel's inner hairline. On a dark slide `--code-bg` can equal the slide's own background
    * (onyx-dark, cuoio-dark and six more), and the panel then vanished, leaving code floating on the
@@ -823,6 +863,18 @@
   --print-pass:            #2E2E2E;
   --print-warn:            #555555;
   --print-fail:            #111111;
+  --print-info:            #3D3D3D;
+  --print-mute:            #575757;
+  --print-on-mark:        #FFFFFF;  /* white on a category or the neutral in print, as on screen */
+  /* The status FILLS in print keep the screen's one ink: a dark gray under white text (7:1 or better), each a
+   * different step that DARKENS WITH SEVERITY (pass, warn, fail), so a severity ramp such as the risk matrix keeps its
+   * order on paper. The two exceptions take a mid-gray ring, 4.3:1 or better off their fill; the marks carry the rest. */
+  --print-pass-mark:      #575757;
+  --print-warn-mark:      #3A3A3A;
+  --print-fail-mark:      #262626;
+  --print-info-mark:      #4F4F4F;
+  --print-mute-mark:      #545454;
+  --print-signal:          #A0A0A0;
 
   /* Categorical fills → stepped grays; the border + (for series) pattern fills
    * do the work past ~5 categories. */
@@ -986,7 +1038,7 @@
    * theme's brand hue). Achromatic themes can collapse --tag-bg to
    * --accent if they don't want a duotone identity. */
   --tag-bg:   var(--cat-2-mark);
-  --tag-text: var(--on-accent, #fff);
+  --tag-text: var(--on-accent);
 
   /* ── Universal pill — STRUCTURE ONLY ──────────────────────────────────
    * One geometry for every status / metadata pill across every layout.
@@ -1163,7 +1215,7 @@
    * behind it and the whole mark takes one paint color. */
   --shape-warning: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 2.6L23 21H1zM11 9h2v6h-2zM11 16.6h2v2.1h-2z' fill='black' fill-rule='evenodd'/></svg>");
 
-  /* ── State-disc recipe — SCALAR KNOBS (default = "Ringed Solid") ──────
+  /* ── State-disc recipe — SCALAR KNOBS (default = a flat status solid) ──
    * The disc is painted by each consumer from --state-color + these
    * scalar knobs. Knobs hold ONLY numbers/lengths/percentages — never a
    * value embedding --state-color or --bg — because the variant classes
@@ -1174,9 +1226,19 @@
    * inherit the guaranteed-invalid result — the disc then never paints.
    * See engineering/gotchas.md "state disc never paints".
    *
-   * Default = Ringed Solid: saturated fill + hairline darker ring,
-   * knockout mark. Stays crisp on its own status-tinted row. The five
-   * variants in base.modifiers.css override these knobs.
+   * Default = the status SOLID with an ink rim: a finding's disc is the
+   * deck's status fill (`--state-X-hue`), its mark knocked out in the one
+   * ink (`--state-glyph-mark`, `--on-mark`), a hairline RIM outside it in
+   * the status's slide ink (`--state-ink`, the row's rail color), and at
+   * risk and blocked wear the signal ring inside the edge (`--state-signal`)
+   * (engineering/decisions/2026-10-24-status-is-one-system.md). The rim is
+   * what a gantt bar wears too, and it is load-bearing on a TINTED row: on a
+   * dark slide a fill deep enough for white text cannot clear 3:1 against
+   * any tint (its luminance tops out near 0.18), so the ink rim is the
+   * disc's edge there, so every variant keeps an edge in the ink. Each class mapping sets the four role colors (`--state-color`,
+   * `--state-ink`, `--state-signal`, `--state-glyph-mark`) on the LEAF,
+   * which is why they are not knobs. The
+   * five variants in base.modifiers.css override these knobs.
    *
    * NOTE: the recipe is intentionally VECTOR-ONLY (solid fills + 0-blur
    * spread rings) — no blurred drop-shadow. A blurred box-shadow on a
@@ -1185,11 +1247,50 @@
    * an opaque gray square around the disc. See engineering/gotchas.md
    * "blurred box-shadow → gray box in some PDF viewers". */
   --state-fill-pct: 100%;       /* disc fill = this % of --state-color, rest transparent */
-  --state-ring-outer-w: 1.6px;  /* outer ring width (ringed default) */
-  --state-ring-mix: 50%;        /* outer ring color = --state-color mixed toward black */
+  --state-ring-outer-w: var(--state-signal-w);  /* the rim: a hairline in the status ink, outside the disc */
+  --state-ring-mix: 100%;       /* rim color = this % of --state-ink, rest black (`checks-ringed` darkens it) */
   --state-ring-inner-w: 0px;    /* inner ring width (outline / tonal) */
-  --state-mark-pct: 0%;         /* mark color = this % --state-color, rest --bg (0% = knockout) */
+  /* The signal's own layer. outline and tonal turn it off and draw the signal AS their inner ring instead (that ring
+   * paints `var(--state-signal, var(--state-ink))`, and a status with no signal leaves `--state-signal` unset):
+   * two visible inset rings are a picture to Calco, one is a native shape. */
+  --state-ring-signal-w: var(--state-signal-w);
+  --state-mark-pct: 0%;         /* mark color = this % --state-ink, rest --state-glyph-mark (0% = knockout) */
   --state-disc-scale: 1;        /* disc + mark size multiplier (bold bumps it) */
+  /* The signal ring's width: 1.3 hairlines, the chart family's `--chart-ring`, so an exception wears one ring weight
+   * on a chart and on a disc. Kept as tokens, so `cqi` resolves on the element that draws it. */
+  --state-signal-w: calc(clamp(1px, 0.078cqi, 2px) * 1.3);
+}
+
+/* ── THE STATUS FILL ON THIS SLIDE ─────────────────────────────────────────
+ * `--state-pass-hue` … `--state-mute-hue` point every status MARK at the deck's
+ * fill (engineering/decisions/2026-10-24-status-is-one-system.md): the muted
+ * `--X-mark` by default, the `--X-vivid-mark` set when `marks: … vivid`
+ * stamps `marks-vivid` on the slide. A chart, a checklist disc and a kpi
+ * pill all read these, so one register sets every status fill on the slide.
+ * Declared on the slide `section` as well as `:root` so a slide-level reset of
+ * the fills (the print band on `section.print`) is what the pointer resolves to;
+ * not on a nested `section`, which inherits the slide's intensity. The
+ * neutral (`--mute-mark`) has no intensity. */
+/* The register picks the fill through a PRIVATE pointer, `--_state-X-hue`, rather than by re-declaring
+ * `--state-X-hue` under the vivid class. Two exports copy the line above into scopes of their own: the
+ * `--player` re-declares every `:root` token in each of its light and dark scheme blocks (so `var()` chains
+ * re-resolve per scheme), at a specificity no single class beats; and Marpit scopes a bare class selector as
+ * a DESCENDANT of the slide, so `.marks-vivid` never matched the slide that carries it. Read through the
+ * pointer, every copy of the line above still lands on the vivid fill wherever the slide sets the pointer.
+ * `section.` / `figure.` name the slide and Read·Article's re-hosted chart, which Marpit maps to the slide
+ * itself; the bare class keeps any other element that carries the token. */
+:root, section:not(section section) {
+  --state-pass-hue: var(--_state-pass-hue, var(--pass-mark));
+  --state-warn-hue: var(--_state-warn-hue, var(--warn-mark));
+  --state-fail-hue: var(--_state-fail-hue, var(--fail-mark));
+  --state-info-hue: var(--_state-info-hue, var(--info-mark));
+  --state-mute-hue: var(--mute-mark);
+}
+section.marks-vivid, figure.marks-vivid, .marks-vivid {
+  --_state-pass-hue: var(--pass-vivid-mark);
+  --_state-warn-hue: var(--warn-vivid-mark);
+  --_state-fail-hue: var(--fail-vivid-mark);
+  --_state-info-hue: var(--info-vivid-mark);
 }
 
 /* ── Spacing scale (proportional to the 1280px HD baseline) ────────────

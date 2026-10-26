@@ -36,6 +36,7 @@
 // for every real stylesheet, so no snapshot's bytes move.
 // See engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md §9.8.
 
+import { MARKS_TOKENS } from '@/components/studio/marks-words';
 import { sanitizeStyleText } from '../../../lib/core/sanitize-style-text.mjs';
 import { sanitizeSlideHtml } from '../lib/sanitize-slide-html.js';
 
@@ -119,21 +120,56 @@ export function stripPseudo(sel) {
 // class `lat-pane-host` is a slide's own class, not a pane arm.
 const isPaneArm = (sel) => /\blat-pane(?![\w-])/.test(sel);
 
-// A CHART-FINISH arm (`section.chart-finish-tone :where(…)`, tools/build-chart-finish-css.js)
+// A CHART-FINISH arm (`section.marks-tone :where(…)`, tools/build-marks-css.js)
 // can only match under an element carrying that finish's class. Its mark part nests `:is()`
 // inside `:where()`, which the regex strip this file used before `stripPseudo` could not undo, so
 // the probe was left invalid and the rule kept "conservatively": all ~280 finish rules rode into every snapshot, it
 // outgrew MAX_UNITS, and nothing was stored. The class is decidable without the probe, so an
 // arm whose finish class is absent from the captured document is dropped exactly.
-const FINISH_ARM = /(?<![\w-])chart-finish-(pigment|etching|tone)(?![\w-])/;
+const FINISH_ARM = new RegExp(`(?<![\\w-])(${MARKS_TOKENS.join('|')})(?![\\w-])`, 'g');
+// An arm may name several finishes (`:is(.marks-etch, .marks-tone)`), and any ONE of them on the page
+// can make it match, so it is absent only when none is.
 const finishArmAbsent = (doc, sel) => {
-	const m = FINISH_ARM.exec(sel);
-	return !!m && !doc.querySelector(`.chart-finish-${m[1]}`);
+	const names = [...sel.matchAll(FINISH_ARM)].map((m) => m[1]);
+	return names.length > 0 && names.every((name) => !doc.querySelector(`.${name}`));
+};
+
+// EVERY slide wears a finish class now (resolve-marks.js: a look with no absent state), so the
+// class test above no longer says whether a slide holds a mark the arm reaches. Left at that, all ~160
+// rules of the deck's finish rode into every snapshot, which on a bar slide roughly doubled it
+// (53K to 100K units against a 246K cap, 174 finish rules kept against 2) and left heavy chart slides
+// unable to store. The arm is exactly
+// `section.marks-X :where(<marks>)`, and the marks are an ordinary selector, so ask the page
+// whether any exists. Any other shape, or a selector the engine refuses, stays conservatively kept.
+const FINISH_MARK_ARM = new RegExp(`^(?:section|figure)\\.(?:${MARKS_TOKENS.join('|')}) :where\\(`);
+const finishMarksAbsent = (doc, sel) => {
+	const lead = FINISH_MARK_ARM.exec(sel);
+	if (!lead) return false;
+	let depth = 1;
+	let i = lead[0].length;
+	let quote = '';
+	for (; i < sel.length && depth > 0; i++) {
+		const c = sel[i];
+		// A paren inside a quoted attribute value (`[title="(a"]`) is text, not nesting.
+		if (quote) {
+			if (c === '\\') i++;
+			else if (c === quote) quote = '';
+		} else if (c === '"' || c === "'") quote = c;
+		else if (c === '(') depth++;
+		else if (c === ')') depth--;
+	}
+	if (depth !== 0) return false;
+	try {
+		return !doc.querySelector(sel.slice(lead[0].length, i - 1));
+	} catch {
+		return false;
+	}
 };
 
 function selectorMatches(doc, selectorText, hasPane) {
 	if (isPaneArm(selectorText) && !hasPane) return false;
 	if (finishArmAbsent(doc, selectorText)) return false;
+	if (finishMarksAbsent(doc, selectorText)) return false;
 	const probe = stripPseudo(selectorText).replace(/\s+/g, ' ').trim();
 	if (!probe || probe === '*') return true;
 	try {

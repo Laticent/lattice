@@ -5,14 +5,14 @@
   "name": "chart-family",
   "api": 1,
   "title": "Chart family",
-  "description": "Draws a chart slide (`_class: bar`, `line`, `gantt`, … every member of the chart bucket) from its authored list or table: it dispatches the section to the member's kernel and frames the figure. Each chart fills the family's `kernel` slot from its own manifest; switched off, a chart slide shows the list it was written as.",
+  "description": "Draws a chart slide (`_class: bar`, `line`, `gantt`, \u2026 every member of the chart bucket) from its authored list or table: it dispatches the section to the member's kernel and frames the figure. Each chart fills the family's `kernel` slot from its own manifest; switched off, a chart slide shows the list it was written as.",
   "contributes": {
     "extensionPoints": {
       "kernel": {
         "bucket": "chart",
         "role": "transform",
         "entry": "transformSection",
-        "description": "transformSection(html, ctx) → html | { html, cls } | null: builds one chart section's figure from its first list or table. The member's `kernel` block declares the figure root's class and its data marks; the family dispatches on the first chart class a section carries and wraps the result in the chart frame."
+        "description": "transformSection(html, ctx) \u2192 html | { html, cls } | null: builds one chart section's figure from its first list or table. The member's `kernel` block declares the figure root's class and its data marks; the family dispatches on the first chart class a section carries and wraps the result in the chart frame."
       }
     },
     "styles": true
@@ -54,7 +54,6 @@
     "--chart-cat-8-fill",
     "--chart-cat-8-hue",
     "--chart-cat-8-ink",
-    "--chart-cat-base",
     "--chart-cat1",
     "--chart-cat1-ink",
     "--chart-cat2",
@@ -77,13 +76,7 @@
     "--chart-inset-x",
     "--chart-panel-x",
     "--chart-panel-y",
-    "--chart-state-fail",
-    "--chart-state-info",
-    "--chart-state-mute",
-    "--chart-state-pass",
-    "--chart-state-warn",
     "--chart-status-hue",
-    "--chart-status-ink",
     "--cover-gutter",
     "--font-body",
     "--font-display",
@@ -94,10 +87,6 @@
     "--headline-align",
     "--lh-relaxed",
     "--mark-ink",
-    "--palette-fill-bottom-d",
-    "--palette-fill-bottom-l",
-    "--palette-fill-top-d",
-    "--palette-fill-top-l",
     "--sp-2xl",
     "--sp-lg",
     "--sp-md",
@@ -117,7 +106,27 @@
     "--text-heading",
     "--text-label",
     "--text-muted",
-    "--text-secondary"
+    "--text-secondary",
+    "--chart-neutral-mark",
+    "--on-mark",
+    "--pass",
+    "--warn",
+    "--fail",
+    "--info",
+    "--mute",
+    "--chart-on-mark",
+    "--chart-signal",
+    "--state-warn-signal",
+    "--state-fail-signal",
+    "--chart-ring",
+    "--state-signal-w",
+    "--warn-signal-mark",
+    "--fail-signal-mark",
+    "--mark-check-bold",
+    "--mark-dash-bold",
+    "--mark-x-bold",
+    "--mark-slash-bold",
+    "--status-mark"
   ],
   "render": {
     "parity": "equivalent",

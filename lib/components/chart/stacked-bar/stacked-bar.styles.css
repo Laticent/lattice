@@ -24,22 +24,9 @@
 }
 
 /* ── THE SEGMENT FILL ───────────────────────────────────────────────────────
- * SOLID, at the pie's 82 % richness, NOT the family's canonical rectangular
- * wash — and the reason is the same one the pie gives for its wedges. That wash
- * (--chart-fill-top-* → --chart-fill-bottom-*) is tuned for a mark read against
- * the CANVAS: a gantt bar, a progress fill, a kanban card, each floating alone
- * with slide showing on both sides. A stack has no canvas between its parts.
- * Its segments are opaque, abutting part-to-whole areas — exactly the pie
- * wedge's case — and rendered they proved it twice: on light the 20 %/38 % wash
- * left neighboring hues too pale to separate, and on dark, where the wash ramps
- * a segment toward black, the bottom of every bar dissolved into the navy
- * canvas and the bars stopped reading as bars.
- *
- * Mixed toward --chart-cat-base (--bg on light, BLACK on dark) rather than --bg
- * directly: a warm hue mixed into the cool dark canvas neutralizes to brown.
- * This is also exactly what the shared key paints its swatches with, so a
- * swatch and the band it names are now the same color — under the wash they
- * were not.
+ * Each segment is its series' flat SOLID (chart-family.styles.css § THE SOLID TIER), the same paint as every other
+ * mark in the family and exactly what the shared key paints its swatches with, so a swatch and the band it names
+ * are the same color.
  *
  * Keyed on [data-hue], the mark contract's slot (the same attribute the shared
  * legend stamps on its swatches), rather than :nth-of-type: a segment's palette

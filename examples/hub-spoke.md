@@ -74,10 +74,10 @@ nothing scales until you ask with `sized` or `flow-out`.
 
 ---
 
-<!-- _class: hub-spoke chart-finish-tone -->
+<!-- _class: hub-spoke marks-tone -->
 <!-- _footer: "Chart finish · tone: groups, key, connectors and names in one hue; the hub stays the heaviest mark" -->
 
-`Partner ecosystem · By capability · chart-finish: tone`
+`Partner ecosystem · By capability · marks: tone`
 
 ## Under a tone finish, the four capabilities read as four shades of one hue.
 

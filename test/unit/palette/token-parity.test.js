@@ -60,8 +60,14 @@ const CONTRACT = [
   // Headroom is a property of the anchor, and only the palette can own it.
   'seq-500',
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
-  'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-state-pass',
-  'chart-state-warn', 'chart-state-fail', 'chart-state-info', 'chart-state-mute',
+  'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral-mark',
+  // the status inks beyond the trio, and the one ink on every chart fill
+  'info', 'mute', 'on-mark',
+  // the status FILLS in both intensities and the two exceptions' SIGNAL rings
+  // (base.tokens.css § STATUS, IN TWO JOBS)
+  'pass-mark', 'warn-mark', 'fail-mark', 'info-mark', 'mute-mark',
+  'pass-vivid-mark', 'warn-vivid-mark', 'fail-vivid-mark', 'info-vivid-mark',
+  'warn-signal-mark', 'fail-signal-mark',
 ];
 
 function ownTokens(name) {

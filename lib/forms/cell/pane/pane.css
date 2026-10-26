@@ -318,8 +318,11 @@ section.lat-pane-host > .cell-stage > .lat-panes > .lat-pane-cell > lat-pane:not
  * label its own row (the STACK arm in progress.styles.css), so this three-column template stays
  * out of it: over that arm's two-column areas it squeezed each bar into the label's column.
  * Scoped to panes, so no slide's row moves. */
-section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="progress"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row {
-  grid-template-columns: min(calc(18.75 * var(--_sec-1cqi, 1cqi)), 40cqi) 1fr min(calc(7.5 * var(--_sec-1cqi, 1cqi)), 16cqi);
+section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="progress"]:not([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-bars {
+  /* The LIST owns the columns and every row is its subgrid (progress.styles.css), so the pane sets them here too.
+   * Set on a row, the template made that row its own grid again, with no column gap (label touched track) and a
+   * fixed pill column a long pill could outgrow. */
+  grid-template-columns: min(calc(18.75 * var(--_sec-1cqi, 1cqi)), 40cqi) 1fr minmax(min(calc(7.5 * var(--_sec-1cqi, 1cqi)), 16cqi), max-content);
 }
 /* The track and the status pill's column are the same kind of length: `2.5cqi` of a pane is half
  * a slide's bar, and the in-bar percent — slide-sized type — overran it. Both take slide units. */

@@ -138,7 +138,8 @@ export interface Shape {
 	fill?: Paint;
 	/** A linear gradient the box is filled with. `fill` then holds a stand-in color for a reader that ignores it. */
 	gradient?: Gradient;
-	stroke?: Paint & { width: number };
+	/** `dash` is a CSS `dashed` or `dotted` border; absent, the stroke is solid. */
+	stroke?: Paint & { width: number; dash?: 'dash' | 'dot' };
 	shadow?: Shadow;
 	/** A line: the side of its box it was. */
 	side?: 'top' | 'right' | 'bottom' | 'left';

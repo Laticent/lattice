@@ -15,54 +15,68 @@
   align-items: stretch;
   gap: var(--sp-md);
 }
-/* Every row uses the SAME fixed grid template, so the 1fr track is
- * identical across rows. `auto` columns would size to per-row content
- * (varying status-pill widths) and make tracks disagree. */
+/* ONE GRID FOR ALL ROWS: the list owns the columns and every row is a `subgrid` of them, so the track is the same
+ * width in every row (one scale for every bar) while the pill column still fits the widest pill. When each row was
+ * its own grid, the pill column had to be a fixed 7.5cqi to keep the tracks equal, and at `venue: hall` a pill
+ * outgrew it and overprinted the readout ("99.5%" under "blocked"). The 7.5cqi floor keeps every slide whose pills
+ * already fit exactly as it was. */
 :is(section.progress, figure.progress) .progress-bars {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 18.75cqi 1fr minmax(7.5cqi, max-content);
+  column-gap: var(--sp-md);
   row-gap: 0.46875cqi;
   width: 100%;
 }
 :is(section.progress, figure.progress) .progress-row {
   display: grid;
-  /* label · track · pill — the % readout now lives INSIDE the fill (right-
-   * aligned on the colored bar, like a gantt bar's in-bar label), so it no
-   * longer needs its own column. */
-  grid-template-columns: 18.75cqi 1fr 7.5cqi;
+  /* label · track · pill, from the list's grid (above). The % readout rides just past the bar's end, inside the
+   * track's own end gutter (`--progress-readout`, below), so it needs no column of its own. */
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  column-gap: var(--sp-md);
 }
 :is(section.progress, figure.progress) .progress-label {
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--text-heading);
-  text-align: right;
+  text-align: end;
 }
 :is(section.progress, figure.progress) .progress-track {
   position: relative;
   /* NO rail. The track is a transparent positioning context only — the fill is
    * a self-contained bordered tile that "shoots forward" on the bare canvas
    * (like a gantt bar floating on its lane). A gray rail behind it diluted the
-   * row and washed the fill out; the magnitude is carried by the bar's length,
-   * its leading-edge intensity (see the fill), and the printed %. overflow:hidden
-   * + radius clip the fill's rounded corners. */
-  /* The readout plate rides inside this clipped box, and its text is `--fs-meta`, which a venue
-   * lifts (29px at hall) past a fixed 2.5cqi (32px) once the plate's padding is added, so the
-   * number was cut by its own track. The track is at least as tall as its label. */
+   * row and washed the fill out; the magnitude is carried by the bar's length
+   * and the printed %. NO CLIP: the fill rounds its own corners at the track's
+   * radius, so `overflow: hidden` here changed no pixel (antialiasing only,
+   * measured), and it kept the editable office export (Calco) from lifting the
+   * fill as a native shape (`paint:overflow-clipped`). */
+  /* The readout rides inside this box, and its text is `--fs-meta`, which a venue lifts (29px
+   * at hall) close to a fixed 2.5cqi (32px), so the number was once cut by its own track. The
+   * track is at least as tall as its label. */
   height: max(2.5cqi, calc(var(--fs-meta) + 0.8cqi));
+  /* The END GUTTER the readout rides in: room for "100%" at the meta step plus the gap before it, so a full bar's
+   * number ends inside the track. A longer readout ("99.75%") runs a few pixels past the track's end into the
+   * column gap, and the gap keeps it off the pill. A bar's length is its share of the track LESS this gutter, and
+   * every row's track is one width (the list's subgrid), so every bar on the slide keeps one scale and 100% ends
+   * where the gutter begins. */
+  --progress-readout: calc(var(--fs-meta) * 2.9 + 0.6cqi);
+  /* The bar's LENGTH, 0–100. An author may write 130% ("130% of budget"), and the readout prints it as written,
+   * but the bar stops at the end of its lane: past it lie the readout and the status pill, and with no clip on
+   * the track an unclamped bar painted over both. Both width formulas read this one value. */
+  --progress-len: clamp(0, var(--pct), 100);
   background: transparent;
   border-radius: var(--chart-mark-radius);
-  overflow: hidden;
 }
 :is(section.progress, figure.progress) .progress-fill {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: calc(var(--pct) * 1%);
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: calc((100% - var(--progress-readout)) * var(--progress-len) / 100);
   /* BORDER-BOX, or the bar lies about its own value. `width` here IS the datum,
-   * and the fill carries 4px of accent border + a 1px hairline + 0.625cqi of
-   * right padding for the in-bar readout. Under the CSS default (content-box)
-   * every one of those sits OUTSIDE the percentage, so each bar rendered a
+   * and the fill carries a 1px hairline (it once carried inline-end padding for
+   * an in-bar readout too). Under the CSS default (content-box)
+   * all of that sits OUTSIDE the percentage, so each bar rendered a
    * constant ~11px too long: measured at portrait, a 551px track drew 92% as
    * 518.0px (94.0%) and 12% as 77.2px (14.0%). The offset is additive, so
    * ranking survived and the defect read as cosmetic — but the whole point of
@@ -73,47 +87,31 @@
    * Matches .chart-body / .chart-key (chart-family.styles.css) — the family default;
    * this rule was the outlier. See #1210. */
   box-sizing: border-box;
-  /* CHART-FAMILY MATERIAL, progress-SPECIALIZED GEOMETRY. Progress shares the
-   * family's hue/ink palette (--fill-* below), 1px hue-tint border, and 4px
-   * vivid left accent — the same MATERIAL as the kanban card / gantt bar /
-   * state node. What it specializes is the GRADIENT: progress is the only
-   * family member with a magnitude (--pct), so it encodes that magnitude in the
-   * fill rather than wearing the shared vertical wash. The gradient runs
-   * HORIZONTALLY (the direction the bar grows) and "shoots forward" — pale/dark
-   * tail at the origin ramping to a saturated LEADING-EDGE head whose intensity
-   * scales with --pct: a 92% bar ramps to a vivid head, a 12% bar stays dim and
-   * stalled. So value is double-encoded (length AND intensity). The head mix %
-   * is calc(base + --pct * k); canvas-aware via light-dark() — mixes into --bg
-   * on light, toward black on dark (mirrors --state-*-fill, mud-free). The other
-   * members keep the shared --chart-fill-* vertical wash (they have no --pct).
-   * A bar with no status is the categorical cat1 slot; status variants re-point
-   * the --fill-* pair. Authors pin a categorical hue with `--fill`. */
+  /* The bar is the family's flat SOLID for its status (chart-family.styles.css § THE SOLID TIER), the same paint
+   * as a gantt bar or a state tile. Its LENGTH is the magnitude; nothing else about it varies. A bar with no status
+   * is the categorical cat1 slot; status variants re-point the --fill-* pair. Authors pin a categorical hue with
+   * `--fill`. */
   --fill-hue: var(--fill, var(--chart-cat-1-hue));
   --fill-ink: var(--chart-cat-1-ink);
-  background: linear-gradient(90deg,
-    light-dark(color-mix(in oklab, var(--fill-hue) 12%, var(--bg)),
-               color-mix(in oklab, var(--fill-hue) 30%, black)) 0%,
-    light-dark(color-mix(in oklab, var(--fill-hue) calc(20% + var(--pct) * 0.52%), var(--bg)),
-               color-mix(in oklab, var(--fill-hue) calc(38% + var(--pct) * 0.58%), black)) 100%);
-  border: var(--chart-hairline) solid color-mix(in oklab, var(--fill-hue) var(--chart-fill-edge), var(--border));
-  border-left: var(--chart-fill-accent) solid var(--fill-ink);
+  /* The fill is its status's flat SOLID (chart-family.styles.css § THE SOLID TIER): no wash, no ramp, no
+   * leading accent. Its length is the datum; its color is the status. */
+  background: var(--fill-hue);
+  /* The hairline counts inside the datum (border-box, above), so at 0 its two sides alone drew a 2px sliver of
+   * "progress". It thins to nothing as the length does: zero draws no bar. */
+  border: min(var(--chart-hairline), calc(var(--progress-len) * 1px)) solid transparent;
   border-radius: var(--chart-mark-radius);
   transition: none;
-  /* The % readout rides the bar's leading edge: right-aligned ON the colored
-   * fill, like a gantt bar's in-bar label. --text-heading clears the wash on
-   * both canvases.
-   *
-   * SAFE, and not clipped: a readout wider than its bar (12% of a pane's track is ~30px, the
-   * readout ~44px) used to overflow to the LEFT of an `overflow: hidden` fill, so the number lost
-   * its first digit ("2%" for 12%). `safe` sends the overflow the other way — the readout starts
-   * at the bar's origin and runs on over the empty track on its own plate — and the fill no longer
-   * clips it. The track (`overflow: hidden`, above) still rounds the fill's corners. A readout that
-   * fits is placed exactly as before. */
-  display: flex;
-  align-items: center;
-  justify-content: safe flex-end;
-  padding-right: 0.625cqi;
+  /* The bar holds nothing: it is pure length from zero. Its status mark is drawn once, by the row's status pill, and
+   * its number, the fill's sibling in the track, rides just past its end (`.progress-pct`), so a 2% bar and a 100% bar read the same way and nothing
+   * crowds a short bar's first stretch. */
   overflow: visible;
+}
+/* `etch` and `tone` paint the bar as a pale wash inside an inset ink edge, so the bar has no border there: a
+ * transparent one let the wash show through as a halo outside that edge. The bar is border-box, so its length (the
+ * datum) does not move. Not a `background-clip`: Calco lifts a clipped fill under an inset ring only as a picture
+ * (the same rule as the status pill, chart-family.styles.css). */
+:is(section.progress, figure.progress):is(.marks-etch, .marks-tone) .progress-fill {
+  border-width: 0;
 }
 /* Each status re-points the --fill-* pair; the canonical recipe picks it up.
  * Canvas-aware via light-dark(), so one rule each. */
@@ -131,26 +129,20 @@
   font-family: var(--font-label);
   font-size: var(--fs-meta);
   font-weight: 700;
+  /* On the slide, just past the bar's end, in heading ink: it sits on the canvas at every --pct, so it needs no plate
+   * and no threshold that would move it in or out of the bar as the value changes. */
   color: var(--text-heading);
-  /* The readout rides the fill's LEADING EDGE — exactly where the gradient ramps
-   * to its most saturated head (calc(20% + --pct*0.52%), up to 72%), so a high-%
-   * bar's dark --text-heading lost contrast on the LIGHT canvas (gantt sidesteps
-   * this by capping its flat fill at 38%; progress can't — its vivid head IS the
-   * magnitude signal, and on the DARK canvas it reads great). Rather than flatten
-   * the fill, the number sits on a small READOUT PLATE: the bar's own hue mixed
-   * hard toward the canvas (pale on light, deep on dark) so --text-heading always
-   * clears it, on either canvas, at any --pct. Stays in-family (hue-tinted, not a
-   * jarring white box) and reads as an intentional data badge. */
-  background: light-dark(color-mix(in oklab, var(--fill-hue) 16%, var(--bg)),
-                         color-mix(in oklab, var(--fill-hue) 22%, black));
-  padding: 0.16cqi 0.55cqi;
-  border-radius: 0.55cqi;
+  position: absolute;
+  inset-block: 0;
+  /* The fill's end, plus a gap: the fill's own width formula, so the two can never disagree. */
+  inset-inline-start: calc((100% - var(--progress-readout)) * var(--progress-len) / 100 + 0.6cqi);
+  display: flex;
+  align-items: center;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   line-height: 1;
 }
-/* A row with no percent still emits the span. The fill used to clip its empty plate out of
- * sight; now that the fill no longer clips (the `safe` readout above), hide it outright. */
+/* A row with no percent still emits the span; hide it outright. */
 :is(section.progress, figure.progress) .progress-pct:empty {
   display: none;
 }
@@ -178,7 +170,10 @@
  * engineering/decisions/2026-06-19-chart-adaptive-sizing.md. */
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-bars {
   height: 100%;
-  justify-content: space-evenly;
+  /* track · pill, shared by every row's subgrid, so every bar has the same lane (STACK below). */
+  grid-template-columns: 1fr max-content;
+  column-gap: var(--sp-sm);
+  align-content: space-evenly;
   /* Rows are two lines tall once the label takes its own row, so the
    * between-row rhythm tightens to keep five of them inside the stage. Declared
    * HERE rather than on a second rule sharing this selector — see the note on
@@ -230,18 +225,18 @@ section.progress:where([data-family="square"], [data-family="tall"], [data-famil
  *
  * See #1209, #1210, #1920 and 2026-06-19-chart-adaptive-sizing.md. */
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-row {
-  grid-template-columns: 1fr auto;
+  /* The columns come from the list (the FILL arm above): a per-row `1fr auto` sized each track to its own pill, so
+   * a 100% bar and a 99.5% bar on one slide drew 697px and 652px. */
   grid-template-areas:
     "label label"
     "track pill";
   row-gap: var(--sp-2xs);
-  column-gap: var(--sp-sm);
 }
 section.progress:where([data-family="square"], [data-family="tall"], [data-family="strip"]) .progress-label {
   grid-area: label;
   /* Left-aligned now that it heads the row instead of butting against the
    * bar's origin — right-alignment only reads as a gutter beside the track. */
-  text-align: left;
+  text-align: start;
   /* Back to the body step. The ≤1.05 block above bumps the label to
    * `--fs-message` to help a narrow three-column row fill a taller box — but
    * once the label has its OWN full-width row that bump only buys height, and

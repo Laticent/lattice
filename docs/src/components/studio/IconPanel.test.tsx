@@ -36,10 +36,10 @@ describe('IconPanel — the controls come from the engine', () => {
 	});
 
 	it('shows what is written as pressed', () => {
-		setup('^{database, c3, lg, etching}');
+		setup('^{database, c3, lg, etch}');
 		expect(screen.getByRole('radio', { name: 'Color 3' }).getAttribute('aria-checked')).toBe('true');
 		expect(screen.getByRole('radio', { name: 'Size: Large' }).getAttribute('aria-checked')).toBe('true');
-		expect(screen.getByRole('radio', { name: 'Look: Etching' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByRole('radio', { name: 'Look: Etch' }).getAttribute('aria-checked')).toBe('true');
 		expect(screen.getByRole('radio', { name: 'Frame: Default' }).getAttribute('aria-checked')).toBe('true');
 	});
 

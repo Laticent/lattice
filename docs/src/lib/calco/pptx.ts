@@ -225,7 +225,9 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 	const shapeOf = (shape: Shape, geom: ShapeGeometry): { kind: string; options: Record<string, unknown> } => {
 		const options: Record<string, unknown> = { x: inch(geom.x), y: inch(geom.y), w: inch(geom.w), h: inch(geom.h) };
 		const stroke = shape.stroke;
-		options.line = stroke ? { color: bareHex(stroke.color), width: points(stroke.width), transparency: alphaOf(stroke.alpha) } : { type: 'none' };
+		// A CSS dash is about four widths on and three off, a dot one and one: PowerPoint's `dash` and `sysDot`.
+		const dashType = stroke?.dash === 'dash' ? { dashType: 'dash' } : stroke?.dash === 'dot' ? { dashType: 'sysDot' } : {};
+		options.line = stroke ? { color: bareHex(stroke.color), width: points(stroke.width), transparency: alphaOf(stroke.alpha), ...dashType } : { type: 'none' };
 		if (shape.fill && geom.closed) options.fill = { color: bareHex(shape.fill.color), transparency: alphaOf(shape.fill.alpha) };
 		if (shape.shadow) {
 			const { x, y, blur } = shape.shadow;

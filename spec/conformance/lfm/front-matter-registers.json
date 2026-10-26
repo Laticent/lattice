@@ -967,40 +967,72 @@
    }
   },
   {
-   "name": "chart-finish: off",
-   "source": "---\nchart-finish: off\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "chart-finish: pigment",
-   "source": "---\nchart-finish: pigment\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "chart-finish: etching",
-   "source": "---\nchart-finish: etching\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "chart-finish: tone",
-   "source": "---\nchart-finish: tone\n---\n\n## A register\n\nOne line of text.\n",
-   "L2": {
-    "findings": []
-   }
-  },
-  {
-   "name": "chart-finish: (unknown)",
-   "source": "---\nchart-finish: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "marks: off (retired: a finish is always on)",
+   "source": "---\nmarks: off\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": [
      {
-      "rule": "unknown-chart-finish",
+      "rule": "unknown-marks",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "marks: etching (renamed to etch)",
+   "source": "---\nmarks: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-marks",
+      "severity": "warning",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "chart-finish: tone (the old spelling of marks:, still renders)",
+   "source": "---\nchart-finish: tone\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "marks-renamed",
+      "severity": "info",
+      "slide": 0
+     }
+    ]
+   }
+  },
+  {
+   "name": "marks: pigment",
+   "source": "---\nmarks: pigment\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "marks: etch",
+   "source": "---\nmarks: etch\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "marks: tone",
+   "source": "---\nmarks: tone\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": []
+   }
+  },
+  {
+   "name": "marks: (unknown)",
+   "source": "---\nmarks: not-a-value\n---\n\n## A register\n\nOne line of text.\n",
+   "L2": {
+    "findings": [
+     {
+      "rule": "unknown-marks",
       "severity": "warning",
       "slide": 0
      }
@@ -1043,8 +1075,8 @@
    }
   },
   {
-   "name": "spark: etching",
-   "source": "---\nspark: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "spark: etch",
+   "source": "---\nspark: etch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }
@@ -1105,8 +1137,8 @@
    }
   },
   {
-   "name": "icon: etching",
-   "source": "---\nicon: etching\n---\n\n## A register\n\nOne line of text.\n",
+   "name": "icon: etch",
+   "source": "---\nicon: etch\n---\n\n## A register\n\nOne line of text.\n",
    "L2": {
     "findings": []
    }

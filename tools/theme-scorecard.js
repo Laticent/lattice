@@ -74,8 +74,12 @@ const CONTRACT = [
   'seq-500',
   // chart family
   'chart-cat1', 'chart-cat2', 'chart-cat3', 'chart-cat4', 'chart-cat5',
-  'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-state-pass',
-  'chart-state-warn', 'chart-state-fail', 'chart-state-info', 'chart-state-mute',
+  'chart-cat6', 'chart-cat7', 'chart-cat8', 'chart-neutral-mark',
+  // the status inks beyond the trio, and the one ink on every chart fill
+  'info', 'mute', 'on-mark',
+  // the status FILLS in both intensities (base.tokens.css § STATUS, IN TWO JOBS)
+  'pass-mark', 'warn-mark', 'fail-mark', 'info-mark', 'mute-mark',
+  'pass-vivid-mark', 'warn-vivid-mark', 'fail-vivid-mark', 'info-vivid-mark',
 ];
 
 // ── Color math (identical to chart-contrast.test.js) ───────────────────────
@@ -184,7 +188,7 @@ function scoreTheme(name, dist) {
       if (rgb) cats.push({ i, rgb, fill: resolve(vars[`cat${i}-fill`], vars, mode) });
     }
     const states = ['pass', 'warn', 'fail', 'info', 'mute']
-      .map((k) => ({ k, rgb: resolve(vars[`chart-state-${k}`], vars, mode), fill: resolve(vars[`state-${k}-fill`], vars, mode) }))
+      .map((k) => ({ k, rgb: resolve(vars[k], vars, mode), fill: resolve(vars[`state-${k}-fill`], vars, mode) }))
       .filter((s) => s.rgb);
     for (const c of cats) { if (c.fill) minTextAA = Math.min(minTextAA, contrast(th, c.fill)); minMark = Math.min(minMark, contrast(c.rgb, bg)); }
     for (const s of states) { if (s.fill && s.k !== 'mute') minTextAA = Math.min(minTextAA, contrast(th, s.fill)); if (s.k !== 'mute') minMark = Math.min(minMark, contrast(s.rgb, bg)); }

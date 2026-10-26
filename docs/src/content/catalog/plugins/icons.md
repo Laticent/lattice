@@ -43,7 +43,7 @@ examples:
       | Look | `database` | `shield` |
       | --- | --- | --- |
       | `pigment` | `^{database, c1}` | `^{shield, c3}` |
-      | `etching` | `^{database, c1, etching}` | `^{shield, c3, etching}` |
+      | `etch` | `^{database, c1, etch}` | `^{shield, c3, etch}` |
       | `tone` | `^{database, c1, tone}` | `^{shield, c3, tone}` |
   - key: pills
     label: In a label
@@ -80,7 +80,7 @@ What you want is a small, clean drawing that says "database" or "queue", in the 
 
 ## The idea
 
-- **You write a word in inline code.** `` `^{database}` `` draws a database icon. A few more words, in any order, style it: `c3` picks a color from the deck's chart palette, `lg` makes it bigger, `etching` switches to an outline.
+- **You write a word in inline code.** `` `^{database}` `` draws a database icon. A few more words, in any order, style it: `c3` picks a color from the deck's chart palette, `lg` makes it bigger, `etch` switches to an outline.
 - **It's drawn, not typed.** Every icon is an SVG drawing, so it's sharp at any size and takes its color from the theme — light, dark or print.
 - **Roles, not brands.** The set is about 250 icons from Tabler, an open-source (MIT) icon library, curated for architecture and business slides: compute, storage, data, network, security, delivery, people and more. There are deliberately no vendor logos. A service is a role icon beside its name: S3 is a `bucket`, Lambda a `function`.
 - **It goes where labels go.** Inside a pill — one of Lattice's small inline labels, written `{S3, c4}` — `icon=bucket` leads the label. On a flowchart, hub-and-spoke or state-chart node, it sits beside the node's name.
@@ -101,7 +101,7 @@ Style it with words, in any order:
 | `c1` … `c12` | A color from the deck's chart palette | `c1` |
 | `sm`, `md`, `lg` | Size, relative to the text | `md` |
 | `framed`, `bare` | A tile behind the icon, or the lines alone | `framed` |
-| `pigment`, `etching`, `tone` | Solid tile, outline, or pale tint | `pigment` |
+| `pigment`, `etch`, `tone` | Solid tile, outline, or pale tint | `pigment` |
 | `square`, `rounded` | The tile's corners | `square` |
 | `label="…"` | What a screen reader says | the icon's name |
 
@@ -113,7 +113,7 @@ Inside a pill, and on a chart node:
 - Gateway `{diamond, c2, icon=gateway}` => Queue
 ```
 
-To style every icon in a deck at once, set `icon: bare etching` in the deck's front matter (the settings block at the top of the file). In the Studio, the editor suggests icon names as you type after `` `^{ `` or `icon=`, with each drawing beside its name.
+To style every icon in a deck at once, set `icon: bare etch` in the deck's front matter (the settings block at the top of the file). In the Studio, the editor suggests icon names as you type after `` `^{ `` or `icon=`, with each drawing beside its name.
 
 ## Where else it fits
 

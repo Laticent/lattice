@@ -360,7 +360,7 @@ diagram — it draws from the chart-family's own `--catN-*` spectrum (tunable
 per theme via `--chart-catN`) and no longer uses theme-defined
 `--c-quadrant-*` slot tokens. See `lib/components/chart/quadrant/`.
 
-### Chart-family palette (`--chart-catN`, `--chart-state-*`)
+### Chart-family palette (`--chart-catN`, the status solids)
 
 The chart bucket (pie, quadrant, radar, gantt, kanban, progress,
 state-chart, timeline-list, word-cloud) draws from its **own** two
@@ -381,7 +381,10 @@ character by setting the override hooks at `:root`, each a
 | Hook | Overrides |
 |---|---|
 | `--chart-cat1` … `--chart-cat8` | the 8 categorical hues |
-| `--chart-state-pass` / `-warn` / `-fail` / `-info` / `-mute` | the 5 semantic hues |
+| `--chart-neutral-mark` | the solid for a mark with no category or status (a deferred node, a neutral bar) |
+| `--pass` / `--warn` / `--fail` / `--info` / `--mute` | the 5 status INKS — base tokens every theme curates, not chart-only hooks; `--info` and `--mute` are also their own fills |
+| `--pass-mark` / `--warn-mark` / `--fail-mark` | the light-face status FILLS (the dark face uses the ink); see `base.tokens.css` § STATUS, IN TWO JOBS |
+| `--on-mark` | the ink on a fill: white on every chart fill, a category, the neutral or a status (near-black on an `a11y-*` dark face). One ink; a status is told apart by its drawn mark and, for an exception, its signal ring |
 
 The `var()` indirection means a theme always wins, and it need only set the
 slots it wants to flavor.
@@ -394,7 +397,7 @@ hue + a curated crimson `fail`) — lives in
 the mechanical contract; the style doc carries the "different yet similar"
 design principles.
 
-**Curate assessment-first.** Score candidate `--chart-cat*` / `--chart-state-*`
+**Curate assessment-first.** Score candidate `--chart-cat*` / status-solid
 values *before* committing to them — resolve the full token chain (incl. each
 chart's gradient deep stop) and check, on **both** canvases: text-on-fill WCAG
 (AA on labels), marks vs canvas (≥3:1, WCAG 1.4.11), and adjacent-slot OKLab
