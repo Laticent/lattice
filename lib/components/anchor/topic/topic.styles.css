@@ -122,7 +122,7 @@ section.topic {
    * (check:edge-shift). The top owns its edge and carries no bar, so it is left alone. */
   padding-left: calc(var(--_gutter) - var(--_bar-l, 0px));
   padding-right: calc(var(--_gutter) - var(--_bar-r, 0px));
-  padding-top: calc(var(--sp-xl) * 2);          /* clears the pinned eyebrow */
+  padding-top: calc(var(--sp-xl) * 2 - var(--_bar-t, 0px)); /* clears the pinned eyebrow; gives up a bar a deck-wide `spectrum: solid` adds */
   /* Reserves the shelf. Padding sits outside the content box, so centered
    * content cannot reach the track — which closes the silent-collision window a
    * bottom-positioned band otherwise opens (engineering/jank.md). */
@@ -169,7 +169,7 @@ section.topic > * { margin: 0; }
 /* ── the section eyebrow — pinned, so it holds position as content grows ──── */
 section.topic > p:first-of-type:has(> code:only-child):not(:where([data-prose])) {
   position: absolute;
-  top: var(--sp-xl);
+  top: calc(var(--sp-xl) - var(--_bar-t, 0px));
   left: calc(var(--_gutter) - var(--_bar-l, 0px));
   right: calc(var(--_gutter) - var(--_bar-r, 0px));
   max-width: none;
@@ -239,8 +239,9 @@ section.topic > ul.tile-track {
   right: calc(var(--_gutter) - var(--_tab-pad) - var(--_bar-r, 0px));
   /* One seam ABOVE the band edge, so the lit tab paints over the seam and the
    * upper band reads as reaching down into its column unbroken. */
-  /* 75% of the PADDING box, which a bottom bar shortens: add back 75% of that border so the seam holds. */
-  top: calc(75% + 0.75 * var(--_bar-b, 0px) - var(--_seam));
+  /* 75% of the PADDING box, which a top or bottom bar shortens: add back the share of those borders
+   * that moves the seam (0.75 of the bottom bar, minus 0.25 of the top bar) so it holds. */
+  top: calc(75% + 0.75 * var(--_bar-b, 0px) - 0.25 * var(--_bar-t, 0px) - var(--_seam));
   /* A FIXED foot, never content-sized. Sibling slides of one section light
    * different columns, and the lit label is heavier, so a content-sized tab
    * would change height as the deck advances — jank the eye catches on every
@@ -364,7 +365,7 @@ section.topic.fact {
   color-scheme: dark;
   justify-content: flex-start;
   align-items: stretch;
-  padding-bottom: var(--sp-xl);
+  padding-bottom: calc(var(--sp-xl) - var(--_bar-b, 0px));
 }
 /* The derived track is suppressed rather than hidden at the kernel: a deck that
  * mixes both forms keeps ONE derivation, so a `fact` slide still contributes its
@@ -472,5 +473,5 @@ section.topic:not(:has(> ul.tile-track)) {
    * back and makes the claim true. */
   background-color: var(--surface-inverse);
   background-image: none;
-  padding-bottom: var(--sp-xl);
+  padding-bottom: calc(var(--sp-xl) - var(--_bar-b, 0px));
 }

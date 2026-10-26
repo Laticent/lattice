@@ -3076,13 +3076,16 @@ section.logo-plate img.deck-logo {
    lib/base/base.docs.md and engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md. */
 section.safe[data-orientation='portrait'],
 section.safe[data-orientation='square'] {
-  padding-top: max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875));
-  padding-bottom: max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875));
+  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum-edge:`. */
+  padding-top: calc(max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
+  padding-bottom: calc(max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) - var(--_bar-b, 0px));
 }
 /* Lift the bottom chrome (footer / pagination / progress) above the caption band
    so it isn't buried under the overlay. */
-section.safe[data-orientation='portrait'] :is(.cell-footer, .tile-meta, [class*='pagination'], [class*='progress']),
-section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='pagination'], [class*='progress']) {
+/* `.tile-progress`, not `[class*='progress']`: that also matched the `progress` chart's own `.progress-track` and
+   `.progress-row`, lifting them as if they were footer chrome. */
+section.safe[data-orientation='portrait'] :is(.cell-footer, .tile-meta, [class*='pagination'], .tile-progress),
+section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='pagination'], .tile-progress) {
   bottom: calc(var(--frame-inset-b) + var(--safe-bottom, 0px));
 }
 

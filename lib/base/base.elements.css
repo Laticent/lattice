@@ -82,12 +82,17 @@ section {
   font-family:var(--font-body); font-size:var(--fs-body); line-height:var(--lh-base);
   -webkit-print-color-adjust:exact; print-color-adjust:exact;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; text-rendering:optimizeLegibility;
-  border-top: calc(var(--_sec-1cqi,1cqi)*0.3125) solid; border-image-source: var(--spectrum-bar); border-image-slice: 1;
+  border-top: var(--_bar-w) solid; border-image-source: var(--spectrum-bar); border-image-slice: 1;
   --_edge-t: 0; /* the bar is the top edge: a host's engine keyline yields to it (base.modifiers.css) */
   --_inline-inset: calc(var(--_sec-1cqi, 1cqi) * 5 + var(--_wide-gutter, 0px)); /* the side inset a frame may widen (premise) */
-  --_bar-w: calc(0.3125 * var(--_sec-1cqi, 1cqi)); /* the bar's width: what a frame with no inset of its own on a side reserves there */
-  --_bar-room-t: calc(0.3125 * var(--_sec-1cqi, 1cqi)); /* the top room the default bar reserves; a frame that owns its top edge sets 0 */
-  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi)); /* how far the bar reaches in — the edge box covers it (base.modifiers.css) */
+  /* The bar's width, rounded down to a whole CSS pixel. A browser floors a border width to whole device
+     pixels, so at 1080px wide the exact 3.375px bar drew as 3px while the padding gave up 3.375px, and one
+     centered layout amplified the 0.375px gap to 3.6px (check:edge-shift, `progress safe`). One whole-pixel
+     value for the border AND the padding keeps them equal. It is also what a frame with no inset of its
+     own on a side reserves there. */
+  --_bar-w: round(down, calc(0.3125 * var(--_sec-1cqi, 1cqi)), 1px);
+  --_bar-room-t: var(--_bar-w); /* the top room the default bar reserves; a frame that owns its top edge sets 0 */
+  --_bar-t: var(--_bar-w); /* how far the bar reaches in — the edge box covers it (base.modifiers.css) */
 }
 
 /* NOTE — there is deliberately NO `section > * { z-index: … }` rule here. Content is the

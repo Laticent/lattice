@@ -138,9 +138,9 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge,
 section.tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]) {
   --tone-rail: 0 0 transparent;   /* no box-shadow band — the recolored border carries the tone */
   --_edge-t: 0;                   /* the tone bar is the top edge, even under `spectrum: off` */
-  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
+  --_bar-t: var(--_bar-w);
   --_edge-l: 1;                   /* …and the rail is gone, so the left keyline returns */
-  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+  border-top: var(--_bar-w) solid var(--tone-color); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
 }
 /* On a split frame the bar is not a section border: each panel paints its own segment (a ribbon
@@ -288,10 +288,10 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    they do over the default rainbow (2026-07-03-status-marker-style-variants.md §9). The
    exclusion mirrors those rules' own gates and sits in `:where()` so this rule keeps its
    (0,3,1) specificity against everything else. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]):not(:where(.split-panel, .split-compare, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]):not(:where(.split-panel, .split-compare, .image, .scene, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
   --_edge-t: 0; /* the bar is the top edge — the engine keyline yields to it (base.modifiers.css) */
-  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
-  border-top: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  --_bar-t: var(--_bar-w);
+  border-top: var(--_bar-w) solid;
   border-image-source: var(--spectrum-bar);
   border-image-slice: 1;
 }
@@ -362,20 +362,20 @@ section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .sp
 section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom):not(.divider, .image, .scene, .split-panel, .split-compare) { border-image-slice: 1; }
 section.spectrum-edge-left:not(.divider, .image, .scene, .split-panel, .split-compare) {
   --_edge-l: 0; /* the rail is the left edge */
-  --_bar-l: calc(0.3125 * var(--_sec-1cqi, 1cqi));
-  border-left: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+  --_bar-l: var(--_bar-w);
+  border-left: var(--_bar-w) solid; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: var(--spectrum-bar-vertical);
 }
 section.spectrum-edge-right:not(.divider, .image, .scene, .split-panel, .split-compare) {
   --_edge-r: 0;
-  --_bar-r: calc(0.3125 * var(--_sec-1cqi, 1cqi));
-  border-right: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  --_bar-r: var(--_bar-w);
+  border-right: var(--_bar-w) solid;
   border-image-source: var(--spectrum-bar-vertical);
 }
 section.spectrum-edge-bottom:not(.divider, .image, .scene, .split-panel, .split-compare) {
   --_edge-b: 0;
-  --_bar-b: calc(0.3125 * var(--_sec-1cqi, 1cqi));
-  border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
+  --_bar-b: var(--_bar-w);
+  border-bottom: var(--_bar-w) solid;
   border-image-source: var(--spectrum-bar);
 }
 /* dark slides paint the top bar as a background line; drop it when an edge is chosen.
@@ -452,14 +452,8 @@ section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .re
 section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin)::before {
   content: var(--stamp-label);
   position: absolute;
-  /* Where each stamp style measures from. The stamp hangs on the section's PADDING box, which sits
-   * inside the bar border, so a raw `top: 0` / `right: 0` moves with the bar. These make the stamp's
-   * distance from the SLIDE edge constant under every `spectrum-edge:` (check:edge-shift): the top
-   * clears the room the default bar always took, the other edges reach the slide edge. */
-  --_stamp-t: calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
-  --_stamp-r: calc(-1 * var(--_bar-r, 0px));
-  --_stamp-b: calc(-1 * var(--_bar-b, 0px));
-  --_stamp-l: calc(-1 * var(--_bar-l, 0px));
+  /* Each stamp style adds `--_hold-*` (base.tokens.css) so its distance from the SLIDE edge is constant
+   * under every `spectrum-edge:` (check:edge-shift). */
   /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
    * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
    * (--z-mark 100 over --z-alarm 90), preserving the order the engine has always shipped.
@@ -497,7 +491,7 @@ section.divider:not(.light)::before {
 /* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
 section.stamp-tab::before {
-  top: var(--_stamp-t); right: var(--_stamp-r);
+  top: var(--_hold-t); right: var(--_hold-r);
   color: var(--on-accent); background: var(--stamp-color);
   font-size: 0.86cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding: 0.45cqi 0.9cqi 0.45cqi 1.15cqi;
   clip-path: polygon(0.7cqi 0, 100% 0, 100% 100%, 0 100%);
@@ -505,7 +499,7 @@ section.stamp-tab::before {
 
 /* ── NOTCH — a top full-width hairline band with a leading color chip. */
 section.stamp-notch::before {
-  top: var(--_stamp-t); left: var(--_stamp-l); right: var(--_stamp-r); clip-path: none;
+  top: var(--_hold-t); left: var(--_hold-l); right: var(--_hold-r); clip-path: none;
   display: flex; align-items: center; gap: 0.5cqi;
   color: color-mix(in srgb, var(--stamp-color) 86%, var(--text-heading));
   background: color-mix(in srgb, var(--stamp-color) 9%, var(--bg));
@@ -515,7 +509,7 @@ section.stamp-notch::before {
 
 /* ── PILL — a keyline-outlined pill, accent text on a soft wash. */
 section.stamp-pill::before {
-  top: calc(6% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none;
+  top: calc(6% + 0.06 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none;
   color: var(--stamp-color);
   background: color-mix(in srgb, var(--stamp-color) 10%, var(--bg));
   border: 0.12cqi solid color-mix(in srgb, var(--stamp-color) 40%, transparent);
@@ -525,14 +519,14 @@ section.stamp-pill::before {
 /* ── BRACKET — [ LABEL ] framed technical tag (glyphs concatenated onto the var). */
 section.stamp-bracket::before {
   content: "[ " var(--stamp-label) " ]";
-  top: calc(6% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none; background: none;
+  top: calc(6% + 0.06 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none; background: none;
   color: var(--stamp-color);
   font-size: 0.8cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.22em; padding: 0.3cqi 0;
 }
 
 /* ── SEAL — a ruled double-ring seal, letterpressed. */
 section.stamp-seal::before {
-  top: calc(6% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none; background: none;
+  top: calc(6% + 0.06 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none; background: none;
   width: 7.6cqi; height: 7.6cqi; border-radius: 50%;
   display: grid; place-items: center; text-align: center;
   color: var(--stamp-color);
@@ -543,7 +537,7 @@ section.stamp-seal::before {
 
 /* ── RIBBON — a 45° banner across the top-right corner. */
 section.stamp-ribbon::before {
-  top: calc(8% + var(--_stamp-t)); right: calc(-21% + var(--_stamp-r)); width: 60%; clip-path: none;
+  top: calc(8% + 0.08 * var(--_hold-h) + var(--_hold-t)); right: calc(-21% + -0.21 * var(--_hold-w) + var(--_hold-r)); width: calc(60% + 0.6 * var(--_hold-w)); clip-path: none;
   transform: rotate(38deg); transform-origin: center;
   color: var(--on-accent); background: var(--stamp-color); text-align: center;
   font-size: 0.66cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.18em; padding: 0.34cqi 0;
@@ -552,14 +546,14 @@ section.stamp-ribbon::before {
 
 /* ── FLAG — a vertical bookmark flag down the right edge. */
 section.stamp-flag::before {
-  top: var(--_stamp-t); right: calc(8% + var(--_stamp-r)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+  top: var(--_hold-t); right: calc(8% + 0.08 * var(--_hold-w) + var(--_hold-r)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
   writing-mode: vertical-rl; color: var(--on-accent); background: var(--stamp-color);
   font-size: 0.7cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.14em; padding: 0.8cqi 0.32cqi 1cqi;
 }
 
 /* ── UNDERLINE — label on a thick accent keyline. */
 section.stamp-underline::before {
-  top: calc(6.5% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none; background: none;
+  top: calc(6.5% + 0.065 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none; background: none;
   color: var(--text-heading);
   font-size: 0.78cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding-bottom: 0.28cqi;
   border-bottom: 0.28cqi solid var(--stamp-color);
@@ -577,7 +571,7 @@ section.stamp-underline::before {
  * (padding, not margin — HARD RULE #20). */
 section.stamp-dot::before {
   content: var(--stamp-label);
-  top: calc(6.5% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none;
+  top: calc(6.5% + 0.065 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none;
   padding-left: 1.15cqi;
   background: radial-gradient(circle at 0.44cqi 50%, var(--stamp-color) 0 0.3cqi, transparent 0.3cqi);
   color: var(--stamp-color); font-size: 0.76cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
@@ -588,7 +582,7 @@ section.stamp-mark::before {
   /* `background: none` — the shared DEFAULT+TAB rule above fills every state marker's
    * pseudo with --stamp-color, and this full-slide box would carry that fill as an opaque
    * rotated slab over the content instead of a faint word. */
-  inset: var(--_stamp-t) var(--_stamp-r) var(--_stamp-b) var(--_stamp-l); clip-path: none; display: grid; place-items: center; background: none; padding: 0;
+  inset: var(--_hold-t) var(--_hold-r) var(--_hold-b) var(--_hold-l); clip-path: none; display: grid; place-items: center; background: none; padding: 0;
   color: color-mix(in srgb, var(--stamp-color) 12%, transparent);
   /* Sized to its word: 16cqi for a short label, smaller for a long one, so CONFIDENTIAL
    * fits across the slide instead of running off it. --stamp-len is each state's letter
@@ -599,7 +593,7 @@ section.stamp-mark::before {
 
 /* ── VEIL — a desaturating overlay + a corner label chip. */
 section.stamp-veil::before {
-  inset: var(--_stamp-t) var(--_stamp-r) var(--_stamp-b) var(--_stamp-l); clip-path: none;
+  inset: var(--_hold-t) var(--_hold-r) var(--_hold-b) var(--_hold-l); clip-path: none;
   background: color-mix(in srgb, var(--stamp-color) 13%, transparent);
   display: grid; place-items: start end; padding: 5%;
   color: color-mix(in srgb, var(--stamp-color) 90%, var(--text-heading));
@@ -608,7 +602,7 @@ section.stamp-veil::before {
 
 /* ── BAR — a redaction bar that names its state: a dark strip, the label in light caps. */
 section.stamp-bar::before {
-  top: calc(6.5% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none;
+  top: calc(6.5% + 0.065 * var(--_hold-h) + var(--_hold-t)); right: calc(5% + 0.05 * var(--_hold-w) + var(--_hold-r)); clip-path: none;
   color: var(--on-accent);
   background: color-mix(in srgb, var(--stamp-color) 82%, var(--text-heading));
   border-radius: 0.2cqi; min-width: 8cqi; padding: 0.4cqi 1.2cqi; text-align: center;
@@ -616,7 +610,7 @@ section.stamp-bar::before {
 
 /* ── PIN — a bookmark pin dropped from the top edge (label hidden). */
 section.stamp-pin::before {
-  top: var(--_stamp-t); right: calc(11% + var(--_stamp-r)); clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%);
+  top: var(--_hold-t); right: calc(11% + 0.11 * var(--_hold-w) + var(--_hold-r)); clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%);
   color: transparent; overflow: hidden;
   background: var(--stamp-color); width: 2cqi; height: 2.9cqi;
 }

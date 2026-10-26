@@ -120,6 +120,12 @@ section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="str
 section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) > :not(.qr-figure):not(.marker-rail):not(.fixme-tab):not(.slide-edge) {
   grid-column: 1;
 }
+/* The grid rule above also gives the running header and footer a grid column, so their `left` measures
+ * from that column (the content box), not the padding box: the raw inset holds there, the bar-aware one
+ * would move with the bar (check:edge-shift). */
+section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) > :is(header, footer) {
+  --frame-inset-l: var(--frame-inset-x);
+}
 section:where(.closing, .divider).qr:not([data-family="tall"], [data-family="strip"], [data-family="square"]) > .qr-figure {
   grid-column: 2;
   grid-row: 1 / span 6;

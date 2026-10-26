@@ -1354,6 +1354,15 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
    * same distance from the slide edge under every `spectrum-edge:` (check:edge-shift). Top also
    * adds back the room the default bar always took, so no default deck moves. */
   --_pag-gap:           calc(3.25 * var(--_sec-1cqi, 1cqi)); /* the page number's own width + a hair: what the progress rail clears (stage.css) */
+  /* What to add to an absolute offset measured from the padding box so it lands the same distance from
+   * the SLIDE edge under every `spectrum-edge:` (check:edge-shift). Top clears the room the default bar
+   * always took; the other three reach the slide edge, so a stamp or a mark may sit over a side bar. */
+  --_hold-w:            calc(var(--_bar-l, 0px) + var(--_bar-r, 0px)); /* the width a percentage of the padding box is short by */
+  --_hold-h:            calc(var(--_bar-t, 0px) + var(--_bar-b, 0px));
+  --_hold-t:            calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
+  --_hold-r:            calc(-1 * var(--_bar-r, 0px));
+  --_hold-b:            calc(-1 * var(--_bar-b, 0px));
+  --_hold-l:            calc(-1 * var(--_bar-l, 0px));
   --frame-inset-t:      calc(var(--frame-inset-y) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
   --frame-inset-b:      calc(var(--frame-inset-y) - var(--_bar-b, 0px));
   --frame-inset-l:      calc(var(--frame-inset-x) - var(--_bar-l, 0px));
@@ -1368,6 +1377,7 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
  * from `--frame-inset-r` in stage.css, so it is re-derived here too (check:edge-shift: columns, rows). */
 lat-pane {
   --_bar-room-t: 0px; --_bar-t: 0px; --_bar-r: 0px; --_bar-b: 0px; --_bar-l: 0px;
+  --_hold-t: 0px; --_hold-r: 0px; --_hold-b: 0px; --_hold-l: 0px; --_hold-w: 0px; --_hold-h: 0px;
   --frame-inset-t: var(--frame-inset-y);
   --frame-inset-b: var(--frame-inset-y);
   --frame-inset-l: var(--frame-inset-x);

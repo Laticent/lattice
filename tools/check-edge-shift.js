@@ -22,6 +22,12 @@
  *   --components a,b   only these components (default: every manifest with a skeleton/sample)
  *   --limit N          the first N components only (a quick pass)
  *   --no-dark          skip the dark twin of each slide
+ *   --variants         also render each component once per modifier its manifest declares
+ *                      (`topic fact`, `collage bleed`, ...), light only
+ *   --each-class a,b|all  one plain `content` slide per class instead of the components (`all` is every
+ *                      class the engine reserves), to find the modifier that moves the box
+ *   --classes 'a b'    add these classes to every slide (`footer-inset`, `claim-bleed`, `safe`, ...)
+ *   --front-matter 'k: v'  add a deck directive (`spectrum: off`, `finish: atrium`); repeatable
  *   --no-chrome        render without header / footer / page number
  *   --family NAME      canvas family (wide|square|tall|strip, default wide)
  *   --tolerance PX     movement below this is rounding (default 0.5)
@@ -30,6 +36,9 @@
  *   --dump DIR         also save each placement's rendered HTML as DIR/edge-<placement>.html
  *   --json             machine-readable result
  *   --advisory         always exit 0 once it has measured (the default exits 1 on any shift)
+ *
+ * NOT MEASURED: the `finish:` backdrop (`.backdrop`). It fills the area the bar leaves, because a layer
+ * that reached under the bar would paint over it, so its edge differs by the bar's strip by design.
  *
  * EXIT. 0 = nothing moved. 1 = something moved. 2 = it could not measure (no Chromium, a
  * placement that did not take effect, a render that dropped slides): never a silent pass
@@ -48,14 +57,14 @@ const {
 const { resolveChrome } = require('./lib/resolve-chrome.js');
 
 const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] '
-  + '[--components a,b] [--limit N] [--no-dark] [--no-chrome] [--family wide] [--tolerance 0.5] '
+  + '[--components a,b] [--limit N] [--no-dark] [--variants] [--classes "a b"] [--front-matter "k: v"] [--no-chrome] [--family wide] [--tolerance 0.5] '
   + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--positions FILE]';
 
 function die(msg, code = 2) { console.error(`check-edge-shift: ${msg}`); process.exit(code); }
 
 // ── argv — parsed, and unknown flags are refusals (the check-jank lesson) ──────────────────
-const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions']);
-const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help']);
+const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions', 'classes', 'front-matter', 'each-class']);
+const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help', 'variants']);
 const opts = new Map();
 for (let i = 2; i < process.argv.length; i++) {
   const m = /^--([\w-]+)(?:=(.*))?$/.exec(process.argv[i]);
@@ -65,7 +74,7 @@ for (let i = 2; i < process.argv.length; i++) {
   if (!VALUE_FLAGS.has(name)) die(`unknown flag --${name}.\n\n${USAGE}`);
   const value = inline ?? process.argv[++i];
   if (value == null || value === '' || value.startsWith('--')) die(`--${name} needs a value.`);
-  opts.set(name, value);
+  if (name === 'front-matter') opts.set(name, [...(opts.get(name) || []), value]); else opts.set(name, value);
 }
 if (opts.has('help')) { console.log(USAGE); process.exit(0); }
 
@@ -84,6 +93,12 @@ const DARK = !opts.has('no-dark');
 const CHROME = !opts.has('no-chrome');
 const JSON_OUT = opts.has('json');
 const REFERENCE = PLACEMENTS.includes('top') ? 'top' : PLACEMENTS[0];
+const EXTRA_CLASSES = (opts.get('classes') || '').trim();
+const EXTRA_FRONT_MATTER = opts.get('front-matter') || [];
+for (const entry of EXTRA_FRONT_MATTER) {
+  if (!/^[A-Za-z_][\w-]*:\s*\S/.test(entry) || /[\r\n]/.test(entry)) die(`--front-matter '${entry}' is not a one-line \`key: value\` entry.`);
+  if (/^(size|spectrum-edge):/.test(entry)) die(`--front-matter cannot set '${entry.split(':')[0]}': the sweep owns it.`);
+}
 
 // ── the deck ───────────────────────────────────────────────────────────────────────────────
 
@@ -109,6 +124,14 @@ function bodyOf(name) {
   return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
 }
 
+/** The variant's own sample when the manifest has one, else the component skeleton. */
+function variantBody(name, variant) {
+  const m = findManifest(name);
+  const doc = m.variantDocs?.[variant];
+  const text = doc?.sample ? doc.sample : (m.skeleton || m.sample);
+  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+}
+
 // Ordinary slides carrying each state stamp and each canvas, so the corner marks that anchor
 // to the section are measured even though no component's skeleton carries one.
 const STAMP_BODY = '# Heading\n\n- One\n- Two\n- Three';
@@ -122,6 +145,11 @@ const FIXED = [
 ].map((s) => ({ ...s, body: STAMP_BODY }));
 
 function slideList() {
+  if (opts.has('each-class')) {
+    const v = opts.get('each-class');
+    const classes = v === 'all' ? [...require('../lib/packages/reserved-classes.generated.js').names] : v.split(',').map((c) => c.trim()).filter(Boolean);
+    return [...classes.map((c) => ({ label: `.${c}`, cls: `content ${c}`, body: STAMP_BODY })), { ...FIXED[0], probe: true }];
+  }
   const wanted = opts.has('components') ? opts.get('components').split(',').map((s) => s.trim()) : null;
   let names = wanted || componentNames();
   if (wanted) for (const n of wanted) if (!findManifest(n)) die(`no manifest for '${n}'.`);
@@ -131,8 +159,14 @@ function slideList() {
     slides.push({ label: n, cls: n, body: bodyOf(n) });
     if (DARK) slides.push({ label: `${n}+dark`, cls: `${n} dark`, body: bodyOf(n) });
   }
+  if (opts.has('variants')) {
+    for (const n of names) {
+      const m = findManifest(n);
+      for (const v of m.variants || []) slides.push({ label: `${n}+${v}`, cls: `${n} ${v}`, body: variantBody(n, v) });
+    }
+  }
   // The plain `content` slide is always present: it is the probe that proves each placement took.
-  slides.push(...(wanted ? FIXED.slice(0, 1) : FIXED));
+  slides.push(...(wanted ? FIXED.slice(0, 1) : FIXED).map((x, i) => (i === 0 ? { ...x, probe: true } : x)));
   return slides;
 }
 
@@ -142,9 +176,10 @@ function deckFor(slides, placement) {
     `size: ${SIZE_ALIAS[FAMILY]}`,
     `spectrum-edge: ${placement}`,
     ...(CHROME ? ['header: HEADER', 'footer: FOOTER', 'paginate: true'] : []),
+    ...EXTRA_FRONT_MATTER,
     '---',
   ].join('\n');
-  return `${fm}\n\n${slides.map((s) => `<!-- _class: ${s.cls} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
+  return `${fm}\n\n${slides.map((s) => `<!-- _class: ${s.cls}${EXTRA_CLASSES && !s.probe ? ` ${EXTRA_CLASSES}` : ''} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
 }
 
 // ── the measurement, run inside the page ───────────────────────────────────────────────────
@@ -168,6 +203,10 @@ function measureInPage() {
       [...el.children].forEach((child, i) => {
         const tag = child.tagName.toLowerCase();
         if (tag === 'script' || tag === 'style' || tag === 'link' || tag === 'meta') return;
+        // The finish backdrop fills what the bar leaves: a layer that extended under the bar would paint
+        // over it (negative z-planes paint above the section's own border), so its edge differs by the
+        // strip the bar occupies. It is the canvas, not content or chrome, and is not measured.
+        if (typeof child.className === 'string' && /(^|\s)backdrop(\s|$)/.test(child.className)) return;
         const key = `${path}/${i}:${tag}`;
         const r = child.getBoundingClientRect();
         const ccs = getComputedStyle(child);
@@ -258,7 +297,9 @@ async function main() {
   const labelOf = (i) => (named ? slides[i].label : `#${i + 1}`);
   // The arm that proves the tool can fail: the placement must have taken effect.
   const side = { top: 0, right: 1, bottom: 2, left: 3 };
-  for (const placement of PLACEMENTS) {
+  const barRegister = EXTRA_FRONT_MATTER.some((e) => /^spectrum(-trim|-card)?:/.test(e));
+  if (barRegister && !JSON_OUT) console.error('  note: a deck-level `spectrum:` register is set, so the placement-took-effect check is skipped.');
+  for (const placement of barRegister ? [] : PLACEMENTS) {
     const probe = byPlacement[placement][named ? slides.findIndex((x) => x.label === 'plain-content') : count - FIXED.length];
     const want = placement in side ? side[placement] : -1;
     const bad = probe.border.some((w, i) => (i === want ? !(w > 0) : w > 0));
