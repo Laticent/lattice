@@ -181,16 +181,23 @@ async function put(cacheName, request, response) {
 	// the life of the page. Whether a deploy should retain previous hash dirs, or the fetcher
 	// should re-resolve a stale base, is open:
 	// engineering/decisions/2026-09-15-playground-asset-retention.md.
+	//
+	// ONE LISTING SERVES BOTH PASSES. `cache.keys()` on a full cache (~700 entries) costs about
+	// 7 ms in Chromium, and a cold load puts hundreds of assets; listing again for the cap below
+	// made each versioned put 18 ms instead of 11.5 (#1930). The cap reads this listing minus
+	// what the loop deleted, which is what a second listing would return.
+	let keys = await cache.keys();
 	const cur = new URL(request.url).pathname.match(VERSIONED);
 	if (cur) {
-		for (const key of await cache.keys()) {
-			if (key.url === request.url) continue;
-			const stale = new URL(key.url).pathname.match(VERSIONED);
+		const kept = [];
+		for (const key of keys) {
+			const stale = key.url === request.url ? null : new URL(key.url).pathname.match(VERSIONED);
 			if (stale && (stale[1] === cur[1] || (isEngineChunk(stale[1]) && cur[1].startsWith('esm/') && !sameHashDir(key.url, request.url)))) await cache.delete(key);
+			else kept.push(key);
 		}
+		keys = kept;
 	}
 
-	const keys = await cache.keys();
 	let excess = keys.length - (CAP[cacheName] || 100);
 	for (const key of keys) {
 		if (excess <= 0) break;
