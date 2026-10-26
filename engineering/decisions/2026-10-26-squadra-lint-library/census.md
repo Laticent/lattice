@@ -1,12 +1,12 @@
 # Lint and invariant census (2026-10-26)
 
-Appendix to `../2026-10-26-squadra-lint-library.md`. Produced by a read-only agent pass; the class lines are its judgment calls and are stated below. About eight rules that read adjacent lines would move from C to D under a looser line, and ~50 rule ids (hub-spoke, flowchart, runtime-built ids, review-core) were not read.
+Appendix to `../2026-10-26-squadra-lint-library.md`. Produced by a read-only agent pass; the class lines are its judgment calls and are stated below. About eight rules that read adjacent lines would move from C to D under a looser line, and ~70 rule ids (hub-spoke, flowchart, runtime-built ids, review-core) were not read.
 
 Sources: lib/authoring/lint-core.js (155 literal rule ids), lib/authoring/bare-row-pill.js (1), lib/authoring/lint.js (emits none), lib/authoring/pane-lint.generated.js (data only, emits none), tools/check-ownership.js (104 check functions).
 
 Class rule used: D = the decision reads one node (a line, a span, a directive, one front-matter key, one CSS declaration with its selector, one import, one manifest field) plus a static vocabulary; the slide's own class tokens and "outside code / in front matter" count as SCOPE, not as a second node. C = reads a second content node (another line, a count, a front-matter value from a slide rule, a measurement). R = reads other files or manifests, or checks an allowlist against the tree (stale-entry detection). Hardest class wins; "core" (ownership only) is the class of the per-item detector before allowlist/staleness.
 
-Fix kinds: H = human-text-only (finding/message names the remedy). M:replace = structured `replace`; M:replaceLine = whole-line `replaceLine`; M:switch = `autofixable` with a transform in `fixReplacement` (lint-core.js:2647); M:suggest = `withTokenSuggestion` (lint-core.js:2629), CONDITIONAL — machine fix only when one candidate is within edit distance. All M kinds are conditional except journey-actor-shortcut, mixed-spelling (when Segno supplies a fix), spark-too-big, chart-series-name-inconsistent.
+Fix kinds: H = human-text-only (finding/message names the remedy). M:replace = structured `replace`; M:replaceLine = whole-line `replaceLine`; M:switch = `autofixable` with a transform in `fixReplacement` (lint-core.js:2646); M:suggest = `withTokenSuggestion` (lint-core.js:2629), CONDITIONAL — machine fix only when one candidate is within edit distance. All M kinds are conditional except journey-actor-shortcut, mixed-spelling (when Segno supplies a fix), spark-too-big, chart-series-name-inconsistent.
 
 Missing from table: none; extra: none; ownership missing: none; ownership extra: none.
 
@@ -364,4 +364,4 @@ By primary language: {"json":22,"css":36,"js":37,"other":9}
 - `unknown-${row.key}` from findUnknownSettingValues (lint-core.js:9337) — one per DECK_SETTINGS generic row (theme, size, motion, … per its docblock); D, M:suggest.
 - `unknown-${key}` from findUnknownAxisRegister (lint-core.js:9442) — spark:, image-card:, logo-finish:, each plugin register; D, M:suggest.
 - 31 hub-spoke-* ids from lib/core/hub-spoke-model.js lintModel (via lint-core.js:7560) and 19 flowchart-*/state-chart ids from lib/core/flowchart-grammar.js (via lint-core.js:6831): detectors live in those kernels, NOT read; class UNKNOWN.
-- lib/authoring/review-core.js emits 10 more ids (label-title, wall-of-text, density-*, …): a separate review surface, not read.
+- lib/authoring/review-core.js emits 18 more ids (label-title, wall-of-text, density-*, …): a separate review surface, not read.
