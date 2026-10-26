@@ -1,0 +1,1 @@
+- **A Studio tab coming to the front no longer writes deleted data back.** After "Delete Everything" in one tab, a second Studio tab that missed the wipe broadcast rewrote its crash-sentinel session record, deck title included, the moment it became visible. The visibility handler now checks the durable wipe mark first, as the resume, page-cache and heartbeat paths already did.
