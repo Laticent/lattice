@@ -54,3 +54,6 @@ re-measured again 2026-10-26 (PR #2913, note §10) — `composeCss` is 86-89 ms 
             about 70 ms of it. In the Playground's biggest boot task `cssFor` is 100-320 ms at 4x. Memoizing the base pack helps palette
             changes, not the first render; only a packed base that REPLACES the raw one for the Playground, trusted by byte equality, removes the
             first cost. That changes the engine's input contract, so it waits for the owner (decision card on the PR). Not built.
+
+decided 2026-10-26 (owner, on PR #2913, D1 A) — do not ship a pre-built base sheet; accept the 100-320 ms first-render composition. Nothing to build
+            here. Reopen only if the owner asks.

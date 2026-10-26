@@ -37,7 +37,10 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             against #2907's preview: LCP median 8.3 s -> 4.2 s, score median 42 -> 55 (note §8). The under-4 s bar is NOT met (2 of 5).
             Next item 3 now has a design (note §9): lever A (no lint while the editor is hidden) measured -190 ms simulated TBT;
             the owner's call is whether to take A and spike D (time-sliced hydration).
-decided   — the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
+decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
+            at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
+            for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.
+            Earlier: the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note
             and one question round first (CLAUDE.md, design before code).
