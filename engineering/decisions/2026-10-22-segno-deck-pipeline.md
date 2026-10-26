@@ -357,3 +357,17 @@ and emphasis drivers it would pair a generated tokenizer with a small hand-writt
   `@laticent/segno`. Segno keeps its compile-time linear promise; the dialect drivers carry
   their own stated bounds. *Alternative:* inside `@laticent/segno`, which is one package to
   publish but mixes proven grammars with hand-written drivers under one promise.
+
+## G6 landed (2026-10-26)
+
+`docs/src/lib/segno/codegen.ts` now compiles a `many` over the complement of one to three single characters to a cached native search. Each stop character gets `nx_<code>(from)`, which returns the remembered `indexOf` hit while the cursor has not passed it and searches again otherwise; the run ends at the smallest hit, clamped to `n` (the attempt window's end). `parse()` resets the caches. A set with more stops, or ranges, keeps the 16-character JS prefix plus regular expression.
+
+Measured on the 4-core Xeon, median of five, `npm run parser:bakeoff:deck -- --arms --runs 5` at `1502454` versus this change:
+
+| Measure | Before | After |
+|---|---|---|
+| Segno line pass alone | 315 MB/s | 433 MB/s |
+| S-staged (Segno stage + predicates) | 86.5 MB/s, 1.16x markdown-it | 94.2 MB/s, 1.26x |
+| Hand line pass alone (control) | 660 MB/s | 652 MB/s |
+
+That is 66% of the hand-written loop, short of the 665 MB/s target. The earlier scratch spike reported 1.9-2.4x; this is the measured result of the shipped version, with the existing codegen tests, the grammar fuzz and metamorphic suites green. The remaining gap is tape writes and node bookkeeping, which is the tape-trimming step, not more run work. Trees are identical; generated files differ only by the added helpers.

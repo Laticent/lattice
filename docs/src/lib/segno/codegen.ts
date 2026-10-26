@@ -110,6 +110,17 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
   // One global regular expression per set a loop scans: it matches one code unit OUTSIDE the set.
   const regexes = new Map<string, string>();
   const SCAN_JS = 16;
+  // Native runs (G6): a run whose stops are 1-3 single characters is finished by `indexOf`, one
+  // per stop, each cached (nx_<code>) so a later run that starts before the cached hit does not
+  // search again. Anything else keeps the regular expression below.
+  const natives = new Set<number>();
+  const stopChars = (cs: CharSet): number[] | null => {
+    const out = complement(cs);
+    if (out.length < 2 || out.length > 6) return null;
+    const cp: number[] = [];
+    for (let k = 0; k < out.length; k += 2) { if (out[k] !== out[k + 1]) return null; cp.push(out[k]); }
+    return cp;
+  };
   const regexFor = (cs: CharSet): string => {
     const out = complement(cs);
     const hex = (c: number) => `\\u${c.toString(16).padStart(4, '0')}`;
@@ -244,6 +255,14 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
           // Only with no attempt window open (`n` is the whole input): the regex cannot stop at a
           // window's end, so inside one it would read the rest of the run on every attempt and
           // turn a linear grammar quadratic (the checker's repro: 8.7 s at 160k characters).
+          const stops = stopChars(e.x.cs);
+          if (stops) {
+            // No JS prefix: the cached search costs less than the first 16 loop steps. Inside an
+            // attempt window `n` is the window's end, so the hit is clamped to it.
+            for (const sc of stops) natives.add(sc);
+            const m = fresh();
+            return `${ind}{\n${ind}  ${e.min ? `const ${start} = i; ` : ''}let ${j} = n; let ${m}: number;\n${stops.map((sc) => `${ind}  ${m} = nx_${sc}(i); if (${m} >= 0 && ${m} < ${j}) ${j} = ${m};\n`).join('')}${ind}  i = ${j};${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''}\n${ind}}\n`;
+          }
           const lim = fresh();
           const rx = regexFor(e.x.cs);
           const tail = `${ind}  if (${j} === ${lim} && ${j} < ${end}) { if (${end} !== ${str}.length) { while (${j} < ${end}) { const ${c} = ${str}.charCodeAt(${j}); if (!${testExpr(e.x.cs, c, tables)}) break; ${j}++; } } else { ${rx}.lastIndex = ${j}; ${j} = ${rx}.test(${str}) ? ${rx}.lastIndex - 1 : ${end}; } }\n`;
@@ -354,6 +373,14 @@ function x_${k}(): GenError {
     : `const ${name} = new Uint8Array([${bits.split('').join(',')}]);`))
     .concat([...tables.keys()].some((k) => k.startsWith('H:')) ? [IN_RANGES] : [])
     .concat([...regexes].map(([src, name]) => `${/\\u00[01]/.test(src) ? '// biome-ignore lint/suspicious/noControlCharactersInRegex: a generated character class; control characters are input like any other\n' : ''}const ${name} = ${src};`)).join('\n');
+  const nativeDecls = [...natives].sort((a, b) => a - b).map((sc) => `let nf_${sc} = 0x7fffffff;
+let nv_${sc} = -1;
+function nx_${sc}(from: number): number {
+  if (nf_${sc} <= from && (nv_${sc} < 0 || nv_${sc} >= from)) return nv_${sc};
+  nf_${sc} = from;
+  return (nv_${sc} = s.indexOf(${q(String.fromCharCode(sc))}, from));
+}`).join('\n');
+  const nativeReset = [...natives].sort((a, b) => a - b).map((sc) => `  nf_${sc} = 0x7fffffff;\n`).join('');
   // Parser state lives at MODULE scope, not in a closure per call: a generated parse() that
   // declared its rules inside itself allocated a closure per rule on every span.
   const source = `${options.banner ?? ''}${tableDecls}
@@ -369,6 +396,7 @@ let depth = 0;
 let err: GenError | null = null;
 let buf = new Int32Array(256);
 let top = 0;
+${nativeDecls}
 
 function grow(): void {
   const next = new Int32Array(buf.length * 2);
@@ -408,7 +436,7 @@ export function parse(input: string, rule = ${q(spec.start)}): { ok: true; tree:
   depth = 0;
   err = null;
   top = 0;
-  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
+${nativeReset}  // A tree that outgrew the first buffer is let go here rather than kept for the page's life: one
   // hostile 3M-character flowchart row held 67 MB through every later parse (phase 3b's red team).
   if (buf.length > 65536) { buf = new Int32Array(256); OK.tree.buf = buf; } // the shared result must not keep the big one alive
   ${maxDepth > MAX_DEPTH ? `let ok: boolean;

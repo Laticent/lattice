@@ -29,6 +29,7 @@ let err: GenError | null = null;
 let buf = new Int32Array(256);
 let top = 0;
 
+
 function grow(): void {
   const next = new Int32Array(buf.length * 2);
   next.set(buf);
