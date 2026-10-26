@@ -1093,7 +1093,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			/** A sized layer drawn as a second shape above this box (a stripe over a colored panel). */
 			extra?: { rect: Rect; fill: Paint; gradient?: Gradient };
 			radii: [number, number, number, number];
-			sides: Array<(Paint & { width: number }) | null>;
+			sides: Array<(Paint & { width: number; dash?: 'dash' | 'dot' }) | null>;
 			shadow: Shadow | null;
 			/** Fill, outline or shadow: the box covers its area, not just its edges. */
 			covers: boolean;
@@ -1106,6 +1106,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		}
 		const candidates: Candidate[] = [];
 		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
+		// The border styles a native line draws: solid, and the two dash patterns. `double`, `groove` and the rest are
+		// drawn by the browser in ways an office line cannot repeat, so they stay in the picture.
+		const LINE_STYLES = new Set(['solid', 'dashed', 'dotted']);
 		const CORNERS = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'] as const;
 		const splitTop = (v: string) => {
 			const out: string[] = [];
@@ -1393,7 +1396,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const st = cs[`border${sd}Style`];
 				if (!(width > 0) || st === 'none' || st === 'hidden') return null;
 				const p = paintOf(cs[`border${sd}Color`], op);
-				return p ? { ...p, width, style: st } : null;
+				// A dashed or dotted side is the same line with a dash pattern, which both office formats draw natively.
+				const dash = st === 'dashed' ? { dash: 'dash' as const } : st === 'dotted' ? { dash: 'dot' as const } : {};
+				return p ? { ...p, width, style: st, ...dash } : null;
 			});
 			const approx: string[] = [];
 			if (fill && [cs.backdropFilter, cs.webkitBackdropFilter].some((v) => v && v !== 'none')) approx.push('backdrop-blur');
@@ -1418,6 +1423,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const image = (!layer && cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
 			const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
 			if (!(fill || image || outline || shadow !== null || outerRing || sides.some(Boolean))) return null;
+			// A box with no area paints nothing of its own (its border box IS its paint): a rule of zero length, such as
+			// a plumb line at the top of its range. Only what draws OUTSIDE the box would still show.
+			if (!(rect.w > 0 && rect.h > 0) && !outline && !outerRing && !(shadow && (shadow.x || shadow.y || shadow.blur))) return null;
 			// Corner radii: circular only, `%` resolved, scaled down as CSS scales them.
 			const rx = CORNERS.map((c) => {
 				const parts = (cs[`border${c}Radius`] || '0px').split(/\s+/);
@@ -1474,7 +1482,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				}
 			}
 			const plain =
-				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
+				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || LINE_STYLES.has(sd.style)) &&
 				cs.backgroundClip !== 'text' && !effected(owner) && unclipped(owner, rect, tag === 'pseudo') && tag !== 'html' && tag !== 'body';
 			const why = plain
 				? ''
@@ -1484,14 +1492,14 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 						clipBad && 'bg-clip',
 						shadow === false && 'shadow',
 						!circular && 'elliptical-radius',
-						!sides.every((sd) => !sd || sd.style === 'solid') && 'border-style',
+						!sides.every((sd) => !sd || LINE_STYLES.has(sd.style)) && 'border-style',
 						cs.backgroundClip === 'text' && 'clip-text',
 						effected(owner) && 'effect',
 						!unclipped(owner, rect, tag === 'pseudo') && 'overflow-clipped',
 					]
 						.filter(Boolean)
 						.join('+') || 'other';
-			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, approx, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
+			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, approx, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width, ...(sd.dash ? { dash: sd.dash } : {}) } : null)), shadow: shadow || null, covers: false };
 			box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
 			if (outerRing) box.outerRing = outerRing;
 			return { plain, box, why };
@@ -2127,7 +2135,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 		}
 
-		const same = (a: Paint & { width: number }, b: Paint & { width: number }) => a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01;
+		const same = (a: Paint & { width: number; dash?: string }, b: Paint & { width: number; dash?: string }) =>
+			a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01 && a.dash === b.dash;
 		const order = paintOrder();
 		// Pictures go in at their place in the paint order, each one in the group of the card it sits in.
 		const emitPictures = (at: number) => {

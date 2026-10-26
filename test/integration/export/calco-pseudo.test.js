@@ -352,3 +352,50 @@ describe('calco says what it approximated', () => {
     assert.equal(at(40, 200), undefined);
   });
 });
+
+// A dashed or dotted border is a line with a dash pattern, which both office formats draw natively (#2887: a journey
+// plumb line and a key swatch went out as pictures). A `double` border is drawn in a way an office line cannot repeat,
+// so it stays in the picture.
+const DASHES = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; }
+  .plumb { position: absolute; left: 100px; top: 100px; width: 0; height: 60px; border-left: 2px dashed #1e3a5f; }
+  .dots { position: absolute; left: 200px; top: 100px; width: 40px; height: 20px; border: 1px dotted #888; box-sizing: border-box; }
+  .double { position: absolute; left: 300px; top: 100px; width: 40px; height: 20px; border: 4px double #888; box-sizing: border-box; }
+  .flat { position: absolute; left: 400px; top: 100px; width: 0; height: 0; border-left: 2px dashed #1e3a5f; }
+</style></head><body><section id="s"><div class="plumb"></div><div class="dots"></div><div class="double"></div><div class="flat"></div></section></body></html>`;
+
+describe('calco lifts dashed and dotted borders as native dashed lines', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(DASHES, { waitUntil: 'load' });
+    res = await (await page.$('#s')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('a dashed side is a line with a dash; a dotted box is a box with a dotted stroke', () => {
+    const plumb = res.shapes.find((s) => s.kind === 'line' && s.side === 'left' && Math.abs(s.x - 101) < 0.6);
+    assert.ok(plumb, `the dashed rule is a line: ${JSON.stringify(res.shapes)}`);
+    assert.equal(plumb.stroke.dash, 'dash');
+    assert.equal(plumb.stroke.width, 2);
+    const dots = res.shapes.find((s) => s.kind === 'box' && Math.abs(s.x - 200) < 0.6);
+    assert.ok(dots, 'the dotted box is a box');
+    assert.equal(dots.stroke?.dash, 'dot');
+  });
+
+  test('a rule of zero length paints nothing, so it is neither a shape nor a refusal', () => {
+    assert.equal(res.shapes.some((s) => Math.abs(s.x - 401) < 1.5), false, JSON.stringify(res.shapes));
+    assert.equal(res.refused.filter((r) => r.w === 2 && r.h === 0).length, 0, JSON.stringify(res.refused));
+  });
+
+  test('a double border stays in the picture', () => {
+    assert.equal(res.shapes.some((s) => s.kind !== 'picture' && Math.abs(s.x - 300) < 0.6), false);
+    assert.ok(res.refused.some((r) => /border-style/.test(r.reason)), JSON.stringify(res.refused));
+  });
+});
