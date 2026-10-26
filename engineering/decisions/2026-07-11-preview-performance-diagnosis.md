@@ -327,6 +327,12 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    remaining lever and stays closed (A2 — bandwidth contention on slow links), so the runtime
    warm is the safe, non-speculative slice. Locked by `RuntimeWarm.test.ts` (prefetch present +
    URL can't drift from the pages' `runtimeUrl`).
+   **Updated 2026-10-26:** the prefetch now starts on the page's `load` event instead of from a
+   static `<head>` tag. The static tag started the 461 KB download beside the fonts and the
+   render-blocking CSS, and Lighthouse counted it against the home page's largest paint (LCP
+   4.7 s → 2.6 s without it), while the hero's first slide did not move. The Studio no longer
+   uses `RuntimeWarm` (2026-10-23-studio-boot-order.md). Record:
+   `2026-10-26-lighthouse-home-runtime-prefetch.md`.
 5. **Split the map basemaps out of the runtime bundle — ATTEMPTED, REVERTED (the naive
    cut breaks a shipping host).** The three pre-projected GeoJSON basemaps (`map.basemap*.json`)
    are inlined into `dist/lattice-runtime.min.js` by `map.transform.js`'s top-level `require`s

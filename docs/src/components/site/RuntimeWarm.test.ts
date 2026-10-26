@@ -33,10 +33,21 @@ describe('RuntimeWarm.astro', () => {
 	const warm = read('components/site/RuntimeWarm.astro');
 
 	it('emits a low-priority prefetch (not preload) for the runtime as a script', () => {
-		expect(warm).toMatch(/<link\s+rel="prefetch"\s+as="script"\s+href=\{runtimeUrl\}\s*\/>/);
+		expect(warm).toContain("link.rel = 'prefetch'");
+		expect(warm).toContain("link.as = 'script'");
+		expect(warm).toContain('link.href = runtimeUrl');
 		// preload would compete with the render-blocking CSS / LCP element and warn
 		// on unused-in-a-subframe; the whole point is the browser's lowest priority.
-		expect(warm).not.toContain('rel="preload"');
+		expect(warm).not.toMatch(/rel\s*=\s*["']preload/);
+	});
+
+	it('starts the prefetch on `load`, not during HTML parse (Lighthouse LCP)', () => {
+		// A static <link> in <head> started the 461 KB download beside the fonts and the
+		// render-blocking CSS and cost home ~2 s of simulated LCP; see the component's header.
+		const template = warm.slice(warm.lastIndexOf('---') + 3);
+		expect(template).not.toMatch(/<link\b/);
+		expect(warm).toContain("addEventListener('load', warm, { once: true })");
+		expect(warm).toContain("document.readyState === 'complete'");
 	});
 
 	it('derives the URL the SAME way the app pages derive runtimeUrl (shared cache entry)', () => {

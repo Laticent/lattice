@@ -16,14 +16,22 @@
 // See engineering/decisions/2026-07-11-preview-performance-diagnosis.md (B④,
 // "warm the runtime — off the first-render critical path", previously unshipped).
 //
-// HOW. A static `<link rel="prefetch" as="script">` in the SSG'd <head>:
-//   • discovered at HTML-parse time (earlier than any script-injected hint), so
-//     the fetch OVERLAPS island hydration + the engine load instead of waiting
-//     behind them — by the time the first iframe needs it, it's already cached;
-//   • `prefetch` (not `preload`) keeps it at the browser's lowest priority, so
-//     it never competes with the render-blocking CSS / LCP element (the same
-//     reason EngineWarm uses prefetch) — and, because the runtime is used only
-//     inside a subframe, it also sidesteps preload's "not used" console warning;
+// HOW. A `<link rel="prefetch" as="script">` appended to <head> on the page's
+// `load` event (at once if the page has already loaded):
+//   • it still OVERLAPS the engine load and the first render instead of waiting
+//     behind them — the hero / specimen asks for the runtime only after the
+//     engine (lattice-playground.js) has arrived and rendered, which is seconds
+//     after `load` on a phone;
+//   • it no longer starts during HTML parse. It used to be a static tag there,
+//     and a 461 KB download that starts beside the fonts and the render-blocking
+//     CSS counted against the page's largest paint: Lighthouse mobile, home,
+//     three runs each, LCP 4.73-4.88 s -> 2.63-2.79 s, score 60-66 -> 71-78,
+//     while the hero's first slide on the phone profile did not move (4.17-4.23 s
+//     vs 4.06-4.15 s median, 8 loads each over HTTP/2). Record:
+//     engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md;
+//   • `prefetch` (not `preload`) keeps it at the browser's lowest priority, and,
+//     because the runtime is used only inside a subframe, it also sidesteps
+//     preload's "not used" console warning;
 //   • the URL is the SAME content-hashed `lattice-runtime.js` the app pages'
 //     `options.runtimeUrl` resolves to (both = joinBase(base, assetBase()+…)),
 //     so the prefetch and the iframe's later `<script src>` share ONE cache
@@ -40,4 +48,14 @@ const base = import.meta.env.BASE_URL;
 const runtimeUrl = joinBase(base, assetBase() + 'lattice-runtime.js');
 ---
 
-<link rel="prefetch" as="script" href={runtimeUrl} />
+<script is:inline data-runtime-warm define:vars={{ runtimeUrl }}>
+	const warm = () => {
+		const link = document.createElement('link');
+		link.rel = 'prefetch';
+		link.as = 'script';
+		link.href = runtimeUrl;
+		document.head.appendChild(link);
+	};
+	if (document.readyState === 'complete') warm();
+	else addEventListener('load', warm, { once: true });
+</script>
