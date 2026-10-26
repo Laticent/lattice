@@ -158,6 +158,14 @@ describe('marks.generated.css', () => {
     }
   });
 
+  // Two treatments moved out of member stylesheets into the generator, and a deleted rule failed nothing (checker finding).
+  test('the rules relocated from member stylesheets are present, and the border value differs by finish', () => {
+    const pig = rules.find((r) => r.sel.startsWith('section.marks-pigment :where(.quadrant-bubble-value[data-pos="inside"])'));
+    assert.match(pig?.body || '', /fill: var\(--chart-on-mark\) !important/, 'pigment prints a bubble value inside its deep fill in the one ink');
+    assert.ok(!serving('etch').concat(serving('tone')).some((r) => r.sel.includes('quadrant-bubble-value')), 'etch and tone keep the heading ink');
+    assert.deepEqual(FINISHES.map((f) => tokens(f)['--finish-border']), ['1', '0', '0'], 'pigment keeps a border, etch and tone drop it');
+  });
+
   test('every finish reaches every encoding it names', () => {
     for (const f of ['pigment', 'etch', 'tone']) {
       for (const enc of ['hue', 'ramp', 'layered']) {

@@ -799,7 +799,7 @@ describe('hub-spoke — icon ink under a chart finish', () => {
     // icon takes the solid ink curated for it (chart-solids.test.js), which is the finish's ink. One rule serves every
     // slot: the slot's body is already a value on the icon (`--finish-mark-body`), so the rule names no slot.
     assert.equal(decl(bodyOf(PIGMENT, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), 'var(--finish-ink)', 'pigment, every slot');
-    assert.match(decl(bodyOf(MOVERS, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), /^light-dark\(color\(from var\(--finish-mark-body-l\) xyz-d65 calc\(0\.95047 \* clamp\(0, \(0\.1791 - y\)/, 'etch and tone, every slot');
+    assert.match(decl(bodyOf(MOVERS, `.hub-spoke-icon${SLOTS}`), '--hs-icon-ink'), /^light-dark\(color\(from var\(--finish-mark-body-l\) xyz-d65 [\s\S]*?\), color\(from var\(--finish-mark-body-d\) xyz-d65 /, 'etch and tone, every slot: each arm reads its own level');
     assert.equal(decl(bodyOf(PIGMENT, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), 'var(--finish-ink)', 'pigment, a status');
     assert.match(decl(bodyOf(MOVERS, '.hub-spoke-icon[data-s]'), '--hs-icon-ink'), /var\(--hs-state-hue\)/, 'etch and tone, a status');
   });

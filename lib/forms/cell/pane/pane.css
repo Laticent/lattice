@@ -343,10 +343,12 @@ section.lat-pane-host > .cell-stage > .lat-panes > lat-pane[data-pane="matrix-gr
  * kanban's compact card pill keeps its own, smaller slide size rather than this one. */
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane .chart-status {
   height: calc(1.71875 * var(--_sec-1cqi, 1cqi));
-  padding: 0 calc(0.78125 * var(--_sec-1cqi, 1cqi));
+  /* The chart family's own padding gives back whatever border a finish drops (`--_status-bw`, chart-family.styles.css), so
+   * the pill's box holds under etch and tone; both are zero under pigment. */
+  padding: calc(var(--chart-hairline) - var(--_status-bw)) calc(0.78125 * var(--_sec-1cqi, 1cqi) + var(--chart-hairline) - var(--_status-bw));
   border-radius: calc(0.859375 * var(--_sec-1cqi, 1cqi));
 }
 section.lat-pane-host > .cell-stage > .lat-panes > lat-pane .kanban-card-meta .chart-status {
   height: calc(1.5625 * var(--_sec-1cqi, 1cqi));
-  padding: 0 calc(0.546875 * var(--_sec-1cqi, 1cqi));
+  padding: calc(var(--chart-hairline) - var(--_status-bw)) calc(0.546875 * var(--_sec-1cqi, 1cqi) + var(--chart-hairline) - var(--_status-bw));
 }

@@ -23,7 +23,8 @@
  * that mark's ink — under `tone` there is one hue, so a name wears its ink. (The prototype's
  * "names go neutral under tone" block broke the second floor, and is not carried over.)
  *
- * SPECIFICITY IS KEPT LOW ON PURPOSE. Each rule is `section.marks-X :where(<mark>)`
+ * SPECIFICITY IS KEPT LOW ON PURPOSE. Each rule is `section.marks-X :where(<mark>)` (X is one finish, or an
+ * `:is()` of several: the shared rules read the `--finish-*` values and name no finish)
  * — (0,1,1) — with `!important`, because member paint arrives as inline `url(#)` gradient
  * fills. `!important` alone beats every member rule (no chart member marks paint
  * `!important`). What must beat a FINISH is a texture: the a11y themes paint their
@@ -31,8 +32,10 @@
  * lattice.css. Were this rule any more specific, picking a finish would strip the texture
  * channel from a colorblind reader. So a theme's texture wins, and that is the design.
  *
- * TWO ARMS, NOT A LEADING `:is()`. `section.…` is the slide; `figure.…` is Read·Article's
- * re-hosted chart, which carries the token over (prose-projection.mjs `withMarks`).
+ * TWO ARMS, NOT A LEADING `:is()`, for every mark rule. `section.…` is the slide; `figure.…` is Read·Article's
+ * re-hosted chart, which carries the token over (prose-projection.mjs `withMarks`). The ONE leading `:is()` is the
+ * token blocks' third head (`:is(section, figure).marks-X .chart-frame`): it declares values, not paint, and must
+ * reach the frame a pane nests, where the chart family's variables live.
  *
  * WIDTHS. An SVG `stroke-width` is in viewBox units (chart-styling.md §2), so an edge is
  * `calc(var(--chart-edge) * k)` under `vector-effect: non-scaling-stroke`. An HTML mark
