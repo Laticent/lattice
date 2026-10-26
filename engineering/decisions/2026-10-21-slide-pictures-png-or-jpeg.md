@@ -33,7 +33,7 @@ keeps text beside a photo clean.
 
 ## The rule
 
-`docs/src/lib/calco/picture.ts` owns it. Keep the PNG when it is 600 KB or less (a flat slide).
+`docs/src/lib/calco/picture.ts` owned it (since 2026-10-26 the rule and its thresholds live in `lib/core/image-policy.js`: `choosePicture`, `PICTURE`; see `2026-10-26-fonts-policy.md`). Keep the PNG when it is 600 KB or less (a flat slide).
 Otherwise also encode a JPEG at quality 92, and keep it when it is under 70% of the PNG. The
 70% is deliberate: a 10% saving is not worth a lossy picture. A capture that keeps a rounded
 corner as transparency (`.png` output) is never a JPEG, which would paint the corner black. The

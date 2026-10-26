@@ -28,7 +28,7 @@ Nobody types a new emoji in our face, and PowerPoint cannot use it (the font is 
 | Output | text | emoji |
 |---|---|---|
 | player (CLI and Studio) | `exact` cuts to the characters shown; `used`/`full` keep the face; `system` drops it | `exact` cuts each slice to the deck's emoji; `used` keeps the slices that hold them; `full` all 11; `system` none |
-| editable PPTX/ODP | Calco takes the tiers (`prepareFonts(deck, host, onSkip, { text, emoji, emojiFamily })`): `exact` cuts each face to the characters the deck draws in it, `used` and `full` keep the whole face we ship, `system` embeds nothing | `system` leaves the emoji font out of every picture (a whole-slide picture, the shared background); an emoji in an editable text box is drawn by the viewer's own font under every tier (an embedded COLR v1 emoji face draws blank in LibreOffice 24.2) |
+| editable PPTX/ODP | the host applies the tier through `faceCut` (lib/core/font-policy.js) and hands Calco finished fonts: `exact` cuts each face to the characters the deck draws in it, `used` and `full` keep the whole face we ship, `system` embeds nothing | `system` leaves the emoji font out of every picture (a whole-slide picture, the shared background); an emoji in an editable text box is drawn by the viewer's own font under every tier (an embedded COLR v1 emoji face draws blank in LibreOffice 24.2) |
 | plain `.html`, `--read`, `--fluid` | as the player: the finished file is cut by the same function, counting what its entities spell (`&#x1F389;`, `&laquo;`) | as the player |
 | PDF | `system` embeds no font file: the writer skips the engine's faces, so those words stay in the page picture (drawn in our faces) and the PDF has no selectable or searchable text in them. CLI and Studio do the same | no emoji font file rides in a PDF under any tier, so `exact`, `used` and `full` draw the same picture; `system` leaves our font out of the camera, so the picture's emoji come from the drawing machine's own emoji font |
 | image sets | no font file to embed; the pictures are drawn as always | as the PDF: `system` draws the machine's own emoji |
@@ -81,27 +81,27 @@ larger and draws the rocket in the machine's own glyph; `exact` and `full` write
 Price: a PDF drawn under `system-emoji` depends on the drawing machine. A machine with no emoji font draws boxes. Text stays different on
 purpose: its layout was measured in the engine's faces, so `system` text never changes what the picture draws.
 
-## Addendum: Calco owns the tiers and the picture rule (2026-10-26)
+## Addendum: policy lives in the kernels; Calco is handed finished inputs (2026-10-26)
 
-The editable PowerPoint and LibreOffice exports now take the text tiers and the picture choice from Calco itself (`docs/src/lib/calco/fonts.ts`,
-`picture.ts`) rather than as host glue. Calco stays dependency-free: it takes the tier words as plain strings.
+**The model, from the owner:** Calco is handed the fonts and the pictures it needs and does nothing but use them. Policy (what `exact` means, whether
+`original` is lossless, the JPEG thresholds) belongs in one shared place Lattice owns; Calco lists what a deck uses, crops, and writes the file.
 
-- **Text:** `exact` hands the host the characters the deck draws in each face (`pin(..., { keep })`), including the capitals a `text-transform` or
-  small caps produces; `used` and `full` pass `keep: null` (the whole face; we ship no script beyond Latin, so they are the same file); `system`
-  never calls the host. A face the host throws on is reported (`onSkip(face, 'failed', error)`) and left out; it does not abort the export.
-- **Pictures:** `choosePicture` is the one rule for a slide picture; the CLI (`lib/export/slide-picture.js`) and the Studio (`canvasToPictureBlob`)
-  both call it, where each used to carry a copy. The same policy reaches the pictures cropped from a slide (`CaptureOptions.pictures`): `original`
-  keeps every crop lossless, and the policy's quality replaces the fixed 0.92 the crops used (default 90 now: it contradicted "one quality for every
-  picture"). A crop that is photographic is still a JPEG by default.
-- **Emoji in Office files: Calco can, our hosts do not.** Calco can split a run at its emoji (`splitEmojiRuns`) and name a face for each, so a host
-  can embed an emoji font like any other face (`FontPolicy.emojiFamily`). We built that wiring for both hosts, tested it in LibreOffice 24.2 and
-  **removed it**: Noto Color Emoji is COLR v1, and LibreOffice draws NOTHING for an emoji set in an embedded COLR v1 face. It does so with the
-  system emoji font hidden AND with it installed (the embedded family wins over the system fallback), so embedding makes emoji disappear, which
-  is worse than leaving them to the reader's own font. (An earlier note here claimed the opposite. It rested on an `.odp` written without
-  `--editable`, which is one picture per slide, so the color emoji came from the picture. The check that settles it is an `--editable` `.odp` with
-  the system emoji font hidden: blank.) `.pptx`: LibreOffice 24.2 does not read embedded fonts from a `.pptx` at all, text included, and whether
-  PowerPoint paints an embedded COLR v1 face is **UNVERIFIED**, so the same rule holds. So the emoji tier changes nothing in an editable Office
-  file: the emoji stay text and the reader's own font draws them. It still applies to web pages, the player, plain `.html`, and to the pictures in
-  PDFs and picture formats (`system-emoji` there draws this machine's own emoji font).
-  **To bring it back** a host needs a face an office suite can paint (a COLR v0, SBIX or CBDT build of the emoji font; we ship only the Google COLR v1
-  slices) and to pass `emojiFamily`; the Calco side is tested. Round-trip of what we do: `test/unit/calco/font-tiers.test.js`.
+- **Fonts.** `lib/core/font-policy.js` `faceCut(tier, chars)` is the one decision: `undefined` embeds nothing, a string is the characters to keep,
+  `null` keeps the whole face. Calco's `prepareFonts(deck, host, onSkip)` lists the faces and the characters drawn in each (capitals from
+  `text-transform` and small caps included) and asks `host.font(face)` for the finished font. The CLI (`lib/export/office-export.js`) and the Studio
+  (`calco-font-host.js`) each load and pin their own way and both ask `faceCut`. Calco has no tier words; the duplicate list it carried is gone.
+- **Pictures.** `lib/core/image-policy.js` owns `choosePicture` (the PNG-or-JPEG rule for a slide), `PICTURE` (the thresholds, measured on a 35-slide
+  deck) and `cropRules` (what Calco is told for the pictures it crops). The CLI and the Studio call `choosePicture`; each used to carry a copy.
+  Calco's `captureOfficeSlides` takes plain crop instructions (`pictures`); absent, every crop is a lossless PNG. The crop quality now follows the
+  policy (default 90; it was a fixed 92, which contradicted "one quality for every picture").
+- **Emoji in Office files: Calco can, our hosts do not.** `splitEmojiRuns` splits a run at its emoji (the run is marked `style.emoji`; a skin tone
+  binds to its base, a tag flag keeps its tags; a line's height comes from its text) and names a face for each, so a host can embed an emoji font like
+  any other face. We built that wiring for both hosts, tested it in LibreOffice 24.2 and **removed it**: Noto Color Emoji is COLR v1, and LibreOffice
+  draws NOTHING for an emoji set in an embedded COLR v1 face. It does so with the system emoji font hidden AND with it installed (the embedded family
+  wins over the system fallback), so embedding makes emoji disappear, which is worse than leaving them to the reader's own font. (An earlier note here
+  claimed the opposite. It rested on an `.odp` written without `--editable`, which is one picture per slide, so the color emoji came from the
+  picture.) `.pptx`: LibreOffice 24.2 does not read embedded fonts from a `.pptx` at all, text included, and whether PowerPoint paints an embedded
+  COLR v1 face is **UNVERIFIED**, so the same rule holds. So the emoji tier changes nothing in an editable Office file: the emoji stay text and the
+  reader's own font draws them. It still applies to web pages, the player, plain `.html`, and to the pictures in PDFs and picture formats
+  (`system-emoji` there draws this machine's own emoji font). **To bring it back** a host needs a face an office suite can paint (a COLR v0, SBIX or
+  CBDT build of the emoji font; we ship only the Google COLR v1 slices) and to call `splitEmojiRuns` before `prepareFonts`.

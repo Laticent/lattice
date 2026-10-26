@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
-const { imageMime, imageExt, worthTryingJpeg, jpegWins, PICTURE_FLAT_BYTES, writeOdp, writePptx } = require('@laticent/calco');
+const { imageMime, imageExt, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, ONE_PX_JPEG, style, frame } = require('./_fixtures');
 
 const deckOf = (image) => ({ width: 1280, height: 720, slides: [{ image, frames: [frame([[{ text: 'Hi', style: style() }]])] }] });
@@ -19,14 +19,6 @@ describe('calco picture — helpers', () => {
     assert.equal(imageMime(ONE_PX_PNG), 'image/png');
     assert.equal(imageExt(ONE_PX_PNG), 'png');
     assert.equal(imageMime(new Uint8Array(0)), 'image/png', 'no bytes is not a crash');
-  });
-
-  test('a flat PNG is kept; a JPEG must clearly win, not marginally', () => {
-    assert.equal(worthTryingJpeg(PICTURE_FLAT_BYTES), false, 'at the threshold it is still flat');
-    assert.equal(worthTryingJpeg(PICTURE_FLAT_BYTES + 1), true);
-    assert.equal(jpegWins(3_000_000, 300_000), true, 'a photograph');
-    assert.equal(jpegWins(1_000_000, 900_000), false, 'a 10% saving is not worth a lossy picture');
-    assert.equal(jpegWins(1_000_000, 1_200_000), false);
   });
 });
 

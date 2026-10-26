@@ -1607,8 +1607,8 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 }
 
 // A slide picture as a Blob: PNG, or JPEG when that is much smaller. A flat slide stays a
-// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a q92 JPEG of a fifth the
-// size. Calco owns the thresholds and the measurement (docs/src/lib/calco/picture.ts). The ORDER
+// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a JPEG (quality 90 by default) of a fifth the
+// size. The rule and its thresholds are the shared kernel's (lib/core/image-policy.js `choosePicture`). The ORDER
 // is the cost: a PNG of a photograph takes about 1.2 s to encode and its JPEG 0.36 s, so a
 // continuous-tone slide (`isContinuousTone(section)`: raster images or smooth gradients cover a
 // quarter of it) is a JPEG first, and the PNG is never encoded when the JPEG is large; any other
@@ -1621,18 +1621,18 @@ function canvasToPng(canvas) {
 
 // The author's `images:` line for the slide pictures of the PPTX and Office exports
 // (lib/core/image-policy.js): `original` keeps every slide a lossless PNG, and an explicit quality
-// replaces calco's default. Set by exportPptx / exportOffice for the length of one export.
+// replaces the default. Set by exportPptx / exportOffice for the length of one export.
 let pictureImages = null;
 
-/** The picture policy for the cropped pictures of an editable Office export, in the words Calco takes. */
+/** What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/image-policy.js `cropRules`). */
 function officePicturePolicy() {
-	const { mode, quality } = imagePolicyCore.resolveImagePolicy(pictureImages || {});
-	return { mode, quality };
+	return imagePolicyCore.cropRules(pictureImages || {});
 }
 
 async function canvasToPictureBlob(canvas, section) {
-	const policy = imagePolicyCore.resolveImagePolicy(pictureImages || {});
-	const { choosePicture, isContinuousTone } = await import('@/lib/calco');
+	const setting = pictureImages || {};
+	const { choosePicture, resolveImagePolicy } = imagePolicyCore;
+	const { isContinuousTone } = await import('@/lib/calco');
 	const encode = (c, type, quality) => (type === 'image/png' ? encodePng(c).then((bytes) => new Blob([bytes], { type: 'image/png' })) : new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality)));
 	const jpegOf = async (quality) => {
 		const flat = document.createElement('canvas');
@@ -1646,9 +1646,9 @@ async function canvasToPictureBlob(canvas, section) {
 		// A browser that cannot encode JPEG hands back a PNG; that is no saving.
 		return jpeg.type === 'image/jpeg' ? jpeg : null;
 	};
-	// The one rule lives in Calco (`choosePicture`), so the command line chooses the same way.
-	const tone = !!section && policy.mode !== 'original' && isContinuousTone(section);
-	return choosePicture({ png: () => encode(canvas, 'image/png'), jpeg: jpegOf, size: (blob) => blob.size }, { tone }, { mode: policy.mode, quality: policy.quality });
+	// The rule is the shared kernel's (`choosePicture`), so the command line chooses the same way.
+	const tone = !!section && resolveImagePolicy(setting).mode !== 'original' && isContinuousTone(section);
+	return choosePicture({ png: () => encode(canvas, 'image/png'), jpeg: jpegOf, size: (blob) => blob.size }, { tone }, setting);
 }
 
 // Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
@@ -2497,17 +2497,11 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const skippedFonts = new Map();
 			// The `fonts:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
 			// characters the deck draws in it, `used` and `full` keep the whole face, `system` embeds nothing. Emoji are not embedded: see there.
-			const fontPolicy = fontPolicyCore.resolveFontPolicy(opts?.fonts);
-			deck.fonts = await calco.prepareFonts(
-				deck,
-				await calcoFontHost(),
-				(face, why) => {
-					// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.
-					const label = face.italic ? `${face.family} italic` : face.family;
-					if (!skippedFonts.has(label)) skippedFonts.set(label, why);
-				},
-				{ text: fontPolicy.text },
-			);
+			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(fontPolicyCore.resolveFontPolicy(opts?.fonts).text), (face, why) => {
+				// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.
+				const label = face.italic ? `${face.family} italic` : face.family;
+				if (!skippedFonts.has(label)) skippedFonts.set(label, why);
+			});
 			if (skippedFonts.size) {
 				const names = [...skippedFonts.keys()].map((f) => `“${f}”`).join(', ');
 				console.warn(`[deck-export] fonts not embedded (${names}): the reader's office suite will substitute its own.`);

@@ -69,39 +69,36 @@ resizing; pictures of single objects are not, so a photo can be replaced or move
 
 ## Fonts
 
-`prepareFonts(deck, host, onSkip, policy)` collects the faces the text uses and asks your host for them. `policy` says how much of each
-class of face to embed, in four words:
+Calco does no font processing and holds no font policy. `prepareFonts(deck, host, onSkip)` lists the faces the deck's text draws with (`facesUsed`:
+family, weight, slant, whether ligatures stay on, and `chars`, every character the deck draws in that face, capitals from `text-transform` and small
+caps included) and asks your host for each one:
 
-- `exact`: only the characters the deck draws in that face (the smallest file; an edit may hit a missing glyph);
-- `used`: the whole face as your host ships it, so a reader of an editable file can type new words (the default for text);
-- `full`: the whole face with every script your host has;
-- `system`: nothing; the reader's office suite draws the text in its own fonts.
+- `host.font(face)` returns the **finished** font: a static sfnt pinned to `face.weight` (a variable font must be pinned: an office suite draws a
+  variable file at its default weight; HarfBuzz's `hb_subset_input_pin_axis_location` does it), with ligature features dropped when `face.ligatures` is
+  false (`pinFeatures`), and cut to `face.chars` or whole, whichever your policy says;
+- return `'system'` to embed nothing on purpose (the reader's office suite draws that text in its own font): Calco leaves the face out without a word;
+- return `null` when you have no file for the face (a system font such as Arial): Calco leaves it out and `onSkip` hears `'unavailable'`;
+- throw, and `onSkip` hears `'failed'` with the error and the other faces still embed.
 
-`{ text, emoji }` sets the two classes (emoji default `exact`). Your host supplies:
+A face whose license forbids embedding is left out too (`embeddingAllowed`, `'license'`). Lattice's own host reads its `fonts:` tiers in
+`lib/core/font-policy.js` (`faceCut`); Calco never sees the words.
 
-- `load({ family, weight, italic, tier, chars, emoji })` returns a WOFF2/TTF/OTF, or `null` for a system font;
-- `pin(bytes, { weight, ligatures, keep })` returns a static sfnt at that weight, with only the characters in `keep`
-  (the `exact` tier) or **every** character when `keep` is `null`. A variable font must be pinned: an office suite draws a
-  variable file at its default weight. HarfBuzz's subsetter does this (`hb_subset_input_pin_axis_location` plus an
-  inverted, empty Unicode set for "all").
-
-A face your host throws on is reported through `onSkip` (`'failed'`) and left out; it never takes the whole export down.
-
-**Emoji.** Give `policy.emojiFamily(sequence)` and Calco splits each text run at its emoji (`splitEmojiRuns`, which marks the run
-`style.emoji`), naming the emoji run's family, so the emoji font embeds like any other face. A color emoji font is often sliced by
-code point range and one family is one file, so answer with the slice's own family, the one that holds every part of the sequence.
-Without `emojiFamily`, or under `system`, the emoji stay in their text runs and the reader's own emoji font draws them.
-**Check what your font is before you use this.** A COLR v1 color emoji face (Noto Color Emoji from Google Fonts) embeds fine and draws
-blank in LibreOffice 24.2, with or without a system emoji font, because the embedded family wins over the fallback; a face an office
-suite can paint (COLR v0, SBIX, CBDT) is the one to embed. Lattice does not embed its emoji font in Office files for this reason.
-A host written before this option (it ignores `keep` and `emoji`) still embeds whole faces under `exact`.
+**Emoji.** `splitEmojiRuns(deck, family)` splits each text run at its emoji, naming the emoji run's family (and marking it `style.emoji`, so a line's
+height still comes from its text), so a host can embed an emoji font like any other face. A color emoji font is often sliced by code point range and
+one family is one file, so `family(sequence)` answers with the slice that holds every part of the sequence. Without the call the emoji stay in their
+text runs and the reader's own emoji font draws them. **Check what your font is before you embed one.** A COLR v1 color emoji face (Noto Color Emoji
+from Google Fonts) embeds fine and draws blank in LibreOffice 24.2, with or without a system emoji font, because the embedded family wins over the
+fallback; a face an office suite can paint (COLR v0, SBIX, CBDT) is the one to embed. Lattice does not embed its emoji font in Office files for this
+reason.
 
 ## Pictures
 
-`choosePicture(shooter, { tone, opaque }, policy)` is the one rule for a slide picture, so every host chooses alike: a
-lossless PNG for a flat slide, a JPEG for a photograph when that is much smaller. `policy.mode` is `optimized` (the default)
-or `original` (every picture a lossless PNG, no JPEG tried); `policy.quality` (1 to 100) replaces the default JPEG quality.
-`captureOfficeSlides` takes the same policy (`pictures`) for the pictures it crops from a slide.
+Calco is handed the pictures it writes. A slide is photographed by the host (PNG or JPEG bytes; `imageMime` names the part from the bytes), and which
+encoding to take is the host's rule: Lattice's is `choosePicture` in `lib/core/image-policy.js`. `isContinuousTone(section)` is the one helper here, because
+only a reader of the page can say whether a slide is photographic (a host asks it before it shoots, to pick the cheap order).
+
+For the pictures Calco crops out of a slide itself (a photo, an icon), pass `captureOfficeSlides` `pictures`: `{ lossless, quality, toneBytes, flatBytes,
+share }`, the instructions it encodes by. Leave it out and every crop is a lossless PNG.
 
 Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
 Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; a regular or

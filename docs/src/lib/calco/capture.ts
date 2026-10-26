@@ -15,7 +15,6 @@
  * Design: engineering/decisions/2026-10-21-calco-lift-what-can-be-lifted.md.
  */
 
-import { PICTURE_FLAT_BYTES, PICTURE_JPEG_SHARE, PICTURE_TONE_JPEG_BYTES, type PicturePolicy, pictureQuality } from './picture.js';
 import { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './reader.js';
 import type { Background, Shape, Slide, TextFrame } from './types.js';
 
@@ -34,14 +33,24 @@ interface Piece extends Box {
 	data: string;
 	jpeg: boolean;
 }
-interface CropRules {
-	maxOutside: number;
-	quality: number;
-	toneBytes: number;
-	flatBytes: number;
-	share: number;
-	/** `images: original`: every crop a lossless PNG, none split. */
+/**
+ * How the host wants the pictures cropped from a slide (a photo, an icon) encoded. Calco holds no policy: leave `pictures` out and every crop is
+ * a lossless PNG; pass these and a photographic crop is a JPEG when that wins by the sizes rule.
+ */
+export interface CropEncoding {
+	/** Every crop a lossless PNG, none split into a photo core and strips. */
 	lossless?: boolean;
+	/** JPEG quality, 0 to 1 (a canvas's scale). */
+	quality: number;
+	/** A continuous-tone crop's JPEG at or over this many bytes is kept without taking the PNG. */
+	toneBytes: number;
+	/** A PNG at or under this many bytes is flat: kept lossless with no JPEG tried. */
+	flatBytes: number;
+	/** A JPEG must be under this share of its PNG to win. */
+	share: number;
+}
+interface CropRules extends CropEncoding {
+	maxOutside: number;
 }
 interface CropResult {
 	residual: (Box & { data: string }) | null;
@@ -156,7 +165,7 @@ export function logoKey(section: HTMLElement): string | null {
  * In the page: how much of the foreground picture `fg` is drawn outside the `boxes` (slide px) that its
  * pictures will cover (sprites are only safe when nothing is left outside them), and, when that is
  * little enough, each box cropped from `fg` as a picture of its own. A fully opaque crop of continuous
- * tone is a JPEG when that is much smaller, by the same sizes rule as a slide picture (`picture.ts`);
+ * tone is a JPEG when that is much smaller, by the host's sizes rule (`CropEncoding`);
  * a crop with any transparency is a PNG, since a JPEG would paint it black. Cropping the capture
  * already taken costs a few milliseconds a picture; shooting each one again cost a render each.
  */
@@ -416,9 +425,15 @@ export interface CaptureHost {
 	guard?<T>(i: number, fn: () => Promise<T>): Promise<T>;
 }
 
-/** The rules a crop is encoded by, from the picture policy. */
-function cropRules(policy?: PicturePolicy): CropRules {
-	return { maxOutside: SPRITE_OUTSIDE_SHARE, quality: pictureQuality(policy), toneBytes: PICTURE_TONE_JPEG_BYTES, flatBytes: PICTURE_FLAT_BYTES, share: PICTURE_JPEG_SHARE, lossless: policy?.mode === 'original' };
+/** The rules a crop is encoded by: the host's encoding, or lossless when it gave none. */
+function cropRules(encoding?: CropEncoding): CropRules {
+	if (!encoding) return { maxOutside: SPRITE_OUTSIDE_SHARE, lossless: true, quality: 1, toneBytes: 0, flatBytes: 0, share: 0 };
+	// The rules travel into the page as JSON, where a NaN or an Infinity becomes null and every comparison against it turns false or true by accident.
+	// A host written for an older shape (`{ mode, quality }`) lands here too: say so, loudly, rather than encode every crop twice and keep a PNG.
+	for (const key of ['quality', 'toneBytes', 'flatBytes', 'share'] as const) {
+		if (!encoding.lossless && !Number.isFinite(encoding[key])) throw new Error(`captureOfficeSlides: pictures.${key} must be a finite number (pictures is { lossless?, quality, toneBytes, flatBytes, share }; see CropEncoding)`);
+	}
+	return { maxOutside: SPRITE_OUTSIDE_SHARE, ...encoding };
 }
 
 export interface CaptureOptions {
@@ -431,8 +446,8 @@ export interface CaptureOptions {
 	 * cost three photographs and fail.
 	 */
 	backdrop?: 'check' | 'whole';
-	/** What to do with the pictures cropped from a slide (photos, icons): `original` keeps them lossless, `quality` replaces the default. */
-	pictures?: PicturePolicy;
+	/** How the pictures cropped from a slide (photos, icons) are encoded; absent, each is a lossless PNG. */
+	pictures?: CropEncoding;
 	/** A slide fell back to a simpler capture; say why. */
 	onWarn?(message: string): void;
 }
@@ -446,6 +461,8 @@ export interface CapturedSlide extends Slide {
  * twice, then handed back with its background index, ready for `writeOdp` / `writePptx`.
  */
 export async function captureOfficeSlides(host: CaptureHost, count: number, options: CaptureOptions = {}): Promise<{ slides: CapturedSlide[]; backgrounds: Background[] }> {
+	// Refuse a bad `pictures` shape before any slide is touched, not when the first crop is reached.
+	const rules = cropRules(options.pictures);
 	const slides: CapturedSlide[] = [];
 	const backgrounds: Background[] = [];
 	// Each image background the page remembers: its index in `backgrounds`, or null until a slide uses it.
@@ -481,7 +498,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 			const got = await host.run<CropResult>(i, cropPictures, {
 				fg: toBase64(shot),
 				boxes: [{ x: read.logo.x, y: read.logo.y, w: read.logo.w, h: read.logo.h, lone: true }],
-				rules: cropRules(options.pictures),
+				rules,
 			});
 			const part = got.images[0]?.[0];
 			look = part ? { dx: part.x - read.logo.x, dy: part.y - read.logo.y, w: part.w, h: part.h, image: fromBase64(part.data) } : null;
@@ -540,7 +557,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 									const got = await host.run<CropResult>(i, cropPictures, {
 										fg: toBase64(fg),
 										boxes: pics.map((sh) => ({ x: sh.x, y: sh.y, w: sh.w, h: sh.h, photo: !!sh.photo })),
-										rules: cropRules(options.pictures),
+										rules,
 									});
 									placePictures(read, pics, got);
 									withSprites = true;

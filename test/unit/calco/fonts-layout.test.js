@@ -34,18 +34,20 @@ describe('calco fonts', () => {
     assert.equal(faceFor({ family: 'Outfit', weight: 500, italic: true }, fonts), null);
   });
 
-  test('prepareFonts loads and pins each face once, and skips what the host cannot load', async () => {
-    const calls = [];
+  test('prepareFonts asks the host once per face, hands it the characters the deck draws in it, and skips what the host has no file for', async () => {
+    const asked = [];
     const deck = { width: 1, height: 1, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'a', style: style() }, { text: 'b', style: style() }, { text: 'c', style: style({ family: 'System Only' }) }]])] }] };
     const skipped = [];
     const fonts = await prepareFonts(deck, {
-      load: (f) => (f.family === 'Outfit' ? new Uint8Array([7]) : null),
-      pin: (_bytes, opts) => { calls.push(opts); return synthFont(); },
+      font: (face) => {
+        asked.push([face.family, face.chars, face.weight, face.ligatures]);
+        return face.family === 'Outfit' ? synthFont() : null;
+      },
     }, (face, why) => skipped.push([face.family, why]));
     assert.equal(fonts.length, 1);
-    assert.deepEqual(calls, [{ weight: 400, ligatures: true, keep: null }]);
+    assert.deepEqual(asked, [['Outfit', 'ab', 400, true], ['System Only', 'c', 400, true]]);
     // Not silent: each face left out is reported, with the reason, so a host can tell the author.
-    assert.ok(skipped.length > 0 && skipped.every(([family, why]) => family !== 'Outfit' && why === 'unavailable'), `skipped: ${JSON.stringify(skipped)}`);
+    assert.deepEqual(skipped, [['System Only', 'unavailable']]);
   });
 });
 
@@ -118,7 +120,7 @@ describe('calco fonts — table reads', () => {
   test('prepareFonts drops a face whose license forbids embedding', async () => {
     const deck = { width: 1, height: 1, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text: 'a', style: style() }]])] }] };
     const skipped = [];
-    const fonts = await prepareFonts(deck, { load: () => new Uint8Array([1]), pin: () => synthFont({ fsType: 0x0002 }) }, (face, why) => skipped.push([face.family, why]));
+    const fonts = await prepareFonts(deck, { font: () => synthFont({ fsType: 0x0002 }) }, (face, why) => skipped.push([face.family, why]));
     assert.deepEqual(fonts, []);
     assert.deepEqual(skipped.map(([, why]) => why), ['license'], 'the refusal is reported, not silent');
   });

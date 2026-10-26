@@ -139,60 +139,55 @@ function addChars(chars: string, text: string): string {
 	return out;
 }
 
-/**
- * How much of a face a file carries. The words are the ones a deck's `fonts:` line uses, but Calco takes no dependency on
- * that: a host passes plain strings.
- *   · `exact`: only the characters the deck draws in that face (the smallest file; an edit may hit a missing glyph);
- *   · `used`: the whole face as the host ships it, so someone editing the file can type new text;
- *   · `full`: the whole face with every script the host has;
- *   · `system`: nothing; the reader's office suite draws the text in its own fonts.
- */
-export type FontTier = 'exact' | 'used' | 'full' | 'system';
-
-/** What `prepareFonts` embeds, per class of face. */
-export interface FontPolicy {
-	/** Text faces. Default `used`. */
-	text?: FontTier;
-	/** Emoji faces. Default `exact`. */
-	emoji?: FontTier;
-	/**
-	 * The family that draws one emoji sequence (a rocket, a flag, a family of four), or null when the host has no face for it.
-	 * Given this, `prepareFonts` splits each text run at its emoji, names the emoji run's family, and embeds that face by
-	 * the emoji tier. Without it Calco leaves emoji in their text runs, drawn by the reader's own font. A color emoji font
-	 * is often sliced by code point range, and one family is one file, so the host answers with the slice's own family.
-	 */
-	emojiFamily?: (sequence: string) => string | null;
-}
-
-/** Host hooks for `prepareFonts`. */
+/** Host hooks for `prepareFonts`. Calco lists the faces a deck draws with; the host decides what to put in the file for each. */
 export interface FontHost {
 	/**
-	 * The font file for a face (WOFF2, TTF or OTF), or null when the host has none (a
-	 * system font). The host picks the nearest weight it ships.
+	 * The finished font for a face: a static sfnt (pinned to `face.weight`, ligature features dropped when `face.ligatures` is false), cut to
+	 * `face.chars` or whole, as the host's own policy says. Return `'system'` to embed nothing on purpose (the reader's office suite draws that text
+	 * in its own font), or `null` when the host has no file for the face (a system font such as Arial), which is reported.
 	 */
-	load(face: { family: string; weight: number; italic: boolean; tier: FontTier; chars: string; emoji: boolean }): Promise<Uint8Array | null> | Uint8Array | null;
-	/**
-	 * Return a static sfnt pinned to `weight`, with ligature features dropped when `ligatures` is false. `keep` is the
-	 * characters to keep (the `exact` tier), or null for EVERY character (the reader of an editable file types new words).
-	 */
-	pin(bytes: Uint8Array, options: { weight: number; ligatures: boolean; keep: string | null }): Promise<Uint8Array> | Uint8Array;
+	font(face: FaceUse): Promise<Uint8Array | 'system' | null> | Uint8Array | 'system' | null;
 }
 
 /**
- * Load and pin every face the deck uses. A face the host cannot load is skipped: its runs
- * still name the family, and the reader's office suite substitutes. So is a face whose
- * license forbids embedding (`embeddingAllowed`): Calco never puts a restricted font in a
- * file someone else will open.
+ * Ask the host for every face the deck uses. A face the host has no file for is skipped: its runs still name the family, and the reader's office
+ * suite substitutes. So is a face whose license forbids embedding (`embeddingAllowed`): Calco never puts a restricted font in a file someone else will open.
  *
- * Neither is silent: `onSkip` hears each face left out and why, so a host can tell the author
- * that the reader's office suite will substitute its own font for that text.
- *   · `unavailable`: the host has no file for this family (a system font such as Arial, or a
- *     face the library does not ship), so there is nothing to embed.
+ * Neither is silent: `onSkip` hears each face left out and why, so a host can tell the author that the reader's office suite will substitute its own
+ * font for that text.
+ *   · `unavailable`: the host has no file for this family, so there is nothing to embed.
  *   · `license`: the font's embedding flag forbids it.
- *   · `failed`: the host threw while loading or cutting the face. One face the host cannot prepare is reported and left out;
- *     it does not take the whole export down.
+ *   · `failed`: the host threw while preparing the face. One face the host cannot prepare is reported and left out; it does not take the whole export
+ *     down.
+ * A face the host answered `'system'` for is left out without a word: that was the author's choice.
  */
 export type FontSkipReason = 'unavailable' | 'license' | 'failed';
+
+export async function prepareFonts(deck: Deck, host: FontHost, onSkip?: (face: FaceUse, why: FontSkipReason, error?: unknown) => void): Promise<EmbeddedFont[]> {
+	// A host written for the old `load`/`pin` shape would otherwise fail once per face, be reported as 'failed' and embed nothing: say so up front.
+	if (typeof host?.font !== 'function') throw new TypeError('prepareFonts: the host needs font(face), which returns the finished font, \'system\' or null (the older load/pin hooks are gone; see FontHost)');
+	const out: EmbeddedFont[] = [];
+	for (const face of facesUsed(deck)) {
+		let bytes: Uint8Array | 'system' | null;
+		try {
+			bytes = await host.font(face);
+		} catch (error) {
+			onSkip?.(face, 'failed', error);
+			continue;
+		}
+		if (bytes === 'system') continue;
+		if (!bytes) {
+			onSkip?.(face, 'unavailable');
+			continue;
+		}
+		if (!embeddingAllowed(bytes)) {
+			onSkip?.(face, 'license');
+			continue;
+		}
+		out.push({ family: face.family, weight: face.weight, italic: face.italic, bytes });
+	}
+	return out;
+}
 
 /**
  * An emoji as a reader sees it: a flag (two regional indicators), a keycap, or one pictograph (with its presentation selector,
@@ -238,37 +233,6 @@ export function splitEmojiRuns(deck: Deck, emojiFamily: (sequence: string) => st
 		}
 	}
 	return families;
-}
-
-export async function prepareFonts(deck: Deck, host: FontHost, onSkip?: (face: FaceUse, why: FontSkipReason, error?: unknown) => void, policy: FontPolicy = {}): Promise<EmbeddedFont[]> {
-	const text = policy.text ?? 'used';
-	const emoji = policy.emoji ?? 'exact';
-	// Under `system` an emoji stays in its text run and the reader's own emoji font draws it.
-	const emojiFamilies = policy.emojiFamily && emoji !== 'system' ? splitEmojiRuns(deck, policy.emojiFamily) : new Set<string>();
-	const out: EmbeddedFont[] = [];
-	for (const face of facesUsed(deck)) {
-		const isEmoji = emojiFamilies.has(face.family);
-		const tier = isEmoji ? emoji : text;
-		if (tier === 'system') continue;
-		let bytes: Uint8Array;
-		try {
-			const raw = await host.load({ family: face.family, weight: face.weight, italic: face.italic, tier, chars: face.chars, emoji: isEmoji });
-			if (!raw) {
-				onSkip?.(face, 'unavailable');
-				continue;
-			}
-			bytes = await host.pin(raw, { weight: face.weight, ligatures: face.ligatures, keep: tier === 'exact' ? face.chars : null });
-		} catch (error) {
-			onSkip?.(face, 'failed', error);
-			continue;
-		}
-		if (!embeddingAllowed(bytes)) {
-			onSkip?.(face, 'license');
-			continue;
-		}
-		out.push({ family: face.family, weight: face.weight, italic: face.italic, bytes });
-	}
-	return out;
 }
 
 /**

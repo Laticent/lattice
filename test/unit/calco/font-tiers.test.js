@@ -1,6 +1,6 @@
 /**
- * Unit: how much of a face Calco embeds (docs/src/lib/calco/fonts.ts). The tier words are the deck's `fonts:` words; a
- * host supplies the faces, so these tests use a fake host and read what it was asked for.
+ * Unit: what Calco asks a host for, and what it does with the answer (docs/src/lib/calco/fonts.ts). Calco lists the faces a deck draws with and the
+ * characters in each; the host decides what goes in the file (Lattice's tiers live in lib/core/font-policy.js). These tests use a fake host.
  */
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
@@ -8,44 +8,60 @@ const { prepareFonts, emojiSpans, splitEmojiRuns, facesUsed } = require('@latice
 const { ONE_PX_PNG, style, frame, synthFont } = require('./_fixtures');
 
 const deckOf = (text, over = {}) => ({ width: 1, height: 1, slides: [{ image: ONE_PX_PNG, frames: [frame([[{ text, style: style(over) }]])] }] });
-const FONT = new Uint8Array([0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
 
-/** A host that records each load and pin, and hands back a face that passes the license check. */
-function recorder() {
-  const loads = [];
-  const pins = [];
-  return {
-    loads,
-    pins,
-    host: {
-      load: (face) => (loads.push(face), FONT),
-      pin: (bytes, options) => (pins.push(options), bytes),
-    },
-  };
-}
-
-describe('calco font tiers', () => {
-  test('exact keeps only the characters the deck draws in that face; used and full keep every character', async () => {
-    for (const [tier, keep] of [['exact', 'Hi!'], ['used', null], ['full', null]]) {
-      const r = recorder();
-      await prepareFonts(deckOf('Hi!Hi'), { load: r.host.load, pin: (b, o) => (r.pins.push(o), synthFont({})) }, undefined, { text: tier });
-      assert.deepEqual(r.pins.map((p) => p.keep), [keep], tier);
-      assert.equal(r.loads[0].tier, tier);
-    }
+describe('calco prepareFonts', () => {
+  test('hands the host each face with the characters the deck draws in it, and embeds what comes back', async () => {
+    const asked = [];
+    const fonts = await prepareFonts(deckOf('Hi!Hi'), { font: (face) => (asked.push(face), synthFont({})) });
+    assert.equal(asked.length, 1);
+    assert.equal(asked[0].chars, 'Hi!');
+    assert.deepEqual(fonts.map((f) => [f.family, f.weight, f.italic]), [['Outfit', 400, false]]);
   });
 
-  test('system embeds nothing and never asks the host for the face', async () => {
-    const r = recorder();
-    const fonts = await prepareFonts(deckOf('Hi'), r.host, undefined, { text: 'system' });
+  test("'system' embeds nothing, and says nothing: the author chose it", async () => {
+    const skipped = [];
+    const fonts = await prepareFonts(deckOf('Hi'), { font: () => 'system' }, (_face, why) => skipped.push(why));
     assert.deepEqual(fonts, []);
-    assert.equal(r.loads.length, 0);
+    assert.deepEqual(skipped, []);
   });
 
-  test('the default is the whole face for text', async () => {
-    const r = recorder();
-    await prepareFonts(deckOf('Hi'), { load: r.host.load, pin: (b, o) => (r.pins.push(o), synthFont({})) });
-    assert.equal(r.pins[0].keep, null);
-    assert.equal(r.loads[0].tier, 'used');
+  test('null means the host has no file for the face: reported as unavailable', async () => {
+    const skipped = [];
+    await prepareFonts(deckOf('Hi'), { font: () => null }, (_face, why) => skipped.push(why));
+    assert.deepEqual(skipped, ['unavailable']);
+  });
+
+  test('a host written for the old load/pin shape is refused loudly, not reported once per face', async () => {
+    await assert.rejects(() => prepareFonts(deckOf('Hi'), { load: () => new Uint8Array([1]), pin: (b) => b }), /needs font\(face\)/);
+  });
+
+  test('a face the host throws on is reported with its error and left out; the other faces still embed', async () => {
+    const deck = deckOf('Go');
+    deck.slides[0].frames[0].lines[0].push({ text: 'x', style: style({ family: 'Second' }) });
+    const skipped = [];
+    const fonts = await prepareFonts(deck, {
+      font: (face) => {
+        if (face.family === 'Outfit') throw new Error('the cut failed');
+        return synthFont({});
+      },
+    }, (face, why, error) => skipped.push([face.family, why, error?.message]));
+    assert.deepEqual(fonts.map((f) => f.family), ['Second']);
+    assert.deepEqual(skipped, [['Outfit', 'failed', 'the cut failed']]);
+  });
+});
+
+describe('calco characters drawn per face', () => {
+  const chars = (deck) => facesUsed(deck)[0].chars;
+  test('a run keeps only what it shows', () => {
+    assert.equal(chars(deckOf('abc')), 'abc');
+  });
+  test('text-transform draws capitals the source text does not have', () => {
+    const got = chars(deckOf('eyebrow', { transform: 'uppercase' }));
+    for (const ch of 'eyebrowEYEBROW') assert.ok(got.includes(ch), `keeps ${ch}`);
+  });
+  test('small caps need the capitals too', () => {
+    const got = chars(deckOf('Note', { smallCaps: true }));
+    for (const ch of 'NOTEnote') assert.ok(got.includes(ch), `keeps ${ch}`);
   });
 });
 
@@ -80,54 +96,6 @@ describe('calco emoji runs', () => {
     splitEmojiRuns(deck, () => null);
     assert.deepEqual(deck.slides[0].frames[0].lines[0].map((r) => r.text), ['a \u{1F680} b']);
   });
-
-  test('prepareFonts embeds each emoji face by the emoji tier, and the text by the text tier', async () => {
-    for (const [emoji, keep] of [['exact', '\u{1F680}'], ['used', null], ['full', null]]) {
-      const loads = [];
-      const pins = [];
-      const host = { load: (f) => (loads.push(f), FONT), pin: (b, o) => (pins.push(o), synthFont({})) };
-      const fonts = await prepareFonts(deckOf('Go \u{1F680}'), host, undefined, { text: 'used', emoji, emojiFamily: () => 'Emoji A' });
-      assert.deepEqual(fonts.map((f) => f.family).sort(), ['Emoji A', 'Outfit']);
-      const e = loads.find((l) => l.emoji);
-      assert.equal(e.family, 'Emoji A');
-      assert.equal(e.tier, emoji);
-      assert.equal(pins[loads.indexOf(e)].keep, keep, `emoji ${emoji}`);
-      assert.equal(loads.find((l) => !l.emoji).tier, 'used');
-    }
-  });
-
-  test('system-emoji leaves the emoji in the text run for the reader to draw', async () => {
-    const deck = deckOf('Go \u{1F680}');
-    const r = recorder();
-    await prepareFonts(deck, { load: r.host.load, pin: () => synthFont({}) }, undefined, { emoji: 'system', emojiFamily: () => 'Emoji A' });
-    assert.deepEqual(deck.slides[0].frames[0].lines[0].map((x) => x.text), ['Go \u{1F680}']);
-    assert.deepEqual(facesUsed(deck).map((f) => f.family), ['Outfit']);
-  });
-});
-
-describe('calco font failures', () => {
-  test('a face the host throws on is reported and left out; the other faces still embed', async () => {
-    const deck = deckOf('Go \u{1F680}');
-    const skipped = [];
-    const host = {
-      load: (f) => {
-        if (f.emoji) throw new Error('the slice would not load');
-        return FONT;
-      },
-      pin: () => synthFont({}),
-    };
-    const fonts = await prepareFonts(deck, host, (face, why) => skipped.push([face.family, why]), { text: 'used', emoji: 'exact', emojiFamily: () => 'Emoji A' });
-    assert.deepEqual(fonts.map((f) => f.family), ['Outfit']);
-    assert.deepEqual(skipped, [['Emoji A', 'failed']]);
-  });
-
-  test('a pin that throws is the same', async () => {
-    const skipped = [];
-    const host = { load: () => FONT, pin: () => { throw new Error('cut failed'); } };
-    const fonts = await prepareFonts(deckOf('Hi'), host, (face, why) => skipped.push(why));
-    assert.deepEqual(fonts, []);
-    assert.deepEqual(skipped, ['failed']);
-  });
 });
 
 describe('calco emoji sequences, as the review found them wrong', () => {
@@ -156,25 +124,6 @@ describe('calco emoji sequences, as the review found them wrong', () => {
     const line = deck.slides[0].frames[0].lines[0];
     assert.equal(line[0].style.emoji, true);
     assert.equal(dominantStyle(line).family, 'Outfit', 'the lead style is the text face, so line spacing does not read the emoji font');
-  });
-});
-
-describe('calco exact text and text-transform', () => {
-  test('exact keeps the capitals a transformed run draws', async () => {
-    const r = recorder();
-    await prepareFonts(deckOf('eyebrow', { transform: 'uppercase' }), { load: r.host.load, pin: (b, o) => (r.pins.push(o), synthFont({})) }, undefined, { text: 'exact' });
-    const keep = r.pins[0].keep;
-    for (const ch of 'eyebrowEYEBROW') assert.ok(keep.includes(ch), `keeps ${ch}`);
-  });
-  test('small caps need the capitals too', async () => {
-    const r = recorder();
-    await prepareFonts(deckOf('Note', { smallCaps: true }), { load: r.host.load, pin: (b, o) => (r.pins.push(o), synthFont({})) }, undefined, { text: 'exact' });
-    for (const ch of 'NOTEnote') assert.ok(r.pins[0].keep.includes(ch), `keeps ${ch}`);
-  });
-  test('an untransformed run keeps only what it shows', async () => {
-    const r = recorder();
-    await prepareFonts(deckOf('abc'), { load: r.host.load, pin: (b, o) => (r.pins.push(o), synthFont({})) }, undefined, { text: 'exact' });
-    assert.equal(r.pins[0].keep, 'abc');
   });
 });
 

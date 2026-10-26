@@ -7,7 +7,8 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
-const { cropPictures, PICTURE_TONE_JPEG_BYTES, PICTURE_FLAT_BYTES, PICTURE_JPEG_SHARE } = require('@laticent/calco');
+const { cropPictures, captureOfficeSlides } = require('@laticent/calco');
+const { cropRules } = require('../../../lib/core/image-policy.js');
 
 describe('calco crops follow the picture policy', () => {
   let browser;
@@ -48,15 +49,21 @@ describe('calco crops follow the picture policy', () => {
       { rules },
     );
 
-  const base = { maxOutside: 0.0002, quality: 0.9, toneBytes: PICTURE_TONE_JPEG_BYTES, flatBytes: PICTURE_FLAT_BYTES, share: PICTURE_JPEG_SHARE };
+  // What a host passes Calco for the crops (lib/core/image-policy.js `cropRules`), and the geometry rule Calco adds itself.
+  const rulesFor = (setting) => ({ maxOutside: 0.0002, ...cropRules(setting) });
 
   test('by default a photographic crop is a JPEG', async () => {
-    const got = await crop(base);
+    const got = await crop(rulesFor({}));
     assert.equal(got.images[0][0].jpeg, true);
   });
 
+  test('a pictures option in the old { mode, quality } shape is refused loudly', async () => {
+    const host = { run: async () => ({}), shoot: async () => new Uint8Array(0), guard: (_i, fn) => fn() };
+    await assert.rejects(() => captureOfficeSlides(host, 1, { pictures: { mode: 'optimized', quality: 80 } }), /pictures\.toneBytes must be a finite number/);
+  });
+
   test('images: original keeps every crop a lossless PNG', async () => {
-    const got = await crop({ ...base, lossless: true });
+    const got = await crop(rulesFor('original'));
     assert.ok(got.images[0].length > 0);
     assert.ok(got.images[0].every((p) => p.jpeg === false), 'no JPEG under original');
   });
