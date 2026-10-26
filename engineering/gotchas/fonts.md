@@ -119,7 +119,7 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Still true:** a host whose browser ignores `@font-face` for emoji presentation sequences uses its platform emoji font, and
   PowerPoint/LibreOffice draw an emoji typed into an editable file with the machine's own font. The marp-core surfaces never see our slices.
 - **How much a file carries** is the author's choice: `fonts: exact-emoji` (default), `used-emoji`, `full-emoji`, `system-emoji`
-  (`lib/core/font-policy.js`). `system-emoji` is the old behavior.
+  (`lib/core/font-policy.js`). `system-emoji` is the old behavior, in every format: a `.html` lets the viewer draw, and a PDF or picture export draws with the machine's own emoji font (a machine with none draws boxes).
 - **Removable when:** never for the Office case; it is how those apps work.
 - **See:** `engineering/decisions/2026-10-26-fonts-policy.md`; `engineering/decisions/2026-06-10-marp-replacement-proposal.md` (the twemoji-drop decision).
 

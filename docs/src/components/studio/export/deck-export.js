@@ -40,8 +40,6 @@ import { captureStyleProperties } from '../../../../../lib/core/capture-style-pr
 import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import dataBlockCore from '../../../../../lib/core/data-block.js';
-// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
-// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
@@ -50,6 +48,9 @@ import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
 import { captureSlideCanvas, encodePng } from '../../../../../lib/core/slide-camera.mjs';
+// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
+// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
 import bakedFigureCore from '../../../../../lib/plugins/mermaid/shared/baked-figure-tag.js';
 import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
@@ -1058,6 +1059,9 @@ async function sectionsOf(frame, fonts) {
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
 	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '', fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
+	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
+	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
+	else doc.documentElement.removeAttribute('data-lattice-omit-fonts');
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
 }

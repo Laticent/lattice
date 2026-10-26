@@ -95,3 +95,30 @@ onEveryEngine('@smoke Share → PDF embeds the deck faces by default, and System
 	expect(embedded, 'the default carries the deck’s faces').toBeGreaterThan(0);
 	expect(none, 'System leaves the engine’s faces out of the PDF').toBeLessThan(embedded);
 });
+
+// The emoji tier reaches a PDF's pictures too: System leaves our emoji font out of the camera's drawing, so the page's emoji pixels differ.
+async function pdfPictureBytes(page: Page, emoji?: string): Promise<string> {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: /^PDF/ }).click();
+	if (emoji) await pickFont(page, 'Emoji font', emoji);
+	const download = page.waitForEvent('download', { timeout: 240_000 });
+	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
+	const { PDFDocument, PDFRawStream, PDFName } = await import('pdf-lib');
+	const { createHash } = await import('node:crypto');
+	const pdf = await PDFDocument.load(new Uint8Array(readFileSync((await (await download).path()) as string)), { updateMetadata: false });
+	const hash = createHash('sha256');
+	for (const [, obj] of pdf.context.enumerateIndirectObjects()) {
+		if (obj instanceof PDFRawStream && obj.dict.get(PDFName.of('Subtype')) === PDFName.of('Image')) hash.update(obj.getContents());
+	}
+	return hash.digest('hex');
+}
+
+onEveryEngine('@smoke Share → PDF draws different emoji pixels under System than under Exact', async ({ page }) => {
+	const exact = await pdfPictureBytes(page, 'exact');
+	const system = await pdfPictureBytes(page, 'system');
+	expect(system, 'System-emoji leaves our emoji font out of the picture').not.toBe(exact);
+	expect(await pdfPictureBytes(page, 'full'), 'Exact and Full draw the same picture').toBe(exact);
+});

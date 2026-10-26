@@ -40,3 +40,18 @@ for (const [label, entry] of [['source', path.join(ROOT, 'lattice.js')], ['the p
     });
   }
 }
+
+// `system-emoji` is honored in a picture format too: the PDF's pictures leave our emoji font out and draw this computer's, so the file
+// differs from the one `exact-emoji` writes. (Before, a PDF ignored the emoji tier and the two files were byte-identical.)
+test('a PDF draws different emoji pixels under system-emoji than under exact-emoji', () => {
+  const deck = path.join(tmp, 'pdf.md');
+  fs.writeFileSync(deck, DECK);
+  const pdf = (tier) => {
+    const out = path.join(tmp, `pdf-${tier}.pdf`);
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, out, '--quiet', '--fonts', `${tier}-emoji`], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
+    assert.equal(r.status, 0, r.stderr);
+    return fs.readFileSync(out);
+  };
+  assert.ok(!pdf('exact').equals(pdf('system')), 'system-emoji changes the PDF');
+  assert.ok(pdf('exact').equals(pdf('full')), 'exact, used and full draw the same picture: no emoji font file rides in a PDF');
+});

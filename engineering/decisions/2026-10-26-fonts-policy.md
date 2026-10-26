@@ -28,10 +28,10 @@ Nobody types a new emoji in our face, and PowerPoint cannot use it (the font is 
 | Output | text | emoji |
 |---|---|---|
 | player (CLI and Studio) | `exact` cuts to the characters shown; `used`/`full` keep the face; `system` drops it | `exact` cuts each slice to the deck's emoji; `used` keeps the slices that hold them; `full` all 11; `system` none |
-| editable PPTX/ODP | every tier but `system` embeds the whole face (no tier cuts an Office face, or edited text would lose glyphs); `system` embeds nothing | emoji stay in the slide picture |
+| editable PPTX/ODP | every tier but `system` embeds the whole face (no tier cuts an Office face, or edited text would lose glyphs); `system` embeds nothing | `system` leaves the emoji font out of every picture (a whole-slide picture, the shared background); an emoji typed in an editable text box is drawn by the viewer's own font under every tier, because PowerPoint and LibreOffice cannot use Noto Color Emoji |
 | plain `.html`, `--read`, `--fluid` | as the player: the finished file is cut by the same function, counting what its entities spell (`&#x1F389;`, `&laquo;`) | as the player |
-| PDF | `system` embeds no font file: the writer skips the engine's faces, so those words stay in the page picture (drawn in our faces) and the PDF has no selectable or searchable text in them. CLI and Studio do the same | the emoji are in the picture either way |
-| image sets | no font file to embed; the pictures are drawn as always | same |
+| PDF | `system` embeds no font file: the writer skips the engine's faces, so those words stay in the page picture (drawn in our faces) and the PDF has no selectable or searchable text in them. CLI and Studio do the same | no emoji font file rides in a PDF under any tier, so `exact`, `used` and `full` draw the same picture; `system` leaves our font out of the camera, so the picture's emoji come from the drawing machine's own emoji font |
+| image sets | no font file to embed; the pictures are drawn as always | as the PDF: `system` draws the machine's own emoji |
 
 CLI and Studio read the same words, merged class by class (`--fonts full` keeps the deck's emoji tier).
 
@@ -69,3 +69,14 @@ Measured, one emoji out of its slice: 🚀 121 KB to 2.5 KB, ✅ 65 KB to 0.8 KB
 ## Enforcement
 
 `unknown-fonts` lints a bad word. `test/unit/core/font-policy.test.js`, `emoji-faces.test.js`, `subset-color.test.js` and `player-fonts-policy.test.js` pin the kernel, the slice picker, the color cut and the per-tier player behavior. `docs/e2e/export-fonts-policy.spec.ts` drives the real Studio's web-page export. `tools/check-fonts.js` checks every slice is on disk. The color wasm's license notices sit beside it (`lib/fonts/hb/LICENSE-*.txt`); `assets/fonts/OFL.txt` goes to `dist/fonts/`.
+
+## Addendum: the emoji tier reaches every picture (2026-10-26)
+
+A first cut made `system-emoji` a no-op outside `.html`: PDFs and picture formats kept drawing Noto, and the Studio's PDF and PowerPoint panels
+lost the choice for a while. The owner rejected both (emoji are fonts; one shared spine). Now the tier applies in every export. The shared
+camera (`lib/core/slide-camera.mjs`) drops the emoji `@font-face` rules when the capture document carries `data-lattice-omit-fonts`, and the
+command line leaves the face out of the page. Measured on a rocket, a check mark, a flag and a heart: a PDF under `system-emoji` is 5 KB
+larger and draws the rocket in the machine's own glyph; `exact` and `full` write byte-identical PDFs.
+
+Price: a PDF drawn under `system-emoji` depends on the drawing machine. A machine with no emoji font draws boxes. Text stays different on
+purpose: its layout was measured in the engine's faces, so `system` text never changes what the picture draws.

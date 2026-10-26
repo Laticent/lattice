@@ -2806,11 +2806,12 @@ const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 // without emoji carries none of the font. The slides AND the title count: the player's bar shows the title. `slicesFor` reads numeric
 // character references as the emoji they spell.
 const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}`;
-// `fonts: system` means the FILE carries none of that class. A `.html` deliverable then leaves the faces out; a PDF, PowerPoint or image
-// set still renders its pictures in the engine's faces (the Studio's preview does too) and simply embeds no font file
-// (the PDF writer skips them, lib/core/pdf-compose/compose.mjs; the Office export embeds none).
+// `fonts: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
+// image set draws its pictures with this computer's emoji font (the Studio's camera does the same, lib/core/slide-camera.mjs).
+// `fonts: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
+// draws its words in them (the layout was measured in those faces) and embeds no font file (the PDF writer skips them, lib/core/pdf-compose/compose.mjs).
 const FILE_IS_HTML = OUT_FORMAT === 'html';
-const emojiCss = FONT_POLICY.emoji === 'system' && FILE_IS_HTML ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
+const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
 const extraFontCss = katexFacesCss + emojiCss;
 // `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
 const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
