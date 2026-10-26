@@ -280,6 +280,11 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, 79 KB and 5.9 KB after, with every computed fill, stroke, edge, shadow and ring on the chart gallery
   unchanged under pigment and etch (1.17M property reads, five themes, light and dark) and under tone changed
   only in the edge, below.
+- **A tone word cloud steps color by weight.** A word's color is arbitrary by default (the categorical inks in rank
+  order) and its size already carries the weight, so tone repeats the weight in color on the palette's own
+  contrast-gated ramp (`spectrum`'s stops: tier 5 `--seq-900`, 4 `--seq-700`, 3 `--seq-600`, 2 `--seq-500`, 1 `--text-muted`),
+  read from the `data-tier` each word carries. On dark, where the default words sat at about 3.7:1, every word now
+  clears 4.5:1. A neutral palette's ramp is grey, so its cloud is grey, as `spectrum`'s.
 - **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
   ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
   tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status
@@ -394,8 +399,8 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, and `examples/marks.md` exports at 847 KB. The prune now skips
   the dual-mode block by id.
 
-**What a finish does not reach, on purpose.** `line`, `ep-curve`, `slope` and `word-cloud`
-paint with strokes and type (`paint: "none"`): a stroke is all edge and no body. Tone's one
+**What a finish does not reach, on purpose.** `line`, `ep-curve` and `slope`
+paint with strokes (`paint: "none"`): a stroke is all edge and no body. Tone's one
 hue is for bodies, and a name keeps its category ink, so tone leaves these whole,
 their dots and bands too, since a tonal dot on a line that kept its hue no longer matches its
 series (`STROKE_MEMBERS`). Etch draws a line or ep-curve series heavier (2.6), because under

@@ -689,6 +689,14 @@ function build() {
       if (bears.bg.length) w(supports(rule(name, `:is(${bears.bg.map(bearSel).join(', ')})${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [`color: ${pickInk}`])));
       // A real property, not the member's `--tower-ink` custom property: the player's dual-mode pass hoists a light-dark() in a custom property to :root.
       w(supports(rule(name, `.tower-share-value${HUE_SEL}`, [`fill: ${pickInk}`])));
+      // A WORD CLOUD under tone. A word's color is arbitrary by default (the categorical inks in rank order, so "pricing" is
+      // magenta for no data reason), and its size already carries the weight. Tone makes color say the same thing a second,
+      // quiet way: the one palette ramp by tier, loudest word deepest. These are the stops `spectrum` uses, which the palette
+      // contrast-gates and which stay monotone on every theme (engineering/decisions/2026-08-24-spectrum-ramp-floor.md);
+      // the quietest tier is the theme's muted ink. (A neutral palette's ramp is grey, so its cloud is grey, as `spectrum`'s.)
+      for (const [tier, ink] of [[5, 'var(--seq-900)'], [4, 'var(--seq-700)'], [3, 'var(--seq-600)'], [2, 'var(--seq-500)'], [1, 'var(--text-muted)']]) {
+        w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${ink}`]));
+      }
       // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
       for (const n of SLOTS.filter((x) => x > 4)) w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${notLeft}`, ['stroke-dasharray: 5 3']));
     }

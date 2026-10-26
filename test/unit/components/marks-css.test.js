@@ -339,10 +339,23 @@ describe('marks.generated.css', () => {
     assert.equal(own.length, 1, 'the companion rule');
     for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) assert.ok(own[0].sel.includes(`.${c}`), `pigment and etch keep ${c} in its own hue, so they may repaint it`);
     const toneSelectors = serving('tone').map((r) => dropNots(r.sel));
-    for (const c of ['line-path', 'ep-path', 'line-dot', 'ep-dot', 'line-area', 'cart-series', 'wc-word']) {
+    for (const c of ['line-path', 'ep-path', 'line-dot', 'ep-dot', 'line-area', 'cart-series']) {
       assert.ok(!toneSelectors.some((sel) => new RegExp(`\\.${c}\\b`).test(sel)), `no tone rule repaints .${c}`);
     }
     assert.match(css, /marks-etch :where\(:is\(\.line-path, \.ep-path\)\)[^}]*stroke-width: 2\.6/, 'etch draws the series line heavier');
+  });
+
+  // A word cloud's color is arbitrary by default (categorical inks in rank order) while its size already carries the weight.
+  // Tone makes color repeat the weight, on the palette's own contrast-gated ramp (`spectrum`'s stops), tier by tier.
+  test('tone colors a word by its weight tier on the palette ramp; pigment and etch leave the words alone', () => {
+    const stops = { 5: '--seq-900', 4: '--seq-700', 3: '--seq-600', 2: '--seq-500', 1: '--text-muted' };
+    for (const [tier, tok] of Object.entries(stops)) {
+      const r = headed('tone').find((x) => x.sel.startsWith(`section.marks-tone :where(.wc-word[data-tier="${tier}"])`));
+      assert.match(r?.body || '', new RegExp(`fill: var\\(${tok}\\) !important`), `tier ${tier}`);
+    }
+    for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((r) => r.sel.includes('wc-word')), `${f} does not repaint a word`);
+    const { tierOf } = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
+    assert.deepEqual([5, 4.5, 4.49, 3.5, 2.5, 1.5, 1.49, 1].map(tierOf), [5, 5, 4, 4, 3, 2, 1, 1]);
   });
 
   // THE EDGE RULE. Pigment and etch outline a mark in its own category ink. Tone has ONE ladder of shades that already tells

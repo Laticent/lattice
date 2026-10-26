@@ -8,21 +8,21 @@ swimlane: tools/build-marks-css.js
 source: https://github.com/Laticent/lattice/pull/2908
 ---
 
-# Tone still draws line, slope, ep-curve and word-cloud in several colors
+# Tone still draws line, slope and ep-curve in several colors
 
 ```text
   P2 · tone's rule is "one color in shades; only status adds color", and four charts still break it
        why now   — the owner's goal (2026-10-26) is a consistent, clear, clean look across the charts of a finish.
-                   After the one-ladder change (#2908) every body-painted tone chart follows the rule. The four
-                   whose identity is a STROKE or TYPE (line, slope, ep-curve, word-cloud) keep a category hue per
-                   series, because no finish reaches a mark with `paint: "none"`. The waterfall's up and down bars
+                   After the one-ladder change (#2908) every body-painted tone chart follows the rule, and the word
+                   cloud steps by weight tier. The three whose identity is a STROKE (line, slope, ep-curve) keep a
+                   category hue per series, because no finish reaches a mark with `paint: "none"`. The waterfall's up and down bars
                    keep status hues on purpose.
        where     — the mark contract (`kernel.marks[].paint`, slot-contract.md) and tools/build-marks-css.js
                    (STROKE_MEMBERS); line, slope, ep-curve, word-cloud transforms and styles.
-       done when — under tone those four draw their series in steps of the one hue, told apart by depth and a dash from
-                   the fifth series (as tone's layered polygons already do), and a word wears a step of the one hue.
+       done when — under tone those three draw their series in steps of the one hue, told apart by depth and a dash from
+                   the fifth series (as tone's layered polygons already do).
                    Under pigment and etch nothing changes.
-       evidence  — the four charts under tone, light and dark, beside pigment; text and line contrast per series.
+       evidence  — the three charts under tone, light and dark, beside pigment; text and line contrast per series.
        verify    — chart-finish-reach --all-themes --check; the contrast probe; the adversarial trio (it changes the
                    mark contract, which every chart reads).
 ```

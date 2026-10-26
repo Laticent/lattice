@@ -1019,6 +1019,26 @@ figure.marks-tone :where(.tower-share-value:is([data-hue="1"], [data-hue="2"], [
   fill: light-dark(color(from var(--finish-mark-text-l) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from var(--finish-mark-text-d) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
+section.marks-tone :where(.wc-word[data-tier="5"]),
+figure.marks-tone :where(.wc-word[data-tier="5"]) {
+  fill: var(--seq-900) !important;
+}
+section.marks-tone :where(.wc-word[data-tier="4"]),
+figure.marks-tone :where(.wc-word[data-tier="4"]) {
+  fill: var(--seq-700) !important;
+}
+section.marks-tone :where(.wc-word[data-tier="3"]),
+figure.marks-tone :where(.wc-word[data-tier="3"]) {
+  fill: var(--seq-600) !important;
+}
+section.marks-tone :where(.wc-word[data-tier="2"]),
+figure.marks-tone :where(.wc-word[data-tier="2"]) {
+  fill: var(--seq-500) !important;
+}
+section.marks-tone :where(.wc-word[data-tier="1"]),
+figure.marks-tone :where(.wc-word[data-tier="1"]) {
+  fill: var(--text-muted) !important;
+}
 section.marks-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
 figure.marks-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {
   stroke-dasharray: 5 3 !important;

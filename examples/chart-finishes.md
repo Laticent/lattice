@@ -140,3 +140,20 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 - Decision Log `81%` `on-track`
 - Calibration cadence `34%` `deferred`
 - Adoption `12%` `blocked`
+
+---
+
+<!-- _class: word-cloud marks-tone -->
+<!-- _footer: "word-cloud · marks-tone" -->
+
+## Weight is meaning in a word cloud.
+
+- time-to-value `5`
+- security `4`
+- onboarding `4`
+- pricing `3`
+- integrations `3`
+- support `2`
+- roadmap `2`
+- contracts `1`
+- residency `1`

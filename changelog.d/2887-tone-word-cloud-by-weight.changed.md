@@ -1,0 +1,1 @@
+- **Under `tone`, a word cloud colors each word by its weight tier** on the palette's contrast-gated ramp (`spectrum`'s stops), instead of rotating through the categorical colors, so color repeats what size already says. Each word now carries `data-tier` (1 to 5). On dark, every word clears 4.5:1 (the default colors sat near 3.7:1).
