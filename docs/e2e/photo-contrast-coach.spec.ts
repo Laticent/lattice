@@ -188,3 +188,34 @@ for (const width of [1440, 390]) {
 		expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false, removed: 0 });
 	});
 }
+
+// A phone draws the parked preview and loads the photo far slower than a desktop. Hold the photo back for longer than the old
+// 3 s window: the tooltip must say it is reading, then offer the one ink, and never fall back to both on the way.
+test('a slow photo read shows "Reading the photo…" and still lands on the single ink @webkit-phone @crosswidth', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	// Slow the tooltip's own photo read, whatever the cache holds: every image `onload` set in the Studio page fires 3.5 s late.
+	// (A network delay would not do: the preview already loaded this photo, so the read is a memory-cache hit.)
+	await page.evaluate(() => {
+		Object.defineProperty(HTMLImageElement.prototype, 'onload', {
+			configurable: true,
+			set(fn: (e: Event) => void) {
+				this.addEventListener('load', (e: Event) => setTimeout(() => fn.call(this, e), 3500));
+			},
+		});
+	});
+	await page.evaluate(() => {
+		const w = window as unknown as { __jank: { dark: boolean } };
+		w.__jank = { dark: false };
+		new MutationObserver(() => {
+			if (Array.from(document.querySelectorAll('.cm-diagnosticAction')).some((b) => b.textContent?.includes('ink-dark'))) w.__jank.dark = true;
+		}).observe(document.body, { childList: true, subtree: true, characterData: true });
+	});
+	await page.locator('.cm-lintRange-warning').first().hover();
+	await expect(page.getByText('Reading the photo…')).toBeVisible({ timeout: 5000 });
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
+	await expect(page.getByText('Reading the photo…')).toHaveCount(0);
+	expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false });
+});

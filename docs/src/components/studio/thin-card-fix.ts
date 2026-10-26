@@ -21,9 +21,14 @@ export function addCardInk(source: string, slideIndex: number, ink: 'light' | 'd
 	return out === source ? null : out;
 }
 
-const READ_CAP_MS = 1200;
-/** How long a tooltip on the slide on screen waits for the preview to have drawn its photo before offering both inks. */
-const READ_WAIT_MS = 3000;
+/** How long a tooltip on the slide on screen waits for the photo to be read before offering both inks. A phone draws the
+ *  parked preview and loads the photo far slower than a desktop, so this is generous; "Reading the photo…" shows meanwhile. */
+const ON_SCREEN_WAIT_MS = 6000;
+/** How long a tooltip for a slide NOT on screen keeps checking before offering both: a tap on a phone can open the tooltip a
+ *  moment before its caret move reaches the hub and the preview, and the slide becomes "on screen" just after. */
+const OFF_SCREEN_WAIT_MS = 1200;
+/** A read that resolves faster than this never shows the "Reading the photo…" line, so the fast path does not flash it. */
+const SHOW_READING_MS = 400;
 
 /**
  * The ink that reads on the photo behind slide `slideIndex`'s card, read from the live preview with the same
@@ -34,8 +39,8 @@ export async function pickedInk(source: string, slideIndex: number): Promise<'li
 	const chunk = splitSlides(stripFrontMatter(source))[slideIndex];
 	if (chunk == null) return null;
 	const pick = await import('./card-ink-pick');
-	// A slow or dead photo host must not hold the lint pass: past the cap, offer both inks.
-	const behind = await Promise.race([pick.readBehindCard(chunk, slideIndex + 1), new Promise<null>((r) => setTimeout(() => r(null), READ_CAP_MS))]);
+	// No cap of its own: the tooltip reads this off the lint pass, and the sampler gives up on a photo that will not load (4 s).
+	const behind = await pick.readBehindCard(chunk, slideIndex + 1);
 	return behind ? pick.applyLateRead(chunk, source, behind).picked : null;
 }
 
@@ -43,9 +48,9 @@ export async function pickedInk(source: string, slideIndex: number): Promise<'li
  * The tooltip body for a `thin-card-no-ink` warning: the message, then the fix buttons, built once and filled IN PLACE. A
  * diagnostic's `actions` are fixed when the lint pass runs, so changing them means a new pass and CodeMirror closing the
  * open tooltip; here the buttons arrive in the same node, so the tooltip never closes or changes under the reader.
- *   - the slide is not the one on screen (the preview cannot show its photo): both inks at once, the author picks;
  *   - it is on screen: nothing until the photo has been read (the preview may still be drawing it), then the ONE ink that
- *     reads; after a short wait with no read (a cross-origin photo), both.
+ *     reads; after a wait with no read (a cross-origin photo), both. A slow read shows "Reading the photo…" meanwhile;
+ *   - it is not on screen (the preview cannot show its photo): both inks, after a short check in case the caret is on its way.
  */
 export function inkFixNode(
 	message: string,
@@ -55,6 +60,9 @@ export function inkFixNode(
 	const text = document.createElement('div');
 	text.textContent = message;
 	const row = document.createElement('div');
+	const reading = document.createElement('div');
+	reading.textContent = 'Reading the photo…';
+	reading.style.opacity = '0.7';
 	root.append(text, row);
 	const add = (ink: 'light' | 'dark') => {
 		const b = document.createElement('button');
@@ -69,13 +77,26 @@ export function inkFixNode(
 		};
 		row.append(b);
 	};
+	const started = Date.now();
+	const slow = setTimeout(() => {
+		if (!row.childElementCount && h.onScreen()) row.before(reading);
+	}, SHOW_READING_MS);
+	const done = () => {
+		clearTimeout(slow);
+		reading.remove();
+	};
 	void (async () => {
-		if (!h.onScreen()) return both();
-		const until = Date.now() + READ_WAIT_MS;
 		for (;;) {
-			const ink = await pickedInk(h.source(), h.slideOf()).catch(() => null);
-			if (ink) return add(ink);
-			if (Date.now() >= until) return both();
+			const here = h.onScreen();
+			const ink = here ? await pickedInk(h.source(), h.slideOf()).catch(() => null) : null;
+			if (ink) {
+				done();
+				return add(ink);
+			}
+			if (Date.now() - started >= (here ? ON_SCREEN_WAIT_MS : OFF_SCREEN_WAIT_MS)) {
+				done();
+				return both();
+			}
 			await new Promise((r) => setTimeout(r, 250));
 		}
 	})();

@@ -95,3 +95,17 @@ Two changes, the owner choosing that the preview follow the cursor:
 - Two earlier attempts are gone: a re-lint when the preview drew a new slide (first a fixed delay, which lost a race with the render, then a
   `needsRefresh` effect fed by a preview-render event), and `forceLinting`, which in @codemirror/lint 6.9 only hurries a pass already scheduled.
   Reading at tooltip time made all of it unnecessary.
+
+## Found on the owner's phone again: a slow read fell back to both inks
+
+On a real iPhone, slide 2's tooltip still offered both inks after slide 1's single button had worked. Playwright's iPhone WebKit profile ran the
+same tap flow and got the single ink, so the device differs. Two causes fit, and both are fixed:
+
+- **A per-read cap of 1.2 s.** `pickedInk` raced each read against 1.2 s, a leftover from when the read ran inside the lint pass. On a device where
+  loading or decoding the photo takes longer, every attempt timed out and the tooltip ended on both. The read now runs inside the tooltip, so the
+  cap protects nothing and is gone; the sampler keeps its own 4 s load timeout. An e2e slows every image `onload` by 3.5 s (a network delay would
+  not work: the preview already loaded the photo, so the read is a memory-cache hit) and fails with the cap put back.
+- **A tap that opens the tooltip before its caret move lands.** A slide judged "not on screen" now keeps checking for 1.2 s before offering both,
+  and the slide on screen waits up to 6 s, showing "Reading the photo…" once the read takes longer than 0.4 s. Not reproduced in emulation.
+
+Neither is verified on the device itself.
