@@ -98,8 +98,6 @@ onEveryEngine('@smoke Share → PDF embeds the deck faces by default, and System
 
 // The emoji tier reaches a PDF's pictures too: System leaves our emoji font out of the camera's drawing, so the page's emoji pixels differ.
 async function pdfPictureBytes(page: Page, emoji?: string): Promise<string> {
-	await gotoStudio(page);
-	await setEditorContent(page, DECK);
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: /^PDF/ }).click();
@@ -113,12 +111,43 @@ async function pdfPictureBytes(page: Page, emoji?: string): Promise<string> {
 	for (const [, obj] of pdf.context.enumerateIndirectObjects()) {
 		if (obj instanceof PDFRawStream && obj.dict.get(PDFName.of('Subtype')) === PDFName.of('Image')) hash.update(obj.getContents());
 	}
+	await page.keyboard.press('Escape');
 	return hash.digest('hex');
 }
 
 onEveryEngine('@smoke Share → PDF draws different emoji pixels under System than under Exact', async ({ page }) => {
+	// One visit to the Studio, then the Share sheet opened once per export: three page loads in one test made WebKit stall on navigation.
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
 	const exact = await pdfPictureBytes(page, 'exact');
 	const system = await pdfPictureBytes(page, 'system');
 	expect(system, 'System-emoji leaves our emoji font out of the picture').not.toBe(exact);
 	expect(await pdfPictureBytes(page, 'full'), 'Exact and Full draw the same picture').toBe(exact);
+});
+
+// An editable PowerPoint embeds no emoji font under any emoji tier: Noto Color Emoji is COLR v1, which LibreOffice 24.2 cannot paint, so the
+// emoji stay in their text and the reader's own font draws them. The text tier still decides the text faces.
+async function editablePptxFontBytes(page: Page, emoji: string): Promise<number> {
+	await page.getByRole('button', { name: 'Share', exact: true }).click();
+	const dialog = page.getByRole('dialog');
+	await dialog.getByRole('button', { name: /^PowerPoint/ }).click();
+	const editable = dialog.getByRole('switch', { name: 'Editable text' });
+	if ((await editable.getAttribute('aria-checked')) !== 'true') await editable.click();
+	await pickFont(page, 'Emoji font', emoji);
+	const download = page.waitForEvent('download', { timeout: 240_000 });
+	await dialog.getByRole('button', { name: /^Download PowerPoint/ }).click();
+	const { default: JSZip } = await import('jszip');
+	const zip = await JSZip.loadAsync(readFileSync((await (await download).path()) as string));
+	let bytes = 0;
+	for (const name of Object.keys(zip.files).filter((n) => /^ppt\/fonts\//.test(n))) bytes += (await zip.files[name].async('uint8array')).length;
+	await page.keyboard.press('Escape');
+	return bytes;
+}
+
+onEveryEngine('@smoke Share → editable PowerPoint embeds no emoji font under any emoji tier', async ({ page }) => {
+	await gotoStudio(page);
+	await setEditorContent(page, DECK);
+	const system = await editablePptxFontBytes(page, 'system');
+	expect(await editablePptxFontBytes(page, 'exact'), 'Exact adds no emoji face').toBe(system);
+	expect(await editablePptxFontBytes(page, 'used'), 'Used adds no emoji face').toBe(system);
 });

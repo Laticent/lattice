@@ -27,7 +27,7 @@ const EMOJI: Choice<Tier>[] = [
 const BLURB = {
 	webpage: 'How much of each typeface the web page carries.',
 	pdf: 'The PDF writer embeds the glyphs it draws. System embeds none of the engine’s fonts: those words stay in the page picture, so they are not selectable or searchable.',
-	office: 'Editable PowerPoint and LibreOffice files embed the whole face for every choice but System, so edited text keeps the deck’s type.',
+	office: 'Editable PowerPoint and LibreOffice files embed each face the text uses. Exact keeps only the characters the deck draws in it; Used and Full keep the whole face, so edited text keeps the deck’s type; System embeds nothing.',
 };
 
 const titleOf = (list: Choice<Tier>[], tier: Tier) => list.find((c) => c.value === tier)?.title ?? '';
@@ -65,7 +65,7 @@ export function FontsControl({ deckId, source, busy, format = 'webpage' }: { dec
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{BLURB[format]} Same words as the deck’s `fonts:` line.</span>
 					<ChoiceSelect label="Text fonts" value={choice.text} choices={named(format === 'pdf' ? TEXT.map((c) => (c.value === 'system' ? PDF_SYSTEM : c)) : TEXT, auto.text as Tier)} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
 					<ChoiceSelect label="Emoji font" value={choice.emoji} choices={named(EMOJI, auto.emoji as Tier)} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />
-					{format !== 'webpage' && <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{format === 'pdf' ? 'In a PDF the emoji are drawn into the page picture. System draws them with this computer’s own emoji font; Exact, Used and Full use ours and add no font file.' : 'In PowerPoint and LibreOffice files System draws the slide pictures’ emoji with this computer’s own emoji font. An emoji typed into an editable text box uses the viewer’s font.'}</span>}
+					{format !== 'webpage' && <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{format === 'pdf' ? 'In a PDF the emoji are drawn into the page picture. System draws them with this computer’s own emoji font; Exact, Used and Full use ours and add no font file.' : 'An emoji in an editable text box is drawn by the viewer’s own emoji font, whatever you choose here: PowerPoint and LibreOffice cannot paint our emoji font. In the slide pictures, System draws them with this computer’s emoji font; Exact, Used and Full use ours.'}</span>}
 				</span>
 			</span>
 		</div>

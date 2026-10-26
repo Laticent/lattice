@@ -69,13 +69,39 @@ resizing; pictures of single objects are not, so a photo can be replaced or move
 
 ## Fonts
 
-`prepareFonts(deck, host)` collects the faces the text uses and asks your host for them:
+`prepareFonts(deck, host, onSkip, policy)` collects the faces the text uses and asks your host for them. `policy` says how much of each
+class of face to embed, in four words:
 
-- `load({ family, weight, italic })` returns a WOFF2/TTF/OTF, or `null` for a system font;
-- `pin(bytes, { weight, ligatures })` returns a static sfnt at that weight with **every**
-  character kept (a reader of an editable file types new words). A variable font must be
-  pinned: an office suite draws a variable file at its default weight. HarfBuzz's subsetter
-  does this (`hb_subset_input_pin_axis_location` plus an inverted, empty Unicode set).
+- `exact`: only the characters the deck draws in that face (the smallest file; an edit may hit a missing glyph);
+- `used`: the whole face as your host ships it, so a reader of an editable file can type new words (the default for text);
+- `full`: the whole face with every script your host has;
+- `system`: nothing; the reader's office suite draws the text in its own fonts.
+
+`{ text, emoji }` sets the two classes (emoji default `exact`). Your host supplies:
+
+- `load({ family, weight, italic, tier, chars, emoji })` returns a WOFF2/TTF/OTF, or `null` for a system font;
+- `pin(bytes, { weight, ligatures, keep })` returns a static sfnt at that weight, with only the characters in `keep`
+  (the `exact` tier) or **every** character when `keep` is `null`. A variable font must be pinned: an office suite draws a
+  variable file at its default weight. HarfBuzz's subsetter does this (`hb_subset_input_pin_axis_location` plus an
+  inverted, empty Unicode set for "all").
+
+A face your host throws on is reported through `onSkip` (`'failed'`) and left out; it never takes the whole export down.
+
+**Emoji.** Give `policy.emojiFamily(sequence)` and Calco splits each text run at its emoji (`splitEmojiRuns`, which marks the run
+`style.emoji`), naming the emoji run's family, so the emoji font embeds like any other face. A color emoji font is often sliced by
+code point range and one family is one file, so answer with the slice's own family, the one that holds every part of the sequence.
+Without `emojiFamily`, or under `system`, the emoji stay in their text runs and the reader's own emoji font draws them.
+**Check what your font is before you use this.** A COLR v1 color emoji face (Noto Color Emoji from Google Fonts) embeds fine and draws
+blank in LibreOffice 24.2, with or without a system emoji font, because the embedded family wins over the fallback; a face an office
+suite can paint (COLR v0, SBIX, CBDT) is the one to embed. Lattice does not embed its emoji font in Office files for this reason.
+A host written before this option (it ignores `keep` and `emoji`) still embeds whole faces under `exact`.
+
+## Pictures
+
+`choosePicture(shooter, { tone, opaque }, policy)` is the one rule for a slide picture, so every host chooses alike: a
+lossless PNG for a flat slide, a JPEG for a photograph when that is much smaller. `policy.mode` is `optimized` (the default)
+or `original` (every picture a lossless PNG, no JPEG tried); `policy.quality` (1 to 100) replaces the default JPEG quality.
+`captureOfficeSlides` takes the same policy (`pictures`) for the pictures it crops from a slide.
 
 Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
 Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; a regular or

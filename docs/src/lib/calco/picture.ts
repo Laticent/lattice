@@ -22,6 +22,52 @@ export const PICTURE_JPEG_SHARE = 0.7;
  */
 export const PICTURE_TONE_JPEG_BYTES = 100 * 1024;
 
+/**
+ * What an export does with a picture it writes: `optimized` (the default) lets the rules below choose PNG or JPEG;
+ * `original` keeps every picture a lossless PNG. `quality` is the JPEG quality, 1 to 100, in place of the default.
+ * The words are the deck's `images:` words, but Calco takes no dependency on that: a host passes plain values.
+ */
+export interface PicturePolicy {
+	mode?: 'optimized' | 'original';
+	quality?: number;
+}
+
+/** The JPEG quality to use, 0 to 1 (a canvas's scale): the policy's 1 to 100, else the library's own. */
+export function pictureQuality(policy: PicturePolicy = {}): number {
+	const q = Number(policy.quality);
+	return Number.isFinite(q) && q >= 1 && q <= 100 ? q / 100 : PICTURE_JPEG_QUALITY;
+}
+
+/** The two ways a host can shoot one picture, and how it measures one. `T` is the host's own picture type (bytes, a Blob). */
+export interface PictureShooter<T> {
+	png(): Promise<T>;
+	/** `quality` is 1 to 100. May return null when the host cannot encode a JPEG: the PNG then stands. */
+	jpeg(quality: number): Promise<T | null>;
+	size(picture: T): number;
+}
+
+/**
+ * THE rule for one slide picture, so the command line and the Studio choose alike. `tone` is `isContinuousTone`'s answer
+ * for the slide; `opaque` is false for a picture with transparency (a rounded corner), which a JPEG would paint black.
+ * The ORDER of the shots is the cost: a continuous-tone slide is a JPEG first, and the PNG is never taken when the
+ * JPEG is large; any other slide is a PNG first.
+ */
+export async function choosePicture<T>(shooter: PictureShooter<T>, { tone, opaque = true }: { tone: boolean; opaque?: boolean }, policy: PicturePolicy = {}): Promise<T> {
+	if (!opaque || policy.mode === 'original') return shooter.png();
+	const quality = Math.round(pictureQuality(policy) * 100);
+	if (tone) {
+		const jpeg = await shooter.jpeg(quality);
+		if (jpeg && shooter.size(jpeg) >= PICTURE_TONE_JPEG_BYTES) return jpeg;
+		// A small JPEG: not much continuous tone after all, so let the sizes decide.
+		const png = await shooter.png();
+		return jpeg && worthTryingJpeg(shooter.size(png)) && jpegWins(shooter.size(png), shooter.size(jpeg)) ? jpeg : png;
+	}
+	const png = await shooter.png();
+	if (!worthTryingJpeg(shooter.size(png))) return png;
+	const jpeg = await shooter.jpeg(quality);
+	return jpeg && jpegWins(shooter.size(png), shooter.size(jpeg)) ? jpeg : png;
+}
+
 /** The media type of PNG or JPEG bytes, from the file signature. Anything else is called PNG, as before. */
 export function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' {
 	return bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8 ? 'image/jpeg' : 'image/png';

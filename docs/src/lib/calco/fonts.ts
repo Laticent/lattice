@@ -7,7 +7,7 @@
  * has to be pinned to one weight first. That needs a shaping engine (HarfBuzz), which the
  * host already has; `prepareFonts` takes it as a `pin` function and stays dependency-free.
  */
-import type { Deck, EmbeddedFont, TextStyle } from './types.js';
+import type { Deck, EmbeddedFont, TextRun, TextStyle } from './types.js';
 
 /** Vertical metrics as fractions of the em: what a writer needs to place a baseline. */
 export interface FontMetrics {
@@ -92,6 +92,8 @@ export interface FaceUse {
 	 * an arrow is worse than a heading that loses an `fi` ligature.
 	 */
 	ligatures: boolean;
+	/** Every character the deck draws in this face, each once, in the order first met. `exact` keeps just these. */
+	chars: string;
 }
 
 /** Every face the deck's text uses, deduplicated by family + weight + italic. */
@@ -104,13 +106,62 @@ export function facesUsed(deck: Deck): FaceUse[] {
 					const s = run.style;
 					const key = faceKey(s.family, s.weight, s.italic);
 					const use = seen.get(key);
-					if (use) use.ligatures = use.ligatures && s.ligatures;
-					else seen.set(key, { family: s.family, weight: s.weight, italic: s.italic, ligatures: s.ligatures });
+					if (use) {
+						use.ligatures = use.ligatures && s.ligatures;
+						use.chars = addChars(use.chars, drawnText(run));
+					} else seen.set(key, { family: s.family, weight: s.weight, italic: s.italic, ligatures: s.ligatures, chars: addChars('', drawnText(run)) });
 				}
 			}
 		}
 	}
 	return [...seen.values()];
+}
+
+/**
+ * Every character a run can put on the page. `run.text` is the SOURCE text, and the writers draw it through `text-transform` (and
+ * an office suite builds small caps from capitals), so the capitals and lower-case forms of a transformed run count too.
+ */
+function drawnText(run: TextRun): string {
+	const { transform, smallCaps } = run.style;
+	if ((!transform || transform === 'none') && !smallCaps) return run.text;
+	return `${run.text}${run.text.toUpperCase()}${run.text.toLowerCase()}`;
+}
+
+/** `chars` with the characters of `text` it lacks added, each once. */
+function addChars(chars: string, text: string): string {
+	const seen = new Set(Array.from(chars));
+	let out = chars;
+	for (const ch of Array.from(text)) {
+		if (seen.has(ch)) continue;
+		seen.add(ch);
+		out += ch;
+	}
+	return out;
+}
+
+/**
+ * How much of a face a file carries. The words are the ones a deck's `fonts:` line uses, but Calco takes no dependency on
+ * that: a host passes plain strings.
+ *   · `exact`: only the characters the deck draws in that face (the smallest file; an edit may hit a missing glyph);
+ *   · `used`: the whole face as the host ships it, so someone editing the file can type new text;
+ *   · `full`: the whole face with every script the host has;
+ *   · `system`: nothing; the reader's office suite draws the text in its own fonts.
+ */
+export type FontTier = 'exact' | 'used' | 'full' | 'system';
+
+/** What `prepareFonts` embeds, per class of face. */
+export interface FontPolicy {
+	/** Text faces. Default `used`. */
+	text?: FontTier;
+	/** Emoji faces. Default `exact`. */
+	emoji?: FontTier;
+	/**
+	 * The family that draws one emoji sequence (a rocket, a flag, a family of four), or null when the host has no face for it.
+	 * Given this, `prepareFonts` splits each text run at its emoji, names the emoji run's family, and embeds that face by
+	 * the emoji tier. Without it Calco leaves emoji in their text runs, drawn by the reader's own font. A color emoji font
+	 * is often sliced by code point range, and one family is one file, so the host answers with the slice's own family.
+	 */
+	emojiFamily?: (sequence: string) => string | null;
 }
 
 /** Host hooks for `prepareFonts`. */
@@ -119,12 +170,12 @@ export interface FontHost {
 	 * The font file for a face (WOFF2, TTF or OTF), or null when the host has none (a
 	 * system font). The host picks the nearest weight it ships.
 	 */
-	load(face: { family: string; weight: number; italic: boolean }): Promise<Uint8Array | null> | Uint8Array | null;
+	load(face: { family: string; weight: number; italic: boolean; tier: FontTier; chars: string; emoji: boolean }): Promise<Uint8Array | null> | Uint8Array | null;
 	/**
-	 * Return a static sfnt pinned to `weight`, keeping EVERY character (the reader of an
-	 * editable file types new words), with ligature features dropped when `ligatures` is false.
+	 * Return a static sfnt pinned to `weight`, with ligature features dropped when `ligatures` is false. `keep` is the
+	 * characters to keep (the `exact` tier), or null for EVERY character (the reader of an editable file types new words).
 	 */
-	pin(bytes: Uint8Array, options: { weight: number; ligatures: boolean }): Promise<Uint8Array> | Uint8Array;
+	pin(bytes: Uint8Array, options: { weight: number; ligatures: boolean; keep: string | null }): Promise<Uint8Array> | Uint8Array;
 }
 
 /**
@@ -138,18 +189,79 @@ export interface FontHost {
  *   · `unavailable`: the host has no file for this family (a system font such as Arial, or a
  *     face the library does not ship), so there is nothing to embed.
  *   · `license`: the font's embedding flag forbids it.
+ *   · `failed`: the host threw while loading or cutting the face. One face the host cannot prepare is reported and left out;
+ *     it does not take the whole export down.
  */
-export type FontSkipReason = 'unavailable' | 'license';
+export type FontSkipReason = 'unavailable' | 'license' | 'failed';
 
-export async function prepareFonts(deck: Deck, host: FontHost, onSkip?: (face: FaceUse, why: FontSkipReason) => void): Promise<EmbeddedFont[]> {
+/**
+ * An emoji as a reader sees it: a flag (two regional indicators), a keycap, or one pictograph (with its presentation selector,
+ * skin-tone modifier, tag characters and any joiner chain: a family, a profession, the flag of England). A pictograph a font draws as
+ * text by default (a plain `\u2764`, `\u261d`) is an emoji only when something asks for it: `\uFE0F` or a skin-tone modifier follows. One
+ * that asks for text (`\uFE0E`) is not, and a lone regional indicator is not.
+ */
+const EMOJI_SEQUENCE =
+	/\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|(?:(?!\p{Regional_Indicator})\p{Emoji_Presentation}(?!\uFE0E)|\p{Extended_Pictographic}(?=[\uFE0F\u{1F3FB}-\u{1F3FF}]))\uFE0F?\p{Emoji_Modifier}?[\u{E0020}-\u{E007F}]*(?:\u200D(?:\p{Extended_Pictographic}|\p{Emoji_Presentation})\uFE0F?\p{Emoji_Modifier}?)*/gu;
+
+/** The emoji sequences in `text`, with where each starts. */
+export function emojiSpans(text: string): { start: number; end: number; sequence: string }[] {
+	const out: { start: number; end: number; sequence: string }[] = [];
+	for (const m of text.matchAll(EMOJI_SEQUENCE)) out.push({ start: m.index ?? 0, end: (m.index ?? 0) + m[0].length, sequence: m[0] });
+	return out;
+}
+
+/**
+ * Split every text run at its emoji, in place: the emoji run keeps the style except for its family (the face that draws
+ * that sequence) and a regular upright weight. Returns the families it named. A sequence `emojiFamily` has no face for
+ * stays in its text run. Idempotent: an emoji run splits into itself.
+ */
+export function splitEmojiRuns(deck: Deck, emojiFamily: (sequence: string) => string | null): Set<string> {
+	const families = new Set<string>();
+	for (const slide of deck.slides) {
+		for (const frame of slide.frames) {
+			frame.lines = frame.lines.map((line) => {
+				const next: TextRun[] = [];
+				for (const run of line) {
+					let at = 0;
+					for (const { start, end, sequence } of emojiSpans(run.text)) {
+						const family = emojiFamily(sequence);
+						if (!family) continue;
+						if (start > at) next.push({ text: run.text.slice(at, start), style: run.style });
+						next.push({ text: sequence, style: { ...run.style, family, weight: 400, italic: false, emoji: true } });
+						families.add(family);
+						at = end;
+					}
+					if (at < run.text.length || !run.text) next.push(at ? { text: run.text.slice(at), style: run.style } : run);
+				}
+				return next;
+			});
+		}
+	}
+	return families;
+}
+
+export async function prepareFonts(deck: Deck, host: FontHost, onSkip?: (face: FaceUse, why: FontSkipReason, error?: unknown) => void, policy: FontPolicy = {}): Promise<EmbeddedFont[]> {
+	const text = policy.text ?? 'used';
+	const emoji = policy.emoji ?? 'exact';
+	// Under `system` an emoji stays in its text run and the reader's own emoji font draws it.
+	const emojiFamilies = policy.emojiFamily && emoji !== 'system' ? splitEmojiRuns(deck, policy.emojiFamily) : new Set<string>();
 	const out: EmbeddedFont[] = [];
 	for (const face of facesUsed(deck)) {
-		const raw = await host.load(face);
-		if (!raw) {
-			onSkip?.(face, 'unavailable');
+		const isEmoji = emojiFamilies.has(face.family);
+		const tier = isEmoji ? emoji : text;
+		if (tier === 'system') continue;
+		let bytes: Uint8Array;
+		try {
+			const raw = await host.load({ family: face.family, weight: face.weight, italic: face.italic, tier, chars: face.chars, emoji: isEmoji });
+			if (!raw) {
+				onSkip?.(face, 'unavailable');
+				continue;
+			}
+			bytes = await host.pin(raw, { weight: face.weight, ligatures: face.ligatures, keep: tier === 'exact' ? face.chars : null });
+		} catch (error) {
+			onSkip?.(face, 'failed', error);
 			continue;
 		}
-		const bytes = await host.pin(raw, { weight: face.weight, ligatures: face.ligatures });
 		if (!embeddingAllowed(bytes)) {
 			onSkip?.(face, 'license');
 			continue;

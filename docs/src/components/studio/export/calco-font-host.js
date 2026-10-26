@@ -21,9 +21,10 @@ export async function calcoFontHost() {
 			const res = await fetch(hit.url);
 			return res.ok ? new Uint8Array(await res.arrayBuffer()) : null;
 		},
-		async pin(bytes, { weight, ligatures }) {
+		async pin(bytes, { weight, ligatures, keep }) {
 			if (!subset) subset = await createFontSubsetter(await (await fetch(hbUrl)).arrayBuffer());
-			return subset(bytes, null, { wght: weight }, pinFeatures(ligatures));
+			// `exact` keeps just the characters the deck draws in this face; every other tier keeps every character.
+			return subset(bytes, keep, { wght: weight }, pinFeatures(ligatures));
 		},
 	};
 }

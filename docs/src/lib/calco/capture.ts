@@ -15,7 +15,7 @@
  * Design: engineering/decisions/2026-10-21-calco-lift-what-can-be-lifted.md.
  */
 
-import { PICTURE_FLAT_BYTES, PICTURE_JPEG_QUALITY, PICTURE_JPEG_SHARE, PICTURE_TONE_JPEG_BYTES } from './picture.js';
+import { PICTURE_FLAT_BYTES, PICTURE_JPEG_SHARE, PICTURE_TONE_JPEG_BYTES, type PicturePolicy, pictureQuality } from './picture.js';
 import { readSlide, restoreSlide, restoreSplit, splitKey, splitSlide } from './reader.js';
 import type { Background, Shape, Slide, TextFrame } from './types.js';
 
@@ -40,6 +40,8 @@ interface CropRules {
 	toneBytes: number;
 	flatBytes: number;
 	share: number;
+	/** `images: original`: every crop a lossless PNG, none split. */
+	lossless?: boolean;
 }
 interface CropResult {
 	residual: (Box & { data: string }) | null;
@@ -244,7 +246,7 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
     (canvas.getContext('2d') as OffscreenCanvasRenderingContext2D).drawImage(bmp, sx, sy, sw, sh, 0, 0, sw, sh);
     let pick: { size: number; data: string };
     let jpeg = false;
-    if (opaque) {
+    if (opaque && !rules.lossless) {
       const jpg = await b64(await canvas.convertToBlob({ type: 'image/jpeg', quality: rules.quality }));
       if (jpg.size >= rules.toneBytes) {
         pick = jpg;
@@ -414,6 +416,11 @@ export interface CaptureHost {
 	guard?<T>(i: number, fn: () => Promise<T>): Promise<T>;
 }
 
+/** The rules a crop is encoded by, from the picture policy. */
+function cropRules(policy?: PicturePolicy): CropRules {
+	return { maxOutside: SPRITE_OUTSIDE_SHARE, quality: pictureQuality(policy), toneBytes: PICTURE_TONE_JPEG_BYTES, flatBytes: PICTURE_FLAT_BYTES, share: PICTURE_JPEG_SHARE, lossless: policy?.mode === 'original' };
+}
+
 export interface CaptureOptions {
 	/** `false` keeps the one slide-sized foreground picture instead of cropped pictures. */
 	sprites?: boolean;
@@ -424,6 +431,8 @@ export interface CaptureOptions {
 	 * cost three photographs and fail.
 	 */
 	backdrop?: 'check' | 'whole';
+	/** What to do with the pictures cropped from a slide (photos, icons): `original` keeps them lossless, `quality` replaces the default. */
+	pictures?: PicturePolicy;
 	/** A slide fell back to a simpler capture; say why. */
 	onWarn?(message: string): void;
 }
@@ -472,7 +481,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 			const got = await host.run<CropResult>(i, cropPictures, {
 				fg: toBase64(shot),
 				boxes: [{ x: read.logo.x, y: read.logo.y, w: read.logo.w, h: read.logo.h, lone: true }],
-				rules: { maxOutside: SPRITE_OUTSIDE_SHARE, quality: PICTURE_JPEG_QUALITY, toneBytes: PICTURE_TONE_JPEG_BYTES, flatBytes: PICTURE_FLAT_BYTES, share: PICTURE_JPEG_SHARE },
+				rules: cropRules(options.pictures),
 			});
 			const part = got.images[0]?.[0];
 			look = part ? { dx: part.x - read.logo.x, dy: part.y - read.logo.y, w: part.w, h: part.h, image: fromBase64(part.data) } : null;
@@ -531,7 +540,7 @@ export async function captureOfficeSlides(host: CaptureHost, count: number, opti
 									const got = await host.run<CropResult>(i, cropPictures, {
 										fg: toBase64(fg),
 										boxes: pics.map((sh) => ({ x: sh.x, y: sh.y, w: sh.w, h: sh.h, photo: !!sh.photo })),
-										rules: { maxOutside: SPRITE_OUTSIDE_SHARE, quality: PICTURE_JPEG_QUALITY, toneBytes: PICTURE_TONE_JPEG_BYTES, flatBytes: PICTURE_FLAT_BYTES, share: PICTURE_JPEG_SHARE },
+										rules: cropRules(options.pictures),
 									});
 									placePictures(read, pics, got);
 									withSprites = true;

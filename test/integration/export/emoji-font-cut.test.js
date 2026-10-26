@@ -55,3 +55,31 @@ test('a PDF draws different emoji pixels under system-emoji than under exact-emo
   assert.ok(!pdf('exact').equals(pdf('system')), 'system-emoji changes the PDF');
   assert.ok(pdf('exact').equals(pdf('full')), 'exact, used and full draw the same picture: no emoji font file rides in a PDF');
 });
+
+// An editable Office file never embeds the emoji font, and the emoji tier does not change it. Noto Color Emoji is COLR v1, and LibreOffice 24.2 draws
+// NOTHING for an emoji set in an embedded COLR v1 face (even with a system emoji font installed), so an emoji stays in its text run and the reader's
+// own emoji font draws it. The text tiers still apply.
+test('an editable .pptx embeds no emoji font under any emoji tier, and the text tier still decides the text faces', async () => {
+  const JSZip = require('jszip');
+  const deck = path.join(tmp, 'office.md');
+  fs.writeFileSync(deck, DECK);
+  const fonts = async (fontsArg) => {
+    const out = path.join(tmp, `office-${fontsArg.replace(/\W+/g, '-')}.pptx`);
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), deck, out, '--quiet', '--editable', '--fonts', fontsArg], { cwd: ROOT, encoding: 'utf8', timeout: 240000 });
+    assert.equal(r.status, 0, r.stderr);
+    const zip = await JSZip.loadAsync(fs.readFileSync(out));
+    const names = Object.keys(zip.files).filter((n) => /^ppt\/fonts\//.test(n));
+    let bytes = 0;
+    for (const n of names) bytes += (await zip.files[n].async('uint8array')).length;
+    return { count: names.length, bytes };
+  };
+  const base = await fonts('used system-emoji');
+  for (const tier of ['exact-emoji', 'used-emoji', 'full-emoji']) {
+    const got = await fonts(`used ${tier}`);
+    assert.deepEqual(got, base, `${tier}: the same fonts as system-emoji, so no emoji face rides in the file`);
+  }
+  const none = await fonts('system');
+  assert.equal(none.count, 0, 'system text embeds nothing');
+  const exact = await fonts('exact');
+  assert.ok(exact.bytes < base.bytes, 'exact text is cut to the characters shown');
+});
