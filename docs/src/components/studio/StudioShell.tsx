@@ -72,6 +72,7 @@ import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_MET
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
+import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
@@ -136,7 +137,7 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
-import { getClassTokens } from './slide-directives';
+import { canEditClass, getClassTokens, setClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
@@ -4783,6 +4784,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// edit-mode Reshape control (a variant is a class token; recast = swap the token).
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
+	// The Coach's photo-contrast read of the slide on screen (measured in the preview, so it only runs while the Coach is open).
+	const photoFindings = usePhotoContrast(activeChunk, activeFullIndex + 1, coachOpen);
+	// Pin the slide light or dark: the one click the photo-contrast warning offers. Never applied on its own.
+	const pinActiveSlide = React.useCallback(
+		(pin: 'dark' | 'light') => mutateSlideFromPanel((c) => (canEditClass(c) ? setClassTokens(c, [...getClassTokens(c).filter((t) => t !== 'dark' && t !== 'light'), pin]) : c)),
+		[mutateSlideFromPanel],
+	);
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
 	// THE PANE GALLERY — Compose's "Change" on a pane bar opens the slide gallery in pane mode
 	// (SlidePicker `pane`): only the components that fit that pane, each saying whether it keeps the
@@ -4836,11 +4844,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		splitApiRef.current.expand('b');
 	};
 
-	const rankedFindings = rankFindings(findings);
+	const rankedFindings = rankFindings([...findings, ...photoFindings]);
 	const shownFindings = rankedFindings.slice(0, 6);
 	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
 	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
 	const isDraftable = (f: Finding): boolean => {
+		if (f.rule === PHOTO_RULE) return false; // measured from pixels and fixed by a pin, not drafted by a model
 		const ph = fixStates[keyFor(f)]?.phase;
 		return ph === undefined || ph === 'stale';
 	};
@@ -5115,7 +5124,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								key={key}
 								finding={f}
 								state={fixStates[key]}
-								canFix={ai.ready && !!f.slide}
+								canFix={ai.ready && !!f.slide && f.rule !== PHOTO_RULE}
+								pin={f.rule === PHOTO_RULE && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? ((f as { pin?: 'dark' | 'light' | null }).pin ?? null) : null}
+								onPin={pinActiveSlide}
 								costLabel={fixCostLabel}
 								onFix={() => fixFinding(f, key)}
 								onApply={() => applyFixKey(key)}

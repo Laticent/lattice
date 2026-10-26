@@ -37,6 +37,8 @@ export function FindingCard({
 	onFix,
 	onApply,
 	onDiscard,
+	pin = null,
+	onPin,
 }: {
 	finding: Finding;
 	state?: FindingFixState;
@@ -45,6 +47,9 @@ export function FindingCard({
 	onFix: () => void;
 	onApply: () => void;
 	onDiscard: () => void;
+	/** A photo-contrast finding's fix: pin the slide to this mode. The author clicks it; nothing flips on its own. */
+	pin?: 'dark' | 'light' | null;
+	onPin?: (pin: 'dark' | 'light') => void;
 }): React.ReactElement {
 	const deckLevel = !finding.slide;
 	const SevIcon = sevIcon(finding.severity);
@@ -67,6 +72,13 @@ export function FindingCard({
 				</div>
 				{/* Row 2 — the message, full width. */}
 				<p className="mt-1 text-[12px] leading-snug text-foreground">{finding.message}</p>
+				{pin && onPin && (
+					<div className="mt-2 flex flex-wrap items-center gap-1.5">
+						<button type="button" onClick={() => onPin(pin)} className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--accent)_22%,transparent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)]">
+							Pin this slide {pin}
+						</button>
+					</div>
+				)}
 				{/* Row 3 — the action, its own row so the rule label never shares space with the pill. */}
 				{canFix && (
 					<div className="mt-2 flex flex-wrap items-center gap-1.5">
