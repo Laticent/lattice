@@ -255,14 +255,20 @@ pinner. Two modes:
   wider wraps to more lines and the text can run past the card's bottom edge, because an office
   file cannot push the next row down. Measured in LibreOffice only; PowerPoint and Google Slides
   are UNVERIFIED.
-  **Why the `.pptx` once sat 3px off the `.odp`** (measured 2026-10-26, LibreOffice 24.2). A
-  `roundRect`'s text rectangle is inset by `radius * (1 - cos 45)` on every side (the preset's own
-  `il`), so a card's insets are the padding less that (`pptx.ts`); an `.odp` corner insets nothing.
-  That was 2.24pt on a 7.7pt corner. What remains is LibreOffice 24.2's own: it sets proportional
-  line spacing from a flat 1.2 x the font size, not the face's metrics (first baseline = top +
-  m x 1.2 x size - 0.2 x size, fitted on three faces and five spacings), so a body line sits 1pt
-  and a 0.83x title 3.5pt off. `spacingMultiple` and `placeFrame` use the face's metrics, which is
-  what the note's own LibreOffice 26.8 measurement and PowerPoint's 100% are; they are left as is.
+  **Why the `.pptx` once sat 3px off the `.odp`** (measured 2026-10-26, LibreOffice 24.2 and 26.8.1).
+  Two causes, both fixed. (1) A `roundRect`'s text rectangle is inset by `radius * (1 - cos 45)` on every
+  side (the preset's own `il`), so a card's insets are the padding less that (`pptx.ts`); an `.odp`
+  corner insets nothing. That was 2.24pt on a 7.7pt corner. (2) A proportional `spcPct` of 100% is a
+  line of 1.2 x the font size, whatever the face: the pitch is exactly `1.2 x m x size` and the first
+  baseline sits at `top + pitch - 0.2 x size` (`OOXML_LINE`, `OOXML_DESCENT` in `layout.ts`; fitted on three
+  faces and five spacings, the same in both versions, and LibreOffice's PPTX import enables its
+  `FontIndependentLineSpacing` mode to emulate it). The writer used the face's own ascent and descent,
+  1.26 for Outfit, which put body lines 1pt off and a three-line paragraph 3pt. An earlier version
+  of this note said 26.8 used the face's metrics; it does not. With both fixed, 278 words of a 7-slide card deck
+  sit within 0.25pt of the `.odp` on average. **Still open:** two slides with a large, bold, centered Playfair title
+  sit 2.4 to 3pt high in the `.pptx` (18 of 278 words); the same frame written by a synthetic test lands within
+  0.06pt, so the cause is something in the real title that the test lacks. **PowerPoint's own rule is UNVERIFIED**:
+  the 1.2 model is LibreOffice's emulation of it, not a measurement of it.
   **Fidelity needs the deck's fonts at the reader.** Where a paragraph is pinned, lines are broken
   where the browser broke them, and each word is placed from the browser's
   measure, so the file matches the slide only when the reader draws the same face.

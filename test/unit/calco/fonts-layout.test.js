@@ -58,13 +58,13 @@ describe('calco layout', () => {
     assert.equal(box.h, 47.6 * 2);
   });
 
-  test('proportional spacing: the multiple is pitch over the natural line, and the box top is baseline minus multiple × ascent', () => {
+  test('proportional spacing: the multiple is pitch over 1.2 × size, and the box top is baseline minus (pitch − 0.2 × size)', () => {
     const { spacingMultiple } = require('@laticent/calco');
     const f = frame([[{ text: 'x', style: style() }], [{ text: 'y', style: style() }]], { y: 400, firstLineHeight: 35.28, lineHeight: 47.6 });
     const m = spacingMultiple(f, metrics, 28);
-    assert.ok(Math.abs(m - 47.6 / (1.26 * 28)) < 1e-9);
+    assert.ok(Math.abs(m - 47.6 / (1.2 * 28)) < 1e-9);
     const box = placeFrame(f, 1280, metrics, 28, 'proportional');
-    assert.ok(Math.abs(box.y - (400 + 28 - m * 28)) < 1e-9, `top ${box.y}`);
+    assert.ok(Math.abs(box.y - (400 + 28 - (47.6 - 0.2 * 28))) < 1e-9, `top ${box.y}`);
     assert.equal(box.h, 47.6 * 2);
   });
 

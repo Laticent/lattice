@@ -13,7 +13,7 @@
  * slot, named with no flag. A run whose face is not embedded names its family and is bold at
  * 600 or heavier, as OOXML has no numeric weight.
  *
- * LINE SPACING is proportional (`spcPct`), the browser's pitch over the face's natural line,
+ * LINE SPACING is proportional (`spcPct`), the browser's pitch over 1.2 times the font size (layout.ts `OOXML_LINE`),
  * because Google Slides reads an exact `spcPts` as a multiple of the font size and spreads
  * every line by the face's own line height. A paragraph stays one box, editable as one.
  *

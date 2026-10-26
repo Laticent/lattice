@@ -47,12 +47,24 @@ export function metricsFor(style: TextStyle, fonts: EmbeddedFont[], cache: Map<E
 }
 
 /**
- * Line spacing as a multiple of the face's natural line height (ascent + descent + line
- * gap): the pitch the browser used, in the unit a proportional `spcPct` is read in.
+ * What a proportional `spcPct` of 100% is, in ems: a line 1.2 times the font size, whatever the
+ * face (so PowerPoint's own files do not shift when a font is swapped). LibreOffice's PPTX
+ * import turns on its `FontIndependentLineSpacing` mode to match: the first baseline sits at
+ * `top + m * 1.2 * size - 0.2 * size` (fitted on three faces and five spacings in LibreOffice 24.2
+ * and again in 26.8, to three decimals). The earlier model, the face's own ascent + descent, was
+ * 5% off for Outfit and 12% for Playfair. PowerPoint itself is UNVERIFIED.
  */
-export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: number): number {
-	const natural = (metrics.ascent + metrics.descent + (metrics.lineGap || 0)) * size;
-	return natural > 0 ? frame.lineHeight / natural : 1;
+export const OOXML_LINE = 1.2;
+/** The part of that line below the baseline, in ems. */
+export const OOXML_DESCENT = 0.2;
+
+/**
+ * Line spacing as a multiple of `OOXML_LINE` times the font size: the pitch the browser used, in
+ * the unit a proportional `spcPct` is read in. `metrics` is kept for callers; the unit is
+ * font-independent.
+ */
+export function spacingMultiple(frame: TextFrame, _metrics: FontMetrics, size: number): number {
+	return size > 0 ? frame.lineHeight / (OOXML_LINE * size) : 1;
 }
 
 /**
@@ -62,15 +74,15 @@ export function spacingMultiple(frame: TextFrame, metrics: FontMetrics, size: nu
  * `spacing` is how the writer states line spacing, because it moves the first baseline:
  *  - `exact` (the .odp's fixed line height): the suite puts all the leading ABOVE the
  *    text, so the box top is the baseline minus (pitch − descent);
- *  - `proportional` (the .pptx's spcPct): the line is the face's natural line scaled by the
- *    multiple, glyphs at its top, so the box top is the baseline minus multiple × ascent.
- *    (Measured in LibreOffice 26.8; Google Slides reads the multiple the same way.)
+ *  - `proportional` (the .pptx's spcPct): the line is `OOXML_LINE` × size scaled by the
+ *    multiple, with `OOXML_DESCENT` × size below the baseline, so the box top is the baseline
+ *    minus (pitch − 0.2 × size). Measured in LibreOffice 24.2 and 26.8.
  */
 export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetrics, size: number, spacing: 'exact' | 'proportional' = 'exact'): PlacedBox {
 	const { ascent, descent } = metrics;
 	// The browser's baseline: the glyph box splits ascent : descent.
 	const baseline = frame.y + (frame.firstLineHeight * ascent) / (ascent + descent);
-	const y = spacing === 'proportional' ? baseline - spacingMultiple(frame, metrics, size) * (ascent + (metrics.lineGap || 0) / 2) * size : baseline - (frame.lineHeight - descent * size);
+	const y = baseline - (frame.lineHeight - (spacing === 'proportional' ? OOXML_DESCENT : descent) * size);
 	const maxSize = highest(frame.lines.flat().map((r) => r.style.size));
 	const room =
 		frame.align === 'center'
@@ -114,11 +126,10 @@ export function flowLines(frame: TextFrame): TextRun[][] {
 export function paragraphGap(prev: TextFrame, prevMetrics: FontMetrics, prevSize: number, next: TextFrame, nextMetrics: FontMetrics, nextSize: number, spacing: 'exact' | 'proportional'): number {
 	const base = (f: TextFrame, m: FontMetrics) => f.y + (f.firstLineHeight * m.ascent) / (m.ascent + m.descent);
 	const delta = base(next, nextMetrics) - (base(prev, prevMetrics) + (prev.lines.length - 1) * prev.lineHeight);
-	if (spacing === 'proportional') {
-		const lift = (f: TextFrame, m: FontMetrics, size: number) => spacingMultiple(f, m, size) * (m.ascent + (m.lineGap || 0) / 2) * size;
-		return Math.max(0, delta - prev.lineHeight - (lift(next, nextMetrics, nextSize) - lift(prev, prevMetrics, prevSize)));
-	}
-	return Math.max(0, delta - next.lineHeight + nextMetrics.descent * nextSize - prevMetrics.descent * prevSize);
+	// Each paragraph's line puts `d` below its baseline: the face's descent for a fixed line
+	// height, `OOXML_DESCENT` for a proportional one.
+	const below = (m: FontMetrics, size: number) => (spacing === 'proportional' ? OOXML_DESCENT : m.descent) * size;
+	return Math.max(0, delta - next.lineHeight + below(nextMetrics, nextSize) - below(prevMetrics, prevSize));
 }
 
 /** `text-transform` applied to source text, for formats with no transform attribute. */
