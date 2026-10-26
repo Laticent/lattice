@@ -33,8 +33,9 @@ Read it by section. §1 is a two-minute tour. §3 defines every term the rest us
 
 ## 1. A two-minute tour
 
-A rule is a JSON file. This one is Lattice's `autosplit-retired`, which today is 30 lines of regex and a special case in
-`fixReplacement` (`lib/authoring/lint-core.js`):
+A rule is a JSON file. This one is Lattice's `autosplit-retired`, which today is about 30 lines of regex in
+`findRetiredAutosplitDirective` (`lib/authoring/lint-core.js`) with advice text but no machine fix. The manifest below
+keeps its four messages and adds the fix:
 
 ```json
 {
@@ -50,6 +51,18 @@ A rule is a JSON file. This one is Lattice's `autosplit-retired`, which today is
       "severity": "error",
       "message": "`autosplit: off` no longer works; slides that don't fit still split into more pages.",
       "hint": "To keep one slide whole, add `<!-- stress-slide -->` to that slide.",
+      "fix": { "safety": "safe", "delete": "line", "description": "Delete the line." }
+    },
+    {
+      "when": { "value": { "in": ["off", "false", "no"] } },
+      "severity": "suggestion",
+      "message": "`autosplit: off` no longer does anything.",
+      "fix": { "safety": "safe", "delete": "line", "description": "Delete the line." }
+    },
+    {
+      "when": { "fact": { "deck.family": { "not": "wide" } } },
+      "severity": "suggestion",
+      "message": "`autosplit:` no longer does anything; slides that don't fit split automatically.",
       "fix": { "safety": "safe", "delete": "line", "description": "Delete the line." }
     },
     {
@@ -309,9 +322,9 @@ consumer of `fromSegno`.
 | Layer | Built from | Produces |
 |---|---|---|
 | Tokens | Segno's Markdown grammar, promoted from `tools/parser-bakeoff/languages-grammars.mjs` into `lib/` | `heading`, `para`, `item`, `olist`, `quote`, `table`, `fence`, `code`, `rule`, `indent` |
-| Slides | `separatorLines` from `lib/authoring/slide-split.js`, the predicate the engine uses | `deck` → `front-matter`, `slide` nodes; `slide` carries `attrs.index` |
+| Slides | `separatorLines` from `lib/authoring/slide-split.js`, derived from the engine's own parser (`lib/core/slide-boundaries.mjs`) | `deck` → `front-matter`, `slide` nodes; `slide` carries `attrs.index` |
 | Front matter | `lib/core/front-matter-key.js` | `fm-key` with `attrs.name`, `attrs.value` |
-| Directives | the shared class-directive reader `lint-core.js` already imports | `directive` (`_class`, `say`, `track`…) with `attrs.name`, `attrs.tokens` |
+| Directives | `scanMetaSource` (`lib/core/meta-record.mjs`), the shared reader `lint-core.js` already imports | `directive` (`_class`, `say`, `track`…) with `attrs.name`, `attrs.tokens` |
 | Inline notation | Segno's notation parser | `segno-span` with the bound record in `attrs` |
 
 Facts: `deck.family` (from `deckFamily`), `deck.size`, `deck.plugins`, `deck.mode`, `slide.classes`. Inert: fences and
@@ -595,7 +608,7 @@ generated docs render it.
 Small rules may put examples inline instead:
 
 ```json
-"examples": { "bad": ["autosplit: off"], "good": ["size: phone"], "fixed": [""] }
+"examples": { "bad": ["autosplit: off"], "good": ["size: story"], "fixed": [""] }
 ```
 
 ## 7. The fix engine: Rettifica
@@ -787,8 +800,8 @@ A waiver is a recorded exception: this rule does not apply to this target, for t
   "waivers": [
     {
       "rule": "repo/no-margin",
-      "target": "lib/components/layout/stack/stack.styles.css",
-      "match": "margin-left: auto",          // optional: the finding's text must contain this
+      "target": "lib/components/inventory/checklist/checklist.styles.css",
+      "match": "margin-inline-start:auto",       // optional: the finding's text must contain this
       "reason": "Flex push; no padding or gap equivalent. HARD RULE #20.",
       "since": "2026-06-27",
       "expires": null                        // or a date; past it, the waiver stops applying and is reported
@@ -799,7 +812,7 @@ A waiver is a recorded exception: this rule does not apply to this target, for t
 
 - A waiver suppresses findings that match its rule, target (path or glob) and optional `match`.
 - **A waiver that suppresses nothing fails** as `squadra/stale-waiver`, an error. This is built in, and it replaces the
-  stale-entry logic that the census found re-implemented across 33 `SANCTIONED_*` lists, and missing from 8 others.
+  stale-entry logic that the census found re-implemented in 33 checks (covering the 35 `SANCTIONED_*` lists), and missing from 8 other allowlists and constants.
 - `reason` is required and must be non-empty. The tool cannot judge a reason, as `biome.jsonc` notes about its own
   exclusions. It can require one, and pull requests review it.
 - An expired waiver stops suppressing and is reported as `squadra/expired-waiver`.
@@ -1010,7 +1023,7 @@ squadra bench                 the benchmark scenarios (§11.6)
 |---|---|
 | A detector function in `lib/authoring/lint-core.js` | A declarative rule, or a code rule (§6) |
 | `{ slide, rule, severity, classToken, line, message, fix }` | A finding with a span, `where.slide`, `hint` (§12.1) |
-| The `fix:` advice string (218 of them) | `hint` |
+| The `fix:` advice string (214 of them) | `hint` |
 | `autofixable` / `replace` / `replaceLine` / the `fixReplacement` switch | A declarative fix (§7.3), or the `lattice-line` engine until the rule moves |
 | `applyFix` / `applyAllFixes` (one fix per pass, 500-pass cap) | `fix()` (§7.4) |
 | Vocabulary built from manifests in `lib/authoring/lint.js` | `vocab` passed to `compileRuleset` |

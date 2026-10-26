@@ -34,7 +34,7 @@ magnitude, not benchmarks.
 | System | Reads | Size | Finding shape | Fixes | Wall clock |
 |---|---|---|---|---|---|
 | Biome | JS, JSON | third party | its own | its own | 7.2 s (`npx biome check`) |
-| `lib/authoring/lint-core.js` | deck markdown, front matter | 10,063 lines, 155 rule ids (+1 in `bare-row-pill.js`) | `{slide, rule, severity, classToken, line, message, fix}` | 218 `fix:` strings, 44 machine fixes | 3.9 s (`lint:deck:all`) |
+| `lib/authoring/lint-core.js` | deck markdown, front matter | 10,063 lines, 155 rule ids (+1 in `bare-row-pill.js`) | `{slide, rule, severity, classToken, line, message, fix}` | 214 `fix:` strings, 44 machine fixes | 3.9 s (`lint:deck:all`) |
 | `tools/check-ownership.js` | CSS, JS, JSON, docs | 14,414 lines, 104 `check*` functions | a string pushed to `errors[]` (347 sites) | none | 21.8 s |
 | 17 other `tools/check-*.js` tools (render, contrast, fonts, CSS values) | rendered output and source | scattered | ad hoc | none | not measured |
 
