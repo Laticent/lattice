@@ -208,7 +208,7 @@ describe('a set with many ranges above ASCII is searched, not chained', () => {
 });
 
 describe('a run over the complement of 1-3 characters is finished natively (G6)', () => {
-  // The run keeps a 16-character JS prefix, then asks indexOf for each stop; the answers are cached
+  // The run asks indexOf for each stop (an empty run skips that); the answers are cached
   // across runs and reset by parse(). Every shape must read the same as compile().
   const stopsOf = (stops: string) => ({ t: 'set', cs: complement(fromRanges([...stops].map((ch) => [ch.charCodeAt(0), ch.charCodeAt(0)] as [number, number]))) }) as const;
   const mk = (stops: string, min: boolean): GrammarSpec => ({ start: 's', rules: { s: seq(min ? many1(stopsOf(stops)) : many(stopsOf(stops)), many(oneOf(stops))) } });

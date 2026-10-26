@@ -257,11 +257,14 @@ function emit(spec: GrammarSpec, options: { banner?: string; kinds?: readonly st
           // turn a linear grammar quadratic (the checker's repro: 8.7 s at 160k characters).
           const stops = stopChars(e.x.cs);
           if (stops) {
-            // No JS prefix: the cached search costs less than the first 16 loop steps. Inside an
-            // attempt window `n` is the window's end, so the hit is clamped to it.
+            // No JS prefix: the cached search beats the loop on a run of any length. An empty run (the
+            // next character is a stop) skips the call, which costs more than the loop's one step.
+            // Inside an attempt window `n` is the window's end, so the hit is clamped to it. A hit can
+            // lie far past the window and is kept for the next query; crafted input gets about `max`
+            // re-searches per block (2.5-5x, still linear).
             for (const sc of stops) natives.add(sc);
             const m = fresh();
-            return `${ind}{\n${ind}  ${e.min ? `const ${start} = i; ` : ''}let ${j} = n; let ${m}: number;\n${stops.map((sc) => `${ind}  ${m} = nx_${sc}(i); if (${m} >= 0 && ${m} < ${j}) ${j} = ${m};\n`).join('')}${ind}  i = ${j};${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''}\n${ind}}\n`;
+            return `${ind}{\n${ind}  ${e.min ? `const ${start} = i; ` : ''}let ${j} = i; let ${m}: number;\n${ind}  if (i < n && ${stops.map((sc) => `s.charCodeAt(i) !== ${sc}`).join(' && ')}) {\n${ind}    ${j} = n;\n${stops.map((sc) => `${ind}    ${m} = nx_${sc}(i); if (${m} >= 0 && ${m} < ${j}) ${j} = ${m};\n`).join('')}${ind}  }\n${ind}  i = ${j};${e.min ? ` if (i === ${start}) return fail(${q(expected(e.x))});` : ''}\n${ind}}\n`;
           }
           const lim = fresh();
           const rx = regexFor(e.x.cs);

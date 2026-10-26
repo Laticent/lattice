@@ -366,8 +366,8 @@ Measured on the 4-core Xeon, median of five, `npm run parser:bakeoff:deck -- --a
 
 | Measure | Before | After |
 |---|---|---|
-| Segno line pass alone | 315 MB/s | 433 MB/s |
-| S-staged (Segno stage + predicates) | 86.5 MB/s, 1.16x markdown-it | 94.2 MB/s, 1.26x |
-| Hand line pass alone (control) | 660 MB/s | 652 MB/s |
+| Segno line pass alone | 315 MB/s | 460 MB/s |
+| S-staged (Segno stage + predicates) | 86.5 MB/s, 1.16x markdown-it | 96.1 MB/s, 1.24x |
+| Hand line pass alone (control) | 660 MB/s | 642 MB/s |
 
-That is 66% of the hand-written loop, short of the 665 MB/s target. The earlier scratch spike reported 1.9-2.4x; this is the measured result of the shipped version, with the existing codegen tests, the grammar fuzz and metamorphic suites green. The remaining gap is tape writes and node bookkeeping, which is the tape-trimming step, not more run work. Trees are identical; generated files differ only by the added helpers.
+That is 72% of the hand-written loop, short of the 665 MB/s target. The earlier scratch spike reported 1.9-2.4x; this is the measured result of the shipped version, with the existing codegen tests, the grammar fuzz and metamorphic suites green. The remaining gap is tape writes and node bookkeeping, which is the tape-trimming step, not more run work. Trees are identical. Only `list-text.generated.js` gains the helpers; the notation parsers change by one blank line. A checker found two costs: runs of one to three characters are about as fast or slower than the loop (the empty run now skips the call), and a crafted input inside attempt windows can re-search about `max` times per block (2.5-5x, still linear). No shipped grammar has both.
