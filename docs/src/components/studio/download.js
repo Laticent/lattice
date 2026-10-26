@@ -18,6 +18,8 @@
 // having read the URL already. A save dialog can hold the download open, so the URL
 // lives for a minute instead; a minute of one export's bytes is cheap.
 
+import { isIOSLike } from './ios-like';
+
 const REVOKE_AFTER_MS = 60_000;
 
 // iOS saving lives in download-ios.js and loads only on an iPhone or iPad: it is about 1.5 KB
@@ -98,10 +100,7 @@ export function clearPendingSave() {
 	pendingSave = null;
 }
 
-/** iPhone, iPod or iPad — iPadOS 13+ reports as a Mac, so touch points disambiguate. */
-export function isIOSLike(ua = nav()?.userAgent || '', platform = nav()?.platform || '', touchPoints = nav()?.maxTouchPoints || 0) {
-	return /iPad|iPhone|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1);
-}
+export { isIOSLike };
 
 /** Save an already-made URL (from `namedFileUrl`) as `filename`. The caller owns the URL.
  *  @param {string} url @param {string} filename */

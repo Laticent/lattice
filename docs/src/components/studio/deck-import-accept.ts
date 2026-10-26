@@ -1,4 +1,4 @@
-import { isIOSLike } from './download';
+import { isIOSLike } from './ios-like';
 
 // What "Import deck…" offers in the file picker — every format deck-import.ts reads. Kept
 // out of deck-import.ts so the picker never pulls the reader onto the eager path.
