@@ -202,6 +202,147 @@ describe('inline-run — what the second review found', () => {
   });
 });
 
+describe('inline-run — attribute values are one piece (followups.d 2853-p1)', () => {
+  // Parse a fragment and serialize it again, so two spellings of the same tree compare equal
+  // (`title='a'` and `title="a"`); what must match is the tree the browser builds.
+  // One document for the whole suite: a JSDOM window per call runs the fuzz out of memory.
+  const doc = new JSDOM('<body></body>').window.document;
+  const tree = (html) => {
+    const section = doc.createElement('section');
+    section.innerHTML = html;
+    return section.innerHTML;
+  };
+  const imgs = (html) => {
+    const section = doc.createElement('section');
+    section.innerHTML = html;
+    return section.querySelectorAll('img').length;
+  };
+  const viaDom = (html, depths, slots) => {
+    const section = doc.createElement('section');
+    section.innerHTML = html;
+    run.wrapDom(section, depths, slots);
+    return section.innerHTML;
+  };
+
+  test('a `>` inside a quoted attribute does not end the tag, so the attribute text stays text', () => {
+    const html = '<ul><li title="a><img src=x onerror=alert(1)>"><em>e</em> w</li></ul>';
+    const out = run.wrapHtml(html, [1]);
+    // The attribute is untouched; the item's own run (`<em>e</em> w`) is wrapped, as the DOM path wraps it.
+    assert.equal(out, '<ul><li title="a><img src=x onerror=alert(1)>"><span class="lat-run"><em>e</em> w</span></li></ul>');
+    assert.equal(out, viaDom(html, [1]));
+    const tight = '<ul><li title="a><img src=x onerror=alert(1)>">plain words</li></ul>';
+    assert.equal(run.wrapHtml(tight, [1]), tight, 'an item with no element in its run is returned unchanged');
+    assert.equal(imgs(out), 0, 'no live <img> element after the wrap');
+  });
+
+  test('single quotes, an unquoted value, and a `<` in a value', () => {
+    for (const html of [
+      "<ul><li title='a><img src=x onerror=alert(1)>'><em>e</em> w</li></ul>",
+      '<ul><li>a <b title="</li><li>">x</b> c</li><li>d <b>e</b> f</li></ul>',
+      '<ul><li>a <b title=x>y</b> c</li></ul>',
+      '<ul><li>a <b title=x<i>y</b> c</li></ul>',
+      '<ul><li>a <b data-q=\'"\' title="\'>">x</b> c</li></ul>',
+    ]) {
+      assert.equal(tree(run.wrapHtml(html, [1], [])), tree(viaDom(html, [1], [])), html);
+    }
+  });
+
+  test('a slot is read from the class attribute, not from text in another attribute', () => {
+    const decoy = '<ul><li>a <b title="x class=\'lat-pill\'">b</b></li></ul>';
+    assert.equal(run.wrapHtml(decoy, [1]), '<ul><li><span class="lat-run">a <b title="x class=\'lat-pill\'">b</b></span></li></ul>');
+    const unquoted = '<ul><li>a <span class=lat-pill>P</span></li></ul>';
+    assert.equal(run.wrapHtml(unquoted, [1]), unquoted, 'an unquoted class still names the slot');
+  });
+
+  test('a tag the input ends inside is not markup, and wraps nothing after it', () => {
+    const html = '<ul><li>a <b>b</b> c</li><li>d <b title="x>e</b> f</li></ul>';
+    assert.equal(tree(run.wrapHtml(html, [1], [])), tree(viaDom(html, [1], [])));
+  });
+
+  test('SVG and MathML: <title> and <style> are elements there, and `/>` closes them', () => {
+    // A self-closing <title/> read as raw text stopped every later item from wrapping.
+    const html = '<ul><li>A <svg><title/></svg> <code>c</code></li><li>B <b>x</b> <code>d</code></li></ul>';
+    assert.equal((run.wrapHtml(html, [1]).match(/lat-run/g) || []).length, 2);
+    assert.equal(tree(run.wrapHtml(html, [1])), tree(viaDom(html, [1])));
+    // A </style> inside an attribute is attribute text in SVG, so the span cannot close that attribute.
+    const svg = '<ul><li>- <svg><style><a title="</style><li>x <img src=1 onerror=alert(1)> y"></a></style></svg> w</li></ul>';
+    assert.equal(imgs(run.wrapHtml(svg, [1])), imgs(svg));
+    assert.equal(tree(run.wrapHtml(svg, [1])), tree(viaDom(svg, [1])));
+  });
+
+  test('a double-escaped script body and a <plaintext> are never split', () => {
+    const script = '<ul><li>a <b>b</b> <script><!--<script></script><li>q <b>z</b> r</li></script> c</li></ul>';
+    assert.equal(tree(run.wrapHtml(script, [1])), tree(viaDom(script, [1])));
+    assert.equal((run.wrapHtml(script, [1]).match(/lat-run/g) || []).length, 1);
+    const plain = '<ul><li>a <b>b</b> c</li><li>d <plaintext></li><li>e <b>f</b> g</li></ul>';
+    assert.ok(run.wrapHtml(plain, [1]).endsWith('<plaintext></li><li>e <b>f</b> g</li></ul>'));
+  });
+
+  test('linear: 10,000 comments in one item and 5,000 items both wrap in well under a second', () => {
+    const time = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
+    // On the first cut of this tokenizer each comment searched to the end for `--!>`: 9.4 s for this item.
+    const comments = `<ul><li>a <b>b</b> ${'<!--a-->'.repeat(10000)} c</li></ul>`;
+    assert.ok(time(() => run.wrapHtml(comments, [1])) < 500);
+    // Tokenizing the whole section again for every item was quadratic: 5.8 s for 2,000 items.
+    const items = `<ul>${'<li>a <b>b</b> c</li>'.repeat(5000)}</ul>`;
+    let out;
+    assert.ok(time(() => { out = run.wrapHtml(items, [1]); }) < 500);
+    assert.equal((out.match(/lat-run/g) || []).length, 5000);
+  });
+
+  test('differential fuzz: 800 items with attribute values the old tokenizer misread', () => {
+    let seed = 20261025;
+    const rnd = (n) => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed % n; };
+    const pieces = [
+      'word ', ' more', 'x', '<b>b</b>', `${PILL}`, '<code>c</code>', '<!-- n -->', ' ',
+      '<b title="a>b">q</b>', "<b title='a>b'>q</b>", '<b title=a>b</b>', '<b title="<i>">q</b>',
+      '<b title="</li><li>">q</b>', '<b title="<!--">q</b>', '<span class="lat-pill" title="x>">P</span>',
+      "<b data-x='\"'>q</b>", '<i title=a<b>q</i>', '<b title="<img src=x onerror=alert(1)>">q</b>',
+      '<em class=\'lat-run\'>r</em>', '<b\ttitle="a>"\n>q</b>', '<br title=">">',
+      // Foreign content, script escapes and self-closing tags (what the adversarial review found).
+      '<svg><title/></svg>', '<svg><style/></svg>', '<svg><title>t</title></svg>', '<svg/>',
+      '<svg><style><a title="</style><li>x <img src=1 onerror=alert(1)> y"></a></style></svg>',
+      '<svg><foreignObject><style>a<b>c</style></foreignObject></svg>', '<svg><![CDATA[ a> <li>z ]]></svg>',
+      '<math><mi><style>a</li></style></mi></math>', '<svg><b>x</b></svg>', '<math><mtext><b>m</b></mtext></math>',
+      '<script><!--<script></script><li>q</li></script>', '<textarea></li><b>t</b></textarea>', '</ x>', '</>',
+    ];
+    const opens = ['<li>', '<li title="a><img src=x onerror=alert(1)>">', "<li title='<ul><li>'>", '<li title=x>'];
+    for (let i = 0; i < 800; i++) {
+      let body = '';
+      for (let n = 1 + rnd(6); n > 0; n--) body += pieces[rnd(pieces.length)];
+      const nested = rnd(4) === 0 ? '<ul><li title="</ul>">k <b>q</b> r</li></ul>' : '';
+      const html = `<ul>${opens[rnd(opens.length)]}${body}${nested}</li><li>tail <b>t</b> end</li></ul>`;
+      for (const slots of [[], ['strong']]) {
+        const str = run.wrapHtml(html, [1, 2], slots);
+        assert.equal(tree(str), tree(viaDom(html, [1, 2], slots)), `${JSON.stringify(slots)} ${html}`);
+        assert.equal(imgs(str), imgs(html), `no new element: ${html}`);
+      }
+    }
+  });
+
+  test('malformed markup the tree builder repairs: no new element and no text turned into markup', () => {
+    // An unclosed `<b/>` is reopened by the HTML tree builder in the NEXT item (the "active formatting
+    // elements" repair), which no tokenizer can follow, so the two paths may wrap differently here.
+    // What must hold is safety: the output parses to the same text and to no element the input lacked.
+    const text = (html) => {
+      const section = doc.createElement('section');
+      section.innerHTML = html;
+      return section.textContent;
+    };
+    let seed = 4242;
+    const rnd = (n) => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed % n; };
+    const pieces = ['<b/>x', '<i/>', '<span/>y', '<b title="a>b">q', 'w ', '<em>e</em>', '<b', '<i title="<img src=x onerror=alert(1)>"', '</li', '</b>'];
+    for (let i = 0; i < 400; i++) {
+      let body = '';
+      for (let n = 1 + rnd(5); n > 0; n--) body += pieces[rnd(pieces.length)];
+      const html = `<ul><li>a ${body} z</li><li>tail <b>t</b> end</li></ul>`;
+      const str = run.wrapHtml(html, [1]);
+      assert.equal(imgs(str), imgs(html), html);
+      assert.equal(text(str), text(html), html);
+    }
+  });
+});
+
 describe('inline-run — the manifest-driven transformer', () => {
   test('it serves exactly the components whose manifests declare inlineRun', () => {
     const fs = require('node:fs');

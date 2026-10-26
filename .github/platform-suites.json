@@ -91,6 +91,22 @@
       ],
       "run": "node --test test/integration/export/os-sandbox-measure.test.js test/integration/export/npm-plugin-admission.test.js",
       "why": "The code door reads the OS sandbox layer before it runs a stranger's code, and an npm plugin runs only where it reads `on` (threat-model note §6 decisions 7 and 13). macOS (sandbox_check) and Windows (chrome://sandbox) are read differently from Linux, and only a real runner of each starts Chromium's sandbox to be read. The npm admission test then runs the real door there: an npm plugin draws exactly when the measured layer admits it."
+    },
+    {
+      "name": "ios-safari-studio",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/*",
+        "docs/src/lib/single-slide-render.ts",
+        "docs/src/lib/sanitize-slide-html.js",
+        "lib/core/sanitize-slide-html.mjs",
+        "lib/core/inline-run.js",
+        "lib/transformers/inline-run.js"
+      ],
+      "run": "bash docs/scripts/ios-safari/run.sh",
+      "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device."
     }
   ]
 }

@@ -503,6 +503,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   checks after it. Getting there took four fixes (repo-relative paths with `/`, Biome through node, batched file lists, Biome's
   backslash paths and JSON), all in `tools/check-ownership.js` and `tools/check-lint-coverage.js`. `wait-for.sh` is a macOS suite that
   installs coreutils first (a stock runner has perl, no `timeout`, `gtimeout` or `flock`).
+- **iOS Safari:** `ios-safari-studio` (`docs/scripts/ios-safari/run.sh`) is the one place CI reaches real Mobile Safari. It builds and
+  serves the docs, boots a fresh iPad and then iPhone iOS Simulator, writes the remote-automation defaults inside each, reboots it,
+  launches Safari, and drives it through `safaridriver` (plain WebDriver over `fetch` in `run.mjs`; Playwright cannot drive iOS).
+  The page-side check is `studio-probe.js`, the same assertions as `studio-preview-inert-payloads.spec.ts` plus a detector control
+  that must fire. It needs Xcode 26: Xcode 27 replaced Simulator.app and safaridriver then finds no iOS session host. Screenshots
+  and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
+  probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
+  runs on the Mac's hardware, so it is not a physical device.
 
 ## Integration test cache
 
