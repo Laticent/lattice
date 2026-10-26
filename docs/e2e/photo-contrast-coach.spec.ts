@@ -82,3 +82,18 @@ test('a pin that would not clear the floor is not offered', async ({ page }) => 
 	await expect(page.getByText(/Neither a dark nor a light slide clears it/).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByRole('button', { name: /Pin this slide/ })).toHaveCount(0);
 });
+
+// The editor's own tooltip on the same slide (`thin-card-no-ink`) is not auto-fixable, so it carries two buttons
+// and the author picks the ink.
+test('the thin-card tooltip offers Add ink-light and Add ink-dark, and a button writes the class', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await page.locator('.cm-lintRange-warning').first().hover();
+	const light = page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' });
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toBeVisible({ timeout: 20_000 });
+	await light.click();
+	await expect.poll(() => persistedSource(page)).toMatch(/_class: image spotlight card-clear ink-light/);
+	// The slide now names an ink, so the warning is gone.
+	await expect(page.locator('.cm-lintRange-warning')).toHaveCount(0, { timeout: 20_000 });
+});

@@ -1,3 +1,3 @@
-studio: +480
-The Coach's photo-contrast finding adds a small static hook (`usePhotoContrast`), the `photo-contrast` rule name, and the pin button in `FindingCard` to the Studio island; the reader and the kernel (`photo-contrast-read.ts`, `lib/core/photo-contrast.mjs`) load lazily, only for a slide that names a photo.
-Given back first: the photo sampler is shared with the thin-card ink feature (`meanUnderBox`, `boxInSection`) instead of copied, and the hook imports the reader dynamically. CI measured +464 B gz against main; +480 covers it with room for gzip spread.
+studio: +800
+The Coach's photo-contrast finding adds a small static hook (`usePhotoContrast`), the `photo-contrast` rule name, the pin button in `FindingCard`, and the two `thin-card-no-ink` tooltip buttons' names and apply closure in `Editor.tsx` to the Studio island; the reader and the kernel (`photo-contrast-read.ts`, `lib/core/photo-contrast.mjs`) load lazily, only for a slide that names a photo.
+Given back first: the photo sampler is shared with the thin-card ink feature (`meanUnderBox`, `boxInSection`) instead of copied, and the hook imports the reader dynamically. CI measured +464 B gz against main before the tooltip buttons (about 300 B more estimated); +800 covers both with room for gzip spread, and CI's re-measure is the check.

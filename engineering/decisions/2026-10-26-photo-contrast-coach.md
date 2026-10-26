@@ -50,3 +50,12 @@ reads on this photo.
 `contrast` and `luminance` come from `lib/core/card-ink.mjs`; a test pins the new ratio to that function. The sampler's
 photo reading moved into exported `meanUnderBox` and `boxInSection` in `card-ink-sampler.ts` rather than being copied.
 The finding rides the Coach's existing `FindingCard` and `settingsWrite` funnel, so the pin is one Undo step.
+
+## Added after a device test: fix buttons on `thin-card-no-ink`
+
+Testing on an iPhone, the owner hovered the editor's `thin-card-no-ink` tooltip and found no button, while other lint rules have one.
+Those rules are `autofixable` in lint-core. This one is not, on purpose: which ink reads depends on the photo's pixels, which lint-core
+(pure, no DOM) cannot see. The Studio now attaches two buttons in `Editor.tsx`, **Add ink-light** and **Add ink-dark**, and the author
+picks. The edit is `addCardInk` in `thin-card-fix.ts`, loaded when a button is pressed; the slide is read from the position at click time.
+Not chosen: a single auto-picking button, because the preview may not show this slide (the phone's Source tab shows none), and a button that
+sometimes does nothing is worse than two that always work.

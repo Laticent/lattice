@@ -581,6 +581,20 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					reportLint(view, measuredFindings.length ? findings.concat(measuredFindings) : findings);
 					const diags = findingsToDiagnostics(view.state.doc, findings, fixOpts) as Diagnostic[];
+					// `thin-card-no-ink` is not auto-fixable (which ink reads depends on the photo, which lint cannot see),
+					// so it gets two buttons and the author picks. The slide is read from the position when pressed.
+					for (const d of diags) {
+						if (d.source !== 'thin-card-no-ink') continue;
+						d.actions = (['light', 'dark'] as const).map((ink) => ({
+							name: `Add ink-${ink}`,
+							apply: (v: EditorView, at: number) =>
+								void import('./thin-card-fix').then((m) => {
+									const text = v.state.doc.toString();
+									const next = m.addCardInk(text, Math.max(0, unitAt(buildDeckIndex(text), at)), ink);
+									if (next != null) v.dispatch({ changes: { from: 0, to: text.length, insert: next } });
+								}),
+						}));
+					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
 				})
 			: makeLinter(known, reportLint);
