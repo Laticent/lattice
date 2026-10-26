@@ -103,3 +103,21 @@ unchanged within their spread, as expected. TBT is the noisiest metric on this s
 weight. None of the three pages reaches 90. Screenshots of all three pages at 1440, 820 and 390 px are pixel-identical
 between base and head.
 **UNVERIFIED:** the deployed site, any real phone, and the component pages' specimen timing.
+
+## 6. The deployed preview (Cloudflare Pages), head only
+
+The PR's Cloudflare Pages preview of this branch (Brotli, a real CDN), the same Lighthouse profile, three runs each. There is no
+deployed base to compare against: the `lattice-docs-5ji.pages.dev` production alias serves an older build (its Playground
+still loads `lattice-playground.js`), so these are absolute numbers for the shipped form, not a before/after.
+
+| Page | Score | FCP | LCP | TBT |
+|---|---|---|---|---|
+| home | 71, 75, 76 | 1.22-1.53 s | 1.90-2.21 s | 1060-1840 ms |
+| Studio | 66, 68, 71 | 1.56-2.87 s | 2.16-3.32 s | 918-1613 ms |
+| Playground | 37, 41, 44 | 2.71-4.75 s | **10.13-10.27 s** | 1013-1485 ms |
+
+**The Playground's next lever, found here and not fixed:** its LCP element is the Explore walk caption
+(`nav#pg-walk > p.pg-walk-caption`). It paints at 1.0-1.6 s in the real trace, after hydration, so the simulated LCP replays
+every download and task before it and is 94% render delay (9.5 s). A caption present in the pre-paint HTML, or one that
+is not the largest text in the first viewport, would move that number the way the hero `h1` moved home's. Recorded in
+followup 2868-p1.
