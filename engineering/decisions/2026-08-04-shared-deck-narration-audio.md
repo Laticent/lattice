@@ -623,3 +623,34 @@ therefore ran on WASM and completed. A hardware GPU remains UNVERIFIED here, and
 message is pinned by a unit case rather than seen on the real panel: no reachable run timed out once
 the fallback adapter stopped taking the WebGPU path, and CPU throttling does not slow the worker that
 runs inference.
+
+### 11. The forgery guard runs, and the last two lists are rooted (#1501, 2026-10-26)
+
+**The verifier runs every night.** `npm run verify:narrated-player` runs
+`tools/verify-narrated-player.mjs`, and `integration-nightly.yml` calls it on the job's
+puppeteer Chrome (`PLAYWRIGHT_CHROMIUM_PATH`), with its own `narrated` arm in the filing and
+measured-green conditions. While it ran nowhere it rotted: the sign-off demo deck moved from
+`<!-- caption: … -->` to `<!-- say: … -->`, the verifier read no lines, exported a silent deck
+and timed out waiting for a play control that was never emitted. It now reads both spellings.
+A per-PR jsdom arm in `test/unit/export/html-player.test.js` covers the collections half.
+
+**Two checks asserted the test's own selectors.** "The caption band resolves to the player's
+node" and "the slide counter reads the player's own element" queried the shipped file through
+selectors the test had already rooted correctly, so they passed whatever the player bound. They
+now read what the player WROTE: its own band holds the spoken line while the forged band still
+says `FORGED BAND`, and its own counter reads `2 / N` while the forged one still says `99 / 99`.
+Measured under the pre-#1470 mutation (`lpEl` back to `getElementById`, the band and play
+control back on descendant selectors): all four replacement checks fail, as does the Next check.
+
+**The slide and frame lists are rooted at `#lp-stage`.** They were the last two document-wide
+lookups. `class` and `data-lattice-slide` survive sanitizing, so a slide carrying
+`<div class="lp-frame">` and a nested `<section data-lattice-slide>` made a three-slide export
+read "1 / 5" in real Chromium, and Next showed a blank stage. The runtime now reads
+`#lp-stage > .lp-frame` and each frame's `> section[data-lattice-slide]`, and the assembler
+frames only top-level slides, so the nested copy stays inside its slide instead of also
+becoming a frame. After the fix the same file reads "1 / 3" and Next shows slide two.
+
+**Checked and left as is:** the consent banner's buttons are still found with
+`getElementById`, and that is safe by order, not by luck: the banner is emitted before
+`#lp-app`, so the real buttons come first in document order. The notes lookup
+(`aside.lattice-notes`) reads text the author controls anyway; it is not a boundary.

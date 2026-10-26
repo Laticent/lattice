@@ -276,6 +276,7 @@
     "overflow:check": "node tools/check-overflow-corpus.js",
     "css:values": "node tools/check-css-values.js",
     "overflow:bless": "node tools/check-overflow-corpus.js --bless",
+    "verify:narrated-player": "node tools/verify-narrated-player.mjs",
     "geometry:check": "node tools/check-geometry-parity.js --scaled",
     "oracle:bless": "node tools/bless-split-oracle.js",
     "oracle:check": "node tools/bless-split-oracle.js --check",
