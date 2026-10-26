@@ -26,6 +26,8 @@
  *   --family NAME      canvas family (wide|square|tall|strip, default wide)
  *   --tolerance PX     movement below this is rounding (default 0.5)
  *   --detail           list every moved element, not just the worst per slide
+ *   --positions FILE   write every element's measured position to FILE (JSON), to diff two builds
+ *   --dump DIR         also save each placement's rendered HTML as DIR/edge-<placement>.html
  *   --json             machine-readable result
  *   --advisory         always exit 0 once it has measured (the default exits 1 on any shift)
  *
@@ -47,12 +49,12 @@ const { resolveChrome } = require('./lib/resolve-chrome.js');
 
 const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] '
   + '[--components a,b] [--limit N] [--no-dark] [--no-chrome] [--family wide] [--tolerance 0.5] '
-  + '[--theme indaco] [--detail] [--json] [--advisory]';
+  + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--positions FILE]';
 
 function die(msg, code = 2) { console.error(`check-edge-shift: ${msg}`); process.exit(code); }
 
 // ── argv — parsed, and unknown flags are refusals (the check-jank lesson) ──────────────────
-const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme']);
+const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions']);
 const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help']);
 const opts = new Map();
 for (let i = 2; i < process.argv.length; i++) {
@@ -227,6 +229,10 @@ async function main() {
         if (!fs.existsSync(render.out)) die(`the render for '${placement}' produced no HTML.`);
         const page = await browser.newPage();
         await page.setViewport({ width: 1920, height: 1200 });
+        if (opts.has('dump')) {
+          fs.mkdirSync(opts.get('dump'), { recursive: true });
+          fs.copyFileSync(render.out, path.join(opts.get('dump'), `edge-${placement}.html`));
+        }
         await page.goto(`file://${render.out}`, { waitUntil: 'networkidle0', timeout: 180_000 });
         await page.evaluate(() => document.fonts.ready);
         byPlacement[placement] = await page.evaluate(measureInPage);
@@ -234,8 +240,8 @@ async function main() {
       } finally {
         render.cleanup();
       }
-      if (byPlacement[placement].length !== slides.length) {
-        die(`'${placement}' rendered ${byPlacement[placement].length} slides for ${slides.length} written: page N no longer maps to slide N, so nothing below can be trusted.`);
+      if (byPlacement[placement].length !== byPlacement[PLACEMENTS[0]].length) {
+        die(`'${placement}' rendered ${byPlacement[placement].length} slides but '${PLACEMENTS[0]}' rendered ${byPlacement[PLACEMENTS[0]].length}: the placements are not comparable slide for slide.`);
       }
       if (!JSON_OUT) console.error(`  measured ${placement}`);
     }
@@ -243,10 +249,17 @@ async function main() {
     await browser.close();
   }
 
+  if (opts.has('positions')) fs.writeFileSync(opts.get('positions'), JSON.stringify({ slides: slides.map((x) => x.label), byPlacement }));
+  // A component that splits into several sections on a narrow canvas breaks the name-per-slide
+  // mapping; the placements still agree with each other, so compare by position and label by index.
+  const count = byPlacement[PLACEMENTS[0]].length;
+  const named = count === slides.length;
+  if (!named && !JSON_OUT) console.error(`  note: ${count} sections rendered for ${slides.length} slides written (a component split); labelling by section index.`);
+  const labelOf = (i) => (named ? slides[i].label : `#${i + 1}`);
   // The arm that proves the tool can fail: the placement must have taken effect.
   const side = { top: 0, right: 1, bottom: 2, left: 3 };
   for (const placement of PLACEMENTS) {
-    const probe = byPlacement[placement][slides.findIndex((x) => x.label === 'plain-content')];
+    const probe = byPlacement[placement][named ? slides.findIndex((x) => x.label === 'plain-content') : count - FIXED.length];
     const want = placement in side ? side[placement] : -1;
     const bad = probe.border.some((w, i) => (i === want ? !(w > 0) : w > 0));
     if (bad) die(`placement '${placement}' did not take effect on a plain slide (border widths t/r/b/l = ${probe.border.join('/')}). The sweep would compare a deck with itself.`);
@@ -257,7 +270,7 @@ async function main() {
   const totals = {}; // kind -> { n, moved, max }
   const vsRef = {}; // placement -> kind -> [max |Δ| per edge]
   let compared = 0;
-  slides.forEach((slide, i) => {
+  Array.from({ length: count }, (_, i) => ({ label: labelOf(i) })).forEach((slide, i) => {
     const sets = PLACEMENTS.map((p) => byPlacement[p][i].els);
     const keys = Object.keys(sets[0]).filter((k) => sets.every((s) => s[k] && s[k].name === sets[0][k].name));
     for (const key of keys) {
@@ -290,7 +303,7 @@ async function main() {
   const result = {
     placements: PLACEMENTS, reference: REFERENCE, tolerance: TOL, slides: slides.length,
     elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size,
-    slidesStable: slides.map((x) => x.label).filter((l) => !slidesMoved.has(l)),
+    slidesStable: Array.from({ length: count }, (_, i) => labelOf(i)).filter((l) => !slidesMoved.has(l)),
     byKind: totals, vsReference: vsRef,
     worst: [...moved].sort((a, b) => b.worst - a.worst).slice(0, opts.has('detail') ? Infinity : 25),
   };
@@ -299,7 +312,7 @@ async function main() {
     console.log(JSON.stringify(result, null, 2));
   } else {
     const f = (n) => n.toFixed(1).padStart(5);
-    console.log(`\nCompared ${compared} elements across ${slides.length} slides; ${moved.length} moved more than ${TOL}px between placements (${slidesMoved.size} slides affected).\n`);
+    console.log(`\nCompared ${compared} elements across ${count} slides; ${moved.length} moved more than ${TOL}px between placements (${slidesMoved.size} slides affected).\n`);
     if (result.slidesStable.length) console.log(`Slides that do not move: ${result.slidesStable.join(', ')}\n`);
     console.log('By kind (spread = largest difference for ONE element across all placements):');
     console.log('  kind         elements   moved   max spread');

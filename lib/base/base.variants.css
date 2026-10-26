@@ -349,26 +349,30 @@ section.divider:not(.light).spectrum-off {
    The bar width matches base.elements' top border: (--_sec-1cqi * 0.3125). A `divider`
    carries its OWN signature rail on the section background (divider.styles.css), so it is
    EXEMPT from the per-side border rail — placing a second rail on it would double the bar.
-   The deck-wide "no bar" value (`spectrum-edge: off`) still clears the divider rail below. */
+   The deck-wide "no bar" value (`spectrum-edge: off`) still clears the divider rail below.
+   The full-bleed frames (`image`, `scene`, `split-panel`, `split-compare`) are exempt for the same
+   reason as `divider`: they own their edge and set `padding: 0`, so a side border would shrink their
+   panels by a bar width and make the slide shift with the placement (check:edge-shift). They show no
+   side or bottom bar, as they show no top bar in the default placement. */
 section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off) {
   border-top: none;
   --_edge-t: 1;
   --_bar-t: 0px;
 }
-section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom):not(.divider) { border-image-slice: 1; }
-section.spectrum-edge-left:not(.divider) {
+section:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom):not(.divider, .image, .scene, .split-panel, .split-compare) { border-image-slice: 1; }
+section.spectrum-edge-left:not(.divider, .image, .scene, .split-panel, .split-compare) {
   --_edge-l: 0; /* the rail is the left edge */
   --_bar-l: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-left: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid; /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: var(--spectrum-bar-vertical);
 }
-section.spectrum-edge-right:not(.divider) {
+section.spectrum-edge-right:not(.divider, .image, .scene, .split-panel, .split-compare) {
   --_edge-r: 0;
   --_bar-r: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-right: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
   border-image-source: var(--spectrum-bar-vertical);
 }
-section.spectrum-edge-bottom:not(.divider) {
+section.spectrum-edge-bottom:not(.divider, .image, .scene, .split-panel, .split-compare) {
   --_edge-b: 0;
   --_bar-b: calc(0.3125 * var(--_sec-1cqi, 1cqi));
   border-bottom: calc(var(--_sec-1cqi, 1cqi) * 0.3125) solid;
@@ -448,6 +452,14 @@ section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .re
 section:is(.stamp-tab, .stamp-notch, .stamp-pill, .stamp-bracket, .stamp-seal, .stamp-ribbon, .stamp-flag, .stamp-underline, .stamp-dot, .stamp-mark, .stamp-veil, .stamp-bar, .stamp-pin)::before {
   content: var(--stamp-label);
   position: absolute;
+  /* Where each stamp style measures from. The stamp hangs on the section's PADDING box, which sits
+   * inside the bar border, so a raw `top: 0` / `right: 0` moves with the bar. These make the stamp's
+   * distance from the SLIDE edge constant under every `spectrum-edge:` (check:edge-shift): the top
+   * clears the room the default bar always took, the other edges reach the slide edge. */
+  --_stamp-t: calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
+  --_stamp-r: calc(-1 * var(--_bar-r, 0px));
+  --_stamp-b: calc(-1 * var(--_bar-b, 0px));
+  --_stamp-l: calc(-1 * var(--_bar-l, 0px));
   /* A status stamp is a MARK: it is stamped ONTO the delivered slide, above the frame
    * chrome, and it ships in the export. It sits ABOVE the authoring alarm tabs
    * (--z-mark 100 over --z-alarm 90), preserving the order the engine has always shipped.
@@ -485,7 +497,7 @@ section.divider:not(.light)::before {
 /* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
 section.stamp-tab::before {
-  top: 0; right: 0;
+  top: var(--_stamp-t); right: var(--_stamp-r);
   color: var(--on-accent); background: var(--stamp-color);
   font-size: 0.86cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding: 0.45cqi 0.9cqi 0.45cqi 1.15cqi;
   clip-path: polygon(0.7cqi 0, 100% 0, 100% 100%, 0 100%);
@@ -493,7 +505,7 @@ section.stamp-tab::before {
 
 /* ── NOTCH — a top full-width hairline band with a leading color chip. */
 section.stamp-notch::before {
-  top: 0; left: 0; right: 0; clip-path: none;
+  top: var(--_stamp-t); left: var(--_stamp-l); right: var(--_stamp-r); clip-path: none;
   display: flex; align-items: center; gap: 0.5cqi;
   color: color-mix(in srgb, var(--stamp-color) 86%, var(--text-heading));
   background: color-mix(in srgb, var(--stamp-color) 9%, var(--bg));
@@ -503,7 +515,7 @@ section.stamp-notch::before {
 
 /* ── PILL — a keyline-outlined pill, accent text on a soft wash. */
 section.stamp-pill::before {
-  top: 6%; right: 5%; clip-path: none;
+  top: calc(6% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none;
   color: var(--stamp-color);
   background: color-mix(in srgb, var(--stamp-color) 10%, var(--bg));
   border: 0.12cqi solid color-mix(in srgb, var(--stamp-color) 40%, transparent);
@@ -513,14 +525,14 @@ section.stamp-pill::before {
 /* ── BRACKET — [ LABEL ] framed technical tag (glyphs concatenated onto the var). */
 section.stamp-bracket::before {
   content: "[ " var(--stamp-label) " ]";
-  top: 6%; right: 5%; clip-path: none; background: none;
+  top: calc(6% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none; background: none;
   color: var(--stamp-color);
   font-size: 0.8cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.22em; padding: 0.3cqi 0;
 }
 
 /* ── SEAL — a ruled double-ring seal, letterpressed. */
 section.stamp-seal::before {
-  top: 6%; right: 5%; clip-path: none; background: none;
+  top: calc(6% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none; background: none;
   width: 7.6cqi; height: 7.6cqi; border-radius: 50%;
   display: grid; place-items: center; text-align: center;
   color: var(--stamp-color);
@@ -531,7 +543,7 @@ section.stamp-seal::before {
 
 /* ── RIBBON — a 45° banner across the top-right corner. */
 section.stamp-ribbon::before {
-  top: 8%; right: -21%; width: 60%; clip-path: none;
+  top: calc(8% + var(--_stamp-t)); right: calc(-21% + var(--_stamp-r)); width: 60%; clip-path: none;
   transform: rotate(38deg); transform-origin: center;
   color: var(--on-accent); background: var(--stamp-color); text-align: center;
   font-size: 0.66cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.18em; padding: 0.34cqi 0;
@@ -540,14 +552,14 @@ section.stamp-ribbon::before {
 
 /* ── FLAG — a vertical bookmark flag down the right edge. */
 section.stamp-flag::before {
-  top: 0; right: 8%; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+  top: var(--_stamp-t); right: calc(8% + var(--_stamp-r)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
   writing-mode: vertical-rl; color: var(--on-accent); background: var(--stamp-color);
   font-size: 0.7cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ letter-spacing: 0.14em; padding: 0.8cqi 0.32cqi 1cqi;
 }
 
 /* ── UNDERLINE — label on a thick accent keyline. */
 section.stamp-underline::before {
-  top: 6.5%; right: 5%; clip-path: none; background: none;
+  top: calc(6.5% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none; background: none;
   color: var(--text-heading);
   font-size: 0.78cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding-bottom: 0.28cqi;
   border-bottom: 0.28cqi solid var(--stamp-color);
@@ -565,7 +577,7 @@ section.stamp-underline::before {
  * (padding, not margin — HARD RULE #20). */
 section.stamp-dot::before {
   content: var(--stamp-label);
-  top: 6.5%; right: 5%; clip-path: none;
+  top: calc(6.5% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none;
   padding-left: 1.15cqi;
   background: radial-gradient(circle at 0.44cqi 50%, var(--stamp-color) 0 0.3cqi, transparent 0.3cqi);
   color: var(--stamp-color); font-size: 0.76cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */
@@ -576,7 +588,7 @@ section.stamp-mark::before {
   /* `background: none` — the shared DEFAULT+TAB rule above fills every state marker's
    * pseudo with --stamp-color, and this full-slide box would carry that fill as an opaque
    * rotated slab over the content instead of a faint word. */
-  inset: 0; clip-path: none; display: grid; place-items: center; background: none; padding: 0;
+  inset: var(--_stamp-t) var(--_stamp-r) var(--_stamp-b) var(--_stamp-l); clip-path: none; display: grid; place-items: center; background: none; padding: 0;
   color: color-mix(in srgb, var(--stamp-color) 12%, transparent);
   /* Sized to its word: 16cqi for a short label, smaller for a long one, so CONFIDENTIAL
    * fits across the slide instead of running off it. --stamp-len is each state's letter
@@ -587,7 +599,7 @@ section.stamp-mark::before {
 
 /* ── VEIL — a desaturating overlay + a corner label chip. */
 section.stamp-veil::before {
-  inset: 0; clip-path: none;
+  inset: var(--_stamp-t) var(--_stamp-r) var(--_stamp-b) var(--_stamp-l); clip-path: none;
   background: color-mix(in srgb, var(--stamp-color) 13%, transparent);
   display: grid; place-items: start end; padding: 5%;
   color: color-mix(in srgb, var(--stamp-color) 90%, var(--text-heading));
@@ -596,7 +608,7 @@ section.stamp-veil::before {
 
 /* ── BAR — a redaction bar that names its state: a dark strip, the label in light caps. */
 section.stamp-bar::before {
-  top: 6.5%; right: 5%; clip-path: none;
+  top: calc(6.5% + var(--_stamp-t)); right: calc(5% + var(--_stamp-r)); clip-path: none;
   color: var(--on-accent);
   background: color-mix(in srgb, var(--stamp-color) 82%, var(--text-heading));
   border-radius: 0.2cqi; min-width: 8cqi; padding: 0.4cqi 1.2cqi; text-align: center;
@@ -604,7 +616,7 @@ section.stamp-bar::before {
 
 /* ── PIN — a bookmark pin dropped from the top edge (label hidden). */
 section.stamp-pin::before {
-  top: 0; right: 11%; clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%);
+  top: var(--_stamp-t); right: calc(11% + var(--_stamp-r)); clip-path: polygon(0 0, 100% 0, 100% 76%, 50% 100%, 0 76%);
   color: transparent; overflow: hidden;
   background: var(--stamp-color); width: 2cqi; height: 2.9cqi;
 }

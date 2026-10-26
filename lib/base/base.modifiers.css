@@ -659,14 +659,14 @@ section img.emoji {
  * header the ink for THAT field; split-panel.styles.css does this per field. */
 section header {
   z-index: var(--z-chrome);
-  position:absolute; top:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-inset-x);
+  position:absolute; top:var(--frame-inset-t); left:var(--frame-inset-l); right:var(--frame-inset-r);
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
   letter-spacing:0.10em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
   z-index: var(--z-chrome);
-  position:absolute; bottom:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-page-reserve);
+  position:absolute; bottom:var(--frame-inset-b); left:var(--frame-inset-l); right:calc(var(--frame-page-reserve) - var(--_bar-r, 0px));
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
   line-height:1; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
@@ -927,6 +927,7 @@ section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .co
   border-top: none;
   --_edge-t: 0; /* the hairline is the top edge */
   --_bar-t: 0px; /* …painted as a background, so it takes no border room */
+  --_bar-room-t: 0px; /* and its default carries no bar room to hold */
 }
 
 
@@ -1107,6 +1108,7 @@ section.print {
   border-top: none;
   --_edge-t: 1;                     /* so a host's keyline draws the top edge ("The slide's EDGE") */
   --_bar-t: 0px;
+  --_bar-room-t: 0px;
 }
 
 
@@ -2426,8 +2428,10 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
  * manufacture the overflow it reports. */
 section > .marker-rail {
   position: absolute !important;
-  bottom: 0;
-  left: 50%;
+  /* The rail hugs the SLIDE's bottom edge and centers on the slide, not on the padding box a bar
+     border shrinks: it holds still under every `spectrum-edge:` (check:edge-shift). */
+  bottom: calc(-1 * var(--_bar-b, 0px));
+  left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2);
   transform: translateX(-50%);
   display: flex;
   width: max-content;
@@ -2956,8 +2960,8 @@ img.deck-logo {
   position: absolute;
   /* Default: the top-right corner via frame insets. The `logo-finish:` register moves and sizes
    * the mark with section classes (below) — a placement word, a size word. */
-  top: var(--frame-inset-y);
-  right: var(--frame-inset-x);
+  top: var(--frame-inset-t);
+  right: var(--frame-inset-r);
   width: calc(6.25cqi * var(--logo-scale, 1));
   height: calc(4cqi * var(--logo-scale, 1));
   object-fit: contain;
@@ -2992,11 +2996,11 @@ img.deck-logo {
  * The deck's words and a slide's own land as classes on the section, so every rule below reads the
  * slide's FINAL word on each axis. `no-logo` removes the mark itself (the injectors skip the
  * slide), which is why the stand-down rules guard on `:not(.no-logo)`. */
-section.logo-top-left img.deck-logo { right: auto; left: var(--frame-inset-x); }
+section.logo-top-left img.deck-logo { right: auto; left: var(--frame-inset-l); }
 section.logo-top-center img.deck-logo { right: auto; left: 50%; transform: translateX(-50%); }
-section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-y); right: auto; left: var(--frame-inset-x); }
-section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-y); right: auto; left: 50%; transform: translateX(-50%); }
-section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-y); }
+section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: var(--frame-inset-l); }
+section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: 50%; transform: translateX(-50%); }
+section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-b); }
 section.logo-sm img.deck-logo { --logo-scale: 0.75; }
 section.logo-lg img.deck-logo { --logo-scale: 1.5; }
 
@@ -3079,7 +3083,7 @@ section.safe[data-orientation='square'] {
    so it isn't buried under the overlay. */
 section.safe[data-orientation='portrait'] :is(.cell-footer, .tile-meta, [class*='pagination'], [class*='progress']),
 section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='pagination'], [class*='progress']) {
-  bottom: calc(var(--frame-inset-y) + var(--safe-bottom, 0px));
+  bottom: calc(var(--frame-inset-b) + var(--safe-bottom, 0px));
 }
 
 /* ── Auto-split continuation marker ──────────────────────────────────────────

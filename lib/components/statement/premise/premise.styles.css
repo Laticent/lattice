@@ -58,7 +58,13 @@ section.premise {
   flex-direction: row;
   align-items: center;
   gap: var(--sp-2xl);
-  padding: 0 var(--sp-2xl);
+  /* Zero block inset of its own, so the bar room is reserved: the top keeps what the default bar took,
+   * the bottom reserves one bar width. Either way the box is the same under every `spectrum-edge:`
+   * (check:edge-shift). The cost is 4px of bottom room on a default slide, which centers 2px higher. */
+  --_inline-inset: var(--sp-2xl); /* the sides, through the base padding that gives up the bar border */
+  padding-block:
+    calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px))
+    calc(var(--_bar-w, 0px) - var(--_bar-b, 0px));
   box-sizing: border-box;
 }
 

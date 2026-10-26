@@ -18,5 +18,5 @@
  * the engine scaffold (lib/integrations/markdown-it/scaffold.css + lib/engine/css.js); the
  * element's sits beside its inset in pagination.css. */
 section.form::after {
-  inset: var(--pagination-inset, auto var(--frame-inset-x) var(--frame-inset-y) auto);
+  inset: var(--pagination-inset, auto var(--frame-inset-r) var(--frame-inset-b) auto);
 }

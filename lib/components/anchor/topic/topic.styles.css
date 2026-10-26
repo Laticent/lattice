@@ -83,6 +83,7 @@ section.topic {
   border-top: none;
   --_edge-t: 1; /* no top bar, so the engine keyline draws the top edge (base.modifiers.css) */
   --_bar-t: 0px;
+  --_bar-room-t: 0px; /* owns its top edge: no bar room to hold */
   display: flex;
   flex-direction: column;
   justify-content: safe center;
@@ -115,14 +116,17 @@ section.topic {
   background-size: 100% var(--_seam), 100% 100%;
   background-position: 0 75%, 0 0;
   background-repeat: no-repeat, no-repeat;
+  background-origin: border-box; /* the shelf and seam measure from the slide, not the padding box a bar border shrinks */
 
-  padding-left: var(--_gutter);
-  padding-right: var(--_gutter);
+  /* Each side gives up the bar border it carries, so the box holds under every `spectrum-edge:`
+   * (check:edge-shift). The top owns its edge and carries no bar, so it is left alone. */
+  padding-left: calc(var(--_gutter) - var(--_bar-l, 0px));
+  padding-right: calc(var(--_gutter) - var(--_bar-r, 0px));
   padding-top: calc(var(--sp-xl) * 2);          /* clears the pinned eyebrow */
   /* Reserves the shelf. Padding sits outside the content box, so centered
    * content cannot reach the track — which closes the silent-collision window a
    * bottom-positioned band otherwise opens (engineering/jank.md). */
-  padding-bottom: calc(var(--_shelf) + var(--sp-lg));
+  padding-bottom: calc(var(--_shelf) + var(--sp-lg) - var(--_bar-b, 0px));
 }
 /* THE LIFT'S FLOOR. The 20% lift is a fixed step in oklab LIGHTNESS, and a
  * lightness step buys less and less LUMINANCE contrast the closer the band sits
@@ -166,8 +170,8 @@ section.topic > * { margin: 0; }
 section.topic > p:first-of-type:has(> code:only-child):not(:where([data-prose])) {
   position: absolute;
   top: var(--sp-xl);
-  left: var(--_gutter);
-  right: var(--_gutter);
+  left: calc(var(--_gutter) - var(--_bar-l, 0px));
+  right: calc(var(--_gutter) - var(--_bar-r, 0px));
   max-width: none;
   padding: 0;
 }
@@ -231,11 +235,12 @@ section.topic > ul.tile-track {
   /* The columns carry their own inline padding (`--_tab-pad`) so the lit one has
    * room to be a filled tab. Bleeding the list out by that same amount keeps the
    * track's outer edges on the heading's gutter, rather than stepping them in. */
-  left: calc(var(--_gutter) - var(--_tab-pad));
-  right: calc(var(--_gutter) - var(--_tab-pad));
+  left: calc(var(--_gutter) - var(--_tab-pad) - var(--_bar-l, 0px));
+  right: calc(var(--_gutter) - var(--_tab-pad) - var(--_bar-r, 0px));
   /* One seam ABOVE the band edge, so the lit tab paints over the seam and the
    * upper band reads as reaching down into its column unbroken. */
-  top: calc(75% - var(--_seam));
+  /* 75% of the PADDING box, which a bottom bar shortens: add back 75% of that border so the seam holds. */
+  top: calc(75% + 0.75 * var(--_bar-b, 0px) - var(--_seam));
   /* A FIXED foot, never content-sized. Sibling slides of one section light
    * different columns, and the lit label is heavier, so a content-sized tab
    * would change height as the deck advances — jank the eye catches on every
@@ -244,7 +249,7 @@ section.topic > ul.tile-track {
    * reaches the footer's ink. Not `--footer-reserve`: that token belongs to
    * `section.form` and this section is not one, so it resolved to nothing and
    * the tab fell back to its content height. */
-  bottom: calc(var(--frame-inset-y) + var(--fs-meta) + var(--sp-md));
+  bottom: calc(var(--frame-inset-b) + var(--fs-meta) + var(--sp-md));
   list-style: none;
   display: flex;
   flex-direction: row;

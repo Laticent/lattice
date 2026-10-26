@@ -1,20 +1,21 @@
 ---
-status: in-progress
+status: shipped
 summary: >
-  Choosing a different spectrum-bar placement moves the slide. The bar is a real `border` on the
-  `section`, and a border takes layout room, so the content box and every absolutely positioned
-  element that measures from the padding box (header, footer, page number, the draft and
-  confidential stamps) land 2 to 5 px differently under `top`, `left`, `right`, `bottom` and `off`.
-  A dark slide has no bar border at all, so it also sits 4 px off a light slide in the same deck.
-  `npm run check:edge-shift` measures this. Baseline, same machine, indaco, 16:9: 4,208 elements
-  across 164 slides, 4,038 moved, 162 of 164 slides affected; only `divider` (it owns its own
-  rail) holds still. The fix is to reserve the bar's room on every edge so no placement changes
-  the content box. Not built yet; this note records the harness and its first numbers.
+  Choosing a different spectrum-bar placement used to move the slide. The bar is a real `border`
+  on the `section`, so the content box and every element that measures from the padding box (header,
+  footer, page number, the draft and confidential stamps, the overflow marker) landed 2 to 5 px
+  differently under `top`, `left`, `right`, `bottom` and `off`. Baseline: 4,038 of 4,208 elements
+  moved, 162 of 164 slides affected. The fix leaves every border rule alone and makes the section's
+  padding give up exactly the border each side carries (`--_bar-*`), so the total inset per side is
+  constant; chrome insets and the stamp do the same. After it, 0 of 4,208 elements move, on four
+  canvas shapes and three themes, and a default deck is geometrically unchanged except `premise`
+  (2 px). Cost: the full-bleed layouts `image`, `scene`, `split-panel` and `split-compare` no longer
+  show a side or bottom bar. `npm run check:edge-shift` is the gate.
 ---
 
 # Spectrum placement moves the slide
 
-**Date:** 2026-10-26 · **Status:** in-progress (harness shipped, fix not built)
+**Date:** 2026-10-26 · **Status:** shipped on `claude/spectrum-shift-content-fik8bk`
 
 ## The ask
 
@@ -74,4 +75,57 @@ compared a deck with itself.
   it), paint the bar in one strip with `border-image-width`. Keeps the bar above every child.
   Cost: chrome insets and full-bleed children need compensating, which is the list above.
 
-The harness decides between the last two; the fix lands in a follow-up commit on this branch.
+The harness decided it, and the built fix is neither of the two: it keeps the border (so the bar stays
+above every child) and makes the **padding** do the reserving.
+
+## What shipped
+
+**The rule: total inset per side is constant.** Each border rule is untouched. They already declare how
+much border they carry in the same rule (`--_bar-t/r/b/l`). The section's padding now reads those flags:
+
+    padding-top    = base + --_bar-room-t − --_bar-t
+    padding-right  = base − --_bar-r        (likewise bottom, left)
+
+so `padding + border` is the same under every placement. The bar is carved out of the margin that was
+already there, not added to it, and no `margin` is involved (HARD RULE #20).
+
+- `--_bar-room-t` is the top room the default bar always took. It holds a slide whose bar is elsewhere
+  at the same 4 px, so a default deck does not move. A frame whose default has no top bar (dark,
+  print, `title`, `closing`, `divider`, `topic`, every chart frame, the full-bleed frames, `claim-bleed`)
+  sets it to 0 and stays where it was.
+- `section.form` sets its own padding in `stage.css`; it gets the same subtraction.
+- Chrome that measures from the padding box (header, footer, page number, progress rail, logo,
+  the safe-area lift) reads new per-side tokens `--frame-inset-t/b/l/r`, and the state stamp reads
+  `--_stamp-*`, so each holds the same distance from the slide edge. The overflow marker rail does
+  the same.
+- A `lat-pane` is a slide inside the slide with its own containing block. It clears the bar flags and
+  re-derives the insets, or its rail would subtract a bar the pane does not carry.
+- `topic` subtracts the bar from its own side and bottom padding and its two absolute tracks, and its
+  shelf measures from the border box.
+
+**Two decisions that change what an author sees:**
+
+1. `image`, `scene`, `split-panel` and `split-compare` set `padding: 0` and draw their own edge, so a
+   side border could only shrink the photo or panel. They are exempted from the left, right and bottom
+   bar (as `divider` already was) and show no bar there, as they show none on top in the default
+   placement. Reversing it means reserving a strip around full-bleed art, which leaves a visible gutter.
+2. `premise` has no block padding of its own, so it reserves one bar width at the bottom. A default
+   `premise` slide's content sits 2 px higher (centered, 4 px less room).
+
+**Left alone, on purpose:** a dark or print slide still sits 4 px higher than a light one in the same
+deck. That predates this change and is not a placement effect. Making dark match light is one line
+(drop `--_bar-room-t: 0px` from the dark rule) and moves every dark slide 4 px, so it is the owner's call.
+
+## Measured result
+
+`npm run check:edge-shift`, every component in light and dark plus the stamp and canvas slides, header,
+footer and page number on:
+
+| Run | Elements compared | Moved more than 0.5 px |
+|---|---|---|
+| Before, 16:9, indaco | 4,208 | 4,038 (162 of 164 slides) |
+| After, 16:9 indaco / cuoio / onyx | 4,208 | 0 |
+| After, square / tall / strip | 4,232 / 4,334 / 4,254 | 0 |
+
+Default placement, old CSS against new (`--positions`, element by element): 38 of 4,216 elements moved,
+all on `premise` (2 px). Everything else is where it was.

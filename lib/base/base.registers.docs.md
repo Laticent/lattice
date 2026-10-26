@@ -464,6 +464,13 @@ bar-off deck keeps its table rails and `---` rules.
 | `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
 | `off` | `spectrum-edge-off` | No section-edge bar (structural accents survive). |
 
+**Placement never moves the slide.** The bar takes its room out of the slide's margin, not out of the
+content: the content box, the header, the footer, the page number, the state stamps and the overflow
+marker sit in the same place under every `spectrum-edge:` value, light and dark. `npm run
+check:edge-shift` measures it across every component. The full-bleed layouts `image`, `scene`,
+`split-panel` and `split-compare` draw their own edge and show no side or bottom bar, because a bar
+there would shrink the photo or panel.
+
 **`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
 Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /
 `pricing` / `verdict-grid` tiles). Unlike the section bar, the card rail tunes on its OWN two
