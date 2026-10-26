@@ -6,7 +6,8 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
-const { flowLines, paragraphGap, placeFrame, mergeCardText, writeOdp } = require('@laticent/calco');
+const PptxGenJS = require('pptxgenjs');
+const { flowLines, paragraphGap, placeFrame, mergeCardText, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, style, frame } = require('./_fixtures');
 
 const run = (text) => ({ text, style: style() });
@@ -83,5 +84,22 @@ describe('calco writers wrap a flow frame', () => {
     const zip = await JSZip.loadAsync(Buffer.from(await writeOdp(JSZip, { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, frames: [f] }] }, 'nodebuffer')));
     const text = await zip.file('content.xml').async('string');
     assert.ok(!text.includes('<text:line-break/>'));
+  });
+});
+
+describe('calco .pptx card body', () => {
+  test('a card is one wrapping shape whose insets are the padding less the roundRect\'s own text inset', async () => {
+    const card = { kind: 'box', x: 100, y: 100, w: 600, h: 200, radii: [16, 16, 16, 16], fill: { color: '#eeeeee', alpha: 1 }, group: 0 };
+    const head = frame([[run('Heading')]], { x: 140, y: 140, w: 520, h: 40, group: 0 });
+    const body = frame([[run('Body one')], [run('two')]], { x: 140, y: 200, w: 520, h: 80, group: 0, flow: true });
+    const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, shapes: [card], frames: [head, body] }] };
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer'));
+    const xml = await zip.file('ppt/slides/slide1.xml').async('string');
+    assert.equal((xml.match(/<a:p>/g) || []).length, 2, 'heading, then the body as ONE wrapping paragraph');
+    assert.match(xml, /prst="roundRect"/);
+    assert.match(xml, /wrap="square"/);
+    // 40px of padding is 30pt; the preset's own inset is 16px * (1 - cos 45) = 4.69px = 3.52pt.
+    const lIns = Number(xml.match(/lIns="(\d+)"/)[1]) / 12700;
+    assert.ok(Math.abs(lIns - (30 - 3.52)) < 0.1, `lIns ${lIns}pt`);
   });
 });

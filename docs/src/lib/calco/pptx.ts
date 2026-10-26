@@ -337,8 +337,13 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 				}
 				const text = textOf(item.label);
 				const ins = labelInsets(geom, text.box, item.label.align, !!item.label.flow) as NonNullable<ReturnType<typeof labelInsets>>;
+				// A `roundRect`'s text rectangle is the preset's own, inset on every side by the corner's
+				// 45-degree point (ECMA-376 presetShapeDefinitions: `il = r * (1 - cos 45)`), so the
+				// shape's insets are taken from the padding less that. ODP corners do not inset text.
+				const lift = kind === 'roundRect' ? (geom.radius || 0) * (1 - Math.SQRT1_2) : 0;
+				const inner = (v: number) => Math.max(0, v - lift);
 				// Insets in points: PptxGenJS's margin is [left, right, bottom, top].
-				s.addText(text.runs, { ...text.options, ...shapeOptions, shape: kind, margin: [points(ins.l), points(ins.r), 0, points(ins.t)], objectName: name });
+				s.addText(text.runs, { ...text.options, ...shapeOptions, shape: kind, margin: [points(inner(ins.l)), points(inner(ins.r)), 0, points(inner(ins.t))], objectName: name });
 			}
 		}
 		if (original.notes) s.addNotes(xmlSafe(original.notes));
