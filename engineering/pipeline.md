@@ -485,10 +485,13 @@ hack worked around html-to-image's border-image bug.
   in an `.odp`). A face is left out when the host has no file for the family (a system font such as Arial) or its OS/2 `fsType`
   forbids embedding; since 2026-10-26 that is REPORTED (stderr in the CLI, the "ready" message in the Studio), not silent. Every
   font file Lattice ships has an installable `fsType`.
-- **Emoji are not embedded anywhere.** They draw with the machine's own emoji font (Noto Color Emoji on this Linux sandbox, Apple
-  Color Emoji on a Mac), so the same deck's emoji can look different from machine to machine, and in a PDF a text run that holds
-  an emoji stays in the photo (not real text). `dist/lattice-emoji.css` plus `npm run fonts:emoji` vendors Noto Color Emoji
-  (about 25 MB, opt-in, not in the npm tarball). HARD RULE #29 and `lint:deck` steer authors to drawn shapes for the glyphs that
+- **Emoji are self-hosted and embedded as slices.** Noto Color Emoji ships as 11 unicode-range woff2 slices
+  (`lib/fonts/emoji-faces.js`, `assets/fonts/noto-color-emoji-*.woff2`, about 2 MB together) and leads every emoji fallback, so a
+  deck draws the same emoji on every machine. An export inlines only the slices its text needs (`slicesFor` in the CLI's
+  `emojiFaceCss`, the Studio's `buildFontEmbedCss(text)`): none for a deck with no emoji, about 0.1 to 0.3 MB for a handful. The
+  font is COLR v1, which PDF and PPTX cannot use, so in a PDF a text run that holds an emoji stays in the photo (not real text)
+  and in an editable PPTX/ODP the emoji is part of the slide picture. The HTML player keeps real emoji text. HARD RULE #29 and
+  `lint:deck` steer authors to drawn shapes for the glyphs that
   do a drawing's job (a check mark, an arrow).
 
 ## 4a. CLI PDF output is byte-reproducible

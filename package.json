@@ -74,7 +74,6 @@
     "TRADEMARKS.md",
     "!**/*.pdf",
     "!**/*.gallery.md",
-    "!dist/fonts/noto-color-emoji.ttf",
     "!dist/marp-kit/",
     "!dist/agent-kit/",
     "!dist/engineering/"
@@ -243,7 +242,6 @@
     "check:jank": "node tools/check-jank.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",
-    "fonts:emoji": "node tools/fetch-emoji-font.js",
     "fonts:measure": "node tools/measure-glyph-advances.js",
     "build:galleries": "node tools/build-galleries.js",
     "build:galleries:check": "node tools/build-galleries.js --check",

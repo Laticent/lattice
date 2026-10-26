@@ -1,0 +1,2 @@
+- Noto Color Emoji is now self-hosted like every other font, as 11 `unicode-range` woff2 slices (about 2 MB together) in `dist/fonts/`, and it leads every emoji fallback. A deck draws the same emoji on every machine. An export (CLI PDF, image set, player, Studio) embeds only the slices its emoji need: none for a deck without emoji, about 0.1 to 0.3 MB for a handful.
+- `dist/lattice-emoji.css` and `npm run fonts:emoji` are retired. The file stays, empty, so existing imports resolve.

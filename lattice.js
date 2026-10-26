@@ -1182,7 +1182,7 @@ const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // Hoisted ABOVE the plugins' bakes, which run at module-evaluation time (the font plumbing is
 // declared further down; reaching it early is a TDZ throw).
-const { fontFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, emojiFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
@@ -2798,11 +2798,18 @@ const katexInline = usesMath ? katexInlineSheet(katexCssAbsPath) : '';
 const { faces: katexFaces, rules: katexRules } = splitKatexSheet(katexInline);
 const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
 const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
-const docFonts = !katexFacesCss
+// Noto Color Emoji: only the slices this deck's emoji need (lib/fonts/emoji-faces.js), so a deck
+// without emoji carries none of the font. Numeric character references count as the emoji they spell.
+const deckText = highlightedSlides.join('\n').replace(/&#(?:x([0-9a-f]+)|(\d+));/gi, (m, hex, dec) => {
+  const cp = Number.parseInt(hex || dec, hex ? 16 : 10);
+  return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+});
+const extraFontCss = katexFacesCss + emojiFaceCss(PKG_ROOT, deckText);
+const docFonts = !extraFontCss
   ? embeddedFonts
   : embeddedFonts
-    ? embeddedFonts.replace(/<\/style>$/, () => `${katexFacesCss}</style>`)
-    : `<style id="lattice-embedded-fonts">${katexFacesCss}</style>`;
+    ? embeddedFonts.replace(/<\/style>$/, () => `${extraFontCss}</style>`)
+    : `<style id="lattice-embedded-fonts">${extraFontCss}</style>`;
 
 // ── plugin hydrate: library + host ────────────────────────────────────────
 // Only for the plugins a slide actually uses (the engine's `data-lattice-hydrate` marker), so a

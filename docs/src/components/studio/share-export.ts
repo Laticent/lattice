@@ -468,7 +468,7 @@ export async function shareHtmlPlayer(
 		import('@/lib/sanitize-slide-html.js'),
 		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
-	const fontCss = await fontMod.buildFontEmbedCss();
+	const fontCss = await fontMod.buildFontEmbedCss(`${source}\n${out.html}`);
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,

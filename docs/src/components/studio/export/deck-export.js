@@ -1050,7 +1050,7 @@ async function sectionsOf(frame) {
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
-	const fontEmbedCSS = await buildFontEmbedCss();
+	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '');
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
@@ -2624,7 +2624,7 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
 			// Embed the faces + wait for them, so the nodes lay out with the real font
 			// before we read computed styles (mirrors the PDF/PPTX path).
-			const fontCssAll = await buildFontEmbedCss();
+			const fontCssAll = await buildFontEmbedCss(doc.body?.textContent || '');
 			await ensureFontsLoaded(doc, fontCssAll);
 			const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win, { collectTokens: true }));
 			const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
@@ -2749,7 +2749,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 				]);
 				const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
 				const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
-				const fontCssAll = await buildFontEmbedCss();
+				const fontCssAll = await buildFontEmbedCss(svgFrame.contentDocument.body?.textContent || '');
 				await ensureFontsLoaded(svgFrame.contentDocument, fontCssAll);
 				// The canvas baked behind each standalone SVG (null = transparent) — the SAME
 				// neutral literals the CLI uses, via the shared kernel.
