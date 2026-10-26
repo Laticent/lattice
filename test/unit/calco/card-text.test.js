@@ -9,6 +9,7 @@ const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
 const { flowLines, paragraphGap, placeFrame, mergeCardText, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, style, frame } = require('./_fixtures');
+const { checkPptxSchema, checkOdp } = require('../../conformance/office/office-conformance');
 
 const run = (text) => ({ text, style: style() });
 const metrics = { ascent: 1, descent: 0.26, lineGap: 0 };
@@ -101,5 +102,45 @@ describe('calco .pptx card body', () => {
     // 40px of padding is 30pt; the preset's own inset is 16px * (1 - cos 45) = 4.69px = 3.52pt.
     const lIns = Number(xml.match(/lIns="(\d+)"/)[1]) / 12700;
     assert.ok(Math.abs(lIns - (30 - 3.52)) < 0.1, `lIns ${lIns}pt`);
+  });
+});
+
+describe('calco wrapping output conforms', () => {
+  // A deck that uses every new path: a merged card (round and per-corner radii), a wrapping title,
+  // a centered balanced paragraph, a card with a mixed-style body line, and a pinned code frame.
+  const round = { kind: 'box', x: 100, y: 200, w: 600, h: 260, radii: [16, 16, 16, 16], fill: { color: '#eeeeee', alpha: 1 }, stroke: { color: '#999999', alpha: 1, width: 1 }, group: 0 };
+  const uneven = { kind: 'box', x: 760, y: 200, w: 420, h: 260, radii: [16, 0, 16, 0], fill: { color: '#eeeeee', alpha: 1 }, group: 1 };
+  const bold = style({ weight: 700 });
+  const frames = [
+    frame([[run('A title that wraps')], [run('onto a second line')]], { x: 100, y: 60, w: 700, role: 'title', flow: true }),
+    frame([[{ text: 'Heading', style: bold }]], { x: 140, y: 230, w: 520, h: 40, group: 0 }),
+    frame([[run('A body that wraps '), { text: 'with a bold run', style: bold }], [run('onto a second line')]], { x: 140, y: 290, w: 520, h: 80, group: 0, flow: true }),
+    frame([[{ text: 'Uneven', style: bold }]], { x: 790, y: 230, w: 340, h: 40, group: 1 }),
+    frame([[run('Body of the uneven card')]], { x: 790, y: 290, w: 340, h: 40, group: 1 }),
+    frame([[run('Centered and balanced')], [run('over two lines')]], { x: 340, y: 500, w: 600, align: 'center', flow: true }),
+    frame([[run('const a = 1;')], [], [run('const b = 2;')]], { x: 100, y: 600, w: 600 }),
+  ];
+  const deck = { width: 1280, height: 720, slides: [{ image: ONE_PX_PNG, shapes: [round, uneven], frames }] };
+
+  test('the .pptx passes the ISO 29500 schema and the unique-shape-id rule', async () => {
+    const bytes = await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip);
+    assert.deepEqual(await checkPptxSchema(bytes), []);
+  });
+
+  test('the .odp passes the package-structure checks', async () => {
+    const bytes = await writeOdp(JSZip, deck, 'nodebuffer');
+    assert.deepEqual(await checkOdp(bytes), []);
+  });
+
+  test('the check can fail: a text body with its children out of order is reported', async () => {
+    const zip = await JSZip.loadAsync(await writePptx(PptxGenJS, deck, 'nodebuffer', JSZip));
+    const part = 'ppt/slides/slide1.xml';
+    const xml = await zip.file(part).async('string');
+    // An attribute the schema does not define on `a:bodyPr`.
+    const broken = xml.replace(/<a:bodyPr([^>]*)>(.*?)<\/a:bodyPr>/, '<a:bodyPr$1 notAnAttribute="1">$2</a:bodyPr>');
+    assert.notEqual(broken, xml);
+    zip.file(part, broken);
+    const findings = await checkPptxSchema(await zip.generateAsync({ type: 'nodebuffer' }));
+    assert.ok(findings.some((f) => f.kind === 'schema' && f.part === part), JSON.stringify(findings));
   });
 });
