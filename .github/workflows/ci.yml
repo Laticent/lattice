@@ -545,9 +545,6 @@ jobs:
           name: marp-renders-shard-${{ matrix.shard }}
           path: .scratch/marp-render/
           if-no-files-found: ignore
-          # .scratch is a dot-folder, and upload-artifact@v4 skips hidden files by default, so a
-          # red leg's renders were dropped (`ignore` hid it). It holds only this test's renders.
-          include-hidden-files: true
           retention-days: 7
 
   # ── (Engine visual parity REMOVED — marp retired, P4 Step 3) ────────────────
