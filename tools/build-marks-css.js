@@ -691,12 +691,22 @@ function build() {
       w(supports(rule(name, `.tower-share-value${HUE_SEL}`, [`fill: ${pickInk}`])));
       // A WORD CLOUD under tone. A word's color is arbitrary by default (the categorical inks in rank order, so "pricing" is
       // magenta for no data reason), and its size already carries the weight. Tone makes color say the same thing a second,
-      // quiet way: the one palette ramp by tier, loudest word deepest. These are the stops `spectrum` uses, which the palette
-      // contrast-gates and which stay monotone on every theme (engineering/decisions/2026-08-24-spectrum-ramp-floor.md);
-      // the quietest tier is the theme's muted ink. (A neutral palette's ramp is grey, so its cloud is grey, as `spectrum`'s.)
-      for (const [tier, ink] of [[5, 'var(--seq-900)'], [4, 'var(--seq-700)'], [3, 'var(--seq-600)'], [2, 'var(--seq-500)'], [1, 'var(--text-muted)']]) {
-        w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${ink}`]));
+      // quiet way, in the tone hue like every other tone chart: the loudest word wears the one tone ink and each tier steps
+      // toward the theme's muted ink, which is the quietest ink the palette guarantees readable. (`spectrum`'s own stops are
+      // not used: their deepest step is near-black on a light slide, which no other tone chart has.)
+      // The tone ink is a 3:1 GRAPHICAL ink, and on a dark slide it measures about 3.7:1 as text, under the 4.5:1 a word owes. So
+      // a word's loudest step takes the ink as is on light and 65% of it toward the heading ink on dark (the mix a matrix
+      // grid's filled-cell text already takes), and each quieter tier mixes in 25% more of the muted ink.
+      const wordInk = `light-dark(${ONE_INK}, color-mix(in oklab, ${ONE_INK} 65%, var(--text-heading)))`;
+      for (const [tier, pct] of [[5, 100], [4, 75], [3, 50], [2, 25]]) {
+        w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${pct === 100 ? wordInk : `color-mix(in oklab, ${wordInk} ${pct}%, var(--text-muted))`}`]));
       }
+      w(rule(name, '.wc-word[data-tier="1"]', ['fill: var(--text-muted)']));
+      // A MATRIX GRID under tone. Each row is a category and the member colors the row's label and its empty cells'
+      // outlines from the row's own hue (`--row-hue`, `--row-ink`), so a tone grid showed one hue in its filled cells and six
+      // in its labels and outlines. The row's hue is re-pointed to the one hue, as a kanban column's and a roadmap phase's
+      // are; the filled cells keep the one ladder (a row's depth is its category).
+      w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
       // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
       for (const n of SLOTS.filter((x) => x > 4)) w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${notLeft}`, ['stroke-dasharray: 5 3']));
     }

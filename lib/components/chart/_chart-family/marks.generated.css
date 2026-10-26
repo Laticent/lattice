@@ -1021,23 +1021,28 @@ figure.marks-tone :where(.tower-share-value:is([data-hue="1"], [data-hue="2"], [
 }
 section.marks-tone :where(.wc-word[data-tier="5"]),
 figure.marks-tone :where(.wc-word[data-tier="5"]) {
-  fill: var(--seq-900) !important;
+  fill: light-dark(var(--chart-cat-1-ink), color-mix(in oklab, var(--chart-cat-1-ink) 65%, var(--text-heading))) !important;
 }
 section.marks-tone :where(.wc-word[data-tier="4"]),
 figure.marks-tone :where(.wc-word[data-tier="4"]) {
-  fill: var(--seq-700) !important;
+  fill: color-mix(in oklab, light-dark(var(--chart-cat-1-ink), color-mix(in oklab, var(--chart-cat-1-ink) 65%, var(--text-heading))) 75%, var(--text-muted)) !important;
 }
 section.marks-tone :where(.wc-word[data-tier="3"]),
 figure.marks-tone :where(.wc-word[data-tier="3"]) {
-  fill: var(--seq-600) !important;
+  fill: color-mix(in oklab, light-dark(var(--chart-cat-1-ink), color-mix(in oklab, var(--chart-cat-1-ink) 65%, var(--text-heading))) 50%, var(--text-muted)) !important;
 }
 section.marks-tone :where(.wc-word[data-tier="2"]),
 figure.marks-tone :where(.wc-word[data-tier="2"]) {
-  fill: var(--seq-500) !important;
+  fill: color-mix(in oklab, light-dark(var(--chart-cat-1-ink), color-mix(in oklab, var(--chart-cat-1-ink) 65%, var(--text-heading))) 25%, var(--text-muted)) !important;
 }
 section.marks-tone :where(.wc-word[data-tier="1"]),
 figure.marks-tone :where(.wc-word[data-tier="1"]) {
   fill: var(--text-muted) !important;
+}
+section.marks-tone :where(.matrix-grid-figure tbody tr),
+figure.marks-tone :where(.matrix-grid-figure tbody tr) {
+  --row-hue: var(--chart-cat-1-hue) !important;
+  --row-ink: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)),
 figure.marks-tone :where([data-hue="5"][data-encodes="layered"][data-paint="fill"]:not(.ep-dot, .ep-path, .line-area, .line-band, .line-dot, .line-path, .slope-bar, .slope-dot, .slope-dot-from, .slope-dot-to, .slope-dot-via, .slope-line)) {

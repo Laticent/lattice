@@ -220,10 +220,11 @@ describe('marks.generated.css', () => {
     // The ONE fixed ink outside the guard is the radar's scale tick, and it is outside on purpose: the
     // layered polygons it sits on are finished on EVERY engine (they carry no text), so the tick must
     // take the strongest ink on every engine too. It does not depend on relative color.
+    // Another is tone's word-cloud words, whose ink is a mix toward the heading ink (text on the slide, not on a body).
     // The other is tone's hub-spoke HUB, a disc body (not text on a body) that goes back to the full heading ink beside group discs.
     // The finish's text ink is a VALUE in its token block, which paints nothing; what matters is that no rule outside the guard reads it.
     assert.doesNotMatch(outside, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
-    const withoutTicks = outside.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '');
+    const withoutTicks = outside.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '');
     assert.doesNotMatch(withoutTicks, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
     assert.match(outside, /\.radar-tick[^}]*fill: var\(--text-heading\)/, 'the radar tick takes the heading ink under every finish');
     // The plain categorical rule skips the text-bearing marks, or they would take its full body.
@@ -347,15 +348,26 @@ describe('marks.generated.css', () => {
 
   // A word cloud's color is arbitrary by default (categorical inks in rank order) while its size already carries the weight.
   // Tone makes color repeat the weight, on the palette's own contrast-gated ramp (`spectrum`'s stops), tier by tier.
-  test('tone colors a word by its weight tier on the palette ramp; pigment and etch leave the words alone', () => {
-    const stops = { 5: '--seq-900', 4: '--seq-700', 3: '--seq-600', 2: '--seq-500', 1: '--text-muted' };
-    for (const [tier, tok] of Object.entries(stops)) {
+  test('tone colors a word by its weight tier in the tone hue; pigment and etch leave the words alone', () => {
+    const want = { 5: /fill: light-dark\(var\(--chart-cat-1-ink\), color-mix\(in oklab, var\(--chart-cat-1-ink\) 65%, var\(--text-heading\)\)\) !important/, 4: /\) 75%, var\(--text-muted\)\)/, 3: /\) 50%, var\(--text-muted\)\)/, 2: /\) 25%, var\(--text-muted\)\)/, 1: /fill: var\(--text-muted\) !important/ };
+    for (const [tier, re] of Object.entries(want)) {
       const r = headed('tone').find((x) => x.sel.startsWith(`section.marks-tone :where(.wc-word[data-tier="${tier}"])`));
-      assert.match(r?.body || '', new RegExp(`fill: var\\(${tok}\\) !important`), `tier ${tier}`);
+      assert.match(r?.body || '', re, `tier ${tier}`);
     }
+    // No word may reach for the palette's sequential ramp: its deepest step is near-black on a light slide.
+    assert.ok(!headed('tone').some((x) => x.sel.includes('wc-word') && /--seq-/.test(x.body)), 'no --seq-* step');
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((r) => r.sel.includes('wc-word')), `${f} does not repaint a word`);
     const { tierOf } = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
     assert.deepEqual([5, 4.5, 4.49, 3.5, 2.5, 1.5, 1.49, 1].map(tierOf), [5, 5, 4, 4, 3, 2, 1, 1]);
+  });
+
+  // The matrix grid colors a row's label and its empty cells' outlines from `--row-hue` / `--row-ink`, which no finish paints
+  // (they are the member's own properties). Tone re-points them, so a tone grid is one hue like the heatmap and the tower.
+  test('tone re-points a matrix grid row to the one hue; the other finishes leave rows alone', () => {
+    const r = headed('tone').find((x) => x.sel.startsWith('section.marks-tone :where(.matrix-grid-figure tbody tr)'));
+    assert.match(r?.body || '', /--row-hue: var\(--chart-cat-1-hue\) !important/);
+    assert.match(r?.body || '', /--row-ink: var\(--chart-cat-1-ink\) !important/);
+    for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.sel.includes('matrix-grid-figure')), `${f} leaves rows alone`);
   });
 
   // THE EDGE RULE. Pigment and etch outline a mark in its own category ink. Tone has ONE ladder of shades that already tells

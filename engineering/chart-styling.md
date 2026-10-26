@@ -280,11 +280,16 @@ measurement, and most undo a defect a render or the adversarial review found:
   before, 79 KB and 5.9 KB after, with every computed fill, stroke, edge, shadow and ring on the chart gallery
   unchanged under pigment and etch (1.17M property reads, five themes, light and dark) and under tone changed
   only in the edge, below.
-- **A tone word cloud steps color by weight.** A word's color is arbitrary by default (the categorical inks in rank
-  order) and its size already carries the weight, so tone repeats the weight in color on the palette's own
-  contrast-gated ramp (`spectrum`'s stops: tier 5 `--seq-900`, 4 `--seq-700`, 3 `--seq-600`, 2 `--seq-500`, 1 `--text-muted`),
-  read from the `data-tier` each word carries. On dark, where the default words sat at about 3.7:1, every word now
-  clears 4.5:1. A neutral palette's ramp is grey, so its cloud is grey, as `spectrum`'s.
+- **A tone word cloud steps color by weight, in the tone hue.** A word's color is arbitrary by default (the categorical
+  inks in rank order) and its size already carries the weight, so tone repeats the weight in color: the loudest word
+  wears the one tone ink (`--chart-cat-1-ink`) and each tier (4, 3, 2) mixes 25% more of the theme's muted ink, down to
+  `--text-muted` for tier 1, read from the `data-tier` each word carries. Both ends are inks the palette guarantees
+  readable, so the steps in between are too (measured on every theme in `engineering/decisions/` terms: see the PR).
+  `spectrum`'s own stops were tried and dropped: their deepest step is near-black on a light slide, which no other
+  tone chart has. On dark, where the default words sat at about 3.7:1, every word now clears 4.5:1.
+- **A tone matrix grid is one hue.** The member colors a row's label and its empty cells' outlines from the row's own
+  hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
+  column or a roadmap phase). Filled cells keep the one ladder: a row's depth is its category.
 - **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
   ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
   tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status
