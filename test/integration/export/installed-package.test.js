@@ -18,6 +18,9 @@
  * The full registry install is the recipe in RELEASE.md §The distribution contract; it needs
  * the network and ~250 downloads, which this tier should not pay per PR.
  *
+ * The deck carries a `columns ratio-50-50` slide on purpose: the modifier is what sends the CLI
+ * through the deck linter and the component loader (followup 2779-p3).
+ *
  * Slow tier: two `npm pack` listings and two CLI renders. See engineering/pipeline.md.
  */
 const { test, describe, before, after } = require('node:test');
@@ -76,6 +79,11 @@ describe('export: an installed @laticent/lattice renders with only what it decla
       '## Revenue grew\n\n- EMEA leads\n- APAC holds',
       '## A formula\n\n$$ \\sigma(x) = \\frac{1}{1 + e^{-x}} $$',
       '## A diagram\n\n```mermaid\nflowchart LR\n  A --> B\n```',
+      // A pane slide with a split modifier. `ratio-50-50` is not a component or reserved name, so
+      // the CLI runs the deck linter to check it, which loads every component manifest. The
+      // bundled loader once walked `dist/` for them, read `dist/styles/manifest.json` as one and
+      // threw (followup 2779-p3); a deck of plain classes never reached that code.
+      '<!-- _class: columns ratio-50-50 -->\n\n## Two panes\n\n<!-- _pane: content -->\n\n- Left pane\n\n<!-- _pane: content -->\n\n- Right pane',
     ].join('\n\n---\n\n'));
   });
 
@@ -146,9 +154,10 @@ describe('export: an installed @laticent/lattice renders with only what it decla
     assert.equal(plugins.stdout, ':values\nmermaid\n', plugins.stderr);
   });
 
-  test('the CLI renders a PDF with math and a Mermaid diagram', { timeout: TIMEOUT }, () => {
+  test('the CLI renders a PDF with math, a Mermaid diagram and a pane slide', { timeout: TIMEOUT }, () => {
     const r = render('deck.pdf');
     assert.equal(r.status, 0, `the installed CLI failed:\n${r.stderr}`);
+    assert.doesNotMatch(r.stderr, /Invalid manifest/, 'the installed CLI misread the component catalog');
     assert.equal(fs.readFileSync(path.join(dir, 'deck.pdf')).subarray(0, 5).toString(), '%PDF-');
   });
 
