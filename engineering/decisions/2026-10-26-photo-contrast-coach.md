@@ -73,3 +73,22 @@ One checker read the diff cold. Four findings were real and are fixed in this PR
 
 My first negative tests were vacuous: `typeDeck` clears the editor, and the empty deck briefly shows no finding, so "count is 0" passed before the read ran. They now wait on `data-photo-read="done"` (derived in render, so it flips the moment the slide changes) and each was shown to fail with its bug put back.
 Not fixed, by decision: each read toggles two classes on the preview section, which wakes the runtime's mutation observer for one idempotent pass.
+
+## Found on the owner's phone: the ink pick needs the preview on the caret's slide
+
+The single-ink tooltip still offered both buttons on an iPhone. A probe showed why: at 390 px on the Source tab, moving the caret did not
+change the slide the preview holds. Fuoco was in sync (the editor reports the caret, the hub works out the slide, `FocusedPreview` hands
+`DeckPreview` the new `slideIndex`); the render was dropped at the last step, because the shell parks the preview (`active` false) on the
+phone's Source tab and `DeckPreview.render` returns early while parked. That parking is deliberate (it defers per-keystroke renders) and has
+no written reason.
+
+Three changes, the owner choosing that the preview follow the cursor:
+
+- `DeckPreview` gets `followWhenParked` (off by default): while parked it draws ONCE when the shown slide or deck changes, never for an edit.
+  The Studio turns it on for its editor preview. Cost: one render per slide crossing on the phone's Source tab, not one per keystroke.
+- The editor re-lints when the preview has drawn a different slide. `FocusedPreview` announces the slide it drew
+  (`preview-render-event.ts`); the editor listens and dispatches a `relintEffect` that its linter's `needsRefresh` answers. A fixed
+  delay was tried first and lost a race with the render.
+- `forceLinting` is the wrong call for this: in @codemirror/lint 6.9 it only brings forward a pass that is already scheduled.
+
+A tooltip that is already open keeps the actions it was built with until you leave the line and come back.

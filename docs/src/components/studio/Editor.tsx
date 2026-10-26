@@ -4,7 +4,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
 import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
-import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
+import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
@@ -18,7 +18,11 @@ import { type AssetChoice, type CompletionComponent, type CompletionVocab, front
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
+import { PREVIEW_RENDER_EVENT } from './preview-render-event';
 import { tourChromeMargin } from './tour-chrome';
+
+// Asks the linter for a fresh pass without a document change (see `needsRefresh` on the real lint below).
+const relintEffect = StateEffect.define<null>();
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
 // lazily imported the first time the editor validates — surfaces that never lint
@@ -607,7 +611,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						}
 					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
-				})
+				}, { needsRefresh: (u) => u.transactions.some((tr) => tr.effects.some((e) => e.is(relintEffect))) })
 			: makeLinter(known, reportLint);
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,
@@ -1027,6 +1031,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 		lastMeasuredKey.current = measuredKey;
 		if (viewRef.current) forceLinting(viewRef.current);
 	}, [measuredKey]);
+
+	// When the preview has drawn a different slide, re-run the lint pass. A tooltip that reads the photo behind a card
+	// (`thin-card-no-ink`) is built from the frame, which shows the caret's slide, so a tooltip built while another slide
+	// was on show is stale once the frame catches up. The preview says which slide it drew (preview-render-event.ts).
+	React.useEffect(() => {
+		let drawn = -1;
+		const onDrawn = (e: Event) => {
+			const unit = (e as CustomEvent<{ unit: number }>).detail?.unit;
+			if (unit === undefined || unit === drawn) return;
+			drawn = unit;
+			// `forceLinting` would only hurry a pass already scheduled; this asks for a new one.
+			viewRef.current?.dispatch({ effects: relintEffect.of(null) });
+		};
+		window.addEventListener(PREVIEW_RENDER_EVENT, onDrawn);
+		return () => window.removeEventListener(PREVIEW_RENDER_EVENT, onDrawn);
+	}, []);
 
 	// External value changes — a version restore, an AI apply, a surgical slide-settings or
 	// note write — replace the doc without losing the editor. Two shapes:

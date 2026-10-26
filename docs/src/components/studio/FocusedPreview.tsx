@@ -20,6 +20,7 @@ import DeckPreview, { type DeckPreviewProps } from '@/components/DeckPreview';
 import type { DeckIndex } from '@/lib/deck-outline';
 import type { FocusHub } from '@/lib/fuoco/hub';
 import { useFocus } from '@/lib/fuoco/react';
+import { announcePreviewRender } from './preview-render-event';
 
 type PaneMod = typeof import('./pane-pages');
 
@@ -73,6 +74,7 @@ export function FocusedPreview({ hub, index, viewChunks, viewIndex, panePaneCoun
 				shown: many ? 0 : (report.page?.index ?? 0),
 				canSplit: report.canSplit || deckRuns,
 			});
+			announcePreviewRender(c);
 		},
 		[hub, index, viewChunks, deckRuns],
 	);

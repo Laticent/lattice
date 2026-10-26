@@ -154,3 +154,30 @@ test('a deck-level image-card register change clears the finding without touchin
 	await readSettled(page, 'image-card: light');
 	await expect(warning).toHaveCount(0);
 });
+
+// The preview follows the caret even where it is parked (the phone's Source tab): crossing to a slide draws it once, and the
+// editor re-lints after, so the tooltip for the slide the caret is on reads ITS photo and offers the single ink.
+const THREE = ['---\ntitle: Photos\n---\n', ...[1, 2, 3].map((n) => `\n<!-- _class: image spotlight card-clear -->\n\n## Slide ${n}\n\n![bg](sample:photo-wide.svg)\n`)].join('\n---\n').replace('---\n\n---\n', '---\n\n');
+for (const width of [1440, 390]) {
+	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
+	test(`moving the caret to another slide gives that slide's tooltip the single ink (${width}px)${engines}`, async ({ page }) => {
+		await page.setViewportSize({ width, height: 844 });
+		await gotoStudio(page);
+		await typeDeck(page, THREE);
+		if (width < 700) await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+		// The caret is on slide 3 after typing; move it to slide 1 (title block is 3 lines, then a blank, then slide 1's class line).
+		await page.locator('.cm-content').click();
+		await page.keyboard.press('ControlOrMeta+Home');
+		for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowDown');
+		const light = page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' });
+		const dark = page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' });
+		// The first pass after the move may still offer both (the preview had not drawn slide 1 yet); the re-lint settles it.
+		await expect(async () => {
+			// Leave the line first: an already-open tooltip keeps the actions it was built with.
+			await page.mouse.move(700, 600);
+			await page.locator('.cm-lintRange-warning').first().hover();
+			await expect(light).toBeVisible({ timeout: 3000 });
+			await expect(dark).toHaveCount(0);
+		}).toPass({ timeout: 40_000 });
+	});
+}

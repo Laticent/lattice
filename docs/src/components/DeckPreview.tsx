@@ -120,6 +120,14 @@ export type DeckPreviewProps = {
 	 */
 	active?: boolean;
 	/**
+	 * While `active` is false, still draw ONCE when the shown slide (or deck) changes, so a parked frame
+	 * names the slide the author is on. Edits stay deferred; only a slide crossing renders. Off by default:
+	 * a hidden host that nobody reads should not pay for it. The Studio's phone Source tab turns it on,
+	 * because the editor's tooltips read the frame (the thin-card ink pick) and the frame is otherwise
+	 * left on whichever slide was last shown there.
+	 */
+	followWhenParked?: boolean;
+	/**
 	 * FRAME-ALIGNED coalescing for a live-editing host (per-keystroke source
 	 * edits). Instead of a trailing timer, a change marks the preview dirty and
 	 * schedules ONE render on the next animation frame; a burst of keystrokes
@@ -224,6 +232,7 @@ export function DeckPreview({
 	modeOverride,
 	extraCss,
 	active = true,
+	followWhenParked = false,
 	coalesce = false,
 	className,
 	frame,
@@ -301,6 +310,8 @@ export function DeckPreview({
 	const stageRef = React.useRef<HTMLElement>(null);
 	const activeRef = React.useRef(active);
 	activeRef.current = active;
+	// One parked render is owed after a slide change (`followWhenParked`); the render guard spends it.
+	const parkedOwedRef = React.useRef(false);
 	// One-shot first-render signal (SSG instant-shell dismissal). Held in refs so
 	// firing it never enters `render`'s dependency list.
 	const onFirstRenderRef = React.useRef(onFirstRender);
@@ -524,7 +535,8 @@ export function DeckPreview({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: extraTheme is read whole; its identity is captured by (name, css) — depending on the wrapper object would thrash. paneCounts is captured by `paneKey`, its value, for the same reason.
 	const render = React.useCallback(() => {
 		const host = stageRef.current;
-		if (!host || !activeRef.current) return;
+		if (!host || (!activeRef.current && !parkedOwedRef.current)) return;
+		parkedOwedRef.current = false;
 		// The deck-context opts travel as one object, passed only when `slideIndex` is set, so an
 		// omitting host hands the renderer no opts at all — byte-identical to the pre-deck-context call.
 		const done = engineRef.current?.renderInto(host, sample, drawn, paletteOverride, extraTheme, modeOverride, extraCss, slideIndex === undefined ? (allowWeb?.length ? { webOrigins: allowWeb } : undefined) : { slideIndex, slideCount, slideMarkdown, deckId, focused, caretText: caretRef.current, pageIndex, ...(paneCounts ? { paneCounts, panePage } : {}), webOrigins: allowWeb });
@@ -753,6 +765,15 @@ export function DeckPreview({
 	// isn't called in the body (the scheduler reaches it via renderRef), but its
 	// identity flips whenever any render input changes, which is exactly when we
 	// want to re-run — so it stays in the deps despite not being referenced.
+	// A parked host that follows the slide: owe one render when the slide or deck changes. Declared BEFORE the
+	// change-trigger effect below, so the debt is on the books when that effect schedules the frame.
+	const parkedSlideRef = React.useRef(`${deckId ?? ''}|${slideIndex ?? ''}`);
+	React.useEffect(() => {
+		const at = `${deckId ?? ''}|${slideIndex ?? ''}`;
+		if (at === parkedSlideRef.current) return;
+		parkedSlideRef.current = at;
+		if (followWhenParked && !activeRef.current) parkedOwedRef.current = true;
+	}, [deckId, slideIndex, followWhenParked]);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `render` is the intentional change-trigger; the body reads only refs + `coalesce`.
 	React.useEffect(() => {
 		coalesceRef.current += 1;
