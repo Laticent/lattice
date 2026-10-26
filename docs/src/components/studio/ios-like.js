@@ -1,5 +1,8 @@
-// Kept out of download.js so a caller on the Studio's eager path (deck-import-accept.ts)
-// can ask "is this iOS?" without loading the download machinery with it.
+// The eager-path copy of download.js's isIOSLike, for deck-import-accept.ts. It is a copy,
+// not an import in either direction, because Rolldown places download.js in the same chunk
+// as anything download.js imports: when download.js imported this file, all of download.js
+// moved onto the Studio's first paint (+874 gzip bytes, check:route-budget). ios-like.test.ts
+// holds the two copies to the same answers.
 
 const nav = () => (typeof navigator === 'undefined' ? null : navigator);
 
