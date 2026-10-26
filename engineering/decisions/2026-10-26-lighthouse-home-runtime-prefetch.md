@@ -3,12 +3,11 @@ status: shipped
 summary: >
   Lighthouse mobile, reproduced on the built site over HTTP/2: Studio 48-55, Playground 42-51, home 56-66, against a target
   of 90. Two causes dominate. Total blocking time is script work (React, the island, the preview runtime). The simulated
-  first and largest paints count every download that starts before the real paint. On home, the largest single such
-  download was the 461 KB preview-runtime prefetch in the page head. Dropping it from the home page moves home's LCP from
-  4.7-5.6 s to 2.2-2.7 s and its score from 56-61 to 66-76, and the hero's first slide gets about 0.15 s faster. Starting
-  the prefetch on `load` instead was built first and measured slower for the hero, so it did not ship. Studio and
-  Playground are held by ~750-900 KB of module-preloaded JavaScript before the paint, which
-  2026-10-23-startup-bake-off.md E7 already measured and declined, so 90 there still needs the boot-order redesign.
+  first and largest paints count every download that starts before the real paint. On a LOCAL server the home page's
+  461 KB runtime prefetch started before the hero painted, and dropping it moved home from 56-61 to 66-76. On the real
+  Cloudflare CDN, A/B against a preview with the same engine build, the change is NEUTRAL: home 73-80 with the prefetch and
+  75-78 without, LCP identical, the hero's first slide within noise on Chromium and a little faster on WebKit. It ships as
+  harmless, not as a win. Studio and Playground are held by module-preloaded JavaScript and need the boot-order redesign.
 ---
 
 # Lighthouse: what holds each page below 90, and the home page's runtime prefetch
@@ -121,3 +120,27 @@ still loads `lattice-playground.js`), so these are absolute numbers for the ship
 every download and task before it and is 94% render delay (9.5 s). A caption present in the pre-paint HTML, or one that
 is not the largest text in the first viewport, would move that number the way the hero `h1` moved home's. Recorded in
 followup 2868-p1.
+
+## 7. The real CDN contradicts the local win (added after the PR opened)
+
+Base: PR #2907's Cloudflare preview (`claude/fix-g-webkit-pptx`), which carries the same engine and runtime build as this PR
+(asset hash `82c143b5765c`) and still has the home prefetch; its own change is the Studio's PowerPoint export. Head: this
+PR's preview. Both on Cloudflare Pages (Brotli), measured from this sandbox, interleaved.
+
+| Measure | Base (prefetch) | Head (none) |
+|---|---|---|
+| Lighthouse home, 5 runs: score | 73, 77, 77, 78, 80 | 75, 77, 78, 78, 78 |
+| LCP | 1.88-2.21 s | 1.88-2.18 s |
+| Hero first slide, Chromium phone profile, 3 batches of 4, medians | 3.96, 3.78, 3.94 s | 4.08, 3.84, 3.97 s |
+| Hero first slide, WebKit unthrottled, 2 batches of 4, medians | 2.97, 2.29 s | 2.23, 2.18 s |
+
+**The §5 gain does not reproduce on the real host.** Served locally, every request returns at once, so the prefetch STARTED
+before the hero's real paint and Lighthouse's simulation charged its 461 KB to the LCP. Over the CDN it starts later than
+that paint and drops out of the LCP graph, so base and head score the same. Chromium's first slide reads about 70 ms
+slower by mean of medians with fully overlapping ranges, and WebKit's reads faster: neither is a measured difference.
+
+So the change is neutral for real visitors. It stays because it is harmless on every surface measured, removes a 461 KB
+download a visitor who leaves before the hero renders never needed, and wins on the local profile; it is not a Lighthouse
+improvement and must not be cited as one. This also means the deployed home page already scores 73-80, so the remaining gap
+to 90 there is TBT, not LCP. The lesson for the next pass: measure Lighthouse candidates on a CDN preview before calling a
+local win, because the simulation depends on when requests start in the real trace.

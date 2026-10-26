@@ -191,12 +191,11 @@ const specs = specsNav(url);
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<ResourceHints />
-		{/* NO RUNTIME PREFETCH HERE, measured (2026-10-26-lighthouse-home-runtime-prefetch.md).
-		    The hero renders its slide only after the engine has downloaded, and a 461 KB
-		    runtime prefetch competes with that download: without it the hero's first slide
-		    is 4.08-4.09 s against 4.30-4.31 s with the head tag and 4.31-4.44 s with one
-		    started on `load` (phone profile, HTTP/2, interleaved), and Lighthouse LCP falls
-		    from 4.6-4.9 s to 2.5-2.7 s. The iframe fetches the runtime when it needs it. */}
+		{/* NO RUNTIME PREFETCH HERE (2026-10-26-lighthouse-home-runtime-prefetch.md). The hero
+		    renders only after the engine downloads, so a 461 KB runtime prefetch can only share the
+		    link with that download. Locally it cost the hero's first slide ~0.2 s and Lighthouse
+		    ~2 s of LCP; on the real CDN both were unchanged within noise (§7). Neutral there, a
+		    win locally, and one download fewer: the iframe fetches the runtime when it needs it. */}
 		<title>Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)</title>
 		<meta
 			name="description"

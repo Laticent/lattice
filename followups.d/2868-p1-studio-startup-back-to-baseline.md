@@ -25,9 +25,9 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             do not get there (E7). What is left is the script work itself: React ~800 ms, the runtime's chart builders (0.2 s ceiling,
             changes export bytes), ~1.9 s unattributed. Target (3), a CI time budget, is the owner's call; the harness spread (stdev
             ~30-60 ms) supports a same-job comparison.
-            2026-10-26, session F (engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md): home 56-61 -> 66-76
-            (LCP 4.7-5.6 s -> 2.2-2.7 s) by dropping the home page's runtime prefetch, which also made the hero's first slide
-            ~0.15 s sooner. Studio (48-60) and Playground (42-47) unchanged: their paint waits on 750-900 KB of module-preloaded
+            2026-10-26, session F (engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md): dropping the home
+            page's runtime prefetch moved home 56-61 -> 66-76 on a LOCAL server but was NEUTRAL on the real CDN (73-80 vs
+            75-78, note §7): local Lighthouse runs overstate download cost, so measure candidates on a CDN preview. Studio (48-60) and Playground (42-47) unchanged: their paint waits on 750-900 KB of module-preloaded
             JS and TBT is React, the island and the runtime (per-script table in the note §2). None is at 90; the boot-order
             redesign (next 3) is still the route, and TBT is now home's largest remaining weight.
             Deployed (the PR's Cloudflare preview): home 71-76, Studio 66-71, Playground 37-44. The Playground's LCP element is

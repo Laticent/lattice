@@ -329,8 +329,8 @@ uses the real faces; and the decorative overlay is `pointer-events:none` from th
    URL can't drift from the pages' `runtimeUrl`).
    **Updated 2026-10-26:** the home page no longer carries `RuntimeWarm`. Its hero renders only after
    the engine downloads, and the prefetch shared the link with that download: the hero's first slide
-   measured 4.08 s without it against 4.30 s with it, and Lighthouse LCP 2.2-2.7 s against
-   4.7-5.6 s. The Studio already warms from its island (2026-10-23-studio-boot-order.md); the
+   measured 4.08 s without it against 4.30 s with it on a local server, and Lighthouse LCP 2.2-2.7 s
+   against 4.7-5.6 s there; on the real CDN both were unchanged within noise (the record's §7). The Studio already warms from its island (2026-10-23-studio-boot-order.md); the
    component pages keep the static tag. Record: `2026-10-26-lighthouse-home-runtime-prefetch.md`.
 5. **Split the map basemaps out of the runtime bundle — ATTEMPTED, REVERTED (the naive
    cut breaks a shipping host).** The three pre-projected GeoJSON basemaps (`map.basemap*.json`)

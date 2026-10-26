@@ -1,3 +1,3 @@
-- The home page no longer prefetches the slide preview's runtime. The 461 KB download competed with the engine the hero waits on and was counted against the page's largest paint: Lighthouse mobile LCP drops from 4.7-5.6 s to 2.2-2.7 s, the score rises from 56-61 to 66-76, and the hero's first slide arrives about 0.15 s sooner.
+- The home page no longer prefetches the slide preview's 461 KB runtime in its head. Measured on the real CDN, this is neutral for visitors (Lighthouse and the hero's first slide unchanged within noise); the hero fetches the runtime when it needs it.
 - The Studio splits each saved deck once per load instead of five times, and the service worker lists its cache once per stored file instead of twice.
 - `npm run perf:frame:check` (in `docs/`) now measures the Studio's theme or mode restyle and its full preview rewrite as separate budgets beside the typing budget, and fails if a run stops producing either.

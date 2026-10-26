@@ -64,11 +64,10 @@ describe('live-preview surfaces warm the runtime', () => {
 		});
 	}
 
-	// The home page measured FASTER without the warm: its hero renders only after the engine
-	// downloads, and the prefetch competed with that download (first slide 4.08 s without, 4.30 s
-	// with), while Lighthouse counted the early download against the hero's largest paint.
-	// engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md.
-	it('pages/index.astro does NOT warm the runtime (measured slower for the hero)', () => {
+	// The home page carries no warm: its hero renders only after the engine downloads, so the
+	// prefetch can only share the link with that download. Faster without it on a local server,
+	// neutral on the real CDN (engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md §7).
+	it('pages/index.astro does NOT warm the runtime (no measured benefit for the hero)', () => {
 		const s = read('pages/index.astro');
 		expect(s).not.toMatch(/<RuntimeWarm\s*\/>/);
 		expect(s).not.toContain("import RuntimeWarm from");
