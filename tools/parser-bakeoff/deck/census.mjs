@@ -84,10 +84,16 @@ export function classifyPattern(pattern, flags = '') {
   // line readers anchor with ^ and $, which only mean "line" under the m flag, so try both spellings
   const reM = flags.includes('m') ? re : compile(pattern, `${flags.replace(/[gy]/g, '')}m`);
   const res = [re, reM].filter(Boolean).map((r) => new RegExp(r.source, `${r.flags}g`));
-  const hit = (str) => res.some((r) => ((r.lastIndex = 0), r.test(str)));
+  const hit = (str) => res.some((r) => {
+    r.lastIndex = 0;
+    return r.test(str);
+  });
   // a positive counts only when the text the pattern MATCHES holds the marker: `/^[a-z][a-z0-9-]*$/m`
   // accepts the probe line "a" but has read nothing of the break, the fence or the comment
-  const hitsMarker = (str, marker) => res.some((r) => ((r.lastIndex = 0), [...str.matchAll(r)].some((m) => marker.test(m[0]))));
+  const hitsMarker = (str, marker) => res.some((r) => {
+    r.lastIndex = 0;
+    return [...str.matchAll(r)].some((m) => marker.test(m[0]));
+  });
   return Object.entries(PROBES)
     .filter(([k, { yes, no }]) => !no.some(hit) && yes.some((y) => hitsMarker(y, MARKER[k])))
     .map(([k]) => k);

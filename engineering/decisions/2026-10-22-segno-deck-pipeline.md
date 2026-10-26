@@ -175,6 +175,29 @@ is not comparable with the five above: markdown-it itself read 60.9 MB/s here ag
 and the hand-written arm's 1.57x is above their 1.15-1.36x range. `--runs N` is what the second-machine re-run (follow-up #2869)
 uses.
 
+**Two more sets of five runs (2026-10-26, `npm run parser:bakeoff:deck -- --arms --runs 5`, at `112271f`).**
+Both are 4-core Intel Xeon at 2.10 GHz under KVM, Node 22.22, 1,259 files, every arm at parity in all
+ten runs. The second ran in a separate cloud container started for the purpose. `lscpu` shows the same
+CPU model for both, so it cannot say whether the host differs; the markdown-it baseline did (59.1 MB/s
+here, 93.9 there), so the two are different VMs in practice. Median and range of five; a ratio is
+against markdown-it in the same run.
+
+| Arm | Machine 1 (this session) | Machine 2 (separate container) |
+|---|---|---|
+| markdown-it, block structure only | 59.1 MB/s (57.9-59.4) | 93.9 MB/s (86.2-100.5) |
+| markdown-it's rules on a typed line index | 1.38x (1.27-1.51) | 1.37x (1.23-1.54) |
+| plus the hand-written line pass | 1.48x (1.42-1.53) | 1.25x (1.14-1.54) |
+| plus the Segno-generated line pass | 1.17x (1.15-1.21) | 1.08x (1.00-1.32) |
+| line pass alone, hand vs Segno | 557 vs 270 MB/s | 711 vs 315 MB/s |
+
+What the second machine settles. **The staged shape wins on both**, 1.14-1.54x with the hand-written
+pass at exact parity, so conclusion 1 above stands. **The generated pass is the weak link on both**:
+1.00-1.32x, one run in five at parity with markdown-it, and the hand loop is 2.06x (machine 1) and
+2.26x (machine 2) faster than the generated one, so conclusion 3 stands and G6 is what a generic
+spine needs. **The size of the win does not transfer between machines**: the hand-written arm reads 1.48x on
+one and 1.25x on the other, so quote a range, and never a single run, for the speed target in §
+Speed targets. The first set of five (above) sits inside these two for the staged arms.
+
 ## The design: four stages, one tape
 
 ```
