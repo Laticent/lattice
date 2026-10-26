@@ -75,6 +75,7 @@ import { FindingCard, type FindingFixState } from './coach/FindingCard';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
+import { deckImportAccept } from './deck-import-accept';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
@@ -162,14 +163,6 @@ import type { WebImageSummary } from './web-images';
 import { markWelcomed, shouldAutoWelcome } from './welcome-state';
 import { isEvictionProneBrowser, takeRestoreReport } from './workspace-backup-meta';
 import { workspaceLensConfig } from './workspace-lenses';
-
-// What "Import deck…" offers in the file picker — every format deck-import.ts reads. Kept
-// here, not in deck-import.ts, so the picker never pulls the reader onto the eager path.
-const DECK_IMPORT_ACCEPT = [
-	'.lattice', '.md', '.markdown', '.mdx', '.txt', '.html', '.htm', '.pdf', '.pptx',
-	'text/markdown', 'text/plain', 'text/html', 'application/pdf',
-	'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-].join(',');
 
 // The Fabricate studio (theme / component / finish fabrication) is a large,
 // self-contained subtree — FinishStudio, LayoutStudio, CodeField, the manifest
@@ -7680,7 +7673,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
 			    Files grays out anything `accept` does not name, and `.lattice` has no
 			    registered type. What each format means is deck-import.ts's job. */}
-			<input ref={importInputRef} type="file" accept={DECK_IMPORT_ACCEPT} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
+			<input ref={importInputRef} type="file" accept={deckImportAccept()} onChange={onImportFile} className="hidden" aria-hidden="true" tabIndex={-1} />
 
 			{/* The one toast surface. What lands here is `lib/notify.ts`'s three kinds. */}
 			{live.lobby && (
