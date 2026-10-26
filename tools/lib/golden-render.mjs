@@ -87,7 +87,7 @@ export function renderGallery(root, galleryMd, theme) {
   const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
   try {
     if (theme === 'light') {
-      execFileSync(process.execPath, [emulator, galleryMd, themeCss, outPdf, 'indaco', '-q'], {
+      execFileSync(process.execPath, [emulator, galleryMd, themeCss, outPdf, 'indaco', '-q', '--size', 'deck'], {
         cwd: root,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -95,7 +95,7 @@ export function renderGallery(root, galleryMd, theme) {
       const tmpMd = join(dir, `.regr-${name}.${theme}.md`);
       cleanup.push(tmpMd, tmpMd.replace(/\.md$/, '.html'));
       writeFileSync(tmpMd, injectDark(readFileSync(galleryMd, 'utf8')));
-      execFileSync(process.execPath, [emulator, tmpMd, themeCss, outPdf, 'indaco', '-q'], {
+      execFileSync(process.execPath, [emulator, tmpMd, themeCss, outPdf, 'indaco', '-q', '--size', 'deck'], {
         cwd: root,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -113,7 +113,7 @@ export function renderGallery(root, galleryMd, theme) {
 // A deck golden's fresh render. Same asset-resolution constraint as above.
 //
 // The invocation MUST match the producers' exactly — `build-staged-pdfs.js` (the
-// pre-commit hook) and `build-exemplar-pdfs.js` both run `[EMULATOR, src, out]` with no
+// pre-commit hook) and `build-exemplar-pdfs.js` both run `[EMULATOR, src, out, '--size', 'deck']` with no
 // CSS path and no palette argument, so the deck's own `theme:` front matter decides.
 // Passing a theme CSS / palette the way the gallery path does would override the deck's
 // theme and false-fail every deck that names another one.
@@ -122,7 +122,7 @@ export function renderDeck(root, md) {
   const outPdf = join(dirname(md), `.regr-${basename(md, '.md')}.pdf`);
   const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
   try {
-    execFileSync(process.execPath, [emulator, md, outPdf, '-q'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync(process.execPath, [emulator, md, outPdf, '-q', '--size', 'deck'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (err) {
     cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
     throw err;

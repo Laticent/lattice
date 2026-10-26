@@ -364,7 +364,7 @@ function renderProbe(deck, label, { format = 'pdf', palette = null, keep = false
   // that point would strand it, so the flag decides in the finally.
   let handedOver = false;
   try {
-    const args = [EMULATOR, src, '-o', out, '--no-split', '-q'];
+    const args = [EMULATOR, src, '-o', out, '--no-split', '-q', '--size', 'deck'];
     if (palette) args.push('-p', palette);
     const r = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8', timeout: 180000 });
     const log = `${r.stdout || ''}\n${r.stderr || ''}`;

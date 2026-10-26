@@ -66,7 +66,7 @@ instead.
 | `-p`, `--palette <name>` | The palette, instead of the positional one |
 | `-c`, `--css <path>` | Replace the bundled `lattice.css` layout sheet. For engine development, not for decks |
 | `-q`, `--quiet` | Print errors only |
-| `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K`. A deck whose `size:` is 4K exports its PDF, PPTX and ODP at HD (1280x720) unless you pass `--size 4k`, because the pixels are what make the file big (typically 1.6x for a PDF, 2x for PowerPoint). The command says when it lowered the size and prints the finished file's size |
+| `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K`. A deck whose `size:` is 4K exports its PDF, PPTX and ODP at HD (1280x720) unless you pass `--size 4k` (or `--size deck`, which means exactly the size the deck declares), because the pixels are what make the file big (typically 1.6x for a PDF, 2x for PowerPoint). The command says when it lowered the size and prints the finished file's size |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
 | `--allow-remote` | Let the render fetch web images, media and fonts, and let the plain `.html` keep remote scripts, frames and stylesheets. Off by default, so web images show as placeholders and a remote `<script src>`, `<iframe>` or `<link rel=stylesheet>` in the `.html` is refused |
 | `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |

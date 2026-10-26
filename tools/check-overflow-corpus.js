@@ -103,7 +103,7 @@ function corpus() {
 function probe(deck) {
   return new Promise((resolve) => {
     const out = path.join(WORK, deck.replace(/[/\\]/g, '_').replace(/\.md$/, '') + '.pdf');
-    const child = spawn(process.execPath, [EMULATOR, path.join(ROOT, deck), out], { cwd: ROOT, env: process.env });
+    const child = spawn(process.execPath, [EMULATOR, path.join(ROOT, deck), out, '--size', 'deck'], { cwd: ROOT, env: process.env });
     let buf = '';
     const grab = (d) => { buf += d.toString(); };
     child.stdout.on('data', grab);

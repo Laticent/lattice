@@ -25,3 +25,10 @@ test('is4k reads the size name the way the deck writes it', () => {
   assert.equal(is4k('hd'), false);
   assert.equal(is4k(undefined), false);
 });
+
+test('--size deck keeps exactly what the deck declares, so the repo\'s own renders measure a 4K deck at 4K', () => {
+  const { exportCanvas } = require('../../../lib/core/export-canvas.js');
+  assert.deepEqual(exportCanvas({ deckSize: '4k', requested: 'deck', format: 'pdf' }), { size: null, loweredFrom4k: false });
+  assert.deepEqual(exportCanvas({ deckSize: '4k', requested: 'DECK', format: 'pptx' }), { size: null, loweredFrom4k: false });
+  assert.equal(exportCanvas({ deckSize: '4k', format: 'pdf' }).size, 'hd', 'no choice still lowers');
+});
