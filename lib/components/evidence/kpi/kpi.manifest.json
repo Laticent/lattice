@@ -126,7 +126,7 @@
     },
     {
       "title": "A fifth metric — or a fourth that is not terse",
-      "body": "The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead of clipping, so a long ledger there is divided into a run rather than cut.)"
+      "body": "Three is the allowance at a wide @size; a fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length: the export clips it and names the page. Split across slides, or use `stats`, which drops the targets and pills and holds more rows."
     },
     {
       "title": "Reaching for attention or spotlight to carry a fifth metric",

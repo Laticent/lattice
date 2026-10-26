@@ -58,7 +58,7 @@ Section boundary slide. Dark canvas with a single heading.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · divider" -->
 
 ## When NOT to reach for divider.

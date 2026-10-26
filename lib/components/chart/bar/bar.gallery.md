@@ -144,7 +144,7 @@ Bars from a zero baseline that compare magnitude across categories — as column
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · bar · 1 of 2" -->
 
 ## When NOT to reach for bar.
@@ -153,16 +153,16 @@ Bars from a zero baseline that compare magnitude across categories — as column
   - If the categories add up to a total and the split is the story, use `piechart` or `stacked-bar`. A plain bar says nothing about it.
 - A continuous series over time
   - Twelve monthly bars ask a reader to compare twelve lengths when the claim is a trend. Use `line`, whose job is the movement.
-- A percentage against a target
-  - '68% of goal' is attainment, not magnitude across categories. `progress` shows attainment; `bullet` adds the target and the band.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · bar · 2 of 2" -->
 
 ## When NOT to reach for bar.
 
+- A percentage against a target
+  - '68% of goal' is attainment, not magnitude across categories. `progress` shows attainment; `bullet` adds the target and the band.
 - A rainbow single series
   - One series is one hue by design: the length carries the comparison. Color earns its place in `grouped`, where it names the series.
 

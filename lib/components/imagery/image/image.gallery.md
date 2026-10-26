@@ -363,7 +363,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · image · 1 of 2" -->
 
 ## When NOT to reach for image.
@@ -375,7 +375,7 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · image · 2 of 2" -->
 
 ## When NOT to reach for image.

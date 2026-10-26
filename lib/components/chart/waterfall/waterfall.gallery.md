@@ -143,7 +143,7 @@ A bridge from one total to another through signed contributions, each bar starti
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · waterfall · 1 of 2" -->
 
 ## When NOT to reach for waterfall.
@@ -152,16 +152,16 @@ A bridge from one total to another through signed contributions, each bar starti
   - Revenue by region, spend by department — nothing accumulates, so the floating geometry is a lie. Use `bar`.
 - Parts of one total, all positive
   - Every contribution a positive share of one whole is a stack, not a walk: use `stacked-bar`, or `piechart` for one total.
-- A monotonic pipeline that narrows
-  - Visitors to signups to paid is a subset at every stage, not signed contributions. Use `funnel`, whose taper IS the rate.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · waterfall · 2 of 2" -->
 
 ## When NOT to reach for waterfall.
 
+- A monotonic pipeline that narrows
+  - Visitors to signups to paid is a subset at every stage, not signed contributions. Use `funnel`, whose taper IS the rate.
 - Drivers that are 1% of the anchors
   - A walk from 12.0M to 11.9M in steps of 20k is two anchors and a row of hairlines. Say it in a `big-number` instead.
 

@@ -129,28 +129,20 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · gantt · 1 of 3" -->
+<!-- _class: cards-grid -->
+<!-- _footer: "Anti-patterns · gantt · 1 of 2" -->
 
 ## When NOT to reach for gantt.
 
 - Single workstream
   - One lane of bars is a timeline, not a gantt. Use `timeline` or `list-steps` when there is no parallel work to coordinate.
-
----
-
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · gantt · 2 of 3" -->
-
-## When NOT to reach for gantt.
-
 - More rows than the stage holds
-  - Count ROWS, not lanes: overlapping tasks stack, and inclusive spans overlap more than they look (`Q1..Q2` then `Q2..Q3` share Q2). With a status key, four one-row lanes fit an ordinary slide and five overflow. The chart does not shrink to absorb them — the bars keep their size, the chart grows taller, and past the budget it overflows and the render says so. Group lanes (collapse 'SDK' subdomains into 'SDK'), make genuinely sequential phases non-overlapping, or split into two slides.
+  - Count rows, not lanes: overlapping tasks stack, and inclusive spans (`Q1..Q2` then `Q2..Q3`) share Q2. With a status key, four one-row lanes fit and five overflow; the bars keep their size. Group lanes, make sequential phases non-overlapping, or split into two slides.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · gantt · 3 of 3" -->
+<!-- _class: cards-grid -->
+<!-- _footer: "Anti-patterns · gantt · 2 of 2" -->
 
 ## When NOT to reach for gantt.
 

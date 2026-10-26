@@ -81,7 +81,7 @@
   "antiPatterns": [
     {
       "title": "A section with one topic, or with ten",
-      "body": "Below two there is no scale to draw and the track is suppressed, leaving a slide that is a `divider light` with extra chrome — use `divider light`. Past nine the track has ramped its labels down twice and still runs out of room; a section with ten topics is two sections, so split it with another `divider`. If what you want is the deck's contents rather than one section's, that is `agenda`."
+      "body": "Below two the track is suppressed and the slide is a `divider light` with extra chrome — use `divider light`. Past nine the labels have ramped down twice and still run out of room; split it with another `divider`. For the deck's contents, use `agenda`."
     },
     {
       "title": "A full sentence as the heading",

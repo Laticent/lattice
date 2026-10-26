@@ -33,6 +33,7 @@ skill. The other five are authorable end-to-end from the file.
 | A **chart component** — a data visualization in the chart family | [`chart-component.md`](./chart-component.md) |
 | A **finish** — a `finish:` backdrop layer stack | [`finish.md`](./finish.md) |
 | A **lens** — a reader-side subset projection of a deck (Lente) | [`lens.md`](./lens.md) |
+| A **component showcase** — the gallery slides that teach one component, with word budgets per slide form | [`component-showcase.md`](./component-showcase.md) |
 | **Speaker notes, reviews, and captions** — the channels that travel with a slide, plus the evaluative rubric for reviewing a deck | [`speaker-notes.md`](./speaker-notes.md) |
 
 The eighth skill does not create anything. It operates on a finished deck:

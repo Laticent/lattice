@@ -349,7 +349,7 @@ Native radar / spider chart — items rated across multiple axes.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · radar" -->
 
 ## When NOT to reach for radar.

@@ -99,7 +99,7 @@ One quantity cut into bands that join end to end: each bar is as wide as its ban
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · histogram" -->
 
 ## When NOT to reach for histogram.

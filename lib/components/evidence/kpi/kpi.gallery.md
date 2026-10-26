@@ -223,28 +223,20 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · kpi · 1 of 3" -->
+<!-- _class: cards-grid -->
+<!-- _footer: "Anti-patterns · kpi · 1 of 2" -->
 
 ## When NOT to reach for kpi.
 
 - Decorative pills without status semantics
   - The pills read as status, not freeform tags. Status color is assigned by each KPI's row position within the modifier — the engine never reads the pill text — so reserve them for the status vocabulary the position implies (`On plan`, `At risk`, `Breaching`, `Compliant`, `Remediating`). Arbitrary labels land a color that has nothing to do with the words.
-
----
-
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · kpi · 2 of 3" -->
-
-## When NOT to reach for kpi.
-
 - A fifth metric — or a fourth that is not terse
-  - The supports divide whatever the title and eyebrow leave them, so count trades against label length. Measured at a **wide** @size — the box a deck is authored in, and the one where nothing paginates past the budget: three is the allowance, and a short label plus a target line fits up to a two-line title, with or without an eyebrow. A fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length. Past that the ledger spills, and the export clips it and names the page — nothing shrinks silently to make room. Split across slides, or use `stats`, which drops the targets and pills and holds more rows. (A portrait or square deck paginates instead of clipping, so a long ledger there is divided into a run rather than cut.)
+  - Three is the allowance at a wide @size; a fourth needs everything terse — one status pill, no eyebrow, a one-line title. A fifth fits at no label length: the export clips it and names the page. Split across slides, or use `stats`, which drops the targets and pills and holds more rows.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · kpi · 3 of 3" -->
+<!-- _class: cards-grid -->
+<!-- _footer: "Anti-patterns · kpi · 2 of 2" -->
 
 ## When NOT to reach for kpi.
 

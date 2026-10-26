@@ -45,7 +45,7 @@ Marks a topic WITHIN a section, where `divider` marks the boundary BETWEEN secti
 
 ## When NOT to use
 
-- **A section with one topic, or with ten.** Below two there is no scale to draw and the track is suppressed, leaving a slide that is a `divider light` with extra chrome — use `divider light`. Past nine the track has ramped its labels down twice and still runs out of room; a section with ten topics is two sections, so split it with another `divider`. If what you want is the deck's contents rather than one section's, that is `agenda`.
+- **A section with one topic, or with ten.** Below two the track is suppressed and the slide is a `divider light` with extra chrome — use `divider light`. Past nine the labels have ramped down twice and still run out of room; split it with another `divider`. For the deck's contents, use `agenda`.
 - **A full sentence as the heading.** The heading is also this topic's label in every sibling slide's track. A sentence reads as a headline here and overflows its column there. Short noun phrase; put the sentence in the claim.
 - **More than one per two or three content slides.** A topic anchor is a breath, not a separator. Firing it between every slide makes it chrome and costs it the authority that makes it work.
 - **Carrying a fact that appears nowhere else.** An anchor is deletable without losing information — the section proves the claim on the slides that follow. If the number lives ONLY on this slide, it is a `big-number`, not a `topic`.

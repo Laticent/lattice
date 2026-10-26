@@ -187,7 +187,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · policy-recommendation · 1 of 2" -->
 
 ## When NOT to reach for policy-recommendation.
@@ -196,16 +196,16 @@ Error rates for the proposed system are unpublished for the populations it would
   - If the slide compares alternatives before choosing, use `split-compare` — its right zone is a 2-option grid plus a verdict card. policy-recommendation states one already-chosen position.
 - More than four reasons
   - Past four the panel reads as a memo and the ask loses force. Keep the three strongest reasons here and move the full evidence to `list takeaway numbered`.
-- A recommendation with no ask
-  - Omitting the closing blockquote leaves the reader with a position but no action. Always name the specific legislative move — the bill, the section, the vote.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · policy-recommendation · 2 of 2" -->
 
 ## When NOT to reach for policy-recommendation.
 
+- A recommendation with no ask
+  - Omitting the closing blockquote leaves the reader with a position but no action. Always name the specific legislative move — the bill, the section, the vote.
 - A topic-label heading
   - `## Breach Notification` is a topic, not a recommendation. Say the action: `## Adopt a 30-day breach-notification deadline.`
 

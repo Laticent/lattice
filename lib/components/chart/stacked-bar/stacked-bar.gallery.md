@@ -193,7 +193,7 @@ Bars split into parts, so one chart carries both the total for each category and
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · stacked-bar · 1 of 2" -->
 
 ## When NOT to reach for stacked-bar.
@@ -202,16 +202,16 @@ Bars split into parts, so one chart carries both the total for each category and
   - Only the bottom segment shares a baseline, so a reader sees where 'Services' sits, not whether it grew. Put that part first.
 - Parts that are not parts
   - Stacking revenue, headcount and NPS gives a bar whose height means nothing. The parts must sum to something a reader can name.
-- A long tail of slivers
-  - A 2 % part is one unit of bar height: too thin to see and impossible to label. Consolidate the tail into one 'Other' part.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · stacked-bar · 2 of 2" -->
 
 ## When NOT to reach for stacked-bar.
 
+- A long tail of slivers
+  - A 2 % part is one unit of bar height: too thin to see and impossible to label. Consolidate the tail into one 'Other' part.
 - One category
   - A single stacked bar is a pie drawn as a column, and a pie reads proportions better. This chart earns its shape ACROSS bars.
 

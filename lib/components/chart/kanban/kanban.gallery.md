@@ -150,7 +150,7 @@ Kanban board — columns of cards by stage.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · kanban" -->
 
 ## When NOT to reach for kanban.

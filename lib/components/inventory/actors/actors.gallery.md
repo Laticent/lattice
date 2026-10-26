@@ -107,7 +107,7 @@ Roster of responsibilities owned by named actors.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · actors" -->
 
 ## When NOT to reach for actors.

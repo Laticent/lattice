@@ -52,7 +52,7 @@ Use for project plans with overlapping or staggered tasks. Each task is a bar on
 ## When NOT to use
 
 - **Single workstream.** One lane of bars is a timeline, not a gantt. Use `timeline` or `list-steps` when there is no parallel work to coordinate.
-- **More rows than the stage holds.** Count ROWS, not lanes: overlapping tasks stack, and inclusive spans overlap more than they look (`Q1..Q2` then `Q2..Q3` share Q2). With a status key, four one-row lanes fit an ordinary slide and five overflow. The chart does not shrink to absorb them — the bars keep their size, the chart grows taller, and past the budget it overflows and the render says so. Group lanes (collapse 'SDK' subdomains into 'SDK'), make genuinely sequential phases non-overlapping, or split into two slides.
+- **More rows than the stage holds.** Count rows, not lanes: overlapping tasks stack, and inclusive spans (`Q1..Q2` then `Q2..Q3`) share Q2. With a status key, four one-row lanes fit and five overflow; the bars keep their size. Group lanes, make sequential phases non-overlapping, or split into two slides.
 - **No spans at all.** A gantt mixes bars with the odd milestone — but if every task is a point-in-time event with no durations, use `timeline` or `roadmap milestones`. gantt earns its chrome only when bars carry meaningful length.
 
 ## Authoring

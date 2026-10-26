@@ -94,7 +94,7 @@ The verdict slide — one chosen path, named explicitly.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · decision" -->
 
 ## When NOT to reach for decision.

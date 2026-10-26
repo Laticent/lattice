@@ -109,7 +109,7 @@ function fitsOnASlide(block) {
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · code" -->
 
 ## When NOT to reach for code.

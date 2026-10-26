@@ -162,7 +162,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · logo-wall · 1 of 2" -->
 
 ## When NOT to reach for logo-wall.
@@ -174,7 +174,7 @@ A grid of customer, partner, or funder logos as social proof.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · logo-wall · 2 of 2" -->
 
 ## When NOT to reach for logo-wall.

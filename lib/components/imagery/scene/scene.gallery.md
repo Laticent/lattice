@@ -199,7 +199,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · scene · 1 of 2" -->
 
 ## When NOT to reach for scene.
@@ -211,7 +211,7 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · scene · 2 of 2" -->
 
 ## When NOT to reach for scene.

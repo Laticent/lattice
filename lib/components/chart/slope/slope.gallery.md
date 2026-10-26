@@ -193,7 +193,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · slope · 1 of 2" -->
 
 ## When NOT to reach for slope.
@@ -205,7 +205,7 @@ Two labeled columns joined by one line per entity, so a change in ranking reads 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · slope · 2 of 2" -->
 
 ## When NOT to reach for slope.

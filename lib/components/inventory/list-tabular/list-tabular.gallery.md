@@ -293,7 +293,7 @@ Hairline-ruled ledger of items — name on the left, body on the right.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · list-tabular" -->
 
 ## When NOT to reach for list-tabular.

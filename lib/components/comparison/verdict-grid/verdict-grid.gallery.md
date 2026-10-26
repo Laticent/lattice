@@ -129,7 +129,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · verdict-grid · 1 of 2" -->
 
 ## When NOT to reach for verdict-grid.
@@ -141,7 +141,7 @@ Options scored against criteria as a verdict matrix.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid -->
 <!-- _footer: "Anti-patterns · verdict-grid · 2 of 2" -->
 
 ## When NOT to reach for verdict-grid.

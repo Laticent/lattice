@@ -71,7 +71,7 @@ Single oversized number as the focal claim.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three -->
 <!-- _footer: "Anti-patterns · big-number" -->
 
 ## When NOT to reach for big-number.
