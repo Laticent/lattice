@@ -829,6 +829,162 @@ describe('notes-core: say channel (say:)', () => {
     assert.match(mask('a ` stray tick\n\n<!-- A real note. -->\n'), /<!-- A real note\. -->/);
   });
 
+  // #2012 — three shapes got code past the mask, and `--strip-notes` deleted a note-shaped
+  // string out of the SAMPLE. Asserted on the scrubbed SOURCE, which is what ships in the player
+  // envelope and the `--embed-source` attachment; the render already had a guard (#2006).
+  describe('#2012: code after raw HTML, and indented code, keeps its note-shaped text', () => {
+    const NOTE = 'SECRETNOTE r';
+    const set = new Set([NOTE]);
+    const sample = 'let a = "<!-- SECRETNOTE r -->";';
+    const scrub = (src) => core.stripNotesFromSource(src, set);
+    const realNoteGone = (out) => assert.equal(out.split(`<!-- ${NOTE} -->`).length - 1, 1, 'only the sample copy survives');
+
+    test('a fence directly under a one-line note (HTML block type 2 ends on its own line)', () => {
+      const out = scrub(['<!-- SECRETNOTE r -->', '```js', sample, '```', ''].join('\n'));
+      assert.match(out, /```js\nlet a = "<!-- SECRETNOTE r -->";\n```/);
+      realNoteGone(out);
+    });
+
+    test('a fence directly under a <span> line (a paragraph, which a fence interrupts)', () => {
+      const out = scrub(['<!-- SECRETNOTE r -->', '', '<span>x</span>', '```js', sample, '```', ''].join('\n'));
+      assert.match(out, /<span>x<\/span>\n```js\nlet a = "<!-- SECRETNOTE r -->";\n```/);
+      realNoteGone(out);
+    });
+
+    test('a 4-space indented code block', () => {
+      const out = scrub(['<!-- SECRETNOTE r -->', '', 'Sample:', '', '    <!-- SECRETNOTE r -->', '', 'end', ''].join('\n'));
+      assert.match(out, /\n {4}<!-- SECRETNOTE r -->\n/);
+      realNoteGone(out);
+    });
+
+    test('a tab indented code block', () => {
+      const out = scrub(['<!-- SECRETNOTE r -->', '', '\t<!-- SECRETNOTE r -->', ''].join('\n'));
+      assert.match(out, /^\t<!-- SECRETNOTE r -->\n/m);
+      realNoteGone(out);
+    });
+
+    // The leak direction: an indented line markdown-it reads as a NOTE must still be scrubbed.
+    test('an indented line that is NOT code is still scrubbed: lazy continuation, list item', () => {
+      const lazy = scrub(['Intro line', '    <!-- SECRETNOTE r -->', ''].join('\n'));
+      assert.doesNotMatch(lazy, /SECRETNOTE/, 'a paragraph continuation is not code');
+      const listed = scrub(['- item', '', '    <!-- SECRETNOTE r -->', ''].join('\n'));
+      assert.doesNotMatch(listed, /SECRETNOTE/, 'indented content of a list item is not code');
+    });
+
+    test('a block HTML tag line still holds a fence-shaped line until the blank line (type 6/7)', () => {
+      for (const open of ['<div>', '<img src="a.png">', '</details>']) {
+        const out = scrub([open, '```', '<!-- SECRETNOTE r -->', '```', ''].join('\n'));
+        assert.doesNotMatch(out, /SECRETNOTE/, `${open}: the fence line is inside the HTML block, so the comment is a note`);
+      }
+    });
+
+    // Found by the differential run against markdown-it over the repo's 3,943 markdown files: the
+    // old scan paired every `<!--` with the next `-->` over raw text, so a `<!--` shown in INLINE
+    // code spanned to a later comment and hid the real fence between them.
+    test('a <!-- in inline code does not hide the next fence', () => {
+      const src = ['Write `<!-- {` to open one.', '', '```', '<!-- SECRETNOTE r -->', '```', '', 'Prose after.', '', '```', 'second', '```', ''].join('\n');
+      const masked = core.maskCodeRegions(src);
+      assert.match(masked, /\nProse after\.\n/, 'prose between the two fences is not masked');
+      assert.doesNotMatch(masked, /SECRETNOTE/, 'the first fence is masked');
+    });
+
+    // The adversarial trio on the first cut found shapes where the mask hid a comment markdown-it
+    // renders as a REAL note, so `--strip-notes` shipped it and the audit stayed silent. Each was
+    // stripped correctly before #2012; each must stay stripped.
+    test('the trio\'s leak shapes: every real note is still removed', () => {
+      const cases = [
+        '===\n    <!-- S -->\n', // `===` with no paragraph above is text, so the next line continues it
+        'Intro\n\n===\n    <!-- S -->\n',
+        'para\n \n    <!-- S -->\n', // an NBSP line is not blank to markdown-it
+        '<div>\n \n    <!-- S -->\n',
+        '>\n<a href="x">\n```\n<!-- S -->\n\n<!-- S -->\n', // empty `>`: the lone tag opens a block
+        '-\n<a href="x">\n```\n<!-- S -->\n',
+        '[a]: /u\n<span>\n```\n<!-- S -->\n',
+        '> # h\n<span>\n```\n<!-- S -->\n',
+        '<span >\n```\n<!-- S -->\n```\n', // markdown-it's tag whitespace is `\s`
+        '<a　b>\n```\n<!-- S -->\n',
+        '<div>\n`<!-- S -->`\n', // backticks inside an HTML block are markup, not a code span
+        'a \\`<!-- S -->` b\n', // an escaped backtick opens no span
+        '``<!-- S -->`\n', // mismatched runs are not a span
+        '>\n--\n\t<!-- S -->\n', // `--` under no paragraph is text, not a setext underline
+      ];
+      for (const src of cases) assert.doesNotMatch(core.stripNotesFromSource(src, new Set(['S'])), /S -->/, JSON.stringify(src));
+    });
+
+    // The invariant, measured against markdown-it itself: over generated documents built from the
+    // line shapes above, no comment markdown-it renders as a live note is masked. 0 of 200,000 when
+    // written (the scan this replaced: about 7,600 per 100,000).
+    test('no comment markdown-it renders as a note is masked, over generated documents', () => {
+      const md = new (require('markdown-it'))({ html: true });
+      const FR = ['', ' ', ' ', 'text', '===', '---', '--', '-', '>', '> # h', '[a]: /u', 'a | b', '--|--', '# H', '<span>', '<span>x</span>', '<a href="x">', '<a b>', '<div>', '</div>', '```', '```js', '~~~', '    <!-- C -->', '\t<!-- C -->', '<!-- C -->', 'x <!-- C --> y', '- item', '1. item', '  - nested', '<!--', '-->', '<script>', '</script>', '`<!-- C -->`', '<br/>'];
+      let seed = 5;
+      const rnd = (k) => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) % k;
+      for (let n = 0; n < 3000; n++) {
+        let id = 0;
+        const lines = [];
+        for (let i = 2 + rnd(7); i > 0; i--) lines.push(FR[rnd(FR.length)].replace(/C/g, () => `Q${id++}Z`));
+        const src = `${lines.join('\n')}\n`;
+        const out = md.render(src);
+        const masked = core.maskCodeRegions(src);
+        for (let j = 0; j < id; j++) {
+          const at = out.indexOf(`Q${j}Z`);
+          if (at < 0) continue;
+          const before = out.slice(0, at);
+          const live = before.lastIndexOf('<!--') > before.lastIndexOf('-->');
+          assert.ok(!(live && !masked.includes(`Q${j}Z`)), `a live note was masked in ${JSON.stringify(src)}`);
+        }
+      }
+    });
+
+    test('the HTML block names match markdown-it\'s own list', async () => {
+      const { default: names } = await import('markdown-it/lib/common/html_blocks.mjs');
+      assert.deepEqual(core.HTML_BLOCK_NAMES.split('|'), names);
+    });
+
+    // The lone-tag reader (HTML block type 7) is a hand-written linear version of markdown-it's
+    // `HTML_OPEN_CLOSE_TAG_RE + \\s*$`. Disagreeing where markdown-it sees a tag is the LEAK
+    // direction (a fence the scan opens inside what markdown-it reads as HTML), so it is checked
+    // against the real regex on generated near-tags: 300,000 cases, 0 divergences when written.
+    test('the lone-tag reader agrees with markdown-it on generated near-tags', async () => {
+      const { HTML_OPEN_CLOSE_TAG_RE } = await import('markdown-it/lib/common/html_re.mjs');
+      const T7 = new RegExp(`${HTML_OPEN_CLOSE_TAG_RE.source}\\s*$`);
+      const BLOCK = new Set(core.HTML_BLOCK_NAMES.split('|'));
+      let seed = 11;
+      const rnd = (k) => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) % k;
+      const pick = (a) => a[rnd(a.length)];
+      const WS = ['', ' ', '  ', '\t', ' \t'];
+      const names = ['span', 'a', 'x-y', 'my-el2', 'img', 'Custom', '1bad', '-x', 'b'];
+      const attrs = ['href', 'data-x', ':a', '_b', 'a.b', 'x:y', '1z', '-q', 'cl@ss'];
+      const vals = ['v', '"q v"', "'s v'", '"un', "'un", 'a=b', 'a`b', 'a<b', '', '""', "''", 'x/y'];
+      let tags = 0;
+      for (let k = 0; k < 20_000; k++) {
+        let s = `<${pick(names)}`;
+        if (rnd(5) === 0) s = `</${pick(names)}${pick(WS)}>`;
+        else {
+          for (let i = rnd(4); i > 0; i--) s += pick([' ', '  ', '\t', '']) + pick(attrs) + (rnd(2) ? `${pick(WS)}=${pick(WS)}${pick(vals)}` : '');
+          s += pick(WS) + pick(['>', '/>', ' />', '', '>>', '>x']) + pick(['', ' ', '\t ']);
+        }
+        if (rnd(6) === 0) {
+          const i = rnd(s.length);
+          s = s.slice(0, i) + pick(['"', "'", '<', '>', ' ', '=', '`']) + s.slice(i + 1);
+        }
+        const name = (/^<\/?([A-Za-z][A-Za-z0-9-]*)/.exec(s) || [])[1]?.toLowerCase();
+        const type6 = !!name && BLOCK.has(name) && /^<\/?[A-Za-z0-9]+(?=\s|\/?>|$)/.test(s);
+        if (T7.test(s)) tags++;
+        // A block holds the fence on the next line, so its body stays visible in the mask.
+        const held = /XXXX/.test(core.maskCodeRegions(`${s}\n\`\`\`\nXXXX\n\`\`\`\n`));
+        assert.equal(held, T7.test(s) || type6, JSON.stringify(s));
+      }
+      assert.ok(tags > 5_000, `the generator produced ${tags} real tags`);
+    });
+
+    test('a long line of attribute-ish text is read in linear time', () => {
+      const t0 = process.hrtime.bigint();
+      core.maskCodeRegions(`<a${' b'.repeat(100_000)}${' '.repeat(100_000)}\n\n`);
+      assert.ok(Number(process.hrtime.bigint() - t0) / 1e6 < 500);
+    });
+  });
+
   test('a fence-shaped line that is NOT a fence cannot hide a note from the scrub', () => {
     // The position model's one dangerous direction: a phantom code region hides a real note
     // and it ships in the shared file. Both vectors below leaked before the scan learned that
