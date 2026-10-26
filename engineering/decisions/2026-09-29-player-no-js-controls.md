@@ -83,6 +83,9 @@ All in `lib/export/player-core.mjs`, all inert once the script runs (`:not(.lp-j
   the Chromium arm in `integration` and, on the owner's call, the WebKit arm in the blocking
   `player-webkit` job whenever `lib/export/**` or the test changes. Its first run took 3 min
   24 s, beside `integration`.
+  Its limit went from 12 to 25 minutes on 2026-10-26 (PR #2910): `--with-deps` installs
+  about 70 apt packages, and a slow Ubuntu mirror took that step past 10 minutes on two of
+  three runs that day, so the merge queue failed `ci` with all 7 tests passing.
 - **What the test costs the integration tier: about 48 s.** Measured per suite from the
   tier's own log on `87e42c4`: this file took 47.8 s. The file used to export its deck
   three times plus a deck-mode deck; it now exports once and rewrites `data-lp-scheme` for
