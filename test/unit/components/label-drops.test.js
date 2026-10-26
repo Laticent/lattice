@@ -10,7 +10,7 @@
  * The two fixtures below are deliberately the census's OWN detector inputs, copied
  * verbatim rather than re-invented. They are already documented as the shapes that
  * must drop, they are already the numbers the census docblock quotes ("five long
- * names in one quadrant loses two, twenty rows on a `bar` loses ten"), and using a
+ * names in one quadrant loses one, twenty rows on a `bar` loses ten"), and using a
  * third fixture would let this suite pass against a channel wired to a path the
  * census does not exercise.
  */
@@ -71,7 +71,7 @@ describe('the render reports the labels it declined to paint', () => {
   test('a hostile quadrant names what hide-overlap dropped', () => {
     const { drops, component } = dropsOn(HOSTILE_QUADRANT, 'quadrant');
     assert.equal(component, 'quadrant');
-    assert.equal(drops.length, 2, 'the census docblock measures this shape at two lost names');
+    assert.equal(drops.length, 1, 'the census docblock measures this shape at one lost name (two before the scatter dot grew to r=6, which moved the placement)');
     for (const d of drops) {
       assert.equal(d.reason, 'overlap');
       // The NAME, not a count. "2 labels dropped" sends the author back to count.

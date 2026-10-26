@@ -146,6 +146,7 @@ distinct, stable ID.
 | `focus-style` | warning | — | A `_focusStyle` value that is not `spotlight`, `ring`, `list-fill`, `blur` or `pop`. |
 | `focus-steps` | warning | — | A `_focusSteps` step that is not a valid `_focus` spec (only the first bad step is reported). |
 | `unknown-map-region` | warning | — | A `map` list item whose lead name the basemap can't resolve. Carries a did-you-mean against the basemap vocabulary. |
+| `map-highlight-implied` | info | — | A `map highlight` slide whose values are labels (or absent), so the data already fills it by category and the class says nothing. |
 | `trail-budget` | warning | — | A word in an `authority-chain trail` column too long for the column, which squeezes the others. |
 | `tag-budget` | warning | — | On `decision` and `compare-prose` (not `axis`), a card tag long enough to wrap, or a band label long enough to run past two lines, which grows every tag on the slide and pushes the cards down. |
 | `tag-alias` | info | — | `banner-tag`, the old name for `tag-band`. |
@@ -227,7 +228,7 @@ distinct, stable ID.
 | `unknown-corners` | warning | — | A `corners:` value the engine does not know; corners render square. |
 | `unknown-lift` | warning | ✓ | A `lift:` value the engine does not know; cards render flat. |
 | `unknown-venue` | warning | ✓ | A `venue:` value the engine does not know; the deck renders at the designed size. |
-| `unknown-chart-finish` | warning | ✓ | A `chart-finish:` value the engine does not know; charts keep their default colors. |
+| `unknown-marks` | warning | ✓ | A `marks:` value the engine does not know (including the retired `off` and `etching`); the deck wears the default finish. |
 | `unknown-cards` | warning | ✓ | A `cards:` value the engine does not know; each layout keeps its own card spacing. |
 | `unknown-backdrop` | warning | ✓ | A `backdrop:` word that is neither a strength nor a mask, or a second word for an axis already set. |
 | `unknown-tag` | warning | ✓ | A `tag:` word the engine does not know, or a second word for an axis already set. |
@@ -244,6 +245,7 @@ distinct, stable ID.
 | `deck-wide-component` | warning | — | A component named in the deck-wide `class:` register (every slide would become it), or a class `color-mode:` overrides. Ignored. |
 | `bad-render-target-value` | warning | — | A render-target setting that is neither on nor off; the export treats it as off. |
 | `nested-render-target-key` | warning | — | An indented render-target key that the export still reads as the deck setting. |
+| `marks-renamed` | info | — | `chart-finish:` or a `chart-finish-*` slide class, the old spelling of `marks:` / `marks-*`. It still renders; when a deck sets both keys, `marks:` wins. |
 | `guards-renamed` | warning / info | — | `guards:`, the old name of `fit:`. A warning when its value is not valid and no `fit:` is set (the deck uses `heal`); otherwise `info`, including when `fit:` is also set and wins. |
 | `retired-backdrop-key` | warning | — | The retired multi-line `backdrop:` block, which is no longer read. |
 | `retired-logo-key` | warning | ✓ | `logo-style:` (now `logo-finish:`), `logo-on:`, `logo-x:`, `logo-y:` or `logo-scale:`, which no longer render. The fix folds them into one `logo-finish:` line (`title`, a size word, the nearest of six placements) and deletes them. |

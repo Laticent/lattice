@@ -25,6 +25,14 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             do not get there (E7). What is left is the script work itself: React ~800 ms, the runtime's chart builders (0.2 s ceiling,
             changes export bytes), ~1.9 s unattributed. Target (3), a CI time budget, is the owner's call; the harness spread (stdev
             ~30-60 ms) supports a same-job comparison.
+            2026-10-26, session F (engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md): dropping the home
+            page's runtime prefetch moved home 56-61 -> 66-76 on a LOCAL server but was NEUTRAL on the real CDN (73-80 vs
+            75-78, note §7): local Lighthouse runs overstate download cost, so measure candidates on a CDN preview. Studio (48-60) and Playground (42-47) unchanged: their paint waits on 750-900 KB of module-preloaded
+            JS and TBT is React, the island and the runtime (per-script table in the note §2). None is at 90; the boot-order
+            redesign (next 3) is still the route, and TBT is now home's largest remaining weight.
+            Deployed (the PR's Cloudflare preview): home 71-76, Studio 66-71, Playground 37-44. The Playground's LCP element is
+            the Explore walk caption (`p.pg-walk-caption`), which paints after hydration, so its simulated LCP is 10.1-10.3 s
+            (94% render delay): the cheapest Playground lever found, not yet tried (note §6).
 decided   — the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note

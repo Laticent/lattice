@@ -43,7 +43,6 @@ import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
-import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 
@@ -192,10 +191,11 @@ const specs = specsNav(url);
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<ResourceHints />
-		{/* The hero right panel (HeroPreview) live-renders a slide on load, so the
-		    preview iframe needs the runtime immediately — warm it at parse time so it
-		    isn't cold-fetched on the first-render critical path (FRAME REBUILD). */}
-		<RuntimeWarm />
+		{/* NO RUNTIME PREFETCH HERE (2026-10-26-lighthouse-home-runtime-prefetch.md). The hero
+		    renders only after the engine downloads, so a 461 KB runtime prefetch can only share the
+		    link with that download. Locally it cost the hero's first slide ~0.2 s and Lighthouse
+		    ~2 s of LCP; on the real CDN both were unchanged within noise (§7). Neutral there, a
+		    win locally, and one download fewer: the iframe fetches the runtime when it needs it. */}
 		<title>Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)</title>
 		<meta
 			name="description"

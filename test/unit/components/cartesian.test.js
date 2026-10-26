@@ -320,7 +320,9 @@ describe('cartesian — the emitted chrome', () => {
     const a = C.buildFillDefs({ slots: [1, 2] });
     const b = C.buildFillDefs({ slots: [1, 2] });
     assert.match(a.defs, /var\(--chart-cat-1-hue\)/);
-    assert.match(a.defs, /var\(--chart-fill-top-l\)/);
+    // One stop: the slot's flat solid, nothing graded (chart-family.styles.css § THE SOLID TIER).
+    assert.equal((a.defs.match(/<stop /g) || []).length, 2, 'one stop per slot');
+    assert.doesNotMatch(a.defs, /color-mix|--chart-fill-/);
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(a.defs));
     assert.notEqual(a.id(1), b.id(1),
       'two charts on one slide would silently paint with each other\'s stops');

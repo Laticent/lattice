@@ -351,6 +351,28 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # CHART FINISH REACH (tools/chart-finish-reach.mjs): every chart mark a finish should paint, painted;
+      # no finish pushing a text run under the floor the unfinished paint cleared; the default finish keeping
+      # a ramp's range; a heatmap value readable on its own cell. It renders the chart gallery once per theme
+      # x mode and flips the finish in a real Chrome, which is why it lives here and not per PR. Before this
+      # step it ran in no workflow, and its frozen baseline (test/fixtures/chart-finish-baseline.json) was
+      # only shape-checked, so a finish could lose reach or contrast with every gate green (#2887 inversion
+      # review). Owner-approved on #2887.
+      - name: Chart finish reach (every mark a finish should paint, and its text floor)
+        id: finishreach
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- chart finish reach ---'
+          } >> "$REPORT"
+          if npm run --silent check:chart-finish-reach 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Geometry parity (a slide must not measure by its window)
         id: geometry
         run: |
@@ -571,7 +593,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -688,6 +710,7 @@ jobs:
           && steps.palette.outcome == 'success' && steps.palette.outputs.failed == 'false'
           && steps.codewidth.outcome == 'success' && steps.codewidth.outputs.failed == 'false'
           && steps.chartfit.outcome == 'success' && steps.chartfit.outputs.failed == 'false'
+          && steps.finishreach.outcome == 'success' && steps.finishreach.outputs.failed == 'false'
           && steps.geometry.outcome == 'success' && steps.geometry.outputs.failed == 'false'
           && steps.regress.outcome == 'success' && steps.regress.outputs.failed == 'false'
           && steps.conformance.outcome == 'success' && steps.conformance.outputs.failed == 'false'

@@ -12,6 +12,8 @@
 
 import { registerValue } from './deck-preset';
 import { getFrontMatter } from './front-matter';
+import { parseMarksValue } from './marks-value';
+import { DEFAULT_MARKS, MARKS_NAMES } from './marks-words';
 import { getClassTokens, setClassTokens } from './slide-directives';
 
 export type AxisState = 'inherited' | 'on' | 'off';
@@ -257,14 +259,28 @@ export function setRule(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'rule-', RULE_VALUES, name);
 }
 
-// The chart finish (resolve-chart-finish.js). `off` is a real per-slide token here — it takes
-// one slide back to the shipped paint inside a finished deck — and also the deck default.
-const CHART_FINISH_VALUES = ['pigment', 'etching', 'tone', 'off'];
-export function chartFinishProvenance(chunk: string, source: string): Provenance {
-	return overrideProvenance(chunk, source, 'chart-finish', 'chart-finish-', CHART_FINISH_VALUES, 'off');
+// The chart finish (resolve-marks.js). A look with no absent state, so the deck default is
+// `pigment` (DEFAULT_MARKS) and every value, the default included, is a real per-slide token:
+// a slide inside a `tone` deck can ask for `pigment`.
+const MARKS_VALUES: readonly string[] = [...MARKS_NAMES];
+const LEGACY_MARKS_PREFIX = 'chart-finish-';
+export function marksProvenance(chunk: string, source: string): Provenance {
+	// The deck value carries one word per axis (`tone vivid`); only its finish word is this control's, so it is
+	// read by axis rather than through registerValue, which takes a two-word value for none.
+	// A slide or deck still on the old `chart-finish` spelling is read through it (resolve-marks.js renders it too).
+	const own = getClassTokens(chunk)
+		.map((t) => (t.startsWith(LEGACY_MARKS_PREFIX) ? `marks-${t.slice(LEGACY_MARKS_PREFIX.length)}` : t))
+		.find((t) => t.startsWith('marks-') && MARKS_VALUES.includes(t.slice('marks-'.length)));
+	const deck = parseMarksValue(getFrontMatter(source, 'marks') || getFrontMatter(source, 'chart-finish')).finish;
+	const deckValue = deck && deck !== DEFAULT_MARKS ? deck : undefined;
+	const inheritable = deckValue !== undefined;
+	if (own) return { state: 'on', value: own.slice('marks-'.length), deckValue, inheritable };
+	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
+	return { state: 'off', inheritable: false };
 }
-export function setChartFinish(chunk: string, name: string | null): string {
-	return setOverride(chunk, 'chart-finish-', CHART_FINISH_VALUES, name);
+export function setMarks(chunk: string, name: string | null): string {
+	// An old `chart-finish-*` token goes first, so the slide never carries both spellings.
+	return setOverride(setOverride(chunk, LEGACY_MARKS_PREFIX, MARKS_VALUES, null), 'marks-', MARKS_VALUES, name);
 }
 
 const EYEBROW_VALUES = ['dot', 'bar', 'arrow', 'underline'];

@@ -240,10 +240,22 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		);
 		return name;
 	};
+	// Named dash patterns, written once each to styles.xml, in widths of the line: the same four on and three off
+	// (a dash) or one and one (a dot) the PowerPoint writer uses.
+	const dashes = new Map<string, string>();
+	const dashNamed = (kind: 'dash' | 'dot'): string => {
+		const name = kind === 'dash' ? 'Dash' : 'Dot';
+		if (!dashes.has(kind)) {
+			const [on, off] = kind === 'dash' ? ['400%', '300%'] : ['100%', '100%'];
+			dashes.set(kind, `<draw:stroke-dash draw:name="${name}" draw:display-name="${name}" draw:style="rect" draw:dots1="1" draw:dots1-length="${on}" draw:distance="${off}"/>`);
+		}
+		return name;
+	};
 	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align'] }): string => {
 		const attrs: string[] = [];
 		const stroke = shape.stroke;
-		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="${shape.cap || 'butt'}"${shape.join ? ` draw:stroke-linejoin="${shape.join}"` : ''}` : 'draw:stroke="none"');
+		const dash = stroke?.dash ? `draw:stroke="dash" draw:stroke-dash="${dashNamed(stroke.dash)}"` : 'draw:stroke="solid"';
+		attrs.push(stroke ? `${dash} svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="${shape.cap || 'butt'}"${shape.join ? ` draw:stroke-linejoin="${shape.join}"` : ''}` : 'draw:stroke="none"');
 		if (shape.gradient && closed) {
 			const g = shape.gradient;
 			const varies = g.stops.some((st) => st.alpha !== g.stops[0].alpha);
@@ -413,7 +425,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const styles = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles ${NS} office:version="1.3">${faceDecls}
 <office:styles>
-<style:default-style style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:default-style>${masters ? '<style:style style:name="Default-title" style:family="presentation"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>' : ''}${[...gradients.values()].join('')}${fillImages}
+<style:default-style style:family="graphic"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:default-style>${masters ? '<style:style style:name="Default-title" style:family="presentation"><style:graphic-properties draw:stroke="none" draw:fill="none"/></style:style>' : ''}${[...gradients.values()].join('')}${[...dashes.values()].join('')}${fillImages}
 </office:styles>
 <office:automatic-styles>
 <style:page-layout style:name="PM1"><style:page-layout-properties fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm" fo:page-width="${page.w}cm" fo:page-height="${page.h}cm" style:print-orientation="${page.w >= page.h ? 'landscape' : 'portrait'}"/></style:page-layout>

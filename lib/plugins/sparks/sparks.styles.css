@@ -22,7 +22,7 @@
  * `--chart-cat4` / `--chart-cat4-ink`, below) or the text's ink when the spark names no color, so every look is on brand in every theme.
  * The names are the chart family's three finishes (engineering/chart-styling.md §3):
  *   pigment  the hue is the TILE — a hue-bodied tile, an ink edge, the marks in the ink
- *   etching  the hue is the LINE — a clear tile, ink edge and marks, bodies a light wash
+ *   etch  the hue is the LINE — a clear tile, ink edge and marks, bodies a light wash
  *   tone     one hue by VALUE — a pale tint tile, a mid edge and body, an ink line
  * Every look keeps an edge on the tile: no fill clears the 3:1 graphical floor alone, and the
  * edge does (chart-styling.md §3, floor 1). The per-spark arm of each `:is()` carries `[data-type]`
@@ -112,10 +112,10 @@ section .lat-spark > svg > * { vector-effect:non-scaling-stroke; }
   --spark-pad-y:0px;
 }
 :is(section.spark-bare .lat-spark:not([data-frame='framed'], [data-corners]), section .lat-spark[data-type][data-frame='bare'])::before { content:none; }
-/* `etching` — the hue is the LINE: a clear tile, the edge and every mark in the slot's ink, and
+/* `etch` — the hue is the LINE: a clear tile, the edge and every mark in the slot's ink, and
  * bars / area / a bullet's value a light wash of it with an ink edge, so a body never has to
  * be seen on its own. */
-:is(section.spark-etching .lat-spark:not([data-look]), section .lat-spark[data-type][data-look='etching']) {
+:is(section.spark-etch .lat-spark:not([data-look]), section .lat-spark[data-type][data-look='etch']) {
   color:var(--spark-ink);
   --spark-tile:transparent;
   --spark-edge:var(--spark-ink);

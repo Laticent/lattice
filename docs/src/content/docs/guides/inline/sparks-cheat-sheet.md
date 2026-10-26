@@ -47,7 +47,7 @@ and decimals are fine.
 |---|---|---|
 | Size | `sm` · `md` · `lg` | `md` |
 | Color | `c1` … `c12` — the same numbered slots pills use | `c1` |
-| Look | `pigment` (the color fills the tile) · `etching` (a clear tile, the color is the line) · `tone` (one hue, stepped by value) | `pigment` |
+| Look | `pigment` (the color fills the tile) · `etch` (a clear tile, the color is the line) · `tone` (one hue, stepped by value) | `pigment` |
 
 A look sets the tile, its edge, the line and the bars together, from the one color.
 
@@ -73,11 +73,11 @@ The most specific wins, one setting at a time.
 
 | Scope | Write |
 |---|---|
-| One spark | `` `~{1 3 2, etching, rounded}` `` |
+| One spark | `` `~{1 3 2, etch, rounded}` `` |
 | One slide | `<!-- _class: table spark-bare -->` — any word with `spark-` in front |
-| The whole deck | `spark: etching rounded` in front matter |
+| The whole deck | `spark: etch rounded` in front matter |
 
-The deck-level words are frame, look and corners: `framed` · `bare` · `pigment` · `etching` ·
+The deck-level words are frame, look and corners: `framed` · `bare` · `pigment` · `etch` ·
 `tone` · `square` · `rounded`.
 
 ## Sketch mode
@@ -98,7 +98,7 @@ A span that looks like a spark but doesn't parse stays as plain code, and `lint:
 | `~{1 2 3, ring}` | a ring takes one value, not a series |
 | `~{3 5 4, bar, end}` | `end` only goes on line, area and step |
 | `~{3 5 4, c13}` | `c13` is not a spark modifier |
-| `~{1 2, etching, tone}` | repeats the look — one word per setting |
+| `~{1 2, etch, tone}` | repeats the look — one word per setting |
 
 In the Studio, `spark-too-big` also warns when a spark is too wide for its space or more than
 1.5 lines tall, with a one-click fix to the size that fits.

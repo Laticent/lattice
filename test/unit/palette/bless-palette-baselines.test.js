@@ -188,13 +188,16 @@ describe('bless-palette-baselines · the table parser', () => {
     //
     // Carbone now HAS that light canvas, which is the branch #1881 deferred to. 22 -> 14:
     // its trio is curated for a real off-white ground rather than being light-tuned inks
-    // resolving on graphite, so most of its residue is not residue any more. What remains
-    // of carbone is two `policy-recommendation/amend-badge` rows. Its
+    // resolving on graphite, so most of its residue is not residue any more. What remained
+    // of carbone was two `policy-recommendation/amend-badge` rows, retired by #2887 (below). Its
     // `kanban/card-code-chip` pair went a different way and was FIXED, not re-frozen —
     // `--code-inline-fg` inherited `var(--accent)` and the chip is a 10% wash of that same
     // value, so the ink was scored against a ground made from itself at 4.17 on --bg-alt.
     // engineering/decisions/2026-08-25-status-trio-joint-solve-model.md
-    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*14 entries/,
+    // 14 -> 10 (#2887): the four `policy-recommendation` amend/oppose badge rows went stale when a status stance
+    // became a status MARK (the solid under the one ink, 7:1 by construction) instead of the stance ink on its own tint.
+    // engineering/decisions/2026-10-24-status-is-one-system.md
+    assert.match(out, /KNOWN_SUB_THRESHOLD[^\n]*\n\s*10 entries/,
       'the contrast table still parses in full');
     // 792, up from 768: `carbone-dark` is a NEW theme (carbone grew a curated light face
     // and took the house two-file shape), so the table gains one theme's worth --

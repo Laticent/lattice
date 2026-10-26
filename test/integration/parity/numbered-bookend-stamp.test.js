@@ -141,7 +141,9 @@ function readStamps(page, sectionSelector) {
         // REVERTED cut of the 2026-09-20 Form change. That class ships nowhere, so
         // the filter was inert — and worse than inert: had anyone reintroduced it,
         // this suite would have accepted it silently instead of reporting the change.
-        cls: [...s.classList].filter((c) => c !== 'form').join(' '),
+        // `form` is the Frame's own hook and `marks-*` is the finish every section wears (a look
+        // with no absent state, resolve-marks.js); neither is a class the author wrote.
+        cls: [...s.classList].filter((c) => c !== 'form' && !c.startsWith('marks-')).join(' '),
         content: heading ? getComputedStyle(heading, '::after').content : '<no heading>',
         header: header ? getComputedStyle(header).display : '<no header>',
         footer: footer ? getComputedStyle(footer).display : '<no footer>',

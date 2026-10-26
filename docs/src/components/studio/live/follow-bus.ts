@@ -18,7 +18,7 @@ import * as React from 'react';
 export const FOCUS_ROWS = [
 	'accent', 'acronyms', 'ai-writes-in', 'auto-glossary', 'backdrop',
 	'backdrop-mask', 'backdrop-strength', 'bar-placement', 'brand-bar', 'canvas', 'card-lift',
-	'card-rail', 'card-rail-placement', 'card-rows', 'card-tags', 'chart-finish', 'claim',
+	'card-rail', 'card-rail-placement', 'card-rows', 'card-tags', 'marks', 'claim',
 	'clean-slide', 'color-mode', 'compact', 'corners', 'debug-overlay', 'deck-name',
 	'default-slide-class', 'delivery', 'eyebrow', 'finish', 'fit',
 	'footer', 'header', 'heading-rule', 'headline', 'headline-alignment', 'hide-footer',

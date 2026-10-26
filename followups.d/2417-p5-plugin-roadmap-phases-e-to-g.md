@@ -21,7 +21,7 @@ why now   — the rest of `engineering/decisions/2026-09-27-plugin-system.md` §
                "Phase F, the family's code"): the dispatch is `chart-family.dispatch.js` and the
                chart frame is the plugin's `styles` contribution. Kept in
                `lib/components/chart/_chart-family/`: the kernels' shared helpers and the generated
-               `chart-finish.generated.css` (built from the members' manifests, not the family's).
+               `marks.generated.css` (built from the members' manifests, not the family's).
             G: the npm door, after the LICENSE-EXCEPTIONS grant; `spec/LPM.md` goes to 1.0.
             PHASE E's FOUR DECISIONS ARE SETTLED (owner, 2026-10-04 — the plugin note §9, decisions
             6–8). Asked because they are trust calls, hard to reverse:

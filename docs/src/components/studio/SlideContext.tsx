@@ -27,7 +27,6 @@ import { connectOpenRouter, generateDescription, useArchitectStatus } from './ar
 import { autoHeadLabel } from './auto-mark';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
-import { activeChartFinish, CHART_FINISHES } from './chart-finish-catalog';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
 import { activeHeadline, HEADLINES } from './headline-catalog';
@@ -36,6 +35,7 @@ import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
+import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
@@ -43,7 +43,7 @@ import { SlideComments } from './SlideComments';
 import { getDescription, setDescription } from './slide-descriptions';
 import { canEditClass, getClassTokens, readClassDirective, setClassTokens, setGroupToken, toggleToken } from './slide-directives';
 import { getNote, setNote } from './slide-notes';
-import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, chartFinishProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setChartFinish, setEyebrow, setFinish, setHeadline, setImageCard, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, type Canvas, type CardTagAxis, canvasProvenance, cardTagProvenance, deckDefaults, eyebrowProvenance, finishProvenance, headlineProvenance, type ImageCardAxis, imageCardProvenance, imageCardWords, marksProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, ruleProvenance, setBackdrop, setCanvas, setCardTag, setEyebrow, setFinish, setHeadline, setImageCard, setMarks, setMotionPlay, setMotionSpeed, setMotionStyle, setRule, setSpectrum, setSpectrumCard, setSpectrumCardEdge, setSpectrumEdge, setSpectrumTrim, setStampStyle, setToneStyle, spectrumCardEdgeProvenance, spectrumCardProvenance, spectrumEdgeProvenance, spectrumProvenance, spectrumTrimProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
 import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
@@ -574,23 +574,23 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const eyebrowOpt = overrideAxis(eyebrowProv, EYEBROWS, 'plain', activeEyebrow);
 	const onEyebrow = (v: string) => onMutate((c) => setEyebrow(c, v === '__inherit__' ? null : v));
 	const headlineProv = React.useMemo(() => headlineProvenance(chunk, source), [chunk, source]);
-	// Chart finish — its own axis rather than overrideAxis, because its default (`off`, "As
-	// designed") is ALSO a real per-slide choice: inside a finished deck, `chart-finish-off` is
-	// how one slide keeps its shipped paint. So the head follows the deck and "As designed" stays
-	// in the list whenever the deck has a finish to opt out of. Shown on chart slides only.
-	// Any token, not only the first: `_class: chart-finish-tone bar` is a chart slide too.
+	// Chart finish — its own axis rather than overrideAxis, because its default (`pigment`) is ALSO a
+	// real per-slide choice: inside a `tone` deck, `marks-pigment` is how one slide asks for the
+	// default. So the head follows the deck and every OTHER finish stays in the list. Shown on chart
+	// slides only.
+	// Any token, not only the first: `_class: marks-tone bar` is a chart slide too.
 	const isChart = tokens.some((t) => catalog.find((c) => c.name === t)?.bucket === 'chart');
-	const chartFinishProv = React.useMemo(() => chartFinishProvenance(chunk, source), [chunk, source]);
-	const chartFinishOpt = React.useMemo(() => {
-		const deck = chartFinishProv.inheritable ? chartFinishProv.deckValue : 'off';
-		const head: CatalogOption = { label: autoHead(activeChartFinish(deck).label), value: '__inherit__', swatch: activeChartFinish(deck).swatch };
-		const rest = CHART_FINISHES.filter((e) => e.name !== deck).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }));
-		// A slide token that restates the deck (`chart-finish-off` in a deck with no finish, or
+	const marksProv = React.useMemo(() => marksProvenance(chunk, source), [chunk, source]);
+	const marksOpt = React.useMemo(() => {
+		const deck = marksProv.inheritable ? marksProv.deckValue : DEFAULT_MARKS;
+		const head: CatalogOption = { label: autoHead(activeMarks(deck).label), value: '__inherit__', swatch: activeMarks(deck).swatch };
+		const rest = MARKS_FINISHES.filter((e) => e.name !== deck).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }));
+		// A slide token that restates the deck (`marks-pigment` in a deck with no finish, or
 		// the deck's own value) is what the head already says, so it selects the head.
-		const own = chartFinishProv.state === 'on' ? chartFinishProv.value : undefined;
+		const own = marksProv.state === 'on' ? marksProv.value : undefined;
 		return { value: own && own !== deck ? own : '__inherit__', options: [head, ...rest] };
-	}, [chartFinishProv]);
-	const onChartFinish = (v: string) => onMutate((c) => setChartFinish(c, v === '__inherit__' ? null : v));
+	}, [marksProv]);
+	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline);
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
 	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
@@ -798,8 +798,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								<CatalogSelect ariaLabel="Slide finish" value={finishValue} onValueChange={onFinish} groups={finishGroups} className="w-full" />
 							</Row>
 							{isChart && (
-								<Row label="Chart finish" hint={chartFinishProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etching tone color" help={<><strong>Pigment</strong> puts the color in the body, <strong>Etching</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. <strong>As designed</strong> keeps the chart's own paint, even inside a deck that sets a finish. Written as <code>_class: chart-finish-*</code>.</>}>
-									<Picker ariaLabel="Chart finish" value={chartFinishOpt.value} onChange={onChartFinish} options={chartFinishOpt.options} />
+								<Row label="Marks" hint={marksProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: marks-*</code>.</>}>
+									<Picker ariaLabel="Marks" value={marksOpt.value} onChange={onMarks} options={marksOpt.options} />
 								</Row>
 							)}
 							{finish.state !== 'off' && (

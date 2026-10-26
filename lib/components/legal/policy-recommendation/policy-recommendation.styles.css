@@ -16,35 +16,27 @@
  */
 
   /* ── Stance seams. Base = a neutral recommendation with no verdict. ──────────
-   * `--stance-bg` is derived from `--stance` as an OPAQUE tint over the canvas —
-   * NOT the theme's `--*-bg` soft tokens, which are `color-mix(… N%, transparent)`.
-   * A semi-transparent fill renders fine over white but reads as near-black to the
-   * WCAG contrast gate (it can't composite alpha), sinking the ask bar's heading
-   * to ~1.8:1. Mixing over `--bg` gives the SAME color over the light canvas while
-   * staying opaque, so the gate measures the real navy-on-tint (~9:1) and the
-   * "filled stance bar" reads as filled. Each variant sets only `--stance`; the
-   * bg re-derives from it lazily at use.
-   *
-   * The depth is 9%, down from 12%. At 12% the `amend` badge (`--stance: var(--warn)`)
-   * was sub-AA on EIGHT palette-modes — the a11y four, burgundy and mustard, worst
-   * 4.39:1 — because the ink is the stance hue on a tint of itself, so the ground moves
-   * with it. 9% is the KNEE, not a round number: swept against the real gate with
-   * everything else held, the whole table reads 12% → 32 pairs below their bar, 11% → 29,
-   * 10% → 24, 9% → 22 — and 8% and 7% also leave 22, so 9% is the shallowest cut that
-   * takes the full benefit and every point past it spends fill the paragraph above exists
-   * to protect. The stance fill's own visibility against the canvas goes from a 1.215:1
-   * median to 1.150:1 (all five stance variants × 32 palettes × both modes), and the bar
-   * still reads as filled — checked on a render at mustard and burgundy, not inferred.
-   * engineering/decisions/2026-08-25-status-trio-joint-solve-model.md §8.4. */
+   * A stance that IS a status (adopt, amend, oppose) paints it as every status is painted
+   * (engineering/decisions/2026-10-24-status-is-one-system.md): the verdict badge is a status
+   * MARK (the deck's status solid under the one ink `--on-mark`, and amend and oppose wear the
+   * signal ring), the badge's border and the rules are status LINES (the slide ink `--pass` …),
+   * and the ask bar is a status GROUND (the theme's `--pass-bg` …) whose "The ask" caption is a heading,
+   * not a status word: amber text on the 10% amber ground misses 4.5:1 on twelve palette-modes. A stance that is not a
+   * status keeps the outlined chip: the default in the accent on `--accent-soft`, defer in
+   * secondary ink on `--bg-alt`. Each variant sets the seams; every surface reads them. */
   section.policy-recommendation {
     --stance: var(--accent);
-    --stance-bg: color-mix(in srgb, var(--stance) 9%, var(--bg));
+    --stance-bg: var(--accent-soft);
+    --stance-badge-bg: var(--stance-bg);
+    --stance-badge-ink: var(--stance);
+    --stance-badge-edge: var(--stance);
+    --stance-signal: transparent;
     --stance-label: "Recommendation";
   }
-  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-label: "Adopt"; }
-  section.policy-recommendation.amend  { --stance: var(--warn); --stance-label: "Amend"; }
-  section.policy-recommendation.oppose { --stance: var(--fail); --stance-label: "Oppose"; }
-  section.policy-recommendation.defer  { --stance: var(--text-secondary); --stance-label: "Defer"; }
+  section.policy-recommendation.adopt  { --stance: var(--pass); --stance-bg: var(--pass-bg); --stance-badge-bg: var(--state-pass-hue); --stance-badge-ink: var(--on-mark); --stance-label: "Adopt"; }
+  section.policy-recommendation.amend  { --stance: var(--warn); --stance-bg: var(--warn-bg); --stance-badge-bg: var(--state-warn-hue); --stance-badge-ink: var(--on-mark); --stance-signal: var(--warn-signal-mark); --stance-label: "Amend"; }
+  section.policy-recommendation.oppose { --stance: var(--fail); --stance-bg: var(--fail-bg); --stance-badge-bg: var(--state-fail-hue); --stance-badge-ink: var(--on-mark); --stance-signal: var(--fail-signal-mark); --stance-label: "Oppose"; }
+  section.policy-recommendation.defer  { --stance: var(--text-secondary); --stance-bg: var(--bg-alt); --stance-label: "Defer"; }
 
   /* ── Masthead: the legislative letterhead. A stance hairline under the band, and
    *    the verdict badge docked in the reserved right bay. ───────────────────── */
@@ -59,9 +51,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    color: var(--stance);
-    background: var(--stance-bg);
-    border: 1px solid var(--stance);
+    color: var(--stance-badge-ink);
+    background: var(--stance-badge-bg);
+    /* The kpi pill's shape, for the same reason: Calco lifts a border plus one OUTER ring as a native shape, never a
+     * border plus an inset ring. The border carries the signal on amend and oppose and is transparent on adopt (the
+     * fill shows through it, so it reads as no border), and the ink edge is the outer ring. */
+    border: 1px solid var(--stance-signal);
+    box-shadow: 0 0 0 1px var(--stance-badge-edge);
     border-radius: var(--radius-sm);
     padding: var(--sp-3xs) var(--sp-sm);
     white-space: nowrap;
@@ -167,7 +163,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--stance);
+    color: var(--text-heading);
     padding-bottom: var(--sp-3xs);
   }
   section.policy-recommendation blockquote p {

@@ -184,6 +184,9 @@ const SHARED_SELECTORS = new Set([]);
 // that every root modifier is a declared variant.
 const VARIANT_DECL_IGNORE = new Map([
   ['kpi', new Set(['briefing'])],            // bare default appearance, documented as such
+  // `heat` is the state-markers FAMILY modifier (base.modifiers.css § heat, base.docs.md), documented once there for
+  // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
+  ['checklist', new Set(['heat'])],
   // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
   // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
@@ -7507,6 +7510,14 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance for '
        + 'a locally CRLF-saved file; the front matter it strips is the gallery\'s own, and the '
        + 'deck it builds is rendered by the engine, which normalizes its own input.',
+  },
+  {
+    file: 'tools/chart-finish-reach.mjs',
+    why: 'reads the REPO-COMMITTED `lib/components/chart/chart.gallery.md`, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, and the one anchor it uses strips the '
+       + 'gallery\'s own front matter so a `theme:` / `color-mode:` block can be prepended; the deck '
+       + 'it writes is rendered by the engine, which normalizes its own input. An on-demand '
+       + 'diagnostic, so a CRLF-saved gallery would misreport its own run, never a deck.',
   },
   {
     file: 'tools/build-capabilities.js',

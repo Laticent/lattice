@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const SW_SRC = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'sw.js'), 'utf8');
 const ORIGIN = 'https://lattice.test';
@@ -22,10 +22,12 @@ const ASSETS = 'lattice-v1-assets';
 
 class MockCache {
 	store = new Map<string, unknown>();
+	keysCalls = 0;
 	async put(req: { url: string }, res: unknown) {
 		this.store.set(req.url, res);
 	}
 	async keys() {
+		this.keysCalls++;
 		return [...this.store.keys()].map((url) => ({ url }));
 	}
 	async match(req: string | { url: string }) {
@@ -83,7 +85,8 @@ function loadSw() {
 		await Promise.all([responded, ...waits].map((p) => Promise.resolve(p).catch(() => {})));
 	};
 	const assetKeys = () => [...(cachesMock.map.get(ASSETS)?.store.keys() ?? [])];
-	return { asset, assetKeys };
+	const assetCache = () => cachesMock.map.get(ASSETS);
+	return { asset, assetKeys, assetCache };
 }
 
 describe('sw.js — cross-deploy version eviction', () => {
@@ -143,3 +146,34 @@ describe('sw.js — cross-deploy version eviction', () => {
 		expect(sw.assetKeys()).toHaveLength(4);
 	});
 });
+
+// #1930: `cache.keys()` on a full cache costs ~7 ms in Chromium and a cold load puts hundreds of
+// assets, so put() lists the cache once and reuses the listing for the FIFO cap.
+describe('sw.js — one cache listing per put', () => {
+	it('a versioned put lists the cache once, not twice', async () => {
+		const sw = loadSw();
+		await sw.asset('/playground/v/aaaaaaaa1111/lattice-runtime.js');
+		const cache = sw.assetCache()!;
+		cache.keysCalls = 0;
+		await sw.asset('/playground/v/bbbbbbbb2222/lattice-runtime.js');
+		await vi.waitFor(() => expect(sw.assetKeys()).not.toContain(`${ORIGIN}/playground/v/aaaaaaaa1111/lattice-runtime.js`));
+		await new Promise((r) => setTimeout(r, 10));
+		expect(cache.keysCalls).toBe(1);
+	});
+
+	it('the cap still trims from the reused listing, after the stale copies are gone', async () => {
+		const sw = loadSw();
+		await sw.asset('/playground/v/aaaaaaaa1111/seed.js');
+		const cache = sw.assetCache()!;
+		for (let i = 0; i < 805; i++) cache.store.set(`${ORIGIN}/_astro/old-${i}.js`, {});
+		await sw.asset('/playground/v/bbbbbbbb2222/seed.js'); // evicts the a-hash seed, then trims to the cap
+		// cacheFirst hands put() to waitUntil only after its own awaits, so `asset` cannot wait on it.
+		await vi.waitFor(() => expect(sw.assetKeys().length).toBeLessThanOrEqual(800));
+		const keys = sw.assetKeys();
+		expect(keys).toHaveLength(800);
+		expect(keys).not.toContain(`${ORIGIN}/playground/v/aaaaaaaa1111/seed.js`);
+		expect(keys).toContain(`${ORIGIN}/playground/v/bbbbbbbb2222/seed.js`);
+		expect(keys).not.toContain(`${ORIGIN}/_astro/old-0.js`); // oldest goes first
+	});
+});
+

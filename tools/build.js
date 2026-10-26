@@ -117,9 +117,9 @@ const STEPS = [
   // requires the table. engineering/decisions/2026-10-15-code-plugin.md § 4.3.
   { label: 'code languages (lib/plugins/code)', script: 'build-code-languages.js' },
   { label: 'plugin registry (lib/plugins)', script: 'build-plugin-registry.js' },
-  // The chart-finish rules, generated from the chart manifests. BEFORE lattice.css bundles
+  // The marks rules, generated from the chart manifests. BEFORE lattice.css bundles
   // them, for the same one-build-late reason as the finish presets above.
-  { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-chart-finish-css.js' },
+  { label: 'chart finish rules (lib/components/chart/_chart-family)', script: 'build-marks-css.js' },
   { label: 'lattice.css', script: 'build-css.js', uncommitted: true },
   { label: 'lattice-default.css', script: 'build-default-bundle.js', uncommitted: true },
   // Must run BEFORE lattice-runtime.js / lattice.js — those bundles

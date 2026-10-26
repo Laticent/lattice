@@ -29,7 +29,9 @@ Beyond the groups on [the token tour](/craft/themes/tokens/), define:
 | `--syntax-*` code syntax colors | 12 | each readable on `--code-bg` |
 | `--cat-N-fill` / `--cat-N-mark` | 12 pairs | the [categorical cycle](/craft/themes/categorical/) |
 | `--cat-N-ink` | 12 | generated, not hand-picked |
-| `--chart-cat1…8`, `--chart-state-*` | 13 | the chart family's own palette |
+| `--chart-cat1…8`, `--chart-neutral-mark` | 9 | the chart family's own palette |
+| `--info`, `--mute`, `--on-mark` | 3 | the status colors beyond pass/warn/fail, and the one ink on every chart fill |
+| `--pass-mark` … `--mute-mark`, their `-vivid` twins, `--warn-signal-mark`, `--fail-signal-mark` | 11 | the deep status fills in both intensities, and the two exceptions' signal rings (run `node tools/curate-chart-solids.js` rather than picking them) |
 | `--diagram-*` | several | stroke, line, lifecycle, alarm |
 | `--scheme-dark-*` | 10 | the dark inputs your pairs read |
 | `--pass-bg` / `--warn-bg` / `--fail-bg` | 3 | tinted signal grounds |

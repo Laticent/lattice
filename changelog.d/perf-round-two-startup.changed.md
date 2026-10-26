@@ -1,0 +1,3 @@
+- The home page no longer prefetches the slide preview's 461 KB runtime in its head. Measured on the real CDN, this is neutral for visitors (Lighthouse and the hero's first slide unchanged within noise); the hero fetches the runtime when it needs it.
+- The Studio splits each saved deck once per load instead of five times, and the service worker lists its cache once per stored file instead of twice.
+- `npm run perf:frame:check` (in `docs/`) now measures the Studio's theme or mode restyle and its full preview rewrite as separate budgets beside the typing budget, and fails if a run stops producing either.

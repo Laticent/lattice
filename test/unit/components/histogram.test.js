@@ -95,7 +95,7 @@ describe('histogram kernel', () => {
     assert.match(css, /:has\(\.histogram-band\.chart-mark-active\) \.histogram-seam \{\s*visibility: hidden;/);
   });
 
-  test('a band carries the mark contract, so a `chart-finish:` repaints it', () => {
+  test('a band carries the mark contract, so a `marks:` repaints it', () => {
     const svg = buildHistogram(parseHistogram(li([['', '0..10', '40%'], ['', '10..20', '20%']])), {});
     for (const a of tags(svg, 'histogram-band')) {
       assert.deepEqual([a('data-hue'), a('data-encodes'), a('data-paint')], ['1', 'hue', 'fill']);

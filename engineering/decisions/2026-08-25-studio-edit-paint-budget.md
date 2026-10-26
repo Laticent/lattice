@@ -108,3 +108,34 @@ parity requires; the parser is the only thing that differs, and in the browser i
 The heavy-regime (`write`) numbers were never captured — the headless bench does not trigger a
 theme/mode/size change. Before any change that touches the full-deck rewrite path, extend the bench
 to drive one, or the ratchet is guarding half the loop.
+
+**Settled 2026-10-26 (#1939).** The bench never reached the heavy regime because it flipped
+`data-mode` on the page's `<html>`, which the preview does not read. Since this note, the preview
+also grew a third regime: a theme or mode change now swaps the frame's theme `<style>` in place
+(`restyle`), and only a new frame box or a diagram added or removed rewrites the whole srcdoc
+(`write`). The bench now drives each regime through the real UI: typing (patch), the toolbar's mode
+button at 1440 px (restyle), and a Mermaid fence typed then undone, twice (write). Each regime is
+its own metric, so a heavy-regime regression cannot hide behind a light-regime average, and a
+metric the baseline has but a run did not measure fails the check on any machine: that means the
+driver broke. Blessed at 4× CPU, five runs:
+
+| needle | blessed | spread across five runs |
+|---|---|---|
+| FRAME patch | 2.3 ms | 2-3 ms |
+| FRAME restyle | 38.4 ms | 35-46 ms |
+| FRAME write | 284 ms | 256-373 ms |
+| TOTAL patch | 20.8 ms | |
+| TOTAL restyle | 45.8 ms | |
+| TOTAL write | 344 ms | |
+| LCP | 2519 ms | 2298-2647 ms |
+
+The floors are sized from that spread: write 120 ms (frame) and 150 ms (total), because a write
+mints a whole iframe realm; restyle 12 and 14 ms. A few-ms floor would let run-to-run noise fail
+the band. Proved both ways: a baseline doctored to restyle 20 ms and write 150 ms fails (exit 1), a
+run whose restyle samples were renamed fails as `REGIME MISSING` (exit 1), and two clean re-runs
+pass. A missing mode button skips the restyle step, so it too reports `REGIME MISSING` instead of
+failing the whole run.
+
+The light-regime numbers moved since August (patch total 11.1 → 20.8 ms, LCP 1467 → 2519 ms). That
+is drift on `main`, not the bench change: the old bench on the base build of 2026-10-26 reads LCP
+2415 ms and patch total 20.2 ms. The startup work in followup 2868-p1 owns it.

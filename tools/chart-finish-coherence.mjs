@@ -7,7 +7,7 @@
  * three finishes across every theme x mode and compare the computed paint.
  *
  * Reports four things per member:
- *   A. does the body take three DISTINCT values across pigment/etching/tone
+ *   A. does the body take three DISTINCT values across pigment/etch/tone
  *   B. does any body remain a GRADIENT (a gradient is not a finish's to keep)
  *   C. text sitting inside a mark, against the 4.5:1 text floor
  *   D. the edge against its own body, against the 3:1 graphical floor —

@@ -147,11 +147,12 @@ function worstHeadingContrast(slideSelector) {
   // notably big-number's giant figure (a styled <li>) — are not contrast-checked.
   const heads = [...sec.querySelectorAll('h1, h2, h3, blockquote')];
   if (!heads.length) return null;
-  const toRgb = (c) => {
+  const toRgba = (c) => {
     const cv = document.createElement('canvas'); cv.width = cv.height = 1;
     const ctx = cv.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1);
-    const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
+    const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3] / 255];
   };
+  const toRgb = (c) => toRgba(c).slice(0, 3);
   const lum = ([r, g, b]) => {
     const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
     return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
@@ -159,14 +160,24 @@ function worstHeadingContrast(slideSelector) {
   let worst = Infinity;
   for (const h of heads) {
     if (!h.textContent.trim()) continue;
-    let el = h, bg = null;
+    // Composite the way the browser paints: walk out through every TRANSLUCENT background (a status ground such as
+    // `--pass-bg` is a 10% tint) to the first opaque one, then lay the translucent layers back over it. Taking the
+    // nearest painted background raw read a 10% tint as the full ink (1.16:1 for dark text on a pale ground).
+    let el = h;
+    const layers = [];
+    let base = [255, 255, 255];
     while (el) {
       const b = getComputedStyle(el).backgroundColor;
-      if (b && b !== 'transparent' && !/^rgba\(0, 0, 0, 0\)/.test(b)) { bg = b; break; }
+      if (b && b !== 'transparent' && !/^rgba\(0, 0, 0, 0\)/.test(b)) {
+        const c = toRgba(b);
+        if (c[3] >= 1) { base = c.slice(0, 3); break; }
+        layers.push(c);
+      }
       el = el.parentElement;
     }
+    const bgRgb = layers.reverse().reduce((under, [r, g, b, a]) => [r * a + under[0] * (1 - a), g * a + under[1] * (1 - a), b * a + under[2] * (1 - a)], base);
     const l1 = lum(toRgb(getComputedStyle(h).color));
-    const l2 = lum(toRgb(bg || 'rgb(255,255,255)'));
+    const l2 = lum(bgRgb);
     worst = Math.min(worst, (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05));
   }
   return Number.isFinite(worst) ? worst : null;

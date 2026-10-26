@@ -1,5 +1,5 @@
 - The chart finish register resolves to three colour-forward looks — **pigment**
-  (full strength in the body: pick it when you want colour), **etching** (in the
+  (full strength in the body: pick it when you want colour), **etch** (in the
   line and the letter: the modern look) and **tone** (one hue carried in VALUE:
   the conservative, restrained look) — separating on mark body depth, which is
   present on 20 of 21 members and needs no gradient. The four-finish attempt that

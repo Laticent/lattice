@@ -76,8 +76,8 @@ describe('lattice-engine: contract', () => {
     // the arm below. Slide A names no component, so it takes the catch-all `content`
     // layout (#1292) — `dark` is a modifier, not a layout, and a slide is never
     // layout-less. Slide B named `title`, a real component.
-    assert.equal(secs[0].cls, 'content dark form');
-    assert.equal(secs[1].cls, 'dark title');
+    assert.equal(secs[0].cls, 'content dark form marks-muted marks-pigment');
+    assert.equal(secs[1].cls, 'dark marks-muted marks-pigment title');
   });
 
   test('per-slide color mode wins over the deck-wide one (light slide in a dark deck)', () => {

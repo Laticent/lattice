@@ -23,7 +23,7 @@
         "class": "progress-fill",
         "paint": "bg",
         "encodes": "ramp",
-        "bears": true
+        "bears": false
       },
       {
         "class": "chart-status",

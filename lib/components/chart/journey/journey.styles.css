@@ -37,31 +37,35 @@
  * ──────────────────────────────────────────────────────────────────── */
 
 :root {
-  /* Mood ramp — 5 (delight, green) → 3 (neutral, orange) → 1 (pain, rose). */
-  --journey-mood-5: var(--cat-2-mark);
-  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3: var(--cat-4-mark);
-  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1: var(--cat-6-mark);
-  /* Paired INK for the mood scale (#1263). The --journey-mood-N above are the
-   * GRAPHICAL tier — heatmap tile fills, the 3px top rule, the face glyph's stroke —
-   * built from --cat-N-mark, which is gated at 3:1 (WCAG 1.4.11 non-text). The
-   * heatmap's mood badge paints the same scale as small TEXT on --bg, where the mark
-   * misses AA on 75 of 320 theme x mode x mood pairs, worst 1.66:1. These mirror the
-   * scale exactly, one tier over, so the badge keeps the mood's color and clears the
-   * floor; measured 0 of 320 below AA. Blends mirror the blends. */
-  --journey-mood-5-ink: var(--cat-2-ink, var(--cat-2-mark));
-  --journey-mood-4-ink: color-mix(in oklab, var(--cat-2-ink, var(--cat-2-mark)) 55%, var(--cat-4-ink, var(--cat-4-mark)));
-  --journey-mood-3-ink: var(--cat-4-ink, var(--cat-4-mark));
-  --journey-mood-2-ink: color-mix(in oklab, var(--cat-4-ink, var(--cat-4-mark)) 55%, var(--cat-6-ink, var(--cat-6-mark)));
-  --journey-mood-1-ink: var(--cat-6-ink, var(--cat-6-mark));
+  /* Mood ramp — ONE hue in five steps (the theme's first chart category), 1 (pain) faintest to 5 (delight) strongest.
+   * Mood is a scale, not a category set and not a status, so it takes one hue: three unrelated hues read as three
+   * categories, and a green-amber-red ramp would read as pass/warn/fail. The strong end is the category's own solid
+   * (`--chart-cat1`, the theme seed, read here at :root where the chart family's derived names do not exist yet):
+   * its deep fill on the light face, and on the dark face the same hue lifted halfway to white, because the seed's
+   * dark arm is a mid-tone built to carry white text, not to stand off a dark slide. Each step below mixes it toward
+   * the canvas, 40% to 100%, wide enough that five tints stay apart in the heatmap variant. The faint end can sit
+   * under 3:1 on purpose: a face's expression and the mood number carry the value, the color is the redundant cue. */
+  --journey-mood-hue: light-dark(var(--chart-cat1), color-mix(in oklab, var(--chart-cat1) 50%, white));
+  --journey-mood-5: var(--journey-mood-hue);
+  --journey-mood-4: color-mix(in oklab, var(--journey-mood-hue) 85%, var(--bg));
+  --journey-mood-3: color-mix(in oklab, var(--journey-mood-hue) 70%, var(--bg));
+  --journey-mood-2: color-mix(in oklab, var(--journey-mood-hue) 55%, var(--bg));
+  --journey-mood-1: color-mix(in oklab, var(--journey-mood-hue) 40%, var(--bg));
+  /* Paired INK for the mood scale (#1263): the mood as small TEXT on --bg (the heatmap's mood badge), where the
+   * graphical ramp above can sit under AA. One hue, like the ramp: the theme's first ink (`--cat-1-ink`, gated at AA)
+   * at pain, deepening toward the heading ink at delight. Both ends clear AA, so every blend between them does. */
+  --journey-mood-5-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 40%, var(--text-heading));
+  --journey-mood-4-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 55%, var(--text-heading));
+  --journey-mood-3-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 70%, var(--text-heading));
+  --journey-mood-2-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 85%, var(--text-heading));
+  --journey-mood-1-ink: var(--cat-1-ink, var(--cat-1-mark));
 
   /* Deep variants — used for filled chips that carry white text. */
-  --journey-mood-5-deep: var(--cat-2-mark);
-  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3-deep: var(--cat-4-mark);
-  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1-deep: var(--cat-6-mark);
+  --journey-mood-5-deep: color-mix(in oklab, var(--chart-cat1) 80%, black);
+  --journey-mood-4-deep: color-mix(in oklab, var(--chart-cat1) 85%, black);
+  --journey-mood-3-deep: color-mix(in oklab, var(--chart-cat1) 90%, black);
+  --journey-mood-2-deep: color-mix(in oklab, var(--chart-cat1) 95%, black);
+  --journey-mood-1-deep: var(--chart-cat1);
 
   /* Surfaces */
   --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
@@ -129,28 +133,25 @@
  * grayscale cat-marks / ink surfaces. Keep in SYNC with the :root block above.
  * (Print-only; light/dark output is untouched.) */
 section.print.journey {
-  --journey-mood-5: var(--cat-2-mark);
-  --journey-mood-4: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3: var(--cat-4-mark);
-  --journey-mood-2: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1: var(--cat-6-mark);
-  /* Paired INK for the mood scale (#1263). The --journey-mood-N above are the
-   * GRAPHICAL tier — heatmap tile fills, the 3px top rule, the face glyph's stroke —
-   * built from --cat-N-mark, which is gated at 3:1 (WCAG 1.4.11 non-text). The
-   * heatmap's mood badge paints the same scale as small TEXT on --bg, where the mark
-   * misses AA on 75 of 320 theme x mode x mood pairs, worst 1.66:1. These mirror the
-   * scale exactly, one tier over, so the badge keeps the mood's color and clears the
-   * floor; measured 0 of 320 below AA. Blends mirror the blends. */
-  --journey-mood-5-ink: var(--cat-2-ink, var(--cat-2-mark));
-  --journey-mood-4-ink: color-mix(in oklab, var(--cat-2-ink, var(--cat-2-mark)) 55%, var(--cat-4-ink, var(--cat-4-mark)));
-  --journey-mood-3-ink: var(--cat-4-ink, var(--cat-4-mark));
-  --journey-mood-2-ink: color-mix(in oklab, var(--cat-4-ink, var(--cat-4-mark)) 55%, var(--cat-6-ink, var(--cat-6-mark)));
-  --journey-mood-1-ink: var(--cat-6-ink, var(--cat-6-mark));
-  --journey-mood-5-deep: var(--cat-2-mark);
-  --journey-mood-4-deep: color-mix(in oklab, var(--cat-2-mark) 55%, var(--cat-4-mark));
-  --journey-mood-3-deep: var(--cat-4-mark);
-  --journey-mood-2-deep: color-mix(in oklab, var(--cat-4-mark) 55%, var(--cat-6-mark));
-  --journey-mood-1-deep: var(--cat-6-mark);
+  --journey-mood-hue: light-dark(var(--chart-cat1), color-mix(in oklab, var(--chart-cat1) 50%, white));
+  --journey-mood-5: var(--journey-mood-hue);
+  --journey-mood-4: color-mix(in oklab, var(--journey-mood-hue) 85%, var(--bg));
+  --journey-mood-3: color-mix(in oklab, var(--journey-mood-hue) 70%, var(--bg));
+  --journey-mood-2: color-mix(in oklab, var(--journey-mood-hue) 55%, var(--bg));
+  --journey-mood-1: color-mix(in oklab, var(--journey-mood-hue) 40%, var(--bg));
+  /* Paired INK for the mood scale (#1263): the mood as small TEXT on --bg (the heatmap's mood badge), where the
+   * graphical ramp above can sit under AA. One hue, like the ramp: the theme's first ink (`--cat-1-ink`, gated at AA)
+   * at pain, deepening toward the heading ink at delight. Both ends clear AA, so every blend between them does. */
+  --journey-mood-5-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 40%, var(--text-heading));
+  --journey-mood-4-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 55%, var(--text-heading));
+  --journey-mood-3-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 70%, var(--text-heading));
+  --journey-mood-2-ink: color-mix(in oklab, var(--cat-1-ink, var(--cat-1-mark)) 85%, var(--text-heading));
+  --journey-mood-1-ink: var(--cat-1-ink, var(--cat-1-mark));
+  --journey-mood-5-deep: color-mix(in oklab, var(--chart-cat1) 80%, black);
+  --journey-mood-4-deep: color-mix(in oklab, var(--chart-cat1) 85%, black);
+  --journey-mood-3-deep: color-mix(in oklab, var(--chart-cat1) 90%, black);
+  --journey-mood-2-deep: color-mix(in oklab, var(--chart-cat1) 95%, black);
+  --journey-mood-1-deep: var(--chart-cat1);
   --journey-stage-bg:   color-mix(in oklab, var(--bg-alt) 70%, var(--surface-inverse));
   /* Canvas-derived ink for a canvas-derived fill — see the :root block (#1702). On the
    * print band this re-resolves to `--print-text-heading`, which is what the former
@@ -531,7 +532,9 @@ section.journey .journey-mood {
 }
 section.journey .journey-mood-line {
   position: absolute;
-  left: 50%;
+  /* Centered by its position, not a transform: half the 2px rule back from the middle. A transform is an effect the
+   * office export (Calco) cannot carry, so a translated line went out as a picture. */
+  left: calc(50% - 1px); /* sanctioned: half of this line's own 2px border, so the rule sits on the center */
   /* Anchor the top of the line at the top of the moods band; the line
    * extends down to the top of the face cell. For mood-5 (row 1) the
    * height collapses to 0; mood-1 (row 5) is the full band tall. */
@@ -544,13 +547,11 @@ section.journey .journey-mood-line {
   border-left-width: 2px;
   border-left-style: dashed;
   border-left-color: var(--journey-plumb);
-  transform: translateX(-1px);
 }
 section.journey .journey-face {
   width: 2.8125cqi;
   height: 2.8125cqi;
   color: var(--mood-color);
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--text-body) 10%, transparent));
 }
 section.journey .journey-mood[data-mood="5"] { --mood-color: var(--journey-mood-5); }
 section.journey .journey-mood[data-mood="4"] { --mood-color: var(--journey-mood-4); }
@@ -599,15 +600,18 @@ section.journey.heatmap .journey-tasks {
 section.journey.heatmap .journey-task {
   min-height: 7.5cqi;
   padding: var(--sp-md) var(--sp-sm) var(--sp-sm);
-  background: color-mix(in oklab, var(--mood-bg) 22%, var(--bg-alt));
+  /* The tint steps with the mood (6% at pain to 30% at delight, `--mood-tint` below) rather than taking a fixed share
+   * of a stepped color: the mood ramp is one hue, so a fixed 22% of it left five tiles a hair apart. The 3px rule
+   * carries the full step, and the badge the number. */
+  background: color-mix(in oklab, var(--journey-mood-hue) var(--mood-tint, 18%), var(--bg-alt));
   border-top: 3px solid var(--mood-bg);
   position: relative;
 }
-section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-ink: var(--journey-mood-5-ink); }
-section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-ink: var(--journey-mood-4-ink); }
-section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-ink: var(--journey-mood-3-ink); }
-section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-ink: var(--journey-mood-2-ink); }
-section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-ink: var(--journey-mood-1-ink); }
+section.journey.heatmap .journey-task[data-mood="5"] { --mood-bg: var(--journey-mood-5); --mood-ink: var(--journey-mood-5-ink); --mood-tint: 30%; }
+section.journey.heatmap .journey-task[data-mood="4"] { --mood-bg: var(--journey-mood-4); --mood-ink: var(--journey-mood-4-ink); --mood-tint: 24%; }
+section.journey.heatmap .journey-task[data-mood="3"] { --mood-bg: var(--journey-mood-3); --mood-ink: var(--journey-mood-3-ink); --mood-tint: 18%; }
+section.journey.heatmap .journey-task[data-mood="2"] { --mood-bg: var(--journey-mood-2); --mood-ink: var(--journey-mood-2-ink); --mood-tint: 12%; }
+section.journey.heatmap .journey-task[data-mood="1"] { --mood-bg: var(--journey-mood-1); --mood-ink: var(--journey-mood-1-ink); --mood-tint: 6%; }
 /* Mood score badge in the top-right of each chip — redundant
  * encoding so the heatmap remains legible to grayscale / colorblind
  * readers. */
@@ -661,7 +665,6 @@ section.journey.curve .journey-curve {
    * scale survives non-uniform viewBox stretching. */
 }
 section.journey.curve .journey-curve polyline {
-  filter: drop-shadow(0 1px 0 color-mix(in srgb, var(--text-body) 6%, transparent));
 }
 section.journey.curve .journey-curve .journey-curve-grid {
   /* `stroke="currentColor"` on the line element resolves via the

@@ -239,6 +239,7 @@
     "conformance:render": "node tools/conformance-render.js",
     "conformance:office": "node tools/office-conformance.js",
     "check:chart-fit": "node tools/check-chart-fit.js",
+    "check:chart-finish-reach": "node tools/chart-finish-reach.mjs --check",
     "check:jank": "node tools/check-jank.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",

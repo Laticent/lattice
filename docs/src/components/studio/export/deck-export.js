@@ -18,6 +18,10 @@
 // pass a precomputed `fontEmbedCSS` of vendored, data-URI'd faces (font-embed.js)
 // to every call, so each clone is self-contained and every font embeds.
 //
+// Every capture draws through the shared slide camera (lib/core/slide-camera.mjs) and `settleSlideDraw` (settled-canvas.js), which
+// adds the wait WebKit needs: it decodes a slide's pictures only after the first draw, so one draw shipped slides with no
+// pictures. Chromium and Firefox take one plain draw.
+//
 // IMPORTANT: do NOT pass a `backgroundColor` — a forced white overrides the
 // solid dark canvas of the title/closing/divider slides
 // (section.title { background: var(--surface-inverse) }), turning them white. Each slide
@@ -57,6 +61,7 @@ import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { applyFontsOverride, applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
+import { settleSlideDraw } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
 const { bakedFigureOpenTag } = bakedFigureCore;
@@ -1393,6 +1398,8 @@ function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {
 		onImageError: () => {
 			if (log) log.count += 1;
 		},
+		// WebKit decodes a picture nested in the slide's SVG only after the first draw; this waits for them (settled-canvas.js).
+		settle: (svg, drawSlide) => settleSlideDraw(svg, drawSlide, log),
 	});
 }
 

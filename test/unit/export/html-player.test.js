@@ -32,9 +32,9 @@ let playerJs;
 let resolveCanvas;
 let hoistInlineLightDark;
 let hoistRuleLightDark;
-let dropUnusedChartFinishRules;
+let dropUnusedMarksRules;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark, dropUnusedChartFinishRules } =
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark, dropUnusedMarksRules } =
 		await import('../../../lib/export/player-core.mjs'));
 });
 
@@ -238,41 +238,41 @@ test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
 // the base is everything collapsed to the light arm, so a pair in `box-shadow` / `fill` /
 // `background-image` kept light and lost dark with nothing to restore it.
 
-// The `chart-finish:` rules repaint through light-dark(), so every one the deck cannot use would
+// The `marks:` rules repaint through light-dark(), so every one the deck cannot use would
 // be copied into #lattice-dual-mode once per scheme scope. They go first, and nothing else moves.
-test('dropUnusedChartFinishRules cuts the finish rules the deck cannot use, byte for byte', () => {
+test('dropUnusedMarksRules cuts the finish rules the deck cannot use, byte for byte', () => {
 	const css = [
 		'/* c */ .a{x:1}',
-		'section.chart-finish-tone :where(.m), figure.chart-finish-tone :where(.m) { fill: light-dark(red, blue) }',
-		'@supports (color: oklch(from red l c h)) { section.chart-finish-tone .z { color: red } }',
+		'section.marks-tone :where(.m), figure.marks-tone :where(.m) { fill: light-dark(red, blue) }',
+		'@supports (color: oklch(from red l c h)) { section.marks-tone .z { color: red } }',
 		'@media screen { }',
-		'section.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }',
+		'section.marks-pigment :where(:is(.k, .j)) { content: "}" }',
 		'.b{z:2}',
 	].join('\n');
 	// Only the pigment rule matches; the tone rule, and the @supports group it emptied, go.
 	assert.equal(
-		dropUnusedChartFinishRules(css, (sel) => sel.includes('.k')),
-		'/* c */ .a{x:1}\n@media screen { }\nsection.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
+		dropUnusedMarksRules(css, (sel) => sel.includes('.k')),
+		'/* c */ .a{x:1}\n@media screen { }\nsection.marks-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
 	);
 	// A selector the host cannot test is kept, and a sheet with no finish rule is returned as is.
-	assert.equal(dropUnusedChartFinishRules(css, () => { throw new Error('unsupported'); }), css);
-	const plain = '.chart-finish-tonal{a:1}';
-	assert.equal(dropUnusedChartFinishRules(plain, () => false), plain);
+	assert.equal(dropUnusedMarksRules(css, () => { throw new Error('unsupported'); }), css);
+	const plain = '.marks-tonal{a:1}';
+	assert.equal(dropUnusedMarksRules(plain, () => false), plain);
 });
 
 // Checker findings: the prelude runs from the last `}`, so a comment in front of a rule rode
 // in its selector. A comment naming a finish class made a plain rule a candidate (and cut it),
 // and a comma in one split off a selector that threw and kept a finish rule on doubt. And
 // `\b` matched after a hyphen, so a class merely ending in a finish name was a candidate.
-test('dropUnusedChartFinishRules reads a selector without its comment, and a finish class whole', () => {
+test('dropUnusedMarksRules reads a selector without its comment, and a finish class whole', () => {
 	const noMatch = (sel) => {
 		if (/[^\w\s.:()[\]="*>-]/.test(sel)) throw new Error(`unparseable: ${sel}`);
 		return false;
 	};
-	assert.equal(dropUnusedChartFinishRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
-	assert.equal(dropUnusedChartFinishRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
-	const custom = '.my-chart-finish-tone{a:1}';
-	assert.equal(dropUnusedChartFinishRules(custom, () => false), custom);
+	assert.equal(dropUnusedMarksRules('/* like .marks-tone */ .lp-state{color:red}', noMatch), '/* like .marks-tone */ .lp-state{color:red}');
+	assert.equal(dropUnusedMarksRules('/* a, b */ section.marks-tone .m{fill:red}', noMatch), '');
+	const custom = '.my-marks-tone{a:1}';
+	assert.equal(dropUnusedMarksRules(custom, () => false), custom);
 });
 
 test('hoistRuleLightDark routes a real-property pair through a private token, in place', () => {
@@ -285,6 +285,19 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:0 1px #111\}/);
 	// Untouched: a custom property is themeDualMode's job, not this one's.
 	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
+});
+
+test('hoistRuleLightDark keeps a declaration\'s !important OUTSIDE the var() fallback', () => {
+	// `fill: light-dark(a, b) !important` is what every marks rule is. With the flag left inside
+	// the fallback (`var(--lp-ld-0-0,a !important)`) the engine drops the whole declaration at parse time:
+	// the rule matched, set nothing, and the player showed the shipped paint under a finished deck's ink
+	// (tower share values 2.45:1 on onyx, against 8.33:1 in the HTML export).
+	const { css, darkBlock } = hoistRuleLightDark('.m{fill:light-dark(#eee,#111) !important;color:red}');
+	assert.match(css, /\.m\{fill:var\(--lp-ld-0-0,#eee\) !important;color:red\}/);
+	assert.doesNotMatch(css, /!important\)/, 'no flag inside a var() fallback');
+	assert.match(darkBlock, /--lp-ld-0-0:#111\}/);
+	// A declaration without the flag is untouched by the change.
+	assert.match(hoistRuleLightDark('.m{fill:light-dark(#eee,#111)}').css, /\.m\{fill:var\(--lp-ld-0-0,#eee\)\}/);
 });
 
 test('hoistRuleLightDark emits no COPY of the rule — the cascade for that property is untouched', () => {
