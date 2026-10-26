@@ -570,6 +570,15 @@ section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
+/* A plugin's FENCE output (code-door-fence.mjs wraps it in `div[data-lattice-plugin]`) keeps every style its renderer
+ * wrote: a block drawing has real uses for positioning. `contain:paint` makes the root the containing block for its
+ * `absolute` AND `fixed` descendants and clips their paint at its own edge, so a `position:fixed; inset:0` box stays
+ * inside the plugin's block instead of covering the slide (the red team on PR 2687; followup 2687-p7). It also clips
+ * what a drawing paints outside its box and stops a child's margins collapsing through the root. The top layer is
+ * outside every box, so the door drops `popover` and `command` attributes too (door-attr.mjs `doorFinishFence`). */
+section div[data-lattice-plugin] {
+  contain:paint;
+}
 /* A zip plugin's DRAWN inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md): the root is ours, and it keeps
  * what the plugin draws inside the word it stands for. `unicode-bidi: isolate` stops a direction change in its text
  * from reordering the author's sentence; an inline-block with contained paint, no wider than its line and no taller
