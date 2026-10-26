@@ -18,6 +18,10 @@
 // pass a precomputed `fontEmbedCSS` of vendored, data-URI'd faces (font-embed.js)
 // to every call, so each clone is self-contained and every font embeds.
 //
+// Every capture draws through `settledCanvas` (settled-canvas.js), html-to-image's `toCanvas` plus
+// the wait WebKit needs: it decodes a slide's pictures only after the first draw, so one draw
+// shipped slides with no pictures. Chromium and Firefox take html-to-image's path unchanged.
+//
 // IMPORTANT: do NOT pass a `backgroundColor` — a forced white overrides the
 // solid dark canvas of the title/closing/divider slides
 // (section.title { background: var(--surface-inverse) }), turning them white. Each slide
@@ -53,6 +57,7 @@ import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { ribbonCaptureStyle } from './capture-ribbon.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
+import { settledCanvas } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
 const { bakedFigureOpenTag } = bakedFigureCore;
@@ -1566,9 +1571,9 @@ export function missingImageReason(log) {
 }
 
 async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
-	const { toPng } = await import('html-to-image');
 	try {
-		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log)), undefined, cornerTarget);
+		// html-to-image's `toPng` is this canvas's `toDataURL()`; drawn through `settledCanvas` so WebKit waits for the pictures.
+		return await withCaptureFixups(section, async (w, h, pixelRatio) => (await settledCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log), log)).toDataURL(), undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
 	}
@@ -1587,10 +1592,9 @@ async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 // rides back with the bitmap so the worker can write it over the page image as an
 // invisible text layer — see `pdf-text-layer.js`.
 async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log) {
-	const { toCanvas } = await import('html-to-image');
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
-			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+			const canvas = await settledCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log), log);
 			// Never let the text layer cost the export its PDF: the picture is the
 			// deliverable and the words are the improvement, so a measurement that throws
 			// (an exotic node a Range cannot span) degrades to an image-only page.
@@ -1653,10 +1657,9 @@ async function canvasToPictureBlob(canvas, section) {
 // needs is never built on this thread — the bytes transfer to the assembly worker for
 // free and it encodes them there.
 async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, log) {
-	const { toCanvas } = await import('html-to-image');
 	try {
 		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
-			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+			const canvas = await settledCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log), log);
 			return await (await canvasToPictureBlob(canvas, section)).arrayBuffer();
 		}, undefined, cornerTarget);
 	} catch (e) {
@@ -1789,9 +1792,8 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // fail-safe default would mask that rather than catch it.
 async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
-	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pixelRatio) => {
-		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+		const canvas = await settledCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log), log);
 		const out = document.createElement('canvas');
 		out.width = canvas.width;
 		out.height = canvas.height;
@@ -2041,10 +2043,9 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
 async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log) {
-	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, { toCanvas }, pdfLib, { stickyNotePlacements }] = await Promise.all([
+	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
-		import('html-to-image'),
 		import('pdf-lib'),
 		import('../../../playground/pdf-sticky-notes.js'),
 	]);
@@ -2055,7 +2056,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
 	const camera = canvasCamera(async (section, scale) => {
 		try {
-			return await withCaptureFixups(section, (w, h, pr) => toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log)), scale, 'pdf');
+			return await withCaptureFixups(section, (w, h, pr) => settledCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log), log), scale, 'pdf');
 		} catch (e) {
 			throw captureError(e);
 		}
@@ -2390,7 +2391,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			console.warn(`[deck-export] slide record/slide mismatch (${record.length} vs ${sections.length}); exporting without notes and descriptions rather than risk mis-binding them.`);
 			record.length = 0;
 		}
-		const [calco, { toCanvas }] = await Promise.all([import('@/lib/calco'), import('html-to-image')]);
+		const calco = await import('@/lib/calco');
 		let slides = [];
 		let backgrounds;
 		const unreadable = [];
@@ -2405,7 +2406,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const host = {
 				run: async (i, fn, arg) => fn(sections[i], arg),
 				shoot: async (i, kind) => {
-					const canvas = await toCanvas(sections[i], captureOptions(now.w, now.h, now.pixelRatio, fontEmbedCSS, log));
+					const canvas = await settledCanvas(sections[i], captureOptions(now.w, now.h, now.pixelRatio, fontEmbedCSS, log), log);
 					// A background is a picture to store, and so is the whole slide a slide falls back to: a photograph is a JPEG.
 					// The foreground carries transparency, which only a PNG keeps.
 					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined);
@@ -2457,7 +2458,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					shot = await withCaptureFixups(
 						sections[i],
 						async (w, h, pixelRatio) => {
-							const canvas = await toCanvas(sections[i], captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+							const canvas = await settledCanvas(sections[i], captureOptions(w, h, pixelRatio, fontEmbedCSS, log), log);
 							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i])).arrayBuffer());
 						},
 						undefined,
@@ -2642,9 +2643,8 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 // three with a quality arg. The pixelRatio is the image-set size preset (or the
 // thumbnail scale), already OOM-capped by the shared kernel.
 async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META, log) {
-	const { toCanvas } = await import('html-to-image');
 	return withCaptureFixups(section, async (w, h, pr) => {
-		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log));
+		const src = await settledCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log), log);
 		const meta = FORMAT_META[format] || FORMAT_META.png;
 		let canvas = src;
 		// The underlay is about ALPHA, not about lossiness — those are different axes and

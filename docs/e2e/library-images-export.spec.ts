@@ -166,17 +166,18 @@ onEveryEngine('@smoke the PDF export draws the photo on the page, and does not r
 	expect(await greenShareOfPageImage(page, new Uint8Array(readFileSync(path))), 'the photo is painted on the PDF page').toBeGreaterThan(0.02);
 });
 
-// NOT on WebKit: its PowerPoint raster capture drops EVERY picture today, a repo sample image included, and
-// still says "PowerPoint ready." (followups.d/2640-p2-webkit-pptx-drops-images.md). Asserting the photo
-// there would fail for a reason this feature did not introduce; Firefox and Chromium carry the oracle.
-test('@smoke the PowerPoint export carries the photo, and does not report a missing image @gecko', async ({ page }) => {
+// On every engine, WebKit included: WebKit decodes a slide's pictures only after the first draw, and the
+// PowerPoint capture used to ship that first draw, with no picture and no warning. settled-canvas.js waits.
+onEveryEngine('@smoke the PowerPoint export carries the photo, and does not report a missing image', async ({ page }) => {
 	await setUp(page);
 	const path = await download(page, 'pptx');
 	// The message carries the toast text, so a failure names which image the capture could not load.
 	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
 	expect(toasts, 'the PowerPoint toast').not.toMatch(/could not load every image/i);
 	const zip = await JSZip.loadAsync(readFileSync(path));
-	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.png$/i.test(n));
+	// PNG or JPEG: a photographic slide is written as a JPEG when that is much smaller (canvasToPictureBlob), and which
+	// one wins depends on the engine's encoder. Firefox writes this deck's slide as a JPEG; a PNG-only filter found no picture.
+	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.(png|jpe?g)$/i.test(n));
 	expect(media.length, `ppt/media holds pictures (found: ${Object.keys(zip.files).filter((n) => n.includes('media')).join(', ') || 'nothing'})`).toBeGreaterThan(0);
 	let best = 0;
 	for (const name of media) best = Math.max(best, await greenShare(page, Buffer.from(await (zip.file(name) as JSZip.JSZipObject).async('uint8array'))));
