@@ -33,6 +33,7 @@ pre[data-focus-style] /* a code block's own `@code{focus=…}` (lib/plugins/code
   --focus-blur: 0.15cqi;
   --focus-pop: 1.02;        /* blur target lift — subtle, won't overlap neighbors */
   --focus-pop-shadow: 0.28cqi;
+  --focus-berth: 0.8cqi;    /* room for the lift: the scale overhang (~0.44cqi) plus the hard shadow (0.28cqi) */
   /* The lift edge — a curated role token (HARD RULE 11): a theme overrides this
    * one name to tune the lift. Default = the brand accent softened toward the
    * page so it reads on-brand without the harsh saturated edge. OPAQUE (mixed
@@ -75,6 +76,19 @@ section[data-focus-style="blur"] li.lat-focus {
   border-radius: 0.6cqi;
   position: relative;
   z-index: 2;
+}
+
+/* ── the lift's berth — blur and pop paint OUTSIDE the card ─────────────────────
+ * Both scale the target and drop a hard shadow past its edge, and the stage clips
+ * (`overflow: clip`), so an outer card's lift was sheared on the left or right (measured at
+ * 1280px, berth 0: 5.6px of scale overhang, plus the 3.6px shadow on the right). The list
+ * reserves the room as a border (not margin, #20) while either style is active, the same way
+ * `--elevation-berth` keeps a card's resting shadow inside the clip. The room is a constant for
+ * the slide, so it does not change between `_focusSteps`. It is a transparent BORDER, not padding:
+ * the elevation berth is a unitless `0` in most themes, which `max()` and `calc()` reject, and a
+ * border stacks on top of whatever padding the theme's berth already gave the list. */
+section[data-focus-resolved][data-focus-axis="item"]:is([data-focus-style="blur"], [data-focus-style="pop"]) :is(.cell-stage > ul, .cell-stage > ol, .cards-grid-inner, .cards-grid-inner--ordered) {
+  border: var(--focus-berth) solid transparent;
 }
 
 /* ── pop — lift the target forward, leave the rest legible ─────────────────────
