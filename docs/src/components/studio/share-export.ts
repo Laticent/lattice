@@ -1168,7 +1168,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
 	// `embedSource` — the `.lattice` to carry when the author chose "Re-openable in Lattice".
-	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource, images: ex.deckImageSetting(source) }), source);
+	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's
@@ -1179,7 +1179,7 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pptx'), palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource, images: ex.deckImageSetting(source) }), source);
+	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
@@ -1188,7 +1188,7 @@ export async function sharePptx(options: SingleSlideOptions, source: string, nam
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
 	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, format), palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source) }), source);
+	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
@@ -1267,12 +1267,12 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 		}
 	}
 
-	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground };
+	const ex = await exporters();
+	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground, fonts: ex.deckFontSetting(source) };
 	// Manifest provenance. Title from the deck's front-matter (else the filename); palette as
 	// rendered. The browser has no package version handy (unlike the CLI), so engineVersion is
 	// left null — the `generator: 'studio'` field already marks the source.
 	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
-	const ex = await exporters();
 	return withOffFences(await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta), source);
 }
 

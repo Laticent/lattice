@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Page } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 
 // The font policy (lib/core/font-policy.js) on the REAL Studio: the Share → Webpage panel's "Fonts" choice decides how much
@@ -22,7 +22,13 @@ async function webpage(page: Page, emoji?: string): Promise<string> {
 
 const emojiFaces = (html: string) => [...html.matchAll(/@font-face\{[^}]*Noto Color Emoji[^}]*\}/g)].map((m) => m[0]);
 
-test('@smoke Share → Webpage cuts the emoji font to the deck by default, and System ships none', async ({ page }) => {
+// `desktop` (Chromium) drops a title carrying `@webkit-*` unless it also carries `@crosswidth`, so each oracle is
+// defined twice: the `@gecko` copy runs on Chromium desktop AND Firefox, the `@webkit-tablet` copy on real WebKit.
+const onEveryEngine = (title: string, body: (fixtures: { page: Page; browser: Browser }) => Promise<void>) => {
+	for (const tag of [' @gecko', ' @webkit-tablet']) test(`${title}${tag}`, body);
+};
+
+onEveryEngine('@smoke Share → Webpage cuts the emoji font to the deck by default, and System ships none', async ({ page }) => {
 	const exact = await webpage(page);
 	const faces = emojiFaces(exact);
 	expect(faces.length).toBeGreaterThan(0);

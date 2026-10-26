@@ -6,9 +6,9 @@ import { setFontsOverride } from './export/images-override.js';
 
 type Tier = '' | 'exact' | 'used' | 'full' | 'system';
 const TEXT: { value: Tier; title: string }[] = [
-	{ value: '', title: 'Deck setting (used when it says nothing): the whole face for each script the deck uses, so edited text keeps every glyph' },
+	{ value: '', title: 'Deck setting (used when it says nothing): the whole face, so edited text keeps every glyph' },
 	{ value: 'exact', title: 'Exact: only the characters the deck shows, the smallest file' },
-	{ value: 'used', title: 'Used: whole face for the scripts the deck uses' },
+	{ value: 'used', title: 'Used: the whole face' },
 	{ value: 'full', title: 'Full: the whole face' },
 	{ value: 'system', title: 'System: embed nothing, the viewer’s fonts draw the text' },
 ];
@@ -19,6 +19,12 @@ const EMOJI: { value: Tier; title: string }[] = [
 	{ value: 'full', title: 'Full: the whole emoji font (about 2 MB)' },
 	{ value: 'system', title: 'System: the viewer’s own emoji' },
 ];
+
+const BLURB = {
+	webpage: 'How much of each typeface the web page carries.',
+	pdf: 'The PDF writer embeds the glyphs it draws. System leaves the engine’s fonts out, so the text is laid out in this device’s fonts.',
+	office: 'Editable PowerPoint and LibreOffice files embed the whole face for every choice but System, so edited text keeps the deck’s type.',
+};
 
 const KEY = (deckId?: string) => `lattice-studio-fonts:${deckId ?? ''}`;
 
@@ -31,7 +37,7 @@ function load(deckId?: string): { text: Tier; emoji: Tier } {
 	}
 }
 
-export function FontsControl({ deckId, busy }: { deckId?: string; busy?: boolean }) {
+export function FontsControl({ deckId, busy, format = 'webpage' }: { deckId?: string; busy?: boolean; format?: 'webpage' | 'pdf' | 'office' }) {
 	const [choice, setChoice] = React.useState(() => load(deckId));
 	React.useEffect(() => {
 		setFontsOverride([choice.text, choice.emoji && `${choice.emoji}-emoji`].filter(Boolean).join(' '));
@@ -59,7 +65,7 @@ export function FontsControl({ deckId, busy }: { deckId?: string; busy?: boolean
 				<Type className="mt-0.5 size-4 shrink-0 text-[var(--accent)]" />
 				<span className="min-w-0 flex-1">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Fonts</span>
-					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">How much of each typeface the web page carries. Same words as the deck’s `fonts:` line.</span>
+					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{BLURB[format]} Same words as the deck’s `fonts:` line.</span>
 					{select('Text fonts', choice.text, TEXT, (text) => setChoice({ ...choice, text }))}
 					{select('Emoji font', choice.emoji, EMOJI, (emoji) => setChoice({ ...choice, emoji }))}
 				</span>

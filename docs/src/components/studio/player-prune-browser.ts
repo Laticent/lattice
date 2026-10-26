@@ -69,6 +69,7 @@ export async function prunePlayerInBrowser(playerHtml: string): Promise<PruneRes
 }
 
 let wasmReady: Promise<void> | null = null;
+let colorWasmReady: Promise<void> | null = null;
 
 /**
  * The `subsetFonts` capability for `assemblePlayer`: the CLI's own subsetter, fed HarfBuzz's
@@ -82,15 +83,27 @@ export async function subsetFontsInBrowser(html: string, fonts?: { text: string;
 			const res = await fetch(url);
 			if (!res.ok) throw new Error(`hb-subset.wasm: HTTP ${res.status}`);
 			setSubsetWasm(new Uint8Array(await res.arrayBuffer()));
-			// The color build, for the emoji font only (lib/fonts/hb/README.md); the browser caches the one fetch.
-			const { default: colorUrl } = await import('../../../../lib/fonts/hb/hb-subset-color.wasm?url');
-			const colorRes = await fetch(colorUrl);
-			if (colorRes.ok) setColorWasm(new Uint8Array(await colorRes.arrayBuffer()));
 		})();
 		await wasmReady;
 	} catch {
 		wasmReady = null;
 		return { html, applied: false, saved: 0 };
+	}
+	// The color build (lib/fonts/hb/README.md) cuts the emoji font; fetch it only when the page carries that font and the
+	// policy cuts it, and the browser caches the one fetch.
+	if (fonts?.emoji === 'exact' && /Noto Color Emoji/.test(html)) {
+		try {
+			colorWasmReady ||= (async () => {
+				const { default: url } = await import('../../../../lib/fonts/hb/hb-subset-color.wasm?url');
+				const res = await fetch(url);
+				if (!res.ok) throw new Error(`hb-subset-color.wasm: HTTP ${res.status}`);
+				setColorWasm(new Uint8Array(await res.arrayBuffer()));
+			})();
+			await colorWasmReady;
+		} catch {
+			// Without it the emoji slices ship whole (the cut is skipped per face), never blank.
+			colorWasmReady = null;
+		}
 	}
 	return subsetEmbeddedFonts(html, fonts);
 }

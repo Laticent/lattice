@@ -1040,7 +1040,7 @@ function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake
  *  (`article-projection.ts` › warmArticleProjection) without running a capture. */
 export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 
-async function sectionsOf(frame) {
+async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
 	const sections = doc.querySelectorAll('.lattice>section');
@@ -1051,7 +1051,7 @@ async function sectionsOf(frame) {
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
-	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '');
+	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '', fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
@@ -1853,7 +1853,7 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 	const log = opts?.imageFailures || null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const images = [];
@@ -1994,7 +1994,7 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	}
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
 		// THE SHARED WRITER first: the same code as the CLI's PDF (lib/core/pdf-compose) —
 		// real text, vector charts and original images over one photo per slide. The
@@ -2277,7 +2277,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-	const { sections, fontEmbedCSS } = await sectionsOf(frame);
+	const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 	await recordUnreachableAssets(sections, log);
 	// The record and the rasterized sections come from two different splits of the same
 	// render, and the alt text below binds them BY INDEX. If they ever disagree on length,
@@ -2389,7 +2389,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	const record = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
 		if (record.length !== sections.length) {
 			console.warn(`[deck-export] slide record/slide mismatch (${record.length} vs ${sections.length}); exporting without notes and descriptions rather than risk mis-binding them.`);
@@ -2486,8 +2486,11 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const { calcoFontHost } = await import('./calco-font-host.js');
 			// A face left out is reported with the export, not dropped: the reader's office suite will use its own font for that text.
 			const skippedFonts = new Map();
-			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(), (face, why) => {
-				if (!skippedFonts.has(face.family)) skippedFonts.set(face.family, why);
+			// `fonts: system` (lib/core/font-policy.js): embed nothing, as the command line's editable export does.
+			deck.fonts = fontPolicyCore.resolveFontPolicy(opts?.fonts).text === 'system' ? [] : await calco.prepareFonts(deck, await calcoFontHost(), (face, why) => {
+				// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.
+				const label = face.italic ? `${face.family} italic` : face.family;
+				if (!skippedFonts.has(label)) skippedFonts.set(label, why);
 			});
 			if (skippedFonts.size) {
 				const names = [...skippedFonts.keys()].map((f) => `“${f}”`).join(', ');
@@ -2710,7 +2713,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 	const log = createImageFailureLog();
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
 		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);

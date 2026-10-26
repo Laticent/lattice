@@ -20,6 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
+import { FontsControl } from './FontsControl';
 import { OffFencesNotice } from './OffFencesNotice';
 import { PicturesControl, ResolutionControl } from './PicturesControl';
 
@@ -137,6 +138,7 @@ export function ExportOptionsPanel({
 
 				<ResolutionControl key={deckId} deckId={deckId} source={source} busy={busy} format={format} />
 				<PicturesControl key={deckId} deckId={deckId} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
+				<FontsControl key={`fonts-${deckId}`} deckId={deckId} busy={busy} format={isPdf ? 'pdf' : 'office'} />
 
 				{/* Re-openable: the deck's source rides inside the file. */}
 				{format !== 'odp' && (
