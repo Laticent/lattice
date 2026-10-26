@@ -78,7 +78,10 @@ async function exportPdfWith(page: Page, pictures: RegExp | null) {
 	const dialog = page.getByRole('dialog');
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: /^PDF/ }).click();
-	if (pictures) await dialog.getByRole('radio', { name: pictures }).check();
+	if (pictures) {
+		await dialog.getByRole('combobox', { name: 'Pictures' }).click();
+		await page.getByRole('option', { name: pictures }).click();
+	}
 	const download = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const bytes = new Uint8Array(readFileSync((await (await download).path()) as string));
@@ -115,8 +118,9 @@ onEveryEngine('@smoke a 4K deck exports its PDF at HD by default, and 4K when th
 		await expect(dialog).toBeVisible();
 		await dialog.getByRole('button', { name: /^PDF/ }).click();
 		// The control exists only because the deck is 4K, and says what the bigger file costs.
-		await expect(dialog.getByRole('radiogroup', { name: 'Resolution' })).toContainText(/about 1\.6.? larger/);
-		if (resolution) await dialog.getByRole('radio', { name: resolution }).check();
+		await dialog.getByRole('combobox', { name: 'Resolution' }).click();
+		await expect(page.getByRole('option', { name: /4K/ })).toContainText(/about 1\.6.? larger/);
+		await page.getByRole('option', { name: resolution ?? /^HD/ }).click();
 		const download = page.waitForEvent('download', { timeout: 240_000 });
 		await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 		const bytes = new Uint8Array(readFileSync((await (await download).path()) as string));

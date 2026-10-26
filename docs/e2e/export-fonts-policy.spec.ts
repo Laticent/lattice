@@ -6,6 +6,12 @@ import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
 // of the emoji font the downloaded player carries. The oracle is the downloaded FILE: its emoji @font-face rules and size.
 test.describe.configure({ timeout: 300_000 });
 
+/** Open a Fonts dropdown and take the row titled for this tier (`exact`, `system`, ...). */
+async function pickFont(page: Page, label: string, tier: string) {
+	await page.getByRole('dialog').getByRole('combobox', { name: label }).click();
+	await page.getByRole('option', { name: new RegExp(`^${tier}`, 'i') }).click();
+}
+
 const DECK = '# Launch \u{1F680} \u{2705}\n\nFlag \u{1F1EB}\u{1F1F7}\n';
 
 async function webpage(page: Page, emoji?: string): Promise<string> {
@@ -14,7 +20,7 @@ async function webpage(page: Page, emoji?: string): Promise<string> {
 	await page.getByRole('button', { name: 'Share', exact: true }).click();
 	const dialog = page.getByRole('dialog');
 	await dialog.getByRole('button', { name: /Webpage/ }).click();
-	if (emoji) await dialog.getByRole('combobox', { name: 'Emoji font' }).selectOption(emoji);
+	if (emoji) await pickFont(page, 'Emoji font', emoji);
 	const download = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /Download webpage/ }).click();
 	return readFileSync((await (await download).path()) as string, 'utf8');
@@ -54,7 +60,7 @@ async function editablePptxEntries(page: Page, text?: string): Promise<string[]>
 	const dialog = await openShare(page, /^PowerPoint/);
 	const editable = dialog.getByRole('switch', { name: 'Editable text' });
 	if ((await editable.getAttribute('aria-checked')) !== 'true') await editable.click();
-	if (text) await dialog.getByRole('combobox', { name: 'Text fonts' }).selectOption(text);
+	if (text) await pickFont(page, 'Text fonts', text);
 	const download = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /^Download PowerPoint/ }).click();
 	const { default: JSZip } = await import('jszip');
@@ -71,7 +77,7 @@ onEveryEngine('@smoke Share → editable PowerPoint embeds the deck faces by def
 
 async function pdfFontFiles(page: Page, text?: string): Promise<number> {
 	const dialog = await openShare(page, /^PDF/);
-	if (text) await dialog.getByRole('combobox', { name: 'Text fonts' }).selectOption(text);
+	if (text) await pickFont(page, 'Text fonts', text);
 	const download = page.waitForEvent('download', { timeout: 240_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const { PDFDocument, PDFName, PDFDict } = await import('pdf-lib');

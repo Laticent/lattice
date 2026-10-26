@@ -2,22 +2,23 @@
 // Same plan as the command line's --fonts (lib/core/font-policy.js). Remembered per deck.
 import { Type } from 'lucide-react';
 import * as React from 'react';
+import { type Choice, ChoiceSelect } from './ChoiceSelect';
 import { setFontsOverride } from './export/images-override.js';
 
 type Tier = '' | 'exact' | 'used' | 'full' | 'system';
-const TEXT: { value: Tier; title: string }[] = [
-	{ value: '', title: 'Deck setting (used when it says nothing): the whole face, so edited text keeps every glyph' },
-	{ value: 'exact', title: 'Exact: only the characters the deck shows, the smallest file' },
-	{ value: 'used', title: 'Used: the whole face' },
-	{ value: 'full', title: 'Full: the whole face' },
-	{ value: 'system', title: 'System: embed nothing, the viewer’s fonts draw the text' },
+const TEXT: Choice<Tier>[] = [
+	{ value: '', title: 'Deck setting', blurb: 'Follow `fonts:` in the deck’s front matter (the whole face when it says nothing).' },
+	{ value: 'exact', title: 'Exact', blurb: 'Only the characters the deck shows. The smallest file.' },
+	{ value: 'used', title: 'Used', blurb: 'The whole face, so edited text keeps every glyph.' },
+	{ value: 'full', title: 'Full', blurb: 'The whole face, every script.' },
+	{ value: 'system', title: 'System', blurb: 'Embed nothing; the viewer’s fonts draw the text.' },
 ];
-const EMOJI: { value: Tier; title: string }[] = [
-	{ value: '', title: 'Deck setting (exact when it says nothing)' },
-	{ value: 'exact', title: 'Exact: only the emoji the deck shows' },
-	{ value: 'used', title: 'Used: whole slices holding the deck’s emoji' },
-	{ value: 'full', title: 'Full: the whole emoji font (about 2 MB)' },
-	{ value: 'system', title: 'System: the viewer’s own emoji' },
+const EMOJI: Choice<Tier>[] = [
+	{ value: '', title: 'Deck setting', blurb: 'Follow `fonts:` in the deck’s front matter (exact when it says nothing).' },
+	{ value: 'exact', title: 'Exact', blurb: 'Only the emoji the deck shows.' },
+	{ value: 'used', title: 'Used', blurb: 'Whole slices holding the deck’s emoji.' },
+	{ value: 'full', title: 'Full', blurb: 'The whole emoji font, about 2 MB.' },
+	{ value: 'system', title: 'System', blurb: 'The viewer’s own emoji.' },
 ];
 
 const BLURB = {
@@ -47,18 +48,6 @@ export function FontsControl({ deckId, busy, format = 'webpage' }: { deckId?: st
 			// blocked storage: the choice still applies to this session
 		}
 	}, [choice, deckId]);
-	const select = (label: string, value: Tier, options: typeof TEXT, set: (v: Tier) => void) => (
-		<label className="mt-2 flex flex-col gap-1 text-[11.5px] text-muted-foreground">
-			{label}
-			<select value={value} disabled={busy} onChange={(e) => set(e.target.value as Tier)} className="rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-[var(--text-heading)]" aria-label={label}>
-				{options.map((o) => (
-					<option key={o.value} value={o.value}>
-						{o.title}
-					</option>
-				))}
-			</select>
-		</label>
-	);
 	return (
 		<div className="rounded-xl border border-border bg-background p-3.5">
 			<span className="flex items-start gap-2">
@@ -66,8 +55,8 @@ export function FontsControl({ deckId, busy, format = 'webpage' }: { deckId?: st
 				<span className="min-w-0 flex-1">
 					<span className="block text-[13px] font-semibold text-[var(--text-heading)]">Fonts</span>
 					<span className="mt-0.5 block text-[11.5px] leading-snug text-muted-foreground">{BLURB[format]} Same words as the deck’s `fonts:` line.</span>
-					{select('Text fonts', choice.text, TEXT, (text) => setChoice({ ...choice, text }))}
-					{select('Emoji font', choice.emoji, EMOJI, (emoji) => setChoice({ ...choice, emoji }))}
+					<ChoiceSelect label="Text fonts" value={choice.text} choices={TEXT} disabled={busy} onChange={(text) => setChoice({ ...choice, text })} />
+					<ChoiceSelect label="Emoji font" value={choice.emoji} choices={EMOJI} disabled={busy} onChange={(emoji) => setChoice({ ...choice, emoji })} />
 				</span>
 			</span>
 		</div>
