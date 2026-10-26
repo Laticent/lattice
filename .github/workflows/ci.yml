@@ -234,10 +234,12 @@ jobs:
   # that nothing here uses.
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 2 # SCRATCH PROOF ONLY
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
     steps:
+      - name: scratch sleep past the cap
+        run: sleep 600
       - uses: actions/checkout@v4
         with:
           # The no-PDF check below diffs GitHub's test merge against its first parent.
