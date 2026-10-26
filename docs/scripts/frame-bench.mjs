@@ -151,8 +151,11 @@ async function oneRun(browser, base, opts) {
 	// RESTYLE renders: the toolbar's mode button. A theme or mode change keeps the frame box, so the
 	// preview swaps its theme <style> in place. (This step used to flip `data-mode` on the page's
 	// <html>, which the preview never reads, so the heavy regimes were never measured: #1939.)
-	for (let i = 0; i < 3; i++) {
-		await page.click('[data-demo="mode"]');
+	// A missing button (another --url, a renamed hook) skips the step rather than failing the run,
+	// so the check reports the regime as missing and the patch numbers still land.
+	const modeButton = await page.$('[data-demo="mode"]');
+	for (let i = 0; modeButton && i < 3; i++) {
+		await modeButton.click();
 		await settle();
 	}
 	// WRITE renders: a Mermaid fence typed in as one input, then undone, twice. The diagram flag is
@@ -221,10 +224,10 @@ const BASELINE = join(DOCS, 'scripts', 'frame-baseline.json');
  * every regime, so a missing one means the driver broke (a renamed button, a changed write
  * rule), and a skip would quietly put the ratchet back to guarding half the loop (#1939).
  */
-// The write floors are sized from the first measured runs (2026-10-26, 4× CPU): a write is a
-// whole new iframe realm, ~300-500 ms, and five runs spread 287-413 ms on one tree, so a floor of
-// a few ms would let that spread alone fail the band.
-const FLOOR_MS = { lcpMs: 300, framePatchMs: 2, frameRestyleMs: 8, frameWriteMs: 120, totalPatchMs: 4, totalRestyleMs: 10, totalWriteMs: 150, engineMs: 2 };
+// The restyle and write floors are sized from the blessing runs (2026-10-26, 4× CPU, five runs on
+// one tree): a write is a whole new iframe realm and its per-run median spread 256-373 ms; a restyle
+// spread 35-46 ms. A floor of a few ms would let that spread alone fail the band.
+const FLOOR_MS = { lcpMs: 300, framePatchMs: 2, frameRestyleMs: 12, frameWriteMs: 120, totalPatchMs: 4, totalRestyleMs: 14, totalWriteMs: 150, engineMs: 2 };
 const TOLERANCE_PCT = 25; // browser-noisy; the floor above is what actually keeps it honest
 const METRICS = Object.keys(FLOOR_MS);
 

@@ -129,10 +129,12 @@ driver broke. Blessed at 4× CPU, five runs:
 | TOTAL write | 344 ms | |
 | LCP | 2519 ms | 2298-2647 ms |
 
-The write floors are 120 ms (frame) and 150 ms (total), sized from that spread: a write mints a
-whole iframe realm, and a few-ms floor would let run-to-run noise fail the band. Proved both ways:
-a baseline doctored to restyle 20 ms and write 150 ms fails (exit 1), a run whose restyle samples
-were renamed fails as `REGIME MISSING` (exit 1), and two clean re-runs pass.
+The floors are sized from that spread: write 120 ms (frame) and 150 ms (total), because a write
+mints a whole iframe realm; restyle 12 and 14 ms. A few-ms floor would let run-to-run noise fail
+the band. Proved both ways: a baseline doctored to restyle 20 ms and write 150 ms fails (exit 1), a
+run whose restyle samples were renamed fails as `REGIME MISSING` (exit 1), and two clean re-runs
+pass. A missing mode button skips the restyle step, so it too reports `REGIME MISSING` instead of
+failing the whole run.
 
 The light-regime numbers moved since August (patch total 11.1 → 20.8 ms, LCP 1467 → 2519 ms). That
 is drift on `main`, not the bench change: the old bench on the base build of 2026-10-26 reads LCP
