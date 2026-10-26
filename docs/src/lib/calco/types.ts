@@ -65,6 +65,19 @@ export interface TextFrame {
 	/** Distance between one line's top and the next, px. */
 	lineHeight: number;
 	align: 'left' | 'center' | 'right';
+	/**
+	 * The lines are soft wraps of ONE paragraph, so a writer may join them and let the office
+	 * suite wrap at `w`. Set only for ordinary prose: no `<br>`, no preformatted text. For
+	 * balanced or centered text `w` is the widest line, which reproduces the same breaks
+	 * under a greedy wrap; for plain left-aligned text it is the column.
+	 */
+	flow?: boolean;
+	/**
+	 * Paragraphs that follow this one in the same text body (a card's body under its heading),
+	 * each still positioned as the browser drew it: a writer derives the space before it from
+	 * where its first baseline sat. Set by `mergeCardText`, never by the reader.
+	 */
+	next?: TextFrame[];
 	lines: TextRun[][];
 	/** The group this text moves with: the index of its card in `Slide.shapes`. */
 	group?: number;

@@ -35,8 +35,9 @@
  * master its own copy (`giveMastersOwnThemes`).
  */
 
+import { mergeCardText } from './cardtext.js';
 import { type FontMetrics, faceFamilyName, faceFor, faceKey, facesUsed, uniqueFaceNames } from './fonts.js';
-import { applyTransform, bareHex, dominantStyle, metricsFor, placeFrame, spacingMultiple } from './layout.js';
+import { applyTransform, bareHex, dominantStyle, flowLines, metricsFor, paragraphGap, placeFrame, spacingMultiple } from './layout.js';
 import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { imageMime } from './picture.js';
 import { canEmbedAsEot, type FaceSlot, renameFace, toEot } from './sfnt.js';
@@ -189,17 +190,32 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		return { text: xmlSafe(applyTransform(run.text, s.transform)), options: opts };
 	};
 
-	// A frame's runs and the options that place them where the browser drew them.
+	// A frame's runs and the options that place them where the browser drew them. A card's text
+	// (`frame.next`) is one body: each following paragraph carries its own line spacing and the
+	// space the browser left before it.
 	const textOf = (frame: TextFrame) => {
-		const lines = frame.lines;
-		const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
-		const metrics = metricsFor(lead, fonts, metricsCache);
-		const box = placeFrame(frame, W, metrics, lead.size, 'proportional');
+		const parts = [frame, ...(frame.next || [])].map((f) => {
+			const lines = flowLines(f);
+			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
+			return { f, lines, lead, metrics: metricsFor(lead, fonts, metricsCache) };
+		});
+		const first = parts[0];
+		const box = placeFrame(frame, W, first.metrics, first.lead.size, 'proportional');
+		const flat = parts.flatMap((p, k) => p.lines.map((line, li) => ({ p, k, li, line })));
 		// An empty line (a blank line in code) is an empty paragraph in the lead style.
-		const runs = lines.flatMap((line, li) => {
-			const last = li < lines.length - 1;
-			if (!line.length) return [runOptions({ text: '', style: lead }, last)];
-			return line.map((run, ri) => runOptions(run, ri === line.length - 1 && last));
+		const runs = flat.flatMap(({ p, k, li, line }, n) => {
+			const breakLine = n < flat.length - 1;
+			const own: Record<string, unknown> = {};
+			if (k) {
+				own.lineSpacingMultiple = spacingMultiple(p.f, p.metrics, p.lead.size);
+				if (!li) {
+					const prev = parts[k - 1];
+					own.paraSpaceBefore = points(paragraphGap(prev.f, prev.metrics, prev.lead.size, p.f, p.metrics, p.lead.size, 'proportional'));
+				}
+			}
+			const mark = (r: { text: string; options: Record<string, unknown> }, ri: number) => (ri === 0 && k ? { ...r, options: { ...r.options, ...own } } : r);
+			if (!line.length) return [mark(runOptions({ text: '', style: p.lead }, breakLine), 0)];
+			return line.map((run, ri) => mark(runOptions(run, breakLine && ri === line.length - 1), ri));
 		});
 		const options: Record<string, unknown> = {
 			valign: 'top',
@@ -208,14 +224,14 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 			// the font size and applies it to the face's own, taller line, so every line ran
 			// ~26% apart and paragraphs spilled out of their cards. A multiple of the face's
 			// natural line height reads the same in Google Slides and LibreOffice.
-			lineSpacingMultiple: spacingMultiple(frame, metrics, lead.size),
+			lineSpacingMultiple: spacingMultiple(frame, first.metrics, first.lead.size),
 			paraSpaceBefore: 0,
 			paraSpaceAfter: 0,
 			fit: 'none',
-			// Lines are already broken where the browser broke them. Without wrapping, a
-			// substitute font that runs wider overhangs the box instead of adding a line that
-			// lands on the next paragraph.
-			wrap: false,
+			// Lines are already broken where the browser broke them, so a frame wraps only when
+			// the browser did (`flow`): without wrapping, a substitute font that runs wider
+			// overhangs the box instead of adding a line that lands on the next paragraph.
+			wrap: !!frame.flow,
 		};
 		return { runs, box, options };
 	};
@@ -246,7 +262,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 		return { kind: 'custGeom', options };
 	};
 	// Where a label's text sits inside its shape (null: it cannot, see labelInsets).
-	const insetsOf = (shape: Shape, frame: TextFrame) => labelInsets(shapeGeometry(shape), textOf(frame).box, frame.align);
+	const insetsOf = (shape: Shape, frame: TextFrame) => labelInsets(shapeGeometry(shape), textOf(frame).box, frame.align, !!frame.flow);
 
 	// LAYOUTS. Slides that share a background and running chrome share a layout (masters.ts):
 	// the layout holds the background, the title placeholder and the header, footer and page
@@ -283,7 +299,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 
 	deck.slides.forEach((original, i) => {
 		if (original.image && !original.image.length) throw new Error(`calco: slide ${i + 1} has no image`);
-		const slide = masters ? withoutHoisted(original, masters.hoisted[i]) : original;
+		const slide = mergeCardText(masters ? withoutHoisted(original, masters.hoisted[i]) : original);
 		const s = pptx.addSlide(masters ? { masterName: layoutName(masters.layoutOf[i]) } : undefined);
 		// ALWAYS set altText: PptxGenJS otherwise writes the image's file name, which a
 		// screen reader reads aloud.
@@ -320,7 +336,7 @@ export function buildPptx(PptxGenJS: PptxGenJSClass, deck: Deck, options?: { emb
 					continue;
 				}
 				const text = textOf(item.label);
-				const ins = labelInsets(geom, text.box, item.label.align) as NonNullable<ReturnType<typeof labelInsets>>;
+				const ins = labelInsets(geom, text.box, item.label.align, !!item.label.flow) as NonNullable<ReturnType<typeof labelInsets>>;
 				// Insets in points: PptxGenJS's margin is [left, right, bottom, top].
 				s.addText(text.runs, { ...text.options, ...shapeOptions, shape: kind, margin: [points(ins.l), points(ins.r), 0, points(ins.t)], objectName: name });
 			}

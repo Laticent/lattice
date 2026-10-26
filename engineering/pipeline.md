@@ -243,8 +243,20 @@ pinner. Two modes:
   per weight.
   Charts, diagrams, equations, `::before`/`::after` text, rotated text and
   ellipsized lines stay in the picture.
-  **Fidelity needs the deck's fonts at the reader.** Lines are broken where the
-  browser broke them (no wrap), and each word is placed from the browser's
+  **Wrapping and padding (since 2026-10-26).** Ordinary prose that wrapped in the browser is one
+  paragraph in the file (`TextFrame.flow`), in a box as wide as the browser's column plus 1% for
+  the suite's own measure, with wrapping on. A balanced or centered paragraph gets a box as wide as
+  its widest line, which a greedy wrap breaks at the same places. A card's heading and body that
+  share its left edge become ONE text body inside the card's own shape (`mergeCardText`,
+  `docs/src/lib/calco/cardtext.ts`): the card's padding is the shape's insets, the gap between
+  paragraphs is space-before, and the suite wraps the text inside the card. Code, `<br>` lines,
+  roles (title placeholder, header, footer, number), indented lists and a pill on the title row keep
+  their pinned, no-wrap boxes. **The card keeps the browser's height**: a reader whose face runs
+  wider wraps to more lines and the text can run past the card's bottom edge, because an office
+  file cannot push the next row down. Measured in LibreOffice only; PowerPoint and Google Slides
+  are UNVERIFIED.
+  **Fidelity needs the deck's fonts at the reader.** Where a paragraph is pinned, lines are broken
+  where the browser broke them, and each word is placed from the browser's
   measure, so the file matches the slide only when the reader draws the same face.
   LibreOffice does not use a `.pptx`'s embedded fonts: with Outfit missing it falls
   back to Inter, every line runs wider, and a picture set mid-sentence (an

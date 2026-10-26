@@ -15,8 +15,10 @@
  *   - `styles.xml` needs an `<office:styles>` element, even an empty one, or LibreOffice
  *     ignores the page layout and falls back to its own 28 × 15.75 cm page.
  */
+
+import { mergeCardText } from './cardtext.js';
 import { type FontMetrics, faceFor, facesUsed, readFontMetrics, uniqueFaceNames } from './fonts.js';
-import { dominantStyle, metricsFor, placeFrame } from './layout.js';
+import { dominantStyle, flowLines, metricsFor, paragraphGap, placeFrame } from './layout.js';
 import { isPosition, planMasters, withoutHoisted } from './masters.js';
 import { imageExt, imageMime } from './picture.js';
 import { renameFace } from './sfnt.js';
@@ -189,8 +191,8 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		return name;
 	};
 	const paraStyles = new Map<string, string>();
-	const paraStyle = (align: string, lineHeight: number): string => {
-		const key = `${align}|${lineHeight.toFixed(3)}`;
+	const paraStyle = (align: string, lineHeight: number, before = 0): string => {
+		const key = `${align}|${lineHeight.toFixed(3)}|${before.toFixed(3)}`;
 		const hit = paraStyles.get(key);
 		if (hit) return hit;
 		const name = `P${paraStyles.size + 1}`;
@@ -198,7 +200,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		const foAlign = align === 'center' ? 'center' : align === 'right' ? 'end' : 'start';
 		automatic.push(
 			`<style:style style:name="${name}" style:family="paragraph"><style:paragraph-properties fo:text-align="${foAlign}" ` +
-				`fo:line-height="${cm(lineHeight)}" fo:margin-top="0cm" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm" fo:text-indent="0cm"/></style:style>`,
+				`fo:line-height="${cm(lineHeight)}" fo:margin-top="${cm(before)}" fo:margin-bottom="0cm" fo:margin-left="0cm" fo:margin-right="0cm" fo:text-indent="0cm"/></style:style>`,
 		);
 		return name;
 	};
@@ -206,14 +208,27 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	const metricsCache = new Map<EmbeddedFont, FontMetrics | null>();
 	// A frame's placed box and its paragraph, as the browser drew it.
 	const textOf = (f: TextFrame, position?: number) => {
-		const lead = dominantStyle(f.lines.find((l) => l.length) || f.lines[0]);
-		const box = placeFrame(f, W, metricsFor(lead, used, metricsCache), lead.size);
+		// A card's text is one body: each frame after the first (`next`) is a paragraph with the space
+		// the browser left before it.
+		const parts = [f, ...(f.next || [])].map((pf) => {
+			const lines = flowLines(pf);
+			const lead = dominantStyle(lines.find((l) => l.length) || lines[0]);
+			return { pf, lines, lead, metrics: metricsFor(lead, used, metricsCache) };
+		});
+		const first = parts[0];
+		const box = placeFrame(f, W, first.metrics, first.lead.size);
 		// A page number is a field, so it follows the slide when slides are moved.
 		const field = f.role === 'number' && position !== undefined && isPosition(f, position);
-		const body = f.lines
-			.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${field ? `<text:page-number text:select-page="current">${textBody(r.text)}</text:page-number>` : textBody(r.text)}</text:span>`).join(''))
+		const para = parts
+			.map((p, k) => {
+				const before = k ? paragraphGap(parts[k - 1].pf, parts[k - 1].metrics, parts[k - 1].lead.size, p.pf, p.metrics, p.lead.size, 'exact') : 0;
+				const body = p.lines
+					.map((runs, li) => (li ? '<text:line-break/>' : '') + runs.map((r) => `<text:span text:style-name="${textStyle(r.style)}">${field ? `<text:page-number text:select-page="current">${textBody(r.text)}</text:page-number>` : textBody(r.text)}</text:span>`).join(''))
+					.join('');
+				return `<text:p text:style-name="${paraStyle(p.pf.align, p.pf.lineHeight, before)}">${body}</text:p>`;
+			})
 			.join('');
-		return { box, para: `<text:p text:style-name="${paraStyle(f.align, f.lineHeight)}">${body}</text:p>` };
+		return { box, para };
 	};
 	const pct = (a: number) => `${Math.round(a * 1000) / 10}%`;
 	// One graphic style per distinct paint (and, for a label, text placement).
@@ -240,7 +255,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		);
 		return name;
 	};
-	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align'] }): string => {
+	const shapeStyle = (shape: Shape, closed: boolean, label?: { ins: Insets; align: TextFrame['align']; flow?: boolean }): string => {
 		const attrs: string[] = [];
 		const stroke = shape.stroke;
 		attrs.push(stroke ? `draw:stroke="solid" svg:stroke-width="${cm(stroke.width)}" svg:stroke-color="${stroke.color}" svg:stroke-opacity="${pct(stroke.alpha)}" svg:stroke-linecap="${shape.cap || 'butt'}"${shape.join ? ` draw:stroke-linejoin="${shape.join}"` : ''}` : 'draw:stroke="none"');
@@ -258,7 +273,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 			// The text does not wrap and sits at the top; the edge its alignment grows from is inset.
 			const h = label.align === 'center' ? 'center' : label.align === 'right' ? 'right' : 'left';
 			attrs.push(
-				`draw:textarea-vertical-align="top" draw:textarea-horizontal-align="${h}" fo:wrap-option="no-wrap" draw:auto-grow-height="false" draw:auto-grow-width="false" ` +
+				`draw:textarea-vertical-align="top" draw:textarea-horizontal-align="${h}" fo:wrap-option="${label.flow ? 'wrap' : 'no-wrap'}" draw:auto-grow-height="false" draw:auto-grow-width="false" ` +
 					`fo:padding-top="${cm(label.ins.t)}" fo:padding-bottom="0cm" fo:padding-left="${cm(label.ins.l)}" fo:padding-right="${cm(label.ins.r)}"`,
 			);
 		}
@@ -285,7 +300,7 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 		let text = '';
 		if (label) {
 			const t = textOf(label);
-			style = shapeStyle(shape, geom.closed, { ins: labelInsets(geom, t.box, label.align) as Insets, align: label.align });
+			style = shapeStyle(shape, geom.closed, { ins: labelInsets(geom, t.box, label.align, !!label.flow) as Insets, align: label.align, flow: !!label.flow });
 			text = t.para;
 		}
 		// A rectangle (rounded or not) keeps its corners when resized; any other outline is a path.
@@ -348,9 +363,9 @@ export function buildOdp(JSZip: JSZipClass, deck: Deck) {
 	};
 	const pages = deck.slides.map((original, i) => {
 		const n = i + 1;
-		const slide = masters ? withoutHoisted(original, masters.hoisted[i]) : original;
+		const slide = mergeCardText(masters ? withoutHoisted(original, masters.hoisted[i]) : original);
 		const alt = (slide.description || '').trim() || `Slide ${n}`;
-		const carries = (shape: Shape, f: TextFrame) => !!labelInsets(shapeGeometry(shape), textOf(f).box, f.align);
+		const carries = (shape: Shape, f: TextFrame) => !!labelInsets(shapeGeometry(shape), textOf(f).box, f.align, !!f.flow);
 		const boxes = drawOrder(slide, carries)
 			.map(({ group, items }) => {
 				const parts = items.map((item) => ({

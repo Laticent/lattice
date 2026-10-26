@@ -15,7 +15,7 @@
  *    so the box gets spare width on the side its alignment grows toward, kept on the slide.
  */
 import { type FontMetrics, faceFor, readFontMetrics } from './fonts.js';
-import type { EmbeddedFont, TextFrame, TextStyle } from './types.js';
+import type { EmbeddedFont, TextFrame, TextRun, TextStyle } from './types.js';
 
 /** Loops, not a spread: `Math.min(...xs)` overflows the call stack past about 120,000 values. */
 const highest = (xs: number[]) => xs.reduce((m, v) => (v > m ? v : m), Number.NEGATIVE_INFINITY);
@@ -78,9 +78,47 @@ export function placeFrame(frame: TextFrame, slideW: number, metrics: FontMetric
 			: frame.align === 'right'
 				? frame.x
 				: slideW - frame.x - frame.w;
-	const slack = Math.max(0, Math.min(Math.max(0.1 * frame.w, 3 * maxSize), room));
+	// A flow frame wraps at `w`, so its slack is a hair for the suite's own measure, not room
+	// for an overhang: a word the browser wrapped must still not fit.
+	const wanted = frame.flow ? Math.max(1.5, 0.01 * frame.w) : Math.max(0.1 * frame.w, 3 * maxSize);
+	const slack = Math.max(0, Math.min(wanted, room));
 	const x = frame.align === 'center' ? frame.x - slack / 2 : frame.align === 'right' ? frame.x - slack : frame.x;
 	return { x, y, w: frame.w + slack, h: frame.lineHeight * frame.lines.length };
+}
+
+/**
+ * A flow frame's lines as one paragraph: the browser's soft wraps become a space (the one the
+ * browser dropped at each wrap) and the spacer that held a later line at its start is
+ * dropped. Other frames keep their lines.
+ */
+export function flowLines(frame: TextFrame): TextRun[][] {
+	if (!frame.flow) return frame.lines;
+	const isSpacer = (r: TextRun) => r.style.size === 2 && r.text === '\u00A0';
+	const out: TextRun[] = [];
+	frame.lines.forEach((line, li) => {
+		const runs = li ? line.filter((r, i) => !(i === 0 && isSpacer(r))) : line;
+		const prev = out[out.length - 1];
+		const next = runs[0];
+		if (li && prev && next && !/\s$/.test(prev.text) && !/^\s/.test(next.text)) out.push({ text: ' ', style: prev.style });
+		out.push(...runs);
+	});
+	return [out];
+}
+
+/**
+ * The space before `next` when it follows `prev` in one text body, so its first baseline lands
+ * where the browser put it. Both frames keep the geometry the browser gave them; this is the
+ * baseline-to-baseline distance less what the suite already spends on the line itself
+ * (`spacing` as in `placeFrame`). Never negative.
+ */
+export function paragraphGap(prev: TextFrame, prevMetrics: FontMetrics, prevSize: number, next: TextFrame, nextMetrics: FontMetrics, nextSize: number, spacing: 'exact' | 'proportional'): number {
+	const base = (f: TextFrame, m: FontMetrics) => f.y + (f.firstLineHeight * m.ascent) / (m.ascent + m.descent);
+	const delta = base(next, nextMetrics) - (base(prev, prevMetrics) + (prev.lines.length - 1) * prev.lineHeight);
+	if (spacing === 'proportional') {
+		const lift = (f: TextFrame, m: FontMetrics, size: number) => spacingMultiple(f, m, size) * (m.ascent + (m.lineGap || 0) / 2) * size;
+		return Math.max(0, delta - prev.lineHeight - (lift(next, nextMetrics, nextSize) - lift(prev, prevMetrics, prevSize)));
+	}
+	return Math.max(0, delta - next.lineHeight + nextMetrics.descent * nextSize - prevMetrics.descent * prevSize);
 }
 
 /** `text-transform` applied to source text, for formats with no transform attribute. */

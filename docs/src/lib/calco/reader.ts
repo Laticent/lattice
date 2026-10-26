@@ -842,6 +842,23 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			const blanks = Math.round((tops[k] - tops[k - 1]) / lineHeight) - 1;
 			if (blanks > 0 && blanks < 50) lines.splice(k, 0, ...Array.from({ length: blanks }, () => [] as Word[]));
 		}
+		// FLOW: ordinary prose that wrapped is one paragraph in the office file, wrapped by the
+		// suite at the column. Code, `<br>` lines and blank lines keep their breaks.
+		const wrapStyle = bcs.getPropertyValue('text-wrap-style') || bcs.getPropertyValue('text-wrap') || '';
+		const flow = lines.length > 1 && !preformatted && bcs.whiteSpace === 'normal' && !block.querySelector('br') && lines.every((l) => l.length > 0);
+		if (flow) {
+			// A greedy wrap at the widest line reproduces every break of a balanced or centered
+			// paragraph; the full column does so only for plain left-aligned text.
+			const tight = align !== 'left' || /balance|pretty|stable/.test(wrapStyle);
+			if (tight) {
+				const widest = maxOf(lines.map((l) => maxOf(l.map((wd) => wd.x + wd.w)) - minOf(l.map((wd) => wd.x))));
+				if (align === 'center') {
+					const c = x + w / 2;
+					x = c - widest / 2;
+				} else if (align === 'right') x = x + w - widest;
+				w = widest;
+			}
+		}
 		frameBlocks.push(block);
 		frames.push({
 			x,
@@ -851,6 +868,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			firstLineHeight: firstH,
 			lineHeight,
 			align,
+			...(flow ? { flow: true } : {}),
 			lines: lines.map((line) => {
 				const runs: TextRun[] = [];
 				// One undecorated copy per style, so consecutive spaces merge into one run.

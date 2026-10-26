@@ -133,11 +133,11 @@ export interface Insets {
  * reaches outside the shape (a negative inset, which neither format allows): the writer then
  * draws the shape and a text box, grouped, instead.
  *
- * The text does not wrap, so only the edge its alignment grows from matters: the left inset
+ * The text does not wrap (unless `flow`, which also insets the far edge), so only the edge its alignment grows from matters: the left inset
  * for left-aligned text, the right one for right-aligned, and for centered text a text area
  * centered on the text's own center.
  */
-export function labelInsets(geom: ShapeGeometry, placed: PlacedBox, align: TextFrame['align']): Insets | null {
+export function labelInsets(geom: ShapeGeometry, placed: PlacedBox, align: TextFrame['align'], flow = false): Insets | null {
 	const t = placed.y - geom.y;
 	let l = 0;
 	let r = 0;
@@ -148,7 +148,11 @@ export function labelInsets(geom: ShapeGeometry, placed: PlacedBox, align: TextF
 		r = geom.x + geom.w - (cx + m);
 		if (m < 0) return null;
 	} else if (align === 'right') r = geom.x + geom.w - (placed.x + placed.w);
-	else l = placed.x - geom.x;
+	else {
+		l = placed.x - geom.x;
+		// A wrapping label ends where its column ends.
+		if (flow) r = geom.x + geom.w - (placed.x + placed.w);
+	}
 	if (t < -0.5 || l < -0.5 || r < -0.5) return null;
 	return { l: Math.max(0, l), t: Math.max(0, t), r: Math.max(0, r) };
 }

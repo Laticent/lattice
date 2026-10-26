@@ -9,10 +9,11 @@
 
 export type { CapturedSlide, CaptureHost, CaptureOptions, Shot } from './capture.js';
 export { captureOfficeSlides, cropPictures, describeBackground, logoKey, placePictures, readsBackdrop, splitError, toBase64 } from './capture.js';
+export { mergeCardText } from './cardtext.js';
 export type { FaceUse, FontHost, FontMetrics } from './fonts.js';
 export { embeddingAllowed, faceFamilyName, faceFor, facesUsed, nearestFace, pinFeatures, prepareFonts, readFontMetrics, uniqueFaceNames } from './fonts.js';
 export type { PlacedBox } from './layout.js';
-export { applyTransform, placeFrame, spacingMultiple } from './layout.js';
+export { applyTransform, flowLines, paragraphGap, placeFrame, spacingMultiple } from './layout.js';
 export type { ChromeRole, Layout, MasterPlan } from './masters.js';
 export { CHROME_ROLES, planMasters, withoutHoisted } from './masters.js';
 export { buildOdp, ODP_MIMETYPE, odpPageSize, odpZipOptions, writeOdp, xmlEscape } from './odp.js';
