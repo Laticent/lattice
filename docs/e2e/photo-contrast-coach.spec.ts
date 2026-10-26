@@ -170,14 +170,21 @@ for (const width of [1440, 390]) {
 		await page.keyboard.press('ControlOrMeta+Home');
 		for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowDown');
 		const light = page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' });
-		const dark = page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' });
-		// The first pass after the move may still offer both (the preview had not drawn slide 1 yet); the re-lint settles it.
-		await expect(async () => {
-			// Leave the line first: an already-open tooltip keeps the actions it was built with.
-			await page.mouse.move(700, 600);
-			await page.locator('.cm-lintRange-warning').first().hover();
-			await expect(light).toBeVisible({ timeout: 3000 });
-			await expect(dark).toHaveCount(0);
-		}).toPass({ timeout: 40_000 });
+		// The jank this guards: the tooltip opened with BOTH inks, was closed by a re-lint, and reopened with one. The buttons are
+		// now filled in place, so record every mutation from before the hover: "Add ink-dark" must never appear, and the open
+		// tooltip must never be taken out of the page.
+		await page.evaluate(() => {
+			const w = window as unknown as { __jank: { dark: boolean; removed: number } };
+			w.__jank = { dark: false, removed: 0 };
+			new MutationObserver((muts) => {
+				for (const m of muts) {
+					for (const n of Array.from(m.removedNodes)) if (n instanceof Element && (n.matches('.cm-tooltip-lint') || n.querySelector('.cm-tooltip-lint'))) w.__jank.removed++;
+				}
+				if (Array.from(document.querySelectorAll('.cm-diagnosticAction')).some((b) => b.textContent?.includes('ink-dark'))) w.__jank.dark = true;
+			}).observe(document.body, { childList: true, subtree: true, characterData: true });
+		});
+		await page.locator('.cm-lintRange-warning').first().hover();
+		await expect(light).toBeVisible({ timeout: 20_000 });
+		expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false, removed: 0 });
 	});
 }

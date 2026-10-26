@@ -82,13 +82,16 @@ change the slide the preview holds. Fuoco was in sync (the editor reports the ca
 phone's Source tab and `DeckPreview.render` returns early while parked. That parking is deliberate (it defers per-keystroke renders) and has
 no written reason.
 
-Three changes, the owner choosing that the preview follow the cursor:
+Two changes, the owner choosing that the preview follow the cursor:
 
 - `DeckPreview` gets `followWhenParked` (off by default): while parked it draws ONCE when the shown slide or deck changes, never for an edit.
   The Studio turns it on for its editor preview. Cost: one render per slide crossing on the phone's Source tab, not one per keystroke.
-- The editor re-lints when the preview has drawn a different slide. `FocusedPreview` announces the slide it drew
-  (`preview-render-event.ts`); the editor listens and dispatches a `relintEffect` that its linter's `needsRefresh` answers. A fixed
-  delay was tried first and lost a race with the render.
-- `forceLinting` is the wrong call for this: in @codemirror/lint 6.9 it only brings forward a pass that is already scheduled.
-
-A tooltip that is already open keeps the actions it was built with until you leave the line and come back.
+- The tooltip body fills its buttons in place. A diagnostic's `actions` are fixed when the lint pass runs, so changing them means a new
+  pass, and CodeMirror closes the open tooltip: on the owner's phone the tooltip opened with both inks, closed, and reopened with one.
+  `inkFixNode` (`thin-card-fix.ts`) is the tooltip's `renderMessage`: it adds the buttons into the same node once the photo has been read.
+  A slide that is not on screen gets both inks at once (the preview cannot show its photo); the slide on screen gets nothing until the
+  read, then the one ink, or both after a 3 s wait with no read (a cross-origin photo). A mutation observer in the e2e proves "Add ink-dark"
+  never appears first and the open tooltip is never removed; it fails when the both-then-one behavior is put back.
+- Two earlier attempts are gone: a re-lint when the preview drew a new slide (first a fixed delay, which lost a race with the render, then a
+  `needsRefresh` effect fed by a preview-render event), and `forceLinting`, which in @codemirror/lint 6.9 only hurries a pass already scheduled.
+  Reading at tooltip time made all of it unnecessary.
