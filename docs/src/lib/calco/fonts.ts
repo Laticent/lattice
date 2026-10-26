@@ -132,14 +132,28 @@ export interface FontHost {
  * still name the family, and the reader's office suite substitutes. So is a face whose
  * license forbids embedding (`embeddingAllowed`): Calco never puts a restricted font in a
  * file someone else will open.
+ *
+ * Neither is silent: `onSkip` hears each face left out and why, so a host can tell the author
+ * that the reader's office suite will substitute its own font for that text.
+ *   · `unavailable`: the host has no file for this family (a system font such as Arial, or a
+ *     face the library does not ship), so there is nothing to embed.
+ *   · `license`: the font's embedding flag forbids it.
  */
-export async function prepareFonts(deck: Deck, host: FontHost): Promise<EmbeddedFont[]> {
+export type FontSkipReason = 'unavailable' | 'license';
+
+export async function prepareFonts(deck: Deck, host: FontHost, onSkip?: (face: FaceUse, why: FontSkipReason) => void): Promise<EmbeddedFont[]> {
 	const out: EmbeddedFont[] = [];
 	for (const face of facesUsed(deck)) {
 		const raw = await host.load(face);
-		if (!raw) continue;
+		if (!raw) {
+			onSkip?.(face, 'unavailable');
+			continue;
+		}
 		const bytes = await host.pin(raw, { weight: face.weight, ligatures: face.ligatures });
-		if (!embeddingAllowed(bytes)) continue;
+		if (!embeddingAllowed(bytes)) {
+			onSkip?.(face, 'license');
+			continue;
+		}
 		out.push({ family: face.family, weight: face.weight, italic: face.italic, bytes });
 	}
 	return out;

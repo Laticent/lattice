@@ -476,6 +476,21 @@ or `body` (the rewrite is textual). Shipped engine CSS uses none of these; an au
 cannot read is hidden, not left broken, and counted. `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
 hack worked around html-to-image's border-image bug.
 
+## 4a3. Fonts in each format, and what is not embedded
+
+- **PDF:** the shared writer embeds every web font the deck draws with, cut to the characters used (HarfBuzz; the same code in
+  both hosts). Both hosts' PDFs of a 52-slide deck carry the same 14 embedded faces and no system font.
+- **PowerPoint and LibreOffice, picture mode:** no live text, so no fonts to embed; the type is in the picture.
+- **PowerPoint and LibreOffice, editable mode:** Calco embeds the deck's faces (`ppt/fonts/*.fntdata` in a `.pptx`, `Fonts/*.ttf`
+  in an `.odp`). A face is left out when the host has no file for the family (a system font such as Arial) or its OS/2 `fsType`
+  forbids embedding; since 2026-10-26 that is REPORTED (stderr in the CLI, the "ready" message in the Studio), not silent. Every
+  font file Lattice ships has an installable `fsType`.
+- **Emoji are not embedded anywhere.** They draw with the machine's own emoji font (Noto Color Emoji on this Linux sandbox, Apple
+  Color Emoji on a Mac), so the same deck's emoji can look different from machine to machine, and in a PDF a text run that holds
+  an emoji stays in the photo (not real text). `dist/lattice-emoji.css` plus `npm run fonts:emoji` vendors Noto Color Emoji
+  (about 25 MB, opt-in, not in the npm tarball). HARD RULE #29 and `lint:deck` steer authors to drawn shapes for the glyphs that
+  do a drawing's job (a check mark, an arrow).
+
 ## 4a. CLI PDF output is byte-reproducible
 
 Rendering the same deck twice **on the same machine** writes the same bytes, with one measured

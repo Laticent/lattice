@@ -2392,6 +2392,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		let slides = [];
 		let backgrounds;
 		const unreadable = [];
+		const unembeddedFonts = [];
 		const progress = async (i) => {
 			if (onStatus) onStatus(`Rendering slide ${i + 1} of ${sections.length}…`, { current: i, total: sections.length });
 		};
@@ -2476,7 +2477,16 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');
-			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost());
+			// A face left out is reported with the export, not dropped: the reader's office suite will use its own font for that text.
+			const skippedFonts = new Map();
+			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(), (face, why) => {
+				if (!skippedFonts.has(face.family)) skippedFonts.set(face.family, why);
+			});
+			if (skippedFonts.size) {
+				const names = [...skippedFonts.keys()].map((f) => `“${f}”`).join(', ');
+				console.warn(`[deck-export] fonts not embedded (${names}): the reader's office suite will substitute its own.`);
+				unembeddedFonts.push(...skippedFonts.keys());
+			}
 		}
 		if (onStatus) onStatus(`Building .${kind.ext}…`, { current: sections.length, total: sections.length });
 		const bytes =
@@ -2488,9 +2498,14 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);
 		download(blob, `${safeName(name)}.${kind.ext}`);
 		const imageReason = missingImageReason(log);
-		if (!unreadable.length) return imageReason;
-		const picture = `${unreadable.length === 1 ? `slide ${unreadable[0]} is` : `slides ${unreadable.join(", ")} are`} one picture in the file, not editable`;
-		return imageReason ? `${picture}; ${imageReason}` : picture;
+		const parts = [];
+		if (unreadable.length) parts.push(`${unreadable.length === 1 ? `slide ${unreadable[0]} is` : `slides ${unreadable.join(', ')} are`} one picture in the file, not editable`);
+		if (imageReason) parts.push(imageReason);
+		if (unembeddedFonts.length) {
+			const names = unembeddedFonts.map((f) => `“${f}”`).join(', ');
+			parts.push(`${names} ${unembeddedFonts.length === 1 ? 'is' : 'are'} not embedded, so ${kind.label} uses its own font for that text where the font is missing`);
+		}
+		return parts.length ? parts.join('; ') : imageReason;
 	} finally {
 		dispose();
 	}
