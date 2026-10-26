@@ -169,6 +169,11 @@ describe('marks: the old `chart-finish` spelling still works', () => {
     assert.ok(s.includes('marks-vivid') && !s.some((c) => c.startsWith('chart-finish-')), s.join(' '));
   });
 
+  test('a blank `marks:` is no value, so the old key still decides', () => {
+    const [s] = classesOf('---\nmarp: true\nchart-finish: tone\nmarks:\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
+    assert.deepEqual(finishesOn(s), ['marks-tone'], s.join(' '));
+  });
+
   test('with both keys, `marks:` wins', () => {
     const [s] = classesOf('---\nmarp: true\nchart-finish: tone\nmarks: etch\n---\n\n<!-- _class: bar -->\n\n## A\n\n- A `3`\n');
     assert.deepEqual(finishesOn(s), ['marks-etch'], s.join(' '));

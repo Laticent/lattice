@@ -402,12 +402,13 @@ describe('calco lifts dashed and dotted borders as native dashed lines', () => {
 
 // STRUCK ELEVATION (base.tokens.css --elevation-recipe): hard-edged shadows with no blur, shaped by an offset and a
 // negative spread, so the PDF never rasters them. Each is a solid copy of the box under it, which a native shape draws
-// exactly (#2887: every kanban card exported as a picture). A hard inset band at the top is the dark canvas's lit edge.
+// exactly (#2887: every kanban card exported as a picture). Its two hard inset bands, in the recipe's order, light the top
+// inner edge and shade the bottom one.
 const STRUCK = `<!doctype html><html><head><style>
   body { margin: 0; font-family: sans-serif; }
   section { width: 1280px; height: 720px; position: relative; background: #fff; }
   .card { position: absolute; left: 100px; top: 100px; width: 200px; height: 40px; background: #f5f7fa; border: 1px solid #ccd; border-radius: 10px; box-sizing: border-box;
-    box-shadow: 0 1px 0 -0.25px rgba(0, 0, 0, 0.07), 0 4px 0 -1.5px rgba(0, 0, 0, 0.08), inset 0 1.2px 0 0 rgba(255, 255, 255, 0.5); }
+    box-shadow: inset 0 1.2px 0 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 0 rgba(0, 0, 0, 0.05), 0 1px 0 -0.25px rgba(0, 0, 0, 0.07), 0 4px 0 -1.5px rgba(0, 0, 0, 0.08); }
   .ghost { position: absolute; left: 400px; top: 100px; width: 200px; height: 40px; background: rgba(245, 247, 250, 0.5); box-shadow: 0 4px 0 -1.5px rgba(0, 0, 0, 0.08); }
 </style></head><body><section id="s"><div class="card"></div><div class="ghost"></div></section></body></html>`;
 
@@ -437,10 +438,14 @@ describe('calco lifts struck elevation as native shapes', () => {
     assert.ok(near(res.shapes[float].radii[0], 8.5, 0.01), 'the corner shrinks with the spread');
   });
 
-  test('the inset band is a line along the inner top edge, between the corners, and says it approximated', () => {
-    const rim = res.shapes.find((s) => s.kind === 'line' && s.side === 'top' && near(s.stroke.width, 1.2));
-    assert.ok(rim, JSON.stringify(res.shapes.filter((s) => s.kind === 'line')));
-    assert.ok(near(rim.y, 101 + 0.6) && near(rim.x, 110) && near(rim.w, 180), `${rim.x} ${rim.y} ${rim.w}`);
+  test('each inset band is a line along its inner edge, between the corners, and says it approximated', () => {
+    const lines = JSON.stringify(res.shapes.filter((s) => s.kind === 'line'));
+    const lit = res.shapes.find((s) => s.kind === 'line' && s.side === 'top' && near(s.stroke.width, 1.2));
+    assert.ok(lit, lines);
+    assert.ok(near(lit.y, 101 + 0.6) && near(lit.x, 110) && near(lit.w, 180), `${lit.x} ${lit.y} ${lit.w}`);
+    const shade = res.shapes.find((s) => s.kind === 'line' && s.side === 'bottom' && near(s.stroke.width, 1));
+    assert.ok(shade, lines);
+    assert.ok(near(shade.y, 139 - 0.5) && near(shade.x, 110) && near(shade.w, 180) && near(shade.stroke.alpha, 0.05, 0.01), `${shade.x} ${shade.y} ${shade.w}`);
     assert.ok(res.approximated.includes('inset-highlight'), JSON.stringify(res.approximated));
   });
 

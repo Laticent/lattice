@@ -264,7 +264,9 @@
   display: flex; align-items: center; justify-content: center;
   min-height: 2.65625cqi;
   border-radius: var(--radius-sm);
-  padding: 0.390625cqi var(--sp-xs);
+  /* The inline padding is a private knob so the filled cell below adds its edge to whatever a family sets. */
+  --_cell-pad-x: var(--sp-xs);
+  padding: 0.390625cqi var(--_cell-pad-x);
   font-family: var(--font-body);
   font-size: var(--fs-body-compact);
   font-weight: 700;
@@ -284,9 +286,11 @@
   background: var(--row-fill, var(--accent));
   /* NO border: the chart finish draws this cell's edge (an inset ring in the row's ink, every finish), and a border
    * under it was a second outline the office export (Calco) cannot lift beside a ring, so the cell went out as a
-   * picture. The padding takes back the border's width, so the cell does not move. */
+   * picture. The padding takes back the border's width, so the cell does not move, in every family: it adds the
+   * edge to `--_cell-pad-x`, which the tall and strip arm narrows, rather than restating a width that would
+   * outrank that arm. */
   border: 0;
-  padding: calc(0.390625cqi + var(--chart-edge)) calc(var(--sp-xs) + var(--chart-edge));
+  padding: calc(0.390625cqi + var(--chart-edge)) calc(var(--_cell-pad-x) + var(--chart-edge));
   /* NOT the raw curated ink. This text sits on `--row-fill` — the row's TINT —
    * and `--chart-catN-ink` is solved against --bg / --bg-alt, which are different
    * (and further) surfaces. Measured across 15 palettes x 2 modes x 8 slots, taking
@@ -394,7 +398,8 @@ section.matrix-grid.chart-frame .chart-caption::before {
  * arm. Moving this block up silently disables it. */
 section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td .cell {
   font-size: var(--fs-meta);
-  padding: 0.390625cqi var(--sp-2xs);
+  --_cell-pad-x: var(--sp-2xs);
+  padding: 0.390625cqi var(--_cell-pad-x);
 }
 section.matrix-grid:where([data-family="tall"], [data-family="strip"]) .matrix-grid-figure td:first-child {
   font-size: var(--fs-body-compact);

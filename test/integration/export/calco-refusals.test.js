@@ -30,7 +30,7 @@ const BUDGET = path.join(__dirname, 'calco-refusals.budget.json');
 // `deck@finish` renders that deck under another chart finish (its front matter's `marks:` replaced). Etch and
 // tone repaint the status marks as a wash inside an ink ring, which is where a picture can creep in that pigment never
 // shows (#2887: a fill clipped under an inset ring exported 9 pills as pictures, under etch and tone only).
-const DECKS = ['card-tags', 'accent-finishes', 'cards-stats-actors-kpi', 'marks', 'marks@etch', 'marks@tone', 'backdrop-register', 'state-marks', 'policy-recommendation'];
+const DECKS = ['card-tags', 'accent-finishes', 'cards-stats-actors-kpi', 'struck-elevation', 'marks', 'marks@etch', 'marks@tone', 'backdrop-register', 'state-marks', 'policy-recommendation'];
 const withFinish = (src, finish) => {
   const fm = /^---\n([\s\S]*?)\n---\n/.exec(src);
   const keep = fm ? fm[1].split('\n').filter((l) => !/^marks:/.test(l)).join('\n') : '';

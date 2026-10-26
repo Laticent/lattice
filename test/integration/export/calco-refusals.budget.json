@@ -26,6 +26,16 @@
     "pictures": 0,
     "reasons": {}
   },
+  "struck-elevation": {
+    "refused": 3,
+    "shapes": 159,
+    "pictures": 3,
+    "reasons": {
+      "paint:shadow": 1,
+      "paint:overflow-clipped": 1,
+      "paint:wrapped-inline": 1
+    }
+  },
   "marks": {
     "refused": 0,
     "shapes": 21,

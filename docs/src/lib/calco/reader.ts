@@ -1105,8 +1105,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			outerRing?: Paint & { width: number };
 			/** Hard-edged shadows under the box (struck elevation), each a solid box. */
 			struck?: Array<Paint & { x: number; y: number; spread: number }>;
-			/** A hard inset highlight band along the top (y > 0) or bottom inner edge. */
-			rim?: Paint & { y: number };
+			/** Hard inset bands along the inner top (y > 0) and bottom (y < 0) edges: a highlight and a shade. */
+			rims?: Array<Paint & { y: number }>;
 		}
 		const candidates: Candidate[] = [];
 		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
@@ -1140,11 +1140,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			stacked?: boolean;
 			/** Hard-edged outer layers (no blur, an offset): each is a solid copy of the box, moved and grown by its spread. */
 			struck: Array<Paint & { x: number; y: number; spread: number }>;
-			/** A hard inset layer offset straight down or up (no blur, no spread): a highlight band along that inner edge. */
-			rim: (Paint & { y: number }) | null;
+			/** Hard inset layers offset straight down or up (no blur, no spread): a band along that inner edge, one per edge. */
+			rims: Array<Paint & { y: number }>;
 		};
 		const shadowOf = (v: string, opacity: number): Shadows | false => {
-			const out: Shadows = { outer: null, ring: null, outerRing: null, struck: [], rim: null };
+			const out: Shadows = { outer: null, ring: null, outerRing: null, struck: [], rims: [] };
 			if (!v || v === 'none') return out;
 			for (const layer of splitTop(v)) {
 				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
@@ -1155,9 +1155,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				// A layer that draws nothing (every length zero) is no layer.
 				if (!x && !y && !blur && !spread) continue;
 				if (/\binset\b/.test(rest)) {
-					// The engine's struck elevation lights a dark card with a hard inset band at its top edge.
-					if (!x && y && !blur && !spread && !out.rim) {
-						out.rim = { ...paint, y };
+					// The engine's struck elevation lights the top inner edge with a hard band and shades the bottom
+					// one: one band per edge, so a second band on the same edge is not this recipe.
+					if (!x && y && !blur && !spread && !out.rims.some((r) => r.y > 0 === y > 0)) {
+						out.rims.push({ ...paint, y });
 						continue;
 					}
 					if (x || y || blur || !(spread > 0) || out.ring) return false;
@@ -1430,18 +1431,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			let shadow: Shadow | null | false = null;
 			let outerRing: (Paint & { width: number }) | null = null;
 			let struck: Shadows['struck'] = [];
-			let rim: Shadows['rim'] = null;
+			let rims: Shadows['rims'] = [];
 			const shadows = shadowOf(cs.boxShadow, op);
 			if (shadows === false) shadow = false;
 			else {
 				shadow = shadows.outer;
 				outerRing = shadows.outerRing;
 				struck = shadows.struck;
-				rim = shadows.rim;
+				rims = shadows.rims;
 				// A hard shadow under a translucent fill would show through it in an office suite, where CSS clips it to
 				// outside the box; and the highlight band is drawn straight across, its ends not following the corners.
 				if (struck.length && !(fill && fill.alpha >= 1)) shadow = false;
-				if (rim) approx.push('inset-highlight');
+				if (rims.length) approx.push('inset-highlight');
 				if (shadows.stacked) approx.push('stacked-shadow');
 				// A ring inside a border would be a second outline: that box stays a picture.
 				if (shadows.ring && sides.some(Boolean)) shadow = false;
@@ -1536,7 +1537,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
 			if (outerRing) box.outerRing = outerRing;
 			if (struck.length) box.struck = struck;
-			if (rim) box.rim = rim;
+			if (rims.length) box.rims = rims;
 			return { plain, box, why };
 		};
 
@@ -2242,20 +2243,20 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					shapeEls.push(c.el);
 				}
 			}
-			// The inset highlight: a band along the inner top (or bottom) edge, inside the border, between the corners.
-			if (c.rim) {
+			// The inset bands: each along the inner top or bottom edge, inside the border, between the corners.
+			for (const rim of c.rims || []) {
 				const bt = c.sides[0]?.width || 0;
 				const bb = c.sides[2]?.width || 0;
 				const bl = c.sides[3]?.width || 0;
 				const br = c.sides[1]?.width || 0;
-				const band = Math.abs(c.rim.y);
-				const top = c.rim.y > 0;
+				const band = Math.abs(rim.y);
+				const top = rim.y > 0;
 				const [rl, rr] = top ? [c.radii[0], c.radii[1]] : [c.radii[3], c.radii[2]];
 				const x0 = x + Math.max(bl, rl);
 				const x1 = x + w - Math.max(br, rr);
 				if (x1 > x0) {
 					const ly = top ? y + bt + band / 2 : y + h - bb - band / 2;
-					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: { color: c.rim.color, alpha: c.rim.alpha, width: band }, side: top ? 'top' : 'bottom', pseudo: true });
+					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: { color: rim.color, alpha: rim.alpha, width: band }, side: top ? 'top' : 'bottom', pseudo: true });
 					shapeEls.push(c.el);
 				}
 			}
