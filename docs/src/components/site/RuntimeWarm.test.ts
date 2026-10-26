@@ -33,21 +33,10 @@ describe('RuntimeWarm.astro', () => {
 	const warm = read('components/site/RuntimeWarm.astro');
 
 	it('emits a low-priority prefetch (not preload) for the runtime as a script', () => {
-		expect(warm).toContain("link.rel = 'prefetch'");
-		expect(warm).toContain("link.as = 'script'");
-		expect(warm).toContain('link.href = runtimeUrl');
+		expect(warm).toMatch(/<link\s+rel="prefetch"\s+as="script"\s+href=\{runtimeUrl\}\s*\/>/);
 		// preload would compete with the render-blocking CSS / LCP element and warn
 		// on unused-in-a-subframe; the whole point is the browser's lowest priority.
-		expect(warm).not.toMatch(/rel\s*=\s*["']preload/);
-	});
-
-	it('starts the prefetch on `load`, not during HTML parse (Lighthouse LCP)', () => {
-		// A static <link> in <head> started the 461 KB download beside the fonts and the
-		// render-blocking CSS and cost home ~2 s of simulated LCP; see the component's header.
-		const template = warm.slice(warm.lastIndexOf('---') + 3);
-		expect(template).not.toMatch(/<link\b/);
-		expect(warm).toContain("addEventListener('load', warm, { once: true })");
-		expect(warm).toContain("document.readyState === 'complete'");
+		expect(warm).not.toContain('rel="preload"');
 	});
 
 	it('derives the URL the SAME way the app pages derive runtimeUrl (shared cache entry)', () => {
@@ -57,16 +46,13 @@ describe('RuntimeWarm.astro', () => {
 	});
 });
 
-// Surfaces that live-render a preview ON LOAD — the hero (index), the app pages
-// (studio/playground), and every component page (its specimen renders eagerly).
-// Each must warm the runtime so the first render doesn't cold-fetch it. The three
+// Surfaces that live-render a preview ON LOAD — the app pages (studio/playground)
+// and every component page (its specimen renders eagerly). Each warms the runtime so
+// the first render doesn't cold-fetch it. The home hero is the measured exception below. The three
 // pages that build their OWN runtimeUrl also carry the shared-cache invariant; the
 // component LAYOUT delegates the URL to Specimen.astro (asserted separately below).
 describe('live-preview surfaces warm the runtime', () => {
-	const cases = [
-		{ file: 'pages/index.astro', ownsUrl: true },
-		{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false },
-	];
+	const cases = [{ file: 'layouts/ComponentsLayout.astro', ownsUrl: false }];
 	for (const { file, ownsUrl } of cases) {
 		it(`${file} imports and renders <RuntimeWarm />`, () => {
 			const s = read(file);
@@ -77,6 +63,16 @@ describe('live-preview surfaces warm the runtime', () => {
 			if (ownsUrl) expect(s).toContain(RUNTIME_FILE);
 		});
 	}
+
+	// The home page measured FASTER without the warm: its hero renders only after the engine
+	// downloads, and the prefetch competed with that download (first slide 4.08 s without, 4.30 s
+	// with), while Lighthouse counted the early download against the hero's largest paint.
+	// engineering/decisions/2026-10-26-lighthouse-home-runtime-prefetch.md.
+	it('pages/index.astro does NOT warm the runtime (measured slower for the hero)', () => {
+		const s = read('pages/index.astro');
+		expect(s).not.toMatch(/<RuntimeWarm\s*\/>/);
+		expect(s).not.toContain("import RuntimeWarm from");
+	});
 
 	// The Studio warms from its island's first module, not from the HTML: a prefetch in the HTML shared the
 	// throttled link with the island's own code (engineering/decisions/2026-10-23-studio-boot-order.md). The page

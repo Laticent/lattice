@@ -43,7 +43,6 @@ import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
 import EngineWarm from '../components/site/EngineWarm.astro';
-import RuntimeWarm from '../components/site/RuntimeWarm.astro';
 import PlaygroundWarm from '../components/site/PlaygroundWarm.astro';
 import { sourceHasDrawnFence } from '../../../lib/plugins/drawn-probe.mjs';
 
@@ -192,10 +191,12 @@ const specs = specsNav(url);
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<ResourceHints />
-		{/* The hero right panel (HeroPreview) live-renders a slide on load, so the
-		    preview iframe needs the runtime immediately — warm it at parse time so it
-		    isn't cold-fetched on the first-render critical path (FRAME REBUILD). */}
-		<RuntimeWarm />
+		{/* NO RUNTIME PREFETCH HERE, measured (2026-10-26-lighthouse-home-runtime-prefetch.md).
+		    The hero renders its slide only after the engine has downloaded, and a 461 KB
+		    runtime prefetch competes with that download: without it the hero's first slide
+		    is 4.08-4.09 s against 4.30-4.31 s with the head tag and 4.31-4.44 s with one
+		    started on `load` (phone profile, HTTP/2, interleaved), and Lighthouse LCP falls
+		    from 4.6-4.9 s to 2.5-2.7 s. The iframe fetches the runtime when it needs it. */}
 		<title>Lattice — Markdown to boardroom-ready slide decks (PDF, PPTX)</title>
 		<meta
 			name="description"

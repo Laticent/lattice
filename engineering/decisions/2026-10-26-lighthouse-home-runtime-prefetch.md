@@ -5,7 +5,7 @@ summary: >
   of 90. Two causes dominate. Total blocking time is script work (React, the island, the preview runtime). The simulated
   first and largest paints count every download that starts before the real paint. On home, the largest single such
   download was the 461 KB preview-runtime prefetch in the page head. Starting that prefetch on `load` moves home's LCP from
-  4.7 s to 2.6 s and its score to 71-78, and the hero's first slide does not move. Studio and Playground are held by
+  4.6-4.9 s to 2.5-2.7 s and its score from 56-63 to 66-76, and the hero's first slide does not move. Studio and Playground are held by
   ~750-900 KB of module-preloaded JavaScript before the paint, which 2026-10-23-startup-bake-off.md E7 already measured
   and declined, so 90 there still needs the boot-order redesign.
 ---
@@ -74,4 +74,18 @@ design note first. Nothing in this pass changes that conclusion.
 
 ## 5. Results
 
-(filled in from the interleaved runs)
+Interleaved, same machine, same session (§1). The ranges are min-max across runs.
+
+| Page | Build | Runs | Score | FCP | LCP | TBT |
+|---|---|---|---|---|---|---|
+| home | base | 5 | 56, 57, 60, 60, 63 | 1.44-1.81 s | 4.58-4.89 s | 820-1608 ms |
+| home | **head** | 5 | **66, 71, 73, 75, 76** | 1.66-1.92 s | **2.49-2.67 s** | 941-2481 ms |
+| Studio | base | 3 | 52, 56, 60 | 2.88-3.51 s | 3.49-4.83 s | 1136-1338 ms |
+| Studio | head | 3 | 50, 53, 65 | 2.33-4.08 s | 2.92-4.83 s | 1083-1688 ms |
+| Playground | base | 3 | 42, 44, 46 | 3.93-4.69 s | 5.58-5.73 s | 1133-1520 ms |
+| Playground | head | 3 | 43, 43, 47 | 1.82-4.81 s | 5.57-5.74 s | 1224-3057 ms |
+
+Home's LCP ranges do not overlap: the change is the whole gap. Studio and Playground do not use `RuntimeWarm` and are
+unchanged within their spread, as expected. TBT is the noisiest metric on this sandbox (git hooks ran during part of the
+pass and land on both builds), and it is now home's largest remaining weight. None of the three pages reaches 90.
+**UNVERIFIED:** the deployed site, and any real phone.
