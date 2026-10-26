@@ -125,7 +125,7 @@ Static 2×2 quadrant grid with author-placed items per cell.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · matrix-2x2" -->
 
 ## When NOT to reach for matrix-2x2.

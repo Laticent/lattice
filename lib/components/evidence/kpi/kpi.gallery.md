@@ -223,7 +223,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · kpi · 1 of 2" -->
 
 ## When NOT to reach for kpi.
@@ -235,7 +235,7 @@ Executive KPI system — one base, five layout modifiers.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · kpi · 2 of 2" -->
 
 ## When NOT to reach for kpi.

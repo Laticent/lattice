@@ -54,7 +54,7 @@ An identity card that encodes a vCard: name, title and contact lines beside a QR
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · contact" -->
 
 ## When NOT to reach for contact.

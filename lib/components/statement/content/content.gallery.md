@@ -82,7 +82,7 @@ A heading that makes one claim, then a paragraph or short list that delivers it.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · content" -->
 
 ## When NOT to reach for content.

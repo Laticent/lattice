@@ -221,7 +221,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · hub-spoke · 1 of 2" -->
 
 ## When NOT to reach for hub-spoke.
@@ -233,7 +233,7 @@ Hub and spoke — one center, its satellites, and what flows between them.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · hub-spoke · 2 of 2" -->
 
 ## When NOT to reach for hub-spoke.

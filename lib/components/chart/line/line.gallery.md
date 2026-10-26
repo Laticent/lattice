@@ -253,7 +253,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · line · 1 of 2" -->
 
 ## When NOT to reach for line.
@@ -265,7 +265,7 @@ A measure plotted across an ordered axis, so the movement is the read — one li
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · line · 2 of 2" -->
 
 ## When NOT to reach for line.

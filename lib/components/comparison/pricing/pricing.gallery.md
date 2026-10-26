@@ -167,7 +167,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · pricing · 1 of 2" -->
 
 ## When NOT to reach for pricing.
@@ -181,7 +181,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · pricing · 2 of 2" -->
 
 ## When NOT to reach for pricing.

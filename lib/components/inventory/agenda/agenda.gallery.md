@@ -237,7 +237,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · agenda · 1 of 2" -->
 
 ## When NOT to reach for agenda.
@@ -249,7 +249,7 @@ Auto-numbered table of contents for the deck.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · agenda · 2 of 2" -->
 
 ## When NOT to reach for agenda.

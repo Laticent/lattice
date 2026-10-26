@@ -759,7 +759,10 @@ function renderAntiPatternsSlide(m, page = m.antiPatterns, index = 0, count = 1)
   );
   const part = count > 1 ? ` · ${index + 1} of ${count}` : '';
   const cols = Math.min(page.length, antiPatternColumns(Math.max(...page.map(antiPatternWords))));
-  const klass = cols === 3 ? 'cards-grid three' : 'cards-grid';
+  // `claim-hero` drops the masthead and footer bands, so the cards get that height; it is the
+  // difference between 14 and 0 clipped slides when body text renders 1.35x larger. The slide's
+  // heading still names the component, so the footer it hides carried nothing the reader needs.
+  const klass = `${cols === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
   return `<!-- _class: ${klass} -->
 <!-- _footer: "Anti-patterns · ${m.name}${part}" -->
 

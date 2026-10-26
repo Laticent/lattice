@@ -260,7 +260,7 @@ Change log against a baseline — numbered list of statutes/cases/rules with cit
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · regulatory-update" -->
 
 ## When NOT to reach for regulatory-update.

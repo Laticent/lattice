@@ -97,7 +97,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · video · 1 of 2" -->
 
 ## When NOT to reach for video.
@@ -109,7 +109,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · video · 2 of 2" -->
 
 ## When NOT to reach for video.

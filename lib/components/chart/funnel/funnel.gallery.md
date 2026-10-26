@@ -96,7 +96,7 @@ Tapering stages that show where a flow drops off, with the conversion rate betwe
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · funnel" -->
 
 ## When NOT to reach for funnel.

@@ -137,7 +137,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · inventory · 1 of 2" -->
 
 ## When NOT to reach for inventory.
@@ -149,7 +149,7 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · inventory · 2 of 2" -->
 
 ## When NOT to reach for inventory.

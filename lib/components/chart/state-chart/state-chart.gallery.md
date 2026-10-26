@@ -261,7 +261,7 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · state-chart" -->
 
 ## When NOT to reach for state-chart.

@@ -68,22 +68,23 @@ runs out of height.
 - A longer card pulls its page to two across or one, and the rest pack greedily around it.
 - Five manifests' longest anti-patterns were trimmed (`kpi`, `gantt`, `topic`, `state-chart`, `math`); the four over
   66 words are gone, and `math` and `state-chart` were the two that clipped at 1.2×.
+- The slide carries `claim-hero` (the claim dial that drops the masthead and footer bands, `examples/claim.md`), so the cards get that height. Text size is untouched.
 - The preview frame sets `text-size-adjust: 100%`. Preview only; no export byte changes.
 
 ## Result
 
 Same 78 components, anti-pattern slides only, CLI export oracle, body text enlarged by the factor shown:
 
-| Body text | Old: clipped / slides | New: clipped / slides |
-|---|---|---|
-| 1.0× | 0 / 117 | 0 / 108 |
-| 1.2× | 3 / 117 | **0 / 108** |
-| 1.35× | 48 / 117 | 14 / 108 |
-| 1.5× | 51 / 117 | 44 / 108 |
+| Body text | Old stack | Columns | Columns + `claim-hero` (shipped) |
+|---|---|---|---|
+| 1.0× | 0 / 117 | 0 / 108 | 0 / 108 |
+| 1.2× | 3 / 117 | 0 / 108 | **0 / 108** |
+| 1.35× | 48 / 117 | 14 / 108 | **0 / 108** |
+| 1.5× | 51 / 117 | 44 / 108 | 7 / 108 |
 
-The 1.35× failures are all three-across slides whose longest card is 31 to 42 words. Capping three across at 30 would
-clear them, but it makes 140 slides with 45 single-card slides, which is worse to read than a tight slide. Past 1.2×,
-the fix is to stop the enlargement, not to shrink the slide.
+The columns-only 1.35× failures were all three-across slides whose longest card is 31 to 42 words. Capping three across at 30 would
+have cleared them, but it makes 140 slides with 45 single-card slides, which is worse to read than a tight slide. Past 1.5×,
+the fix is to stop the enlargement; no slide should shrink its type.
 
 ## Open
 

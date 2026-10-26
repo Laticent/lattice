@@ -39,7 +39,7 @@ The title echoes the same six-step story the deck's own components carry.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · title" -->
 
 ## When NOT to reach for title.

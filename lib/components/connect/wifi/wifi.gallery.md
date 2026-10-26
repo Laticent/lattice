@@ -60,7 +60,7 @@ A network join card: readable Wi-Fi credentials beside a QR a phone scans to con
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · wifi" -->
 
 ## When NOT to reach for wifi.

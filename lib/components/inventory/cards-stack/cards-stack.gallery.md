@@ -123,7 +123,7 @@ Parallel items stacked vertically, full-width cards.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · cards-stack" -->
 
 ## When NOT to reach for cards-stack.

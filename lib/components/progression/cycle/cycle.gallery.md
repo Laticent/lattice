@@ -115,7 +115,7 @@ A closed loop of 3-6 stages that returns to its start — for a process with no 
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · cycle" -->
 
 ## When NOT to reach for cycle.

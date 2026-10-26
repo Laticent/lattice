@@ -83,7 +83,7 @@ Write for the slide's cap, and put the full explanation in `whenToUse` or the va
    unit test fails past 150.
 4. **No backticks in titles** (the generator strips them), no markdown tables, no nested lists.
 
-The generator pages the cards (`antiPatternPages`): all cards ≤ 42 words balance three across
+The slide carries `claim-hero` (drops the masthead and footer bands) so the cards get the extra height; do not shrink type instead. The generator pages the cards (`antiPatternPages`): all cards ≤ 42 words balance three across
 (4 become 2 + 2, 5 become 3 + 2); a longer card pulls its slide to two across or one.
 
 ## Recipe

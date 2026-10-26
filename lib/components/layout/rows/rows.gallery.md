@@ -148,7 +148,7 @@ Two renewals and a price rise lifted EMEA and APAC; North America held.
 
 ---
 
-<!-- _class: cards-grid three -->
+<!-- _class: cards-grid three claim-hero -->
 <!-- _footer: "Anti-patterns · rows" -->
 
 ## When NOT to reach for rows.

@@ -187,7 +187,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · policy-recommendation · 1 of 2" -->
 
 ## When NOT to reach for policy-recommendation.
@@ -199,7 +199,7 @@ Error rates for the proposed system are unpublished for the populations it would
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · policy-recommendation · 2 of 2" -->
 
 ## When NOT to reach for policy-recommendation.

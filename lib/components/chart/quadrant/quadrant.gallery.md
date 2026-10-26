@@ -276,7 +276,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · quadrant · 1 of 2" -->
 
 ## When NOT to reach for quadrant.
@@ -288,7 +288,7 @@ Effort in analyst-weeks; reach as the percent of teams that would adopt it, opti
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · quadrant · 2 of 2" -->
 
 ## When NOT to reach for quadrant.

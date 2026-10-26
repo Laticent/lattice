@@ -166,7 +166,7 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · list · 1 of 2" -->
 
 ## When NOT to reach for list.
@@ -178,7 +178,7 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · list · 2 of 2" -->
 
 ## When NOT to reach for list.

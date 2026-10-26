@@ -159,7 +159,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · scatter · 1 of 2" -->
 
 ## When NOT to reach for scatter.
@@ -171,7 +171,7 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: cards-grid -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · scatter · 2 of 2" -->
 
 ## When NOT to reach for scatter.
