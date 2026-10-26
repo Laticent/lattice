@@ -49,3 +49,8 @@ re-measured 2026-10-26 (session F, round two) — the scanner half is mostly gon
                   Needs the differential fuzz test and the trio.
             Measurement scripts: browser-cold (Playwright, the module loaded into a blank page, `webRefsInCss` timed once per
             fresh page) and a CDP profile of /playground/ aggregated by function and file. Re-create them from this paragraph.
+
+re-measured again 2026-10-26 (PR #2913, note §10) — `composeCss` is 86-89 ms at 1x in Node and costs the same on a second call; `packTheme` is
+            about 70 ms of it. In the Playground's biggest boot task `cssFor` is 100-320 ms at 4x. Memoizing the base pack helps palette
+            changes, not the first render; only a packed base that REPLACES the raw one for the Playground, trusted by byte equality, removes the
+            first cost. That changes the engine's input contract, so it waits for the owner (decision card on the PR). Not built.
