@@ -97,6 +97,19 @@ describe('focus — HTML kernel (applyToHtml)', () => {
     assert.match(out, /data-focus-style="spotlight"/);
   });
 
+  test('line axis finds the code block, not an inline <code> in the heading before it', () => {
+    const out = focus.applyToHtml('<section data-focus="line 2" class="code"><h2><code>_focus: line 2</code> — title</h2><pre><code class="language-js">one;\ntwo;\nthree;</code></pre></section>');
+    assert.match(out, /<h2><code>_focus: line 2<\/code>/, 'the heading code is left alone');
+    assert.match(out, /<span class="ln lat-recede">one;<\/span>/);
+    assert.match(out, /<span class="ln lat-focus">two;<\/span>/);
+  });
+
+  test('highlight is an accepted _focusStyle and is carried through unchanged', () => {
+    const out = focus.applyToHtml('<section data-focus="item 1" data-focus-style="highlight"><ul><li>a</li><li>b</li></ul></section>');
+    assert.match(out, /data-focus-style="highlight"/);
+    assert.match(out, /<li class="lat-focus">a/);
+  });
+
   test('splitCodeLines gives one balanced fragment per source line, even inside a multi-line token', () => {
     const lines = focus.splitCodeLines('<span class="hljs-string">"a\nb"</span>\nnext');
     assert.deepEqual(lines, ['<span class="hljs-string">"a</span>', '<span class="hljs-string">b"</span>', 'next']);

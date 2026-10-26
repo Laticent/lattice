@@ -1,0 +1,2 @@
+- `_focus: line N` now tags the lines of the code block instead of the first `<code>` in the slide, so a heading with inline code (`## \`_focus: line 8\` — …`) no longer takes the focus and leaves the block untouched.
+- `_focusStyle: ring` on a chart mark shows again: the pigment finish set the mark's stroke `!important` and hid the ring behind a 1px hairline.

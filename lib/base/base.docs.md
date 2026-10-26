@@ -1403,7 +1403,13 @@ Override per slide with `_focusStyle`:
 <!-- _focusStyle: ring -->        <!-- outline the target, no dimming -->
 <!-- _focusStyle: list-fill -->   <!-- accent-soft fill on the target -->
 <!-- _focusStyle: pop -->         <!-- lift the target forward; rest stays legible -->
+<!-- _focusStyle: highlight -->   <!-- accent-soft fill + accent edge on the target; nothing recedes -->
 ```
+
+`highlight` is the no-dimming look for every axis: the target takes the accent-soft fill and an
+accent edge (the `preferred` look of `verdict-grid`, without the spark) on a card, table row,
+column, cell, code line, chart mark or series, and every other target stays untouched. Worked
+deck: `examples/focus-styles.md`.
 
 `blur` survives PDF and PPTX (the rest is rasterised soft, the target stays
 sharp). On a list/grid it also gives the target a subtle lift (a slight scale +

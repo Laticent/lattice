@@ -45,7 +45,7 @@
         "marp": { "type": "text", "scope": "deck", "describe": "Marp's switch. Deck-only." },
         "logo": { "type": "url", "describe": "The deck logo. Consumed by the deck-logo plugin, never a section attribute." },
         "focus": { "type": "text", "applied": true, "complete": true, "describe": "An ordinal target to highlight (`row 4`, `item 3`, `line 3-4`). Design: engineering/decisions/2026-06-16-focus-highlighting.md." },
-        "focusStyle": { "type": "enum", "values": ["spotlight", "blur", "ring", "list-fill", "pop"], "applied": true, "complete": true, "describe": "How the focus target is shown." },
+        "focusStyle": { "type": "enum", "values": ["spotlight", "blur", "ring", "list-fill", "pop", "highlight"], "applied": true, "complete": true, "describe": "How the focus target is shown." },
         "focusSteps": { "type": "steps", "complete": true, "describe": "A pipe-separated walk that expands one slide into one slide per step. Consumed before the slide is built, so it is known (stripped from the body) but never applied as a section attribute." },
         "build": { "type": "text", "bare": true, "applied": true, "customProp": false, "describe": "Progressive disclosure: an axis and grouping, or bare for the default (`_build`, `_build: rows`, `_build: none`). Design: engineering/decisions/2026-06-16-narrative-step-spec.md. Code reads `data-build`, so no `--build` property." },
         "debug": { "type": "text", "bare": true, "applied": true, "customProp": false, "describe": "Layout debug overlay, in the previewers only: `data-debug` is stripped from exports. A profile keyword (`on`, `off`, `all`) or a list of facets. Design: engineering/decisions/2026-07-01-debug-bounding-boxes.md." },

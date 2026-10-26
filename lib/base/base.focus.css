@@ -11,6 +11,8 @@
  *   spotlight  recede the rest (dim `.lat-recede`), promote the target.
  *   ring       accent outline on the target — no dimming, no layout shift.
  *   list-fill  accent-soft fill on the target, rest untouched.
+ *   highlight  accent-soft fill + accent edge on the target, rest untouched, on
+ *              every axis (the `preferred` look of verdict-grid, without the spark).
  * Default by axis: list/grid/code → spotlight; table → ring.
  *
  * Cross-format: opacity / box-shadow / background only — never mask-image
@@ -152,6 +154,72 @@ section[data-focus-style="list-fill"] tr.lat-focus > :is(td, th) {
   font-weight: 600;
 }
 
+/* ── highlight — tint + edge on the target, on every axis, rest untouched ─────
+ * Promote-only like ring / list-fill / pop: nothing recedes, so the slide keeps
+ * full legibility. It is the verdict-grid `preferred` look (accent-soft fill, an
+ * `--on-accent-soft` edge) without the spark, offered on every axis `_focus:` can
+ * address. Edges are inset shadows / outlines, so nothing shifts layout and no
+ * soft mask is involved (Apple PDFKit safe). */
+section[data-focus-style="highlight"] {
+  --focus-edge: var(--on-accent-soft);
+  /* a stronger tint than --focus-fill: a card already sits on a pale panel, so the soft fill alone barely reads */
+  --focus-hl-fill: color-mix(in srgb, var(--accent) 16%, var(--bg-alt, var(--bg)));
+}
+/* list / grid item: fill + an inset edge (an inset outline never reflows the card) */
+section[data-focus-style="highlight"] li.lat-focus {
+  background: var(--focus-hl-fill);
+  outline: 0.2cqi solid var(--focus-edge);
+  outline-offset: -0.2cqi;
+  border-radius: var(--radius-md, 0.6cqi);
+  font-weight: 600;
+}
+/* table row: fill on every cell, a hairline above and below, end caps on the first/last cell */
+section[data-focus-style="highlight"] tr.lat-focus > :is(td, th) {
+  background: var(--focus-hl-fill);
+  box-shadow: inset 0 0.2cqi 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge);
+  font-weight: 600;
+}
+section[data-focus-style="highlight"] tr.lat-focus > :is(td, th):first-child {
+  box-shadow: inset 0 0.2cqi 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge), inset 0.2cqi 0 0 var(--focus-edge);
+}
+section[data-focus-style="highlight"] tr.lat-focus > :is(td, th):last-child {
+  box-shadow: inset 0 0.2cqi 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge);
+}
+/* column: fill + side edges, capped on the header and the last body row */
+section[data-focus-axis="col"][data-focus-style="highlight"] :is(td, th).lat-focus {
+  background: var(--focus-hl-fill);
+  box-shadow: inset 0.2cqi 0 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge);
+  font-weight: 600;
+}
+section[data-focus-axis="col"][data-focus-style="highlight"] thead tr:first-child > .lat-focus {
+  box-shadow: inset 0.2cqi 0 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge), inset 0 0.2cqi 0 var(--focus-edge);
+}
+section[data-focus-axis="col"][data-focus-style="highlight"] tbody tr:last-child > .lat-focus {
+  box-shadow: inset 0.2cqi 0 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge);
+}
+/* one cell */
+section[data-focus-axis="cell"][data-focus-style="highlight"] .lat-focus {
+  background: var(--focus-hl-fill);
+  box-shadow: inset 0 0 0 0.2cqi var(--focus-edge);
+  font-weight: 600;
+}
+/* code line: a band across the panel with an accent edge on its left, the same recipe as the code plugin's `mark=` */
+section[data-focus-style="highlight"] pre .ln.lat-focus {
+  display: inline-block;
+  min-width: 100%;
+  background-color: color-mix(in srgb, var(--code-text) 18%, transparent);
+  box-shadow: inset 0.3cqi 0 0 var(--accent);
+}
+/* chart mark: an edge drawn behind the fill, so the mark keeps its own hue (as ring does). The heading ink,
+ * not the accent: most marks are accent-hued, and an accent edge on an accent bar does not show. */
+section[data-focus-axis="mark"][data-focus-style="highlight"] .lat-focus {
+  stroke: var(--text-heading) !important;
+  stroke-width: 5 !important;
+  paint-order: stroke;
+}
+/* chart series: nothing recedes, so the subject is told apart by weight */
+section[data-focus-axis="series"][data-focus-style="highlight"] .lat-focus { stroke-width: 2.6; }
+
 /* ── chart marks and series — the `mark` / `series` axes ───────────────────── */
 /* Spotlight (the default for both) needs no rule of its own: the generic
  * `.lat-recede` opacity above dims every peer mark and series, and the SVG
@@ -164,14 +232,17 @@ section[data-focus-axis="series"] path.lat-focus { stroke-width: 2.6; }
  * a soft fill on a dark canvas all but disappears, so the chart axes recede less. */
 section[data-focus-axis="mark"],
 section[data-focus-axis="series"] { --focus-dim: 0.4; }
+/* The `!important` on the mark edge answers the chart finish's own (`marks.generated.css` sets stroke and
+ * stroke-width `!important` on every pigment mark, #2905): without it the ring and the highlight lost to a
+ * 1px hairline and never showed. The finish's selector sits in `:where`, so this one still wins on specificity. */
 /* Ring on a mark: an accent edge drawn BEHIND the fill (`paint-order`), so the
  * bar, wedge or band keeps its own hue and the fill still covers its exact
  * extent. Half the stroke sits under the fill, so the width is double what
  * shows: 5 user units reads as a 2.5-unit edge, which is what it takes to
  * separate from the hairline every other mark already carries. */
 section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
-  stroke: var(--focus-ring);
-  stroke-width: 5;
+  stroke: var(--focus-ring) !important;
+  stroke-width: 5 !important;
   paint-order: stroke;
 }
 
