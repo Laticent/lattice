@@ -5,6 +5,7 @@
 // them has an opinion about pictures.
 
 import exportCanvasCore from '../../../../../lib/core/export-canvas.js';
+import fontPolicyCore from '../../../../../lib/core/font-policy.js';
 import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
 import sizesCore from '../../../../../lib/engine/sizes.js';
@@ -19,6 +20,18 @@ export function setImagesOverride(next) {
 export function applyImagesOverride(fromDeck) {
 	if (override.mode === 'deck') return fromDeck;
 	return imagePolicyCore.mergeImagesSettings(fromDeck, `${override.mode} ${override.quality}`);
+}
+
+// The export panel's choice for fonts (lib/core/font-policy.js): '' defers to the deck's `fonts:` line; otherwise the words
+// ride on top of it class by class, as `--fonts` does on the command line.
+let fontsOverride = '';
+
+export function setFontsOverride(next) {
+	fontsOverride = String(next ?? '').trim();
+}
+
+export function applyFontsOverride(fromDeck) {
+	return fontsOverride ? fontPolicyCore.mergeFontsSettings(fromDeck, fontsOverride) : fromDeck;
 }
 
 /** The deck's own `size:`, read the way the command line reads it (quotes and a trailing comment stripped). */

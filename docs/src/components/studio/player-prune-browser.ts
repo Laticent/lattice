@@ -75,7 +75,7 @@ let wasmReady: Promise<void> | null = null;
  * wasm from the site's bundle. Any trouble loading it ships the fonts whole, as the CLI does
  * when `subset-font` is not installed.
  */
-export async function subsetFontsInBrowser(html: string): Promise<{ html: string; applied: boolean; saved: number }> {
+export async function subsetFontsInBrowser(html: string, fonts?: { text: string; emoji: string }): Promise<{ html: string; applied: boolean; saved: number }> {
 	try {
 		wasmReady ||= (async () => {
 			const { default: url } = await import('harfbuzzjs/hb-subset.wasm?url');
@@ -88,5 +88,5 @@ export async function subsetFontsInBrowser(html: string): Promise<{ html: string
 		wasmReady = null;
 		return { html, applied: false, saved: 0 };
 	}
-	return subsetEmbeddedFonts(html);
+	return subsetEmbeddedFonts(html, fonts);
 }

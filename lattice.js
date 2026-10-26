@@ -1981,6 +1981,10 @@ function sizeNote(file) {
 }
 const IMAGE_SETTING = require('./lib/core/image-policy.js').mergeImagesSettings(frontMatterValue(fm, 'images'), flags.images);
 // The PDF's slide-photo layer takes the same JPEG quality as every other picture; the env var still overrides it.
+// What the exports carry of each typeface (lib/core/font-policy.js): the flag wins over the deck's `fonts:` line,
+// class by class (`used exact-emoji`). Both hosts read the same key.
+const FONT_SETTING = require('./lib/core/font-policy.js').mergeFontsSettings(frontMatterValue(fm, 'fonts'), flags.fonts);
+const FONT_POLICY = require('./lib/core/font-policy.js').resolveFontPolicy(FONT_SETTING);
 const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).quality));
 require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
@@ -2804,11 +2808,14 @@ const deckText = highlightedSlides.join('\n').replace(/&#(?:x([0-9a-f]+)|(\d+));
   const cp = Number.parseInt(hex || dec, hex ? 16 : 10);
   return cp > 0 && cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
 });
-const extraFontCss = katexFacesCss + emojiFaceCss(PKG_ROOT, deckText);
+const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
+const extraFontCss = katexFacesCss + emojiCss;
+// `fonts: system`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
+const textFonts = FONT_POLICY.text === 'system' ? '' : embeddedFonts;
 const docFonts = !extraFontCss
-  ? embeddedFonts
-  : embeddedFonts
-    ? embeddedFonts.replace(/<\/style>$/, () => `${extraFontCss}</style>`)
+  ? textFonts
+  : textFonts
+    ? textFonts.replace(/<\/style>$/, () => `${extraFontCss}</style>`)
     : `<style id="lattice-embedded-fonts">${extraFontCss}</style>`;
 
 // ── plugin hydrate: library + host ────────────────────────────────────────
@@ -4910,7 +4917,7 @@ async function renderBody(browser, g, closeBrowser) {
         // both suites show the notes to anyone who opens the file (#1837).
       }, materializedNotes, slideDescriptions, PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
-      REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+      REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
@@ -5074,6 +5081,7 @@ async function renderBody(browser, g, closeBrowser) {
       };
       const { html: playerHtml, report } = await buildPlayerHtml({
         images: IMAGE_SETTING,
+        fonts: FONT_SETTING,
         encodeImage: lazyEncode,
         // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
         // asset inliner can bake in. Without it every prose image in a shared player is a

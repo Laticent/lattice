@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { webPictureOrigins } from '../../../../lib/export/inline-url-media.mjs';
+import { FontsControl } from './FontsControl';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 import { OffFencesNotice } from './OffFencesNotice';
 import { PicturesControl } from './PicturesControl';
@@ -177,6 +178,7 @@ export function WebpageOptionsPanel({
 				</div>
 
 				<PicturesControl key={deckId} deckId={deckId} busy={busy} applies="the player stores" />
+				<FontsControl key={`fonts-${deckId}`} deckId={deckId} busy={busy} />
 
 				{/* Strip speaker notes — a privacy opt-in for a shared file. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">

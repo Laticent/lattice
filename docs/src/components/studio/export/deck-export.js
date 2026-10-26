@@ -36,9 +36,10 @@ import { captureStyleProperties } from '../../../../../lib/core/capture-style-pr
 import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
 import dataBlockCore from '../../../../../lib/core/data-block.js';
-import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import fontPolicyCore from '../../../../../lib/core/font-policy.js';
+import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
 import imagePolicyCore from '../../../../../lib/core/image-policy.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
@@ -54,7 +55,7 @@ import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
-import { applyImagesOverride } from './images-override.js';
+import { applyFontsOverride, applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
@@ -2031,6 +2032,12 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *     where `sweepWebRefsForCapture` already replaces it;
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
+/** The deck's `fonts:` line (lib/core/font-policy.js) with the panel's choice on top, read the way the CLI reads it. */
+export function deckFontSetting(source) {
+	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
+	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts')));
+}
+
 /** The deck's `images:` line (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
 export function deckImageSetting(source) {
 	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';

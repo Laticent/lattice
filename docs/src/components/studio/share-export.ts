@@ -325,6 +325,7 @@ type PlayerCore = {
 			 *  the deck's own `motion:` / `player-motion:` registers. Suppression only. */
 			playerMotion?: boolean;
 			images?: { mode?: string; quality?: string | number };
+			fonts?: { text?: string; emoji?: string };
 			glossary?: { term: string; definition: string }[];
 			narration?: unknown;
 			/** `false` leaves the Guide out of a narrated export; otherwise it ships (player-core). */
@@ -462,13 +463,15 @@ export async function shareHtmlPlayer(
 	out = splitLikeCli(out, source);
 
 	onStatus?.('Embedding fonts…');
+	// The deck's `fonts:` line with the export panel's choice on top, the plan the command line runs.
+	const fontSetting = (await import('./export/deck-export.js')).deckFontSetting(source);
 	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
 		import('@/playground/font-embed.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
 		import('@/lib/sanitize-slide-html.js'),
 		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
-	const fontCss = await fontMod.buildFontEmbedCss(`${source}\n${out.html}`);
+	const fontCss = await fontMod.buildFontEmbedCss(`${source}\n${out.html}`, fontSetting);
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
@@ -882,6 +885,7 @@ export async function shareHtmlPlayer(
 			config: coreMod.parseFrontMatter(source).directives,
 			// The deck's `images:` with the export panel's choice on top: the same plan the command line runs.
 			images: (await import('./export/deck-export.js')).deckImageSetting(source),
+			fonts: fontSetting,
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See

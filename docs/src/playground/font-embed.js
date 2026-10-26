@@ -26,6 +26,7 @@
 // in. Refresh the vendored files by re-running the latin-subset fetch documented
 // in this PR if the engine's font set changes.
 
+import fontPolicyCore from '../../../lib/core/font-policy.js';
 import emojiCore from '../../../lib/fonts/emoji-faces.js';
 // Vite bundles each .woff2 and resolves the import to its served URL.
 import faceRuleCore from '../../../lib/fonts/face-rule.js';
@@ -152,12 +153,16 @@ async function emojiSliceRule({ file, range }) {
 }
 
 /**
- * The CLI's font block, plus (when `text` is given) the Noto Color Emoji slices that text needs.
+ * The CLI's font block, plus (when `text` is given) the Noto Color Emoji slices that text needs, under the
+ * `fonts:` policy (lib/core/font-policy.js): `system` leaves that class out, `full` ships every emoji slice.
  * @param {string} [text]  everything the export will show
+ * @param {string|{text?: string, emoji?: string}} [fonts]  the deck's `fonts:` words
  */
-export async function buildFontEmbedCss(text = '') {
-	const base = await buildTextFontCss();
-	const need = new Set(emojiCore.slicesFor(text));
+export async function buildFontEmbedCss(text = '', fonts) {
+	const policy = fontPolicyCore.resolveFontPolicy(fonts);
+	const base = policy.text === 'system' ? '' : await buildTextFontCss();
+	if (policy.emoji === 'system') return base;
+	const need = new Set(policy.emoji === 'full' ? emojiCore.EMOJI_SLICES.map((s) => s.file) : emojiCore.slicesFor(text));
 	const rules = await Promise.all(emojiCore.EMOJI_SLICES.filter((s) => need.has(s.file)).map(emojiSliceRule));
 	return base + rules.join('');
 }
