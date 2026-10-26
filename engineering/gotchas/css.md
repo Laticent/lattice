@@ -965,3 +965,17 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   the policy and the "Load images" offer. `npm run test:integration` loads every
   payload in Chromium, as written (each must fetch, or the probe cannot see) and rewritten (none
   may). A new spelling goes in the fixture first.
+- **Found by the seeded fuzz (2026-10-26):** `npm run fuzz:web-refs` generates inputs from the
+  tokenizer rules instead of from known bypasses (`test/fixtures/web-ref-fuzz.js`), and in its first
+  runs found spellings nobody had written down. A `<base href>` naming a web address re-points every
+  relative address on the page at it, and a refresh `<meta>` navigates the page to its address; both
+  are now removed, and a refresh to a `data:` or `blob:` page too. `http:host` and `http:/host`
+  (no `//`) are absolute to the URL parser on a page of another scheme (a `file://` export, an
+  https site), so `webOrigin` reads any run of slashes after `http:` as `//`. A `<select>` now makes
+  `scanHtml` ask the page's parser, because newer browsers let it hold a table or style that older
+  ones drop. With `{ fonts: true }`, an `<iframe srcdoc>`, a `data:`/`blob:`/`javascript:` page in an
+  iframe, object or embed, and an SMIL `<set attributeName="href">` lose the attribute too. When a
+  fuzz run reports a request, the log names the input (`f<seed>-<index>`); replay it with
+  `--seed S --from I --count 1`, add the spelling to the fixture table, then fix the scanner. A
+  request that appears only in one engine is real: the engines disagree, and the page's visitor
+  has one of them.

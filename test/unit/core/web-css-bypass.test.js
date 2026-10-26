@@ -26,6 +26,10 @@ const parsed = (ref) => new DOMParser().parseFromString(`<p title="${ref}">`, 't
 
 /** Whether `text` holds `part` anywhere. A test of absence, not a sanitizer: written as a split so
  *  CodeQL's URL-substring query does not read `.includes(url)` as one. */
+/** `https:host` and `https:/host` read as `https://host` to the URL parser; the scanners report the normalized address. */
+const normalized = (u) => String(u).replace(/^(https?:)\/*/i, '$1//');
+/** Whether `u` names payload `p`: by its address, or, for the row Firefox reads undecoded, by host and name. */
+const names = (u, p) => (p.onlyIn ? holds(u, `evil.example/${p.name}`) : String(u).startsWith(`${BASE}/${p.name}`));
 const holds = (text, part) => String(text).split(part).length > 1;
 /** The text with every `data-lattice-web-src="…"` label taken out: the one place the URL may stay. */
 const withoutLabels = (html) => html.replace(/data-lattice-web-src="[^"]*"/g, '');
@@ -33,7 +37,7 @@ const withoutLabels = (html) => html.replace(/data-lattice-web-src="[^"]*"/g, ''
 describe('the CSS scanners list every spelling', () => {
   for (const p of PAYLOADS.filter((x) => x.kind !== 'html')) {
     test(`remoteCssRefs: ${p.name}`, () => {
-      assert.ok(remoteCssRefs(p.text).some((u) => u.startsWith(`${BASE}/${p.name}`)), JSON.stringify(remoteCssRefs(p.text)));
+      assert.ok(remoteCssRefs(p.text).some((u) => names(u, p)), JSON.stringify(remoteCssRefs(p.text)));
     });
   }
 
@@ -54,7 +58,11 @@ describe('the CSS scanners list every spelling', () => {
         continue;
       }
       // The gate reports the whole value that holds the address (a style attribute), not only the URL.
-      assert.ok(galleryRemoteRefs(md).some((u) => holds(u, `${BASE}/${p.name}`)), p.name);
+      if (p.opaque) {
+        assert.ok(galleryRemoteRefs(md).some((u) => u.startsWith('policy:')), p.name);
+        continue;
+      }
+      assert.ok(galleryRemoteRefs(md).some((u) => holds(normalized(u), `${BASE}/${p.name}`)), p.name);
     }
   });
 
@@ -62,7 +70,7 @@ describe('the CSS scanners list every spelling', () => {
     const { cssRefTargets } = await import('../../../lib/core/door-attr.mjs');
     // The door reads attribute values only; `@import` in a style attribute is ignored (measured in
     // Chromium 2026-10-25: 0 requests, against 1 for the same text in a <style>).
-    for (const p of PAYLOADS.filter((x) => x.kind !== 'html' && x.name !== 'import-string')) {
+    for (const p of PAYLOADS.filter((x) => x.kind !== 'html' && x.name !== 'import-string' && x.name !== 'import-undecoded-escape')) {
       assert.ok(cssRefTargets(p.text).some((u) => u.startsWith(`${BASE}/${p.name}`)), p.name);
     }
   });
@@ -78,18 +86,39 @@ describe('the CSS scanners list every spelling', () => {
   });
 });
 
+describe('a refresh meta', () => {
+  test('is removed whatever the page it names: a web address, the scheme without slashes, a data: page', () => {
+    for (const target of ['https://evil.example/r', 'https:evil.example/r', 'HTTPS:/evil.example/r', '//evil.example/r', 'data:text/html,x', 'blob:https://evil.example/u']) {
+      for (const content of [`0;url=${target}`, `0; URL = '${target}'`, `5,${target}`, `0 ${target}`]) {
+        const html = `<meta http-equiv="Refresh" content="${content}"><p>x</p>`;
+        assert.equal(blockWebImages(html, [], { fonts: true, DOMParser }).html, '<p>x</p>', content);
+      }
+    }
+  });
+  test('stays when it names a relative page, and with an allowed origin', () => {
+    const rel = '<meta http-equiv="refresh" content="0;url=next.html">';
+    assert.equal(blockWebImages(rel, [], { DOMParser }).html, rel);
+    const ok = '<meta http-equiv="refresh" content="0;url=https://ok.example/p">';
+    assert.equal(blockWebImages(ok, ['https://ok.example'], { DOMParser }).html, ok);
+  });
+  test('a removed tag takes the edits inside it along (the splice takes no overlaps)', () => {
+    const html = `<meta http-equiv="refresh" content="0;url=https://evil.example/r" style="background:url(https://evil.example/s)"><p>x</p>`;
+    assert.equal(blockWebImages(html, [], { fonts: true, DOMParser }).html, '<p>x</p>');
+  });
+});
+
 describe('the rewrites leave the URL nowhere but its label', () => {
   for (const p of PAYLOADS) {
     test(`blockWebImages: ${p.name}`, () => {
       const { html, blocked } = blockWebImages(asHtml(p), [], { fonts: p.kind === 'font' || !!p.noPolicy, DOMParser });
       assert.ok(!holds(withoutLabels(html), BASE), html);
-      assert.ok(blocked.some((b) => b.url.startsWith(`${BASE}/${p.name}`)), JSON.stringify(blocked));
+      if (!p.opaque) assert.ok(blocked.some((b) => (p.onlyIn ? names(b.url, p) : normalized(b.url).startsWith(`${BASE}/${p.name}`))), JSON.stringify(blocked));
     });
     if (p.kind === 'html') continue;
     test(`blockWebCss: ${p.name}`, () => {
       const { css, blocked } = blockWebCss(p.text);
       assert.ok(!holds(css, BASE), css);
-      assert.ok(blocked.some((b) => b.url.startsWith(`${BASE}/${p.name}`)));
+      assert.ok(blocked.some((b) => names(b.url, p)));
     });
   }
 
