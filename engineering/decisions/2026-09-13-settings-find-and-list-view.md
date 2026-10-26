@@ -945,3 +945,17 @@ state plainly: **a measurement taken in one browser, one section, one scope or o
 is not a fact about the component — it is a fact about that configuration, and the sentence
 has to say so.** Every one of the twenty-plus false claims in this change was a true
 measurement wearing a wider sentence than it had earned.
+
+## 17. #2203 fixed (2026-10-25)
+
+The Language row's sideways scroll (§15) is fixed with the measured candidate: `max-w-full` on `SETTING_CONTROL_COL`. The
+row's width is the column's ceiling, so the one-line trigger stops at 251 px instead of pushing to 263 (Chromium) or 258
+(WebKit, Firefox). `LanguageSelect` also truncates its label with an ellipsis, because the shared trigger clipped it mid-word
+("United State") once it had to fit.
+
+What was measured, and on what: `e2e/settings-sections-overflow.spec.ts` walks EVERY section in BOTH scopes at 1440, 820 and
+390 (45 section views) in Chromium, WebKit and Firefox, and reads the scroller's `scrollWidth - clientWidth` in each. Before:
+deck › General at 820 read 12 (Chromium) and 7 (WebKit, Firefox); every other view read 0. After: 0 everywhere. At 1440 it
+already read 0 before, because the docked panel is 291 px wide today, not the 231 px §15 measured. The spec also records each
+settings row's box: of 213 rows per engine, the two that changed are the two that overflowed (Language and "AI writes in"),
+263 → 251 px. No other row moved.

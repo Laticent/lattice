@@ -121,13 +121,42 @@ section.pricing > .cell-stage > ul > li > ul > li {
   line-height: var(--lh-snug);
 }
 /* Badge feature rows — strip verdict-grid's pill chrome, keep the disc +
- * mark (::before/::after) and left-align. Padding is preserved so the
- * absolute ::after mark stays registered over the ::before disc. */
+ * mark (::before/::after) and left-align. The pill's horizontal padding is kept so
+ * the absolute ::after mark stays registered over the ::before disc.
+ *
+ * A feature row WRAPS. The shared pill is `white-space: nowrap` with `line-height: 1`,
+ * which suits a one-word verdict-grid chip and not a feature name: in a 368px tier the
+ * default sample's "Checks accumulate up the ladder" ran 11px past the card and the card's
+ * `overflow: hidden` cut it, and a real row ("Single sign-on with your identity provider")
+ * lost whole words. So the row wraps under its own text at the tight line height,
+ * and the disc and its mark sit on the FIRST line rather than the middle of the block. */
 section.pricing > .cell-stage > ul > li > ul > li > .badge {
   background: none; border: none;
   justify-content: flex-start;
+  align-items: flex-start;
+  white-space: normal; text-wrap: pretty; text-align: start; line-height: var(--lh-tight);
+  max-width: 100%; box-sizing: border-box;
+  /* The row's own vertical padding, stated here so the mark below can be placed from it
+   * (pricing has stripped the pill and reads none of its tokens). A one-line row keeps the
+   * pill's 1.6em: one 1.2 line plus 0.2em above and below, where the pill was a 1.0 line
+   * plus 0.3em. Only a row that wraps gets taller. */
+  /* One line, in em: the row's line height as a length. Spelled from the token rather than as
+   * `1lh`, which no other engine CSS uses and Safari before 16.4 / Firefox before 120 reject. */
+  --pricing-line: calc(var(--lh-tight) * 1em);
+  --pricing-row-pad-y: calc((1.6em - var(--pricing-line)) / 2);
+  padding-block: var(--pricing-row-pad-y);
+  /* No end padding: it framed the pill's border, which is gone, and once the row wraps it
+   * only narrows the line (a 16px gap that wrapped rows the card had room for). */
+  padding-inline-end: 0;
   font-family: inherit; font-size: inherit; font-weight: 400;
   letter-spacing: 0; color: var(--text-body);
+  --pricing-disc-drop: calc((var(--pricing-line) - 0.95em * var(--state-disc-scale)) / 2);
+}
+section.pricing > .cell-stage > ul > li > ul > li > .badge::before {
+  position: relative; top: var(--pricing-disc-drop);
+}
+section.pricing > .cell-stage > ul > li > ul > li > .badge::after {
+  top: calc(var(--pricing-row-pad-y) + var(--pricing-disc-drop)); transform: none;
 }
 /* ── "Who it's for" line ── the marker-less last nested li, pinned bottom. */
 section.pricing > .cell-stage > ul > li > ul > li:last-child {

@@ -85,7 +85,6 @@ const KNOWN = Object.freeze([
   { component: 'topic', variant: 'fact', families: ['tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
   { component: 'video', families: ['square', 'tall'], venues: ['conference', 'hall'], why: PORTRAIT_HALL },
   { component: 'contact', families: ['square'], venues: ['hall'], why: 'The venueProbe card (full name, title, org, phone, email, URL, caption) marks the slide clipped at hall on a square canvas; no text or image leaves the frame, so the overshoot is small. Found 2026-10-22 when the ratchet first held the square canvas; the fix is a layout pass on the square structure, recorded in followups.d/2862-p7-contact-square-hall-clip.md.' },
-  { component: 'pricing', families: ['wide'], venues: ['laptop'], why: 'The sample\'s footnote ("Checks accumulate up the ladder") is clipped by its list item at the designed size; it predates venues. Found by the harness on 2026-10-22, not on the path of the venue work.' },
   { component: 'video', variant: 'qr', why: 'The `qr` register sizes its code from a fixed `8rem`, so it sits under the venue floor from huddle up (10% of the slide at every venue) and its caption is clipped under the poster. Moving it onto the shared QR sizing made it clip at laptop, so the edit was backed out; it needs its own layout (code beside the poster at wide). Found 2026-10-22.' },
 ]);
 const covers = (k, r) => k.component === r.component

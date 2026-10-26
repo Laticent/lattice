@@ -1017,6 +1017,7 @@ export function Library({ open, onOpenChange, docked, options, activePalette, ac
 			onClear={() => setQuery('')}
 			placeholder={LIBRARY_HEADER.searchPlaceholder}
 			label="Search library"
+			size={phone ? 'default' : 'sm'}
 			className={phone ? undefined : 'ml-1 flex-1'}
 		/>
 	);
