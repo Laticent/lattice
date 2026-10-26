@@ -517,9 +517,25 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   on its own `gh-readonly-queue/…` ref, so nothing supersedes it, and there `cancelled` is a
   timeout or a hand cancel. In the 39 completed queue runs from 2026-09-29 to 2026-10-05,
   11 merged with `integration` cut off at its 25-minute cap. The gate now fails a
-  `cancelled` tier when `github.event_name == 'merge_group'`; a PR run still passes one, and
-  the queue run is the backstop. `integration`'s cap went to 45 minutes in the same change,
-  because the suite had outgrown 25 (the numbers are in `ci.yml`'s timeout block).
+  `cancelled` tier when `github.event_name == 'merge_group'`; a PR run passed one until
+  2026-10-26 (next bullet), and the queue run is the backstop. `integration`'s cap went to 45
+  minutes in the same change because the suite had outgrown 25, and came back to 25 on
+  2026-10-09 with the four-way shard (the numbers are in `ci.yml`'s timeout block).
+- **A PR run now fails a `cancelled` tier too, unless a newer push superseded it.** A tier
+  killed by its own `timeout-minutes` reads `cancelled`, and #2494 and #2900 went green over
+  an `integration` shard cut off mid-suite. The gate asks the API for the PR's live head. If
+  it still equals the run's commit, nothing superseded the run, so the cancel was a timeout
+  or a hand cancel and the gate fails ("Re-run the tier"). If the head moved, the newer run
+  carries the verdict and this one passes. An API error fails the gate. A hand cancel of a
+  live head now reds the gate too, which is the right reading of it. So does closing and
+  reopening a PR mid-run: the new run is on the same head, so the old run's gate cannot tell
+  it from a timeout. The new run's `ci` decides the SHA, so this is a stray red webhook, not a
+  blocked merge. Checked with the step's
+  script run against a stubbed `gh` for each of seven cases (success, cancelled on the
+  head, cancelled and superseded, API error, empty answer, merge queue, failure).
+  UNVERIFIED on GitHub itself: that a timed-out job reads `cancelled` in `needs`, that the
+  `if: always()` gate runs in a superseded run, and that the API shows the new head by then
+  (`followups.d/2494-p2-verify-the-timeout-gate-on-a-live-pr.md`).
 - **How to read a green `ci` you doubt:** list the run's jobs and look at `changes` first. A
   `changes` that did not succeed means every `skipped` below it is unproven.
 - **What it costs:** a PR run superseded by a push while its `changes` is still queued now
@@ -578,8 +594,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   · integration · docs-build)" and "Every other check on this commit had also concluded
   successfully". Seen on #2749 at `1a17c46`.
 - **Cause:** you pushed again. `concurrency: cancel-in-progress` canceled that run's tiers, and
-  a PR run accepts a `cancelled` tier by design (see "The `ci` check is green on a PR whose test
-  tiers never ran"). The beacon reports the old commit's lint and nothing else.
+  a superseded PR run accepts a `cancelled` tier by design (see "The `ci` check is green on a PR
+  whose test tiers never ran"; a `cancelled` tier on the PR's CURRENT head fails the gate). The beacon reports the old commit's lint and nothing else.
 - **How to tell:** the list after "ran:" names fewer tiers than a full run (lint · unit ·
   integration · docs-build), and the SHA is not the PR's current head.
 - **Fix:** ignore it and wait for the run on the head SHA. Never count it as evidence in a

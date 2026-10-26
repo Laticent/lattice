@@ -1020,6 +1020,12 @@ jobs:
       pull-requests: write # post the CI-green beacon comment that wakes a subscribed session
     steps:
       - name: Verify gate
+        env:
+          # For the PR-run `cancelled` arm below: is this run's commit still the PR's head?
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
         run: |
           echo "changes=${{ needs.changes.result }} lint=${{ needs.lint.result }} unit=${{ needs.unit.result }} integration=${{ needs.integration.result }} docs-build=${{ needs.docs-build.result }} player-webkit=${{ needs.player-webkit.result }}"
           # A tier result is acceptable when it's: success; skipped (a conditional
@@ -1033,9 +1039,9 @@ jobs:
           # carries the authoritative verdict. Painting the orphaned SHA red on a
           # supersession-cancel manufactured false-alarm webhooks during a merge
           # train (see engineering/decisions/2026-06-14-drift-watch-rebase-thrash.md).
-          # Only a real failure stops the gate on a PR run.
+          # Only a real failure stops the gate on a PR run, plus the three exceptions below.
           #
-          # TWO EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
+          # THREE EXCEPTIONS (followups.d/2524-p1-*, engineering/gotchas/ci.md):
           #
           # 1. `changes` must SUCCEED. Every test tier `needs: changes`, so when
           #    `changes` does not succeed, unit, integration and docs-build all read
@@ -1050,6 +1056,15 @@ jobs:
           #    `cancelled` tier is a timeout or a hand cancel, and the queue merges on
           #    THIS check. d63fa45 (#2524) merged with integration cut off at its
           #    25-minute timeout, mid-suite.
+          #
+          # 3. On a PR run a `cancelled` tier FAILS unless the run was superseded. A tier killed
+          #    by its own `timeout-minutes` reads `cancelled` too, and #2494 and #2900 went green
+          #    over a shard cut off mid-suite. Supersession leaves a fingerprint a timeout does
+          #    not: the PR's head is no longer this run's commit. So the gate asks the API for
+          #    the live head. Still the head => nothing superseded the run, so the cancel was a
+          #    timeout or a hand cancel and the gate fails. Moved on => the newer run carries
+          #    the verdict, and this one passes as before. An API error fails closed: a green
+          #    over a killed tier is the worse mistake, and the error is only reachable here.
           changes="${{ needs.changes.result }}"
           if [ "$changes" != "success" ]; then
             echo "::error::the path filter (changes) did not succeed (${changes}), so a skipped tier proves nothing"
@@ -1064,6 +1079,21 @@ jobs:
                 if [ "${{ github.event_name }}" = "merge_group" ]; then
                   echo "::error::tier ${tier%%=*} was cancelled in the merge queue (a timeout or a hand cancel; nothing supersedes a queue run)"
                   exit 1
+                fi
+                if [ "${{ github.event_name }}" = "pull_request" ]; then
+                  live_head=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq .head.sha) || {
+                    echo "::error::tier ${tier%%=*} was cancelled and the PR's live head could not be read, so a timeout cannot be ruled out"
+                    exit 1
+                  }
+                  if [ -z "$live_head" ]; then
+                    echo "::error::tier ${tier%%=*} was cancelled and the PR's live head came back empty, so a timeout cannot be ruled out"
+                    exit 1
+                  fi
+                  if [ "$live_head" = "$RUN_HEAD_SHA" ]; then
+                    echo "::error::tier ${tier%%=*} was cancelled on the PR's current head, so nothing superseded this run: a timeout-minutes kill or a hand cancel. Re-run the tier; do not read this commit as tested."
+                    exit 1
+                  fi
+                  echo "tier ${tier%%=*} was cancelled by a newer push (live head ${live_head:0:7}, this run ${RUN_HEAD_SHA:0:7}); the newer run decides"
                 fi ;;
               *) echo "::error::tier ${tier%%=*} did not pass (${tier#*=})"; exit 1 ;;
             esac
