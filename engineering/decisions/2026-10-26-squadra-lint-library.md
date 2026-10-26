@@ -11,7 +11,9 @@ summary: >
 
 # Squadra: a lint-and-fix library (2026-10-26)
 
-Status: proposed. No code changes. The census behind the numbers is `2026-10-26-squadra-lint-library/census.md`.
+Status: proposed. No code changes. The census behind the numbers is `2026-10-26-squadra-lint-library/census.md`. The
+full design (API, language plugins, the Rettifica fix engine, manifest files, configuration, how Lattice adopts it) is
+`2026-10-26-squadra-lint-library/design.md`. Where this note's §5 summary and the design differ, the design wins.
 
 ## 1. The answer
 
@@ -125,15 +127,17 @@ All three checks run when a rule is registered:
   is a function `check(ctx)` that emits findings with spans, with query helpers on `ctx` so it is as short as a
   declarative one. Both forms are first-class, because 44% of deck rules need code.
 - **Language plugin:** `parse(text) → tree`, node kinds, the "inert" ranges (code fences, comments, strings) supplied
-  once, and a text-to-offset map. The first three wrap parsers already in the repo: deck markdown on markdown-it, CSS on
-  css-tree, JS and TS on acorn or the TypeScript API (both already used by the ownership checks; oxc-parser is only a transitive dependency today). YAML and JSON follow. Writing a new parser is out of scope.
+  once, and a text-to-offset map. Any Segno grammar becomes a language through one adapter, and Lattice's deck language
+  is built on Segno's Markdown grammar plus the slide and front-matter kernels the engine already uses. JS and TS use
+  acorn or the TypeScript API (both already used by the ownership checks). Writing a new parser is out of scope.
 - **Project scope:** a rule declares the files and facts it reads (globs, manifests, other rules' output). The engine
   re-runs a rule only when its declared inputs change. This is the main performance lever, and it is what the 75 R
   checks need.
 - **Waivers and ratchets:** `{rule, target, reason, expires?}` records with built-in stale detection and budget ratchets.
   They replace the 35 hand-built allowlists and close the 8 that have no staleness check.
-- **Fix engine:** collect the fixes, drop overlapping edits deterministically, apply the rest in one pass, re-parse,
-  re-run the touched rules, and cap the passes. It offers dry-run, diff, and flags per rule and per safety grade.
+- **Fix engine (Rettifica, a proposed name):** pluggable; every engine lowers its fix to text edits, and Lattice's
+  current line-based fixers become one engine. The driver collects the fixes, drops overlapping edits deterministically, applies the rest in one pass, re-parses,
+  re-runs the touched rules, and caps the passes. It offers dry-run, diff, and flags per rule and per safety grade.
   The Studio's "Fix all" and the CLI's `--fix` call the same function.
 - **Output:** one JSON format, SARIF for CI annotations, and editor code-action output. Inline suppression comments are
   part of the design because any outside user will expect them.
