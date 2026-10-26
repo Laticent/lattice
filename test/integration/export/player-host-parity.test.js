@@ -43,8 +43,11 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // Re-blessed 2026-10-17 for canonical attribute order (player-core.mjs `sortAttributes`, §11.9):
 // diffed against the old SHA's output, the five <section> tags carry the same attributes in name
 // order and nothing else moved; the length is unchanged. Both hosts give the new SHA.
-const GOLDEN_SHA = 'bc1133aa6ce313981c561fe56c41e6e30b68ddc562b3a1cbb66ec8e79d4ef746';
-const GOLDEN_BYTES = 101757;
+// Re-blessed 2026-10-26 for #1501: the player runtime finds its slide and frame lists under its own
+// #lp-stage (two declarations and their comment), so the inlined script grows 421 bytes and the CSP
+// `script-src` hash moves with it. Both hosts produce the new SHA, so parity holds.
+const GOLDEN_SHA = '4242bd0e0450a9c63f39c96d3530e3c7bb7869eb0e73da117a80de933bbfc567';
+const GOLDEN_BYTES = 102178;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

@@ -556,3 +556,36 @@ test('a wipe survives a tab that was frozen through it', async ({ page, context,
 	expect(back.filter((k) => ownKeys.includes(k))).toEqual([]);
 	await other.close();
 });
+
+/**
+ * #1634 — the visibility handler was the one wake path that wrote without first
+ * re-reading the durable wipe mark. A background tab that missed the wipe
+ * broadcast wrote the deck title back the moment it came to the front.
+ *
+ * The page writes the wipe mark ITSELF: a document never receives its own
+ * `storage` event, so the live listener stays silent on every engine, which is
+ * exactly the state of a tab that slept through another tab's wipe. No CDP is
+ * needed, so this runs on Chromium, WebKit and Gecko. Playwright cannot hide a
+ * tab, so the `visibilitychange` is dispatched; the handler, the build and the
+ * engine are the real ones.
+ */
+test('a tab that missed a wipe writes nothing back when it becomes visible @crosswidth @webkit-phone @gecko', async ({ page }) => {
+	test.setTimeout(120_000);
+	await allowRecording(page);
+	await gotoStudio(page);
+
+	const result = await page.evaluate(() => {
+		const PREFIX = 'lattice-studio-session-';
+		const sessionKeys = () => Object.keys(localStorage).filter((k) => k.startsWith(PREFIX));
+		const before = sessionKeys().length;
+		// What another tab's "Delete Everything" leaves in shared storage, written
+		// from here so this document hears no broadcast.
+		for (const k of sessionKeys()) localStorage.removeItem(k);
+		localStorage.setItem('lattice-studio-wiped-at', String(Date.now()));
+		document.dispatchEvent(new Event('visibilitychange'));
+		return { before, after: sessionKeys(), stored: sessionKeys().map((k) => localStorage.getItem(k) ?? '') };
+	});
+	expect(result.before).toBeGreaterThan(0);
+	expect(result.after).toEqual([]);
+	expect(result.stored.join('')).not.toContain('"Deck"');
+});

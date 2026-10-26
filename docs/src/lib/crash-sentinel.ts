@@ -1773,6 +1773,9 @@ export function startCrashSentinel(): () => void {
 	};
 	const onVisibility = () => {
 		if (!live) return;
+		// A background tab coming to the front may have slept through a wipe in
+		// another tab. Same reason as `onResume`: check before `persist` writes.
+		if (catchUpOnWipe()) return;
 		noteVisibility();
 		breadcrumb('lifecycle', document.visibilityState);
 		live.lastBeat = Date.now();

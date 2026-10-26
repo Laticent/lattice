@@ -208,7 +208,11 @@ const FALSEY = /^(false|no|off|0)$/i;
 
 function stripQuotes(v) {
   const t = (v || '').trim();
-  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) return t.slice(1, -1);
+  // A double-quoted value undoes exactly the two escapes `quoteIfNeeded` writes (`\\` and `\"`), so
+  // writing and reading back is a round trip and repeated panel edits cannot pile escapes up (the
+  // checker on #1958's second cut: three unrelated writes left 15 backslashes in one header).
+  if (t.length > 1 && t.startsWith('"') && t.endsWith('"')) return t.slice(1, -1).replace(/\\([\\"])/g, '$1');
+  if (t.length > 1 && t.startsWith("'") && t.endsWith("'")) return t.slice(1, -1);
   return t;
 }
 
@@ -355,8 +359,21 @@ function normalize(key, value, preset) {
 // sizes and keywords never trip this, so they stay bare like the example decks.
 function quoteIfNeeded(value) {
   const v = String(value);
-  if (/[:#]/.test(v) || /^\s|\s$/.test(v) || v === '') return `"${v.replace(/"/g, '\\"')}"`;
-  return v;
+  if (!(/[:#]/.test(v) || /^\s|\s$/.test(v) || v === '')) return v;
+  // The engine reads a quoted span RAW (`frontMatterScalar` unfolds no escape), so the value goes
+  // in unescaped wherever a quote can hold it unchanged (#1958):
+  //   - no `\` and no `"`: double quotes, as before;
+  //   - a `\` or `"` and no `'`: single quotes, which neither the engine nor YAML reads escapes in;
+  //   - a `'` too, but no `"` and no trailing `\`: double quotes, raw, which the engine reads back
+  //     whole (a `\` only skips the character after it while it looks for the closing quote).
+  // What is left (a `'` together with a `"` or a trailing `\`) has no form both readers take
+  // unchanged, so it is escaped the YAML way, `\` and `"` both: the closing quote stays a quote,
+  // and the engine shows the escapes raw. The old code escaped only `"`, so a trailing `\` still
+  // swallowed the closing quote and ran the string into the next key.
+  if (!/[\\"]/.test(v)) return `"${v}"`;
+  if (!v.includes("'")) return `'${v}'`;
+  if (!v.includes('"') && !v.endsWith('\\') && !v.includes('\\\\')) return `"${v}"`;
+  return `"${v.replace(/[\\"]/g, '\\$&')}"`;
 }
 
 // Set (or clear) ONE managed field and return the rewritten source. Re-reads the

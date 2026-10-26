@@ -530,10 +530,12 @@ running". Only something the tab can READ on waking can. So `clearAllSessions`
 now also leaves `WIPE_MARK_KEY`, a durable timestamp, and `catchUpOnWipe()`
 compares it against the value this document last saw.
 
-It is wired into three places, deliberately overlapping:
+It is wired into four places, deliberately overlapping:
 
 - `resume` — the Page Lifecycle wake-up.
 - `pageshow` with `persisted` — the back/forward-cache wake-up.
+- `visibilitychange` — a background tab coming to the front (#1634, added
+  2026-10-26; it was the one wake path that wrote without checking).
 - **`tick`, the heartbeat itself** — the belt to those braces. Whatever path a
   document wakes by, including one nobody has thought of, the heartbeat is the
   thing that would resurrect the data, so it re-reads the mark before it can.
@@ -627,6 +629,7 @@ two of them shipped *because* their unit tests passed.
 | the report surfaces and says what to try | `desktop` | toast radius asserted as the value it must BE; contrast measured from composited pixels for EVERY text layer (title, description, action), each **composited from the page canvas up** so the toast's own alpha counts; not clipped, by rect, container overflow AND per-layer overflow, **on both axes**; the title actually visible; exactly one toast; the steps section; opaque-error attribution; no sideways overflow. Skips, saying so, if the toast auto-dismissed — but only when a latch observed it on screen first. |
 | the same, at phone size | `webkit-phone` | the two defects were a rendered SHAPE and a computed COLOR — the class a Chromium project cannot stand in for |
 | a clean session is never reported | `desktop` | the feature rests on "unclosed means crashed"; if an ordinary visit produced one, every boot would cry crash |
+| a tab that missed a wipe writes nothing back when it becomes visible | `desktop`, `mobile`, `webkit-phone`, `gecko` | #1634 — the page writes the wipe mark itself (a document never hears its own `storage` event, so the live listener stays silent on every engine), then dispatches `visibilitychange`. Verified RED on all three engines against the build without the guard, GREEN with it. Playwright cannot hide a tab, so the event is dispatched; the handler, the build and the engine are real. |
 | a wipe survives a frozen tab | `desktop` (Chromium) | #1625 — **runs**, and is falsifiable: verified RED against a build with `catchUpOnWipe` removed entirely. Stops the page with `Emulation.setScriptExecutionDisabled` (the Page Lifecycle call is a silent no-op here) and skips only if the page turns out to have heard the wipe. Covers the heartbeat catch-up path; `onResume`'s is still uncovered. |
 
 The contract is shared by two `test()` calls rather than one tagged spec, because
@@ -854,6 +857,10 @@ layer measures `scrollWidth == clientWidth` exactly at devicePixelRatio 1 and 3.
 at boot". The only other call site needs a user settings write, so it is
 unreachable here — but a future boot-time toast would red this spec for an
 unrelated reason.
+
+**Fixed 2026-10-26 (#1634)**: `onVisibility` now returns early when
+`catchUpOnWipe()` reports a wipe, like the other three wake paths. The original
+record of the defect follows.
 
 **Logged as #1634, not fixed** (pre-existing, off this diff's path, HARD RULE #18):
 `onVisibility` calls `persist()` with no `catchUpOnWipe()` guard, unlike `tick`,

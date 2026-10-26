@@ -211,6 +211,131 @@ describe('lattice packages', () => {
     assert.equal((await run(['add', zip, '--replace', '--packages', store])).code, 0);
   });
 
+  // #617 — zip-slip. JSZip resolves `..` out of an entry name when it LOADS a zip, so a zip built
+  // with `zip.file('../x')` would only test JSZip. These names are patched into the raw bytes,
+  // local header and central directory both, which is what a hostile zip on disk looks like.
+  describe('a crafted zip cannot write outside the store (zip-slip)', () => {
+    /** Build a zip whose entry names are written byte-for-byte, `..` and all. */
+    async function rawZip(entries) {
+      const zip = new JSZip();
+      const swaps = [];
+      entries.forEach(([name, body], i) => {
+        const stand = `${String(i).padStart(4, '0')}${'z'.repeat(Math.max(0, Buffer.byteLength(name) - 4))}`.slice(0, Buffer.byteLength(name));
+        assert.equal(stand.length, Buffer.byteLength(name), `entry name ${JSON.stringify(name)} is too short to stand in for`);
+        zip.file(stand, body);
+        swaps.push([Buffer.from(stand), Buffer.from(name)]);
+      });
+      const buf = await zip.generateAsync({ type: 'nodebuffer' });
+      for (const [from, to] of swaps) {
+        let hits = 0;
+        for (let at = buf.indexOf(from); at !== -1; at = buf.indexOf(from, at + 1)) {
+          to.copy(buf, at);
+          hits++;
+        }
+        assert.equal(hits, 2, 'each name sits once in its local header and once in the central directory');
+      }
+      const p = path.join(tmp('slip'), 'hostile.zip');
+      fs.writeFileSync(p, buf);
+      return p;
+    }
+    /** Every file under `dir`, relative to it. */
+    const walk = (dir, base = dir) =>
+      fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name), base) : [path.relative(base, path.join(dir, e.name))]));
+
+    async function addInSandbox(entries) {
+      const sandbox = tmp('sandbox');
+      const store = path.join(sandbox, 'home', 'packages');
+      fs.mkdirSync(store, { recursive: true });
+      const r = await run(['add', await rawZip(typeof entries === 'function' ? entries(sandbox) : entries), '--packages', store]);
+      const outside = walk(sandbox).filter((f) => !f.startsWith(`home${path.sep}packages${path.sep}`));
+      return { r, outside, store };
+    }
+
+    const good = theme('probe-brand');
+    const pkg = Object.entries(good).map(([f, b]) => [`probe-brand/${f}`, b]);
+
+    test('`..` entries beside a real package write nothing outside the store', async () => {
+      const { r, outside, store } = await addInSandbox([...pkg, ['../../../slip-a.txt', 'pwned'], ['probe-brand/../../../slip-b.txt', 'pwned'], ['probe-brand/../../slip-c.css', 'pwned']]);
+      assert.notEqual(r.code, 0, r.text);
+      assert.match(r.text, /points outside its own folder/);
+      assert.deepEqual(outside, [], r.text);
+      assert.deepEqual(walk(store), [], 'the whole archive is refused, the honest package in it too');
+    });
+
+    test('an absolute entry name writes nothing at that path', async () => {
+      let target;
+      const { r, outside } = await addInSandbox((sandbox) => {
+        target = path.join(sandbox, 'abs-slip.txt');
+        return [...pkg, [target, 'pwned']];
+      });
+      assert.notEqual(r.code, 0, r.text);
+      assert.deepEqual(outside, [], r.text);
+      assert.equal(fs.existsSync(target), false);
+    });
+
+    test('a backslash or drive-letter entry name is refused too', async () => {
+      for (const evil of ['probe-brand\\..\\..\\slip.txt', 'C:/slip/probe.txt']) {
+        const { r, outside, store } = await addInSandbox([...pkg, [evil, 'pwned']]);
+        assert.notEqual(r.code, 0, `${evil}: ${r.text}`);
+        assert.deepEqual(outside, [], r.text);
+        assert.deepEqual(walk(store), [], r.text);
+      }
+    });
+
+    test('a package whose ONLY files sit behind `..` is refused', async () => {
+      const { r, outside } = await addInSandbox(Object.entries(good).map(([f, b]) => [`../${f}`, b]));
+      assert.deepEqual(outside, [], r.text);
+      assert.notEqual(r.code, 0, r.text);
+    });
+
+    test('a manifest name that traverses is refused and writes nothing', async () => {
+      const evil = '../../slip-d';
+      const files = {
+        'slip-d.manifest.json': JSON.stringify({ name: evil, type: 'theme', format: 1, label: 'Probe' }),
+        'slip-d.css': "/* @theme slip-d */\n@import 'lattice';\n",
+      };
+      const { r, outside, store } = await addInSandbox(Object.entries(files).map(([f, b]) => [`slip-d/${f}`, b]));
+      assert.notEqual(r.code, 0, r.text);
+      assert.deepEqual(outside, [], r.text);
+      assert.deepEqual(walk(store), [], r.text);
+    });
+
+    test('install() itself refuses a traversing type, name or file, whoever calls it', () => {
+      const { install } = require('../../../lib/packages/home.js');
+      const sandbox = tmp('sandbox');
+      const store = path.join(sandbox, 'store');
+      for (const [type, name, files] of [
+        ['theme', '../../slip', { 'a.css': 'x' }],
+        ['theme', 'ok', { '../a.css': 'x' }],
+        ['../..', 'slip', { 'a.css': 'x' }],
+        ['theme', path.join(sandbox, 'abs'), { 'a.css': 'x' }],
+        ['theme', 'ok', { [path.join(sandbox, 'abs.css')]: 'x' }],
+      ]) {
+        assert.throws(() => install(store, type, name, files), /refusing/, `${type}/${name}`);
+      }
+      assert.deepEqual(walk(sandbox).filter((f) => !f.startsWith(`store${path.sep}`)), []);
+    });
+
+    test('uninstall() refuses a traversing type or name, so its recursive delete stays in the store', () => {
+      const { uninstall } = require('../../../lib/packages/home.js');
+      const sandbox = tmp('sandbox');
+      const store = path.join(sandbox, 'a', 'store');
+      fs.mkdirSync(path.join(store, 'theme'), { recursive: true });
+      fs.writeFileSync(path.join(sandbox, 'victim.txt'), 'keep');
+      for (const [type, name] of [['theme', '../..'], ['theme', '..'], ['..', 'a'], ['theme', path.join(sandbox, 'a')]]) {
+        assert.throws(() => uninstall(store, type, name), /refusing/, `${type}/${name}`);
+      }
+      assert.equal(fs.readFileSync(path.join(sandbox, 'victim.txt'), 'utf8'), 'keep');
+    });
+
+    test('unsafeEntryName names every shape an honest archive never holds', () => {
+      const { unsafeEntryName } = require('../../../lib/packages/home.js');
+      for (const n of ['../x', 'a/../../x', '/etc/x', 'C:/x', 'c:x', 'a\\b', 'a\0b', '', '..']) assert.equal(unsafeEntryName(n), true, JSON.stringify(n));
+      // `./` names the same folder; some packers write it, and refusing it refused honest archives.
+      for (const n of ['x.css', 'pkg/x.css', 'theme/pkg/x.manifest.json', 'pkg/', 'a..b/c.css', '.hidden/x', './x.css', './pkg/x.css', 'a/./x', '.']) assert.equal(unsafeEntryName(n), false, JSON.stringify(n));
+    });
+  });
+
   test('remove: installed packages only', async () => {
     const store = tmp('store');
     await run(['add', await zipOf('probe-brand', theme('probe-brand')), '--packages', store]);
