@@ -5,11 +5,9 @@
     "pictures": 6,
     "reasons": {
       "paint:overflow-clipped": 1,
-      "paint:shadow+elliptical-radius": 1,
-      "paint:elliptical-radius": 1,
-      "paint:shadow+elliptical-radius+effect+overflow-clipped": 2,
-      "paint:elliptical-radius+effect": 3,
-      "paint:shadow+elliptical-radius+effect": 1
+      "paint:elliptical-radius": 2,
+      "paint:elliptical-radius+effect+overflow-clipped": 2,
+      "paint:elliptical-radius+effect": 4
     }
   },
   "accent-finishes": {
