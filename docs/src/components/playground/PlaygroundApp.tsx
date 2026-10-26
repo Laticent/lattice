@@ -3168,7 +3168,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				index={walk?.index ?? 0}
 				count={walkCount}
 				caption={walk ? walkSlide?.caption || '' : bakeCaption || ''}
-				baked={!walk && !!bakeCaption}
+				baked={!walk && !!bakeCaption && !walkNotice}
 				onPrev={() => stepWalk(-1)}
 				onNext={() => stepWalk(1)}
 				nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
