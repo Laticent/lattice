@@ -65,9 +65,15 @@ for (const deck of DECKS) {
     const puppeteer = require('puppeteer');
     const { PNG } = require('pngjs');
     const html = render(deck);
-    // No hinting: a CI runner's fontconfig grid-fits the oracle's glyphs (0.1% to 1.3% of pixels moved on four decks there) while
-    // an SVG image draws them unhinted, so with hinting left on this measured the runner's fonts, not the camera.
-    const launch = { headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files', '--font-render-hinting=none'] };
+    // A neutral font setup for the oracle. A runner's fontconfig can grid-fit glyphs and paint them with LCD subpixels (0.1% to 1.3%
+    // of pixels moved on four decks there), while an SVG image draws them unhinted and in gray, so left alone this measures the
+    // runner's fonts, not the camera. `--font-render-hinting=none` is not enough: the new headless ignores it. Reproduced here with a
+    // hintfull + rgb fontconfig: the same four decks at the same percentages as CI.
+    const fontconf = path.join(tmp, 'neutral-fonts.conf');
+    fs.writeFileSync(fontconf, '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><include ignore_missing="yes">/etc/fonts/fonts.conf</include>'
+      + '<match target="font"><edit name="hinting" mode="assign"><bool>false</bool></edit><edit name="hintstyle" mode="assign"><const>hintnone</const></edit>'
+      + '<edit name="antialias" mode="assign"><bool>true</bool></edit><edit name="rgba" mode="assign"><const>none</const></edit></match></fontconfig>');
+    const launch = { headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files', '--font-render-hinting=none'], env: { ...process.env, FONTCONFIG_FILE: fontconf } };
     if (process.env.CHROME_PATH) launch.executablePath = process.env.CHROME_PATH;
     const browser = await puppeteer.launch(launch);
     try {
