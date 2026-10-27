@@ -82,7 +82,7 @@ const F = {
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.64], rampText: [[6, 0.64], [6, 0.64]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.5], rampText: [[6, 0.5], [6, 0.5]], layered: 0.1, edge: 2.6, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -694,19 +694,6 @@ function build() {
       if (bears.bg.length) w(supports(rule(name, `:is(${bears.bg.map(bearSel).join(', ')})${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [`color: ${pickInk}`])));
       // A real property, not the member's `--tower-ink` custom property: the player's dual-mode pass hoists a light-dark() in a custom property to :root.
       w(supports(rule(name, `.tower-share-value${HUE_SEL}`, [`fill: ${pickInk}`])));
-      // A WORD CLOUD under tone. A word's color is arbitrary by default (the categorical inks in rank order, so "pricing" is
-      // magenta for no data reason), and its size already carries the weight. Tone makes color say the same thing a second,
-      // quiet way, in the tone hue like every other tone chart: the loudest word wears the one tone ink and each tier steps
-      // toward the theme's muted ink, which is the quietest ink the palette guarantees readable. (`spectrum`'s own stops are
-      // not used: their deepest step is near-black on a light slide, which no other tone chart has.)
-      // The tone ink is a 3:1 GRAPHICAL ink, and on a dark slide it measures about 3.7:1 as text, under the 4.5:1 a word owes. So
-      // a word's loudest step takes the ink as is on light and 65% of it toward the heading ink on dark (the mix a matrix
-      // grid's filled-cell text already takes), and each quieter tier mixes in 25% more of the muted ink.
-      const wordInk = `light-dark(${ONE_INK}, color-mix(in oklab, ${ONE_INK} 65%, var(--text-heading)))`;
-      for (const [tier, pct] of [[5, 100], [4, 75], [3, 50], [2, 25]]) {
-        w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${pct === 100 ? wordInk : `color-mix(in oklab, ${wordInk} ${pct}%, var(--text-muted))`}`]));
-      }
-      w(rule(name, '.wc-word[data-tier="1"]', ['fill: var(--text-muted)']));
       // A MATRIX GRID under tone. Each row is a category and the member colors the row's label and its empty cells'
       // outlines from the row's own hue (`--row-hue`, `--row-ink`), so a tone grid showed one hue in its filled cells and six
       // in its labels and outlines. The row's hue is re-pointed to the one hue, as a kanban column's and a roadmap phase's
@@ -734,12 +721,30 @@ function build() {
         w(supports(rule(name, `:is(.line-dot, .ep-dot)[data-hue="${n}"]`, [`fill: ${ink}`])));
       }
       w(rule(name, ':is(.cart-series, .line-name, .ep-name)[data-hue]', [`fill: ${ONE_INK}`]));
-      // A slope's lines are one quiet ink by default; a marked line (the signal) is the one ink at full strength, its
-      // direction carried by the geometry. The quiet ink is a pale step of the one hue, not grey.
-      w(supports(rule(name, '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])', [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
-      w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
-      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
-      w(supports(rule(name, '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])', [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
+    }
+
+    // ── WORD CLOUD and SLOPE under etch and tone — a word's or a line's color is arbitrary or a status, and both finishes
+    // read it as a second hue, so the words step by weight and the lines are the one hue ───────────────────────────
+    if (tone || name === 'etch') {
+    // A WORD CLOUD under etch and tone. A word's color is arbitrary by default (the categorical inks in rank order, so "pricing" is
+    // magenta for no data reason), and its size already carries the weight. Tone makes color say the same thing a second,
+    // quiet way, in the tone hue like every other tone chart: the loudest word wears the one tone ink and each tier steps
+    // toward the theme's muted ink, which is the quietest ink the palette guarantees readable. (`spectrum`'s own stops are
+    // not used: their deepest step is near-black on a light slide, which no other tone chart has.)
+    // The tone ink is a 3:1 GRAPHICAL ink, and on a dark slide it measures about 3.7:1 as text, under the 4.5:1 a word owes. So
+    // a word's loudest step takes the ink as is on light and 65% of it toward the heading ink on dark (the mix a matrix
+    // grid's filled-cell text already takes), and each quieter tier mixes in 25% more of the muted ink.
+    const wordInk = `light-dark(${ONE_INK}, color-mix(in oklab, ${ONE_INK} 65%, var(--text-heading)))`;
+    for (const [tier, pct] of [[5, 100], [4, 75], [3, 50], [2, 25]]) {
+      w(rule(name, `.wc-word[data-tier="${tier}"]`, [`fill: ${pct === 100 ? wordInk : `color-mix(in oklab, ${wordInk} ${pct}%, var(--text-muted))`}`]));
+    }
+    w(rule(name, '.wc-word[data-tier="1"]', ['fill: var(--text-muted)']));
+    // A slope's lines are one quiet ink by default; a marked line (the signal) is the one ink at full strength, its
+    // direction carried by the geometry. The quiet ink is a pale step of the one hue, not grey.
+    w(supports(rule(name, '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])', [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
+    w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
+    w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
+    w(supports(rule(name, '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])', [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
     }
 
     // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────

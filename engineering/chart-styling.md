@@ -329,10 +329,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   to clear the top step; each value now picks its own ink, which clears 4.58:1 on any body, so the band
   no longer protects the text. Measured on the heatmap gallery (5 themes), the contrast of the top step
   against the empty cell under tone went from 3.10 to 4.19 at its worst on light and from 1.67 to 2.64 on
-  dark (pigment 4.78 and 6.32). Etch's ramp is 6% plus 0.82 of
-  the step (6→82%): at the prototype's 6→28% a dark heatmap read as one flat navy, and at today's earlier 6→43% the
-  top step beat an empty cell by only 1.5 to 2.3:1 on dark. 0.82 reaches about 2.5:1 worst case on 8 themes; 1.0
-  would reach 3:1 but looks like pigment, which erases what makes etch etch.
+  dark (pigment 4.78 and 6.32). Etch's ramp is 6% plus 0.5 of
+  the step (6→56%). It was 0.82 (6→88%, about 2.5:1 top step against an empty cell), but at 0.82 two blind reviewers read the etch
+  heatmap and map as solid pigment-style fills (scores 5-6 of 10, the lowest in the set): a ramp's wash and its heavy ink outline
+  are what make it etch. 0.5 keeps the cell text above 4.5:1 (each value picks its own ink) and trades magnitude contrast for the
+  finish's look; the measured top-step span is in the PR. Etch's outline is 2.6 hairlines, up from 2, because SVG marks at
+  presentation size read as hairlines beside the HTML marks' heavy edge.
 - **A heatmap value picks its own ink, under etch and tone.** The theme solves each step's
   ink against the shipped fill, and a finish that changes the fill leaves no fixed ink that
   holds (the strong ink fell to 3.34:1 on the a11y themes). The value's fill is its cell's

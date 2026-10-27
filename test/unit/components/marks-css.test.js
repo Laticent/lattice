@@ -343,7 +343,7 @@ describe('marks.generated.css', () => {
 
   // A word cloud's color is arbitrary by default (categorical inks in rank order) while its size already carries the weight.
   // Tone makes color repeat the weight, on the palette's own contrast-gated ramp (`spectrum`'s stops), tier by tier.
-  test('tone colors a word by its weight tier in the tone hue; pigment and etch leave the words alone', () => {
+  test('tone and etch color a word by its weight tier in the first hue; pigment leaves the words alone', () => {
     const want = { 5: /fill: light-dark\(var\(--chart-cat-1-ink\), color-mix\(in oklab, var\(--chart-cat-1-ink\) 65%, var\(--text-heading\)\)\) !important/, 4: /\) 75%, var\(--text-muted\)\)/, 3: /\) 50%, var\(--text-muted\)\)/, 2: /\) 25%, var\(--text-muted\)\)/, 1: /fill: var\(--text-muted\) !important/ };
     for (const [tier, re] of Object.entries(want)) {
       const r = headed('tone').find((x) => x.sel.startsWith(`section.marks-tone :where(.wc-word[data-tier="${tier}"])`));
@@ -351,7 +351,8 @@ describe('marks.generated.css', () => {
     }
     // No word may reach for the palette's sequential ramp: its deepest step is near-black on a light slide.
     assert.ok(!headed('tone').some((x) => x.sel.includes('wc-word') && /--seq-/.test(x.body)), 'no --seq-* step');
-    for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((r) => r.sel.includes('wc-word')), `${f} does not repaint a word`);
+    assert.ok(headed('etch').some((x) => x.sel.includes('wc-word[data-tier="5"]')), 'etch steps the words too');
+    assert.ok(!serving('pigment').some((r) => r.sel.includes('wc-word')), 'pigment does not repaint a word');
     const { tierOf } = require('../../../lib/components/chart/word-cloud/word-cloud.transform');
     assert.deepEqual([5, 4.5, 4.49, 3.5, 2.5, 1.5, 1.49, 1].map(tierOf), [5, 5, 4, 4, 3, 2, 1, 1]);
   });

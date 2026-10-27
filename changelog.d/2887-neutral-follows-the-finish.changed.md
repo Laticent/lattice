@@ -2,3 +2,4 @@
 - **`live`, `pilot` and `decision` status marks now carry a dot**, in SVG and HTML charts and in the gantt key, so they stay distinct from an unstated mark in the first hue.
 - **Under `tone`, line and ep-curve series are steps of the one ink told apart by dash pattern, and a slope's quiet lines are a pale step of the one hue** (its red/green direction signal is unchanged).
 - **Pigment's risk matrix is less saturated, and etch's bullet measure is stronger than its range bands.**
+- **Under `etch`, the heatmap and map ramps are a lighter wash (6% plus 0.5 of the step, was 0.82), the outline is heavier (2.6 hairlines), and the word cloud and slope take the one hue, as `tone` does.** The heatmap's top step against an empty cell loses magnitude contrast; each cell's value still picks its own ink.
