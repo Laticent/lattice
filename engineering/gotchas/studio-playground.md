@@ -1704,3 +1704,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any menu item that opens an editor, sheet or popover of its own.
 - **Removable when** — the object editor stops closing on focus-outside, or the menu stops moving focus.
 - **Commits** — the PR that added the Insert menu.
+
+## A Settings swatch draws as a solid square instead of a bar, rule or line
+
+- **Symptom** — a picker chip that should show a thin bar on one edge, a short rule or a pair of alignment strokes fills its whole 16px box with one color. Every row of the list looks the same. Seen on the Bar placement, Heading rule and Headline alignment pickers.
+- **Cause** — the chip's `background` shorthand holds a `var()`, so the browser keeps it pending until computed time. If React then writes any background longhand, even an empty one (`backgroundSize: undefined` becomes `''`), the write resets that longhand to its initial value. With `background-size: auto` a `linear-gradient` covers the whole box. A probe in Chromium: the same shorthand computes `100% 3px, auto` alone and `auto, auto` after `style.backgroundSize = ''`.
+- **Mitigation** — `SwatchChip` in `docs/src/components/studio/CatalogSelect.tsx` sets `backgroundSize` only when a catalog supplies one. Put a swatch's sizes inside its `background` shorthand, and never spread an optional longhand next to a `var()` shorthand.
+- **Triggered by** — any inline style that pairs a `var()` background shorthand with a background longhand set to `undefined`, `null` or `''`.
+- **Removable when** — never; it is how CSS treats a pending-substitution shorthand.
+- **Commits** — the PR that gave the Settings pickers their library icons.

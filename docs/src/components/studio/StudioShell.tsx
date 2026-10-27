@@ -122,6 +122,7 @@ import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
+import { glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
@@ -5432,23 +5433,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								value={deckTag[row.axis] ?? '__auto__'}
 								onValueChange={(v) => setDeckTag(row.axis, v)}
 								className="w-full"
-								groups={[{ options: [{ value: '__auto__', label: "Component's own" }, ...CARD_TAG_AXES[row.axis].filter((w) => w !== row.native).map((w) => ({ value: w, label: cardTagOptionLabel(w) }))] }]}
+								groups={[{ options: [{ value: '__auto__', label: "Component's own", icon: <AutoIcon /> }, ...CARD_TAG_AXES[row.axis].filter((w) => w !== row.native).map((w) => ({ value: w, label: cardTagOptionLabel(w), icon: tagGlyph(row.axis, w) }))] }]}
 							/>
 						</Field>
 					))}
 				</SubGroup>
 				<SubGroup label="Frame and fit">
 					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
-						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />
+						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS, glyphs('corners')) }]} />
 					</Field>
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
 						<CatalogSelect ariaLabel="Choose claim" value={activeClaim(claim).name} onValueChange={setClaim} className="w-full" groups={[{ options: catalogOptions(CLAIMS) }]} />
 					</Field>
 					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
-						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? '__auto__'} onValueChange={setCardRow} className="w-full" groups={[{ options: [{ value: '__auto__', label: autoHeadLabel('each component'), icon: <AutoIcon />, title: 'Automatic — each component decides (no cards: key in the deck).' }] }, { options: catalogOptions(CARD_ROWS) }]} />
+						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? '__auto__'} onValueChange={setCardRow} className="w-full" groups={[{ options: [{ value: '__auto__', label: autoHeadLabel('each component'), icon: <AutoIcon />, title: 'Automatic — each component decides (no cards: key in the deck).' }] }, { options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }]} />
 					</Field>
 					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS) }]} />
+						<CatalogSelect ariaLabel="Choose how slides fit" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS, glyphs('fit')) }]} />
 					</Field>
 				</SubGroup>
 			</div>
@@ -5534,7 +5535,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</Field>
 				<Field label="New slide on" desc="Headings, or --- dividers." find="split divider break" help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
-					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
+					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading', icon: optionGlyph('split', 'headings') }, { value: 'rule', label: '--- dividers only', icon: optionGlyph('split', 'rule') }] }] } />
 				</Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE, c2}`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
@@ -5593,14 +5594,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
 				    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
 				<Field label="Bar placement" desc="Which edge the bar sits on." help={<>Top by default. <strong>Off</strong> drops only the bar — table rails and rules keep their color.</>}>
-					<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
+					<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_EDGES, glyphs('edge')) }]} />
 				</Field>
 				<Field label="Card rail" desc="A spectrum rail on card surfaces." help={<>Tunable independently of the brand bar. Off by default; <strong>Auto</strong> follows the bar, or pin Solid / Duo / Mono / Rainbow.</>}>
 					<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
 				</Field>
 				{spectrumCard !== 'off' && (
 					<Field label="Card rail placement" desc="Which edge of each card." help={<>Left by default.</>}>
-						<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
+						<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES, glyphs('edge')) }]} />
 					</Field>
 				)}
 				<Field label="Structural trim" desc="Accent on in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the brand bar.</>}>
@@ -5613,7 +5614,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="w-full" groups={[{ options: catalogOptions(EYEBROWS) }]} />
 				</Field>
 				<Field label="Headline alignment" desc="Auto, or pin left / center / right." help={<>Aligns the whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps each component's own default.</>}>
-					<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="w-full" groups={[{ options: catalogOptions(HEADLINES) }]} />
+					<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="w-full" groups={[{ options: catalogOptions(HEADLINES, glyphs('align')) }]} />
 				</Field>
 				{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0 || toneVocab.length > 0) && <SubGroup label="Badges">
 					{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0) && (
@@ -5675,7 +5676,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							value={deckImage[row.axis] && (row.axis === 'ink' || deckImage[row.axis] !== imageCardWords(row.axis)[0]) ? (deckImage[row.axis] as string) : '__auto__'}
 							onValueChange={(v) => setDeckImage(row.axis, v)}
 							className="w-full"
-							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)` }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w) }))] }]}
+							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)`, icon: row.axis === 'ink' ? <AutoIcon /> : imageGlyph(row.axis, imageCardWords(row.axis)[0]) }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w), icon: imageGlyph(row.axis, w) }))] }]}
 						/>
 						)}
 					</Field>
@@ -5703,7 +5704,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="w-full" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
 				</Field>
 				<Field label="Speed" desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
-					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES, glyphs('speed')) }]} />
 				</Field>
 				{/* The three controls above state the deck's INTENT; this states the CONSEQUENCE —
 				    which slides the engine can actually animate and whether the motion earns its
@@ -5731,7 +5732,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div>
 				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
-					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="w-full" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : '') })) }]} />
+					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="w-full" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : ''), icon: optionGlyph('pace', n) })) }]} />
 				</Field>
 				<Field label="Delivery" desc="How much the Guide gestures as it speaks." find="guide gesture cursor ink focus restrained expressive somber narration" help={<>How the narrated Guide points at what it is saying. <strong>Restrained</strong> highlights each part the narration names, with no cursor — for a boardroom, or a board member reading the file alone. <strong>Expressive</strong> leads with the cursor and draws ink — for a sales room, a talk or a lesson. <strong>Somber</strong> shows no cursor and gestures once, on the slide's key point — for bad news. Saved with the deck as <code>delivery:</code>, so it plays the same wherever it is opened.</>}>
 					<CatalogSelect ariaLabel="Choose delivery" value={delivery} onValueChange={setDelivery} className="w-full" groups={[{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_DELIVERY ? ' (default)' : '') })) }]} />

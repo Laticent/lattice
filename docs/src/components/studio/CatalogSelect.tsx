@@ -33,11 +33,17 @@ export type CatalogGroup = { label?: string; options: CatalogOption[] };
  *  (The per-slide inherit heads do the same through `autoHeadLabel`; this covers the
  *  deck scope, where Auto is a real register value rather than an inherit sentinel — the
  *  two used to read differently for a reason no reader could see.) */
-export function catalogOptions(entries: { name: string; label: string; autoLabel?: string; swatch: CatalogSwatch; blurb?: string }[]): CatalogOption[] {
+export function catalogOptions(
+	entries: { name: string; label: string; autoLabel?: string; swatch: CatalogSwatch; blurb?: string }[],
+	// A library icon to draw in place of the swatch, per entry name (`glyphs('edge')` from
+	// option-glyphs.tsx). Passed in rather than imported, so the two modules stay acyclic.
+	glyph?: (name: string) => React.ReactNode,
+): CatalogOption[] {
 	return entries.map((e) => ({
 		value: e.name,
 		label: e.autoLabel ? `${e.label} — ${e.autoLabel}` : e.label,
 		swatch: e.swatch,
+		icon: glyph?.(e.name),
 		title: e.blurb,
 	}));
 }
@@ -55,7 +61,12 @@ export function SwatchChip({ background, backgroundSize, shape = 'square', class
 				shape === 'round' ? 'size-3.5 rounded-full' : 'size-4 rounded-[3px]',
 				className,
 			)}
-			style={{ background, backgroundSize }}
+			// Only write `backgroundSize` when a catalog supplies one. Most swatches carry their
+			// sizes INSIDE the `background` shorthand, and a shorthand holding `var()` stays
+			// pending until computed time. React writes an undefined longhand as '', and that
+			// empty write resets the pending shorthand's size to `auto` — so every bar, rule
+			// and alignment preview filled its whole chip as a solid square.
+			style={backgroundSize ? { background, backgroundSize } : { background }}
 		/>
 	);
 }

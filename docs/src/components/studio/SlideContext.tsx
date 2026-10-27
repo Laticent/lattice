@@ -24,7 +24,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
-import { autoHeadLabel } from './auto-mark';
+import { AutoIcon, autoHeadLabel } from './auto-mark';
 import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
@@ -37,6 +37,7 @@ import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follo
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
+import { glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
@@ -554,18 +555,20 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		prov: ReturnType<typeof spectrumEdgeProvenance>,
 		entries: { name: string; label: string; swatch: CatalogOption['swatch'] }[],
 		defaultName: string,
-		active: (v: string | null | undefined) => { label: string; autoLabel?: string; swatch: NonNullable<CatalogOption['swatch']> },
+		active: (v: string | null | undefined) => { name: string; label: string; autoLabel?: string; swatch: NonNullable<CatalogOption['swatch']> },
+		// The deck picker's library icon for this axis (option-glyphs.tsx), so both scopes draw the same one.
+		glyph?: (name: string) => React.ReactNode,
 	): { value: string; options: CatalogOption[] } => {
 		// `entryAuto`, not the raw label: `rule` and `headline` both have an entry LABELED
 		// "Auto", and a head built from that would read "Auto — Auto".
 		const head: CatalogOption = prov.inheritable
-			? { label: autoHead(entryAuto(active(prov.deckValue))), value: '__inherit__', swatch: active(prov.deckValue).swatch }
-			: { label: autoHead(entryAuto(active(defaultName))), value: '__inherit__', swatch: active(defaultName).swatch };
-		const options = [head, ...entries.filter((e) => e.name !== defaultName).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }))];
+			? { label: autoHead(entryAuto(active(prov.deckValue))), value: '__inherit__', swatch: active(prov.deckValue).swatch, icon: glyph?.(active(prov.deckValue).name) }
+			: { label: autoHead(entryAuto(active(defaultName))), value: '__inherit__', swatch: active(defaultName).swatch, icon: glyph?.(defaultName) };
+		const options = [head, ...entries.filter((e) => e.name !== defaultName).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch, icon: glyph?.(e.name) }))];
 		return { value: prov.state === 'on' ? (prov.value ?? '__inherit__') : '__inherit__', options };
 	};
 	const edgeProv = React.useMemo(() => spectrumEdgeProvenance(chunk, source), [chunk, source]);
-	const edge = overrideAxis(edgeProv, SPECTRUM_EDGES, 'top', activeSpectrumEdge);
+	const edge = overrideAxis(edgeProv, SPECTRUM_EDGES, 'top', activeSpectrumEdge, glyphs('edge'));
 	const onEdge = (v: string) => onMutate((c) => setSpectrumEdge(c, v === '__inherit__' ? null : v));
 	const ruleProv = React.useMemo(() => ruleProvenance(chunk, source), [chunk, source]);
 	const ruleOpt = overrideAxis(ruleProv, RULES, 'auto', activeRule);
@@ -591,7 +594,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		return { value: own && own !== deck ? own : '__inherit__', options: [head, ...rest] };
 	}, [marksProv]);
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
-	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline);
+	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));
 	const onHeadline = (v: string) => onMutate((c) => setHeadline(c, v === '__inherit__' ? null : v));
 	// Card rail STYLE — a full off/auto/solid/duo/mono/rainbow axis, INDEPENDENT of the bar.
 	// Auto follows the deck; every catalog value is an explicit per-slide choice (auto/off
@@ -611,7 +614,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// Card rail PLACEMENT — a clean override axis (left default). Only meaningful when the rail
 	// is on (own non-off OR inherited), so the Row is shown only then.
 	const cardEdgeProv = React.useMemo(() => spectrumCardEdgeProvenance(chunk, source), [chunk, source]);
-	const cardEdge = overrideAxis(cardEdgeProv, SPECTRUM_CARD_EDGES, 'left', activeSpectrumCardEdge);
+	const cardEdge = overrideAxis(cardEdgeProv, SPECTRUM_CARD_EDGES, 'left', activeSpectrumCardEdge, glyphs('edge'));
 	const onCardEdge = (v: string) => onMutate((c) => setSpectrumCardEdge(c, v === '__inherit__' ? null : v));
 	const cardRailOn = cardProv.state === 'on' || cardProv.state === 'inherited';
 	// Structural trim — a three-tier axis (Quiet / Restrained / Spectrum) with an explicit
@@ -646,9 +649,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const motionSpeedValue = motionSpeedProv.state === 'on' ? (motionSpeedProv.value ?? '__inherit__') : '__inherit__';
 	const motionSpeedOptions: CatalogOption[] = [
 		motionSpeedProv.inheritable
-			? { label: autoHead(entryAuto(activeMotionSpeed(motionSpeedProv.deckValue))), value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch }
-			: { label: autoHead(entryAuto(activeMotionSpeed('auto'))), value: '__inherit__', swatch: activeMotionSpeed('auto').swatch },
-		...MOTION_SPEED_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
+			? { label: autoHead(entryAuto(activeMotionSpeed(motionSpeedProv.deckValue))), value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch, icon: optionGlyph('speed', activeMotionSpeed(motionSpeedProv.deckValue).name) }
+			: { label: autoHead(entryAuto(activeMotionSpeed('auto'))), value: '__inherit__', swatch: activeMotionSpeed('auto').swatch, icon: optionGlyph('speed', 'auto') },
+		...MOTION_SPEED_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch, icon: optionGlyph('speed', e.name) })),
 	];
 	const onMotionSpeed = (v: string) => onMutate((c) => setMotionSpeed(c, v === '__inherit__' ? null : v));
 
@@ -830,8 +833,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 												groups={[
 													{
 														options: [
-															{ value: '__inherit__', label: autoHead(p.deckValue ? cardTagOptionLabel(p.deckValue) : "Component's own") },
-															...CARD_TAG_AXES[row.axis].map((w) => ({ value: w, label: cardTagOptionLabel(w) })),
+															{ value: '__inherit__', label: autoHead(p.deckValue ? cardTagOptionLabel(p.deckValue) : "Component's own"), icon: (p.deckValue && tagGlyph(row.axis, p.deckValue)) || <AutoIcon /> },
+															...CARD_TAG_AXES[row.axis].map((w) => ({ value: w, label: cardTagOptionLabel(w), icon: tagGlyph(row.axis, w) })),
 														],
 													},
 												]}
@@ -884,8 +887,8 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 											groups={[
 												{
 													options: [
-														{ value: '__inherit__', label: autoHead(p.deckValue ? imageCardOptionLabel(p.deckValue) : IMAGE_CARD_DEFAULT_LABEL[row.axis]) },
-														...imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w) })),
+														{ value: '__inherit__', label: autoHead(p.deckValue ? imageCardOptionLabel(p.deckValue) : IMAGE_CARD_DEFAULT_LABEL[row.axis]), icon: imageGlyph(row.axis, p.deckValue ?? imageCardWords(row.axis)[0]) || <AutoIcon /> },
+														...imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w), icon: imageGlyph(row.axis, w) })),
 													],
 												},
 											]}
