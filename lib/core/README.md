@@ -7,7 +7,7 @@ DOM — so the browser bundles can pull any of it.
 Grouped tour:
 
 - **Fit Ladder / splitting:** `auto-split.js`, `carousel.js`,
-  `bake-splits.js`, `split-slides.js`, `split-sections.js`,
+  `bake-splits.js`, `split-sections.js`,
   `split-panels.js`, `heading-split-core.js`, `resolve-split.js`
   (see `engineering/decisions/2026-06-22-the-fit-spine.md`).
 - **Directive resolvers** (`_class`/front-matter → classes):
