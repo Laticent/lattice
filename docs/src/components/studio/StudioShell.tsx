@@ -62,7 +62,7 @@ import { tapVideoAt } from '../../playground/video-overlay.js';
 import { AcronymEditor } from './AcronymEditor';
 import { applyDeckEdit, estimateUsd, type Finding, REFINE_ACTIONS, type RefineActionId, refineSelection, requestFindingFix, resumePendingAuth, useArchitectStatus } from './architect';
 import { AutoIcon, autoHeadLabel } from './auto-mark';
-import { CatalogSelect, catalogOptions } from './CatalogSelect';
+import { AUTO_VALUE, autoSelected, type CatalogGroup, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CommandPalette } from './CommandPalette';
 import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
@@ -77,7 +77,7 @@ import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
 import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
-import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
+import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
 import type { EditorHandle } from './Editor';
@@ -122,6 +122,7 @@ import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
+import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph, SizeChip, tagGlyph } from './option-glyphs';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
@@ -282,7 +283,18 @@ export const DECK_PROFILE_CHOICES: [string, string][] = [
 	['mission', 'Mission'],
 ];
 
-const DEFAULT_SENTINEL = '__default__';
+const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/** Every deck picker's list and value, through the one Auto-head shape (`withAutoHead`).
+ *  `resolved` is what the deck gets with the key absent, so choosing the head hands the
+ *  setter that value, and each setter removes the key at it. */
+function autoField(current: string, resolved: string, set: (v: string) => void, groups: CatalogGroup[]) {
+	return {
+		value: autoSelected(current, resolved),
+		onValueChange: (v: string) => set(v === AUTO_VALUE ? resolved : v),
+		groups: withAutoHead(groups, { value: resolved }),
+	};
+}
 
 // Offline FALLBACK known-components — used only when the real catalog (the
 // `components` prop, the full 53-component manifest) fails to load. The live known
@@ -308,7 +320,8 @@ const SIZES = [
 	{ value: 'portrait', label: 'Portrait 4 : 5' },
 	{ value: 'story', label: 'Story 9 : 16' },
 ];
-const SIZE_LABELS: Record<string, string> = Object.fromEntries(SIZES.map((s) => [s.value, s.label.replace(/ \(.*\)/, '')]));
+/** The size a deck with no `size:` key renders at. */
+const DEFAULT_SIZE = '16:9';
 // Aspect ratio (w:h) per engine `@size` token — the preview CARD matches the deck's real
 // shape, never a hardcoded 16:9. SIZE_RATIO/sizeRatio are the shared source of truth (also
 // used by the pre-hydration instant shell); see slide-size.ts.
@@ -2142,7 +2155,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const langDisplay = (code: string) => (resolveSupported(code) ? languageLabel(code) : code);
 
 	// Deck-level Look directives, READ from the deck's front-matter.
-	const deckSize = getFrontMatter(source, 'size') || '16:9';
+	const deckSize = getFrontMatter(source, 'size') || DEFAULT_SIZE;
 	// Page numbers are on unless the front matter says `paginate: false` (the owner's ruling, 2026-10-20).
 	const pageNumbers = paginateOn(getFrontMatter(source, 'paginate'));
 	// Card lift — the opt-in "Struck" elevation (`lift: on`). Off is the default;
@@ -2317,7 +2330,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Card rows (`cards:`) — where a row of cards puts spare height. lib/core/resolve-cards.js.
 	// Omitting the key is NOT any one value (each component decides), so Auto removes it.
 	const cardRow = activeCardRow(getFrontMatterName(source, 'cards'));
-	const setCardRow = (value: string) => settingsWrite(value === '__auto__' ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === '__auto__' ? null : value));
+	const setCardRow = (value: string) => settingsWrite(value === AUTO_VALUE ? 'Card rows → auto' : `Card rows → ${value}`, (s) => writeFrontMatterLine(s, 'cards', value === AUTO_VALUE ? null : value));
 	// Fit (`fit:`, old spelling `guards:`) — what the engine may do to make a slide fit:
 	// report / heal / trim. lib/core/resolve-guards.js; `heal` is the baseline and writes no
 	// key. Writing the new key also drops the old one, so a deck never carries both.
@@ -2328,13 +2341,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	});
 	// Deck-wide stamp SHAPE (`stamp:`) and tone SHAPE (`tone:`). These are the DECK
 	// halves of two axes whose per-slide overrides the slide Inspector has offered all
-	// along — the asymmetry the audit found. There is no named baseline (an absent key
-	// means the engine's own default shape), so the head option is a `__default__`
-	// sentinel rather than a register value.
+	// along — the asymmetry the audit found. An absent key means the engine's own default
+	// shape (`tab`, `rail`), which the Auto head names; choosing it removes the key.
 	const stampStyleFM = getFrontMatter(source, 'stamp') || '';
-	const setStampStyleFM = (value: string) => settingsWrite(value === DEFAULT_SENTINEL ? 'Stamp style → default' : `Stamp style → ${value}`, (s) => writeFrontMatterLine(s, 'stamp', value === DEFAULT_SENTINEL ? null : value));
+	const setStampStyleFM = (value: string) => settingsWrite(`Stamp shape → ${value}`, (s) => writeFrontMatterLine(s, 'stamp', value === DEFAULT_STAMP ? null : value));
 	const toneStyleFM = getFrontMatter(source, 'tone') || '';
-	const setToneStyleFM = (value: string) => settingsWrite(value === DEFAULT_SENTINEL ? 'Tone style → default' : `Tone style → ${value}`, (s) => writeFrontMatterLine(s, 'tone', value === DEFAULT_SENTINEL ? null : value));
+	const setToneStyleFM = (value: string) => settingsWrite(`Tone shape → ${value}`, (s) => writeFrontMatterLine(s, 'tone', value === DEFAULT_TONE ? null : value));
 	// Pace (`pace:`) — how long a self-presenting deck holds on a new slide before it
 	// speaks. lib/core/resolve-pace.mjs; `natural` is the default, so it clears the key.
 	const pace = getFrontMatter(source, 'pace') || DEFAULT_PACE;
@@ -2378,7 +2390,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Read the CURRENT source inside the write, not the render's copy: two quick picks must both land.
 	const setLogoWord = (axis: LogoFinishAxis, v: string) =>
 		settingsWrite('Logo style', (s) => {
-			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === '__default__' ? undefined : v };
+			const next = { ...parseLogoFinish(getFrontMatter(s, 'logo-finish') || ''), [axis]: v === AUTO_VALUE ? undefined : v };
 			return writeFrontMatterLine(s, 'logo-finish', logoFinishValue(next) || null);
 		});
 	// The masthead META line (`meta:`) — the small line in the status bay.
@@ -2408,8 +2420,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// hand-typed value we don't recognize shows verbatim. No aliases.
 	const debugValue = getFrontMatter(source, 'debug');
 	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value));
-	const DEBUG_OPTIONS: Array<{ value: string | null; label: string }> = [
-		{ value: null, label: 'Off' },
+	// Off is the absence of the key, which the picker's Auto head stands for.
+	const DEBUG_OPTIONS: Array<{ value: string; label: string }> = [
 		{ value: 'on-hover', label: 'On hover' },
 		{ value: 'on-hover verbose', label: 'On hover · verbose' },
 		{ value: 'on-always', label: 'Always on' },
@@ -2551,7 +2563,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the document language. Auto clears it, and `deckOutputLang` then falls back to `lang:`.
 	const deckAiLang = getFrontMatter(source, 'ai-lang') || '';
 	const setDeckAiLang = (value: string) => settingsWrite(value === LANG_AUTO ? 'AI language → same as deck' : `AI language → ${langDisplay(value)}`, (s) => writeFrontMatterLine(s, 'ai-lang', value === LANG_AUTO ? null : value));
-	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => writeFrontMatterLine(s, 'size', value));
+	const setDeckSize = (value: string) => settingsWrite(`Size → ${value}`, (s) => writeFrontMatterLine(s, 'size', value === DEFAULT_SIZE ? null : value));
 	// Venue — the room the deck is shown in (`venue:`, lib/core/resolve-venue.js). A fixed setting,
 	// like desktop zoom: every slide renders at its size and none is shrunk to fit (venue.ts).
 	// `null` is "Default": the line is removed, and the deck renders at the designed size.
@@ -2562,14 +2574,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// whatever finish is applied, written as ONE line holding up to two words (strength, mask).
 	const deckBd = deckBackdrop(source);
 	const setDeckBackdrop = (axis: 'strength' | 'mask', v: string) => {
-		const next = { ...deckBd, [axis]: v === '__auto__' ? undefined : v };
+		const next = { ...deckBd, [axis]: v === AUTO_VALUE ? undefined : v };
 		settingsWrite('Backdrop', (s) => writeFrontMatterLine(s, 'backdrop', backdropDeckValue(next.strength, next.mask)));
 	};
 	// Card tags — the deck `tag:` register (lib/core/resolve-card-tag.js): ONE line holding up to
 	// four words (color, size, placement, alignment). Auto on an axis leaves its word out.
 	const deckTag = deckCardTag(source);
 	const setDeckTag = (axis: CardTagAxis, v: string) => {
-		const next = { ...deckTag, [axis]: v === '__auto__' ? undefined : v };
+		const next = { ...deckTag, [axis]: v === AUTO_VALUE ? undefined : v };
 		settingsWrite('Card tags', (s) => writeFrontMatterLine(s, 'tag', cardTagDeckValue(next)));
 	};
 	// Image card — the deck `image-card:` register (lib/core/resolve-image-card.js): ONE line
@@ -2577,7 +2589,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// leaves its word out, and the default on every axis removes the key.
 	const deckImage = deckImageCard(source);
 	const setDeckImage = (axis: ImageCardAxis, v: string) => {
-		const next = { ...deckImage, [axis]: v === '__auto__' ? undefined : v };
+		const next = { ...deckImage, [axis]: v === AUTO_VALUE ? undefined : v };
 		settingsWrite('Image card', (s) => writeFrontMatterLine(s, 'image-card', imageCardDeckValue(next)));
 	};
 	const toggleLift = () => settingsWrite(lift ? 'Card lift off' : 'Card lift on', (s) => writeRegister(s, 'lift', lift ? 'off' : 'on'));
@@ -3295,7 +3307,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	type TourVoice = typeof import('./tours/tour-voice');
 	const tourVoiceRef = React.useRef<TourVoice | null>(null);
 	const loadTourVoice = React.useCallback(() => import('./tours/tour-voice').then((m) => (tourVoiceRef.current = m)), []);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: once per page load, by design.
+	// Once per page load, by design: the effect reads only refs and a state setter.
 	React.useEffect(() => {
 		const t = window.setTimeout(() => {
 			if (demoActiveRef.current || lessonActiveRef.current) return;
@@ -3458,6 +3470,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// NOT written into the deck: an override is a "what would this look like as…" lens,
 	// and silently rewriting the author's front matter from a dropdown is not that.
 	const [profileOverride, setProfileOverride] = React.useState<string | null>(null);
+	// What the Style lens resolves to with no override — resolveProfile's rule in
+	// lib/authoring/deck-profiles.js: a valid declared `profile:`, else the default, which is
+	// DECK_PROFILE_CHOICES' first entry (pinned by studio.coach-profile.test.tsx).
+	// Read here rather than imported: that module rides in the lazily loaded lint core.
+	const declaredProfileKey = (getFrontMatterName(source, 'profile') || '').toLowerCase();
+	const declaredProfile = DECK_PROFILE_CHOICES.find(([key]) => key === declaredProfileKey);
+	const autoProfile = declaredProfile ? { label: declaredProfile[1], origin: 'declared' } : { label: DECK_PROFILE_CHOICES[0][1], origin: 'default' };
 	// Diagrams Mermaid's own parser rejects. `null` until the check has run for this deck
 	// (or when it can't run) — DISTINCT from `[]`, which is the positive statement "every
 	// diagram parses". The chat grounds on that difference: an empty list lets it say the
@@ -4941,15 +4960,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						    nothing is judged on `general`, and the control says so. */}
 						<div className="mt-2.5 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-[var(--bg-alt)] px-2.5 py-1.5">
 							<span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Style judged as</span>
-							<select
-								aria-label="Deck profile — the genre the Style score is measured against"
-								value={profileOverride ?? ''}
-								onChange={(e) => setProfileOverride(e.target.value || null)}
-								className="rounded-md border border-border bg-background px-1.5 py-0.5 text-[11px] font-semibold text-[var(--text-heading)]"
-							>
-								<option value="">{scorecard.profile.label} ({scorecard.profile.origin})</option>
-								{DECK_PROFILE_CHOICES.map(([key, label]) => (<option key={key} value={key}>{label}</option>))}
-							</select>
+							<CatalogSelect
+								ariaLabel="Deck profile — the genre the Style score is measured against"
+								className="min-w-[150px] py-0.5 text-[11px]"
+								value={profileOverride ?? AUTO_VALUE}
+								onValueChange={(v) => setProfileOverride(v === AUTO_VALUE ? null : v)}
+								// Every profile stays listed, the one Auto lands on included: choosing it pins the
+								// lens, and Keep below can then write it into the deck as `profile:`.
+								groups={withAutoHead(
+									[{ options: DECK_PROFILE_CHOICES.map(([key, label]) => ({ value: key, label, icon: optionGlyph('profile', key) })) }],
+									{ label: autoProfile.label },
+									{ title: `What the deck resolves to on its own (${autoProfile.origin}).` },
+								)}
+							/>
 							{profileOverride && (
 								<>
 									{/* KEEP IT. The dropdown is a lens; without this it is a lens onto a number the
@@ -5260,13 +5283,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				ariaLabel="Choose deck theme"
 				swatchShape="round"
 				className="w-full"
-				value={deckThemeBase || '__auto__'}
-				onValueChange={(v) => setDeckTheme(v === '__auto__' ? null : v)}
+				value={deckThemeBase || AUTO_VALUE}
+				onValueChange={(v) => setDeckTheme(v === AUTO_VALUE ? null : v)}
 				// The head names what Auto RESOLVES to (the website theme), not just the
 				// word — the same shape every auto head in both scopes now uses. It is
 				// safe to be this long again because the control owns a fixed half of
 				// its row and truncates (SETTING_ROW); it used to widen the whole row.
-				groups={[{ options: [{ value: '__auto__', label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
+				groups={[{ options: [{ value: AUTO_VALUE, label: autoHeadLabel(paletteLabel(palette)), icon: <AutoIcon />, title: 'Automatic — follow the website theme (no theme pinned to the deck).' }] }, ...themeSelectGroups(savedMenu)]}
 			/>
 		</Field>
 	);
@@ -5290,49 +5313,35 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	);
 	const colorModeField = (
 		<Field label="Color mode" desc="Light, dark, or follow something." help={<>The mode the deck opens in <strong>everywhere</strong> it's rendered. <strong>Light</strong> / <strong>Dark</strong> pin it. <strong>System</strong> follows the viewer's OS. <strong>Match site</strong> adopts the host — the website toggle here, the OS in a shared file. <strong>Theme default</strong> uses the theme's own mode. <strong>Print</strong> is ink on white, for paper.</>}>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Control aria-label="Choose deck color mode"><span className="flex min-w-0 items-center gap-2">{COLOR_MODE_META[deckColorMode].icon}<span className="truncate">{COLOR_MODE_META[deckColorMode].label}</span></span> <ChevronDown className="size-3.5" /></Control>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-48">
-					{(['default', 'light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => (
-						<DropdownMenuItem key={v} onSelect={() => setDeckColorMode(v)} className="gap-2">{COLOR_MODE_META[v].icon}{COLOR_MODE_META[v].label}{deckColorMode === v && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-					))}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<CatalogSelect
+				ariaLabel="Choose deck color mode"
+				className="w-full"
+				value={deckColorMode === 'default' ? AUTO_VALUE : deckColorMode}
+				onValueChange={(v) => setDeckColorMode(v === AUTO_VALUE ? 'default' : (v as typeof deckColorMode))}
+				groups={withAutoHead([{ options: (['light', 'dark', 'system', 'inherited', 'print'] as const).map((v) => ({ value: v, label: COLOR_MODE_META[v].label, icon: COLOR_MODE_META[v].icon })) }], { label: "Theme's own" }, { title: 'The mode the theme was designed in.' })}
+			/>
 		</Field>
 	);
 	const sizeField = (
 		<Field label="Size" desc="Slide shape and dimensions." find="aspect ratio widescreen portrait square 16:9 4:3" help={<>16:9 is the default landscape. The portrait and square formats are for social and mobile — they change what fits on a slide, so check a dense slide after switching.</>}>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Control>{SIZE_LABELS[deckSize] ?? deckSize} <ChevronDown className="size-3.5" /></Control>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-40">
-					{SIZES.map((s) => (
-						<DropdownMenuItem key={s.value} onSelect={() => setDeckSize(s.value)}>{s.label}{deckSize === s.value && <span className="ml-auto text-[var(--accent)]">✓</span>}</DropdownMenuItem>
-					))}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<CatalogSelect
+				ariaLabel="Choose deck size"
+				className="w-full"
+				// A hand-written size outside the list (`hd`, `mobile`) still shows as itself
+				// rather than as an empty control.
+				{...autoField(deckSize, DEFAULT_SIZE, setDeckSize, [{ options: [...SIZES, ...(SIZES.some((o) => o.value === deckSize) ? [] : [{ value: deckSize, label: deckSize }])].map((o) => ({ value: o.value, label: o.label, icon: <SizeChip size={o.value} /> })) }])}
+			/>
 		</Field>
 	);
-	const venueNow = venueOption(deckVenue);
 	const venueField = (
 		<Field label="Venue" desc="The room it is shown in." find="venue room projector hall conference huddle laptop scale" help={<>The type size for the room: Laptop 1x, Huddle 1.15x, Conference 1.3x, Hall 1.5x. A fixed setting, like zoom — a slide too full for it clips and is flagged, never shrunk.</>}>
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Control aria-label="Choose deck venue">{venueNow ? `${venueNow.label} · ${venueNow.scale}x` : 'Default'} <ChevronDown className="size-3.5" /></Control>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end" className="w-60">
-					<DropdownMenuItem onSelect={() => setDeckVenue(null)}>Default<span className="ml-2 text-muted-foreground">designed size</span>{deckVenue === null && <Check className="ml-auto size-3.5 text-[var(--accent)]" />}</DropdownMenuItem>
-					{VENUES.map((v) => (
-						<DropdownMenuItem key={v.value} onSelect={() => setDeckVenue(v.value)} className="gap-2">
-							<span className="flex min-w-0 flex-col"><span>{v.label} · {v.scale}x</span><span className="text-[11px] text-muted-foreground">{v.who}</span></span>
-							{deckVenue === v.value && <Check className="ml-auto size-3.5 shrink-0 text-[var(--accent)]" />}
-						</DropdownMenuItem>
-					))}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<CatalogSelect
+				ariaLabel="Choose deck venue"
+				className="w-full"
+				value={deckVenue ?? AUTO_VALUE}
+				onValueChange={(v) => setDeckVenue(v === AUTO_VALUE ? null : (v as VenueName))}
+				groups={withAutoHead([{ options: VENUES.map((v) => ({ value: v.value, label: `${v.label} · ${v.scale}x`, hint: v.who, icon: optionGlyph('venue', v.value) })) }], { label: 'Designed size' })}
+			/>
 		</Field>
 	);
 	const pageNumbersField = (
@@ -5363,19 +5372,22 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* The rendering MODE (boardroom / sketch) — a separate axis from Finish
 					    (the backdrop). The two compose. Front-matter key `mode:` (Marp already
 					    owns `style:` for inline CSS, so the axis is named "mode"). */}
-					<CatalogSelect ariaLabel="Choose mode" value={activeMode(renderMode).name} onValueChange={setRenderMode} className="w-full" groups={[{ options: catalogOptions(MODES) }]} />
+					<CatalogSelect ariaLabel="Choose mode" className="w-full" {...autoField(activeMode(renderMode).name, 'boardroom', setRenderMode, [{ options: catalogOptions(MODES) }])} />
 				</Field>
 				<Field label="Finish" desc="A backdrop behind every slide." find="background texture gradient grain wash" help={<>A palette-blind layer stack — a soft gradient, wash or grain — painted behind the content. It follows whatever palette the deck is on, so it never fights the theme. Tune one in Fabricate to save your own.</>}>
 					<CatalogSelect
 						ariaLabel="Choose finish"
-						value={activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name}
-						onValueChange={setFinish}
 						className="w-full"
-						groups={finishSelectGroups({
-							heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
-							saved: savedFinishMenu,
-							savedValue: (n) => `finish-${n}`,
-						})}
+						{...autoField(
+							activeSavedFinish ? `finish-${activeSavedFinish.name}` : activeFinish(finish).name,
+							activeFinish(presetBaseline(source, 'finish')).name,
+							setFinish,
+							finishSelectGroups({
+								heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }],
+								saved: savedFinishMenu,
+								savedValue: (n) => `finish-${n}`,
+							}),
+						)}
 					/>
 				</Field>
 				{finish !== 'none' && (
@@ -5385,19 +5397,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<Field label="Backdrop strength" desc="How strongly the finish shows." find="backdrop restraint dim fade opacity" help={<>Dims the finish on every slide without changing it. <strong>Finish's own</strong> keeps whatever the finish was designed with. Written as <code>backdrop: 40</code>; a slide can override it in its own settings.</>}>
 							<CatalogSelect
 								ariaLabel="Backdrop strength"
-								value={deckBd.strength ?? '__auto__'}
+								value={deckBd.strength ?? AUTO_VALUE}
 								onValueChange={(v) => setDeckBackdrop('strength', v)}
 								className="w-full"
-								groups={[{ options: [{ value: '__auto__', label: "Finish's own" }, ...BACKDROP_STRENGTHS.map((n) => ({ value: n, label: n === 'full' ? '100%' : `${n}%` }))] }]}
+								groups={withAutoHead([{ options: BACKDROP_STRENGTHS.map((n) => ({ value: n, label: n === 'full' ? '100%' : `${n}%` })) }], { label: "Finish's own" })}
 							/>
 						</Field>
 						<Field label="Backdrop mask" desc="Where the finish shows." find="backdrop clear spotlight window mask" help={<><strong>Clear behind</strong> keeps the words on clean canvas, so the finish reads at the margins. A <strong>Window</strong> shows it in one spot only. <strong>No mask</strong> discards a finish's own clearance. Written as <code>backdrop: clear</code>.</>}>
 							<CatalogSelect
 								ariaLabel="Backdrop mask"
-								value={deckBd.mask ?? '__auto__'}
+								value={deckBd.mask ?? AUTO_VALUE}
 								onValueChange={(v) => setDeckBackdrop('mask', v)}
 								className="w-full"
-								groups={[{ options: [{ value: '__auto__', label: "Finish's own" }, ...BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : `Window ${m.slice(5).toUpperCase()}` }))] }]}
+								groups={withAutoHead([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: m === 'clear' ? 'Clear behind' : m === 'open' ? 'No mask' : `Window ${m.slice(5).toUpperCase()}` })) }], { label: "Finish's own" })}
 							/>
 						</Field>
 					</>
@@ -5420,7 +5432,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				{/* Chart finish — how every chart spends its color. Deck-wide here; a slide
 				    overrides it from its own settings (`_class: marks-*`). */}
 				<Field label="Marks" desc="How every chart spends its color." find="chart finish pigment etch tone color charts" help={<>How every chart on the deck spends its color. <strong>Pigment</strong> (the default) puts it in the body: full-strength, flat color. <strong>Etch</strong> puts it in the line: a whisper of color under a doubled edge. <strong>Tone</strong> puts it in value: one hue in stepped shades. Every mark keeps an ink edge, and the a11y themes keep their patterns, under every finish. A slide overrides it with <code>_class: marks-*</code>.</>}>
-					<CatalogSelect ariaLabel="Choose marks" value={activeMarks(marks).name} onValueChange={setMarks} className="w-full" groups={[{ options: catalogOptions(MARKS_FINISHES) }]} />
+					<CatalogSelect ariaLabel="Choose marks" className="w-full" {...autoField(activeMarks(marks).name, DEFAULT_MARKS, setMarks, [{ options: catalogOptions(MARKS_FINISHES) }])} />
 				</Field>
 				{/* The deck `tag:` register — ONE line, four axes, so four rows of one select each
 				    (the Backdrop pattern). Auto on every axis removes the key. */}
@@ -5429,26 +5441,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<Field key={row.axis} label={row.label} desc={row.desc} find={row.find} help={row.help}>
 							<CatalogSelect
 								ariaLabel={row.label}
-								value={deckTag[row.axis] ?? '__auto__'}
+								value={deckTag[row.axis] ?? AUTO_VALUE}
 								onValueChange={(v) => setDeckTag(row.axis, v)}
 								className="w-full"
-								groups={[{ options: [{ value: '__auto__', label: "Component's own" }, ...CARD_TAG_AXES[row.axis].filter((w) => w !== row.native).map((w) => ({ value: w, label: cardTagOptionLabel(w) }))] }]}
+								groups={withAutoHead([{ options: CARD_TAG_AXES[row.axis].filter((w) => w !== row.native).map((w) => ({ value: w, label: cardTagOptionLabel(w), icon: tagGlyph(row.axis, w) })) }], { label: "Component's own" })}
 							/>
 						</Field>
 					))}
 				</SubGroup>
 				<SubGroup label="Frame and fit">
 					<Field label="Corners" desc="Square or rounded slide corners." help={<>Rounds the <strong>slide surface itself</strong> — a lighter, more screen-native frame. Square is the default. A slide opts back out with <code>_class: corners-square</code>.</>}>
-						<CatalogSelect ariaLabel="Choose corners" value={activeCorners(corners).name} onValueChange={setCorners} className="w-full" groups={[{ options: catalogOptions(CORNERS) }]} />
+						<CatalogSelect ariaLabel="Choose corners" className="w-full" {...autoField(activeCorners(corners).name, activeCorners(presetBaseline(source, 'corners')).name, setCorners, [{ options: catalogOptions(CORNERS, glyphs('corners')) }])} />
 					</Field>
 					<Field label="Claim" desc="How much frame content sits inside." help={<>How much of the slide the content claims. <strong>Framed</strong> is the standard margin. <strong>Quiet</strong> pulls the frame back for dense or serial slides, <strong>Hero</strong> pushes it out for a statement, and <strong>Bleed</strong> runs content to the edges with no frame at all.</>}>
-						<CatalogSelect ariaLabel="Choose claim" value={activeClaim(claim).name} onValueChange={setClaim} className="w-full" groups={[{ options: catalogOptions(CLAIMS) }]} />
+						<CatalogSelect ariaLabel="Choose claim" className="w-full" {...autoField(activeClaim(claim).name, 'framed', setClaim, [{ options: catalogOptions(CLAIMS) }])} />
 					</Field>
 					<Field label="Card rows" desc="Where cards put spare height." find="cards align stretch spread vertical" help={<>A row of cards rarely fills the slide. <strong>Auto</strong> lets each component choose. <strong>Center</strong>, <strong>Top</strong> and <strong>Spread</strong> keep each card at its natural height; <strong>Stretch</strong> grows the cards to fill the frame. A slide overrides it with <code>_class: cards-*</code>.</>}>
-						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? '__auto__'} onValueChange={setCardRow} className="w-full" groups={[{ options: [{ value: '__auto__', label: autoHeadLabel('each component'), icon: <AutoIcon />, title: 'Automatic — each component decides (no cards: key in the deck).' }] }, { options: catalogOptions(CARD_ROWS) }]} />
+						<CatalogSelect ariaLabel="Choose card row placement" value={cardRow?.name ?? AUTO_VALUE} onValueChange={setCardRow} className="w-full" groups={withAutoHead([{ options: catalogOptions(CARD_ROWS, glyphs('cardRows')) }], { label: "Component's own" }, { title: 'Each component decides (no cards: key in the deck).' })} />
 					</Field>
 					<Field label="Fit" desc="What the engine may do to make a slide fit." find="fit guards trim overflow heal report split cut strict loose" help={<><strong>Heal</strong> (the default) fixes what it can without losing words: it splits an overfull slide at portrait sizes. It never changes the type size — a venue is a fixed setting. <strong>Heal and trim</strong> also lets the engine cut the tail of text that does not fit. <strong>Report only</strong> changes nothing: a slide that does not fit is clipped and flagged. A slide overrides it with <code>_class: fit-report</code>, <code>fit-heal</code> or <code>fit-trim</code>.</>}>
-						<CatalogSelect ariaLabel="Choose how slides fit" value={guards} onValueChange={setGuards} className="w-full" groups={[{ options: catalogOptions(GUARDS) }]} />
+						<CatalogSelect ariaLabel="Choose how slides fit" className="w-full" {...autoField(guards, 'heal', setGuards, [{ options: catalogOptions(GUARDS, glyphs('fit')) }])} />
 					</Field>
 				</SubGroup>
 			</div>
@@ -5484,10 +5496,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								<Field key={axis} label={meta.label} desc={meta.desc} help={meta.help}>
 									<CatalogSelect
 										ariaLabel={`Choose logo ${axis === 'placement' ? 'position' : axis === 'scope' ? 'scope' : axis}`}
-										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : '__default__'}
+										value={logoWords[axis] && (axis === 'placement' || logoWords[axis] !== logoFinishWords(axis)[0]) ? (logoWords[axis] as string) : AUTO_VALUE}
 										onValueChange={(v) => setLogoWord(axis, v)}
 										className="w-full"
-										groups={[{ options: [{ value: '__default__', label: `${logoFinishLabel(logoFinishWords(axis)[0])} (default)` }, ...logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w) }))] }]}
+										// Placement's Auto is the ABSENCE of a word (top right, beside the header),
+										// which no listed word gives: naming `top-right` also clears the header.
+										groups={withAutoHead(
+											[{ options: logoFinishOptions(axis).map((w) => ({ value: w, label: axis === 'placement' && w === 'top-right' ? 'Top right, header clear' : logoFinishLabel(w), icon: logoGlyph(axis, w) })) }],
+											{ label: axis === 'placement' ? 'Top right' : axis === 'color' ? 'Watermark' : logoFinishLabel(logoFinishWords(axis)[0]) },
+										)}
 									/>
 								</Field>
 							);
@@ -5534,7 +5551,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</Field>
 				<Field label="New slide on" desc="Headings, or --- dividers." find="split divider break" help={<>How the markdown body divides into slides. <strong>Headings</strong> (the default) starts a slide at each <code>##</code>, so the deck needs no separators — a <code>---</code> still works. <strong>Dividers</strong> splits only on <code>---</code>.</>}>
-					<CatalogSelect ariaLabel="Choose how slides split" value={slideSplit} onValueChange={setSlideSplit} className="w-full" groups={[{ options: [{ value: 'headings', label: 'Each ## heading' }, { value: 'rule', label: '--- dividers only' }] }] } />
+					<CatalogSelect ariaLabel="Choose how slides split" className="w-full" {...autoField(slideSplit, 'headings', setSlideSplit, [{ options: [{ value: 'headings', label: 'Each ## heading', icon: optionGlyph('split', 'headings') }, { value: 'rule', label: '--- dividers only', icon: optionGlyph('split', 'rule') }] }])} />
 				</Field>
 				<Field label="Inline pills and marks" desc={'Draw {LABEL} pills and [x] marks in inline code.'} help={<>On by default: <code>{'`{STABLE, c2}`'}</code> draws a pill and <code>{'`[x]`'}</code> draws a state disc, anywhere inline code goes. Turn it off and <strong>every</strong> single-backtick span stays literal text — the switch to reach for when a deck written elsewhere says <code>[x]</code> or <code>{'{LABEL}'}</code> in its prose and you want none of it interpreted. For a single span, escape it instead: <code>{'`\\[x]`'}</code>.</>}><Toggle label="Inline pills and marks" on={inlineCodeRich} onClick={toggleInlineCode} /></Field>
 				<Field label="Auto-glossary" desc="Append a glossary slide." help={<>Builds a reference appendix from the <strong>definitions</strong> in your acronym registry (Speech ▸ Acronyms). It shows in the live preview — but only once at least one term carries a definition, so nothing appears until then.</>}><Toggle label="Auto-glossary" on={glossaryOn} onClick={toggleGlossary} /></Field>
@@ -5553,19 +5570,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    front matter), preview-only, stripped from every export.
 					    engineering/decisions/2026-07-01-debug-bounding-boxes.md */}
 					<Field label="Debug overlay" desc="Outline every layout box." find="developer boxes grid flex" help={<>Outlines each box by layout mode (grid / flex / flow) and labels the structural ones. <strong>Verbose</strong> adds the class and box levers. Stripped from every export, so it can safely ride in the deck.</>}>
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Control aria-label="Debug overlay">{debugLabel} <ChevronDown className="size-3.5" /></Control>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-52">
-								{DEBUG_OPTIONS.map((o) => (
-									<DropdownMenuItem key={o.label} onSelect={() => setDebug(o.value)}>
-										{o.label}
-										{debugLabel === o.label && <span className="ml-auto text-[var(--accent)]">✓</span>}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuContent>
-						</DropdownMenu>
+						<CatalogSelect
+							ariaLabel="Debug overlay"
+							className="w-full"
+							value={debugValue ? (DEBUG_OPTIONS.find((o) => o.label === debugLabel)?.value ?? debugValue) : AUTO_VALUE}
+							onValueChange={(v) => setDebug(v === AUTO_VALUE ? null : v)}
+							// An unrecognized hand-typed value is listed as itself, so the control still shows it.
+							groups={withAutoHead(
+								[{ options: [...DEBUG_OPTIONS, ...(debugValue && !DEBUG_OPTIONS.some((o) => o.label === debugLabel) ? [{ value: debugValue, label: debugValue }] : [])].map((o) => ({ value: o.value, label: o.label, icon: optionGlyph('debug', o.value) })) }],
+								{ label: 'Off' },
+							)}
+						/>
 					</Field>
 				</SubGroup>
 			</div>
@@ -5588,46 +5603,43 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* The white-label spectrum — the rainbow bar on the top border / divider
 					    rail. `spectrum:` register: Rainbow (default) / None / Solid accent. Set
 					    the theme accent to a client's brand and Solid follows. */}
-					<CatalogSelect ariaLabel="Choose brand bar" value={activeSpectrum(spectrum).name} onValueChange={setSpectrum} className="w-full" groups={[{ options: catalogOptions(SPECTRA) }]} />
+					<CatalogSelect ariaLabel="Choose brand bar" className="w-full" {...autoField(activeSpectrum(spectrum).name, activeSpectrum(presetBaseline(source, 'spectrum')).name, setSpectrum, [{ options: catalogOptions(SPECTRA) }])} />
 				</Field>
 				{/* The accent sub-family (spectrum siblings + heading rule + eyebrow). Each reads
 				    the shared --spectrum token where relevant, so it follows the Brand bar style. */}
 				<Field label="Bar placement" desc="Which edge the bar sits on." help={<>Top by default. <strong>Off</strong> drops only the bar — table rails and rules keep their color.</>}>
-					<CatalogSelect ariaLabel="Choose bar placement" value={activeSpectrumEdge(spectrumEdge).name} onValueChange={setSpectrumEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_EDGES) }]} />
+					<CatalogSelect ariaLabel="Choose bar placement" className="w-full" {...autoField(activeSpectrumEdge(spectrumEdge).name, activeSpectrumEdge(presetBaseline(source, 'spectrum-edge')).name, setSpectrumEdge, [{ options: catalogOptions(SPECTRUM_EDGES, glyphs('edge')) }])} />
 				</Field>
 				<Field label="Card rail" desc="A spectrum rail on card surfaces." help={<>Tunable independently of the brand bar. Off by default; <strong>Auto</strong> follows the bar, or pin Solid / Duo / Mono / Rainbow.</>}>
-					<CatalogSelect ariaLabel="Choose card rail" value={activeSpectrumCard(spectrumCard).name} onValueChange={setSpectrumCard} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARDS) }]} />
+					<CatalogSelect ariaLabel="Choose card rail" className="w-full" {...autoField(activeSpectrumCard(spectrumCard).name, activeSpectrumCard(presetBaseline(source, 'spectrum-card')).name, setSpectrumCard, [{ options: catalogOptions(SPECTRUM_CARDS) }])} />
 				</Field>
 				{spectrumCard !== 'off' && (
 					<Field label="Card rail placement" desc="Which edge of each card." help={<>Left by default.</>}>
-						<CatalogSelect ariaLabel="Choose card rail placement" value={activeSpectrumCardEdge(spectrumCardEdge).name} onValueChange={setSpectrumCardEdge} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_CARD_EDGES) }]} />
+						<CatalogSelect ariaLabel="Choose card rail placement" className="w-full" {...autoField(activeSpectrumCardEdge(spectrumCardEdge).name, activeSpectrumCardEdge(presetBaseline(source, 'spectrum-card-edge')).name, setSpectrumCardEdge, [{ options: catalogOptions(SPECTRUM_CARD_EDGES, glyphs('edge')) }])} />
 					</Field>
 				)}
 				<Field label="Structural trim" desc="Accent on in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code>hr</code>. <strong>Quiet</strong> (the default) keeps those a neutral hairline and leaves the spectrum on the brand bar.</>}>
-					<CatalogSelect ariaLabel="Choose structural trim" value={activeSpectrumTrim(spectrumTrim).name} onValueChange={setSpectrumTrim} className="w-full" groups={[{ options: catalogOptions(SPECTRUM_TRIMS) }]} />
+					<CatalogSelect ariaLabel="Choose structural trim" className="w-full" {...autoField(activeSpectrumTrim(spectrumTrim).name, activeSpectrumTrim(presetBaseline(source, 'spectrum-trim')).name, setSpectrumTrim, [{ options: catalogOptions(SPECTRUM_TRIMS) }])} />
 				</Field>
 				<Field label="Heading rule" desc="The underline under a heading." help={<>A full hairline, a short rule, an accent segment, or none. <strong>Auto</strong> draws one only where the masthead already does.</>}>
-					<CatalogSelect ariaLabel="Choose heading rule" value={activeRule(headingRule).name} onValueChange={setHeadingRule} className="w-full" groups={[{ options: catalogOptions(RULES) }]} />
+					<CatalogSelect ariaLabel="Choose heading rule" className="w-full" {...autoField(activeRule(headingRule).name, activeRule(presetBaseline(source, 'rule')).name, setHeadingRule, [{ options: catalogOptions(RULES) }])} />
 				</Field>
 				<Field label="Eyebrow" desc="The mark on the kicker line." help={<>The kicker is the small mono-caps line above a heading. This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
-					<CatalogSelect ariaLabel="Choose eyebrow" value={activeEyebrow(eyebrow).name} onValueChange={setEyebrow} className="w-full" groups={[{ options: catalogOptions(EYEBROWS) }]} />
+					<CatalogSelect ariaLabel="Choose eyebrow" className="w-full" {...autoField(activeEyebrow(eyebrow).name, activeEyebrow(presetBaseline(source, 'eyebrow')).name, setEyebrow, [{ options: catalogOptions(EYEBROWS) }])} />
 				</Field>
 				<Field label="Headline alignment" desc="Auto, or pin left / center / right." help={<>Aligns the whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps each component's own default.</>}>
-					<CatalogSelect ariaLabel="Choose headline alignment" value={activeHeadline(headline).name} onValueChange={setHeadline} className="w-full" groups={[{ options: catalogOptions(HEADLINES) }]} />
+					<CatalogSelect ariaLabel="Choose headline alignment" className="w-full" {...autoField(activeHeadline(headline).name, activeHeadline(presetBaseline(source, 'headline')).name, setHeadline, [{ options: catalogOptions(HEADLINES, glyphs('align')) }])} />
 				</Field>
 				{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0 || toneVocab.length > 0) && <SubGroup label="Badges">
 					{(stampVocab.boardroom.length > 0 || stampVocab.range.length > 0) && (
 						<Field label="Stamp shape" desc="The shape a state badge renders in." help={<>Sets the default shape for every state badge in the deck — the Draft / Confidential markers a slide carries. <strong>Boardroom</strong> holds the restrained set; <strong>More</strong> is the wider range. A slide overrides it in its own settings.</>}>
 							<CatalogSelect
 								ariaLabel="Choose stamp shape"
-								value={stampStyleFM || DEFAULT_SENTINEL}
-								onValueChange={setStampStyleFM}
 								className="w-full"
-								groups={[
-									{ options: [{ value: DEFAULT_SENTINEL, label: 'Default — tab' }] },
-									{ label: 'Boardroom', options: stampVocab.boardroom.map((n) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) })) },
-									...(stampVocab.range.length ? [{ label: 'More', options: stampVocab.range.map((n) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) })) }] : []),
-								]}
+								{...autoField(stampStyleFM, DEFAULT_STAMP, setStampStyleFM, [
+									{ label: 'Boardroom', options: stampVocab.boardroom.map((n) => ({ value: n, label: cap(n), icon: optionGlyph('stamp', n) })) },
+									...(stampVocab.range.length ? [{ label: 'More', options: stampVocab.range.map((n) => ({ value: n, label: cap(n), icon: optionGlyph('stamp', n) })) }] : []),
+								])}
 							/>
 						</Field>
 					)}
@@ -5635,13 +5647,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						<Field label="Tone shape" desc="How a review tone shows." help={<>Sets the default shape for pass / warn / fail tones across the deck — a side <strong>rail</strong>, a full <strong>edge</strong>, or a soft <strong>glow</strong>. A slide overrides it in its own settings.</>}>
 							<CatalogSelect
 								ariaLabel="Choose tone shape"
-								value={toneStyleFM || DEFAULT_SENTINEL}
-								onValueChange={setToneStyleFM}
 								className="w-full"
-								groups={[{ options: [
-									{ value: DEFAULT_SENTINEL, label: 'Default — rail' },
-									...toneVocab.map((t) => { const n = t.replace('tone-', ''); return { value: n, label: n.charAt(0).toUpperCase() + n.slice(1) }; }),
-								] }]}
+								{...autoField(toneStyleFM, DEFAULT_TONE, setToneStyleFM, [{ options: toneVocab.map((t) => { const n = t.replace('tone-', ''); return { value: n, label: cap(n), icon: optionGlyph('tone', n) }; }) }])}
 							/>
 						</Field>
 					)}
@@ -5667,15 +5674,20 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								word={deckImage.backing}
 								inheritedWord={undefined}
 								autoLabel={`Auto: ${IMAGE_CARD_DEFAULT_LABEL.backing}`}
-								onChange={(w) => setDeckImage('backing', w ?? '__auto__')}
+								onChange={(w) => setDeckImage('backing', w ?? AUTO_VALUE)}
 							/>
 						) : (
 						<CatalogSelect
 							ariaLabel={row.label}
-							value={deckImage[row.axis] && (row.axis === 'ink' || deckImage[row.axis] !== imageCardWords(row.axis)[0]) ? (deckImage[row.axis] as string) : '__auto__'}
+							value={row.axis === 'ink' ? (deckImage.ink ?? AUTO_VALUE) : autoSelected(deckImage[row.axis], imageCardWords(row.axis)[0])}
 							onValueChange={(v) => setDeckImage(row.axis, v)}
 							className="w-full"
-							groups={[{ options: [{ value: '__auto__', label: row.axis === 'ink' ? IMAGE_CARD_DEFAULT_LABEL.ink : `${IMAGE_CARD_DEFAULT_LABEL[row.axis]} (default)` }, ...imageCardWords(row.axis).filter((_w, i) => row.axis === 'ink' || i > 0).map((w) => ({ value: w, label: imageCardOptionLabel(w) }))] }]}
+							// Ink has no default word (each layout picks its own), so its head names no
+							// option; every other axis's head is its first word, the kernel's default.
+							groups={withAutoHead(
+								[{ options: imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w), icon: imageGlyph(row.axis, w) })) }],
+								row.axis === 'ink' ? { label: IMAGE_CARD_DEFAULT_LABEL.ink } : { value: imageCardWords(row.axis)[0] },
+							)}
 						/>
 						)}
 					</Field>
@@ -5700,10 +5712,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</Field>
 				)}
 				<Field label="Style" desc="How a chart moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
-					<CatalogSelect ariaLabel="Choose motion style" value={activeMotionStyle(motionStyle).name} onValueChange={setMotionStyleFM} className="w-full" groups={[{ options: catalogOptions(MOTION_STYLE_ENTRIES) }]} />
+					<CatalogSelect ariaLabel="Choose motion style" className="w-full" {...autoField(activeMotionStyle(motionStyle).name, 'build', setMotionStyleFM, [{ options: catalogOptions(MOTION_STYLE_ENTRIES) }])} />
 				</Field>
 				<Field label="Speed" desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
-					<CatalogSelect ariaLabel="Choose motion speed" value={activeMotionSpeed(motionSpeed).name} onValueChange={setMotionSpeedFM} className="w-full" groups={[{ options: catalogOptions(MOTION_SPEED_ENTRIES) }]} />
+					<CatalogSelect ariaLabel="Choose motion speed" className="w-full" {...autoField(activeMotionSpeed(motionSpeed).name, 'auto', setMotionSpeedFM, [{ options: catalogOptions(MOTION_SPEED_ENTRIES, glyphs('speed')) }])} />
 				</Field>
 				{/* The three controls above state the deck's INTENT; this states the CONSEQUENCE —
 				    which slides the engine can actually animate and whether the motion earns its
@@ -5731,10 +5743,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			<div>
 				<TabNote>Teach read-aloud how to say tricky words, symbols and acronyms — carried into the deck and its captions.</TabNote>
 				<Field label="Pace" desc="How long a slide holds before speaking." help={<>The rhythm a self-presenting deck keeps. <strong>Brisk</strong> for a demo or an audience that knows the material, <strong>Natural</strong> for boardroom delivery, <strong>Deliberate</strong> for a technical audience or one reading in a second language.</>}>
-					<CatalogSelect ariaLabel="Choose pace" value={pace} onValueChange={setPace} className="w-full" groups={[{ options: PACE_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_PACE ? ' (default)' : '') })) }]} />
+					<CatalogSelect ariaLabel="Choose pace" className="w-full" {...autoField(pace, DEFAULT_PACE, setPace, [{ options: PACE_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('pace', n) })) }])} />
 				</Field>
 				<Field label="Delivery" desc="How much the Guide gestures as it speaks." find="guide gesture cursor ink focus restrained expressive somber narration" help={<>How the narrated Guide points at what it is saying. <strong>Restrained</strong> highlights each part the narration names, with no cursor — for a boardroom, or a board member reading the file alone. <strong>Expressive</strong> leads with the cursor and draws ink — for a sales room, a talk or a lesson. <strong>Somber</strong> shows no cursor and gestures once, on the slide's key point — for bad news. Saved with the deck as <code>delivery:</code>, so it plays the same wherever it is opened.</>}>
-					<CatalogSelect ariaLabel="Choose delivery" value={delivery} onValueChange={setDelivery} className="w-full" groups={[{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: n.charAt(0).toUpperCase() + n.slice(1) + (n === DEFAULT_DELIVERY ? ' (default)' : '') })) }]} />
+					<CatalogSelect ariaLabel="Choose delivery" className="w-full" {...autoField(delivery, DEFAULT_DELIVERY, setDelivery, [{ options: DELIVERY_NAMES.map((n: string) => ({ value: n, label: cap(n), icon: optionGlyph('delivery', n) })) }])} />
 				</Field>
 				<InspGroup icon={<Volume2 className="size-3.5" />} label="Lexicon" desc="A tricky word or symbol to say a certain way, or to silence. Overrides the built-in symbol commons.">
 					<LexiconEditor lexicon={lexicon} onChange={setLexicon} />

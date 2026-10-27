@@ -1137,10 +1137,10 @@ register it belongs to. Each is documented in
 | `mode:` | `sketch-clean-body` |
 | `finish:` | `finish-atrium` · `finish-gallery` · `finish-halo` · `finish-ledger` · `finish-loom` · `finish-meridian` · `finish-nimbus` · `finish-none` · `finish-savile` · `finish-strata` |
 | `stamp:` | `stamp-bar` · `stamp-bracket` · `stamp-dot` · `stamp-flag` · `stamp-mark` · `stamp-notch` · `stamp-pill` · `stamp-pin` · `stamp-ribbon` · `stamp-seal` · `stamp-tab` · `stamp-underline` · `stamp-veil` |
-| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `spectrum-edge-off` · `spectrum-edge-right` · `spectrum-mono` · `spectrum-off` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
-| `rule:` | `rule-accent` · `rule-full` · `rule-none` · `rule-short` |
-| `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-underline` |
-| `headline:` | `head-center` · `head-left` · `head-right` |
+| `spectrum:` | `spectrum-card` · `spectrum-card-duo` · `spectrum-card-edge-bottom` · `spectrum-card-edge-left` · `spectrum-card-edge-right` · `spectrum-card-edge-top` · `spectrum-card-mono` · `spectrum-card-rainbow` · `spectrum-card-solid` · `spectrum-duo` · `spectrum-edge-bottom` · `spectrum-edge-left` · `spectrum-edge-off` · `spectrum-edge-right` · `spectrum-edge-top` · `spectrum-mono` · `spectrum-off` · `spectrum-on` · `spectrum-solid` · `spectrum-trim` · `spectrum-trim-restrained` |
+| `rule:` | `rule-accent` · `rule-auto` · `rule-full` · `rule-none` · `rule-short` |
+| `eyebrow:` | `eyebrow-arrow` · `eyebrow-bar` · `eyebrow-dot` · `eyebrow-plain` · `eyebrow-underline` |
+| `headline:` | `head-auto` · `head-center` · `head-left` · `head-right` |
 | `lift:` | `lifted` |
 | `corners:` | `corners-rounded` · `corners-square` |
 
@@ -1150,7 +1150,10 @@ folder instead. Both were wrong for the same reason: HARD RULE #6 says to open
 rule. Moving the registers out cost 38 of these tokens their only hit here, which
 a checker pass caught — the list above is derived from the class names in
 `lib/base/*.css` rather than hand-picked, so it is complete by construction as of
-2026-08-30.
+2026-08-30 — except for the six RESTORE tokens (`spectrum-on`, `spectrum-edge-top`,
+`spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain`, `head-auto`), which return one slide
+to a register's default and so have no CSS to be derived from. They are added by hand; what
+they do is under "Back to the default on one slide" in `base.registers.docs.md`.
 
 ### `scale-l` / `scale-xl` / `scale-2xl`
 
