@@ -521,3 +521,18 @@ changed the note.
 - **Docs.** `engineering/fluid.md` is the canonical doc, with the glossary. 06-25 is marked
   superseded by this note, and 07-20 §9 carries an "absorbed" banner.
 
+
+### P0 verification on real surfaces (2026-10-27)
+
+- **The docs site** builds with the P0 engine (`cd docs && npm run build`, route budgets inside
+  their ceilings).
+- **The Studio**, from that shipped build in Chromium: a `size: portrait` `inventory` deck typed
+  into the editor splits into a cover and body pages (the frame showed page 1.3, "3 of 5"), and an
+  author `<div data-split-role="cover" data-fluid-budget="0" data-split-label="…">` arrives on the
+  page as `data-x-split-role`, `data-x-fluid-budget` and `data-x-split-label`.
+- **The deck logo**, which sits outside the 80-deck golden: `lib/base/_logo/logo.gallery.md`
+  rendered before P0 (`1ffa5eb`) and after, at `hd` and at `portrait` (where it splits). The HTML
+  is byte-identical once the checkout path is normalized, the logo tint ids included, and both
+  PDFs (7 and 9 pages) match pixel for pixel.
+- **Not driven:** the `/playground/` route itself (it runs the same engine bundle as the Studio),
+  and PPTX output.
