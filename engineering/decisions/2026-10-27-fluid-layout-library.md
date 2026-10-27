@@ -1,6 +1,6 @@
 ---
 status: proposed
-summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Audit of the six split paths and the fluid viewer, the design, the jank contract, and a six-phase plan. The owner settled four forks on 2026-10-27, and the "autosplit" name retires.
+summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Audit of the five split paths and the fluid viewer, the design, the jank contract, and a seven-phase plan (P0–P6). The owner settled four forks on 2026-10-27, and the "autosplit" name retires.
 builds-on: 2026-09-01-autosplit-splits-on-structure.md, 2026-06-22-the-fit-spine.md, 2026-10-16-mosaico-layout-library.md, 2026-07-20-adaptive-viewport-fill.md
 ---
 
@@ -11,7 +11,7 @@ shipped. The first slice is §8 P0.
 
 ## 1. The answer first
 
-Lattice paginates content in six places, and each one does it a little differently. The
+Lattice paginates content in five places, and each one does it a little differently. The
 fluid viewer, which sizes slides to the reader's screen, never meets any of them. This note
 replaces all of that with one library, **Fluid** (`@laticent/fluid`). It works like this:
 
@@ -43,18 +43,18 @@ The linter, the Studio and the export all reach the same page plan.
 
 The audit read source, not docs, and the docs were often wrong (§2.4).
 
-### 2.1 Six paths paginate content
+### 2.1 Five paths paginate content, and a sixth is dead
 
 | # | Path | Where it runs | Input | What decides a break |
 |---|---|---|---|---|
 | 1 | `splitDoc`, `lib/core/auto-split.js:508`, plus 14 strategies in `lib/core/carousel.js:1739` | CLI in Node (`lattice.js:3780`), Playground (`lib/playground/index.js:225`), Studio (`docs/src/lib/single-slide-render.ts:1803`), player export (`share-export.ts:459`) | rendered document HTML string + a capacity map baked from manifests | structure, one element per page (`splitTargetOf` returns 1) |
-| 2 | the per-strategy `perPage` and density caps in `carousel.js` (code at 12 lines, cards at 4) | inside #1 | the same | manifest numbers that override #1's rule |
+| 2 | the per-strategy `perPage` in `carousel.js`: code at 12 lines; a fallback of 4 for cards (`:418`) that no shipped manifest reaches, since all 15 others set `perPage: 1` | inside #1 | the same | manifest numbers that override #1's rule |
 | 3 | `installPaneSplit`, `lib/core/panes.js:560` | markdown-it tokens, before slides form | tokens | authored size is not `wide` |
-| 4 | `arrangePanes`, `lib/core/pane-spec.js:276` | build time, `wide` only | `pane-catalog.generated.js` | precomputed fits |
+| 4 | `arrangePanes`, `lib/core/pane-spec.js:276`, path 3's helper at `wide` (`panes.js:590`) and the linter's (`lint-core.js:2819`) | markdown-it, `wide` only | tokens + `pane-catalog.generated.js` | fits precomputed at build time |
 | 5 | `splitSlideInHalf`, `docs/src/components/studio/split-slide.ts:146` | Studio, edits the source | source text | halves the biggest list, with its own collection finder |
-| 6 | `split-slides.js` | nothing calls it | — | dead; only its test imports it |
+| 6 | `split-slides.js`, a fence-aware `---` slide splitter | nothing calls it | — | dead; only its test imports it, superseded by `slide-boundaries.mjs` |
 
-Paths 1 and 2 disagree on how many members ride a page, and path 5 disagrees with both.
+In practice paths 1 and 2 disagree only on code, and path 5 disagrees with both.
 One case in path 2 is already a rescue in all but name. A code slide with a single block
 over budget is cut by line-run (`carousel.js:1272`), because that one block is what clips.
 It cuts on a manifest number, not a measured height, and no other component gets the
@@ -69,7 +69,7 @@ browser surface calls `structuralSplit` (`lib/core/structural-split.js:157`).
 - The fluid viewer (`lib/base/base.fluid-view.css`, `initFluidView` at
   `lib/runtime/index.js:3375`) re-derives the family from the **viewport** after export and
   re-stamps `data-family`. It never paginates. Its own CSS says over-dense content "overflows
-  and clips … later autofit / re-pagination capabilities address" (`base.fluid-view.css:72-75`).
+  and clips … later autofit / re-pagination capabilities address" (`base.fluid-view.css:70-71`).
   Nothing does yet.
 - The result: a 16:9 deck opened fluid on a phone is `tall` and never split. A portrait deck
   opened fluid on a desktop is `wide` and stays split. A panes deck keeps both panes side by
@@ -81,7 +81,7 @@ browser surface calls `structuralSplit` (`lib/core/structural-split.js:157`).
   `2026-07-20-adaptive-viewport-fill.md` §9 lists converging them (P2), fill as the default
   (P3) and live portrait split (P4). None of the three is built.
 
-### 2.3 Manifest budgets: four kinds, one of which reaches the cut
+### 2.3 Manifest budgets: four kinds, two of which reach the cut
 
 | Field | Feeds |
 |---|---|
@@ -94,16 +94,18 @@ browser surface calls `structuralSplit` (`lib/core/structural-split.js:157`).
 
 - `2026-07-29-autosplit-is-not-a-toggle.md` says the split fires on fit. It carries a
   superseded-in-part banner, but its front matter still says `status: shipped`.
-- `2026-06-25-runtime-autosplit-eventual-consistency.md` says `resplitDoc` is reused
-  verbatim. `resplitDoc` was deleted on 2026-09-01.
+- The front-matter summary of `2026-06-25-runtime-autosplit-eventual-consistency.md` says
+  `resplitDoc` is reused verbatim. Its body has a banner saying it was deleted on 2026-09-01.
 - `split-verdict.js:17-36` still describes the runtime as "the second use site when Option B
-  is built". Option B was retired.
+  is built". Option B's input, `resplitDoc`, no longer exists, and `backlog.d/506.md` was
+  rewritten away from it on 2026-09-24.
 - The comments in `overflow-probe.js:12-23` say autosplit "divides by measured ratio".
 - The `--no-split` help (`lattice.js:196`) says "an overflowing slide".
 - `carousel.js:1274` says a code run carries `capacity.hard` lines. The code reads
   `split.perPage`.
 - `runtime/index.js:3404-3407` says "fluid in portrait, fixed in landscape". The code fills
   every screen.
+- `structural-split.js:74` says `splitTargetOf` "falls back to sweet → soft → hard". It returns 1.
 - `2026-09-06-component-owned-split-kernels.md` and `backlog.d/506.md` cite
   `lattice-emulator.js`, which does not exist.
 
@@ -145,14 +147,15 @@ There is still no shrink move.
 
 ## 4. The jank contract
 
-The user's ask was "never live with jank again". These six properties are what Fluid
+The owner asked for a design where "we never have to live or experience jank". These six properties are what Fluid
 guarantees, and each one gets a test (§7).
 
 1. **Read once, solve once, write once.** Each trigger runs one batched layout read, one
    pure solve and one batched DOM write. There is no measure → split → measure loop. The
    rescue cut takes its seam offsets from the same read, so nothing is measured twice. The
    post-write probe can only ring. It never re-plans.
-2. **Measure only settled content.** Fluid waits for fonts (`lib/core/preview-font-gate.mjs`),
+2. **Measure only settled content.** Fluid waits for fonts (extending
+   `lib/core/preview-font-gate.mjs`, which today gates a preview's reveal),
    for media sizes (`measure-kit` hold), and for drawn plugins such as Mermaid, which the host
    already draws before layout (`2026-10-15-bridges-and-two-hosts.md` §5.2).
 3. **Reserve before you measure.** Chrome that only paginated pages carry, such as the forward
@@ -184,7 +187,7 @@ first. **Not yet measured**: P1 measures and blesses it (HARD RULE #19).
   watch(root, opts)              canvas observer + hysteresis + anchor (§4.4, §4.5)
 
 lib/core/fluid-lattice.js  the Lattice connector (not published)
-  seam vocabulary for the 61 components, page builders from carousel.js / split-envelope.js,
+  seam vocabulary for the 79 components (37 enrolled today), page builders from carousel.js / split-envelope.js,
   the size gate policy, the ring hand-off to overflow-probe.js
 ```
 
@@ -257,8 +260,9 @@ re-derives pagination.
 
 ## 7. How we will know it works
 
-- **Parity:** the core's structural plan reproduces today's `test/oracle/split-oracle.json`
-  and every portrait gallery's page count, byte for byte, before any surface switches over.
+- **Parity:** before any surface switches over, the connector over the core reproduces
+  today's `splitDoc` output byte for byte on every gallery at `square`, `tall` and `strip`, and
+  the per-component enrollment records in `test/oracle/split-oracle.json` stay unchanged.
 - **Determinism:** a golden of plan hashes with mutation arms that prove the golden can fail,
   as Mosaico does.
 - **Jank:** `tools/check-jank.js` gains a canvas axis (390 → 820 → 1440, rotate, resize
@@ -277,13 +281,13 @@ Each phase ships on its own, and the order is set by what it unblocks.
 
 | Phase | What | Behavior change | Gate |
 |---|---|---|---|
-| **P0** | Cleanup. The CLI calls `structuralSplit` (one assembly). Delete `split-slides.js`. Fix the eight stale claims in §2.4. | none | byte-identical goldens |
+| **P0** | Cleanup. The CLI calls `structuralSplit` (one assembly). Delete `split-slides.js`. Fix the nine stale claims in §2.4. | none | byte-identical goldens |
 | **P1** | `@laticent/fluid` core: `plan()` (structural only) and `familyFor`. `splitDoc` becomes a connector over it. Benchmark scenario plus bless. | none | split-oracle parity; bench |
-| **P2** | Seams in the markup (`data-fluid-*`). Retire the baked capacity map and the `splitCapacityFrom` whitelist. Strategies become presentation only, and `perPage` and the density caps retire. | code at 12 lines/page becomes one element per page plus rescue. **Owner check:** this is the one visible change before P4. | gallery page-count diff, reviewed |
+| **P2** | Seams in the markup (`data-fluid-*`). Retire the baked capacity map and the `splitCapacityFrom` whitelist. Strategies become presentation only, and `perPage` retires. | code at 12 lines/page becomes one element per page plus rescue. **Owner check:** this is the one visible change before P4. | gallery page-count diff, reviewed |
 | **P3** | `/dom` adapter and live canvas. The runtime runs Fluid on the HTML export, the Playground and the Studio. Panes become seams. The jank rig gains a canvas axis. Closes #506 and #2054. | a 16:9 deck paginates on a phone; panes split in the fluid view | three-width screenshots; jank canvas axis |
 | **P4** | The rescue move: measured inner cuts for `rows`, `lines` and `items`. Retire `splitSlideInHalf`'s own halving rule in favor of the plan. | rings become rescued pages | rescue census (§7) |
 | **P5** | PDF and PPTX run the `/dom` adapter in Chromium against the page canvas. One box selector (fluid CSS, the Present `fitScale`, the filmstrip). The player gets Fluid. | export bytes change | **export sign-off (Quality Bar)** |
-| **P6** | Fluid is the default everywhere. `--fluid` and `fluid:` retire, and `--fixed` stays as a tool flag. The vocabulary rename lands (`autosplit` → `fluid`, `split-*` → `fluid-*`), and the Fit Spine and 2026-09-01 notes are absorbed into a canonical `engineering/fluid.md`. | none beyond P3–P5 | build:check, docs |
+| **P6** | Fluid is the default everywhere. `--fluid` and `fluid:` retire, and the viewer's `?view=fixed` mode stays. The vocabulary rename lands (`autosplit` → `fluid`, `split-*` → `fluid-*`), and the Fit Spine and 2026-09-01 notes are absorbed into a canonical `engineering/fluid.md`. | none beyond P3–P5 | build:check, docs |
 
 P2 and P5 each change something a reader sees or a file's bytes, so each stops for the owner.
 Everything else is reversible and inside the plan.
