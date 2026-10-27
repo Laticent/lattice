@@ -257,8 +257,17 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     // The edge exclusion names the four edges that move or drop the bar; `spectrum-edge-top` is the RESTORE token
     // (a slide back on the top bar), so a `[class*="spectrum-edge-"]` match would treat it as a placement.
     assert.doesNotMatch(variants, /\[class\*="spectrum-edge-"\]/);
-    const solid = /spectrum-mono\):not\(\.divider\):not\(\.spectrum-edge-left, \.spectrum-edge-right, \.spectrum-edge-bottom, \.spectrum-edge-off\):not\(:where\(([^)]*(?:\([^)]*\)[^)]*)*)\)\)/.exec(variants);
-    assert.ok(solid, 'solid rule');
+    // Linear scans, not a regex: nested-paren patterns here backtrack exponentially (CodeQL, js/redos).
+    const PREFIX = 'section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(:where(';
+    const line = variants.split('\n').find((l) => l.startsWith(PREFIX));
+    assert.ok(line, 'solid rule');
+    let depth = 1;
+    let end = PREFIX.length;
+    for (; end < line.length && depth > 0; end++) {
+      if (line[end] === '(') depth++;
+      else if (line[end] === ')') depth--;
+    }
+    const solid = [null, line.slice(PREFIX.length, end - 1)];
     for (const name of [...BLEED_FRAMES.map((f) => `.${f}`), '.collage.bleed']) assert.ok(solid[1].includes(name), `solid exclusion names ${name}`);
   });
 });
