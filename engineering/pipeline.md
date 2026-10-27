@@ -458,8 +458,10 @@ needs one thing from its host, `toDataUri(url)`, which turns a picture address i
 - **One JPEG encoder** (`lib/core/jpeg-encode.mjs`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
   its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
   in every engine: on the Yearn deck's 52 slide pictures Firefox's wrote 16.59 MB where ours writes 12.45 MB, and the same
-  picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone (attributed to Apple's encoder, which the
-  `ios-safari-jpeg` platform suite measures in an iOS Simulator; no Linux engine uses it). Ours writes the same file from the same
+  picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Apple's encoder is the cause: in an iOS 26.5
+  Simulator (the `ios-safari-jpeg` platform suite) Safari's `toBlob('image/jpeg', 0.9)` wrote 1.5 to 2.2 times our bytes on
+  the same pictures, 4:2:0 like ours but with finer tables (3 to 5 dB more luma PSNR), and an Office export keeps a
+  continuous-tone slide's JPEG at that size without trying the PNG. No Linux engine uses Apple's encoder. Ours writes the same file from the same
   pixels in Chromium, Firefox, WebKit and Node (`docs/e2e/jpeg-encode-engines.spec.ts` checks the bytes against the golden
   hash in `test/unit/core/jpeg-encode.test.js`). Against libjpeg with optimized coding at the same quality it is within about
   1% on real pictures (0.1% on the Yearn slides) and never meaningfully larger. A 2560 × 1440 slide takes 150 to 230 ms in
