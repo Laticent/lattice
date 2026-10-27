@@ -106,7 +106,7 @@ describe('the CSS and the JS agree on which frames are bleed', () => {
     assert.match(rule, /width:\s*0/);
     assert.match(rule, /height:\s*0/);
     assert.match(rule, /pointer-events:\s*none/);
-    assert.match(rule, /z-index:\s*var\(--z-chrome\)/);
+    assert.match(rule, /z-index:\s*var\(--z-spectrum\)/);
     assert.doesNotMatch(rule, /\bmargin\b/, 'no margin (HARD RULE #20)');
     assert.doesNotMatch(rule, /inset:\s*0\s*;/, 'not a slide-sized box: an editable export would lift it as a slide-sized picture');
   });
@@ -232,5 +232,30 @@ describe('the splitter does not read the strips as content', () => {
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+
+describe('every hand-written list of bleed frames in CSS agrees with bleed-frames.js', () => {
+  const NON_SPLIT = [...BLEED_FRAMES.filter((f) => f !== 'split-panel' && f !== 'split-compare').map((f) => `.${f}`), '.collage.bleed'].sort();
+  const group = (css, re) => {
+    const m = re.exec(css);
+    assert.ok(m, `selector not found: ${re}`);
+    return m[1].split(',').map((x) => x.trim()).sort();
+  };
+
+  test('the tone-edge, solid-style and accent exclusions name exactly the frames that draw the bar as an overlay', () => {
+    const variants = read('lib/base/base.variants.css');
+    const shared = read('lib/shared/shared.styles.css');
+    // tone-edge (both spellings of its mods): :where(:not(<non-split bleed frames>))
+    const toneGroups = [...variants.matchAll(/\.tone-edge[^{]*?:where\(:not\(([^)]*)\)\)/g)].map((m) => m[1].split(',').map((x) => x.trim()).sort());
+    assert.ok(toneGroups.length >= 2, 'both tone-edge rules');
+    for (const g of toneGroups) assert.deepEqual(g, NON_SPLIT);
+    // accent
+    assert.deepEqual(group(shared, /section\.accent:not\(\.split-panel, \.split-compare\):where\(:not\(([^)]*)\)\)/), NON_SPLIT);
+    // deck-wide solid/duo/mono: :not(:where(<every bleed frame>, section.accent, ...))
+    const solid = /spectrum-mono\):not\(\.divider\):not\(\[class\*="spectrum-edge-"\]\):not\(:where\(([^)]*(?:\([^)]*\)[^)]*)*)\)\)/.exec(variants);
+    assert.ok(solid, 'solid rule');
+    for (const name of [...BLEED_FRAMES.map((f) => `.${f}`), '.collage.bleed']) assert.ok(solid[1].includes(name), `solid exclusion names ${name}`);
   });
 });

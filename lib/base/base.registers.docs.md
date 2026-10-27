@@ -479,6 +479,12 @@ It takes no room, so the photo or panel keeps its true edge, and it paints above
 shows no top bar by default, as before; a placement, a `spectrum:` style, `accent` or `tone-edge` with a tone class asks for
 one. The split frames keep their own ribbon at the top.
 
+The bar is the top layer. Its overlay strips sit on the `--z-spectrum` plane (110), above the stamps (100),
+the alarm tabs (90) and every decorative mark, so nothing on the slide paints over it, and everything else is
+positioned clear of it: the draft/confidential/wip tab hangs one bar width in from the right edge in every
+placement, the overflow tab sits one bar width above the bottom edge, and a full-width band or full-slide wash
+runs under the bar. A dark slide places its content where a light slide does.
+
 Limits that stay. The `finish:` backdrop ends where a border bar begins, because a backdrop reaching under
 the bar would paint over it. The export-to-Marp bundle ships the runtime, which injects the strips in the browser, so a
 full-bleed slide has its bar there too. And a browser that scales the slide with CSS `zoom` (the print sheet)

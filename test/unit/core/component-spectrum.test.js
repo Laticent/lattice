@@ -27,8 +27,15 @@ describe('applyComponentSpectrum', () => {
 		assert.deepEqual(out, ['cards-grid', 'spectrum-edge-left', 'spectrum-solid']);
 	});
 
+	test('a pin never overrides spectrum-off: a de-branded deck stays de-branded', () => {
+		for (const name of ['cards-grid', 'table']) {
+			const cur = [name, 'spectrum-off'];
+			assert.equal(applyComponentSpectrum(cur, catalog), cur, name);
+		}
+	});
+
 	test('"on" pins the rainbow: it removes an author style and adds no token', () => {
-		assert.deepEqual(applyComponentSpectrum(['table', 'spectrum-off'], catalog), ['table']);
+		assert.deepEqual(applyComponentSpectrum(['table', 'spectrum-duo'], catalog), ['table']);
 	});
 
 	test('the slide\'s component answers, not a variant word that is another component\'s name', () => {

@@ -927,7 +927,8 @@ section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .co
   border-top: none;
   --_edge-t: 0; /* the hairline is the top edge */
   --_bar-t: 0px; /* …painted as a background, so it takes no border room */
-  --_bar-room-t: 0px; /* and its default carries no bar room to hold */
+  /* The padding keeps the bar room a light slide holds as its border (`--_bar-room-t` stays its default), so a
+     dark slide's content sits where a light slide's does: a deck that mixes the two no longer steps 4px. */
 }
 
 
@@ -2428,9 +2429,11 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
  * manufacture the overflow it reports. */
 section > .marker-rail {
   position: absolute !important;
-  /* The rail hugs the SLIDE's bottom edge and centers on the slide, not on the padding box a bar
-     border shrinks: it holds still under every `spectrum-edge:` (check:edge-shift). */
-  bottom: calc(-1 * var(--_bar-b, 0px));
+  /* The rail sits one bar width above the SLIDE's bottom edge in every placement and centers on the slide,
+     not on the padding box a bar border shrinks: it holds still under every `spectrum-edge:` and never
+     sits inside a bottom bar (check:edge-shift). Its height gives up the same bar width below, so it
+     still ends where the footer's strip ends. */
+  bottom: calc(var(--_bar-w) - var(--_bar-b, 0px));
   left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2);
   transform: translateX(-50%);
   display: flex;
@@ -2487,9 +2490,9 @@ section > .marker-rail {
      overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
      1.17%. The marker reads the same size relative to the slide on every preset, which is
      what it always should have done. */
-  height: var(--frame-inset-y);
+  height: calc(var(--frame-inset-y) - var(--_bar-w));
   align-items: center;
-  font-size: min(var(--fs-meta), calc(var(--frame-inset-y) * 0.65));
+  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-w)) * 0.65));
   z-index: var(--z-alarm);
   /* The capsule rises from the bottom edge, so the TOP corners round. */
   border-top-left-radius: var(--radius-md);

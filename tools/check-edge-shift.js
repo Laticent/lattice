@@ -144,6 +144,9 @@ const FIXED = [
   { label: 'content+confidential', cls: 'content confidential' },
   { label: 'content+wip', cls: 'content wip' },
   { label: 'content+draft+dark', cls: 'content draft dark' },
+  // One slide per stamp STYLE, each carrying a state, so every anchor shape (a corner tab, a full-width band,
+  // a full-slide wash, a ribbon, a pin) is measured against every bar placement.
+  ...require('../lib/core/resolve-stamp.js').STAMP_STYLE_NAMES.map((n) => ({ label: `content+stamp-${n}`, cls: `content confidential stamp-${n}` })),
 ].map((s) => ({ ...s, body: STAMP_BODY }));
 
 function slideList() {
@@ -168,7 +171,7 @@ function slideList() {
     }
   }
   // The plain `content` slide is always present: it is the probe that proves each placement took.
-  slides.push(...(wanted ? FIXED.slice(0, 1) : FIXED).map((x, i) => (i === 0 ? { ...x, probe: true } : x)));
+  slides.push(...FIXED.map((x, i) => (i === 0 ? { ...x, probe: true } : x)));
   return slides;
 }
 
@@ -219,6 +222,22 @@ function measureInPage() {
             kind: kindOf(child),
             edges: [r.left - sb.left, r.top - sb.top, sb.right - r.right, sb.bottom - r.bottom],
             size: [r.width, r.height],
+            // The glyph extent of this element's own text, as distances from the slide edges: a stretched row or card is
+            // a tall box around a short word, and the bar crowds the word, not the box.
+            ink: (() => {
+              const rects = [];
+              for (const n of child.childNodes) {
+                if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+                const rg = document.createRange(); rg.selectNodeContents(n);
+                for (const q of rg.getClientRects()) if (q.width > 0 && q.height > 0) rects.push(q);
+              }
+              if (!rects.length) return null;
+              const l = Math.min(...rects.map((q) => q.left)); const t = Math.min(...rects.map((q) => q.top));
+              const rr = Math.max(...rects.map((q) => q.right)); const bb = Math.max(...rects.map((q) => q.bottom));
+              return [l - sb.left, t - sb.top, sb.right - rr, sb.bottom - bb];
+            })(),
+            inMath: tag !== 'math' && !!child.closest('math'), // MathML internals report glyph boxes that can brush the slide edge
+            textual: [...child.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim() !== ''),
           };
         }
         if (tag !== 'svg') walk(child, key);
@@ -240,7 +259,12 @@ function measureInPage() {
       const ps = getComputedStyle(sec, pseudo);
       if (ps.content === 'none' || ps.content === 'normal' || ps.display === 'none') continue;
       if (ps.position !== 'absolute' && ps.position !== 'fixed') continue;
-      const w = px(ps.width); const h = px(ps.height);
+      // `width` / `height` exclude padding and border under `content-box`; the painted box includes them.
+      const outerW = (px(ps.paddingLeft) || 0) + (px(ps.paddingRight) || 0) + (px(ps.borderLeftWidth) || 0) + (px(ps.borderRightWidth) || 0);
+      const outerH = (px(ps.paddingTop) || 0) + (px(ps.paddingBottom) || 0) + (px(ps.borderTopWidth) || 0) + (px(ps.borderBottomWidth) || 0);
+      const boxSizing = ps.boxSizing === 'border-box';
+      const w = px(ps.width) == null ? null : px(ps.width) + (boxSizing ? 0 : outerW);
+      const h = px(ps.height) == null ? null : px(ps.height) + (boxSizing ? 0 : outerH);
       const l = px(ps.left); const t = px(ps.top); const rr = px(ps.right); const bb = px(ps.bottom);
       if (![l, t, rr, bb].every((n) => n != null)) continue;
       // `left/right` are insets from the PADDING box; convert to distances from the slide edge.
@@ -248,6 +272,8 @@ function measureInPage() {
       const br = px(cs.borderRightWidth); const bbw = px(cs.borderBottomWidth);
       els[pseudo] = {
         name: `section${pseudo}`, kind: 'stamp',
+        // A stamp prints words; a mark, texture or wash has `content: ''` and is decoration the bar paints over.
+        textual: /\S/.test(ps.content.replace(/^["']|["']$/g, '')),
         edges: [l + bl, t + bt, rr + br, bb + bbw], size: [w, h],
       };
     }
@@ -258,18 +284,23 @@ function measureInPage() {
     // a pass that folded the bar into a panel or a cell moved it off the edge.
     const bars = [...sec.querySelectorAll(':scope > .slide-bar')];
     const overlaySides = [];
+    const overlayThick = {};
     for (const bar of bars) {
       const r = bar.getBoundingClientRect();
       const bc = getComputedStyle(bar);
       const paints = bc.backgroundImage !== 'none' || !/^rgba\(\s*0,\s*0,\s*0,\s*0\)$|^transparent$/.test(bc.backgroundColor);
       if (!(r.width > 0 && r.height > 0 && paints)) continue;
       const near = (a, b) => Math.abs(a - b) < 1;
-      if (r.width < r.height) overlaySides.push(near(r.left, sb.left) ? 'left' : 'right');
-      else overlaySides.push(near(r.top, sb.top) ? 'top' : 'bottom');
+      const side = r.width < r.height ? (near(r.left, sb.left) ? 'left' : 'right') : (near(r.top, sb.top) ? 'top' : 'bottom');
+      overlaySides.push(side);
+      overlayThick[side] = Math.max(overlayThick[side] || 0, r.width < r.height ? r.width : r.height);
     }
     const strayBars = sec.querySelectorAll('.slide-bar').length - bars.length;
     return {
+      overflowing: sec.scrollHeight > sec.clientHeight + 1 || sec.scrollWidth > sec.clientWidth + 1,
+      slideSize: [sb.width, sb.height],
       overlay: overlaySides,
+      overlayThick,
       barCount: bars.length,
       strayBars,
       cls: sec.className,
@@ -401,10 +432,58 @@ async function main() {
       if (sec.strayBars > 0 || ![0, 2].includes(sec.barCount)) integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars });
     }
   });
+  // SUPREMACY: nothing that carries words or is chrome (a heading, text, the header, footer, page number,
+  // a stamp, a tab) may sit inside the strip the bar occupies, whatever draws the bar and wherever it is.
+  // Art may run under an overlay bar (the bar is above it); text and chrome may not touch it.
+  const SIDE_IX = { left: 0, top: 1, right: 2, bottom: 3 };
+  const overlaps = [];
+  Array.from({ length: count }, (_, i) => i).forEach((i) => {
+    for (const pl of PLACEMENTS) {
+      const sec = byPlacement[pl][i];
+      if (sec.overflowing) continue; // its content runs past the frame: the engine's own overflow marker reports that, not the bar
+      const thick = { top: sec.border[0], right: sec.border[1], bottom: sec.border[2], left: sec.border[3] };
+      for (const [side, t] of Object.entries(sec.overlayThick || {})) thick[side] = Math.max(thick[side] || 0, t);
+      for (const e of Object.values(sec.els)) {
+        if (e.inMath) continue;
+        if (!e.textual && (e.kind === 'content' || e.kind === 'stamp')) continue;
+        const at = e.ink || e.edges; // the glyphs when the element has text of its own, else its box
+        if (Math.min(...at) < -0.5) continue; // outside the slide: an overflow, which the engine's own marker reports
+        for (const [side, t] of Object.entries(thick)) {
+          // A band or wash that spans the whole slide across the bar (a full-width `stamp-notch`, a `stamp-veil`)
+          // lies UNDER the bar by design: the bar paints above it. Only an element that stops short of the far
+          // edge, so it hangs near the bar, can crowd it.
+          const across = side === 'left' || side === 'right' ? 0 : 1;
+          if (!e.ink && e.size[across] >= 0.95 * sec.slideSize[across]) continue;
+          if (t > 0 && at[SIDE_IX[side]] < t - 0.5) {
+            overlaps.push({ slide: `${labelOf(i)} (${sec.cls.split(/\s+/).slice(0, 3).join('.')})`, placement: pl, element: e.name, side, edge: +at[SIDE_IX[side]].toFixed(2), bar: +t.toFixed(2) });
+          }
+        }
+      }
+    }
+  });
+  // SCHEME PARITY: a dark slide and its light twin place their words in the same spot, so a deck that mixes
+  // the two never steps. Compared at the reference placement, on elements both slides have.
+  const parity = [];
+  if (named) {
+    const labels = Array.from({ length: count }, (_, i) => labelOf(i));
+    labels.forEach((label, i) => {
+      if (!/\+dark$/.test(label)) return;
+      const j = labels.indexOf(label.replace(/\+dark$/, ''));
+      if (j < 0) return;
+      const d = byPlacement[REFERENCE][i]; const l = byPlacement[REFERENCE][j];
+      for (const [key, e] of Object.entries(d.els)) {
+        const o = l.els[key];
+        // The page number and the section rail depend on the slide's ordinal (a wider "10"), not on its scheme.
+        if (!o || o.kind === 'stamp' || o.kind === 'pagination' || /tile-progress|\bdot\b/.test(e.name) || e.name !== o.name) continue;
+        const dx = Math.max(Math.abs(e.edges[0] - o.edges[0]), Math.abs(e.edges[1] - o.edges[1]));
+        if (dx > TOL) parity.push({ slide: label, element: e.name, kind: e.kind, shift: +dx.toFixed(2) });
+      }
+    });
+  }
   const slidesMoved = new Set(moved.map((m) => m.slide));
   const result = {
     placements: PLACEMENTS, reference: REFERENCE, tolerance: TOL, slides: slides.length,
-    elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size, integrity,
+    elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size, integrity, overlaps, parity,
     slidesStable: Array.from({ length: count }, (_, i) => labelOf(i)).filter((l) => !slidesMoved.has(l)),
     byKind: totals, vsReference: vsRef, ...(opts.has('bars') ? { barless } : {}),
     worst: [...moved].sort((a, b) => b.worst - a.worst).slice(0, opts.has('detail') ? Infinity : 25),
@@ -443,9 +522,19 @@ async function main() {
       console.log('\nBar integrity (a bleed slide carries exactly two strips as direct children; an opted-out component draws no bar):');
       for (const x of integrity.slice(0, 25)) console.log(x.optedOut ? `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} OPTED OUT (manifest spectrum:false) but draws a bar: ${x.drawn}` : `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} direct ${x.direct}, stray ${x.stray}`);
     }
-    console.log(moved.length || integrity.length ? `\nFAIL: ${moved.length ? 'the bar placement moves content' : 'the bar overlay is malformed'}.` : '\nPASS: no element moves with the bar placement.');
+    if (overlaps.length) {
+      console.log('\nSupremacy (no text or chrome may sit inside the strip the bar occupies):');
+      for (const x of overlaps.slice(0, 25)) console.log(`  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} ${x.element.padEnd(40)} ${x.side}: ${x.edge}px from the edge, bar ${x.bar}px`);
+      if (overlaps.length > 25) console.log(`  ... and ${overlaps.length - 25} more`);
+    }
+    if (parity.length) {
+      console.log('\nScheme parity (a dark slide places its elements where its light twin does):');
+      for (const x of parity.slice(0, 25)) console.log(`  ${x.slide.padEnd(34)} ${x.element.padEnd(40)} ${x.kind.padEnd(10)} ${x.shift}px`);
+      if (parity.length > 25) console.log(`  ... and ${parity.length - 25} more`);
+    }
+    console.log(moved.length || integrity.length || overlaps.length || parity.length ? `\nFAIL: ${moved.length ? 'the bar placement moves content' : integrity.length ? 'the bar overlay is malformed' : overlaps.length ? 'something sits inside the bar' : 'a dark slide steps from its light twin'}.` : '\nPASS: no element moves with the bar placement.');
   }
-  process.exit((moved.length || integrity.length) && !opts.has('advisory') ? 1 : 0);
+  process.exit((moved.length || integrity.length || overlaps.length || parity.length) && !opts.has('advisory') ? 1 : 0);
 }
 
 main().catch((e) => die(e.stack || String(e)));

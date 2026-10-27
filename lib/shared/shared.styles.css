@@ -85,7 +85,8 @@ section.accent.dark {
   border-top: none;
   --_edge-t: 0; /* the stripe is the top edge (base.modifiers.css, "The slide's EDGE") */
   --_bar-t: 0px; /* …painted as a background, so it takes no border room */
-  --_bar-room-t: 0px; /* and its default carries no bar room to hold */
+  /* `--_bar-room-t` stays its default: the padding keeps the room a light accent slide holds as its border, so
+     a dark slide's content sits where a light one's does (base.modifiers.css, `section.dark`). */
 }
 section.accent.dark h2 { color: var(--accent); }
 

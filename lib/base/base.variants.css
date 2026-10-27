@@ -393,7 +393,7 @@ section > .slide-bar {
   position: absolute;
   width: 0;
   height: 0;
-  z-index: var(--z-chrome); /* above the content and the art, below the alarm tabs and the stamps */
+  z-index: var(--z-spectrum); /* the frame: above the content, the art, the stamps and the alarm tabs (all positioned clear of it) */
   pointer-events: none;
   background-repeat: no-repeat;
 }
@@ -555,7 +555,9 @@ section.divider:not(.light)::before {
 /* ── DEFAULT + TAB — a filled corner tab hugging top-right, inner diagonal notch. */
 section:is(.confidential, .wip, .draft, .tbd, .redacted, .archived, .pinned, .revised)::before,
 section.stamp-tab::before {
-  top: var(--_hold-t); right: var(--_hold-r);
+  /* Right edge: one bar width in from the slide edge in EVERY placement, so the tab hangs inside the frame the
+     bar draws and never sits under it. Placed flush (`right: var(--_hold-r)`) it overlapped a right bar. */
+  top: var(--_hold-t); right: calc(var(--_bar-w) + var(--_hold-r));
   color: var(--on-accent); background: var(--stamp-color);
   font-size: 0.86cqi; /* cqi-ok: decorative status-marker label, shape-fitted to the slide */ padding: 0.45cqi 0.9cqi 0.45cqi 1.15cqi;
   clip-path: polygon(0.7cqi 0, 100% 0, 100% 100%, 0 100%);

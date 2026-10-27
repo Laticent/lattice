@@ -480,6 +480,7 @@ planes**, and `z` is which one a noun lives on. The model has always said so; as
 | **3 chrome** | `--z-chrome` | 30 | the masthead and footer bands and their Tiles: header, footer, kicker, title, meta, status, progress, pagination |
 | *(above the model)* | `--z-alarm` | 90 | authoring-only signals that must beat the slide: the overflow / illegible / fix-me tabs. No Form noun declares this plane — nothing is *composed* here |
 | **4 annotation** | `--z-mark` | 100 | stamped *onto* the delivered slide: status stamps, review annotations, comments |
+| *(above the model)* | `--z-spectrum` | 110 | the spectrum bar's overlay strips on full-bleed frames. The frame itself: nothing on the slide paints over it, and everything else is positioned clear of its strip |
 
 **Mark sits ABOVE alarm, and that order is load-bearing.** It reads backwards — an
 authoring alarm feels like it should beat everything — and it was briefly written that

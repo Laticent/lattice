@@ -146,9 +146,8 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
 
 **Left alone, on purpose:**
 
-- A dark or print slide still sits 4 px higher than a light one in the same deck. That predates this
-  change and is not a placement effect. Making dark match light is one line (drop `--_bar-room-t: 0px`
-  from the dark rule) and moves every dark slide 4 px, so it is the owner's call.
+- (Superseded by round 6: a dark slide now sits where a light one does.) A print slide still sits 4 px
+  higher: paper carries no bar by design.
 - The `finish:` backdrop ends where the bar begins. A backdrop reaching under the bar would paint over it
   (negative z-planes paint above the section's own border), so its edge differs by the bar's strip. The
   harness does not measure it.
@@ -248,6 +247,48 @@ Known and left, each a follow-up or an owner call:
 - Nothing in CI runs `check:edge-shift`; a new stamp or chrome rule written without the per-side tokens would
   move again unnoticed. Wiring it, or a static lint, changes the CI contract and is the owner's call.
 - The manifest `spectrum` field has no user yet; the inversion pass recommended cutting it from this PR.
+
+## Round 6: the spectrum is supreme
+
+The owner's rule: the spectrum is what makes a deck look designed, so everything else accounts for its
+possible presence and nothing crowds it. Measured, then built:
+
+- **A new plane, `--z-spectrum` (110), above the stamps.** The overlay strips were on the chrome plane (30),
+  below the stamps (100), the alarm tabs (90) and every decorative mark, so a full-slide mark or an authored
+  overlay could paint over the bar. Everything else is positioned clear of the strip, so the new plane costs
+  no stamp or tab a pixel; it guarantees nothing bleeds into the bar. A border-drawn bar is the section's own
+  border and needs no plane. The plane test and `design/forms.md` carry the seventh plane.
+- **The default status tab hung under a right bar.** `section.draft::before` sat at `right: 0` of the slide
+  edge, so a right bar covered it (`check:edge-shift`, new overlap check: four slides, 0 px from the edge).
+  The tab now sits one bar width in from the right edge in every placement. In the default top placement it
+  moves 4 px inward (it already sat one bar width below the top edge). The other twelve stamp styles clear
+  the bar already; the harness now carries one slide per style so that stays true.
+- **The overflow tab sat at the bottom edge.** The alarm rail now sits one bar width above the slide's bottom
+  edge in every placement and gives that height up, so it ends where the footer's strip ends and never sits
+  inside a bottom bar.
+- **A dark slide stepped 4 px from its light twin.** The dark rule dropped the bar room the light slide holds
+  as its border. A deck that mixes light and dark slides jumped 4 px at every change; dark slides now sit where
+  light ones do (4 px lower than before). The harness compares each dark slide with its light twin.
+- **A style pin no longer overrides `spectrum-off`.** A pinned component re-branded a white-label deck.
+- **The PDF keeps the photos sharp.** A `collage bleed` photo reaching the bar was folded into the page raster
+  (resolution depended on the placement). The composer now clips the lifted photo to the slide minus the bar
+  strip, so the photo stays an embedded original in every placement (`pdfimages` confirms 3000x2000 in all four).
+- **New harness checks, all failing:** no text or chrome inside the strip the bar occupies (a full-width band or
+  a full-slide wash lies under the bar by design and is exempt; MathML internals are exempt), a dark slide equals
+  its light twin, and every stamp style holds still. `test/integration/invariants/spectrum-edge-shift.test.js`
+  runs the harness in the integration tier. Reverting the stamp fix fails that test (proved), where every unit
+  test stayed green.
+- **Verified on real surfaces:** the Studio and the Playground, in Chromium, WebKit and Firefox
+  (`docs/e2e/slide-bar-studio.spec.ts`); a real marp-cli 4.3.1 render of the Marp kit (the runtime injects the strips
+  in the HTML and the PDF, and the bar pixels are on the edges); the editable PPTX and ODP; the PDF.
+- **A claimed chart's and a claimed video's words sat on the slide's true edge.** `claim-bleed` zeroes the stage's
+  inset so the media reaches the edge, and the title (chart) and the title and caption (video) went with it: the
+  first letter sat under a left bar and a chart's title collided with the running header (pre-existing; the
+  overlap check found it). The media still bleeds; the words keep the safe inset (`stage.css`).
+- **A dark `accent` slide stepped from its light twin** for the same reason the plain dark rule did (the accent's
+  dark rule dropped the bar room). Fixed alike. The parity check now covers every accent, tone and variant sweep.
+- **Still deliberate:** a bleed frame draws no bar in the default top placement, as before: the bookends and the
+  full-bleed frames own their canvas, and a default deck is unchanged there.
 
 ## How it was checked, and what the first round missed
 

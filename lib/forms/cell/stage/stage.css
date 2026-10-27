@@ -573,6 +573,21 @@ section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video)
   border-inline: 0; border-bottom: 0;
   --_bar-l: 0px; --_bar-r: 0px; --_bar-b: 0px;
 }
+/* A claimed CHART keeps its title (the sentence above says charts stay labeled), but the stage's
+ * zero inset left the title's first letter on the slide's true edge, under a left bar and colliding
+ * with the running header at the top. The media bleeds; the words keep the safe inset. These are the
+ * bar-aware per-side tokens, and a bleed frame carries no border flags, so the inset is the same under
+ * every placement. */
+section.form.claim-bleed.chart-frame > .cell-masthead {
+  padding-block-start: var(--frame-inset-t);
+  padding-inline: var(--frame-inset-l) var(--frame-inset-r);
+}
+/* `video` has no masthead band (its title lives in `.video-head` and its caption beside the player, inside the stage), so the rule
+ * above cannot reach them, and at the true edge they began under a left bar. Same inset, same reason. */
+section.form.claim-bleed.video .video-head,
+section.form.claim-bleed.video .video-card > p {
+  padding-inline: var(--frame-inset-l) var(--frame-inset-r);
+}
 /* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
  * slide (as hero). Title + page number stay unless the layout is edge-media. */
 section.form.claim-bleed > .cell-footer > footer,

@@ -1480,6 +1480,7 @@ lat-pane {
 @property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
 @property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 90; }
 @property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 100; }
+@property --z-spectrum   { syntax: "<integer>"; inherits: true; initial-value: 110; }
 
 :root, section {
   --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
@@ -1526,6 +1527,13 @@ lat-pane {
                           * classification marking outranks an engine annotation on a delivered
                           * artifact. Restored to the order the engine has always shipped
                           * (stamps were 100, tabs 50). */
+  --z-spectrum:    110;  /* the spectrum bar's overlay strips (`.slide-bar`, full-bleed frames only).
+                          * THE FRAME ITSELF, so nothing on the slide paints over it: not a stamp, not an
+                          * alarm tab, not a decorative mark, not deck CSS. Everything else is positioned to
+                          * stay clear of the bar's strip (`--_hold-*`, the per-side `--frame-inset-*`), so
+                          * the top plane costs no stamp or tab any pixel; it only guarantees that a full-slide
+                          * decoration (`inset: 0`) or an authored overlay cannot bleed into the spectrum.
+                          * A border-drawn bar needs no plane: it is the section's own border. */
 }
 
 /* VIEWER chrome is NOT a slide plane, and must not borrow one. The fluid-view toggle
