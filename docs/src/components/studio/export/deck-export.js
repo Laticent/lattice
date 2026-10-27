@@ -1642,22 +1642,23 @@ function canvasToPng(canvas) {
 	return sharedPictureEncoder().encode(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
 }
 
-// The author's `images:` line for the slide pictures of the PPTX and Office exports
+// `images` below is the author's `images:` line for the slide pictures of the PPTX and Office exports
 // (lib/core/image-policy.js): `original` keeps every slide a lossless PNG, and an explicit quality
-// replaces the default. Set by exportPptx / exportOffice for the length of one export.
-let pictureImages = null;
+// replaces the default. Each export passes its own down the call. It was a module variable until the #2904
+// follow-up, and two exports started in one frame (a double click past the panel's `busy` state) overwrote
+// each other's.
 
 /**
  * What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/office-export-policy.js `cropRules`): the
  * policy, and the shared writers in the worker pool to write them with, installed under the name the rules carry.
  */
-function officePicturePolicy() {
+export function officePicturePolicy(images) {
 	globalThis[officePolicyCore.PICTURE_WRITER] = (canvas, format) => sharedPictureEncoder().encode(canvas, format);
-	return officePolicyCore.cropRules(pictureImages || {}, { writer: true });
+	return officePolicyCore.cropRules(images || {}, { writer: true });
 }
 
-async function canvasToPictureBlob(canvas, section) {
-	const setting = pictureImages || {};
+export async function canvasToPictureBlob(canvas, section, images) {
+	const setting = images || {};
 	const { resolveImagePolicy } = imagePolicyCore;
 	const { choosePicture } = officePolicyCore;
 	const { isContinuousTone } = await import('@/lib/calco');
@@ -1675,11 +1676,11 @@ async function canvasToPictureBlob(canvas, section) {
 // PowerPoint lanes take this picture: the worker lane transfers its bytes to the assembly worker, which base64s them there;
 // the main-thread fallback makes the data URL itself. The fallback used to take `rasterizeSection` instead, a lossless PNG
 // of the PDF's flat face for every slide: a different look, and 52 photo slides at about 3.5 times the worker lane's size.
-async function rasterizeSlidePicture(section, fontEmbedCSS, cornerTarget, log) {
+async function rasterizeSlidePicture(section, fontEmbedCSS, cornerTarget, log, images) {
 	try {
 		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => {
 			const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'screen');
-			return await canvasToPictureBlob(canvas, section);
+			return await canvasToPictureBlob(canvas, section, images);
 		}, undefined, cornerTarget, 'screen');
 	} catch (e) {
 		throw captureError(e);
@@ -2254,7 +2255,7 @@ const PPTX_WORKER_MAX_IN_FLIGHT = 2;
  * top was one 717 ms freeze at the END: pptxgenjs writing an XML part per slide,
  * JSZip base64-decoding every image, and the zip write, none of it yielding.
  */
-async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log) {
+async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images) {
 	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
@@ -2287,7 +2288,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bytes = await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log)).arrayBuffer();
+			const bytes = await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images)).arrayBuffer();
 			worker.postMessage({ type: 'slide', index: i, bytes, altText: altTextFor(i) }, [bytes]);
 			await new Promise((r) => setTimeout(r));
 		}
@@ -2302,7 +2303,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 
 /** `opts.embedSource`: the `.lattice` bytes to carry, as for `exportPdf`. */
 export async function exportPptx(render, name, onStatus, meta, opts) {
-	pictureImages = opts?.images || null;
+	const images = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
@@ -2337,7 +2338,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 	if (canUsePptxWorker()) {
 		try {
-			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log), 'pptx', opts?.embedSource, onStatus);
+			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images), 'pptx', opts?.embedSource, onStatus);
 			download(blob, safeName(name) + '.pptx');
 			return missingImageReason(log);
 		} catch (e) {
@@ -2360,7 +2361,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log));
+		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images));
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -2411,7 +2412,7 @@ const OFFICE = {
  * into a text box; `opts.embedSource` (PowerPoint only) carries the `.lattice`.
  */
 export async function exportOffice(format, render, name, onStatus, meta, opts) {
-	pictureImages = opts?.images || null;
+	const images = opts?.images || null;
 	const kind = OFFICE[format];
 	if (!kind) throw new Error(`Unknown office format: ${format}`);
 	const editable = !!opts?.editable;
@@ -2447,7 +2448,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					const canvas = await shootSection(sections[i], now.pixelRatio, fontEmbedCSS, log, 'screen');
 					// A background is a picture to store, and so is the whole slide a slide falls back to: a photograph is a JPEG.
 					// The foreground carries transparency, which only a PNG keeps.
-					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined);
+					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined, images);
 					return new Uint8Array(await blob.arrayBuffer());
 				},
 				guard: async (i, fn) => {
@@ -2486,7 +2487,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 				},
 			};
-			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
 			slides = captured.slides.map((sl, i) => ({ ...sl, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
 		} else {
@@ -2498,7 +2499,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 						sections[i],
 						async (_w, _h, pixelRatio) => {
 							const canvas = await shootSection(sections[i], pixelRatio, fontEmbedCSS, log, 'screen');
-							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i])).arrayBuffer());
+							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i], images)).arrayBuffer());
 						},
 						undefined,
 						format,
