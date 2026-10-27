@@ -201,7 +201,7 @@ confirmed and fixed:
 - **Gatherers swallowed the strip.** Passes that collect a section's children (`split-panels`,
   `masthead-lift`, `coda`, the transform DSL, `carousel`, `split-envelope`, `compare-code`, `guards-trim`,
   `prose-projection`) treated `<i class="slide-bar">` as content. Each now skips it, and three regression
-  tests fail with the skip reverted. The strips are the last children only at the moment of injection.
+  tests fail with the skip reverted. The engine puts the strips first (round 5 explains why); the runtime appends them.
 - **Auto-split grew a closing page** holding only the strips on a `split-compare` slide. Fixed in the
   splitter's chrome list and pinned by a test.
 - **Two strips, not one.** A slide can want a placement bar and a top bar at once (`accent`, `tone-edge`,
@@ -227,6 +227,8 @@ every sweep (about 75,000 red-team measurements and 12,934 checker variant eleme
   Safari before 15.4; reproduced in Chrome 120): the custom property is invalid at computed time and the
   `padding` and `border` that read it fall back to unset. `--_bar-w` is now the exact width by default and
   `@supports (width: round(down, 1px, 1px))` switches to the whole-pixel value. Checked in Chrome 120.
+- **An unclosed author `<div>` swallowed the strips** (appended inside it, so `section > .slide-bar` stopped
+  matching and the bar vanished from CLI exports). The engine now puts the strips first.
 - **An author's own `<i class="slide-bar">`** (a footer, say) suppressed the injection on every slide. The
   idempotence guard now matches the exact pair of strips.
 - **The `spectrum` lookup matched any class word in the catalog**, so `list bullet` took `bullet`'s answer.
@@ -238,8 +240,6 @@ every sweep (about 75,000 red-team measurements and 12,934 checker variant eleme
 
 Known and left, each a follow-up or an owner call:
 
-- An unclosed `<div>` in a bleed slide nests the strips inside it, so the bar does not draw in CLI exports
-  (the runtime recovers). Main kept the bar there as a border.
 - `spectrum: false` does not stop `accent` or `tone-edge` from drawing a top bar: those are per-slide choices.
 - A component pinned to a style also strips `spectrum-off`, so a white-label deck re-brands that component.
 - A `collage bleed` photo touching the bar's edge is flattened into the page raster in the PDF, so its

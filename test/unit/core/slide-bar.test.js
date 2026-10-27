@@ -39,13 +39,20 @@ describe('sectionIsBleed', () => {
 });
 
 describe('applySlideBarToHtml', () => {
-  test('appends both strips after the content of a bleed slide only', () => {
+  test('puts both strips first in of a bleed slide only', () => {
     const out = applySlideBarToHtml('<section class="image"><h2>a</h2></section><section class="content"><p>x</p></section>');
-    assert.equal(out, `<section class="image"><h2>a</h2>${BAR}</section><section class="content"><p>x</p></section>`);
+    assert.equal(out, `<section class="image">${BAR}<h2>a</h2></section><section class="content"><p>x</p></section>`);
   });
+  test('an unclosed author <div> cannot swallow the strips: they stay direct children', () => {
+    const { JSDOM } = require('jsdom');
+    const out = applySlideBarToHtml('<section class="image"><h2>T</h2><div class="note">never closed</section>');
+    const doc = new JSDOM(out).window.document;
+    assert.equal(doc.querySelectorAll('section > .slide-bar').length, 2);
+  });
+
   test('an author\'s own <i class="slide-bar"> (a footer, say) does not suppress the strips', () => {
     const out = applySlideBarToHtml('<section class="image"><footer>Acme <i class="slide-bar"></i></footer></section>');
-    assert.ok(out.endsWith(BAR + '</section>'), out);
+    assert.ok(out.startsWith('<section class="image">' + BAR), out);
   });
 
   test('is idempotent: re-processing rendered HTML changes nothing', () => {
