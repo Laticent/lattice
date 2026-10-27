@@ -80,8 +80,12 @@ describe('the CSS and the JS agree on which frames are bleed', () => {
       assert.match(variants, new RegExp(`section\\.spectrum-edge-${side} > \\.slide-bar:not\\(\\.slide-bar-top\\)\\s*\\{[^}]*var\\(--_bar-w\\)`), side);
     }
     assert.match(variants, /section\.accent:not\(\.split-panel, \.split-compare\) > \.slide-bar-top/);
+    // A bare `.tone-edge` (no tone class) draws nothing, so the deck-wide style must still draw its bar there.
+    const solid = variants.split('\n').find((l) => /^section:is\(\.spectrum-solid.*> \.slide-bar-top \{/.test(l));
+    assert.ok(solid, 'solid top-strip rule');
+    assert.doesNotMatch(solid, /[(, ]\.tone-edge[,)]/);
     assert.match(variants, /\.tone-edge:not\(\.split-panel, \.split-compare\) > \.slide-bar-top/);
-    assert.match(variants, /section\.print > \.slide-bar\s*\{[^}]*background-color:\s*var\(--spectrum\)/, 'print paints the strip a color');
+    assert.match(variants, /section\.print\.print > \.slide-bar\s*\{[^}]*background-color:\s*var\(--spectrum\)/, 'print paints the strip a color');
   });
 
   test('the overlay is a strip: absolute, zero-size until asked, clickless, above the content', () => {

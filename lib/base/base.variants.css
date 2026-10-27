@@ -397,12 +397,6 @@ section > .slide-bar {
   pointer-events: none;
   background-repeat: no-repeat;
 }
-/* Print: `--spectrum` is a single color there (base.modifiers.css), which is not an image, so the gradient
-   tokens below resolve to none. The strip takes that color directly, as a border frame's rule does. */
-section.print > .slide-bar {
-  background-image: none;
-  background-color: var(--spectrum);
-}
 section.spectrum-edge-left > .slide-bar:not(.slide-bar-top) {
   inset: 0 auto 0 0; width: var(--_bar-w); height: auto;
   background-image: var(--spectrum-bar-vertical);
@@ -415,10 +409,17 @@ section.spectrum-edge-bottom > .slide-bar:not(.slide-bar-top) {
   inset: auto 0 0 0; height: var(--_bar-w); width: auto;
   background-image: var(--spectrum-bar);
 }
+/* Print: `--spectrum` is a single color there (base.modifiers.css). `--spectrum-bar` resolves to none but
+   `--spectrum-bar-vertical` does not, so the strip takes the color directly. Doubled class and placed after
+   the placement rules so it out-ranks them (0,3,1) by order. */
+section.print.print > .slide-bar {
+  background-image: none;
+  background-color: var(--spectrum);
+}
 /* The top strip: only when something asks for one. Same gates as the border rules above (`solid` /
    `duo` / `mono` unless a placement owns the bar; `accent` and `tone-edge` win over the style). The
    split frames paint their own ribbon on the panels, so they keep it and get no overlay on top. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"]):not(.split-panel, .split-compare, .accent, .tone-edge) > .slide-bar-top {
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"]):not(.split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge) > .slide-bar-top {
   inset: 0 0 auto 0; height: var(--_bar-w); width: auto;
   background-image: var(--spectrum-bar);
 }
@@ -437,7 +438,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-
 section.spectrum-edge-left:has(> .slide-bar)   { --_edge-l: 0; }
 section.spectrum-edge-right:has(> .slide-bar)  { --_edge-r: 0; }
 section.spectrum-edge-bottom:has(> .slide-bar) { --_edge-b: 0; }
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"], .split-panel, .split-compare, .accent, .tone-edge):has(> .slide-bar-top):has(> .slide-bar-top),
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"], .split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge):has(> .slide-bar-top):has(> .slide-bar-top),
 section.accent:not(.split-panel, .split-compare):has(> .slide-bar-top):has(> .slide-bar-top),
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-panel, .split-compare):has(> .slide-bar-top):has(> .slide-bar-top) { --_edge-t: 0; }
 

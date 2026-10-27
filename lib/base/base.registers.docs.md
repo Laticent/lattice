@@ -476,7 +476,7 @@ draws no bar under a placement.
 `claim-bleed` media slide and `collage bleed` claim the whole slide and have no margin to give a border,
 so their bar is a strip laid over the slide on the chrome plane (`<i class="slide-bar">`, lib/core/slide-bar.js).
 It takes no room, so the photo or panel keeps its true edge, and it paints above the art. A bleed frame
-shows no top bar by default, as before; a placement, a `spectrum:` style, `accent` or `tone-edge` asks for
+shows no top bar by default, as before; a placement, a `spectrum:` style, `accent` or `tone-edge` with a tone class asks for
 one. The split frames keep their own ribbon at the top.
 
 Limits that stay. The `finish:` backdrop ends where a border bar begins, because a backdrop reaching under
