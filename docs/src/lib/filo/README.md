@@ -49,21 +49,29 @@ if (m) editor.apply(m.patch, m.caret);
 | Call | What it does |
 |---|---|
 | `commit({ base, edits \| next, label, origin, before?, after? })` | Record a change. Refused when `base` is not `head` (`stale`) or nothing changed (`noop`) |
-| `undo()` · `redo()` | Move one step. Returns `{ patch, text, caret, label, origin }`, or null |
-| `batch(label, fn)` | Every commit `fn` makes is one step. `fn` must be synchronous |
-| `openGroup(label)` · `closeGroup()` | A drag or slider as one step; an open group closes itself after 2 s of quiet |
-| `mark(label)` · `marks()` · `markText(id)` · `restore(id)` | Named versions; a restore is a step you can undo |
+| `undo()` · `redo()` | Move one step. Returns `{ patch, text, caret, label, origin }`, or null. `caret` is null when nothing moved |
+| `batch(label, fn)` | Every commit `fn` makes is one step. `fn` must be synchronous, and may not call `undo`, `redo` or `restore`. A batch that edits two distant places is stored as one change spanning both |
+| `openGroup(label)` · `closeGroup()` | A drag or slider as one step; it closes itself after 2 s of quiet or when another origin commits |
+| `mark(label)` · `marks()` · `markText(id)` · `restore(id)` | Named versions. A mark ends any open typing run and records any outside change first, so it names exactly what the author sees; a restore is a step you can undo |
 | `sync(text)` | The host's text moved without a commit; the next undo records the gap first |
 | `subscribe(select, listener)` | Hear `canUndo`, `canRedo`, labels and more, only when the selected value changes |
 
 Typing coalesces into one step when it has the same origin and label, comes within 500 ms and sits
 next to the previous edit, and never across a `boundary` the host names (a slide break).
 
+## The registry
+
+`createFilo()` holds one history per document. `load(doc, text)` opens one and makes it the base
+(the open deck). A modal editor loads its own document with `{ activate: false }` and `push`es it;
+the function `push` returns removes exactly that scope, whatever opened after it. `drop(doc)`
+forgets a document and removes it from the stack.
+
 ## The guarantees
 
 | Guarantee | Mechanism | Test |
 |---|---|---|
 | Every undo, redo and restore lands on an exact earlier text | Each step's net patch is composed exactly (`composePatch`) | A reference model over 300 random runs of 60 operations, caps from 1 to 12 steps; 8,000 random compositions |
+| An undo, redo or restore never lands on the wrong text, however coalescing, batches, drags, outside changes and marks interleave | Marks close the open run and record outside changes first; restore records the gap before it computes its patch | A second reference model, written by an independent checker: 1,200 seeds of 200 operations with keystrokes 0-120 ms apart, large and small caps. It fails on the code before the fixes |
 | An undo is synchronous and cheap | The whole capped stack stays in memory; one patch per step | On the 134 KB deck in Node: a keystroke records in 0.09 ms (median), an undo of a 2,000-keystroke step takes at most ~4 ms |
 | Apply then invert is the identity | Patches store deleted text | 5,000 seeded random patches |
 | A mark survives its steps folding away | Anchors re-based onto the floor on each fold | "a mark older than the window still restores" |

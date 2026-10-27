@@ -13,14 +13,15 @@ export type { Change, Edit, Patch } from './patch';
 export { applyPatch, composePatch, hashText, invertPatch, mapPos, patchOf, patchSize, trimPatch } from './patch';
 
 export interface Filo<M = unknown> {
-	/** Open (or return) the history for `doc` and make it the active one. If the history already
-	 *  exists and its text differs from `text`, the difference is recorded as an outside change
-	 *  (see `History.sync`). */
-	load(doc: string, text: string): History<M>;
+	/** Open (or return) the history for `doc`. By default it becomes the base: the document the keys
+	 *  act on when no modal is pushed (the open deck). A modal editor loads its document with
+	 *  `{ activate: false }` and then `push`es it. If the history already exists and its text
+	 *  differs from `text`, the difference is recorded as an outside change (`History.sync`). */
+	load(doc: string, text: string, opts?: { activate?: boolean }): History<M>;
 	/** The history the keys and buttons act on. */
 	readonly active: History<M> | null;
-	/** Make an already-loaded history active (a modal editor opening), returning a function that
-	 *  restores the previous one (the modal closing). */
+	/** Make an already-loaded history active above the base (a modal editor opening). Returns a
+	 *  function that removes exactly this scope (the modal closing), whatever opened since. */
 	push(doc: string): () => void;
 	/** Forget a document's history (a deck deleted). */
 	drop(doc: string): void;
@@ -30,33 +31,40 @@ export interface Filo<M = unknown> {
 
 export function createFilo<M = unknown>(options: HistoryOptions = {}): Filo<M> {
 	const histories = new Map<string, History<M>>();
-	let active: History<M> | null = null;
+	// The base is the document `load` opened (the open deck); modal editors stack on top of it.
+	// Each push gets its own token, so closing one modal never reactivates another that already
+	// closed, and dropping a document removes it from the stack too.
+	let base: History<M> | null = null;
+	const stack: { token: object; h: History<M> }[] = [];
 	return {
-		load(doc, text) {
+		load(doc, text, opts) {
 			let h = histories.get(doc);
 			if (!h) {
 				h = new History<M>(doc, text, options);
 				histories.set(doc, h);
-			} else if (h.text !== text) h.sync(text);
-			active = h;
+			} else h.sync(text); // equal text clears a stale flag; different text records a gap
+			if (opts?.activate !== false) base = h;
 			return h;
 		},
 		get active() {
-			return active;
+			return stack.length ? stack[stack.length - 1].h : base;
 		},
 		push(doc) {
 			const h = histories.get(doc);
 			if (!h) throw new Error(`filo: push('${doc}') before load`);
-			const prev = active;
-			active = h;
+			const token = {};
+			stack.push({ token, h });
 			return () => {
-				if (active === h) active = prev;
+				const i = stack.findIndex((e) => e.token === token);
+				if (i >= 0) stack.splice(i, 1);
 			};
 		},
 		drop(doc) {
 			const h = histories.get(doc);
 			histories.delete(doc);
-			if (active === h) active = null;
+			if (!h) return;
+			if (base === h) base = null;
+			for (let i = stack.length - 1; i >= 0; i--) if (stack[i].h === h) stack.splice(i, 1);
 		},
 		docs() {
 			return [...histories.keys()];

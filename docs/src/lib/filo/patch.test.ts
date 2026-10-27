@@ -121,3 +121,15 @@ describe('composePatch', () => {
 		}
 	});
 });
+
+describe('mapPos at shared insertion points', () => {
+	it('assoc 1 lands after every insertion at the same offset', () => {
+		const p = patchOf('xyz', [
+			{ from: 1, to: 1, insert: 'a' },
+			{ from: 1, to: 1, insert: 'b' },
+		]);
+		expect(applyPatch('xyz', p)).toBe('xabyz');
+		expect(mapPos(p, 1, 1)).toBe(3);
+		expect(mapPos(p, 1, -1)).toBe(1);
+	});
+});

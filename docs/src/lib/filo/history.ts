@@ -94,14 +94,15 @@ export interface CommitInput<M = unknown> {
 	readonly meta?: M;
 }
 
-export type CommitResult = { ok: true; id: number } | { ok: false; reason: 'stale' | 'noop' | 'busy' };
+export type CommitResult = { ok: true; id: number } | { ok: false; reason: 'stale' | 'noop' };
 
 /** What an undo or redo hands the host: the one change to apply, the text it produces, and where
  *  to put the caret. `gap` says this step recorded an outside change instead of undoing one. */
 export interface Move {
 	readonly patch: Patch;
 	readonly text: string;
-	readonly caret: number;
+	/** Where to put the caret, or null to leave it where it is (a restore that changed nothing). */
+	readonly caret: number | null;
 	readonly label: string;
 	readonly origin: string;
 	readonly gap?: boolean;
@@ -130,7 +131,6 @@ export class History<M = unknown> {
 	private nextMarkId = 1;
 	private outside: string | null = null; // text a `sync` reported that this history did not record
 	private batchDepth = 0;
-	private applying = false;
 	private readonly entryCap: number;
 	private readonly byteCap: number;
 	private readonly coalesceMs: number;
@@ -184,16 +184,17 @@ export class History<M = unknown> {
 	// ── Recording ─────────────────────────────────────────────────────────────
 
 	commit(input: CommitInput<M>): CommitResult {
-		if (this.applying) return { ok: false, reason: 'busy' };
 		if (input.base !== this.head) return { ok: false, reason: 'stale' };
 		if (this.outside !== null) this.recordGap();
 		let patch: Patch;
 		if (input.edits) patch = patchOf(this.text_, input.edits);
 		else if (input.next !== undefined) patch = trimPatch(this.text_, input.next);
 		else throw new TypeError('filo: commit needs `edits` or `next`');
-		if (patch.length === 0) return { ok: false, reason: 'noop' };
 		const prevText = this.text_;
-		const nextText = applyPatch(prevText, patch);
+		const nextText = patch.length ? applyPatch(prevText, patch) : prevText;
+		// An edit that rewrites text with itself changes nothing: recording it would leave an undo
+		// step that visibly does nothing (§3.4).
+		if (nextText === prevText) return { ok: false, reason: 'noop' };
 		const ts = this.now();
 		const entry: Entry<M> = {
 			id: this.nextId++,
@@ -226,6 +227,7 @@ export class History<M = unknown> {
 		} else {
 			if (last) last.open = null;
 			const grouped = this.groupLabel !== null;
+			if (grouped) this.groupOrigin = input.origin;
 			const size = patchSize(patch);
 			this.done.push({ label: grouped ? (this.groupLabel as string) : input.label, origin: input.origin, net: patch, first: entry, last: entry, size, open: grouped ? 'explicit' : 'typing' });
 			this.bytes += size;
@@ -236,6 +238,9 @@ export class History<M = unknown> {
 	}
 
 	private groupLabel: string | null = null;
+	/** The origin of the first commit in the open explicit group: a commit from another origin
+	 *  ends a drag (§2.1), so typing that follows a slider is never undone with it. */
+	private groupOrigin: string | null = null;
 
 	/** Open a group: every commit until `closeGroup` is one step (a slider drag). */
 	openGroup(label: string): void {
@@ -243,9 +248,14 @@ export class History<M = unknown> {
 		this.groupLabel = label;
 	}
 
+	private guardBatch(what: string): void {
+		if (this.batchDepth > 0) throw new TypeError(`filo: ${what}() inside batch() would split the batch into several steps. Call it outside.`);
+	}
+
 	/** End the open group or typing run, so the next commit starts a new step. */
 	closeGroup(): void {
 		this.groupLabel = null;
+		this.groupOrigin = null;
 		const last = this.done[this.done.length - 1];
 		if (last) last.open = null;
 	}
@@ -277,8 +287,10 @@ export class History<M = unknown> {
 		if (this.groupLabel !== null) {
 			// An explicit group (a batch, a drag): join while it stays open and not quiet too long.
 			if (last.open !== 'explicit') return false;
-			if (this.batchDepth === 0 && entry.ts - prev.ts > this.groupQuietMs) {
-				this.groupLabel = null; // a drag whose pointer-up never came: end it here
+			if (this.batchDepth === 0 && (entry.ts - prev.ts > this.groupQuietMs || entry.origin !== this.groupOrigin)) {
+				// A drag whose pointer-up never came, or another source writing: end the group here.
+				this.groupLabel = null;
+				this.groupOrigin = null;
 				return false;
 			}
 			return true;
@@ -296,6 +308,7 @@ export class History<M = unknown> {
 	// ── Undo / redo ───────────────────────────────────────────────────────────
 
 	undo(): Move | null {
+		this.guardBatch('undo');
 		if (this.outside !== null) {
 			// Record the outside change as one step, and stop: the next ⌘Z undoes it.
 			this.recordGap();
@@ -308,6 +321,7 @@ export class History<M = unknown> {
 		if (!step) return null;
 		step.open = null;
 		this.groupLabel = null;
+		this.groupOrigin = null;
 		const before = this.text_;
 		let text = before;
 		text = applyPatch(text, invertPatch(step.net));
@@ -318,6 +332,7 @@ export class History<M = unknown> {
 	}
 
 	redo(): Move | null {
+		this.guardBatch('redo');
 		if (this.outside !== null) return null;
 		const step = this.undone.pop();
 		if (!step) return null;
@@ -374,6 +389,11 @@ export class History<M = unknown> {
 
 	/** Name the current point. Returns the mark's id. */
 	mark(label: string): number {
+		// A mark names a fixed point: an open typing run or drag would carry it forward with the
+		// next keystroke (and an emptied run would leave it past the end of the thread), and an
+		// outside change not yet recorded would leave it naming text the author no longer sees.
+		this.closeGroup();
+		this.recordGap();
 		return this.addMark(label, false, this.done.length, null);
 	}
 
@@ -390,15 +410,21 @@ export class History<M = unknown> {
 
 	/** Go back to a mark, as one new step (so the restore itself can be undone). */
 	restore(id: number, label?: string): Move | null {
-		const target = this.markText(id);
-		if (target === null) return null;
+		this.guardBatch('restore');
 		const m = this.marks_.find((x) => x.id === id);
-		const before = this.text_;
-		const r = this.commit({ base: this.head, next: target, label: label ?? `Restored "${m?.label}"`, origin: 'restore' });
-		if (!r.ok) return r.reason === 'noop' ? { patch: [], text: before, caret: 0, label: '', origin: 'restore' } : null;
+		if (!m) return null;
+		// Record any outside change FIRST, so the patch handed back is against the text the host
+		// actually shows.
+		this.recordGap();
 		this.closeGroup();
+		const target = this.textOfMark(m);
+		const before = this.text_;
+		const name = label ?? `Restored "${m.label}"`;
+		const r = this.commit({ base: this.head, next: target, label: name, origin: 'restore' });
+		this.closeGroup();
+		if (!r.ok) return { patch: [], text: this.text_, caret: null, label: name, origin: 'restore' };
 		const patch = trimPatch(before, target);
-		return { patch, text: target, caret: patch[0]?.from ?? 0, label: label ?? `Restored "${m?.label}"`, origin: 'restore' };
+		return { patch, text: target, caret: patch[0]?.from ?? 0, label: name, origin: 'restore' };
 	}
 
 	removeMark(id: number): void {

@@ -334,3 +334,86 @@ describe('against a reference model (random sequences, seeded)', () => {
 		}
 	});
 });
+
+describe('regressions from the independent check of #2930', () => {
+	it('a mark inside an open typing run names the point it was made at', () => {
+		const { h, type } = make('base');
+		type(4, '!');
+		const m = h.mark('Saved');
+		type(5, '?'); // within 500 ms: would have joined the run the mark sat in
+		expect(h.markText(m)).toBe('base!');
+		h.commit({ base: h.head, edits: [{ from: 5, to: 6, insert: '' }], label: 'Typing', origin: 'markdown' });
+		expect(h.markText(m)).toBe('base!');
+	});
+
+	it('a restore while stale hands back a patch against the text the host shows', () => {
+		const { h, tick } = make('hello');
+		const m = h.mark('start');
+		tick(1000);
+		h.commit({ base: h.head, next: 'hello world', label: 'x', origin: 'o' });
+		h.sync('HELLO WORLD');
+		const mv = h.restore(m);
+		expect(mv && applyPatch('HELLO WORLD', mv.patch)).toBe('hello');
+		expect(h.undo()?.text).toBe('HELLO WORLD'); // the restore, then the gap, are each undoable
+		expect(h.undo()?.text).toBe('hello world');
+	});
+
+	it('a restore that changes nothing leaves the caret alone', () => {
+		const { h } = make('same');
+		const m = h.mark('m');
+		expect(h.restore(m)).toMatchObject({ patch: [], text: 'same', caret: null });
+	});
+
+	it('an edit that rewrites text with itself is not a step', () => {
+		const { h } = make('a');
+		expect(h.commit({ base: h.head, edits: [{ from: 0, to: 1, insert: 'a' }], label: 'x', origin: 'o' })).toEqual({ ok: false, reason: 'noop' });
+		expect(h.state().canUndo).toBe(false);
+	});
+
+	it('a drag ends when another origin writes', () => {
+		const { h, tick } = make('size: 1');
+		h.openGroup('Size');
+		tick(30);
+		h.commit({ base: h.head, next: 'size: 2', label: 'set', origin: 'settings' });
+		tick(100);
+		h.commit({ base: h.head, next: 'size: 2!', label: 'Typing', origin: 'markdown' });
+		expect(h.state().steps).toBe(2);
+		expect(h.undo()?.text).toBe('size: 2');
+	});
+
+	it('undo, redo and restore refuse to run inside a batch', () => {
+		const { h } = make('a');
+		const m = h.mark('m');
+		expect(() => h.batch('b', () => h.undo())).toThrow(/batch/);
+		expect(() => h.batch('b', () => h.redo())).toThrow(/batch/);
+		expect(() => h.batch('b', () => h.restore(m))).toThrow(/batch/);
+	});
+
+	it('reloading with the text Filo already has clears a stale flag', () => {
+		const filo = createFilo();
+		const h = filo.load('d', 'a');
+		h.sync('b');
+		filo.load('d', 'a');
+		expect(h.state().stale).toBe(false);
+	});
+
+	it('modal scopes pop exactly themselves, and a dropped document leaves the stack', () => {
+		const filo = createFilo();
+		const a = filo.load('A', 'a');
+		const b = filo.load('B', 'b', { activate: false });
+		const c = filo.load('C', 'c', { activate: false });
+		expect(filo.active).toBe(a);
+		const popB = filo.push('B');
+		const popC = filo.push('C');
+		popB();
+		expect(filo.active).toBe(c);
+		popC();
+		expect(filo.active).toBe(a);
+		filo.push('B');
+		filo.drop('B');
+		expect(filo.active).toBe(a);
+		filo.drop('A');
+		expect(filo.active).toBeNull();
+		void b;
+	});
+});

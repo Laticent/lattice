@@ -103,7 +103,12 @@ export function mapPos(patch: Patch, pos: number, assoc: -1 | 1 = -1): number {
 	for (const c of patch) {
 		if (pos < c.from) break;
 		const replaced = c.to > c.from;
-		if (!replaced && pos === c.from) return assoc < 0 ? pos + shift : pos + shift + c.insert.length;
+		if (!replaced && pos === c.from) {
+			if (assoc < 0) return pos + shift;
+			// After the insertion; another insertion at the same offset may follow, so keep going.
+			shift += c.insert.length;
+			continue;
+		}
 		// Inside the replaced range: the position lands at the start (or end) of the insert.
 		if (replaced && pos < c.to) return c.from + shift + (assoc < 0 ? 0 : c.insert.length);
 		shift += c.insert.length - (c.to - c.from);
