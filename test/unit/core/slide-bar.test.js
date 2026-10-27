@@ -270,4 +270,22 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     const solid = [null, line.slice(PREFIX.length, end - 1)];
     for (const name of [...BLEED_FRAMES.map((f) => `.${f}`), '.collage.bleed']) assert.ok(solid[1].includes(name), `solid exclusion names ${name}`);
   });
+
+  test('the restore token `spectrum-edge-top` is never treated as a placement, and the top strip names the four edges', () => {
+    const variants = read('lib/base/base.variants.css');
+    // A `:not(` list that names `spectrum-edge-top` would drop the top bar on a slide that restores it (main's
+    // RESTORE token). Linear scan: find each `:not(`, read to its balanced `)`, and look inside.
+    for (let at = variants.indexOf(':not('); at !== -1; at = variants.indexOf(':not(', at + 1)) {
+      let depth = 0;
+      let end = at + 4;
+      for (; end < variants.length; end++) {
+        if (variants[end] === '(') depth++;
+        else if (variants[end] === ')' && --depth === 0) break;
+      }
+      assert.ok(!variants.slice(at, end).includes('spectrum-edge-top'), `:not() near offset ${at} names spectrum-edge-top`);
+    }
+    const topStrip = variants.split('\n').find((l) => l.includes('> .slide-bar-top {') && l.includes('.spectrum-solid'));
+    assert.ok(topStrip, 'the solid/duo/mono top-strip rule');
+    for (const edge of ['left', 'right', 'bottom', 'off']) assert.ok(topStrip.includes(`.spectrum-edge-${edge}`), `top strip excludes .spectrum-edge-${edge}`);
+  });
 });

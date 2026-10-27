@@ -8,7 +8,7 @@ summary: >
   The fix leaves every border rule alone and makes the section's padding give up exactly the border each
   side carries (`--_bar-*`), so the total inset per side is constant; chrome insets, stamps and marks do
   the same. After it, 0 elements move across the components, their manifest variants, five layout
-  modifiers, all 493 reserved classes, four canvas shapes and three themes. At the default placement a
+  modifiers, all 499 reserved classes, four canvas shapes and three themes. At the default placement a
   deck is unchanged except `premise` (2 px). The same rule means adding or removing the bar with
   `accent`, `tone-edge` or the `spectrum:` register no longer moves content, which changes decks that use
   them by 2 to 4 px. Full-bleed layouts draw the bar as an overlay strip instead of a border. `npm run check:edge-shift`
@@ -361,7 +361,7 @@ longer sit 4 px higher. The harness now takes `--variants`, `--classes`, `--each
 | Before the change: skeletons, light and dark | 4,209 | 4,039 (162 of 164 slides) |
 | After: skeletons, light and dark, plus the stamp-style slides (round 6) | 4,417 | 0 |
 | After: every manifest variant | 13,181 | 0 |
-| After: every one of the 493 reserved classes | 5,964 | 0 |
+| After: every one of the 499 reserved classes | 6,036 | 0 |
 | After: `footer-inset`, `fill-optical`, `claim-bleed`, `claim-hero`, `accent`, `tone-edge` | about 2,000 each | 0 |
 | After: deck `spectrum: solid`, `duo`, `mono`, `off`, `finish: atrium`; no chrome | 4,208 each | 0 |
 | After: all state stamps, `safe` on tall and square | 273 / 2,150 | 0 |
