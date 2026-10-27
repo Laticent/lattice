@@ -160,9 +160,18 @@ The read is now its own step, in `docs/src/components/studio/photo-ink-read.ts`:
 3. **One fix, always.** It offers the ink that clears 4.5:1. When neither does, or nothing could be read, it offers
    **Use a solid card** (`card-solid`, which sets the card's backing to 100%), with a one-line note saying which case
    applies. A solid card is the image component's own answer to a photo that fights its text, and it always reads.
-4. **The answer is kept** in `localStorage` (`lattice-photo-ink:v1`), keyed by photo reference, placement and backing,
-   capped at 200 entries with the oldest dropped first. A reload shows the fix on the tooltip's first frame. "Could not
-   read" is not kept, so the next open tries again. "No ink reads" is kept, because it is an answer.
+4. **The answer is kept** in `localStorage` (`lattice-photo-ink:v2`), keyed by a hash of the photo reference, the
+   placement, the backing and the classes that change the card's box (`card-sm`, `card-lg`, `band`, `compact`), capped at
+   200 entries with the oldest dropped first, and trusted for a week. A reload shows the fix on the tooltip's first
+   frame. "Could not read" is not kept, so the next open tries again. "No ink reads" is kept, because it is an answer.
+   Each entry records whether it came from the live preview or from the estimate: a kept estimate is replaced by the
+   exact read the first time the preview shows that slide, and a kept live read is final.
+
+The independent check on this step found three cache faults, all fixed before merge: an estimate could block the exact
+read forever; a `data:` photo was stored a second time as its own key, in the same storage the deck autosave uses (so a
+few large embedded photos could make saves fail silently); and an answer for an `asset:` name or a web URL never went
+stale. The hash, the source flag and the week's limit are those three fixes. `blob:` photos are not kept, because their
+URLs change on every load.
 
 **No service worker or Web Worker.** The read draws the photo into a 24×24 canvas on the main thread, which takes well
 under a frame. A worker would add a second bundle and a message round trip to save no measurable time. The photo-file

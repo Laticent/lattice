@@ -21,8 +21,12 @@ const FLOOR = 4.5;
 const SAMPLE_PX = 24;
 const LOAD_MS = 4000;
 /** The cache's storage key; the version moves when the estimate or its inputs change meaning. */
-const CACHE_KEY = 'lattice-photo-ink:v1';
+const CACHE_KEY = 'lattice-photo-ink:v2';
 const CACHE_MAX = 200;
+/** A kept answer is trusted for a week: an `asset:` name or a web URL can come to hold a different photo. */
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** The card classes that move the card's box over the photo, so they are part of the kept answer's key. */
+const BOX_CLASSES = /^(card-sm|card-lg|band|compact)$/;
 
 /** Where the card sits in the frame for each placement, as fractions of the slide: [left, top, right, bottom]. */
 const PLACEMENT_BOX: Record<string, [number, number, number, number]> = {
@@ -49,8 +53,20 @@ export function decide(mean: number[], backing: number): InkVerdict {
 	return best >= FLOOR ? { kind: 'ink', ink: r.ink } : { kind: 'neither' };
 }
 
-type Cached = { ink: 'light' | 'dark' | null; at: number };
-const cacheKey = (ref: string, placement: string, backing: number) => `${ref}|${placement}|${backing}`;
+/** Where an answer came from: the live preview's exact card box, or an estimate from the photo file. */
+export type ReadSource = 'live' | 'estimate';
+type Cached = { ink: 'light' | 'dark' | null; at: number; src: ReadSource };
+export type CardBox = { ref: string; placement: string; backing: number; shape: string };
+
+/** FNV-1a, so a `data:` photo is keyed by 8 hex digits rather than by its whole payload. */
+function hashRef(ref: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < ref.length; i++) h = Math.imul(h ^ ref.charCodeAt(i), 0x01000193);
+	return `${(h >>> 0).toString(16).padStart(8, '0')}:${ref.length}`;
+}
+const cacheKey = (c: CardBox) => `${hashRef(c.ref)}|${c.placement}|${c.backing}|${c.shape}`;
+/** A `blob:` URL names one page's object and changes on every load, so an answer for it is never seen again. */
+const keepable = (ref: string) => !/^blob:/i.test(ref.trim());
 
 function cacheRead(): Record<string, Cached> {
 	try {
@@ -60,19 +76,23 @@ function cacheRead(): Record<string, Cached> {
 	}
 }
 
-/** The kept answer for this photo and card, or undefined. Synchronous, so a known answer shows on the tooltip's first frame. */
-export function cachedVerdict(ref: string, placement: string, backing: number): InkVerdict | undefined {
-	const hit = cacheRead()[cacheKey(ref, placement, backing)];
-	if (!hit) return undefined;
-	return hit.ink ? { kind: 'ink', ink: hit.ink } : { kind: 'neither' };
+/**
+ * The kept answer for this photo and card, and where it came from, or undefined. Synchronous, so a known answer shows on
+ * the tooltip's first frame. An entry past its week, or one this version did not write, is no answer.
+ */
+export function cachedVerdict(c: CardBox): { verdict: InkVerdict; src: ReadSource } | undefined {
+	const hit = cacheRead()[cacheKey(c)];
+	if (!hit || Date.now() - hit.at > CACHE_TTL_MS) return undefined;
+	if (hit.ink !== null && hit.ink !== 'light' && hit.ink !== 'dark') return undefined;
+	return { verdict: hit.ink ? { kind: 'ink', ink: hit.ink } : { kind: 'neither' }, src: hit.src === 'live' ? 'live' : 'estimate' };
 }
 
 /** Keep a found answer. "Unknown" is not kept: the next open should try again (the photo may load then). */
-export function keepVerdict(ref: string, placement: string, backing: number, v: InkVerdict): void {
-	if (v.kind === 'unknown') return;
+export function keepVerdict(c: CardBox, v: InkVerdict, src: ReadSource): void {
+	if (v.kind === 'unknown' || !keepable(c.ref)) return;
 	try {
 		const all = cacheRead();
-		all[cacheKey(ref, placement, backing)] = { ink: v.kind === 'ink' ? v.ink : null, at: Date.now() };
+		all[cacheKey(c)] = { ink: v.kind === 'ink' ? v.ink : null, at: Date.now(), src };
 		const keys = Object.keys(all);
 		// Oldest out first once full, so the store stays small however many photos a person tries.
 		if (keys.length > CACHE_MAX) for (const k of keys.sort((a, b) => all[a].at - all[b].at).slice(0, keys.length - CACHE_MAX)) delete all[k];
@@ -155,11 +175,12 @@ async function estimateFromPhoto(url: string, placement: string): Promise<number
 	}
 }
 
-/** What the tooltip needs to know about a slide before it reads anything: its photo, the card's place and opacity. */
-export function cardOf(chunk: string, source: string): { ref: string | null; placement: string; backing: number } {
+/** What the tooltip needs to know about a slide before it reads anything: its photo, the card's place, opacity and shape. */
+export function cardOf(chunk: string, source: string): Omit<CardBox, 'ref'> & { ref: string | null } {
 	const tokens = getClassTokens(chunk);
 	const deck = deckImageCardClasses(source);
-	return { ref: photoRefOf(chunk), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing };
+	const shape = [...deck, ...tokens].filter((c) => BOX_CLASSES.test(c)).sort().join(' ');
+	return { ref: photoRefOf(chunk), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
 }
 
 /**
@@ -167,18 +188,25 @@ export function cardOf(chunk: string, source: string): { ref: string | null; pla
  * `onScreen` whether the live preview shows it (then its exact card box is used). Never throws.
  */
 export async function readPhotoInk(chunk: string, source: string, slideIndex: number, onScreen: boolean): Promise<InkVerdict> {
-	const { ref, placement, backing } = cardOf(chunk, source);
+	const { ref, ...rest } = cardOf(chunk, source);
 	if (!ref) return { kind: 'unknown' };
-	const kept = cachedVerdict(ref, placement, backing);
-	if (kept) return kept;
-	let mean: number[] | null = null;
-	if (onScreen) mean = await readBehindCard(chunk, slideIndex + 1).catch(() => null);
-	if (!mean) {
-		const url = await photoUrl(ref).catch(() => null);
-		if (url) mean = await estimateFromPhoto(url, placement);
+	const card: CardBox = { ref, ...rest };
+	const kept = cachedVerdict(card);
+	// A kept live read is final. A kept estimate stands until the preview can measure the real card box, which then replaces it.
+	if (kept && (kept.src === 'live' || !onScreen)) return kept.verdict;
+	if (onScreen) {
+		const live = await readBehindCard(chunk, slideIndex + 1).catch(() => null);
+		if (live) {
+			const verdict = decide(live, card.backing);
+			keepVerdict(card, verdict, 'live');
+			return verdict;
+		}
+		if (kept) return kept.verdict;
 	}
-	const verdict: InkVerdict = mean ? decide(mean, backing) : { kind: 'unknown' };
-	keepVerdict(ref, placement, backing, verdict);
+	const url = await photoUrl(ref).catch(() => null);
+	const mean = url ? await estimateFromPhoto(url, card.placement) : null;
+	const verdict: InkVerdict = mean ? decide(mean, card.backing) : { kind: 'unknown' };
+	keepVerdict(card, verdict, 'estimate');
 	return verdict;
 }
 

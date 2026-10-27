@@ -101,9 +101,15 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	const slideIndex = h.slideOf();
 	const chunk = splitSlides(stripFrontMatter(h.source()))[slideIndex] ?? '';
 	const card = cardOf(chunk, h.source());
-	const kept = card.ref ? cachedVerdict(card.ref, card.placement, card.backing) : undefined;
+	const kept = card.ref ? cachedVerdict({ ...card, ref: card.ref }) : undefined;
 	if (kept) {
-		show(kept);
+		show(kept.verdict);
+		// A kept estimate shows at once; when the preview shows this slide, the exact read replaces it, and the button changes
+		// only if the exact read disagrees.
+		if (kept.src === 'estimate' && h.onScreen())
+			void readPhotoInk(chunk, h.source(), slideIndex, true).then((v) => {
+				if (JSON.stringify(v) !== JSON.stringify(kept.verdict) && v.kind !== 'unknown') show(v);
+			}, () => {});
 		return root;
 	}
 	const checking = document.createElement('button');
