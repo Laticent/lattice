@@ -102,22 +102,44 @@ for (const [label, width, height] of [
 		await openDeckSettingsAt(page, width);
 		// Both breakpoint halves of the Inspector are in the DOM; act on the visible one.
 		const vis = <T extends ReturnType<Page['locator']>>(l: T) => l.filter({ visible: true }).first();
+		// Each write raises a 6-second Undo toast at the bottom of the screen (notify.ts
+		// ACTION_DURATION). At 390px it sits on Fit, the last row of its tab, which cannot
+		// scroll any higher, so a reader waits for the toast to go before tapping. Wait only
+		// when the toast actually covers the control; a covered last row is a recorded
+		// follow-up (followups.d/settings-last-row-under-undo-toast.md).
+		const toast = page.locator('[data-sonner-toast]');
+		const tap = async (l: ReturnType<Page['locator']>) => {
+			const el = vis(l);
+			await el.scrollIntoViewIfNeeded();
+			const box = await el.boundingBox();
+			const covered = await toast.evaluateAll((ts, b) => b !== null && ts.some((t) => {
+				const r = t.getBoundingClientRect();
+				return r.top < b.y + b.height && r.bottom > b.y && r.left < b.x + b.width && r.right > b.x;
+			}), box);
+			if (covered) {
+				// Sonner holds a toast while the pointer rests on it, and the last tap left the
+				// pointer there; a finger lifts, so move the mouse off to let the dwell run.
+				await page.mouse.move(0, 0);
+				await expect(toast).toHaveCount(0, { timeout: 10_000 });
+			}
+			await el.click();
+		};
 
-		await vis(page.getByRole('combobox', { name: 'Choose card row placement' })).click();
+		await tap(page.getByRole('combobox', { name: 'Choose card row placement' }));
 		await page.getByRole('option', { name: /Spread/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
-		await vis(page.getByRole('combobox', { name: 'Choose how slides fit' })).click();
+		await tap(page.getByRole('combobox', { name: 'Choose how slides fit' }));
 		await page.getByRole('option', { name: /Heal and trim/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');
 
 		await openSection(page, 'General');
-		await vis(page.getByRole('combobox', { name: 'Choose AI output language' })).click();
+		await tap(page.getByRole('combobox', { name: 'Choose AI output language' }));
 		await page.getByRole('option', { name: /United Kingdom/ }).click();
 		await expect.poll(() => persistedSource(page)).toContain('\\nai-lang: en-GB\\n');
 
 		await openSection(page, 'Motion');
-		await vis(page.getByRole('switch', { name: 'Chart motion' })).click();
-		await vis(page.getByRole('switch', { name: 'Motion in the exported player' })).click();
+		await tap(page.getByRole('switch', { name: 'Chart motion' }));
+		await tap(page.getByRole('switch', { name: 'Motion in the exported player' }));
 		await expect.poll(() => persistedSource(page)).toContain('\\nplayer-motion: off\\n');
 	});
 }

@@ -29,11 +29,17 @@ async function openChromeTab(page: Page): Promise<void> {
 
 test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
 	await openChromeTab(page);
+	// Page numbers are on by default (no front-matter), so the first click turns them OFF
+	// and writes `paginate: false`; a second click removes the directive again. The unit
+	// tier pins the same contract (studio.controls.test.tsx, "the Page-numbers switch").
 	const toggle = page.getByRole('switch', { name: 'Page numbers' });
+	await expect(toggle).toHaveAttribute('aria-checked', 'true');
+	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'false');
+	await expect.poll(() => persistedSource(page)).toContain('paginate: false');
 	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'true');
-	await expect.poll(() => persistedSource(page)).toContain('paginate: true');
+	await expect.poll(() => persistedSource(page)).not.toContain('paginate');
 });
 
 test('the Header field declares running-header text into front-matter', async ({ page }) => {
