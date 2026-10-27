@@ -147,6 +147,7 @@ mask-image** (§6).
 | **ring** | accent outline on target, **no dimming, no layout shift** | data tables (keeps comparison legible) | ✅ |
 | **list-fill** | accent-soft **fill** on the target item, rest untouched | lists / cards where dimming is too much but you want a "selected" read | ✅ |
 | **blur** | recede the rest by **defocus** (`filter: blur`), target stays sharp | the literal camera-focus; opt-in (added post-ratification, verified to survive PDF + PPTX) | ✅ |
+| **highlight** | accent **tint + edge** on the target on every axis (item, row, col, cell, line, mark, series), rest untouched, no weight or size change; the `verdict-grid` `preferred` look without the spark (added 2026-10, replacing `pop`) | when dimming is too much and a bare ring or fill is too faint | ✅ |
 | pointer | margin caret at the target, nothing dimmed/filled | tables where even a fill is too much | deferred |
 | lift | fill + weight + accent bar on target | tables, middle ground | deferred |
 | both | spotlight + ring | a single "this one number" climax | deferred |
@@ -166,7 +167,7 @@ is the precise signal:
   list-fill -->`; the named style always wins over the auto default.
 
 This is the confirmed decision: *content-aware default, with `spotlight`,
-`ring`, and `list-fill` as explicit variants.*
+`ring`, and `list-fill` as explicit variants.* (`blur` and `highlight` joined later; `pop` was removed before GA because it scaled the target and cast a shadow past its edge, which moved the layout and clipped at the stage.)
 
 ### 5.3 CSS contract & tokens
 
