@@ -147,7 +147,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
             acted = true;
             try {
               const d = f.contentDocument;
-              for (const e of d.querySelectorAll('a[ping],area[ping],[formaction]')) e.click();
+              for (const e of d.querySelectorAll('a[ping],area[ping],a[attributionsrc],[formaction]')) e.click();
               for (const fm of d.querySelectorAll('form')) fm.requestSubmit();
             } catch {}
           }
@@ -164,7 +164,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
         div.innerHTML = `${html}<p>x</p><div><span>x</span></div>`;
         root.appendChild(div);
         if (act) try {
-          for (const e of div.querySelectorAll('a[ping],area[ping],[formaction]')) e.click();
+          for (const e of div.querySelectorAll('a[ping],area[ping],a[attributionsrc],[formaction]')) e.click();
           for (const fm of div.querySelectorAll('form')) fm.requestSubmit();
         } catch {}
       }

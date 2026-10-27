@@ -295,6 +295,8 @@ function makeKit(next, wide = false, own = '') {
       () => `<form ${attr('action', a)}${chance(0.5) ? ` ${attr('method', pick(['get', 'post', 'POST', 'dialog']))}` : ''}><input name=q value=1><input type=submit></form>`,
       () => `<form><button ${attr('formaction', a)}>x</button></form>`,
       () => `<form><input type=image ${attr('formaction', a)} ${attr('src', 'data:image/gif;base64,R0lGODlhAQABAAAAACw=')}></form>`,
+      () => `<img ${attr('src', 'data:image/gif;base64,R0lGODlhAQABAAAAACw=')} ${attr('attributionsrc', a)}>`,
+      () => `<a ${attr('href', '#')} ${attr('attributionsrc', `${a} ${htmlAddress(`${url}-a`, 'dq')}`)}>x</a>`,
       () => `<link ${attr('rel', pick(['preconnect', 'dns-prefetch', 'prefetch', 'prerender', 'preload']))} ${attr('href', a)}${chance(0.5) ? ` ${attr('as', pick(['image', 'fetch', 'style', 'script']))}` : ''}>`,
     ])();
   }

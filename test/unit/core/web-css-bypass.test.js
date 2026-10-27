@@ -95,6 +95,18 @@ describe('a refresh meta', () => {
       }
     }
   });
+  test('is removed whatever its delay: seconds, minutes, a fraction, a trailing dot', () => {
+    for (const delay of ['0', '1', '3', '60', '3600', '86400', '0.5', '1.', '.5', '00007', '2147483647', '4294967296']) {
+      for (const sep of [';url=', '; URL=', ',', ' ', ';']) {
+        const html = `<meta http-equiv="refresh" content="${delay}${sep}https://evil.example/r"><p>x</p>`;
+        assert.ok(!holds(blockWebImages(html, [], { fonts: true, DOMParser }).html, 'evil.example'), html);
+      }
+    }
+  });
+  test('an exponent is not a delay: `1e3;url=https://…` reads as the relative page `e3;url=…`, as the browser reads it', () => {
+    const html = '<meta http-equiv="refresh" content="1e3;url=https://evil.example/r"><p>x</p>';
+    assert.equal(blockWebImages(html, [], { fonts: true, DOMParser }).html, html);
+  });
   test('stays when it names a relative page, and with an allowed origin', () => {
     const rel = '<meta http-equiv="refresh" content="0;url=next.html">';
     assert.equal(blockWebImages(rel, [], { DOMParser }).html, rel);
