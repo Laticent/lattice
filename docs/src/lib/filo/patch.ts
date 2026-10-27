@@ -64,11 +64,29 @@ export function invertPatch(patch: Patch): Patch {
 export function trimPatch(a: string, b: string): Patch {
 	if (a === b) return [];
 	const min = Math.min(a.length, b.length);
-	let p = 0;
-	while (p < min && a.charCodeAt(p) === b.charCodeAt(p)) p++;
-	let q = 0;
-	while (q < min - p && a.charCodeAt(a.length - 1 - q) === b.charCodeAt(b.length - 1 - q)) q++;
+	const p = commonPrefix(a, b, min);
+	const q = commonSuffix(a, b, min - p);
 	return [{ from: p, to: a.length - q, insert: b.slice(p, b.length - q), deleted: a.slice(p, a.length - q) }];
+}
+
+// The scans compare whole chunks with the engine's own string equality (a memory compare) and only
+// the last chunk character by character. A character loop over a 134 KB deck whose change sits at
+// one end measured 4-8 ms in Chromium on the Studio page, half the 16 ms budget of one history step
+// (engineering/decisions/2026-10-27-filo-undo-history.md §4.3); chunked, it is a fraction of a ms.
+const CHUNK = 512;
+
+function commonPrefix(a: string, b: string, max: number): number {
+	let p = 0;
+	while (p + CHUNK <= max && a.slice(p, p + CHUNK) === b.slice(p, p + CHUNK)) p += CHUNK;
+	while (p < max && a.charCodeAt(p) === b.charCodeAt(p)) p++;
+	return p;
+}
+
+function commonSuffix(a: string, b: string, max: number): number {
+	let q = 0;
+	while (q + CHUNK <= max && a.slice(a.length - q - CHUNK, a.length - q) === b.slice(b.length - q - CHUNK, b.length - q)) q += CHUNK;
+	while (q < max && a.charCodeAt(a.length - 1 - q) === b.charCodeAt(b.length - 1 - q)) q++;
+	return q;
 }
 
 /**

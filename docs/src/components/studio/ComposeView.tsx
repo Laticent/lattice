@@ -2030,7 +2030,7 @@ export type ComposeHandle = {
 	undoPane: (token: unknown) => boolean;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { history?: boolean }) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2039,7 +2039,7 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// then belongs to the next deck. Null the rest of the time.
 	const onRetireRef = React.useRef(onRetire);
 	onRetireRef.current = onRetire;
-	const retiringRef = React.useRef<((src: string) => void) | null>(null);
+	const retiringRef = React.useRef<((src: string, meta?: { history?: boolean }) => void) | null>(null);
 	const lastEmittedRef = React.useRef(source);
 	const baselineRef = React.useRef<EmitBaseline | null>(null);
 	// An external source change that arrived while the editor held focus — parked here
@@ -2612,7 +2612,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
-						(retiringRef.current ?? onChangeRef.current)(src);
+						// `history`: this emit is Compose's own undo or redo (the shell labels it so in Filo).
+						(retiringRef.current ?? onChangeRef.current)(src, { history: isHistoryTransaction(tr) });
 					}
 					// The caret's slide index — the top-level `slide` node it sits in. Edge-
 					// triggered so the shell only hears about real crossings.
@@ -2763,7 +2764,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
-				<div ref={hostRef} className="cs-host" />
+				{/* Compose keeps its own undo until Filo slice 4, so the Studio root's keymap yields to it here. */}
+				<div ref={hostRef} className="cs-host" data-filo-yield="" />
 				{flashChip && (
 					<button
 						type="button"

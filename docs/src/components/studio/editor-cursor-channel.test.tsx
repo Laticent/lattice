@@ -92,7 +92,7 @@ describe('the editor reports against the text it holds', () => {
 		const other = '# Alpha\n\n---\n\n# Beta\n\nbody\n\n---\n\n# Gamma\n';
 		const known: string[] = [];
 		hub.update(DECK);
-		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} focusHub={hub} carryKey="a" knownComponents={known} />);
+		const { container, rerender } = render(<Editor value={DECK} onChange={() => {}} focusHub={hub} docKey="a" knownComponents={known} />);
 		drain();
 		// One keystroke in the first deck: that is what stamps the editor with a revision.
 		const first = viewOf(container.querySelector('.cm-content'));
@@ -101,7 +101,7 @@ describe('the editor reports against the text it holds', () => {
 		// The shell feeds the hub the new deck during its render, then the editor rebuilds.
 		hub.update(other, { by: 'shell' });
 		hub.go('shell', { unitIndex: 0 });
-		rerender(<Editor value={other} onChange={() => {}} focusHub={hub} carryKey="b" knownComponents={known} />);
+		rerender(<Editor value={other} onChange={() => {}} focusHub={hub} docKey="b" knownComponents={known} />);
 		drain();
 		const view = viewOf(container.querySelector('.cm-content'));
 		expect(view.state.doc.toString()).toBe(other);

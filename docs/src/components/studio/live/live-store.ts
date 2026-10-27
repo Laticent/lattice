@@ -78,7 +78,9 @@ export type LiveHost = {
 };
 
 /** What the editor needs to bind to the shared text. `key` changes when it must rebuild. */
-export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null; records: LiveRecords };
+/** `undo` / `redo` step this browser's own changes in the session (the binding's Y.UndoManager), for
+ *  the Studio root's ⌘Z when focus is outside the editor (Filo note §6.2). */
+export type LiveCollab = { extension: Extension; key: string; readOnly: boolean; seed: () => string; look: LiveLook | null; records: LiveRecords; undo: () => boolean; redo: () => boolean };
 
 const read = (s: Storage, k: string): string | null => {
 	try {

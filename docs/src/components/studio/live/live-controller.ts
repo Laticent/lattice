@@ -444,6 +444,8 @@ type Runtime = {
 	link: string;
 	startedAt: number;
 	ext: Extension;
+	/** This browser's undo in the session: the binding's, so the Studio root's ⌘Z can reach it too. */
+	um: Y.UndoManager;
 	key: HostKey | null;
 	/** Awareness client id → the peer whose state we accepted for it (the roster bound them). */
 	owner: ReadonlyMap<number, string>;
@@ -1072,12 +1074,13 @@ export class LiveController {
 		});
 		// The binding brings its own undo manager, scoped to THIS browser's changes, in place of
 		// CodeMirror's history (which would put everyone's edits on your undo stack).
-		const ext = [yCollab(ytext, aw, { undoManager: new Y.UndoManager(ytext) }), keymap.of(yUndoManagerKeymap)];
+		const um = new Y.UndoManager(ytext);
+		const ext = [yCollab(ytext, aw, { undoManager: um }), keymap.of(yUndoManagerKeymap)];
 		// The LINK's fingerprint: a host that took over signs with its own key, certified by the link's.
 		const fingerprint = args.host?.succession?.fingerprint ?? key?.fingerprint ?? (args.hostFingerprint as string);
 		// The link is this page's address WITHOUT its query: a query can carry anything the host's
 		// address bar happened to hold (inversion round 2, item 6).
-		rt = { session, view: presence.view, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
+		rt = { session, view: presence.view, doc, ytext, aw, room: args.room, secret: args.secret, link: formatLink(location.origin + location.pathname, { room: args.room, secret: args.secret, host: fingerprint }), startedAt: args.startedAt ?? Date.now(), ext, um, key, owner, chatN: 0, ...newSid(args.room), gotDoc: !!args.host, disposers: [], release: args.release ?? null };
 		rt.disposers.push(() => {
 			rt?.release?.();
 			if (rt) rt.release = null;
@@ -1943,7 +1946,7 @@ export class LiveController {
 		const r = this.rt;
 		const s = r?.session.getState();
 		if (!r || !this.bound || !s?.me) return null;
-		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), look: this.look, records: this.received };
+		return { extension: r.ext, key: `${r.room}:${s.me.role === 'view' ? 'view' : 'edit'}`, readOnly: s.me.role === 'view', seed: () => r.ytext.toString(), look: this.look, records: this.received, undo: () => !!r.um.undo(), redo: () => !!r.um.redo() };
 	}
 
 	/** The chat in the host's order. A line's author is the member its `say` ARRIVED from at the

@@ -552,6 +552,54 @@ property tests; the trace of §9. No Studio change.
   from their text while Compose is the open pane.
 - Retires #1, #2 and #4. Slices 3 and 4 should land close together.
 
+**Slice 3 as built.** The glue is `docs/src/components/studio/studio-filo.ts` and the
+`filo:commit-path` block of `StudioShell.tsx`; `checkFiloCommitPath` gates both halves of rule 6.
+Where it differs from the plan above, and why:
+
+- **An intent carries the text it produced**, not just a label. The commit effect uses an intent
+  only when its text is the new source, so an intent left behind by a write that turned out to be a
+  no-op can never label a later change; the plan's "a no-op clears its intent" needed every writer
+  to know it was a no-op. One trap the e2e found: the editor's `value` sync calls `onChange` with
+  the shell's own text, and child effects run before the shell's, so that echo re-stamped "Typing"
+  over a settings write. The editor setter keeps the writer's intent when it already names the text.
+- **No line diff on the main thread at all.** A change commits with the editor's own edits when it
+  has them (CodeMirror's `ChangeSet`), otherwise as Filo's trimmed replace. Both are the narrow patch
+  for every local change, so the line diff the plan budgeted for is not needed until slice 5 narrows
+  broad entries.
+- **The trim had to get faster.** On the 134 KB deck in Chromium on the Studio page, an undo or a
+  settings write cost 4-17 ms, almost all of it `trimPatch`'s character loop over an unchanged end.
+  It now compares 512-character chunks natively first: worst step **1.1 ms in Chromium, 1.0 ms in
+  Firefox, 3.0 ms in WebKit** across typing, undo, redo, a settings write and a whole-deck replace
+  (`docs/e2e/filo-undo.spec.ts`, 16 measures per engine). The Chromium `longtask` arm is not in the
+  test: a long task on that page contains the React commit and the preview render around the Filo
+  call, so it cannot attribute anything to history work; the `performance.measure` arm can.
+- **A native text field always keeps the browser's undo**, rather than only "while its value
+  differs from the value it was given". React's controlled inputs rewrite that given value on every
+  keystroke, so the test could not tell the chat composer mid-draft from a committed field, and a ⌘Z
+  in the composer would have undone the deck. After the field loses focus, ⌘Z is Filo's again.
+- **Scopes.** The registry's modal scope stack is unused until slice 7; Fabricate, a full-screen
+  surface, takes the keys away from Filo entirely, and Present does too. Focus inside any dialog
+  (a photo's details, a picker, the drawer) yields as well: an undo there would change a slide the
+  author cannot see.
+- **The independent check** (one checker, per the brief) found, and this slice fixes: forward
+  typing never split at a slide break (Filo asks `boundary` with two equal offsets, and the first
+  cut returned early on them); the ⌘Z flush could commit a not-yet-rendered deck load against the
+  deck being left; `beforeinput` undo ignored IME composition; non-Latin layouts missed the chord
+  (now read from the physical key, as CodeMirror does); and the gate missed `Mod-Shift-z`,
+  `Ctrl-y`, `UndoManager`, namespace imports and an unclosed block. Two limits stay, both slice-3
+  interim or live-only: an undo made by Compose's own stack is recorded as a new "Compose undo"
+  step (slice 4 removes it), and in a live session the settings toast's Undo goes to
+  `Y.UndoManager`, which merges a write made within its 500 ms capture window with the typing
+  before it.
+- **Live sessions.** The root ⌘Z reaches the session's `Y.UndoManager` through `LiveCollab.undo` /
+  `redo`, so undo outside the editor works in a session too; the shared deck's changes reach Filo
+  as one outside change when the session ends.
+- **The phone's Undo and Redo** sit in the header beside the mode toggle, outside the Compose pane,
+  which keeps its own pair until slice 4. At 390 px the deck switcher's title truncates sooner.
+- **The carry is gone** (#2), with `editor-carry.test.ts`; `studio-filo.test.ts` pins the same
+  invariant (two new decks with identical bytes keep separate histories), and the e2e oracles in
+  `markdown-stress.spec.ts` now assert that a Compose edit is on the one history.
+
 **4. Compose on Filo.** The five Compose changes of §3.3, with the spike's answer for change 4;
 remove Compose's gate entries. Retires #3.
 
