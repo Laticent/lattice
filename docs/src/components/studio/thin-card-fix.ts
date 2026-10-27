@@ -1,3 +1,7 @@
+import type { Diagnostic } from '@codemirror/lint';
+import type { EditorView } from '@codemirror/view';
+import { buildDeckIndex } from '@/lib/deck-outline';
+import { unitAt } from '@/lib/fuoco/outline';
 import { replaceSlide } from './deck-ops';
 import { stripFrontMatter } from './front-matter';
 import { splitSlides } from './lint';
@@ -110,4 +114,28 @@ export function inkFixNode(
 		add('dark');
 	}
 	return root;
+}
+
+export { keepTooltipOnSameDiagnostics } from './lint-tooltip-keep';
+
+/**
+ * Give each `thin-card-no-ink` diagnostic its tooltip body (`inkFixNode`) and drop lint's "Fix: …" prose, since buttons do the
+ * fix (#1658). `text` is the document the diagnostics were built from; `focusUnit` is the slide the hub says is on screen.
+ * Lives here, not in the editor, so none of it rides the editor's startup chunk.
+ */
+export function attachInkFixes(diags: Diagnostic[], text: string, focusUnit: () => number | undefined): void {
+	const ix = buildDeckIndex(text);
+	for (const d of diags) {
+		const message = d.message.split('\n\nFix:')[0];
+		const at = d.from;
+		const slide = Math.max(0, unitAt(ix, at));
+		d.message = message;
+		d.renderMessage = (v: EditorView) =>
+			inkFixNode(message, {
+				slideOf: () => Math.max(0, unitAt(buildDeckIndex(v.state.doc.toString()), at)),
+				source: () => v.state.doc.toString(),
+				onApply: (next) => v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: next } }),
+				onScreen: () => focusUnit() === slide,
+			});
+	}
 }
