@@ -64,7 +64,8 @@ function atSize(md, size) {
   return src.replace(/^(---\n[\s\S]*?)\n---\n/, (_m, fm) => `${fm.replace(/^size:.*$/m, '')}\nsize: ${size}\n---\n`);
 }
 
-const hash = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 12);
+// 8 hex characters per page: 4 billion values, far more than 7,347 pages ever need to tell apart.
+const hash = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 8);
 
 function sweep() {
   const capacity = ss.splitCapacityFrom(loadAll(path.join(ROOT, 'lib', 'components')));
@@ -118,7 +119,12 @@ if (CHECK) {
     console.error(`split-pages-golden: no record at ${path.relative(ROOT, RECORD)}; run without --check to write it`);
     process.exit(1);
   }
-  const all = JSON.parse(fs.readFileSync(RECORD, 'utf8')).decks;
+  // The record is flat: `"<file> @<size>": {split, pages, settled}`. Fold it back to file → size.
+  const all = {};
+  for (const [key, v] of Object.entries(JSON.parse(fs.readFileSync(RECORD, 'utf8')).decks)) {
+    const at = key.lastIndexOf(' @');
+    (all[key.slice(0, at)] ||= {})[key.slice(at + 2)] = v;
+  }
   const want = ONLY ? Object.fromEntries(Object.entries(all).filter(([f]) => f.includes(ONLY))) : all;
   const lines = diff(want, got);
   if (lines.length) {
@@ -132,7 +138,14 @@ if (CHECK) {
     console.error('split-pages-golden: --only is for --check; a bless always sweeps every gallery');
     process.exit(2);
   }
-  const body = { about: 'Per-page hashes of structuralSplit output. Written by tools/split-pages-golden.js; a diff is a behavior change to review.', theme: THEME, sizes: SIZES, decks: got };
-  fs.writeFileSync(RECORD, `${JSON.stringify(body, null, 1)}\n`);
+  // ONE LINE PER DECK AND SIZE, so the record stays reviewable: the first cut wrote one hash per
+  // line, and its 8,958-line diff buried the rest of the PR that added it. A drift still names
+  // the deck, the size and the first page that moved, because `--check` compares page by page.
+  const lines = [];
+  for (const [file, bySize] of Object.entries(got)) {
+    for (const size of SIZES) lines.push(`  ${JSON.stringify(`${file} @${size}`)}: ${JSON.stringify(bySize[size])}`);
+  }
+  const head = { about: 'Per-page hashes of structuralSplit output. Written by tools/split-pages-golden.js; a diff is a behavior change to review.', theme: THEME, sizes: SIZES };
+  fs.writeFileSync(RECORD, `${JSON.stringify(head).slice(0, -1)},"decks":{\n${lines.join(',\n')}\n}}\n`);
   console.log(`split-pages-golden: wrote ${path.relative(ROOT, RECORD)} — ${decks} decks × ${SIZES.length} sizes, ${pages} pages (${secs}s)`);
 }
