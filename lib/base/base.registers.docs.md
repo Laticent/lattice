@@ -446,11 +446,20 @@ theme's `--accent` to their brand.
 
 | `spectrum:` value | Token | Effect |
 |---|---|---|
-| `on` | *(none)* | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `on` | *(none)*; per slide `spectrum-on` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
 | `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
+
+**Back to the default on one slide — the restore tokens.** A deck value writes no token when it
+is the default, so the default needs a token of its own for one slide to ask for it inside a deck
+that set something else. Each of these registers has one, named for its default value:
+`spectrum-on`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
+`head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
+that slide (as any per-slide token does), and the slide renders as the default. So in a
+`spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
+the move `claim-framed` already makes for `claim:`.
 
 **`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
 ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
@@ -458,7 +467,7 @@ bar-off deck keeps its table rails and `---` rules.
 
 | `spectrum-edge:` value | Token | Effect |
 |---|---|---|
-| `top` | *(none)* | The top border. **The default** (omit the key). |
+| `top` | *(none)*; per slide `spectrum-edge-top` | The top border. **The default** (omit the key). |
 | `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
 | `right` | `spectrum-edge-right` | A right rail. |
 | `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
@@ -486,7 +495,7 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 
 | `spectrum-card-edge:` value | Token | Effect |
 |---|---|---|
-| `left` | *(none)* | A rail on the card's left edge. **The default** (omit the key). |
+| `left` | *(none)*; per slide `spectrum-card-edge-left` | A rail on the card's left edge. **The default** (omit the key). |
 | `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
 | `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
 | `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
@@ -528,7 +537,7 @@ caught as `unknown-rule`. Palette-blind; defaults to today's render.
 
 | `rule:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)* | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
+| `auto` | *(none)*; per slide `rule-auto` | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
 | `full` | `rule-full` | An explicit full-width hairline. |
 | `short` | `rule-short` | A short rule under the heading. |
 | `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
@@ -649,7 +658,7 @@ cleanly.
 
 | `eyebrow:` value | Token | Effect |
 |---|---|---|
-| `plain` | *(none)* | The bare mono-caps label. **The default** (omit the key). |
+| `plain` | *(none)*; per slide `eyebrow-plain` | The bare mono-caps label. **The default** (omit the key). |
 | `dot` | `eyebrow-dot` | A small filled `--accent` disc before the label. |
 | `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
 | `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
@@ -680,7 +689,7 @@ a typo is caught as `unknown-headline`.
 
 | `headline:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
+| `auto` | *(none)*; per slide `head-auto` | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
 | `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
 | `center` | `head-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
 | `right` | `head-right` | Right-align the whole framing cluster — the rare escape hatch. Same box machinery as `center` (one `--headline-justify` axis on the flex lede), just the far edge. |

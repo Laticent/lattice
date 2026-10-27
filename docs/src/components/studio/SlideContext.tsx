@@ -514,12 +514,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
 	const spectrumInherits = activeSpectrum((spectrum.inheritable && spectrum.deckValue) || 'on').name;
 	const spectrumValue = inheritValue(spectrum.state === 'on' ? spectrum.value : null, spectrumInherits);
-	// The rainbow (`on`) has no per-slide token — it is the absence — so it is offered only
-	// as what Auto inherits.
-	const spectrumGroups = inheritGroups(
-		[{ options: catalogOptions(SPECTRA).filter((o) => o.value !== 'on' || spectrumInherits === 'on') }],
-		{ value: spectrumInherits },
-	);
+	// The rainbow is a per-slide choice too (`spectrum-on`, the restore token), so a slide in a
+	// `spectrum: solid` deck can go back to it.
+	const spectrumGroups = inheritGroups([{ options: catalogOptions(SPECTRA) }], { value: spectrumInherits });
 	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
 
 	// The accent sub-family (bar placement / heading rule / eyebrow) — each an "override"
@@ -534,9 +531,10 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 		glyph?: (name: string) => React.ReactNode,
 	): { value: string; groups: CatalogGroup[] } => {
 		const inherits = active(prov.inheritable ? prov.deckValue : defaultName).name;
-		// The default has no per-slide token (it is the absence), so it is offered only as
-		// what Auto inherits.
-		const options = catalogOptions(entries, glyph).filter((o) => o.value !== defaultName || inherits === defaultName);
+		// Every value is a per-slide token, the default included: its restore token
+		// (`spectrum-edge-top`, `rule-auto`, …) is how one slide returns to the default inside a
+		// deck that set another value. Only the value Auto already gives leaves the list.
+		const options = catalogOptions(entries, glyph);
 		return { value: inheritValue(prov.state === 'on' ? prov.value : null, inherits), groups: inheritGroups([{ options }], { value: inherits }) };
 	};
 	const edgeProv = React.useMemo(() => spectrumEdgeProvenance(chunk, source), [chunk, source]);
