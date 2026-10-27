@@ -2,7 +2,8 @@
 status: shipped
 summary: >
   The Studio Coach now warns when the text on a photo slide falls below 4.5:1, measured from the live preview, and offers a
-  one-click "Pin this slide dark" (or light) only when that pin clears the floor. It never flips a slide on its own. The
+  one-click "Pin this slide dark" (or light) only when that pin clears the floor, or, when no pin does, "Set card ink
+  light" (or dark) if that ink clears it. It never flips a slide on its own. The
   contrast arithmetic, the photo sampler and the Coach finding list are all reused; the new code is a 90-line kernel
   (`lib/core/photo-contrast.mjs`), a reader that asks the preview what it painted, and a hook that keeps one finding for the
   slide on screen.
@@ -21,8 +22,8 @@ reads on this photo.
 ## Decision
 
 1. **Warn, and offer the fix; never auto-flip.** The Coach shows a `photo-contrast` finding with the ratio and, when it
-   helps, a **Pin this slide dark** / **light** button. The author clicks it. A pin is offered only if it takes the text to
-   4.5:1 or better, because a button that changes the slide and still leaves the words unreadable is worse than none.
+   helps, a **Pin this slide dark** / **light** button (or, when no pin clears, **Set card ink light** / **dark**; see the
+   2026-10-27 section below). The author clicks it. A fix is offered only if it takes the text to 4.5:1 or better, because a button that changes the slide and still leaves the words unreadable is worse than none.
 2. **Measure the painted page.** The reader asks the preview frame for the three things the browser decided: the mean photo
    color under the card (the `card-ink-sampler.ts` code, now shared), the card's computed fill, and the computed ink of
    the heading, first paragraph and first list row. The pin is simulated by toggling the class inside one task with
@@ -184,3 +185,31 @@ the cache's keys, persistence and broken-storage paths, and how references resol
 that now gets one ink, the reload (proven to fail with the cache off), and the no-ink and unreadable-photo cases. The
 frame-trace jank guard now skips CodeMirror's unmeasured `top: -10000px` placement. That frame is invisible, and under
 load the trace caught it about one run in four.
+
+## When no pin clears, the finding offers the card ink (2026-10-27)
+
+On `photo-wide` with `card-clear` and a body paragraph, pinning dark lifts the heading but leaves the theme's muted body
+ink under 4.5:1, so the finding offered no button and only named the options. In the e2e run that slide reads at 1.6:1 as
+written and at 7.1:1 with `ink-light` (Chromium, light mode, 1440 px). A spotlight card has a second fix that
+does not depend on the theme: `ink-light` / `ink-dark` set the card's fill and both inks to fixed values (the thin-card
+classes). The finding now offers **Set card ink light** (or **dark**) when, and only when, no pin clears and that ink does.
+
+- **A pin still comes first.** The agreed design was the pin, and a pin keeps the theme's own palette while an ink
+  overrides it. `judge` in `lib/core/photo-contrast.mjs` tries `PINS`, and moves on to `INKS` only when no pin clears. Inside
+  each group the higher ratio wins, as before. A pin that clears beats an ink that clears higher.
+- **The ink is measured, not assumed.** `readPinned` simulates an ink the way it simulates a pin: it sets the class on the
+  preview section (and clears the other ink) inside one task with transitions off, reads the computed fill and inks, and puts
+  the classes back. `pickCardInk` in `card-ink.mjs` was not reused for the decision because it models only the heading ink,
+  and this finding judges the worst of heading, paragraph and list row.
+- **The edit is the Image tab's.** The button writes the class through `setImageCard(chunk, 'ink', …)`, the same
+  function the slide's Image tab and the tooltip's `addCardInk` use, so the slide never carries both inks.
+- **Whose call.** The follow-up parked this as the owner's decision. The continuation brief for this work said "decide and
+  proceed", so it is built, kept small and reversible, and put to the owner at the merge gate. If they decline it, reverting
+  this one commit restores the pin-only finding.
+- **When nothing clears**, the message now reads "No pin and no card ink clears it: raise the card backing or choose
+  another photo." It used to suggest the card ink, which the finding has now tried.
+
+The unit tests add the ink fallback, the pin-wins order, the higher of two clearing inks, and an ink that does not clear. The e2e "no pin" case now expects
+**Set card ink light**, no pin button and no **Set card ink dark**, clicks it, and expects the source to read
+`card-clear ink-light` and the finding to clear. It runs at 1440 and 390 in Chromium and in WebKit's tablet and phone
+projects.
