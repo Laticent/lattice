@@ -106,6 +106,8 @@ test('it refuses what it cannot write', async () => {
   const { createJpegEncoder } = await load();
   assert.throws(() => createJpegEncoder({ width: 0, height: 4, quality: 90 }), RangeError);
   assert.throws(() => createJpegEncoder({ width: 4, height: 4, quality: Number.NaN }), TypeError);
+  assert.throws(() => createJpegEncoder({ width: 4, height: 4, quality: null }), TypeError, 'null is not quality 1');
+  assert.throws(() => createJpegEncoder({ width: 65501, height: 1, quality: 90 }), RangeError, 'past what decoders read');
   const enc = createJpegEncoder({ width: 4, height: 4, quality: 90 });
   assert.throws(() => enc.addRows(new Uint8Array(4 * 4 * 5), 5), RangeError, 'more rows than the height');
   enc.addRows(new Uint8Array(4 * 2 * 4), 2);

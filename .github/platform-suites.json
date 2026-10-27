@@ -107,6 +107,18 @@
       ],
       "run": "bash docs/scripts/ios-safari/run.sh",
       "why": "Real Mobile Safari, in an iPad and an iPhone iOS Simulator, drives the Studio preview with a quoted-attribute payload and the nested-form mXSS shape through the first write and the patch path (#2899), and proves its own detector fires. Playwright's WebKit on Linux is not iOS Safari, and nothing else in CI reaches it. A simulator runs on the Mac's hardware, so it is not a physical device."
+    },
+    {
+      "name": "ios-safari-jpeg",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "lib/core/jpeg-encode.mjs",
+        "docs/scripts/ios-safari/*"
+      ],
+      "run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
+      "why": "Every export JPEG goes through the shared encoder (lib/core/jpeg-encode.mjs) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's, and its luma must stay within a decibel of Safari's own at the same quality; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's."
     }
   ]
 }

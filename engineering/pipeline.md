@@ -457,8 +457,9 @@ needs one thing from its host, `toDataUri(url)`, which turns a picture address i
   The browser's `toBlob('image/png')` wrote files about 40% larger.
 - **One JPEG encoder** (`lib/core/jpeg-encode.mjs`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
   its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
-  in every engine: Firefox keeps full-resolution color (about twice Chromium's size for the same picture), and the same
-  52-slide picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Ours writes the same file from the same
+  in every engine: on the Yearn deck's 52 slide pictures Firefox's wrote 16.59 MB where ours writes 12.45 MB, and the same
+  picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone (attributed to Apple's encoder, which the
+  `ios-safari-jpeg` platform suite measures in an iOS Simulator; no Linux engine uses it). Ours writes the same file from the same
   pixels in Chromium, Firefox, WebKit and Node (`docs/e2e/jpeg-encode-engines.spec.ts` checks the bytes against the golden
   hash in `test/unit/core/jpeg-encode.test.js`), within 0.1% of libjpeg's size, about 150 ms for a 2560 × 1440 slide in V8.
 - **Every export picture goes through them** (`encodeCanvas`): the slide camera, the PDF's photo layer, the PDF worker lane,

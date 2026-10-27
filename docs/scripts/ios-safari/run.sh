@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# The `ios-safari-studio` platform suite (.github/platform-suites.json): the Studio preview probe in REAL Mobile
-# Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. Run from the repo root after
-# `npm ci` and `npm run build` (the platform-suites job does both).
+# The `ios-safari-studio` and `ios-safari-jpeg` platform suites (.github/platform-suites.json): a probe in REAL Mobile
+# Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. PROBE=studio (default) runs the Studio
+# preview probe against the built docs site; PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
+# page (it needs an http origin, not the site). Run from the repo root after `npm ci` and `npm run build` (the
+# platform-suites job does both).
 #
 # The simulator recipe is the one that is known to work on hosted runners (aletheia-works/formicarium#129):
 # a FRESH device (the image ships a booted one that safaridriver times out on), the remote-automation defaults
@@ -13,6 +15,7 @@ ROOT=$(pwd)
 OUT="$ROOT/platform-suite-artifacts/ios-safari"
 mkdir -p "$OUT"
 PORT=4321
+PROBE=${PROBE:-studio}
 
 # KEEP THE IMAGE'S DEFAULT XCODE; only check it. Switching with `xcode-select -s`, even to the same 26.x, is what
 # makes safaridriver fail every session with "Could not find Simulator.app or a devices:// URL handler" (seen on
@@ -26,12 +29,23 @@ case "$xcode" in
 esac
 test -d "$(xcode-select -p)/Applications/Simulator.app" || { echo "no Simulator.app under $(xcode-select -p)" >&2; exit 1; }
 
-# The docs site, built and served the way the e2e suite serves it.
-(cd docs && npm ci && npm run build:e2e)
-(cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
-server=$!
-for _ in $(seq 1 120); do curl -sf "http://localhost:$PORT/studio/" >/dev/null && break; sleep 1; done
-curl -sf "http://localhost:$PORT/studio/" >/dev/null
+if [ "$PROBE" = jpeg ]; then
+  # A blank page on an http origin is all the JPEG probe needs.
+  page="$RUNNER_TEMP/jpeg-probe-page"
+  mkdir -p "$page"
+  printf '<!doctype html><title>jpeg probe</title>\n' > "$page/index.html"
+  (cd "$page" && python3 -m http.server $PORT > "$OUT/preview.log" 2>&1) &
+  server=$!
+  ready="http://localhost:$PORT/"
+else
+  # The docs site, built and served the way the e2e suite serves it.
+  (cd docs && npm ci && npm run build:e2e)
+  (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
+  server=$!
+  ready="http://localhost:$PORT/studio/"
+fi
+for _ in $(seq 1 120); do curl -sf "$ready" >/dev/null && break; sleep 1; done
+curl -sf "$ready" >/dev/null
 
 sudo safaridriver --enable
 safaridriver --port 4444 &
@@ -68,7 +82,7 @@ for family in iPad iPhone; do
   xcrun simctl bootstatus "$udid" -b
   xcrun simctl launch "$udid" com.apple.mobilesafari
   sleep 5
-  if ! SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
+  if ! PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs; then
     status=1
     xcrun simctl list devices booted || true
     for domain in com.apple.webinspectord com.apple.mobilesafari; do
@@ -82,9 +96,15 @@ done
   echo
   echo "| device | result |"
   echo "|---|---|"
-  for f in "$OUT"/*.json; do
+  for f in "$OUT"/"$PROBE"-*.json; do
     [ -f "$f" ] || continue
     jq -r '"| \(.session.label) (iOS \(.session.platformVersion // "?"), Safari \(.session.browserVersion // "?"), \(.width)px) | \(if .ok then "PASS" else "FAIL: \(.error)" end) |"' "$f"
+  done
+  # The JPEG probe's measurements: Safari's own encoder against ours, picture by picture.
+  for f in "$OUT"/jpeg-*.json; do
+    [ -f "$f" ] || continue
+    echo
+    jq -r '"**\(.session.label)**: Safari'"'"'s encoder \(.total.native) B, ours \(.total.ours) B", "", "| picture | Safari | ours |", "|---|---|---|", (.rows[] | "| \(.name) | \(.native.bytes) B, \(.native.sampling), \(.native.psnr * 100 | round / 100) dB | \(.ours.bytes) B, \(.ours.sampling), \(.ours.psnr * 100 | round / 100) dB, \(.ours.ms | round) ms |")' "$f"
   done
 } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
 exit $status
