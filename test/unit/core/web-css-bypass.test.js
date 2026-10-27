@@ -133,7 +133,7 @@ describe('an address that fires on a click or a submit', () => {
   test('is removed where no policy stands behind the host, by the markup scan and by the parser check', () => {
     for (const [html, want] of cases) {
       assert.equal(blockWebImages(html, [], { fonts: true, DOMParser }).html, want, html);
-      assert.equal(verifyWithParser(`<p>${html}</p>`, DOMParser, (u) => remoteRef.isRemoteUrl(u), true).includes('evil.example'), false, html);
+      assert.equal(holds(verifyWithParser(`<p>${html}</p>`, DOMParser, (u) => remoteRef.isRemoteUrl(u), true), 'evil.example'), false, html);
     }
   });
   test('is listed in blocked with its origin, so a host can offer to approve it', () => {
@@ -190,8 +190,8 @@ describe('a drawn Mermaid diagram', () => {
   test('still counts an address it draws or links, beside the namespaces', () => {
     for (const inner of ['<image href="https://evil.example/a.png" width="9" height="9"/>', '<a xlink:href="https://evil.example/l"><rect width="5" height="5"/></a>', '<image xlink:href="//evil.example/b.png"/>']) {
       const r = blockWebImages(drawn(inner), [], { DOMParser });
-      assert.ok(r.blocked.some((b) => b.url.includes('evil.example')), inner);
-      assert.ok(!r.blocked.some((b) => b.url.includes('www.w3.org')), inner);
+      assert.ok(r.blocked.some((b) => holds(b.url, 'evil.example')), inner);
+      assert.ok(!r.blocked.some((b) => holds(b.url, 'www.w3.org')), inner);
     }
   });
 });
