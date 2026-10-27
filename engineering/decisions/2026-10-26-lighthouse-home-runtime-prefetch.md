@@ -229,3 +229,18 @@ only when the registered base text is byte-equal to the one the build packed. A 
 and an extra 560 KB download (not measured compressed) is likely to cost more on the Lighthouse link than the 70 ms it saves, so the packed base must REPLACE the raw
 base for the Playground, not sit beside it. That changes the engine's input contract, and every consumer of `lattice-min.css`
 (export to Marp, the CLI) keeps the raw one. So it is a design decision, not a slice: **not built.** Default if no one answers: not built.
+
+## 11. Lever A built: no lint while the Playground editor is hidden (followup 2913-p1)
+
+`lintSource` in `docs/src/playground/editor.js` now returns no findings while the editor has no layout. Explore and a phone's
+preview pane hide the editor with `display: none`, and a box with no layout has no client rects, so that one check covers
+both. It also arms a `ResizeObserver` on the editor. When the pane gets a size, the observer dispatches the effect the
+linter's `needsRefresh` already reads for plugin-default changes, so the lint runs the moment the editor shows, with no
+edit. The lint core (`esm/lint.js`) is therefore not fetched at all on an Explore load. An Edit-first load lints as before.
+
+`docs/e2e/playground-lint-hidden.spec.ts` pins three things at desktop and phone width: an Explore load fetches no lint
+core and the switch to Edit does; an Edit-first load underlines a stray component; and an editor hidden before first paint
+lints with no edit once it shows. With the gate reverted, the first and third fail on "the lint core loaded while the
+editor was hidden", so the spec can fail.
+
+**On the CDN:** measured on this branch's Cloudflare preview; the table follows.
