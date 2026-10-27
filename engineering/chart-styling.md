@@ -289,7 +289,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   tone chart has. On dark, where the default words sat at about 3.7:1, every word now clears 4.5:1.
 - **A tone matrix grid is one hue.** The member colors a row's label and its empty cells' outlines from the row's own
   hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
-  column or a roadmap phase). Filled cells keep the one ladder: a row's depth is its category.
+  column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
+  quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
+- **Tone's neutral tile and waterfall anchors take the tone hue.** A flowchart or state-chart node with no category and no
+  status, and a waterfall's Plan / Actual columns, were the chart's grey; on a one-hue slide that read as a second color. Tone
+  re-points `--chart-neutral-hue` to the one hue (status nodes keep their status color) and tints the anchors pale. Pigment
+  and etch leave them grey.
 - **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
   ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
   tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status

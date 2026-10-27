@@ -707,6 +707,23 @@ function build() {
       // in its labels and outlines. The row's hue is re-pointed to the one hue, as a kanban column's and a roadmap phase's
       // are; the filled cells keep the one ladder (a row's depth is its category).
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
+      // A node with no category and no status is a flowchart's or state chart's NEUTRAL tile. Tone has one hue, so the tile
+      // takes it; a status node and a category node (the `:not`s) keep theirs. Set on the member's own hue property rather
+      // than re-pointing `--chart-neutral-hue`, which test/helpers/chart-color.js reads from dist as the theme's grey.
+      const bare = ':not([data-s]):not([data-slot])';
+      w(supports(rule(name, `:is(.fc-node, .fc-node-group)${bare}`, [`--fc-hue: ${ONE}`])));
+      w(supports(rule(name, `:is(.state-node, .state-node-shape, .state-label-t, .state-node-row)${bare}`, [`--fill-hue: ${ONE}`])));
+      // A waterfall's Plan / Actual anchors are neutral columns; under tone they are the tone hue, pale, like the neutral tile.
+      w(rule(name, '.waterfall-bar[data-s="total"]', [
+        `fill: light-dark(color-mix(in oklab, ${ONE} 22%, var(--bg)), color-mix(in oklab, ${ONE} 30%, var(--bg)))`,
+        `stroke: ${ONE_INK}`,
+      ]));
+      // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
+      // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
+      w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [
+        `background-color: color-mix(in oklab, ${ONE} ${TONE[5]}%, var(--bg))`,
+        'color: var(--text-heading)',
+      ])));
       // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
       for (const n of SLOTS.filter((x) => x > 4)) w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${notLeft}`, ['stroke-dasharray: 5 3']));
     }

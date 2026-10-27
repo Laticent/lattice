@@ -361,6 +361,16 @@ describe('marks.generated.css', () => {
     assert.deepEqual([5, 4.5, 4.49, 3.5, 2.5, 1.5, 1.49, 1].map(tierOf), [5, 5, 4, 4, 3, 2, 1, 1]);
   });
 
+  // A node with no category or status is the chart's neutral tile, and a waterfall's Plan / Actual anchors are neutral columns.
+  // Tone has one hue, so both take it; pigment and etch leave them grey.
+  test('tone gives the neutral tile and the waterfall anchors the tone hue; the other finishes leave them grey', () => {
+    const tile = headed('tone').find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
+    assert.match(tile?.body || '', /--fc-hue: var\(--chart-cat-1-hue\) !important/);
+    const wf = headed('tone').find((x) => x.sel.includes('.waterfall-bar[data-s="total"]'));
+    assert.match(wf?.body || '', /fill: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%/);
+    for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.body.includes('--fc-hue: var(--chart-cat-1-hue)') || x.body.includes('cat-1-hue') && x.sel.includes('waterfall-bar[data-s="total"]')), `${f} leaves them grey`);
+  });
+
   // The matrix grid colors a row's label and its empty cells' outlines from `--row-hue` / `--row-ink`, which no finish paints
   // (they are the member's own properties). Tone re-points them, so a tone grid is one hue like the heatmap and the tower.
   test('tone re-points a matrix grid row to the one hue; the other finishes leave rows alone', () => {
@@ -368,6 +378,9 @@ describe('marks.generated.css', () => {
     assert.match(r?.body || '', /--row-hue: var\(--chart-cat-1-hue\) !important/);
     assert.match(r?.body || '', /--row-ink: var\(--chart-cat-1-ink\) !important/);
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.sel.includes('matrix-grid-figure')), `${f} leaves rows alone`);
+    const cell = headed('tone').find((x) => x.sel.includes('.cell-filled') && x.body.includes('background-color'));
+    assert.match(cell?.body || '', /background-color: color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%, var\(--bg\)\) !important/);
+    assert.match(cell?.body || '', /color: var\(--text-heading\) !important/);
   });
 
   // THE EDGE RULE. Pigment and etch outline a mark in its own category ink. Tone has ONE ladder of shades that already tells
