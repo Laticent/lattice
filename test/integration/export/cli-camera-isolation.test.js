@@ -77,3 +77,18 @@ test('the camera\'s read hook and globals are absent from the deck\'s world', { 
     await browser.close();
   }
 });
+
+// A slide hidden by CSS has no box. The camera used to photograph it as a 1 x 1 picture and exit 0; Chrome's screenshot
+// cannot take it either. The export now stops and names the slide.
+test('a slide hidden by CSS stops a picture export by name', { skip: !fs.existsSync(BUNDLE) && 'needs npm run build' }, () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cam-hidden-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'd.md'), '---\ntheme: indaco\nstyle: |\n  section[data-lattice-slide="2"] { display: none !important; }\n---\n\n# One\n\n---\n\n# Two\n');
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'd.md'), path.join(dir, 'o.png')], { encoding: 'utf8', timeout: 120000 });
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /slide 2 has no size \(hidden by CSS, or not laid out\)/);
+    assert.ok(!fs.existsSync(path.join(dir, 'o.002.png')), 'no 1 x 1 picture is written');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
