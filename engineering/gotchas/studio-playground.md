@@ -1722,3 +1722,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a modal Radix layer on a WebKit touch device; a custom surface that sets `pointer-events: auto` on itself outside a Radix layer.
 - **Removable when** — Radix gives an outside tap a target on WebKit itself, or the lists stop being modal.
 - **Commits** — the PR that gave the Settings pickers their icons and one Auto head.
+
+## A select list wider than its trigger runs off the right edge of a phone screen
+
+- **Symptom** — at phone width, an open Settings picker whose longest row is wider than its trigger (`Auto — Component's own` in a 176px trigger) runs to the screen's edge or past it, with no margin. Measured in Playwright WebKit at 393px: six deck pickers ended at 394–395px.
+- **Cause** — the shadcn `Select` uses Radix's item-aligned position, which puts the chosen row over the trigger and clamps that placement against the TRIGGER's width, not the list's real width. A list wider than the trigger keeps its left edge and spills right.
+- **Mitigation** — `useInScreen` in `docs/src/components/ui/select.tsx` slides the list's positioned wrapper left by the overflow, never past Radix's own 10px margin, and caps the width at the screen. It re-runs on every `style` write Radix makes, and it takes the node through a callback ref because Radix mounts the list a render after the Content element (a plain `useRef` read null and the clamp never ran). `docs/e2e/select-in-screen.spec.ts` pins it on Chromium and WebKit at phone width.
+- **Triggered by** — a long option label at phone width; a new picker whose rows are wider than its trigger.
+- **Removable when** — Radix's item-aligned position clamps against the list's measured width, or the Studio moves its selects to popper position.
+- **Commits** — the PR that gave the Settings pickers their icons and one Auto head.
