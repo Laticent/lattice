@@ -48,7 +48,7 @@ import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.ge
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
-import { captureSlideCanvas, encodePng } from '../../../../../lib/core/slide-camera.mjs';
+import { captureSlideCanvas } from '../../../../../lib/core/slide-camera.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
@@ -63,7 +63,7 @@ import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { applyFontsOverride, applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
-import { createPngEncoder } from './png-encoder-pool.js';
+import { sharedPngEncoder } from './png-encoder-pool.js';
 import { settleSlideDraw } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
@@ -1052,6 +1052,8 @@ async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
 	clearDataUriMemo();
+	// The PNG workers load while the fonts and the first slide are prepared.
+	sharedPngEncoder().warm();
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
 	// Build the data-URI font sheet once, inject it into the preview doc, and wait
@@ -1580,9 +1582,14 @@ export function missingImageReason(log) {
 	return `the export could not load every image, so the file ships without: ${shown}${more}${hint}`;
 }
 
+/** A canvas as a `data:image/png` URL, written by the shared PNG encoder: the same bytes as every other lane (the browser's own `toDataURL` makes a file three times larger). */
+async function canvasToPngDataUrl(canvas) {
+	return blobToDataUri(await canvasToPng(canvas));
+}
+
 async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 	try {
-		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => (await shootSection(section, pixelRatio, fontEmbedCSS, log, 'export')).toDataURL('image/png'), undefined, cornerTarget);
+		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => canvasToPngDataUrl(await shootSection(section, pixelRatio, fontEmbedCSS, log, 'export')), undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
 	}
@@ -1632,7 +1639,7 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 // not black. Only for an opaque picture: the PPTX and Office captures square their corners.
 function canvasToPng(canvas) {
 	// The shared PNG encoder (lib/core/slide-camera.mjs), the CLI's too: smaller than the browser's own and the same file in both hosts.
-	return encodePng(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
+	return sharedPngEncoder().encode(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
 }
 
 // The author's `images:` line for the slide pictures of the PPTX and Office exports
@@ -1650,7 +1657,7 @@ async function canvasToPictureBlob(canvas, section) {
 	const { resolveImagePolicy } = imagePolicyCore;
 	const { choosePicture } = officePolicyCore;
 	const { isContinuousTone } = await import('@/lib/calco');
-	const encode = (c, type, quality) => (type === 'image/png' ? encodePng(c).then((bytes) => new Blob([bytes], { type: 'image/png' })) : new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality)));
+	const encode = (c, type, quality) => (type === 'image/png' ? sharedPngEncoder().encode(c).then((bytes) => new Blob([bytes], { type: 'image/png' })) : new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality)));
 	const jpegOf = async (quality) => {
 		const flat = document.createElement('canvas');
 		flat.width = canvas.width;
@@ -2083,7 +2090,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	// canvas camera captures each slide once for both. toJpeg was this same canvas encoded at
 	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
 	// PNGs are written by workers, so the next slide is captured while this one compresses (`photoLookahead` below).
-	const pngWriter = createPngEncoder();
+	const pngWriter = sharedPngEncoder();
 	// Captures take turns: a capture edits the shared document (the web-reference sweep's <style>, the section's classes), so two at once
 	// would see each other's edits. Only the PNG writing overlaps a capture.
 	let captureTurn = Promise.resolve();
@@ -2154,12 +2161,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
 	// Fonts through the same guard as images: no web font is fetched from the author's machine.
-	let bytes;
-	try {
-		({ bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts), photoLookahead: 1 }));
-	} finally {
-		pngWriter.dispose();
-	}
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts), photoLookahead: 1 });
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });
@@ -2734,7 +2736,7 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 		const q = meta.lossy ? Math.min(1, Math.max(0.01, quality / 100)) : undefined;
 		const blob =
 			meta.mime === 'image/png'
-				? new Blob([await encodePng(canvas)], { type: 'image/png' })
+				? new Blob([await sharedPngEncoder().encode(canvas)], { type: 'image/png' })
 				: await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
 		// canvas.toBlob MUST fall back to image/png when the UA can't encode the requested type
 		// (e.g. WebP on older Safari / some WebViews). Reject rather than let the zip ship a `.webp`

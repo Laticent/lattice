@@ -61,3 +61,42 @@ describe('createPngEncoder', () => {
 		pool.dispose();
 	});
 });
+
+describe('sharedPngEncoder', () => {
+	class CountingWorker {
+		static made = 0;
+		static ended = 0;
+		onmessage: ((e: { data: { id: number; bytes: Uint8Array } }) => void) | null = null;
+		onerror: ((e: unknown) => void) | null = null;
+		constructor() {
+			CountingWorker.made++;
+		}
+		postMessage({ id }: { id: number }) {
+			queueMicrotask(() => this.onmessage?.({ data: { id, bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) } }));
+		}
+		terminate() {
+			CountingWorker.ended++;
+		}
+	}
+
+	it('starts its workers on warm(), serves every export from them, and ends them after the idle period', async () => {
+		vi.useFakeTimers();
+		CountingWorker.made = 0;
+		CountingWorker.ended = 0;
+		vi.stubGlobal('Worker', CountingWorker);
+		vi.stubGlobal('OffscreenCanvas', class {});
+		vi.stubGlobal('createImageBitmap', async () => ({}));
+		vi.stubGlobal('navigator', { hardwareConcurrency: 8 });
+		const { sharedPngEncoder, poolSize } = await import('./png-encoder-pool.js');
+		const pool = sharedPngEncoder();
+		pool.warm();
+		expect(CountingWorker.made).toBe(poolSize(8));
+		const bytes = await sharedPngEncoder().encode(canvas() as never);
+		expect([...bytes.slice(1, 4)]).toEqual([0x50, 0x4e, 0x47]);
+		expect(CountingWorker.made, 'a second caller reuses the same workers').toBe(poolSize(8));
+		expect(CountingWorker.ended, 'still alive inside the idle period').toBe(0);
+		await vi.advanceTimersByTimeAsync(10_001);
+		expect(CountingWorker.ended).toBe(poolSize(8));
+		vi.useRealTimers();
+	});
+});

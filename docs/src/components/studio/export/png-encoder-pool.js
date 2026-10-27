@@ -60,6 +60,15 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 		});
 
 	return {
+		/** Start every worker now, so the first slide finds them loaded instead of paying their start-up. */
+		warm() {
+			if (broken) return;
+			try {
+				while (all.length < size) idle.push(spawn());
+			} catch {
+				broken = true;
+			}
+		},
 		/** PNG bytes for a canvas. */
 		async encode(canvas) {
 			if (broken) return encodePng(canvas);
@@ -87,6 +96,53 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 			all.length = 0;
 			idle.length = 0;
 			for (const next of waiting.splice(0)) next(null);
+		},
+	};
+}
+
+// ONE POOL FOR EVERY EXPORT. The PDF, PowerPoint, LibreOffice and PNG-set exports all write PNGs, and each used to need its own pool
+// created and torn down around it. This one starts when the first export asks (`warm()` at the top of an export, so the workers load while
+// the fonts and the first slide are prepared) and ends 10 s after the last PNG is written, so a phone does not keep four threads and their
+// heaps for the length of a session.
+const IDLE_MS = 10_000;
+let shared = null;
+let inFlight = 0;
+let idleTimer = null;
+
+function pool() {
+	clearTimeout(idleTimer);
+	idleTimer = null;
+	if (!shared) shared = createPngEncoder();
+	return shared;
+}
+
+function settled() {
+	if (inFlight > 0 || idleTimer) return;
+	idleTimer = setTimeout(() => {
+		idleTimer = null;
+		if (inFlight === 0 && shared) {
+			shared.dispose();
+			shared = null;
+		}
+	}, IDLE_MS);
+}
+
+/** The shared pool: `warm()` to start its workers early, `encode(canvas)` for PNG bytes. */
+export function sharedPngEncoder() {
+	return {
+		warm() {
+			pool().warm();
+			settled();
+		},
+		async encode(canvas) {
+			const p = pool();
+			inFlight++;
+			try {
+				return await p.encode(canvas);
+			} finally {
+				inFlight--;
+				settled();
+			}
 		},
 	};
 }
