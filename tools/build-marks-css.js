@@ -680,6 +680,9 @@ function build() {
       // Pigment's hub is the first-hue solid (REGIONS) and groups are washes there; etch's body (40%) never comes near the hub.
       // The hub is the deepest mark on the slide: the one hue at full strength (its name is the page ground, from the member).
       w(rule(name, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
+      // The hub's name and value sit on that solid, so they take the solid's own ink (white on a light-face palette solid, 4.6:1
+      // or better on a dark-face one); the member's page-ground ink measured 3.69:1 on indaco dark.
+      w(rule(name, '.hub-spoke-svg:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-on-mark)']));
       // A chart that draws GROUPS keeps the heading-ink hub: a group disc takes tone's deep step, which reaches the one hue's own lightness.
       w(rule(name, '.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub', ['fill: var(--text-heading)', 'stroke: var(--text-heading)']));
       // A neutral satellite (no status, no hue) is a pale step with the one ink edge, like every etch body.

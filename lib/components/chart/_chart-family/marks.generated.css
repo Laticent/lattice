@@ -1108,6 +1108,10 @@ figure.marks-tone :where(.hub-spoke-hub) {
   fill: var(--chart-cat-1-hue) !important;
   stroke: var(--chart-cat-1-hue) !important;
 }
+section.marks-tone :where(.hub-spoke-svg:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :is(.hub-spoke-hub-name, .hub-spoke-hub-value)),
+figure.marks-tone :where(.hub-spoke-svg:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
+  fill: var(--chart-on-mark) !important;
+}
 section.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub),
 figure.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub) {
   fill: var(--text-heading) !important;
