@@ -118,10 +118,26 @@ The owner reported jank on the phone. A per-frame trace of the tooltip's box on 
 - **Fixed: the tooltip opens at its final size.** The button row holds a disabled "Reading the photo…" pill of the buttons' own class from
   the first frame; the real button replaces it in place. An e2e traces the box every frame from open until the button arrives and requires
   one box; it failed with three boxes (open, grow, move) on Chromium and WebKit before the fix.
-- **Fixed: an unchanged lint pass no longer closes the open tooltip.** By default CodeMirror hides a lint tooltip on any `setDiagnostics`,
-  even one that changes nothing; on a phone lint runs again just after the Source tab opens. The editor's linter now passes `hideOn`
-  (`keepTooltipOnSameDiagnostics`): keep the tooltip when the text did not change and the diagnostics under it are the same.
+- **Fixed: an unchanged lint pass no longer closes the open ink tooltip.** By default CodeMirror hides a lint tooltip on any
+  `setDiagnostics`, even one that changes nothing; on a phone lint runs again just after the Source tab opens. The editor's linter now
+  passes `hideOn` (`keepTooltipOnSameDiagnostics`, `lint-tooltip-keep.ts`), narrowed after a second independent check (below).
 - **Not ours, and held out of one assertion:** in Chromium with a mouse parked over the line at phone width, the parked preview's redraw
   makes the browser fire a synthetic mousemove and CodeMirror's hover closes the tooltip and reopens it 300 ms later (traced: an effects-only
   hover transaction). A finger cannot cause it, and WebKit's iPhone profile never showed it in 12 runs, so the "tooltip never removed" check
   is held on WebKit and at desktop width, not in Chromium at 390.
+
+## Second independent check (2026-10-27)
+
+A second checker read only what changed after the first one. Two real defects, both in this round's code, fixed:
+
+- **Dead fix buttons on every other warning.** The first `hideOn` kept ANY open lint tooltip through an unchanged pass. CodeMirror's own
+  action buttons run only if `findDiagnostic` finds the exact diagnostic object they were built from, and each pass builds new objects, so
+  a kept tooltip held buttons that did nothing (and stayed dead). `hideOn` now keeps a tooltip only when every diagnostic under it is a
+  `thin-card-no-ink` one, whose buttons are ours and do not look anything up; every other rule falls back to CodeMirror. A unit test fails
+  with the narrowing taken out.
+- **The ink button could edit the wrong slide.** It remembered a raw offset from lint time, and CodeMirror keeps a tooltip through edits on
+  other lines, so typing earlier in the deck moved the offset into another slide. The thin-card tooltip now closes on any edit.
+- Nits, fixed: the wait now stops at 6 s in total (a read that starts late gets only what is left), and the button row is an `aria-live`
+  region with `Action: …` labels, as CodeMirror's own buttons have.
+- Checked clean: `followWhenParked` (effect order, initial mount, rising edge, deck switch, no double render, no other host affected) and
+  HARD RULE #29 (the ellipsis is punctuation in `shape-glyphs.js`).

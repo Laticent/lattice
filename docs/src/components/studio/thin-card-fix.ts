@@ -61,6 +61,8 @@ export function inkFixNode(
 	const text = document.createElement('div');
 	text.textContent = message;
 	const row = document.createElement('div');
+	// The pill turns into the fix button in place; say so to a screen reader too.
+	row.setAttribute('aria-live', 'polite');
 	const reading = document.createElement('button');
 	reading.type = 'button';
 	reading.className = 'cm-diagnosticAction';
@@ -75,6 +77,7 @@ export function inkFixNode(
 		b.type = 'button';
 		b.className = 'cm-diagnosticAction';
 		b.textContent = `Add ink-${ink}`;
+		b.setAttribute('aria-label', `Action: Add ink-${ink}`);
 		// Keep focus (and the caret) in the editor, as CodeMirror's own action buttons do.
 		b.onmousedown = (e) => e.preventDefault();
 		b.onclick = () => {
@@ -88,7 +91,9 @@ export function inkFixNode(
 	void (async () => {
 		for (;;) {
 			const here = h.onScreen();
-			const ink = here ? await pickedInk(h.source(), h.slideOf()).catch(() => null) : null;
+			// A read never runs past the window: one that starts late gets only what is left of it.
+			const left = (here ? ON_SCREEN_WAIT_MS : OFF_SCREEN_WAIT_MS) - (Date.now() - started);
+			const ink = here && left > 0 ? await Promise.race([pickedInk(h.source(), h.slideOf()).catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), left))]) : null;
 			if (ink) {
 				done();
 				return add(ink);
