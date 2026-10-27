@@ -5678,13 +5678,27 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   return swapped;
 }
 
-// The characters a finished page shows: its raw text, plus what its entities spell (`&#x1F389;`, `&laquo;`). A face is cut to these, so a
-// character written only as an entity must be counted, or it loses its glyph. Decoded by the DOM, as a browser reads it.
+// What a finished page's entities spell (`&#x1F389;`, `&laquo;`). A face is cut to every character in the raw page (player-fonts.js) plus
+// these, so a character written only as an entity keeps its glyph. Only the entity references are decoded, by parse5 (the HTML parser jsdom
+// uses): parsing the whole page in jsdom read every inline stylesheet into CSS objects, 1.6 s of a 4.2 s one-slide render. An entity in a
+// <style> or <script> counts here although a browser leaves it as text: that keeps one glyph too many, never one too few.
+function entityChars(html) {
+  const refs = html.match(/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);?/gi);
+  if (!refs) return '';
+  const { parseFragment } = require('parse5');
+  let text = '';
+  const walk = (node) => {
+    if (node.nodeName === '#text') text += node.value;
+    for (const child of node.childNodes || []) walk(child);
+  };
+  walk(parseFragment([...new Set(refs)].join(' ')));
+  return text;
+}
+
 async function applyFontPolicyToHtml(file) {
   try {
     const done = fs.readFileSync(file, 'utf8');
-    const { JSDOM } = require('jsdom');
-    const shown = new JSDOM(done).window.document.documentElement.textContent;
+    const shown = entityChars(done);
     const cut = await require('./lib/export/player-fonts.js').subsetEmbeddedFonts(done, { ...FONT_POLICY, extraChars: shown });
     if (cut.applied) fs.writeFileSync(file, cut.html);
   } catch { /* the finished render stays as written */ }
