@@ -14,7 +14,10 @@ export function canEncodeOffThread() {
 	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined' && typeof CompressionStream !== 'undefined';
 }
 
-export function createPngEncoder({ size = poolSize() } = {}) {
+/** A slide's PNG takes well under a second to write. A worker silent for this long is gone (a phone kills workers under memory pressure without an error event). */
+export const ENCODE_DEADLINE_MS = 45_000;
+
+export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLINE_MS } = {}) {
 	const idle = [];
 	const waiting = [];
 	const all = [];
@@ -33,6 +36,11 @@ export function createPngEncoder({ size = poolSize() } = {}) {
 		return new Promise((resolve) => waiting.push(resolve));
 	};
 	const release = (worker) => {
+		// A pool that broke while this worker was busy lets it finish its job, then ends it.
+		if (broken) {
+			worker.terminate();
+			return;
+		}
 		const next = waiting.shift();
 		if (next) next(worker);
 		else idle.push(worker);
@@ -40,8 +48,14 @@ export function createPngEncoder({ size = poolSize() } = {}) {
 	const run = (worker, bitmap) =>
 		new Promise((resolve, reject) => {
 			const id = nextId++;
-			worker.onmessage = (e) => (e.data.id === id ? (e.data.error ? reject(new Error(e.data.error)) : resolve(e.data.bytes)) : undefined);
-			worker.onerror = (e) => reject(new Error(e.message || 'PNG worker failed'));
+			const timer = setTimeout(() => reject(new Error(`no answer in ${deadlineMs / 1000} s`)), deadlineMs);
+			const done = (settle, value) => {
+				clearTimeout(timer);
+				settle(value);
+			};
+			worker.onmessage = (e) => (e.data.id === id ? (e.data.error ? done(reject, new Error(e.data.error)) : done(resolve, e.data.bytes)) : undefined);
+			worker.onmessageerror = () => done(reject, new Error('PNG worker sent a message that could not be read'));
+			worker.onerror = (e) => done(reject, new Error(e.message || 'PNG worker failed'));
 			worker.postMessage({ id, bitmap }, [bitmap]);
 		});
 
@@ -61,10 +75,9 @@ export function createPngEncoder({ size = poolSize() } = {}) {
 			} catch (e) {
 				console.warn(`[lattice-export] PNG worker failed (${e?.message || e}); writing PNGs on the main thread.`);
 				broken = true;
+				// The failed worker and the idle ones end now; a worker busy with another request ends when that request releases it.
 				if (worker) worker.terminate();
-				for (const w of idle) w.terminate();
-				all.length = 0;
-				idle.length = 0;
+				for (const w of idle.splice(0)) w.terminate();
 				for (const next of waiting.splice(0)) next(null);
 				return encodePng(canvas);
 			}
@@ -73,6 +86,7 @@ export function createPngEncoder({ size = poolSize() } = {}) {
 			for (const w of all) w.terminate();
 			all.length = 0;
 			idle.length = 0;
+			for (const next of waiting.splice(0)) next(null);
 		},
 	};
 }

@@ -65,3 +65,32 @@ test('withoutDuplicateFaces drops a page face only when the host supplies the sa
   assert.equal(withoutDuplicateFaces(page, host), '\n@font-face{font-family:Outfit;font-weight:700;src:url(data:y)}\n@font-face{font-family:Outfit;font-weight:400;font-stretch:75%;src:url(data:z)}');
   assert.equal(withoutDuplicateFaces(page, ''), page, 'no host faces: nothing changes');
 });
+
+test('pseudoElementFamilies reads every pseudo-element, not only ::before and ::after', async () => {
+  const { pseudoElementFamilies } = await import('../../../lib/core/slide-camera.mjs');
+  const lookup = (name) => (name === '--sketch-font' ? 'Caveat' : '');
+  const css = [
+    'li::marker{font-family:var(--sketch-font)}',
+    'p::first-line{font-family:Hand !important}',
+    'p::first-letter{font-family:Hand\\ Two}',
+    '.a:before{font-family:Icons}',
+    'p{font-family:Body}',
+  ].join('\n');
+  const { families, unresolved } = pseudoElementFamilies(css, lookup);
+  assert.deepEqual(families.map((f) => f.trim()), ['Caveat', 'Hand', 'Hand Two', 'Icons']);
+  assert.equal(unresolved, false);
+});
+
+test('urlSwap swaps each address once, longest first, and leaves $ in the replacement alone', async () => {
+  const { urlSwap } = await import('../../../lib/core/slide-camera.mjs');
+  assert.equal(urlSwap(new Map()), null, 'nothing to swap');
+  const swap = urlSwap(new Map([
+    ['https://x.test/a.png?a=1&b=2', 'data:image/png;base64,AAA$&'],
+    ['https://x.test/a.png', 'data:image/png;base64,BBB'],
+    ['https://x.test/gone.png', null],
+  ]));
+  assert.equal(
+    swap('url(https://x.test/a.png?a=1&b=2) url("https://x.test/a.png") url(https://x.test/gone.png)'),
+    'url(data:image/png;base64,AAA$&) url("data:image/png;base64,BBB") url(data:,)',
+  );
+});

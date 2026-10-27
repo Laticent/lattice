@@ -1051,6 +1051,7 @@ export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
+	clearDataUriMemo();
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
 	// Build the data-URI font sheet once, inject it into the preview doc, and wait
@@ -1374,7 +1375,13 @@ export { captureStyleProperties };
 // native Chrome screenshot, at most 0.0065% of pixels differ by more than 8 levels (html-to-image: 4.3% on average).
 // `face` is 'export' for the PDF's photo layer and 'screen' for the picture formats (PowerPoint, LibreOffice, PNG).
 const dataUriMemo = new Map();
-const MEMO_MAX = 48;
+// Bounded by size, not by count: an iPhone photo is megabytes of base64, and the keys are one-off blob: URLs that never hit again after the export.
+const MEMO_MAX_CHARS = 24_000_000;
+let memoChars = 0;
+function clearDataUriMemo() {
+	dataUriMemo.clear();
+	memoChars = 0;
+}
 function blobToDataUri(blob) {
 	return new Promise((resolve, reject) => {
 		const r = new FileReader();
@@ -1391,8 +1398,15 @@ async function studioDataUri(url) {
 	const r = await fetch(url);
 	if (!r.ok) throw new Error(`image fetch ${r.status}`);
 	const uri = await blobToDataUri(await r.blob());
-	if (dataUriMemo.size >= MEMO_MAX) dataUriMemo.delete(dataUriMemo.keys().next().value);
-	dataUriMemo.set(url, uri);
+	while (dataUriMemo.size && memoChars + uri.length > MEMO_MAX_CHARS) {
+		const [oldest, value] = dataUriMemo.entries().next().value;
+		dataUriMemo.delete(oldest);
+		memoChars -= value.length;
+	}
+	if (uri.length <= MEMO_MAX_CHARS) {
+		dataUriMemo.set(url, uri);
+		memoChars += uri.length;
+	}
 	return uri;
 }
 function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {

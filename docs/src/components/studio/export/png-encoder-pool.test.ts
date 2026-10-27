@@ -30,6 +30,28 @@ describe('createPngEncoder', () => {
 		pool.dispose();
 	});
 
+	it('gives up on a worker that never answers and writes the PNG on the main thread', async () => {
+		class SilentWorker {
+			onmessage = null;
+			onerror = null;
+			terminated = false;
+			postMessage() {}
+			terminate() {
+				this.terminated = true;
+			}
+		}
+		vi.stubGlobal('Worker', SilentWorker);
+		vi.stubGlobal('OffscreenCanvas', class {});
+		vi.stubGlobal('createImageBitmap', async () => ({}));
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		const { createPngEncoder } = await import('./png-encoder-pool.js');
+		const pool = createPngEncoder({ size: 1, deadlineMs: 50 });
+		const [a, b] = await Promise.all([pool.encode(canvas() as never), pool.encode(canvas() as never)]);
+		expect([...a.slice(1, 4)]).toEqual([0x50, 0x4e, 0x47]);
+		expect([...b.slice(1, 4)]).toEqual([0x50, 0x4e, 0x47]);
+		pool.dispose();
+	});
+
 	it('falls back to the main thread where workers cannot be used', async () => {
 		vi.stubGlobal('Worker', undefined);
 		const { createPngEncoder } = await import('./png-encoder-pool.js');

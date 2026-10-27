@@ -125,7 +125,8 @@ test('the slide camera draws what an author can put on a slide: control characte
   </style></head><body><svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs><pattern id="p1" patternUnits="userSpaceOnUse" width="8" height="8"><rect width="8" height="8" fill="#223"/><path d="M0 0L8 8" stroke="#fc0" stroke-width="2"/></pattern></defs></svg>
     <main id="deck"><section data-lattice-slide="1"><p style="margin:20px">Form\u000Cfeed and vertical\u000Btab</p>
       <div class="bg"></div><picture class="pic"><source srcset="blue.png"><img src="red.png" alt=""></picture>
-      <video class="vid" poster="blue.png"></video><svg class="tex" viewBox="0 0 200 200"><rect width="200" height="200"/></svg></section></main></body></html>`.replace(/\\u000C/g, '\u000C').replace(/\\u000B/g, '\u000B');
+      <video class="vid" poster="blue.png"></video><svg class="tex" viewBox="0 0 200 200"><rect width="200" height="200"/></svg><p id="credit" style="margin:20px"></p></section></main>
+    <script>document.getElementById('credit').textContent = 'Photo: ' + new URL('red.png', location.href).href;</script></body></html>`.replace(/\\u000C/g, '\u000C').replace(/\\u000B/g, '\u000B');
   const file = path.join(tmp, 'features.html');
   fs.writeFileSync(file, page_);
   // This page asserts no text pixels (it checks the picture, video, texture and control-character paths), so the runner's fontconfig
@@ -140,8 +141,23 @@ test('the slide camera draws what an author can put on a slide: control characte
     await new Promise((r) => setTimeout(r, 500));
     await page.addScriptTag({ content: fs.readFileSync(BUNDLE, 'utf8') });
     await page.addScriptTag({ content: TAKE });
+    // Record the SVG the camera builds, to read the markup it hands the browser.
+    await page.evaluate(() => {
+      window.__svg = [];
+      const read = FileReader.prototype.readAsDataURL;
+      FileReader.prototype.readAsDataURL = function (blob) {
+        blob.text().then((t) => window.__svg.push(t));
+        return read.call(this, blob);
+      };
+    });
     const h = (await page.$$('section[data-lattice-slide]'))[0];
     const camera = PNG.sync.read(Buffer.from(await h.evaluate((el) => takeSlide(el, 1)), 'base64'));
+    // A picture's address written as TEXT on the slide (a photo credit) stays text: only CSS and attributes are swapped for data.
+    const credit = await page.evaluate(() => document.getElementById('credit').textContent);
+    await new Promise((r) => setTimeout(r, 300));
+    const svgText = await page.evaluate(() => window.__svg.join('\n'));
+    assert.ok(svgText.length > 1000, 'the hook saw the camera SVG');
+    assert.ok(svgText.includes(credit), `the credit line keeps its text, not a data: URI (${credit})`);
     // Where each feature sits, and what colour proves it drew (a picture by its red, a poster by its blue, a texture by its yellow).
     const px = (x, y) => { const i = (y * camera.width + x) * 4; return [camera.data[i], camera.data[i + 1], camera.data[i + 2]]; };
     const near = (c, want, tol = 40) => c.every((v, k) => Math.abs(v - want[k]) <= tol);

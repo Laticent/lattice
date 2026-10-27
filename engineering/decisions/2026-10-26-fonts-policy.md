@@ -62,7 +62,7 @@ Measured, one emoji out of its slice: 🚀 121 KB to 2.5 KB, ✅ 65 KB to 0.8 KB
 
 ## What is deliberately not done
 
-- No tier cuts text faces in an Office file. `exact` there would defeat editing, and the file is the one place the whole face pays for itself.
+- Only `exact` cuts a text face in an Office file, to the characters the deck draws in that face; `used` and `full` keep the whole face so edited text keeps every glyph. The emoji font is never embedded in an Office file (the viewer's own emoji font draws).
 - No script ranges beyond Latin: we ship no other script, so `used` has nothing to add. A first non-Latin face adds its own range to the kernel with it.
 - Studio emoji in a PDF or an editable Office file stay pixels in the slide picture; COLR v1 cannot go in either format.
 
