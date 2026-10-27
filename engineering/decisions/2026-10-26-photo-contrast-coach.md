@@ -141,3 +141,37 @@ A second checker read only what changed after the first one. Two real defects, b
   region with `Action: …` labels, as CodeMirror's own buttons have.
 - Checked clean: `followWhenParked` (effect order, initial mount, rising edge, deck switch, no double render, no other host affected) and
   HARD RULE #29 (the ellipsis is punctuation in `shape-glyphs.js`).
+
+## The warning and the photo read are two steps (2026-10-27)
+
+The owner still saw two ink buttons on a phone. The cause was structural, not a timing bug: the tooltip asked the live
+preview which ink reads, and whenever the preview was showing another slide, or had not drawn yet, there was no answer
+and the tooltip fell back to offering both. Each earlier fix shortened that window. None closed it.
+
+The read is now its own step, in `docs/src/components/studio/photo-ink-read.ts`:
+
+1. **The warning is immediate.** `thin-card-no-ink` is a lint rule. It knows the card is thin and has no ink, and it
+   knows nothing about the photo, so it costs nothing.
+2. **The read starts when the tooltip opens.** The tooltip shows a disabled **Checking the photo…** pill in the row the
+   button will take, so the tooltip opens at its final size. `readPhotoInk` tries the answer kept from before, then the
+   live preview (the exact card box, as before) when it shows this slide, then **the photo file itself**, averaged over
+   the part of a 16:9 frame the card's placement class covers (`at-bl` when none is set). The third source does not
+   need the preview, so the "another slide is on screen" case now gets a real answer.
+3. **One fix, always.** It offers the ink that clears 4.5:1. When neither does, or nothing could be read, it offers
+   **Use a solid card** (`card-solid`, which sets the card's backing to 100%), with a one-line note saying which case
+   applies. A solid card is the image component's own answer to a photo that fights its text, and it always reads.
+4. **The answer is kept** in `localStorage` (`lattice-photo-ink:v1`), keyed by photo reference, placement and backing,
+   capped at 200 entries with the oldest dropped first. A reload shows the fix on the tooltip's first frame. "Could not
+   read" is not kept, so the next open tries again. "No ink reads" is kept, because it is an answer.
+
+**No service worker or Web Worker.** The read draws the photo into a 24×24 canvas on the main thread, which takes well
+under a frame. A worker would add a second bundle and a message round trip to save no measurable time. The photo-file
+estimate is coarser than the preview read: it assumes the card's placement box rather than measuring it. The preview read
+still wins when it is available, and the floor decides either way, so an estimate near 4.5:1 can tip to "no ink reads".
+That is the safe direction, because the fallback is a solid card.
+
+Tests: `photo-ink-read.test.ts` covers the placement, the decision (including a 121-gray photo where neither ink reads),
+the cache's keys, persistence and broken-storage paths, and how references resolve. The e2e spec adds an off-screen slide
+that now gets one ink, the reload (proven to fail with the cache off), and the no-ink and unreadable-photo cases. The
+frame-trace jank guard now skips CodeMirror's unmeasured `top: -10000px` placement. That frame is invisible, and under
+load the trace caught it about one run in four.

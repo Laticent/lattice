@@ -110,15 +110,16 @@ for (const width of [1440, 390]) {
 	});
 }
 
-test('a thin card on a slide that is not on screen offers both inks', async ({ page }) => {
+test('a thin card on a slide that is not on screen still gets the one ink, read from the photo itself', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
 	const second = DARK_PHOTO_DECK.replace('A quiet harbor.', 'A second harbor.');
 	await typeDeck(page, `${DARK_PHOTO_DECK}\n---\n\n${second.split('---\n\n').pop()}`);
-	// The caret is on slide 2 after typing, so the preview shows slide 2; slide 1's warning cannot read its photo.
+	// The caret is on slide 2 after typing, so the preview shows slide 2. Slide 1's tooltip cannot use the preview; it reads
+	// the photo file instead, and must still offer one ink, never both.
 	await page.locator('.cm-lintRange-warning').first().hover();
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
-	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toBeVisible();
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toHaveCount(0);
 });
 
 // A statement's backing is a scrim gradient the reader does not model, so a statement is never flagged: white ink on the
@@ -197,7 +198,7 @@ for (const width of [1440, 390]) {
 
 // A phone draws the parked preview and loads the photo far slower than a desktop. Hold the photo back for longer than the old
 // 3 s window: the tooltip must say it is reading, then offer the one ink, and never fall back to both on the way.
-test('a slow photo read shows "Reading the photo…" and still lands on the single ink @webkit-phone @crosswidth', async ({ page }) => {
+test('a slow photo read shows "Checking the photo…" and still lands on the single ink @webkit-phone @crosswidth', async ({ page }) => {
 	await page.setViewportSize({ width: 390, height: 844 });
 	await gotoStudio(page);
 	await typeDeck(page, DARK_PHOTO_DECK);
@@ -220,9 +221,9 @@ test('a slow photo read shows "Reading the photo…" and still lands on the sing
 		}).observe(document.body, { childList: true, subtree: true, characterData: true });
 	});
 	await page.locator('.cm-lintRange-warning').first().hover();
-	await expect(page.getByText('Reading the photo…')).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText('Checking the photo…')).toBeVisible({ timeout: 5000 });
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
-	await expect(page.getByText('Reading the photo…')).toHaveCount(0);
+	await expect(page.getByText('Checking the photo…')).toHaveCount(0);
 	expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false });
 });
 
@@ -239,8 +240,9 @@ test('the ink tooltip opens at its final size and never moves @webkit-phone @cro
 		w.__boxes = [];
 		const tick = () => {
 			const tip = document.querySelector('.cm-tooltip-lint');
-			if (tip) {
-				const r = tip.getBoundingClientRect();
+			// CodeMirror parks a new tooltip at top -10000px until its first measure; nobody can see that frame, so skip it.
+			const r = tip?.getBoundingClientRect();
+			if (r && r.top > -1000) {
 				const box = `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`;
 				if (w.__boxes.at(-1) !== box) w.__boxes.push(box);
 			}
@@ -256,3 +258,47 @@ test('the ink tooltip opens at its final size and never moves @webkit-phone @cro
 	await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 	expect(await page.evaluate(() => (window as unknown as { __boxes: string[] }).__boxes)).toHaveLength(1);
 });
+
+// The answer is kept in the browser, so a reload does not ask again: the second open shows the fix on its first frame, with
+// no "Checking the photo…" pill at all.
+test('a photo read once is remembered across a reload', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await typeDeck(page, DARK_PHOTO_DECK);
+	await page.locator('.cm-lintRange-warning').first().hover();
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
+	await page.reload();
+	await expect(page.locator('.cm-lintRange-warning').first()).toBeVisible({ timeout: 30_000 });
+	await page.evaluate(() => {
+		const w = window as unknown as { __checking: boolean };
+		w.__checking = false;
+		new MutationObserver(() => {
+			if (document.body.textContent?.includes('Checking the photo')) w.__checking = true;
+		}).observe(document.body, { childList: true, subtree: true, characterData: true });
+	});
+	await page.mouse.move(700, 600);
+	await page.locator('.cm-lintRange-warning').first().hover();
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
+	expect(await page.evaluate(() => (window as unknown as { __checking: boolean }).__checking), 'the second open asked again').toBe(false);
+});
+
+// Best effort, said plainly. A mid-grey photo under a clear card, where neither ink reaches 4.5:1, and a photo the Studio
+// cannot load: each gets ONE fix, a solid card (which always reads), with a note saying why, never two ink buttons.
+const GREY_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA0ElEQVR42u3SQREAAAzCMGzjHhHbM5HQawoHkQADYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIEwEBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEAYCA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgDISBMBAGAgNhIAyEgcBAGAgDYSAwEAbCQBgIDISBMBAGwkBgIAyEgTAQGAgDYSAMBAbCQBgIA4GB+DTs7uGvuhFSqwAAAABJRU5ErkJggg==';
+for (const [name, ref, note] of [
+	['no ink reads on the photo', GREY_PHOTO, 'No ink reads on this photo.'],
+	['the photo cannot be read', 'img/not-here.jpg', 'Could not read this photo.'],
+] as const) {
+	test(`when ${name}, the tooltip offers a solid card and says why`, async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await gotoStudio(page);
+		await typeDeck(page, DARK_PHOTO_DECK.replace('sample:photo-wide.svg', ref));
+		await page.locator('.cm-lintRange-warning').first().hover();
+		const solid = page.locator('.cm-diagnosticAction', { hasText: 'Use a solid card' });
+		await expect(solid).toBeVisible({ timeout: 20_000 });
+		await expect(page.getByText(note)).toBeVisible();
+		await expect(page.locator('.cm-diagnosticAction', { hasText: /Add ink/ })).toHaveCount(0);
+		await solid.click();
+		await expect.poll(() => persistedSource(page)).toMatch(/_class: image spotlight card-solid/);
+	});
+}
