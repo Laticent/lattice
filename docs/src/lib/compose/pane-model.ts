@@ -1,4 +1,3 @@
-import { closeHistory, isHistoryTransaction } from 'prosemirror-history';
 import { DOMSerializer, Fragment, type Node as PMNode } from 'prosemirror-model';
 import { type EditorState, NodeSelection, Plugin, TextSelection, type Transaction } from 'prosemirror-state';
 // DEFAULT imports: both are CommonJS leaves (docs/src/plugins/vite-cjs-lib-dev.mjs).
@@ -7,6 +6,7 @@ import paneSpec from '../../../../lib/core/pane-spec.js';
 import { normalizeSourceText } from '../normalize-source-text';
 import { parseSlideProse } from './deck-markdown';
 import { hasLossyConstruct } from './deck-source';
+import { closeFiloGroup, isFiloHistory } from './filo-history';
 import type { PaneMark, PaneNeeds } from './pane-needs';
 
 // The panes of a `columns` / `rows` slide, read off the Compose document — so the editor can show
@@ -322,7 +322,7 @@ export function applyPaneChoice(state: EditorState, slidePos: number, index: num
 		} else tr.insert(childPos(at.slide, at.start, pane.anchor), marker);
 	}
 	// Its own history step, so the notice's Undo takes back the pick and never typing just before it.
-	return closeHistory(tr).setMeta(PANE_OP, true);
+	return closeFiloGroup(tr).setMeta(PANE_OP, true);
 }
 
 /** What the author is told when the guard refuses an edit. A new `###` is the one case worth naming
@@ -374,7 +374,7 @@ function markerCount(doc: PMNode): number {
 export function paneMarkerGuard(onRefuse?: (reason: string) => void) {
 	return new Plugin({
 		filterTransaction(tr, state) {
-			if (!tr.docChanged || tr.getMeta(PANE_OP) || isHistoryTransaction(tr)) return true;
+			if (!tr.docChanged || tr.getMeta(PANE_OP) || isFiloHistory(tr)) return true;
 			// Adding or removing whole slides is the structural guard's business, not this one's.
 			if (tr.doc.childCount !== state.doc.childCount) return true;
 			const sel = state.selection;

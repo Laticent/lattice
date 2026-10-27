@@ -9680,27 +9680,6 @@ const SANCTIONED_UNDO_STACKS = Object.freeze([
       'through LiveCollab.undo/redo, so there is still one undo per surface.',
   },
   {
-    file: 'docs/src/components/studio/ComposeView.tsx',
-    why: 'Compose keeps its own ProseMirror history until Filo slice 4 (§10); its edits are committed ' +
-      'to Filo as origin `compose`, and the root keymap yields to it (`data-filo-yield`).',
-  },
-  {
-    file: 'docs/src/lib/compose/raw-objects.ts',
-    why: 'closeHistory for Compose\'s own history, until Filo slice 4.',
-  },
-  {
-    file: 'docs/src/lib/compose/image-objects.ts',
-    why: 'closeHistory for Compose\'s own history, until Filo slice 4.',
-  },
-  {
-    file: 'docs/src/lib/compose/pane-model.ts',
-    why: 'closeHistory and the history-transaction guard for Compose\'s own history, until Filo slice 4.',
-  },
-  {
-    file: 'docs/src/lib/compose/inline-objects.ts',
-    why: 'closeHistory and the history-transaction guard for Compose\'s own history, until Filo slice 4.',
-  },
-  {
     file: 'docs/src/components/studio/CodeField.tsx',
     why: 'Code fields in Fabricate, FinishStudio, LayoutStudio and CraftLab edit their own documents and ' +
       'keep CodeMirror\'s history until Filo slice 7; the root keymap leaves them alone (a contenteditable ' +
@@ -9745,7 +9724,7 @@ function checkFiloCommitPath(errors, { shell = FILO_COMMIT_SHELL, roots = FILO_U
   for (const root of roots) {
     for (const file of listUndoScanFiles(root)) {
       const rel = relPosix(ROOT, file);
-      const src = fs.readFileSync(file, 'utf8').replace(COMMENT_OR_STRING_RE, (m, str) => str ?? '');
+      const src = fs.readFileSync(file, 'utf8').replace(COMMENT_OR_STRING_RE, (_m, str) => str ?? '');
       if (!UNDO_STACK_RE.test(src) && !(CM_COMMANDS_RE.test(src) && MEMBER_HISTORY_RE.test(src))) continue;
       if (allowed.has(rel)) {
         hit.add(rel);

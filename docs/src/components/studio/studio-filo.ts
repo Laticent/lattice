@@ -137,21 +137,18 @@ const TEXT_INPUTS = new Set(['text', 'search', 'url', 'tel', 'email', 'password'
 export function undoOwner(el: Element | null): 'filo' | 'native' | 'yield' {
 	if (!el || typeof el.closest !== 'function') return 'filo';
 	if (el.closest('[data-filo-yield]')) return 'yield';
+	// A text field first, even inside a surface Filo owns: a note being written inside Compose keeps
+	// the browser's undo for its own words.
+	const tag = el.tagName;
+	if (tag === 'TEXTAREA') return 'native';
+	if (tag === 'INPUT' && TEXT_INPUTS.has((el as HTMLInputElement).type)) return 'native';
 	if (el.closest('[data-filo-owned]')) return 'filo';
 	// A dialog over the Studio (a photo's details, a picker, the drawer) is not where the deck is:
 	// an undo from inside one would change a slide the author cannot see (§3.4).
 	if (el.closest('[role="dialog"], [aria-modal="true"]')) return 'yield';
-	const tag = el.tagName;
-	if (tag === 'TEXTAREA') return 'native';
-	if (tag === 'INPUT') return TEXT_INPUTS.has((el as HTMLInputElement).type) ? 'native' : 'filo';
+	if (tag === 'INPUT') return 'filo';
 	if ((el as HTMLElement).isContentEditable || el.closest('[contenteditable]:not([contenteditable="false"])')) return 'native';
 	return 'filo';
-}
-
-/** What the toasts may promise. ⌘Z reaches every writer only when the open pane's undo is
- *  Filo's; while Compose keeps its own stack (until slice 4) the toast names History alone. */
-export function undoHint(filoOwnsPane: boolean): string {
-	return filoOwnsPane ? '⌘Z or restore from History to undo' : 'restore from History to undo';
 }
 
 /** Run `fn` and record how long it took as a `performance` measure named `name` (`filo:commit`,

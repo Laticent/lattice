@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { toggleMark } from 'prosemirror-commands';
-import { closeHistory, history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
+import { history, redo, undo, undoDepth } from 'prosemirror-history';
 import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline, rebaselineSlides } from './deck-doc';
+import { recordOnFilo } from './filo-harness.test-util';
+import { closeFiloGroup } from './filo-history';
 import { serializeInlineObject } from './inline-object';
 import {
 	closeObjectEditor,
@@ -399,15 +401,19 @@ describe('the open editor', () => {
 });
 
 describe('undo', () => {
+	// Since Filo slice 4 the step boundary is Filo's: each pick ends its step (`closeFiloGroup`), so two
+	// picks made back to back are two undos even though they are adjacent and instant.
 	it('is one step per pick', () => {
-		const view = mount(DECK);
+		const view = mount(DECK, undefined, []);
+		const filo = recordOnFilo(view);
 		const [first] = objects(view.state.doc);
 		openObjectEditor(view, first.pos);
 		editObject(view, first.pos, { color: 'c9' }, kernels);
 		editObject(view, first.pos, { size: 'lg' }, kernels);
-		undo(view.state, view.dispatch);
+		expect(filo.history.state().steps).toBe(2);
+		filo.undo();
 		expect(docToDeck(view.state.doc)).toContain('`{SHIPPED, c9}`');
-		undo(view.state, view.dispatch);
+		filo.undo();
 		expect(docToDeck(view.state.doc)).toBe(docToDeck(deckToDoc(DECK)));
 	});
 
@@ -581,29 +587,30 @@ describe('opening a deck, then clicking, writes nothing (the checker\'s second f
 
 describe('undo and redo (the checker\'s third finding)', () => {
 	it('a plain click after an undo does not clear the redo stack', () => {
-		const view = mount(DECK);
+		const view = mount(DECK, undefined, []);
+		const filo = recordOnFilo(view);
 		const [first] = objects(view.state.doc);
 		editObjectAsText(view, first.pos);
-		// Separate history groups, as real typing with pauses makes them.
-		view.dispatch(closeHistory(view.state.tr));
+		// Separate undo steps, as real typing with pauses makes them.
+		view.dispatch(closeFiloGroup(view.state.tr));
 		view.dispatch(view.state.tr.insertText('X', view.state.selection.from));
-		view.dispatch(closeHistory(view.state.tr));
+		view.dispatch(closeFiloGroup(view.state.tr));
 		view.dispatch(view.state.tr.setSelection(TextSelection.atStart(view.state.doc)));
 		expect(texts(view)).toContain('{XSHIPPED, c2}');
-		undo(view.state, view.dispatch);
-		// The undo left the span as text with the caret in it, and a redo to go to.
-		expect(view.state.doc.nodeAt(first.pos)?.isText).toBe(true);
-		expect(redoDepth(view.state)).toBeGreaterThan(0);
-		const depth = redoDepth(view.state);
+		filo.undo();
+		// The undo took the X back out, and left a redo to go to.
+		expect(texts(view)).not.toContain('{XSHIPPED, c2}');
+		expect(filo.history.state().canRedo).toBe(true);
 		// A plain click somewhere else.
 		let at = -1;
 		view.state.doc.descendants((n, pos) => {
 			if (at < 0 && n.isText && n.text?.includes('Plain slide')) at = pos + 2;
 		});
 		view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
-		expect(redoDepth(view.state)).toBe(depth);
-		redo(view.state, view.dispatch);
-		expect(texts(view)).toContain('{XSHIPPED, c2}');
+		expect(filo.history.state().canRedo).toBe(true);
+		filo.redo();
+		// The redo re-parses the slide from its text, so the span comes back as the object it reads as.
+		expect(docToDeck(view.state.doc)).toContain('`{XSHIPPED, c2}`');
 	});
 
 	it('the author\'s next edit after an undo converts what the undo left as text', () => {

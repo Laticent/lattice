@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
-import { closeHistory, history, redo, undo, undoDepth } from 'prosemirror-history';
 import { Fragment, DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { deckSchema, deckToDoc, docToDeck, emitDeck, initBaseline } from './deck-doc';
+import { recordOnFilo } from './filo-harness.test-util';
 import { assetNameOf, bgKeywords, bgSideOf, descriptionAsAlt, editImage, imageSourceKind, insertImage, insertImageBlocker, removeImage, withBgSide } from './image-objects';
 import { type InlineKernels, inlineObjectsPlugin, type OpenObject, openObject, openObjectEditor } from './inline-objects';
 
@@ -36,7 +36,7 @@ const DECK = [
 
 function mount(source: string, onOpenChange: (o: OpenObject | null) => void = () => {}) {
 	const plugin = inlineObjectsPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, onOpenChange });
-	return new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc(source), plugins: [plugin, history()] }) });
+	return new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc(source), plugins: [plugin] }) });
 }
 
 function images(view: EditorView) {
@@ -110,18 +110,20 @@ describe('editing an image', () => {
 		expect(view.state.selection).toBeInstanceOf(NodeSelection);
 	});
 
+	// One undo step on the deck's history (Filo, as the Studio drives Compose since slice 4).
 	it('writes a new photo, keeps the description, and is one undo step', () => {
 		const view = mount(DECK);
+		const filo = recordOnFilo(view);
 		const [harbor] = images(view);
 		openObjectEditor(view, harbor.pos);
-		const depth = undoDepth(view.state);
+		const steps = filo.history.state().steps;
 		expect(editImage(view, harbor.pos, { src: 'asset:forest' })).toBe(true);
 		expect(images(view)[0]).toMatchObject({ src: 'asset:forest', alt: 'A harbor at dawn' });
 		expect(docToDeck(view.state.doc)).toContain('![A harbor at dawn](asset:forest)');
-		expect(undoDepth(view.state)).toBe(depth + 1);
-		undo(view.state, view.dispatch);
+		expect(filo.history.state().steps).toBe(steps + 1);
+		filo.undo();
 		expect(images(view)[0].src).toBe('asset:harbor');
-		redo(view.state, view.dispatch);
+		filo.redo();
 		expect(images(view)[0].src).toBe('asset:forest');
 	});
 
@@ -139,10 +141,10 @@ describe('editing an image', () => {
 
 	it('says nothing was written when the value is already there', () => {
 		const view = mount(DECK);
+		const filo = recordOnFilo(view);
 		const [harbor] = images(view);
-		const depth = undoDepth(view.state);
 		expect(editImage(view, harbor.pos, { alt: 'A harbor at dawn', src: 'asset:harbor' })).toBe(true);
-		expect(undoDepth(view.state)).toBe(depth);
+		expect(filo.history.state().steps).toBe(0);
 	});
 
 	it('refuses a source a deck cannot hold, and writes nothing', () => {
@@ -198,9 +200,11 @@ describe('removing an image', () => {
 
 	it('is one undo step', () => {
 		const view = mount(DECK);
+		const filo = recordOnFilo(view);
 		const [harbor] = images(view);
 		removeImage(view, harbor.pos);
-		undo(view.state, view.dispatch);
+		expect(filo.history.state().steps).toBe(1);
+		filo.undo();
 		expect(images(view)[0].src).toBe('asset:harbor');
 	});
 });
@@ -238,11 +242,12 @@ describe('the Image door', () => {
 
 	it('is one undo step', () => {
 		const view = mount(DECK);
+		const filo = recordOnFilo(view);
 		caretIn(view, 'Some words', true);
-		view.dispatch(closeHistory(view.state.tr));
-		const depth = undoDepth(view.state);
 		insertImage('asset:forest', 'F')(view.state, view.dispatch);
-		expect(undoDepth(view.state)).toBe(depth + 1);
+		expect(filo.history.state().steps).toBe(1);
+		filo.undo();
+		expect(docToDeck(view.state.doc)).not.toContain('![F](asset:forest)');
 	});
 
 	it('declines in a code block and in a locked slide, and says why', () => {

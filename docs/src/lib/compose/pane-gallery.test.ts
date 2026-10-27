@@ -4,10 +4,12 @@
 // test serializes the pane through the schema's own `toDOM` and queries the grammar's selectors.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { history, undo } from 'prosemirror-history';
+import { history } from 'prosemirror-history';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { describe, expect, it } from 'vitest';
+import { History } from '@/lib/filo';
 import { deckToDoc, emitDeck, initBaseline } from './deck-doc';
+import { historyTransaction } from './filo-history';
 import { applyPaneChoice, PANE_REFUSAL, paneBodyRange, paneFit, paneMarkerGuard, paneStarter, slidePanes, starterEditable } from './pane-model';
 import { marksOf, paneNeedsFrom } from './pane-needs';
 
@@ -182,10 +184,16 @@ describe('picking a component', () => {
 		expect(out).toContain('<!-- _pane: bar -->\n\n### Second pane\n\n- First `120`');
 		expect(out).toContain("> The slide's Key Insight.");
 		expect(out.match(/- A point/g)).toHaveLength(1); // the first pane's, untouched
-		let undone = next;
-		undo(next, (t) => {
-			undone = next.apply(t);
-		});
+		// Undo is Filo's since slice 4: the text it hands back is applied as a FILO_HISTORY transaction,
+		// which the marker guard must let through.
+		const base = initBaseline(state.doc);
+		const S0 = emitDeck(state.doc, base);
+		const h = new History('deck', S0);
+		h.commit({ base: h.head, next: emitDeck(next.doc, base), label: 'Change pane', origin: 'compose' });
+		const m = h.undo();
+		const r = m && historyTransaction(next, base, emitDeck(next.doc, base), m.text);
+		if (!r) throw new Error('no history transaction');
+		const undone = next.apply(r.tr);
 		expect(emitDeck(undone.doc, initBaseline(state.doc))).toBe(emitDeck(state.doc, initBaseline(state.doc)));
 	});
 	it('keeping the text only names the component, with the look\'s modifiers', () => {

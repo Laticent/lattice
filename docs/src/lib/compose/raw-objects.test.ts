@@ -1,11 +1,11 @@
 import { createRequire } from 'node:module';
-import { history, redo, undo } from 'prosemirror-history';
 import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { describe, expect, it } from 'vitest';
 import { CLIP_ORIGIN } from './clip-origin';
 import { deckSchema, deckToDoc, docToDeck } from './deck-doc';
+import { recordOnFilo } from './filo-harness.test-util';
 import { type InlineKernels, inlineObjectsPlugin, type OpenObject, openObject, openObjectEditor } from './inline-objects';
 import { displayTexOf, displayTextFor, editInlineMath, editRawBlock, inlineTexProblem, rawBlockProblem, rawObjectKind, removeRaw } from './raw-objects';
 
@@ -42,7 +42,7 @@ const first = (view: EditorView) => docToDeck(view.state.doc).split('\n\n---\n\n
 
 function mount(source: string, onOpenChange: (o: OpenObject | null) => void = () => {}) {
 	const plugin = inlineObjectsPlugin({ getKernels: () => kernels, getDeckLiteral: () => false, onOpenChange });
-	return new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc(source), plugins: [plugin, history()] }) });
+	return new EditorView(document.createElement('div'), { state: EditorState.create({ doc: deckToDoc(source), plugins: [plugin] }) });
 }
 
 function find(view: EditorView, name: 'inline_math' | 'raw_block', kind?: string) {
@@ -87,14 +87,17 @@ describe('the open editor', () => {
 });
 
 describe('editing', () => {
+	// One undo step on the deck's history (Filo, as the Studio drives Compose since slice 4).
 	it('a math span changes only its TeX, as one undo step', () => {
 		const view = mount(DECK);
+		const filo = recordOnFilo(view);
 		const at = find(view, 'inline_math')[0].pos;
 		expect(editInlineMath(view, at, 'a_1^2')).toBe(true);
 		expect(first(view)).toBe(FIRST.replace('$A = \\pi r^2$', '$a_1^2$'));
-		undo(view.state, view.dispatch);
+		expect(filo.history.state().steps).toBe(1);
+		filo.undo();
 		expect(first(view)).toBe(FIRST);
-		redo(view.state, view.dispatch);
+		filo.redo();
 		expect(first(view)).toBe(FIRST.replace('$A = \\pi r^2$', '$a_1^2$'));
 	});
 	it('refuses TeX a span cannot hold, and writes nothing', () => {

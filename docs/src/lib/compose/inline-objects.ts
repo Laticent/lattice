@@ -19,11 +19,11 @@
 //     (lib/authoring/inline-editors.js → lib/plugins/pills/pills.inline.js), never a second parser
 //     (HARD RULES #1, #7).
 
-import { closeHistory, isHistoryTransaction } from 'prosemirror-history';
 import { Mark, type Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection, Plugin, PluginKey, TextSelection, type Transaction } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
+import { closeFiloGroup, isFiloHistory } from './filo-history';
 import { isObjectSource } from './inline-object';
 import { PILL_SCOPE } from './pill-sheet';
 import type { PluginKindEntry } from './plugin-kind-entries';
@@ -647,7 +647,7 @@ export function editObject(view: EditorView, pos: number, edit: unknown, kernels
 	if (out === null || !isObjectSource(out) || !kindOf(out, kernels)) return false;
 	if (out === src) return true;
 	// A pick is its own undo step: close the open history group first, so it never joins the typing before it.
-	view.dispatch(closeHistory(view.state.tr));
+	view.dispatch(closeFiloGroup(view.state.tr));
 	const tr = view.state.tr.replaceWith(pos, pos + 1, objectType().create({ src: out }, null, node.marks));
 	// A replaced node is a deleted one to the selection's mapping, so say where the selection is.
 	tr.setSelection(NodeSelection.create(tr.doc, pos)).setMeta(objectsKey, { edited: true } satisfies ObjectsMeta);
@@ -915,7 +915,7 @@ export function inlineObjectsPlugin(opts: ObjectsPluginOptions): Plugin<ObjectsS
 			apply(tr, prev, _old, next) {
 				// An undo or redo sets the flag; the author's own next change clears it. The silent passes
 				// change representation only, so they leave it alone.
-				const afterHistory = tr.docChanged && !isSilentPass(tr) ? isHistoryTransaction(tr) : prev.afterHistory;
+				const afterHistory = tr.docChanged && !isSilentPass(tr) ? isFiloHistory(tr) : prev.afterHistory;
 				const value = afterHistory === prev.afterHistory ? prev : { ...prev, afterHistory };
 				const meta = tr.getMeta(objectsKey) as ObjectsMeta | undefined;
 				if (meta && 'open' in meta) {

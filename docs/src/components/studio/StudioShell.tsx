@@ -155,7 +155,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
-import { commitSource, historyInput, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoHint, undoOwner } from './studio-filo';
+import { commitSource, historyInput, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -534,10 +534,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		},
 		[stampIntent],
 	);
-	/** Compose's emit (until slice 4 Compose keeps its own undo, so an emit its undo made is labeled as one). */
+	/** Compose's emit. Compose keeps no undo of its own; its typing coalesces like the editor's. */
 	const setSourceFromCompose = React.useCallback(
-		(text: string, history = false) => {
-			stampIntent(history ? { label: 'Compose undo', origin: 'compose' } : { label: 'Typing', origin: 'compose' }, text);
+		(text: string, label = 'Typing') => {
+			stampIntent({ label, origin: 'compose' }, text);
 			setSourceRaw(text);
 		},
 		[stampIntent],
@@ -557,6 +557,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	/** Filo's undo and redo, and its forgetting of a deleted deck, set further down once the hub and
 	 *  the live session exist; earlier code (the settings toast, deck delete) calls through these. */
 	const runHistoryRef = React.useRef<(verb: UndoVerb) => void>(() => {});
+	/** End the open undo step, so the next change starts a new one (Compose's object edits, a pane pick). */
+	const closeGroupRef = React.useRef<() => void>(() => {});
 	const filoDropRef = React.useRef<(id: string) => void>(() => {});
 	// ── filo:commit-path end ─────────────────────────────────────────────────
 	// Live (2026-10-20 note §7.5): a tour in a session plays on a PRACTICE deck. `source` then holds the
@@ -767,9 +769,6 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Compose surface (Option B continuous note). Both read/write the same `source`,
 	// so flipping never loses work and the preview tracks either. (2026-07-17 Compose.)
 	const [editMode, setEditMode] = React.useState<'markdown' | 'compose'>('markdown');
-	// What a toast may promise about ⌘Z: until slice 4, Compose keeps its own undo (studio-filo.ts).
-	const editModeRef = React.useRef(editMode);
-	editModeRef.current = editMode;
 	const viewRef = React.useRef(view);
 	viewRef.current = view;
 	const [shareOpen, setShareOpen] = React.useState(false);
@@ -3104,9 +3103,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the text here, first, and the caret report that follows resolves against it rather than the
 	// index of the text before the edit.
 	const onComposeChange = React.useCallback(
-		(src: string, meta?: { history?: boolean }) => {
+		(src: string, meta?: { close?: boolean }) => {
 			hub.update(src, { by: 'compose' });
-			setSourceFromCompose(src, !!meta?.history);
+			// A change that is its own step (a pane pick) closes the step before it.
+			if (meta?.close) closeGroupRef.current();
+			setSourceFromCompose(src, meta?.close ? 'Change pane' : 'Typing');
 		},
 		[hub, setSourceFromCompose],
 	);
@@ -3130,7 +3131,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				(f) => f,
 				(f) => {
 					composeChunkRef.current = Math.max(0, f.unitIndex);
-					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab });
+					// An undo's reveal keeps the caret Compose already put where the change was (Filo note §3.4).
+					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history' });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
 			),
@@ -3647,7 +3649,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				} else {
 					setCheckpoints(saveCheckpoint(deck.id, source, `Before ${label}`, Date.now()));
 					editorRef.current?.replaceSelection(out.text, `AI: ${label}`);
-					notify(`${label} applied — ${undoHint(editModeRef.current !== 'compose')}.`);
+					notify(`${label} applied — ⌘Z or restore from History to undo.`);
 				}
 			} catch {
 				notify(`${label} failed — try again.`);
@@ -3874,7 +3876,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			setSource(next, { label: `AI fix${st.slide != null ? `: slide ${st.slide}` : ''}`, origin: 'ai' });
 			noteAiEdit(source, next);
 			discardFix(key);
-			notify(`Fix applied — ${undoHint(editModeRef.current !== 'compose')}.`);
+			notify(`Fix applied — ⌘Z or restore from History to undo.`);
 			return true;
 		},
 		[fixStates, source, deck.id, discardFix, setSource, noteAiEdit],
@@ -4425,6 +4427,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// change lands where it was, and every pane moves there (§3.4).
 	const [undoSay, setUndoSay] = React.useState('');
 	const saySeqRef = React.useRef(0);
+	// The undo waiting for an IME composition to end, if any (see runHistory).
+	const composingVerbRef = React.useRef<UndoVerb | null>(null);
 	const say = React.useCallback((text: string) => {
 		// The same words twice in a row are still a new event: a zero-width tail makes them differ.
 		saySeqRef.current ^= 1;
@@ -4437,6 +4441,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				const c = liveCollabRef.current;
 				const moved = c ? (verb === 'undo' ? c.undo() : c.redo()) : false;
 				if (!moved) say(verb === 'undo' ? 'Nothing to undo' : 'Nothing to redo');
+				// The session mirrors the undone text into the source synchronously; Compose shows it at once,
+				// or a focused Compose would park it and the next keystroke would push the undone text back.
+				else if (c) composeRef.current?.applyHistory(c.seed());
+				return;
+			}
+			// An IME composition owns the keys: the undo waits for it to end (Filo note §3.3).
+			const compose = composeRef.current;
+			if (compose?.composing()) {
+				// One undo waits, the last one asked for: three taps during a composition are not three undos.
+				const queued = composingVerbRef.current !== null;
+				composingVerbRef.current = verb;
+				if (!queued)
+					compose.afterComposition(() => {
+						const v = composingVerbRef.current;
+						composingVerbRef.current = null;
+						if (v) runHistoryRef.current(v);
+					});
 				return;
 			}
 			// A write that has not reached the commit effect yet (a keystroke in this same frame) is
@@ -4458,6 +4479,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				say('Changed outside this history. Undo again to undo it.');
 				return;
 			}
+			// Compose shows it now, focused or not, touching only the slides that changed.
+			if (compose) timed('filo:compose-apply', () => compose.applyHistory(m.text));
 			setSourceFromHistory(m.text, m.label);
 			if (m.caret !== null) editorRef.current?.placeCaret(m.text, m.caret);
 			// THE REVEAL: every pane lands on the slide the change touched (§3.4). The hub takes the
@@ -4473,6 +4496,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		[filo, filoCommit, hub, say, setSourceFromHistory],
 	);
 	runHistoryRef.current = runHistory;
+	closeGroupRef.current = () => {
+		// Commit a change still on its way first, so the step it closes is the one the author made.
+		const pending = intentRef.current;
+		if (pending && pending.kind !== 'load' && pending.seq > seenSeqRef.current) filoCommit(pending.text);
+		filo.active?.closeGroup();
+	};
+	const filoCloseGroup = React.useCallback(() => closeGroupRef.current(), []);
 	// Undo / Redo enabled state for the shell's buttons, from the active history. Subscribed after
 	// the commit effect (declared above) has loaded the document this render switched to.
 	const [filoCan, setFiloCan] = React.useState({ undo: false, redo: false });
@@ -4488,7 +4518,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		return h.subscribe((st) => `${st.canUndo}|${st.canRedo}`, read);
 	}, [filo, filoDoc]);
 	// THE ROOT KEYMAP (§3.5). Bubble phase, so an editor that handles the chord itself (a code field
-	// with its own history, Compose until slice 4, the live binding) has already claimed it.
+	// with its own history, the live binding) has already claimed it.
 	React.useEffect(() => {
 		const keysAreFilos = () => !presentOpenRef.current && viewRef.current !== 'fabricate';
 		const onKey = (e: KeyboardEvent) => {
@@ -5271,7 +5301,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 												setCheckpoints(saveCheckpoint(deck.id, source, 'Before profile change', Date.now()));
 												setSource(next, { label: `Profile → ${profileOverride}`, origin: 'settings' });
 												setProfileOverride(null);
-												notify(`Deck now declares profile: ${profileOverride} — ${undoHint(editModeRef.current !== 'compose')}.`);
+												notify(`Deck now declares profile: ${profileOverride} — ⌘Z or restore from History to undo.`);
 											});
 										}}
 										className="rounded-md border border-[var(--accent)] px-1.5 py-0.5 text-[10.5px] font-semibold text-[var(--accent)]"
@@ -6380,7 +6410,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
+				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -7455,7 +7485,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    homes" problem just fixed for Slide settings. */}
 				{mobile && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
 				{/* A phone has no ⌘Z: Undo and Redo for the deck's one history (Filo note §3.5). The Compose
-				    pane carries its own pair in its pill until slice 4, so these step aside there. */}
+				    pane's pill carries the same pair (the same history), so these step aside there. */}
 				{mobile && !(effPane === 'edit' && editMode === 'compose') && (
 					<>
 						<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>

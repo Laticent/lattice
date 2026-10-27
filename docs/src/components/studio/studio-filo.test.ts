@@ -2,7 +2,7 @@
 // §3.2, and who owns ⌘Z for a focused element (§3.5).
 import { describe, expect, it } from 'vitest';
 import { createFilo, History } from '@/lib/filo';
-import { commitSource, historyInput, type StampedIntent, slideBoundary, undoChord, undoHint, undoOwner } from './studio-filo';
+import { commitSource, historyInput, type StampedIntent, slideBoundary, undoChord, undoOwner } from './studio-filo';
 import { newDeckSource } from './studio-store';
 
 let seq = 0;
@@ -158,15 +158,12 @@ describe('undoOwner — who owns ⌘Z for the focused element', () => {
 		expect(undoOwner(el('<div data-filo-owned><div contenteditable="true"><p>x</p></div></div>', 'p'))).toBe('filo');
 		expect(undoOwner(el('<div data-filo-yield><div data-filo-owned><p>x</p></div></div>', 'p'))).toBe('yield');
 	});
+	it('a text field inside a surface Filo owns (a note in Compose) keeps its own undo', () => {
+		expect(undoOwner(el('<div data-filo-owned><div contenteditable="true"><textarea></textarea></div></div>', 'textarea'))).toBe('native');
+		expect(undoOwner(el('<div data-filo-owned><input type="text"></div>', 'input'))).toBe('native');
+	});
 	it('a dialog over the Studio is not where the deck is', () => {
 		expect(undoOwner(el('<div role="dialog"><button>Close</button></div>', 'button'))).toBe('yield');
 		expect(undoOwner(el('<div aria-modal="true"><button>x</button></div>', 'button'))).toBe('yield');
-	});
-});
-
-describe('undoHint', () => {
-	it('promises ⌘Z only where Filo owns the pane', () => {
-		expect(undoHint(true)).toContain('⌘Z');
-		expect(undoHint(false)).not.toContain('⌘Z');
 	});
 });

@@ -603,6 +603,69 @@ Where it differs from the plan above, and why:
 **4. Compose on Filo.** The five Compose changes of §3.3, with the spike's answer for change 4;
 remove Compose's gate entries. Retires #3.
 
+**Slice 4 as built.** Compose keeps no undo of its own. `docs/src/lib/compose/filo-history.ts`
+holds the `FILO_HISTORY` mark, `closeFiloGroup`, and `historyTransaction`, which turns the text an
+undo produced into one transaction over only the slides that differ (the spike's
+`scoped-resync.ts`, now production, with its 326-deck test kept as the guard). The five changes:
+
+1. **No park for an undo.** The shell calls `ComposeView.applyHistory(text)` before it sets the
+   source, so the undo lands at once, focused or not, and `lastEmittedRef` moves with it; the
+   source effect then sees its own text and does nothing. An undo asked for during an IME
+   composition waits for `compositionend` (`composing` / `afterComposition`) instead of running.
+2. **One mark replaces `isHistoryTransaction`** in the structural guard, the pane-marker guard and
+   the inline-object `afterHistory` flag. The guard tests drive the restore of a deck wipe through
+   Filo and `historyTransaction`; on the pre-slice guard four of them fail, which is the deck wipe
+   coming back.
+3. **Per-slide patches.** Compose's emit commits as a trimmed replace. Untouched slides re-emit
+   their cached bytes, so the trim is already the edited slides' narrow patch; no second diff runs.
+4. **Scoped apply** with a fallback: if the transaction's emit is not exactly the undo's text, the
+   full `resyncFrom` runs, so a deck shape the spike missed costs folds and caret, never the text.
+5. **The rest of the history API.** The `closeHistory` callers mark `closeFiloGroup`; the shell
+   closes Filo's open step when that mark arrives (with an emit, as `{ close }`, or alone, as
+   `onCloseGroup`). The pill's Undo and Redo, and the pane toast's Undo, go through one module
+   bridge to the shell's `runHistory`, enabled from Filo's `canUndo` / `canRedo`.
+
+Compose's five gate entries are gone; the sanctioned list holds the live binding and `CodeField`.
+The slice-3 residual ("Compose undo" steps) and the toast wording that depended on the open pane
+are gone with them.
+
+What the build and the independent check found, all fixed in this slice:
+
+- **ProseMirror swallows Mod-Z and Mod-Y itself** (`captureKeyDown` calls `preventDefault` so the
+  browser's native undo never touches its DOM), so the chord never reached the root keymap, which
+  skips a prevented event. Compose sends the chord to Filo from its own keydown handler, through
+  the same `undoChord` / `undoOwner` the root uses. Only the e2e caught it; every unit test passed.
+- **A parked outside change came back on blur after its own undo**: `applyHistory` now clears the
+  parked change first (pinned in `ComposeView.sync.test.tsx`; the test fails without the fix).
+- **⌘Z in a note being written undid the deck**: `undoOwner` now checks for a text field before
+  the `data-filo-owned` surface around it, so the note keeps the browser's undo.
+- **Live session**: the session's undo is mirrored into Compose at once too, or a focused Compose
+  parked it and the next keystroke pushed the undone text back.
+- **IME**: several undos asked for during one composition queue as one (the last one asked for).
+- **The caret after an undo** sat at the edge of the slide the undo replaced (and the reveal then
+  moved it to the slide's first line), so the next keystroke landed there. The undo now puts the
+  caret at the end of the change, using the replaced slide's own `findDiffEnd`, and a reveal from
+  `history` keeps a caret that is already in the slide it reveals.
+
+**Cost, measured on the 134 KB deck** (`docs/e2e/filo-compose.spec.ts`). The history's own work
+in applying an undo to Compose (the transaction, the change diff, the emit check, the object pass:
+`filo:compose-work`) is **3-9 ms in Chromium and Firefox and 6-11 ms in WebKit**, run alone; the
+spike's apply alone stays at 1-4 ms. Two changes got it there: the change flash rides in the undo's
+own transaction instead of a second dispatch (that dispatch alone cost WebKit 38-57 ms), and the
+chip that points at an off-screen change reads layout on the next frame. What is left is
+ProseMirror re-rendering the slide it replaced: 8-16 ms in Chromium and Firefox and 50-240 ms in
+WebKit per undo, against 6-24 ms and 17-28 ms for an ordinary keystroke on the same deck. That is
+Compose's render cost on a deck this size, which typing pays too; it is recorded as a follow-up,
+not budgeted here. The e2e holds the median of the history work to 16 ms and its worst to 50: with
+a second engine running beside it, WebKit's single samples reached 34 ms, so a worst-case 16 ms bar
+would fail on runner load rather than on the code.
+
+The tests that pinned "one undo step" with prosemirror-history (inline objects, images, raw
+blocks, the pane pick) now pin it on a Filo history through `filo-harness.test-util.ts`, which
+drives Compose the way the shell does. Known limits: an object, image or raw-block edit is
+announced as "Undid: Typing", and the pane toast's Undo reports success even when the history has
+nothing left to undo.
+
 **5. Persistence.** The IndexedDB store, the sidecar and the reload path, tombstones, the two-tab
 lock, the LRU, and the worker that narrows broad patches.
 
