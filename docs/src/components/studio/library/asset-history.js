@@ -7,13 +7,13 @@
 // changed under you did so without asking. History is what makes that overwrite
 // safe to offer at all.
 //
-// WHERE IT LIVES, AND WHY NOT WHERE DECKS KEEP THEIRS. Deck checkpoints live in
-// `localStorage` (studio-store.ts `SNAP_PREFIX`), and mirroring that here was the
-// obvious move. It is the wrong one: a serialized theme runs 5–20KB against a
-// ~5MB localStorage ceiling shared with every deck, every chat and every setting,
-// so a few heavily-edited themes could crowd out the decks themselves. The assets
-// are already in IndexedDB, which has no such ceiling and is already counted by
-// `navigator.storage.estimate()`. Versions belong beside the thing they version.
+// WHERE IT LIVES. In IndexedDB, beside the assets. Deck checkpoints used to live in
+// `localStorage`, and mirroring that here was the obvious move. It was the wrong one: a
+// serialized theme runs 5–20KB against a ~5MB localStorage ceiling shared with every
+// deck, every chat and every setting, so a few heavily-edited themes could crowd out
+// the decks themselves. Deck checkpoints have since moved to IndexedDB for the same
+// reason (checkpoint-store.ts). IndexedDB has no such ceiling and is already counted
+// by `navigator.storage.estimate()`. Versions belong beside the thing they version.
 //
 // WHAT IT IS NOT. This is not the shareable asset contract. A `.zip` built by
 // `asset-bundle.ts` carries the CURRENT asset and nothing else — nobody wants to

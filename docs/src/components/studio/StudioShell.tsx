@@ -68,6 +68,7 @@ import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
+import { onCheckpointsReady, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
@@ -4768,6 +4769,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// ── Version history (checkpoints) ────────────────────────────────────────
 	// Load the active deck's checkpoints when it changes.
 	React.useEffect(() => setCheckpoints(loadCheckpoints(deck.id)), [deck.id]);
+	// Checkpoints live in IndexedDB behind a cache that fills after the first render
+	// (checkpoint-store.ts): re-read once it has, so the list never stays empty.
+	React.useEffect(() => onCheckpointsReady(() => setCheckpoints(loadCheckpoints(deckIdRef.current))), []);
+	// A version that failed to save used to vanish without a word (the old localStorage
+	// write swallowed a full quota). Say so, once per burst: the version stays restorable
+	// for this session, but it will not survive a reload. At most one notice a minute:
+	// a full quota fails every save, and a stack of identical notices helps nobody.
+	React.useEffect(() => {
+		let shownAt = Number.NEGATIVE_INFINITY;
+		return onCheckpointWriteError(({ error }) => {
+			if (Date.now() - shownAt < 60_000) return;
+			shownAt = Date.now();
+			const full = error instanceof DOMException && error.name === 'QuotaExceededError';
+			notifySticky(full ? "Couldn't save this version: this browser's storage is full." : "Couldn't save this version to this browser.", {
+				description: 'It stays in Version history until you reload. Free space in Workspace → Privacy & Data, then save again.',
+				label: 'OK',
+				onClick: () => {},
+			});
+		});
+	}, []);
 	const checkpoint = React.useCallback((label: string) => setCheckpoints(saveCheckpoint(deck.id, source, label, Date.now())), [deck.id, source]);
 	const saveVersion = () => { checkpoint('Saved version'); notify('Version saved to history.'); };
 	function restoreCheckpoint(cp: Checkpoint) {

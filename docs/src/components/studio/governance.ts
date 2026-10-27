@@ -25,6 +25,7 @@ import { deleteAsset, listAssets } from '@/components/studio/library/asset-store
 import { clearAllSessions, crashReportStats } from '@/lib/crash-sentinel';
 import { clearClips, clipStats } from '@/playground/narration-store.js';
 import { disconnectOpenRouter } from './architect';
+import { checkpointsSettled } from './checkpoint-store';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
@@ -137,6 +138,8 @@ export async function loadGovernanceStats(): Promise<GovernanceStats> {
  *  invisible and unreachable but still hold the quota. Photos shared with every deck stay. */
 export async function clearDecksAndTheirPhotos(): Promise<void> {
 	clearAllDecks();
+	// The checkpoint clear runs in IndexedDB; let it finish before the caller reloads.
+	await checkpointsSettled();
 	try {
 		const { deleteDeckScopedMedia } = await import('./media-store');
 		await deleteDeckScopedMedia();
@@ -214,6 +217,7 @@ export async function clearRetiredDrawingBoardData(): Promise<void> {
 
 export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllDecks();
+	await checkpointsSettled();
 	// Crash records carry deck titles, page URLs, the user agent and error stacks
 	// — "your data" by any reading, so the sweep has to reach them or the promise
 	// in this file's header ("must not leave that behind, or the privacy promise

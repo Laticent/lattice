@@ -1,5 +1,6 @@
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
+import { type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, readCheckpoints, SNAP_CAP, SNAP_PREFIX, writeCheckpoints } from './checkpoint-store';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
@@ -531,7 +532,7 @@ export function setDeckLabel(id: string, title: string): void {
 export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
-	remove(SNAP_PREFIX + id);
+	dropCheckpoints(id);
 	remove(CHAT_PREFIX + id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
@@ -561,6 +562,8 @@ export function deckContentStats(): { count: number; bytes: number } {
 	} catch {
 		/* storage unavailable */
 	}
+	// Checkpoints moved to IndexedDB, so the localStorage scan above no longer sees them.
+	bytes += checkpointBytes();
 	return { count, bytes };
 }
 
@@ -584,7 +587,6 @@ export function clearAllDecks(): void {
 	// can't do that, since it doesn't know which ids it's touching).
 	for (const { id } of loadIndex()) {
 		dropSource(id);
-		remove(SNAP_PREFIX + id);
 		remove(CHAT_PREFIX + id);
 		remove(CHAT_DRAFT_PREFIX + id);
 		clearComments(id);
@@ -608,6 +610,9 @@ export function clearAllDecks(): void {
 	} catch {
 		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
+	// Checkpoints live in IndexedDB now: clear them, and refuse any later write this
+	// page makes (callers that reload await `checkpointsSettled()` first).
+	clearCheckpoints();
 	remove(INDEX_LS);
 	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
@@ -624,14 +629,14 @@ export function clearAllDecks(): void {
 export const DECKS_CLEARED_EVENT = 'lattice:decks-cleared';
 
 // ── Version history (checkpoints) ──────────────────────────────────────────
-export const SNAP_PREFIX = 'lattice-studio-snap-'; // + deckId → Checkpoint[] (exported for the storage-overlay drift test)
-const SNAP_CAP = 25; // keep the most recent N per deck
-
-export type Checkpoint = { id: string; ts: number; label: string; source: string };
+// Stored in IndexedDB behind a synchronous cache, with failed writes reported rather
+// than swallowed (checkpoint-store.ts). The legacy localStorage prefix is re-exported
+// for the storage-overlay drift test and the Clear-all sweep.
+export { type Checkpoint, SNAP_PREFIX };
 
 /** Checkpoints for a deck, newest first. */
 export function loadCheckpoints(deckId: string): Checkpoint[] {
-	return read<Checkpoint[]>(SNAP_PREFIX + deckId) ?? [];
+	return readCheckpoints(deckId);
 }
 /**
  * Save a checkpoint of `source` (skipping a no-op if it matches the latest), cap
@@ -643,7 +648,7 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 	if (list[0]?.source === source) return list; // nothing changed since the last one
 	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
 	const next = [cp, ...list].slice(0, SNAP_CAP);
-	write(SNAP_PREFIX + deckId, next);
+	writeCheckpoints(deckId, next);
 	return next;
 }
 
@@ -658,7 +663,7 @@ export function mapCheckpointSources(deckId: string, fn: (source: string) => str
 		changed = true;
 		return { ...c, source };
 	});
-	if (changed) write(SNAP_PREFIX + deckId, next);
+	if (changed) writeCheckpoints(deckId, next);
 }
 
 // ── Architect chat history (per deck) ──────────────────────────────────────
@@ -1187,7 +1192,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			const { webOrigins: _untrusted, ...incoming } = entry;
 			index.push(incoming);
 			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
-			if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length) writeCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1204,7 +1209,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// still whatever each side already had, so nothing is rewritten under the user.
 		if (incomingSrc == null || incomingSrc === normalizeSourceText(currentSrc)) {
 			// Same deck — take the backup's history wherever ours is missing.
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) writeCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.skipped++;
 			continue;
@@ -1215,7 +1220,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// restores IN PLACE. This is the whole-point case: a fresh browser after
 			// storage loss, where every built-in id is present but untouched.
 			saveSource(entry.id, incomingSrc);
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) write(SNAP_PREFIX + entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) writeCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1233,7 +1238,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
 		saveSource(newId, incomingSrc);
-		if (data.checkpoints[entry.id]?.length) write(SNAP_PREFIX + newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+		if (data.checkpoints[entry.id]?.length) writeCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
 		summary.written.push(newId);

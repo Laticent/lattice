@@ -24,6 +24,7 @@
 
 import { type ParsedBundle, packBundle, unpackBundle } from './asset-bundle';
 import { applyImportRenames } from './asset-rename';
+import { hydrateCheckpoints } from './checkpoint-store';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
@@ -107,6 +108,8 @@ export async function packWorkspace(now: number, report?: PackReport): Promise<B
 	// or a backup taken mid-keystroke misses the newest edits (and a JUST-edited
 	// built-in would have no stored source at all and drop out entirely).
 	requestSourceFlush();
+	// Checkpoints load from IndexedDB after boot; a backup taken first must still carry them.
+	await hydrateCheckpoints();
 	const state = exportStudioState();
 	// Scenes come through the RAW reader, not `listStudioScenes`. That list drops any record whose
 	// spec no longer validates, and this function is what turns that drop into permanent data loss:
@@ -447,6 +450,8 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 		if (renames.length) state.sources = Object.fromEntries(Object.entries(state.sources).map(([id, src]) => [id, applyImportRenames(src, renames)]));
 	}
 
+	// Restore merges checkpoints only where this browser has none, so it must see the stored ones first.
+	await hydrateCheckpoints();
 	const summary: RestoreSummary = { ...importStudioState(state, now), themes: 0, components: 0, finishes: 0, scenes: 0, unreadableScenes: 0, refdocs: 0, media: 0, mediaRenamed: 0, refused };
 
 	if (parsed) {

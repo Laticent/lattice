@@ -456,6 +456,35 @@ export function persistedByPrefix(page: Page, prefix: string): Promise<string | 
 }
 
 /**
+ * Every deck's saved checkpoints, read from IndexedDB (`checkpoint-store.ts` moved them out
+ * of localStorage). Returns `{ deckId: count }`; a database that does not exist yet reads
+ * as `{}`. Writes are asynchronous, so read this via `expect.poll`.
+ */
+export function persistedCheckpoints(page: Page): Promise<Record<string, number>> {
+	return page.evaluate(
+		() =>
+			new Promise<Record<string, number>>((resolve) => {
+				const req = indexedDB.open('lattice-studio-versions');
+				req.onerror = () => resolve({});
+				req.onsuccess = () => {
+					const db = req.result;
+					if (!db.objectStoreNames.contains('checkpoints')) {
+						db.close();
+						resolve({});
+						return;
+					}
+					const all = db.transaction('checkpoints').objectStore('checkpoints').getAll();
+					all.onsuccess = () => {
+						db.close();
+						resolve(Object.fromEntries((all.result as { deckId: string; list: unknown[] }[]).map((r) => [r.deckId, r.list.length])));
+					};
+					all.onerror = () => resolve({});
+				};
+			}),
+	);
+}
+
+/**
  * The app toast text — Sonner's bottom-center pill region (`ui/sonner.tsx`).
  *
  * Targets the TOASTER (the single `<ol data-sonner-toaster>`), not an individual
