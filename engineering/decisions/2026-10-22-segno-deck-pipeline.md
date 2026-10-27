@@ -371,3 +371,15 @@ Measured on the 4-core Xeon, median of five, `npm run parser:bakeoff:deck -- --a
 | Hand line pass alone (control) | 660 MB/s | 642 MB/s |
 
 That is 72% of the hand-written loop, short of the 665 MB/s target. The earlier scratch spike reported 1.9-2.4x; this is the measured result of the shipped version, with the existing codegen tests, the grammar fuzz and metamorphic suites green. The remaining gap is tape writes and node bookkeeping, which is the tape-trimming step, not more run work. Trees are identical. Only `list-text.generated.js` gains the helpers; the notation parsers change by one blank line. A checker found two costs: runs of one to three characters are about as fast or slower than the loop (the empty run now skips the call), and a crafted input inside attempt windows can re-search about `max` times per block (2.5-5x, still linear). No shipped grammar has both.
+
+Second machine (a separate cloud container, Xeon 2.3 GHz, 4 vCPU, Node 22.22.0), same command, `4df5cc6` against the pre-G6 generator and outputs from `1502454`, median of five:
+
+| Measure | Pre-G6 | G6 |
+|---|---|---|
+| Segno line pass alone | 397 MB/s | 558 MB/s |
+| S-staged (Segno stage + predicates) | 116.0 MB/s, 1.13x markdown-it | 128.3 MB/s, 1.23x |
+| Hand line pass alone (control) | 911 MB/s | 906 MB/s |
+
+The gain holds across machines (+41% here, +46% on the first), and the generated pass reaches 62% of the hand loop on this one (72% on the first).
+
+`npm run mutate:segno`: 13 of 13 codegen mutants killed in the full run. None of the 13 targets the native-run path, so three hand mutants of it were run against the Segno suite: a cache that is always valid hangs the suite (caught); skipping the empty-run test survives and cannot change a result (it is a speed shortcut); letting a hit one past an attempt window's end win survives, because the attempt fails the same way either way. Neither survivor changes a parse.

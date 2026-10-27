@@ -246,7 +246,8 @@ describe('a run over the complement of 1-3 characters is finished natively (G6)'
     const spec: GrammarSpec = { start: 'r', rules: { r: many(alt(attempt(seq('<', many(stopsOf('>')), '>'), { max: 40, next: ' ' }), ' ', stopsOf(' <'))) } };
     const g = load(spec);
     const c = compile(spec);
-    for (const s of [`<${'a'.repeat(30)}> x`, `<${'a'.repeat(60)}> x`, `<${'a'.repeat(39)}>`, `<${'a'.repeat(100)}`, '< >']) expect(g(s), JSON.stringify(s)).toEqual(c.parse(s));
+    const edge = Array.from({ length: 12 }, (_, k) => `<${'a'.repeat(34 + k)}> x`); // the stop falls just inside, on and just past the window end
+    for (const s of [`<${'a'.repeat(30)}> x`, `<${'a'.repeat(60)}> x`, `<${'a'.repeat(39)}>`, `<${'a'.repeat(100)}`, '< >', ...edge]) expect(g(s), JSON.stringify(s)).toEqual(c.parse(s));
   });
   it('reads 400k characters of many short runs and a few long ones in linear time', () => {
     const spec: GrammarSpec = { start: 'r', rules: { r: many(seq(many(stopsOf('\n')), '\n')) } };
