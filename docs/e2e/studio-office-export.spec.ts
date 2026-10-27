@@ -49,7 +49,7 @@ async function exportEditable(page: import('@playwright/test').Page, row: RegExp
 test('@gecko @webkit-tablet an editable PowerPoint export carries live text and shared backgrounds, not a picture per slide', async ({ page }) => {
 	const { name, file, zip } = await exportEditable(page, /^PowerPoint/, /^Download PowerPoint/);
 	expect(name).toMatch(/\.pptx$/);
-	await expect(toastText(page)).toContainText('PowerPoint ready.');
+	await expect(toastText(page)).toContainText(/PowerPoint ready( \([^)]+\))?\./);
 	const fs = await import('node:fs');
 	expect(await conformance.checkPptxSchema(fs.readFileSync(file))).toEqual([]);
 	if (conformance.openXmlAvailable()) expect(conformance.checkOpenXml([file])[0].errors).toEqual([]);

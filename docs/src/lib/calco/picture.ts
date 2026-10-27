@@ -1,26 +1,8 @@
 /**
- * Slide pictures: PNG or JPEG. A slide is photographed once and stored whole, and the right
- * encoding depends on what is in it. A flat slide (text, cards, a gradient) is small as PNG
- * and crisp; a photograph is lossless-PNG poison (2 to 6 MB per 2560 × 1440 slide, where a
- * q92 JPEG is a tenth of that). The writers take either and name the part by what it is.
- *
- * Measured on a 35-slide deck of mostly photographs (2026-10-21): 76.6 MB as PNG, 15.1 MB
- * choosing per slide, and every one of the 35 slides was smaller as JPEG.
+ * Slide pictures: PNG or JPEG. A slide is photographed once and stored whole. Which encoding to take, and every threshold that decides it, is the
+ * host's policy (Lattice's `choosePicture` in lib/core/image-policy.js), not Calco's: Calco is handed the encoded bytes and names the part by what they
+ * are. What stays here is what only a reader of the page can tell, and what the bytes say about themselves.
  */
-
-/** JPEG quality for a photographic slide, 0 to 1 (canvas) or 1 to 100 (a headless browser's screenshot). */
-export const PICTURE_JPEG_QUALITY = 0.92;
-/** A PNG at or under this many bytes is a flat slide: keep it, lossless, with no JPEG tried. */
-export const PICTURE_FLAT_BYTES = 600 * 1024;
-/** A JPEG must be under this share of its PNG to win; a marginal saving is not worth a lossy picture. */
-export const PICTURE_JPEG_SHARE = 0.7;
-
-/**
- * A continuous-tone slide's JPEG at or over this many bytes is kept without ever shooting the PNG.
- * Below it the slide is nearly flat after all (a sky, a faint wash) and the PNG is worth comparing.
- * Measured: the smallest JPEG of a photo or finish-wash slide in a 35-slide deck was 158 KB.
- */
-export const PICTURE_TONE_JPEG_BYTES = 100 * 1024;
 
 /** The media type of PNG or JPEG bytes, from the file signature. Anything else is called PNG, as before. */
 export function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' {
@@ -30,16 +12,6 @@ export function imageMime(bytes: Uint8Array): 'image/png' | 'image/jpeg' {
 /** The file extension for `imageMime`. */
 export function imageExt(bytes: Uint8Array): 'png' | 'jpg' {
 	return imageMime(bytes) === 'image/jpeg' ? 'jpg' : 'png';
-}
-
-/** Whether a PNG of `pngBytes` is big enough that a JPEG is worth trying. */
-export function worthTryingJpeg(pngBytes: number): boolean {
-	return pngBytes > PICTURE_FLAT_BYTES;
-}
-
-/** Whether a JPEG of `jpegBytes` should replace a PNG of `pngBytes`. */
-export function jpegWins(pngBytes: number, jpegBytes: number): boolean {
-	return jpegBytes < pngBytes * PICTURE_JPEG_SHARE;
 }
 
 /**

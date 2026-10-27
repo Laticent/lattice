@@ -256,7 +256,7 @@ function buildDeck(deck) {
   const t0 = Date.now();
   const r = spawnSync(
     process.execPath,
-    [EMULATOR, src, out, '-q'],
+    [EMULATOR, src, out, '-q', '--size', 'deck'],
     { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env } }
   );
   const took = Date.now() - t0;

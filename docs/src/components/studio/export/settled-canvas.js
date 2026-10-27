@@ -1,18 +1,18 @@
-// A SLIDE CAPTURE THAT WAITS FOR ITS PICTURES — html-to-image's `toCanvas`, plus the wait WebKit needs.
+// A SLIDE CAPTURE THAT WAITS FOR ITS PICTURES — the slide camera's draw, plus the wait WebKit needs.
 //
-// html-to-image draws a slide by serializing it into an SVG `<foreignObject>`, loading that SVG as an
-// `<img>`, and calling `drawImage` once. Every picture on the slide rides inside the SVG as a base64
+// The camera draws a slide by serializing it into an SVG `<foreignObject>`, loading that SVG as an
+// `<img>`, and calling `drawImage` once (html-to-image, which this replaced, did the same). Every picture on the slide rides inside the SVG as a base64
 // `data:` URL. Chromium and Firefox decode those nested pictures before the SVG's `load` fires. WebKit
 // does not, for any picture over about 100,000 pixels: it starts decoding on the FIRST `drawImage` and
 // finishes some time later, and no event, no `img.decode()` and no wait before that first draw tells you
 // when. So the one draw html-to-image makes came out with the text and NO pictures, and the export
-// shipped it (followups.d/2640, removed by this fix). Measured in Playwright's WebKit: a 640x360 PNG is
+// shipped it (followups.d/2640). Measured in Playwright's WebKit: a 640x360 PNG is
 // blank on the first draw and present on the second; a 12-megapixel JPEG stays blank for about 400 ms
 // of redraws; waiting 1 s BEFORE the first draw changes nothing; a 300x300 picture draws the first time.
 //
 // What WebKit does keep is the decode: once a picture has been drawn at its natural size inside one SVG
 // image, the same `data:` URL inside another SVG draws at once. So on an engine that decodes late,
-// `settledCanvas` WARMS each large picture first, alone: one small SVG per picture, drawn at the
+// `settleSlideDraw` WARMS each large picture first, alone: one small SVG per picture, drawn at the
 // picture's natural size into a 1x1 canvas (clipped, so no large scratch canvas), redrawn until a pixel
 // of the picture comes back opaque (a pixel found opaque in the picture itself first, by a strip scan, so a
 // sparse line drawing is tested where it has ink). Alone, "arrived" is a plain question with no layout in it: nothing
@@ -26,8 +26,7 @@
 //
 // The ENGINE is detected, not sniffed from the user agent: `needsDecodePriming` draws an SVG holding a
 // 512px PNG once and reads a pixel back. The PNG carries one random pixel, so the probe can never hit
-// the decode cache. On Chromium and Firefox the pixel is there, and `settledCanvas` is html-to-image's
-// own `toCanvas`, unchanged, so their exports are byte-identical.
+// the decode cache. On Chromium and Firefox the pixel is there, and `settleSlideDraw` is one plain draw.
 
 /** How long one slide may spend waiting for WebKit to decode its pictures before it ships anyway. */
 export const SETTLE_DEADLINE_MS = 5000;
@@ -55,6 +54,14 @@ const SCAN_ROWS = 64;
 const EMBEDDED_BASE64 = /data%3A(?:[a-z0-9._-]|%2F|%2B|%3D|%20|%3B(?!base64%2C))*%3Bbase64%2C(?:[a-z0-9]|%2B|%2F|%3D)+/gi;
 /** A font's media type, which `embeddedPictures` leaves out: the slide's faces ride in the same SVG. */
 const FONT_TYPE = /^data:(?:font\/|application\/(?:x-)?font|application\/vnd\.ms-fontobject|[^;,]*woff)/i;
+
+/** `EMBEDDED_BASE64` for the SVG as plain text: no encoding pass over a multi-megabyte slide to find its pictures. */
+const PLAIN_BASE64 = /data:[a-z0-9._+/ %=;-]*?;base64,[a-z0-9+/=]+/gi;
+
+/** The distinct base64 pictures inside an SVG's text, fonts left out. */
+export function embeddedPicturesOfSvg(svg) {
+	return [...new Set(svg.match(PLAIN_BASE64) || [])].filter((u) => !FONT_TYPE.test(u));
+}
 
 let primingProbe;
 
@@ -176,15 +183,6 @@ export async function settle({ pictures, drawSlide, deadlineMs = SETTLE_DEADLINE
 	}
 }
 
-/** html-to-image's canvas size cap: an edge over 16384px scales both edges down to fit. */
-function capDimensions(canvas) {
-	const limit = 16384;
-	if (canvas.width <= limit && canvas.height <= limit) return;
-	const scale = limit / Math.max(canvas.width, canvas.height);
-	canvas.width = Math.floor(canvas.width * scale);
-	canvas.height = Math.floor(canvas.height * scale);
-}
-
 /**
  * One embedded picture, ready to be checked alone, or null when there is nothing to wait for: WebKit
  * draws it in time anyway (small), it has no opaque pixel to draw, or it is not a picture at all. Any
@@ -211,38 +209,22 @@ async function solo(url) {
 }
 
 /**
- * html-to-image's `toCanvas(node, options)`, which on a priming engine waits for the slide's pictures.
+ * The slide camera's draw, which on a priming engine waits for the slide's pictures.
  *
- * `log` is the export's image-failure log (`createImageFailureLog`). Callers pass `width`, `height` and
- * `pixelRatio` in `options`, as every capture on this page does.
+ * `svg` is the slide's SVG text, as the camera (lib/core/slide-camera.mjs) built it, with every picture inlined as a base64
+ * `data:` URL; `drawSlide()` draws it into a new canvas. On Chromium and Firefox this is one `drawSlide()`.
+ * `log` is the export's image-failure log (`createImageFailureLog`).
+ *
+ * @param {string} svg
+ * @param {() => HTMLCanvasElement} drawSlide
+ * @param {{ count: number }} [log]
  */
-export async function settledCanvas(node, options, log) {
-	const { toCanvas, toSvg } = await import('html-to-image');
-	if (!(await needsDecodePriming())) return toCanvas(node, options);
-	const svgUrl = await toSvg(node, options);
-	const img = await loadImage(svgUrl);
-	const ratio = options.pixelRatio || 1;
-	const width = options.canvasWidth || options.width;
-	const height = options.canvasHeight || options.height;
-	const drawSlide = () => {
-		const canvas = document.createElement('canvas');
-		canvas.width = width * ratio;
-		canvas.height = height * ratio;
-		if (!options.skipAutoScale) capDimensions(canvas);
-		canvas.style.width = `${width}`;
-		canvas.style.height = `${height}`;
-		const ctx = canvas.getContext('2d');
-		if (options.backgroundColor) {
-			ctx.fillStyle = options.backgroundColor;
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-		}
-		ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-		return canvas;
-	};
+export async function settleSlideDraw(svg, drawSlide, log) {
+	if (!(await needsDecodePriming())) return drawSlide();
 	// One at a time, not `Promise.all`: each prepare decodes a picture in full (48 MB for 12 megapixels),
 	// and a slide of photos must not hold every one at once on a phone.
 	const pictures = [];
-	for (const url of embeddedPictures(svgUrl)) {
+	for (const url of embeddedPicturesOfSvg(svg)) {
 		const picture = await solo(url);
 		if (picture) pictures.push(picture);
 	}

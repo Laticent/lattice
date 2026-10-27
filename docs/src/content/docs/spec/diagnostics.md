@@ -230,6 +230,8 @@ distinct, stable ID.
 | `unknown-spectrum-trim` | warning | ✓ | A `spectrum-trim:` value the engine does not know; the accents stay plain. |
 | `unknown-rule` | warning | ✓ | A `rule:` value the engine does not know; headings keep the default underline. |
 | `unknown-inline-code` | warning | ✓ | An `inline-code:` value the engine does not know; pills and marks keep rendering. |
+| `unknown-fonts` | warning | — | A word in the deck's `fonts:` line that is not `exact`, `used`, `full` or `system` (alone or with an `-emoji` suffix); the exports ignore it. |
+| `unknown-images` | warning | — | A word in the deck's `images:` line that is not `optimized`, `original` or a JPEG quality from 1 to 100; the exports ignore it. |
 | `unknown-eyebrow` | warning | ✓ | An `eyebrow:` value the engine does not know; eyebrows render as the bare label. |
 | `unknown-headline` | warning | ✓ | A `headline:` value the engine does not know; each layout keeps its own alignment. |
 | `unknown-corners` | warning | — | A `corners:` value the engine does not know; corners render square. |

@@ -92,7 +92,7 @@ function buildOne(m, theme) {
     // Render the source as authored.
     execFileSync(
       process.execPath,
-      [EMULATOR, galleryMd, THEME, outPdf, 'indaco', '-q'],
+      [EMULATOR, galleryMd, THEME, outPdf, 'indaco', '-q', '--size', 'deck'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
     );
   } else {
@@ -103,7 +103,7 @@ function buildOne(m, theme) {
       fs.writeFileSync(tmpMd, sourceForTheme(m, theme));
       execFileSync(
         process.execPath,
-        [EMULATOR, tmpMd, THEME, outPdf, 'indaco', '-q'],
+        [EMULATOR, tmpMd, THEME, outPdf, 'indaco', '-q', '--size', 'deck'],
         { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
       );
     } finally {

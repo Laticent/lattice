@@ -625,6 +625,8 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   caption stays put, so the photo's pill lands on it. Exact font sizes do not fix it: the
   clone then WRAPS the caption, because a content-sized box is serialized a hair narrower than
   its content, which is why html-to-image shrinks in the first place.
+- **Status (2026-10-25):** the Studio's picture is now taken by the shared slide camera (`lib/core/slide-camera.mjs`), which
+  does not copy styles or floor font sizes, so this drift no longer occurs; the chip fix below stays as a camera-independent guard.
 - **Fix:** `read-slide.mjs` › `chipOf`: a box placed by the text flow (inline-level, or a flex
   / grid item beside its parent's own text) whose content is only text the PDF draws gets its
   fill and border drawn as vectors at its live box, and `hideDrawn` takes both out of the
@@ -741,3 +743,14 @@ paths on Chromium, Firefox and WebKit (iPhone 15 Pro, Safari / Firefox / Chrome 
   `tools/bench-pdf-export.mjs`): the PDF and the picture `.pptx` draw the corner tags 1–4,
   `STEP 01`–`04` and an `agenda progress-2` list as 01, →, 03, 04, and the editable `.odp`
   carries the same shapes as Chromium's. WebKit does not need a separate code path.
+
+## A Studio slide picture comes out shifted, framed or on a gray backdrop
+
+- **Symptom:** a PNG, PowerPoint or PDF photo from the Studio shows the slide inset a few pixels with a soft shadow, or on a
+  light gray field, and the CLI's picture of the same slide does not.
+- **Cause:** the slide camera (`lib/core/slide-camera.mjs`) clones the slide's ancestors so it inherits the deck's tokens, and
+  the Studio's capture frame wraps slides in preview chrome (the slide frame: margin, shadow, backdrop). A native screenshot
+  of the slide never carried that chrome.
+- **Fix:** every ancestor wrapper carries `__lc-wrap`, and `ISOLATE` strips its box (margin, padding, background, shadow,
+  transform, size) with `!important` while leaving what inherits. A new kind of host chrome that survives that list is the
+  place to look; add the property to `ISOLATE`.

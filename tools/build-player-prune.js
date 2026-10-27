@@ -51,6 +51,7 @@ export const {
 } = prune;
 export const { subsetEmbeddedFonts } = fonts;
 export { setSubsetWasm } from '../../tools/lib/player-pack-shims/fs.js';
+export { setColorWasm } from '../fonts/subset-color.js';
 `;
 
 const SHIMS = path.join(ROOT, 'tools', 'lib', 'player-pack-shims');

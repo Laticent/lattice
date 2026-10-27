@@ -84,7 +84,7 @@ const { appendAutoGlossary } = require('../lib/core/glossary-auto.mjs');
 const { isKnownOverflowMarker } = require('../lib/core/resolve-overflow-marker');
 const { formatRefusedHtml } = require('../lib/core/marp-bundle-html');
 const {
-  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson,
+  STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson,
   safeName, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd, resolveExportOverflowMarker, OVERFLOW_MARKER_LEVELS,
   mapImageRefs, mapFrontMatterLogo,
 } = require('../lib/core/marp-bundle');
@@ -224,7 +224,7 @@ function copyInto(srcAbs, destAbs) {
  */
 function copyCssInto(srcAbs, destAbs) {
   fs.mkdirSync(path.dirname(destAbs), { recursive: true });
-  fs.writeFileSync(destAbs, marpScopableCss(fs.readFileSync(srcAbs, 'utf8')));
+  fs.writeFileSync(destAbs, marpScopableCss(withoutEmojiFont(fs.readFileSync(srcAbs, 'utf8'))));
 }
 
 /**
