@@ -26,7 +26,7 @@ test('Look ▸ Frame and fit: Card rows and Fit write cards: and fit:', async ({
 	await expect.poll(() => persistedSource(page)).toContain('\\ncards: spread\\n');
 	// Auto is "each component decides" — it REMOVES the key rather than writing a value.
 	await page.getByRole('combobox', { name: 'Choose card row placement' }).click();
-	await page.getByRole('option', { name: /each component/ }).click();
+	await page.getByRole('option', { name: "Auto — Component's own" }).click();
 	await expect.poll(() => persistedSource(page)).not.toContain('cards:');
 
 	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
@@ -34,7 +34,7 @@ test('Look ▸ Frame and fit: Card rows and Fit write cards: and fit:', async ({
 	await expect.poll(() => persistedSource(page)).toContain('\\nfit: trim\\n');
 	// Heal is the default — choosing it REMOVES the key.
 	await page.getByRole('combobox', { name: 'Choose how slides fit' }).click();
-	await page.getByRole('option', { name: /^Heal\b(?! and)/ }).click();
+	await page.getByRole('option', { name: 'Auto — Heal' }).click();
 	await expect.poll(() => persistedSource(page)).not.toContain('fit:');
 });
 

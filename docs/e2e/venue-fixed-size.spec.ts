@@ -127,12 +127,12 @@ test('deck settings → Look → Venue writes venue:', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, deck(3, ''));
 	await openInspectorTab(page, 'look');
-	await page.getByRole('button', { name: 'Choose deck venue' }).click();
-	await page.getByRole('menuitem', { name: /^Hall/ }).click();
+	await page.getByRole('combobox', { name: 'Choose deck venue' }).click();
+	await page.getByRole('option', { name: /^Hall/ }).click();
 	await expect.poll(async () => await persistedSource(page), { timeout: 10_000 }).toContain('venue: hall');
 	await expect.poll(async () => (await shown(live(page))).scale, { timeout: 20_000 }).toBe('1.5');
-	await page.getByRole('button', { name: 'Choose deck venue' }).click();
-	await page.getByRole('menuitem', { name: /^Default/ }).click();
+	await page.getByRole('combobox', { name: 'Choose deck venue' }).click();
+	await page.getByRole('option', { name: 'Auto — Designed size' }).click();
 	await expect.poll(async () => await persistedSource(page), { timeout: 10_000 }).not.toContain('venue:');
 });
 

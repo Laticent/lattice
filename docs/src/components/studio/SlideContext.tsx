@@ -24,8 +24,7 @@ import { Tip } from '@/components/ui/tooltip';
 import { Announce } from '@/lib/announce';
 import { cn } from '@/lib/utils';
 import { connectOpenRouter, generateDescription, useArchitectStatus } from './architect';
-import { AutoIcon, autoHeadLabel } from './auto-mark';
-import { type CatalogGroup, type CatalogOption, CatalogSelect } from './CatalogSelect';
+import { autoSelected, type CatalogGroup, type CatalogOption, CatalogSelect, catalogOptions, withAutoHead } from './CatalogSelect';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import { finishSelectGroups, finishSwatchFor, type SavedFinishMenuEntry } from './FinishPicker';
@@ -35,9 +34,9 @@ import { CardBackingControl } from './image-card-backing';
 import { IMAGE_CARD_DEFAULT_LABEL, IMAGE_CARD_ROWS, imageCardOptionLabel } from './image-card-rows';
 import { followBus, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
-import { activeMarks, DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
+import { DEFAULT_MARKS, MARKS_FINISHES } from './marks-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
-import { glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
+import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, optionGlyph, tagGlyph } from './option-glyphs';
 import { RESET_SLIDE_BUTTON, type SlideBaseline } from './panel-shells';
 import { activeRule, RULES } from './rule-catalog';
 import { SlideComments } from './SlideComments';
@@ -48,7 +47,7 @@ import { BACKDROP_MASKS, backdropProvenance, CARD_TAG_AXES, CARD_TAG_LAYOUTS, ty
 import { getSayLine, setSayLine } from './slide-say';
 import { activeSpectrumCard, SPECTRUM_CARDS } from './spectrum-card-catalog';
 import { activeSpectrumCardEdge, SPECTRUM_CARD_EDGES } from './spectrum-card-edge-catalog';
-import { activeSpectrum } from './spectrum-catalog';
+import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { deckOutputLang } from './studio-language';
@@ -247,39 +246,22 @@ function ChipRow({ options, value, onChange, ariaLabel }: { options: { label: st
 }
 
 // A thin adapter over the shared CatalogSelect (HARD RULE #15 — the SAME selector
-// the deck Inspector uses). Accepts flat `options` (leading, ungrouped heads) and/or
-// grouped `groups`, each option optionally carrying a `swatch` preview. Sentinel
-// values (`__inherit__`, `__none__`, `__default__`) are non-empty, so Radix's
-// no-empty-value rule holds.
-function Picker({ value, onChange, options = [], groups = [], ariaLabel }: { value: string; onChange: (v: string) => void; options?: CatalogOption[]; groups?: { label: string; options: CatalogOption[] }[]; ariaLabel: string }) {
-	const catGroups: CatalogGroup[] = [
-		...(options.length ? [{ options }] : []),
-		...groups.map((g) => ({ label: g.label, options: g.options })),
-	];
-	return <CatalogSelect value={value} onValueChange={onChange} groups={catGroups} ariaLabel={ariaLabel} />;
+// the deck Inspector uses), fed by `inheritGroups` so every slide list has the one shape.
+function Picker({ value, onChange, groups, ariaLabel }: { value: string; onChange: (v: string) => void; groups: CatalogGroup[]; ariaLabel: string }) {
+	return <CatalogSelect value={value} onValueChange={onChange} groups={groups} ariaLabel={ariaLabel} />;
 }
+
+const INHERIT = '__inherit__';
+/** Every slide picker's list: one `Auto — <what this slide inherits>` head (the deck's
+ *  value, or the engine default when the deck sets none), then the slide's own choices.
+ *  The inherited value leaves the list, as on the deck (`withAutoHead`). */
+const inheritGroups = (groups: CatalogGroup[], inherits: { value?: string | null; label?: string }) =>
+	withAutoHead(groups, inherits, { value: INHERIT });
+/** A picker's value: the slide's own token, unless it restates what the head inherits. */
+const inheritValue = (own: string | null | undefined, inherits?: string | null) => autoSelected(own, inherits, INHERIT);
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const BACKDROP_SPOT_LABEL: Record<string, string> = { tl: 'top left', t: 'top', tr: 'top right', l: 'left', c: 'center', r: 'right', bl: 'bottom left', b: 'bottom', br: 'bottom right' };
-/**
- * The label for a per-slide axis's HEAD option — the "no token here, follow the
- * deck" choice. The house word is **Auto**, never "inherit" (HARD-won house rule:
- * `inherit` is a CSS keyword, not something an author should have to know —
- * #1293).
- *
- * `resolved` is what Auto currently lands on, so the head reads "Auto — Rainbow"
- * and the author sees the consequence without opening the deck Inspector. It is
- * ALWAYS shown now: the head used to collapse to a bare "Auto" whenever the deck's
- * value was itself labeled "Auto" (spectrum-card, motion-speed, rule, headline),
- * which made the panel inconsistent — some heads carried their value and some did
- * not, for a reason no reader could see. Those four catalogs supply an `autoLabel`
- * naming what their auto resolves to ("follows the bar", "by chart size"), and
- * `entryAuto` below passes it, so every head reads the same shape.
- */
-const autoHead = autoHeadLabel;
-/** The display value for an axis's head: an entry's `autoLabel` if it has one (its own
- *  label is "Auto"), else its capitalized label. */
-const entryAuto = (entry: { label: string; autoLabel?: string }): string => entry.autoLabel ?? entry.label;
 const TONE_SWATCH: Record<string, string> = { 'tone-pass': 'var(--pass,#2e6f00)', 'tone-warn': 'var(--warn,#9a6a00)', 'tone-fail': 'var(--fail,#b3261e)', 'tone-skip': 'var(--text-muted)' };
 
 /** The body — controls only, no Sheet chrome — hostable in a persistent column
@@ -404,22 +386,19 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// Finish: the SAME shared selector the deck Inspector uses (CatalogSelect), fed
 	// the shared finish groups — Auto (only when the deck sets one) + None heads,
 	// then the catalog presets and your saved finishes, each with its swatch preview.
-	const finishValue = finish.state === 'inherited' ? '__inherit__' : finish.state === 'off' ? '__none__' : (finish.value ?? '__none__');
-	const finishHeads: CatalogOption[] = [
-		...(finish.inheritable ? [{ value: '__inherit__', label: autoHead(cap(deck.finish ?? '')), swatch: finishSwatchFor(deck.finish) }] : []),
-		{ value: '__none__', label: 'None', swatch: finishSwatchFor('none') },
-	];
-	const finishGroups = finishSelectGroups({ heads: finishHeads, saved: savedFinish, savedValue: (n) => n });
-	const onFinish = (v: string) => onMutate((c) => setFinish(c, v === '__inherit__' ? null : v === '__none__' ? 'none' : v));
+	const finishInherits = finish.deckValue ?? 'none';
+	const finishValue = inheritValue(finish.state === 'on' ? finish.value : has('finish-none') ? 'none' : null, finishInherits);
+	const finishGroups = inheritGroups(
+		finishSelectGroups({ heads: [{ value: 'none', label: 'None', swatch: finishSwatchFor('none') }], saved: savedFinish, savedValue: (n) => n }),
+		{ value: finishInherits },
+	);
+	const onFinish = (v: string) => onMutate((c) => setFinish(c, v === INHERIT ? null : v));
 	// Backdrop — restraint over whatever finish this slide wears (the deck `backdrop:` register's
 	// per-slide override; lib/core/resolve-backdrop.js). Two axes, each Auto = follow the deck.
 	const bdStrength = React.useMemo(() => backdropProvenance(chunk, source, 'strength'), [chunk, source]);
 	const bdMask = React.useMemo(() => backdropProvenance(chunk, source, 'mask'), [chunk, source]);
 	const maskLabel = (m?: string): string => (!m ? "Finish's own" : m === 'clear' ? 'Clear behind content' : m === 'open' ? 'No mask' : `Window · ${BACKDROP_SPOT_LABEL[m.slice(5)] ?? m}`);
-	const bdMaskOptions: CatalogOption[] = [
-		{ value: '__inherit__', label: autoHead(maskLabel(bdMask.deckValue)) },
-		...BACKDROP_MASKS.map((m) => ({ value: m, label: maskLabel(m) })),
-	];
+	const bdMaskGroups = inheritGroups([{ options: BACKDROP_MASKS.map((m) => ({ value: m, label: maskLabel(m) })) }], bdMask.deckValue ? { value: bdMask.deckValue } : { label: maskLabel() });
 	const onBdStrength = (v: string | null) => onMutate((c) => setBackdrop(c, 'strength', v));
 	const onBdMask = (v: string) => onMutate((c) => setBackdrop(c, 'mask', v === '__inherit__' ? null : v));
 	// Card tags — the deck `tag:` register's per-slide override (lib/core/resolve-card-tag.js), on
@@ -533,19 +512,14 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// default (clear the token); None / Solid accent write a `spectrum-*` token. When the
 	// deck sets off/solid the head reads "Auto — <deck>"; otherwise it's the rainbow.
 	const spectrum = React.useMemo(() => spectrumProvenance(chunk, source), [chunk, source]);
-	const spectrumValue = spectrum.state === 'on' ? (spectrum.value ?? '__inherit__') : '__inherit__';
-	const spectrumOptions: CatalogOption[] = [
-		spectrum.inheritable
-			? { label: autoHead(cap(spectrum.deckValue ?? '')), value: '__inherit__', swatch: activeSpectrum(spectrum.deckValue ?? 'on').swatch }
-			// `autoHead`, not a bare "Rainbow": every other axis's head reads "Auto — <value>"
-			// in BOTH arms, and this one alone said just the value when the deck set nothing.
-			// Three shapes across one panel is what the reader was decoding.
-			: { label: autoHead('Rainbow'), value: '__inherit__', swatch: activeSpectrum('on').swatch },
-		{ label: 'Solid accent', value: 'solid', swatch: activeSpectrum('solid').swatch },
-		{ label: 'Duo', value: 'duo', swatch: activeSpectrum('duo').swatch },
-		{ label: 'Mono', value: 'mono', swatch: activeSpectrum('mono').swatch },
-		{ label: 'None', value: 'off', swatch: activeSpectrum('off').swatch },
-	];
+	const spectrumInherits = activeSpectrum((spectrum.inheritable && spectrum.deckValue) || 'on').name;
+	const spectrumValue = inheritValue(spectrum.state === 'on' ? spectrum.value : null, spectrumInherits);
+	// The rainbow (`on`) has no per-slide token — it is the absence — so it is offered only
+	// as what Auto inherits.
+	const spectrumGroups = inheritGroups(
+		[{ options: catalogOptions(SPECTRA).filter((o) => o.value !== 'on' || spectrumInherits === 'on') }],
+		{ value: spectrumInherits },
+	);
 	const onSpectrum = (v: string) => onMutate((c) => setSpectrum(c, v === '__inherit__' ? null : v));
 
 	// The accent sub-family (bar placement / heading rule / eyebrow) — each an "override"
@@ -553,19 +527,17 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// so it maps to the "__inherit__" head. Built from the same catalogs the deck picker uses.
 	const overrideAxis = (
 		prov: ReturnType<typeof spectrumEdgeProvenance>,
-		entries: { name: string; label: string; swatch: CatalogOption['swatch'] }[],
+		entries: { name: string; label: string; autoLabel?: string; swatch: NonNullable<CatalogOption['swatch']> }[],
 		defaultName: string,
-		active: (v: string | null | undefined) => { name: string; label: string; autoLabel?: string; swatch: NonNullable<CatalogOption['swatch']> },
+		active: (v: string | null | undefined) => { name: string },
 		// The deck picker's library icon for this axis (option-glyphs.tsx), so both scopes draw the same one.
 		glyph?: (name: string) => React.ReactNode,
-	): { value: string; options: CatalogOption[] } => {
-		// `entryAuto`, not the raw label: `rule` and `headline` both have an entry LABELED
-		// "Auto", and a head built from that would read "Auto — Auto".
-		const head: CatalogOption = prov.inheritable
-			? { label: autoHead(entryAuto(active(prov.deckValue))), value: '__inherit__', swatch: active(prov.deckValue).swatch, icon: glyph?.(active(prov.deckValue).name) }
-			: { label: autoHead(entryAuto(active(defaultName))), value: '__inherit__', swatch: active(defaultName).swatch, icon: glyph?.(defaultName) };
-		const options = [head, ...entries.filter((e) => e.name !== defaultName).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch, icon: glyph?.(e.name) }))];
-		return { value: prov.state === 'on' ? (prov.value ?? '__inherit__') : '__inherit__', options };
+	): { value: string; groups: CatalogGroup[] } => {
+		const inherits = active(prov.inheritable ? prov.deckValue : defaultName).name;
+		// The default has no per-slide token (it is the absence), so it is offered only as
+		// what Auto inherits.
+		const options = catalogOptions(entries, glyph).filter((o) => o.value !== defaultName || inherits === defaultName);
+		return { value: inheritValue(prov.state === 'on' ? prov.value : null, inherits), groups: inheritGroups([{ options }], { value: inherits }) };
 	};
 	const edgeProv = React.useMemo(() => spectrumEdgeProvenance(chunk, source), [chunk, source]);
 	const edge = overrideAxis(edgeProv, SPECTRUM_EDGES, 'top', activeSpectrumEdge, glyphs('edge'));
@@ -586,12 +558,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const marksProv = React.useMemo(() => marksProvenance(chunk, source), [chunk, source]);
 	const marksOpt = React.useMemo(() => {
 		const deck = marksProv.inheritable ? marksProv.deckValue : DEFAULT_MARKS;
-		const head: CatalogOption = { label: autoHead(activeMarks(deck).label), value: '__inherit__', swatch: activeMarks(deck).swatch };
-		const rest = MARKS_FINISHES.filter((e) => e.name !== deck).map((e) => ({ label: e.label, value: e.name, swatch: e.swatch }));
 		// A slide token that restates the deck (`marks-pigment` in a deck with no finish, or
 		// the deck's own value) is what the head already says, so it selects the head.
-		const own = marksProv.state === 'on' ? marksProv.value : undefined;
-		return { value: own && own !== deck ? own : '__inherit__', options: [head, ...rest] };
+		return { value: inheritValue(marksProv.state === 'on' ? marksProv.value : null, deck), groups: inheritGroups([{ options: catalogOptions(MARKS_FINISHES) }], { value: deck }) };
 	}, [marksProv]);
 	const onMarks = (v: string) => onMutate((c) => setMarks(c, v === '__inherit__' ? null : v));
 	const headlineOpt = overrideAxis(headlineProv, HEADLINES, 'auto', activeHeadline, glyphs('align'));
@@ -601,15 +570,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// included). A Picker (not a Seg) keeps it consistent with the other accent pickers and
 	// previews each fill.
 	const cardProv = React.useMemo(() => spectrumCardProvenance(chunk, source), [chunk, source]);
-	const cardValue: string = cardProv.state === 'on'
-		? (cardProv.value ?? '__inherit__')
-		: has('spectrum-card-off') ? 'off' : '__inherit__';
-	const cardOptions: CatalogOption[] = [
-		cardProv.inheritable
-			? { label: autoHead(entryAuto(activeSpectrumCard(cardProv.deckValue))), value: '__inherit__', swatch: activeSpectrumCard(cardProv.deckValue).swatch }
-			: { label: autoHead('None'), value: '__inherit__', swatch: activeSpectrumCard('off').swatch },
-		...SPECTRUM_CARDS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
-	];
+	const cardInherits = activeSpectrumCard(cardProv.inheritable ? cardProv.deckValue : 'off').name;
+	const cardValue = inheritValue(cardProv.state === 'on' ? cardProv.value : has('spectrum-card-off') ? 'off' : null, cardInherits);
+	const cardGroups = inheritGroups([{ options: catalogOptions(SPECTRUM_CARDS) }], { value: cardInherits });
 	const onCard = (v: string) => onMutate((c) => setSpectrumCard(c, v === '__inherit__' ? null : v));
 	// Card rail PLACEMENT — a clean override axis (left default). Only meaningful when the rail
 	// is on (own non-off OR inherited), so the Row is shown only then.
@@ -620,15 +583,9 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	// Structural trim — a three-tier axis (Quiet / Restrained / Spectrum) with an explicit
 	// opt-out. Auto follows the deck; every catalog value is an explicit per-slide choice.
 	const trimProv = React.useMemo(() => spectrumTrimProvenance(chunk, source), [chunk, source]);
-	const trimValue: string = trimProv.state === 'on'
-		? (trimProv.value ?? '__inherit__')
-		: has('spectrum-trim-off') ? 'off' : '__inherit__';
-	const trimOptions: CatalogOption[] = [
-		trimProv.inheritable
-			? { label: autoHead(entryAuto(activeSpectrumTrim(trimProv.deckValue))), value: '__inherit__', swatch: activeSpectrumTrim(trimProv.deckValue).swatch }
-			: { label: autoHead('Quiet'), value: '__inherit__', swatch: activeSpectrumTrim('off').swatch },
-		...SPECTRUM_TRIMS.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
-	];
+	const trimInherits = activeSpectrumTrim(trimProv.inheritable ? trimProv.deckValue : 'off').name;
+	const trimValue = inheritValue(trimProv.state === 'on' ? trimProv.value : has('spectrum-trim-off') ? 'off' : null, trimInherits);
+	const trimGroups = inheritGroups([{ options: catalogOptions(SPECTRUM_TRIMS) }], { value: trimInherits });
 	const onTrim = (v: string) => onMutate((c) => setSpectrumTrim(c, v === '__inherit__' ? null : v));
 
 	// Motion — three axes for a chart on THIS slide, each overriding the matching deck default.
@@ -638,21 +595,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const motionSpeedProv = React.useMemo(() => motionSpeedProvenance(chunk, source), [chunk, source]);
 	const motionPlayValue = motionPlayProv.state === 'on' ? 'on' : motionPlayProv.state === 'off' ? 'off' : null;
 	const onMotionPlay = (v: string | null) => onMutate((c) => setMotionPlay(c, v as 'on' | 'off' | null));
-	const motionStyleValue = motionStyleProv.state === 'on' ? (motionStyleProv.value ?? '__inherit__') : '__inherit__';
-	const motionStyleOptions: CatalogOption[] = [
-		motionStyleProv.inheritable
-			? { label: autoHead(entryAuto(activeMotionStyle(motionStyleProv.deckValue))), value: '__inherit__', swatch: activeMotionStyle(motionStyleProv.deckValue).swatch }
-			: { label: autoHead('Build'), value: '__inherit__', swatch: activeMotionStyle('build').swatch },
-		...MOTION_STYLE_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch })),
-	];
+	const motionStyleInherits = activeMotionStyle(motionStyleProv.inheritable ? motionStyleProv.deckValue : 'build').name;
+	const motionStyleValue = inheritValue(motionStyleProv.state === 'on' ? motionStyleProv.value : null, motionStyleInherits);
+	const motionStyleGroups = inheritGroups([{ options: catalogOptions(MOTION_STYLE_ENTRIES) }], { value: motionStyleInherits });
 	const onMotionStyle = (v: string) => onMutate((c) => setMotionStyle(c, v === '__inherit__' ? null : v));
-	const motionSpeedValue = motionSpeedProv.state === 'on' ? (motionSpeedProv.value ?? '__inherit__') : '__inherit__';
-	const motionSpeedOptions: CatalogOption[] = [
-		motionSpeedProv.inheritable
-			? { label: autoHead(entryAuto(activeMotionSpeed(motionSpeedProv.deckValue))), value: '__inherit__', swatch: activeMotionSpeed(motionSpeedProv.deckValue).swatch, icon: optionGlyph('speed', activeMotionSpeed(motionSpeedProv.deckValue).name) }
-			: { label: autoHead(entryAuto(activeMotionSpeed('auto'))), value: '__inherit__', swatch: activeMotionSpeed('auto').swatch, icon: optionGlyph('speed', 'auto') },
-		...MOTION_SPEED_ENTRIES.map((e) => ({ label: e.label, value: e.name, swatch: e.swatch, icon: optionGlyph('speed', e.name) })),
-	];
+	const motionSpeedInherits = activeMotionSpeed(motionSpeedProv.inheritable ? motionSpeedProv.deckValue : 'auto').name;
+	const motionSpeedValue = inheritValue(motionSpeedProv.state === 'on' ? motionSpeedProv.value : null, motionSpeedInherits);
+	const motionSpeedGroups = inheritGroups([{ options: catalogOptions(MOTION_SPEED_ENTRIES, glyphs('speed')) }], { value: motionSpeedInherits });
 	const onMotionSpeed = (v: string) => onMutate((c) => setMotionSpeed(c, v === '__inherit__' ? null : v));
 
 	// Decoration — the featured tint / mark phrases from the generated group. Each is a
@@ -690,26 +639,26 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 	const stampStyles = vocab.stampStyles ?? { boardroom: [], range: [] };
 	const hasStampStyles = stampStyles.boardroom.length > 0 || stampStyles.range.length > 0;
 	const stampStyle = React.useMemo(() => stampStyleProvenance(chunk, source), [chunk, source]);
-	const stampStyleValue = stampStyle.state === 'inherited' ? '__inherit__' : stampStyle.state === 'off' ? '__default__' : (stampStyle.value ?? '__default__');
-	const stampStyleHead = stampStyle.inheritable
-		? [{ label: autoHead(cap(stampStyle.deckValue ?? '')), value: '__inherit__' }]
-		: [{ label: 'Default — tab', value: '__default__' }];
-	const stampStyleGroups = [
-		{ label: 'Boardroom', options: stampStyles.boardroom.map((n) => ({ label: cap(n), value: n })) },
-		...(stampStyles.range.length ? [{ label: 'More', options: stampStyles.range.map((n) => ({ label: cap(n), value: n })) }] : []),
-	];
-	const onStampStyle = (v: string) => onMutate((c) => setStampStyle(c, v === '__inherit__' || v === '__default__' ? null : v));
+	const stampInherits = (stampStyle.inheritable && stampStyle.deckValue) || DEFAULT_STAMP;
+	const stampStyleValue = inheritValue(stampStyle.state === 'on' ? stampStyle.value : null, stampInherits);
+	const stampStyleGroups = inheritGroups(
+		[
+			{ label: 'Boardroom', options: stampStyles.boardroom.map((n) => ({ label: cap(n), value: n, icon: optionGlyph('stamp', n) })) },
+			...(stampStyles.range.length ? [{ label: 'More', options: stampStyles.range.map((n) => ({ label: cap(n), value: n, icon: optionGlyph('stamp', n) })) }] : []),
+		],
+		{ value: stampInherits },
+	);
+	const onStampStyle = (v: string) => onMutate((c) => setStampStyle(c, v === INHERIT ? null : v));
 
 	const toneStyleTokens = vocab.toneStyles ?? [];
 	const toneStyle = React.useMemo(() => toneStyleProvenance(chunk, source, toneStyleTokens), [chunk, source, toneStyleTokens]);
-	const toneStyleValue = toneStyle.state === 'inherited' ? '__inherit__' : toneStyle.state === 'off' ? '__default__' : (toneStyle.value ?? '__default__');
-	const toneStyleOptions = [
-		...(toneStyle.inheritable
-			? [{ label: autoHead(cap(toneStyle.deckValue ?? '')), value: '__inherit__' }]
-			: [{ label: 'Default — rail', value: '__default__' }]),
-		...toneStyleTokens.map((t) => { const n = t.replace('tone-', ''); return { label: cap(n), value: n }; }),
-	];
-	const onToneStyle = (v: string) => onMutate((c) => setToneStyle(c, v === '__inherit__' || v === '__default__' ? null : v, toneStyleTokens));
+	const toneInherits = (toneStyle.inheritable && toneStyle.deckValue) || DEFAULT_TONE;
+	const toneStyleValue = inheritValue(toneStyle.state === 'on' ? toneStyle.value : null, toneInherits);
+	const toneStyleGroups = inheritGroups(
+		[{ options: toneStyleTokens.map((t) => { const n = t.replace('tone-', ''); return { label: cap(n), value: n, icon: optionGlyph('tone', n) }; }) }],
+		{ value: toneInherits },
+	);
+	const onToneStyle = (v: string) => onMutate((c) => setToneStyle(c, v === INHERIT ? null : v, toneStyleTokens));
 
 	const cur = (members: readonly string[]): string | null => tokens.find((t) => members.includes(t)) ?? null;
 
@@ -802,7 +751,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 							</Row>
 							{isChart && (
 								<Row label="Marks" hint={marksProv.state === 'inherited' ? 'from deck' : undefined} desc="How this chart spends its color." find="chart finish pigment etch tone color" help={<><strong>Pigment</strong> puts the color in the body (the default), <strong>Etch</strong> in the line, <strong>Tone</strong> in stepped shades of one hue. Choosing one here overrides the deck's finish for this slide. Written as <code>_class: marks-*</code>.</>}>
-									<Picker ariaLabel="Marks" value={marksOpt.value} onChange={onMarks} options={marksOpt.options} />
+									<Picker ariaLabel="Marks" value={marksOpt.value} onChange={onMarks} groups={marksOpt.groups} />
 								</Row>
 							)}
 							{finish.state !== 'off' && (
@@ -816,7 +765,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 										/>
 									</Row>
 									<Row label="Backdrop mask" hint={bdMask.state === 'inherited' ? 'from deck' : undefined} desc="Where the finish shows on this slide." find="backdrop clear spotlight window mask" help={<><strong>Clear behind content</strong> keeps the words on clean canvas; a <strong>Window</strong> shows the finish in one spot only; <strong>No mask</strong> discards a finish's own clearance.</>}>
-										<Picker ariaLabel="Backdrop mask" value={bdMask.state === 'on' ? (bdMask.value ?? '__inherit__') : '__inherit__'} onChange={onBdMask} options={bdMaskOptions} />
+										<Picker ariaLabel="Backdrop mask" value={inheritValue(bdMask.state === 'on' ? bdMask.value : null, bdMask.deckValue)} onChange={onBdMask} groups={bdMaskGroups} />
 									</Row>
 								</>
 							)}
@@ -827,17 +776,13 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 										<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
 											<CatalogSelect
 												ariaLabel={row.label}
-												value={p.state === 'on' ? (p.value ?? '__inherit__') : '__inherit__'}
+												value={inheritValue(p.state === 'on' ? p.value : null, p.deckValue)}
 												onValueChange={(v) => onCardTag(row.axis, v)}
 												className="w-full"
-												groups={[
-													{
-														options: [
-															{ value: '__inherit__', label: autoHead(p.deckValue ? cardTagOptionLabel(p.deckValue) : "Component's own"), icon: (p.deckValue && tagGlyph(row.axis, p.deckValue)) || <AutoIcon /> },
-															...CARD_TAG_AXES[row.axis].map((w) => ({ value: w, label: cardTagOptionLabel(w), icon: tagGlyph(row.axis, w) })),
-														],
-													},
-												]}
+												groups={inheritGroups(
+													[{ options: CARD_TAG_AXES[row.axis].map((w) => ({ value: w, label: cardTagOptionLabel(w), icon: tagGlyph(row.axis, w) })) }],
+													p.deckValue ? { value: p.deckValue } : { label: "Component's own" },
+												)}
 											/>
 										</Row>
 									);
@@ -881,17 +826,15 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 									<Row key={row.axis} label={row.label} hint={p.state === 'inherited' ? 'from deck' : undefined} desc={row.desc} find={row.find} help={row.help}>
 										<CatalogSelect
 											ariaLabel={`Slide ${row.label.toLowerCase()}`}
-											value={p.state === 'on' ? (p.value ?? '__inherit__') : '__inherit__'}
+											value={inheritValue(p.state === 'on' ? p.value : null, p.deckValue ?? (row.axis === 'ink' ? null : imageCardWords(row.axis)[0]))}
 											onValueChange={(v) => onImageCard(row.axis, v)}
 											className="w-full"
-											groups={[
-												{
-													options: [
-														{ value: '__inherit__', label: autoHead(p.deckValue ? imageCardOptionLabel(p.deckValue) : IMAGE_CARD_DEFAULT_LABEL[row.axis]), icon: imageGlyph(row.axis, p.deckValue ?? imageCardWords(row.axis)[0]) || <AutoIcon /> },
-														...imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w), icon: imageGlyph(row.axis, w) })),
-													],
-												},
-											]}
+											// Ink has no default word (each layout picks its own); every other axis
+											// inherits its first word, the kernel's default, when the deck sets none.
+											groups={inheritGroups(
+												[{ options: imageCardWords(row.axis).map((w) => ({ value: w, label: imageCardOptionLabel(w), icon: imageGlyph(row.axis, w) })) }],
+												p.deckValue ? { value: p.deckValue } : row.axis === 'ink' ? { label: IMAGE_CARD_DEFAULT_LABEL.ink } : { value: imageCardWords(row.axis)[0] },
+											)}
 										/>
 									</Row>
 								);
@@ -1035,7 +978,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 											<ChipRow ariaLabel="State stamp" value={cur(stateGroup)} onChange={(v) => groupSet(stateGroup, v)} options={stateGroup.map((s) => ({ label: cap(s), value: s }))} />
 											{hasStampStyles && (
 												<Row label="Shape" hint={stampStyle.state === 'inherited' ? 'from deck' : undefined} desc="The badge's shape." help={<>The deck sets a default shape for every badge in Deck settings ▸ Accent; this pins a different one for this slide alone.</>}>
-													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} options={stampStyleHead} groups={stampStyleGroups} />
+													<Picker ariaLabel="Stamp style" value={stampStyleValue} onChange={onStampStyle} groups={stampStyleGroups} />
 												</Row>
 											)}
 										</SettingsScope>
@@ -1046,7 +989,7 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 											<ChipRow ariaLabel="Tone" value={cur(toneAxis)} onChange={(v) => groupSet(toneAxis, v)} options={toneAxis.map((t) => ({ label: cap(t.replace('tone-', '')), value: t, tone: TONE_SWATCH[t] }))} />
 											{toneStyleTokens.length > 0 && (
 												<Row label="Shape" hint={toneStyle.state === 'inherited' ? 'from deck' : undefined} desc="A rail, a full edge, or a glow." help={<>How the tone shows on the slide. The deck sets the default in Deck settings ▸ Accent.</>}>
-													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} options={toneStyleOptions} />
+													<Picker ariaLabel="Tone style" value={toneStyleValue} onChange={onToneStyle} groups={toneStyleGroups} />
 												</Row>
 											)}
 										</SettingsScope>
@@ -1086,30 +1029,30 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 						<div className="py-1">
 							<TabIntro>Where the accent shows on this slide — the brand bar, card rails, trim, and heading marks. The deck decides anything you don't set.</TabIntro>
 							<Row label="Brand bar" hint={spectrum.state === 'inherited' ? 'from deck' : undefined} desc="The strip on the slide's edge." help={<>A divider slide shows it as a left rail instead. <strong>None</strong> removes it; <strong>Solid</strong> / <strong>Duo</strong> / <strong>Mono</strong> repaint it in the theme accent.</>}>
-								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} options={spectrumOptions} />
+								<Picker ariaLabel="Brand bar" value={spectrumValue} onChange={onSpectrum} groups={spectrumGroups} />
 							</Row>
 							<Row label="Bar placement" hint={edgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge the bar sits on." help={<>Top, left, right, bottom, or off — for this slide only.</>}>
-								<Picker ariaLabel="Bar placement" value={edge.value} onChange={onEdge} options={edge.options} />
+								<Picker ariaLabel="Bar placement" value={edge.value} onChange={onEdge} groups={edge.groups} />
 							</Row>
 							<Row label="Card rail" hint={cardProv.state === 'inherited' ? 'from deck' : undefined} desc="A rail on this slide's card surfaces." help={<>Tunable independently of the brand bar. The head option follows the deck; <strong>Auto</strong> in the list follows the bar, or pin a variant outright.</>}>
-								<Picker ariaLabel="Card rail" value={cardValue} onChange={onCard} options={cardOptions} />
+								<Picker ariaLabel="Card rail" value={cardValue} onChange={onCard} groups={cardGroups} />
 							</Row>
 							{cardRailOn && (
 								<Row label="Card rail placement" hint={cardEdgeProv.state === 'inherited' ? 'from deck' : undefined} desc="Which edge of each card." help={<>Left, top, right, or bottom.</>}>
-									<Picker ariaLabel="Card rail placement" value={cardEdge.value} onChange={onCardEdge} options={cardEdge.options} />
+									<Picker ariaLabel="Card rail placement" value={cardEdge.value} onChange={onCardEdge} groups={cardEdge.groups} />
 								</Row>
 							)}
 							<Row label="Structural trim" hint={trimProv.state === 'inherited' ? 'from deck' : undefined} desc="Accent on this slide's in-content details." help={<>Whether the spectrum flows onto table rails, the timeline spine, code strips and <code className="font-mono">hr</code>. <strong>Quiet</strong> keeps them a neutral hairline.</>}>
-								<Picker ariaLabel="Structural trim" value={trimValue} onChange={onTrim} options={trimOptions} />
+								<Picker ariaLabel="Structural trim" value={trimValue} onChange={onTrim} groups={trimGroups} />
 							</Row>
 							<Row label="Heading rule" hint={ruleProv.state === 'inherited' ? 'from deck' : undefined} desc="The underline under this heading." help={<>A full hairline, a short rule, an accent segment, or none.</>}>
-								<Picker ariaLabel="Heading rule" value={ruleOpt.value} onChange={onRule} options={ruleOpt.options} />
+								<Picker ariaLabel="Heading rule" value={ruleOpt.value} onChange={onRule} groups={ruleOpt.groups} />
 							</Row>
 							<Row label="Eyebrow" hint={eyebrowProv.state === 'inherited' ? 'from deck' : undefined} desc="The mark on this slide's kicker." help={<>The kicker is the small mono-caps line above the heading. This is the mark that leads it — a dot, bar, arrow, underline, or plain.</>}>
-								<Picker ariaLabel="Eyebrow" value={eyebrowOpt.value} onChange={onEyebrow} options={eyebrowOpt.options} />
+								<Picker ariaLabel="Eyebrow" value={eyebrowOpt.value} onChange={onEyebrow} groups={eyebrowOpt.groups} />
 							</Row>
 							<Row label="Headline alignment" hint={headlineProv.state === 'inherited' ? 'from deck' : undefined} desc="Auto, or pin left / center / right." help={<>Aligns this slide's whole framing cluster together — eyebrow, heading, rule, subtitle, note, key insight, caption. <strong>Auto</strong> keeps the component's own default.</>}>
-								<Picker ariaLabel="Headline alignment" value={headlineOpt.value} onChange={onHeadline} options={headlineOpt.options} />
+								<Picker ariaLabel="Headline alignment" value={headlineOpt.value} onChange={onHeadline} groups={headlineOpt.groups} />
 							</Row>
 						</div>
 			),
@@ -1132,10 +1075,10 @@ export function SlideContextBody(props: SlideContextBodyProps) {
 								/>
 							</Row>
 							<Row label="Style" hint={motionStyleProv.state === 'inherited' ? 'from deck' : undefined} desc="How it moves in." help={<><strong>Build</strong> reveals in reading order, <strong>Together</strong> fades everything in at once, <strong>Rise</strong> lifts marks into place.</>}>
-								<Picker ariaLabel="Motion style" value={motionStyleValue} onChange={onMotionStyle} options={motionStyleOptions} />
+								<Picker ariaLabel="Motion style" value={motionStyleValue} onChange={onMotionStyle} groups={motionStyleGroups} />
 							</Row>
 							<Row label="Speed" hint={motionSpeedProv.state === 'inherited' ? 'from deck' : undefined} desc="How fast the build runs." help={<><strong>Auto</strong> paces to the chart's size, so a big chart doesn't crawl and a small one doesn't flash past.</>}>
-								<Picker ariaLabel="Motion speed" value={motionSpeedValue} onChange={onMotionSpeed} options={motionSpeedOptions} />
+								<Picker ariaLabel="Motion speed" value={motionSpeedValue} onChange={onMotionSpeed} groups={motionSpeedGroups} />
 							</Row>
 						</div>
 			),
