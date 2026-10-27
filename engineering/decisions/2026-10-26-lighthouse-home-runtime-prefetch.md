@@ -297,6 +297,12 @@ each, interleaved), the sum of each task's time over 50 ms:
 About 180 ms less by median, in line with the profile's 160-171 ms, with overlapping ranges. Lighthouse's simulated TBT on
 the same pair was too noisy to show a change of that size (1,235-1,482 ms against 1,083-1,640 ms, four runs each).
 
+**On the CDN it does not show.** Five Lighthouse runs each, interleaved, `/playground/`, the §1 profile: the lint-gate
+preview (`414dae84`) read TBT 1402, 1671, 1569, 1484, 1350 ms (median 1,484) and the lazy-index preview (`f9f79ae2`) read 1206,
+1735, 1434, 1669, 2714 ms (median 1,669, one outlier). That is noise around a change worth about 45 ms of real CPU, not a
+regression and not a win: the simulated metric cannot resolve it. The evidence for this change is the profile and the
+long-task table above, not Lighthouse.
+
 **Not done, recorded as followup 2921-p1:** deferring `createEditor` while the editor is hidden in Explore (the other
 171 ms). It is the larger change. The tour, the Explore-to-Edit switch and the seeded draft all read the editor, so it
 needs its own design pass.
