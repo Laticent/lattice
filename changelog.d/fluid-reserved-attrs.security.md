@@ -1,0 +1,1 @@
+- Raw HTML in a deck can no longer carry the `data-split-*` or `data-fluid-*` attributes the engine stamps on split pages. The engine renames them to `data-x-split-*` / `data-x-fluid-*` before rendering, so a deck cannot forge a split page's role, label or page budget.
