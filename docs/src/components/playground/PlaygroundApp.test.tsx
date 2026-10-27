@@ -58,14 +58,8 @@ vi.mock('@/playground/debug-prefs.js', () => ({
 	setDebugOverride: () => {},
 	debugEffectiveOn: (d: boolean) => d,
 }));
-vi.mock('@/playground/deck-config.js', () => ({
-	readFrontMatter: () => ({ configured: false }),
-	// Mirrors the real module, which exports `author` alone. This mock said `noTheme: []`
-	// long after DeckSetupSheet moved to `author` — harmless only because `undefined` and
-	// `null` both read as "no allow-list" downstream, i.e. it passed for the wrong reason.
-	CONFIG_PROFILES: { author: null },
-	createConfigPanel: () => ({ render: () => {} }),
-}));
+// The Deck settings rows are DeckConfigPanel's own suite; here the sheet only has to open.
+vi.mock('./DeckConfigPanel', () => ({ DeckConfigPanel: () => null }));
 vi.mock('@/playground/chart-interact.js', () => ({
 	createChartInteract: () => ({ rebind: () => {}, destroy: () => {} }),
 }));

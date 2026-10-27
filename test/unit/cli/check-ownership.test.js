@@ -95,6 +95,7 @@ const {
   checkCalcoBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkFiloBoundary,
   checkMosaicoBoundary,
   checkTavolaBoundary,
   checkLttBoundary,
@@ -2219,6 +2220,47 @@ describe('check-ownership', () => {
     test('a triple-slash reference is an ambient dependency, and is caught', () => {
       assert.equal(run({ 'hub.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
       assert.deepEqual(run({ 'hub.ts': '// a plain comment about <reference types="node" />\nexport const x = 1;' }), []);
+    });
+  });
+
+  // Filo: the core takes the document as text and knows nothing about the Studio, so it imports
+  // nothing from outside its folder (2026-10-27-filo-undo-history.md §3).
+  describe('Filo import-boundary gate', () => {
+    const run = (files) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'filo-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        checkFiloBoundary(errors, dir);
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkFiloBoundary(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('only relative imports inside the folder; nothing from Lattice, a framework or node', () => {
+      assert.deepEqual(run({ 'index.ts': "export { History } from './history.js';", 'history.ts': 'export class History {}' }), []);
+      for (const src of [
+        "import * as React from 'react';",
+        "import { createFocusHub } from '../fuoco';",
+        "import { deckToDoc } from '../compose/deck-doc';",
+        "import { saveSource } from '@/components/studio/studio-store';",
+        "import fs from 'node:fs';",
+        "const m = await import('idb-keyval');",
+      ]) {
+        assert.equal(run({ 'core.ts': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'core.test.ts': "import { it } from 'vitest';\nimport { x } from '../compose/deck-doc';" }), [], 'tests may import the host');
+    });
+    test('a triple-slash reference is an ambient dependency, and is caught', () => {
+      assert.equal(run({ 'core.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
     });
   });
 

@@ -147,8 +147,11 @@ test('the Studio lint warns on a slide past its venue budget, and names the fix'
 	await expect(squiggle).toBeVisible({ timeout: 20_000 });
 	await squiggle.hover();
 	const tip = page.locator('.cm-tooltip-lint');
-	await expect(tip).toContainText('at 1.3x', { timeout: 10_000 });
-	await expect(tip).toContainText('counted in wrapped lines');
+	// The message names the room size in words and the overrun as a share of the slide
+	// (lint-core's `sizeWords`, plain wording since #2858; the unit tier pins the full text in
+	// lint-scale-capacity.test.js).
+	await expect(tip).toContainText('At conference size', { timeout: 10_000 });
+	await expect(tip).toContainText(/runs about \d+% too long/);
 	await expect(tip).toContainText('Fix:');
 	await expect(tip).toContainText(/set `venue: (huddle|laptop)`/);
 
