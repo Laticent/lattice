@@ -204,8 +204,8 @@ classes). The finding now offers **Set card ink light** (or **dark**) when, and 
 - **The edit is the Image tab's.** The button writes the class through `setImageCard(chunk, 'ink', …)`, the same
   function the slide's Image tab and the tooltip's `addCardInk` use, so the slide never carries both inks.
 - **Whose call.** The follow-up parked this as the owner's decision. The continuation brief for this work said "decide and
-  proceed", so it is built, kept small and reversible, and put to the owner at the merge gate. If they decline it, reverting
-  this one commit restores the pin-only finding.
+  proceed", so it was built, kept small and reversible, and put to the owner at the merge gate. The owner kept it
+  (2026-10-27, PR #2932).
 - **When nothing clears**, the message now reads "No pin and no card ink clears it: raise the card backing or choose
   another photo." It used to suggest the card ink, which the finding has now tried.
 
