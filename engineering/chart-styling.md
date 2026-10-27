@@ -291,10 +291,11 @@ measurement, and most undo a defect a render or the adversarial review found:
   hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
-- **Tone's neutral tile and waterfall anchors take the tone hue.** A flowchart or state-chart node with no category and no
+- **Tone's and etch's neutral tile and waterfall anchors take the first hue.** A flowchart or state-chart node with no category and no
   status, and a waterfall's Plan / Actual columns, were the chart's grey; on a one-hue slide that read as a second color. Tone
-  re-points `--chart-neutral-hue` to the one hue (status nodes keep their status color) and tints the anchors pale. Pigment
-  and etch leave them grey.
+  and etch re-point the node's own hue (`--fc-hue`, `--fill-hue`) to the first hue (status and category nodes keep theirs)
+  and tint the anchors; not `--chart-neutral-hue`, which the palette tests read as the theme's grey. Pigment keeps the
+  neutral solid.
 - **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
   ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
   tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status

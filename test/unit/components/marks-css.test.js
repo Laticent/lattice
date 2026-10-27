@@ -362,13 +362,15 @@ describe('marks.generated.css', () => {
   });
 
   // A node with no category or status is the chart's neutral tile, and a waterfall's Plan / Actual anchors are neutral columns.
-  // Tone has one hue, so both take it; pigment and etch leave them grey.
-  test('tone gives the neutral tile and the waterfall anchors the tone hue; the other finishes leave them grey', () => {
-    const tile = headed('tone').find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
-    assert.match(tile?.body || '', /--fc-hue: var\(--chart-cat-1-hue\) !important/);
-    const wf = headed('tone').find((x) => x.sel.includes('.waterfall-bar[data-s="total"]'));
-    assert.match(wf?.body || '', /fill: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%/);
-    for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.body.includes('--fc-hue: var(--chart-cat-1-hue)') || x.body.includes('cat-1-hue') && x.sel.includes('waterfall-bar[data-s="total"]')), `${f} leaves them grey`);
+  // Tone and etch both read as a second color in grey, so both take the first hue; pigment keeps its neutral solid.
+  test('tone and etch give the neutral tile and the waterfall anchors the first hue; pigment keeps them grey', () => {
+    for (const f of ['tone', 'etch']) {
+      const tile = headed(f).find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
+      assert.match(tile?.body || '', /--fc-hue: var\(--chart-cat-1-hue\) !important/, `${f} re-points the neutral tile`);
+      const wf = headed(f).find((x) => x.sel.includes('.waterfall-bar[data-s="total"]'));
+      assert.match(wf?.body || '', /var\(--chart-cat-1-hue\)/, `${f} paints the anchors from the first hue`);
+    }
+    assert.ok(!serving('pigment').some((x) => x.body.includes('--fc-hue: var(--chart-cat-1-hue)')), 'pigment keeps the tile grey');
   });
 
   // The matrix grid colors a row's label and its empty cells' outlines from `--row-hue` / `--row-ink`, which no finish paints
