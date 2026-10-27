@@ -123,7 +123,7 @@ const entry = await framework.decisions.log(decision, { signals });
 <!-- _focus: row 4 -->
 <!-- _focusStyle: highlight -->
 
-## `_focusStyle: highlight` — tint the row; every cell stays readable.
+## `_focusStyle: highlight` — tint the row, dim nothing.
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |
