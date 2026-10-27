@@ -72,6 +72,7 @@ import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_MET
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
+import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
@@ -138,7 +139,7 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
-import { getClassTokens } from './slide-directives';
+import { canEditClass, getClassTokens, setClassTokens } from './slide-directives';
 import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
@@ -4795,6 +4796,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// edit-mode Reshape control (a variant is a class token; recast = swap the token).
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
+	// The Coach's photo-contrast read of the slide on screen (measured in the preview, so it only runs while the Coach is open).
+	const { findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex + 1, coachOpen, `${mode}|${palette}|${source}`);
+	// Pin the slide light or dark: the one click the photo-contrast warning offers. Never applied on its own.
+	const pinActiveSlide = React.useCallback(
+		(pin: 'dark' | 'light') => mutateSlideFromPanel((c) => (canEditClass(c) ? setClassTokens(c, [...getClassTokens(c).filter((t) => t !== 'dark' && t !== 'light'), pin]) : c)),
+		[mutateSlideFromPanel],
+	);
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
 	// THE PANE GALLERY — Compose's "Change" on a pane bar opens the slide gallery in pane mode
 	// (SlidePicker `pane`): only the components that fit that pane, each saying whether it keeps the
@@ -4848,11 +4856,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		splitApiRef.current.expand('b');
 	};
 
+	// The photo finding is measured, not linted, and "Fix all" cannot draft it, so it rides alongside the lint top six
+	// instead of competing with them for a slot: the count the panel shows and the set "Fix all" drafts stay one set.
 	const rankedFindings = rankFindings(findings);
-	const shownFindings = rankedFindings.slice(0, 6);
+	const shownFindings = rankFindings([...rankedFindings.slice(0, 6), ...photoFindings]);
 	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
 	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
 	const isDraftable = (f: Finding): boolean => {
+		if (f.rule === PHOTO_RULE) return false; // measured from pixels and fixed by a pin, not drafted by a model
 		const ph = fixStates[keyFor(f)]?.phase;
 		return ph === undefined || ph === 'stale';
 	};
@@ -5102,8 +5113,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			</ArchCard>
 			{/* Slide-level findings — severity-ranked full-width cards; per-finding AI fix
 			    cycles IN the pill then splits into Apply / Discard, the diff below. */}
-			{rankedFindings.length > 0 && (
-				<ArchCard tag={<IntentTag intent={rankedFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length} to address`}>
+			{shownFindings.length > 0 && (
+				<ArchCard tag={<IntentTag intent={shownFindings.some((f) => f.severity === 'error') ? 'fix' : 'review'} label="FINDINGS" />} title={`${rankedFindings.length + photoFindings.length} to address`}>
 					<p className="text-xs leading-relaxed text-muted-foreground">Ranked by severity. {ai.ready ? 'Fix one with AI — review the diff before it lands (spends on your key; billed to generate, not to apply).' : 'Connect a model in Workspace to fix these with AI.'}</p>
 					{/* Batch actions — DRAFT every fixable finding, or apply the reviewed proposals
 					    at once. Never a blind apply-all: "Draft all" only drafts (each still gets a
@@ -5131,7 +5142,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								key={key}
 								finding={f}
 								state={fixStates[key]}
-								canFix={ai.ready && !!f.slide}
+								canFix={ai.ready && !!f.slide && f.rule !== PHOTO_RULE}
+								pin={f.rule === PHOTO_RULE && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? ((f as { pin?: 'dark' | 'light' | null }).pin ?? null) : null}
+								onPin={pinActiveSlide}
 								costLabel={fixCostLabel}
 								onFix={() => fixFinding(f, key)}
 								onApply={() => applyFixKey(key)}
@@ -5142,6 +5155,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{rankedFindings.length > 6 && <p className="mt-2 text-[11px] text-muted-foreground">+{rankedFindings.length - 6} more — the editor underlines them all.</p>}
 				</ArchCard>
 			)}
+			{/* The photo-contrast read's progress, for specs that must wait for an ABSENCE: it flips to "pending" in the render that changes the slide. */}
+			<span hidden data-photo-read={photoSettled ? 'done' : 'pending'} />
 		</>
 	);
 
@@ -6314,7 +6329,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    reaches `window`, so without this hand-off the trail would show the preview
 					    going quiet with no reason recorded. */}
 					<ErrorBoundary label="The preview" resetKeys={[deck.id, slideNo]} onError={(err) => noteCrashError(err, 'preview boundary')}>
-						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
+						<FocusedPreview hub={hub} index={deckIndex} viewChunks={viewChunks} viewIndex={viewIndex} panePaneCounts={panePaneCounts} paneMod={paneMod} slideText={slide} focused options={options} sample={editorSample} slideCount={viewSlides.length} slideMarkdown={editorSlideAlone} paneCounts={editorPaneCounts} deckId={previewDeckId} webOrigins={webAllowed} drawn={editorDrawn} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} extraCss={previewExtraCss} active={editorSlotVisible} followWhenParked coalesce className="size-full" aria-label="Live deck preview" onFirstRender={onPreviewFirstRender} onOverflow={setSlideClipped} onSparkFit={setSparkFit} loader chartDetail liveLayout />
 					</ErrorBoundary>
 				</div>
 			</div>
