@@ -97,7 +97,7 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
   drew as 3 px while the padding gave up 3.375 px, and one centered layout amplified the 0.375 px gap to
   3.6 px. At 1280, 1920 and 2560 px nothing changes.
 - `--_bar-room-t` is the top room the default bar always took. It holds a slide whose bar is elsewhere at
-  the same 4 px, so a default deck does not move. A frame whose default has no top bar (dark, print,
+  the same 4 px, so a default deck does not move (round 6 lists the exceptions it later accepted). A frame whose default has no top bar (dark, print,
   `title`, `closing`, `divider`, `topic`, every chart frame, the full-bleed frames, `claim-bleed`) sets
   it to 0 and stays where it was.
 - Every place that overrides the section's padding gives up the bar the same way: `section.form`
@@ -117,7 +117,7 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
    border, so a border could only shrink the photo or panel. Round 1 and 2 dropped their side and bottom
    bars. That broke "every component supports spectrum", so round 3 replaced it: the engine, the splitter
    and the runtime append `<i class="slide-bar">` (lib/core/slide-bar.js, the pattern of the finish
-   `.backdrop`), an absolutely positioned strip on the chrome plane. It takes no room and paints above the
+   `.backdrop`), an absolutely positioned strip (on the chrome plane here; round 6 moved it to `--z-spectrum`). It takes no room and paints above the
    art. They still show no top bar by default; a placement, `spectrum: solid|duo|mono`, `accent` or
    `tone-edge` asks for one, and the split frames keep their own ribbon. Two lists name the frames, the JS
    one (`lib/core/bleed-frames.js`) and the CSS `:not(...)` on the placement rules; a unit test pins them.
@@ -131,8 +131,8 @@ already there, not added to it, and no `margin` is involved (HARD RULE #20).
 
    | Setting | What moves |
    |---|---|
-   | `accent`, `tone-edge` | chart-family and `topic` slides 4 px up; `title`, `closing`, `divider` 2 px up |
-   | `spectrum: solid`, `duo`, `mono` (deck-wide) | every dark, chart-family and `topic` slide 4 px up; `title`, `closing` 2 px up; `image`, `scene` 2 px up |
+   | `accent`, `tone-edge` | chart-family slides 4 px up; `title`, `closing`, `divider`, `image`, `scene` 2 px up; `topic` 1 to 4 px by element (header 4 px) |
+   | `spectrum: solid`, `duo`, `mono` (deck-wide) | chart-family and `topic` slides 4 px up; `title`, `closing` 2 px up (header 4 px); `image`, `scene` 2 px up; dark slides 0 (round 6's dark change cancels it) |
    | `spectrum: off` | ordinary slides 4 px down (they now keep the 4 px a default slide has) |
 
    Light content slides under `solid`, `duo` and `mono` do not move. Each is one rule to reverse.
@@ -215,7 +215,7 @@ confirmed and fixed:
   no stray ones) and detects strips by paint, and `--bars` includes dark slides' left, right and bottom.
 
 The ODP export is verified (round 5): the strip is one gradient rect per bleed slide and LibreOffice renders it.
-Still unverified: the Studio and Playground live preview, RTL, a real Marp render.
+Round 6 verified the Studio, the Playground and a real marp-cli render; RTL and real browser zoom stay unverified.
 
 ## Round 5: the adversarial trio on `f799a29`
 
@@ -244,8 +244,8 @@ Known and left, each a follow-up or an owner call:
 - A `collage bleed` photo touching the bar's edge is flattened into the page raster in the PDF, so its
   resolution depends on the placement.
 - A dark `*-cover` frame under `spectrum: off` sits 3px lower (the dark rule excludes the cover classes).
-- Nothing in CI runs `check:edge-shift`; a new stamp or chrome rule written without the per-side tokens would
-  move again unnoticed. Wiring it, or a static lint, changes the CI contract and is the owner's call.
+- (Superseded by round 6: the integration tier runs `check:edge-shift`.) A new stamp or chrome rule written
+  without the per-side tokens would otherwise have moved again unnoticed. Wiring it, or a static lint, changes the CI contract and is the owner's call.
 - The manifest `spectrum` field has no user yet; the inversion pass recommended cutting it from this PR.
 
 ## Round 6: the spectrum is supreme
@@ -278,7 +278,7 @@ possible presence and nothing crowds it. Measured, then built:
   its light twin, and every stamp style holds still. `test/integration/invariants/spectrum-edge-shift.test.js`
   runs the harness in the integration tier. Reverting the stamp fix fails that test (proved), where every unit
   test stayed green.
-- **Verified on real surfaces:** the Studio and the Playground, in Chromium, WebKit and Firefox
+- **Verified on real surfaces:** the Studio in Chromium, WebKit and Firefox and the Playground in Chromium
   (`docs/e2e/slide-bar-studio.spec.ts`); a real marp-cli 4.3.1 render of the Marp kit (the runtime injects the strips
   in the HTML and the PDF, and the bar pixels are on the edges); the editable PPTX and ODP; the PDF.
 - **A claimed chart's and a claimed video's words sat on the slide's true edge.** `claim-bleed` zeroes the stage's
@@ -289,6 +289,61 @@ possible presence and nothing crowds it. Measured, then built:
   dark rule dropped the bar room). Fixed alike. The parity check now covers every accent, tone and variant sweep.
 - **Still deliberate:** a bleed frame draws no bar in the default top placement, as before: the bookends and the
   full-bleed frames own their canvas, and a default deck is unchanged there.
+
+## Round 7: the second trio, and what it found about the guard itself
+
+A second red team, inversion and checker ran on `67321c3`. The placement claim held again. They found that the
+guard added in round 6 could not fail for four of its own five fixes, and a handful of real defects:
+
+- **The crowding check was blind where crowding happens.** It skipped every slide whose scroll size exceeded its
+  client size, and a right or bottom bar's keyline makes 37 of 39 slides report that. It also dropped an element on
+  all four sides when its glyphs poked past any one edge, which hid a claimed chart's title sitting at the top-left
+  corner. Both skips are gone: an element is skipped only when it is past the edge on the bar's own side, and a slide
+  the engine marks `clip-marked` keeps its chrome checked.
+- **Mutation proof, now real.** Seven reverts were applied one at a time, with a rebuild, and the integration
+  test failed for each: the stamp tab, the alarm rail, the claim-bleed insets, the dark accent room, the stamp top
+  hold on frames that own their top edge, the `fixme-tab` inset, the topic band, and the deck logo (the last four
+  needed new slides or arms: a stamp on `image`/`scene`/`collage bleed` with a top strip, forced `clip-marked` and
+  `fit-marked` slides, a `logo-top-left` arm, a topic paint check). The earlier sentence "reverting the stamp fix
+  fails that test (proved)" was false at the time it was written and is true now.
+- **Stamps and marks on frames that own their top edge** sat at `top: 0`, under the top strip an `accent`,
+  `tone-edge` or deck `spectrum:` style draws. `--_hold-t` now gives them one bar width on every frame, so a stamp
+  hangs inside the frame the bar draws everywhere (4 px lower on `title`, `closing`, `divider`, `image`, `scene`).
+- **The PDF drew a claimed chart's masthead rule across the side bar.** The bar is now drawn as the last shapes
+  of the page (an axial shading or a solid fill), as the browser paints it, which also replaces the image clip of
+  round 6. A new PDF test samples the column.
+- **`fixme-tab`** sat a fixed radius in from the padding box, so it moved with the placement and sat under an
+  overlay strip. It now sits one bar width in from the slide edge.
+- **A `topic`'s track band disappeared** under left, right and bottom: the dark-slide rule that clears the
+  section's top hairline cleared its canvas `background-image` too. `:not(.topic)`.
+- **The runtime applied a manifest pin before the deck's classes landed**, so a pin re-branded a `spectrum: off`
+  deck on that path. It now waits for the deck front matter, as the default-component pass does.
+- **`scene` folded the strips into `.scene-text`** on the runtime path; it now leaves them on the section.
+- **The dark/light parity check ran on nothing** on tall, strip and square canvases (it paired by label); it now
+  pairs by class set and reports how many pairs it compared, and the integration test requires at least eight.
+- **Stale docs corrected:** the one-time move lists (re-measured), the "default deck looks as it did" bullet,
+  "chrome plane", "last child", and the Playground and Marp claims.
+
+Known and left, each a deliberate call:
+
+- An author who pastes the engine's own strip markup (`<i class="slide-bar">` twice, exactly) into a slide body
+  suppresses the injection. The input is engine-internal markup, and no author writes it by accident.
+- The `stamp-veil` label can differ by under 1 px with a side bar (`padding: 5%` resolves against the padding box).
+- A dark `stamp-ribbon` on the dark hairline: fixed by the dark change and the new top hold (checked).
+
+### Decision record: two bar mechanisms, kept, with real guards
+
+The inversion pass asked for an explicit, dated decision between (a) keeping the border with per-side compensation
+for ordinary frames plus the overlay for full-bleed frames as the permanent design, and (b) converging on the overlay
+for every frame. Decision, 2026-10-27, made under the owner's standing instruction to use best judgment: **(a)**.
+Reasons: the overlay everywhere would change the bytes of every slide in every export, put every children-gathering
+pass at risk on every slide (round 4 found nine that were not ready for six frames), and removes the one place an
+author's own `background` and finish canvas are guaranteed not to be touched. The cost of (a) is the per-side tokens
+in about twenty CSS files; the guard that makes it safe is the integration test above, which now fails for seven
+independent reverts. Revisit (b) if a new bleed frame or a new gatherer ships without the guard failing for it, or if
+the per-side tokens grow past the chrome they cover today: that is the signal that the surface is outrunning the
+check. The manifest `spectrum` field stays: the owner asked for it, it costs one lookup per slide, and its engine
+and runtime paths are pinned by tests.
 
 ## How it was checked, and what the first round missed
 
@@ -304,8 +359,8 @@ longer sit 4 px higher. The harness now takes `--variants`, `--classes`, `--each
 | Sweep (16:9, indaco unless noted) | Elements | Moved > 0.5 px |
 |---|---|---|
 | Before the change: skeletons, light and dark | 4,209 | 4,039 (162 of 164 slides) |
-| After: skeletons, light and dark | 4,209 | 0 |
-| After: every manifest variant | 12,934 | 0 |
+| After: skeletons, light and dark, plus the stamp-style slides (round 6) | 4,417 | 0 |
+| After: every manifest variant | 13,181 | 0 |
 | After: every one of the 493 reserved classes | 5,964 | 0 |
 | After: `footer-inset`, `fill-optical`, `claim-bleed`, `claim-hero`, `accent`, `tone-edge` | about 2,000 each | 0 |
 | After: deck `spectrum: solid`, `duo`, `mono`, `off`, `finish: atrium`; no chrome | 4,208 each | 0 |
@@ -317,6 +372,7 @@ Old CSS against new at the default placement (`--positions`, element by element)
 65 px appears only between a worktree and the main checkout, also at identical commits; two runs of the
 same CSS in one checkout agree exactly.
 
-**Not covered:** RTL (rendered nowhere; the bar and its flags are physical sides), the Studio and Playground
-previews, the PPTX and ODP exports, real browser zoom, `chart-frame:not(.form)`, and the `fixme-tab` alarm.
+**Not covered:** RTL (rendered nowhere; the bar and its flags are physical sides), real browser zoom, and
+`chart-frame:not(.form)`. (The Studio and Playground previews, the PPTX and ODP exports and the alarm tabs are
+covered from round 6.)
 A canvas wider than 16:9 (`mobile-landscape`) and the centered and corner logos were swept clean.

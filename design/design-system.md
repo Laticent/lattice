@@ -580,7 +580,7 @@ derivation.
 default. `false` means the component has no spectrum: the engine gives its slides `spectrum-off` and
 `spectrum-edge-off` and drops any spectrum class the author set, so no placement or deck register can draw a
 bar on it or move its content. `accent` and `tone-edge` are per-slide choices and still draw their top stripe.
-A style pin also drops `spectrum-off`, so a white-label deck re-brands a pinned component. A style name (`on`, `solid`, `duo`, `mono`) pins that style instead; the placement stays
+A style pin never overrides `spectrum-off`: a de-branded deck stays de-branded. A style name (`on`, `solid`, `duo`, `mono`) pins that style instead; the placement stays
 the author's. The manifest never says how a bar is drawn (border or overlay): that follows the layout's
 shape and lives in the engine (`lib/core/bleed-frames.js`). Generated into
 `lib/core/spectrum-catalog.generated.js` (`npm run stage-catalog:build`); applied by

@@ -2807,8 +2807,10 @@ section.fit-marked > .fixme-tab {
   /* Same corner treatment as the two berths above — the BOTTOM-right is rounded by the
      same clip, so this one insets too. See `.overflow-tab`'s note, including why the
      token is typed `0px`. */
-  bottom: calc(var(--slide-radius, 0px) * 0.45);
-  right: calc(var(--slide-radius, 0px) * 0.45);
+  /* One bar width in from the SLIDE's edge in every placement (a bar border shrinks the padding box these
+     measure from), so the tab holds still and never sits under a bottom or right bar. */
+  bottom: calc(var(--slide-radius, 0px) * 0.45 + var(--_bar-w) - var(--_bar-b, 0px));
+  right: calc(var(--slide-radius, 0px) * 0.45 + var(--_bar-w) - var(--_bar-r, 0px));
   z-index: var(--z-alarm);
   /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
    * the same exception the overflow red and the type-floor amber take: an

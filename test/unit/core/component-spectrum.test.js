@@ -60,7 +60,13 @@ describe('the field reaches both render paths and the contract', () => {
 		assert.match(read('tools/build-stage-catalog.js'), /spectrum-catalog\.generated\.js/);
 		assert.match(read('lib/engine/index.js'), /componentSpectrum,/);
 		assert.match(read('lib/core/marp-fidelity.js'), /plugin: 'componentSpectrum'/);
-		assert.match(read('lib/runtime/index.js'), /applyComponentSpectrum\(cur\)/);
+		const runtime = read('lib/runtime/index.js');
+		assert.match(runtime, /applyComponentSpectrum\(cur\)/);
+		// The runtime must wait for the deck's own classes: a pin applied first reads as the slide's OWN style
+		// class to the deck-class pass, which then never adds the deck's `spectrum-off`.
+		const fn = /function applyComponentSpectrumToSections\(\) \{[\s\S]*?\n  \}\n/.exec(runtime)[0];
+		assert.match(fn, /if \(!deckFrontMatterSettled\) return;/);
+		assert.match(runtime, /applyDefaultComponent\(\);\n\s+applyComponentSpectrumToSections\(\);/);
 	});
 
 	test('the shipped catalog only names real components with a valid answer', () => {

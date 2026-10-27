@@ -55,27 +55,43 @@ test(`choosing a different placement does not move a border frame's heading on t
 }
 
 // The Playground is a separate route with its own preview frame (`#preview`); it runs the same runtime twin.
-test('the Playground preview draws the full-bleed bar as two strips and holds a border frame still', async ({ page }) => {
-	const KEY = 'lattice-docs-pg-source';
-	const seed = async (src: string) => {
-		await page.addInitScript(([k, v]) => { try { localStorage.setItem(k as string, v as string); } catch { /* no store, no seed */ } }, [KEY, src]);
-	};
-	await seed(`${SPLIT('left')}\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n`);
-	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
-	const preview = page.frameLocator('#preview');
-	await expect(preview.locator('section.split-panel > .slide-bar')).toHaveCount(2, { timeout: 40_000 });
-	const w = await preview.locator('section.split-panel > .slide-bar:not(.slide-bar-top)').evaluate((el) => el.getBoundingClientRect().width);
-	expect(w, 'the left strip has width').toBeGreaterThan(0);
-	// The second slide is a border frame under the same deck-level placement of its own (top, the default): its
-	// heading sits where the Studio test pinned it, one bar width in from the slide edge and 4 below the bar.
-	const pos = await preview.locator('section:not(.split-panel) h2').first().evaluate((h) => {
-		const sec = h.closest('section')!;
-		const r = h.getBoundingClientRect(); const b = sec.getBoundingClientRect();
-		return { x: r.left - b.left, border: getComputedStyle(sec).borderTopWidth };
+for (const tag of ['', ' @webkit-tablet', ' @gecko']) {
+	test(`the Playground preview draws the full-bleed bar as two strips and holds a border frame still${tag}`, async ({ page }) => {
+		const KEY = 'lattice-docs-pg-source';
+		const deck = (edge: string) =>
+			`---\ntitle: Bar\nspectrum-edge: ${edge}\n---\n\n<!-- _class: split-panel -->\n\n## The panel claims\n\n- One\n  - First supporting line.\n\n---\n\n## A plain heading\n\n- One\n  - First supporting line.\n`;
+		const preview = page.frameLocator('#preview');
+		const load = async (edge: string) => {
+			await page.addInitScript(([k, v]) => { try { localStorage.setItem(k as string, v as string); } catch { /* no store, no seed */ } }, [KEY, deck(edge)]);
+			await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+			await expect(preview.locator('section.split-panel > .slide-bar')).toHaveCount(2, { timeout: 40_000 });
+		};
+		const heading = () => preview.locator('section:not(.split-panel) h2').first().evaluate((h) => {
+			const b = h.closest('section')!.getBoundingClientRect();
+			const r = h.getBoundingClientRect();
+			return { x: r.left - b.left, y: r.top - b.top };
+		});
+		await load('top');
+		const top = await heading();
+		const topWidth = await preview.locator('section.split-panel > .slide-bar:not(.slide-bar-top)').evaluate((el) => el.getBoundingClientRect().width);
+		expect(topWidth, 'under the top placement the placement strip is zero-size').toBe(0);
+		await page.context().clearCookies();
+		const page2 = await page.context().newPage();
+		await page2.addInitScript(([k, v]) => { try { localStorage.setItem(k as string, v as string); } catch { /* no store, no seed */ } }, [KEY, deck('left')]);
+		await page2.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+		const preview2 = page2.frameLocator('#preview');
+		await expect(preview2.locator('section.split-panel > .slide-bar')).toHaveCount(2, { timeout: 40_000 });
+		const leftWidth = await preview2.locator('section.split-panel > .slide-bar:not(.slide-bar-top)').evaluate((el) => el.getBoundingClientRect().width);
+		expect(leftWidth, 'under left the strip has width').toBeGreaterThan(0);
+		const left = await preview2.locator('section:not(.split-panel) h2').first().evaluate((h) => {
+			const b = h.closest('section')!.getBoundingClientRect();
+			const r = h.getBoundingClientRect();
+			return { x: r.left - b.left, y: r.top - b.top };
+		});
+		expect(left.x).toBeCloseTo(top.x, 0);
+		expect(left.y).toBeCloseTo(top.y, 0);
 	});
-	expect(pos.x).toBeGreaterThan(0);
-	expect(parseFloat(pos.border), 'a default top bar is a border on a border frame').toBeGreaterThan(0);
-});
+}
 
 // LIVE_PREVIEW is imported so a rename of the preview frame fails here, not silently.
 void LIVE_PREVIEW;

@@ -33,6 +33,20 @@ describe('spectrum bar: placement holds still, nothing crowds the bar', { skip: 
 		const r = sweep(['--components', 'content,kpi,table,cards-grid,bar,topic,title,closing,divider,premise', '--limit', '400']);
 		assert.equal(r.status, 0, `${r.stdout.split('\n').slice(-40).join('\n')}\n${r.stderr}`);
 		assert.match(r.stdout, /PASS: no element moves/);
+		const pairs = Number(/Compared (\d+) dark\/light twin pairs/.exec(r.stdout)?.[1] ?? 0);
+		assert.ok(pairs >= 8, `the scheme-parity check paired ${pairs} dark/light slides; it must not run empty`);
+	});
+
+	test('a claimed chart and video keep their words off the bar, a dark accent slide matches its light twin, and a deck logo holds still', { timeout: TIMEOUT }, () => {
+		for (const args of [
+			['--components', 'bar,video,big-number,content', '--classes', 'claim-bleed', '--no-dark'],
+			['--components', 'content,kpi,code,compare-code', '--classes', 'accent'],
+			['--components', 'content,image,split-panel,title', '--classes', 'logo-top-left', '--front-matter', 'logo: lattice'],
+		]) {
+			const r = sweep(args);
+			assert.equal(r.status, 0, `${args.join(' ')}\n${r.stdout.split('\n').slice(-40).join('\n')}\n${r.stderr}`);
+			assert.match(r.stdout, /PASS: no element moves/);
+		}
 	});
 
 	test('every full-bleed frame draws two clean strips and holds still across its variants', { timeout: TIMEOUT }, () => {

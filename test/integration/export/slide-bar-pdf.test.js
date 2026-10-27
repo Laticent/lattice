@@ -97,4 +97,21 @@ describe('export: the full-bleed bar reaches the PDF', { skip }, () => {
 			assert.notDeepEqual(probe[p](g), probe[p](base), `${p}: the edge pixels match the bar-off render, so the bar is missing`);
 		}
 	});
+
+	test('a claimed chart\'s masthead rule does not cross the bar', { timeout: TIMEOUT }, () => {
+		// The page photo holds the bar, and the writer draws the masthead hairline as a vector over the photo. The
+		// bar is drawn after every vector, as the browser paints it, so no gray row shows inside the bar.
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lattice-bar-pdf-hair-'));
+		fs.writeFileSync(path.join(dir, 'deck.md'), [
+			'---\ntheme: indaco\nspectrum-edge: left\nheader: HEADER\npaginate: true\n---',
+			'<!-- _class: bar claim-bleed -->\n\n## Which category is biggest.\n\n- First `120`\n- Second `80`\n- Third `40`\n',
+		].join('\n\n---\n\n'));
+		const g = ppm(dir, 'deck');
+		let gray = 0;
+		for (let y = 0; y < g.h; y++) {
+			const [r, gg, b] = g.at(1, y);
+			if (Math.abs(r - gg) < 12 && Math.abs(gg - b) < 12) gray++;
+		}
+		assert.equal(gray, 0, `${gray} gray/white rows inside the left bar (a vector rule is painting over it)`);
+	});
 });

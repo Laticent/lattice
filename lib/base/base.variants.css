@@ -381,7 +381,7 @@ section.spectrum-edge-bottom:not(.divider, .image, .scene, .split-panel, .split-
 /* THE BAR AS AN OVERLAY — the full-bleed frames (lib/core/slide-bar.js lists them).
    They claim the whole slide and set `padding: 0`, so a bar border could only shrink the photo or panel.
    Their bar is two empty `<i class="slide-bar">` elements, appended by the engine and the runtime:
-   absolutely positioned strips on the chrome plane, so they take no layout room and paint above the art.
+   absolutely positioned strips on the `--z-spectrum` plane, so they take no layout room and paint above the art.
    The first is the PLACEMENT strip (left, right or bottom); the second, `.slide-bar-top`, is the TOP
    strip that `accent`, `tone-edge` or a `spectrum:` style asks for. They are separate because a slide can
    want both, as a border frame draws a top border and a side border together. Each is the STRIP, not a
@@ -446,8 +446,9 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-
  * `background-image: none` for the reason the `off` block above gives at length: the
  * shorthand restated the color at (0,3,1) and took a frame's own canvas with the bar.
  * `:not(.divider)` stays -- a divider's bar is its own left rail and only `edge: off`
- * clears that, on the line below. */
-section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.divider) {
+ * clears that, on the line below. `:not(.topic)` too: a topic paints its track band in
+ * `background-image`, which is its own canvas and not the section bar. */
+section.dark:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.divider, .topic) {
   background-image: none;
   background-position: 0% 0%;
   background-size: auto;

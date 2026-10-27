@@ -474,7 +474,7 @@ draws no bar under a placement.
 
 **Full-bleed layouts draw the bar as an overlay.** `image`, `scene`, `split-panel`, `split-compare`, a
 `claim-bleed` media slide and `collage bleed` claim the whole slide and have no margin to give a border,
-so their bar is a strip laid over the slide on the chrome plane (`<i class="slide-bar">`, lib/core/slide-bar.js).
+so their bar is a strip laid over the slide on the `--z-spectrum` plane (`<i class="slide-bar">`, lib/core/slide-bar.js).
 It takes no room, so the photo or panel keeps its true edge, and it paints above the art. A bleed frame
 shows no top bar by default, as before; a placement, a `spectrum:` style, `accent` or `tone-edge` with a tone class asks for
 one. The split frames keep their own ribbon at the top.

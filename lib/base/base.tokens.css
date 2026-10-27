@@ -1359,7 +1359,9 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
    * always took; the other three reach the slide edge, so a stamp or a mark may sit over a side bar. */
   --_hold-w:            calc(var(--_bar-l, 0px) + var(--_bar-r, 0px)); /* the width a percentage of the padding box is short by */
   --_hold-h:            calc(var(--_bar-t, 0px) + var(--_bar-b, 0px));
-  --_hold-t:            calc(var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
+  /* One bar width of room at the top even on a frame that owns its top edge (room 0): a stamp or mark hangs
+     inside the frame the bar may draw (a `.slide-bar-top` strip on `image`, `scene`, `collage bleed`), never under it. */
+  --_hold-t:            calc(max(var(--_bar-room-t, 0px), var(--_bar-w, 0px)) - var(--_bar-t, 0px));
   --_hold-r:            calc(-1 * var(--_bar-r, 0px));
   --_hold-b:            calc(-1 * var(--_bar-b, 0px));
   --_hold-l:            calc(-1 * var(--_bar-l, 0px));

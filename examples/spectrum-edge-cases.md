@@ -113,19 +113,20 @@ The bar lies over the photo and takes no room from it.
 
 <!-- _class: split-compare dark -->
 
-`Split compare · dark panel`
+`Split compare, dark panel`
 
-## A dark panel and a grid.
+## A dark panel and two option cards.
 
-Option A
+One sentence of context sits under the headline.
 
-- First row
-  - Its supporting line
+- Option A
+  - First supporting fact
+  - Second supporting fact
+- Option B
+  - First supporting fact
+  - Second supporting fact
 
-Option B
-
-- First row
-  - Its supporting line
+> The recommendation, in one sentence.
 
 ---
 
