@@ -2174,6 +2174,19 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 				if (changing && exploreSourceRef.current != null && lf(exploreSourceRef.current) !== lf(getSource())) {
 					backupDraft('Opened the deck in the editor');
 					setSource(exploreSourceRef.current);
+					// The whole-document replace puts the caret on line 1, which would make slide 1 the one Explore
+					// reopens on. The slide the reader was reading is the one that stays: it is the same as a click
+					// on it, so the caret goes to the end of its title when Edit's preview is written.
+					const frame = frameRef.current;
+					const wk = walkRef.current;
+					if (frame && wk) {
+						let page = wk.index;
+						if (wk.kind === 'plan') {
+							const first = walkUnits(frame, true)[wk.index]?.[0];
+							page = first ? walkUnits(frame, false).findIndex((u) => u[0] === first) : -1;
+						}
+						if (page >= 0) syncRef.current?.exploreClicked(page);
+					}
 				}
 				if (changing) {
 					// Back in Edit: Explore's target means nothing now, and the preview is owed the editor's slide before it shows.
