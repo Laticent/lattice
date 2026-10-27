@@ -1,13 +1,14 @@
 ---
-status: proposed
+status: in-progress
 summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Live surfaces rescue from measured heights; files (PDF, PPTX, the static pages in HTML) rescue from budgets only, so they stay reproducible. Audit of the five split paths and the fluid viewer, the design, the jank contract, and an eight-phase plan (P0–P7) that ships a Playground slice before the catalog migration. The owner settled six forks on 2026-10-27, and the "autosplit" name retires. Hardened by the adversarial trio the same day (§11).
 builds-on: 2026-09-01-autosplit-splits-on-structure.md, 2026-06-22-the-fit-spine.md, 2026-10-16-mosaico-layout-library.md, 2026-07-20-adaptive-viewport-fill.md
 ---
 
 # Fluid: one runtime library for reflow and pagination (2026-10-27)
 
-**Status: proposed.** The owner settled the six forks in §9 on 2026-10-27, and the adversarial
-trio reviewed the design the same day (§11). No code has shipped. The first slice is §8 P0.
+**Status: in progress.** The owner settled the six forks in §9 on 2026-10-27, and the adversarial
+trio reviewed the design the same day (§11). P0 is built (§12). The canonical doc for what is true
+now is [`../fluid.md`](../fluid.md).
 
 ## 1. The answer first
 
@@ -382,10 +383,11 @@ family crossing**, which is the one stated exception to "post-render only".
   or listed with a reason. A gallery gate diffs the budget rescue set against the measured set
   per family and ratchets the gap down.
 - **One paginator:** `checkPaginationOwners` in `tools/check-ownership.js`, with a
-  `SANCTIONED_PAGINATORS` allowlist that starts at today's paths (§2.1). Each phase that
-  deletes a path removes its entry. The check fails on a stale entry and on any new module
-  that composes cover, body or closing sections outside `@laticent/fluid` and the connector.
-  It is a `build:check` rule, not a new CI job.
+  `SANCTIONED_PAGINATORS` allowlist of every module that stamps a split page's role or run.
+  Each phase that deletes such a writer removes its entry. The check fails on a stale entry
+  and on any new stamper outside `@laticent/fluid` and the connector. Paths that paginate
+  without stamping (the pane split, `splitSlideInHalf`) are tracked by name in §8's deletion
+  table instead. It is a `build:check` rule, not a new CI job.
 - **Surfaces (HARD RULE #23):** real screenshots at three widths on the HTML viewer, the
   Studio's device toggle and the Playground, plus a no-JS render of the player. PDF, PPTX and
   HTML-export artifacts in dark and light go to the owner for export sign-off.
@@ -415,7 +417,7 @@ second, on one surface, before the catalog migrates.
 | 2 per-strategy `perPage` | P3 | census; `split.perPage` absent from every manifest |
 | the baked capacity map and the whitelist | P3 | the ratchet reaches 37 |
 | 5 `splitSlideInHalf`'s halving rule | P5 | it calls `plan()` |
-| 1 the Node string assembly, 3–4 token-level panes | P6 | `SANCTIONED_PAGINATORS` holds only the core and the connector |
+| 1 the Node string assembly, 3–4 token-level panes | P6 | `SANCTIONED_PAGINATORS` holds only the core and the connector; `installPaneSplit` and `arrangePanes`' token rewrite are gone (grep) |
 
 **Kill criterion.** If P2 has not landed within six weeks of P1 merging, the owner decides
 whether the core stays, with the connector over today's string path, or is reverted. That way
@@ -470,3 +472,43 @@ changed the note.
 | Render-time `family` reads defeat a live re-stamp | `math.render.js:260-281` | inventory and re-render exception (§5.6) |
 | The plan repeats the stall of four earlier plans | 07-22, 06-25, 07-20 §9, 09-06 | vertical slice second, a deletion table, a ratchet, a kill criterion (§8) |
 | Owner checkpoints were undercounted | the HTML export's runtime is exported bytes | sign-off at P4 and P6, checks at P3, P4 and P5 |
+
+## 12. As built
+
+### P0 (2026-10-27)
+
+- **One CLI assembly.** `lattice.js` calls `structuralSplit` with one Chromium navigation instead of
+  composing `splitDoc` and `railRun` with a navigation after each. HTML output is byte-identical on
+  seven decks, six of which split.
+- **The parity golden.** `tools/split-pages-golden.js` (`npm run split:golden:check`) hashes every
+  page `structuralSplit` emits for 80 galleries at `square`, `portrait` and `mobile`: 7,347 pages in
+  6.3 s. Changing one `(cont.)` marker fails it on three `redline` pages. It runs on demand, not in
+  CI, because it hashes engine output and would force every markup-changing PR to re-bless it.
+- **The dead splitter.** `lib/core/split-slides.js` and its test are deleted, along with every
+  reference to it.
+- **Stale claims.** Eight of the nine in §2.4 are fixed. The ninth is the body of issue #506, which
+  is shared state and waits on the owner. The 07-29 note keeps `status: shipped`, because its
+  directive retirement still stands; its summary now opens by saying the fit trigger was reversed.
+- **Reserved attributes.** `lib/core/reserved-attrs.mjs` renames every `data-split-` and
+  `data-fluid-` in author raw HTML to `data-x-split-` / `data-x-fluid-`, wherever it appears. The
+  first cut parsed each token's tags and dropped real attributes only, and the P0 checker broke it
+  five ways in Chromium: `<!-->`, `--!>`, a `<!--` inside `<textarea>`/`<style>`/`<script>`/
+  `<title>`, and a quote opened in one token and closed in the next, which forged
+  `data-split-role` on a top-level `<section>`. The browser carries that state across tokens, so no
+  per-token parser is sound, and the blunt rename is. All eight shapes are unit arms, and the
+  checker's Chromium and DOMPurify repros come back clean. The engine installs it beside
+  `guardHtmlInline`, and the parity golden is unchanged. The same cross-token quote can still forge
+  the engine's own `data-lattice-slide`; that predates Fluid and is logged as a follow-up.
+- **One paginator, scoped honestly.** `checkPaginationOwners` in `tools/check-ownership.js` counts
+  every write of a split page's role or run: templates, concatenations, literals, `setAttribute`,
+  markdown-it `attrSet` and `dataset` writes, across `lib/`, `docs/src/` (including `.astro`) and
+  `lattice.js`. Today the writers are `split-envelope.js` (2) and `auto-split.js` (1), each in
+  `SANCTIONED_PAGINATORS` with its reason, and a file planted in `lib/core/` fails the rule. It
+  cannot see a path that paginates without stamping role or run, so the pane split and
+  `splitSlideInHalf` stay tracked by name in §8's deletion table, not by this rule.
+- **The golden's two arms.** It hashes `structuralSplit` as the CLI calls it and with `settle: true`
+  as the live previews do (no gallery page differs between them today). It does not model the
+  Studio's one-slide renders.
+- **Docs.** `engineering/fluid.md` is the canonical doc, with the glossary. 06-25 is marked
+  superseded by this note, and 07-20 §9 carries an "absorbed" banner.
+

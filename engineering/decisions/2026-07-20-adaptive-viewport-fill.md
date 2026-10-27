@@ -273,6 +273,11 @@ P1–P2 are opt-in and leave the shipped bytes untouched.
 
 ## 9. Phasing (re-sequenced; each one branch → one PR, HARD #17; green + no broken window each step)
 
+> **Absorbed (2026-10-27).** P2's box convergence, P3 (fill as the default) and P4 (live portrait
+> split) are now Fluid phases P6, P7 and P2/P4 of
+> [`2026-10-27-fluid-layout-library.md`](2026-10-27-fluid-layout-library.md) §8. P1 and the P2 edge
+> cap shipped here and stand.
+
 - **P0 — this doc (hardened).** ☐ The design + the corrected, owner-aligned direction.
 - **P1 — opt-in landscape fill + the honest overflow ring** *(≈ Option C's mechanism, near-free)*. ◐
   **Landed.** The fluid viewer's default now fills any non-ultrawide screen (`initFluidView`:

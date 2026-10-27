@@ -3,14 +3,14 @@ origin: 2923
 priority: P0
 recorded: 2026-10-27
 area: engine
-severity: medium
-swimlane: engineering/decisions/2026-10-27-fluid-layout-library.md §8 P0
+severity: low
+swimlane: engineering/decisions/2026-10-27-fluid-layout-library.md §12
 ---
 
-# Fluid P0: one split assembly, the parity golden, the one-paginator gate, strip forged seams, engineering/fluid.md
+# Fluid P0 leftover: correct issue #506's body
 
-why now   — every later phase is checked against the golden and the gate; stale comments misled this design's own audit.
-where     — engineering/decisions/2026-10-27-fluid-layout-library.md §8, row P0.
-done when — the CLI calls structuralSplit; split-slides.js and its references are gone; the nine §2.4 claims read true (#506's body edited only with the owner's OK); the per-page parity golden exists; checkPaginationOwners + SANCTIONED_PAGINATORS fail on a planted second paginator; author-written data-fluid-*/data-split-* are stripped; engineering/fluid.md has the fluid-view vs Fluid glossary.
-evidence  — the gate's mutation arm, and the golden's command and deck list in the PR body.
-verify    — npm run build:check; the gate named in the §8 row for P0.
+why now   — it runs the CLI under its retired name, which no longer exists, and its design still reads "split as a preprocessor on the string", which P2 replaces with a post-render pass.
+where     — GitHub issue #506 (backlog.d/506.md is generated from it; never edit the file).
+done when — the owner has approved the edit, and #506's body names lattice.js and points at the Fluid note §8 P2/P4.
+evidence  — the issue's edit history.
+verify    — npm run build:check after the backlog sync regenerates backlog.d/506.md.
