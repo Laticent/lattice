@@ -505,6 +505,38 @@ note).**
 - **Go** when (a) through (d) hold and an apply costs 5 ms or less on the 134 KB deck in all three
   engines. **No-go** writes the full-resync fallback (§3.3, change 4) into this note before slice 2.
 
+**Slice 0 as built (#2929).** One deviation from the plan above, for a smaller and safer change:
+`saveCheckpoint` stayed synchronous. `checkpoint-store.ts` keeps an in-memory cache in front of
+IndexedDB, so the call sites and the backup code did not change. Each checkpoint is its own record,
+every change is one read-modify-write transaction, other tabs re-read over a `BroadcastChannel`, and
+each change returns a promise that settles once it is durable (the Library's rename awaits it). An
+independent checker found that the first cut's whole-list writes let two tabs erase each other's
+versions; the per-record design is the fix. The quota e2e fakes the failure by making `put` throw
+(in Chromium, Firefox and WebKit); a real full quota was not reached.
+
+**Slice 1 result: GO** (2026-10-27; evidence on branch `claude/filo-slice1-compose-spike`,
+`docs/src/lib/compose/scoped-resync.ts` and its `.spike.test.ts`, never to be merged).
+
+| Criterion | Result |
+|---|---|
+| (a) Untouched slides stay byte-identical | Every deck in `examples/` plus the gallery (326 decks; the baseline folder holds only one). Edit, delete, insert and front-matter changes around the first, middle and last slide: **3,890 cases, 0 failures, 0 fallbacks**. Each emit equals the target exactly, every untouched slide keeps its node identity, and the undo back to the original text is exact too |
+| (b) Folds and caret survive | The caret on an untouched slide keeps its text and offset, and a fold (the collapse plugin's node decoration) maps through the transaction onto the same slide, in all 3,890 cases |
+| (c) Applies while focused, without parking | A real `EditorView`, focused, with a character typed before and after the apply: focus, caret and both keystrokes intact in Chromium, Firefox and WebKit |
+| (d) Per-slide patches from a transaction | `emitPatch` trims two emits (both built from cached per-slide bytes) to `{ from, to, insert }`; applying it reproduces the emit in every case |
+| Cost: 5 ms or less on the 134 KB deck in all three engines | **Patch-driven** apply, median of 7: Chromium 1.5 ms, Firefox 2 ms, WebKit 3 ms (max 3.5 / 4 / 10 ms). Node: 0.18 ms, against 9.25 ms for today's full rebuild |
+
+What the spike changed in the design: re-parsing the whole new source cost 4-7 ms in the browsers,
+so the apply is **driven by the patch**. It splits and parses only the slides the patch overlaps
+(`scopedResyncPatch`), takes the whole-source path for a front-matter change, and checks that the
+edited run still ends at the next slide's separator. That check is load-bearing: an edit that opens
+an unclosed code fence swallows the slides after it, and removing the check fails the test that
+compares the patch path with the whole-source path. On all 3,890 cases the two paths produce
+identical slides.
+
+Not proven by the spike, so slice 4 carries it: IME composition during an apply (the design waits
+for `compositionend`), the real `ComposeView` with its guards and plugins (the spike used a plain
+`EditorView` and the deck schema), and the `filoHistory` flag that replaces `isHistoryTransaction`.
+
 **2. Filo core, in memory.** The text patch algebra, history, grouping, marks and anchors, limits;
 property tests; the trace of §9. No Studio change.
 
