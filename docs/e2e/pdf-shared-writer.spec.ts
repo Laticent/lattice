@@ -25,7 +25,10 @@ async function exportPdf(page: Parameters<typeof gotoStudio>[0], opts: { fourK?:
 	await expect(dialog).toBeVisible();
 	await dialog.getByRole('button', { name: /^PDF/ }).click();
 	// A 4K deck exports at HD unless the author picks 4K (lib/core/export-canvas.js); this arm is about 4K, so it picks it.
-	if (opts.fourK) await dialog.getByRole('radio', { name: /^4K/ }).check();
+	if (opts.fourK) {
+		await dialog.getByRole('combobox', { name: 'Resolution' }).click();
+		await page.getByRole('option', { name: /^4K/ }).click();
+	}
 	const download = page.waitForEvent('download', { timeout: 180_000 });
 	await dialog.getByRole('button', { name: /^Download PDF/ }).click();
 	const path = await (await download).path();

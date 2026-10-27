@@ -63,6 +63,7 @@ import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { applyFontsOverride, applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
+import { createPngEncoder } from './png-encoder-pool.js';
 import { settleSlideDraw } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
@@ -2067,13 +2068,26 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	// The writer asks for PNG, and for JPEG too on a busy slide (compose.mjs pngIsFlat); the
 	// canvas camera captures each slide once for both. toJpeg was this same canvas encoded at
 	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
-	const camera = canvasCamera(async (section, scale) => {
-		try {
-			return await withCaptureFixups(section, (_w, _h, pr) => shootSection(section, pr, fontEmbedCSS, log, 'export'), scale, 'pdf');
-		} catch (e) {
-			throw captureError(e);
-		}
-	}, imagePolicyCore.resolveImagePolicy(images || {}).quality / 100);
+	// PNGs are written by workers, so the next slide is captured while this one compresses (`photoLookahead` below).
+	const pngWriter = createPngEncoder();
+	// Captures take turns: a capture edits the shared document (the web-reference sweep's <style>, the section's classes), so two at once
+	// would see each other's edits. Only the PNG writing overlaps a capture.
+	let captureTurn = Promise.resolve();
+	const camera = canvasCamera(
+		(section, scale) => {
+			const run = captureTurn.then(async () => {
+				try {
+					return await withCaptureFixups(section, (_w, _h, pr) => shootSection(section, pr, fontEmbedCSS, log, 'export'), scale, 'pdf');
+				} catch (e) {
+					throw captureError(e);
+				}
+			});
+			captureTurn = run.catch(() => {});
+			return run;
+		},
+		imagePolicyCore.resolveImagePolicy(images || {}).quality / 100,
+		(canvas) => pngWriter.encode(canvas),
+	);
 	const withSlide = (section, fn) => {
 		const restore = forceSectionVisibleForCapture(section);
 		const had = section.classList.contains('lattice-exporting');
@@ -2126,7 +2140,12 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
 	// Fonts through the same guard as images: no web font is fetched from the author's machine.
-	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts) });
+	let bytes;
+	try {
+		({ bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts), photoLookahead: 1 }));
+	} finally {
+		pngWriter.dispose();
+	}
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });
