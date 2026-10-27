@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: proposed
 summary: >
   The Studio has six separate undo mechanisms and no global one. CodeMirror and Compose each keep
   their own stack and neither sees the other's edits; Compose loses its whole stack whenever the
