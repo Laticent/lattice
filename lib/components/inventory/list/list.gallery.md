@@ -108,18 +108,16 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
 
 <!-- _class: list -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · list — Eight lines at the hard ceiling." -->
+<!-- _footer: "Stress test · list — Six lines at the hard ceiling." -->
 
-## Eight lines is the most a list should carry.
+## Six lines is the most a list should carry.
 
-- A stress line may spend twenty words, and this one spends them to show where the wrap lands.
-- Even at the ceiling every line stays one complete statement with a single clause of support.
+- A stress line may spend fourteen words, and this one shows where the wrap lands.
+- At the ceiling every line stays one complete statement with one clause of support.
 - The third line is where a reading audience starts skimming instead.
-- Vary sentence length or eight dense lines blur into one.
-- The fifth line should carry something worth the fatigue.
+- Vary sentence length or six dense lines blur into one.
 - Numbers and names hold attention better than abstractions here.
-- The seventh line is the last one anyone quotes.
-- Eight is the stop; nine becomes a memo.
+- Six is the stop; seven becomes a memo.
 
 
 ---

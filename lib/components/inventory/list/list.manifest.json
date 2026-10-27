@@ -93,8 +93,8 @@
   "anatomyBlock": "list",
   "sample": "<!-- _class: list -->\n\n## The list states one point per line.\n\n- A line is a complete statement, not a fragment.\n- Fourteen words is the budget a line may spend.\n- Six lines fill the canvas comfortably.\n- Parallel openings keep the scan honest.\n- Nesting belongs to card layouts, not here.\n",
   "stressDoc": {
-    "summary": "Eight lines at the hard ceiling.",
-    "sample": "<!-- _class: list -->\n\n## Eight lines is the most a list should carry.\n\n- A stress line may spend twenty words, and this one spends them to show where the wrap lands.\n- Even at the ceiling every line stays one complete statement with a single clause of support.\n- The third line is where a reading audience starts skimming instead.\n- Vary sentence length or eight dense lines blur into one.\n- The fifth line should carry something worth the fatigue.\n- Numbers and names hold attention better than abstractions here.\n- The seventh line is the last one anyone quotes.\n- Eight is the stop; nine becomes a memo.\n"
+    "summary": "Six lines at the hard ceiling.",
+    "sample": "<!-- _class: list -->\n\n## Six lines is the most a list should carry.\n\n- A stress line may spend fourteen words, and this one shows where the wrap lands.\n- At the ceiling every line stays one complete statement with one clause of support.\n- The third line is where a reading audience starts skimming instead.\n- Vary sentence length or six dense lines blur into one.\n- Numbers and names hold attention better than abstractions here.\n- Six is the stop; seven becomes a memo.\n"
   },
   "whenToUse": [
     {
