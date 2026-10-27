@@ -10,7 +10,7 @@ footer: "Laticent · focus highlight"
 
 `Feature · _focusStyle: highlight`
 
-Rows, columns, cells, code lines, chart marks, chart series and cards take the same tint and edge, and nothing else on the slide changes.
+Cards, rows, columns, cells and code lines take a tint and an edge, a chart mark takes an edge, and a chart series gets a heavier line. Nothing else on the slide changes.
 
 ---
 

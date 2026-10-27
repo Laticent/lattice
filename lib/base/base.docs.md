@@ -1405,9 +1405,9 @@ Override per slide with `_focusStyle`:
 <!-- _focusStyle: highlight -->   <!-- accent tint + edge on the target; nothing recedes -->
 ```
 
-`highlight` is the no-dimming look for every axis: the target takes an accent tint and an edge
-(the `preferred` look of `verdict-grid`, without the spark) on a card, table row, column, cell,
-code line, chart mark or series, and every other target stays untouched. It sets no weight or
+`highlight` is the no-dimming look for every axis. A card, table row, column, cell or code line
+takes an accent tint and an edge (the `preferred` look of `verdict-grid`, without the spark), a
+chart mark takes an edge, a chart series gets a heavier line, and every other target stays untouched. It sets no weight or
 size, so nothing rewraps between `_focusSteps`. Worked decks: `examples/focus-styles.md` (the
 five styles side by side) and `examples/focus-highlight-axes.md` (`highlight` on every axis).
 

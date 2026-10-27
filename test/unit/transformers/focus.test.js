@@ -110,6 +110,12 @@ describe('focus — HTML kernel (applyToHtml)', () => {
     assert.match(out, /<span class="ln lat-focus">two;<\/span>/);
   });
 
+  test('line axis skips a <pre> with no code in it and a paragraph with inline code before the block', () => {
+    const out = focus.applyToHtml('<section data-focus="line 2" class="code"><pre class="ascii">+--+\n|  |</pre><p>Run <code>npm test</code> first.</p><pre><code class="language-js">one;\ntwo;</code></pre></section>');
+    assert.match(out, /<p>Run <code>npm test<\/code> first\.<\/p>/, 'inline code is left alone');
+    assert.match(out, /<span class="ln lat-focus">two;<\/span>/);
+  });
+
   test('highlight is an accepted _focusStyle and is carried through unchanged', () => {
     const out = focus.applyToHtml('<section data-focus="item 1" data-focus-style="highlight"><ul><li>a</li><li>b</li></ul></section>');
     assert.match(out, /data-focus-style="highlight"/);
