@@ -1671,15 +1671,15 @@ async function canvasToPictureBlob(canvas, section) {
 	return choosePicture({ png: () => encode({ type: 'png' }), jpeg: jpegOf, size: (blob) => blob.size }, { tone }, setting);
 }
 
-// Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
-// stops at `canvas.toBlob` instead of `toDataURL`, so the base64 that a PowerPoint
-// needs is never built on this thread — the bytes transfer to the assembly worker for
-// free and it encodes them there.
-async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, log) {
+// One slide of a picture PowerPoint: the screen face, PNG or JPEG by the picture policy (`canvasToPictureBlob`). BOTH
+// PowerPoint lanes take this picture: the worker lane transfers its bytes to the assembly worker, which base64s them there;
+// the main-thread fallback makes the data URL itself. The fallback used to take `rasterizeSection` instead, a lossless PNG
+// of the PDF's flat face for every slide: a different look, and 52 photo slides at about 3.5 times the worker lane's size.
+async function rasterizeSlidePicture(section, fontEmbedCSS, cornerTarget, log) {
 	try {
 		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => {
 			const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'screen');
-			return await (await canvasToPictureBlob(canvas, section)).arrayBuffer();
+			return await canvasToPictureBlob(canvas, section);
 		}, undefined, cornerTarget, 'screen');
 	} catch (e) {
 		throw captureError(e);
@@ -2287,7 +2287,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bytes = await rasterizeSectionToPngBytes(sections[i], fontEmbedCSS, 'pptx', log);
+			const bytes = await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log)).arrayBuffer();
 			worker.postMessage({ type: 'slide', index: i, bytes, altText: altTextFor(i) }, [bytes]);
 			await new Promise((r) => setTimeout(r));
 		}
@@ -2360,7 +2360,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx', log);
+		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log));
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -2371,7 +2371,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
+		pptx.addSlide().addImage({ data: picture, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));

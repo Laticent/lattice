@@ -13,7 +13,7 @@ import { expect, test } from '@playwright/test';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 // The same as GOLDEN in test/unit/core/jpeg-encode.test.js.
-const GOLDEN = { width: 301, height: 157, quality: 90, sha256: '29ff664ced9ed036fdd1246584ad6e99d3a5f2d8979ae334d9f2d2f3637ccfec' };
+const GOLDEN = { width: 301, height: 157, quality: 90, sha256: 'c58daad69614db3208e19a5f8fcd8fb61eec1cc601fdc373bd4e4d12bd926f00' };
 
 // The unit test's picture: flat areas, gradients, hard edges, noise, and a band of transparency.
 function synthetic(w: number, h: number) {

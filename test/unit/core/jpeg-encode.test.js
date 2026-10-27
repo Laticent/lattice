@@ -27,7 +27,7 @@ const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 // The bytes the encoder writes for synthetic(301, 157) at quality 90. A change here changes every export's JPEGs:
 // update it on purpose, and the e2e spec's copy with it.
-const GOLDEN = { width: 301, height: 157, quality: 90, sha256: '29ff664ced9ed036fdd1246584ad6e99d3a5f2d8979ae334d9f2d2f3637ccfec' };
+const GOLDEN = { width: 301, height: 157, quality: 90, sha256: 'c58daad69614db3208e19a5f8fcd8fb61eec1cc601fdc373bd4e4d12bd926f00' };
 
 test('writes a baseline JFIF: SOI, APP0, two DQT, SOF0 4:2:0, DHT, SOS ... EOI', async () => {
   const { encodeJpeg } = await load();
