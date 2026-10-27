@@ -181,6 +181,21 @@ describe('an allowed origin does not vouch for an address the browser reads diff
   });
 });
 
+describe('a drawn Mermaid diagram', () => {
+  const drawn = (inner) => `<section><div class="mermaid"><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 10 10">${inner}</svg></div></section>`;
+  test('is not a web reference for its XML namespace names', () => {
+    const r = blockWebImages(drawn('<g><rect width="5" height="5"/></g>'), [], { DOMParser });
+    assert.deepEqual(r.blocked, []);
+  });
+  test('still counts an address it draws or links, beside the namespaces', () => {
+    for (const inner of ['<image href="https://evil.example/a.png" width="9" height="9"/>', '<a xlink:href="https://evil.example/l"><rect width="5" height="5"/></a>', '<image xlink:href="//evil.example/b.png"/>']) {
+      const r = blockWebImages(drawn(inner), [], { DOMParser });
+      assert.ok(r.blocked.some((b) => b.url.includes('evil.example')), inner);
+      assert.ok(!r.blocked.some((b) => b.url.includes('www.w3.org')), inner);
+    }
+  });
+});
+
 describe('a noscript the sanitizer unwraps', () => {
   // The scanner reads <noscript> content as text, as a page that runs scripts does; a sanitizer parses without scripts, keeps the
   // elements and drops the wrapper, so the image it hid is live afterwards. The page's own parser is asked whenever a noscript appears.

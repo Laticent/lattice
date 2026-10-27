@@ -162,6 +162,25 @@ The post-fix preview run on Firefox found a second hole, in the composition the 
 
 `--wide` now generates `<img attributionsrc>` and `<a attributionsrc>` (a whitespace-separated list of reporting addresses; the harness clicks the link). Chromium 131 fires them: seed 20261029, 3,000 inputs, the scanner before the click-time change (`--ref 2dddb7b`) leaks 29 inputs (67 requests); the working tree leaks none (0 requests). Refresh delays are covered by unit rows instead of the fuzz, because the scanner ignores the delay (`refreshTarget` reads the address after the time and the separator): 0, 1, 3, 60, 3,600, 86,400, 0.5, `1.`, `.5`, 7 as `00007`, 2,147,483,647 and 4,294,967,296, each with five separators, all removed; `1e3;url=https://…` reads as the relative page `e3;url=…` in the browser and the scanner agrees. The default stream (seed 20261026) is unchanged by the new class.
 
+### Mermaid: what it can fetch and link, measured (2026-10-27)
+
+The scanner does not parse Mermaid's grammar. It reads a fence's text (`mermaidRemoteRefs`: decoded, every URL spelling) and refuses what it finds, and a diagram that carries a web reference is not drawn until the reader allows it. Measured with the vendored Mermaid 11.14 at the runtime's own config (`engineInitConfig`, `securityLevel: 'strict'`), a fresh page per case, a loopback server, Chromium 131 and Firefox 142:
+
+| Case | Drawn | On render | After a click |
+|---|---|---|---|
+| `img:` shape | yes | **fetches** | nothing |
+| `<img src>` in an HTML label | yes | **fetches** | nothing |
+| `themeCSS` in `%%{init}%%`, a `url()` | yes | **fetches** | nothing |
+| markdown image in a label | yes | nothing | nothing |
+| `click A href "…"` (flowchart, class) | yes, as an `<a>` | nothing | the page **navigates** to the address |
+| gantt `click … href` | yes | nothing | navigates (Mermaid's own `window.open(url, "_self")`) |
+| `click B call alert(1)`, `click A callback` | yes | nothing | nothing, no dialog (strict returns early) |
+| `click A href "javascript:alert(1)"` | yes, empty `<a>` | nothing | nothing, no dialog |
+
+So a diagram fetches on render in three ways, and links only on a reader's click, as an `<a href>` does. On the Studio's Reading view (no content-security policy; the scanner is the wall), a deck of one ordinary image plus four diagrams (`img:` shape, label `<img>`, `themeCSS`, `click href`): the notice reads "This deck loads 5 images"; with nothing allowed the article makes 0 requests; after "Load images" it fetches the control image, the shape image and the label image, and a click anchor is drawn. The `themeCSS` address did not fetch in the Reading view even once allowed (counted and refused all the same). The CLI's PDF render makes no request either: its Chromium is offline (a server on all interfaces saw nothing for a shape, a label image and a click link), the shape case reports "Mermaid render failed", and the scanner reports the address as left out.
+
+A defect found while validating and fixed here: a rendered diagram carries `xmlns="http://www.w3.org/2000/svg"`, a namespace name the browser never fetches, and the diagram scan counted it as a web image, so every deck with a drawn diagram printed "3 web images from http://www.w3.org were left out" in the CLI and a Studio notice. The scan now ignores `xmlns` declarations (an `<image href>` or `<a xlink:href>` it draws is still counted). It existed at the merge base; only the `blocked` list changes, not the markup (the 384 decks are still byte-identical).
+
 ## Confidence
 
 HIGH that the scanners agree with three engines on the grammar the fuzz generates. After the generator grew
