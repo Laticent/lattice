@@ -17,13 +17,15 @@ rewrites. This doc says what is true **now**, and it changes in the same commit 
 | Term | Means | Lives in |
 |---|---|---|
 | **the fluid view** | the BOX: a viewer that unpins each slide from its authored pixel size and sizes it to the screen, then re-stamps `data-family` | `lib/base/base.fluid-view.css`, `initFluidView` in `lib/runtime/index.js`, `--fluid` |
-| **Fluid** | the PLAN: given a box and the rendered slide, which pages exist and what each holds | the split kernels today; `@laticent/fluid` from P1 |
+| **Fluid** | the PLAN: given a box and the rendered slide, which pages exist and what each holds | the split kernels today; `@laticent/fluido` from P1 |
 | **family** | the box's shape class, from its aspect ratio: `wide`, `square`, `tall`, `strip` | `lib/adaptive/families.js` `familyFor` |
 | **seam** | a place a slide may break: between members of its collection, between panes, or inside one member (rows, lines, items) | component manifests today; `data-fluid-*` in the markup from P3 |
 | **paginate** | cut a slide into cover, body and closing pages on its seams, one element per body page | `splitDoc` in `lib/core/auto-split.js` |
 | **rescue** | cut ONE member that still overflows its own page at an inner seam; from P5 on live screens (measured) and in files (budgets) | not built; code's line run (`carousel.js`) is the one existing case |
 | **ring** | the honest terminal: a page that still does not fit is marked, never shrunk | `lib/core/overflow-probe.js` |
 
+The library that implements the plan is **Fluido** (`@laticent/fluido`), named like its Italian
+siblings; its mark and palette are in `decisions/2026-07-18-sibling-brand-system.md` § Fluido.
 Until the P7 rename lands, "auto-split" and `split-*` in the code mean **Fluid's paginate move**.
 
 ---

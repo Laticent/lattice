@@ -1,12 +1,12 @@
 ---
 status: in-progress
-summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Live surfaces rescue from measured heights; files (PDF, PPTX, the static pages in HTML) rescue from budgets only, so they stay reproducible. Audit of the five split paths and the fluid viewer, the design, the jank contract, and an eight-phase plan (P0–P7) that ships a Playground slice before the catalog migration. The owner settled six forks on 2026-10-27, and the "autosplit" name retires. Hardened by the adversarial trio the same day (§11).
+summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Live surfaces rescue from measured heights; files (PDF, PPTX, the static pages in HTML) rescue from budgets only, so they stay reproducible. Audit of the five split paths and the fluid viewer, the design, the jank contract, and an eight-phase plan (P0–P7) that ships a Playground slice before the catalog migration. The owner settled nine forks on 2026-10-27, including the library name Fluido, and the "autosplit" name retires. Hardened by the adversarial trio the same day (§11).
 builds-on: 2026-09-01-autosplit-splits-on-structure.md, 2026-06-22-the-fit-spine.md, 2026-10-16-mosaico-layout-library.md, 2026-07-20-adaptive-viewport-fill.md
 ---
 
 # Fluid: one runtime library for reflow and pagination (2026-10-27)
 
-**Status: in progress.** The owner settled the six forks in §9 on 2026-10-27, and the adversarial
+**Status: in progress.** The owner settled the nine forks in §9 on 2026-10-27, and the adversarial
 trio reviewed the design the same day (§11). P0 is built (§12). The canonical doc for what is true
 now is [`../fluid.md`](../fluid.md).
 
@@ -14,7 +14,7 @@ now is [`../fluid.md`](../fluid.md).
 
 Lattice paginates content in five places, and each one does it a little differently. The
 fluid viewer, which sizes slides to the reader's screen, never meets any of them. This note
-replaces all of that with one library, **Fluid** (`@laticent/fluid`). It works like this:
+replaces all of that with one library, **Fluid** (`@laticent/fluido`). It works like this:
 
 1. **It runs after render, on the real thing.** The input is rendered slide HTML and a
    canvas, meaning the live box the slide is shown in. It reads no source, no markdown and no
@@ -215,13 +215,13 @@ and bless it (HARD RULE #19).
 ### 5.1 Three layers
 
 ```
-@laticent/fluid          docs/src/lib/fluid/, an npm workspace like @laticent/mosaico
+@laticent/fluido          docs/src/lib/fluido/, an npm workspace like @laticent/mosaico
                          pure core, no DOM / fs / deps (gated like checkMosaicoBoundary)
   plan(flow, canvas, policy) → Plan
   lib/adaptive/families.js moves in WHOLE (familyFor, orientationFor, canvasScaleFor, …), so
                          the family boundaries keep one home; Lattice imports it back (#1)
 
-@laticent/fluid/dom      host adapter, inlinable as source like PROBE_SRC
+@laticent/fluido/dom      host adapter, inlinable as source like PROBE_SRC
   read(root, canvas)  → Flow     batched read of seams + heights, in the measuring container
   apply(root, plan)              MOVES member nodes into page sections; the authored section
                                  stays as their inert home
@@ -385,7 +385,7 @@ family crossing**, which is the one stated exception to "post-render only".
 - **One paginator:** `checkPaginationOwners` in `tools/check-ownership.js`, with a
   `SANCTIONED_PAGINATORS` allowlist of every module that stamps a split page's role or run.
   Each phase that deletes such a writer removes its entry. The check fails on a stale entry
-  and on any new stamper outside `@laticent/fluid` and the connector. Paths that paginate
+  and on any new stamper outside `@laticent/fluido` and the connector. Paths that paginate
   without stamping (the pane split, `splitSlideInHalf`) are tracked by name in §8's deletion
   table instead. It is a `build:check` rule, not a new CI job.
 - **Surfaces (HARD RULE #23):** real screenshots at three widths on the HTML viewer, the
@@ -401,7 +401,7 @@ second, on one surface, before the catalog migrates.
 | Phase | What | Behavior change | Gate |
 |---|---|---|---|
 | **P0** | Cleanup and guard rails. The CLI calls `structuralSplit` (one assembly). Delete `split-slides.js`, with its `affected-tests` row, the comments that name it, and `engineering/architecture.md`'s two references. Fix the nine stale claims in §2.4: issue #506's body is shared state, so that edit goes to the owner. Create the parity golden (§7). Add `checkPaginationOwners`. Strip author-written `data-fluid-*`/`data-split-*`. Create `engineering/fluid.md` as the canonical doc, with a glossary separating **the fluid view** (the box) from **Fluid** (the plan). Mark 06-25 and 07-20 §9 P2–P4 as absorbed. | none | parity golden green; gate arms fail on a planted second paginator |
-| **P1** | The `@laticent/fluid` core: `plan()` (structural, plus budget rescue for `lines`, which generalizes `carousel.js:1272`), with `families.js` moved in whole. `splitDoc` becomes a connector over it. Benchmark scenario, plus bless. | none | parity golden; bench |
+| **P1** | The `@laticent/fluido` core: `plan()` (structural, plus budget rescue for `lines`, which generalizes `carousel.js:1272`), with `families.js` moved in whole. `splitDoc` becomes a connector over it. Benchmark scenario, plus bless. | none | parity golden; bench |
 | **P2** | **The vertical slice on the Playground.** `/dom` `read`/`apply`/`unapply`/`watch`, structural plan only, enrolled components only, today's seams. Host-side page building. The identity rig. The jank canvas axis. The inventory of render-time family reads (§5.6). Closes #506 for the Playground. | a 16:9 deck paginates in a narrow Playground frame | identity ≥ 96.8%; jank canvas axis; three-width screenshots |
 | **P3** | **The catalog.** A seam census sorts every strategy into seam or presentation and extends `Seam` first. Then components migrate to `data-fluid-*` one at a time, behind a ratchet (an enrolled-via-markup count that only rises). The baked capacity map and the `splitCapacityFrom` whitelist retire when the count reaches 37. `perPage` gives way to budgets, and code keeps its line cut through the P1 budget rescue, so no slide regresses. Each of the four silent clips (`logo-wall`, `matrix-grid`, `state-chart`, `obligation-matrix`) gets a seam or an explicit ring-by-rule. | gallery page counts change only where a census entry says so | **owner check:** the gallery page-count diff |
 | **P4** | **Live everywhere else.** The HTML viewer and the player (baked authored plan, plus a `<template>` re-plan when JS runs), and the Studio (authored size plus the device toggle). Anchor transport for Present, the player, narration and comments. Panes become seams on these surfaces, with dotted numbering. | a 16:9 deck paginates on a phone; panes split in the fluid view; panes decks keep their authored count | **export sign-off** (the HTML bytes change); **owner check:** numbering |
@@ -437,6 +437,15 @@ Quoted from the owner's answers, with the date.
 5. **Rescue source, after the trio:** live surfaces rescue from measured heights. Files (PDF,
    PPTX, and the static pages in HTML) rescue from budgets only.
 6. **The Studio's canvas, after the trio:** the authored size by default, plus a device toggle.
+7. **The library's name, after P0:** **Fluido**, package `@laticent/fluido`, so it matches its
+   Italian siblings. The engine concept and its docs keep saying Fluid, the way Mosaico the library
+   does mosaic packing.
+8. **The mark:** the vessel. One waterline runs across a wide, a square and a tall box, the same
+   content in any box, with the family's ringed hub floating above it. Chosen over a "seam" and a
+   "spill" concept, both of which echoed Calco's overlapping frames
+   (`2026-07-18-sibling-brand-system.md` § Fluido).
+9. **The palette:** ochre (honey) with a jade live accent, picked by measured color distance from
+   every sibling (same section).
 
 ## 10. Open questions for later phases
 
@@ -448,7 +457,7 @@ Quoted from the owner's answers, with the date.
   is a P3 call.
 - **Not tried yet:** a classic-scrollbar loop at the 1.05 family boundary. Paginating adds a
   scrollbar, which narrows the box, which can flip the family. The P2 jank axis includes it.
-- **Naming:** the package is `@laticent/fluid`, not an Italian sibling noun. That follows the
+- **Naming:** the package is `@laticent/fluido`, not an Italian sibling noun. That follows the
   owner's own name for it. If the brand system wants a noun, it is a rename at P7.
 
 ## 11. Adversarial review (2026-10-27)
