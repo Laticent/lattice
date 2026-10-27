@@ -1,3 +1,3 @@
 - `_focus: line N` now tags the lines of the code block instead of the first `<code>` in the slide, so a heading with inline code (`## \`_focus: line 8\` — …`) no longer takes the focus and leaves the block untouched.
 - `_focusStyle: ring` on a chart mark shows again: the pigment finish set the mark's stroke `!important` and hid the ring behind a 1px hairline.
-- `_focusStyle: pop` and `blur` no longer clip an outer card's lift against the slide's stage. The list now reserves a 0.8cqi transparent border while either style is active, enough for the 1.02 scale overhang (about 5.6px at 1280px wide) plus the hard shadow.
+- `_focusStyle: blur` no longer clips an outer card's lift against the slide's stage. The list now reserves a 0.8cqi transparent border while the style is active, enough for the 1.02 scale overhang (about 5.6px at 1280px wide) plus the hard shadow.

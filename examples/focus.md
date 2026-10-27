@@ -121,9 +121,9 @@ const entry = await framework.decisions.log(decision, { signals });
 
 <!-- _class: table state-cells -->
 <!-- _focus: row 4 -->
-<!-- _focusStyle: pop -->
+<!-- _focusStyle: highlight -->
 
-## `_focusStyle: pop` — lift the row; every cell stays readable.
+## `_focusStyle: highlight` — tint the row; every cell stays readable.
 
 | Criterion    | Chorus | Productboard | Notion    | Sprig + Log |
 | ------------ | ------ | ------------ | --------- | ----------- |

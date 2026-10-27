@@ -1402,7 +1402,6 @@ Override per slide with `_focusStyle`:
 <!-- _focusStyle: blur -->        <!-- recede the rest (defocus — the camera-focus look) -->
 <!-- _focusStyle: ring -->        <!-- outline the target, no dimming -->
 <!-- _focusStyle: list-fill -->   <!-- accent-soft fill on the target -->
-<!-- _focusStyle: pop -->         <!-- lift the target forward; rest stays legible -->
 <!-- _focusStyle: highlight -->   <!-- accent-soft fill + accent edge on the target; nothing recedes -->
 ```
 

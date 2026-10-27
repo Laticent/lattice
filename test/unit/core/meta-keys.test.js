@@ -53,7 +53,7 @@ describe('the vocabulary is derived from the meta manifest', () => {
   });
 
   test('an enum field lists its words; others list none', () => {
-    assert.deepEqual(keys.enumValues('focusStyle'), ['spotlight', 'blur', 'ring', 'list-fill', 'pop', 'highlight']);
+    assert.deepEqual(keys.enumValues('focusStyle'), ['spotlight', 'blur', 'ring', 'list-fill', 'highlight']);
     assert.deepEqual(keys.enumValues('paginate'), ['true', 'false', 'skip', 'hold']);
     assert.deepEqual(keys.enumValues('footer'), []);
     assert.equal(keys.fieldOf('nope'), null);

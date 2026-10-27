@@ -78,41 +78,17 @@ section[data-focus-style="blur"] li.lat-focus {
   z-index: 2;
 }
 
-/* ── the lift's berth — blur and pop paint OUTSIDE the card ─────────────────────
- * Both scale the target and drop a hard shadow past its edge, and the stage clips
+/* ── the lift's berth — blur paints OUTSIDE the card ─────────────────────
+ * It scales the target and drops a hard shadow past its edge, and the stage clips
  * (`overflow: clip`), so an outer card's lift was sheared on the left or right (measured at
  * 1280px, berth 0: 5.6px of scale overhang, plus the 3.6px shadow on the right). The list
- * reserves the room as a border (not margin, #20) while either style is active, the same way
+ * reserves the room as a border (not margin, #20) while the style is active, the same way
  * `--elevation-berth` keeps a card's resting shadow inside the clip. The room is a constant for
  * the slide, so it does not change between `_focusSteps`. It is a transparent BORDER, not padding:
  * the elevation berth is a unitless `0` in most themes, which `max()` and `calc()` reject, and a
  * border stacks on top of whatever padding the theme's berth already gave the list. */
-section[data-focus-resolved][data-focus-axis="item"]:is([data-focus-style="blur"], [data-focus-style="pop"]) :is(.cell-stage > ul, .cell-stage > ol, .cards-grid-inner, .cards-grid-inner--ordered) {
+section[data-focus-resolved][data-focus-axis="item"]:is([data-focus-style="blur"]) :is(.cell-stage > ul, .cell-stage > ol, .cards-grid-inner, .cards-grid-inner--ordered) {
   border: var(--focus-berth) solid transparent;
-}
-
-/* ── pop — lift the target forward, leave the rest legible ─────────────────────
- * The optical opposite of blur: instead of pushing the rest *back* (defocus),
- * pop pulls the target *forward*. Promote-only — nothing is dimmed or blurred,
- * so every other card/row stays fully readable (its edge over ring/list-fill is
- * dimensionality). Uses the same hard, zero-blur lift shadow (`--focus-lift`),
- * so it holds up in Apple PDFKit where a blurred shadow renders as a gray block
- * (engineering/gotchas.md). */
-section[data-focus-style="pop"] li.lat-focus {
-  transform: scale(var(--focus-pop));
-  box-shadow: var(--focus-pop-shadow) var(--focus-pop-shadow) 0 var(--focus-lift);
-  border-radius: 0.6cqi;
-  position: relative;
-  z-index: 2;
-  font-weight: 600;
-}
-/* table row: a <tr> doesn't scale cleanly, so it lifts by reading as a raised
- * band — an accent-soft fill out of the ruled rows + a hard drop line below. */
-section[data-focus-style="pop"] tr.lat-focus { position: relative; z-index: 2; }
-section[data-focus-style="pop"] tr.lat-focus > :is(td, th) {
-  background: var(--focus-fill);
-  box-shadow: 0 var(--focus-pop-shadow) 0 var(--focus-lift);
-  font-weight: 600;
 }
 
 /* ── ring — accent outline, zero layout shift ─────────────────────────────── */
@@ -169,7 +145,7 @@ section[data-focus-style="list-fill"] tr.lat-focus > :is(td, th) {
 }
 
 /* ── highlight — tint + edge on the target, on every axis, rest untouched ─────
- * Promote-only like ring / list-fill / pop: nothing recedes, so the slide keeps
+ * Promote-only like ring / list-fill: nothing recedes, so the slide keeps
  * full legibility. It is the verdict-grid `preferred` look (accent-soft fill, an
  * `--on-accent-soft` edge) without the spark, offered on every axis `_focus:` can
  * address. Edges are inset shadows / outlines, so nothing shifts layout and no
