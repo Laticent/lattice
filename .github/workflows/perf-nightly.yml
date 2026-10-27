@@ -406,7 +406,7 @@ jobs:
             echo "breached=false" >> "$GITHUB_OUTPUT"
           elif grep -q '::perf-ceiling-breach::' "$GITHUB_WORKSPACE/perf-e2e.log"; then
             echo "breached=true" >> "$GITHUB_OUTPUT"
-            { echo ""; echo "## Preview interaction ceilings BREACHED"; echo ""; echo "A per-keystroke or per-navigation p50 went past its budget in \`test/benchmark/preview-budget.json\`. Those budgets sit 3-6x above the worst healthy reading, so this is an order-of-magnitude change, not drift. The per-sample table is in the job log and the \`perf-e2e.log\` artifact."; } >> "$GITHUB_WORKSPACE/engine-perf.md"
+            { echo ""; echo "## Perf ceilings BREACHED (preview or Studio export)"; echo ""; echo "A preview p50 went past its budget in \`test/benchmark/preview-budget.json\` (3-6x above the worst healthy reading, so an order-of-magnitude change), or the Studio's PDF export of a photo deck went past its score or heap ceiling in \`test/benchmark/export-budget.json\` (about 1.5x above the worst healthy score). The log line names which. The numbers are in the job log and the \`perf-e2e.log\` artifact."; } >> "$GITHUB_WORKSPACE/engine-perf.md"
           else
             echo "breached=false" >> "$GITHUB_OUTPUT"
             echo "::warning::@perf suite failed without breaching a ceiling — harness failure, not filed as a regression"

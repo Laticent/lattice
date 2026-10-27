@@ -132,6 +132,16 @@ rolling-issue pattern with its own marker.
   so no base checkout is needed. Worst healthy gallery typing is 5.3ms RENDER p50; the ceiling is
   30ms; the pre-#1280 regression was 63.2ms — caught at half its magnitude with 5.7x headroom.
   Mutation-checked by lowering a ceiling below healthy.
+- **The Studio export spec asserts a CALIBRATED CEILING** (`test/benchmark/export-budget.json`,
+  `docs/e2e/studio-export-perf.spec.ts`, added 2026-10-27). The preview ceilings catch an order of
+  magnitude; the export regression this guards against was 2.15x (the shared slide camera made the
+  Yearn deck's Studio PDF 112 s against 52 s, and crashed an iPhone), which a 3-6x ceiling would
+  pass. So the time is a score: export seconds over the seconds a fixed in-page workload took in the
+  same session, which holds across machines to about 5% (main scored 58.4 to 64.4 on three runs).
+  The ceiling, 100, sits 1.5x over the worst healthy score and under the regressed commit's 113.7 to
+  130.8: the arm that proves the guard can fail. It reuses the `@perf` breach token and
+  `perf-nightly.yml`, so no job or step was added. Native memory, where that regression lived, is
+  not readable from a page; the heap ceiling is loose and says so.
 - **The engine bench compares HEAD vs BASE built on the SAME RUNNER**, never against the committed
   `baseline.json`. That file is machine-relative and a cold runner reads up to 2x high — comparing
   against a stored number is what produced the phantom +124%. Two builds measured minutes apart on
