@@ -42,7 +42,9 @@ const PER = Number(process.env.PERF_PER || 1);
 
 /** A photo-like PNG: a smooth gradient with grain, seeded so every run draws the same pixels. */
 function photo(seed: number): Buffer {
-	const { PNG } = require('../../node_modules/pngjs') as typeof import('pngjs');
+	// pngjs ships no type declarations; only the two members used here are typed.
+	type Png = { data: Uint8Array };
+	const { PNG } = require('../../node_modules/pngjs') as { PNG: { new (size: { width: number; height: number }): Png; sync: { write(png: Png): Buffer } } };
 	const png = new PNG({ width: SIDE, height: SIDE });
 	let s = 1234567 + seed * 7919;
 	for (let y = 0; y < SIDE; y++) {
