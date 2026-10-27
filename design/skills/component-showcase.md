@@ -16,8 +16,9 @@ word budgets.
 ## The 10/10 bar
 
 - **Every slide fits with room to spare.** "Fits" is the floor. A slide that fills 716 of
-  720 px clips the moment the reader's body text grows 20% (an iPhone did exactly that to
-  the `statute-stack` anti-pattern slide). Design for the 1.2× case.
+  720 px (the old `statute-stack` anti-pattern slide did) is one font or content change from
+  clipping. Keep a third of the room unused. Never shrink or scale type to get there: body
+  size is a design constant that only `venue:` changes.
 - **One idea per slide.** A showcase slide shows the component or names one rule. It is not
   a docs page.
 - **The slide says it in the component's own density.** A component calibrated for 16 words
@@ -45,7 +46,7 @@ a stable `kind` key:
 | One per variant | `variant:<v>` | `variantDocs[v].sample` + `.summary` | the component's own capacity |
 | Stress test | `stress` | `stressDoc.sample` | the upper limit, and must still render clean |
 | Composition | `composition:<mod>` | `sample` + `dark` / `compact` / `accent` | generated |
-| Anti-patterns | `anti-patterns[:n]` | `antiPatterns[]` (`title`, `body`) | table below |
+| Anti-patterns | `anti-patterns[:n]` | `antiPatterns[]` (`title`, `body`) | caps below |
 | See also | `see-also` | `related[]` (`name`, `when`) | ~5 rows |
 
 `<name>.gallery.md` and `<name>.docs.md` are **generated**. Edit the manifest
@@ -54,22 +55,22 @@ a stable `kind` key:
 
 ## Word budgets (measured)
 
-Measured on the real engine at body size and with body text 1.2× larger. "Holds" means no
-clipped slide in both cases. The `cards-grid` rows count title plus body (the generator's cap, set under the measured limit of ~42 body words); every other row counts the body only, with a ~4-word title on top.
+Measured on the real engine at design size. "Holds" means no clipped slide and nothing in the
+12 px tolerance band. Rows count body words only, with a ~4-word title on top.
 
-| Slide form | Holds (per card or row) | Notes |
+| Slide form | Holds (body words per card or row) | Notes |
 |---|---|---|
-| `cards-grid three`, 3 cards | **≤ 42 words** each | The anti-pattern default. |
-| `cards-grid`, 2 cards | ≤ 66 words each | |
-| `cards-grid`, 1 card | ≤ 150 words | A lone long card: trim it instead. |
-| `cards-stack`, 3 cards | ≤ 26 words each | Calibrated for ~16. Clips at 34 under 1.2×. |
-| `cards-stack`, 4 cards | does not hold at 26 | Never use it for prose. |
-| `list-tabular`, 3 rows | ≤ 34 words each | Clips at 42 under 1.2×. |
-| `q-and-a`, 3 pairs | ≤ 26 words each | `rail` variant: 3 pairs ≤ 18. |
+| `cards-grid three`, 3 cards | **50** (58 clips) | With `claim-hero`: clips at 90. |
+| `cards-grid`, 2 cards | 66 or more | With `claim-hero`: past 140. |
+| `cards-grid`, 1 card | 200 or more | |
+| `cards-stack`, 3 cards | 34 | Calibrated for ~16. |
+| `cards-stack`, 4 cards | 18 | Never use it for prose. |
+| `list-tabular`, 3 rows | 42 | 4 rows: 26. |
+| `q-and-a`, 3 pairs | 42 | 4 pairs: 18. `rail`: 26 for 3 pairs. |
 
 Three short columns beat a tall stack for prose because a stack spends its width on two-line
 paragraphs and runs out of height. When you need a number for a form not in the table,
-measure it (below); do not extrapolate from the component's `Density` line.
+measure it (below); do not extrapolate from the component's `Density` line. Set a card's cap at about two thirds of the clip point.
 
 ### Anti-pattern text
 
@@ -79,11 +80,11 @@ Write for the slide's cap, and put the full explanation in `whenToUse` or the va
 1. **Title: ≤ 8 words**, the tempting mistake ("A fifth metric"), not the rule.
 2. **Body: ≤ 35 words.** One reason, then the redirect with the component in backticks
    ("Use `line`, whose job is the movement.").
-3. **Never past 66 words.** A card over 66 words forces a slide to two cards or one, and the
-   unit test fails past 150.
+3. **Never past 60 words** title plus body. Over 60 pulls the slide to two cards, over 100 to
+   one, and the unit test fails past 200.
 4. **No backticks in titles** (the generator strips them), no markdown tables, no nested lists.
 
-The slide carries `claim-hero` (drops the masthead and footer bands) so the cards get the extra height; do not shrink type instead. The generator pages the cards (`antiPatternPages`): all cards ≤ 42 words balance three across
+The slide carries `claim-hero` (drops the masthead and footer bands) so the cards get the extra height; never shrink type instead. The generator pages the cards (`antiPatternPages`): all cards ≤ 60 words balance three across
 (4 become 2 + 2, 5 become 3 + 2); a longer card pulls its slide to two across or one.
 
 ## Recipe
@@ -104,13 +105,10 @@ The slide carries `claim-hero` (drops the masthead and footer bands) so the card
 9. **Look at it.** Render the gallery (`node lattice.js <name>.gallery.md out.pdf cuoio`),
    read the `OVERFLOW` line, and open the slides (`tools/rasterize-for-review.sh`). A slide
    that fits but sits against the frame edge is not done.
-10. **Check the 1.2× case** (next section) for any slide you hand-wrote.
 
 ## Measure a form before you trust a number
 
-Build a deck of the same card at 18 / 26 / 34 / 42 words, once as written and once with a
-`<style>section li li, section li > p { font-size: calc(1.2 * var(--fs-body)) !important }</style>`
-block at the top, and render both:
+Build a deck of the same card at 18 / 26 / 34 / 42 words, one slide per count, and render it:
 
 ```bash
 node lattice.js sweep.md sweep.pdf cuoio 2>&1 | grep -E "CLIPPED|INSIDE THE FIT"
@@ -128,7 +126,7 @@ tags a clipped slide `section.overflow` and draws the red "OVERFLOWS" tab.
 | Mistake | Fix |
 |---|---|
 | Copying the docs-page `body` into a card unchanged. | Cut to one reason and one redirect; the docs page keeps the long form elsewhere. |
-| Calling a slide "fits" because the export printed no `OVERFLOW` line. | Read the `INSIDE THE FIT TOLERANCE` line too; check at 1.2×. |
+| Calling a slide "fits" because the export printed no `OVERFLOW` line. | Read the `INSIDE THE FIT TOLERANCE` line too. |
 | Putting four prose cards on one slide. | Split into 2 + 2 slides; the generator does this for anti-patterns. |
 | A stress slide that clips. | The stress sample is the *limit that still fits*. Lower it. |
 | Editing `<name>.gallery.md` by hand. | Edit the manifest; regenerate. |
@@ -140,7 +138,6 @@ tags a clipped slide `section.overflow` and draws the red "OVERFLOWS" tab.
 - [ ] `node tools/build-component-docs.js` run; generated files committed with the manifest.
 - [ ] `node --test test/unit/tools/anti-pattern-pages.test.js` passes.
 - [ ] Gallery renders with no `CLIPPED` page and no `INSIDE THE FIT TOLERANCE` slide.
-- [ ] Hand-written slides re-rendered with body text 1.2× and still clean.
 - [ ] Slides looked at, not just counted.
 - [ ] `changelog.d/<slug>.changed.md` fragment added.
 

@@ -166,8 +166,8 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
 
 ---
 
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · list · 1 of 2" -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _footer: "Anti-patterns · list" -->
 
 ## When NOT to reach for list.
 
@@ -175,14 +175,6 @@ Bulleted list under a heading — plain pills, hairline takeaways (optionally nu
   - If each bullet is `**Title.** body` on one line, the layout under-serves it. Nest the body as a `- gloss` bullet under a `takeaway` item (the lead then stacks over it), or move to cards-stack (2-3 items) or list-tabular (5+ rows).
 - Wall of long bullets
   - Past twelve words per line the slide becomes paragraph soup. Either trim or move to content for prose, cards-stack for structured items.
-
----
-
-<!-- _class: cards-grid claim-hero -->
-<!-- _footer: "Anti-patterns · list · 2 of 2" -->
-
-## When NOT to reach for list.
-
 - Two-item lists
   - Two bullets read as a thin slide. For pairs, reach for compare-prose — it gives the pair the weight it deserves.
 

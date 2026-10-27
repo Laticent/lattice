@@ -167,7 +167,7 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ---
 
-<!-- _class: cards-grid three claim-hero -->
+<!-- _class: cards-grid claim-hero -->
 <!-- _footer: "Anti-patterns · pricing · 1 of 2" -->
 
 ## When NOT to reach for pricing.
@@ -176,8 +176,6 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
   - Five-plus columns shrink below readability and the price comparison collapses. Curate to the tiers that matter, or use `table` for a dense feature-by-plan matrix.
 - Every tier marked popular
   - Elevate exactly one tier. Two ribbons cancel out and the eye has nowhere to land — the whole point of the marker is a single recommendation.
-- Features that drift between tiers
-  - If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `\[x]` / `\[/]`.
 
 ---
 
@@ -186,6 +184,8 @@ Side-by-side plan tiers with prices, feature checklists, and one recommended col
 
 ## When NOT to reach for pricing.
 
+- Features that drift between tiers
+  - If each tier lists a different set of features, the columns can't be compared row-for-row. Keep the feature list and order identical; toggle inclusion with `\[x]` / `\[/]`.
 - An open ring for a feature the tier lacks
   - Use `\[/]` (muted, struck through) for a feature your own tier leaves out. `\[ ]` is an open ring — it reads 'not yet', which promises the feature is coming — and `\[!]` is the red cross, which reads as a failure. Save `\[!]` for a competitor's column.
 

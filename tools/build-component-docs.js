@@ -691,25 +691,25 @@ function injectFooter(slide, footer) {
 }
 
 /**
- * The anti-patterns, packed into COLUMNS: `cards-grid` (three across, two across, or one),
- * never a vertical stack. A card holds a fixed number of words per column count, measured
- * at body size AND with the body text 1.2x larger (what an iPhone showed the owner), so the
- * slide keeps headroom and does not sit 4px inside the frame:
+ * The anti-patterns, packed into COLUMNS: `cards-grid` (three across, two across, or one) with
+ * `claim-hero`, never a vertical stack. Body type is never touched: the slide holds the words
+ * because the layout fits them. A card's word cap is about two thirds of the point where that
+ * layout clips at design size (title + body):
  *
- *   three across  ≤ 42 words per card (title + body)
- *   two across    ≤ 66
- *   one           ≤ 150
+ *   three across  ≤ 60 words per card (clips near 94)
+ *   two across    ≤ 100             (clips past 144)
+ *   one           ≤ 200             (clips past 264)
  *
  * WHY NOT `cards-stack`. A stack is calibrated for ~16 words per item and the manifests'
- * anti-patterns run a median 29 (p90 41): three of them filled the frame to 716 of 720 px and
- * clipped the moment the body text grew. The same three cards in three columns clear the 1.2x
- * case up to 42 words each (sweep: engineering/decisions/2026-10-26-playground-anti-pattern-slide.md).
+ * anti-patterns run a median 29 (p90 41): three of them filled the frame to 716 of 720 px, so a
+ * little more text or a different font clipped them. Columns spend the stage's width, which the
+ * stack left to two-line paragraphs (sweep: engineering/decisions/2026-10-26-playground-anti-pattern-slide.md).
  *
  * PACKING. When every card fits three across, pages are balanced (4 → 2+2, 5 → 3+2) rather
  * than greedy (4 → 3+1, a lone card on its own slide). A longer card pulls its page down to
  * two across or one, and the other cards pack greedily around it.
  */
-const ANTI_PATTERN_WORD_CAPS = [150, 66, 42]; // index = columns - 1
+const ANTI_PATTERN_WORD_CAPS = [200, 100, 60]; // index = columns - 1
 function antiPatternWords(p) {
   return `${p.title} ${p.body}`.split(/\s+/).filter(Boolean).length;
 }
@@ -759,9 +759,9 @@ function renderAntiPatternsSlide(m, page = m.antiPatterns, index = 0, count = 1)
   );
   const part = count > 1 ? ` · ${index + 1} of ${count}` : '';
   const cols = Math.min(page.length, antiPatternColumns(Math.max(...page.map(antiPatternWords))));
-  // `claim-hero` drops the masthead and footer bands, so the cards get that height; it is the
-  // difference between 14 and 0 clipped slides when body text renders 1.35x larger. The slide's
-  // heading still names the component, so the footer it hides carried nothing the reader needs.
+  // `claim-hero` drops the masthead and footer bands, so the cards get that height: three across
+  // clips near 94 words a card with it and near 58 without. The slide's heading still names the
+  // component, so the footer it hides carried nothing the reader needs.
   const klass = `${cols === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
   return `<!-- _class: ${klass} -->
 <!-- _footer: "Anti-patterns · ${m.name}${part}" -->
