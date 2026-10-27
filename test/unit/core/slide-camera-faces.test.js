@@ -94,3 +94,22 @@ test('urlSwap swaps each address once, longest first, and leaves $ in the replac
     'url(data:image/png;base64,AAA$&) url("data:image/png;base64,BBB") url(data:,)',
   );
 });
+
+test('the sheet scanners stay linear on a stylesheet that carries megabytes of base64 faces', async () => {
+  const camera = await import('../../../lib/core/slide-camera.mjs');
+  const face = (family, weight) => `@font-face{font-family:'${family}';font-weight:${weight};src:url(data:font/woff2;base64,${'A'.repeat(1_500_000)}) format('woff2')}`;
+  const css = [face('Outfit', 400), face('Playfair Display', 700), '.a::before{font-family:Icons}li::marker{font-family:var(--f)}', '@media (min-width:1px){.b::first-line{font-family:Hand}}', 'section{font-family:Outfit}'].join('\n');
+  const timed = (fn) => {
+    const t = Date.now();
+    const out = fn();
+    return [out, Date.now() - t];
+  };
+  const [pseudo, tPseudo] = timed(() => camera.pseudoElementFamilies(css, () => 'Q'));
+  assert.deepEqual(pseudo.families.map((f) => f.trim()), ['Icons', 'Q', 'Hand']);
+  assert.ok(tPseudo < 500, `pseudoElementFamilies took ${tPseudo} ms on a 3 MB sheet (a backtracking regex took 44 s on 300 KB)`);
+  const [, tPrune] = timed(() => camera.onlyUsedFontFaces(css, new Set(['outfit'])));
+  const [, tDup] = timed(() => camera.withoutDuplicateFaces(css, face('Outfit', 400)));
+  const [, tOmit] = timed(() => camera.withoutFontFaces(css, ['Playfair Display']));
+  const [, tRange] = timed(() => camera.unusedRangeFaceUrls(css, 'plain text'));
+  for (const [name, ms] of Object.entries({ onlyUsedFontFaces: tPrune, withoutDuplicateFaces: tDup, withoutFontFaces: tOmit, unusedRangeFaceUrls: tRange })) assert.ok(ms < 500, `${name} took ${ms} ms on a 3 MB sheet`);
+});
