@@ -120,10 +120,14 @@ this harness listed the gaps, and none is closed here.
 2. **The first table runs the scanner alone** (closed for the Reading view and the preview frame by the
    section above). Still open: the CLI `.html` export composition, and the `blocked` list the policy depends
    on is not checked for completeness.
-3. **The oracle is HTTP requests to one loopback server.** A late request (a refresh with a delay, an animation),
-   a connection with no request, and a request to another origin are not seen. The address is always `127.0.0.1`.
-4. **Fetch classes the generator does not emit:** `<picture>`, `<a ping>`, `<form action>`, `xml:base`,
-   the Mermaid fence reader, `@media print`, a refresh with a non-zero delay.
+3. **The oracle is HTTP requests to one loopback server.** It waits 1.3 s after each load settles, so a request
+   up to a second late is seen and attributed (a refresh with a one-second delay is generated). A connection with no
+   request (`<link rel=preconnect>`) and a request to another origin are not seen. The address is always `127.0.0.1`.
+4. **Fetch classes the generator does not emit:** `<a ping>` and `<form action>` (both need a click or a submit),
+   the Mermaid fence reader (a markdown-layer reader; the scanner sees only its SVG output), `@media print`, and a
+   refresh with a delay over a second. Added after the first version, with the failing arm shown: `<picture>` with
+   `<source srcset>` and a `media`/`type` choice, `xml:base` on an SVG or a group with a relative `href`, a refresh
+   with a one-second delay, and a two-candidate `srcset`.
 5. **The first table's Chromium is the puppeteer build (131).** The composition runs use Chromium 153, Firefox 155
    and WebKit 26.6 (closed for them); the scanner-alone 100,000-input runs were not repeated on the newer builds.
 6. The Studio's Reading view itself is covered by `docs/e2e/read-article-beacons.spec.ts`
@@ -131,9 +135,11 @@ this harness listed the gaps, and none is closed here.
 
 ## Confidence
 
-HIGH that the scanners agree with three engines on the grammar the fuzz generates, at 100,000
-inputs per engine alone and 40,000 through each shipped composition in current builds, with the failing
-arm demonstrated for each. MEDIUM, not higher, on "no web fetch can survive them": limits 3 and 4 are
-untested classes, not tested-and-clean ones. To raise it further: add the fetch classes in item 4
-(`<picture>`, `xml:base`, Mermaid fences, a refresh with a delay) and an oracle that sees late requests,
-connections with no request, and other origins.
+HIGH that the scanners agree with three engines on the grammar the fuzz generates. After the generator grew
+(`<picture>`, `xml:base`, a delayed refresh, a two-candidate `srcset`) and the oracle learned to wait for late
+requests, seed 20261026 gave **0 requests after the rewrite**: 12,000 inputs in each of Chromium 131, WebKit 26.6 and
+Firefox 155 for the scanner alone, and 6,000 in each of Chromium 153, Firefox 155 and WebKit 26.6 through the Reading
+view and through a preview frame. The failing arm still fails: `--ref 00f4785`, 1,500 inputs, Chromium 131, leaks 86
+(it was 22 before the new classes; two of the 86 are `<picture>`, two `xml:base`). MEDIUM, not higher, on "no web fetch
+can survive them": `<a ping>`, `<form action>`, a connection with no request, other origins, delays over a second and the
+CLI `.html` export composition are untested classes, not tested-and-clean ones.

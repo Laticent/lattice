@@ -84,6 +84,8 @@ async function bundleRemoteRef(remoteRefPath = path.join(__dirname, '../../lib/c
 }
 
 /** Wait until the server has been quiet for `quiet` ms, at least `min` ms, at most `max` ms. */
+const LATE_MS = 1300;
+
 async function settle(hits, { quiet = 250, min = 150, max = 15000 } = {}) {
   const start = Date.now();
   let seen = hits.length;
@@ -178,6 +180,10 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
       const b = await fetchedBy(docs.slice(mid), mode);
       return { names: new Set([...a.names, ...b.names]), urls: [...a.urls, ...b.urls] };
     }
+    await settle(hits);
+    // A refresh with a delay fires after the load has gone quiet: wait past the longest delay the generator writes (1 s)
+    // so a late request is attributed instead of landing in the next load.
+    await sleep(LATE_MS);
     await settle(hits);
     const names = new Set();
     for (const h of hits) names.add(nameOf(h));

@@ -264,8 +264,34 @@ function makeKit(next) {
     return `<${name}>${inner}${END_TAG(name)}`;
   }
 
+  /** `<picture>`: a source chosen by media or type, with the address in `srcset` (or in the fallback image). */
+  function pictureElement(url) {
+    const a = htmlAddress(url, 'dq');
+    const sources = [`<source ${attr('srcset', `${a} ${pick(['1x', '2x', '100w'])}`)}${chance(0.5) ? ` ${attr('media', pick(['all', '(min-width:0)', 'not all', '(min-width:1px)']))}` : ''}${chance(0.5) ? ` ${attr('type', pick(['image/png', 'image/webp', 'image/svg+xml', 'video/mp4']))}` : ''}>`];
+    const img = chance(0.5) ? `<img ${attr('src', a)}>` : `<img ${attr('src', 'data:image/gif;base64,R0lGODlhAQABAAAAACw=')}${chance(0.5) ? ` ${attr('srcset', `${a} 1x`)}` : ''}>`;
+    return `<picture>${sources[0]}${img}</picture>`;
+  }
+
+  /** `xml:base`: the base an SVG or XHTML reference resolves against, with the relative reference apart from it. */
+  function xmlBaseElement(url) {
+    const dir = htmlAddress(url.replace(/[^/]+$/, ''), 'dq');
+    const file = htmlAddress(url.replace(/^.*\//, ''), 'dq');
+    const el = pick([`<image ${attr('href', file)}/>`, `<image ${attr('xlink:href', file)}/>`, `<use ${attr('href', file)}/>`, `<feImage ${attr('href', file)}/>`]);
+    return chance(0.6) ? `<svg ${attr('xml:base', dir)}>${el}</svg>` : `<svg><g ${attr('xml:base', dir)}>${el}</g></svg>`;
+  }
+
+  /** A refresh that fires after a delay: the request arrives after the load settles, which a short wait misses. */
+  function delayedRefresh(url) {
+    const a = htmlAddress(url, 'dq');
+    return `<meta http-equiv="refresh" content="${pick(['1', '1.0', '1 ;', '1;'])}${pick(['url=', ' url=', '; URL=', ', '])}${a}">`;
+  }
+
   function htmlCore(url) {
-    const kind = int(10);
+    const kind = int(14);
+    if (kind === 10) return pictureElement(url);
+    if (kind === 11) return xmlBaseElement(url);
+    if (kind === 12) return delayedRefresh(url);
+    if (kind === 13) return `<img ${attr('srcset', `${htmlAddress(`${url}-a`, 'dq')} 1x, ${htmlAddress(url, 'dq')} 2x`)}>`;
     if (kind <= 1) return styleElement(url);
     if (kind === 2) return `<base ${attr('href', htmlAddress(url.replace(/[^/]+$/, ''), 'dq'))}><img ${attr('src', htmlAddress(url.replace(/^.*\//, ''), 'dq'))}>`;
     if (kind === 3) return `<svg ${pick(['', 'xmlns="http://www.w3.org/2000/svg" ', 'xmlns:xlink="http://www.w3.org/1999/xlink" '])}width="9" height="9">${tagWithAttr(pick(SVG_LOADING), url, true)}${pick(['', '</rect>', '</image>', '</feImage>'])}</svg>`;
