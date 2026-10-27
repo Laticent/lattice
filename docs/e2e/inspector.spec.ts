@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openInspector, openSection, persistedByPrefix, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspector, openSection, persistedCheckpoints, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -65,10 +65,8 @@ test('saving a version records a checkpoint', async ({ page }) => {
 	await page.getByRole('button', { name: 'Save a version' }).click();
 	await expect(toastText(page)).toContainText('Version saved');
 
-	await expect.poll(async () => {
-		const snaps = await persistedByPrefix(page, 'snap');
-		return snaps ? JSON.parse(snaps).length : 0;
-	}).toBeGreaterThan(0);
+	// Checkpoints persist to IndexedDB, not localStorage (checkpoint-store.ts).
+	await expect.poll(async () => Object.values(await persistedCheckpoints(page)).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
 });
 
 /**
