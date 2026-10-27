@@ -243,4 +243,15 @@ core and the switch to Edit does; an Edit-first load underlines a stray componen
 lints with no edit once it shows. With the gate reverted, the first and third fail on "the lint core loaded while the
 editor was hidden", so the spec can fail.
 
-**On the CDN:** measured on this branch's Cloudflare preview; the table follows.
+**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** Base is PR #2913's last preview (`2c46a003`, commit
+`3bfedbe`, the same tree as `main` at `34b07aa`). Head is this change's preview (`414dae84`, `f867717`). `/playground/`, the
+§1 mobile profile, from this sandbox.
+
+| Build | Score | FCP | LCP | TBT | `esm/lint.js` fetched |
+|---|---|---|---|---|---|
+| base | 46, 44, 41, 46, 45 | 3.18-3.56 s | 5.11-6.33 s | 1630, 1817, 1786, 1566, 1686 ms | every run (95 KB Brotli) |
+| head | 43, 45, 45, 47, 46 | 3.15-3.40 s | 5.10-6.00 s | 1528, 1385, 1562, 1532, 1628 ms | never |
+
+Median TBT 1,686 ms to 1,532 ms (−154 ms), close to the −190 ms the throwaway build measured locally. Four of the five
+head runs are below every base run. The median score is 45 on both builds, so this lever alone does not move the Playground
+toward its bar of 60. It removes one long task and a 95 KB download that nobody in Explore needed.
