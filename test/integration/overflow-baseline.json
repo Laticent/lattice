@@ -1,6 +1,6 @@
 {
-  "$comment": "Ratchet for tools/check-overflow-corpus.js — pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `decksSwept` is how many decks the blessing run covered: a deck absent from `decks` is clean ONLY if it was in that sweep.",
-  "totalSlides": 65,
+  "$comment": "Ratchet for tools/check-overflow-corpus.js \u2014 pages the export CLIPS, per deck. Lower is better; re-bless only with the PR that earns it. `decksSwept` is how many decks the blessing run covered: a deck absent from `decks` is clean ONLY if it was in that sweep.",
+  "totalSlides": 63,
   "decksSwept": 428,
   "decks": {
     "examples/README.md": [
@@ -91,14 +91,8 @@
     "lib/components/diagram/diagram/diagram.gallery.md": [
       2
     ],
-    "lib/components/inventory/list/list.gallery.md": [
-      9
-    ],
     "lib/components/inventory/team-profile/team-profile.gallery.md": [
       7
-    ],
-    "lib/components/layout/rows/rows.gallery.md": [
-      4
     ],
     "lib/components/statement/split-panel/split-panel.gallery.md": [
       3,
