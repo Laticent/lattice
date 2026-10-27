@@ -648,6 +648,11 @@ const PROBES = {
  * longer reads `mirrored`, is an error.
  */
 const AWAITING_PROBE = {
+  // Both render paths call one pure function (lib/core/component-spectrum.js, unit-tested in
+  // test/unit/core/component-spectrum.test.js), but the shipped catalog is empty: no component
+  // opts out yet, so a render has nothing to compare. Add the probe with the first opt-out, and
+  // drop this entry in the same change.
+  componentSpectrum: 'no shipped component has a `spectrum` answer yet; the shared kernel is unit-tested',
   // EMPTY, and the mechanism stays. All ten `mirrored` rows now render through both
   // paths and compare. The three that were listed here were listed because a first
   // pass believed them un-probeable, and all three reasons were wrong: the two

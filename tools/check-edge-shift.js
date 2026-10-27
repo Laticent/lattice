@@ -388,10 +388,16 @@ async function main() {
   }
   // INTEGRITY: a bleed slide carries exactly two strips, both direct children of the section, in every
   // placement. A stray one means a pass folded the bar away from the edge; a third means two passes injected.
+  const SPECTRUM_CATALOG = require('../lib/core/spectrum-catalog.generated.js');
   const integrity = [];
   Array.from({ length: count }, (_, i) => i).forEach((i) => {
     for (const pl of PLACEMENTS) {
       const sec = byPlacement[pl][i];
+      // A component whose manifest says `spectrum: false` has no bar: no border, no strip, in any placement.
+      const optedOut = SPECTRUM_CATALOG[String(labelOf(i)).split(/[+\s.:]/)[0]] === false;
+      if (optedOut && (Object.values(sec.border).some((w) => w > 0) || sec.overlay.length || sec.barCount)) {
+        integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars, optedOut: true });
+      }
       if (sec.strayBars > 0 || ![0, 2].includes(sec.barCount)) integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars });
     }
   });
