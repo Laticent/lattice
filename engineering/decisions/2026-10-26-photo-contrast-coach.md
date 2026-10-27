@@ -213,3 +213,16 @@ The unit tests add the ink fallback, the pin-wins order, the higher of two clear
 **Set card ink light**, no pin button and no **Set card ink dark**, clicks it, and expects the source to read
 `card-clear ink-light` and the finding to clear. It runs at 1440 and 390 in Chromium and in WebKit's tablet and phone
 projects.
+
+## Checked on a real iPhone (2026-10-27)
+
+The owner ran the tap script on the PR #2932 preview in Safari on an iPhone, in light mode:
+
+- The `thin-card-no-ink` tooltip offered the single ink that reads (**Add ink-light**) in both light and dark mode.
+- The Coach flagged the heading-only slide at 1.8:1 and offered **Pin this slide dark** (8.8:1). The tap wrote `dark` and the
+  finding cleared.
+- With a body paragraph, the card-ink fix applied `ink-light`; heading and body then read as white on the photo, and the
+  owner confirmed the Coach path works.
+
+So WebKit on the device parses the computed colors and decodes the photo the way the canvas probe expects, which closes the
+iOS follow-up from #2915.
