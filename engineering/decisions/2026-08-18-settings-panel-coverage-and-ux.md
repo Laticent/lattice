@@ -312,6 +312,12 @@ only `if (show('mode') && modes.length)`. **The Playground's Mode row never rend
 > left once the sheet moved to `author` — see the note below — so it was removed with
 > `preview`, whose host (the Workbench) was deleted in the 2026-07-03 studio
 > succession. `CONFIG_PROFILES` now carries `author` alone.
+>
+> **Also stale since 2026-10-27: there is no profile and no `modes` hand-off.** The
+> Playground's rows moved from `deck-config.js`'s vanilla `createConfigPanel` to React
+> (`DeckConfigPanel.tsx`), drawn with the Studio's `CatalogSelect` and read from the
+> Studio's catalogs, Mode included. `CONFIG_PROFILES` went with it; the panel takes an
+> optional `fields` list instead, and its sheet passes none.
 
 > **Superseded (2026-09-14) — the `theme:` row is back in the Playground.** The
 > table's footnote above ("the top bar owns theme there") restated `deck-config.js`'s

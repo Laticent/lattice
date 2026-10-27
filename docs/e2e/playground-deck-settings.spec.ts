@@ -1,11 +1,11 @@
 import { expect, test } from './studio-fixture';
 
-// The Playground's Deck settings sheet — the panel `createConfigPanel` draws and the
+// The Playground's Deck settings sheet — the panel DeckConfigPanel draws and the
 // sheet that hosts it. Three arms, one per defect this file was written for.
 //
 // 1. NOTHING IS PUSHED OUT OF THE PANEL. The rows were a flex pair whose two halves
 //    both refused to give: `.db-pref-text { min-width: 7rem }` against
-//    `.db-pref-select { flex: 0 0 auto; max-width: 11rem }`. That is an
+//    `.db-pref-select { flex: 0 0 auto; max-width: 11rem }` (now `.db-pref-catalog`). That is an
 //    incompressible 18.6rem, and the panel's content box is capped in px/vw — so the
 //    control went outside the panel and the sheet grew a horizontal scrollbar.
 //    Measured before the fix: 5 clipped rows at 320px, and 4 at 390px once the root
@@ -25,7 +25,7 @@ import { expect, test } from './studio-fixture';
 // 3. THE DECK'S OWN THEME IS SETTABLE HERE. The profile was `noTheme`, on the
 //    reasoning that the top-bar palette picker owned theme on this surface — which
 //    holds only while that picker is rendered, and it is hidden below `lg`. The row
-//    has to exist, and it has to offer the Automatic stop that CLEARS `theme:`;
+//    has to exist, and it has to offer the Auto head that CLEARS `theme:`;
 //    without it every option wrote a pin and there was no way back to following the
 //    site palette.
 
@@ -46,7 +46,7 @@ async function clippedRows(page: import('@playwright/test').Page): Promise<strin
 		const pad = parseFloat(getComputedStyle(host).paddingRight) || 0;
 		const out: string[] = [];
 		for (const row of host.querySelectorAll('.db-pref-row, .db-or-switch')) {
-			const control = row.querySelector('select, .db-switch, input');
+			const control = row.querySelector('[role="combobox"], .db-switch, input');
 			if (!control) continue;
 			// A half-pixel of slack: sub-pixel layout rounding is not a clipped control.
 			if (control.getBoundingClientRect().right > box.right - pad + 0.5) {
@@ -107,7 +107,7 @@ test('@crosswidth opening Deck settings focuses the panel, never a control insid
 	expect(inSheet, 'focus parked on the sheet itself').toBe(true);
 });
 
-test('@crosswidth the Theme row pins the deck’s own palette, and Automatic clears it', async ({ page }) => {
+test('@crosswidth the Theme row pins the deck’s own palette, and Auto clears it', async ({ page }) => {
 	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
 	// The editor hydrates LAZILY (2026-07-19 defer-editor-hydration), so `.cm-content`
 	// is absent for a while after the page is interactive — and this test reads the deck
@@ -116,13 +116,16 @@ test('@crosswidth the Theme row pins the deck’s own palette, and Automatic cle
 	await expect(page.locator('.cm-content')).toBeVisible();
 	await openDeckSettings(page);
 
-	const theme = page.locator('.deck-config .db-pref-select[aria-label="Theme"]');
+	const theme = page.locator('.deck-config').getByRole('combobox', { name: 'Choose theme' });
 	await expect(theme, 'the Playground must carry a deck-theme row').toBeVisible();
-	// Automatic is the first stop and names where an un-pinned deck actually lands.
-	await expect(theme.locator('option').first()).toHaveText(/^Automatic — follow the site/);
+	// The Auto head is the first stop and names where an un-pinned deck actually lands.
+	await expect(theme).toHaveText(/^Auto — follow the site/);
+	await theme.click();
+	await expect(page.getByRole('option').first()).toHaveText(/^Auto — follow the site/);
 	// The curated color-vision palettes are grouped exactly as the site header lists
 	// them — same derivation, not a second private one.
-	await expect(theme.locator('optgroup')).toHaveAttribute('label', /Accessibility/);
+	await expect(page.getByRole('group').filter({ hasText: /Accessibility/ })).toBeVisible();
+	await page.keyboard.press('Escape');
 
 	// Read the source back a LINE AT A TIME. CodeMirror renders each line as its own
 	// `.cm-line` element, so `.cm-content.textContent` concatenates them with no
@@ -133,10 +136,42 @@ test('@crosswidth the Theme row pins the deck’s own palette, and Automatic cle
 	const deckSource = () => page.evaluate(() => [...document.querySelectorAll('.cm-content .cm-line')].map((l) => l.textContent).join('\n'));
 	const frontMatter = async () => /^---\n([\s\S]*?)\n---/.exec(await deckSource())?.[1] ?? '';
 
-	await theme.selectOption('crepuscolo');
+	await theme.click();
+	await page.getByRole('option', { name: 'Crepuscolo' }).click();
 	await expect.poll(frontMatter).toContain('theme: crepuscolo');
 
-	// Back to Automatic drops the key — the deck follows the site palette again.
-	await theme.selectOption('');
+	// Back to Auto drops the key — the deck follows the site palette again.
+	await theme.click();
+	await page.getByRole('option', { name: /^Auto/ }).click();
 	await expect.poll(frontMatter).not.toContain('theme:');
 });
+
+// 4. ONE PICKER ACROSS THE STUDIO AND THE PLAYGROUND. The rows are the Studio's
+//    CatalogSelect (DeckConfigPanel.tsx), so they inherit its tap-away layer: WebKit
+//    delivers no event for a tap on the `pointer-events: none` body a modal list leaves
+//    behind, and without the layer the list stayed open and the next tap opened a second.
+//    The sheet here is NON-modal, which is the case the Studio never exercises.
+for (const tag of ['@mobile', '@webkit-phone']) {
+	test(`a Deck settings picker opens on its Auto head, stays on screen, and an outside tap closes it ${tag}`, async ({ page }) => {
+		await page.goto('/playground/', { waitUntil: 'domcontentloaded' });
+		await openDeckSettings(page);
+		const venue = page.locator('.deck-config').getByRole('combobox', { name: 'Choose venue' });
+		await venue.scrollIntoViewIfNeeded();
+		await venue.click();
+		const list = page.locator('[data-slot=select-content]');
+		await expect(list).toBeVisible();
+		await expect(page.getByRole('option').first()).toHaveText(/^Auto — Laptop/);
+		const { left, right, vw } = await list.evaluate((el) => {
+			const r = el.getBoundingClientRect();
+			return { left: r.left, right: r.right, vw: window.innerWidth };
+		});
+		expect(left).toBeGreaterThanOrEqual(10);
+		expect(right).toBeLessThanOrEqual(vw - 10);
+		// A tap on the row's hint, outside the list, closes it and opens nothing else.
+		await page.getByText('Where the deck is seen — larger rooms get larger type').click({ force: true });
+		await expect(page.getByRole('listbox')).toHaveCount(0);
+		// …and the next tap on another picker opens exactly one list.
+		await page.locator('.deck-config').getByRole('combobox', { name: 'Choose slide size' }).click();
+		await expect(page.getByRole('listbox')).toHaveCount(1);
+	});
+}
