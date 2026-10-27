@@ -63,7 +63,7 @@ import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
 import { applyFontsOverride, applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
-import { sharedPngEncoder } from './png-encoder-pool.js';
+import { sharedPictureEncoder } from './picture-encoder-pool.js';
 import { settleSlideDraw } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
@@ -1053,7 +1053,7 @@ async function sectionsOf(frame, fonts) {
 	if (!doc) throw new Error('Preview not ready yet.');
 	clearDataUriMemo();
 	// The PNG workers load while the fonts and the first slide are prepared.
-	sharedPngEncoder().warm();
+	sharedPictureEncoder().warm();
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
 	// Build the data-URI font sheet once, inject it into the preview doc, and wait
@@ -1639,7 +1639,7 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 // not black. Only for an opaque picture: the PPTX and Office captures square their corners.
 function canvasToPng(canvas) {
 	// The shared PNG encoder (lib/core/slide-camera.mjs), the CLI's too: smaller than the browser's own and the same file in both hosts.
-	return sharedPngEncoder().encode(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
+	return sharedPictureEncoder().encode(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
 }
 
 // The author's `images:` line for the slide pictures of the PPTX and Office exports
@@ -1647,9 +1647,13 @@ function canvasToPng(canvas) {
 // replaces the default. Set by exportPptx / exportOffice for the length of one export.
 let pictureImages = null;
 
-/** What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/office-export-policy.js `cropRules`). */
+/**
+ * What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/office-export-policy.js `cropRules`): the
+ * policy, and the shared writers in the worker pool to write them with, installed under the name the rules carry.
+ */
 function officePicturePolicy() {
-	return officePolicyCore.cropRules(pictureImages || {});
+	globalThis[officePolicyCore.PICTURE_WRITER] = (canvas, format) => sharedPictureEncoder().encode(canvas, format);
+	return officePolicyCore.cropRules(pictureImages || {}, { writer: true });
 }
 
 async function canvasToPictureBlob(canvas, section) {
@@ -1657,22 +1661,14 @@ async function canvasToPictureBlob(canvas, section) {
 	const { resolveImagePolicy } = imagePolicyCore;
 	const { choosePicture } = officePolicyCore;
 	const { isContinuousTone } = await import('@/lib/calco');
-	const encode = (c, type, quality) => (type === 'image/png' ? sharedPngEncoder().encode(c).then((bytes) => new Blob([bytes], { type: 'image/png' })) : new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality)));
-	const jpegOf = async (quality) => {
-		const flat = document.createElement('canvas');
-		flat.width = canvas.width;
-		flat.height = canvas.height;
-		const ctx = flat.getContext('2d');
-		ctx.fillStyle = '#fff';
-		ctx.fillRect(0, 0, flat.width, flat.height);
-		ctx.drawImage(canvas, 0, 0);
-		const jpeg = await encode(flat, 'image/jpeg', quality / 100);
-		// A browser that cannot encode JPEG hands back a PNG; that is no saving.
-		return jpeg.type === 'image/jpeg' ? jpeg : null;
-	};
+	// Both through the shared writers (lib/core/slide-camera.mjs `encodeCanvas`) in the worker pool. The JPEG writer lands transparency
+	// on white itself; the browser's own JPEG encoder is not used, because its size depends on the engine (an iPhone's picture
+	// PowerPoint came out 43.3 MB where Chromium's was 12.5 MB).
+	const encode = async (format) => new Blob([await sharedPictureEncoder().encode(canvas, format)], { type: `image/${format.type}` });
+	const jpegOf = (quality) => encode({ type: 'jpeg', quality });
 	// The rule is the shared kernel's (`choosePicture`), so the command line chooses the same way.
 	const tone = !!section && resolveImagePolicy(setting).mode !== 'original' && isContinuousTone(section);
-	return choosePicture({ png: () => encode(canvas, 'image/png'), jpeg: jpegOf, size: (blob) => blob.size }, { tone }, setting);
+	return choosePicture({ png: () => encode({ type: 'png' }), jpeg: jpegOf, size: (blob) => blob.size }, { tone }, setting);
 }
 
 // Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
@@ -1803,11 +1799,9 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 	}
 }
 
-// The legacy lane's JPEG flavor: same clone + draw, composited over a white
-// underlay (JPEG has no alpha; a bare encode composites stray transparency onto
-// BLACK), encoded on this thread. NOT html-to-image's toJpeg — its
-// `backgroundColor` option overrides the slide's own background (see the header
-// warning), so we composite ourselves, exactly like the worker lane does.
+// The legacy lane's JPEG flavor: same clone + draw, written by the shared JPEG writer, which lands transparency on
+// white (JPEG has no alpha; the browser's own encode composites stray transparency onto BLACK). NOT html-to-image's
+// toJpeg — its `backgroundColor` option overrides the slide's own background (see the header warning).
 // Forwards `cornerTarget` on BOTH branches. Today every caller passes 'pdf', which squares
 // either way, so letting the JPEG branch drop it was inert — and inert is exactly how a
 // wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
@@ -1817,14 +1811,7 @@ async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, corn
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
 	return withCaptureFixups(section, async (_w, _h, pixelRatio) => {
 		const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'export');
-		const out = document.createElement('canvas');
-		out.width = canvas.width;
-		out.height = canvas.height;
-		const ctx = out.getContext('2d');
-		ctx.fillStyle = '#fff';
-		ctx.fillRect(0, 0, out.width, out.height);
-		ctx.drawImage(canvas, 0, 0);
-		return out.toDataURL('image/jpeg', 0.95);
+		return blobToDataUri(new Blob([await sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 95 })], { type: 'image/jpeg' }));
 	}, undefined, cornerTarget);
 }
 
@@ -2089,8 +2076,8 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	// The writer asks for PNG, and for JPEG too on a busy slide (compose.mjs pngIsFlat); the
 	// canvas camera captures each slide once for both. toJpeg was this same canvas encoded at
 	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
-	// PNGs are written by workers, so the next slide is captured while this one compresses (`photoLookahead` below).
-	const pngWriter = sharedPngEncoder();
+	// Pictures are written by workers, so the next slide is captured while this one compresses (`photoLookahead` below).
+	const pictureWriter = sharedPictureEncoder();
 	// Captures take turns: a capture edits the shared document (the web-reference sweep's <style>, the section's classes), so two at once
 	// would see each other's edits. Only the PNG writing overlaps a capture.
 	let captureTurn = Promise.resolve();
@@ -2107,7 +2094,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 			return run;
 		},
 		imagePolicyCore.resolveImagePolicy(images || {}).quality / 100,
-		(canvas) => pngWriter.encode(canvas),
+		(canvas, format) => pictureWriter.encode(canvas, format),
 	);
 	const withSlide = (section, fn) => {
 		const restore = forceSectionVisibleForCapture(section);
@@ -2717,27 +2704,16 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 	return withCaptureFixups(section, async (_w, _h, pr) => {
 		const src = await shootSection(section, pr, fontEmbedCSS, log, 'screen');
 		const meta = FORMAT_META[format] || FORMAT_META.png;
-		let canvas = src;
-		// The underlay is about ALPHA, not about lossiness — those are different axes and
-		// conflating them is what would flatten WebP's corner. JPEG genuinely has no alpha
-		// channel, so a bare encode composites stray transparency onto BLACK and it needs an
-		// opaque underlay. WebP is lossy but DOES carry alpha, so it keeps the corner the
-		// capability table says it can hold (lib/core/corner-export-capability.mjs).
-		if (!cornerSurvivesExport(format)) {
-			const flat = document.createElement('canvas');
-			flat.width = src.width;
-			flat.height = src.height;
-			const ctx = flat.getContext('2d');
-			ctx.fillStyle = '#ffffff';
-			ctx.fillRect(0, 0, flat.width, flat.height);
-			ctx.drawImage(src, 0, 0);
-			canvas = flat;
+		// PNG and JPEG go through the shared writers in the worker pool, so the set is the same bytes in every browser and the CLI's.
+		// The JPEG writer lands transparency on white: JPEG has no alpha channel, and the browser's own encode painted it BLACK.
+		// WebP is lossy but DOES carry alpha, so it keeps the corner the capability table says it can hold
+		// (lib/core/corner-export-capability.mjs); it has no shared writer, and the browser encodes it.
+		if (meta.mime === 'image/png' || meta.mime === 'image/jpeg') {
+			const format = meta.mime === 'image/png' ? { type: 'png' } : { type: 'jpeg', quality: Math.min(100, Math.max(1, Math.round(quality))) };
+			return new Blob([await sharedPictureEncoder().encode(src, format)], { type: meta.mime });
 		}
-		const q = meta.lossy ? Math.min(1, Math.max(0.01, quality / 100)) : undefined;
-		const blob =
-			meta.mime === 'image/png'
-				? new Blob([await sharedPngEncoder().encode(canvas)], { type: 'image/png' })
-				: await new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
+		const q = Math.min(1, Math.max(0.01, quality / 100));
+		const blob = await new Promise((resolve, reject) => src.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
 		// canvas.toBlob MUST fall back to image/png when the UA can't encode the requested type
 		// (e.g. WebP on older Safari / some WebViews). Reject rather than let the zip ship a `.webp`
 		// full of PNG bytes with a manifest that claims WebP — a clear error beats a silent mislabel.

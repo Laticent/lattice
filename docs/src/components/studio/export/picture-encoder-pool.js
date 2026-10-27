@@ -1,9 +1,10 @@
-// A few workers that write PNGs for the slide camera (png-encode-worker.js), with the main-thread writer as the fallback.
+// A few workers that write the export's pictures, PNG and JPEG, with the shared writers (picture-encode-worker.js), and the
+// main-thread writer as the fallback.
 //
 // Each request holds a slot for the length of its encode: a bitmap of a 4K slide is 33 MB, and a phone must not hold a deck's worth. A
-// browser without module workers, OffscreenCanvas or createImageBitmap, and a worker that fails, fall back to `encodePng` on the main
-// thread: the export is slower there, never lost.
-import { encodePng } from '../../../../../lib/core/slide-camera.mjs';
+// browser without module workers, OffscreenCanvas or createImageBitmap, and a worker that fails, fall back to `encodeCanvas` on the main
+// thread: the export is slower there, never lost, and the same bytes.
+import { encodeCanvas } from '../../../../../lib/core/slide-camera.mjs';
 
 /** How many encodes may be in flight: one worker each, at most 2 (a third buys little and costs another 33 MB bitmap). */
 export function poolSize(cores = globalThis.navigator?.hardwareConcurrency || 2) {
@@ -14,10 +15,10 @@ export function canEncodeOffThread() {
 	return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' && typeof createImageBitmap !== 'undefined' && typeof CompressionStream !== 'undefined';
 }
 
-/** A slide's PNG takes well under a second to write. A worker silent for this long is gone (a phone kills workers under memory pressure without an error event). */
+/** A slide's picture takes well under a second to write. A worker silent for this long is gone (a phone kills workers under memory pressure without an error event). */
 export const ENCODE_DEADLINE_MS = 45_000;
 
-export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLINE_MS } = {}) {
+export function createPictureEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLINE_MS } = {}) {
 	const idle = [];
 	const waiting = [];
 	const all = [];
@@ -25,7 +26,7 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 	let nextId = 0;
 
 	const spawn = () => {
-		const worker = new Worker(new URL('./png-encode-worker.js', import.meta.url), { type: 'module' });
+		const worker = new Worker(new URL('./picture-encode-worker.js', import.meta.url), { type: 'module' });
 		all.push(worker);
 		return worker;
 	};
@@ -45,7 +46,7 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 		if (next) next(worker);
 		else idle.push(worker);
 	};
-	const run = (worker, bitmap) =>
+	const run = (worker, bitmap, format) =>
 		new Promise((resolve, reject) => {
 			const id = nextId++;
 			const timer = setTimeout(() => reject(new Error(`no answer in ${deadlineMs / 1000} s`)), deadlineMs);
@@ -54,9 +55,9 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 				settle(value);
 			};
 			worker.onmessage = (e) => (e.data.id === id ? (e.data.error ? done(reject, new Error(e.data.error)) : done(resolve, e.data.bytes)) : undefined);
-			worker.onmessageerror = () => done(reject, new Error('PNG worker sent a message that could not be read'));
-			worker.onerror = (e) => done(reject, new Error(e.message || 'PNG worker failed'));
-			worker.postMessage({ id, bitmap }, [bitmap]);
+			worker.onmessageerror = () => done(reject, new Error('picture worker sent a message that could not be read'));
+			worker.onerror = (e) => done(reject, new Error(e.message || 'picture worker failed'));
+			worker.postMessage({ id, bitmap, format }, [bitmap]);
 		});
 
 	return {
@@ -69,26 +70,31 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 				broken = true;
 			}
 		},
-		/** PNG bytes for a canvas. */
-		async encode(canvas) {
-			if (broken) return encodePng(canvas);
+		/**
+		 * A canvas's bytes, written by the shared writers.
+		 * @param {HTMLCanvasElement|OffscreenCanvas} canvas
+		 * @param {{ type: 'png'|'jpeg', quality?: number }} [format]  quality 1 to 100, for a JPEG
+		 * @returns {Promise<Uint8Array>}
+		 */
+		async encode(canvas, format = { type: 'png' }) {
+			if (broken) return encodeCanvas(canvas, format);
 			let worker = null;
 			try {
 				worker = await acquire();
 				// The pool broke while this request waited for a slot: every waiter is handed null so none waits forever.
-				if (!worker) return encodePng(canvas);
+				if (!worker) return encodeCanvas(canvas, format);
 				const bitmap = await createImageBitmap(canvas);
-				const bytes = await run(worker, bitmap);
+				const bytes = await run(worker, bitmap, format);
 				release(worker);
 				return bytes;
 			} catch (e) {
-				console.warn(`[lattice-export] PNG worker failed (${e?.message || e}); writing PNGs on the main thread.`);
+				console.warn(`[lattice-export] picture worker failed (${e?.message || e}); writing pictures on the main thread.`);
 				broken = true;
 				// The failed worker and the idle ones end now; a worker busy with another request ends when that request releases it.
 				if (worker) worker.terminate();
 				for (const w of idle.splice(0)) w.terminate();
 				for (const next of waiting.splice(0)) next(null);
-				return encodePng(canvas);
+				return encodeCanvas(canvas, format);
 			}
 		},
 		dispose() {
@@ -100,9 +106,9 @@ export function createPngEncoder({ size = poolSize(), deadlineMs = ENCODE_DEADLI
 	};
 }
 
-// ONE POOL FOR EVERY EXPORT. The PDF, PowerPoint, LibreOffice and PNG-set exports all write PNGs, and each used to need its own pool
+// ONE POOL FOR EVERY EXPORT. The PDF, PowerPoint, LibreOffice and image-set exports all write pictures, and each used to need its own pool
 // created and torn down around it. This one starts when the first export asks (`warm()` at the top of an export, so the workers load while
-// the fonts and the first slide are prepared) and ends 10 s after the last PNG is written, so a phone does not keep four threads and their
+// the fonts and the first slide are prepared) and ends 10 s after the last picture is written, so a phone does not keep four threads and their
 // heaps for the length of a session.
 const IDLE_MS = 10_000;
 let shared = null;
@@ -112,7 +118,7 @@ let idleTimer = null;
 function pool() {
 	clearTimeout(idleTimer);
 	idleTimer = null;
-	if (!shared) shared = createPngEncoder();
+	if (!shared) shared = createPictureEncoder();
 	return shared;
 }
 
@@ -127,18 +133,19 @@ function settled() {
 	}, IDLE_MS);
 }
 
-/** The shared pool: `warm()` to start its workers early, `encode(canvas)` for PNG bytes. */
-export function sharedPngEncoder() {
+/** The shared pool: `warm()` to start its workers early, `encode(canvas, format)` for a picture's bytes. */
+export function sharedPictureEncoder() {
 	return {
 		warm() {
 			pool().warm();
 			settled();
 		},
-		async encode(canvas) {
+		/** @param {HTMLCanvasElement|OffscreenCanvas} canvas @param {{ type: 'png'|'jpeg', quality?: number }} [format] */
+		async encode(canvas, format) {
 			const p = pool();
 			inFlight++;
 			try {
-				return await p.encode(canvas);
+				return await p.encode(canvas, format);
 			} finally {
 				inFlight--;
 				settled();

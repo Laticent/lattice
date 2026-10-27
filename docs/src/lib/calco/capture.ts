@@ -48,6 +48,13 @@ export interface CropEncoding {
 	flatBytes: number;
 	/** A JPEG must be under this share of its PNG to win. */
 	share: number;
+	/**
+	 * The name of a function on the page's global object that writes a crop's bytes: `(canvas, { type: 'png' }
+	 * | { type: 'jpeg', quality })`, quality 1 to 100, returning the bytes or a promise of them. A host that wants
+	 * the same bytes in every browser installs one (the browser's own encoders differ by engine); absent, the
+	 * canvas's own encoders write the crops. Named but missing on the page is an error, never a quiet fallback.
+	 */
+	encoder?: string;
 }
 interface CropRules extends CropEncoding {
 	maxOutside: number;
@@ -240,8 +247,14 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
     return null;
   };
   const k = bmp.width / w;
-  const b64 = async (blob: Blob) => {
-    const bytes = new Uint8Array(await blob.arrayBuffer());
+  // The host's picture writer, when it named one (CropEncoding.encoder); else the canvas's own encoders.
+  type Writer = (canvas: OffscreenCanvas, format: { type: 'png' | 'jpeg'; quality?: number }) => Uint8Array | Promise<Uint8Array>;
+  const writer = rules.encoder ? ((globalThis as unknown as Record<string, Writer | undefined>)[rules.encoder] ?? null) : null;
+  if (rules.encoder && typeof writer !== 'function') throw new Error(`cropPictures: the page has no ${rules.encoder}() to write pictures with`);
+  const write = async (canvas: OffscreenCanvas, type: 'png' | 'jpeg') => {
+    const bytes = writer
+      ? await writer(canvas, type === 'jpeg' ? { type, quality: Math.round(rules.quality * 100) } : { type })
+      : new Uint8Array(await (await canvas.convertToBlob(type === 'jpeg' ? { type: 'image/jpeg', quality: rules.quality } : { type: 'image/png' })).arrayBuffer());
     let bin = '';
     for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000) as unknown as number[]);
     return { size: bytes.length, data: btoa(bin) };
@@ -256,17 +269,17 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
     let pick: { size: number; data: string };
     let jpeg = false;
     if (opaque && !rules.lossless) {
-      const jpg = await b64(await canvas.convertToBlob({ type: 'image/jpeg', quality: rules.quality }));
+      const jpg = await write(canvas, 'jpeg');
       if (jpg.size >= rules.toneBytes) {
         pick = jpg;
         jpeg = true;
       } else {
-        const png = await b64(await canvas.convertToBlob({ type: 'image/png' }));
+        const png = await write(canvas, 'png');
         // A flat picture under the size threshold stays a lossless PNG; a photograph is a JPEG whenever that is much smaller.
         jpeg = (photo || png.size > rules.flatBytes) && jpg.size < png.size * rules.share;
         pick = jpeg ? jpg : png;
       }
-    } else pick = await b64(await canvas.convertToBlob({ type: 'image/png' }));
+    } else pick = await write(canvas, 'png');
     return { x: r.x, y: r.y, w: r.w, h: r.h, data: pick.data, jpeg };
   };
   for (const b of boxes) {
@@ -339,7 +352,7 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
     const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D;
     ctx.drawImage(bmp, Math.round(r.x * k), Math.round(r.y * k), sw, sh, 0, 0, sw, sh);
     for (const b of boxes) ctx.clearRect(Math.floor((b.x - r.x) * k), Math.floor((b.y - r.y) * k), Math.ceil(b.w * k) + 1, Math.ceil(b.h * k) + 1);
-    residual = { x: r.x, y: r.y, w: r.w, h: r.h, data: (await b64(await canvas.convertToBlob({ type: 'image/png' }))).data };
+    residual = { x: r.x, y: r.y, w: r.w, h: r.h, data: (await write(canvas, 'png')).data };
   }
   return { residual, images };
 }
@@ -433,6 +446,7 @@ function cropRules(encoding?: CropEncoding): CropRules {
 	for (const key of ['quality', 'toneBytes', 'flatBytes', 'share'] as const) {
 		if (!encoding.lossless && !Number.isFinite(encoding[key])) throw new Error(`captureOfficeSlides: pictures.${key} must be a finite number (pictures is { lossless?, quality, toneBytes, flatBytes, share }; see CropEncoding)`);
 	}
+	if (encoding.encoder !== undefined && (typeof encoding.encoder !== 'string' || !encoding.encoder)) throw new Error('captureOfficeSlides: pictures.encoder must be the name of a page global');
 	return { maxOutside: SPRITE_OUTSIDE_SHARE, ...encoding };
 }
 

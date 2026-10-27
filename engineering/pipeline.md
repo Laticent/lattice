@@ -455,6 +455,18 @@ needs one thing from its host, `toDataUri(url)`, which turns a picture address i
   viewer deficiency, not a design choice, and the PDF therefore lacks, for example, a topic slide's lighter shelf.
 - **One PNG encoder** (`encodePng`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
   The browser's `toBlob('image/png')` wrote files about 40% larger.
+- **One JPEG encoder** (`lib/core/jpeg-encode.mjs`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, the AAN DCT with
+  its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
+  in every engine: Firefox keeps full-resolution color (about twice Chromium's size for the same picture), and the same
+  52-slide picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Ours writes the same file from the same
+  pixels in Chromium, Firefox, WebKit and Node (`docs/e2e/jpeg-encode-engines.spec.ts` checks the bytes against the golden
+  hash in `test/unit/core/jpeg-encode.test.js`), within 0.2% of libjpeg's size, about 150 ms for a 2560 × 1440 slide in V8.
+- **Every export picture goes through them** (`encodeCanvas`): the slide camera, the PDF's photo layer, the PDF worker lane,
+  image sets, PowerPoint and LibreOffice slide pictures, Calco's cropped pictures (the host installs the writer under
+  `PICTURE_WRITER`, lib/core/office-export-policy.js, and Calco stops with an error if a named writer is missing), and the author-photo
+  recode (`lib/core/image-recode.mjs`; the CLI sends both functions' source into its page). In the Studio the worker pool
+  (`docs/src/components/studio/export/picture-encoder-pool.js`) runs them off the main thread. WebP has no shared writer and
+  stays the browser's.
 
 Measured against a native screenshot on the 52-slide deck: at most 0.0065% of pixels differ by more than 8 levels at scale 1
 and at most 0.0003% at scale 2 (4 slides checked). Studio against CLI, same deck, same format: PNG set worst slide 0.03%, PowerPoint and
