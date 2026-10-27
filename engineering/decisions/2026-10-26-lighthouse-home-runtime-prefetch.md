@@ -306,3 +306,54 @@ long-task table above, not Lighthouse.
 **Not done, recorded as followup 2921-p1:** deferring `createEditor` while the editor is hidden in Explore (the other
 171 ms). It is the larger change. The tour, the Explore-to-Edit switch and the seeded draft all read the editor, so it
 needs its own design pass.
+
+## 13. The editor mounts when it is shown, and its chunk loads then (followup 2921-p1)
+
+`EditorHost` used to call `createEditor` in its mount effect on every load. On an Explore load the editor is
+`display: none`, and §12's profile put that call at 171 ms of the hydration task. Two changes, in order, with what each
+measured:
+
+**1. Defer the call (a string-backed adapter).** Until the editor has a size, `EditorHost` hands the controller an adapter
+that holds the text as a string. `getValue` and `setValue` work on it, so the draft restore and the first render run as
+before. The caret and slide band that the focus sync sets in the meantime are kept and replayed on the view when it is
+built. The view is built when the host gets a size (a `ResizeObserver`: the switch to Edit, an Edit load), when something
+asks to focus it, or on an idle moment after the first sign of a reader (`pointerdown`, `keydown`, `touchstart`,
+`pointermove`), so the switch to Edit is not the first time CodeMirror starts.
+
+Measured on the production build over local HTTP/2, phone viewport, 4x CPU, ten seconds after navigation, eight runs each,
+interleaved: blocking time (the sum of each long task's time over 50 ms) 2,243 ms against 2,216 ms by median, main-thread
+task time 4,340 against 4,301, script time 1,915 against 1,837. **No gain beyond the run-to-run spread** (base 2,048-2,615,
+head 2,055-2,394). The call was not where the cost was: `EditorHost` still imports `editor.js` statically, so the
+CodeMirror modules still downloaded, parsed and evaluated in the page's first task.
+
+**2. Load the chunk when the view is built.** `editor.js` is now a dynamic `import()` inside the mount path, so a page that
+never shows the editor never fetches or evaluates CodeMirror. Same method, eight runs each, interleaved:
+
+| Build | Blocking time, median (range) | Task time, median | Script time, median |
+|---|---|---|---|
+| base (`992664b`) | 2,335 ms (2,175-2,793) | 4,436 ms | 1,912 ms |
+| head (dynamic import) | 2,007 ms (1,792-2,293) | 4,053 ms | 1,554 ms |
+
+About 330 ms less blocking time, 380 ms less main-thread time, and every head run is below the base median. No `.cm-editor`
+exists on the head page ten seconds after load; on the base page one does.
+
+**The cost, stated.** An Edit-first load now fetches and evaluates the chunk after hydration instead of inside it, so the
+editor appears later: 1,358 ms against 1,567 ms by median (six runs each, 4x CPU, local HTTP/2, time from navigation to
+`.cm-content`; +209 ms). The text paints from the server-rendered placeholder throughout, so LCP does not move. The same
+work is paid at a different time for the visitors who do open the editor; the Explore visitors, who are the Playground's
+default, stop paying it.
+
+**A defect this exposed, fixed here (HARD RULE #18).** `playground-focus-sync.spec.ts` "the next key in the editor brings the
+preview and the band back to the caret" failed on the dynamic build and passed on the first. It had been passing by
+accident: an editor created before it is measured renders every line of a short deck (92 `.cm-line` elements on the test's 8-slide deck),
+so the caret on line 1 was always in the rendered range. CodeMirror measured earlier renders about 71 lines, line 1 falls out
+once the preview scroll carries the editor to slide 6, and CodeMirror's own ArrowDown steps from the viewport instead of the
+caret: line 1 went to line 23. The same jump happens on the synchronous build with a 16-slide deck (line 1 to line 111).
+`editor.js` now steps by the document's lines from the caret when the caret is outside `view.viewport`, and leaves
+CodeMirror's visual-line stepping alone when it is drawn. `playground-editor-deferred.spec.ts` pins it on a 40-slide deck:
+without the handler it lands on line 161, with it on line 2.
+
+`docs/e2e/playground-editor-deferred.spec.ts` also pins the deferral: an Explore load builds no editor and the switch to
+Edit builds one that types and saves; a pointer move builds it ahead of the switch with Explore still showing; an
+Edit-first load builds it at once. `playground-lint-hidden.spec.ts` "showing a hidden editor lints it with no edit" now
+moves the pointer first, because an editor hidden from the start is built only once a reader shows up.

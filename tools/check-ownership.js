@@ -6229,6 +6229,19 @@ const SANCTIONED_E2E_SLEEPS = [
        + 'arm (showing the editor) then sees the request or the underline, so the list can see what it says is absent.',
   },
   {
+    file: 'docs/e2e/playground-editor-deferred.spec.ts', ms: 3000, count: 1,
+    why: 'ABSENCE ASSERTION: an Explore load must build NO CodeMirror view while the editor is hidden (followup '
+       + '2921-p1). There is no signal for a view that must not appear; a poll of a zero count goes green on its '
+       + 'first tick. 3000ms is longer than the idle build the first sign of a reader would trigger, and the '
+       + 'spec\'s other tests build the view on the switch to Edit and on a pointer move, so the count can rise.',
+  },
+  {
+    file: 'docs/e2e/playground-editor-deferred.spec.ts', ms: 1500, count: 1,
+    why: 'ABSENCE ASSERTION, the quiet period before the pointer move in the warm-up test: no view yet, then a '
+       + 'pointer move must build one. The positive arm (the poll that moves the pointer until `.cm-editor` '
+       + 'appears) is what proves the count can rise (followup 2921-p1).',
+  },
+  {
     file: 'docs/e2e/phone-sheet-tap-after-typing.spec.ts', ms: 500, count: 2,
     why: 'TWO ABSENCE ASSERTIONS, the arms that prove the spec can fail: with the tap hold stripped, a tap '
        + 'after typing must NOT select the Library tab and must NOT open the Language list (followup 2547-p2). '
