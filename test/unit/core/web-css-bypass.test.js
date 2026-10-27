@@ -183,6 +183,14 @@ describe('a noscript the sanitizer unwraps', () => {
   });
 });
 
+describe('a list attribute split by a named whitespace reference', () => {
+  test('ping and attributionsrc see the second address after &Tab; and &NewLine;', () => {
+    for (const html of ['<a href=/ ping="/x&Tab;https://evil.test/p">x</a>', '<a href=/ ping="/x&NewLine;https://evil.test/p">x</a>', '<a href="/n" attributionsrc="/x&Tab;https://evil.test/p">x</a>']) {
+      assert.ok(!holds(blockWebImages(html, [], { fonts: true, DOMParser }).html, 'evil.test'), html);
+    }
+  });
+});
+
 describe('attributionsrc', () => {
   test('is removed where no policy stands behind the host, on an image and on a link', () => {
     for (const [html, want] of [
@@ -347,9 +355,9 @@ test("decodeEntities: every ASCII punctuation reference decodes as the HTML pars
     'rbrace', 'rcub', 'rbrack', 'rsqb', 'rpar', 'semi', 'sol'];
   assert.equal(NAMES.length, 45);
   for (const n of NAMES) {
-    // A tab and a newline decode to nothing: the URL parser drops both anywhere in a URL.
-    const want = parsed(`&${n};`).replace(/[\t\n]/g, '');
-    assert.equal(decodeEntities(`&${n};`), want, n);
+    // `&Tab;` and `&NewLine;` decode to a real tab and newline, as `&#9;` does: a list attribute (`ping`, `attributionsrc`) splits on
+    // them, and the URL parser (`urlAsParsed`) drops them from each address afterwards.
+    assert.equal(decodeEntities(`&${n};`), parsed(`&${n};`), n);
   }
   // Names are case-sensitive, and only the legacy few work without a `;`.
   const odd = '&LPAR;&lpar &amp &constructor;';
