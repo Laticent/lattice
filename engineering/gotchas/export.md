@@ -88,10 +88,10 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   (`box-shadow: 0 0 0 1.6px <darker>`) or a zero-blur *offset* shadow
   (`box-shadow: Xcqi Ycqi 0 <color>`), both of which are solid vector fills. Keep the
   color **opaque** — mix toward `--bg`, not `transparent` — to avoid alpha
-  compositing as well. Two shipped recipes are deliberately blur-free for this
-  reason: the state disc (`lib/base/base.tokens.css` plus its three checkbox
-  consumers) and `--focus-lift` (`lib/base/base.focus.css`), which is an opaque hard
-  offset rather than a soft elevation shadow.
+  compositing as well. The state disc (`lib/base/base.tokens.css` plus its three checkbox
+  consumers) is deliberately blur-free for this reason, and so was blur's focus lift
+  (`--focus-lift`, removed on 2026-10-27), an opaque hard offset rather than a soft
+  elevation shadow.
 - **Caught:** twice — the checkbox redesign (discs showed a gray square in the iOS PDF
   viewer while every local raster looked clean) and the focus lift (a hard gray box
   behind the focused card on iPhone, correct in the poppler sandbox raster).
