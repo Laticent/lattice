@@ -255,3 +255,48 @@ editor was hidden", so the spec can fail.
 Median TBT 1,686 ms to 1,532 ms (−154 ms), close to the −190 ms the throwaway build measured locally. Four of the five
 head runs are below every base run. The median score is 45 on both builds, so this lever alone does not move the Playground
 toward its bar of 60. It removes one long task and a 95 KB download that nobody in Explore needed.
+
+## 12. Lever D measured: time-sliced hydration is a no-go; the picker's search index ships instead (followup 2913-p2)
+
+**The prototype.** `<React.Suspense fallback={null}>` around three server-rendered subtrees of `PlaygroundApp` whose refs
+the parent's mount effects never read: the toolbar (`.pg-bar`), the `WalkBar` and the `EditorHost`. With a boundary in the
+server HTML, React can commit the shell first and hydrate each boundary as a later unit of work. The preview pane and the
+chart layer were left alone, because the parent's effects read their refs on mount.
+
+**Result, local HTTP/2 (§1), three Lighthouse runs each, interleaved:** TBT 1,138-1,315 ms without the boundaries and
+1,213-1,388 ms with them. The first React task was 323-404 ms on both builds. **No gain.** The prototype also changed the
+server HTML: React 19 outlines a large boundary (the toolbar) into a `<!--$?-->` placeholder plus a hidden segment that an
+inline `$RC` script swaps in at the end of the document. That is a first-paint and CSP question the gain would have had
+to pay for, and there is no gain.
+
+**Why, from a CPU profile of an unminified build** (phone profile, 4x CPU, 250 µs samples). The React task that the
+earlier tables called "commits" is 748 ms, and it is not many small pieces that a boundary could separate:
+
+| Inside the 748 ms task | ms (4x) |
+|---|---|
+| render: `ComponentPicker`'s `useMemo(makeSearchIndex)` (Fuse + BM25 index of the catalog) | 160-171 |
+| passive effects: `EditorHost`'s mount effect, `createEditor` (CodeMirror `EditorView` 108 ms of it) | 171 |
+| the rest of `PlaygroundApp`'s render and commit | about 400 |
+
+Each of the two large pieces is one call inside one component, and no boundary splits a single call. So the lever is
+deferral, not slicing.
+
+**What shipped: the search index waits for a query.** `rankedFor` reads the index only when the box holds two or more
+characters, so `ComponentPicker` now builds it on the first such query (a memoized getter) instead of during render.
+Most visitors never search. A first search pays the build once, about 40 ms at 1x. `ComponentPicker.index.test.tsx`
+pins it: with the old memo restored, its first arm fails.
+
+Measured with the page's own `longtask` entries (local HTTP/2, phone viewport, 4x CPU, 10 s after navigation, five runs
+each, interleaved), the sum of each task's time over 50 ms:
+
+| Build | Blocking time, five runs | Median |
+|---|---|---|
+| lint gate only (§11) | 2585, 2561, 2650, 2429, 2646 ms | 2,585 ms |
+| plus the lazy index | 2405, 2626, 2340, 2323, 2626 ms | 2,405 ms |
+
+About 180 ms less by median, in line with the profile's 160-171 ms, with overlapping ranges. Lighthouse's simulated TBT on
+the same pair was too noisy to show a change of that size (1,235-1,482 ms against 1,083-1,640 ms, four runs each).
+
+**Not done, recorded as followup 2921-p1:** deferring `createEditor` while the editor is hidden in Explore (the other
+171 ms). It is the larger change. The tour, the Explore-to-Edit switch and the seeded draft all read the editor, so it
+needs its own design pass.
