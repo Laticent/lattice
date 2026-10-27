@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-27 — measured on the built tree at 5ed0b8f
+
+the Playground editor's CodeMirror chunk loads only when the editor is shown (#2937, followup 2921-p1): playground eagerJsGz fell from 616.7 to 353.7 KB gzipped
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | eagerJsGz | 631462 | 362145 | -269317 | 398360 |
+
 ### 2026-10-22 — measured on the built tree at b4552e5
 
 the callout layer's lane and markers load only for a deck that writes @callout (#2855 follow-up): the largest kernel closure fell 85.7 to 80.3 KB and the union 226.1 to 220.5 KB, and the three ceilings the owner raised for the layer come back down

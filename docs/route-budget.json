@@ -32,8 +32,8 @@
     "playground": {
       "html": "playground/index.html",
       "eagerJsGz": {
-        "soft": 631462,
-        "hard": 692327
+        "soft": 362145,
+        "hard": 398360
       },
       "htmlRaw": {
         "soft": 440187,
