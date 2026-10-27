@@ -71,6 +71,10 @@ export type RenderMarkdownOpts = {
 	/** The default plugin set for THIS render (engine `render(…, { pluginDefaults })`). A slide
 	 *  rendered alone passes the whole deck's admission (`PG.pluginAdmission`): it is deck-wide. */
 	pluginDefaults?: string[];
+	/** Compose the pane sheet for EVERY pane component, not only those on this slide, so it is the same
+	 *  for all of a deck's slides (lib/core/pane-css.js `stablePaneScope`). Set by the single-slide frame
+	 *  only; an export leaves it unset and keeps the exact-classes sheet. */
+	stablePaneSheet?: boolean;
 };
 /**
  * A host's chance to add options to a render, given the source about to be rendered. The Studio
