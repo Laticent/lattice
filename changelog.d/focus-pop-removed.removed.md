@@ -1,0 +1,1 @@
+- **Breaking:** `_focusStyle: pop` is removed. It scaled the target and dropped a shadow past its edge, which moved the layout and was clipped at the stage. `_focusStyle: highlight` does the same job without shifting anything. The lint flags a deck that still says `pop`.

@@ -7,10 +7,14 @@
  * explicit `_focusStyle`). This sheet styles those tags — pure CSS, no engine
  * knowledge, palette-blind via var(--focus-*) → var(--accent…).
  *
- * Three styles (engineering/decisions/2026-06-16-focus-highlighting.md §5):
+ * Five styles (engineering/decisions/2026-06-16-focus-highlighting.md §5):
  *   spotlight  recede the rest (dim `.lat-recede`), promote the target.
  *   ring       accent outline on the target — no dimming, no layout shift.
  *   list-fill  accent-soft fill on the target, rest untouched.
+ *   highlight  an accent tint + edge on the target, rest untouched: cards, rows, columns,
+ *              cells and code lines take the tint; a chart mark takes an edge; a series a
+ *              heavier line (the `preferred` look of verdict-grid, without the spark).
+ *   blur       defocus the rest, lift the target.
  * Default by axis: list/grid/code → spotlight; table → ring.
  *
  * Cross-format: opacity / box-shadow / background only — never mask-image
@@ -31,6 +35,7 @@ pre[data-focus-style] /* a code block's own `@code{focus=…}` (lib/plugins/code
   --focus-blur: 0.15cqi;
   --focus-pop: 1.02;        /* blur target lift — subtle, won't overlap neighbors */
   --focus-pop-shadow: 0.28cqi;
+  --focus-berth: 0.8cqi;    /* room for the lift: the scale overhang (~0.44cqi) plus the hard shadow (0.28cqi) */
   /* The lift edge — a curated role token (HARD RULE 11): a theme overrides this
    * one name to tune the lift. Default = the brand accent softened toward the
    * page so it reads on-brand without the harsh saturated edge. OPAQUE (mixed
@@ -75,28 +80,19 @@ section[data-focus-style="blur"] li.lat-focus {
   z-index: 2;
 }
 
-/* ── pop — lift the target forward, leave the rest legible ─────────────────────
- * The optical opposite of blur: instead of pushing the rest *back* (defocus),
- * pop pulls the target *forward*. Promote-only — nothing is dimmed or blurred,
- * so every other card/row stays fully readable (its edge over ring/list-fill is
- * dimensionality). Uses the same hard, zero-blur lift shadow (`--focus-lift`),
- * so it holds up in Apple PDFKit where a blurred shadow renders as a gray block
- * (engineering/gotchas.md). */
-section[data-focus-style="pop"] li.lat-focus {
-  transform: scale(var(--focus-pop));
-  box-shadow: var(--focus-pop-shadow) var(--focus-pop-shadow) 0 var(--focus-lift);
-  border-radius: 0.6cqi;
-  position: relative;
-  z-index: 2;
-  font-weight: 600;
-}
-/* table row: a <tr> doesn't scale cleanly, so it lifts by reading as a raised
- * band — an accent-soft fill out of the ruled rows + a hard drop line below. */
-section[data-focus-style="pop"] tr.lat-focus { position: relative; z-index: 2; }
-section[data-focus-style="pop"] tr.lat-focus > :is(td, th) {
-  background: var(--focus-fill);
-  box-shadow: 0 var(--focus-pop-shadow) 0 var(--focus-lift);
-  font-weight: 600;
+/* ── the lift's berth — blur paints OUTSIDE the card ─────────────────────────
+ * Blur scales the target and drops a hard shadow past its edge, and the stage clips
+ * (`overflow: clip`), so an outer card's lift was sheared on the left or right (measured at
+ * 1280px, berth 0: 5.6px of scale overhang, plus the 3.6px shadow on the right). A cards-grid
+ * reserves the room as a transparent border (not margin, #20) while blur is active, the way
+ * `--elevation-berth` keeps a card's resting shadow inside the clip. It is a border, not padding:
+ * the elevation berth is a unitless `0` in most themes, which `max()` and `calc()` reject, so a
+ * border is what stacks on the padding the theme's berth already gave. SCOPED to cards-grid: a
+ * plain bullet list has no lift to protect and would shift ~10px, and a component that draws its own
+ * list border (sketch `list-tabular`) would lose it to this shorthand. The room is constant for the
+ * slide, so it does not change between `_focusSteps`. */
+section.cards-grid[data-focus-resolved][data-focus-axis="item"][data-focus-style="blur"] :is(.cell-stage > ul, .cell-stage > ol, .cards-grid-inner, .cards-grid-inner--ordered) {
+  border: var(--focus-berth) solid transparent;
 }
 
 /* ── ring — accent outline, zero layout shift ─────────────────────────────── */
@@ -146,11 +142,83 @@ section[data-focus-axis="cell"][data-focus-style="ring"] .lat-focus {
 }
 
 /* ── list-fill — accent-soft fill on the target ───────────────────────────── */
-section[data-focus-style="list-fill"] li.lat-focus { background: var(--focus-fill); }
+/* Lifted above a card's own `background` (see highlight): at plain `li.lat-focus` specificity the fill never showed on a card. */
+section[data-focus-resolved][data-focus-axis="item"][data-focus-style="list-fill"] :is(ul, ol) > li.lat-focus { background: var(--focus-fill); }
 section[data-focus-style="list-fill"] tr.lat-focus > :is(td, th) {
   background: var(--focus-fill);
   font-weight: 600;
 }
+
+/* ── highlight — tint + edge on the target, on every axis, rest untouched ─────
+ * Promote-only like ring / list-fill: nothing recedes, so the slide keeps
+ * full legibility. It is the verdict-grid `preferred` look (accent-soft fill, an
+ * `--on-accent-soft` edge) without the spark, offered on every axis `_focus:` can
+ * address. Edges are inset shadows / outlines, so nothing shifts layout and no
+ * soft mask is involved (Apple PDFKit safe). */
+section[data-focus-style="highlight"] {
+  --focus-edge: var(--on-accent-soft);
+  /* a stronger tint than --focus-fill: a card already sits on a pale panel, so the soft fill alone barely reads */
+  --focus-hl-fill: color-mix(in srgb, var(--accent) 11%, var(--bg-alt, var(--bg)));
+}
+/* list / grid item: fill + an inset edge (an inset outline never reflows the card) */
+/* Lifted above a card's own `background`: cards-grid's rule carries a `:not(:has(.cards-grid-inner))` and
+ * scores (0,3,3), the same as a bare `[resolved][style] ul > li.lat-focus`, so the axis attribute is in the
+ * selector to win on specificity and not on source order. A component whose own `li` rule is stronger still
+ * (checklist's state rows, (0,4,3)) keeps its state fill and takes only the edge, which suits a state row. */
+section[data-focus-resolved][data-focus-axis="item"][data-focus-style="highlight"] :is(ul, ol) > li.lat-focus {
+  background: var(--focus-hl-fill);
+  outline: 0.2cqi solid var(--focus-edge);
+  outline-offset: -0.2cqi;
+  border-radius: var(--radius-md, 0.6cqi);
+}
+/* table row: fill on every cell, a hairline above and below, end caps on the first/last cell */
+section[data-focus-style="highlight"] tr.lat-focus > :is(td, th) {
+  background: var(--focus-hl-fill);
+  box-shadow: inset 0 0.2cqi 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge);
+}
+section[data-focus-style="highlight"] tr.lat-focus > :is(td, th):first-child {
+  box-shadow: inset 0 0.2cqi 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge), inset 0.2cqi 0 0 var(--focus-edge);
+}
+section[data-focus-style="highlight"] tr.lat-focus > :is(td, th):last-child {
+  box-shadow: inset 0 0.2cqi 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge);
+}
+/* column: fill + side edges, capped on the header and the last body row */
+section[data-focus-axis="col"][data-focus-style="highlight"] :is(td, th).lat-focus {
+  background: var(--focus-hl-fill);
+  box-shadow: inset 0.2cqi 0 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge);
+}
+section[data-focus-axis="col"][data-focus-style="highlight"] thead tr:first-child > .lat-focus {
+  box-shadow: inset 0.2cqi 0 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge), inset 0 0.2cqi 0 var(--focus-edge);
+}
+section[data-focus-axis="col"][data-focus-style="highlight"] tbody tr:last-child > .lat-focus {
+  box-shadow: inset 0.2cqi 0 0 var(--focus-edge), inset -0.2cqi 0 0 var(--focus-edge), inset 0 -0.2cqi 0 var(--focus-edge);
+}
+/* one cell */
+section[data-focus-axis="cell"][data-focus-style="highlight"] .lat-focus {
+  background: var(--focus-hl-fill);
+  box-shadow: inset 0 0 0 0.2cqi var(--focus-edge);
+}
+/* code line: a band across the panel with an accent edge on its left, the same recipe as the code plugin's `mark=` */
+section[data-focus-style="highlight"] pre .ln.lat-focus {
+  display: inline-block;
+  min-width: 100%;
+  background-color: color-mix(in srgb, var(--code-text) 18%, transparent);
+  box-shadow: inset 0.3cqi 0 0 var(--accent);
+}
+/* chart mark: an edge drawn behind the fill, so the mark keeps its own hue (as ring does). The heading ink,
+ * not the accent: most marks are accent-hued, and an accent edge on an accent bar does not show. */
+section[data-focus-axis="mark"][data-focus-style="highlight"] .lat-focus:not(text, polyline, line) {
+  stroke: var(--text-heading) !important;
+  stroke-width: 5 !important;
+  paint-order: stroke;
+}
+/* a stroke-only mark (slope's lines): there is no fill for an edge to sit behind, so an edge stroke would repaint
+ * the line itself in the edge colour. It keeps its own hue and takes weight instead. */
+section[data-focus-axis="mark"]:is([data-focus-style="highlight"], [data-focus-style="ring"]) :is(polyline, line).lat-focus {
+  stroke-width: 3 !important;
+}
+/* a mark that is a label (radar's axis names): a stroke would smear glyphs into a blob, so it takes the accent ink */
+section[data-focus-axis="mark"][data-focus-style="highlight"] text.lat-focus { fill: var(--accent); }
 
 /* ── chart marks and series — the `mark` / `series` axes ───────────────────── */
 /* Spotlight (the default for both) needs no rule of its own: the generic
@@ -164,16 +232,20 @@ section[data-focus-axis="series"] path.lat-focus { stroke-width: 2.6; }
  * a soft fill on a dark canvas all but disappears, so the chart axes recede less. */
 section[data-focus-axis="mark"],
 section[data-focus-axis="series"] { --focus-dim: 0.4; }
+/* The `!important` on the mark edge answers the chart finish's own (`marks.generated.css` sets stroke and
+ * stroke-width `!important` on every pigment mark, #2905): without it the ring and the highlight lost to a
+ * 1px hairline and never showed. The finish's selector sits in `:where`, so this one still wins on specificity. */
 /* Ring on a mark: an accent edge drawn BEHIND the fill (`paint-order`), so the
  * bar, wedge or band keeps its own hue and the fill still covers its exact
  * extent. Half the stroke sits under the fill, so the width is double what
  * shows: 5 user units reads as a 2.5-unit edge, which is what it takes to
  * separate from the hairline every other mark already carries. */
-section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus {
-  stroke: var(--focus-ring);
-  stroke-width: 5;
+section[data-focus-axis="mark"][data-focus-style="ring"] .lat-focus:not(text, polyline, line) {
+  stroke: var(--focus-ring) !important;
+  stroke-width: 5 !important;
   paint-order: stroke;
 }
+section[data-focus-axis="mark"][data-focus-style="ring"] text.lat-focus { fill: var(--focus-ring); }
 
 /* ── the Guide's expressions — focus, highlight, ring ───────────────────────── */
 /* While narration names a part of the slide (a bullet, a table row, column, cell

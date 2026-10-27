@@ -1402,8 +1402,14 @@ Override per slide with `_focusStyle`:
 <!-- _focusStyle: blur -->        <!-- recede the rest (defocus — the camera-focus look) -->
 <!-- _focusStyle: ring -->        <!-- outline the target, no dimming -->
 <!-- _focusStyle: list-fill -->   <!-- accent-soft fill on the target -->
-<!-- _focusStyle: pop -->         <!-- lift the target forward; rest stays legible -->
+<!-- _focusStyle: highlight -->   <!-- accent tint + edge on the target; nothing recedes -->
 ```
+
+`highlight` is the no-dimming look for every axis. A card, table row, column, cell or code line
+takes an accent tint and an edge (the `preferred` look of `verdict-grid`, without the spark), a
+chart mark takes an edge, a chart series gets a heavier line, and every other target stays untouched. It sets no weight or
+size, so nothing rewraps between `_focusSteps`. Worked decks: `examples/focus-styles.md` (the
+five styles side by side) and `examples/focus-highlight-axes.md` (`highlight` on every axis).
 
 `blur` survives PDF and PPTX (the rest is rasterised soft, the target stays
 sharp). On a list/grid it also gives the target a subtle lift (a slight scale +
