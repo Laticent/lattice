@@ -2,12 +2,23 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 import type * as React from "react"
 
+import { TapAway, useOpenState } from "@/components/ui/tap-away"
 import { cn } from "@/lib/utils"
 
 function Select({
+  open,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  // A select is always modal, so it always draws the tap-away layer while open (tap-away.tsx).
+  const [isOpen, setOpen] = useOpenState(open, defaultOpen, onOpenChange)
+  return (
+    <>
+      <SelectPrimitive.Root data-slot="select" open={isOpen} onOpenChange={setOpen} {...props} />
+      {isOpen && <TapAway onTap={() => setOpen(false)} />}
+    </>
+  )
 }
 
 function SelectGroup({

@@ -1713,3 +1713,12 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — any inline style that pairs a `var()` background shorthand with a background longhand set to `undefined`, `null` or `''`.
 - **Removable when** — never; it is how CSS treats a pending-substitution shorthand.
 - **Commits** — the PR that gave the Settings pickers their library icons.
+
+## On iOS, a tap beside an open select or menu leaves it open, and the next tap opens a second one
+
+- **Symptom** — on a phone or iPad, a Settings picker (or any modal shadcn `Select` / `DropdownMenu`) stays open after a tap on blank space or a label. A tap on another trigger then opens a second list over the first, so several sit open at once. Desktop Chromium behaves.
+- **Cause** — two, stacked. (1) A modal Radix list sets `pointer-events: none` on `<body>` while open. Chromium hands an outside tap to `<html>` and Radix closes the list; WebKit hit-tests nothing and delivers no pointer, touch or click event at all, so nothing can close it (measured in Playwright WebKit: zero events reached the document). (2) On the phone, the Settings sheet is a `PersistentSurface` whose box pinned `pointer-events: auto`, outside Radix's layer stack, so a tap on a second trigger reached it and opened that list, which then sat on top of the first.
+- **Mitigation** — `docs/src/components/ui/tap-away.tsx`: the shadcn `Select` and modal `DropdownMenu` roots draw a see-through layer one step under the open list that closes it on `pointerdown` and drops the click that tap produces. `PersistentSurface` follows its backdrop layer's own lock (`covered`), so a list opened from inside it gets the taps. `tap-away.test.tsx` pins the wiring; WebKit is the only engine that shows the bug, so verify a change here in Playwright WebKit at phone width, with touch.
+- **Triggered by** — a modal Radix layer on a WebKit touch device; a custom surface that sets `pointer-events: auto` on itself outside a Radix layer.
+- **Removable when** — Radix gives an outside tap a target on WebKit itself, or the lists stop being modal.
+- **Commits** — the PR that gave the Settings pickers their icons and one Auto head.
