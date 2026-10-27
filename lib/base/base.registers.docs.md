@@ -482,7 +482,7 @@ one. The split frames keep their own ribbon at the top.
 Limits that stay. The `finish:` backdrop ends where a border bar begins, because a backdrop reaching under
 the bar would paint over it. The export-to-Marp bundle ships the runtime, which injects the strips in the browser, so a
 full-bleed slide has its bar there too. And a browser that scales the slide with CSS `zoom` (the print sheet)
-can shift content by half a pixel on a canvas whose bar is not a whole number of pixels.
+can shift content by half a pixel on a canvas whose bar is not a whole number of device pixels.
 
 **`spectrum-card:` — an INDEPENDENT spectrum rail on CARD surfaces (opt-in).** Off by default.
 Paints a rail on every card (the `cards-grid` / `cards-stack` `.card`, and the `stats` /

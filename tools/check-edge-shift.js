@@ -395,8 +395,8 @@ async function main() {
       const sec = byPlacement[pl][i];
       // A component whose manifest says `spectrum: false` has no bar: no border, no strip, in any placement.
       const optedOut = SPECTRUM_CATALOG[String(labelOf(i)).split(/[+\s.:]/)[0]] === false;
-      if (optedOut && (Object.values(sec.border).some((w) => w > 0) || sec.overlay.length || sec.barCount)) {
-        integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars, optedOut: true });
+      if (optedOut && (Object.values(sec.border).some((w) => w > 0) || sec.overlay.length)) {
+        integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars, optedOut: true, drawn: `border ${sec.border.join('/')} overlay ${sec.overlay.join('+') || '-'}` });
       }
       if (sec.strayBars > 0 || ![0, 2].includes(sec.barCount)) integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars });
     }
@@ -440,8 +440,8 @@ async function main() {
       console.log(`  ${m.slide.padEnd(34)} ${m.name.padEnd(36)} ${m.spread.map(f).join(' ')}`);
     }
     if (integrity.length) {
-      console.log('\nBar integrity (each bleed slide must carry exactly two strips, direct children of the section):');
-      for (const x of integrity.slice(0, 25)) console.log(`  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} direct ${x.direct}, stray ${x.stray}`);
+      console.log('\nBar integrity (a bleed slide carries exactly two strips as direct children; an opted-out component draws no bar):');
+      for (const x of integrity.slice(0, 25)) console.log(x.optedOut ? `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} OPTED OUT (manifest spectrum:false) but draws a bar: ${x.drawn}` : `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} direct ${x.direct}, stray ${x.stray}`);
     }
     console.log(moved.length || integrity.length ? `\nFAIL: ${moved.length ? 'the bar placement moves content' : 'the bar overlay is malformed'}.` : '\nPASS: no element moves with the bar placement.');
   }

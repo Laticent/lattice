@@ -1,10 +1,10 @@
 ---
 status: shipped
 summary: >
-  Choosing a different spectrum-bar placement used to move the slide. The bar is a real `border` on the
+  Choosing a different spectrum-bar placement used to move the slide. The bar is a `border` (an overlay strip on full-bleed frames) on the
   `section`, so the content box and every element that measures from the padding box (header, footer,
   page number, stamps, `mark-*` decorations, the overflow marker) landed 2 to 5 px differently under
-  `top`, `left`, `right`, `bottom` and `off`. Baseline: 4,038 of 4,208 elements moved, 162 of 164 slides.
+  `top`, `left`, `right`, `bottom` and `off`. Baseline: 4,039 of 4,209 elements moved, 162 of 164 slides.
   The fix leaves every border rule alone and makes the section's padding give up exactly the border each
   side carries (`--_bar-*`), so the total inset per side is constant; chrome insets, stamps and marks do
   the same. After it, 0 elements move across the components, their manifest variants, five layout
@@ -52,7 +52,7 @@ box on the side it sits. Two more effects follow:
 
 Per kind, the largest spread one element shows across all five placements: content 5.2 px
 (the `collage` tiles, which round differently), stamp 4.1, heading 4.0, header 4.0, footer 4.0,
-page number 4.0. 4,038 of 4,208 compared elements moved, most of them descendants carried along
+page number 4.0. 4,039 of 4,209 compared elements moved, most of them descendants carried along
 by a parent. `divider` is the only frame that does not move, because it owns its signature rail.
 
 ## What the fix has to satisfy
@@ -190,7 +190,7 @@ it changes every slide in every export.
 - **Verified:** 0 elements move across the same sweeps as round 2 plus the bleed states; `--bars` shows
   every component but `divider` drawing a bar on left, right and bottom, and the bar-less top is the default.
   Real renders show the bar over a photo, a dark panel, a media slide and (accent) a collage.
-- **Not verified:** the ODP export (same engine, not run), the Studio and Playground (the runtime twin is
+- **Not verified:** the Studio and Playground (the runtime twin is
   pinned by a unit test, not driven), and Marp-for-VS-Code. (Round 4 corrects an earlier line here: export-to-Marp ships the runtime and does inject the strips.)
 
 ## Round 4: the third independent check
@@ -215,7 +215,39 @@ confirmed and fixed:
 - **The harness** now checks overlay integrity (each bleed slide has exactly 0 or 2 direct-child strips and
   no stray ones) and detects strips by paint, and `--bars` includes dark slides' left, right and bottom.
 
-Still unverified: the Studio and Playground live preview, `mode: sketch`, RTL, marp-cli PDF output.
+The ODP export is verified (round 5): the strip is one gradient rect per bleed slide and LibreOffice renders it.
+Still unverified: the Studio and Playground live preview, RTL, a real Marp render.
+
+## Round 5: the adversarial trio on `f799a29`
+
+Red team, inversion and an independent checker ran on the ship candidate. The placement-shift claim held in
+every sweep (about 75,000 red-team measurements and 12,934 checker variant elements). Fixed:
+
+- **CSS `round()` zeroed every slide's padding in older engines** (Chrome before 125, Firefox before 118,
+  Safari before 15.4; reproduced in Chrome 120): the custom property is invalid at computed time and the
+  `padding` and `border` that read it fall back to unset. `--_bar-w` is now the exact width by default and
+  `@supports (width: round(down, 1px, 1px))` switches to the whole-pixel value. Checked in Chrome 120.
+- **An author's own `<i class="slide-bar">`** (a footer, say) suppressed the injection on every slide. The
+  idempotence guard now matches the exact pair of strips.
+- **The `spectrum` lookup matched any class word in the catalog**, so `list bullet` took `bullet`'s answer.
+  It now reads the slide's first component token.
+- **The opt-out check false-failed** because the injector's zero-size strips counted as a drawn bar. It now
+  reads painted sides and borders only.
+- **Docs:** the one-time moves are re-measured against `origin/main` (see the changelog), the ODP claim is
+  verified, and two stale counts and comments are corrected.
+
+Known and left, each a follow-up or an owner call:
+
+- An unclosed `<div>` in a bleed slide nests the strips inside it, so the bar does not draw in CLI exports
+  (the runtime recovers). Main kept the bar there as a border.
+- `spectrum: false` does not stop `accent` or `tone-edge` from drawing a top bar: those are per-slide choices.
+- A component pinned to a style also strips `spectrum-off`, so a white-label deck re-brands that component.
+- A `collage bleed` photo touching the bar's edge is flattened into the page raster in the PDF, so its
+  resolution depends on the placement.
+- A dark `*-cover` frame under `spectrum: off` sits 3px lower (the dark rule excludes the cover classes).
+- Nothing in CI runs `check:edge-shift`; a new stamp or chrome rule written without the per-side tokens would
+  move again unnoticed. Wiring it, or a static lint, changes the CI contract and is the owner's call.
+- The manifest `spectrum` field has no user yet; the inversion pass recommended cutting it from this PR.
 
 ## How it was checked, and what the first round missed
 
@@ -230,9 +262,9 @@ longer sit 4 px higher. The harness now takes `--variants`, `--classes`, `--each
 
 | Sweep (16:9, indaco unless noted) | Elements | Moved > 0.5 px |
 |---|---|---|
-| Before the change: skeletons, light and dark | 4,208 | 4,038 (162 of 164 slides) |
+| Before the change: skeletons, light and dark | 4,209 | 4,039 (162 of 164 slides) |
 | After: skeletons, light and dark | 4,209 | 0 |
-| After: every manifest variant | 10,402 | 0 |
+| After: every manifest variant | 12,934 | 0 |
 | After: every one of the 493 reserved classes | 5,964 | 0 |
 | After: `footer-inset`, `fill-optical`, `claim-bleed`, `claim-hero`, `accent`, `tone-edge` | about 2,000 each | 0 |
 | After: deck `spectrum: solid`, `duo`, `mono`, `off`, `finish: atrium`; no chrome | 4,208 each | 0 |

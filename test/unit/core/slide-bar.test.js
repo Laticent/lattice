@@ -43,6 +43,11 @@ describe('applySlideBarToHtml', () => {
     const out = applySlideBarToHtml('<section class="image"><h2>a</h2></section><section class="content"><p>x</p></section>');
     assert.equal(out, `<section class="image"><h2>a</h2>${BAR}</section><section class="content"><p>x</p></section>`);
   });
+  test('an author\'s own <i class="slide-bar"> (a footer, say) does not suppress the strips', () => {
+    const out = applySlideBarToHtml('<section class="image"><footer>Acme <i class="slide-bar"></i></footer></section>');
+    assert.ok(out.endsWith(BAR + '</section>'), out);
+  });
+
   test('is idempotent: re-processing rendered HTML changes nothing', () => {
     const once = applySlideBarToHtml('<section class="scene">s</section><section class="collage bleed">c</section>');
     assert.equal(applySlideBarToHtml(once), once);

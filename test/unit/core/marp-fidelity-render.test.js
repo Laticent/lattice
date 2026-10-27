@@ -49,8 +49,8 @@
  * A ROW WITH NO PROBE IS A GAP, NOT A PASS. `AWAITING_PROBE` lists the rows
  * that have no comparison yet, each with the reason, and the test fails on a
  * stale entry — a row that has since gained a probe, or that no longer claims
- * `mirrored`. The list can only shrink, and it is currently EMPTY: all ten
- * rows are probed. That is the difference between this and the assertion it
+ * `mirrored`. The list can only shrink; it holds only `componentSpectrum`
+ * while no shipped component answers `spectrum`. That is the difference between this and the assertion it
  * replaces, which certified all ten rows and verified none.
  */
 
@@ -653,7 +653,7 @@ const AWAITING_PROBE = {
   // opts out yet, so a render has nothing to compare. Add the probe with the first opt-out, and
   // drop this entry in the same change.
   componentSpectrum: 'no shipped component has a `spectrum` answer yet; the shared kernel is unit-tested',
-  // EMPTY, and the mechanism stays. All ten `mirrored` rows now render through both
+  // Holds only `componentSpectrum` (above) and the mechanism stays. Every other `mirrored` row now renders through both
   // paths and compare. The three that were listed here were listed because a first
   // pass believed them un-probeable, and all three reasons were wrong: the two
   // deck-level registers just needed the front-matter fetch the harness now

@@ -9,30 +9,37 @@ const { applyComponentSpectrum } = require('../../../lib/core/component-spectrum
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
-const catalog = { quiet: false, loud: 'solid', rainbow: 'on' };
+const catalog = { kpi: false, 'cards-grid': 'solid', table: 'on', bullet: false };
 
 describe('applyComponentSpectrum', () => {
 	test('a component with no entry keeps its class list untouched (same array)', () => {
-		const cur = ['kpi', 'spectrum-edge-left', 'spectrum-solid'];
+		const cur = ['content', 'spectrum-edge-left', 'spectrum-solid'];
 		assert.equal(applyComponentSpectrum(cur, catalog), cur);
 	});
 
 	test('spectrum: false drops the author\'s spectrum classes and turns the bar off', () => {
-		const out = applyComponentSpectrum(['quiet', 'spectrum-edge-left', 'spectrum-duo', 'dark'], catalog);
-		assert.deepEqual(out, ['quiet', 'dark', 'spectrum-off', 'spectrum-edge-off']);
+		const out = applyComponentSpectrum(['kpi', 'spectrum-edge-left', 'spectrum-duo', 'dark'], catalog);
+		assert.deepEqual(out, ['kpi', 'dark', 'spectrum-off', 'spectrum-edge-off']);
 	});
 
 	test('a style name pins the style and leaves the placement to the author', () => {
-		const out = applyComponentSpectrum(['loud', 'spectrum-edge-left', 'spectrum-mono'], catalog);
-		assert.deepEqual(out, ['loud', 'spectrum-edge-left', 'spectrum-solid']);
+		const out = applyComponentSpectrum(['cards-grid', 'spectrum-edge-left', 'spectrum-mono'], catalog);
+		assert.deepEqual(out, ['cards-grid', 'spectrum-edge-left', 'spectrum-solid']);
 	});
 
 	test('"on" pins the rainbow: it removes an author style and adds no token', () => {
-		assert.deepEqual(applyComponentSpectrum(['rainbow', 'spectrum-off'], catalog), ['rainbow']);
+		assert.deepEqual(applyComponentSpectrum(['table', 'spectrum-off'], catalog), ['table']);
+	});
+
+	test('the slide\'s component answers, not a variant word that is another component\'s name', () => {
+		// `bullet` is a chart component AND a variant word on `list`; only `list` is this slide's component.
+		const cur = ['list', 'bullet'];
+		assert.equal(applyComponentSpectrum(cur, catalog), cur);
+		assert.deepEqual(applyComponentSpectrum(['bullet'], catalog), ['bullet', 'spectrum-off', 'spectrum-edge-off']);
 	});
 
 	test('it never removes a component name, and running twice changes nothing', () => {
-		for (const name of ['quiet', 'loud', 'rainbow']) {
+		for (const name of ['kpi', 'cards-grid', 'table']) {
 			const once = applyComponentSpectrum([name, 'spectrum-edge-bottom'], catalog);
 			assert.ok(once.includes(name), name);
 			assert.deepEqual(applyComponentSpectrum(once, catalog), once, `${name} idempotent`);
