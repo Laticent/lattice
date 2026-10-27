@@ -107,6 +107,41 @@ describe('a refresh meta', () => {
   });
 });
 
+describe('an address that fires on a click or a submit', () => {
+  const cases = [
+    ['<a ping="https://evil.example/p" href="#">x</a>', '<a href="#">x</a>'],
+    ['<a PING="https://a.example/p   https://evil.example/q" href="#">x</a>', '<a href="#">x</a>'],
+    ['<area ping=https://evil.example/p href="#">', '<area href="#">'],
+    ['<form action="https://evil.example/s"><input name=q></form>', '<form><input name=q></form>'],
+    ['<form ACTION="//evil.example/s"></form>', '<form></form>'],
+    ['<form action="&#104;ttps&colon;//evil.example/s"></form>', '<form></form>'],
+    ['<form><button formaction="https://evil.example/s">x</button></form>', '<form><button>x</button></form>'],
+    ['<form><input type=submit formaction=\\\\evil.example/s></form>', '<form><input type=submit></form>'],
+  ];
+  test('is removed where no policy stands behind the host, by the markup scan and by the parser check', () => {
+    for (const [html, want] of cases) {
+      assert.equal(blockWebImages(html, [], { fonts: true, DOMParser }).html, want, html);
+      assert.equal(verifyWithParser(`<p>${html}</p>`, DOMParser, (u) => remoteRef.isRemoteUrl(u), true).includes('evil.example'), false, html);
+    }
+  });
+  test('is listed in blocked with its origin, so a host can offer to approve it', () => {
+    const r = blockWebImages('<a ping="https://evil.example/p https://other.example/q" href="#">x</a>', [], { fonts: true, DOMParser });
+    assert.deepEqual(r.blocked.map((b) => b.origin).sort(), ['https://evil.example', 'https://other.example']);
+    // the approved one passes; the attribute still goes because the other address in it does not
+    const part = blockWebImages('<a ping="https://ok.example/p https://evil.example/q" href="#">x</a>', ['https://ok.example'], { fonts: true, DOMParser });
+    assert.equal(part.html, '<a href="#">x</a>');
+  });
+  test('stays when it is relative, a fragment, or an origin the user approved', () => {
+    for (const html of ['<form action="/save"></form>', '<form action="#"></form>', '<a ping="track" href="#">x</a>', '<form action="https://ok.example/s"></form>', '<a ping="https://ok.example/p" href="#">x</a>']) {
+      assert.equal(blockWebImages(html, ['https://ok.example'], { fonts: true, DOMParser }).html, html, html);
+    }
+  });
+  test('is left to the policy where one stands behind the host (connect-src and form-action are closed)', () => {
+    const html = '<form action="https://evil.example/s"></form>';
+    assert.equal(blockWebImages(html, [], { DOMParser }).html, html);
+  });
+});
+
 describe('the rewrites leave the URL nowhere but its label', () => {
   for (const p of PAYLOADS) {
     test(`blockWebImages: ${p.name}`, () => {

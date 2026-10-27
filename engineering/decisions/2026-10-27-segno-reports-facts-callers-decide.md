@@ -188,7 +188,7 @@ tokenizer is about 80 states; tree construction is deliberately out of scope beh
 
 ## Decisions for the owner
 
-- **D5. The `ping`/`action`/`formaction` call (A or B).** *Recommended: A, as the R0 table row.* B leaves the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.
+- **D5. The `ping`/`action`/`formaction` call (A or B).** **Decided by the owner on 2026-10-27: A**, because the same door will later carry user-approved plugins (as video does) behind strong controls, so the filter's default is to refuse and an approved origin passes. Done in `remote-ref.js` as the first row of the policy table (`CLICK_FETCH_ATTRS`). The alternative, B, left the scanner's claim at "on render" and documents the gap; the PR stays at HIGH either way.
 - **D6. Where the role vocabulary lives.** *Recommended: the dialect package,* with Segno carrying opaque labels. *Alternative:* a fixed set in core, which is simpler to check and wrong the moment a second dialect needs a different word.
 - **D7. Fail-closed on `unsure`.** *Recommended: refuse, or defer to the platform parser.* *Alternative:* allow and warn, which recreates a quiet guess.
 - **D8. Sequencing.** *Recommended: R0 now (its own PR, after the export sign-off), R1 next, then R2.* R3 only after R2's gate has run.
