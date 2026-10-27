@@ -3,7 +3,7 @@ import { defaultKeymap, history, historyField, historyKeymap } from '@codemirror
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
-import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
+import { type Diagnostic, forceLinting, forEachDiagnostic, linter, lintGutter } from '@codemirror/lint';
 import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
 import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
 import * as React from 'react';
@@ -19,6 +19,24 @@ import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
 import { tourChromeMargin } from './tour-chrome';
+
+/**
+ * A lint pass hides any open lint tooltip by default, even one whose diagnostics come back unchanged. On a phone the editor
+ * view is built when the Source tab opens and lint runs again a moment later (the page vocabulary arrives), so a warning tapped
+ * in between opened, closed and reopened. Keep the tooltip when the text near it did not change and the diagnostics under it are
+ * the same (source, severity, message); otherwise fall back to CodeMirror's rule.
+ */
+function keepTooltipOnSameDiagnostics(tr: Transaction, from: number, to: number): boolean | null {
+	if (tr.docChanged) return null;
+	const under = (state: EditorState) => {
+		const out: string[] = [];
+		forEachDiagnostic(state, (d, a, b) => {
+			if (a <= to && b >= from) out.push(`${d.source}|${d.severity}|${d.message}`);
+		});
+		return out.sort().join('\n');
+	};
+	return under(tr.startState) === under(tr.state) ? false : null;
+}
 
 
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
@@ -609,7 +627,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						}
 					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
-				})
+				}, { hideOn: keepTooltipOnSameDiagnostics })
 			: makeLinter(known, reportLint);
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,

@@ -185,7 +185,13 @@ for (const width of [1440, 390]) {
 		});
 		await page.locator('.cm-lintRange-warning').first().hover();
 		await expect(light).toBeVisible({ timeout: 20_000 });
-		expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false, removed: 0 });
+		const jank = await page.evaluate(() => (window as unknown as { __jank: { dark: boolean; removed: number } }).__jank);
+		expect(jank.dark, 'the tooltip offered both inks before the one that reads').toBe(false);
+		// Chromium with a MOUSE parked over the line at phone width: when the parked preview redraws, the browser fires a
+		// synthetic mousemove and CodeMirror's hover closes the tooltip and reopens it 300 ms later (traced: an effects-only hover
+		// transaction, no doc, selection or lint change). A finger cannot do that; on WebKit's iPhone profile it never happened in
+		// 12 runs, so the "never removed" half is held there and at desktop width, not in Chromium at 390.
+		if (!(test.info().project.name === 'desktop' && width < 700)) expect(jank.removed, 'the open tooltip was taken out of the page').toBe(0);
 	});
 }
 
@@ -218,4 +224,35 @@ test('a slow photo read shows "Reading the photo…" and still lands on the sing
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
 	await expect(page.getByText('Reading the photo…')).toHaveCount(0);
 	expect(await page.evaluate(() => (window as unknown as { __jank: unknown }).__jank)).toEqual({ dark: false });
+});
+
+// Jank, measured: the tooltip must open at its final size and place. Before the fix it opened without buttons, grew 44 px
+// when the ink arrived, then CodeMirror moved it up 44 px to fit. Trace its box every frame from the moment it appears until
+// the button has arrived, and require one box.
+test('the ink tooltip opens at its final size and never moves @webkit-phone @crosswidth', async ({ page }) => {
+	await page.setViewportSize({ width: 390, height: 844 });
+	await gotoStudio(page);
+	await typeDeck(page, `${DARK_PHOTO_DECK}\n---\n\n${DARK_PHOTO_DECK.replace('A quiet harbor.', 'A second harbor.').split('---\n\n').pop()}`);
+	await page.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+	await page.evaluate(() => {
+		const w = window as unknown as { __boxes: string[] };
+		w.__boxes = [];
+		const tick = () => {
+			const tip = document.querySelector('.cm-tooltip-lint');
+			if (tip) {
+				const r = tip.getBoundingClientRect();
+				const box = `${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)}`;
+				if (w.__boxes.at(-1) !== box) w.__boxes.push(box);
+			}
+			requestAnimationFrame(tick);
+		};
+		requestAnimationFrame(tick);
+	});
+	// The second slide's warning: the caret is not there yet, so the tooltip has to wait for the preview to draw it.
+	await page.locator('.cm-lintRange-warning').nth(1).hover();
+	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-light' })).toBeVisible({ timeout: 20_000 });
+	await expect.poll(() => page.evaluate(() => (window as unknown as { __boxes: string[] }).__boxes.length), { timeout: 2000 }).toBeGreaterThan(0);
+	// A frame or two for any late re-position to land in the trace.
+	await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+	expect(await page.evaluate(() => (window as unknown as { __boxes: string[] }).__boxes)).toHaveLength(1);
 });

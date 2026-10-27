@@ -27,8 +27,7 @@ const ON_SCREEN_WAIT_MS = 6000;
 /** How long a tooltip for a slide NOT on screen keeps checking before offering both: a tap on a phone can open the tooltip a
  *  moment before its caret move reaches the hub and the preview, and the slide becomes "on screen" just after. */
 const OFF_SCREEN_WAIT_MS = 1200;
-/** A read that resolves faster than this never shows the "Reading the photo…" line, so the fast path does not flash it. */
-const SHOW_READING_MS = 400;
+
 
 /**
  * The ink that reads on the photo behind slide `slideIndex`'s card, read from the live preview with the same
@@ -48,9 +47,11 @@ export async function pickedInk(source: string, slideIndex: number): Promise<'li
  * The tooltip body for a `thin-card-no-ink` warning: the message, then the fix buttons, built once and filled IN PLACE. A
  * diagnostic's `actions` are fixed when the lint pass runs, so changing them means a new pass and CodeMirror closing the
  * open tooltip; here the buttons arrive in the same node, so the tooltip never closes or changes under the reader.
- *   - it is on screen: nothing until the photo has been read (the preview may still be drawing it), then the ONE ink that
- *     reads; after a wait with no read (a cross-origin photo), both. A slow read shows "Reading the photo…" meanwhile;
+ *   - it is on screen: a "Reading the photo…" pill until the photo has been read (the preview may still be drawing it),
+ *     then the ONE ink that reads; after a wait with no read (a cross-origin photo), both;
  *   - it is not on screen (the preview cannot show its photo): both inks, after a short check in case the caret is on its way.
+ * The row holds a placeholder pill of the buttons' own class from the first frame, so the tooltip opens at its final height:
+ * a row that started empty grew when the ink arrived, and CodeMirror then moved the taller tooltip to fit (two visible jumps).
  */
 export function inkFixNode(
 	message: string,
@@ -60,9 +61,14 @@ export function inkFixNode(
 	const text = document.createElement('div');
 	text.textContent = message;
 	const row = document.createElement('div');
-	const reading = document.createElement('div');
+	const reading = document.createElement('button');
+	reading.type = 'button';
+	reading.className = 'cm-diagnosticAction';
 	reading.textContent = 'Reading the photo…';
-	reading.style.opacity = '0.7';
+	reading.disabled = true;
+	reading.setAttribute('aria-busy', 'true');
+	reading.style.opacity = '0.6';
+	row.append(reading);
 	root.append(text, row);
 	const add = (ink: 'light' | 'dark') => {
 		const b = document.createElement('button');
@@ -78,13 +84,7 @@ export function inkFixNode(
 		row.append(b);
 	};
 	const started = Date.now();
-	const slow = setTimeout(() => {
-		if (!row.childElementCount && h.onScreen()) row.before(reading);
-	}, SHOW_READING_MS);
-	const done = () => {
-		clearTimeout(slow);
-		reading.remove();
-	};
+	const done = () => reading.remove();
 	void (async () => {
 		for (;;) {
 			const here = h.onScreen();

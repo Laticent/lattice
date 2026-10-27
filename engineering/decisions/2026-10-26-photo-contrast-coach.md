@@ -109,3 +109,19 @@ same tap flow and got the single ink, so the device differs. Two causes fit, and
   and the slide on screen waits up to 6 s, showing "Reading the photo…" once the read takes longer than 0.4 s. Not reproduced in emulation.
 
 Neither is verified on the device itself.
+
+## Jank, measured (2026-10-27)
+
+The owner reported jank on the phone. A per-frame trace of the tooltip's box on WebKit's iPhone profile found it: the tooltip opened at
+117 px with no buttons, grew to 161 px when the ink arrived, then CodeMirror moved it up 44 px to fit, two visible jumps in half a second.
+
+- **Fixed: the tooltip opens at its final size.** The button row holds a disabled "Reading the photo…" pill of the buttons' own class from
+  the first frame; the real button replaces it in place. An e2e traces the box every frame from open until the button arrives and requires
+  one box; it failed with three boxes (open, grow, move) on Chromium and WebKit before the fix.
+- **Fixed: an unchanged lint pass no longer closes the open tooltip.** By default CodeMirror hides a lint tooltip on any `setDiagnostics`,
+  even one that changes nothing; on a phone lint runs again just after the Source tab opens. The editor's linter now passes `hideOn`
+  (`keepTooltipOnSameDiagnostics`): keep the tooltip when the text did not change and the diagnostics under it are the same.
+- **Not ours, and held out of one assertion:** in Chromium with a mouse parked over the line at phone width, the parked preview's redraw
+  makes the browser fire a synthetic mousemove and CodeMirror's hover closes the tooltip and reopens it 300 ms later (traced: an effects-only
+  hover transaction). A finger cannot cause it, and WebKit's iPhone profile never showed it in 12 runs, so the "tooltip never removed" check
+  is held on WebKit and at desktop width, not in Chromium at 390.
