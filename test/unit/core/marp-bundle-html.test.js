@@ -84,7 +84,7 @@ test('a URL attribute keeps a web, relative or image URL and drops one that can 
   }
 });
 
-// Each line comes back after `</title></svg>`, which ends an author's open <title> or <svg> in the browser
+// Each line comes back after `</title></svg></svg></math></iframe>`, which ends an author's open <title> or <svg> in the browser
 // and is ignored otherwise; the integration test's deck ends inside an open <svg><title> to pin that.
 test('the engine passes the bundle\'s own trailing blocks byte for byte, and nothing that only resembles them', () => {
   const { engine } = load();
@@ -95,11 +95,11 @@ test('the engine passes the bundle\'s own trailing blocks byte for byte, and not
   const render = (content) => md.renderer.rules.html_block([{ content }], 0, {}, {}, {});
   // Every runtime tag the bundle appends, and both data blocks.
   for (const line of RUNTIME_SCRIPTS.split('\n').filter((l) => l.startsWith('<script'))) {
-    assert.equal(render(`${line}\n`), `</title></svg>${line}\n`);
+    assert.equal(render(`${line}\n`), `</title></svg></svg></math></iframe>${line}\n`);
   }
   for (const block of ['<script type="application/lattice-front-matter">"marp: true"</script>\n',
     '<script type="application/lattice-export-settings">{"overflowMarker":"reader"}</script>\n']) {
-    assert.equal(render(block), `</title></svg>${block}`);
+    assert.equal(render(block), `</title></svg></svg></math></iframe>${block}`);
   }
   assert.equal(calls.length, 0);
   for (const forged of [
@@ -121,7 +121,7 @@ test('an author block that swallowed a runtime line (an unclosed <pre>) is sanit
   const md = { renderer: { rules: { html_block: (tokens, idx) => { seen.push(tokens[idx].content); return '[S]'; } } } };
   engine({ marp: { use(p) { p(md); return this; } } });
   const tokens = [{ content: '<pre>\ncode\n\n<!-- markdownlint-disable MD033 -->\n<script src="mermaid-v11-min.js"></script>\n' }];
-  assert.equal(md.renderer.rules.html_block(tokens, 0), '[S]</title></svg><script src="mermaid-v11-min.js"></script>\n');
+  assert.equal(md.renderer.rules.html_block(tokens, 0), '[S]</title></svg></svg></math></iframe><script src="mermaid-v11-min.js"></script>\n');
   assert.deepEqual(seen, ['<pre>\ncode\n\n<!-- markdownlint-disable MD033 -->\n']);
   assert.match(tokens[0].content, /mermaid/, 'the token is restored after the call');
 });

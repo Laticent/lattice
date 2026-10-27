@@ -87,6 +87,13 @@ const TAILS = {
   'open-title': 'text <title>left open\n',
   'open-svg': '<svg viewBox="0 0 10 10">\n<rect width="1" height="1"/>\n',
   'open-style': '<style>\nsection { color: red; }\n',
+  // Found by the hostile-tail sweep (followups.d/2599-p1): an open frame ate the runtime lines as its text, and an
+  // open comment ran on into the guard line, so the bundle's own comment came out in the speaker notes.
+  'open-iframe': '<iframe src="https://example.invalid/x">\n',
+  'open-comment': '<!-- left open\n',
+  // A MathML island is not closed by `</svg>`, and a nested SVG needs its closer twice (each trailer line is its own block).
+  'open-math': '<math>\n<mrow>\n',
+  'open-nested-svg': '<svg viewBox="0 0 10 10">\n<svg viewBox="0 0 5 5">\n<rect width="1" height="1"/>\n',
 };
 
 describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, real Chromium', () => {
@@ -98,6 +105,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
   let rawHtml = '';
   let notes = '';
   const tails = {};
+  const tailNotes = {};
 
   before(async () => {
     const probe = marp(['--version'], ROOT, 90000);
@@ -139,7 +147,7 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     assert.equal(n.status, 0, `marp --notes failed:\n${n.stdout}\n${n.stderr}`);
     notes = fs.readFileSync(path.join(bundle, 'notes.txt'), 'utf8');
     // Decks that END inside markup the browser (or Marpit) keeps open over the trailer. Each one killed
-    // the runtime before the engine's `</title></svg>` and the trailer's guard line (measured).
+    // the runtime before the engine's `</title></svg></svg></math></iframe>` and the trailer's guard line (measured).
     for (const [name, end] of Object.entries(TAILS)) {
       const deck = path.join(OUT, `${name}.md`);
       fs.writeFileSync(deck, `---\nmarp: true\ntheme: indaco\n---\n\n# One\n\n---\n\n# Two\n\n${end}`);
@@ -156,6 +164,9 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
         svgScripts: [...document.querySelectorAll('script')].filter((x) => x.namespaceURI !== 'http://www.w3.org/1999/xhtml').length,
       }));
       await p.close();
+      const tn = marp([`${name}.md`, '--config-file', 'marp.config.cjs', '--notes', '-o', 'notes.txt'], dir);
+      assert.equal(tn.status, 0, `marp --notes failed:\n${tn.stdout}\n${tn.stderr}`);
+      tailNotes[name] = fs.readFileSync(path.join(dir, 'notes.txt'), 'utf8');
     }
   });
 
@@ -207,6 +218,12 @@ describe('Export-to-Marp runs none of the deck\'s own script — real marp-cli, 
     if (skip) return t.skip(skip);
     assert.match(notes, /Say the number slowly\./);
     assert.doesNotMatch(notes, /Lattice:|markdownlint/);
+  });
+
+  test('a deck that ends in an open comment keeps the bundle\'s own comments out of its notes', (t) => {
+    if (skip) return t.skip(skip);
+    assert.match(tailNotes['open-comment'], /left open/, 'the author\'s own text is still there');
+    assert.doesNotMatch(tailNotes['open-comment'], /Lattice:|markdownlint|<\/pre>/);
   });
 
   for (const name of Object.keys(TAILS)) {
