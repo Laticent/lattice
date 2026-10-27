@@ -113,3 +113,13 @@ test('the sheet scanners stay linear on a stylesheet that carries megabytes of b
   const [, tRange] = timed(() => camera.unusedRangeFaceUrls(css, 'plain text'));
   for (const [name, ms] of Object.entries({ onlyUsedFontFaces: tPrune, withoutDuplicateFaces: tDup, withoutFontFaces: tOmit, unusedRangeFaceUrls: tRange })) assert.ok(ms < 500, `${name} took ${ms} ms on a 3 MB sheet`);
 });
+
+test('the root rewrite re-points html, body and :root selectors and leaves CSS strings and comments as written', async () => {
+  const { repointRootSelectors } = await import('../../../lib/core/slide-camera.mjs');
+  const css = `html,body{margin:0} :root{--a:1} .x::before{content:" body "} /* body html */ .y::after{content:'html'} section body{color:red}`;
+  assert.equal(
+    repointRootSelectors(css),
+    `.__lc-root,.__lc-body{margin:0} .__lc-root{--a:1} .x::before{content:" body "} /* body html */ .y::after{content:'html'} section .__lc-body{color:red}`,
+  );
+  assert.equal(repointRootSelectors(`.q::before{content:"a \\" body"}body{}`), `.q::before{content:"a \\" body"}body{}`.replace(/}body/, '}.__lc-body'), 'an escaped quote does not end the string');
+});

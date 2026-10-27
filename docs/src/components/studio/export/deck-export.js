@@ -48,7 +48,7 @@ import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.ge
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
-import { captureSlideCanvas } from '../../../../../lib/core/slide-camera.mjs';
+import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/slide-camera.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
@@ -1048,6 +1048,10 @@ function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake
  *  (`article-projection.ts` › warmArticleProjection) without running a capture. */
 export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 
+// Everything the export will draw, for the emoji slice picker: the text, and what pseudo-elements draw through `content:`,
+// which `textContent` never holds (an emoji set only there lost its slice and drew in a fallback face).
+const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}`;
+
 async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
@@ -1062,7 +1066,7 @@ async function sectionsOf(frame, fonts) {
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
-	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '', fonts);
+	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
 	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
@@ -2669,7 +2673,7 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
 			// Embed the faces + wait for them, so the nodes lay out with the real font
 			// before we read computed styles (mirrors the PDF/PPTX path).
-			const fontCssAll = await buildFontEmbedCss(doc.body?.textContent || '');
+			const fontCssAll = await buildFontEmbedCss(deckTextOf(doc));
 			await ensureFontsLoaded(doc, fontCssAll);
 			const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win, { collectTokens: true }));
 			const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
@@ -2783,7 +2787,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 				]);
 				const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
 				const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
-				const fontCssAll = await buildFontEmbedCss(svgFrame.contentDocument.body?.textContent || '');
+				const fontCssAll = await buildFontEmbedCss(deckTextOf(svgFrame.contentDocument));
 				await ensureFontsLoaded(svgFrame.contentDocument, fontCssAll);
 				// The canvas baked behind each standalone SVG (null = transparent) — the SAME
 				// neutral literals the CLI uses, via the shared kernel.

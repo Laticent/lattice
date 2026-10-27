@@ -504,8 +504,8 @@ that slide only, to Chrome's own screenshot with a warning on stderr; a picture 
 
 What the camera does not do: video playback frames, an `<iframe>`'s content, `:nth-*`, sibling and cross-slide counter rules
 (the slide is the only child of its clone, so `section:nth-of-type(2)` and a `counter()` that runs across slides resolve
-against one slide), live `<canvas>` beyond a PNG snapshot, and a stylesheet comment or string that contains the word `html`
-or `body` (the rewrite is textual). Shipped engine CSS uses none of these; an author's own CSS might. A picture the host
+against one slide), and live `<canvas>` beyond a PNG snapshot. The `html`/`body`/`:root` rewrite skips CSS comments and strings
+(`repointRootSelectors`), so `content:" body "` stays text; before the #2904 follow-up it drew as ` .__lc-body `. Shipped engine CSS uses none of these; an author's own CSS might. A picture the host
 cannot read is hidden, not left broken, and counted. `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
 hack worked around html-to-image's border-image bug.
 
@@ -522,7 +522,7 @@ hack worked around html-to-image's border-image bug.
   (`lib/fonts/emoji-faces.js`, `assets/fonts/noto-color-emoji-*.woff2`, about 2 MB together) and leads every emoji fallback, so a
   deck draws the same emoji on every machine. The `fonts:` line (`lib/core/font-policy.js`) says how much a file carries:
   `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
-  `full-emoji` all 11, `system-emoji` none, in every format: a PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
+  `full-emoji` all 11, `system-emoji` none, in every format. An emoji a pseudo-element draws (`::before{content:"🎉"}`, or the escape `"\1F389"`) counts too: the Studio's picker and the camera read the computed `content` (`pseudoContentText`, `lib/core/slide-camera.mjs`), because `textContent` never holds it. In the CLI the slice picker reads the deck's HTML, where `slicesFor` reads a CSS escape in a deck `<style>` as the emoji it spells. A PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
   (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
   drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use, so in a PDF a
   text run that holds an emoji stays in the photo (not real text) and an emoji typed into PowerPoint later uses that machine's own
