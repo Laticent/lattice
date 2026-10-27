@@ -147,6 +147,17 @@ this harness listed the gaps, and none is closed here.
 
 The connection-with-no-request oracle (`conns.idle()`) sees nothing: the control load, which does carry `rel=preconnect`, opens no idle connection that the server can attribute in headless Chromium, so the oracle cannot fail and is not counted as coverage.
 
+## The allowed-origin smuggle (2026-10-27), found by the checker on the click-time change
+
+`refuse` decoded entities on every value, but most callers hand it a value the browser has already decoded once. `https://own.example&amp;sol;@evil.example/x` (the attribute text `&amp;sol;` is the characters `&sol;`, not a slash) was read as `https://own.example/@evil.example/x`, an allowed origin. A browser reads `own.example&sol;` as userinfo and fetches from `evil.example`. The Reading view always allows its own origin, so no reader action was needed, and the leak was live for a `srcset`, a `src` and a style `url()` on Firefox and Safari. Chromium refuses a credentialed subresource and a credentialed form navigation in an iframe, so a Chromium-only fuzz could not see it. The fuzz missed it for a second reason: it allowed no origin. Both are fixed:
+
+- `refuse` no longer decodes. The two callers that hand over raw attribute text (`<base href>` and a media `src`) decode it themselves, once, in attribute mode.
+- The harness allows the page's own origin in the plain and reading compositions, and `--wide` writes addresses that begin with it and continue with the attacker's (`own&amp;sol;@evil`, six joiners, seven carriers). Seed 20261027, 3,000 inputs, `--wide`: the scanner before the fix leaks 38 times in WebKit 26.0 and 30 in Firefox 142.0.1; after it, 0 and 0. In Chromium 131 both give 0, which is why the other two engines are the check for this class.
+
+### And the noscript the sanitizer unwraps (same day)
+
+The post-fix preview run on Firefox found a second hole, in the composition the Playground ships (`deck-preview.js`: scanner, then `sanitizeSlideHtml`, then a content-security policy in a `<meta>`). The scanner reads `<noscript>` as raw text, as a page that runs scripts does, so `<noscript><img srcset="//evil/a 1x, //evil/b 2x"></noscript>` showed it nothing. DOMPurify parses without scripts, keeps the `<img>` and drops the wrapper, so the image came out live. The content-security policy did not stop it: Firefox 142 fetched the `srcset` image although `img-src 'self' data: blob:` was in force (the meta policy does not govern a load the parser already started; not investigated further). The Reading view was not exposed, because it scans again after the sanitizer. Found only because the new two-candidate `srcset` class and the corrected `nameOf` (which had filed the first candidate's `-a` request as unattributed) put a `srcset` inside a `<noscript>`. Fix: a `<noscript>` makes `risky`, so the page's own parser (scripts off) is asked as well, as it already is for `<select>` and foreign content. Without a `DOMParser` (a Node caller) the scan is unchanged. This is a hole in a surface that ships, closed here, not a fuzz-only finding.
+
 ## Confidence
 
 HIGH that the scanners agree with three engines on the grammar the fuzz generates. After the generator grew

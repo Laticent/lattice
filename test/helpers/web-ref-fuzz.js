@@ -109,7 +109,7 @@ async function settle(hits, { quiet = 250, min = 150, max = 15000 } = {}) {
 }
 
 /** The input a request path belongs to: the first path segment, minus the decoy suffix. */
-const nameOf = (url) => url.slice(1).split(/[?#/]/)[0].replace(/-d$/, '');
+const nameOf = (url) => url.slice(1).split(/[?#/]/)[0].replace(/-[ad]$/, '');
 
 /**
  * @param {object} o
@@ -219,7 +219,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
   };
 
   for (let at = from; at < from + count; at += batch) {
-    const inputs = fuzzInputs(seed, Math.min(batch, from + count - at), base, { from: at, wide });
+    const inputs = fuzzInputs(seed, Math.min(batch, from + count - at), base, { from: at, wide, own: new URL(home).origin });
     for (const p of inputs) report.kinds[p.kind]++;
     const known = new Set(inputs.map((p) => p.name));
     const leaksBefore = report.leaks.length;
@@ -245,8 +245,9 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
         if (how === 'reading') {
           // the Studio's Reading view: the scanner, the slide sanitizer, the scanner again; the stylesheet through the
           // scanner and the style sanitizer. Nothing is allowed, and the page has no policy of its own.
-          const first = RemoteRef.blockWebImages(html, [], { fonts: true }).html;
-          doc = RemoteRef.blockWebImages(Compose.sanitizeSlideHtml(first), [], { fonts: true }).html;
+          const mine = RemoteRef.withOwnOrigin([], location.origin);
+          const first = RemoteRef.blockWebImages(html, mine, { fonts: true }).html;
+          doc = RemoteRef.blockWebImages(Compose.sanitizeSlideHtml(first), mine, { fonts: true }).html;
           if (kind === 'css') sheet = Compose.sanitizeStyleText(RemoteRef.blockWebCss(css, []).css);
         } else if (how === 'preview') {
           // a preview frame: the site's own origin allowed, no fonts refusal (the policy does that), the sanitizer, and the
@@ -264,8 +265,10 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
           }
           doc = `<!doctype html><html><head>${Compose.subresourceCspMeta({ webOrigins: [], blocked })}${style}</head><body>${body}</body></html>`;
         } else {
-          doc = RemoteRef.blockWebImages(html, [], { fonts: true }).html;
-          if (kind === 'css') sheet = RemoteRef.blockWebCss(css).css;
+          // the site's own origin is allowed here as it is in the Reading view, which is what an address that merely begins with it has to survive
+          const mine = RemoteRef.withOwnOrigin([], location.origin);
+          doc = RemoteRef.blockWebImages(html, mine, { fonts: true }).html;
+          if (kind === 'css') sheet = RemoteRef.blockWebCss(css, mine).css;
         }
         out.viaImages = doc;
         if (kind === 'css' && sheet !== undefined) out.viaCss = `<style>${sheet}</style><p>x</p>`;

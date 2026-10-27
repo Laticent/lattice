@@ -142,6 +142,61 @@ describe('an address that fires on a click or a submit', () => {
   });
 });
 
+describe('an allowed origin does not vouch for an address the browser reads differently', () => {
+  // The browser decodes an attribute value once. `&amp;sol;` is the text `&sol;`, which is not a slash: in
+  // `https://own.example&sol;@evil.example/x` the part before `@` is userinfo and the request goes to evil.example.
+  // Decoding it a second time read the address as `https://own.example/@evil.example/x`, the allowed origin.
+  const own = ['https://own.example'];
+  const smuggled = 'https://own.example&amp;sol;@evil.example/x';
+  const kept = (html, opts = { fonts: true }) => blockWebImages(html, own, { ...opts, DOMParser }).html;
+  test('a form action, a formaction and a ping lose it', () => {
+    for (const html of [`<form action="${smuggled}"></form>`, `<form><button formaction="${smuggled}">x</button></form>`, `<a ping="${smuggled}" href="#">x</a>`]) {
+      assert.ok(!holds(kept(html), 'evil.example'), html);
+    }
+  });
+  test('a srcset, a src, a style background and a base lose it, with and without the fonts mode', () => {
+    for (const html of [`<img srcset="${smuggled} 1x">`, `<img src="${smuggled}">`, `<div style="background:url(${smuggled})">x</div>`, `<base href="${smuggled}"><p>x</p>`]) {
+      for (const opts of [{ fonts: true }, { fonts: false }]) assert.ok(!holds(withoutLabels(kept(html, opts)), 'evil.example'), `${html} ${JSON.stringify(opts)}`);
+    }
+  });
+  test('the same address through the parser check', () => {
+    const refuse = (u) => remoteRef.isRemoteUrl(u) && !String(u).startsWith('https://own.example/');
+    const out = verifyWithParser(`<form action="${smuggled}"></form>`, DOMParser, refuse, true);
+    assert.ok(!holds(out, 'evil.example'), out);
+  });
+  test('a plain address of the allowed origin still passes', () => {
+    for (const html of ['<form action="https://own.example/save"></form>', '<img srcset="https://own.example/a.png 1x">']) assert.equal(kept(html), html, html);
+  });
+});
+
+describe('a noscript the sanitizer unwraps', () => {
+  // The scanner reads <noscript> content as text, as a page that runs scripts does; a sanitizer parses without scripts, keeps the
+  // elements and drops the wrapper, so the image it hid is live afterwards. The page's own parser is asked whenever a noscript appears.
+  test('loses the address in an image inside it, with and without the fonts mode', () => {
+    for (const html of ['<noscript><img src="https://evil.example/a"></noscript>', '<noscript><img srcset="//evil.example/a 1x, //evil.example/b 2x"></noscript>', '<p><noscript><img src=https://evil.example/a></noscript></p>']) {
+      for (const fonts of [true, false]) assert.ok(!holds(withoutLabels(blockWebImages(html, [], { fonts, DOMParser }).html), 'evil.example'), `${html} ${fonts}`);
+    }
+  });
+  test('still refuses an image after the noscript that ends the raw text early', () => {
+    const html = '<noscript><p title="</noscript><img src=https://evil.example/a>"></noscript>';
+    assert.ok(!holds(withoutLabels(blockWebImages(html, [], { DOMParser }).html), 'evil.example'));
+  });
+});
+
+describe('attributionsrc', () => {
+  test('is removed where no policy stands behind the host, on an image and on a link', () => {
+    for (const [html, want] of [
+      ['<img src="/i.png" attributionsrc="https://evil.example/r">', '<img src="/i.png">'],
+      ['<a href="/n" attributionsrc="https://ok.example/a https://evil.example/r">x</a>', '<a href="/n">x</a>'],
+    ]) assert.equal(blockWebImages(html, [], { fonts: true, DOMParser }).html, want, html);
+  });
+  test('stays when empty, relative or approved', () => {
+    for (const html of ['<a href="/n" attributionsrc>x</a>', '<a href="/n" attributionsrc="/r">x</a>', '<a href="/n" attributionsrc="https://ok.example/r">x</a>']) {
+      assert.equal(blockWebImages(html, ['https://ok.example'], { fonts: true, DOMParser }).html, html, html);
+    }
+  });
+});
+
 describe('the rewrites leave the URL nowhere but its label', () => {
   for (const p of PAYLOADS) {
     test(`blockWebImages: ${p.name}`, () => {

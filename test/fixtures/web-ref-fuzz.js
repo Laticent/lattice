@@ -40,7 +40,7 @@ function prng(seed) {
 
 const HEX = /[0-9a-fA-F]/;
 
-function makeKit(next, wide = false) {
+function makeKit(next, wide = false, own = '') {
   const int = (n) => Math.floor(next() * n);
   const chance = (p) => next() < p;
   const pick = (a) => a[int(a.length)];
@@ -299,8 +299,27 @@ function makeKit(next, wide = false) {
     ])();
   }
 
+  /**
+   * An address that begins with the site's own (allowed) origin and then continues with the attacker's, joined by text the
+   * browser reads as userinfo and a scanner that decodes twice reads as a path: `own&amp;sol;@evil/x`.
+   */
+  function smuggledElement(url) {
+    const rest = url.replace(/^[a-zA-Z]*:?[\\/]*/, '');
+    const joined = `${own}${pick(['&amp;sol;', '&amp;#47;', '&amp;num;', '&amp;bsol;', '&amp;quest;', '&amp;#x2F;'])}@${rest}`;
+    return pick([
+      () => `<form ${attr('action', joined)}><input type=submit></form>`,
+      () => `<form><button ${attr('formaction', joined)}>x</button></form>`,
+      () => `<a ${attr('ping', joined)} ${attr('href', '#')}>x</a>`,
+      () => `<img ${attr('srcset', `${joined} 1x`)}>`,
+      () => `<img ${attr('src', joined)}>`,
+      () => `<div ${attr('style', `background:url(${joined})`)}>x</div>`,
+      () => `<base ${attr('href', joined)}><img ${attr('src', 'x.png')}>`,
+    ])();
+  }
+
   function htmlCore(url) {
-    const kind = int(wide ? 18 : 14);
+    const kind = int(wide ? 19 : 14);
+    if (kind === 18 && own) return smuggledElement(url);
     if (kind >= 14) return actionElement(url);
     if (kind === 10) return pictureElement(url);
     if (kind === 11) return xmlBaseElement(url);
@@ -359,18 +378,20 @@ function makeKit(next, wide = false) {
  * @param {number} seed
  * @param {number} count
  * @param {string} base  the origin each input fetches from
- * @param {{ from?: number, wide?: boolean }} [opts]  `wide` adds the classes that act on a click, a submit or a hint
+ * @param {{ from?: number, wide?: boolean, own?: string }} [opts]  `own`, with `wide`, is the site's own origin: the generator
+ *   writes addresses that begin with it and continue with the attacker's (`own&amp;sol;@evil`), which an allowed origin must not vouch for.
+ *   `wide` adds the classes that act on a click, a submit or a hint
  *   (`ping`, `action`, `formaction`, `rel=preconnect`) and spells the host more ways; off, the stream is the one every
  *   published run used.  `from` skips the first inputs without generating them differently:
  *   input i depends only on (seed, i), so a failing index replays on its own
  * @returns {Array<{ name: string, kind: 'css' | 'html', text: string }>}
  */
-function fuzzInputs(seed, count, base, { from = 0, wide = false } = {}) {
+function fuzzInputs(seed, count, base, { from = 0, wide = false, own = '' } = {}) {
   const out = [];
   for (let i = from; i < from + count; i++) {
     // one stream per input: replaying index i never needs the i inputs before it (it does need the same base length)
     const next = prng((seed ^ Math.imul(i + 1, 0x9e3779b1)) >>> 0);
-    const kit = makeKit(next, wide);
+    const kit = makeKit(next, wide, own);
     const name = `f${(seed >>> 0).toString(36)}-${i}`;
     const kind = kit.chance(0.5) ? 'css' : 'html';
     // The scheme without its slashes, in capitals, or protocol-relative: absolute to the URL parser all the
