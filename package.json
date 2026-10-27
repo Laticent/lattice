@@ -282,6 +282,8 @@
     "geometry:check": "node tools/check-geometry-parity.js --scaled",
     "oracle:bless": "node tools/bless-split-oracle.js",
     "oracle:check": "node tools/bless-split-oracle.js --check",
+    "split:golden": "node tools/split-pages-golden.js",
+    "split:golden:check": "node tools/split-pages-golden.js --check",
     "regress": "node tools/regression-gate.mjs",
     "bless": "node tools/regression-gate.mjs --bless",
     "test:coverage": "c8 node --test --test-reporter=dot 'test/unit/**/*.test.js'",

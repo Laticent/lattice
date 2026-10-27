@@ -7408,6 +7408,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'the default palette — a silently wrong divergence table rather than an error.',
   },
   {
+    file: 'tools/split-pages-golden.js',
+    why: 'rewrites each gallery\'s front matter to set `size:` before rendering. A CRLF or BOM '
+       + 'gallery would keep its authored size, so the golden would record the wrong family and '
+       + 'pass while the split under test never ran at that size.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
