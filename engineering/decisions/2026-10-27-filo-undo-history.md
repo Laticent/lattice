@@ -12,8 +12,8 @@ summary: >
   Proposed: Filo, a framework-free history library that records every change to a document as an
   invertible patch, keeps ONE stack per document whoever made the change, holds the whole capped
   stack in memory so undo is always synchronous, survives reload in IndexedDB, keeps every main-
-  thread step under a 16 ms long-task budget (moving work to a worker only where that budget is
-  missed), and caps each document at 100 steps by default (500 at most) under a cross-document LRU
+  thread step under a 16 ms long-task budget (broad diffs always run in a worker, other work
+  only if the budget is missed), and caps each document at 100 steps by default (500 at most) under a cross-document LRU
   byte budget. The Studio routes every source write through it, Compose applies history patches
   even while focused, and one keymap at the Studio root plus `beforeinput` makes undo work from
   any focus and any input method. Revised after the adversarial trio (section 11).
@@ -45,7 +45,7 @@ Seven mechanisms, each written for one surface, none aware of the others.
 |---|---|---|---|---|---|
 | 1 | CodeMirror `history()` | `Editor.tsx:794` | Markdown typing, plus every outside write that reaches the editor while it is mounted (`Editor.tsx:1046`/`:1048` dispatch the value sync with no `addToHistory: false`) | No | 100-120 events (`minDepth: 100`, trimmed past 120) |
 | 2 | Module-scoped carry of #1 | `Editor.tsx:125-180` | Keeps #1 across a switch to Compose and back, guarded on deck id **and** document bytes | No | One deck |
-| 3 | ProseMirror `history()` | `ComposeView.tsx:1943-1944` | Compose typing and Compose structural ops; also the pane-pick toast (`undoPane`, `:2224`) | No | 100 events |
+| 3 | ProseMirror `history()` | `ComposeView.tsx:1943-1944` | Compose typing and Compose structural ops; also the pane-pick toast (`undoPane`, `:2224`) | No | 100-120 events |
 | 4 | Settings toast | `StudioShell.tsx:1561-1602` | The **last** deck-settings write only, withdrawn the moment the source moves | No | One step |
 | 5 | Checkpoints | `studio-store.ts:628` (`SNAP_CAP = 25`) | "Saved version", plus the safety net under AI applies, fix-all and restores (`saveCheckpoint` at `StudioShell.tsx:3549, 3774, 3817, 4755, 4823, 4978`) | Yes (localStorage) | 25 **full copies** per deck |
 | 6 | `CodeField`'s own CodeMirror `history()` | `CodeField.tsx:79-80` | Code fields in Fabricate, FinishStudio, LayoutStudio, CraftLab | No | 100-120 events |
@@ -146,9 +146,13 @@ deck, and checkpoint restores (a restore is a patch like any other, so it can be
 
 "Saved version" stops storing a copy. It names a point on the history (`mark(label)`), and
 restoring it walks the patches. Filo keeps a **keyframe** (a full copy) at the oldest retained
-point. When the oldest patches are trimmed they fold into that keyframe, so marks older than the
-window still restore. That **floor keyframe is exempt from the byte cap**; without the exemption a
-large deck could never keep any history at all.
+point. When the oldest patches are trimmed they fold into that keyframe, which moves it forward, so
+a mark older than the window would lose its state. So a mark that falls out of the window keeps its
+own **anchor**: the composed patch from it to the next retained mark (or to the floor keyframe).
+Restoring an old mark walks those anchors back. Composed patches between distant marks can approach
+the size of the deck, which is why the acceptance test in §8 measures 25 marks as they are actually
+spread, not 25 marks inside the window. The **floor keyframe is exempt from the byte cap**; without
+the exemption a large deck could never keep any history at all.
 
 Today a restore that renames a photo rewrites every checkpoint's source
 (`mapCheckpointSources`, `studio-store.ts:650`). Patches cannot be rewritten that way, so a rename
@@ -165,7 +169,7 @@ pile up.
 
 ```
  Markdown ─┐                              ┌─ apply(patch) → the mounted editor, at once
- Compose  ─┤  commit({ doc, base, … })    │
+ Compose  ─┤  commit({ base, … })         │
  Settings ─┼────────────► FILO ───────────┤
  Preview  ─┤   (after React settles)      └─ offset ──► Studio glue ──► Fuoco hub.go ──► every pane reveals it
  Rail, AI ─┘
@@ -173,12 +177,12 @@ pile up.
 
 ### Writers commit, and every writer is listed
 
-`StudioShell` has three write paths, not one, and all of them must reach Filo:
+`StudioShell` has four write paths, not one, and all of them must reach Filo:
 
 | Path | Who uses it | Today |
 |---|---|---|
 | `setSourceFromEditor` (= `setSourceRaw`, `StudioShell.tsx:480`) | Both editors' typing, live remote edits (`:4044`), shared-text binds (`:4100`), and `:3021`, `:4266`, `:6103` | Skips the epoch bump on purpose |
-| `setSource` (19 call sites) | Deck loads, restores, AI applies, fix applies, practice start and end, the demo | Bumps the epoch |
+| `setSource` (19 call sites) | Deck loads, restores, AI applies, fix applies, structural slide ops (`:4672` `applyDeckOp`), Library rename, `setDebug` (`:2410`), the settings toast's own undo (`:1577`), practice start and end, the demo (`:3118`) | Bumps the epoch |
 | `settingsWrite` (56 call sites in the shell, plus children's `onWrite`: `PluginsSettings`, `CodePackagesNotice`, `ShareSheet`) | Every settings row | Functional updater, then `setSource` |
 | `onRetire → saveSourceGuarded` (`:6096`) | Compose's final emit for the deck being left | Writes another deck's source directly |
 
@@ -188,18 +192,26 @@ The rules:
    `setDebug` (`:1594`, `:2410`) pass functional updaters, and StrictMode runs updaters twice. A
    writer stamps its intent (`{ label, origin }`) into a ref; one effect keyed on `source` diffs
    Filo's head against the new text and commits once, with that intent, or with "Typing" from the
-   editor's origin.
-2. **Every commit names its document and its base.** `commit({ doc: deckId, base: headRevision,
-   … })`. Filo refuses a commit whose base is not its head, and the shell re-diffs. This is what
-   stops a deck switch from filing deck B's text under deck A, since `setDeck` and `setSource` are
-   separate state updates.
-3. **Loads are not commits.** Deck switches, practice decks in a live tour and the demo canvas
-   call `load(doc, text)`. A practice deck gets a memory-only history that is discarded when the
+   editor's origin. A write that turns out to be a no-op clears its intent, so the next keystroke
+   never inherits a stale label.
+2. **Every commit names its base.** `filo.active.commit({ base: head, … })`. Filo refuses a
+   commit whose base is not its head, and the shell re-diffs. This catches two writers racing
+   inside one document; it does not catch a deck switch, which rule 3 does.
+3. **Loads are not commits, and a load is what switches documents.** Every deck change calls
+   `filo.load(doc, text)` before or with its text, including the shared-text bind at `:4100`
+   (`setDeck(d); setSourceFromEditor(shared)`, which would otherwise reach the effect as "Typing"
+   on the no-epoch path). The commit effect skips any source whose deck id differs from the active
+   history's document, since `setDeck` and `setSource` are separate state updates. Practice decks
+   in a live tour and the demo canvas also call `load`. A practice deck gets a memory-only history that is discarded when the
    tour ends, so the tour can never reach the real deck's stack.
 4. **The shell keeps a revision counter.** Any change to `source` that did not arrive through a
-   commit or a load marks the stack stale. The next undo first records a gap entry for it,
-   computed synchronously, so an old patch is never applied to text it was not recorded against.
+   commit or a load marks the stack stale. The next undo first records a gap entry for it as a
+   single whole-document replace patch, which needs no diff and so costs no main-thread time; the
+   worker narrows it later. An old patch is never applied to text it was not recorded against.
    This covers a live session ending without a reload.
+4b. **During a live session the commit effect is suspended.** Remote edits arrive through
+   `setSourceFromEditor` (`:4044`) and would otherwise be recorded as the author's own typing;
+   Filo delegates to `Y.UndoManager` for the session (§6.2).
 5. **A gate keeps it that way.** A `check-ownership` rule fails on a write to deck source outside
    the funnel, and on `history()` from `@codemirror/commands` or `prosemirror-history`, or a
    `Mod-z` binding, outside the Filo glue. The live `Y.UndoManager` path is the one sanctioned
@@ -212,7 +224,7 @@ so nothing records it twice.
 
 - **CodeMirror** applies it as a precise dispatch with `addToHistory: false`; it already maps the
   caret through a `ChangeSet`.
-- **Compose** needs four changes, each named by the red team:
+- **Compose** needs five changes:
   1. **A history patch bypasses the focus park.** Today an outside change that arrives while
      Compose has focus is parked (`ComposeView.tsx:2726-2730`), and the next keystroke emits from
      the stale document (`:2604-2615`). Under Filo that would make ⌘Z in Compose look like it does
@@ -237,6 +249,10 @@ so nothing records it twice.
      go/no-go before anything else is built (§9, slice 1). If the spike fails, the fallback is
      still one stack: Compose applies an undo with a full resync, costing folds and caret on undo
      only, never the history.
+  5. **The rest of Compose's history API moves to Filo.** The five `closeHistory` callers
+     (`lib/compose/raw-objects.ts:66,97`, `image-objects.ts:127,142`, `pane-model.ts:325`,
+     `inline-objects.ts:650`) become `filo.closeGroup()`, and the Undo/Redo pill's enabled state
+     (`undoDepth`/`redoDepth`, `ComposeView.tsx:661-662`) reads `canUndo`/`canRedo` from Filo.
 
 ### The location becomes a reveal
 
@@ -283,15 +299,16 @@ HARD RULE #22 and goes through that review.
 ## 4. The library
 
 ```ts
-import { createHistory } from '@laticent/filo';
+import { createFilo } from '@laticent/filo';
 
-const h = createHistory({
-  doc: 'deck:abc123',
+const filo = createFilo({
   store: idbStore('lattice-filo'),          // or memoryStore(); persistence is optional
   limits: { entries: 100 },                 // default 100; clamped to the hard maximum of 500
   scheduler,                                // where idle work runs; the browser's idle callback by default
 });
-await h.open(currentText);                  // the editors stay read-only until this resolves
+const h = filo.load('deck:abc123', currentText); // one history per document; this one is now active
+// Editing is live at once. With a persistent store, ⌘Z is disabled until h.ready resolves;
+// with memoryStore() it is ready synchronously.
 h.commit({ base: h.head, patch, label: 'Typing', origin: 'markdown', before, after });
 h.commit({ base: h.head, next: aiText, label: 'AI: tighten slide 3', origin: 'ai' });
 h.batch('Fix all (4)', () => { /* synchronous commits, one step */ });
@@ -317,19 +334,21 @@ byte cap bounds the rest.
 ### "Off the main thread" is a budget with a test
 
 The owner's requirement is that history work never makes the Studio janky. The measurement says
-most of it is cheap, so the requirement is written as a budget, and a worker is used only where the
-budget is missed:
+most of it is cheap, so the requirement is written as a budget, and a worker is used where the
+budget is missed, and always for broad diffs:
 
 | Work | Measured (134 KB deck, Node 22) | Where it runs |
 |---|---|---|
-| Line diff of a wholesale replace (AI apply, import, restore) | 2.7-4.3 ms warm; 12-22 ms on the first call in a fresh process | Main thread, unless the long-task test fails on a real deck; then a worker, with a provisional patch committed at once and narrowed before it is persisted |
-| SHA-256 of the document | 0.49 ms | Main thread, synchronously, so the hash is known at undo time |
+| Line diff of a localized replace (an AI edit of a few slides, a restore close to the current text) | 1-4 ms warm | Main thread |
+| Line diff of unrelated or broadly edited text (an import, a whole-deck AI rewrite, a gap entry) | **150-375 ms** (every third line edited: 149-199 ms; an unrelated deck: 360-375 ms) | **Always a worker.** The commit records a single whole-document replace patch at once (no diff, no main-thread cost) and the worker narrows it before it is persisted |
+| Hash of the document | Node's native SHA-256: 0.2-0.5 ms. **UNVERIFIED in a browser**: Web Crypto's `digest` is async-only, so a synchronous hash must be a zero-dependency JS function | Main thread, synchronously, so the hash is known at undo time; a fast non-cryptographic 64-bit hash, measured in the browser before slice 5 |
 | Gzip of a keyframe (134 KB to 46 KB) | 6.6 ms | Idle callback; a worker if the test fails |
 | IndexedDB writes, trimming, LRU eviction | Async I/O | Idle callback |
 
 **The acceptance test**: a `PerformanceObserver('longtask')` e2e on the 134 KB deck records no
-main-thread task over 16 ms that history caused, during typing, an undo, a settings write and an AI
-apply. The worker is built if and only if that test needs it. Filo falls back to an in-thread
+main-thread task over 16 ms that history caused, during typing, an undo, a settings write, an AI
+apply and an import. The broad-diff worker is built in slice 5; any other work moves to it only if
+that test needs it. Filo falls back to an in-thread
 scheduler where there is no `Worker` (Node, tests, a strict CSP).
 
 ### Bounds: the entry cap and the LRU
@@ -340,7 +359,9 @@ scheduler where there is no `Worker` (Node, tests, a strict CSP).
 - **Per document: a patch byte cap** (default 2 MB). Counted on the stored entry, which includes
   the deleted text its inverse needs; the floor keyframe is exempt. An entry larger than the whole
   cap (a 3 MB paste over a 1 MB deck) is still recorded, the older entries fold into the keyframe,
-  and the state before the paste stays recoverable because the keyframe holds it.
+  and the state before the paste stays recoverable because the keyframe holds it. The newest entry
+  is always exempt from the cap, so an oversized paste stays one ⌘Z away until the next change;
+  after that it folds into the keyframe and is reachable as a restore, not a single ⌘Z.
 - **Across documents: an LRU** over every document's stored history, by total bytes (default
   50 MB of IndexedDB, shared with the Studio's media store). "Recent" means last **written**, not
   last opened, so a deck edited all day in one tab is never evicted by browsing in another. On
@@ -372,7 +393,7 @@ one that kills the page between the source write and the IndexedDB write.
    no `storage` listener), so each tab holds its own text and their entries cannot chain. The
    first tab to open a deck holds a Web Lock on its history for the session. A second tab gets a
    memory-only stack for that deck and a one-line notice that its undo will not survive reload.
-   Persisted entries carry their base hash, and `open` verifies the chain.
+   Persisted entries carry their base hash, and `load` verifies the chain.
 2. **Live collaboration** (owner's call: wrap `Y.UndoManager`). During a session Filo delegates to
    the session's `Y.UndoManager` behind an adapter, so the keys, buttons and `beforeinput` go
    through one path and undo stays per-person. Every source writer must reach the shared `Y.Text`
@@ -390,8 +411,9 @@ one that kills the page between the source write and the IndexedDB write.
    content the author just deleted. A separate workspace history (soft delete plus restore) is
    out of scope for v1.
 5. **Selection is part of the undo.** After ⌘Z the caret goes to where the change was.
-6. **Accessibility.** Each undo announces its label through the Studio's `Announce` live region
-   ("Undid: Theme → Cuoio"). A silent undo is invisible to a screen-reader user.
+6. **Accessibility.** Each undo announces its label through an `Announce` live region
+   (`lib/announce.tsx:80`) that the Studio mounts for it; it has none today ("Undid: Theme →
+   Cuoio"). A silent undo is invisible to a screen-reader user.
 7. **Privacy and backup.** History holds text the author deleted. Delete and Clear all remove it,
    the workspace backup states explicitly whether it carries it (proposed: no), and share and
    export never include it.
@@ -441,25 +463,33 @@ Each slice builds and tests against `main` alone (HARD RULE #17) and is worth ha
 stalls. The order puts the riskiest unknown first, so a half-migration is never worse than today.
 
 0. **Stop the silent loss now.** Report checkpoint write failures instead of swallowing them, and
-   move checkpoints to IndexedDB. A small standalone PR that removes today's worst harm before Filo
-   exists.
+   move checkpoints to IndexedDB. A standalone PR that removes today's worst harm before Filo
+   exists. Not trivial: the workspace backup and restore write `SNAP_PREFIX` keys
+   (`studio-store.ts:1190-1236`), and the shell loads checkpoints synchronously at boot, so both
+   move to the async store.
 1. **Compose spike, with a written go/no-go.** Prove that Compose can apply a patch to only the
    slides it covers while keeping the byte-exact baseline, apply a history patch while focused,
    and emit per-slide patches, with a measured cost on the 134 KB deck. On no-go, the fallback
    (§3) is written into this note before slice 2.
 2. **Filo core, in memory**: the text patch algebra, history, grouping, limits, marks; property
    tests. No Studio change.
-3. **The Studio funnel with Markdown**: every writer through `commit`/`load`; CodeMirror and
-   `CodeField` drop `history()`; the root keymap and `beforeinput`; shell Undo/Redo buttons; the
+3. **The Studio funnel with Markdown**: every writer through `commit`/`load`; the deck editor's
+   CodeMirror drops `history()`; the root keymap and `beforeinput`; shell Undo/Redo buttons; the
    reveal; the gate. **Until slice 4 merges, Compose keeps its own history and owns ⌘Z while it
    has focus; the root keymap yields to it, and Compose's edits are committed to Filo as
-   `origin: 'compose'`. The toasts drop "⌘Z" from their text in Compose until then.** Retires
-   #1, #2, #4 and #6.
+   `origin: 'compose'`. A Compose emit produced by a ProseMirror undo or redo carries a flag; the
+   shell maps it to Filo's `undo()`/`redo()` when the text equals Filo's undo or redo target, and
+   otherwise commits a plain entry labeled "Compose undo". Without that mapping, undoing in Compose
+   and then pressing ⌘Z on the rail would redo the very edit just undone. The toasts drop "⌘Z"
+   from their text in Compose until then.** Retires #1, #2 and #4. `CodeField` keeps its own
+   history until slice 7, since its documents are not on Filo before then.
 4. **Compose on Filo**: the four Compose changes of §3. Retires #3.
 5. **Persistence**: IndexedDB store, reload path, head hash beside the source, tombstones, the
    two-tab lock, the LRU; a worker only if the long-task test calls for one.
-6. **Checkpoints become marks**: migrate existing `SNAP_PREFIX` lists into keyframes. Retires #5.
-7. **Other documents**: Library assets, Fabricate, Motion Studio, Lexicon, Acronyms. Retires #7.
+6. **Checkpoints become marks**: migrate the slice-0 checkpoint store (and any `SNAP_PREFIX`
+   lists left) into marks. Retires #5.
+7. **Other documents**: Library assets, Fabricate, Motion Studio, Lexicon, Acronyms; `CodeField`
+   drops its own `history()` here. Retires #6 and #7.
 8. **Docs site, mark and package** (starts after slice 4 is merged).
 
 ## 10. Decisions
@@ -489,15 +519,15 @@ A red team, a Munger inversion and an independent checker reviewed the first dra
 of its findings as throwaway tests. What changed:
 
 - **Facts corrected.** Seven mechanisms, not six (`CodeField`). The localStorage overflow is
-  WebKit's (Safari, Tauri), not universal, and Chromium and Firefox swallow the failure past about
-  37 checkpoints. The patch is about 33x smaller than a copy, not 69x (the first figure divided
+  WebKit's (Safari, Tauri), not universal, and the Studio's `write()` wrapper swallows the failure in
+  every engine once other data shares the quota. The patch is about 33x smaller than a copy, not 69x (the first figure divided
   bytes by characters). The diff is 2-4 ms warm, not 14-22 ms (those were cold first calls).
   Settings writes take no checkpoint. Fuoco's `Place.unit` is an index, not an id. Line numbers
   fixed (`resyncFrom` 2504, `SNAP_CAP` 628).
 - **Compose.** History patches bypass the focus park, a `filoHistory` flag replaces
   `isHistoryTransaction` in the three guards, `undoPane` moves to Filo, Compose emits per-slide
   patches, and its patch-scoped resync becomes a spike with a go/no-go before anything is built.
-- **The funnel.** All three write paths and the child `onWrite` consumers listed; commits after
+- **The funnel.** All four write paths and the child `onWrite` consumers listed; commits after
   React settles; `load` separate from `commit`; a base revision on every commit; a revision counter
   for changes outside the funnel; a gate against new local stacks.
 - **Undo is always synchronous.** The whole capped stack stays in memory; no page-in.
@@ -508,3 +538,12 @@ of its findings as throwaway tests. What changed:
   across tabs; Clear all writes a tombstone.
 - **Scope.** The `json` adapter waits for a second user; the package is not published until the
   Studio proves the API; persistence moves after the in-memory funnel.
+
+A second checker pass re-read the revision and re-ran the measurements (localStorage counts in
+three engines, the 33x ratio, warm diff, gzip). It found and this note now fixes: broad diffs cost
+150-375 ms, so they always run in a worker and gap entries use a no-diff replace patch; marks older
+than the window keep composed anchors; the slice-3 interim maps Compose's own undo to Filo's so it
+cannot double-undo; `CodeField` keeps its history until slice 7; a deck switch is stopped by
+`load`, not by the base revision; the commit effect is suspended in live sessions; Compose's
+`closeHistory` callers and depth readout are in scope; the API is one registry (`createFilo`,
+`load`); and the browser hash is marked unverified.
