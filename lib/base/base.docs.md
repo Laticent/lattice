@@ -1412,9 +1412,9 @@ size, so nothing rewraps between `_focusSteps`. Worked decks: `examples/focus-st
 five styles side by side) and `examples/focus-highlight-axes.md` (`highlight` on every axis).
 
 `blur` survives PDF and PPTX (the rest is rasterised soft, the target stays
-sharp). On a list/grid it also gives the target a subtle lift (a slight scale +
-a hard accent edge — hard-edged so it survives Apple PDFKit). Tune the radius
-per deck via `--focus-blur` (default `0.15cqi`) and the lift via `--focus-pop`.
+sharp). It only defocuses the rest: the target keeps its size and position, so
+nothing shifts between `_focusSteps` and nothing clips at the stage edge. Tune the
+radius per deck via `--focus-blur` (default `0.15cqi`).
 
 **Walk the slide — `_focusSteps`.** One authored slide expands into N
 rendered slides, each focusing the next target — the static-format

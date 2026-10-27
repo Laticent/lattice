@@ -14,7 +14,7 @@
  *   highlight  an accent tint + edge on the target, rest untouched: cards, rows, columns,
  *              cells and code lines take the tint; a chart mark takes an edge; a series a
  *              heavier line (the `preferred` look of verdict-grid, without the spark).
- *   blur       defocus the rest, lift the target.
+ *   blur       defocus the rest; the target stays sharp and in place.
  * Default by axis: list/grid/code → spotlight; table → ring.
  *
  * Cross-format: opacity / box-shadow / background only — never mask-image
@@ -33,17 +33,6 @@ pre[data-focus-style] /* a code block's own `@code{focus=…}` (lib/plugins/code
   --focus-ring: var(--accent);
   --focus-fill: var(--accent-soft);
   --focus-blur: 0.15cqi;
-  --focus-pop: 1.02;        /* blur target lift — subtle, won't overlap neighbors */
-  --focus-pop-shadow: 0.28cqi;
-  --focus-berth: 0.8cqi;    /* room for the lift: the scale overhang (~0.44cqi) plus the hard shadow (0.28cqi) */
-  /* The lift edge — a curated role token (HARD RULE 11): a theme overrides this
-   * one name to tune the lift. Default = the brand accent softened toward the
-   * page so it reads on-brand without the harsh saturated edge. OPAQUE (mixed
-   * toward --bg, not transparent) so it stays a solid vector fill — bulletproof
-   * in Apple PDFKit. Per-mode variance is automatic: both --accent and --bg are
-   * light-dark(), so the lift adapts to the color scheme with no -light/-dark
-   * tokens. */
-  --focus-lift: color-mix(in srgb, var(--accent) 32%, var(--bg));
 }
 
 /* ── spotlight — recede the rest ──────────────────────────────────────────── */
@@ -65,35 +54,10 @@ section[data-focus-style="spotlight"] tr.lat-focus > td { color: var(--text-head
  * like spotlight it removes the legibility blurred rows/cells would otherwise
  * carry. */
 section[data-focus-style="blur"] .lat-recede { filter: blur(var(--focus-blur)); opacity: 0.82; }
-/* …and blur LIFTS the target — a subtle scale + a hard (zero-blur) accent offset
- * shadow. Hard-edged on purpose: a *blurred* shadow renders as a flat gray block
- * in Apple PDFKit (the soft-compositing weakness behind the mask gotcha), but a
- * zero-blur offset is a solid vector fill that renders everywhere. Scoped to
- * block items (`li`) — a table row / code line doesn't scale cleanly — and kept
- * small (`--focus-pop` scale, `--focus-pop-shadow` offset) so the grown card
- * never bleeds into its neighbor. */
-section[data-focus-style="blur"] li.lat-focus {
-  transform: scale(var(--focus-pop));
-  box-shadow: var(--focus-pop-shadow) var(--focus-pop-shadow) 0 var(--focus-lift);
-  border-radius: 0.6cqi;
-  position: relative;
-  z-index: 2;
-}
-
-/* ── the lift's berth — blur paints OUTSIDE the card ─────────────────────────
- * Blur scales the target and drops a hard shadow past its edge, and the stage clips
- * (`overflow: clip`), so an outer card's lift was sheared on the left or right (measured at
- * 1280px, berth 0: 5.6px of scale overhang, plus the 3.6px shadow on the right). A cards-grid
- * reserves the room as a transparent border (not margin, #20) while blur is active, the way
- * `--elevation-berth` keeps a card's resting shadow inside the clip. It is a border, not padding:
- * the elevation berth is a unitless `0` in most themes, which `max()` and `calc()` reject, so a
- * border is what stacks on the padding the theme's berth already gave. SCOPED to cards-grid: a
- * plain bullet list has no lift to protect and would shift ~10px, and a component that draws its own
- * list border (sketch `list-tabular`) would lose it to this shorthand. The room is constant for the
- * slide, so it does not change between `_focusSteps`. */
-section.cards-grid[data-focus-resolved][data-focus-axis="item"][data-focus-style="blur"] :is(.cell-stage > ul, .cell-stage > ol, .cards-grid-inner, .cards-grid-inner--ordered) {
-  border: var(--focus-berth) solid transparent;
-}
+/* Blur moves nothing: the target keeps its resting size and paints nothing past its edge.
+ * It used to lift the target too (a 1.02 scale plus a hard accent shadow), which shifted
+ * the layout and sheared the outer cards at the stage clip, the same fault that removed
+ * `pop` (2026-06-16-focus-highlighting.md §5.1). */
 
 /* ── ring — accent outline, zero layout shift ─────────────────────────────── */
 /* list / grid item: a plain outline rings the card without reflowing it. */
