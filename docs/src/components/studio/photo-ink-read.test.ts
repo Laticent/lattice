@@ -14,7 +14,7 @@ describe('decide', () => {
 		expect(decide([20, 24, 32], 0)).toEqual({ kind: 'ink', ink: 'light' });
 		expect(decide([240, 238, 230], 0)).toEqual({ kind: 'ink', ink: 'dark' });
 	});
-	it('says neither on a mid-grey photo under a clear card, where no ink reaches 4.5:1', () => {
+	it('says neither on a mid-gray photo under a clear card, where no ink reaches 4.5:1', () => {
 		expect(decide([121, 121, 121], 0)).toEqual({ kind: "neither" });
 	});
 	it('a solid card carries its own contrast, so some ink always reads', () => {

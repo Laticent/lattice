@@ -24,7 +24,7 @@ reads on this photo.
    helps, a **Pin this slide dark** / **light** button. The author clicks it. A pin is offered only if it takes the text to
    4.5:1 or better, because a button that changes the slide and still leaves the words unreadable is worse than none.
 2. **Measure the painted page.** The reader asks the preview frame for the three things the browser decided: the mean photo
-   colour under the card (the `card-ink-sampler.ts` code, now shared), the card's computed fill, and the computed ink of
+   color under the card (the `card-ink-sampler.ts` code, now shared), the card's computed fill, and the computed ink of
    the heading, first paragraph and first list row. The pin is simulated by toggling the class inside one task with
    transitions off, reading the same styles, and putting the classes back.
 3. **One slide, the one on screen.** The preview frame holds one slide at a time, so the finding is for the slide in view
@@ -39,7 +39,7 @@ reads on this photo.
 - Spotlight compositions only. `clean`, `split` and `gallery` put the text beside the photo, and a statement's ink is fixed white on a scrim.
 - Text over a photo outside the `image` component does not exist in Lattice: `![bg]` photos are painted by the `image`
   layout's own `.lattice-bg` panel.
-- Mean colour, not a per-pixel worst case. A busy photo can pass the mean and still lose a word. The 24 by 24 sample is
+- Mean color, not a per-pixel worst case. A busy photo can pass the mean and still lose a word. The 24 by 24 sample is
   the existing card sampler's, kept so the two features agree.
 - Large text is not given 3:1, the stance `check-slide-contrast.js` already takes.
 - **A statement is not measured.** Its backing is the `.image-scrim` gradient (up to 0.86 alpha dark, two layers), not a fill on the text box, and the reader does not model it. The first cut read a statement as "no backing" and, over a bright photo, reported 1.2:1 for text that reads fine on the real scrim; an independent check found it and a probe reproduced it. Measuring a statement with the scrim off (`card-clear`) would need the gradient modelled.

@@ -42,7 +42,7 @@ export function placementOf(classes: string[], deckClasses: string[]): string {
 	return own ?? [...deckClasses].reverse().find((c) => c in PLACEMENT_BOX) ?? DEFAULT_PLACEMENT;
 }
 
-/** The ink that reads on a photo whose colour behind a card `backing` percent opaque averages `mean`, or neither. */
+/** The ink that reads on a photo whose color behind a card `backing` percent opaque averages `mean`, or neither. */
 export function decide(mean: number[], backing: number): InkVerdict {
 	const r = pickCardInk(mean, backing);
 	const best = Math.max(r.light, r.dark);
@@ -121,7 +121,7 @@ function load(url: string): Promise<HTMLImageElement | null> {
 	});
 }
 
-/** The photo's mean colour over the card's part of a 16:9 frame, from the photo itself. Null when it will not load or read. */
+/** The photo's mean color over the card's part of a 16:9 frame, from the photo itself. Null when it will not load or read. */
 async function estimateFromPhoto(url: string, placement: string): Promise<number[] | null> {
 	const img = await load(url);
 	if (!img) return null;

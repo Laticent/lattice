@@ -1,6 +1,6 @@
 import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 
-// The colour of the photo behind a spotlight card, read from the live preview.
+// The color of the photo behind a spotlight card, read from the live preview.
 //
 // card-ink-pick.ts reads this when an image slide opens, and the Card backing slider then asks the
 // kernel (lib/core/card-ink.mjs) which of `ink-light` / `ink-dark` reads better on it. This finds
@@ -10,7 +10,7 @@ import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 // refuses to read), and an empty answer is `null`: the caller then leaves the ink alone and the
 // lint rule `thin-card-no-ink` is what tells the author.
 
-/** The canvas the region is averaged on; small, because only the mean colour is used. */
+/** The canvas the region is averaged on; small, because only the mean color is used. */
 const SAMPLE_PX = 24;
 const LOAD_MS = 4000;
 
@@ -115,7 +115,7 @@ export function photoMatches(ref: string | null, url: string): boolean {
 export const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|band|compact|mirror|at-.+|card-.+|ink-.+)$/;
 
 /**
- * The mean colour of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
+ * The mean color of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
  * when it cannot be read. The preview frame holds either the whole deck or just the slide on
  * screen, so the section is taken by position, falls back to the first, and must show `heading` and
  * the photo `photoRef` names, and already carry the slide's card classes `classes`: right after a class
@@ -162,7 +162,7 @@ export function boxInSection(section: HTMLElement, el: HTMLElement): Box | null 
 }
 
 /**
- * The mean colour of the photo `url` inside `box`, a box in a `cover` panel of `panelW` x `panelH`.
+ * The mean color of the photo `url` inside `box`, a box in a `cover` panel of `panelW` x `panelH`.
  * Null when the photo will not load or the canvas refuses to read it (a cross-origin photo throws a
  * SecurityError, which the caller's catch turns into null).
  */

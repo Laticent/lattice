@@ -282,11 +282,11 @@ test('a photo read once is remembered across a reload', async ({ page }) => {
 	expect(await page.evaluate(() => (window as unknown as { __checking: boolean }).__checking), 'the second open asked again').toBe(false);
 });
 
-// Best effort, said plainly. A mid-grey photo under a clear card, where neither ink reaches 4.5:1, and a photo the Studio
+// Best effort, said plainly. A mid-gray photo under a clear card, where neither ink reaches 4.5:1, and a photo the Studio
 // cannot load: each gets ONE fix, a solid card (which always reads), with a note saying why, never two ink buttons.
-const GREY_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA0ElEQVR42u3SQREAAAzCMGzjHhHbM5HQawoHkQADYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIEwEBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEAYCA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgDISBMBAGAgNhIAyEgcBAGAgDYSAwEAbCQBgIDISBMBAGwkBgIAyEgTAQGAgDYSAMBAbCQBgIA4GB+DTs7uGvuhFSqwAAAABJRU5ErkJggg==';
+const GRAY_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA0ElEQVR42u3SQREAAAzCMGzjHhHbM5HQawoHkQADYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIEwEBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEAYCA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgDISBMBAGAgNhIAyEgcBAGAgDYSAwEAbCQBgIDISBMBAGwkBgIAyEgTAQGAgDYSAMBAbCQBgIA4GB+DTs7uGvuhFSqwAAAABJRU5ErkJggg==';
 for (const [name, ref, note] of [
-	['no ink reads on the photo', GREY_PHOTO, 'No ink reads on this photo.'],
+	['no ink reads on the photo', GRAY_PHOTO, 'No ink reads on this photo.'],
 	['the photo cannot be read', 'img/not-here.jpg', 'Could not read this photo.'],
 ] as const) {
 	test(`when ${name}, the tooltip offers a solid card and says why`, async ({ page }) => {
