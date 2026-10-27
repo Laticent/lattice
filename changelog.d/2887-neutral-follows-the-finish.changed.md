@@ -1,0 +1,4 @@
+- **Every chart finish draws a no-category, no-status mark in the first hue instead of grey or slate.** This covers flowchart, state-chart and gantt neutral nodes, waterfall Plan / Actual columns, the hub-spoke hub and satellites, journey stage bars, and kanban cards and lane rules. Status and category marks keep their own colors.
+- **`live`, `pilot` and `decision` status marks now carry a dot**, in SVG and HTML charts and in the gantt key, so they stay distinct from an unstated mark in the first hue.
+- **Under `tone`, line and ep-curve series are steps of the one ink told apart by dash pattern, and a slope's quiet lines are a pale step of the one hue** (its red/green direction signal is unchanged).
+- **Pigment's risk matrix is less saturated, and etch's bullet measure is stronger than its range bands.**

@@ -1202,14 +1202,14 @@ section.chart-frame .chart-caption::before {
 }
 
 /* The same marks on the HTML members, masked from the `--mark-*-bold` tokens: a status pill leads with its mark. A
- * progress bar draws none: its row's status pill carries the mark, and the bar stays pure length from zero. `--status-mark` names the shape per status; a status with none (live,
- * pilot, decision) draws nothing. */
+ * progress bar draws none: its row's status pill carries the mark, and the bar stays pure length from zero. `--status-mark` names the shape per status; every status draws one. */
 :is(section.chart-frame, figure.chart-frame) [data-s] { --status-mark: none; }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="on-track"], [data-s="done"], [data-s="pass"]) { --status-mark: var(--mark-check-bold); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="at-risk"], [data-s="warn"]) { --status-mark: var(--mark-dash-bold); }
 :is(section.chart-frame, figure.chart-frame) :is([data-s="blocked"], [data-s="fail"]) { --status-mark: var(--mark-x-bold); }
 :is(section.chart-frame, figure.chart-frame) [data-s="deferred"] { --status-mark: var(--mark-slash-bold); }
-:is(section.chart-frame, figure.chart-frame) .chart-status:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"]) {
+:is(section.chart-frame, figure.chart-frame) :is([data-s="live"], [data-s="pilot"], [data-s="decision"]) { --status-mark: var(--mark-dot-bold); }
+:is(section.chart-frame, figure.chart-frame) .chart-status:is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"], [data-s="live"], [data-s="pilot"], [data-s="decision"]) {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;

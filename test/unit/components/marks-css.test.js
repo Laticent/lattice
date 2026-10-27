@@ -321,28 +321,23 @@ describe('marks.generated.css', () => {
     assert.match(css, /\.map-figure \.chart-key-swatch/);
   });
 
-  // Tone's one hue is for BODIES; an edge and a name keep their category ink (tone-is-the-third-finish.md). A series
-  // stroke is all edge, so tone leaves line, ep-curve and slope whole, their dots and bands too (a tonal dot on a
-  // line that kept its hue no longer matches its series), and their names and the word cloud keep their inks.
-  // #2887 once stepped the strokes and names into the one ink: the names collapsed from three colors to one.
-  test('tone leaves a series stroke, its dots and its name in the category ink; etch draws the line heavier', () => {
-    // A selector's `:not(...)` NAMES the classes it skips, so read each tone selector with those removed.
-    const dropNots = (sel) => { let out = ''; for (let i = 0; i < sel.length; i++) {
-      if (sel.startsWith(':not(', i)) { let d = 0; for (i += 4; i < sel.length; i++) { if (sel[i] === '(') d++; else if (sel[i] === ')' && --d === 0) break; } continue; }
-      out += sel[i]; } return out; };
-    const bodyRules = (list) => list.filter((r) => /data-encodes="hue"/.test(r.sel) && /data-paint="fill"/.test(r.sel) && r.body.includes('light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))'));
-    // The shared body rule skips the stroke members by name, for every finish it serves...
-    const shared = bodyRules(headed('pigment', 'etch', 'tone'));
-    assert.equal(shared.length, 1, 'one shared body rule for an SVG fill');
-    for (const c of ['slope-dot', 'line-dot', 'line-band', 'line-area', 'ep-dot']) assert.ok(shared[0].sel.includes(`.${c}`), `${c} is excluded from the shared body rule`);
-    // ...and pigment and etch take them back in a companion rule that tone is not part of.
-    const own = bodyRules(headed('pigment', 'etch'));
-    assert.equal(own.length, 1, 'the companion rule');
-    for (const c of ['line-dot', 'line-band', 'line-area', 'slope-dot']) assert.ok(own[0].sel.includes(`.${c}`), `pigment and etch keep ${c} in its own hue, so they may repaint it`);
-    const toneSelectors = serving('tone').map((r) => dropNots(r.sel));
-    for (const c of ['line-path', 'ep-path', 'line-dot', 'ep-dot', 'line-area', 'cart-series']) {
-      assert.ok(!toneSelectors.some((sel) => new RegExp(`\\.${c}\\b`).test(sel)), `no tone rule repaints .${c}`);
-    }
+  // A series stroke is all edge (paint `none`), so no body rule reaches it. Tone's one-hue rule still has to hold for the
+  // three stroke charts, so tone draws each series in a step of the one ink, tells neighbors apart by a dash pattern, and
+  // paints the series' dots and its end label in the same color. A slope's status lines (direction signal) keep their
+  // status color. Pigment and etch keep the category hue per series, and etch draws the line heavier.
+  test('tone draws a series stroke in steps of the one ink with a dash; pigment and etch keep the category hue', () => {
+    const stroke = (n) => headed('tone').find((r) => r.sel.includes(`.line-path, .ep-path)[data-hue="${n}"]`));
+    assert.match(stroke(1)?.body || '', /stroke: color-mix\(in oklab, var\(--chart-cat-1-ink\) 100%, var\(--bg\)\) !important/);
+    assert.match(stroke(1)?.body || '', /stroke-dasharray: none !important/);
+    assert.match(stroke(2)?.body || '', /stroke-dasharray: 7 3\.5 !important/);
+    assert.match(stroke(3)?.body || '', /stroke-dasharray: 1\.8 3\.2 !important/);
+    const dot = headed('tone').find((r) => r.sel.includes('.line-dot, .ep-dot)[data-hue="2"]'));
+    assert.match(dot?.body || '', /fill: color-mix\(in oklab, var\(--chart-cat-1-ink\) 88%, var\(--bg\)\)/, 'a dot matches its stroke');
+    const name = headed('tone').find((r) => r.sel.includes('.cart-series'));
+    assert.match(name?.body || '', /fill: var\(--chart-cat-1-ink\) !important/);
+    const quiet = headed('tone').find((r) => r.sel.includes('.slope-svg:not(.slope-signal) .slope-line:not([data-s])'));
+    assert.ok(quiet, 'tone quiets the slope lines that carry no status');
+    for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((r) => r.body.includes('stroke-dasharray: 7 3.5')), `${f} does not dash a series`);
     assert.match(css, /marks-etch :where\(:is\(\.line-path, \.ep-path\)\)[^}]*stroke-width: 2\.6/, 'etch draws the series line heavier');
   });
 
@@ -362,15 +357,15 @@ describe('marks.generated.css', () => {
   });
 
   // A node with no category or status is the chart's neutral tile, and a waterfall's Plan / Actual anchors are neutral columns.
-  // Tone and etch both read as a second color in grey, so both take the first hue; pigment keeps its neutral solid.
-  test('tone and etch give the neutral tile and the waterfall anchors the first hue; pigment keeps them grey', () => {
-    for (const f of ['tone', 'etch']) {
+  // Grey or slate read as a second color beside the other marks, so every finish takes the first hue (the owner's call, and
+  // an unstated mark is told from a live one by the live status's dot, lib/core/status-marks.js).
+  test('every finish gives the neutral tile and the waterfall anchors the first hue', () => {
+    for (const f of ['pigment', 'etch', 'tone']) {
       const tile = headed(f).find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
       assert.match(tile?.body || '', /--fc-hue: var\(--chart-cat-1-hue\) !important/, `${f} re-points the neutral tile`);
       const wf = headed(f).find((x) => x.sel.includes('.waterfall-bar[data-s="total"]'));
       assert.match(wf?.body || '', /var\(--chart-cat-1-hue\)/, `${f} paints the anchors from the first hue`);
     }
-    assert.ok(!serving('pigment').some((x) => x.body.includes('--fc-hue: var(--chart-cat-1-hue)')), 'pigment keeps the tile grey');
   });
 
   // The matrix grid colors a row's label and its empty cells' outlines from `--row-hue` / `--row-ink`, which no finish paints

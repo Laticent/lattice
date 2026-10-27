@@ -82,7 +82,7 @@ const F = {
   // Etch's ramp is wider than its whisper of a body: a ramp's identity is VALUE, and the
   // prototype's 6→28% band left a dark-mode heatmap nearly one flat navy — the flattening defect
   // in the magnitude channel. 6→43% keeps it the quietest of the three and still readable.
-  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.82], rampText: [[6, 0.82], [6, 0.82]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
+  etch: { body: [30, 40], backdrop: [14, 19], ramp: [6, 0.64], rampText: [[6, 0.64], [6, 0.64]], layered: 0.1, edge: 2, edgeBackdrop: 3, border: 0 },
   // `ramp` is the band a text-free ramp takes (a map region). `rampText` is the band a ramp that PRINTS ITS VALUE takes
   // (a heatmap cell), as [light, dark]. Tone's two used to differ (70% on light, near 50% on dark) because a fixed ink had to
   // clear the top step. Each value now picks its own ink (`inkOn`, behind the @supports below), which clears 4.58:1 on any
@@ -677,8 +677,13 @@ function build() {
       // OKLab 0.08 from the hub on mustard-dark, under the 0.15 floor the dimmed hub holds with no finish), so the hub
       // goes back to the full heading ink it wears on light. Only a chart that draws a GROUP needs it: a neutral
       // satellite is held under the hub by its own mix, so a neutral or status-only chart keeps the dimmed hub.
-      // Pigment's hub is the neutral solid (REGIONS); etch's body (40%) never comes near the hub.
+      // Pigment's hub is the first-hue solid (REGIONS) and groups are washes there; etch's body (40%) never comes near the hub.
+      // The hub is the deepest mark on the slide: the one hue at full strength (its name is the page ground, from the member).
+      w(rule(name, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
+      // A chart that draws GROUPS keeps the heading-ink hub: a group disc takes tone's deep step, which reaches the one hue's own lightness.
       w(rule(name, '.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub', ['fill: var(--text-heading)', 'stroke: var(--text-heading)']));
+      // A neutral satellite (no status, no hue) is a pale step with the one ink edge, like every etch body.
+      w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${mix(ONE, `${TONE[5]}%`)}`, `stroke: ${ONE_INK}`]));
       // ONE INK FOR EVERY EDGE. With one ladder the bodies already tell the categories apart by depth, so the outline no
       // longer has to carry the category's hue: every mark wears the one tone ink, and a tone chart is one hue plus status.
       w(rule(name, SLOT_SEL, ['--finish-mark-edge: var(--chart-cat-1-ink)'], false));
@@ -707,11 +712,8 @@ function build() {
       // in its labels and outlines. The row's hue is re-pointed to the one hue, as a kanban column's and a roadmap phase's
       // are; the filled cells keep the one ladder (a row's depth is its category).
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
-      // A waterfall's Plan / Actual anchors are neutral columns; under tone they are the tone hue, pale, like the neutral tile.
-      w(rule(name, '.waterfall-bar[data-s="total"]', [
-        `fill: light-dark(color-mix(in oklab, ${ONE} 22%, var(--bg)), color-mix(in oklab, ${ONE} 30%, var(--bg)))`,
-        `stroke: ${ONE_INK}`,
-      ]));
+      // A waterfall's Plan / Actual anchors are neutral columns; under tone they are a solid step of the one hue, like tone's other bars.
+      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${mix(ONE, `${TONE[1]}%`)}`, `stroke: ${ONE_INK}`]));
       // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
       // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
       w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [
@@ -720,24 +722,46 @@ function build() {
       ])));
       // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
       for (const n of SLOTS.filter((x) => x > 4)) w(rule(name, `[data-hue="${n}"][data-encodes="layered"][data-paint="fill"]${notLeft}`, ['stroke-dasharray: 5 3']));
+      // A SERIES STROKE under tone — line and ep-curve. The stroke is the whole mark, so a series cannot take a body step.
+      // It takes a step of the one ink (the steps a layered outline uses, deep enough to clear 3:1 as a line), and is told
+      // apart from its neighbors by a dash pattern as well as depth, with its dots and its end label in the same color.
+      const STROKE_STEP = [100, 88, 78, 68];
+      const STROKE_DASH = ['none', '7 3.5', '1.8 3.2', '8 3 1.8 3'];
+      for (const n of SLOTS) {
+        const i = n - 1;
+        const ink = `color-mix(in oklab, ${ONE_INK} ${STROKE_STEP[i % 4]}%, var(--bg))`;
+        w(supports(rule(name, `:is(.line-path, .ep-path)[data-hue="${n}"]`, [`stroke: ${ink}`, `stroke-dasharray: ${STROKE_DASH[i % 4]}`, ...(i % 4 === 2 ? ['stroke-width: 2.3'] : [])])));
+        w(supports(rule(name, `:is(.line-dot, .ep-dot)[data-hue="${n}"]`, [`fill: ${ink}`])));
+      }
+      w(rule(name, ':is(.cart-series, .line-name, .ep-name)[data-hue]', [`fill: ${ONE_INK}`]));
+      // A slope's lines are one quiet ink by default; a marked line (the signal) is the one ink at full strength, its
+      // direction carried by the geometry. The quiet ink is a pale step of the one hue, not grey.
+      w(supports(rule(name, '.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])', [`stroke: color-mix(in oklab, ${ONE_INK} 52%, var(--bg))`])));
+      w(supports(rule(name, '.slope-svg .slope-line[data-s]', [`stroke: ${ONE_INK}`, 'stroke-width: 1.9'])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph .slope-dot[data-s]', [`fill: ${ONE_INK}`])));
+      w(supports(rule(name, '.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])', [`fill: color-mix(in oklab, ${ONE_INK} 62%, var(--bg))`])));
     }
 
     // ── A SERIES STROKE — line and ep-curve ─────────────────────────────────────────────────────────
     // The stroke IS the mark (paint `none`: no body, so all of it is edge). ETCH draws the line heavier,
-    // because under etch the line is the identity and a line chart has no outline to make it one. TONE leaves
-    // the series whole (STROKE_MEMBERS): tone's one hue is for BODIES, and an edge and a name keep their
-    // category ink, so a stroke that is all edge keeps its hue and its name still matches it by color.
+    // because under etch the line is the identity and a line chart has no outline to make it one. TONE draws
+    // the series in steps of its one ink with a dash per series (below, in tone's own block).
     if (name === 'etch') {
       w(rule(name, ':is(.line-path, .ep-path)', ['stroke-width: 2.6']));
     }
+    if (name === 'etch') {
+      // A bullet's measure is the datum; its range bands are a 36/22/10/4% grey wash. At etch's 30% body the bar was paler
+      // than the band it sits on, so the row read upside down. The measure takes the category ink at half strength.
+      w(rule(name, '.bullet-measure[data-hue]', ['fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) 60%, var(--bg)))']));
+    }
 
-    if (tone || name === 'etch') {
-    // A node with no category and no status is a flowchart's or state chart's NEUTRAL tile. Tone has one hue and etch's grey read as a
-    // second one, so the tile takes it; a status node and a category node (the `:not`s) keep theirs. Set on the member's own hue property rather
+    {
+    // A node with no category and no status is a flowchart's or state chart's NEUTRAL tile. Every finish draws it in the first hue: a grey
+    // or slate neutral read as a second color beside the other marks, so the tile takes it; a status node and a category node (the `:not`s) keep theirs. Set on the member's own hue property rather
     // than re-pointing `--chart-neutral-hue`, which test/helpers/chart-color.js reads from dist as the theme's grey.
     const bare = ':not([data-s]):not([data-slot])';
     w(supports(rule(name, `:is(.fc-node, .fc-node-group)${bare}`, [`--fc-hue: ${ONE}`])));
-    w(supports(rule(name, `:is(.state-node, .state-node-shape, .state-label-t, .state-node-row)${bare}`, [`--fill-hue: ${ONE}`])));
+    w(supports(rule(name, `:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch)${bare}`, [`--fill-hue: ${ONE}`])));
     }
     if (name === 'etch') {
       // Etch's Plan / Actual anchors: the same pale wash and edge every other etch body wears, in the first hue.
@@ -772,14 +796,25 @@ function build() {
       if (name === 'etch') w(rule(name, ':is(.risk-band-ring, .risk-key-marker[data-band="critical"])', [`--chart-ring: ${ring(f.edge)}`]));
     }
 
+    // ── KANBAN — a board of neutral tiles gets the finish's first hue ──────────────────────────────────────────────
+    // The shipped board is grey cards under a hairline (category no longer paints the surface; status does), which left it
+    // the one chart no finish reached. A card with no status takes the finish's wash and a first-hue accent edge, and each
+    // lane's title rule takes the first hue; a status card and the done lane keep their status color.
+    {
+      const wash = name === 'pigment' ? 12 : name === 'tone' ? 12 : null;
+      const tint = wash !== null ? `color-mix(in oklab, ${ONE} ${wash}%, var(--bg))` : `light-dark(color-mix(in oklab, ${ONE} ${f.backdrop[0]}%, var(--bg)), color-mix(in oklab, ${ONE} ${f.backdrop[1]}%, var(--bg)))`;
+      w(supports(rule(name, '.kanban-card:not([data-s])', [`background: ${tint}`, `box-shadow: inset ${name === 'pigment' ? 5 : name === 'etch' ? 4 : 3}px 0 0 ${name === 'pigment' ? ONE : ONE_INK}`])));
+      w(supports(rule(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
+    }
+
     // ── A NEUTRAL hub-spoke node — no status and no hue ─────────────────────
     // Its shipped body is a flat neutral (`--hs-neutral-body`, a strong mix of the body ink), which is already
     // pigment's solid look and tone's one ink, so those two keep it. Etch is the pale one with the 2px edge:
     // left alone, a whole etched chart read as pigment with two recolored nodes.
     if (name === 'etch') {
-      const body = ld(mix('var(--hs-neutral-ink)', `${f.backdrop[0]}%`), mix('var(--hs-neutral-ink)', `${f.backdrop[1]}%`));
+      const body = pair(ONE, f.backdrop);
       w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
-        `fill: ${body}`, 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+        `fill: ${body}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
       w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [
         `--hs-icon-ink: ${ld(inkOn(mix('var(--text-body)', `${f.backdrop[0]}%`)), inkOn(mix('var(--text-body)', `${f.backdrop[1]}%`)))}`,
@@ -790,14 +825,14 @@ function build() {
     // at-risk discs it exists to be read beside. It takes the neutral satellite's whisper and 2x edge, its name in the heading
     // ink. Tone keeps the member's solid hub: tone's claim is depth, and the largest mark is its deepest step.
     if (name === 'etch') {
-      const body = ld(mix('var(--hs-neutral-ink)', `${f.backdrop[0]}%`), mix('var(--hs-neutral-ink)', `${f.backdrop[1]}%`));
-      w(rule(name, '.hub-spoke-hub', [`fill: ${body}`, 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
+      const body = pair(ONE, f.backdrop);
+      w(rule(name, '.hub-spoke-hub', [`fill: ${body}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
       w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--text-heading)']));
     }
     if (name === 'pigment') {
       // Pigment paints the neutral node with the neutral SOLID, like every other unstated mark in the family.
       w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
-        'fill: var(--chart-neutral-hue)', 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+        `fill: ${ONE}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
       w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`])));
     }
@@ -808,14 +843,19 @@ function build() {
     // accent. The stage name's ink is `--journey-stage-fg`, solved against the shipped ground and a paler one holds.
     if (name === 'pigment') {
       w(supports(rule(name, ':is(.journey-stage, .journey-vstage-name)', [
-        'background: var(--chart-neutral-hue)', `color: ${textInk(name)}`,
+        `background: ${ONE}`, `color: ${textInk(name)}`,
       ])));
     }
     if (name === 'etch') {
       w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [
-        'background: color-mix(in oklab, var(--journey-stage-bg) 38%, var(--bg))',
-        `box-shadow: inset 0 0 0 ${edge(f.edge)} var(--section-accent, currentColor)`,
+        `background: ${pair(ONE, f.backdrop)}`,
+        `box-shadow: inset 0 0 0 ${edge(f.edge)} ${ONE_INK}`,
+        '--section-accent: var(--chart-cat-1-ink)',
       ]));
+    }
+    if (tone) {
+      // Tone's stage bar is a pale step of the one hue with the one ink on its top rule: the shipped slate was a second color.
+      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${mix(ONE, `${TONE[5]}%`)}`, '--section-accent: var(--chart-cat-1-ink)']));
     }
 
     // ── REGIONS — pigment puts color on the MARKS and keeps the ground under them neutral ──
@@ -835,15 +875,15 @@ function build() {
       }
       w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
-      w(rule(name, '.waterfall-bar[data-s="total"]', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
+      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${ONE}`, `stroke: ${ONE}`]));
       // The hub-spoke HUB is the one mark with no category and no status: the neutral solid, its name in the solid ink.
-      w(rule(name, '.hub-spoke-hub', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
+      w(rule(name, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
       w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-on-mark)']));
       // A roadmap workstream cell is a row header: neutral ground, its phase kept on the left rule.
       // It carries the workstream's name, so it moves with the other text-bearing marks (TEXT WAITS).
       w(supports(rule(name, '.roadmap td:first-child', ['background: var(--bg-alt)'])));
       // A journey stage's top rule was a category color per stage, decoration that read as data.
-      w(rule(name, '.journey-stage', ['--section-accent: var(--chart-neutral-hue)']));
+      w(rule(name, '.journey-stage', [`--section-accent: ${ONE}`]));
       // Under pigment a quadrant bubble is its DEEP category fill, so a value printed inside it takes the one ink of
       // every chart mark, as a bar's label does; heading ink there was dark on a deep fill on the light face. A value
       // printed above a small bubble sits on the canvas and keeps the heading ink, and etch and tone keep it too: their

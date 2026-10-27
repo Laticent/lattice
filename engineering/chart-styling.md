@@ -130,7 +130,8 @@ brand green bar and a "done" bar can look alike. Two things separate them:
 
 - **the MARK.** Every status that names a state carries its drawn shape (`lib/core/status-marks.js`): a check for
   done, a dash for at risk, a cross for blocked, a slash for deferred. An SVG member inlines the path, an HTML member
-  masks the `--mark-*-bold` token; live, pilot and decision carry none. The shape also reaches a reader who sees no
+  masks the `--mark-*-bold` token; live, pilot and decision carry a dot, because every finish draws an unstated mark in
+  the first hue and the theme's info blue (their color) can match it. The shape also reaches a reader who sees no
   color.
 - **the SIGNAL ring.** The two exceptions, at risk and blocked, wear a ring in the classic hue (`--warn-signal-mark`
   amber, `--fail-signal-mark` coral-red; § THE SIGNAL RING in `chart-family.styles.css`), the status color at the
@@ -291,11 +292,17 @@ measurement, and most undo a defect a render or the adversarial review found:
   hue (`--row-hue`, `--row-ink`), which no finish paints, so tone re-points them to the one hue (as it does a kanban
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
-- **Tone's and etch's neutral tile and waterfall anchors take the first hue.** A flowchart or state-chart node with no category and no
-  status, and a waterfall's Plan / Actual columns, were the chart's grey; on a one-hue slide that read as a second color. Tone
-  and etch re-point the node's own hue (`--fc-hue`, `--fill-hue`) to the first hue (status and category nodes keep theirs)
-  and tint the anchors; not `--chart-neutral-hue`, which the palette tests read as the theme's grey. Pigment keeps the
-  neutral solid.
+- **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
+  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban card and lane rule were the
+  chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
+  property (`--fc-hue`, `--fill-hue`, `--hs-*`) and not `--chart-neutral-hue`, which the palette tests read as the theme's
+  grey. A status or category mark keeps its own color. Because the first hue can match the theme's info blue, `live`,
+  `pilot` and `decision` now draw a dot (`lib/core/status-marks.js`), so a live bar is told from an unstated one by shape,
+  and the gantt key's swatches wear their status mark.
+- **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,
+  with a dash per series (none, dash, dot, dash-dot) and the dots and end label in the same color; a slope's quiet lines
+  are a pale step of the one hue and its direction-signal lines keep their status color. No manifest contract change was
+  needed: the generator selects the stroke classes directly. Pigment and etch keep a category hue per series.
 - **Pigment and etch outline a mark in its own category ink; tone outlines every mark in one ink.** Tone has
   ONE ladder of eight shades of one hue (92…9%), and a category is told apart by its depth, the same shade on a
   tower, a matrix grid and a pie. So tone's outline needs no hue: a tone chart is one color plus status

@@ -154,11 +154,11 @@ figure.marks-etch,
   --finish-status-text: 14%;
   --finish-status-text-d: 19%;
   --finish-ramp-lo: 6%;
-  --finish-ramp-k: 0.82;
+  --finish-ramp-k: 0.64;
   --finish-ramp-text-lo: 6%;
-  --finish-ramp-text-k: 0.82;
+  --finish-ramp-text-k: 0.64;
   --finish-ramp-text-d-lo: 6%;
-  --finish-ramp-text-d-k: 0.82;
+  --finish-ramp-text-d-k: 0.64;
 }
 
 /* tone */
@@ -692,10 +692,35 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.radar-tick) {
 }
 
 /* ══ PIGMENT ONLY ═══════════════════════════════════════════════════════════ */
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])),
+figure.marks-pigment :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])) {
+  --fc-hue: var(--chart-cat-1-hue) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
+figure.marks-pigment :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+  --fill-hue: var(--chart-cat-1-hue) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(.kanban-card:not([data-s])),
+figure.marks-pigment :where(.kanban-card:not([data-s])) {
+  background: color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) !important;
+  box-shadow: inset 5px 0 0 var(--chart-cat-1-hue) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-pigment :where(.kanban-column:not([data-done]) .kanban-column-header) {
+  border-bottom-color: var(--chart-cat-1-hue) !important;
+}
+}
 section.marks-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
 figure.marks-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
-  fill: var(--chart-neutral-hue) !important;
-  stroke: var(--hs-neutral-ink) !important;
+  fill: var(--chart-cat-1-hue) !important;
+  stroke: var(--chart-cat-1-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
@@ -708,7 +733,7 @@ figure.marks-pigment :where(.hub-spoke-icon:not([data-s]):not([data-hue])) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(:is(.journey-stage, .journey-vstage-name)),
 figure.marks-pigment :where(:is(.journey-stage, .journey-vstage-name)) {
-  background: var(--chart-neutral-hue) !important;
+  background: var(--chart-cat-1-hue) !important;
   color: var(--chart-on-mark) !important;
 }
 }
@@ -745,13 +770,13 @@ figure.marks-pigment :where(.risk-cell[data-band="critical"]) {
 }
 section.marks-pigment :where(.waterfall-bar[data-s="total"]),
 figure.marks-pigment :where(.waterfall-bar[data-s="total"]) {
-  fill: var(--chart-neutral-hue) !important;
-  stroke: var(--chart-neutral-hue) !important;
+  fill: var(--chart-cat-1-hue) !important;
+  stroke: var(--chart-cat-1-hue) !important;
 }
 section.marks-pigment :where(.hub-spoke-hub),
 figure.marks-pigment :where(.hub-spoke-hub) {
-  fill: var(--chart-neutral-hue) !important;
-  stroke: var(--chart-neutral-hue) !important;
+  fill: var(--chart-cat-1-hue) !important;
+  stroke: var(--chart-cat-1-hue) !important;
 }
 section.marks-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)),
 figure.marks-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
@@ -765,7 +790,7 @@ figure.marks-pigment :where(.roadmap td:first-child) {
 }
 section.marks-pigment :where(.journey-stage),
 figure.marks-pigment :where(.journey-stage) {
-  --section-accent: var(--chart-neutral-hue) !important;
+  --section-accent: var(--chart-cat-1-hue) !important;
 }
 section.marks-pigment :where(.quadrant-bubble-value[data-pos="inside"]),
 figure.marks-pigment :where(.quadrant-bubble-value[data-pos="inside"]) {
@@ -867,6 +892,10 @@ section.marks-etch :where(:is(.line-path, .ep-path)),
 figure.marks-etch :where(:is(.line-path, .ep-path)) {
   stroke-width: 2.6 !important;
 }
+section.marks-etch :where(.bullet-measure[data-hue]),
+figure.marks-etch :where(.bullet-measure[data-hue]) {
+  fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) 60%, var(--bg))) !important;
+}
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-etch :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])),
 figure.marks-etch :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])) {
@@ -874,8 +903,8 @@ figure.marks-etch :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-s
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])),
-figure.marks-etch :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])) {
+section.marks-etch :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
+figure.marks-etch :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
   --fill-hue: var(--chart-cat-1-hue) !important;
 }
 }
@@ -918,10 +947,23 @@ section.marks-etch :where(:is(.risk-band-ring, .risk-key-marker[data-band="criti
 figure.marks-etch :where(:is(.risk-band-ring, .risk-key-marker[data-band="critical"])) {
   --chart-ring: calc(var(--state-signal-w) * 2) !important;
 }
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-etch :where(.kanban-card:not([data-s])),
+figure.marks-etch :where(.kanban-card:not([data-s])) {
+  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
+  box-shadow: inset 4px 0 0 var(--chart-cat-1-ink) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-etch :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-etch :where(.kanban-column:not([data-done]) .kanban-column-header) {
+  border-bottom-color: var(--chart-cat-1-hue) !important;
+}
+}
 section.marks-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
 figure.marks-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
-  fill: light-dark(color-mix(in oklab, var(--hs-neutral-ink) 14%, var(--bg)), color-mix(in oklab, var(--hs-neutral-ink) 19%, var(--bg))) !important;
-  stroke: var(--hs-neutral-ink) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
+  stroke: var(--chart-cat-1-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
 }
@@ -933,8 +975,8 @@ figure.marks-etch :where(.hub-spoke-icon:not([data-s]):not([data-hue])) {
 }
 section.marks-etch :where(.hub-spoke-hub),
 figure.marks-etch :where(.hub-spoke-hub) {
-  fill: light-dark(color-mix(in oklab, var(--hs-neutral-ink) 14%, var(--bg)), color-mix(in oklab, var(--hs-neutral-ink) 19%, var(--bg))) !important;
-  stroke: var(--hs-neutral-ink) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
+  stroke: var(--chart-cat-1-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2) !important;
   vector-effect: non-scaling-stroke !important;
 }
@@ -944,8 +986,9 @@ figure.marks-etch :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
 }
 section.marks-etch :where(:is(.journey-stage, .journey-vstage-name)),
 figure.marks-etch :where(:is(.journey-stage, .journey-vstage-name)) {
-  background: color-mix(in oklab, var(--journey-stage-bg) 38%, var(--bg)) !important;
-  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2) var(--section-accent, currentColor) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
+  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2) var(--chart-cat-1-ink) !important;
+  --section-accent: var(--chart-cat-1-ink) !important;
 }
 
 /* The quadrant ZONE tints — colored furniture, so they move with the finish. */
@@ -1015,10 +1058,20 @@ figure.marks-tone :where(:is(.roadmap .horizon-head > .lat-pill, .roadmap thead 
   --lat-pill-ink: color(from var(--chart-cat-1-hue) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
 }
 }
+section.marks-tone :where(.hub-spoke-hub),
+figure.marks-tone :where(.hub-spoke-hub) {
+  fill: var(--chart-cat-1-hue) !important;
+  stroke: var(--chart-cat-1-hue) !important;
+}
 section.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub),
 figure.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub) {
   fill: var(--text-heading) !important;
   stroke: var(--text-heading) !important;
+}
+section.marks-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
+figure.marks-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) !important;
+  stroke: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where(:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])),
 figure.marks-tone :where(:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])) {
@@ -1063,7 +1116,7 @@ figure.marks-tone :where(.matrix-grid-figure tbody tr) {
 }
 section.marks-tone :where(.waterfall-bar[data-s="total"]),
 figure.marks-tone :where(.waterfall-bar[data-s="total"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg))) !important;
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -1090,14 +1143,149 @@ figure.marks-tone :where([data-hue="8"][data-encodes="layered"][data-paint="fill
   stroke-dasharray: 5 3 !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="1"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="1"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
+  stroke-dasharray: none !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="1"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="1"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="2"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="2"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 88%, var(--bg)) !important;
+  stroke-dasharray: 7 3.5 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="2"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="2"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 88%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="3"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="3"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 78%, var(--bg)) !important;
+  stroke-dasharray: 1.8 3.2 !important;
+  stroke-width: 2.3 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="3"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="3"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 78%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="4"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="4"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 68%, var(--bg)) !important;
+  stroke-dasharray: 8 3 1.8 3 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="4"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="4"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 68%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="5"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="5"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
+  stroke-dasharray: none !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="5"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="5"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 100%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="6"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="6"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 88%, var(--bg)) !important;
+  stroke-dasharray: 7 3.5 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="6"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="6"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 88%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="7"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="7"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 78%, var(--bg)) !important;
+  stroke-dasharray: 1.8 3.2 !important;
+  stroke-width: 2.3 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="7"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="7"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 78%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-path, .ep-path)[data-hue="8"]),
+figure.marks-tone :where(:is(.line-path, .ep-path)[data-hue="8"]) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 68%, var(--bg)) !important;
+  stroke-dasharray: 8 3 1.8 3 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="8"]),
+figure.marks-tone :where(:is(.line-dot, .ep-dot)[data-hue="8"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 68%, var(--bg)) !important;
+}
+}
+section.marks-tone :where(:is(.cart-series, .line-name, .ep-name)[data-hue]),
+figure.marks-tone :where(:is(.cart-series, .line-name, .ep-name)[data-hue]) {
+  fill: var(--chart-cat-1-ink) !important;
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])),
+figure.marks-tone :where(.slope-svg:not(.slope-signal) .slope-line:not([data-s]), .slope-svg.slope-signal .slope-line[data-dir="flat"]:not([data-s])) {
+  stroke: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.slope-svg .slope-line[data-s]),
+figure.marks-tone :where(.slope-svg .slope-line[data-s]) {
+  stroke: var(--chart-cat-1-ink) !important;
+  stroke-width: 1.9 !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.slope-svg.slope-slopegraph .slope-dot[data-s]),
+figure.marks-tone :where(.slope-svg.slope-slopegraph .slope-dot[data-s]) {
+  fill: var(--chart-cat-1-ink) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])),
+figure.marks-tone :where(.slope-svg.slope-slopegraph:not(.slope-signal) .slope-dot:not([data-s]), .slope-svg.slope-slopegraph.slope-signal .slope-dot[data-dir="flat"]:not([data-s])) {
+  fill: color-mix(in oklab, var(--chart-cat-1-ink) 62%, var(--bg)) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])),
 figure.marks-tone :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])) {
   --fc-hue: var(--chart-cat-1-hue) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])),
-figure.marks-tone :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])) {
+section.marks-tone :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
+figure.marks-tone :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
   --fill-hue: var(--chart-cat-1-hue) !important;
 }
 }
@@ -1126,6 +1314,24 @@ figure.marks-tone :where(.risk-cell[data-band="critical"]) {
   fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 66%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 70%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.kanban-card:not([data-s])),
+figure.marks-tone :where(.kanban-card:not([data-s])) {
+  background: color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) !important;
+  box-shadow: inset 3px 0 0 var(--chart-cat-1-ink) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-tone :where(.kanban-column:not([data-done]) .kanban-column-header) {
+  border-bottom-color: var(--chart-cat-1-hue) !important;
+}
+}
+section.marks-tone :where(:is(.journey-stage, .journey-vstage-name)),
+figure.marks-tone :where(:is(.journey-stage, .journey-vstage-name)) {
+  background: color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) !important;
+  --section-accent: var(--chart-cat-1-ink) !important;
 }
 
 /* The quadrant ZONE tints — colored furniture, so they move with the finish. */

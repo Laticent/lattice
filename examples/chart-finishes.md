@@ -126,20 +126,21 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 
 ---
 
-<!-- _class: progress marks-etch -->
-<!-- _footer: "progress · marks-etch" -->
+<!-- _class: gantt marks-pigment -->
+<!-- _footer: "gantt · marks-pigment" -->
 
-`H1 2026 · Phase 1 readiness`
+`[{Timeline, 2026 Q1 .. 2026 Q4, today=Q3}]`
 
-## Progress bars race toward their targets.
+## A live bar and an unstated one share a color, so the live one carries a dot.
 
-Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the available data.
-
-- Signal Intake `92%` `on-track`
-- Scoring policy `68%` `at-risk`
-- Decision Log `81%` `on-track`
-- Calibration cadence `34%` `deferred`
-- Adoption `12%` `blocked`
+- Framework
+  - Signal taxonomy `Q1..Q2` `done`
+  - Scoring model v2 `Q2..Q3` `live` `after=Signal taxonomy`
+  - Per-team weighting `Q3..Q4` `at-risk` `after=Scoring model v2`
+- Adoption
+  - Pilot onboarding `Q1..Q2` `done`
+  - Org-wide rollout `Q3..Q4` `after=Per-team weighting`
+  - GA `Q4` `milestone` `after=Org-wide rollout`
 
 ---
 
@@ -157,3 +158,35 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 - roadmap `2`
 - contracts `1`
 - residency `1`
+
+---
+
+<!-- _class: line marks-tone -->
+<!-- _footer: "line · marks-tone" -->
+
+## Under tone a series is a step of one ink, told apart by its dash.
+
+- Q1 2025
+  - Enterprise `4.1`
+  - Mid-market `2.6`
+  - Services `1.2`
+- Q2 2025
+  - Enterprise `4.4`
+  - Mid-market `2.9`
+  - Services `1.6`
+- Q3 2025
+  - Enterprise `4.2`
+  - Mid-market `3.4`
+  - Services `2.3`
+- Q4 2025
+  - Enterprise `3.8`
+  - Mid-market `3.9`
+  - Services `3.1`
+- Q1 2026
+  - Enterprise `3.6`
+  - Mid-market `4.3`
+  - Services `4.0`
+- Q2 2026
+  - Enterprise `3.5`
+  - Mid-market `4.6`
+  - Services `5.2`
