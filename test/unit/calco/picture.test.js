@@ -7,7 +7,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
-const { imageMime, imageExt, writeOdp, writePptx } = require('@laticent/calco');
+const { captureOfficeSlides, imageMime, imageExt, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_PNG, ONE_PX_JPEG, style, frame } = require('./_fixtures');
 
 const deckOf = (image) => ({ width: 1280, height: 720, slides: [{ image, frames: [frame([[{ text: 'Hi', style: style() }]])] }] });
@@ -43,5 +43,15 @@ describe('calco picture — the writers name the part by its bytes', () => {
     assert.match(await zip.file('[Content_Types].xml').async('string'), /Extension="jpe?g" ContentType="image\/jpe?g"/);
     const png = await JSZip.loadAsync(await writePptx(PptxGenJS, deckOf(ONE_PX_PNG), 'nodebuffer', JSZip));
     assert.ok(Object.keys(png.files).some((n) => /^ppt\/media\/.*\.png$/.test(n)));
+  });
+});
+
+describe('calco picture — the host\'s writer', () => {
+  test('a pictures.encoder that is not a page global\'s name is refused before any slide is touched', async () => {
+    const host = { run: () => assert.fail('no slide is read'), shoot: () => assert.fail('no slide is shot') };
+    const pictures = { quality: 0.9, toneBytes: 1, flatBytes: 1, share: 0.7 };
+    for (const encoder of ['', 42]) {
+      await assert.rejects(captureOfficeSlides(host, 1, { pictures: { ...pictures, encoder } }), /pictures\.encoder must be the name of a page global/);
+    }
   });
 });

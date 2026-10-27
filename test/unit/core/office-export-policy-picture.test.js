@@ -97,4 +97,11 @@ describe('cropRules', () => {
     assert.deepEqual([d.toneBytes, d.flatBytes, d.share], [PICTURE.toneBytes, PICTURE.flatBytes, PICTURE.share]);
     assert.equal(cropRules('optimized 80').quality, 0.8);
   });
+
+  test('names the shared picture writer only when the host installed it', () => {
+    const { PICTURE_WRITER } = require('../../../lib/core/office-export-policy.js');
+    assert.equal(cropRules({}).encoder, undefined, 'no writer on the page: Calco keeps its own encoders');
+    assert.equal(cropRules({}, { writer: true }).encoder, PICTURE_WRITER);
+    assert.equal(cropRules('original', { writer: true }).encoder, PICTURE_WRITER, 'lossless crops are PNGs from the same writer');
+  });
 });

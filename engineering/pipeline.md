@@ -461,8 +461,12 @@ needs one thing from its host, `toDataUri(url)`, which turns a picture address i
   picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone (attributed to Apple's encoder, which the
   `ios-safari-jpeg` platform suite measures in an iOS Simulator; no Linux engine uses it). Ours writes the same file from the same
   pixels in Chromium, Firefox, WebKit and Node (`docs/e2e/jpeg-encode-engines.spec.ts` checks the bytes against the golden
-  hash in `test/unit/core/jpeg-encode.test.js`), within 0.1% of libjpeg's size, about 150 ms for a 2560 × 1440 slide in V8.
-- **Every export picture goes through them** (`encodeCanvas`): the slide camera, the PDF's photo layer, the PDF worker lane,
+  hash in `test/unit/core/jpeg-encode.test.js`). Against libjpeg with optimized coding at the same quality it is within about
+  1% on real pictures (0.1% on the Yearn slides) and never meaningfully larger. A 2560 × 1440 slide takes 150 to 230 ms in
+  Node and 340 to 440 ms in Chromium, WebKit and Firefox on a CI-class machine.
+- **Every export picture in either host goes through them** (`encodeCanvas`), apart from three command-line fallbacks that
+  are always Chromium's own encoder: `cli-camera.js` `native()` (a slide the camera could not photograph), `slide-picture.js`
+  without a camera (the bundle is missing), and `makeHtmlToImageCamera`'s pre-#2503 `{ toJpeg }` signature. They are: the slide camera, the PDF's photo layer, the PDF worker lane,
   image sets, PowerPoint and LibreOffice slide pictures, Calco's cropped pictures (the host installs the writer under
   `PICTURE_WRITER`, lib/core/office-export-policy.js, and Calco stops with an error if a named writer is missing), and the author-photo
   recode (`lib/core/image-recode.mjs`; the CLI sends both functions' source into its page). In the Studio the worker pool
