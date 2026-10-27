@@ -544,6 +544,7 @@ Settled by the owner on 2026-10-27:
 | Entry cap | **Default 100 steps per document, hard maximum 500** |
 | Live sessions | **Wrap `Y.UndoManager`** behind a Filo adapter |
 | Name | **Filo** |
+| Build order (D1) | **Risk first, as in §10**: the checkpoint fix, then the Compose spike, then the core |
 
 Open, with the default that applies if nobody objects. The first five narrow or interpret a stated
 requirement, so they are the owner's to confirm:
@@ -555,7 +556,6 @@ requirement, so they are the owner's to confirm:
 | "At all times" | Except inside a native field mid-edit, during IME composition and in present mode; and, if the Compose spike fails, an undo in Compose costs folds and caret (§3.5, §3.3) |
 | "LRU with a max-changes limit" | Two bounds: a per-document entry cap and a cross-document LRU by bytes (§4.4) |
 | Docs site, logo and package timing | After slice 4 is merged (§8) |
-| Build order | As in §10: the checkpoint fix, then the Compose spike, then the core |
 | Cross-document byte budget | 50 MB of IndexedDB |
 | Per-document byte cap | 2 MB |
 | Workspace backup carries history | No |
