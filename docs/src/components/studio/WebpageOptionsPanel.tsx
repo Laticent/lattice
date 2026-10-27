@@ -14,8 +14,10 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { sourceAnimatesCharts } from '../../../../lib/core/resolve-motion.mjs';
 import { webPictureOrigins } from '../../../../lib/export/inline-url-media.mjs';
+import { FontsControl } from './FontsControl';
 import { type NarrationChoice, NarrationExportOptions, type ProjectDeck } from './NarrationExportOptions';
 import { OffFencesNotice } from './OffFencesNotice';
+import { PicturesControl } from './PicturesControl';
 
 type Scheme = 'light' | 'dark' | 'system' | 'inherited';
 
@@ -47,7 +49,10 @@ export function WebpageOptionsPanel({
 	onExport,
 	onCancel,
 	onWrite,
+	deckId,
 }: {
+	/** The deck's id, so the Pictures choice is remembered per deck. */
+	deckId?: string;
 	busy?: boolean;
 	status?: string | null;
 	// The color mode the export defaults to — the deck's authored `color-mode:` when it has
@@ -132,7 +137,7 @@ export function WebpageOptionsPanel({
 	];
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5 pb-24">
 			<button type="button" onClick={onBack} disabled={busy} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-[var(--text-heading)] disabled:opacity-50">
 				<ArrowLeft className="size-3.5" />All formats
 			</button>
@@ -171,6 +176,9 @@ export function WebpageOptionsPanel({
 						))}
 					</div>
 				</div>
+
+				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies="the player stores" />
+				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} />
 
 				{/* Strip speaker notes — a privacy opt-in for a shared file. */}
 				<div className="rounded-xl border border-border bg-background p-3.5">

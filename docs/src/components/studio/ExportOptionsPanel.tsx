@@ -20,7 +20,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { type CommentScope, commentCount, type ExportOptions, loadEmbedSource, saveEmbedSource } from './export-options';
+import { FontsControl } from './FontsControl';
 import { OffFencesNotice } from './OffFencesNotice';
+import { PicturesControl, ResolutionControl } from './PicturesControl';
 
 export function ExportOptionsPanel({
 	format = 'pdf',
@@ -63,7 +65,7 @@ export function ExportOptionsPanel({
 	const inScope = commentCount(deckId, commentScope, slideCount);
 
 	return (
-		<div className="space-y-5">
+		<div className="space-y-5 pb-24">
 			<button type="button" onClick={onBack} disabled={busy} className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground hover:text-[var(--text-heading)] disabled:opacity-50">
 				<ArrowLeft className="size-3.5" />All formats
 			</button>
@@ -133,6 +135,10 @@ export function ExportOptionsPanel({
 						</div>
 					</div>
 				)}
+
+				<ResolutionControl key={deckId} deckId={deckId} source={source} busy={busy} format={format} />
+				<PicturesControl key={deckId} deckId={deckId} source={source} busy={busy} applies={isPdf ? 'the PDF writes' : `${label} slides use`} />
+				<FontsControl key={`fonts-${deckId}`} deckId={deckId} source={source} busy={busy} format={isPdf ? 'pdf' : 'office'} />
 
 				{/* Re-openable: the deck's source rides inside the file. */}
 				{format !== 'odp' && (

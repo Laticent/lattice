@@ -191,29 +191,30 @@ export function setToneStyle(chunk: string, name: string | null, styleTokens: re
 
 // ── spectrum (white-label brand bar) ───────────────────────────────────────────
 // The deck `spectrum:` register (resolve-spectrum.js) controls the brand bar deck-wide;
-// a per-slide `spectrum-off` / `spectrum-solid` token overrides. Only off / solid carry a
-// token — `on` (the rainbow) is the default and the absence of a token, so there is no
-// per-slide "back to rainbow" over a deck off/solid (finding documented in the design
-// doc); provenance is inherited (deck off/solid) / on (this slide) / off (rainbow default).
+// a per-slide `spectrum-<style>` token overrides. `on` (the rainbow) is the default and
+// renders with no token; its restore token `spectrum-on` is how one slide returns to the
+// rainbow inside a deck set to another style. Provenance is inherited (deck non-rainbow) /
+// on (this slide) / off (rainbow default).
 
 // STYLE tokens ONLY (resolve-spectrum.js SPECTRUM_TOKENS) — exact set, so this never matches
 // the sibling `spectrum-edge-*` / `spectrum-card` tokens.
-const SPECTRUM_STYLE_VALUES = ['solid', 'duo', 'mono', 'off'];
-const isSpectrumToken = (t: string) => /^spectrum-(solid|duo|mono|off)$/.test(t);
+const SPECTRUM_STYLE_VALUES = ['on', 'solid', 'duo', 'mono', 'off'];
+const isSpectrumToken = (t: string) => /^spectrum-(on|solid|duo|mono|off)$/.test(t);
 
-/** Effective brand-bar STYLE state for a slide. `value` is the bare name (solid/duo/mono/off). */
+/** Effective brand-bar STYLE state for a slide. `value` is the bare name (on/solid/duo/mono/off). */
 export function spectrumProvenance(chunk: string, source: string): Provenance {
 	const own = getClassTokens(chunk).find(isSpectrumToken);
 	const deck = (registerValue(source, 'spectrum') || '').trim().toLowerCase();
-	const deckValue = SPECTRUM_STYLE_VALUES.includes(deck) ? deck : undefined; // `on`/unset → rainbow default
+	const deckValue = deck !== 'on' && SPECTRUM_STYLE_VALUES.includes(deck) ? deck : undefined; // `on`/unset → rainbow default
 	const inheritable = deckValue !== undefined;
 	if (own) return { state: 'on', value: own.slice('spectrum-'.length), deckValue, inheritable };
 	if (deckValue) return { state: 'inherited', value: deckValue, deckValue, inheritable: true };
 	return { state: 'off', inheritable: false };
 }
 
-/** Set the slide's brand-bar STYLE. A style name (solid/duo/mono/off) → the token; `null` →
- *  inherit / rainbow (clear the per-slide token). Existing STYLE tokens are cleared first. */
+/** Set the slide's brand-bar STYLE. A style name (on/solid/duo/mono/off) → the token, `on`
+ *  being the rainbow's restore token; `null` → inherit (clear the per-slide token). Existing
+ *  STYLE tokens are cleared first. */
 export function setSpectrum(chunk: string, name: string | null): string {
 	const kept = getClassTokens(chunk).filter((t) => !isSpectrumToken(t));
 	if (name && SPECTRUM_STYLE_VALUES.includes(name)) kept.push(`spectrum-${name}`);
@@ -222,9 +223,11 @@ export function setSpectrum(chunk: string, name: string | null): string {
 
 // ── spectrum-edge (bar placement) / rule (heading underline) / eyebrow (kicker) ────────────
 // Three sibling "override" axes: a per-slide token (`spectrum-edge-<v>` / `rule-<v>` /
-// `eyebrow-<v>`) overrides the deck register; the DEFAULT value (top/auto/plain) is the
-// no-token absence. So provenance is inherited (deck non-default) / on (this slide) / off
-// (the default). A shared helper keeps the three in step. The `none`/`off` VALUE is a real
+// `eyebrow-<v>`) overrides the deck register. The DEFAULT value (top/auto/plain) renders with
+// no token, and also has a RESTORE token (`spectrum-edge-top`, `rule-auto`, `eyebrow-plain`)
+// that a slide carries to return to it inside a deck that set another value (the engine evicts
+// the deck's token for it). So provenance is inherited (deck non-default) / on (this slide) /
+// off (the default). A shared helper keeps the three in step. The `none`/`off` VALUE is a real
 // token (an explicit choice), distinct from the `off` STATE (the untouched default).
 
 function overrideProvenance(chunk: string, source: string, deckKey: string, prefix: string, values: readonly string[], deckDefault: string): Provenance {
@@ -243,7 +246,7 @@ function setOverride(chunk: string, prefix: string, values: readonly string[], n
 	return setClassTokens(chunk, kept);
 }
 
-const EDGE_VALUES = ['left', 'right', 'bottom', 'off'];
+const EDGE_VALUES = ['top', 'left', 'right', 'bottom', 'off'];
 export function spectrumEdgeProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'spectrum-edge', 'spectrum-edge-', EDGE_VALUES, 'top');
 }
@@ -251,7 +254,7 @@ export function setSpectrumEdge(chunk: string, name: string | null): string {
 	return setOverride(chunk, 'spectrum-edge-', EDGE_VALUES, name);
 }
 
-const RULE_VALUES = ['full', 'short', 'accent', 'none'];
+const RULE_VALUES = ['auto', 'full', 'short', 'accent', 'none'];
 export function ruleProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'rule', 'rule-', RULE_VALUES, 'auto');
 }
@@ -283,7 +286,7 @@ export function setMarks(chunk: string, name: string | null): string {
 	return setOverride(setOverride(chunk, LEGACY_MARKS_PREFIX, MARKS_VALUES, null), 'marks-', MARKS_VALUES, name);
 }
 
-const EYEBROW_VALUES = ['dot', 'bar', 'arrow', 'underline'];
+const EYEBROW_VALUES = ['plain', 'dot', 'bar', 'arrow', 'underline'];
 export function eyebrowProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'eyebrow', 'eyebrow-', EYEBROW_VALUES, 'plain');
 }
@@ -293,7 +296,7 @@ export function setEyebrow(chunk: string, name: string | null): string {
 
 // The deck key is `headline` but the per-slide token prefix is `head-` (head-left/center/right);
 // overrideProvenance takes the two separately, so the mismatch is fine.
-const HEADLINE_VALUES = ['left', 'center', 'right'];
+const HEADLINE_VALUES = ['auto', 'left', 'center', 'right'];
 export function headlineProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'headline', 'head-', HEADLINE_VALUES, 'auto');
 }
@@ -348,7 +351,7 @@ export function setSpectrumCard(chunk: string, value: string | null): string {
 // ── spectrum-card-edge (card rail PLACEMENT) ─────────────────────────────────────────────────
 // A uniform-prefix override axis (like spectrum-edge): `spectrum-card-edge-<v>` overrides the
 // deck; `left` is the no-token default.
-const CARD_EDGE_VALUES = ['top', 'right', 'bottom'];
+const CARD_EDGE_VALUES = ['left', 'top', 'right', 'bottom'];
 export function spectrumCardEdgeProvenance(chunk: string, source: string): Provenance {
 	return overrideProvenance(chunk, source, 'spectrum-card-edge', 'spectrum-card-edge-', CARD_EDGE_VALUES, 'left');
 }

@@ -33,7 +33,17 @@ progress  — 2026-10-23, PR #2877 (engineering/decisions/2026-10-23-studio-boot
             Deployed (the PR's Cloudflare preview): home 71-76, Studio 66-71, Playground 37-44. The Playground's LCP element is
             the Explore walk caption (`p.pg-walk-caption`), which paints after hydration, so its simulated LCP is 10.1-10.3 s
             (94% render delay): the cheapest Playground lever found, not yet tried (note §6).
-decided   — the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
+            2026-10-26, PR #2913: the Playground walk caption is now in the server HTML. On the CDN preview, 5 runs interleaved
+            against #2907's preview: LCP median 8.3 s -> 4.2 s, score median 42 -> 55 (note §8). The under-4 s bar is NOT met (2 of 5).
+            Next item 3 now has a design (note §9): lever A (no lint while the editor is hidden) measured -190 ms simulated TBT;
+            the owner's call is whether to take A and spike D (time-sliced hydration).
+            2026-10-27, PR #2921: lever A built, CDN median TBT 1,686 -> 1,532 ms, score 45 on both (note §11). Lever D
+            measured as a no-go: Suspense boundaries gave no gain locally. The real hydration cost is two single calls, the
+            picker's search index (now built on first search, about -180 ms blocking at 4x) and the editor mount (2921-p1) (§12).
+decided   — 2026-10-26 (owner, PR #2913, Q1): Lighthouse 90 is NOT the goal for the Studio or the Playground. The Studio's bar stays first slide
+            at or below the 2026-09-22 build (met); the Playground's bar is Lighthouse mobile 60 or better (44-57 on the CDN today); 90 stays the aim
+            for the home page only, where TBT is the remaining gap. The React-free first paint is not planned. The lint gate (2913-p1) is still next.
+            Earlier: the owner sets both targets. PR #2870 (warm-ups after the first slide, no false KaTeX load, the web-image
             import started early) is a first slice: 6.50 s -> 6.15 s median, and 30% less main-thread work after the
             slide. How to reach the targets is not decided: it is a "rethink startup" design, so it needs a design note
             and one question round first (CLAUDE.md, design before code).

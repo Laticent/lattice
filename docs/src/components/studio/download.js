@@ -128,7 +128,15 @@ function saveWithAnchor(filename, blob) {
  *  backup's "last backup") never records one the author has not made yet. Browser-only; a
  *  no-op-safe guard keeps it from throwing in a non-DOM environment (tests).
  *  @param {string} filename @param {Blob} blob @param {{ onSaved?: () => void }} [opts] */
+let lastBytes = 0;
+
+/** The size of the file the most recent `downloadBlob` handed over, in bytes: what an export's "ready" toast shows. */
+export function lastDownloadBytes() {
+	return lastBytes;
+}
+
 export function downloadBlob(filename, blob, opts = {}) {
+	lastBytes = blob?.size ?? 0;
 	if (typeof document === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return;
 	if (isIOSLike()) {
 		import('./download-ios.js').then(

@@ -254,7 +254,10 @@ describe('every hand-written list of bleed frames in CSS agrees with bleed-frame
     // accent
     assert.deepEqual(group(shared, /section\.accent:not\(\.split-panel, \.split-compare\):where\(:not\(([^)]*)\)\)/), NON_SPLIT);
     // deck-wide solid/duo/mono: :not(:where(<every bleed frame>, section.accent, ...))
-    const solid = /spectrum-mono\):not\(\.divider\):not\(\[class\*="spectrum-edge-"\]\):not\(:where\(([^)]*(?:\([^)]*\)[^)]*)*)\)\)/.exec(variants);
+    // The edge exclusion names the four edges that move or drop the bar; `spectrum-edge-top` is the RESTORE token
+    // (a slide back on the top bar), so a `[class*="spectrum-edge-"]` match would treat it as a placement.
+    assert.doesNotMatch(variants, /\[class\*="spectrum-edge-"\]/);
+    const solid = /spectrum-mono\):not\(\.divider\):not\(\.spectrum-edge-left, \.spectrum-edge-right, \.spectrum-edge-bottom, \.spectrum-edge-off\):not\(:where\(([^)]*(?:\([^)]*\)[^)]*)*)\)\)/.exec(variants);
     assert.ok(solid, 'solid rule');
     for (const name of [...BLEED_FRAMES.map((f) => `.${f}`), '.collage.bleed']) assert.ok(solid[1].includes(name), `solid exclusion names ${name}`);
   });

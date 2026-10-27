@@ -217,7 +217,7 @@ describe('dropCoveredSheetFaces: against the real engine sheet', () => {
     const katex = [...new Set(scanFontFaceRules(css).map((r) => r.family)
       .filter((f) => f?.startsWith('KaTeX_')))];
     const r = dropCoveredSheetFaces(css, {
-      covered: [...new Set(TEXT_FACES.map((f) => f.family)), ...katex],
+      covered: [...new Set(TEXT_FACES.map((f) => f.family)), 'Noto Color Emoji', ...katex],
     });
     assert.ok(r.dropped >= 30, `expected the sheet's self-hosted block to go; dropped ${r.dropped}`);
     assert.equal(scanFontFaceRules(r.css).filter((x) => x.hasRelativeUrl).length, 0,
@@ -281,7 +281,7 @@ describe('the css-tree span guard', () => {
     const { TEXT_FACES } = require('../../../lib/fonts/text-faces.js');
     const katex = [...new Set(scanFontFaceRules(css).map((r) => r.family)
       .filter((f) => f?.startsWith('KaTeX_')))];
-    const covered = [...new Set(TEXT_FACES.map((f) => f.family)), ...katex];
+    const covered = [...new Set(TEXT_FACES.map((f) => f.family)), 'Noto Color Emoji', ...katex];
     const guarded = dropCoveredSheetFaces(css, { covered, validate: true });
     const plain = dropCoveredSheetFaces(css, { covered, validate: false });
     assert.equal(guarded.refused, 0, 'the guard must not reject a legitimate rule');

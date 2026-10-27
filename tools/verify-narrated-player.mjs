@@ -101,7 +101,9 @@ const file = path.resolve('.scratch/out/narrated-player.html');
 writeFileSync(file, html);
 console.log(`wrote ${file} (${(html.length / 1024).toFixed(0)} KB)`);
 
-const browser = await chromium.launch();
+// A job that already has a Chrome (the nightly's puppeteer one) points PLAYWRIGHT_CHROMIUM_PATH
+// at it rather than installing a second browser.
+const browser = await chromium.launch(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {});
 const ctx = await browser.newContext();
 // OFFLINE is the entire claim. Any request the page tries to make will fail hard.
 await ctx.setOffline(true);
@@ -263,12 +265,14 @@ execFileSync(process.execPath, ['lattice.js', DEMO, demoOut, '--quiet', '--keep-
 // Folded like every deck read (#1349): a BOM or a CRLF would defeat the `^---` anchor below.
 const demoSource = (await import('node:fs')).readFileSync(DEMO, 'utf8').replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
 const demoDoc = (await import('node:fs')).readFileSync(`${demoOut}.html`, 'utf8');
-// One inline caption per slide is how this deck is authored; the Studio resolves the same text
+// One inline say line per slide is how this deck is authored; the Studio resolves the same text
 // through its narration ladder, where an inline caption is the first rung.
 const demoSlides = demoSource
   .replace(/^---\n[\s\S]*?\n---\n/, '')
   .split(/\n---\n/)
-  .map((md) => /<!--\s*caption:\s*([\s\S]*?)\s*-->/.exec(md)?.[1] ?? '');
+  // `say:` since the read-as rename; `caption:` is the older spelling. The verifier ran nowhere
+  // when the deck moved, so it read no lines, exported a silent deck and timed out (#1501).
+  .map((md) => /<!--\s*(?:say|caption):\s*([\s\S]*?)\s*-->/.exec(md)?.[1] ?? '');
 const demoNarration = { voice: VOICE, slides: demoSlides.map((text) => (text ? said(text, text.split(/(?<=[.!?])\s+/).map(() => true)) : null)) };
 const signoffFiles = {};
 const ground = {};
@@ -519,11 +523,6 @@ await variant(
   await p.goto(`file://${out}`);
   await p.waitForSelector('#lp-play');
   check("forged ids: the author's elements really are in the shipped file", (await p.locator('section[data-lattice-slide] #lp-next').count()) === 1);
-  check('forged ids: the caption band resolves to the PLAYER\'s node, not the deck\'s', await p.evaluate(() => {
-    const app = document.querySelector('body > #lp-app');
-    const band = app?.querySelector(':scope > #lp-caption');
-    return !!band && !band.closest('section[data-lattice-slide]');
-  }));
 
   // THE ACTUAL REGRESSION: click the on-screen Next button.
   const startedAt = await p.evaluate(() => document.querySelector('body > #lp-bar > #lp-count').textContent.trim());
@@ -536,14 +535,64 @@ await variant(
   await p.waitForTimeout(150);
   check('forged ids: and Previous comes back', (await p.evaluate(() => document.querySelector('body > #lp-bar > #lp-count').textContent.trim())) === startedAt);
 
-  // The counter must be the player's own, not the deck's empty div.
-  check('forged ids: the slide counter reads the player\'s own element', /\d/.test(afterClick), afterClick);
+  // WHAT THE PLAYER BOUND, read off both copies. #1501: these two checks used to query the
+  // shipped file through the test's OWN rooted selectors, so they passed whatever the player had
+  // bound, and both stayed green under the pre-#1470 mutation. Only the player's writes tell its
+  // bindings apart: the element it bound changes, the forged one keeps the text planted in it.
+  const forgedCount = () => p.evaluate(() => document.querySelector('section[data-lattice-slide] #lp-bar > #lp-count')?.textContent ?? null);
+  check('forged ids: the player wrote the count to its OWN counter', /^2 \/ \d+$/.test(afterClick), afterClick);
+  check("forged ids: and left the deck's forged counter alone", (await forgedCount()) === '99 / 99', String(await forgedCount()));
 
   // And narration still binds — the path that failed loudest when a forged #lp-caption won.
   await p.click('body > #lp-bar > #lp-play');
   await p.waitForTimeout(300);
   check('forged ids: narration still starts', (await p.getAttribute('body > #lp-bar > #lp-play', 'aria-pressed')) === 'true');
+  const bands = await p.evaluate(() => ({
+    own: document.querySelector('body > #lp-app > #lp-caption .lp-cap-line.lp-now')?.textContent.trim() ?? '',
+    forged: document.querySelector('section[data-lattice-slide] #lp-caption')?.textContent ?? null,
+  }));
+  check("forged ids: the player wrote the caption into its OWN band", bands.own === 'The first thing we need to talk about.', JSON.stringify(bands));
+  check("forged ids: and left the deck's forged band alone", bands.forged === 'FORGED BAND', JSON.stringify(bands));
   check('forged ids: no page error from a hijacked lookup', seen.length === 0, seen.join(' | ') || 'clean');
+  await p.close();
+}
+
+// ── forged COLLECTIONS: a fake frame and a nested slide (#1501) ──────────────────────────
+// The slide list and the frame list were the two lookups left rooted at `document`. `class` and
+// `data-lattice-slide` survive sanitizing, so one slide carrying `<div class="lp-frame">` and a
+// nested `<section data-lattice-slide>` turned a three-slide deck into "1 / 5": Next showed a
+// div inside slide 1 and played slide 2's narration over it. Both lists now come from the
+// player's own `#lp-stage`, and the assembler frames only top-level slides.
+{
+  const forged = '<div class="lp-frame"><p>forged frame</p></div><section data-lattice-slide="99"><h2>forged slide</h2></section>';
+  const hostileDoc = docHtml.replace('<h1>Slide one</h1>', `<h1>Slide one</h1>${forged}`);
+  const out = path.resolve('.scratch/out/narrated-player-forged-collections.html');
+  writeFileSync(out, (await buildPlayerHtml({ docHtml: hostileDoc, source, title: 'Forged', now: 0, narration })).html);
+  const p = await ctx.newPage();
+  const seen = [];
+  p.on('pageerror', (e) => seen.push(`pageerror: ${e.message}`));
+  await p.goto(`file://${out}`);
+  await p.waitForSelector('#lp-play');
+  const state = () =>
+    p.evaluate(() => {
+      const stage = document.querySelector('body > #lp-app > #lp-stage');
+      const active = stage?.querySelector(':scope > .lp-frame.lp-active > section[data-lattice-slide]');
+      return {
+        count: document.querySelector('body > #lp-bar > #lp-count')?.textContent.trim(),
+        frames: stage ? stage.querySelectorAll(':scope > .lp-frame').length : -1,
+        active: active ? active.getAttribute('data-lattice-slide') : null,
+        visibleForged: [...document.querySelectorAll('section[data-lattice-slide="99"]')].filter((s) => s.parentElement?.classList.contains('lp-frame')).length,
+      };
+    });
+  const before = await state();
+  check('forged collections: the deck is still three slides', before.count === '1 / 3' && before.frames === 3, JSON.stringify(before));
+  check('forged collections: the nested slide is not promoted to a frame of its own', before.visibleForged === 0, JSON.stringify(before));
+  await p.click('body > #lp-app > #lp-nav > #lp-next');
+  await p.waitForTimeout(150);
+  const after = await state();
+  check('forged collections: Next lands on the real slide two', after.count === '2 / 3' && after.active === '2', JSON.stringify(after));
+  await p.screenshot({ path: path.resolve('.scratch/out/narrated-player-forged-collections.png') });
+  check('forged collections: no page error', seen.length === 0, seen.join(' | ') || 'clean');
   await p.close();
 }
 

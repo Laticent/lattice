@@ -894,6 +894,12 @@
 	line-clamp: var(--pg-walk-cap-lines);
 	overflow: hidden;
 }
+/* The server-rendered caption belongs to the newcomer the bake was built for (playground.astro sets `data-pg-newcomer`). A returning
+   visitor, a deep link or an Edit-first load would see the wrong slide's words for the moment before the plan lands, so it is
+   hidden for them: `visibility` keeps the box, and a hidden element is not a largest-paint candidate. */
+:root:not([data-pg-newcomer]) .pg-walk-caption[data-baked] {
+	visibility: hidden;
+}
 .pg-walk-caption.is-notice {
 	color: var(--accent);
 }

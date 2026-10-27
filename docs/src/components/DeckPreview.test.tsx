@@ -370,3 +370,35 @@ describe('DeckPreview — render failure affordance (#1164)', () => {
 		await waitFor(() => expect(container.querySelector('.nacre-failed')).toBeNull());
 	});
 });
+
+describe('DeckPreview — followWhenParked', () => {
+	const deck = (n: number, text = '# A') => (
+		<DeckPreview options={opts} sample={`${text}\n\n---\n\n# B\n\n---\n\n# C`} slideIndex={n} slideCount={3} slideMarkdown={text} deckId="d" drawn={false} active={false} followWhenParked aria-label="p" />
+	);
+	it('a parked host that follows draws once when the slide changes, and not for an edit', async () => {
+		const { rerender } = render(deck(0));
+		// Parked on mount: nothing is drawn.
+		await act(async () => {});
+		expect(renderInto).not.toHaveBeenCalled();
+
+		rerender(deck(1));
+		await waitFor(() => expect(renderInto).toHaveBeenCalledTimes(1));
+		expect(renderInto.mock.calls[0]?.[7]?.slideIndex).toBe(1);
+
+		// An edit on the same slide stays deferred: the parked host is not redrawn per keystroke.
+		rerender(deck(1, '# A edited'));
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 60));
+		});
+		expect(renderInto).toHaveBeenCalledTimes(1);
+	});
+	it('a parked host that does not follow never draws on a slide change', async () => {
+		const plain = (n: number) => <DeckPreview options={opts} sample="# A" slideIndex={n} slideCount={3} slideMarkdown="# A" deckId="d" drawn={false} active={false} aria-label="p" />;
+		const { rerender } = render(plain(0));
+		rerender(plain(1));
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 60));
+		});
+		expect(renderInto).not.toHaveBeenCalled();
+	});
+});

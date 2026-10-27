@@ -833,7 +833,6 @@ const REOPENABLE = !!flags.reopenable;
 const KEEP_VECTOR_IMAGES = !!flags['keep-vector-images'];
 const CHROME_PDF = !!flags['chrome-pdf'];
 // JPEG quality of the shared writer's background photo (lib/core/pdf-compose).
-const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || 92));
 // Chrome's fast PNG encoder for that photo: same pixels, ~3x the bytes on a flat slide, ~2.5x quicker.
 // On under `node --test` (it marks every process a test starts with NODE_TEST_CONTEXT) so the
 // integration tier fits its CI timeout; off for a real export. LATTICE_PDF_PHOTO_FAST=1/0 overrides.
@@ -1067,7 +1066,15 @@ const WANT_PRINT = flags.print || (OUT_FORMAT === 'imageset' && IMAGE_SET_OPTS.m
 // `--size NAME` renders the deck on another registered canvas without editing it: the same
 // front-matter rewrite as the print path, so the engine, the split gate and every reader below see
 // one `size:` (lib/engine/sizes.js `withSize`). An unknown name fails at the size check below.
-const mdSized = flags.size ? require('./lib/engine/sizes').withSize(mdRaw, flags.size) : mdRaw;
+//
+// A 4K deck exports at HD unless `--size 4k` says otherwise (lib/core/export-canvas.js): the pixels are what make a
+// PDF or PowerPoint big, and the author owns that choice.
+const EXPORT_CANVAS = require('./lib/core/export-canvas').exportCanvas({ deckSize: frontMatterValue((mdRaw.match(/^\uFEFF?---\r?\n([\s\S]*?)\r?\n---/) || [])[1] || '', 'size'), requested: flags.size, format: OUT_FORMAT });
+const mdSized = EXPORT_CANVAS.size ? require('./lib/engine/sizes').withSize(mdRaw, EXPORT_CANVAS.size) : mdRaw;
+if (EXPORT_CANVAS.loweredFrom4k && !flags.quiet) {
+  const f = require('./lib/core/export-canvas').FOUR_K_FACTOR[OUT_FORMAT];
+  console.log(`  Deck size is 4K; exporting at HD (1280x720) to keep the file small. --size 4k keeps 4K, typically ${f}x larger.`);
+}
 const md = WANT_PRINT ? withPrintColorMode(mdSized) : mdSized;
 
 // THE PLUGINS THIS DECK LOADS UNDER THIS RUN'S HOST, decided once (`admitPlugins`, the kernel the
@@ -1175,7 +1182,7 @@ const { THEME_EDGES } = require('./lib/theme/edges.generated.mjs');
 const { paletteUsesTextureChannel } = require('./lib/core/diagram-look');
 // Hoisted ABOVE the plugins' bakes, which run at module-evaluation time (the font plumbing is
 // declared further down; reaching it early is a TDZ throw).
-const { fontFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
+const { fontFaceCss, emojiFaceCss, emittedFamilies, dropCoveredSheetFaces } = require('./lib/fonts/face-css.js');
 const { CLIP_CELL_SELECTOR, IGNORED_CLIP_SELECTOR, IGNORED_BEARER_SELECTOR, PROBE_SRC, CONTENT_CLIPPED_SRC, LEGIBILITY_SRC, OVERPRINT_SRC, FIGURE_TEXT_FLOOR_RATIO, FRAME_TOLERANCE, NEAR_MISS_FLOOR, formatNearMissAdvisory } = require('./lib/core/overflow-probe');
 const { ROLE_SRC: TRIM_ROLE_SRC, MEASURE_SRC: TRIM_MEASURE_SRC, APPLY_SRC: TRIM_APPLY_SRC, CLEAR_SRC: TRIM_CLEAR_SRC, FIND_SRC: TRIM_FIND_SRC, CLEAR_BOXES_SRC: TRIM_CLEAR_BOXES_SRC, VERIFY_SRC: TRIM_VERIFY_SRC, FINALIZE_SRC: TRIM_FINALIZE_SRC, FIT_EPSILON: TRIM_FIT_EPSILON, planTrim, trimRecord } = require('./lib/core/guards-trim');
 // "May this slide be cut?" has ONE answer, like "may this BLOCK be cut?" two lines up.
@@ -1960,6 +1967,26 @@ const autoGlossaryEntries = resolveGlossaryMode(preGlossaryMd) === 'auto' ? glos
 // so the exact newlines at the capture's edges do not matter.
 const fmMatch = rawMd.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 const fm      = fmMatch ? fmMatch[1] : '';
+// What the exports do to pictures (lib/core/image-policy.js): the flag wins over the deck's `images:` line
+// (`original`, `90`, `optimized 90`); both hosts read the same key, so Studio and CLI make the same choice.
+let imageEncoderBrowser = null; // the player's short-lived encoder browser, closed on every path
+// The finished file's size, so the author sees what a choice (HD or 4K, optimized or original) cost: " · 5.9 MB".
+function sizeNote(file) {
+  try {
+    const n = fs.statSync(file).size;
+    return ` · ${n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`}`;
+  } catch {
+    return '';
+  }
+}
+const IMAGE_SETTING = require('./lib/core/image-policy.js').mergeImagesSettings(frontMatterValue(fm, 'images'), flags.images);
+// The PDF's slide-photo layer takes the same JPEG quality as every other picture; the env var still overrides it.
+// What the exports carry of each typeface (lib/core/font-policy.js): the flag wins over the deck's `fonts:` line,
+// class by class (`used exact-emoji`). Both hosts read the same key.
+const FONT_SETTING = require('./lib/core/font-policy.js').mergeFontsSettings(frontMatterValue(fm, 'fonts'), flags.fonts);
+const FONT_POLICY = require('./lib/core/font-policy.js').resolveFontPolicy(FONT_SETTING);
+const PDF_PHOTO_QUALITY = Math.min(100, Math.max(50, Number(process.env.LATTICE_PDF_PHOTO_QUALITY) || require('./lib/core/image-policy.js').resolveImagePolicy(IMAGE_SETTING).quality));
+require('./lib/export/slide-picture').setPictureSetting(IMAGE_SETTING);
 // Fluid-box viewer: emit the .html as the opt-in responsive viewer (keeps +
 // inlines the runtime, flags the page fluid-capable). Enabled by the `--fluid`
 // flag OR a `fluid: true` front-matter key. The PDF/PPTX/PNG outputs are
@@ -2775,11 +2802,24 @@ const katexInline = usesMath ? katexInlineSheet(katexCssAbsPath) : '';
 const { faces: katexFaces, rules: katexRules } = splitKatexSheet(katexInline);
 const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeStyleText(katexRules)}</style>` : '';
 const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
-const docFonts = !katexFacesCss
-  ? embeddedFonts
-  : embeddedFonts
-    ? embeddedFonts.replace(/<\/style>$/, () => `${katexFacesCss}</style>`)
-    : `<style id="lattice-embedded-fonts">${katexFacesCss}</style>`;
+// Noto Color Emoji: only the slices this deck's emoji need (lib/fonts/emoji-faces.js), so a deck
+// without emoji carries none of the font. The slides AND the title count: the player's bar shows the title. `slicesFor` reads numeric
+// character references as the emoji they spell.
+const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}`;
+// `fonts: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
+// image set draws its pictures with this computer's emoji font (the Studio's camera does the same, lib/core/slide-camera.mjs).
+// `fonts: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
+// draws its words in them (the layout was measured in those faces) and embeds no font file (the PDF writer skips them, lib/core/pdf-compose/compose.mjs).
+const FILE_IS_HTML = OUT_FORMAT === 'html';
+const emojiCss = FONT_POLICY.emoji === 'system' ? '' : emojiFaceCss(PKG_ROOT, deckText, { all: FONT_POLICY.emoji === 'full' });
+const extraFontCss = katexFacesCss + emojiCss;
+// `fonts: system` in a `.html`: the engine's text faces stay out of the file and the viewer's own fonts draw the text.
+const textFonts = FONT_POLICY.text === 'system' && FILE_IS_HTML ? '' : embeddedFonts;
+const docFonts = !extraFontCss
+  ? textFonts
+  : textFonts
+    ? textFonts.replace(/<\/style>$/, () => `${extraFontCss}</style>`)
+    : `<style id="lattice-embedded-fonts">${extraFontCss}</style>`;
 
 // ── plugin hydrate: library + host ────────────────────────────────────────
 // Only for the plugins a slide actually uses (the engine's `data-lattice-hydrate` marker), so a
@@ -4442,7 +4482,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
       if (REOPENABLE) tags.push('re-openable in Lattice');
-      console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}`);
+      console.log(`PDF: ${outFile}${tags.length ? ` (${tags.join(', ')})` : ''}${sizeNote(outFile)}`);
     }
     if (NOTES_SIDECAR) writeNotesSidecar(outFile, materializedNotes);
   } else if (OUT_FORMAT === 'pdf') {
@@ -4461,8 +4501,9 @@ async function renderBody(browser, g, closeBrowser) {
     }
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
     const jpegBuffers = [];
-    for (const h of handles) {
-      jpegBuffers.push(await g(() => h.screenshot({ type: 'jpeg', quality: 95 }), 'screenshot slide'));
+    const rasterCam = await slideCameraFor(page);
+    for (const [i, h] of handles.entries()) {
+      jpegBuffers.push(await g(() => (rasterCam ? rasterCam.shoot(i, { type: 'jpeg', quality: 95, opaque: true }) : h.screenshot({ type: 'jpeg', quality: 95 })), 'screenshot slide'));
     }
     await closeBrowser();
     let finalBytes = await assembleRasterPdf(jpegBuffers, paperSheet);
@@ -4487,7 +4528,7 @@ async function renderBody(browser, g, closeBrowser) {
       if (PRESENT) tags.push('presentation mode');
       if (EMBED_SOURCE) tags.push('source embedded');
       if (REOPENABLE) tags.push('re-openable in Lattice');
-      console.log(`PDF: ${outFile} (${tags.join(', ')})`);
+      console.log(`PDF: ${outFile} (${tags.join(', ')})${sizeNote(outFile)}`);
     }
     // materializedNotes, NOT slideNotes — the same rule the vector-PDF path above and the
     // HTML path below already follow. `--raster` / `--paper` land here instead, so handing
@@ -4522,8 +4563,10 @@ async function renderBody(browser, g, closeBrowser) {
       : (/-dark$/.test(paletteName) ? 'dark' : 'light');
     let effectiveSvgBackground = IMAGE_SET_OPTS.svgBackground;
     const images = [];
-    for (const h of handles) {
-      images.push(await g(() => h.screenshot(shot), 'screenshot slide'));
+    const setCam = await slideCameraFor(page);
+    const setShot = (i, h) => (setCam ? setCam.shoot(i, { type: fmt, quality: IMAGE_SET_OPTS.quality, opaque: !OMIT_BG }) : h.screenshot(shot));
+    for (const [i, h] of handles.entries()) {
+      images.push(await g(() => setShot(i, h), 'screenshot slide'));
     }
 
     // (2) Thumbnails — re-raster the same sections at a small device scale (thumbWidth
@@ -4534,8 +4577,8 @@ async function renderBody(browser, g, closeBrowser) {
       const thumbScale = resolveThumbScale(IMAGE_SET_OPTS.thumbWidth, slideW, rasterScale);
       await g(() => page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: thumbScale }), 'set thumb viewport');
       const thumbHandles = await g(() => page.$$('section[data-lattice-slide]'), 'collect thumb handles');
-      for (const h of thumbHandles) {
-        thumbs.push(await g(() => h.screenshot(shot), 'screenshot thumb'));
+      for (const [i, h] of thumbHandles.entries()) {
+        thumbs.push(await g(() => setShot(i, h), 'screenshot thumb'));
       }
     }
 
@@ -4865,7 +4908,7 @@ async function renderBody(browser, g, closeBrowser) {
     // hides and restores each slide's text around the screenshot (lib/export/office-export.js).
     if (OUT_FORMAT === 'odp' || EDITABLE) {
       const office = require('./lib/export/office-export');
-      const captured = await office.captureSlides(handles, pngShot, EDITABLE, g);
+      const captured = await office.captureSlides(handles, pngShot, EDITABLE, g, { camera: await slideCameraFor(page) });
       await closeBrowser();
       const ext = OUT_FORMAT === 'odp' ? /\.odp$/i : /\.pptx$/i;
       const res = await office.writeOffice(outFile, OUT_FORMAT, captured, {
@@ -4877,18 +4920,20 @@ async function renderBody(browser, g, closeBrowser) {
         // both suites show the notes to anyone who opens the file (#1837).
       }, materializedNotes, slideDescriptions, PKG_ROOT,
       // `--reopenable` rides in the editable .pptx exactly as in the picture one.
-      REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
+      REOPENABLE && OUT_FORMAT === 'pptx' ? { lattice: await reopenableLattice(), date: reopenableDate(), fonts: FONT_POLICY } : { fonts: FONT_POLICY });
       if (!QUIET) {
         const kind = OUT_FORMAT === 'odp' ? 'ODP' : 'PPTX';
         const detail = EDITABLE ? ` (editable: ${res.frames} text boxes${res.shapes ? `, ${res.shapes} shapes` : ''}${res.pictures ? `, ${res.pictures} picture${res.pictures === 1 ? '' : 's'}` : ''}${res.wholePictures ? `, ${res.wholePictures} slide${res.wholePictures === 1 ? '' : 's'} as one whole-slide picture` : ''}${res.backgrounds ? `, ${res.backgrounds} shared background${res.backgrounds === 1 ? '' : 's'}${res.unshared ? ` (${res.unshared} slide${res.unshared === 1 ? '' : 's'} keep${res.unshared === 1 ? 's' : ''} its own picture)` : ''}` : ''}${res.fonts ? `, ${res.fonts} fonts embedded` : ''}${approximatedNote(res.approximated)})` : '';
         const reopen = REOPENABLE && OUT_FORMAT === 'pptx' ? ' (re-openable in Lattice)' : '';
-        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}`);
+        console.log(`${kind}: ${res.slides} slides → ${outFile}${detail}${reopen}${sizeNote(outFile)}`);
       }
     } else {
       const pngBuffers = [];
-      for (const h of handles) {
+      const picCam = await slideCameraFor(page);
+      for (const [i, h] of handles.entries()) {
+        const cam = picCam ? { png: () => picCam.shoot(i, { type: 'png', opaque: !OMIT_BG }), jpeg: (q) => picCam.shoot(i, { type: 'jpeg', quality: q }) } : null;
         // A `.pptx` slide picture is opaque, so a photographic one is stored as a JPEG (lib/export/slide-picture.js).
-        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot) : h.screenshot(pngShot)), 'screenshot slide'));
+        pngBuffers.push(await g(() => (OUT_FORMAT === 'pptx' ? require('./lib/export/slide-picture').shootPicture(h, pngShot, cam) : cam ? cam.png() : h.screenshot(pngShot)), 'screenshot slide'));
       }
       await closeBrowser();
 
@@ -4915,7 +4960,7 @@ async function renderBody(browser, g, closeBrowser) {
           // recipient by default. This call site was the last one still reading the unstripped
           // array (#1837).
         }, materializedNotes, slideDescriptions, REOPENABLE ? { lattice: await reopenableLattice(), date: reopenableDate() } : {});
-        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}`);
+        if (!QUIET) console.log(`PPTX: ${count} slides → ${outFile}${REOPENABLE ? ' (re-openable in Lattice)' : ''}${sizeNote(outFile)}`);
       }
     }
   }
@@ -5014,7 +5059,33 @@ async function renderBody(browser, g, closeBrowser) {
         playerDocHtml = placeheld.html;
         webBlockedAtRender.push(...placeheld.blocked);
       }
+      // The shared JPEG encoder (lib/export/chrome-recode.js) runs in its own short-lived hardened browser, like the CSS
+      // prune below: the render browser is closed by now.
+      // LAZY: the browser starts on the first picture the policy wants to re-encode, so a deck with no big photo
+      // pays nothing, and a failure to start it keeps every picture as it was.
+      let chromeEncoder = null;
+      let encoderFailed = false;
+      const lazyEncode = async (bytes, mime, plan) => {
+        if (encoderFailed) return null;
+        if (!chromeEncoder) {
+          try {
+            const encOpts = { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', ...OFFLINE_ARGS], headless: 'new' };
+            if (CHROME_EXEC) encOpts.executablePath = CHROME_EXEC;
+            imageEncoderBrowser = await puppeteer.launch(encOpts);
+            chromeEncoder = await require('./lib/export/chrome-recode.js').createChromeEncoder(imageEncoderBrowser);
+          } catch (e) {
+            encoderFailed = true;
+            await imageEncoderBrowser?.close().catch(() => {});
+            if (!QUIET) console.error(`  ⚠ picture optimizer unavailable (${e?.message || e}); pictures keep their original bytes`);
+            return null;
+          }
+        }
+        return chromeEncoder.encode(bytes, mime, plan);
+      };
       const { html: playerHtml, report } = await buildPlayerHtml({
+        images: IMAGE_SETTING,
+        fonts: FONT_SETTING,
+        encodeImage: lazyEncode,
         // The deck directory, so a deck-relative `<img src>` becomes a `file://` URL the
         // asset inliner can bake in. Without it every prose image in a shared player is a
         // dangling relative path (see the note in html-player.js).
@@ -5086,6 +5157,7 @@ async function renderBody(browser, g, closeBrowser) {
         playerVersion: PLAYER_VERSION,
         host: 'cli',
       });
+      await imageEncoderBrowser?.close().catch(() => {});
       // P6 — used-selector CSS prune + used-family FONT prune. Authoritative Chromium
       // matching (+ a computed-style gate for CSS); a gate failure or css-tree-absent
       // silently keeps the full CSS, an empty font detection keeps every face. Never
@@ -5151,6 +5223,7 @@ async function renderBody(browser, g, closeBrowser) {
         console.warn(`  honesty: the player DOM could not be captured — this player shows no overflow marker, not \`${level}\`.`);
       }
     } catch (err) {
+      await imageEncoderBrowser?.close().catch(() => {});
       console.warn(`warning: --player assembly failed (${err?.message}); ${outFile} is unaffected, but ${outHtml} is the clean render, not the player.`);
     }
   } else if (FLUID_VIEW && FLUID_BEATS_READ) {
@@ -5323,6 +5396,24 @@ async function prunePlayerCssInPage(playerHtml) {
 /** The shared writer's local-file reader: the deck's folder and Lattice's install only. */
 const pdfAssets = require('./lib/export/pdf-asset-reader.js').createAssetReader([mdFile && mdFile !== '-' ? path.dirname(path.resolve(mdFile)) : process.cwd(), PKG_ROOT]);
 
+// The shared slide camera for this run (lib/core/slide-camera.mjs): the one way a slide becomes a picture, here and in the
+// Studio. Null when its bundle is missing, and every caller then keeps Chrome's own screenshot.
+async function slideCameraFor(page) {
+  slideCameraFor.cache ||= new WeakMap();
+  if (!slideCameraFor.cache.has(page)) {
+    let cam = null;
+    try {
+      // The same places the page itself may read: the deck, Lattice's install, and the folders of the stylesheet and palettes the command line names.
+      const camConfine = require('./lib/export/file-confine.js').createFileConfiner([...DECK_CONFINE.roots, ...(cssFile ? [path.dirname(path.resolve(cssFile))] : []), ...paletteFiles.map((f) => path.dirname(path.resolve(f)))]);
+      cam = await require('./lib/export/cli-camera.js').createCliCamera(page, { bundlePath: path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js'), confine: camConfine, allowRemote: !!flags['allow-remote'], warn: (m) => { if (!QUIET) console.error(m); } });
+    } catch (e) {
+      if (!QUIET) console.error(`  ⚠ slide camera unavailable (${e?.message || e}); using Chrome's screenshot`);
+    }
+    slideCameraFor.cache.set(page, cam);
+  }
+  return slideCameraFor.cache.get(page);
+}
+
 async function composePdfInPage(g, page) {
   composePdfInPage.pages ||= new WeakSet();
   const bundle = path.join(PKG_ROOT, 'dist', 'lattice-pdf-compose-min.js');
@@ -5336,14 +5427,21 @@ async function composePdfInPage(g, page) {
     // THE CAMERA is the one piece each host supplies. Here it is Chrome itself: the page
     // calls back into Node, which screenshots the slide as it stands (the drawn text and
     // shapes already hidden). Chrome sees exactly what is on the slide — local images,
-    // CSS backgrounds, filters — where html-to-image would have to fetch each one from a
-    // file:// page and cannot. The Studio's camera is html-to-image, on the same face.
+    // CSS backgrounds, filters. Both hosts now take the picture with the SAME camera (lib/core/slide-camera.mjs):
+    // this binding is only where the CLI answers its request for a picture's bytes, and the fallback when the camera cannot run.
     const handles = await g(() => page.$$('section[data-lattice-slide]'), 'collect slide handles');
     const PHOTO_FN = '__latticePdfPhoto', ASSET_FN = '__latticePdfAsset', FACES_FN = '__latticePdfFontFaces';
     composePdfInPage.handles = handles;
     if (!composePdfInPage.pages.has(page)) {
       composePdfInPage.pages.add(page);
       await page.exposeFunction(PHOTO_FN, async (i, scale, type) => {
+        // THE SHARED CAMERA (lib/core/slide-camera.mjs), the one the Studio's PDF takes: the same pixels from either
+        // host. Chrome's own screenshot is the fallback when the bundle cannot be read.
+        const cam = await slideCameraFor(page);
+        if (cam) {
+          const buf = await cam.shoot(i, { scale, type: type === 'jpeg' ? 'jpeg' : 'png', quality: PDF_PHOTO_QUALITY, face: 'screen', fastPng: PDF_PHOTO_FAST });
+          return buf.toString('base64');
+        }
         const h = composePdfInPage.handles[i];
         // deviceScaleFactor changes pixel density only, never layout.
         if (scale !== 1) await page.setViewport({ width: slideW, height: slideH, deviceScaleFactor: scale });
@@ -5351,11 +5449,6 @@ async function composePdfInPage(g, page) {
           // Align the slide's top edge with the viewport's exactly: scrollIntoView can leave
           // it a few px off (measured -4 px on slide 1), and the screenshot then clips it.
           await h.evaluate((el) => window.scrollTo(0, window.scrollY + el.getBoundingClientRect().top));
-          // The encoding the writer asks for: PNG first, JPEG too on a busy slide (compose.mjs pngIsFlat).
-          // A real export takes Chrome's default PNG encoder. Under a test (PDF_PHOTO_FAST) it takes the
-          // fast one instead: 67 ms against 168 ms for a 1280 px slide (JPEG: 50 ms), same pixels, about
-          // 3x the bytes on a flat slide. CI's integration job renders hundreds of decks and sat 25 s
-          // from its timeout before #2503; a shipped PDF and a committed golden keep the small bytes.
           const buf = await h.screenshot(type === 'jpeg'
             ? { type: 'jpeg', quality: PDF_PHOTO_QUALITY, captureBeyondViewport: false }
             : { type: 'png', optimizeForSpeed: PDF_PHOTO_FAST, captureBeyondViewport: false });
@@ -5373,7 +5466,7 @@ async function composePdfInPage(g, page) {
     // slide's photo is JPEG at 2560 px; PNG-first is for 16:9 and HD), and a
     // bigger deck on slower hardware must not hit the per-call 90 s one mid-write.
     const composeMs = Math.min(COMPOSE_MAX_MS, Math.max(RENDER_WATCHDOG_MS, handles.length * 4000));
-    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality) => {
+    const out = await guard(page.browser(), () => page.evaluate(async (wasmB64, fnName, assetFn, epochMs, facesFn, photoScale, failAfterHide, jpegQuality, imageSetting, fontPolicy) => {
       const L = globalThis.LatticePdfCompose;
       const secs = [...document.querySelectorAll('section[data-lattice-slide]')];
       // THE FACE: the export face (`.lattice-exporting`), the one the Studio photographs too.
@@ -5409,7 +5502,7 @@ async function composePdfInPage(g, page) {
       let composed;
       try {
         const readFontFaceRules = (href) => window[facesFn](href);
-        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide });
+        composed = await L.composeDeckPdf(secs, { camera, fetchAsset, fetchBytes: fetchAsset, readFontFaceRules, harfbuzzWasm: wasmBytes, date: new Date(epochMs), photoScale: Number(photoScale) || 1, failAfterHide, images: imageSetting, fonts: fontPolicy });
       } catch (e) {
         // Carry the page-side stack across CDP: puppeteer keeps only the message.
         return { error: String(e?.stack || e) };
@@ -5418,7 +5511,7 @@ async function composePdfInPage(g, page) {
       let s = '';
       for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
       return { b64: btoa(s), report };
-    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100), 'compose pdf', composeMs);
+    }, wasm, PHOTO_FN, ASSET_FN, require('./lib/core/pdf-timestamps.js').resolveEpoch() * 1000, FACES_FN, process.env.LATTICE_PDF_PHOTO_SCALE, process.env.LATTICE_PDF_TEST_FAIL === 'after-hide', PDF_PHOTO_QUALITY / 100, IMAGE_SETTING, FONT_POLICY), 'compose pdf', composeMs);
     if (out.error) throw Object.assign(new Error(out.error.split('\n')[0]), { stack: out.error });
     await g(() => page.evaluate(() => { for (const s of document.querySelectorAll('section.lattice-exporting')) s.classList.remove('lattice-exporting'); }), 'restore the page after compose');
     if (!QUIET) {
@@ -5585,6 +5678,32 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
   return swapped;
 }
 
+// What a finished page's entities spell (`&#x1F389;`, `&laquo;`). A face is cut to every character in the raw page (player-fonts.js) plus
+// these, so a character written only as an entity keeps its glyph. Only the entity references are decoded, by parse5 (the HTML parser jsdom
+// uses): parsing the whole page in jsdom read every inline stylesheet into CSS objects, 1.6 s of a 4.2 s one-slide render. An entity in a
+// <style> or <script> counts here although a browser leaves it as text: that keeps one glyph too many, never one too few.
+function entityChars(html) {
+  const refs = html.match(/&(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);?/gi);
+  if (!refs) return '';
+  const { parseFragment } = require('parse5');
+  let text = '';
+  const walk = (node) => {
+    if (node.nodeName === '#text') text += node.value;
+    for (const child of node.childNodes || []) walk(child);
+  };
+  walk(parseFragment([...new Set(refs)].join(' ')));
+  return text;
+}
+
+async function applyFontPolicyToHtml(file) {
+  try {
+    const done = fs.readFileSync(file, 'utf8');
+    const shown = entityChars(done);
+    const cut = await require('./lib/export/player-fonts.js').subsetEmbeddedFonts(done, { ...FONT_POLICY, extraChars: shown });
+    if (cut.applied) fs.writeFileSync(file, cut.html);
+  } catch { /* the finished render stays as written */ }
+}
+
 // Driver: render once; on a Chrome target crash / wedge (NOT an author-fixable
 // layout error) retry exactly once with hardening flags before giving up loud
 // and non-zero. This turns a transient, environmental Chrome failure into a
@@ -5600,6 +5719,10 @@ async function rasterizeSvgImagesInPage(browser, g, page) {
       throw e;
     }
   }
+  // The `fonts:` policy on every finished `.html` that is not a sealed player (lib/core/font-policy.js): the plain page, `--read` and
+  // `--fluid`. The emoji slices are cut to the deck's own emoji, `fonts: system` drops the engine's faces, `fonts: exact` cuts the text
+  // faces. The player cuts inside its own assembly, where its policy hashes are written, so it is left alone here.
+  if (OUT_FORMAT === 'html' && !PLAYER) await applyFontPolicyToHtml(outFile);
   // Only here, on a fully successful render: the raster has been captured from the sidecar
   // and any viewer rewrite is done, so a byproduct `.html` can go (see removeSidecarHtml).
   removeSidecarHtml();

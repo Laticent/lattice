@@ -31,12 +31,12 @@ export const MODES: ModeEntry[] = [
 	{
 		name: 'sketch', label: 'Sketch',
 		blurb: 'Hand-drawn — handwriting type, wobbly boxes, wavy rules.',
-		swatch: { background: `repeating-linear-gradient(8deg, ${A(34)} 0 1.5px, transparent 1.5px 5px)` },
+		swatch: { background: `repeating-linear-gradient(8deg, ${A(62)} 0 1.5px, transparent 1.5px 5px)` },
 	},
 	{
 		name: 'sketch-clean', label: 'Sketch · clean body',
 		blurb: 'Hand headings and boxes; clean body text for dense slides.',
-		swatch: { background: `repeating-linear-gradient(8deg, ${A(28)} 0 1.5px, transparent 1.5px 7px)` },
+		swatch: { background: `repeating-linear-gradient(8deg, ${A(52)} 0 1.5px, transparent 1.5px 7px)` },
 	},
 ];
 

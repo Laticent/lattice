@@ -44,7 +44,7 @@ function renderHtml(sizeName) {
   // masthead band around the chart that is irrelevant to (and would perturb) the
   // scale-ratio measurement. Keep the fixture chrome-free so it tests the SVG, not Form.
   fs.writeFileSync(md, `---\nmarp: true\ntheme: indaco\nsize: ${sizeName}\nform: off\n---\n\n${body}`);
-  execFileSync(process.execPath, [EMULATOR, md, pdf, 'indaco', '-q', '--keep-html'], {
+  execFileSync(process.execPath, [EMULATOR, md, pdf, 'indaco', '-q', '--keep-html', '--size', 'deck'], {
     cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'],
   });
   // `--keep-html`: the sidecar is deleted on success by default (P1); this gate reads it.

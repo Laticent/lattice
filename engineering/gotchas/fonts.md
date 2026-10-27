@@ -109,40 +109,19 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
   The faces are now genuinely present in the iframe regardless of the inert
   `@import` or what the parent loaded.
 
-## Color emoji needs an installed font on the owned render paths
+## Color emoji is a hosted font now; an old install note still applies to the Marp paths
 
-- **Symptom:** Emoji render as monochrome glyphs or tofu boxes (▯) in
-  PDFs produced by `lattice-engine` or `lattice` on a bare
-  host (CI runner, server, a freshly-provisioned desktop WebView) — even
-  though they look fine on a Mac/Windows dev machine.
-- **Cause:** Unlike the marp-core-based surfaces — the VS Code Marp
-  preview and a marp-cli-rendered Export-to-Marp bundle — which rewrite
-  emoji to twemoji `<img>` (see "Marp Core wraps emoji in `<img class="emoji">`"
-  in `marp.md`), the **owned paths
-  emit emoji as plain unicode text**. Headless Chromium then needs a
-  *color* emoji font to be available to render them. The `--font-*`
-  stacks name `'Noto Color Emoji'` and `lattice.css` now also loads it
-  as a webfont via the Google Fonts `@import`, **but Chromium is
-  unreliable about honoring `@font-face` for emoji presentation
-  sequences** — it frequently bypasses the webfont and uses the
-  platform emoji font. So the webfont is a portable bonus, not a
-  guarantee; an *installed* color emoji font is the reliable mechanism.
-- **Mitigation:** Install `fonts-noto-color-emoji` (Debian/Ubuntu) in
-  every environment that renders Lattice PDFs:
-  - **CI** — `.github/workflows/ci.yml`, the integration job's apt step.
-  - **Cloud sessions** — `.claude/hooks/session-start.sh` (step 2b).
-  - **The Laticent desktop app** — its WebView/packaging must ship or
-    install a color emoji font; the engine alone can't guarantee it.
-- **Triggered by:** Any unicode emoji in a deck rendered through
-  `lattice-engine` / `lattice` on a host without a color
-  emoji font.
-- **Removable when:** Never fully — it's inherent to emitting emoji as
-  text. The webfont `@import` and the font installs together are the
-  correct shape. (Note: this sandbox's headless Chromium loads **no**
-  webfonts at all, so verify emoji rendering relies on the *installed*
-  font here, not the `@import`.)
-- **See:** `engineering/decisions/2026-06-10-marp-replacement-proposal.md`
-  (the twemoji-drop decision).
+- **Symptom:** Emoji look different from machine to machine, or (on a bare host with no emoji font) render as monochrome glyphs or tofu boxes (▯).
+- **Cause:** The owned paths emit emoji as plain unicode text, unlike the marp-core surfaces, which rewrite them to twemoji `<img>`
+  (see "Marp Core wraps emoji in `<img class="emoji">`" in `marp.md`). Until 2026-10-26 the engine relied on an INSTALLED color emoji font.
+  Noto Color Emoji now ships in `dist/lattice.css` as 11 unicode-range woff2 slices and leads every emoji fallback, so the owned
+  paths draw it from our own bytes and no installed font is needed (`engineering/pipeline.md` §4a3).
+- **Still true:** a host whose browser ignores `@font-face` for emoji presentation sequences uses its platform emoji font, and
+  PowerPoint/LibreOffice draw an emoji typed into an editable file with the machine's own font. The marp-core surfaces never see our slices.
+- **How much a file carries** is the author's choice: `fonts: exact-emoji` (default), `used-emoji`, `full-emoji`, `system-emoji`
+  (`lib/core/font-policy.js`). `system-emoji` is the old behavior, in every format: a `.html` lets the viewer draw, and a PDF or picture export draws with the machine's own emoji font (a machine with none draws boxes).
+- **Removable when:** never for the Office case; it is how those apps work.
+- **See:** `engineering/decisions/2026-10-26-fonts-policy.md`; `engineering/decisions/2026-06-10-marp-replacement-proposal.md` (the twemoji-drop decision).
 
 ## Flex-centered caps read high in JetBrains Mono (and `text-box-trim` can't fix it here)
 

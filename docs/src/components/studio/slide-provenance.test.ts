@@ -3,7 +3,38 @@
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
 import { getClassTokens } from './slide-directives';
-import { canvasProvenance, finishProvenance, marksProvenance, modeProvenance, motionPlayProvenance, motionSpeedProvenance, motionStyleProvenance, setCanvas, setFinish, setMarks, setMode, setMotionPlay, setMotionSpeed, setMotionStyle, setSpectrum, setStampStyle, setToneStyle, spectrumProvenance, stampStyleProvenance, toneStyleProvenance } from './slide-provenance';
+import {
+	canvasProvenance,
+	eyebrowProvenance,
+	finishProvenance,
+	headlineProvenance,
+	marksProvenance,
+	modeProvenance,
+	motionPlayProvenance,
+	motionSpeedProvenance,
+	motionStyleProvenance,
+	ruleProvenance,
+	setCanvas,
+	setEyebrow,
+	setFinish,
+	setHeadline,
+	setMarks,
+	setMode,
+	setMotionPlay,
+	setMotionSpeed,
+	setMotionStyle,
+	setRule,
+	setSpectrum,
+	setSpectrumCardEdge,
+	setSpectrumEdge,
+	setStampStyle,
+	setToneStyle,
+	spectrumCardEdgeProvenance,
+	spectrumEdgeProvenance,
+	spectrumProvenance,
+	stampStyleProvenance,
+	toneStyleProvenance,
+} from './slide-provenance';
 
 const TONE_STYLES = ['tone-rail', 'tone-edge', 'tone-glow'];
 
@@ -187,6 +218,33 @@ describe('spectrum provenance + override (brand bar)', () => {
 		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['spectrum-off']);
 		expect(getClassTokens(setSpectrum(chunk, null)).some((t) => t.startsWith('spectrum-'))).toBe(false);
 	});
+	it('setSpectrum writes the restore token `spectrum-on`, which reads back as this slide\'s own choice', () => {
+		const src = deck('spectrum: solid', '<!-- _class: kpi -->');
+		const chunk = setSpectrum('<!-- _class: kpi spectrum-solid -->', 'on');
+		expect(getClassTokens(chunk).filter((t) => t.startsWith('spectrum-'))).toEqual(['spectrum-on']);
+		expect(spectrumProvenance(chunk, src)).toMatchObject({ state: 'on', value: 'on', deckValue: 'solid' });
+	});
+});
+
+describe('restore tokens (each register default as a per-slide choice)', () => {
+	const cases = [
+		['spectrum-edge: left', setSpectrumEdge, spectrumEdgeProvenance, 'top', 'spectrum-edge-top'],
+		['rule: accent', setRule, ruleProvenance, 'auto', 'rule-auto'],
+		['eyebrow: dot', setEyebrow, eyebrowProvenance, 'plain', 'eyebrow-plain'],
+		['headline: center', setHeadline, headlineProvenance, 'auto', 'head-auto'],
+		['spectrum-card-edge: top', setSpectrumCardEdge, spectrumCardEdgeProvenance, 'left', 'spectrum-card-edge-left'],
+	] as const;
+	for (const [fm, set, read, name, token] of cases) {
+		it(`${fm}: the default \`${name}\` writes \`${token}\` and reads back as the slide's own value`, () => {
+			const src = deck(fm, '<!-- _class: kpi -->');
+			expect(read('<!-- _class: kpi -->', src)).toMatchObject({ state: 'inherited', inheritable: true });
+			const chunk = set('<!-- _class: kpi -->', name);
+			expect(getClassTokens(chunk)).toContain(token);
+			expect(read(chunk, src)).toMatchObject({ state: 'on', value: name });
+			// null takes the token away again: the slide follows the deck.
+			expect(getClassTokens(set(chunk, null))).not.toContain(token);
+		});
+	}
 });
 
 describe('backdrop provenance (the register over any finish)', () => {

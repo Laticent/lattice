@@ -20,6 +20,12 @@ import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
 import { tourChromeMargin } from './tour-chrome';
 
+// The ink tooltip's `hideOn` (lint-tooltip-keep.ts), set when the thin-card module loads. It lives in that lazy chunk because
+// only a thin-card tooltip is ever kept, and none exists before the module has loaded; until then CodeMirror's rule applies.
+let keepInkTooltip: ((tr: Transaction, from: number, to: number) => boolean | null) | null = null;
+
+
+
 // The shared authoring linter (lib/authoring/lint-core via the browser bundle),
 // lazily imported the first time the editor validates — surfaces that never lint
 // don't pull the bundle. Module-scoped cache so every editor instance shares it.
@@ -581,8 +587,22 @@ export const Editor = React.forwardRef<EditorHandle, {
 					}
 					reportLint(view, measuredFindings.length ? findings.concat(measuredFindings) : findings);
 					const diags = findingsToDiagnostics(view.state.doc, findings, fixOpts) as Diagnostic[];
+					// `thin-card-no-ink` is not auto-fixable in lint (which ink reads depends on the photo, which lint cannot see).
+					// The tooltip builds its own buttons and fills them IN PLACE once the photo has been read from the preview, so
+					// the tooltip never closes and reopens with different buttons: the one ink that reads, or both when the photo
+					// cannot be read (this slide is not the one on screen, a cross-origin photo). Lint's "Fix: …" prose is dropped
+					// since buttons do the fix (#1658).
+					const thin = diags.filter((d) => d.source === 'thin-card-no-ink');
+					if (thin.length) {
+						// A chunk that will not load (offline after a deploy) must not take the editor's diagnostics with it.
+						const fix = await import('./thin-card-fix').catch(() => null);
+						if (fix) {
+							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
+							fix.attachInkFixes(thin, view.state.doc.toString(), () => hubRef.current?.get().unitIndex);
+						}
+					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
-				})
+				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null })
 			: makeLinter(known, reportLint);
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,

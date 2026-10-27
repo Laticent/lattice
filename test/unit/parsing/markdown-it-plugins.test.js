@@ -491,6 +491,40 @@ describe('markdown-it-plugins', () => {
     assert.ok(s[3].includes('spectrum-duo'), `slide 4 lost deck STYLE 'spectrum-duo'; got [${s[3].join(', ')}]`);
   });
 
+  // THE RESTORE TOKENS. A deck value writes no token when it is the default, so a slide inside a
+  // deck that set another value needs the default's own token to ask for it back. Each one is in
+  // its register's override set, so carrying it drops the deck's token on THAT axis only, and the
+  // slide renders as the default. (`claim-framed` is the older instance of the same move.)
+  test('deckClassPropagate: a restore token drops the deck token on its own axis, and only there', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const restores = [
+      ['spectrum-on', 'spectrum-solid'],
+      ['spectrum-edge-top', 'spectrum-edge-left'],
+      ['spectrum-card-edge-left', 'spectrum-card-edge-top'],
+      ['rule-auto', 'rule-accent'],
+      ['eyebrow-plain', 'eyebrow-dot'],
+      ['head-auto', 'head-center'],
+    ];
+    const md = ['---',
+      'spectrum: solid', 'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top',
+      'rule: accent', 'eyebrow: dot', 'headline: center',
+      '---', '', '# Slide 1',
+      ...restores.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, `# ${own}`]),
+    ].join('\n');
+    const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    const deckTokens = restores.map(([, deck]) => deck);
+    // Slide 1 carries every deck token, so the evictions below are real, not an absent stamp.
+    for (const t of deckTokens) assert.ok(s[0].includes(t), `slide 1 missing deck '${t}'; got [${s[0].join(', ')}]`);
+    restores.forEach(([own, deck], i) => {
+      const cls = s[i + 1];
+      assert.ok(cls.includes(own), `${own} slide lost its own token; got [${cls.join(', ')}]`);
+      assert.ok(!cls.includes(deck), `${own} slide still carries the deck's '${deck}'; got [${cls.join(', ')}]`);
+      for (const other of deckTokens.filter((t) => t !== deck)) {
+        assert.ok(cls.includes(other), `${own} slide dropped '${other}' from another axis; got [${cls.join(', ')}]`);
+      }
+    });
+  });
+
   test('deckClassPropagate: spectrum-trim propagates + a per-slide token overrides the deck', () => {
     const m = makeHost(plugins.deckClassPropagate);
     const md = ['---', 'spectrum-trim: on', '---', '',

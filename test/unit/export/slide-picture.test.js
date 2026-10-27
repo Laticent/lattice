@@ -46,12 +46,12 @@ describe('shootPicture — a flat slide (the page says no continuous tone)', () 
 });
 
 describe('shootPicture — a continuous-tone slide (a photograph, a wash)', () => {
-  test('is a JPEG first, at quality 92, and the slow PNG is never shot when the JPEG is large', async () => {
+  test('is a JPEG first, at quality 90, the shared picture quality, and the slow PNG is never shot when the JPEG is large', async () => {
     const h = handle({ png: 3_000_000, jpeg: 400 * KB, tone: true });
     const out = await shootPicture(h, { type: 'png' });
     assert.equal(isJpeg(out), true);
     assert.deepEqual(shots(h), ['jpeg']);
-    assert.equal(h.calls.find((c) => c.type === 'jpeg').quality, 92);
+    assert.equal(h.calls.find((c) => c.type === 'jpeg').quality, 90);
   });
 
   test('a small JPEG means it was nearly flat after all: the PNG is shot and the sizes decide', async () => {

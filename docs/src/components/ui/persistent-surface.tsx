@@ -104,6 +104,16 @@ export function PersistentSurface({
   const rootRef = React.useRef<HTMLDivElement>(null)
   const boxRef = React.useRef<HTMLDivElement>(null)
   const returnTo = React.useRef<HTMLElement | null>(null)
+  const layerRef = React.useRef<HTMLDivElement>(null)
+  // COVERED: a menu or select opened from inside the box is a Radix layer ABOVE this one, and it
+  // locks out everything beneath it, as a Radix modal does, so a tap outside it only closes it.
+  // Radix carries that lock by setting `pointer-events: none` on each lower layer's own element,
+  // and this box is not one (it lives beside the backdrop layer, not inside it). Pinned to `auto`,
+  // the box took a tap on a SECOND trigger while the first select was open: the tap opened the
+  // second, which then sat on top, so the first never saw an outside tap it was allowed to act on,
+  // and the phone's Settings sheet stacked one open list on another. The box now follows the
+  // backdrop layer's own lock, which Radix keeps current as layers open and close.
+  const [covered, setCovered] = React.useState(false)
   // CLOSING: from the close until the exit animation ends, the box stays drawn and stays a
   // dialog, as a Radix dialog does until its Presence unmounts it. Hiding at once dropped main's
   // fade-and-zoom out, and it let a test's "wait until the dialog is gone" pass before the insert
@@ -145,6 +155,19 @@ export function PersistentSurface({
     }
   }, [open])
 
+  React.useEffect(() => {
+    const layer = layerRef.current
+    if (!open || !layer) return
+    const read = () => setCovered(layer.style.pointerEvents === "none")
+    read()
+    const watch = new MutationObserver(read)
+    watch.observe(layer, { attributes: true, attributeFilter: ["style"] })
+    return () => {
+      watch.disconnect()
+      setCovered(false)
+    }
+  }, [open])
+
   const drawn = open || closing
   // FOCUS GOES BACK once the box is hidden, as Radix does when its Presence unmounts — and only
   // if nothing else took it meanwhile. An insert moves the caret into the new slide a frame after
@@ -168,6 +191,7 @@ export function PersistentSurface({
         <div ref={rootRef} data-slot="persistent-surface" className="contents">
           {open && (
             <DismissableLayer.Root
+              ref={layerRef}
               aria-hidden
               data-state={state}
               disableOutsidePointerEvents
@@ -216,8 +240,9 @@ export function PersistentSurface({
               if (!open && e.target === e.currentTarget) flushSync(() => setClosing(false))
             }}
             // `auto`: the layer above sets `pointer-events: none` on <body> while open, as every
-            // Radix modal does, and this box is not inside the layer's own element.
-            style={open ? { pointerEvents: "auto" } : undefined}
+            // Radix modal does, and this box is not inside the layer's own element. `none` while a
+            // layer opened from inside it is on top (COVERED, above).
+            style={open ? { pointerEvents: covered ? "none" : "auto" } : undefined}
             className={cn("lx-ui outline-none data-[hidden]:hidden data-[state=closed]:[animation-fill-mode:forwards]", className)}
           >
             <IdsCtx.Provider value={ids}>{children}</IdsCtx.Provider>

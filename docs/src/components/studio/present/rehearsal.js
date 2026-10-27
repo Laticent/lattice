@@ -88,7 +88,14 @@ function wordsOf(chunk) {
     .filter(Boolean).length;
 }
 function titleOf(chunk) {
-  const body = chunk.replace(/<!--[\s\S]*?-->/g, '').trim();
+  // Repeat to a fixed point: removing one comment can splice `<!--` back together from the
+  // text around it (`<!<!-- -->-- note -->`), and the title would then open with it (#1958).
+  let body = chunk;
+  for (let prev = ''; prev !== body; ) {
+    prev = body;
+    body = body.replace(/<!--[\s\S]*?-->/g, '');
+  }
+  body = body.trim();
   const head = body.match(/^#{1,3}\s+(.+)$/m);
   const line = (head ? head[1] : body.split('\n').find((l) => l.trim())) || '';
   return line.replace(/[#*_`>|\\-]/g, '').trim().slice(0, 64);

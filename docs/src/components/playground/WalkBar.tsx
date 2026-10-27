@@ -27,6 +27,8 @@ export function WalkBar(props: {
 	index: number;
 	count: number;
 	caption: string;
+	/** The caption is the newcomer's server-rendered one, shown before any plan has landed. playground.css hides it for a visitor who is not a newcomer. */
+	baked?: boolean;
 	onPrev: () => void;
 	onNext: () => void;
 	/** Non-null replaces the plain "Next ›" (e.g. "Next component: kpi →"). */
@@ -37,7 +39,7 @@ export function WalkBar(props: {
 	/** The slide map's strip lives in the bar on a narrow screen: this reports the element it goes into, and `mapOn` says whether it shows. */
 	mapSlot?: { ref: (el: HTMLElement | null) => void; on: boolean };
 }): React.ReactElement {
-	const { index, count, caption, onPrev, onNext, nextLabel, prevDisabled, nextDisabled, notice, mapSlot } = props;
+	const { index, count, caption, baked, onPrev, onNext, nextLabel, prevDisabled, nextDisabled, notice, mapSlot } = props;
 	return (
 		<nav id="pg-walk" className="pg-walk" aria-label="Component walkthrough" data-map={mapSlot?.on ? '' : undefined}>
 			<div className="pg-walk-row">
@@ -70,7 +72,7 @@ export function WalkBar(props: {
 			    title") is transient and outranks the caption while it is up; giving it its own
 			    element would add a line and move the deck, which is the defect this bar was fixed
 			    for. `title` carries the full text, since the slot clamps. */}
-			<p className={`pg-walk-caption${notice ? ' is-notice' : ''}`} title={notice || caption || undefined}>
+			<p className={`pg-walk-caption${notice ? ' is-notice' : ''}`} data-baked={baked ? '' : undefined} title={notice || caption || undefined}>
 				{notice || caption}
 			</p>
 		</nav>

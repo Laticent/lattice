@@ -39,26 +39,36 @@ export interface MasterPlan {
 
 const half = (n: number) => Math.round(n * 2) / 2;
 
-/** Whether a frame can be a layout object: one line, one style. */
+/** The run that styles a one-line frame: its first run that is not an emoji split out of the text (`splitEmojiRuns`). */
+function leadRun(frame: TextFrame) {
+	const line = frame.lines[0];
+	return line.find((run) => !run.style.emoji) ?? line[0];
+}
+
+/** A one-line frame's text, emoji included. */
+const lineText = (frame: TextFrame) => frame.lines[0].map((run) => run.text).join('');
+
+/** Whether a frame can be a layout object: one line, one style (an emoji split out of its text does not count as a second). */
 function single(frame: TextFrame): boolean {
-	return frame.lines.length === 1 && frame.lines[0].length === 1;
+	if (frame.lines.length !== 1 || !frame.lines[0].length) return false;
+	const lead = JSON.stringify(leadRun(frame).style);
+	return frame.lines[0].every((run) => run.style.emoji || JSON.stringify(run.style) === lead);
 }
 
 /** Whether a page number frame reads as the slide's 1-based position. */
 export function isPosition(frame: TextFrame, position: number): boolean {
-	return frame.lines.length === 1 && frame.lines[0].length === 1 && frame.lines[0][0].text.trim() === String(position);
+	return frame.lines.length === 1 && frame.lines[0].length >= 1 && lineText(frame).trim() === String(position);
 }
 
 /** Whether a run has only the styling a layout's slide number can carry. */
 function hasBasicStyle(frame: TextFrame): boolean {
-	const st = frame.lines[0][0].style;
+	const st = leadRun(frame).style;
 	return !st.letterSpacing && st.alpha === 1 && !st.italic && !st.underline && !st.strike && !st.smallCaps && st.transform === 'none';
 }
 
 /** What makes two frames "the same thing in the same place". The page number's digits are not part of it. */
 function signature(frame: TextFrame): string {
-	const run = frame.lines[0][0];
-	return JSON.stringify([frame.role, half(frame.x), half(frame.y), half(frame.w), half(frame.h), frame.align, run.style, frame.role === 'number' ? '' : run.text]);
+	return JSON.stringify([frame.role, half(frame.x), half(frame.y), half(frame.w), half(frame.h), frame.align, leadRun(frame).style, frame.role === 'number' ? '' : lineText(frame)]);
 }
 
 /** A slide's candidate chrome: the one frame of each role that a layout could draw. */

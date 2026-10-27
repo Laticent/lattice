@@ -287,8 +287,11 @@ section.spectrum-mono  { --spectrum-style: var(--sp-fill-mono-h);  --spectrum-st
    and a semantic `tone-edge` are explicit per-slide choices and win over the deck-wide style, as
    they do over the default rainbow (2026-07-03-status-marker-style-variants.md §9). The
    exclusion mirrors those rules' own gates and sits in `:where()` so this rule keeps its
-   (0,3,1) specificity against everything else. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not([class*="spectrum-edge-"]):not(:where(.split-panel, .split-compare, .image, .scene, .collage.bleed, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
+   (0,3,1) specificity against everything else. The edge exclusion NAMES the four edges that move
+   or drop the bar rather than matching `spectrum-edge-*`: `spectrum-edge-top` is the restore token
+   (a slide back on the top bar inside another deck edge), and the top bar it restores takes the
+   deck's style like any other. Same specificity either way, (0,1,0) inside the `:not()`. */
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.divider):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(:where(.split-panel, .split-compare, .image, .scene, .collage.bleed, section.accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge, .tone-edge:is([data-split-mods~="tone-pass"], [data-split-mods~="tone-warn"], [data-split-mods~="tone-fail"], [data-split-mods~="tone-skip"]))) {
   --_edge-t: 0; /* the bar is the top edge — the engine keyline yields to it (base.modifiers.css) */
   --_bar-t: var(--_bar-w);
   border-top: var(--_bar-w) solid;
@@ -419,7 +422,7 @@ section.print.print > .slide-bar {
 /* The top strip: only when something asks for one. Same gates as the border rules above (`solid` /
    `duo` / `mono` unless a placement owns the bar; `accent` and `tone-edge` win over the style). The
    split frames paint their own ribbon on the panels, so they keep it and get no overlay on top. */
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"]):not(.split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge) > .slide-bar-top {
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off):not(.split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge) > .slide-bar-top {
   inset: 0 0 auto 0; height: var(--_bar-w); width: auto;
   background-image: var(--spectrum-bar);
 }
@@ -438,7 +441,7 @@ section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-
 section.spectrum-edge-left:has(> .slide-bar)   { --_edge-l: 0; }
 section.spectrum-edge-right:has(> .slide-bar)  { --_edge-r: 0; }
 section.spectrum-edge-bottom:has(> .slide-bar) { --_edge-b: 0; }
-section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not([class*="spectrum-edge-"], .split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge):has(> .slide-bar-top):has(> .slide-bar-top),
+section:is(.spectrum-solid, .spectrum-duo, .spectrum-mono):not(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom, .spectrum-edge-off, .split-panel, .split-compare, .accent, :is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge):has(> .slide-bar-top):has(> .slide-bar-top),
 section.accent:not(.split-panel, .split-compare):has(> .slide-bar-top):has(> .slide-bar-top),
 section:is(.tone-pass, .tone-warn, .tone-fail, .tone-skip).tone-edge:not(.split-panel, .split-compare):has(> .slide-bar-top):has(> .slide-bar-top) { --_edge-t: 0; }
 

@@ -66,7 +66,7 @@ instead.
 | `-p`, `--palette <name>` | The palette, instead of the positional one |
 | `-c`, `--css <path>` | Replace the bundled `lattice.css` layout sheet. For engine development, not for decks |
 | `-q`, `--quiet` | Print errors only |
-| `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K` |
+| `--size <name>` | Render on another canvas, over the deck's `size:` — for example `square`, `portrait`, `story`, `mobile-landscape`, `4K`. A deck whose `size:` is 4K exports its PDF, PPTX and ODP at HD (1280x720) unless you pass `--size 4k` (or `--size deck`, which means exactly the size the deck declares), because the pixels are what make the file big (typically 1.6x for a PDF, 2x for PowerPoint). The command says when it lowered the size and prints the finished file's size |
 | `--print` | Render in print mode: black ink on white, with textures on chart series. Any format. Same as `color-mode: print` |
 | `--allow-remote` | Let the render fetch web images, media and fonts, and let the plain `.html` keep remote scripts, frames and stylesheets. Off by default, so web images show as placeholders and a remote `<script src>`, `<iframe>` or `<link rel=stylesheet>` in the `.html` is refused |
 | `--keep-html` | Keep the `<output>.html` sidecar beside a `.pdf`/`.pptx`/`.odp`/`.png`/`.zip` instead of deleting it on success. Also via `LATTICE_KEEP_HTML=1` |
@@ -88,6 +88,8 @@ instead.
 | `--reopenable` | Carry the deck inside the `.pdf` or `.pptx` as a `.lattice`, so the Studio's **Import deck…** opens it for editing. The same payload as the Studio's "Re-openable in Lattice" switch. No comments; hidden slides and speaker notes ride along unless you add `--strip-notes` |
 | `--chrome-pdf` | Print with Chrome's PDF printer instead of Lattice's writer |
 | `--keep-vector-images` | Keep SVG images as vectors. By default they become 2x PNG, because some viewers mishandle clipped SVG |
+| `--fonts WORDS` | How much of each typeface the file carries (this is not CSS; it never changes which font a slide asks for). `exact` cuts to the characters the deck shows, `used` (default for text) keeps the whole face as we ship it (the full Latin range) so edited text never hits a missing glyph, `full` keeps the whole face, `system` embeds nothing and lets the viewer's fonts draw the text. A word ending in `-emoji` sets the emoji font instead (default `exact`): `--fonts "used exact-emoji"`. Same words as the `fonts:` front-matter line. In a PDF, `system` embeds no font file, so words in the engine's faces stay in the page picture (not selectable). `system-emoji` applies in every format: a PDF or picture export draws its emoji with the computer that makes it (a machine with no emoji font draws boxes), while `exact-emoji`, `used-emoji` and `full-emoji` draw the same picture because no emoji font file rides in a PDF. In PowerPoint and LibreOffice files every tier but `system` embeds the whole face, and PowerPoint cannot use the emoji font, so emoji added there use that machine's own |
+| `--images WORDS` | Pictures in PDF, `--player`, PPTX and ODP. `optimized` (default) caps a large photo to 2560 px and re-encodes it as JPEG when that saves at least 10-30%; `original` embeds every file as added and keeps PPTX/ODP slides as lossless PNG. A number 1-100 sets the JPEG quality: `--images "optimized 90"`. Same words as the `images:` front-matter line |
 
 ## Office options
 

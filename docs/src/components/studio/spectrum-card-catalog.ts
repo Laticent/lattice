@@ -35,7 +35,7 @@ export const SPECTRUM_CARDS: SpectrumCardEntry[] = [
 		swatch: { background: 'var(--bg-alt, var(--bg))' },
 	},
 	{
-		name: 'auto', label: 'Auto', autoLabel: 'Bar',
+		name: 'auto', label: 'Auto', autoLabel: 'Match bar',
 		blurb: 'A rail that follows the deck’s spectrum style — the on-brand default when enabled.',
 		swatch: { background: RAIL('var(--spectrum-vertical, var(--spectrum, linear-gradient(var(--accent), var(--accent))))') },
 	},

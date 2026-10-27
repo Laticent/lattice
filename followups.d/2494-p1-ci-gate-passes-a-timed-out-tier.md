@@ -27,6 +27,11 @@ done when — on a PR run, a tier killed by its own `timeout-minutes` fails the 
             `cancelled` job whose run was not superseded as a failure.
 evidence  — run 36570365889, job 109413411097: the test step ended "The operation was
             canceled." at 25 minutes with 952 passed and 0 failed so far; the `ci` job
-            concluded success.
+            concluded success. Seen again on #2900 at `a4df38b` (run 40245221541): shard 4's
+            venue ratchet was cancelled at the 25-minute cap with every test so far passing,
+            on a slow runner (apt install 3m15s against 9s on shard 3); the beacon read
+            "cancelled: integration" under a green headline. Shard 4 normally takes 16.5-17
+            minutes, so the cap leaves about 8 minutes of headroom; raising it is also the
+            owner's call.
 verify    — a PR whose integration step sleeps past the cap turns `ci` red; a force-push
             mid-run still leaves the superseded run's `ci` green.

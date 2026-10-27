@@ -6221,6 +6221,14 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/playground-lint-hidden.spec.ts', ms: 3000, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS: while the Playground editor is hidden (Explore, or a style that hides it '
+       + 'before first paint), the page must NOT request the lint core `esm/lint.js` (followup 2913-p1). There '
+       + 'is no signal for a request that must not happen; a poll of the empty list goes green on its first '
+       + 'tick. 3000ms is several times the linter\'s 350ms delay after the editor mounts; each test\'s POSITIVE '
+       + 'arm (showing the editor) then sees the request or the underline, so the list can see what it says is absent.',
+  },
+  {
     file: 'docs/e2e/phone-sheet-tap-after-typing.spec.ts', ms: 500, count: 2,
     why: 'TWO ABSENCE ASSERTIONS, the arms that prove the spec can fail: with the tap hold stripped, a tap '
        + 'after typing must NOT select the Library tab and must NOT open the Language list (followup 2547-p2). '
@@ -11886,7 +11894,7 @@ const NUL_TEXT_EXTENSIONS = [
 // the one thing that mattered, a MISSING extension.
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
-  '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
 ];
 
 /**

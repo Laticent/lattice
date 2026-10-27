@@ -660,7 +660,7 @@ describe('lint-core: focus directive grammar (rule 11)', () => {
       assert.match(f.message, new RegExp(`\\b${s}\\b`), `message names ${s}`);
       assert.match(f.fix, new RegExp(`\\b${s}\\b`), `fix names ${s}`);
     }
-    for (const s of ['spotlight', 'ring', 'list-fill', 'blur', 'pop']) {
+    for (const s of ['spotlight', 'ring', 'list-fill', 'blur', 'highlight']) {
       assert.equal(ruleFor(slide(`<!-- _focusStyle: ${s} -->`), 'focus-style'), undefined, s);
     }
   });

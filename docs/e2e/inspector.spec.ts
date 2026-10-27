@@ -11,10 +11,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('@smoke size control writes the size front-matter', async ({ page }) => {
-	await page.getByRole('button', { name: /Widescreen 16 . 9/ }).click();
-	await page.getByRole('menuitem', { name: /Standard 4 . 3/ }).click();
+	await page.getByRole('combobox', { name: 'Choose deck size' }).click();
+	await page.getByRole('option', { name: /Standard 4 . 3/ }).click();
 
-	await expect(page.getByRole('button', { name: /Standard 4 . 3/ })).toBeVisible();
+	await expect(page.getByRole('combobox', { name: 'Choose deck size' })).toContainText(/Standard 4 . 3/);
 	await expect.poll(() => persistedSource(page)).toContain('size: standard');
 });
 
