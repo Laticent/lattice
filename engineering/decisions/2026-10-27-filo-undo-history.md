@@ -337,12 +337,12 @@ The owner's requirement is that history work never makes the Studio janky. The m
 most of it is cheap, so the requirement is written as a budget, and a worker is used where the
 budget is missed, and always for broad diffs:
 
-| Work | Measured (134 KB deck, Node 22) | Where it runs |
+| Work | Measured (134 KB deck; median of 7 in Playwright's Chromium, Firefox and WebKit unless noted) | Where it runs |
 |---|---|---|
-| Line diff of a localized replace (an AI edit of a few slides, a restore close to the current text) | 1-4 ms warm | Main thread |
-| Line diff of unrelated or broadly edited text (an import, a whole-deck AI rewrite, a gap entry) | **150-375 ms** (every third line edited: 149-199 ms; an unrelated deck: 360-375 ms) | **Always a worker.** The commit records a single whole-document replace patch at once (no diff, no main-thread cost) and the worker narrows it before it is persisted |
-| Hash of the document | Node's native SHA-256: 0.2-0.5 ms. **UNVERIFIED in a browser**: Web Crypto's `digest` is async-only, so a synchronous hash must be a zero-dependency JS function | Main thread, synchronously, so the hash is known at undo time; a fast non-cryptographic 64-bit hash, measured in the browser before slice 5 |
-| Gzip of a keyframe (134 KB to 46 KB) | 6.6 ms | Idle callback; a worker if the test fails |
+| Line diff of a localized replace (an AI edit of a few slides, a restore close to the current text) | Browser median: Chromium 1.5 ms, Firefox 4 ms, WebKit 2 ms | Main thread |
+| Line diff of unrelated or broadly edited text (an import, a whole-deck AI rewrite, a gap entry) | **Browser median: Chromium 260-265 ms, Firefox 590-721 ms, WebKit 650-688 ms** (every third line edited; an unrelated deck) | **Always a worker.** The commit records a single whole-document replace patch at once (no diff, no main-thread cost) and the worker narrows it before it is persisted |
+| Hash of the document | A zero-dependency 53-bit JS hash (cyrb53): Chromium 0.3 ms, Firefox and WebKit under 1 ms (their timers are coarse). Web Crypto's `digest` is async-only, so it cannot serve here | Main thread, synchronously, so the hash is known at undo time |
+| Gzip of a keyframe (134 KB to 46 KB) | 4-7 ms (Node; `CompressionStream` in a browser is async, off the input path) | Idle callback; a worker if the test fails |
 | IndexedDB writes, trimming, LRU eviction | Async I/O | Idle callback |
 
 **The acceptance test**: a `PerformanceObserver('longtask')` e2e on the 134 KB deck records no
@@ -541,9 +541,9 @@ of its findings as throwaway tests. What changed:
 
 A second checker pass re-read the revision and re-ran the measurements (localStorage counts in
 three engines, the 33x ratio, warm diff, gzip). It found and this note now fixes: broad diffs cost
-150-375 ms, so they always run in a worker and gap entries use a no-diff replace patch; marks older
+260-721 ms in real browser engines, so they always run in a worker and gap entries use a no-diff replace patch; marks older
 than the window keep composed anchors; the slice-3 interim maps Compose's own undo to Filo's so it
 cannot double-undo; `CodeField` keeps its history until slice 7; a deck switch is stopped by
 `load`, not by the base revision; the commit effect is suspended in live sessions; Compose's
 `closeHistory` callers and depth readout are in scope; the API is one registry (`createFilo`,
-`load`); and the browser hash is marked unverified.
+`load`); and the diff and hash were then timed in three real browser engines.
