@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { embeddedPictures, SETTLE_DEADLINE_MS, settle } from './settled-canvas.js';
+import { embeddedPictures, embeddedPicturesOfSvg, SETTLE_DEADLINE_MS, settle } from './settled-canvas.js';
 
 // WebKit draws an SVG's nested pictures only after the first draw, so the export's single
 // html-to-image draw shipped slides with no pictures (followups.d/2640). `settle` warms each picture
@@ -118,5 +118,15 @@ describe('embeddedPictures', () => {
 		];
 		const xml = `<svg>${urls.map((u) => `<img src="${u}"/>`).join('')}</svg>`;
 		expect(embeddedPictures(svgUrl(xml))).toEqual(urls);
+	});
+});
+
+describe('embeddedPicturesOfSvg', () => {
+	it('finds each base64 picture once in the SVG text, in <img> src and in a style url(&quot;…&quot;), and leaves fonts out', () => {
+		const png = 'data:image/png;base64,iVBORw0KGgo+/AA==';
+		const jpg = 'data:image/jpeg;charset=binary;base64,/9j/4AAQ+Z=';
+		const font = 'data:font/woff2;base64,d09GMgABAAA=';
+		const svg = `<svg><img src="${png}"/><img src="${png}"/><div style="background-image: url(&quot;${jpg}&quot;);"></div><style>@font-face{src:url(${font})}</style><i style="mask:url('data:image/svg+xml;utf8,<svg/>')"></i></svg>`;
+		expect(embeddedPicturesOfSvg(svg)).toEqual([png, jpg]);
 	});
 });

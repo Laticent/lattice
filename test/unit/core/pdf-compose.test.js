@@ -177,7 +177,7 @@ test('canvasCamera: a busy slide is captured once and encoded twice', async () =
 		const c = {
 			width: 2,
 			height: 2,
-			getContext: () => ({ getImageData: () => ({ data: new Uint8ClampedArray(16).fill(255) }), fillRect() {}, drawImage() {}, set fillStyle(_v) {} }),
+			getContext: () => ({ getImageData: () => ({ data: new Uint8ClampedArray(16).fill(255) }), fillRect() {}, clearRect() {}, drawImage() {}, set fillStyle(_v) {} }),
 			toBlob: (cb, mime) => cb(new Blob([mime], { type: mime })),
 		};
 		c.ownerDocument = { createElement: () => makeCanvas() };

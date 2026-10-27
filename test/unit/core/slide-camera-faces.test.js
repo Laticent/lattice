@@ -24,3 +24,14 @@ test('withoutFontFaces drops every rule of the named family and keeps the rest',
   assert.equal(withoutFontFaces(css, []), css, 'no family named: nothing changes');
   assert.equal(withoutFontFaces(css, ['']), css, 'an empty name matches nothing');
 });
+
+test('onlyUsedFontFaces keeps the faces of the families a slide draws with and drops the rest', async () => {
+  const { onlyUsedFontFaces } = await import('../../../lib/core/slide-camera.mjs');
+  const outfit = "@font-face{font-family:Outfit;src:url(data:font/woff2;base64,AAAA)}";
+  const caveat = "@font-face{font-family:'Caveat';src:url(data:font/woff2;base64,BBBB)}";
+  const emoji = "@font-face{font-family:\"Noto Color Emoji\";src:url(data:font/woff2;base64,CCCC);unicode-range:U+1f680}";
+  const nameless = '@font-face{src:url(data:font/woff2;base64,DDDD)}';
+  const css = `${outfit}\n${caveat}\n${emoji}\n${nameless}\nsection{color:red}`;
+  assert.equal(onlyUsedFontFaces(css, new Set(['outfit', 'noto color emoji'])), `${outfit}\n\n${emoji}\n${nameless}\nsection{color:red}`);
+  assert.equal(onlyUsedFontFaces(css, new Set()).includes('Outfit'), false, 'no family used: every named face goes');
+});

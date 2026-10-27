@@ -55,6 +55,14 @@ const EMBEDDED_BASE64 = /data%3A(?:[a-z0-9._-]|%2F|%2B|%3D|%20|%3B(?!base64%2C))
 /** A font's media type, which `embeddedPictures` leaves out: the slide's faces ride in the same SVG. */
 const FONT_TYPE = /^data:(?:font\/|application\/(?:x-)?font|application\/vnd\.ms-fontobject|[^;,]*woff)/i;
 
+/** `EMBEDDED_BASE64` for the SVG as plain text: no encoding pass over a multi-megabyte slide to find its pictures. */
+const PLAIN_BASE64 = /data:[a-z0-9._+/ %=;-]*?;base64,[a-z0-9+/=]+/gi;
+
+/** The distinct base64 pictures inside an SVG's text, fonts left out. */
+export function embeddedPicturesOfSvg(svg) {
+	return [...new Set(svg.match(PLAIN_BASE64) || [])].filter((u) => !FONT_TYPE.test(u));
+}
+
 let primingProbe;
 
 /** Load an image the way html-to-image's own `createImage` does: load, decode, one frame. */
@@ -216,7 +224,7 @@ export async function settleSlideDraw(svg, drawSlide, log) {
 	// One at a time, not `Promise.all`: each prepare decodes a picture in full (48 MB for 12 megapixels),
 	// and a slide of photos must not hold every one at once on a phone.
 	const pictures = [];
-	for (const url of embeddedPictures(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`)) {
+	for (const url of embeddedPicturesOfSvg(svg)) {
 		const picture = await solo(url);
 		if (picture) pictures.push(picture);
 	}
