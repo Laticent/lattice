@@ -1,6 +1,6 @@
 import { buildDeckIndex } from '@/lib/deck-outline';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
-import { type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, readCheckpoints, SNAP_CAP, SNAP_PREFIX, writeCheckpoints } from './checkpoint-store';
+import { appendCheckpoint, type Checkpoint, checkpointBytes, clearCheckpoints, dropCheckpoints, mapCheckpoints, readCheckpoints, replaceCheckpoints, SNAP_CAP, SNAP_PREFIX } from './checkpoint-store';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { frontMatterBlock, frontMatterKeySpan, frontMatterValue, getFrontMatter, stripFrontMatter } from './front-matter';
 import { asImageLook, DEFAULT_IMAGE_LOOK, DEFAULT_IMAGE_MODEL, type ImageLook } from './image-look';
@@ -532,7 +532,7 @@ export function setDeckLabel(id: string, title: string): void {
 export function deleteDeck(id: string): void {
 	saveIndex(loadIndex().filter((e) => e.id !== id));
 	dropSource(id);
-	dropCheckpoints(id);
+	void dropCheckpoints(id);
 	remove(CHAT_PREFIX + id);
 	remove(CHAT_DRAFT_PREFIX + id);
 	clearComments(id);
@@ -610,9 +610,11 @@ export function clearAllDecks(): void {
 	} catch {
 		/* storage unavailable — non-fatal, matches the read-side scan above */
 	}
-	// Checkpoints live in IndexedDB now: clear them, and refuse any later write this
-	// page makes (callers that reload await `checkpointsSettled()` first).
-	clearCheckpoints();
+	// Checkpoints live in IndexedDB now, so clearing them is asynchronous: callers that
+	// reload afterwards await `checkpointsSettled()` first, and read the outcome from
+	// `lastCheckpointClear()`. Like the source writes guarded by DECKS_CLEARED_EVENT, a
+	// checkpoint saved in the moment before that reload is not refused here.
+	void clearCheckpoints();
 	remove(INDEX_LS);
 	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
@@ -647,23 +649,26 @@ export function saveCheckpoint(deckId: string, source: string, label: string, ts
 	const list = loadCheckpoints(deckId);
 	if (list[0]?.source === source) return list; // nothing changed since the last one
 	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
-	const next = [cp, ...list].slice(0, SNAP_CAP);
-	writeCheckpoints(deckId, next);
-	return next;
+	void appendCheckpoint(deckId, cp);
+	return [cp, ...list].slice(0, SNAP_CAP);
+}
+
+/**
+ * `saveCheckpoint`, but settles once the checkpoint is durable: true when it is stored (or
+ * nothing needed saving), false when the write failed. For a caller that is about to change
+ * something on the promise of this undo, and must not if the undo was never written.
+ */
+export function saveCheckpointDurably(deckId: string, source: string, label: string, ts: number): Promise<boolean> {
+	const list = loadCheckpoints(deckId);
+	if (list[0]?.source === source) return Promise.resolve(true);
+	const cp: Checkpoint = { id: `cp-${ts.toString(36)}-${Math.random().toString(36).slice(2, 6)}`, ts, label, source };
+	return appendCheckpoint(deckId, cp);
 }
 
 /** Rewrite every checkpoint's source of one deck through `fn`, leaving ids, times and labels alone. For a
  *  restore that renamed a photo: a checkpoint that still named the old name would bring back the wrong picture. */
-export function mapCheckpointSources(deckId: string, fn: (source: string) => string): void {
-	const list = loadCheckpoints(deckId);
-	let changed = false;
-	const next = list.map((c) => {
-		const source = fn(c.source);
-		if (source === c.source) return c;
-		changed = true;
-		return { ...c, source };
-	});
-	if (changed) writeCheckpoints(deckId, next);
+export function mapCheckpointSources(deckId: string, fn: (source: string) => string): Promise<boolean> {
+	return mapCheckpoints(deckId, fn);
 }
 
 // ── Architect chat history (per deck) ──────────────────────────────────────
@@ -1192,7 +1197,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			const { webOrigins: _untrusted, ...incoming } = entry;
 			index.push(incoming);
 			if (incomingSrc != null) saveSource(entry.id, incomingSrc);
-			if (data.checkpoints[entry.id]?.length) writeCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1209,7 +1214,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		// still whatever each side already had, so nothing is rewritten under the user.
 		if (incomingSrc == null || incomingSrc === normalizeSourceText(currentSrc)) {
 			// Same deck — take the backup's history wherever ours is missing.
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) writeCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.skipped++;
 			continue;
@@ -1220,7 +1225,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 			// restores IN PLACE. This is the whole-point case: a fresh browser after
 			// storage loss, where every built-in id is present but untouched.
 			saveSource(entry.id, incomingSrc);
-			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) writeCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+			if (data.checkpoints[entry.id]?.length && !loadCheckpoints(entry.id).length) void replaceCheckpoints(entry.id, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 			if (data.chats[entry.id]?.length && !loadChat(entry.id).length) saveChat(entry.id, data.chats[entry.id]);
 			summary.added++;
 			summary.written.push(entry.id);
@@ -1238,7 +1243,7 @@ export function importStudioState(data: StudioExport, ts: number): ImportSummary
 		const newId = `deck-${ts.toString(36)}-r${(n++).toString(36)}`;
 		index.push({ id: newId, title: `${entry.title} (restored)`, builtin: false, restored: true });
 		saveSource(newId, incomingSrc);
-		if (data.checkpoints[entry.id]?.length) writeCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
+		if (data.checkpoints[entry.id]?.length) void replaceCheckpoints(newId, data.checkpoints[entry.id].slice(0, SNAP_CAP));
 		if (data.chats[entry.id]?.length) saveChat(newId, data.chats[entry.id]);
 		summary.restoredCopies++;
 		summary.written.push(newId);

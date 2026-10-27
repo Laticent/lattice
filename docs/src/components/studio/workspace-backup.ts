@@ -24,7 +24,7 @@
 
 import { type ParsedBundle, packBundle, unpackBundle } from './asset-bundle';
 import { applyImportRenames } from './asset-rename';
-import { hydrateCheckpoints } from './checkpoint-store';
+import { checkpointsSettled, hydrateCheckpoints } from './checkpoint-store';
 import { listStudioComponents, saveStudioComponent, toMeta } from './component-library';
 import { listStudioFinishes, saveStudioFinish } from './finish-library';
 import type { ImportRefusal } from './import-gate';
@@ -551,7 +551,10 @@ export async function restoreWorkspace(file: Blob, now: number): Promise<Restore
 			if (next !== src) saveSource(id, next);
 		}
 		// Its saved versions too: restoring one must not bring back a name that now means another photo.
-		mapCheckpointSources(id, (c) => renameAssetRefs(c, map));
+		void mapCheckpointSources(id, (c) => renameAssetRefs(c, map));
 	}
+	// Checkpoint writes are asynchronous (IndexedDB), and the caller reloads the page after a
+	// restore: wait for them to land, or a large restore could be cut off by that reload.
+	await checkpointsSettled();
 	return summary;
 }

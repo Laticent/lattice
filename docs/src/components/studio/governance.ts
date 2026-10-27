@@ -25,7 +25,7 @@ import { deleteAsset, listAssets } from '@/components/studio/library/asset-store
 import { clearAllSessions, crashReportStats } from '@/lib/crash-sentinel';
 import { clearClips, clipStats } from '@/playground/narration-store.js';
 import { disconnectOpenRouter } from './architect';
-import { checkpointsSettled } from './checkpoint-store';
+import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { formatBytes } from './reference-doc';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
@@ -98,6 +98,8 @@ export type GovernanceStats = {
 
 /** One read of every category's stat line, for the Privacy & Data tab on open. */
 export async function loadGovernanceStats(): Promise<GovernanceStats> {
+	// The Decks row counts checkpoints from the IndexedDB cache, so it must be filled first.
+	await hydrateCheckpoints();
 	const [deck, assets, names, narration] = await Promise.all([
 		Promise.resolve(deckContentStats()),
 		listAssets().catch(() => []),
@@ -233,8 +235,10 @@ export async function clearEverything(): Promise<ClearEverythingResult> {
 		['retired', clearRetiredDrawingBoardData],
 	];
 	const results = await Promise.allSettled(tasks.map(([, fn]) => fn()));
-	const succeeded = ['decks'];
-	const failed: string[] = [];
+	// Decks are cleared synchronously except their checkpoints, which live in IndexedDB.
+	const decksCleared = await lastCheckpointClear();
+	const succeeded = decksCleared ? ['decks'] : [];
+	const failed: string[] = decksCleared ? [] : ['decks'];
 	for (const [i, r] of results.entries()) (r.status === 'fulfilled' ? succeeded : failed).push(tasks[i][0]);
 	return { succeeded, failed };
 }

@@ -635,11 +635,12 @@ test('@smoke "Use new name" says so when the browser has no room, and rewrites n
 	await expect(first).toBeHidden();
 
 	// From here the browser refuses to store a Version history entry, as it does when its storage is full.
+	// Version history lives in IndexedDB (checkpoint-store.ts), so the refusal is a failing `put` on its store.
 	await page.evaluate(() => {
-		const real = Storage.prototype.setItem;
-		Storage.prototype.setItem = function (k: string, v: string) {
-			if (k.startsWith('lattice-studio-snap')) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
-			return real.call(this, k, v);
+		const real = IDBObjectStore.prototype.put;
+		IDBObjectStore.prototype.put = function (this: IDBObjectStore, ...args: Parameters<IDBObjectStore['put']>) {
+			if (this.name === 'checkpoints') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+			return real.apply(this, args);
 		};
 	});
 	await page.locator('[data-media-card="roomy"]').getByRole('button', { name: 'Details for roomy' }).click();

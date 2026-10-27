@@ -68,7 +68,7 @@ import type { ComposeHandle, PaneRequest } from './ComposeView';
 import { CrashReportSheet } from './CrashReportSheet';
 import { activeCardRow, CARD_ROWS } from './card-row-catalog';
 import { CARD_TAG_ROWS, cardTagOptionLabel } from './card-tag-rows';
-import { onCheckpointsReady, onCheckpointWriteError } from './checkpoint-store';
+import { onCheckpointsChanged, onCheckpointWriteError } from './checkpoint-store';
 import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_META_SLOT, EditorSkeleton, HOME_HREF, PostureDial, SlideCount, SlideNavigator } from './chrome-parts';
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
@@ -4770,15 +4770,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Load the active deck's checkpoints when it changes.
 	React.useEffect(() => setCheckpoints(loadCheckpoints(deck.id)), [deck.id]);
 	// Checkpoints live in IndexedDB behind a cache that fills after the first render
-	// (checkpoint-store.ts): re-read once it has, so the list never stays empty.
-	React.useEffect(() => onCheckpointsReady(() => setCheckpoints(loadCheckpoints(deckIdRef.current))), []);
+	// (checkpoint-store.ts): re-read once it has, and whenever another tab changes a list.
+	React.useEffect(() => onCheckpointsChanged(() => setCheckpoints(loadCheckpoints(deckIdRef.current))), []);
 	// A version that failed to save used to vanish without a word (the old localStorage
 	// write swallowed a full quota). Say so, once per burst: the version stays restorable
 	// for this session, but it will not survive a reload. At most one notice a minute:
 	// a full quota fails every save, and a stack of identical notices helps nobody.
 	React.useEffect(() => {
 		let shownAt = Number.NEGATIVE_INFINITY;
-		return onCheckpointWriteError(({ error }) => {
+		return onCheckpointWriteError(({ error, kind }) => {
+			if (kind !== 'save') return; // a migration retries next load; a failed clear is reported by the clear itself
 			if (Date.now() - shownAt < 60_000) return;
 			shownAt = Date.now();
 			const full = error instanceof DOMException && error.name === 'QuotaExceededError';
