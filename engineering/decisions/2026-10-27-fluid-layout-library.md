@@ -1,13 +1,13 @@
 ---
 status: proposed
-summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Audit of the five split paths and the fluid viewer, the design, the jank contract, and a seven-phase plan (P0–P6). The owner settled four forks on 2026-10-27, and the "autosplit" name retires.
+summary: Fluid, one runtime library that replaces both auto-split and the --fluid viewer. It is a post-processor over RENDERED slides, not over source. It reads the live canvas and the real content, then reflows or paginates. Structure decides the seams and the page count. Measurements and manifest budgets are hints, so they can rescue a page that still overflows but cannot change a deck's shape. Live surfaces rescue from measured heights; files (PDF, PPTX, the static pages in HTML) rescue from budgets only, so they stay reproducible. Audit of the five split paths and the fluid viewer, the design, the jank contract, and an eight-phase plan (P0–P7) that ships a Playground slice before the catalog migration. The owner settled six forks on 2026-10-27, and the "autosplit" name retires. Hardened by the adversarial trio the same day (§11).
 builds-on: 2026-09-01-autosplit-splits-on-structure.md, 2026-06-22-the-fit-spine.md, 2026-10-16-mosaico-layout-library.md, 2026-07-20-adaptive-viewport-fill.md
 ---
 
 # Fluid: one runtime library for reflow and pagination (2026-10-27)
 
-**Status: proposed.** The owner settled the four forks in §9 on 2026-10-27. No code has
-shipped. The first slice is §8 P0.
+**Status: proposed.** The owner settled the six forks in §9 on 2026-10-27, and the adversarial
+trio reviewed the design the same day (§11). No code has shipped. The first slice is §8 P0.
 
 ## 1. The answer first
 
@@ -27,17 +27,21 @@ replaces all of that with one library, **Fluid** (`@laticent/fluid`). It works l
 3. **One name.** Reflow (the family CSS responding to the box) and pagination are two moves
    of one fit operation, so they share a name: **Fluid**. "Auto-split" and `autosplit`
    retire as names.
-4. **The canvas is fluid everywhere.** The HTML export, the Studio, the Playground and the
-   player run Fluid on the live box. PDF and PPTX run the same library against a fixed
-   canvas, the page size. Every surface runs the same algorithm, so they cannot disagree.
-5. **A Mosaico-style package.** It has a pure, DOM-free core (numbers and seams in, a page
+4. **The canvas is fluid everywhere.** The HTML viewer, the Playground and the player run
+   Fluid on the live box. The Studio runs it on the deck's authored size, with a device
+   toggle (§5.5). PDF and PPTX run it on the slide box, never the paper sheet. Every surface
+   runs the same algorithm, so the **structural** plan is identical everywhere.
+5. **Files are reproducible.** A file (PDF, PPTX, or the static pages baked into an HTML
+   export) rescues from budgets only, so the same deck gives the same file on any machine.
+   Only a live surface rescues from measured heights.
+6. **A Mosaico-style package.** It has a pure, DOM-free core (numbers and seams in, a page
    plan out), a DOM adapter that measures and applies the plan, and a Lattice connector.
    Other domains can reuse the core, such as the docs site, the player and a non-Lattice
    producer.
 
 What it buys: a 16:9 deck opened on a phone paginates, which it does not do today. A panes
 slide splits per pane in the fluid view. A long table cuts at its rows instead of clipping.
-The linter, the Studio and the export all reach the same page plan.
+The linter predicts a file's page plan exactly, because a file uses no measurement.
 
 ## 2. What the audit found
 
@@ -131,8 +135,10 @@ All three still hold, so Fluid keeps structure as the authority. A measured hint
 merge two members onto one page or change the page count of a deck that fits. It acts only
 when the structural plan has already failed: one element on its own page that still
 overflows. In that case the alternative is a clip, which is worse than a page count that
-depends on fonts. The rescue is also reported in the plan (§5.3), so the linter and the
-Studio can say "this table will cut at rows on a phone" before anyone renders it.
+depends on fonts. And that dependence stays on live surfaces: files rescue from budgets
+(§9.5), so 09-01's reproducibility holds for every artifact anyone ships. Each rescue records
+its source (`budget` or `measured`), so the linter says exactly what a file will do and "may
+cut" for a live screen.
 
 The Fit Spine's moves map onto Fluid this way:
 
@@ -140,56 +146,90 @@ The Fit Spine's moves map onto Fluid this way:
 |---|---|---|
 | 1 Collapse, 2 Shed | **reflow**: family CSS on the live canvas | `data-family`, re-stamped live |
 | 3 Split | **paginate**: cover, body, closing | structure |
-| — (new) | **rescue**: an inner-seam cut of one overflowing element | measured heights, with budgets as a fallback |
+| — (new) | **rescue**: an inner-seam cut of one overflowing element | measured heights on live surfaces; budgets in files |
 | 4 Floor | **ring**: the honest terminal | overflow probe, after the plan is applied |
 
 There is still no shrink move.
 
 ## 4. The jank contract
 
-The owner asked for a design where "we never have to live or experience jank". These six properties are what Fluid
-guarantees, and each one gets a test (§7).
+The owner asked for a design where "we never have to live or experience jank". These seven
+properties are what Fluid guarantees, and each one gets a test (§7). The first draft said "read
+once, solve once, write once". The red team measured why that cannot hold for a rescue (§11),
+so the contract below counts the passes honestly.
 
-1. **Read once, solve once, write once.** Each trigger runs one batched layout read, one
-   pure solve and one batched DOM write. There is no measure → split → measure loop. The
-   rescue cut takes its seam offsets from the same read, so nothing is measured twice. The
-   post-write probe can only ring. It never re-plans.
+1. **One visible write per trigger.** The structural plan needs no measurement, so it is a
+   solve and one write. A rescue needs heights **in page context**: on a `square` render of
+   the gallery's `cards-grid`, a card measures 469×393 px in the unsplit slide and 972×742 px
+   on its own body page. So a rescue gets exactly **one probe pass**. Fluid writes skeleton
+   pages into a hidden measuring container at canvas size, reads there, solves, then makes the
+   one visible write. The rig asserts at most one probe pass, with a mutation arm. The
+   post-write overflow probe can only ring. It never re-plans.
 2. **Measure only settled content.** Fluid waits for fonts (extending
-   `lib/core/preview-font-gate.mjs`, which today gates a preview's reveal),
-   for media sizes (`measure-kit` hold), and for drawn plugins such as Mermaid, which the host
-   already draws before layout (`2026-10-15-bridges-and-two-hosts.md` §5.2).
-3. **Reserve before you measure.** Chrome that only paginated pages carry, such as the forward
-   pointer, the rail and the run number, has its space reserved in the read. That closes #2054.
-4. **Re-plan only on a real change, with hysteresis.** Fluid re-plans when the family changes
-   or the canvas crosses a seam threshold, never on every resize event. Resize events are
-   coalesced to one per frame.
-5. **The reader keeps their place.** A re-plan anchors to (authored slide, member id), so
-   rotating a phone keeps the same content on screen.
-6. **Same input, same plan.** The core is deterministic: the same content, canvas and
-   measured heights give byte-identical output, like Mosaico's golden.
+   `lib/core/preview-font-gate.mjs`, which today gates only a preview's first reveal), for
+   media sizes (`measure-kit` hold), for drawn plugins such as Mermaid (the host draws them
+   before layout, `2026-10-15-bridges-and-two-hosts.md` §5.2), and for box-responsive redraws
+   that a page placement itself triggers: chart `viewFor`, a Mosaico re-pack, a logo-wall
+   mark fetch. Waiting has a cap. Past the cap, a live surface keeps the structural plan and
+   does not rescue on fallback metrics.
+3. **Reserve before you measure.** The probe page carries the run chrome at its largest
+   form. The forward pointer becomes a single-line band with a fixed height and an ellipsis.
+   The rail reserves the larger of its two forms (pills, or `k/N` past `RAIL_DOT_MAX`). The
+   heading is measured with its `(cont.)` suffix. That closes #2054.
+4. **Re-plan only on a real change, with hysteresis.** A live surface re-plans when the
+   family changes or the canvas crosses a **named size bucket**, never on raw pixels. Heights
+   come from `svh`/`lvh`, never `dvh`, so a phone's collapsing URL bar cannot re-plan
+   mid-scroll. A rescued slide stays rescued until it fits with a margin. Resize events
+   coalesce to one per frame.
+5. **The reader keeps their place, and so does everyone else.** Positions are anchors
+   (authored slide, pane, member, offset), not page indexes. That holds for the reader's
+   scroll, the Present stage window and console, the player transport, narration and comments.
+   A rotate shows the same content.
+6. **Same input, same plan.** The core is deterministic. A file depends only on content,
+   slide box and budgets, so it is byte-reproducible across machines. A live plan also depends
+   on measured heights, and every live rescue is labeled `measured` in the plan.
+7. **Fluid does not trip its neighbors.** Fluid's write is one batch, and the runtime's shared
+   MutationObserver and `patchSectionGeometry` filter out Fluid's own mutations. Every moved
+   or cloned subtree is re-id'd, with `url(#…)`, `href` and `aria-*` references rewritten. The
+   red team showed that a duplicate `linearGradient` id in a hidden section paints the visible
+   copy white.
 
-Performance target: the solve takes under 1 ms per slide, and a whole visible slide (read,
-solve, write) fits inside one 16 ms frame. Off-screen slides are planned lazily, nearest
-first. **Not yet measured**: P1 measures and blesses it (HARD RULE #19).
+**Performance target and kill criterion.** The solve takes under 1 ms per slide. Probe, solve
+and write for one visible slide fit inside one 16 ms frame at p95 on the gallery's densest
+slide, with 4× CPU throttling. The current slide and its neighbors are planned eagerly, and
+the rest of the deck at idle, in the measuring container. A surface that misses the frame
+budget ships structural-only until the cost is fixed. **Not yet measured**: P1 and P2 measure
+and bless it (HARD RULE #19).
 
 ## 5. The design
 
 ### 5.1 Three layers
 
 ```
-@laticent/fluid          pure core, no DOM / fs / deps (gated like checkMosaicoBoundary)
+@laticent/fluid          docs/src/lib/fluid/, an npm workspace like @laticent/mosaico
+                         pure core, no DOM / fs / deps (gated like checkMosaicoBoundary)
   plan(flow, canvas, policy) → Plan
-  familyFor(aspect)        moves here from lib/adaptive/families.js; Lattice imports it back (#1)
+  lib/adaptive/families.js moves in WHOLE (familyFor, orientationFor, canvasScaleFor, …), so
+                         the family boundaries keep one home; Lattice imports it back (#1)
 
 @laticent/fluid/dom      host adapter, inlinable as source like PROBE_SRC
-  read(root, canvas)  → Flow     one batched read of seams + heights
-  apply(root, plan)              one batched write: clone sections, place members, stamp roles
-  watch(root, opts)              canvas observer + hysteresis + anchor (§4.4, §4.5)
+  read(root, canvas)  → Flow     batched read of seams + heights, in the measuring container
+  apply(root, plan)              MOVES member nodes into page sections; the authored section
+                                 stays as their inert home
+  unapply(root)                  moves them home again, so a re-plan starts from the original
+  watch(root, opts)              canvas observer + buckets + hysteresis + anchors (§4.4, §4.5)
 
 lib/core/fluid-lattice.js  the Lattice connector (not published)
-  seam vocabulary for the 79 components (37 enrolled today), page builders from carousel.js / split-envelope.js,
-  the size gate policy, the ring hand-off to overflow-probe.js
+  seam vocabulary for the 79 components (37 enrolled today), the page builders, the size
+  gate policy, the ring hand-off to overflow-probe.js
 ```
+
+**`apply` moves; it does not clone.** The 2026-06-25 note (Amendment 2) measured how much
+node identity each approach keeps. Re-parsing kept 64.8% and moving nodes kept 96.8%.
+Anima targets, `data-mark` popovers, the chart WeakMap guard and the scroll anchor all depend
+on node identity. Cloning is limited to chrome (cover and closing furniture) and to the table
+shell a `rows` rescue needs (`thead`, `colgroup`). Rows themselves move. The red team showed
+that a `<tr>` re-parsed outside its table loses its structure.
 
 ### 5.2 The input: a flow read from the rendered markup
 
@@ -199,115 +239,226 @@ that seam into the markup as `data-fluid-*` attributes:
 - the masthead
 - the members of the primary collection
 - the coda: the below-note, the key insight and the annotation
-- each member's inner seam (`rows`, `lines`, `items` or `none`)
+- each member's inner seam
 - the budget hint
 
-This replaces the baked capacity map and the `splitCapacityFrom` whitelist. A rendered
-slide carries everything Fluid needs, so any producer that writes the attributes can use the
-core, including one that is not Lattice.
+**Author-written `data-fluid-*` and `data-split-*` attributes are stripped** in the engine's
+raw-HTML handling, before the engine stamps its own. The red team forged
+`data-fluid-seam="rows" data-fluid-budget="0"` through both the engine and
+`createSlideSanitizer`, because DOMPurify keeps `data-*` attributes. Budget 0 on a 1,000-row
+table would generate thousands of pages. The core also caps pages per authored slide at
+**64**, and past the cap the slide rings. 64 is this note's own number, not an owner
+decision, and P1 measures it against the largest gallery.
 
 ```
 Flow   = { slides: Slide[] }
 Slide  = { id, family?, masthead?, members: Block[], coda?: Block, panes?: Slide[] }
-Block  = { id, seam: 'rows'|'lines'|'items'|'none', height?: number,
-           cuts?: number[] /* offsets of inner seams, measured */, budget?: number }
-Canvas = { width, height }            // px; the live box or the page size
+Block  = { id, seam: Seam, height?: number, cuts?: number[], budget?: number }
+Seam   = 'rows' | 'lines' | 'items' | 'none'
+       | { veto: true }                // e.g. redline never splits a passage
+       | { recipe: string }            // a strategy-owned seam the four kinds cannot express
+Canvas = { width, height, family, size, chrome: { top, bottom } }
+         // px; `size` is the named bucket the plan is keyed on; chrome is the reserve (§4.3)
 ```
 
-Every `height`, `cuts` and `budget` value is optional. Without them, `plan()` returns the
-structural plan, which is what the linter, the agent kit and the Node pre-flight use. With
-them, it adds rescues. **That is the hint model: measurements refine a plan, they never
-originate one.**
+- `height` and `cuts` are px, measured in page context (§4.1). `cuts` lists the offsets of
+  the inner seams.
+- `budget` is in **seam units per page**: rows, lines or items.
+- A **budget rescue** fires only when the member's count exceeds its budget, and only in a
+  file or when no measurement is available.
+- A **measured rescue** fires only when the member's measured height exceeds the page's
+  content box.
+- Without heights or budgets, `plan()` returns the structural plan. The linter and the agent
+  kit run it with budgets, which is exactly what a file will do.
 
-**Panes** are nested slides. A pane boundary is a seam like any other, so on a narrow canvas
-the plan puts one pane per page and then paginates each pane. This retires the token-level
-`installPaneSplit` at non-wide sizes and fixes the fluid panes gap (§2.2).
+**That is the hint model: measurements and budgets refine a plan, they never originate one.**
+
+**Panes** are nested slides. A pane boundary is a seam, so on a narrow canvas the plan puts
+one pane per page and then paginates each pane. The outer masthead rides the first pane's
+cover and the outer coda rides the last pane's closing page. At `wide`, `arrangePanes`' own
+`split` outcome stays a legal seam. This replaces the token-level `installPaneSplit` only when
+the last caller of the string path is gone (P6), so no surface loses pane splitting in between.
 
 ### 5.3 The output: a plan, not HTML
 
 ```
 Plan = { pages: Page[], notes: Note[] }
-Page = { slide, role: 'whole'|'cover'|'body'|'closing', members: id[],
-         rescue?: { block: id, from: number, to: number } , of: [k, n] }
-Note = { slide, kind: 'rescued'|'ring', block?: id, reason }
+Page = { anchor: { slide, pane?, member? }, role: 'whole'|'cover'|'body'|'closing',
+         members: id[], rescue?: { block: id, from: number, to: number },
+         number: string /* "3", "3.2", "3.2.1" */ }
+Note = { slide, kind: 'rescued'|'ring'|'capped', source: 'budget'|'measured',
+         block?: id, reason }
 ```
 
-The connector turns pages into sections with the existing page builders. The 14 carousel
-strategies become presentation only, meaning how a cover or a body page looks. They stop
-deciding how many members ride a page. That ends the three-rules conflict in §2.1. A plan is
-also what the Studio rail, the k-of-N run number and the linter all read, so none of them
-re-derives pagination.
+- **Numbering keeps the authored count.** A three-slide panes deck stays three slides at
+  every size. Pane and run pages take dotted sub-numbers (`3.2`, and `3.2.1` for a run inside
+  a pane). Today the token-level pane split spends whole slide numbers: a three-slide deck
+  reads 1 · 2 · 2.2 · … · 4 at `square`. This is a visible change, so it goes to the owner
+  at P4.
+- **Notes, captions and `say:` rebind by member id**, not page index. That closes #1838.
+  The glossary range pill is computed per page from `members`, which closes #501.
+- **Page building happens on the host's side of the sanitizer (HARD RULE #22).** The page
+  builders in `carousel.js` and `split-envelope.js` produce markup that holds author text:
+  `(cont.)`, the rail segments, "→ next: {label}". `auto-split.js:740-748` records that this
+  kernel once turned an authored label into a firing `<img onerror>`. Where a host exists
+  (Studio, Playground), the frame posts the pure `Plan`. The host builds the page chrome,
+  sanitizes it, and patches the frame. In the exported HTML viewer, which has no host, `/dom`
+  builds chrome with `createElement` and `textContent` only, and never assigns an HTML string.
+  The package path joins `RUNTIME_MARKUP_EXTRA_FILES` with a justification and a sink count of
+  0, so `checkRuntimeMarkupSinks` scans it.
+- The 14 carousel strategies split into **seam** logic, which moves into `Seam` and the
+  connector, and **presentation** logic, which shapes a cover or a body page. A census at P3
+  sorts every strategy before any markup changes (§8).
 
 ### 5.4 Policy the owner already set, carried unchanged
 
 - The page plan is cover → body → closing, one element per body page (2026-09-01).
-- At the `wide` family there is no pagination and no rescue. Overflow there is a layout
-  defect, and the ring is the terminal (2026-07-29). The family is now the **canvas's**
-  family, not the authored one. That is the point of §2.2.
+- At the `wide` family members do not paginate and nothing is rescued. Overflow there is a
+  layout defect (2026-07-29). The terminal is what 2026-07-29 defined: a file clips and prints
+  a build-time stderr line, and a live surface shows the overflow ring. The one `wide` seam is
+  `arrangePanes`' pane split. The family is now the **canvas's** family, not the authored one.
 - `<!-- stress-slide -->` and `fit: report` opt a slide out. `--no-split` becomes
   `--no-paginate` on tool rigs.
+
+### 5.5 Each surface's canvas
+
+| Surface | Canvas | Rescue source |
+|---|---|---|
+| PDF, PPTX | the slide box (`@size`), never the `--paper` sheet | budget |
+| HTML export and player, static pages | authored slide box, baked at export so a no-JS reader (iOS Quick Look) gets pages | budget |
+| HTML viewer and player, with JS | the live viewport, re-planned from the authored originals kept in an inert `<template>` | measured |
+| Playground | the live frame | measured |
+| Studio | the authored size by default; a device toggle (phone, tablet, desktop) runs the same plan on that canvas | measured |
+| Linter, agent kit | named sizes | budget (exact for files; "may cut" for live) |
+
+The `<template>` is a new place markup lives inside the frame, so it gets its own HARD RULE
+#22 entry and justification at P4.
+
+### 5.6 Render-time family reads
+
+Some reflow is decided when the slide renders, so re-stamping `data-family` live cannot redo
+it. `lib/plugins/math/math.render.js:260-281` emits line-breakable equations only off `wide`.
+The engine passes `family` to every plugin (`lib/engine/index.js:300-316`), and panes
+re-orient tokens by the authored family. P2 takes an inventory of every render-time `family`
+read. Each one either emits both forms and lets CSS choose, or is declared a **re-render on
+family crossing**, which is the one stated exception to "post-render only".
 
 ## 6. What Fluid is not
 
 - It does not shrink content. There is no fifth move.
 - It does not pack several members onto one page by measurement. That was the rejected
-  option. It would reverse 2026-09-01.
-- It does not own the slide box CSS. `base.fluid-view.css` stays as the box layer, and Fluid
-  reads the box it produces.
-- It does not render, parse markdown or sanitize. It moves rendered nodes, so the HARD RULE
-  #22 markup channel is unchanged. The DOM adapter writes no new markup, only clones and
-  attributes. P3 confirms that against `checkRuntimeMarkupSinks`.
+  option, because it would reverse 2026-09-01.
+- It does not own the slide box CSS. `base.fluid-view.css` stays as the box layer. A Studio or
+  Playground surface that does not use the fluid view passes Fluid an explicit `Canvas`.
+- It does not render, parse markdown or sanitize. Where it writes markup, §5.3 says who builds
+  it and on which side of the sanitizer.
 
 ## 7. How we will know it works
 
-- **Parity:** before any surface switches over, the connector over the core reproduces
-  today's `splitDoc` output byte for byte on every gallery at `square`, `tall` and `strip`, and
-  the per-component enrollment records in `test/oracle/split-oracle.json` stay unchanged.
+- **Parity:** P0 creates the golden this needs, because none exists. The golden is
+  `structuralSplit` output for every gallery at `square`, `tall` and `strip`, hashed per page
+  (command and deck list in the P0 PR). Through P3 the connector over the core matches it byte
+  for byte. `test/oracle/split-oracle.json` changes schema at P3, when `perPage` gives way to
+  budgets, and that diff is reviewed.
+- **Reproducibility:** a file rendered twice, with cold and with warm fonts, has the same page
+  count and the same page hashes.
 - **Determinism:** a golden of plan hashes with mutation arms that prove the golden can fail,
   as Mosaico does.
-- **Jank:** `tools/check-jank.js` gains a canvas axis (390 → 820 → 1440, rotate, resize
-  storm). It asserts zero drift of the reader anchor and at most one re-plan per family
-  crossing. The `--no-split` hole in `jank.md:231` closes, because the rig measures the
-  pages the real render emits.
+- **Identity:** the 2026-06-25 identity rig keeps at least 96.8% of nodes after `apply`. A
+  rotate arm checks that listeners still fire after `unapply` and a re-plan.
+- **Jank:** `tools/check-jank.js` gains a canvas axis: 390 → 820 → 1440, rotate, a resize
+  storm, and a URL-bar collapse. It asserts zero anchor drift, at most one re-plan per bucket
+  crossing, and at most one probe pass. The `--no-split` hole in `jank.md:231` closes, because
+  the rig measures the pages the real render emits.
 - **Rescue:** every slide that rings today at `square`, `tall` or `strip` is either rescued
-  or listed with a reason. The entry criterion for P4 is that census.
-- **Surfaces (HARD RULE #23):** real screenshots at three widths on the HTML export, the
-  Studio and the Playground. A PDF and a PPTX in dark and light go to the owner for export
-  sign-off.
+  or listed with a reason. A gallery gate diffs the budget rescue set against the measured set
+  per family and ratchets the gap down.
+- **One paginator:** `checkPaginationOwners` in `tools/check-ownership.js`, with a
+  `SANCTIONED_PAGINATORS` allowlist that starts at today's paths (§2.1). Each phase that
+  deletes a path removes its entry. The check fails on a stale entry and on any new module
+  that composes cover, body or closing sections outside `@laticent/fluid` and the connector.
+  It is a `build:check` rule, not a new CI job.
+- **Surfaces (HARD RULE #23):** real screenshots at three widths on the HTML viewer, the
+  Studio's device toggle and the Playground, plus a no-JS render of the player. PDF, PPTX and
+  HTML-export artifacts in dark and light go to the owner for export sign-off.
 
 ## 8. The plan
 
-Each phase ships on its own, and the order is set by what it unblocks.
+The order changed after review (§11). Four earlier plans in this area landed their safe
+infrastructure phases and stalled before the risky one, so the risky unknowns now come
+second, on one surface, before the catalog migrates.
 
 | Phase | What | Behavior change | Gate |
 |---|---|---|---|
-| **P0** | Cleanup. The CLI calls `structuralSplit` (one assembly). Delete `split-slides.js`. Fix the nine stale claims in §2.4. | none | byte-identical goldens |
-| **P1** | `@laticent/fluid` core: `plan()` (structural only) and `familyFor`. `splitDoc` becomes a connector over it. Benchmark scenario plus bless. | none | split-oracle parity; bench |
-| **P2** | Seams in the markup (`data-fluid-*`). Retire the baked capacity map and the `splitCapacityFrom` whitelist. Strategies become presentation only, and `perPage` retires. | code at 12 lines/page becomes one element per page plus rescue. **Owner check:** this is the one visible change before P4. | gallery page-count diff, reviewed |
-| **P3** | `/dom` adapter and live canvas. The runtime runs Fluid on the HTML export, the Playground and the Studio. Panes become seams. The jank rig gains a canvas axis. Closes #506 and #2054. | a 16:9 deck paginates on a phone; panes split in the fluid view | three-width screenshots; jank canvas axis |
-| **P4** | The rescue move: measured inner cuts for `rows`, `lines` and `items`. Retire `splitSlideInHalf`'s own halving rule in favor of the plan. | rings become rescued pages | rescue census (§7) |
-| **P5** | PDF and PPTX run the `/dom` adapter in Chromium against the page canvas. One box selector (fluid CSS, the Present `fitScale`, the filmstrip). The player gets Fluid. | export bytes change | **export sign-off (Quality Bar)** |
-| **P6** | Fluid is the default everywhere. `--fluid` and `fluid:` retire, and the viewer's `?view=fixed` mode stays. The vocabulary rename lands (`autosplit` → `fluid`, `split-*` → `fluid-*`), and the Fit Spine and 2026-09-01 notes are absorbed into a canonical `engineering/fluid.md`. | none beyond P3–P5 | build:check, docs |
+| **P0** | Cleanup and guard rails. The CLI calls `structuralSplit` (one assembly). Delete `split-slides.js`, with its `affected-tests` row, the comments that name it, and `engineering/architecture.md`'s two references. Fix the nine stale claims in §2.4: issue #506's body is shared state, so that edit goes to the owner. Create the parity golden (§7). Add `checkPaginationOwners`. Strip author-written `data-fluid-*`/`data-split-*`. Create `engineering/fluid.md` as the canonical doc, with a glossary separating **the fluid view** (the box) from **Fluid** (the plan). Mark 06-25 and 07-20 §9 P2–P4 as absorbed. | none | parity golden green; gate arms fail on a planted second paginator |
+| **P1** | The `@laticent/fluid` core: `plan()` (structural, plus budget rescue for `lines`, which generalizes `carousel.js:1272`), with `families.js` moved in whole. `splitDoc` becomes a connector over it. Benchmark scenario, plus bless. | none | parity golden; bench |
+| **P2** | **The vertical slice on the Playground.** `/dom` `read`/`apply`/`unapply`/`watch`, structural plan only, enrolled components only, today's seams. Host-side page building. The identity rig. The jank canvas axis. The inventory of render-time family reads (§5.6). Closes #506 for the Playground. | a 16:9 deck paginates in a narrow Playground frame | identity ≥ 96.8%; jank canvas axis; three-width screenshots |
+| **P3** | **The catalog.** A seam census sorts every strategy into seam or presentation and extends `Seam` first. Then components migrate to `data-fluid-*` one at a time, behind a ratchet (an enrolled-via-markup count that only rises). The baked capacity map and the `splitCapacityFrom` whitelist retire when the count reaches 37. `perPage` gives way to budgets, and code keeps its line cut through the P1 budget rescue, so no slide regresses. Each of the four silent clips (`logo-wall`, `matrix-grid`, `state-chart`, `obligation-matrix`) gets a seam or an explicit ring-by-rule. | gallery page counts change only where a census entry says so | **owner check:** the gallery page-count diff |
+| **P4** | **Live everywhere else.** The HTML viewer and the player (baked authored plan, plus a `<template>` re-plan when JS runs), and the Studio (authored size plus the device toggle). Anchor transport for Present, the player, narration and comments. Panes become seams on these surfaces, with dotted numbering. | a 16:9 deck paginates on a phone; panes split in the fluid view; panes decks keep their authored count | **export sign-off** (the HTML bytes change); **owner check:** numbering |
+| **P5** | **The measured rescue** on live surfaces: the probe pass, rescue hysteresis, the frame-budget kill criterion. `splitSlideInHalf` reads the plan instead of its own halving rule. | rings become rescued pages on live screens | rescue census; **owner check** |
+| **P6** | **Files on one path.** PDF and PPTX run the connector on the slide box with budget rescue. The Node string path, the token-level `installPaneSplit` and their `SANCTIONED_PAGINATORS` entries are deleted. One box selector (the fluid CSS, the Present `fitScale`, the filmstrip). | export bytes change where budget rescue fires | **export sign-off** (dark and light); reproducibility arm |
+| **P7** | Fluid is the default everywhere. `--fluid` and `fluid:` retire, and the viewer's `?view=fixed` mode stays. The vocabulary rename lands (`autosplit` → `fluid`, `split-*` → `fluid-*`). `engineering/fluid.md` absorbs the Fit Spine and the 2026-09-01 note. | none beyond P2–P6 | build:check, docs |
 
-P2 and P5 each change something a reader sees or a file's bytes, so each stops for the owner.
-Everything else is reversible and inside the plan.
+**What each phase deletes** is the other half of the plan:
+
+| Path (§2.1) | Deleted at | Proven by |
+|---|---|---|
+| 6 `split-slides.js` | P0 | file gone; gate entry gone |
+| 2 per-strategy `perPage` | P3 | census; `split.perPage` absent from every manifest |
+| the baked capacity map and the whitelist | P3 | the ratchet reaches 37 |
+| 5 `splitSlideInHalf`'s halving rule | P5 | it calls `plan()` |
+| 1 the Node string assembly, 3–4 token-level panes | P6 | `SANCTIONED_PAGINATORS` holds only the core and the connector |
+
+**Kill criterion.** If P2 has not landed within six weeks of P1 merging, the owner decides
+whether the core stays, with the connector over today's string path, or is reverted. That way
+the plan cannot stall into a third splitter.
 
 ## 9. Owner decisions (2026-10-27)
 
-1. **Trigger:** structure plus measured rescue. "Measurements are hints. Budgets are hints."
-   The real input is rendered HTML, processed after render.
-2. **Name:** the whole thing is called Fluid, and the autosplit name retires.
+Quoted from the owner's answers, with the date.
+
+1. **Trigger:** structure plus measured rescue. "Measurements are hints. Budgets are hints but
+   the real boat is taking in the rendered html as a post processor style thing to do the
+   fluid work."
+2. **Name:** "the whole thing can be called fluid and we can dump autosplit name."
 3. **Fluid scope:** fluid is the box everywhere, and export phases come back for sign-off.
 4. **Shape:** a Mosaico-style package. This session delivers this note as a PR, with no
    engine code.
+5. **Rescue source, after the trio:** live surfaces rescue from measured heights. Files (PDF,
+   PPTX, and the static pages in HTML) rescue from budgets only.
+6. **The Studio's canvas, after the trio:** the authored size by default, plus a device toggle.
 
 ## 10. Open questions for later phases
 
-- **P2:** should `code` keep a multi-line page as its "element"? A code block's natural
-  member is the whole block, so the rescue cuts it at lines. That would make 12 lines/page an
-  outcome, not a rule. The recommendation is yes, and the owner sees the gallery diff.
+- **P1:** whether 64 pages per slide is the right cap. Measure it against the largest gallery.
+- **P2:** the size of the named buckets (§4.4). Start from the registered `size:` presets
+  (`hd`, `portrait`, `story`, `mobile`, …), and measure.
 - **P3:** Mosaico's `pack()` already answers "does this fit" for panes on a `wide` canvas.
   Whether `arrangePanes` should move onto it, instead of reading `pane-catalog.generated.js`,
   is a P3 call.
+- **Not tried yet:** a classic-scrollbar loop at the 1.05 family boundary. Paginating adds a
+  scrollbar, which narrows the box, which can flip the family. The P2 jank axis includes it.
 - **Naming:** the package is `@laticent/fluid`, not an Italian sibling noun. That follows the
-  owner's own name for it. If the brand system wants a noun, it is a rename at P6.
+  owner's own name for it. If the brand system wants a noun, it is a rename at P7.
+
+## 11. Adversarial review (2026-10-27)
+
+The red team, an inversion and an independent checker reviewed the first draft. All three
+said the direction holds. They found that the **build** did not, and every point below
+changed the note.
+
+| Finding | Evidence | What changed |
+|---|---|---|
+| A rescue cannot be measured in one read of the unsplit slide | `cards-grid` at `square`: 469×393 px unsplit, 972×742 px on its body page (red team, Chromium 131) | one probe pass in page context (§4.1) |
+| Page building moved after the sanitizer, in a same-origin frame | the builders write author text; a past `<img onerror>` in this kernel (`auto-split.js:740-748`) | host-side builds; `createElement` only in the viewer; scan path (§5.3) |
+| Authors could forge seams and budgets | `data-fluid-budget="0"` survives the engine and DOMPurify | strip author attributes; 64-page cap (§5.2) |
+| A measured PDF page count varies by machine, the 09-01 problem | font backstop timer; `dvh`; CI vs local | files rescue from budgets (§9.5); `svh`; buckets (§4.4) |
+| No-JS readers would lose pagination | `player-no-js.test.js` pins iOS Quick Look | static pages baked at export (§5.5) |
+| Cloning loses node identity | 64.8% vs 96.8% (2026-06-25 Amendment 2) | `apply` moves; `unapply` (§5.1) |
+| Duplicate SVG ids paint nothing | a hidden copy's `linearGradient` blanks the visible one | re-id subtrees (§4.7) |
+| P2–P4 regressed code slides and pane splitting | a 34-line block at `square` is cover + 3 pages today | budget line rescue in P1; panes string path kept until P6 |
+| §5.4 misquoted the `wide` terminal and missed the `wide` pane split | the 2026-07-29 front matter; `pane-spec.js:266-276` | §5.4 rewritten |
+| Panes numbering and index-keyed consumers break | 1 · 2 · 2.2 … · 4 at `square`; `{pv:n}`, `count: slides.length` | dotted numbering; anchors (§5.3, §4.5) |
+| Render-time `family` reads defeat a live re-stamp | `math.render.js:260-281` | inventory and re-render exception (§5.6) |
+| The plan repeats the stall of four earlier plans | 07-22, 06-25, 07-20 §9, 09-06 | vertical slice second, a deletion table, a ratchet, a kill criterion (§8) |
+| Owner checkpoints were undercounted | the HTML export's runtime is exported bytes | sign-off at P4 and P6, checks at P3, P4 and P5 |
