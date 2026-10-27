@@ -459,7 +459,9 @@ that set something else. Each of these registers has one, named for its default 
 `head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
 that slide (as any per-slide token does), and the slide renders as the default. So in a
 `spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
-the move `claim-framed` already makes for `claim:`.
+the move `claim-framed` already makes for `claim:`. Write one token per axis: beside a rival
+from its own axis (`spectrum-on spectrum-solid`) a restore token always loses, so `lint:deck`
+warns `conflicting-variants`.
 
 **`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
 ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
