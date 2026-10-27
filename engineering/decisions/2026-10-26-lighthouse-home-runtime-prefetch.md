@@ -144,3 +144,88 @@ download a visitor who leaves before the hero renders never needed, and wins on 
 improvement and must not be cited as one. This also means the deployed home page already scores 73-80, so the remaining gap
 to 90 there is TBT, not LCP. The lesson for the next pass: measure Lighthouse candidates on a CDN preview before calling a
 local win, because the simulation depends on when requests start in the real trace.
+
+## 8. The Playground walk caption goes into the HTML (followup 2868-p1)
+
+`playground.astro` now reads the default component's first caption from the same `galleryPlan` that stages `plans/<name>.json`
+and passes it to the island as `bakeCaption`. The Walk bar renders it (`data-baked`) while no walk exists, so the server HTML
+holds the text that used to arrive after hydration and the plan fetch. A visitor who is not the newcomer the bake was built
+for (a remembered component, `?c=`, `?s=`, a hand-off, a slow connection, Edit first) must not see another slide's words, so
+the head script marks `data-pg-newcomer` only in the branch that starts the bake, and `playground.css` hides `[data-baked]`
+without it (`visibility: hidden`, so the box holds its height and a hidden element is not an LCP candidate). Checked in
+Chromium with a remembered `kpi` and a 3 s plan delay: the baked caption is hidden, then replaced by the KPI caption.
+
+**What the sandbox can and cannot show.** On the local HTTP/2 server, five runs each, base and head alternating: the LCP element
+is still the caption and LCP equals FCP (5.4-5.7 s base, 5.4 s head; one head run scored 51 with FCP 2.5 s). Locally the caption was
+only 0.9 s behind FCP already, so the 10 s gap in §6 does not exist here: §7's warning applies, and the CDN decides.
+
+**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** Base is PR #2907's preview (`claude/fix-g-webkit-pptx`, which
+has the same engine and no baked caption); head is this PR's preview. `/playground/`, the §1 mobile profile, from this sandbox.
+
+| Build | Score | FCP | LCP | TBT |
+|---|---|---|---|---|
+| base | 41, 42, 40, 42, 42 | 2.6-4.5 s | 7.5, 8.3, 10.0, 7.5, 10.3 s | 940-2200 ms |
+| head | 44, 47, 55, 57, 55 | 3.0-4.6 s | 5.7, 5.1, 3.8, 3.6, 4.2 s | 990-1430 ms |
+
+Median LCP 8.3 s to 4.2 s, median score 42 to 55. The followup's bar was Playground LCP under 4 s: **NOT met** (2 of 5 runs
+under 4 s, median 4.2 s). The caption now paints with the page, so what is left is FCP itself (3.0-4.6 s, bimodal on both builds),
+and the Playground's TBT (1.0-1.4 s, §9). The LCP element is still the caption, which is correct: it is real content in the HTML.
+
+## 9. Boot-order redesign for TBT: design and the question for the owner (followup 2868-p1, next item 3)
+
+**Why TBT.** On the CDN preview the Playground's metric scores are FCP 0.14-0.39, LCP 0.16-0.56, TBT 0.15-0.22; CLS and speed index
+are already 1.0 and 0.7-0.8. TBT carries 30% of the score. Studio is the same shape (TBT 1,435-1,731 ms, score 0.13).
+
+**Where the blocking time is.** Lighthouse's long-task list, head build, local HTTP/2, 3 runs, averaged (blocking = duration over 50 ms):
+
+| Script | Studio | Playground |
+|---|---|---|
+| React `client` chunk (render and commit) | 1,061 ms | 609 ms |
+| the island (`StudioIsland` / `PlaygroundIsland`) | 51 ms | 1,509 ms |
+| unattributable (parse, style, layout, GC) | 939 ms | 819 ms |
+| `lattice-runtime.js` (the frame) | 406 ms | 470 ms |
+| `single-slide-render` | 96 ms | not in the top 8 |
+
+The `PlaygroundIsland` row hides one task. A CDP profile of `/playground/` on the phone profile (4x CPU, 250 us samples), split
+at idle gaps, shows the heaviest tasks by what runs inside them:
+
+| Task (4x CPU) | What is in it |
+|---|---|
+| 1,141 ms | the first render: `theme-fetch` to `engine.render`; `cssFor` composition is 319 ms of it (P3, §10) |
+| 669 ms | the frame evaluating `lattice-runtime.js` |
+| 575 ms | the editor's lint source loading the 279 KB lint core (`esm/lint.js`) and linting the draft, while the editor is hidden in Explore |
+| 533 ms | the runtime's chart builders and layout in the frame |
+| 472 + 441 ms | React commits |
+
+**Candidate levers**, each with what it buys. Only A was measured end to end; the rest are sized from the profile.
+
+| | Lever | Measured or sized | Cost and risk |
+|---|---|---|---|
+| A | Do not load or run the lint while the editor is hidden (Explore, a phone's preview pane); lint when it appears (`forceLinting` on show) | **Measured**: Playground TBT 1,870-1,990 ms to 1,620-1,790 ms (4 runs each, local, interleaved), score +0 to +3 | One condition in `src/playground/editor.js` and one re-lint trigger; the Studio editor already has the same hidden-pane gate (`useFirstSlideShown`). Edit-first visitors are unchanged |
+| B | Skip the first `cssFor` composition (P3, §10) | sized: 319 ms of a 1,141 ms task at 4x | Changes what the engine ships; touches the CSP scan |
+| C | Chart builders out of the preview runtime | sized: 0.2 s of first slide (2026-10-23 §3); about half of the 533 ms task | Export bytes stay identical only if the split output is docs-only; otherwise export sign-off |
+| D | Time-slice hydration: `React.lazy` + `Suspense` around the toolbar sheets, the map, the editor host, so each hydrates in its own task | unmeasured; the 441-472 ms commits are the target | Touches every load of both apps; needs the trio |
+
+**What this does not do.** A, B and C together are about 1.3 s of the 4x long-task time, out of about 4.3 s. Lighthouse wants TBT
+near 200-300 ms for a 90 on this metric. Boot-order changes alone do not get there; the remaining work is the React tree
+itself (D) and a first paint that does not need React. So the honest forecast for 90 is "not from this list".
+
+**Recommendation.** Take A now (small, reversible, measured), D as a measured spike before any commitment, and treat B and C as
+separate decisions. **Default if no one answers: A only, built in the next session; D spiked, not shipped.** A is NOT built in
+this PR: followup 2868-p1 requires a design note and one owner question round first, and A changes every Playground load.
+
+## 10. First-render stylesheet composition (followup 2794-p7)
+
+Re-measured here with a profile instead of a harness. `composeCss` in Node, one cold call: 86-89 ms at 1x on the 1,013 KB
+`dist/lattice-min.css` plus `cuoio.css`; a second call costs the same (no warm-up gain), so the cost is the work, not the JIT.
+`packTheme` is 140 of 189 ms across the two calls in the CPU profile, `isPaginationTarget` and `packSelector` most of the rest.
+In the Playground the same call shows as `cssFor` 319 ms inclusive at 4x on one profiled load, against the followup's 104 ms for the
+composition alone; I did not find which of the two differs (profiler overhead is the likeliest), so treat the range as 100-320 ms.
+
+Why a faster `packTheme` does not fix the first render: the base is one rule stream and the theme another, so packing them
+apart and memoizing the base pack would speed every LATER palette change (about 70 of 88 ms) but not the first one. Only a build-time
+answer removes the first cost, and a build-time answer has one safe shape: ship the packed base for our own sheet and trust it
+only when the registered base text is byte-equal to the one the build packed. A hash key is a CSP bypass on collision (HARD RULE #22),
+and an extra 560 KB download (not measured compressed) is likely to cost more on the Lighthouse link than the 70 ms it saves, so the packed base must REPLACE the raw
+base for the Playground, not sit beside it. That changes the engine's input contract, and every consumer of `lattice-min.css`
+(export to Marp, the CLI) keeps the raw one. So it is a design decision, not a slice: **not built.** Default if no one answers: not built.

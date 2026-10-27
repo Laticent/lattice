@@ -101,6 +101,8 @@ export type PlaygroundData = {
 	// Optional so the test harness (and any host without staged assets) degrades
 	// to the editor-only playground.
 	plansBase?: string;
+	/** The default component's first Walk caption, rendered into the server HTML so the bar is not empty until the plan lands. */
+	bakeCaption?: string;
 	// Base URL of the staged galleries/ folder: `index.json` (every examples/*.md deck's id, title
 	// and slide count) and `<id>.md` (one deck). Fetched on demand, never inlined. Optional like
 	// `plansBase`: a host without staged assets simply has no "All examples" list.
@@ -302,7 +304,7 @@ function adoptBootSeed(view: 'read' | 'edit', pane: 'edit' | 'preview') {
  * the config panel (DeckSetupSheet). None are reimplemented.
  */
 export function PlaygroundApp({ data }: { data: PlaygroundData }) {
-	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase } = data;
+	const { catalog, components, lenses, galleryGroups, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl, palettes, finishes, lintVocab, starter, plansBase, galleriesBase, bakeCaption } = data;
 
 	// Two component states, one rule each (2026-07-05 decision §4): `draftComponent`
 	// is DERIVED — what detectComponent reads out of the live editor, possibly '' when
@@ -3165,7 +3167,8 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			<WalkBar
 				index={walk?.index ?? 0}
 				count={walkCount}
-				caption={walkSlide?.caption || ''}
+				caption={walk ? walkSlide?.caption || '' : bakeCaption || ''}
+				baked={!walk && !!bakeCaption && !walkNotice}
 				onPrev={() => stepWalk(-1)}
 				onNext={() => stepWalk(1)}
 				nextLabel={walkNextComp ? `Next component: ${walkNextComp} →` : null}
