@@ -443,6 +443,17 @@ pixels off by more than 8 levels, worst 21%) and the Studio's PNG set was 39 MB 
 needs one thing from its host, `toDataUri(url)`, which turns a picture address into a `data:` URI: the Studio fetches
 `blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js`).
 
+In the CLI the camera runs in an **isolated world**, a second JavaScript context over the same page (the one browser extensions
+use), because the page also runs the deck's own scripts. The deck's world cannot see the camera's globals, so a script that
+defines `LatticePdfCompose` first cannot stand in for `captureSlide`, and the read hook is a CDP binding added to that world
+alone (`Runtime.addBinding` with the world's name, after `Runtime.enable` and before `Page.createIsolatedWorld`: measured, any
+other order leaves the world without it). Until the #2904 follow-up the camera shared the deck's world and guarded the hook with
+a per-run secret, which such a deck received on the camera's first call. The deck can still OBSERVE a picture the camera has
+inlined: a custom element on the slide runs its callbacks in the deck's world even inside the camera's clone, so it can read
+the `data:` URI of a confined picture the slide names, which the PDF path's `__latticePdfAsset` already answers it. Only the shared picture writers Calco needs go into the
+deck's world (`installPictureWriter`, editable office exports only): they encode pixels Calco hands them and read nothing.
+`test/integration/export/cli-camera-isolation.test.js` holds both halves.
+
 - **No style is copied.** The slide and a shallow clone of its ancestors go into an SVG `foreignObject` with the page's own
   stylesheet text, `html`, `body` and `:root` re-pointed at two wrapper divs. The same selectors match the same elements, so
   nothing can drift.
