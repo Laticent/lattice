@@ -61,3 +61,24 @@ test('a ::before emoji keeps its slice, and content:" body " stays text', { skip
     await browser.close();
   }
 });
+
+// The command line picks its emoji slices before any page exists, from the deck's text. An emoji only the author's CSS draws
+// (front matter `style:`, here as a CSS escape) carried no slice at all: the page had no emoji font for it, and the picture
+// drew it in whatever the machine had. The shipped stylesheet stays out of that text, so a deck without emoji still carries none.
+test('the CLI embeds the emoji slices that front-matter CSS draws, and none for a deck without emoji', () => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pseudo-emoji-cli-'));
+  try {
+    const faces = (fm) => {
+      fs.writeFileSync(path.join(dir, 'd.md'), `---\ntheme: indaco\nfonts: used-emoji\n${fm}---\n\n# Launch day\n`);
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'lattice.js'), path.join(dir, 'd.md'), path.join(dir, 'd.html')], { encoding: 'utf8', timeout: 120000 });
+      assert.equal(r.status, 0, r.stderr);
+      return (fs.readFileSync(path.join(dir, 'd.html'), 'utf8').match(/@font-face\{font-family:'Noto Color Emoji'/g) || []).length;
+    };
+    assert.ok(faces('style: |\n  section h1::after { content: " \\1F680"; }\n') > 0, 'the rocket the CSS draws brings its slices');
+    assert.equal(faces(''), 0, 'a deck without emoji carries no emoji font');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

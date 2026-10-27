@@ -2804,8 +2804,10 @@ const katexCssTag = katexRules.trim() ? `<style id="lattice-katex">${sanitizeSty
 const katexFacesCss = katexFaces ? sanitizeStyleText(katexFaces) : '';
 // Noto Color Emoji: only the slices this deck's emoji need (lib/fonts/emoji-faces.js), so a deck
 // without emoji carries none of the font. The slides AND the title count: the player's bar shows the title. `slicesFor` reads numeric
-// character references as the emoji they spell.
-const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}`;
+// character references as the emoji they spell. The author's own CSS counts too, because a pseudo-element can draw an emoji
+// (`h1::before{content:"🎉"}`, or the escape `"\1F389"`, which `slicesFor` also reads): the front matter's `style:` and a
+// stylesheet the command line names. The shipped sheet stays out: its own escapes would pull slices into every deck.
+const deckText = `${highlightedSlides.join('\n')}\n${frontMatterValue(fm, 'title') || ''}\n${exportGlobalCss(fm, '')}${layoutIsShipped ? '' : `\n${layoutCSSLinked}`}`;
 // `fonts: system-emoji` leaves the emoji font out of every format: a `.html` then lets the viewer's own emoji draw, and a PDF, PowerPoint or
 // image set draws its pictures with this computer's emoji font (the Studio's camera does the same, lib/core/slide-camera.mjs).
 // `fonts: system` for TEXT means the FILE carries none of the engine's text faces: a `.html` leaves them out, while a picture format still
