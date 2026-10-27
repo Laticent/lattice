@@ -75,10 +75,18 @@ browser surface calls `structuralSplit` (`lib/core/structural-split.js:157`).
   re-stamps `data-family`. It never paginates. Its own CSS says over-dense content "overflows
   and clips … later autofit / re-pagination capabilities address" (`base.fluid-view.css:70-71`).
   Nothing does yet.
-- The result: a 16:9 deck opened fluid on a phone is `tall` and never split. A portrait deck
-  opened fluid on a desktop is `wide` and stays split. A panes deck keeps both panes side by
-  side on a phone, because `patchSectionGeometry` walks only `section` elements and a
-  `<lat-pane>` is not one (`runtime/index.js:2410`, read from source and not rendered).
+- The result: a 16:9 deck opened fluid on a phone is re-stamped `strip` (390×844) and never
+  split. A portrait deck opened fluid on a desktop is `wide` and stays split. A panes deck
+  keeps both panes side by side on a phone, because `patchSectionGeometry` walks only
+  `section` elements and a `<lat-pane>` is not one (`runtime/index.js:2410`).
+- **Rendered, 2026-10-27.** `node lattice.js examples/panes.md out.html --fluid`, opened in
+  Chromium at 390×844 (Playwright). All 8 sections read `data-family="strip"`. Six of the
+  seven panes slides keep their panes side by side, at 92–214 px wide each, and the seventh
+  was authored stacked. On slide 5 the table's `MARGIN` column clips and the slide shows
+  "Content clipped" ([`panes-fluid-390.png`](2026-10-27-fluid-layout-library/panes-fluid-390.png)).
+  The same render shows each pane printing its own page number, `1`. That shows in the 16:9
+  HTML export too, not in the PDF, and it is already tracked
+  (`followups.d/2898-p1-every-pane-prints-its-own-page-number.md`).
 - Fluid is opt-in (`--fluid` or `fluid: true`). The Studio and the Playground never use it.
   Three components decide the slide box separately: the fluid CSS, the player and Present
   letterbox (`present-transport.mjs:32`), and the docs filmstrip.
