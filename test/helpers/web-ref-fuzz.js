@@ -34,10 +34,13 @@ async function startServer() {
   const homeHits = [];
   const listen = async (handler) => {
     const server = http.createServer(handler);
-    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    await new Promise((r) => server.listen(0, '0.0.0.0', r));
     return server;
   };
+  // Connections that opened and sent no request: what `<link rel=preconnect>` makes, which a request log never shows.
+  const sockets = new Set();
   const beacon = await listen((req, res) => {
+    req.socket.__asked = true;
     hits.push(req.url);
     res.writeHead(200, { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'text/plain' });
     res.end('');
@@ -47,9 +50,14 @@ async function startServer() {
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(req.url === '/' ? '<!doctype html><meta charset="utf-8"><div id="root"></div>' : '');
   });
+  beacon.on('connection', (s) => {
+    sockets.add(s);
+    s.on('close', () => sockets.delete(s));
+  });
+  const conns = { idle: () => [...sockets].filter((s) => !s.__asked).length, reset: () => { for (const s of sockets) s.__asked = true; } };
   const base = `http://127.0.0.1:${beacon.address().port}`;
   const homeUrl = `http://127.0.0.1:${home.address().port}/`;
-  return { hits, homeHits, base, home: homeUrl, close: () => Promise.all([beacon, home].map((srv) => new Promise((r) => srv.close(r)))) };
+  return { hits, homeHits, conns, base, home: homeUrl, close: () => Promise.all([beacon, home].map((srv) => new Promise((r) => srv.close(r)))) };
 }
 
 /**
@@ -122,17 +130,29 @@ const nameOf = (url) => url.slice(1).split(/[?#/]/)[0].replace(/-d$/, '');
  * @param {boolean} [o.control]   also load each input unrewritten (default true)
  * @param {(msg: string) => void} [o.log]
  */
-async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'plain', hits, base, seed, count, from = 0, batch = 300, control = true, log = () => {} }) {
+async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'plain', hits, conns, base, seed, count, from = 0, wide = false, batch = 300, control = true, log = () => {} }) {
   let page = firstPage;
-  const report = { compose, seed, from, count, controlFetched: 0, controlRan: 0, controlByKind: { css: [0, 0], html: [0, 0] }, kinds: { css: 0, html: 0 }, leaks: [], bent: [], hung: [], unattributed: [], errors: [], slowest: { ms: 0, name: '' }, requests: 0, rewrittenRequests: 0 };
-  const loadDocs = (docs, mode) => page.evaluate(async ({ docs: d, mode: m }) => {
+  const report = { compose, seed, from, count, controlFetched: 0, controlRan: 0, controlByKind: { css: [0, 0], html: [0, 0] }, kinds: { css: 0, html: 0 }, leaks: [], bent: [], hung: [], unattributed: [], errors: [], slowest: { ms: 0, name: '' }, requests: 0, rewrittenRequests: 0, controlIdle: 0, rewrittenIdle: 0 };
+  const loadDocs = (docs, mode) => page.evaluate(async ({ docs: d, mode: m, act }) => {
     const root = document.getElementById('root');
     root.textContent = '';
     if (m === 'doc') {
       await Promise.all(d.map((html) => new Promise((resolve) => {
         const f = document.createElement('iframe');
         const done = () => resolve();
-        f.onload = done;
+        let acted = false;
+        f.onload = () => {
+          // a ping posts on a click and a form fetches on a submit: do both, once, as a reader would
+          if (act && !acted) {
+            acted = true;
+            try {
+              const d = f.contentDocument;
+              for (const e of d.querySelectorAll('a[ping],area[ping],[formaction]')) e.click();
+              for (const fm of d.querySelectorAll('form')) fm.requestSubmit();
+            } catch {}
+          }
+          done();
+        };
         f.onerror = done;
         setTimeout(done, 4000);
         f.srcdoc = html;
@@ -143,9 +163,13 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
         const div = document.createElement('div');
         div.innerHTML = `${html}<p>x</p><div><span>x</span></div>`;
         root.appendChild(div);
+        if (act) try {
+          for (const e of div.querySelectorAll('a[ping],area[ping],[formaction]')) e.click();
+          for (const fm of div.querySelectorAll('form')) fm.requestSubmit();
+        } catch {}
       }
     }
-  }, { docs, mode });
+  }, { docs, mode, act: wide });
   /** A page that never answers (a renderer stuck in a layout loop) is replaced, not waited for. */
   const reset = async () => {
     await Promise.race([Promise.resolve(page.close()).catch(() => {}), sleep(5000)]);
@@ -159,6 +183,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
     });
     return Promise.race([promise, late]).finally(() => clearTimeout(timer));
   };
+  let idleSeen = 0;
   const fetchedBy = async (docs, mode) => {
     // a pristine page for every load: a surviving `<base>` or refresh would otherwise bend what the
     // next load fetches, and a request would be pinned on an input that did nothing
@@ -166,6 +191,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
     // a new page, not a new document: the memory cache belongs to the document and would answer a repeated address
     await reset().catch(() => {});
     hits.length = 0;
+    if (conns) conns.reset();
     try {
       await withDeadline(loadDocs(docs, mode), 15000);
     } catch (e) {
@@ -185,6 +211,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
     // so a late request is attributed instead of landing in the next load.
     await sleep(LATE_MS);
     await settle(hits);
+    idleSeen = conns ? conns.idle() : 0;
     const names = new Set();
     for (const h of hits) names.add(nameOf(h));
     report.requests += hits.length;
@@ -192,13 +219,14 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
   };
 
   for (let at = from; at < from + count; at += batch) {
-    const inputs = fuzzInputs(seed, Math.min(batch, from + count - at), base, { from: at });
+    const inputs = fuzzInputs(seed, Math.min(batch, from + count - at), base, { from: at, wide });
     for (const p of inputs) report.kinds[p.kind]++;
     const known = new Set(inputs.map((p) => p.name));
     const leaksBefore = report.leaks.length;
 
     if (control) {
       const c = await fetchedBy(inputs.map(asHtml), 'doc');
+      report.controlIdle += idleSeen;
       report.controlRan += inputs.length;
       report.controlFetched += inputs.filter((p) => c.names.has(p.name)).length;
       for (const p of inputs) {
@@ -272,6 +300,7 @@ async function runFuzz({ page: firstPage, openPage, bundle, home, compose = 'pla
       for (const mode of compose === 'preview' ? ['doc'] : ['doc', 'frag']) {
         const got = await fetchedBy(docs.map((r) => r[key]), mode);
         report.rewrittenRequests += got.urls.length;
+        report.rewrittenIdle += idleSeen;
         for (const u of got.urls) {
           const n = nameOf(u);
           if (known.has(n)) {

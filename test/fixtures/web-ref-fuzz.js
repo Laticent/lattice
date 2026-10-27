@@ -40,7 +40,7 @@ function prng(seed) {
 
 const HEX = /[0-9a-fA-F]/;
 
-function makeKit(next) {
+function makeKit(next, wide = false) {
   const int = (n) => Math.floor(next() * n);
   const chance = (p) => next() < p;
   const pick = (a) => a[int(a.length)];
@@ -286,8 +286,22 @@ function makeKit(next) {
     return `<meta http-equiv="refresh" content="${pick(['1', '1.0', '1 ;', '1;'])}${pick(['url=', ' url=', '; URL=', ', '])}${a}">`;
   }
 
+  /** An address that is used only on a click, a submit or a hint: the harness clicks and submits, and counts idle connections. */
+  function actionElement(url) {
+    const a = htmlAddress(url, 'dq');
+    return pick([
+      () => `<a ${attr('ping', a)} ${attr('href', '#')}>x</a>`,
+      () => `<area ${attr('ping', a)} ${attr('href', '#')} shape=rect coords="0,0,9,9">`,
+      () => `<form ${attr('action', a)}${chance(0.5) ? ` ${attr('method', pick(['get', 'post', 'POST', 'dialog']))}` : ''}><input name=q value=1><input type=submit></form>`,
+      () => `<form><button ${attr('formaction', a)}>x</button></form>`,
+      () => `<form><input type=image ${attr('formaction', a)} ${attr('src', 'data:image/gif;base64,R0lGODlhAQABAAAAACw=')}></form>`,
+      () => `<link ${attr('rel', pick(['preconnect', 'dns-prefetch', 'prefetch', 'prerender', 'preload']))} ${attr('href', a)}${chance(0.5) ? ` ${attr('as', pick(['image', 'fetch', 'style', 'script']))}` : ''}>`,
+    ])();
+  }
+
   function htmlCore(url) {
-    const kind = int(14);
+    const kind = int(wide ? 18 : 14);
+    if (kind >= 14) return actionElement(url);
     if (kind === 10) return pictureElement(url);
     if (kind === 11) return xmlBaseElement(url);
     if (kind === 12) return delayedRefresh(url);
@@ -345,16 +359,18 @@ function makeKit(next) {
  * @param {number} seed
  * @param {number} count
  * @param {string} base  the origin each input fetches from
- * @param {{ from?: number }} [opts]  `from` skips the first inputs without generating them differently:
+ * @param {{ from?: number, wide?: boolean }} [opts]  `wide` adds the classes that act on a click, a submit or a hint
+ *   (`ping`, `action`, `formaction`, `rel=preconnect`) and spells the host more ways; off, the stream is the one every
+ *   published run used.  `from` skips the first inputs without generating them differently:
  *   input i depends only on (seed, i), so a failing index replays on its own
  * @returns {Array<{ name: string, kind: 'css' | 'html', text: string }>}
  */
-function fuzzInputs(seed, count, base, { from = 0 } = {}) {
+function fuzzInputs(seed, count, base, { from = 0, wide = false } = {}) {
   const out = [];
   for (let i = from; i < from + count; i++) {
     // one stream per input: replaying index i never needs the i inputs before it (it does need the same base length)
     const next = prng((seed ^ Math.imul(i + 1, 0x9e3779b1)) >>> 0);
-    const kit = makeKit(next);
+    const kit = makeKit(next, wide);
     const name = `f${(seed >>> 0).toString(36)}-${i}`;
     const kind = kit.chance(0.5) ? 'css' : 'html';
     // The scheme without its slashes, in capitals, or protocol-relative: absolute to the URL parser all the
@@ -363,7 +379,10 @@ function fuzzInputs(seed, count, base, { from = 0 } = {}) {
     // are relative to it and fetch nothing from the beacon, so they are rare here and covered in the unit tests)
     const schemes = ['http://', 'http://', 'http://', 'http://', 'http://', 'http://', 'HTTP://', '//', '//', 'http:/', 'http:'];
     if (kind === 'html') schemes.push('Http:\\\\', 'http:\\/', '\\\\', '/\\');
-    const url = `${base}/${name}`.replace(/^http:\/\//, kit.pick(schemes));
+    // The host spelled four ways the URL parser reads as the same loopback (`127.1`, a decimal, a hex), a second loopback
+    // address (another origin), and `localhost`.
+    const host = wide ? kit.pick(['127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1', '127.0.0.1', '127.1', '2130706433', '0x7f000001', '127.0.0.2', '127.0.0.2', 'localhost']) : '127.0.0.1';
+    const url = `${base}/${name}`.replace('127.0.0.1', host).replace(/^http:\/\//, kit.pick(schemes));
     out.push({ name, kind, text: kind === 'css' ? kit.cssInput(url) : kit.htmlInput(url) });
   }
   return out;

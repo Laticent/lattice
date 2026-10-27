@@ -133,6 +133,20 @@ this harness listed the gaps, and none is closed here.
 6. The Studio's Reading view itself is covered by `docs/e2e/read-article-beacons.spec.ts`
    (every row of the payload table), not by the fuzz.
 
+## `--wide`: the click, submit and hint classes (2026-10-27)
+
+`npm run fuzz:web-refs -- --wide` adds `<a ping>`, `<area ping>`, `<form action>`, `formaction`, `<link rel=preconnect|dns-prefetch|prefetch|prerender|preload>`, and spells the host seven ways (`127.1`, `2130706433`, `0x7f000001`, a second loopback address as another origin, `localhost`). It clicks every `ping` and `formaction` and submits every form, once, as a reader would. Off, the generated stream is byte for byte the one every earlier run used.
+
+| Composition (seed 20261026) | Inputs | Requests after the rewrite |
+|---|---|---|
+| Reading view, Chromium 153 / Firefox 155 / WebKit 26.6 | 4,000 each | 0 in all three |
+| Preview frame, same three engines | 4,000 each | 0 in all three |
+| Scanner alone, Chromium 131 | 3,000 | **77 leaks**: 37 `ping`, 26 `action` or `formaction` and 14 more of the same kinds spelled with a space before `=` |
+
+The scanner alone does not refuse a web `ping`, `action` or `formaction`: `blockWebImages` leaves the attributes that act only on a click or a submit (`remote-ref.js` `RENDER_FETCH_ATTRS`), while the gallery gate's `attrIsRemote` flags them. The shipped compositions hold because the slide sanitizer strips them and the preview frame's content-security policy blocks the rest. No composition that runs the scanner without either is shipped today; whether the scanner should refuse them is a decision about the scanner's claim, not a fuzz finding, and it changes exported bytes for a deck that carries one.
+
+The connection-with-no-request oracle (`conns.idle()`) sees nothing: the control load, which does carry `rel=preconnect`, opens no idle connection that the server can attribute in headless Chromium, so the oracle cannot fail and is not counted as coverage.
+
 ## Confidence
 
 HIGH that the scanners agree with three engines on the grammar the fuzz generates. After the generator grew

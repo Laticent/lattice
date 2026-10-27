@@ -8,7 +8,7 @@
  * fetch has proved nothing. A request is pinned on an input only when it reproduces with that input alone.
  *
  * Usage: node tools/fuzz-web-refs.mjs [--seed N] [--count N] [--from N] [--engines chromium,webkit,firefox]
- *                                     [--batch N] [--ref <git ref>] [--compose plain|reading|preview] [--playwright-chromium] [--scanner-file <path>] [--json]
+ *                                     [--batch N] [--ref <git ref>] [--compose plain|reading|preview] [--playwright-chromium] [--wide] [--scanner-file <path>] [--json]
  *   --seed     default 1. Same seed and count give the same inputs everywhere.
  *   --count    inputs per engine, default 2000. The published run is 100000.
  *   --ref      scan with that ref's lib/core/remote-ref.js instead of the working tree's. Run it against the
@@ -17,6 +17,8 @@
  *              Reading view (scanner, slide sanitizer, scanner; stylesheet through scanner and style sanitizer).
  *              preview: a preview frame (fonts:false, own origin allowed, sanitizer, the content-security policy).
  *   --scanner-file  scan with the module at that path (a stub that refuses nothing shows what the other layers stop alone)
+ *   --wide  also generate the click/submit/hint classes (`ping`, `action`, `formaction`, `rel=preconnect`) and more host
+ *           spellings, and click and submit each document. The scanner alone is not meant to hold these (see the note).
  *   --playwright-chromium  use the Chromium Playwright installs (newer than the puppeteer build CHROME_PATH names).
  *   Exit 1 on any leak, unattributed request, scanner error or hung input.
  * Chromium uses the build `CHROME_PATH` names, else Playwright's; WebKit and Firefox install through
@@ -45,16 +47,17 @@ const scannerFile = arg('--scanner-file', '');
 const compose = arg('--compose', 'plain');
 const engines = arg('--engines', 'chromium,webkit,firefox').split(',');
 const asJson = argv.includes('--json');
+const wide = argv.includes('--wide');
 const TYPES = { chromium, firefox, webkit };
 
 /** The scanner bundle: the working tree's, or `ref`'s (with its one dependency). */
 async function bundle() {
-  const withCompose = compose !== 'plain';
+  const withCompose = compose === 'reading' || compose === 'preview';
   if (scannerFile) return F.bundleRemoteRef(path.resolve(scannerFile), { withCompose });
   if (!ref) return F.bundleRemoteRef(undefined, { withCompose });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'remote-ref-ref-'));
   for (const f of ['remote-ref.js', 'media-sources.js']) fs.writeFileSync(path.join(dir, f), execFileSync('git', ['show', `${ref}:lib/core/${f}`], { cwd: ROOT }));
-  return F.bundleRemoteRef(path.join(dir, 'remote-ref.js'), { withCompose: compose !== 'plain' });
+  return F.bundleRemoteRef(path.join(dir, 'remote-ref.js'), { withCompose });
 }
 
 const out = { compose, seed, from, count, ref: ref || 'working tree', commit: execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim(), engines: {} };
@@ -69,8 +72,8 @@ for (const name of engines) {
   const page = await openPage();
   await F.loadPage(page, code, server.home);
   const t = Date.now();
-  const report = await F.runFuzz({ page, openPage, bundle: code, home: server.home, compose, hits: server.hits, base: server.base, seed, count, from, batch, log: (m) => process.stderr.write(`[${name}] ${m}\n`) });
-  out.engines[name] = { version: browser.version(), seconds: Math.round((Date.now() - t) / 1000), inputs: count, css: report.kinds.css, html: report.kinds.html, controlFetched: report.controlFetched, controlRan: report.controlRan, controlByKind: report.controlByKind, requestsAllLoads: report.requests, requestsRewritten: report.rewrittenRequests, leaks: report.leaks, bent: report.bent.length, unattributed: report.unattributed, hung: report.hung, errors: report.errors, slowestMs: report.slowest };
+  const report = await F.runFuzz({ page, openPage, bundle: code, home: server.home, compose, hits: server.hits, conns: server.conns, base: server.base, wide, seed, count, from, batch, log: (m) => process.stderr.write(`[${name}] ${m}\n`) });
+  out.engines[name] = { version: browser.version(), seconds: Math.round((Date.now() - t) / 1000), inputs: count, css: report.kinds.css, html: report.kinds.html, controlFetched: report.controlFetched, controlRan: report.controlRan, controlByKind: report.controlByKind, requestsAllLoads: report.requests, requestsRewritten: report.rewrittenRequests, idleControl: report.controlIdle, idleRewritten: report.rewrittenIdle, leaks: report.leaks, bent: report.bent.length, unattributed: report.unattributed, hung: report.hung, errors: report.errors, slowestMs: report.slowest };
   await browser.close();
   await server.close();
 }
