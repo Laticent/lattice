@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "note": "CEILINGS for the Studio's PDF export of a photo-heavy deck (docs/e2e/studio-export-perf.spec.ts), in the same shape and with the same job as preview-budget.json: a healthy run stays under them, a breach files the nightly issue. The time is a SCORE, not seconds: export seconds divided by the seconds a fixed in-page workload took in the same session (ten 1000 x 1000 noise canvases encoded to PNG by the browser, median of five), so a slow runner scales both and the score holds. Breaching one means this code path got slower for a photo deck, whatever the machine.",
+  "regressionScale": {
+    "note": "The regression these exist to catch, for scale. The shared slide camera (PR 2904) first made the Yearn deck's Studio PDF export 112 s against 52 s on main: 2.15x. Every font in the site rode in every slide's SVG, and the PNG encoder held three whole-picture copies on the main thread. On this spec's 20-slide deck the same commit (402a786) scored 113.7 and 130.8 against main's 58.4 to 64.4.",
+    "yearnExportSlowdown": 2.15
+  },
+  "ceilings": {
+    "note": "Chosen against the regression worth catching, not the best healthy run. 100 sits 1.53x over the worst healthy score (65.4) and 12% under the best regressed one (113.7), so the regression it exists for fails and a runner whose two timings drift apart by half does not. That margin is narrow on the regression side by design: a looser ceiling would pass a 1.7x slowdown. If a healthy nightly breaches it, re-measure on that runner before moving the number. The heap ceiling is loose on purpose: the JS heap barely moved in that regression (the pictures live in native memory, which a page cannot read), so it only catches a script that starts holding whole decks of base64.",
+    "pdfScore": 100,
+    "pdfPeakHeapMB": 300
+  },
+  "observed": {
+    "note": "Context only; nothing compares against it. 2026-10-27, headless Chromium, 4 cores, the spec's 20-slide deck of six 1179 x 1179 photos.",
+    "main": { "score": "58.4-64.4", "exportSeconds": "26.7-28.0", "peakHeapMB": "116-123" },
+    "pr2904AtTheRegression": { "score": "113.7-130.8", "exportSeconds": "55.4-57.1", "peakHeapMB": "103-139" },
+    "pr2904Fixed": { "score": "63.8-65.4", "exportSeconds": "29.7-31.2", "peakHeapMB": "92-97" }
+  },
+  "knownLimit": {
+    "note": "A deck of two 1500 x 1500 photos on each of 20 slides crashes the tab on main's html-to-image export (the renderer dies; the machine has 16 GB free), so no budget can stand on it. Not investigated here."
+  }
+}
