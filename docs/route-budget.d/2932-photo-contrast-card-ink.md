@@ -1,0 +1,2 @@
+studio: +120
+The Coach's photo-contrast finding can now offer the card ink as well as a pin: the eager Studio shell gained the ink branch in `pinActiveSlide` (it writes the class through `setImageCard`) and the **Set card ink light/dark** label in `FindingCard`. CI measured +66 B gz against main; +120 leaves room for gzip spread. The measuring code (`photo-contrast-read.ts` and the kernel) stays in the lazy chunk the Coach loads only for a slide that names a photo.
