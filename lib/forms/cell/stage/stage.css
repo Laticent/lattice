@@ -522,7 +522,7 @@ section.form.claim-quiet .cell-masthead .masthead-bay {
   display: none;
 }
 
-/* hero — the content takes the stage: the footer band, section rail, and meta
+/* hero — the content takes the stage: the running header, footer band, section rail, and meta
  * bay recede and the inset tightens so the content fills the freed space, but
  * the TITLE and the page number STAY on EVERY component — an unlabeled slide has
  * no place in a board deck (drop the number with `no-pagination`). */
@@ -531,6 +531,7 @@ section.form.claim-hero {
   --frame-y: var(--frame-inset-y);
   --footer-reserve: var(--frame-inset-y);
 }
+section.form.claim-hero > header,                      /* running header: it prints over the heading otherwise */
 section.form.claim-hero > .cell-footer > footer,       /* running footer text (migrated) */
 section.form.claim-hero > footer,                      /* running footer text (deferred) */
 section.form.claim-hero .tile-progress,                /* section-dot rail (either nesting) */

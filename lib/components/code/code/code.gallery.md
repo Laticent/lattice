@@ -110,7 +110,6 @@ function fitsOnASlide(block) {
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · code" -->
 
 ## When NOT to reach for code.

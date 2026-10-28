@@ -191,7 +191,6 @@ Native user-journey chart — sections of tasks, each tagged with actor(s) and a
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · journey" -->
 
 ## When NOT to reach for journey.

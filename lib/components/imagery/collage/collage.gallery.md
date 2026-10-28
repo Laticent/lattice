@@ -218,7 +218,6 @@ Each pair starts as a last carved to one foot. Leather is cut by hand and finish
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · collage" -->
 
 ## When NOT to reach for collage.

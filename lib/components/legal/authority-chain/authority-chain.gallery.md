@@ -200,7 +200,6 @@ Provenance chain — statute to regulation to guidance to case, walked in order.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · authority-chain" -->
 
 ## When NOT to reach for authority-chain.

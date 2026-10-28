@@ -92,7 +92,6 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · table · 1 of 2" -->
 
 ## When NOT to reach for table.
@@ -105,7 +104,6 @@ The table component — a GFM pipe table with a row capacity, autosplit, and the
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · table · 2 of 2" -->
 
 ## When NOT to reach for table.

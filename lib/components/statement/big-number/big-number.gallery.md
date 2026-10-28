@@ -72,7 +72,6 @@ Single oversized number as the focal claim.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · big-number" -->
 
 ## When NOT to reach for big-number.

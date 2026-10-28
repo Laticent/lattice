@@ -145,7 +145,6 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · bar · 1 of 2" -->
 
 ## When NOT to reach for bar.
@@ -158,7 +157,6 @@ Bars from a zero baseline that compare magnitude across categories — as column
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · bar · 2 of 2" -->
 
 ## When NOT to reach for bar.

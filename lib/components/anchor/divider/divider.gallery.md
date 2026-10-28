@@ -59,7 +59,6 @@ Section boundary slide. Dark canvas with a single heading.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · divider" -->
 
 ## When NOT to reach for divider.
