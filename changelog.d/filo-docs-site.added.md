@@ -3,7 +3,7 @@
   fix) change one document, ⌘Z anywhere on the page undoes the last change whoever made it, and the
   history is drawn as a thread with its saved versions and byte counts. Eight storyboard beats walk
   the guarantees. `/libraries/filo/learn/` explains the model, the calls and the measurements, and
-  `/filo` redirects to the demo. Filo gets its own mark (a clew) and a crimson-and-jade palette.
+  `/filo` redirects to the demo. Filo gets its own mark (a clew) and a crimson-and-leaf-green palette, measured apart from every sibling.
 - **`History.steps()`** lists a history's steps for a panel: the done steps oldest first, then the
   redo branch in replay order, each with its label, origin, patch size and time.
 - **`@laticent/filo` is a workspace package** like its siblings: `npm run filo-lib:build` writes
