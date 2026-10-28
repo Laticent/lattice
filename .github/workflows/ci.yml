@@ -968,7 +968,10 @@ jobs:
   player-webkit:
     needs: changes
     if: needs.changes.outputs.player == 'true'
-    runs-on: ubuntu-latest
+    # Pinned: on 2026-10-27 `ubuntu-latest` began handing out Ubuntu 26.04, where Playwright 1.56.1 has no WebKit
+    # ("Playwright does not support webkit on ubuntu26.04-x64"), so the install step failed before any test ran
+    # (PR #2936). Move to `ubuntu-latest` again once the Playwright pin supports the newer image.
+    runs-on: ubuntu-24.04
     # 25, not 12: `--with-deps` pulls about 70 apt packages, and on 2026-10-26 a slow Ubuntu
     # mirror took that step from 34 s to over 10 min on two of three runs (PR #2910), so a
     # cancel in the merge queue failed `ci` with every test passing. A normal run is ~3.5 min.
