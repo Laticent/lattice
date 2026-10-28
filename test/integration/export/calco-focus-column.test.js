@@ -29,6 +29,13 @@ tbody tr:last-child .f{box-shadow:inset 3px 0 0 #069,inset -3px 0 0 #069,inset 0
 <tr><td>Setup</td><td>1 day</td><td class="f">Same day</td></tr></tbody>
 </table></section></body></html>`;
 
+// The same table with a box (z-index) over the focused "Fast" cell, painted after the column picture: the cell's text
+// is lifted above the picture, and the box must still be above the text.
+const TABLE_OVERLAY = TABLE.replace('</table></section>', '</table><div class="cover"></div></section>').replace(
+  '</style>',
+  '.cover{position:absolute;left:880px;top:236px;width:160px;height:40px;background:#c00;z-index:3}</style>',
+);
+
 // The other side: a picture drawn BEFORE the card (a gradient panel behind it) is already under the card's text,
 // so the text stays in its card, and so stays under a box that covers it in the browser.
 const PANEL = `<!doctype html><html><head><style>
@@ -89,6 +96,23 @@ describe('calco: a focused column keeps its text above its picture', () => {
     // A cell outside the column keeps its row's group.
     const chorus = slide.frames.find((f) => text(f).toLowerCase() === 'chorus');
     assert.notEqual(chorus.group, undefined, 'an unfocused header cell still moves with its row');
+  });
+
+  test('a lifted cell is drawn right after its picture, so a box painted later stays above it', async () => {
+    await tab.setContent(TABLE_OVERLAY, { waitUntil: 'load' });
+    const h = await tab.$('#s');
+    const slide = await h.evaluate(readSlide, { hide: true, shapes: true, sprites: true });
+    await h.evaluate(restoreSlide);
+    const text = (f) => f.lines.flat().map((r) => r.text).join('');
+    const picIndex = slide.shapes.findIndex((s) => s.kind === 'picture');
+    const fi = slide.frames.findIndex((f) => text(f).toLowerCase() === 'fast');
+    assert.equal(slide.frames[fi].above, picIndex, 'the lifted cell names the picture it clears');
+    const order = drawOrder(slide, () => false).flatMap((o) => o.items);
+    const picAt = order.findIndex((d) => 'shape' in d && d.index === picIndex);
+    const textAt = order.findIndex((d) => 'frame' in d && d.index === fi);
+    const coverAt = order.findIndex((d) => 'shape' in d && d.shape.kind === 'box' && d.shape.fill?.color === '#cc0000');
+    assert.ok(coverAt >= 0, 'the covering box is a shape');
+    assert.ok(picAt < textAt && textAt < coverAt, `picture (${picAt}) < text (${textAt}) < overlay (${coverAt})`);
   });
 
   test('a card inside a gradient panel keeps its text, under the box that covers it', async () => {

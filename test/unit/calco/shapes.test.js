@@ -243,3 +243,13 @@ describe('calco shapes — a group never draws a member under a shape that is ab
   });
 });
 
+describe('calco shapes — free text that clears a picture', () => {
+  test('is drawn right after the picture, ahead of a shape painted later', () => {
+    const pic = { kind: 'picture', x: 0, y: 0, w: 100, h: 100, image: ONE_PX_PNG };
+    const cover = { kind: 'box', x: 10, y: 10, w: 20, h: 20, radii: [0, 0, 0, 0], fill: { color: '#c00', alpha: 1 } };
+    const frame = (above) => ({ x: 10, y: 10, w: 20, h: 20, firstLineHeight: 10, lineHeight: 10, align: 'left', lines: [[{ text: 'x' }]], ...(above === undefined ? {} : { above }) });
+    const flat = (fr) => drawOrder({ frames: [fr], shapes: [pic, cover] }, () => false).flatMap((o) => o.items.map((d) => ('frame' in d ? 'text' : d.index)));
+    assert.deepEqual(flat(frame(0)), [0, 'text', 1]);
+    assert.deepEqual(flat(frame()), [0, 1, 'text'], 'without `above`, free text stays on top');
+  });
+});

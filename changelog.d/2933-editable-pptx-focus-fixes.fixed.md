@@ -1,0 +1,1 @@
+- Editable PPTX/ODP export: text lifted above a focused column's picture is now drawn right after that picture, so a box painted later stays above the text.

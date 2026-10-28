@@ -2361,8 +2361,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// free, on top: in its row's group it would come out under the picture, which paints after that row. Only
 		// then: a picture drawn BEFORE the card (a gradient panel behind it) is already under its text, and lifting
 		// that text would also lift it over whatever covers it (drawOrder draws a group where its first member paints).
-		// Free text goes to the very top, so it also lands over an overlay drawn after the picture: a known limit
-		// (followups.d/2933-p2-*).
+		// Free text is drawn right after the last such picture (`TextFrame.above`), so an overlay painted after that
+		// picture stays above the text.
 		const firstOf = (h: number) => {
 			let first = h;
 			shapes.forEach((sh, j) => {
@@ -2371,21 +2371,25 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return first;
 		};
 		const drawnAt = (k: number) => (shapes[k].group === undefined ? k : firstOf(shapes[k].group as number));
-		const underPicture = (i: number, g: number) => {
+		/** The picture that paints over frame `i`'s own box and is drawn latest, or -1 when none does. */
+		const pictureOver = (i: number, g: number) => {
 			const f = frames[i];
 			const cardAt = firstOf(g);
-			return [...paintedBy].some(
-				([p, boxes]) =>
-					shapes[p].group !== g &&
-					drawnAt(p) > cardAt &&
-					overlaps(shapes[p], { x: f.x, y: f.y, w: f.w, h: f.h }) &&
-					boxes.some((box) => box.contains(frameBlocks[i])),
-			);
+			let last = -1;
+			for (const [p, boxes] of paintedBy) {
+				if (shapes[p].group === g || drawnAt(p) <= cardAt) continue;
+				if (!overlaps(shapes[p], { x: f.x, y: f.y, w: f.w, h: f.h }) || !boxes.some((box) => box.contains(frameBlocks[i]))) continue;
+				if (last < 0 || p > last) last = p;
+			}
+			return last;
 		};
 		frames.forEach((f, i) => {
 			if (carried.has(i)) return;
 			const g = cardOf(frameBlocks[i], true);
-			if (g >= 0 && !underPicture(i, g)) {
+			if (g < 0) return;
+			const over = pictureOver(i, g);
+			if (over >= 0) f.above = over;
+			else {
 				f.group = g;
 				groups.add(g);
 			}

@@ -140,7 +140,7 @@ nothing, so a headless browser can receive them as source.
   A picture that holds a box's own fill or edge and sits outside that box's text's card (a focused table
   column's tint and ring span every row, so no row holds them) and draws AFTER that card leaves that text
   free, drawn on top: the text paints over its own box, and in its row's group it would come out under the
-  picture. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
+  picture, right after the picture (`TextFrame.above`), so a shape painted later stays above it. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
   gradient panel behind it) changes nothing.
 - An `outline` pulled in by its own width (`outline-offset: -W`, the focus highlight's card edge) is drawn as
   an inside stroke, replacing a border no wider than that band. Any other outline keeps its box a picture.
