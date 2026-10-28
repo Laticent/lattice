@@ -8,10 +8,12 @@ swimlane: engineering/decisions/2026-10-26-squadra-lint-library/design.md §7.4
 source: https://github.com/Laticent/lattice/pull/2901
 ---
 
-# "Fix all" deletes the title slide when a fix empties the front matter
+# `lint:deck --fix` deletes the title slide when a fix empties the front matter
 
 why now   — The adversarial red team on PR #2901 found it, and it reproduces on `main` (d73c9f4). It is a live
-            defect on the Studio's "Fix all" and `lint:deck --fix`, independent of the Squadra design.
+            defect in `lint:deck --fix` (the shared `applyFix`), independent of the Squadra design. The Studio's
+            "Fix all" does not offer `retired-logo-key`, so it was not hit there (checked on a deployed preview).
+            Fixed by PR #2947; delete this file when that merges.
 found     — `applyAllFixes` (`lib/authoring/lint-core.js:2706`) on
             `---\nlogo-on: all\n---\n<!-- _class: title -->\n# Q3 Board Review\n\n---\n\n# Agenda\n`
             applies the `retired-logo-key` fix and leaves `---\n---\n…`. The empty front-matter block then
@@ -23,5 +25,5 @@ where     — when a fix leaves the front matter with no keys, delete the whole 
             whose fix can delete a front-matter key.
 done when — fixing a deck whose only front-matter key is retired keeps every slide; a test asserts the
             rendered slide count before and after "Fix all" on that deck.
-verify    — run the reproduction above through `applyAllFixes` and `render`, and show the same h1s before and
-            after. Then click "Fix all" in the real Studio on that deck (HARD RULE #23).
+verify    — run `node tools/lint-deck.js --fix` on the reproduction above and render the file: the same h1s before and
+            after (HARD RULE #23). PR #2947 carries that measurement.
