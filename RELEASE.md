@@ -61,7 +61,7 @@ it at release time:
   the bulk of it.
 - **`dependencies`** — everything shipped code loads at run time, and
   nothing else. That includes the workspace libraries the engine imports
-  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`), which the
+  (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`), which the
   bundled CLI also inlines, so `lattice` runs even where `./engine`'s
   imports would not resolve. A library a plugin keeps a committed copy of
   (Mermaid and its CLI render page, ZenUML, KaTeX, function-plot) is a
@@ -80,7 +80,7 @@ And install it the way a user will, in an empty directory, before the
 first publish of any new dependency shape:
 
 ```sh
-npm pack --pack-destination /tmp/p && for l in segno trama cadenza calco ltt mosaico; do npm pack -w @laticent/$l --pack-destination /tmp/p; done
+npm pack --pack-destination /tmp/p && for l in segno trama cadenza calco ltt mosaico fluido; do npm pack -w @laticent/$l --pack-destination /tmp/p; done
 mkdir /tmp/room && cd /tmp/room && npm init -y && PUPPETEER_SKIP_DOWNLOAD=1 npm i /tmp/p/*.tgz
 npx lattice deck.md deck.pdf
 ```
@@ -258,8 +258,8 @@ Prerequisites:
 - The jobs declare the permissions they need: `contents: write` +
   `pull-requests: write` for phase 1, `contents: write` + `id-token: write` for
   phase 2 (`id-token` for npm `--provenance`).
-- **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on six workspace
-  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`) that are not
+- **Do not set `NPM_TOKEN` yet.** `@laticent/lattice` depends on seven workspace
+  libraries (`@laticent/segno`, `trama`, `cadenza`, `calco`, `ltt`, `mosaico`, `fluido`) that are not
   on npm, and this workflow publishes only the root package. A root-only publish
   would make every `npm i @laticent/lattice` fail with E404. The libraries
   publish first, from the multi-package release that replaces this step (slices C

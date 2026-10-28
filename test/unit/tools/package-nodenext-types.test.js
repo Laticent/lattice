@@ -34,6 +34,7 @@ const PACKAGES = {
 	vetrina: ['.', './react'],
 	fuoco: ['.', './react'],
 	mosaico: ['.'],
+	fluido: ['.'],
 	segno: ['.', './values', './read'],
 	trama: ['.', './radial'],
 	calco: ['.'],

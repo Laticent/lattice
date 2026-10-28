@@ -9449,6 +9449,22 @@ function checkPaginationOwners(errors, sanctions = SANCTIONED_PAGINATORS, root =
   }
 }
 
+// ── Fluido (docs/src/lib/fluido) — the fit-policy core ──────────────────────
+// Fluido decides how content fits its box: facts about a rendered slide in, a decision out. The
+// same code decides for the CLI, the browser previews and, from Fluid P2, a DOM adapter, so it has
+// NO dependencies, not even `node:` (engineering/decisions/2026-10-27-fluid-layout-library.md §5.1).
+const FLUIDO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'fluido');
+function checkFluidoBoundary(errors, dir = FLUIDO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Fluido folder. Fluido's core is pure and ` +
+      `dependency-free so every surface gets the same decision: every import must resolve inside ` +
+      `docs/src/lib/fluido/ (engineering/decisions/2026-10-27-fluid-layout-library.md §5.1).`,
+  });
+}
+
 // ── Calco (docs/src/lib/calco) — the office-export library ──────────────────
 // Calco's reader ships into a headless page as `fn.toString()` source, so a value import
 // would be a free variable inside the shipped function. Like Trama it has NO dependencies,
@@ -14185,6 +14201,7 @@ function run() {
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
   checkMosaicoBoundary(errors);
+  checkFluidoBoundary(errors);
   checkPaginationOwners(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -14255,6 +14272,7 @@ module.exports = {
   checkFuocoBoundary,
   checkVedutaBoundary,
   checkMosaicoBoundary,
+  checkFluidoBoundary,
   checkPaginationOwners,
   SANCTIONED_PAGINATORS,
   checkReadingRole,
