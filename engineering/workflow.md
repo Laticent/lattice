@@ -2088,7 +2088,9 @@ The maker does not set the level. Spawn one `checker` agent (Opus, `effort: medi
 unless the work earned the trio, #25) and give it the diff, the `npm run evidence`
 plan, and the artifacts, **not your own grade**. It grades the five axes and returns
 the level, `limited by` and `raise it`. Put its answer on the card unchanged and name
-it in `graded_by`. `npm run card` refuses `self`, `maker` and `me`. When you disagree
+it in `graded_by`. `npm run card` refuses `self`, `maker` and `me`. The grader is not
+the maker-checker review (#25): it grades the card from the artifacts and does not
+review the code, so it does not satisfy the "Independent eyes" axis on its own. When you disagree
 with the grade, raise the change rather than arguing the grade down.
 
 ### What the owner is asked — a decision, never a manual check

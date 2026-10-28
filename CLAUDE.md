@@ -232,7 +232,9 @@ for trivial or low-risk edits — this earns its latency *and cost* only when a
 second set of eyes changes the merge decision. **The card grader is separate and
 always runs:** one `checker` per merge ask sets the pre-merge card's level
 (HARD RULE #28). It is mandated here, so it counts toward #25's session total but
-needs no OK of its own. See `engineering/visual-review.md`.
+needs no OK of its own. **It is not a rung of the ladder:** it grades the card, it
+does not review the code, so routine work still self-reviews and the card's
+"Independent eyes" axis still asks whether the tier the work earned ran. See `engineering/visual-review.md`.
 
 **Every agent runs on Opus** (HARD RULE #27) — the ladder decides *whether* an
 agent runs, and there is no second question about what it runs on.
@@ -427,12 +429,12 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
     of the current change, fix it in place; if it's **off the path**, log it (a
     tracked issue / decision-doc note) rather than ignoring it OR pulling it into the
     diff — that boundary keeps #8 (gallery isolation) and #17 (one feature, one PR)
-    intact. The follow-up-issue path is **exclusively** for these; it is never a
-    home for something you broke.
+    intact. The follow-up path is **exclusively** for these and for new work too large
+    for this PR; it is never a home for something you broke.
     **Small or moderate work is never a follow-up.** A `followups.d/` item must say
-    `deferred: large|blocked|off-path — <why>`; anything else, including jank the
-    change made visible, is fixed in the PR. 161 items filed in the 14 days to
-    2026-10-28 are why (`engineering/decisions/2026-10-28-raise-before-ask.md`;
+    `deferred: large|blocked|off-path — <why>`, and none of the three covers a
+    regression this PR caused; anything else, including jank the change made visible,
+    is fixed in the PR. 149 items filed in the 14 days to 2026-10-28 are why (`engineering/decisions/2026-10-28-raise-before-ask.md`;
     gated by `checkFollowups`).
     **On the path** means the surface the change touches, teaches or lints, and
     any defect the owner or a reviewer hits while exercising the PR. When unsure,

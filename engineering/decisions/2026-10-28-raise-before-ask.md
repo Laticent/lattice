@@ -2,7 +2,7 @@
 status: shipped
 summary: >
   The owner was driving the pre-merge confidence loop by hand and watching sessions file small work as follow-ups
-  (161 in 14 days). Four moves: below VERY HIGH the agent runs a raise loop of up to three rounds before asking;
+  (149 in 14 days). Four moves: below VERY HIGH the agent runs a raise loop of up to three rounds before asking;
   `npm run evidence` plans the real surfaces a diff owes (Playwright engines, macOS / Windows / iOS Simulator
   dispatch); a checker agent, never the maker, grades the card; and a new followups.d/ item must say
   `deferred: large|blocked|off-path`. The owner is asked to merge, never to check by hand.
@@ -33,10 +33,11 @@ optional.
 | `raise it` was a line, not an action | Name the one thing that would raise the card, then ask | The owner ran the loop by hand: "what's the level?" → "do the thing" → "now?" |
 | The maker graded its own card | The confidence level is derived by the author | Drift to `high` because the work felt thorough, which §Pre-merge card already warned about |
 | Surfaces were remembered, not planned | #23 says drive the real surface | Per-PR CI is Chromium + one WebKit job; Gecko, WebKit e2e and the iOS/macOS/Windows suites ran only when someone remembered |
-| A follow-up needed no reason | #18 forbids filing on-path work, in prose | 161 items filed in the 14 days to 2026-10-28; 239 recorded in October against 113 in September |
+| A follow-up needed no reason | #18 forbids filing on-path work, in prose | 149 items filed in the 14 days to 2026-10-28, 89 of them `severity: low`; 239 recorded in October against 113 in September |
 
-Measured on `c9a40f3`: `grep -h '^recorded:' followups.d/*.md | cut -c11-17 | sort | uniq -c`.
-Of the 351 items, 201 are `severity: low`.
+Measured on `c9a40f3`: by month, `grep -h '^recorded:' followups.d/*.md | cut -c11-17 | sort | uniq -c`;
+the 14-day window counts items with `recorded` from 2026-10-15 to 2026-10-28 and their `severity`.
+Of all 351 items, 201 are `severity: low`.
 
 ## 3. The decision
 
@@ -62,7 +63,7 @@ sets the level and `limited by`. The maker writes `graded_by` naming it; `npm ru
 
 **D. Follow-ups justify themselves.** A new `followups.d/` item needs
 `deferred: large|blocked|off-path — <why>`, and the card shows `left behind`. Anything small or
-moderate on the path is fixed in the PR. *Rejected:* card row only (relies on the owner noticing);
+moderate on the path is fixed in the PR, and no reason covers a regression the PR caused (#18). *Rejected:* card row only (relies on the owner noticing);
 the gate plus a triage of the existing 351 in this PR (a separate, bigger piece of work, §6).
 
 **E. No manual-check asks.** Unchanged from the owner's message, so not put as an option: the agent
@@ -91,5 +92,5 @@ with the artifact attached. Export bytes keep their Quality Bar sign-off.
 
 The 351 existing items are grandfathered rather than re-triaged. A pass that fixes or closes the
 small ones is worth doing on its own branch; it is filed as
-`followups.d/2953-p1-triage-the-grandfathered-followups.md`, and that file carries the new
+`followups.d/2955-p1-triage-the-grandfathered-followups.md`, and that file carries the new
 `deferred:` field.

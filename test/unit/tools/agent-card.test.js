@@ -215,13 +215,18 @@ test('pre-merge: the maker cannot grade its own card', () => {
     assert.equal(r.ok, false, who);
     assert.match(r.errors.join('\n'), /graded_by: the maker cannot grade/);
   }
+  for (const ok of ['maker-checker agent (opus)', 'checker agent, against the artifacts']) {
+    const c = load('pre-merge');
+    c.confidence.graded_by = ok;
+    assert.equal(renderCard(c).ok, true, ok);
+  }
   const card = load('pre-merge');
   delete card.confidence.graded_by;
   assert.equal(renderCard(card).ok, false, 'graded_by is required');
 });
 
 test('pre-merge: below VERY HIGH the raise loop must have run', () => {
-  for (const text of ['none', 'not attempted', '0 rounds', 'skipped, ran out of time']) {
+  for (const text of ['none', 'not attempted', '0 rounds', 'skipped, ran out of time', 'nothing', 'no rounds', 'zero rounds', 'did not run']) {
     const card = load('pre-merge');
     card.raised = text;
     const r = renderCard(card);

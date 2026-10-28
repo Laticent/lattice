@@ -67,21 +67,22 @@ const SURFACES = [
 	{
 		surface: 'rendered slides: integration tier and golden regress',
 		kind: 'local',
-		match: (f) => /^(lib|themes)\//.test(f) && !f.endsWith('.docs.md') && !f.startsWith('lib/runtime/'),
+		match: (f) => f === 'lattice.js' || (/^(lib|themes)\//.test(f) && !f.endsWith('.docs.md') && !f.startsWith('lib/runtime/')),
 		command: 'npm run test:integration && npm run regress',
 		why: 'cross-renderer parity and page counts; regress pixel-diffs every committed deck',
 	},
 	{
 		surface: 'visual taste: demo deck, light and dark',
 		kind: 'local',
-		match: (f) => /^(lib\/components|lib\/base|themes)\/.*\.css$/.test(f) || f === 'lattice.css',
+		match: (f) => /^(lib\/components|lib\/base|themes)\/.*\.css$/.test(f),
 		command: 'npm run preview   # then SendUserFile the PNGs; the owner spot-checks taste only',
 		why: 'the one visual check that may go to the owner, with the artifact attached',
 	},
 	{
 		surface: 'export bytes: owner sign-off',
 		kind: 'owner',
-		match: (f) => /^lib\/(export|core\/(pdf-|export-|office-export|font-))/.test(f) || f.startsWith('lib/fonts/'),
+		// lattice.js drives page.pdf() for the CLI; print-sheet.mjs is the @page CSS that export uses.
+		match: (f) => f === 'lattice.js' || /^lib\/(export|fonts)\//.test(f) || /^lib\/core\/(pdf-|export-|office-export|font-|print-sheet|corner-export)/.test(f),
 		command: 'render a representative demo deck in dark and light; SendUserFile both for sign-off',
 		why: 'a change to exported bytes is the Quality Bar\'s one stop-and-show',
 	},
@@ -96,8 +97,10 @@ const ALWAYS = [
 function changedFiles(base) {
 	const r = spawnSync('git', ['diff', '--name-only', `${base}...HEAD`], { cwd: ROOT, encoding: 'utf8' });
 	if (r.status !== 0) throw new Error(`git diff ${base}...HEAD failed: ${(r.stderr || '').trim()}`);
-	const untracked = spawnSync('git', ['diff', '--name-only', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
-	return [...new Set([...r.stdout.split('\n'), ...(untracked.stdout || '').split('\n')].filter(Boolean))].sort();
+	// Plus what is not committed yet: changed tracked files, and new files git does not track.
+	const dirty = spawnSync('git', ['diff', '--name-only', 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
+	const untracked = spawnSync('git', ['ls-files', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' });
+	return [...new Set([r.stdout, dirty.stdout || '', untracked.stdout || ''].join('\n').split('\n').filter(Boolean))].sort();
 }
 
 /** The plan for a list of repo-relative paths. Pure apart from reading the platform-suites registry. */

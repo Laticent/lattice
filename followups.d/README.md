@@ -103,7 +103,9 @@ format is defined once, in `tools/followups.js`.
 
 ## Why it was not done now
 
-A follow-up is a deferral, and HARD RULE #18 allows exactly three:
+A follow-up is a deferral of a **pre-existing** defect or of new work, never of a regression
+this PR caused: that one is fixed or the PR is held (HARD RULE #18). The field names one of
+three reasons:
 
 - **`large`** — it does not fit this PR: a new subsystem, a migration, a redesign, or
   work that would double the diff. "Would take an hour" is not large.
@@ -113,8 +115,8 @@ A follow-up is a deferral, and HARD RULE #18 allows exactly three:
   the surface. When unsure, it is on the path, and on-path work is fixed now.
 
 Small or moderate work, jank the change made visible, and broken windows it touched do not
-get a file: they get fixed in the PR. Before this field, 161 items were filed in the 14 days
-to 2026-10-28, most of them small (`engineering/decisions/2026-10-28-raise-before-ask.md`).
+get a file: they get fixed in the PR. Before this field, 149 items were filed in the 14 days
+to 2026-10-28, 89 of them `severity: low` (`engineering/decisions/2026-10-28-raise-before-ask.md`).
 `checkFollowups` refuses a new item without the field. It checks the shape only. Whether
 `large` is true is for the checker that grades the pre-merge card, which reads the card's
 `left behind` row.

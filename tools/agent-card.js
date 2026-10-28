@@ -368,7 +368,7 @@ function renderPreMerge(d, page) {
   );
   page.field('graded by', d.confidence.graded_by, 'confidence.graded_by');
   // The maker does not grade its own card (workflow.md §Pre-merge card, "Who grades").
-  if (/^\s*(self|maker|me|myself|the maker|this session)\b/i.test(d.confidence.graded_by)) {
+  if (/^\s*(self|maker|me|myself|the maker|this session|nobody|none)\s*([,.;:(]|$)/i.test(d.confidence.graded_by)) {
     page.errors.push('confidence.graded_by: the maker cannot grade its own card; name the checker that did');
   }
   page.field('raise it', d.raise_it, 'raise_it');
@@ -377,7 +377,7 @@ function renderPreMerge(d, page) {
   }
   page.field('raised', d.raised, 'raised');
   // Below VERY HIGH the raise loop must have run before the ask (workflow.md §The raise loop).
-  if (d.confidence.level !== 'very high' && /^\s*(none|n\/a|0 rounds?|not (attempted|tried|run)|skipped)\b/i.test(d.raised)) {
+  if (d.confidence.level !== 'very high' && /^\s*(none|nothing|no\b|n\/a|0 rounds?|zero|not (attempted|tried|run)|did not run|skipped)/i.test(d.raised)) {
     page.errors.push('raised: the card is below VERY HIGH, so the raise loop must run before the ask; list the rounds and what stopped them');
   }
   page.section('CHANGE');

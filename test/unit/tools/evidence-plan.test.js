@@ -36,6 +36,9 @@ test('a theme CSS change owes the integration tier and a light/dark look, not th
 test('an export-pipeline change is the one owner stop', () => {
   assert.equal(evidencePlan(['lib/core/pdf-timestamps.js']).ownerStop, true);
   assert.equal(evidencePlan(['lib/export/x.js']).ownerStop, true);
+  assert.equal(evidencePlan(['lattice.js']).ownerStop, true, 'the CLI calls page.pdf()');
+  assert.equal(evidencePlan(['lib/core/print-sheet.mjs']).ownerStop, true, 'the @page CSS export uses');
+  assert.ok(surfaces(['lattice.js']).some((x) => /integration tier/.test(x)));
 });
 
 test('a path in the platform-suites registry plans a dispatch for that suite', () => {

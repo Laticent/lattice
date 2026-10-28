@@ -52,7 +52,7 @@ const SEVERITIES = ['high', 'medium', 'low'];
 // WHY IT WAS NOT DONE NOW. A follow-up is a deferral, and HARD RULE #18 allows only three: the
 // work is genuinely large, something outside this repo blocks it, or it is off the path of the
 // change that found it. Small and moderate work on the path is fixed in the PR, not filed. Before
-// this field, 161 items were filed in the 14 days to 2026-10-28, most of them small
+// this field, 149 items were filed in the 14 days to 2026-10-28, 89 of them `severity: low`
 // (engineering/decisions/2026-10-28-raise-before-ask.md §4). The field names which exit the item
 // takes and why, in one line:
 //   deferred: large — <why it does not fit this PR>
