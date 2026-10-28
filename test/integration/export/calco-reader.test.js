@@ -187,6 +187,9 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .grad { left: 700px; top: 560px; width: 400px; padding: 10px; background: #003366 linear-gradient(90deg, #00aa00 0 6px, transparent 6px); }
   .grad p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .grad .plain { letter-spacing: normal; }
+  .veil { left: 700px; top: 640px; width: 400px; padding: 10px; background: rgba(0, 51, 102, 0.8); }
+  .veil p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
+  .veil .plain { letter-spacing: normal; }
   .tall { left: 40px; top: 20px; width: 600px; font: 20px/1.5 sans-serif; }
   .sc { left: 40px; top: 680px; font-size: 18px; }
   .sc .k { font-variant: small-caps; }
@@ -211,6 +214,7 @@ third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
   <p class="chip"><code>render</code> is derived</p>
   <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
+  <div class="veil"><p>THE ATELIER</p><p class="plain">Plain veil</p></div>
   <p class="sc"><span class="k">Pain</span> scale <code>roadmap</code> now render</p>
   <p class="lig">office first</p>
   <p class="vpill">Speed</p>
@@ -289,6 +293,11 @@ describe('calco reader: the review cases', () => {
   test('letter-spaced translucent text over a gradient is flattened (LibreOffice clips it otherwise)', () => {
     assert.equal(find(/THE PREMISE/).lines[0][0].style.flatColor, '#c2ceda');
     assert.equal(find(/Not spaced/).lines[0][0].style.flatColor, undefined, 'unspaced text keeps its opacity over a gradient');
+  });
+
+  test('letter-spaced translucent text over a translucent panel is flattened too (the dark collage eyebrow)', () => {
+    assert.ok(find(/THE ATELIER/).lines[0][0].style.flatColor, 'LibreOffice cut it to "THE ATELI" while it kept its opacity');
+    assert.equal(find(/Plain veil/).lines[0][0].style.flatColor, undefined, 'unspaced text keeps its opacity over a translucent panel');
   });
 
   test('a taller inline in prose never adds a blank line', () => {

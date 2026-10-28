@@ -251,7 +251,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				if (p === section || (image && !stands)) return undefined;
 				continue;
 			}
-			if (bg.a < 1) return undefined;
+			// Letter-spaced translucent text must flatten even over a translucent panel (`overGradient` is its flag):
+			// LibreOffice draws text with an opacity without the tracking in its width, so it clips the last letters
+			// of "THE ATELIER" to "THE ATELI". The panel's own color stands in for what shows behind it.
+			if (bg.a < 1 && !overGradient) return undefined;
 			return hex({ r: c.r * c.a + bg.r * (1 - c.a), g: c.g * c.a + bg.g * (1 - c.a), b: c.b * c.a + bg.b * (1 - c.a) });
 		}
 		return undefined;
