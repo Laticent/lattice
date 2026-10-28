@@ -1,1 +1,1 @@
-- Under `tone`, a risk matrix's bands and a waterfall's up and down steps are shades of the one hue instead of status colors. Under `pigment`, a risk band, a slope's signal lines and a kanban card take quieter solids on a dark slide, and a card wears a solid accent bar with a 12% tint.
+- Under `tone`, a risk matrix's bands and a waterfall's up and down steps are shades of the one hue instead of status colors. Under `pigment`, a risk band, a slope's signal lines and a kanban card take quieter solids on a dark slide, and a card wears a wider solid accent bar.
