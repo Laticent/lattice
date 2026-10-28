@@ -916,8 +916,8 @@ payload stays internal to the engine.
   that interact can resolve in a different order.
 - The driver refuses edits inside inert ranges, where `applyFix` today will rewrite a fenced example
   (`- **Alpha.** body` inside a code fence is rewritten by "Fix all" today).
-- The structure check (§7.4) refuses a fix that deletes slides, which `applyAllFixes` does today when a fix removes the
-  last front-matter key (`followups.d/2901-p1-fix-all-deletes-title-slide-when-front-matter-empties.md`).
+- The structure check (§7.4) refuses a fix that deletes slides, which `applyAllFixes` did when a fix removed the
+  last front-matter key until PR #2947 patched that one case; the shape check catches the whole class.
 
 All three are intended differences, and the whole-deck diff (§15.3) records each one.
 
@@ -1588,7 +1588,7 @@ found, and where it landed:
 
 | Finding | Lens | Landed in |
 |---|---|---|
-| A safe `delete: line` fix deleted the title slide when it removed the only front-matter key; the reparse check could never fire on Markdown. The same bug is live in `applyAllFixes` today | red team | §7.3, §7.4 step 5 (shape check), §1 fixtures; the live bug is `followups.d/2901-p1-…` and its own PR |
+| A safe `delete: line` fix deleted the title slide when it removed the only front-matter key; the reparse check could never fire on Markdown. The same bug was live in `applyAllFixes` | red team | §7.3, §7.4 step 5 (shape check), §1 fixtures; the live bug was fixed in PR #2947 |
 | The migration diff exercised almost nothing: 0 fixable findings across 433 tracked decks | red team | §15.3: three corpora, a must-fire rule, the full legacy record |
 | A fix that does not resolve its finding was kept and re-applied each pass | red team | §7.4 step 5, §8 `fix-did-not-resolve`, `fix-grew` |
 | Waivers suppressed every match; glob waivers could turn a rule off silently | red team | §9.1: counted, one file per waiver |

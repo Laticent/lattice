@@ -52,8 +52,8 @@ magnitude, not benchmarks.
    that a fix is idempotent or leaves the file parseable. Ordering is implicit: `retired-logo-key` depends on its merge line
    being rewritten before the old lines are deleted (`lint-core.js:8915`), which the rule guards by hand (`mergeDone`).
    And nothing checks that a fix keeps the deck's slides: deleting the last front-matter key leaves an empty `---`/`---`
-   block that swallows the title slide, a live bug the adversarial review found
-   (`followups.d/2901-p1-fix-all-deletes-title-slide-when-front-matter-empties.md`).
+   block that swallows the title slide, a bug the adversarial review found in `lint:deck --fix` and PR #2947 fixed
+   inside today's fixer.
 3. **Every rule rebuilds the plumbing.** Each rule masks code fences and hidden comments, handles CRLF, and reads front
    matter on its own (`stripFencedCode`, `withoutCodeBlocks`, `withoutCodeCommentMarkers`, `\r?\n`). The comments in the file record bugs where one
    rule missed one of these.
@@ -231,8 +231,8 @@ case in the core, the core is not generic yet.
 4. **Whether the Studio's browser bundle takes Squadra directly** or through the existing `authoring-core:build` step.
    Decided in M1a by bundle size against `docs/route-budget.json`.
 5. **Performance targets.** Set from the M1a benchmark.
-6. **The live "Fix all" bug.** It ships in its own PR now, independent of Squadra
-   (`followups.d/2901-p1-fix-all-deletes-title-slide-when-front-matter-empties.md`).
+6. **The `lint:deck --fix` title-slide bug.** Fixed in today's fixer by PR #2947, merged 2026-10-28. Squadra's shape
+   check (design §7.4) is the general guard against the same class of bug.
 
 ## 11. The adversarial review (2026-10-26)
 
