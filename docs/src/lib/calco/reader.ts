@@ -253,8 +253,15 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 			// Letter-spaced translucent text must flatten even over a translucent panel (`overGradient` is its flag):
 			// LibreOffice draws text with an opacity without the tracking in its width, so it clips the last letters
-			// of "THE ATELIER" to "THE ATELI". The panel's own color stands in for what shows behind it.
-			if (bg.a < 1 && !overGradient) return undefined;
+			// of "THE ATELIER" to "THE ATELI". The panel is laid over whatever solid color sits below it first, and a
+			// photo (`url()`) below still refuses, as it does everywhere else.
+			if (bg.a < 1) {
+				if (!overGradient || !p.parentElement) return undefined;
+				const below = flatten(p.parentElement, { r: bg.r, g: bg.g, b: bg.b, a: bg.a }, overGradient, approx);
+				const base = below && parseColor(below);
+				if (!base) return undefined;
+				return hex({ r: c.r * c.a + base.r * (1 - c.a), g: c.g * c.a + base.g * (1 - c.a), b: c.b * c.a + base.b * (1 - c.a) });
+			}
 			return hex({ r: c.r * c.a + bg.r * (1 - c.a), g: c.g * c.a + bg.g * (1 - c.a), b: c.b * c.a + bg.b * (1 - c.a) });
 		}
 		return undefined;

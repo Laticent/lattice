@@ -31,7 +31,7 @@ per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 is done unless `--keep-html`, a viewer flag or an extensionless output keeps it. That
 byproduct is named `<out>.lattice-<pid>-<random>.html`, never `<out>.html`: a sibling
 `deck.html` the author wrote is not overwritten or deleted, and two exports of one deck
-(`deck` and `deck-dark`) cannot race on one file. With `.html` the sidecar **is** the
+to different formats (`d.pdf` and `d.pptx`) cannot race on one file. With `.html` the sidecar **is** the
 output file.
 
 **That list is closed** — an extension not on it is a usage error. It used to fall

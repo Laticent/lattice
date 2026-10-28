@@ -190,6 +190,9 @@ const REVIEW_FIXTURE = `<!doctype html><html><head><style>
   .veil { left: 700px; top: 640px; width: 400px; padding: 10px; background: rgba(0, 51, 102, 0.8); }
   .veil p { margin: 0; color: rgba(255, 255, 255, 0.76); letter-spacing: 3px; font-size: 14px; }
   .veil .plain { letter-spacing: normal; }
+  .photo { left: 700px; top: 20px; width: 400px; background: #111 url(data:image/gif;base64,R0lGODlhAQABAAAAACw=); }
+  .photo .veil2 { padding: 10px; background: rgba(255, 255, 255, 0.15); }
+  .photo p { margin: 0; color: rgba(0, 0, 0, 0.6); letter-spacing: 3px; font-size: 14px; }
   .tall { left: 40px; top: 20px; width: 600px; font: 20px/1.5 sans-serif; }
   .sc { left: 40px; top: 680px; font-size: 18px; }
   .sc .k { font-variant: small-caps; }
@@ -214,6 +217,7 @@ third</pre>
   <pre class="wrapcode">const value = "a long string that wraps";</pre>
   <p class="chip"><code>render</code> is derived</p>
   <div class="grad"><p>THE PREMISE</p><p class="plain">Not spaced</p></div>
+  <div class="photo"><div class="veil2"><p>OVER A PHOTO</p></div></div>
   <div class="veil"><p>THE ATELIER</p><p class="plain">Plain veil</p></div>
   <p class="sc"><span class="k">Pain</span> scale <code>roadmap</code> now render</p>
   <p class="lig">office first</p>
@@ -298,6 +302,10 @@ describe('calco reader: the review cases', () => {
   test('letter-spaced translucent text over a translucent panel is flattened too (the dark collage eyebrow)', () => {
     assert.ok(find(/THE ATELIER/).lines[0][0].style.flatColor, 'LibreOffice cut it to "THE ATELI" while it kept its opacity');
     assert.equal(find(/Plain veil/).lines[0][0].style.flatColor, undefined, 'unspaced text keeps its opacity over a translucent panel');
+  });
+
+  test('a translucent panel over a photo is not flattened: the photo still shows through it', () => {
+    assert.equal(find(/OVER A PHOTO/).lines[0][0].style.flatColor, undefined);
   });
 
   test('a taller inline in prose never adds a blank line', () => {

@@ -3202,7 +3202,7 @@ ${ENGINE_SCRIPT_OPEN}
 const KEEP_HTML = !!flags['keep-html'] || process.env.LATTICE_KEEP_HTML === '1';
 // A byproduct sidecar (the cases `removeSidecarHtml` below deletes) gets a name no author file and
 // no parallel export can share. `<out>.html` was an author's `deck.html` to overwrite and then
-// delete, and two exports of one deck (`<deck>` and `<deck>-dark`) raced on it. The run owns
+// delete, and two formats of one output name (`d.pdf` and `d.pptx` both wrote `d.html`) raced on it. The run owns
 // this file, so deleting it is safe.
 const SIDECAR_IS_BYPRODUCT = OUT_FORMAT !== 'html' && !!OUT_EXT && !(PLAYER || (FLUID_VIEW && FLUID_BEATS_READ) || READ_VIEW) && !KEEP_HTML;
 const outHtml = OUT_FORMAT === 'html'
@@ -3230,6 +3230,8 @@ function removeSidecarHtml() {
     if (fs.existsSync(outHtml) && path.resolve(outHtml) !== path.resolve(outFile)) fs.unlinkSync(outHtml);
   } catch { /* best-effort: a failing unlink must not fail an otherwise good export */ }
 }
+// A run that fails or exits early leaves no sidecar behind: its name is unique, so nothing would ever sweep it.
+process.on('exit', removeSidecarHtml);
 // Strip the live-preview runtime (lattice-runtime.js) from the export HTML.
 // A deck may embed `<script src="…/lattice-runtime.js">` for the VS Code / web
 // preview; that runtime runs the overflow watcher, which CREATES the red

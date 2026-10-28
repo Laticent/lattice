@@ -1490,6 +1490,18 @@ describe('export-formats', () => {
       assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), ['d.html'], 'no sidecar left behind');
     });
 
+    test('a failed export leaves no unique-named sidecar behind', { timeout: TIMEOUT }, () => {
+      const dir = tmpDir();
+      const md = path.join(dir, 'f.md');
+      fs.copyFileSync(FIXTURE, md);
+      const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'f.pdf'), '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT,
+        env: { ...process.env, CHROME_PATH: '/bin/false', PUPPETEER_EXECUTABLE_PATH: '/bin/false' },
+      });
+      assert.notEqual(r.status, 0, 'the export was meant to fail');
+      assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), [], 'a failed run left its sidecar');
+    });
+
     // That the table is CLOSED but not EMPTY is proven by the render tests above rather
     // than here: .pdf, .pptx, .png, .zip and .html each render end-to-end in this file,
     // and every one of them now has to pass the dispatch to do it.
