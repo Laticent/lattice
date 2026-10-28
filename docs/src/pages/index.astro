@@ -22,12 +22,12 @@ import { HeroCopy } from '../components/landing/HeroCopy.tsx';
 import HeroPreview from '../components/landing/HeroPreview.tsx';
 import {
 	ByomSection,
-	FieldCards,
 	HowItWorks,
-	LibraryCards,
 	NextSteps,
 	nextStepsFor,
 	ProofStrip,
+	RoomCards,
+	SayMoreSection,
 	SectionHead,
 	StudioActions,
 	StudioCopy,
@@ -35,10 +35,10 @@ import {
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
+import { ROOM_SLIDES, SAY_MORE_SLIDE } from '../components/landing/room-decks';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
-import { librariesNav, specsNav } from '../lib/nav.mjs';
 import { assetBase, engineAsset } from '../playground/asset-version.mjs';
 import { joinBase } from '../lib/base-url.mjs';
 import ResourceHints from '../components/site/ResourceHints.astro';
@@ -102,18 +102,19 @@ const paletteAccents = palettes.map((name) => {
 // what the CLI bakes (`~~~`, indented and blockquoted fences count).
 const needsDrawn = (s) => sourceHasDrawnFence(s || '');
 
-// The "speaks your field" cards each render a REAL slide live (no static image)
-// through the same engine runtime the hero + carousel use. One representative
-// component per field — its manifest sample is the source rendered in the card.
-const CARD_COMPONENTS = ['math', 'gantt', 'diagram', 'obligation-matrix', 'radar', 'cards-grid'];
-const cardData = CARD_COMPONENTS.reduce((acc, n) => {
-	const m = manifests.find((x) => x.name === n);
-	if (m) {
-		const s = m.sample || m.skeleton;
-		acc[n] = { sample: s, drawn: needsDrawn(s) };
-	}
-	return acc;
-}, {});
+// The "say more" before/after slide and the six audience-room cards each render a
+// REAL slide live (no static image) through the same engine runtime the hero +
+// carousel use. The sources live in room-decks.ts; a `{ manifest }` entry borrows
+// that component's own sample.
+const cardData = { 'say-more': { sample: SAY_MORE_SLIDE, drawn: needsDrawn(SAY_MORE_SLIDE) } };
+for (const [key, src] of Object.entries(ROOM_SLIDES)) {
+	const s = typeof src === 'string' ? src : (() => {
+		const m = manifests.find((x) => x.name === src.manifest);
+		if (!m) throw new Error(`room card "${key}": no component named ${src.manifest}`);
+		return m.sample || m.skeleton;
+	})();
+	cardData[key] = { sample: s, drawn: needsDrawn(s) };
+}
 
 // Shared engine endpoints handed to every live island. `engineUrl` is the
 // ~554KB-gz render bundle: it is no longer loaded eagerly in <head> — each
@@ -181,8 +182,6 @@ const studioData = {
 // copy — card 4's body carries an inline link, and JSX can't appear in Astro
 // frontmatter.
 const nextSteps = nextStepsFor(url);
-const libraries = librariesNav(url);
-const specs = specsNav(url);
 ---
 
 <!doctype html>
@@ -236,23 +235,54 @@ const specs = specsNav(url);
 				</div>
 			</section>
 
-			<!-- How it works — a slim three-step band -->
+			<!-- Say more with less — the communication thesis, directly under the
+			     hero: what a deck is FOR (the people who decide understand you) before
+			     how it is made. Muted, with its own before/after proof; the live slide
+			     host is filled by the FieldCardsLive island in the rooms section below.
+			     See engineering/decisions/2026-10-28-home-positioning-audit.md §5. -->
+			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SayMoreSection playgroundHref={url('playground/')} />
+				</div>
+			</section>
+
+			<!-- Every room — the audience by the room a deck is for, not the author's
+			     job title (positioning audit §6). The former "speaks your field"
+			     professions are the last card, "The review". -->
+			<section class="py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SectionHead eyebrow="Every room where you need to be understood" title="From the boardroom to the lecture hall.">
+						Executives, sales and marketing teams, public servants, teachers, nonprofit staff, and engineers all make
+						the same kind of deck: one that has to land with people who have little time. Each room already has the layouts it needs.
+					</SectionHead>
+					<RoomCards playgroundHref={url('playground/')} layoutCount={manifests.length} />
+				</div>
+				<!-- Invisible controller: fills the say-more slide's and the cards' live hosts + wires "Edit this
+				     deck". client:load (not client:visible) because this island renders
+				     null — a zero-box element has nothing for client:visible's observer to
+				     intersect, so it would never hydrate. It does its OWN lazy render
+				     (IntersectionObserver on the section), so eager hydration is cheap. -->
+				<FieldCardsLive client:idle data={fieldCardsData} />
+			</section>
+
+			<!-- How it works — a slim three-step band, after the "why" (say-more and
+			     the rooms) so the mechanism arrives once the visitor knows what it is for. -->
 			<section class="border-y border-border bg-muted py-[clamp(28px,3.5vw,44px)]">
 				<div class="wrap">
 					<HowItWorks />
 				</div>
 			</section>
 
-			<!-- The Studio — the browser door, opened. Position 3 is deliberate: it
-			     sits AFTER "How it works" so the visitor reads the text-file → engine
-			     model before they learn there is an app. At position 2 the page would
-			     read "web app that also has a CLI".
+			<!-- The Studio — the browser door, opened. It sits directly AFTER "How it
+			     works" on purpose, so the visitor reads the text-file → engine model
+			     before they learn there is an app. Ahead of it the page would read "web
+			     app that also has a CLI".
 			     Plain background; the section supplies its own inset bg-card panel. -->
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<!-- The inset panel is what makes this read as an OBJECT you can open
 					     rather than another prose band, and what separates it from the
-					     plain field-cards section below. Astro owns the panel + grid;
+					     plain card sections around it. Astro owns the panel + grid;
 					     React owns the content — the same split the hero uses, and the
 					     reason the preview is a SIBLING island rather than a child. -->
 					<div class="rounded-2xl border border-border bg-card p-[clamp(20px,3vw,40px)] text-card-foreground shadow-sm">
@@ -293,25 +323,8 @@ const specs = specsNav(url);
 				</div>
 			</section>
 
-			<!-- Range: speaks your field -->
-			<section class="py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<SectionHead eyebrow="Whatever you do, there's a slide for it" title="Your field already has a notation. Lattice speaks it.">
-						You write the same lists, tables, and fenced blocks you already know. Lattice renders each in the notation
-						your discipline expects — no drawing tools, no boxes to nudge.
-					</SectionHead>
-					<FieldCards playgroundHref={url('playground/')} layoutCount={manifests.length} />
-				</div>
-				<!-- Invisible controller: fills the cards' live hosts + wires "Edit this
-				     deck". client:load (not client:visible) because this island renders
-				     null — a zero-box element has nothing for client:visible's observer to
-				     intersect, so it would never hydrate. It does its OWN lazy render
-				     (IntersectionObserver on the section), so eager hydration is cheap. -->
-				<FieldCardsLive client:idle data={fieldCardsData} />
-			</section>
-
 			<!-- Why -->
-			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Why decks drift, and why these don't" title="Every deck looks like it came from the same team — because it did.">
 						Slide tools make every slide a blank canvas, so the headline font on page 4 drifts from page 5 and the accent
@@ -322,17 +335,16 @@ const specs = specsNav(url);
 			</section>
 
 			<!-- Proof — one receipt from /comparison, a slim band -->
-			<section class="py-[clamp(40px,5vw,64px)]">
+			<section class="border-y border-border bg-muted py-[clamp(40px,5vw,64px)]">
 				<div class="wrap">
 					<ProofStrip comparisonHref={url('comparison/')} />
 				</div>
 			</section>
 
-			<!-- Showcase — muted. "Bring your own model" moved UP to position 4 (see
-			     the note there), so from here the page's light/muted rhythm is one
-			     step out of phase with main: Showcase gains the band and Next steps
-			     drops it, which keeps every pair alternating. -->
-			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+			<!-- Showcase — plain. The bands alternate light/muted from the hero down;
+			     with say-more and the rooms added above, this one lands light, and Next
+			     steps (also light) is divided from it by its top rule. -->
+			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="One source, every palette" title="Change one line. Restyle the whole deck.">
 						Watch a single slide move through every palette — in light or dark. This is the one-file palette
@@ -342,35 +354,10 @@ const specs = specsNav(url);
 				</div>
 			</section>
 
-			<!-- Libraries — plain, after the muted showcase. Every workspace library,
-			     from the same list as the header's Libraries menu (nav.mjs), so a
-			     library can no longer exist with no link from this page. -->
-			<section id="libraries" class="scroll-mt-20 py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<SectionHead eyebrow="Built from parts you can reuse" title="Twelve libraries, each usable without Lattice.">
-						The engine is assembled from small, framework-free libraries. Each one imports nothing from Lattice, and
-						each is packaged on its own, so you can lift the piece you need into your own app.
-					</SectionHead>
-					<LibraryCards libraries={libraries} />
-					<p class="lib-more"><a href={url('libraries/')}>What each one does, and how to use it <span class="ico ico-arrow-right" aria-hidden="true"></span></a></p>
-				</div>
-			</section>
-
-			<!-- Specs — the formats, written down so another tool can implement them. Same card
-			     list as the libraries (specsNav in nav.mjs); each names its reference
-			     implementation's package. Plain, and divided from the libraries by its top rule. -->
-			<section id="specs" class="scroll-mt-20 border-t border-border py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<SectionHead eyebrow="Open formats" title="Three specs another tool can implement.">
-						The formats Lattice reads and writes are written down as specs, licensed CC-BY-4.0. Each has an owner, a
-						reference implementation and shared test cases, so a second tool can read and write the same files.
-					</SectionHead>
-					<LibraryCards libraries={specs} />
-				</div>
-			</section>
-
-			<!-- Next steps — plain like the Libraries band above it, so its top rule is
-			     what divides the two; the page still closes on a boundary. -->
+			<!-- Next steps — plain with a top rule, not muted: the footer below is
+			     muted, and a muted band above it would run into it. The libraries and
+			     specs that sat above it moved behind its "For developers" card
+			     (positioning audit §7). -->
 			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Where to go next" title="Pick a starting point.">
@@ -397,7 +384,7 @@ const specs = specsNav(url);
 					<a href={url('components/')}>Components</a>
 					<a href={url('features/')}>Features</a>
 					<a href={url('comparison/')}>Comparison</a>
-					<a href={url('#libraries')}>Libraries</a>
+					<a href={url('libraries/')}>Libraries</a>
 					<a href="https://github.com/Laticent/lattice">GitHub</a>
 				</nav>
 				<span class="legal">Designed by humans. Refined with Claude. · Part of Laticent · AGPL-3.0-licensed</span>

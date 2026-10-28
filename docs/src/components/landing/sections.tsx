@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import type * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { librariesNav } from '@/lib/nav.mjs';
 import { slideFrameStyle } from '@/lib/slide-frame';
 
 // Static marketing sections — rendered to HTML server-side (NO client:
@@ -47,9 +48,10 @@ export function SectionHead({
 }
 
 // ── "How it works" strip ────────────────────────────────────────────────────
-// A slim three-step band under the hero. The hero preview already shows the
-// transform live; this strip's payload is the two facts missing from the
-// fold — you name a layout, and one command emits every delivery format.
+// A slim three-step band under the audience rooms. It sits AFTER the "why" (the
+// say-more section and the rooms), so the visitor meets the mechanism once they
+// know what it is for; its payload is the two facts the fold no longer carries —
+// you name a layout, and one command emits every delivery format.
 const HOW_STEPS: { verb: string; body: React.ReactNode }[] = [
 	{ verb: 'Write', body: 'a slide is a few lines of Markdown.' },
 	{
@@ -87,56 +89,150 @@ export function HowItWorks() {
 	);
 }
 
-// ── "Speaks your field" cards ───────────────────────────────────────────────
-// Each card carries a live-preview HOST (`data-live-card`) that the
-// FieldCardsLive island fills with a real slide, plus a real "Edit this deck"
-// link (its data-open-deck handoff seeds the playground via landing-handoff.ts).
-// Order leads with the broadest personas; math anchors late so the page
-// doesn't read "for academics" at first scroll.
-type FieldCard = { live: string; title: string; body: React.ReactNode };
+// ── "Say more with less" ────────────────────────────────────────────────────
+// The communication thesis, directly under the hero: a deck exists to get what
+// you know into the heads of the people who decide, and a slide built for one
+// idea does that faster than a paragraph. The proof is a before/after — a real
+// memo paragraph beside the same content as one live slide (the `data-live-card`
+// host is filled by the FieldCardsLive island, like the rooms below). It is the
+// "visuals say more than words" claim shown, not asserted.
+// See engineering/decisions/2026-10-28-home-positioning-audit.md §5.
+const SAY_MORE_BEATS: { lead: string; body: string }[] = [
+	{
+		lead: 'One idea per slide.',
+		body: 'Each in a layout built for that idea, and Lattice warns you when a slide runs long.',
+	},
+	{
+		lead: 'Show it instead of saying it.',
+		body: 'A plain list becomes a funnel, a Gantt chart, a map, or a verdict grid. No drawing tool.',
+	},
+	{
+		lead: 'Spend the hour on the argument.',
+		body: 'The design is finished before you start, so the time goes into what you are saying.',
+	},
+];
 
-const FIELD_CARDS: FieldCard[] = [
+export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
+	return (
+		<div className="lx-ui grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-8 lg:grid-cols-[1fr_1.05fr]">
+			<div className="min-w-0">
+				<div className="mb-3">
+					<Eyebrow>Say more with less</Eyebrow>
+				</div>
+				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+					People decide in seconds. Give them a slide, not a paragraph.
+				</h2>
+				<p className="m-0 mb-6 text-[17px] leading-[1.6] text-foreground">
+					A deck has one job: to move what you know into the heads of the people who decide. A paragraph makes them hunt
+					for the point; a slide built for one idea puts it in front of them.
+				</p>
+				<dl className="m-0 flex flex-col gap-3">
+					{SAY_MORE_BEATS.map((b) => (
+						<div key={b.lead}>
+							<dt className="inline text-[15px] font-semibold text-[var(--text-heading)]">{b.lead}</dt>{' '}
+							<dd className="m-0 inline text-[15px] leading-[1.55] text-foreground">{b.body}</dd>
+						</div>
+					))}
+				</dl>
+			</div>
+			{/* The before/after. Two stacked panels, labeled, so the eye reads the memo
+			    first and the slide second — the order the claim argues in. */}
+			<div className="flex min-w-0 flex-col gap-4">
+				<figure className="m-0 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+					<figcaption className="mb-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+						Before · the memo
+					</figcaption>
+					<p className="m-0 text-[14px] leading-[1.6] text-muted-foreground">
+						Revenue grew from $12.0M last year to $14.6M this year. New customers added $3.1M and price increases added
+						$0.8M. Those gains were partly offset by churn, which cost $1.2M, and by currency movements, which cost a
+						further $0.1M. In short, growth came mainly from new customers, and churn is now the largest drag on it.
+					</p>
+				</figure>
+				<figure className="m-0">
+					<figcaption className="mb-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-primary">
+						After · one slide
+					</figcaption>
+					{/* Live-preview host — filled by FieldCardsLive (data-live-card). */}
+					<div
+						className="live-host relative aspect-video overflow-hidden"
+						data-slide-frame
+						style={slideFrameStyle('tile')}
+						data-live-card="say-more"
+					/>
+					<a
+						className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
+						href={playgroundHref}
+						data-open-deck="say-more"
+					>
+						Edit this slide in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
+					</a>
+				</figure>
+			</div>
+		</div>
+	);
+}
+
+// ── "Every room" cards ──────────────────────────────────────────────────────
+// The audience, organized by the ROOM a deck is for rather than the author's job
+// title: a sales lead and a CFO make different decks for different rooms, and
+// both should find theirs. Each card names who presents there, real layouts that
+// exist today, and one fact the site already proves (offline, WCAG AA, one brand
+// file, free) — no new claims. The former "speaks your field" professions live on
+// as "The review" and as examples inside the other rooms.
+// Each card carries a live-preview HOST (`data-live-card`) that the LiveCards
+// island fills with a real slide, plus an "Edit this" link (its data-open-deck
+// handoff seeds the playground via landing-handoff.ts). The slide sources live in
+// room-decks.ts. See engineering/decisions/2026-10-28-home-positioning-audit.md §6.
+type RoomCard = { live: string; room: string; who: string; body: React.ReactNode };
+
+const ROOM_CARDS: RoomCard[] = [
 	{
-		live: 'gantt',
-		title: 'Project leads',
-		body: 'Gantt charts, kanban boards, roadmaps, journeys, and step ladders — native SVG rendered straight from a list, not pasted in from Visio.',
+		live: 'boardroom',
+		room: 'The boardroom',
+		who: 'Executives, finance, founders',
+		body: 'A decision slide that names the call, a verdict grid that scores the options, a waterfall that explains the change. Every page of the board pack matches, and every number on it is one you wrote.',
 	},
 	{
-		live: 'radar',
-		title: 'Analysts & consultants',
-		body: 'Radar, quadrant, KPI, stats, pie, and verdict grids — the evidence layouts that turn numbers into an argument. They carry the quarterly review, the board pack, the client readout.',
+		live: 'pitch',
+		room: 'The pitch',
+		who: 'Sales and marketing teams',
+		body: 'Funnels, pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
 	},
 	{
-		live: 'diagram',
-		title: 'Engineers & architects',
-		body: 'Every one of the 25 Mermaid diagram types renders auto-themed to the deck, state charts included — and two fenced blocks become a side-by-side, syntax-highlighted code diff.',
+		live: 'briefing',
+		room: 'The briefing',
+		who: 'Government and the public sector',
+		body: 'A policy recommendation with its sources, a regulatory update, a risk matrix. It runs offline with no account and no telemetry, and every layout meets WCAG AA contrast.',
 	},
 	{
-		live: 'obligation-matrix',
-		title: 'Lawyers & compliance',
-		body: 'An actual legal vocabulary: build a statute stack, an authority chain, an obligation matrix, a citation card, or a regulatory update from a plain list.',
+		live: 'lecture',
+		room: 'The lecture hall',
+		who: 'Faculty, researchers, students',
+		body: 'Real math notation, plots, diagrams, and a glossary. Free and open source. Each lecture is a text file you can keep, share, and reuse next term.',
 	},
 	{
-		live: 'math',
-		title: 'Mathematicians, quants & ML',
-		body: 'Real KaTeX everywhere it matters: Definition / Theorem / Proof cards, derivation chains that justify every step, and an equation set beside its plot.',
+		live: 'mission',
+		room: 'The mission',
+		who: 'Nonprofits and foundations',
+		body: 'Impact numbers, a map of where you work, the people who do the work. It’s free, so the donor report looks professional without a design budget.',
 	},
 	{
-		live: 'cards-grid',
-		title: 'And the basics, for everyone',
+		live: 'review',
+		room: 'The review',
+		who: 'Engineers, lawyers, analysts, project leads',
 		body: '', // filled below with the live layout count
 	},
 ];
 
-export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: string; layoutCount: number }) {
-	const cards = FIELD_CARDS.map((c) =>
-		c.live === 'cards-grid'
+export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: string; layoutCount: number }) {
+	const cards = ROOM_CARDS.map((c) =>
+		c.live === 'review'
 			? {
 					...c,
 					body: (
 						<>
-							A bullet list turns into a card grid. Tables become comparison matrices. {layoutCount} layouts, one
-							Markdown syntax.
+							Gantt charts, all 25 Mermaid diagram types, code diffs, statute stacks, and radar charts, in the notation
+							each field expects. {layoutCount} layouts in all, one Markdown syntax.
 						</>
 					),
 				}
@@ -155,9 +251,10 @@ export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: st
 							style={slideFrameStyle('tile')}
 							data-live-card={c.live}
 						/>
-						<h3 className="mb-2 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
-							{c.title}
+						<h3 className="mb-1 font-[family-name:var(--font-body)] text-[18px] font-semibold leading-[1.3] tracking-[-0.01em] text-[var(--text-heading)]">
+							{c.room}
 						</h3>
+						<p className="m-0 mb-2 text-[13.5px] font-medium text-muted-foreground">{c.who}</p>
 						<p className="m-0 text-[15px] text-foreground">{c.body}</p>
 						<a
 							className="mt-3.5 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
@@ -165,10 +262,8 @@ export function FieldCards({ playgroundHref, layoutCount }: { playgroundHref: st
 							data-open-deck={c.live}
 						>
 							{/* Names the Playground where it is genuinely the right tool: each
-							    card holds ONE component's sample, and "paste a slide, watch it
-							    render" is a slide verb, not a deck verb. This is the other half
-							    of moving the Playground out of the hero — it doesn't lose a job,
-							    it gets the right one. */}
+							    card holds ONE slide, and "paste a slide, watch it render" is a
+							    slide verb, not a deck verb. */}
 							Edit this in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
 						</a>
 					</CardContent>
@@ -528,17 +623,24 @@ export function WaitlistForm() {
 // ── Next-step cards ─────────────────────────────────────────────────────────
 // Most cards are a single whole-card link. A card flagged `form` instead holds
 // an inline CTA link plus the waitlist form — a form can't nest inside the
-// card's <a>, so that card renders as a <div>.
+// card's <a>, so that card renders as a <div>. A card flagged `links` renders
+// as a <div> for the same reason: its body carries links of its own.
 // `body` is a ReactNode, not a string, so a card can carry an inline link — the
 // Studio card needs to name the playground mid-sentence without spending its
 // own CTA on it.
-type NextStep = { href: string; title: string; body: React.ReactNode; cta: string; form?: boolean };
+type NextStep = { href: string; title: string; body: React.ReactNode; cta: string; form?: boolean; links?: boolean };
 
 /**
  * The four next-step cards. This lives here rather than in `index.astro`
- * because card 4's body carries an inline link, and JSX cannot appear in Astro
+ * because cards 1 and 4 carry inline links, and JSX cannot appear in Astro
  * frontmatter — which is also the more consistent home, since every other block
- * of landing copy (HOW_STEPS, FIELD_CARDS, WHY_CARDS) is already in this file.
+ * of landing copy (HOW_STEPS, ROOM_CARDS, WHY_CARDS) is already in this file.
+ *
+ * Card 1 is the developer door. The libraries and specs used to hold two full
+ * sections of the home scroll; they are real assets for developers and they
+ * spent a general visitor's attention, so they live behind this card, the
+ * header's Libraries menu, and the footer
+ * (2026-10-28-home-positioning-audit.md §7).
  * The base-aware `url` helper is passed in so the module stays free of
  * `import.meta.env`.
  */
@@ -546,9 +648,22 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 	return [
 		{
 			href: url('getting-started/'),
-			title: 'Get started',
-			body: 'Install the toolchain and render your first deck in a few minutes.',
+			title: 'For developers',
+			body: (
+				<>
+					Render decks from the command line or in CI. The engine is built from{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
+						{librariesNav(url).length} libraries
+					</a>{' '}
+					you can use on their own, and its file formats are published as{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('spec/lfm/')}>
+						open specs
+					</a>
+					.
+				</>
+			),
 			cta: 'Getting started',
+			links: true,
 		},
 		{
 			href: url('guides/authoring/'),
@@ -587,7 +702,7 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 	return (
 		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
 			{links.map((l) =>
-				l.form ? (
+				l.form || l.links ? (
 					<div
 						key={l.href + l.title}
 						className="flex flex-col rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm"
@@ -602,7 +717,7 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 						>
 							{l.cta} <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
 						</a>
-						<WaitlistForm />
+						{l.form && <WaitlistForm />}
 					</div>
 				) : (
 					<a
@@ -621,33 +736,5 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 				),
 			)}
 		</div>
-	);
-}
-
-// ── Libraries ────────────────────────────────────────────────────────────────
-// One card per workspace library, from the same `librariesNav` list the header's
-// Libraries menu renders, so the home page and the nav cannot disagree about which
-// libraries exist. A library with a demo page links to it; one without links to its
-// README on GitHub and says so in the CTA.
-export type LibraryCard = { label: string; href: string; pkg: string; desc: string; external?: boolean; cta?: string };
-
-export function LibraryCards({ libraries }: { libraries: LibraryCard[] }) {
-	// Plain classes from landing.css, not Tailwind utilities: the cards repeat every class string,
-	// and the utilities cost the home page's HTML about 6 KB against its route budget.
-	return (
-		<ul className="lib-cards">
-			{libraries.map((l) => (
-				<li key={l.href}>
-					<a href={l.href} className="lib-card">
-						<h3>{l.label}</h3>
-						<code>{l.pkg}</code>
-						<p>{l.desc}</p>
-						<span className="lib-card-cta">
-							{l.cta ?? (l.external ? 'Read the README' : 'Open the demo')} <span className="ico ico-arrow-right" aria-hidden="true" />
-						</span>
-					</a>
-				</li>
-			))}
-		</ul>
 	);
 }

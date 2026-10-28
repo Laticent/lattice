@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: in-progress
 summary: >
   Audit of the home page's positioning. The page sells the mechanism (Markdown, layout names, one command, tokens,
   libraries, specs) to people who make decks for a living, and never says what the deck is for: getting a room to
@@ -14,7 +14,7 @@ summary: >
 
 # Home page positioning audit — from "how it's made" to "why it lands"
 
-*2026-10-28 · proposal, not yet applied · supersedes nothing until the owner picks*
+*2026-10-28 · applied in this PR · supersedes the persona ranking in `2026-07-02-website-copy-positioning.md` §2*
 
 ## 1. The answer first
 
@@ -207,9 +207,39 @@ cat docs/src/pages/index.astro docs/src/components/landing/HeroCopy.tsx \
 - **Visuals not reviewed.** No screenshots were taken for this note. The implementation
   owes `tools/screenshot.js` at 1440, 820 and 390 px (QUALITY BAR).
 
-## 11. Next step
+## 11. Owner's picks (2026-10-28) and what shipped
 
-The owner picks the hero, the audience framing and the scope (§7). The implementation then
-lands as one PR: copy, the two new sections, the developer-section move, three-width
-screenshots, a `changelog.d/` fragment, and a prose-checker plus red-team pass on the
-copy before the merge ask.
+| Fork | Pick |
+|---|---|
+| Hero | **B**: keep the H1 and rewrite the lead to name the rooms and the outcome |
+| Audience | **Six rooms**, replacing "Speaks your field" |
+| Developer sections | **Move** libraries and specs off the home scroll |
+| Scope | **One PR** for all of it |
+
+**Where the build differs from §7:**
+
+- **The before/after slide is a waterfall, not a verdict grid.** The hero preview directly
+  above renders the verdict-grid sample, so a second verdict grid one scroll down
+  repeated the same picture. A walk from one revenue figure to another is also the
+  clearest case of a chart beating a paragraph. The memo and the slide carry the same
+  numbers, and they reconcile.
+- **"Bring your own model" stays directly after the Studio.** Its placement note in
+  `index.astro` records why it must sit next to the Studio, and nothing in this audit
+  overturns that.
+- **"Why decks drift" and the proof strip stay two bands.** They were already adjacent.
+  Merging them would have rewritten a section the July note protects.
+- **The order that shipped:** Hero → Say more with less → Every room → How it works →
+  Studio → Bring your own model → Why decks drift → Proof → Restyle → Next steps. That is
+  ten sections instead of eleven.
+- **The developer door is the first Next-steps card** ("For developers"), replacing the
+  plain "Get started" card, whose job the hero's Get started button already does. It links
+  the libraries index and the LFM spec, and the footer's Libraries link now goes to
+  `/libraries/` instead of the removed `#libraries` anchor. The library count in that card
+  comes from `librariesNav`, so it updates itself (July §7.3 counts policy).
+- **The room slides are authored for their rooms** (`docs/src/components/landing/room-decks.ts`),
+  not lifted from manifest samples. A manifest sample describes its own layout, and a room
+  card has to read as that room's real work. Only the briefing borrows a sample (the
+  policy-recommendation sample is already a real bill). All seven slides pass
+  `lint:deck`.
+
+Screenshots at 1440, 820 and 390 px are in the PR.

@@ -2,10 +2,11 @@ import * as React from 'react';
 import { seedPlaygroundSource } from '@/lib/landing-handoff';
 import { createSingleSlideRenderer } from '@/lib/single-slide-render';
 
-// Invisible controller island for the "speaks your field" section. The cards
-// themselves are static (server-rendered in <FieldCards>); this fills each
-// card's `data-live-card` host with a real, palette-reactive slide via the
-// shared engine bridge, lazily as the section nears the viewport. It also wires
+// Invisible controller island for the home page's live slide cards: the
+// say-more before/after slide and the six audience rooms. The cards themselves
+// are static (server-rendered in <SayMoreSection> and <RoomCards>); this fills
+// each `data-live-card` host with a real, palette-reactive slide via the shared
+// engine bridge, lazily as the first host's section nears the viewport. It also wires
 // the "Edit this deck" handoff (seed the playground source key before nav).
 //
 // Kept as a zero-DOM island (renders null) so the static card markup stays
@@ -56,7 +57,7 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 			});
 		};
 
-		// Lazy: render as the field section nears the viewport (rootMargin 300px).
+		// Lazy: render as the first host's section (say-more) nears the viewport (rootMargin 300px).
 		const section = hosts[0]?.closest('section') ?? null;
 		let io: IntersectionObserver | null = null;
 		if ('IntersectionObserver' in window && section) {
