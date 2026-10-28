@@ -517,6 +517,17 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   committed screenshots with the shared JPEG encoder (`lib/core/jpeg-encode.mjs`) and with Safari's own `toBlob`, on a blank page
   (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
   38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
+  `ios-safari-focus-sync` runs it with `PROBE=focus-sync` on an iPad Pro 13-inch alone (a phone is never wide enough for the
+  Playground's two-pane layout, which starts above 820 px): `run.mjs` makes real WebDriver taps on editor lines (an element
+  click; the harness found nothing else was needed) while `focus-sync-probe.js` keeps the page busy, and the suite fails when a tap
+  moves the editor 2 px or more or leaves its slide uncentered. Two measured traps: a pane taller than the slide's offset cannot
+  center slide 2 (it would need a negative scroll), so `lsTarget` picks the first later slide whose line is on screen and which
+  the preview can center; and a burner that never rests (work 150 ms every 100 ms) stalls iOS taps (`touchstart` arrives,
+  `touchend` never does), so it works 150 ms and rests 75 ms (`FOCUS_SYNC_BURN_MS`, default 150). `node
+  docs/scripts/ios-safari/focus-sync.selftest.mjs` runs the same loop on Playwright WebKit (`VIEWPORT=1032x1376` for the iPad
+  Pro shape): on the code before `2937-p2` 37 of 40 taps move the editor, on the fix 0 of 40; without the burner both pass, and
+  resting as long as it works catches only 1 to 5 of 40. The suite is as flaky as the other iOS suites: safaridriver sometimes
+  cannot reach a fresh simulator (`run.mjs` retries the session three times).
 
 ## Integration test cache
 

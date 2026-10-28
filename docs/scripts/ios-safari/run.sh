@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The `ios-safari-studio` and `ios-safari-jpeg` platform suites (.github/platform-suites.json): a probe in REAL Mobile
 # Safari, in an iPad and an iPhone iOS Simulator, on a GitHub macOS runner. PROBE=studio (default) runs the Studio
-# preview probe against the built docs site; PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
+# preview probe against the built docs site; PROBE=focus-sync taps the Playground's editor on an iPad under a busy page
+# (focus-sync-probe.js); PROBE=jpeg runs the shared JPEG encoder against Safari's own, on a blank
 # page (it needs an http origin, not the site). Run from the repo root after `npm ci` and `npm run build` (the
 # platform-suites job does both).
 #
@@ -43,6 +44,7 @@ else
   (cd docs && PREVIEW_PORT=$PORT node scripts/preview-e2e.mjs > "$OUT/preview.log" 2>&1) &
   server=$!
   ready="http://localhost:$PORT/studio/"
+  [ "$PROBE" = focus-sync ] && ready="http://localhost:$PORT/playground/"
 fi
 for _ in $(seq 1 120); do curl -sf "$ready" >/dev/null && break; sleep 1; done
 curl -sf "$ready" >/dev/null
@@ -58,9 +60,15 @@ if [ -z "$runtime" ]; then echo 'no iOS Simulator runtime on this runner' >&2; e
 echo "runtime: $runtime"
 
 status=0
-for family in iPad iPhone; do
-  device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" \
-    '[.devices[$rt][] | select(.name | startswith($f))] | first | .deviceTypeIdentifier // empty')
+families='iPad iPhone'
+# The focus-sync probe needs the Playground's two-pane layout (wider than 820 px): the iPad Pro 13-inch, in portrait,
+# is 1032 px wide, and a phone is never wide enough, so it runs on that iPad alone.
+[ "$PROBE" = focus-sync ] && families='iPad'
+for family in $families; do
+  device_type=$(xcrun simctl list devices available --json | jq -r --arg rt "$runtime" --arg f "$family" --arg p "$PROBE" \
+    '[.devices[$rt][] | select(.name | startswith($f))] as $all
+     | (if $p == "focus-sync" then ([$all[] | select(.name | test("13-inch|12.9"))] | first) else null end) // ($all | first)
+     | .deviceTypeIdentifier // empty')
   if [ -z "$device_type" ]; then echo "no $family device type for $runtime" >&2; status=1; continue; fi
   xcrun simctl shutdown all || true
   udid=$(xcrun simctl create "lattice-$family" "$device_type" "$runtime")

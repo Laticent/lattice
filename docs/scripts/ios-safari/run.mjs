@@ -1,7 +1,8 @@
 /**
  * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
  * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
- * Safari's own (PROBE=jpeg).
+ * Safari's own (PROBE=jpeg), or focus-sync-probe.js, real taps on the Playground's editor under a busy page
+ * (PROBE=focus-sync).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
@@ -14,6 +15,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SLIDES, seedScript, TAPS, verdict } from './focus-sync-deck.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -47,11 +49,27 @@ async function wd(method, url, body) {
 	return json.value;
 }
 
-const session = await wd('POST', '/session', {
-	capabilities: {
-		alwaysMatch: { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
-	},
-});
+/**
+ * safaridriver sometimes cannot reach a freshly booted simulator ("The host application never became ready", "timed out
+ * while connecting to a Safari instance"): seen on the studio suite's iPhone and the focus-sync suite's iPad on hosted
+ * runners, both before any probe code ran. Retry the session a bounded number of times; any other error is real.
+ */
+async function createSession() {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return await wd('POST', '/session', {
+				capabilities: {
+					alwaysMatch: { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
+				},
+			});
+		} catch (e) {
+			if (attempt >= 3 || !/session not created/.test(String(e.message))) throw e;
+			console.log(`${LABEL}: session not created (attempt ${attempt} of 3): ${String(e.message).slice(0, 200)}; trying again in 20 s`);
+			await new Promise((r) => setTimeout(r, 20000));
+		}
+	}
+}
+const session = await createSession();
 const id = session.sessionId;
 const caps = session.capabilities || {};
 let ok = false;
@@ -60,7 +78,7 @@ try {
 	if (platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -103,6 +121,130 @@ async function runStudioProbe(id) {
 		width: photo.width ?? preview.width,
 		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
 	};
+}
+
+/**
+ * The Playground's click-a-line check (docs/e2e/playground-focus-sync.spec.ts) on real Mobile Safari. Each tap is a real
+ * WebDriver tap on the editor line, not a script: a scripted click would not move CodeMirror's caret the way a finger does.
+ * The page is kept busy on purpose (FOCUS_SYNC_BURN_MS of work per 100 ms), the load that made the old code move the editor.
+ */
+async function runFocusSyncProbe(id) {
+	const probe = fs.readFileSync(path.join(here, 'focus-sync-probe.js'), 'utf8');
+	const burn = Number(process.env.FOCUS_SYNC_BURN_MS ?? 150);
+	// Every call re-sends the probe source: WebDriver runs each script in its own scope. The burner lives on `window`.
+	const call = (expr) =>
+		wd('POST', `/session/${id}/execute/async`, {
+			script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve(${expr}).then(done, (e) => done({ error: String(e) }));`,
+			args: [],
+		});
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	await wd('POST', `/session/${id}/execute/sync`, { script: seedScript, args: [] });
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?view=edit` });
+	const result = { ua: '', width: 0, steps: [], ok: false };
+	try {
+		const ready = await call(`lsPrepare(${SLIDES}, 0)`);
+		if (ready?.error) throw new Error(ready.error);
+		result.width = ready.width;
+		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
+		await call('lsWatch()');
+		const second = await call('lsTarget()');
+		if (!second) throw new Error('no slide after the first can be both tapped (its line on screen) and centered by the preview on this device');
+		const TARGETS = [1, second];
+		console.log(`${LABEL}: tapping slide 1 and slide ${second} alternately`);
+		const rows = [];
+		const methods = new Set();
+		/** One tap on the line of `slide`: an element click first, then a touch tap by coordinates if the caret did not land. */
+		const tap = async (label, slide) => {
+			const before = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsBefore();`, args: [] });
+			await call('lsEvents()');
+			const line = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsFind(${slide});`, args: [] });
+			const ref = line['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(line)[0];
+			/** One way of tapping, tried until the caret lands: what each did, as the page saw it, goes into the failure message. */
+			const attempts = [];
+			const touch = (x, y, move, hold) => [
+				{
+					type: 'pointer',
+					id: 'finger',
+					parameters: { pointerType: 'touch' },
+					actions: [
+						{ type: 'pointerMove', duration: move, x, y },
+						{ type: 'pointerDown', button: 0 },
+						{ type: 'pause', duration: hold },
+						{ type: 'pointerUp', button: 0 },
+					],
+				},
+			];
+			const mouse = (x, y) => [
+				{
+					type: 'pointer',
+					id: 'mouse',
+					parameters: { pointerType: 'mouse' },
+					actions: [
+						{ type: 'pointerMove', duration: 0, x, y },
+						{ type: 'pointerDown', button: 0 },
+						{ type: 'pause', duration: 50 },
+						{ type: 'pointerUp', button: 0 },
+					],
+				},
+			];
+			const ways = [
+				['element click', () => wd('POST', `/session/${id}/element/${ref}/click`, {})],
+				['touch tap', async () => wd('POST', `/session/${id}/actions`, { actions: touch(...Object.values(await call(`lsCenter(${slide})`)), 0, 80) })],
+				['slow touch tap', async () => wd('POST', `/session/${id}/actions`, { actions: touch(...Object.values(await call(`lsCenter(${slide})`)), 100, 200) })],
+				['mouse click', async () => wd('POST', `/session/${id}/actions`, { actions: mouse(...Object.values(await call(`lsCenter(${slide})`))) })],
+			];
+			let method = '';
+			const release = () => wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			for (const [name, run] of ways) {
+				await release();
+				await call('lsEvents()');
+				let note = '';
+				try {
+					await run();
+				} catch (e) {
+					note = ` threw ${String(e.message).slice(0, 120)}`;
+				}
+				const landed = await call(`lsCaret(${slide}, 3000)`);
+				const seen = await call('lsEvents()');
+				await release();
+				attempts.push(`${name}${note}: ${landed ? 'caret placed' : 'no caret'}; events ${JSON.stringify(seen)}`);
+				if (landed) {
+					method = name;
+					break;
+				}
+				await call('lsEvents()');
+			}
+			if (!method) {
+				const state = await call(`lsState(${slide})`);
+				throw new Error(`${label} on slide ${slide}: no way of tapping placed the caret.\n  ${attempts.join('\n  ')}\n  page: ${state}`);
+			}
+			methods.add(method);
+			console.log(`${LABEL}: ${label} on slide ${slide} landed by ${method}`);
+			const row = await call(`lsAfter(${slide}, ${before})`);
+			if (row?.error) throw new Error(`${label} on slide ${slide}: ${row.error}`);
+			return row;
+		};
+		// Four taps on a quiet page first: they tell a tap that never lands (the harness) from one the burner starves.
+		const quiet = [];
+		for (let i = 0; i < 4; i++) quiet.push(await tap(`quiet tap ${i + 1}`, TARGETS[i % TARGETS.length]));
+		const q = verdict(quiet);
+		result.steps.push({ name: 'four taps on a quiet page', pass: q.ok, detail: `${q.uncentered} left the slide uncentered, ${q.jumps} moved the editor; landed by ${[...methods].join(', ')}` });
+		if (q.uncentered) {
+			// Say what the page looked like once, with the first slide that did not center.
+			const miss = quiet.findIndex((x) => x.centered === false);
+			result.steps.push({ name: 'a slide that did not center', pass: false, detail: `${await call(`lsState(${quiet[miss].slide})`)} frame: ${await call(`lsFrame(${quiet[miss].slide})`)}` });
+		}
+		await call(`lsBurn(${burn})`);
+		for (let i = 0; i < TAPS; i++) rows.push(await tap(`tap ${i + 1}`, TARGETS[i % TARGETS.length]));
+		const v = verdict(rows);
+		result.steps.push({ name: `${v.taps} taps under the burner (${burn} ms)`, pass: v.ok, detail: `${v.uncentered} left the slide uncentered, ${v.jumps} moved the editor, worst ${Math.round(v.worst)} px` });
+		result.rows = rows;
+		if (!v.ok || !q.ok) result.error = `quiet: ${q.uncentered} uncentered, ${q.jumps} jumps of ${q.taps}; under the burner: ${v.uncentered} uncentered, ${v.jumps} jumps of ${v.taps}, worst ${Math.round(v.worst)} px`;
+		result.ok = v.ok && q.ok;
+	} catch (e) {
+		result.error = String(e?.message ?? e);
+	}
+	return result;
 }
 
 async function runJpegProbe(id) {
