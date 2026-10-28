@@ -46,7 +46,8 @@ Every sibling mark MUST share the family DNA, so the five read as one house:
 - **Geometry:** precise, computed coordinates; `stroke-linecap="round"`; restraint over decoration.
 - **One palette, dark-mode-aware:** an inline `<style>` with an `@media(prefers-color-scheme:dark)`
   swap of the mark's few color classes (never a second file for dark). Each library owns ONE accent
-  family + one warm "live" accent, drawn from its theme.
+  family + one "live" accent, drawn from its theme. (Originally the live accent was always warm;
+  2026-10-28 relaxed that, see § Palette diversity.)
 - **Lockup:** mark + the wordmark in **Fraunces** (`font-family:Fraunces,'Cormorant Garamond',
   Georgia,serif`, size 70, weight 600, letter-spacing −1), mark scaled `0.9375` at `translate(4 4)`,
   text baseline-centered — identical construction to `lattice-lockup.svg`.
@@ -90,8 +91,8 @@ each on the DNA above with its own metaphor + accent. Assets: `docs/public/<name
 `-lockup.svg` (cadenza also `-mark-min.svg`, its caption being dense small; lente/vetrina hold at
 16px on the full mark).
 
-- **Lente** ("lens", reader lenses) — **built**. A camera **iris/aperture** (cyan `#00787d` /
-  `#64d1d7`): tangent blades frame the aperture around the hub, one blade warm (the focal lens). Worn
+- **Lente** ("lens", reader lenses) — **built**. A camera **iris/aperture** (periwinkle blue `#505ba7` /
+  `#aab9ff`): tangent blades frame the aperture around the hub, one blade warm (the focal lens). Worn
   by the `/lente` demo (built to the storyboard standard) + favicon.
 - **Vetrina** ("shop window", the walkthrough engine) — **built**. A framed **vitrine** (rose
   `#a8446a` / `#e08aa8`): a rounded-rect window around the hub with a self-driving **cursor** aimed at
@@ -111,7 +112,7 @@ is Italian for the **weft**, the thread a loom carries across the warp, and its 
 lines as right-angled elbows that never run through a box or along another line. The mark says
 both:
 
-- **two right-angled terracotta threads**, each an elbow, interlock around the hub: each passes
+- **two right-angled brick-red threads**, each an elbow, interlock around the hub: each passes
   OVER the other once and UNDER it once, the gap in the under-thread doing the weaving (no casing
   stroke, so the mark reads on any background);
 - **the gold thread** runs straight through the hub and over both: the **main path**, which Trama
@@ -193,10 +194,10 @@ vermilion, Segno's charcoal and red):
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| brackets (`pri`) | `#b8490b` | `#ff9d57` | the viewfinder (ember) |
-| ticks (`warm`) | `#0e6b67` | `#5cc6bc` | the focused line (teal) |
-| hub | `#b8490b` | `#ff9d57` | the focal point |
-| ring | `#3a1503` | `#1f0d03` | the hub's inner ring |
+| brackets (`pri`) | `#0e6b67` | `#5cc6bc` | the viewfinder (teal) |
+| ticks (`warm`) | `#e2661c` | `#ff9d57` | the focused line (ember) |
+| hub | `#0e6b67` | `#5cc6bc` | the focal point |
+| ring | `#06302e` | `#0a201f` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#1b2423` | `#e3ebea` | Fraunces "Fuoco" |
 
@@ -350,28 +351,38 @@ the same amber live accent, because the system said each library owns "one warm 
 teal sat 0.027 from Suono's green in OKLab, close enough to read as one color, and Calco, Lente and
 Cadenza were three blues within 37 degrees of hue.
 
-**What changed.** The primaries now sit at least 0.070 apart in light and 0.071 in dark (the closest
-pair was 0.027), counting Filo and Fluido, which landed on `main` while this was in review. Five
-libraries moved; Segno, Mosaico, Calco and Tavola did not, and Filo and Fluido kept their hues.
+**What changed.** Each library's signature color (its hub, or Segno's red cut) now sits at least 0.069
+apart in light and 0.068 in dark (the closest pair was 0.027), counting Filo and Fluido, which landed
+on `main` while this was in review. Five libraries changed color: Trama, Lente and Suono moved their
+primary, Cadenza and Vetrina their accent. Veduta and Fluido got a contrast fix only, and Fuoco kept
+its teal and ember (a first attempt swapped them; the ember then sat 0.036 from Segno's red, so it
+was reverted). Segno, Mosaico, Calco, Tavola and Filo are unchanged.
 
 | Library | Primary (light / dark) | Accent (light / dark) | Change |
 |---|---|---|---|
-| Fuoco | ember `#b8490b` / `#ff9d57` | teal `#0e6b67` / `#5cc6bc` | swapped its two colors |
 | Trama | brick `#923a37` / `#ff958d` | gold `#8a6509` / `#e8bd4f` | primary moved off sienna to brick; accent kept gold. An ochre primary collided with Fluido's honey (0.024 apart in dark) |
-| Lente | cyan `#00787d` / `#64d1d7` | amber `#ab6900` / `#f6b64a` | primary moved off blue |
+| Lente | periwinkle `#505ba7` / `#aab9ff` | amber `#ab6900` / `#f6b64a` | primary moved from blue `#2f5fa6` clear of Calco, Cadenza and Fuoco's teal (0.067 from Calco) |
 | Suono | emerald `#0b703f` / `#61da92` | amber `#ab6900` / `#f6b64a` | primary moved toward green, amber darkened |
 | Cadenza | indigo (unchanged) | magenta `#b83997` / `#f999da` | accent moved off amber |
 | Vetrina | rose (unchanged) | violet `#734dbe` / `#b7a0fb` | accent moved off amber |
 | Veduta | purple (unchanged) | chartreuse `#7b8a00` / `#d9e75a` | light accent darkened from `#8a9a00` (2.83:1) |
+| Fuoco | teal (unchanged) | ember (unchanged) | only the demo page's light `--glow-bg` got paler: ember text on it was 4.39:1 |
 | Fluido | honey (unchanged) | jade `#009772` / `#5fe0b8` | light accent darkened from `#13a17a` (2.96:1) |
 
 **Rule change.** The family DNA still has a hub, a halo and a warm-or-cool second color, but the
 second color is no longer required to be warm, and no accent may be shared by more than two
 libraries. Amber now belongs to Suono and Lente only.
 
+**What the distance floor covers.** The hub of every library with one, plus Segno's red cut. Tavola's
+four seat colors are a category palette that reuses family colors, so they are not held to it, and
+four of its pairs sit under 0.06: seat a is Calco's blue (0.000), seat d is 0.004 from Veduta's dark
+violet, seat b is 0.048 from Trama in dark, seat c is 0.049 from Suono in light. All predate this
+work and none is nearer than before (Trama's light distance to seat b went from 0.042 to 0.104).
+The unit test says the same.
+
 **Contrast.** Every drawn color holds 3:1 or better against the site's light paper (`#f6f3ec`) and
 dark paper (`#121012`), the WCAG 1.4.11 bar for graphical objects. The old light amber was 3.1:1, so
-it moved to `#ab6900` (4.0:1). The seven library demo pages carry the same colors as `--accent` and
+it moved to `#ab6900` (4.0:1). The library demo pages carry the same colors as `--accent` and
 `--glow`, and those color small text, so they are held to 4.5:1 against their own paper and against
 `--glow-bg` where the text sits on it. That is why Suono and Lente's light-mode `--glow` is a darker
 amber (`#8b5500`, 4.5:1 on its tint) than their mark's (`#ab6900`), and why Cadenza's light `--glow-bg`
@@ -397,10 +408,12 @@ min mark, the lockup and the demo page, in up to four token blocks per page. Now
 To recolor a library, edit its roles in the palette file and run the tool. The migration was checked two
 ways: the generator reproduced all 33 existing SVG `<style>` blocks byte for byte (27 for the first eleven libraries, 6 for Filo and Fluido), and a snapshot of
 every theme token on all 13 pages in four theme states (OS light or dark, with and without an explicit
-`data-theme`) matched across the move, 965 values identical. The only differences were two fixes: the five
+`data-theme`) matched across the move: 817 of 852 values identical on the first eleven pages and 148 of
+156 on Filo and Fluido. The only differences were two fixes: the five
 pages whose `data-theme` blocks never restored `--shadow` now do, and Veduta, which ignored
 `data-theme="dark"`, now honors it. Segno, Tavola, Veduta, Filo and Fluido also gain an unused `--stage-serif`.
 
 **Page neutrals did not move.** Each demo page's paper, stage and line tints stayed. They still sit in
-family with the new colors: Fuoco's teal-tinted neutrals now frame a teal accent, Trama's warm
-browns match its ochre, and Lente's and Suono's cool and green tints sit beside cyan and emerald.
+family with the new colors: Fuoco's teal-tinted neutrals still frame its teal, Trama's warm browns
+sit beside its brick and gold, and Lente's and Suono's cool and green tints sit beside periwinkle and
+emerald.

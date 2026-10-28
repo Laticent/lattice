@@ -23,9 +23,10 @@ async function run(check) {
   const drift = [];
   for (const lib of libraries) {
     const style = `<style>${markStyle(lib)}</style>`;
+    if (!fs.existsSync(path.join(PUBLIC, `${lib}-mark.svg`))) throw new Error(`${lib} has a palette but no docs/public/${lib}-mark.svg`);
     for (const v of VARIANTS) {
       const file = path.join(PUBLIC, `${lib}-${v}.svg`);
-      if (!fs.existsSync(file)) continue;
+      if (!fs.existsSync(file)) continue; // -mark-min and -lockup are optional per library
       const src = fs.readFileSync(file, 'utf8');
       if (!STYLE.test(src)) throw new Error(`${file}: no <style> to replace`);
       const out = src.replace(STYLE, () => style);

@@ -10,8 +10,12 @@
  * Two floors, both below today's measurement so a real regression fails and noise does not:
  *   · CONTRAST — every drawn color holds 3:1 (WCAG 1.4.11, graphical objects) against the
  *     site's paper in each scheme. Wordmark, halo and ring classes are chrome, not the mark.
- *   · DISTINCTNESS — the hub colors (a mark's primary) stay at least `MIN_HUB_DISTANCE`
- *     apart in OKLab, in each scheme, and no two libraries share a hub-plus-accent pair.
+ *   · DISTINCTNESS — each library's signature color (its hub, or Segno's red cut) stays at least
+ *     `MIN_HUB_DISTANCE` apart from every other library's in OKLab, in each scheme, and no two
+ *     libraries share a hub-plus-accent pair. Tavola's four seat colors are NOT held to the floor:
+ *     they are a category palette that reuses family colors (seat a is Calco's blue, 0.000; seat d
+ *     is 0.004 from Veduta's dark violet; seat b 0.048 from Trama; seat c 0.049 from Suono). That
+ *     predates this test, and no pair is nearer than before.
  *   · SOURCE — the SVG colors are generated from `docs/src/lib/library-palettes.json`, so each
  *     file's <style> must equal what the palette produces (run `node tools/build-library-marks.js`),
  *     and the demo-page text tokens (`--accent`, `--glow`) hold 4.5:1 on their own paper.
@@ -26,7 +30,7 @@ const PUBLIC = path.join(__dirname, '../../../docs/public');
 const PAPER = { light: '#f6f3ec', dark: '#121012' };
 const CHROME = new Set(['halo', 'wm', 'ring', 'plate', 'paper', 't']);
 const MIN_CONTRAST = 3;
-const MIN_HUB_DISTANCE = 0.06; // today's closest pair is 0.071 (light) / 0.077 (dark); it was 0.027
+const MIN_HUB_DISTANCE = 0.06; // measured closest pair among these colors: see the decision doc; it was 0.027
 const MAX_SHARED_ACCENT = 2;
 const MIN_TEXT_CONTRAST = 4.5;
 
@@ -46,6 +50,10 @@ function palette(file) {
   const grab = css => Object.fromEntries(
     [...css.matchAll(/\.(\w+)\{[^}]*?(?:stroke|fill):(#[0-9a-fA-F]{6})/g)].map(m => [m[1], m[2].toLowerCase()]));
   const light = grab(lightCss);
+  const hexes = style.match(/#[0-9a-fA-F]+/g) ?? [];
+  const six = style.match(/#[0-9a-fA-F]{6}(?![0-9a-fA-F])/g) ?? [];
+  assert.equal(hexes.length, six.length, `${path.basename(file)} has a color that is not 6-digit hex; the contrast arm would skip it`);
+  assert.ok(Object.keys(light).length > 0, `${path.basename(file)}: parsed no colors from its <style>`);
   return { light, dark: { ...light, ...grab(darkCss) } };
 }
 
@@ -73,19 +81,25 @@ describe('library marks — contrast on both grounds', () => {
 });
 
 describe('library marks — the set reads as different libraries', () => {
-  const hubbed = libs.map(lib => ({ lib, pal: palette(path.join(PUBLIC, `${lib}-mark.svg`)) }))
-    .filter(({ pal }) => pal.light.hub);
+  const all = libs.map(lib => ({ lib, pal: palette(path.join(PUBLIC, `${lib}-mark.svg`)) }));
+  const hubbed = all.filter(({ pal }) => pal.light.hub);
+  // Segno has no hub; its signature color is the red cut. Tavola is a category palette (see header).
+  const signature = scheme => [
+    ...hubbed.map(({ lib, pal }) => ({ lib, hex: pal[scheme].hub })),
+    ...all.filter(({ lib }) => lib === 'segno').map(({ lib, pal }) => ({ lib, hex: pal[scheme].cut })),
+  ];
 
-  test('most libraries are measured (segno and tavola have no hub)', () => assert.ok(hubbed.length >= 8, String(hubbed.length)));
+  test('most libraries are measured (tavola is a category palette and is not)', () => assert.ok(signature('light').length >= 12, String(signature('light').length)));
 
   for (const scheme of ['light', 'dark']) {
-    test(`hub colors stay ${MIN_HUB_DISTANCE} apart in OKLab (${scheme})`, () => {
-      for (let i = 0; i < hubbed.length; i++) {
-        for (let j = i + 1; j < hubbed.length; j++) {
-          const a = hubbed[i], b = hubbed[j];
-          const d = oklabDistance(a.pal[scheme].hub, b.pal[scheme].hub);
+    test(`signature colors stay ${MIN_HUB_DISTANCE} apart in OKLab (${scheme})`, () => {
+      const sig = signature(scheme);
+      for (let i = 0; i < sig.length; i++) {
+        for (let j = i + 1; j < sig.length; j++) {
+          const a = sig[i], b = sig[j];
+          const d = oklabDistance(a.hex, b.hex);
           assert.ok(d >= MIN_HUB_DISTANCE,
-            `${a.lib} ${a.pal[scheme].hub} and ${b.lib} ${b.pal[scheme].hub} are ${d.toFixed(3)} apart (${scheme}); need ${MIN_HUB_DISTANCE}`);
+            `${a.lib} ${a.hex} and ${b.lib} ${b.hex} are ${d.toFixed(3)} apart (${scheme}); need ${MIN_HUB_DISTANCE}`);
         }
       }
     });

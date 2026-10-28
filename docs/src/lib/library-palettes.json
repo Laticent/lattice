@@ -269,16 +269,16 @@
   "fuoco": {
    "roles": {
     "primary": [
-     "#b8490b",
-     "#ff9d57"
-    ],
-    "accent": [
      "#0e6b67",
      "#5cc6bc"
     ],
+    "accent": [
+     "#e2661c",
+     "#ff9d57"
+    ],
     "ring": [
-     "#3a1503",
-     "#1f0d03"
+     "#06302e",
+     "#0a201f"
     ],
     "halo": [
      "#f6f3ec",
@@ -354,10 +354,10 @@
      "--line": "#d6dedb",
      "--accent": "@primary",
      "--glow": "@accent",
-     "--glow-ink": "@accent",
-     "--glow-bg": "#e2efed",
+     "--glow-ink": "#b8490b",
+     "--glow-bg": "#ffeee3",
      "--panel": "#fdfdfb",
-     "--soft": "#fbe7d8",
+     "--soft": "#e2efed",
      "--ring": "@ring",
      "--shadow": "0 1px 2px rgba(20,36,35,.06), 0 8px 24px rgba(20,36,35,.07)",
      "color-scheme": "light"
@@ -369,12 +369,12 @@
      "--muted": "#93a3a1",
      "--line": "#263130",
      "--accent": "@primary",
-     "--accent-ink": "@ring",
+     "--accent-ink": "#062320",
      "--glow": "@accent",
-     "--glow-ink": "#7ad3ca",
-     "--glow-bg": "#183230",
+     "--glow-ink": "#ffb27c",
+     "--glow-bg": "#33231a",
      "--panel": "#131818",
-     "--soft": "#33231a",
+     "--soft": "#183230",
      "--ring": "@ring",
      "--shadow": "0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35)",
      "color-scheme": "dark"
@@ -384,16 +384,16 @@
   "lente": {
    "roles": {
     "primary": [
-     "#00787d",
-     "#64d1d7"
+     "#505ba7",
+     "#aab9ff"
     ],
     "accent": [
      "#ab6900",
      "#f6b64a"
     ],
     "ring": [
-     "#003538",
-     "#001314"
+     "#222a51",
+     "#0b0e1c"
     ],
     "halo": [
      "#f6f3ec",
@@ -500,7 +500,7 @@
      "--spent": "#3a4356",
      "--line": "#222a3a",
      "--accent": "@primary",
-     "--accent-ink": "#001112",
+     "--accent-ink": "#0b1220",
      "--glow": "@accent",
      "--glow-bg": "#2f2a1c",
      "--panel": "#111624",

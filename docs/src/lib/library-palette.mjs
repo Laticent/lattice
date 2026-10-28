@@ -23,6 +23,9 @@ const resolve = (roles, value, idx, where) => {
 	if (typeof value !== 'string' || !value.startsWith('@')) return value;
 	const role = roles[value.slice(1)];
 	if (!role) throw new Error(`library-palette: ${where} uses unknown role ${value}`);
+	if (!Array.isArray(role) || typeof role[idx] !== 'string') {
+		throw new Error(`library-palette: ${where}: role ${value} must be a [light, dark] pair of colors`);
+	}
 	return role[idx];
 };
 
@@ -34,7 +37,7 @@ export function markStyle(name) {
 	for (const [cls, props] of mark) {
 		const lp = props.map(([prop, v]) => `${prop}:${resolve(roles, v, 0, `${name} .${cls}`)}`);
 		light.push(`.${cls}{${lp.join(';')}}`);
-		const dp = props.filter(([, v]) => v.startsWith('@')).map(([prop, v]) => `${prop}:${resolve(roles, v, 1, `${name} .${cls}`)}`);
+		const dp = props.filter(([, v]) => typeof v === 'string' && v.startsWith('@')).map(([prop, v]) => `${prop}:${resolve(roles, v, 1, `${name} .${cls}`)}`);
 		if (dp.length) dark.push(`.${cls}{${dp.join(';')}}`);
 	}
 	return `${light.join('')}@media(prefers-color-scheme:dark){${dark.join('')}}`;
@@ -56,6 +59,9 @@ export function pageTokens(name) {
 export function pageThemeCss(name) {
 	const { light, dark } = pageTokens(name);
 	// Under an explicit `data-theme="light"` the tokens the dark scheme overrides must be put back.
+	for (const k of Object.keys(dark)) {
+		if (!(k in light)) throw new Error(`library-palette: ${name} overrides ${k} in dark but never sets it for light`);
+	}
 	const lightBack = Object.fromEntries(Object.keys(dark).map((k) => [k, light[k]]));
 	return [
 		`:root {\n${decls(light, '\t')}\n}`,
