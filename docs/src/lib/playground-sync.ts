@@ -131,11 +131,6 @@ const SETTLE_MS = 160;
 const MAX_OWN_MS = 1500;
 /** A scroll on a pane this soon after the sync moved it is that move's own (see `isEcho`). */
 const ECHO_MS = 120;
-/** The longest a move's first scroll event may trail the move and still be its echo. The event is delivered on a
- *  frame, so a busy page delivers it late: measured on WebKit under CPU load, 139 to 607 ms after the write. An event
- *  that arrives at the position the move set is the move's own for longer, since a reader's scroll lands elsewhere. */
-const ECHO_LATE_MS = 600;
-const ECHO_LATE_AT_POSITION_MS = 3000;
 /** Frames this far apart mean the page is dropping them; following on every one of those is what drops them. */
 const FRAME_SLOW_MS = 24;
 /** Gaps longer than this are a reader who stopped and started again, not a struggling page. */
@@ -200,8 +195,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	let bandKey = '';
 	let epoch = 0;
 	let dead = false;
-	type Echo = { y: number; at: number; landed?: boolean };
-	const echo: { editor: Echo | null; preview: Echo | null } = { editor: null, preview: null };
+	const echo: { editor: { y: number; at: number } | null; preview: { y: number; at: number } | null } = { editor: null, preview: null };
 	let rangesRev = -1;
 	let ranges: Array<{ from: number; to: number }> = [];
 
@@ -276,25 +270,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	 *  consuming it on the first event let a stale event eat a newer move's echo (the editor stepped backward under a
 	 *  wheel, and a big jump yanked the preview). A reader scrolls one pane at a time, so the pane we just moved is
 	 *  not the one they are scrolling. */
-	const isEcho = (e: Echo | null) => e !== null && ports.now() - e.at < ECHO_MS;
-
-	/** A move's scroll event is delivered on a later frame, and a page under load delivers it after `ECHO_MS` has
-	 *  run out (WebKit: 139 to 607 ms), which made the sync's own move read as the reader's and drove the other pane
-	 *  (the editor jumped 136 px under a click). So the window starts when the FIRST event after the move lands, not
-	 *  when the move was written; the events that follow it (CodeMirror re-anchoring) fall inside that window. Only the
-	 *  first event counts, so a later scroll by the reader is never taken for the move's echo. */
-	/** The record of a move. A write the pane clamped to where it already was fires no scroll event, so it has nothing
-	 *  to land: the reader's next scroll must not be taken for its echo. */
-	const written = (before: number, y: number): Echo => ({ y, at: ports.now(), landed: Math.abs(y - before) < 1 });
-
-	function landEcho(e: Echo | null, y: number) {
-		if (!e || e.landed) return;
-		const t = ports.now();
-		if (t - e.at < ECHO_LATE_MS || (t - e.at < ECHO_LATE_AT_POSITION_MS && Math.abs(y - e.y) < 1)) {
-			e.landed = true;
-			e.at = t;
-		}
-	}
+	const isEcho = (e: { y: number; at: number } | null) => e !== null && ports.now() - e.at < ECHO_MS;
 
 	/** Note that a scroll event arrived. A scroll event comes once per frame, so the gap between two of them says
 	 *  whether the page is keeping up: a gap over a frame and a half means it is dropping frames. */
@@ -334,7 +310,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		if (!L) return;
 		const ed = ports.editor();
 		const target = L.map.toA(L.pv.scroll);
-		if (ed && Math.abs(target - L.ed.scroll) >= 1) echo.editor = written(L.ed.scroll, ed.setScroll(target));
+		if (ed && Math.abs(target - L.ed.scroll) >= 1) echo.editor = { y: ed.setScroll(target), at: ports.now() };
 		// A pick's own scroll passes through slides on the way; it moves the editor along but names no new focus
 		// until the preview has been still for a moment, and then names the slide it stopped on.
 		if (settling()) {
@@ -383,7 +359,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			return;
 		}
 		const target = L.map.toB(L.ed.scroll);
-		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(target));
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
 		if (ports.now() - lastCaretMove < CARET_SCROLL_MS) return;
 		report(sectionAt(L.ed, L.ed.scroll), 'editor-view');
 	}
@@ -393,7 +369,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const L = pair();
 		if (!L) return false;
 		const target = L.map.toB(L.ed.scroll);
-		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(target));
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
 		return true;
 	}
 
@@ -411,7 +387,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		// centered, which scrolls it by the frame's padding). Another slide, or a scroll that no longer names the
 		// focus (a drag-collapse squeezes the frame before the pane reports it): center the focus slide.
 		if (keptScroll >= 0 && flat === keptFlat && sectionAt(L.pv, keptScroll) === flat) {
-			if (Math.abs(keptScroll - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(keptScroll));
+			if (Math.abs(keptScroll - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(keptScroll), at: ports.now() };
 		} else if (!centerPreview(flat)) return false;
 		owedFocus = false;
 		keptScroll = -1;
@@ -423,7 +399,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const L = pair();
 		if (!L || flat < 0 || flat >= L.pv.tops.length) return false;
 		const target = Math.max(0, Math.min(centeredAt(L.pv, flat), maxScroll(L.pv)));
-		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(target));
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
 		lastCenter = ports.now();
 		return true;
 	}
@@ -434,7 +410,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const ed = ports.editor();
 		if (!L || !ed) return false;
 		const target = L.map.toA(L.pv.scroll);
-		if (Math.abs(target - L.ed.scroll) >= 1) echo.editor = written(L.ed.scroll, ed.setScroll(target));
+		if (Math.abs(target - L.ed.scroll) >= 1) echo.editor = { y: ed.setScroll(target), at: ports.now() };
 		return true;
 	}
 
@@ -549,7 +525,6 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (flat >= 0 && flat !== caretFlat) hub.go('preview-pick', { flat, grab: false });
 		},
 		previewScrolled() {
-			landEcho(echo.preview, ports.previewScroll());
 			// Only the reader's scrolls say whether the page keeps up: the follower's own echo lands in the same frame.
 			if (!isEcho(echo.preview)) noteScroll();
 			lastPreviewScroll = ports.now();
@@ -557,7 +532,6 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			if (!previewRaf) previewRaf = ports.raf(drivenByPreview);
 		},
 		editorScrolled() {
-			landEcho(echo.editor, ports.editor()?.getScroll() ?? NaN);
 			if (!isEcho(echo.editor)) noteScroll();
 			if (!editorRaf) editorRaf = ports.raf(drivenByEditor);
 		},

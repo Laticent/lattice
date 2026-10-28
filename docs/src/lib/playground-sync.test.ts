@@ -21,7 +21,6 @@ function rig(source = deck) {
 	const state = { editing: true, editor: true, active: true, canPick: true, now: 0, ed: 0, pv: 0, previewOk: true };
 	const rafs: Array<{ id: number; cb: () => void }> = [];
 	let ids = 0;
-	const owedEvents: Array<"editor" | "preview"> = [];
 	const clamp = (y: number, l: ScrolledLayout) => Math.max(0, Math.min(y, l.content - l.viewport));
 	const edLayout = (n: number) => layoutOf(n, 300, 260, 500, state.ed, 40);
 	const pvLayout = (n: number) => layoutOf(n, 400, 380, 700, state.pv, 18);
@@ -35,11 +34,8 @@ function rig(source = deck) {
 						getLayout: (ranges) => ({ ...edLayout(ranges.length), scroll: state.ed }),
 						getScroll: () => state.ed,
 						setScroll: (y) => {
-							const was = state.ed;
 							state.ed = clamp(y, edLayout(parts));
 							log.push(`editor-scroll ${Math.round(state.ed)}`);
-							// A browser fires no scroll event for a write that leaves the position where it was.
-							if (Math.abs(state.ed - was) >= 1) owedEvents.push('editor');
 							return state.ed;
 						},
 					}
@@ -47,10 +43,8 @@ function rig(source = deck) {
 		previewScroll: () => state.pv,
 		previewLayout: (groups) => (state.previewOk ? { ...pvLayout(groups.length), scroll: state.pv } : null),
 		setPreviewScroll: (y) => {
-			const was = state.pv;
 			state.pv = clamp(y, pvLayout(parts));
 			log.push(`preview-scroll ${Math.round(state.pv)}`);
-			if (Math.abs(state.pv - was) >= 1) owedEvents.push('preview');
 			return state.pv;
 		},
 		markPages: (p) => log.push(`mark ${p ? p.join(',') : 'none'}`),
@@ -82,8 +76,6 @@ function rig(source = deck) {
 		await settle();
 	};
 	const frame = () => {
-		// A browser delivers the scroll event of the sync's own move on the next frame.
-		for (const pane of owedEvents.splice(0)) pane === 'editor' ? sync.editorScrolled() : sync.previewScrolled();
 		for (const r of rafs.splice(0)) r.cb();
 		hub.flush();
 		for (const r of rafs.splice(0)) r.cb();
@@ -174,32 +166,6 @@ describe('either pane drives the other', () => {
 	});
 });
 
-describe('a page that delivers scroll events late', () => {
-	it("the preview's late echo does not move the editor", async () => {
-		const r = rig();
-		await r.land();
-		r.state.now += 1000;
-		r.sync.selected({ head: at('delta'), anchor: at('delta'), line: 'delta', user: true });
-		r.frame();
-		r.log.length = 0;
-		// The click centered the preview; the page delivers that scroll's event 300 ms later.
-		r.state.now += 300;
-		r.frame();
-		expect(r.log.some((l) => l.startsWith('editor-scroll'))).toBe(false);
-		expect(r.state.ed).toBe(0);
-	});
-
-	it('a reader scrolling after the echo has landed is followed', async () => {
-		const r = rig();
-		await r.land();
-		r.scrollPreview(1000);
-		r.frame();
-		r.state.now += 500;
-		r.scrollEditor(r.state.ed + 400);
-		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
-	});
-});
-
 describe('a page that is dropping frames', () => {
 	it('moves the follower every other frame and still lands where the reader stopped', async () => {
 		const r = rig();
@@ -274,7 +240,6 @@ describe('the slide in focus is marked in both panes', () => {
 		const r = rig();
 		await r.land();
 		r.scrollEditor(900);
-		r.frame();
 		r.state.now += 1000;
 		r.sync.selected({ head: at('alpha'), anchor: at('alpha'), line: 'alpha', user: true });
 		r.frame();
@@ -418,7 +383,6 @@ describe('review findings on the tab switch and the follow', () => {
 			r.scrollPreview(200 * k);
 		}
 		// Past the window of the editor moves above, the reader wheels the editor: that is theirs, not an echo.
-		r.frame();
 		r.state.now += 200;
 		r.scrollEditor(r.state.ed + 400);
 		expect(r.state.pv).toBeCloseTo(r.map().toB(r.state.ed), 6);
