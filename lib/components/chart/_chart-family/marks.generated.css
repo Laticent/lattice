@@ -711,15 +711,15 @@ figure.marks-pigment :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, 
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
-figure.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
+section.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
+figure.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-hue) !important;
   padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
-figure.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
+section.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
 }
 }
@@ -1021,16 +1021,16 @@ figure.marks-etch :where(:is(.risk-band-ring, .risk-key-marker[data-band="critic
   --chart-ring: calc(var(--state-signal-w) * 2.6) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
-figure.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
+section.marks-etch.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
+figure.marks-etch.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
   border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-ink) !important;
   padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
-figure.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
+section.marks-etch.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-etch.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
 }
 }
@@ -1418,16 +1418,16 @@ figure.marks-tone :where(.risk-cell[data-band="critical"]) {
   stroke-width: 1.2 !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
-figure.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
+section.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
+figure.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) !important;
   border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-ink) !important;
   padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
-figure.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
+section.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
 }
 }

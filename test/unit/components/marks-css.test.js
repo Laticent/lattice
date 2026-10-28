@@ -55,7 +55,8 @@ describe('marks.generated.css', () => {
       // A rule may add a slide-level GUARD (`:not(:has(...))`, `:not(.keyline)`) after the head, so a first-hue neutral mark waits for a
       // slide whose own markup does not already use that hue for a category.
       const guard = '(?::(?:not|has)\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\))*';
-      assert.match(s, new RegExp(`^(section|figure)${head}${guard} :where\\(.+\\)$`), s);
+      // A kanban board guard names the board element itself: the slide (`section.marks-X.kanban:not(.keyline)`), or a figure.
+      assert.match(s, new RegExp(`^(section|figure)${head}(?:\\.kanban)?${guard} :where\\(.+\\)$`), s);
     }
     assert.equal(tokenHeads.length, 9, 'one token block per finish: the slide, the re-hosted figure, and the chart frame inside a pane');
   });

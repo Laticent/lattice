@@ -313,6 +313,21 @@ function rule(finishes, mark, decls, important = true) {
 }
 
 /** `rule`, but only on a slide whose own markup satisfies `guard` (a pseudo-class chain on the section, such as `:not(:has(...))`). */
+/**
+ * A rule for a kanban BOARD that is neither `keyline` nor `tinted`. The board is the slide itself
+ * (`section.kanban`) or a figure, and each carries those classes itself, so the guard sits on the
+ * element that IS the board. A pane's twin of the sheet re-hosts `section` on the pane host, so the
+ * shipped sheet names no `lat-pane`.
+ */
+function ruleBoard(finishes, mark, decls) {
+  const board = '.kanban:not(.keyline):not(.tinted)';
+  const sel = [
+    `${head('section', finishes)}${board} :where(${mark})`,
+    `${head('figure', finishes)}${board} :where(${mark})`,
+  ].join(',\n');
+  return `${sel} {\n${decls.map((d) => `  ${d} !important;`).join('\n')}\n}`;
+}
+
 function ruleIf(finishes, guard, mark, decls, important = true) {
   const sel = [`${head('section', finishes)}${guard} :where(${mark})`, `${head('figure', finishes)}${guard} :where(${mark})`].join(',\n');
   return `${sel} {\n${decls.map((d) => `  ${d}${important ? ' !important' : ''};`).join('\n')}\n}`;
@@ -832,11 +847,10 @@ function build() {
       // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only. The accent is a
       // left border (padding gives its width back), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
       // A `keyline` or `tinted` board already colors by lane, and the done lane keeps its status color.
-      const KBOARD = ':not(.keyline):not(.tinted)';
       const cardDecls = ['border-left: calc(var(--chart-hairline) * 3) solid ' + (name === 'pigment' ? ONE : ONE_INK), 'padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2)'];
       if (name !== 'pigment') cardDecls.unshift(`background: ${tint}`);
-      w(supports(ruleIf(name, KBOARD, '.kanban-column:not([data-done]) .kanban-card:not([data-s])', cardDecls)));
-      w(supports(ruleIf(name, KBOARD, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
+      w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-card:not([data-s])', cardDecls)));
+      w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
     }
 
     // ── A NEUTRAL hub-spoke node — no status and no hue ─────────────────────
