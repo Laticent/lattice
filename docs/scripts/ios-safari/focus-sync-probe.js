@@ -63,13 +63,52 @@ function lsFind(slide) {
 	return line;
 }
 
+/** What a failure message needs to say where the page was: the caret, the focus, both scrolls, the slide's place. */
+function lsState(slide) {
+	const sel = getSelection();
+	return JSON.stringify({
+		width: innerWidth,
+		caretLine: document.querySelector('.cm-activeLine')?.textContent ?? null,
+		selection: sel?.focusNode?.textContent?.slice(0, 30) ?? null,
+		focus: document.activeElement?.className?.toString().slice(0, 40) ?? null,
+		editorTop: Math.round(lsScroller().scrollTop),
+		previewTop: Math.round(lsPreview().contentWindow.scrollY),
+		offCenter: Math.round(lsOffCenter(slide)),
+	});
+}
+
+/** Whether the tap on slide `n`'s line has put the caret there (the sync centers the preview only after it has). */
+// biome-ignore lint/correctness/noUnusedVariables: see above
+async function lsCaret(slide, ms) {
+	const want = `- point ${slide}.3`;
+	try {
+		await lsUntil(() => document.querySelector('.cm-activeLine')?.textContent === want, ms, `the caret on "${want}"`);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** The middle of the slide's line in the page, for a touch tap by coordinates. */
+// biome-ignore lint/correctness/noUnusedVariables: see above
+function lsCenter(slide) {
+	const r = lsFind(slide).getBoundingClientRect();
+	return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) };
+}
+
 // biome-ignore lint/correctness/noUnusedVariables: see above
 const lsBefore = () => lsScroller().scrollTop;
 
 // biome-ignore lint/correctness/noUnusedVariables: see above
 async function lsAfter(slide, before) {
 	// The first slide sits at the top of the preview rather than its middle, so it is only waited out.
-	if (slide > 1) await lsUntil(() => lsOffCenter(slide) < 4, 15000, `slide ${slide} centered in the preview`);
+	if (slide > 1) {
+		try {
+			await lsUntil(() => lsOffCenter(slide) < 4, 15000, `slide ${slide} centered in the preview`);
+		} catch (e) {
+			throw new Error(`${e.message}; page: ${lsState(slide)}`);
+		}
+	}
 	// The scroll events of the sync's own moves arrive on later frames; give the busiest page time to deliver them.
 	await lsSleep(1200);
 	return { slide, moved: Math.abs(lsScroller().scrollTop - before) };

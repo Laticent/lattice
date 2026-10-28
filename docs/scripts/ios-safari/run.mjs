@@ -137,6 +137,32 @@ async function runFocusSyncProbe(id) {
 			const line = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsFind(${slide});`, args: [] });
 			const ref = line['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(line)[0];
 			await wd('POST', `/session/${id}/element/${ref}/click`, {});
+			let method = 'element click';
+			if (!(await call(`lsCaret(${slide}, 3000)`))) {
+				// The element click did not place the caret: tap again as a finger would, by coordinates.
+				const at = await call(`lsCenter(${slide})`);
+				await wd('POST', `/session/${id}/actions`, {
+					actions: [
+						{
+							type: 'pointer',
+							id: 'finger',
+							parameters: { pointerType: 'touch' },
+							actions: [
+								{ type: 'pointerMove', duration: 0, x: at.x, y: at.y },
+								{ type: 'pointerDown', button: 0 },
+								{ type: 'pause', duration: 80 },
+								{ type: 'pointerUp', button: 0 },
+							],
+						},
+					],
+				});
+				method = 'touch actions';
+				if (!(await call(`lsCaret(${slide}, 5000)`))) {
+					const state = await call(`lsState(${slide})`);
+					throw new Error(`tap ${i + 1} on slide ${slide}: neither an element click nor a touch tap placed the caret; page: ${JSON.stringify(state)}`);
+				}
+			}
+			if (i < 2) result.steps.push({ name: `tap ${i + 1} on slide ${slide} placed the caret`, pass: true, detail: method });
 			const row = await call(`lsAfter(${slide}, ${before})`);
 			if (row?.error) throw new Error(`tap ${i + 1} on slide ${slide}: ${row.error}`);
 			rows.push(row);
