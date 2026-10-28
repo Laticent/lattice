@@ -68,9 +68,6 @@ const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
 // is the theme's own curated pale tint of that hue (`--cat-1-fill`) taken 40% toward the canvas: no relative color, so
 // it needs no @supports guard, and every theme supplies it. The dark ladder still mixes toward the canvas.
 const TONE_BASE = 'color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))';
-// A status under tone keeps its own hue at a level near its solid: at the ladder's middle step a status hue taken toward
-// the canvas turned grey-sage, tan and brown (progress, gantt, state-chart in the audit).
-const TONE_STATUS = [70, 80];
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
 // 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
@@ -418,7 +415,11 @@ function finishTokens(name) {
   }
   // A status keeps its own hue under every finish; the finish sets only the level. A mark that carries text takes the
   // quieter one. Under tone the plain level is the middle step and the text level is the first text step.
-  d.push(`${T.status}: ${tone ? TONE_STATUS[0] : f.body[0]}%`, `${T.statusD}: ${tone ? TONE_STATUS[1] : f.body[1]}%`);
+  // ONE STATUS LEVEL per finish. A status chart (progress, gantt, state chart, roadmap, kanban) is one class, so its
+  // marks share one strength: a progress bar has no text on it, but nothing about it earns a louder status than a gantt
+  // bar that does, so the plain level IS the text level (owner's rule on #2908: stronger only for an evidenced reason with
+  // no alternative). Pigment's two levels were already one (100%).
+  d.push(`${T.status}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
   d.push(`${T.statusText}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
   d.push(`${T.rampLo}: ${f.ramp[0]}%`, `${T.rampK}: ${f.ramp[1]}`);
   // A text-free ramp on a dark slide: tone lifts its floor, so a map's low regions stand off the navy land (the tone audit).
@@ -1060,4 +1061,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, TONE, TONE_D, TONE_STATUS, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, TONE, TONE_D, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

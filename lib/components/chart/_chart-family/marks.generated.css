@@ -155,8 +155,8 @@ figure.marks-etch,
   --finish-text-d-8: 19%;
   --finish-layer-8: 0.1;
   --finish-layer-ink-8: var(--chart-cat-8-ink);
-  --finish-status: 30%;
-  --finish-status-d: 40%;
+  --finish-status: 14%;
+  --finish-status-d: 19%;
   --finish-status-text: 14%;
   --finish-status-text-d: 19%;
   --finish-ramp-lo: 6%;
@@ -236,8 +236,8 @@ figure.marks-tone,
   --finish-text-d-8: 29%;
   --finish-layer-8: 0.074;
   --finish-layer-ink-8: color-mix(in oklab, var(--chart-cat-1-ink) 52%, var(--bg));
-  --finish-status: 70%;
-  --finish-status-d: 80%;
+  --finish-status: 30%;
+  --finish-status-d: 35%;
   --finish-status-text: 30%;
   --finish-status-text-d: 35%;
   --finish-ramp-lo: 10%;

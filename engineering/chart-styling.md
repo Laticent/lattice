@@ -309,13 +309,16 @@ measurement, and most undo a defect a render or the adversarial review found:
   cell look muddy. On a dark slide the ladder is 92, 78, 66, 56, 47, 40, 34, 29% (`TONE_D`): the light ladder's last
   steps sat within a hair of the navy canvas, so a map's low regions, a tower's small cells and a hub-spoke satellite
   vanished. A text-free ramp (a map) takes a 40% dark floor for the same reason, and a quadrant's dark zones stay at
-  30…15% so its dots stand off them. A status keeps its own hue at 70% (light) and 80% (dark), mixed toward the plain
-  canvas: at the ladder's middle step it turned grey-sage, tan and brown. A journey persona is a small disc, so personas
+  30…15% so its dots stand off them. A status keeps its own hue, mixed toward the plain canvas rather than the tinted
+  base, at ONE level for every status mark (see the next paragraph). A journey persona is a small disc, so personas
   take every other ladder step; four adjacent steps on a disc that size read as one blue. Found by an audit of all 28
   tone charts in both modes on #2908.
   A progress bar is a STATUS chart, like a gantt, a state chart and a roadmap, so under tone it keeps its status fill: a
-  status chart follows the status rule in every finish. It reads stronger than a gantt only because its bar carries no
-  text, so it takes the plain status level where a gantt bar takes the paler text level.
+  status chart follows the status rule in every finish. **Every status mark in a finish takes one level**, text on it or
+  not: etch and tone used to give a text-free status mark (a progress bar) a stronger level than a text-bearing one (a
+  gantt bar), which made progress the loudest chart in its own class. A mark may be stronger than its siblings only for
+  an evidenced reason with no alternative, and "it has no text" is not one: the paler level exists for the text, and a
+  bar without text loses nothing at it.
 - **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,
   with a dash per series (none, dash, dot, dash-dot) and the dots and end label in the same color; a slope's quiet lines
   are a pale step of the one hue and its direction-signal lines keep their status color. No manifest contract change was
