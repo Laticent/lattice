@@ -69,6 +69,19 @@ function install(cfg) {
     return share === null ? true : share <= 1 - m;
   }
 
+  /** Does the slide fit with the universal `compact` modifier, which only tightens the spacing
+   *  scale (shared.styles.css)? The elastic arm's question: a slide that just misses closes its
+   *  gaps before it splits. No type size changes, by the owner's ruling (font-scale-fit
+   *  Amendment (3)). The class is removed again unless the slide already carried it. */
+  function fitsCompact(s) {
+    if (fitsSplit(s).ok) return true;
+    if (s.classList.contains('compact')) return false;
+    s.classList.add('compact');
+    const ok = fitsSplit(s).ok;
+    s.classList.remove('compact');
+    return ok;
+  }
+
   /** The slide sections, as the export enumerates them. */
   const sections = () => deckSlideSections(document);
   /** Broken markup (an unclosed tag) can reparent slides inside one another; the export then sees
@@ -270,7 +283,7 @@ function install(cfg) {
     return done(made, 'cut');
   }
 
-  window.__fit = { fits, fitsWithMargin, contentShare, leaves, fill, page, build, sections, census };
+  window.__fit = { fits, fitsWithMargin, fitsCompact, contentShare, leaves, fill, page, build, sections, census };
 }
 
 module.exports = { PAGE_SRC: `(${install.toString()})` };

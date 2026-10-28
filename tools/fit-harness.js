@@ -60,8 +60,9 @@ const MARGINS = [0.1, 0.2, 0.3];
 // --rescore: reuse the renders already in <out>/html (same sources, sizes and venues) and only
 // score again, for a change that touches scoring and not rendering.
 const RESCORE = argv.includes('--rescore');
-// --resume: keep the renders already in <out>/html and render only the missing ones, so a run the
-// sandbox killed picks up where it stopped. Delete any half-written render first.
+// --resume: keep the renders already in <out>/html and render only the missing ones, and keep the
+// decks already scored in <out>/rows, so a run the sandbox killed picks up where it stopped. Delete
+// any half-written render first. Without --resume the scored rows start over.
 const RESUME = argv.includes('--resume');
 // --rearm: read <out>/results.json, drop its computed arms and compute them again, then write a
 // new report. Seconds instead of a re-score, for a change to the computed arms only. Pass the
@@ -196,7 +197,20 @@ async function main() {
   };
   const rows = [];
   const keys = [...new Set(jobs.map((j) => j.key))];
+  // Each deck's scored rows are saved as it finishes, so --resume skips the decks a killed run
+  // already scored. A run without --resume starts the cache over: its scoring may differ.
+  const rowsDir = path.join(OUT, 'rows');
+  if (!RESUME) fs.rmSync(rowsDir, { recursive: true, force: true });
+  fs.mkdirSync(rowsDir, { recursive: true });
+  const allRows = rows;
   await pool(keys, Math.max(1, Math.min(JOBS, 4)), async (key) => {
+    const cache = path.join(rowsDir, `${key}.json`);
+    if (RESUME && fs.existsSync(cache)) {
+      allRows.push(...JSON.parse(fs.readFileSync(cache, 'utf8')));
+      process.stdout.write('.');
+      return;
+    }
+    const rows = [];
     const [id, size, venue] = key.split('@');
     const { src, map, counts } = decks[id];
     const A = path.join(OUT, 'html', `${key}-A.html`);
@@ -212,6 +226,8 @@ async function main() {
       leaves: window.__fit.sections().map((s) => window.__fit.leaves(s)),
       // Per section: does it fit with each margin of spare room (for the margin and hysteresis arms)?
       margin: window.__fit.sections().map((s) => Object.fromEntries(margins.map((m) => [m, window.__fit.fitsWithMargin(s, m)]))),
+      // Per section: does it fit whole once `compact` tightens its spacing (the elastic arms)?
+      compact: window.__fit.sections().map((s) => window.__fit.fitsCompact(s)),
     }), MARGINS);
     await pw.close();
     if (!wInfo.check.ok || wInfo.leaves.length !== owner.length) {
@@ -266,6 +282,8 @@ async function main() {
     // A batch slide fits with a margin when every one of its sections does.
     const margin = map.map(() => Object.fromEntries(MARGINS.map((m) => [m, true])));
     wInfo.margin.forEach((mm, w) => { for (const m of MARGINS) if (!mm[m]) margin[owner[w]][m] = false; });
+    const compact = map.map(() => true);
+    wInfo.compact.forEach((ok, w) => { if (!ok) compact[owner[w]] = false; });
     const source = map.map(() => []);
     wInfo.leaves.forEach((l, w) => { source[owner[w]].push(...l); });
     map.forEach((meta, i) => {
@@ -274,10 +292,12 @@ async function main() {
         if (!r.pages.length) { problems.push(`no pages: ${key} ${arm} slide ${meta.slide} ${meta.variant}`); continue; }
         const where = {};
         for (const l of source[i]) if (!(l in where)) where[l] = r.pages.findIndex((pg) => pg.leaves.includes(l));
-        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i],
+        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i], compact: compact[i],
           pages: r.pages.map((pg) => ({ fits: pg.fits, px: pg.px, cut: pg.cut, fill: pg.fill })), where });
       }
     });
+    fs.writeFileSync(cache, JSON.stringify(rows));
+    allRows.push(...rows);
     process.stdout.write('.');
   });
   await browser.close();
@@ -340,6 +360,24 @@ function addComputedArms(rows) {
       pick(g, whole, `hysteresis-${enter * 100}-${exit * 100}`);
     }
   };
+  // Elastic (stateless): whole when it fits; whole with `compact` spacing when that fits; today's
+  // split otherwise. elastic-hyst-20-30: the same first decision behind a 20% entry margin, then
+  // memory as hysteresis-20-30, where "fits" also counts a compact fit. A compact page is one
+  // whole page, so it keeps every leaf.
+  const compactWhole = (g) => ({ ...g, how: 'fits', pages: [{ fits: true, px: 0, cut: null, fill: null }], lost: 0, where: Object.fromEntries(Object.keys(g.where).map((l) => [l, 0])) });
+  const elasticFits = (g) => g.how === 'fits' || g.compact === true;
+  const elastic = (g, whole, arm) => {
+    if (!whole) return pick(g, false, arm);
+    rows.push({ ...(g.how === 'fits' ? g : compactWhole(g)), arm, ms: g.how === 'fits' ? g.ms : null });
+  };
+  for (const g of greedy) if (g.compact !== undefined) elastic(g, elasticFits(g), 'elastic');
+  for (const g of greedy) {
+    if (g.compact === undefined) continue;
+    const o = greedyOrig.get(`${g.src}#${g.slide}#${g.size}#${g.venue}`);
+    const first = (x) => (x.how === 'fits' && x.margin[0.2]) || (x.how !== 'fits' && x.compact === true);
+    const whole = g.variant === 'orig' || !o ? first(g) : first(o) ? elasticFits(g) : g.how === 'fits' && g.margin[0.3];
+    elastic(g, whole, 'elastic-hyst-20-30');
+  }
   hyst(0, 0.2);
   hyst(0.1, 0.2);
   hyst(0.2, 0.3);
@@ -432,7 +470,7 @@ function summarize(rows, run) {
     lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
-  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. `elastic`: whole when it fits, whole with the `compact` spacing when that fits, today\'s split otherwise (stateless; no type size changes). `elastic-hyst-20-30`: the elastic fit behind hysteresis-20-30\'s memory. The packed arms appear only at boxes that split (not 16:9).');
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;
 }
