@@ -207,6 +207,60 @@ describe('a set with many ranges above ASCII is searched, not chained', () => {
   });
 });
 
+describe('a run over the complement of 1-3 characters is finished natively (G6)', () => {
+  // The run asks indexOf for each stop (an empty run skips that); the answers are cached
+  // across runs and reset by parse(). Every shape must read the same as compile().
+  const stopsOf = (stops: string) => ({ t: 'set', cs: complement(fromRanges([...stops].map((ch) => [ch.charCodeAt(0), ch.charCodeAt(0)] as [number, number]))) }) as const;
+  const mk = (stops: string, min: boolean): GrammarSpec => ({ start: 's', rules: { s: seq(min ? many1(stopsOf(stops)) : many(stopsOf(stops)), many(oneOf(stops))) } });
+  const inputs = (stops: string) => {
+    const out = ['', stops[0], 'a', 'a'.repeat(15), 'a'.repeat(16), 'a'.repeat(17), 'a'.repeat(40), `${'a'.repeat(40)}${stops[0]}`, `${'a'.repeat(40)}${stops[stops.length - 1]}tail`, `${'a'.repeat(16)}${stops[0]}${'b'.repeat(30)}${stops[stops.length - 1]}`];
+    for (const ch of stops) out.push(`${'z'.repeat(17)}${ch}${'z'.repeat(17)}${ch}`);
+    return out;
+  };
+  for (const stops of ['\n', '\n|', '\n|>', '|\n>']) {
+    for (const min of [false, true]) {
+      it(`${stops.length} stop(s), ${min ? 'min 1' : 'min 0'}: same tree as compile()`, () => {
+        const spec = mk(stops, min);
+        expect(generate(spec)).toContain('nx_');
+        const g = load(spec);
+        const c = compile(spec);
+        for (const s of inputs(stops)) expect(g(s), JSON.stringify(s)).toEqual(c.parse(s));
+      });
+    }
+  }
+  it('four stops keep the regular expression', () => {
+    const src = generate(mk('\n|>,', false));
+    expect(src).not.toContain('nx_');
+    expect(src).toContain('lastIndex');
+  });
+  it('the cache is reset between parses: a stop that moved is found', () => {
+    const spec = mk('\n|', false);
+    const g = load(spec);
+    const c = compile(spec);
+    const a = `${'a'.repeat(50)}|rest`;
+    const b = `${'a'.repeat(50)}`; // same prefix, no stop
+    const d = `${'a'.repeat(20)}\n${'a'.repeat(40)}|`;
+    for (const s of [a, b, a, d, b, d, '', a]) expect(g(s), JSON.stringify(s)).toEqual(c.parse(s));
+  });
+  it('inside an attempt window the run stops at the window end', () => {
+    const spec: GrammarSpec = { start: 'r', rules: { r: many(alt(attempt(seq('<', many(stopsOf('>')), '>'), { max: 40, next: ' ' }), ' ', stopsOf(' <'))) } };
+    const g = load(spec);
+    const c = compile(spec);
+    const edge = Array.from({ length: 12 }, (_, k) => `<${'a'.repeat(34 + k)}> x`); // the stop falls just inside, on and just past the window end
+    for (const s of [`<${'a'.repeat(30)}> x`, `<${'a'.repeat(60)}> x`, `<${'a'.repeat(39)}>`, `<${'a'.repeat(100)}`, '< >', ...edge]) expect(g(s), JSON.stringify(s)).toEqual(c.parse(s));
+  });
+  it('reads 400k characters of many short runs and a few long ones in linear time', () => {
+    const spec: GrammarSpec = { start: 'r', rules: { r: many(seq(many(stopsOf('\n')), '\n')) } };
+    const g = load(spec);
+    const input = `${'abc\n'.repeat(50000)}${`${'q'.repeat(100000)}\n`}${'x\n'.repeat(20000)}`;
+    g(input);
+    let best = Infinity;
+    for (let k = 0; k < 3; k++) { const t0 = performance.now(); g(input); best = Math.min(best, performance.now() - t0); }
+    expect(g(input).ok).toBe(true);
+    expect(best).toBeLessThan(500);
+  });
+});
+
 describe('generate(), from the adversarial review', () => {
   it('refuses a rule named __proto__, which an object literal would read as the prototype', () => {
     expect(() => generate({ start: '__proto__', rules: { ['__proto__']: seq('a') } })).toThrow(/must be an identifier/);
