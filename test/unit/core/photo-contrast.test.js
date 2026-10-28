@@ -107,3 +107,45 @@ test('a card ink that does not clear the floor is not offered either', async () 
   const v = judge({ photo: mid, ink: [140, 140, 140], pins: { 'ink-light': { ink: [160, 160, 160] }, 'ink-dark': { ink: [100, 100, 100] } } });
   assert.equal(v.fix, null);
 });
+
+// A statement's scrim, the default one in image.styles.css: two layers, densest at 0.86 and 0.72.
+const SCRIM = [
+  [[8, 14, 24, 0.86], [8, 14, 24, 0.5], [8, 14, 24, 0]],
+  [[8, 14, 24, 0.72], [8, 14, 24, 0]],
+];
+
+test('strongestScrim stacks every layer at its densest stop', async () => {
+  const { strongestScrim } = await load();
+  const s = strongestScrim(SCRIM);
+  assert.deepEqual(s.slice(0, 3).map(Math.round), [8, 14, 24]);
+  // 1 - (1 - 0.86)(1 - 0.72)
+  assert.ok(Math.abs(s[3] - 0.9608) < 1e-9);
+});
+
+test('strongestScrim is null when the scrim paints nothing (card-clear)', async () => {
+  const { strongestScrim } = await load();
+  assert.equal(strongestScrim(SCRIM.map((l) => l.map((c) => [...c.slice(0, 3), 0]))), null);
+  assert.equal(strongestScrim([]), null);
+});
+
+test('strongestScrim composites two colors the way the browser stacks them', async () => {
+  const { strongestScrim, over } = await load();
+  // A red layer listed first (painted on top) over a blue one: over a white photo the stack and the single layer agree.
+  const s = strongestScrim([[[255, 0, 0, 0.5]], [[0, 0, 255, 0.5]]]);
+  const stacked = over([255, 0, 0, 0.5], over([0, 0, 255, 0.5], WHITE));
+  for (const [i, v] of over(s, WHITE).entries()) assert.ok(Math.abs(v - stacked[i]) < 1e-9);
+});
+
+test('white on a bright photo under the default scrim reads; with the scrim cleared it fails', async () => {
+  const { judge, strongestScrim } = await load();
+  assert.equal(judge({ photo: BRIGHT_PHOTO, card: strongestScrim(SCRIM), ink: WHITE }).low, false);
+  const clear = judge({ photo: BRIGHT_PHOTO, card: null, ink: WHITE, pins: { 'ink-dark': { card: null, ink: [14, 18, 26] } } });
+  assert.equal(clear.low, true);
+  assert.equal(clear.fix, 'ink-dark');
+});
+
+test('describe says "at most" for a ratio judged against the strongest scrim', async () => {
+  const { describe } = await load();
+  assert.match(describe({ ratio: 2.4, floor: 4.5, fix: null, fixRatio: null, atMost: true }), /reads at most 2\.4:1/);
+  assert.match(describe({ ratio: 2.4, floor: 4.5, fix: null, fixRatio: null }), /reads at 2\.4:1/);
+});

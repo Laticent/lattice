@@ -37,13 +37,14 @@ reads on this photo.
 
 ## Scope and what it does not do
 
-- Spotlight compositions only. `clean`, `split` and `gallery` put the text beside the photo, and a statement's ink is fixed white on a scrim.
+- Spotlight and statement compositions only. `clean`, `split` and `gallery` put the text beside the photo. A statement is
+  judged against its scrim at its strongest (2026-10-28 section below).
 - Text over a photo outside the `image` component does not exist in Lattice: `![bg]` photos are painted by the `image`
   layout's own `.lattice-bg` panel.
 - Mean color, not a per-pixel worst case. A busy photo can pass the mean and still lose a word. The 24 by 24 sample is
   the existing card sampler's, kept so the two features agree.
 - Large text is not given 3:1, the stance `check-slide-contrast.js` already takes.
-- **A statement is not measured.** Its backing is the `.image-scrim` gradient (up to 0.86 alpha dark, two layers), not a fill on the text box, and the reader does not model it. The first cut read a statement as "no backing" and, over a bright photo, reported 1.2:1 for text that reads fine on the real scrim; an independent check found it and a probe reproduced it. Measuring a statement with the scrim off (`card-clear`) would need the gradient modelled.
+- **A statement was not measured at first** (measured since 2026-10-28, below). Its backing is the `.image-scrim` gradient (up to 0.86 alpha dark, two layers), not a fill on the text box, and the reader does not model it. The first cut read a statement as "no backing" and, over a bright photo, reported 1.2:1 for text that reads fine on the real scrim; an independent check found it and a probe reproduced it. Measuring a statement with the scrim off (`card-clear`) would need the gradient modelled.
 
 ## Reuse (HARD RULE #15)
 
@@ -67,7 +68,8 @@ even on the phone's Source tab, so the read works there. It falls back to both b
 
 One checker read the diff cold. Four findings were real and are fixed in this PR, each with a test that fails on the bug:
 
-- **A statement was flagged although its scrim made it read** (above). The e2e puts a statement over a bright photo and expects no finding.
+- **A statement was flagged although its scrim made it read** (above). The e2e puts a statement over a bright photo and expects
+  no finding. It still does, now that statements are measured against the scrim.
 - **The finding went stale** when the theme, mode or front matter changed, because the hook keyed on the slide's own text only. It now re-reads on a `context` (mode, palette, source). The e2e edits the front matter in place and expects the finding to clear.
 - **"Fix all" and the panel disagreed** when the photo finding displaced the sixth lint finding. The photo finding now rides alongside the lint top six instead of competing for a slot.
 - **One failed chunk load emptied the editor's diagnostics**, and a slow photo host could hold a lint pass for 4 s. The tooltip's import is caught and the photo read is capped at 1.2 s, after which both inks are offered. The tooltip also drops lint's "Fix:" prose now that buttons carry the fix.
@@ -226,3 +228,37 @@ The owner ran the tap script on the PR #2932 preview in Safari on an iPhone, in 
 
 So WebKit on the device parses the computed colors and decodes the photo the way the canvas probe expects, which closes the
 iOS follow-up from #2915.
+
+## A statement is measured against its scrim at its strongest (2026-10-28)
+
+A statement's words are fixed white (`--_card-heading-ink`) on the `.image-scrim` gradient. With `card-clear` the scrim's
+alpha is 0 (`--_card-alpha: 0`), so the white sits straight on the photo, and over a bright photo it vanishes. The reader
+skipped statements, so this went unwarned (follow-up from #2915).
+
+The reader cannot know the scrim's alpha under the words without modelling the angle, the `at-*` placement and the band
+variant, all of which move the dense end. So it does not model the point; it bounds it:
+
+- **The verdict uses the scrim at its strongest.** `scrimBacking` in `photo-contrast-read.ts` reads the scrim's computed
+  `background-image`, and `strongestScrim` in `lib/core/photo-contrast.mjs` takes each gradient layer at its densest stop
+  and stacks the layers into one color (for the default scrim, `rgb(8 14 24)` at 0.96 alpha). If the text fails even against
+  that, it fails under the real scrim on the mean photo. A statement whose scrim rescues it is never flagged, which keeps the
+  first cut's false 1.2:1 out. With `card-clear` every stop is transparent, the bound is exact, and the ratio is the real one.
+- **A partial scrim reads "at most".** For `card-o5` to `card-sheer` the ratio is a ceiling, and the message says so ("reads
+  at most 2.4:1"). `describe` takes an `atMost` flag for it.
+- **A fix is judged with the scrim off.** The scrim may be thin where the words are, so `readPinned` drops it for a statement
+  and offers a fix only when it clears with no help. In practice a pin does not move a statement's fixed white ink, so the
+  offer is **Set card ink dark**, which turns the ink near-black and the scrim light together.
+- **What it does not catch.** A statement whose scrim is partly on and whose words still fail at the scrim's thin end is not
+  flagged: the bound gives the scrim its best case. The bound also assumes the scrim backs the ink (dark under light ink,
+  light under `ink-dark`), which the ink classes guarantee by setting `--_scrim-rgb` with the ink. That pairing covers
+  only the heading and paragraph, which take `--_card-heading-ink` / `--_card-body-ink`. A statement's list row keeps the
+  theme's ink, so the reader leaves `li` out for statements; the independent check found that judging a dark row against
+  the strongest dark scrim is a floor, not a ceiling. Whether that row reads at all is
+  `followups.d/2932-p3-statement-list-row-ink.md`.
+
+The unit tests pin `strongestScrim` (the stacked alpha of the default scrim, `null` for `card-clear`, the browser's layer
+order) and the "at most" wording. The e2e puts a `card-clear` statement over the bright photo, expects **Set card ink dark**,
+no pin button and no "at most", clicks it, and expects `card-clear ink-dark` and the finding gone. A second case puts
+`card-o10` (a thin scrim) on the same slide and expects "reads at most" and the dark ink. It runs at 1440 and 390 in
+Chromium and in WebKit's tablet and phone projects. The existing "statement over a bright photo is not flagged" case still
+passes.

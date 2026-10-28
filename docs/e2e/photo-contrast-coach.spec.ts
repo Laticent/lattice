@@ -135,8 +135,8 @@ test('a thin card on a slide that is not on screen still gets the one ink, read 
 	await expect(page.locator('.cm-diagnosticAction', { hasText: 'Add ink-dark' })).toHaveCount(0);
 });
 
-// A statement's backing is a scrim gradient the reader does not model, so a statement is never flagged: white ink on the
-// default scrim reads over a bright photo, and reading it as "no backing" would report about 1:1.
+// A statement's backing is a scrim gradient, judged at its strongest: white ink on the default scrim reads over a bright
+// photo, so it is not flagged (reading it as "no backing" would report about 1:1).
 test('a statement slide over a bright photo is not flagged', async ({ page }) => {
 	await page.setViewportSize({ width: 1440, height: 900 });
 	await gotoStudio(page);
@@ -148,6 +148,42 @@ test('a statement slide over a bright photo is not flagged', async ({ page }) =>
 	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('image spotlight card-clear', 'image statement'));
 	await readSettled(page, 'image statement');
 	await expect(warning).toHaveCount(0);
+});
+
+// With `card-clear` the scrim paints nothing, so the statement's fixed white ink sits straight on the bright photo. No slide
+// pin changes that ink, so the finding offers the dark card ink, which flips the ink and the scrim together.
+for (const width of [1440, 390]) {
+	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
+	test(`a statement with its scrim cleared over a bright photo is flagged, and the dark ink fixes it (${width}px)${engines}`, async ({ page }, info) => {
+		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+		await gotoStudio(page);
+		await typeDeck(page, BRIGHT_PHOTO_DECK.replace('image spotlight card-clear', 'image statement card-clear'));
+		await openCoach(page);
+		const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
+		await expect(warning).toContainText('setting the card ink dark', { timeout: 20_000 });
+		// No scrim is painted, so the ratio is exact, not a ceiling.
+		await expect(warning).not.toContainText('reads at most');
+		await expect(page.getByRole('button', { name: /Pin this slide/ })).toHaveCount(0);
+		await warning.scrollIntoViewIfNeeded();
+		await page.screenshot({ path: info.outputPath(`statement-flagged-${width}.png`) });
+
+		await page.getByRole('button', { name: 'Set card ink dark' }).filter({ visible: true }).first().click();
+		await expect.poll(() => persistedSource(page)).toMatch(/_class: image statement card-clear ink-dark/);
+		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
+		await page.screenshot({ path: info.outputPath(`statement-fixed-${width}.png`) });
+	});
+}
+
+// A thin scrim (`card-o10`) still paints, so the ratio is judged against the scrim at its strongest: a ceiling, and the
+// message says "at most". White on this bright photo fails even there, so the slide is flagged.
+test('a statement under a thin scrim is flagged with an "at most" ratio', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await gotoStudio(page);
+	await typeDeck(page, BRIGHT_PHOTO_DECK.replace('image spotlight card-clear', 'image statement card-o10'));
+	await openCoach(page);
+	const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
+	await expect(warning).toContainText('reads at most', { timeout: 20_000 });
+	await expect(warning).toContainText('setting the card ink dark');
 });
 
 // The verdict depends on more than the slide's own text: a deck-level register changes what the preview paints, and the
