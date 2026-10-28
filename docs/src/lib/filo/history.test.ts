@@ -417,3 +417,35 @@ describe('regressions from the independent check of #2930', () => {
 		void b;
 	});
 });
+
+describe('steps() — what a history panel shows', () => {
+	it('lists done steps oldest first, then the redo branch in replay order', () => {
+		let t = 0;
+		const h = new History('d', '', { now: () => (t += 1000) });
+		h.commit({ base: h.head, next: 'a', label: 'One', origin: 'editor' });
+		h.commit({ base: h.head, next: 'ab', label: 'Two', origin: 'settings' });
+		h.commit({ base: h.head, next: 'abc', label: 'Three', origin: 'ai' });
+		expect(h.steps().map((s) => [s.label, s.done])).toEqual([['One', true], ['Two', true], ['Three', true]]);
+		h.undo();
+		h.undo();
+		// The next redo replays "Two", then "Three".
+		expect(h.steps().map((s) => [s.label, s.origin, s.done])).toEqual([['One', 'editor', true], ['Two', 'settings', false], ['Three', 'ai', false]]);
+		h.redo();
+		expect(h.steps().map((s) => s.done)).toEqual([true, true, false]);
+		// Typing after an undo drops the redo branch from the list.
+		h.commit({ base: h.head, next: 'abX', label: 'Four', origin: 'editor' });
+		expect(h.steps().map((s) => s.label)).toEqual(['One', 'Two', 'Four']);
+	});
+
+	it('shows a coalesced run as one step, with the size the byte cap counts', () => {
+		const h = new History('d', '', { now: () => 0 });
+		let text = '';
+		for (const ch of 'hello') {
+			h.commit({ base: h.head, edits: [{ from: text.length, to: text.length, insert: ch }], label: 'Typing', origin: 'editor' });
+			text += ch;
+		}
+		const steps = h.steps();
+		expect(steps).toHaveLength(1);
+		expect(steps[0].size).toBe(h.size);
+	});
+});

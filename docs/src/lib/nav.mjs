@@ -103,6 +103,7 @@ export function librariesNav(url) {
 		lib(url, 'Mosaico', '@laticent/mosaico', 'Pictures of any shape, packed exactly'),
 		lib(url, 'Veduta', '@laticent/veduta', 'Long lists that stay fast, because only what you see exists'),
 		lib(url, 'Fluido', '@laticent/fluido', 'Content that fits any box, and breaks only where it may'),
+		lib(url, 'Filo', '@laticent/filo', 'One undo history for every way a document changes'),
 	];
 }
 
