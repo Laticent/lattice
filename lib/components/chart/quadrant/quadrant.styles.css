@@ -296,13 +296,6 @@ section.form.quadrant:not(.claim-hero):not(.claim-bleed):where(:not(.radar)) .qu
   font-size: 8.5px;
   font-weight: 700;
 }
-/* Under `pigment` a bubble is its DEEP category fill (the chart finish), so a value printed inside it takes the one
- * ink of every chart mark, as a bar's label does; heading ink there was dark on a deep fill on the light face. A value
- * printed above a small bubble sits on the canvas and keeps the heading ink, and `etch` / `tone` keep it too: their
- * bubble is a pale wash. */
-:is(section, figure).marks-pigment .quadrant-bubble-value[data-pos="inside"] {
-  fill: var(--chart-on-mark);
-}
 :is(section.quadrant:where(:not(.radar)), figure.chart-frame) .quadrant-bubble-label {
   fill: var(--quadrant-label-ink);
   font-family: var(--font-body);

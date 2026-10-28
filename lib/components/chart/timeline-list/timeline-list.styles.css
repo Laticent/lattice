@@ -101,7 +101,7 @@ figure.timeline-list.chart-frame .chart-body {
   aspect-ratio: 1;
   box-sizing: border-box;
   border-radius: 50%;
-  background: var(--bg);             /* hollow — center matches the slide */
+  background: var(--timeline-dot-fill, var(--bg));   /* hollow — center matches the slide; a finish may fill it */
   border: 3px solid var(--timeline-dot-ink);
   box-shadow: 0 0 0 4px var(--bg);
 }

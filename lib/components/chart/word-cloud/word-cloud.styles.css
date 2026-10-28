@@ -205,15 +205,17 @@
  * (full saturation) so word colors read as vivid analytical palette, not
  * celebration confetti. The transform bakes --wc-color:var(--catN-ink) inline,
  * so we must re-define the upstream tokens here to affect those resolved values.
+ * The raw hue is the 3:1 GRAPHICAL tier, and a word is text: it measured 3.1 to 3.9:1 on the dark canvas, under AA. A quarter of the
+ * heading ink in the mix lifts the worst word to 5.46:1 across the 32 themes (85% hue gave 4.37:1) and keeps the hue.
  * Muted words (--text-muted) and accent words (--accent) need no override —
  * those tokens already have good dark-mode dark values. */
 section.dark.word-cloud {
-  --chart-cat-1-ink: var(--chart-cat-1-hue);
-  --chart-cat-2-ink: var(--chart-cat-2-hue);
-  --chart-cat-3-ink: var(--chart-cat-3-hue);
-  --chart-cat-4-ink: var(--chart-cat-4-hue);
-  --chart-cat-5-ink: var(--chart-cat-5-hue);
-  --chart-cat-6-ink: var(--chart-cat-6-hue);
-  --chart-cat-7-ink: var(--chart-cat-7-hue);
+  --chart-cat-1-ink: color-mix(in oklab, var(--chart-cat-1-hue) 75%, var(--text-heading));
+  --chart-cat-2-ink: color-mix(in oklab, var(--chart-cat-2-hue) 75%, var(--text-heading));
+  --chart-cat-3-ink: color-mix(in oklab, var(--chart-cat-3-hue) 75%, var(--text-heading));
+  --chart-cat-4-ink: color-mix(in oklab, var(--chart-cat-4-hue) 75%, var(--text-heading));
+  --chart-cat-5-ink: color-mix(in oklab, var(--chart-cat-5-hue) 75%, var(--text-heading));
+  --chart-cat-6-ink: color-mix(in oklab, var(--chart-cat-6-hue) 75%, var(--text-heading));
+  --chart-cat-7-ink: color-mix(in oklab, var(--chart-cat-7-hue) 75%, var(--text-heading));
 }
 
