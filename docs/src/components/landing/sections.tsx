@@ -150,7 +150,7 @@ export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
 				</figure>
 				<figure className="m-0">
 					<figcaption className="mb-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-primary">
-						After · one slide
+						After · six lines, one slide
 					</figcaption>
 					{/* Live-preview host — filled by FieldCardsLive (data-live-card). */}
 					<div
@@ -159,8 +159,15 @@ export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
 						style={slideFrameStyle('tile')}
 						data-live-card="say-more"
 					/>
+					{/* Says who did the writing. Without it the pair reads "Lattice converted
+					    my memo", the AI-generator promise the page positions against (July
+					    copy note §3) — the red-team round on this change caught it. */}
+					<p className="m-0 mt-3 text-[13.5px] leading-[1.5] text-muted-foreground">
+						You write the same facts as six short lines, one per bar, and name the layout. The chart is the layout’s
+						job.
+					</p>
 					<a
-						className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
+						className="mt-2 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
 						href={playgroundHref}
 						data-open-deck="say-more"
 					>
@@ -202,7 +209,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'briefing',
 		room: 'The briefing',
 		who: 'Government and the public sector',
-		body: 'A policy recommendation with its sources, a regulatory update, a risk matrix. It runs offline with no account and no telemetry, and every layout meets WCAG AA contrast.',
+		body: 'A policy recommendation with its evidence cited, a regulatory update, a risk matrix. The engine runs offline on your own machine, with no account and no telemetry, and every layout meets WCAG AA contrast.',
 	},
 	{
 		live: 'lecture',
@@ -214,7 +221,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'mission',
 		room: 'The mission',
 		who: 'Nonprofits and foundations',
-		body: 'Impact numbers, a map of where you work, the people who do the work. It’s free, so the donor report looks professional without a design budget.',
+		body: 'Impact numbers, a map of the countries or states you serve, the people who do the work. It’s free, so the donor report looks professional without a design budget.',
 	},
 	{
 		live: 'review',
@@ -231,7 +238,7 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 					...c,
 					body: (
 						<>
-							Gantt charts, all 25 Mermaid diagram types, code diffs, statute stacks, and radar charts, in the notation
+							Gantt charts, every Mermaid diagram type, code diffs, statute stacks, and radar charts, in the notation
 							each field expects. {layoutCount} layouts in all, one Markdown syntax.
 						</>
 					),

@@ -2,8 +2,8 @@
 // before/after slide and one slide per audience room. Each is authored for its
 // room rather than lifted from a manifest `sample`, because a manifest sample
 // describes its own layout ("The grid scores options against shared criteria")
-// and a room card has to read as that room's real work. The briefing borrows
-// the policy-recommendation sample, which is already a real bill.
+// and a room card has to read as that room's real work. Every figure on these
+// slides is illustrative and every source chip names the author's own records.
 //
 // Every slide follows its component's `.docs.md` contract (HARD RULE #6) and is
 // keyed by the `data-live-card` name the host carries in sections.tsx.
@@ -26,7 +26,7 @@ export const SAY_MORE_SLIDE = `<!-- _class: waterfall -->
 - This year \`$14.6M\`
 `;
 
-export const ROOM_SLIDES: Record<string, string | { manifest: string }> = {
+export const ROOM_SLIDES: Record<string, string> = {
 	boardroom: `<!-- _class: decision -->
 
 \`Board decision · Q3\`
@@ -51,7 +51,23 @@ export const ROOM_SLIDES: Record<string, string | { manifest: string }> = {
 - Proposals \`860\`
 - Closed \`310\`
 `,
-	briefing: { manifest: 'policy-recommendation' },
+	// Every source chip names the deck author's own records, never a real agency:
+	// a home page that attacks AI tools for invented citations cannot show one.
+	briefing: `<!-- _class: policy-recommendation adopt -->
+
+\`Ordinance 26-14 · Fare-free crosstown buses\`
+
+## Make the crosstown buses fare-free for a one-year pilot.
+
+- Fares barely cover collecting them
+  - $1.1M in fares; $0.9M to collect \`{Transit audit}\`.
+- The riders who need it most
+  - 61% earn under the area median \`{Rider survey}\`.
+- A clear exit
+  - Council reviews after twelve months \`{Draft § 4}\`.
+
+> Vote yes on Ordinance 26-14 on May 12.
+`,
 	lecture: `<!-- _class: math -->
 
 \`Week 6 · Linear regression\`

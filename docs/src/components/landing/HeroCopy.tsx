@@ -11,8 +11,9 @@ import { Eyebrow } from './sections';
 // itself" is the AI-generator promise) — deterministic design is the claim.
 // See engineering/decisions/2026-07-02-website-copy-positioning.md §3, §5.1.
 // The lead names the ROOMS a deck is for and the reader's outcome (understood
-// at a glance) instead of the mechanism; the Markdown + layout-name mechanism
-// moved to "How it works", and the eyebrow still says "a text file in".
+// at a glance). It keeps the WRITER as the one who writes each slide and names
+// its layout: "write what you mean and Lattice turns it into slides" was the
+// auto-generation echo §7.1 bans, caught by the red-team round on this change.
 // See engineering/decisions/2026-10-28-home-positioning-audit.md §8 (option B).
 //
 // The fold offers exactly TWO doors — browser and machine — and names the job
@@ -37,9 +38,9 @@ export function HeroCopy({
 				Write the <span className="italic text-primary">words</span>. The deck is already designed.
 			</h1>
 			<p className="m-0 mb-[30px] max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
-				For the boardroom, the pitch, the briefing, and the lecture hall. Write what you mean in plain text, and
-				Lattice turns it into slides your audience gets at a glance: one idea per slide, one design on every page, and
-				nothing to drag into place.
+				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of plain
+				text and name the layout that fits it. Lattice sets every page so your audience gets the point at a glance:
+				one design throughout, nothing to drag into place.
 			</p>
 			<div className="flex flex-wrap items-center gap-3">
 				<Button asChild size="lg">

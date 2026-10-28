@@ -104,17 +104,13 @@ const needsDrawn = (s) => sourceHasDrawnFence(s || '');
 
 // The "say more" before/after slide and the six audience-room cards each render a
 // REAL slide live (no static image) through the same engine runtime the hero +
-// carousel use. The sources live in room-decks.ts; a `{ manifest }` entry borrows
-// that component's own sample.
-const cardData = { 'say-more': { sample: SAY_MORE_SLIDE, drawn: needsDrawn(SAY_MORE_SLIDE) } };
-for (const [key, src] of Object.entries(ROOM_SLIDES)) {
-	const s = typeof src === 'string' ? src : (() => {
-		const m = manifests.find((x) => x.name === src.manifest);
-		if (!m) throw new Error(`room card "${key}": no component named ${src.manifest}`);
-		return m.sample || m.skeleton;
-	})();
-	cardData[key] = { sample: s, drawn: needsDrawn(s) };
-}
+// carousel use. The sources live in room-decks.ts.
+const cardData = Object.fromEntries(
+	[['say-more', SAY_MORE_SLIDE], ...Object.entries(ROOM_SLIDES)].map(([key, sample]) => [
+		key,
+		{ sample, drawn: needsDrawn(sample) },
+	]),
+);
 
 // Shared engine endpoints handed to every live island. `engineUrl` is the
 // ~554KB-gz render bundle: it is no longer loaded eagerly in <head> — each
