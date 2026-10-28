@@ -142,45 +142,45 @@
 			}
 		},
 		{
-			"key": "aa85f5a80e50",
-			"text": "Click Add slide.",
-			"file": "aa85f5a80e50.mp3",
+			"key": "de9c7d8e7ad6",
+			"text": "Click New slide.",
+			"file": "de9c7d8e7ad6.mp3",
 			"bytes": 9504,
-			"speechMs": 1519,
+			"speechMs": 1522,
 			"leadMs": 46,
 			"track": {
 				"cues": [
 					{
-						"display": "Click Add slide.",
+						"display": "Click New slide.",
 						"words": [
 							{
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 302,
+								"endMs": 303,
 								"charOffset": 0
 							},
 							{
-								"display": "Add",
-								"spoken": "Add",
-								"startMs": 302,
-								"endMs": 605,
+								"display": "New",
+								"spoken": "New",
+								"startMs": 303,
+								"endMs": 606,
 								"charOffset": 6
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 605,
-								"endMs": 951,
+								"startMs": 606,
+								"endMs": 953,
 								"charOffset": 10
 							}
 						],
 						"startMs": 0,
-						"endMs": 1519,
+						"endMs": 1522,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1519
+				"durationMs": 1522
 			}
 		},
 		{

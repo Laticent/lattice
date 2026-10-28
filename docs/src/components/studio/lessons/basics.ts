@@ -5,7 +5,7 @@
 // and ends by naming the search words that bring it back. Kit and rules: ./lesson-kit.ts. Every line
 // a lesson says lives in ./lines.ts, because each one has a recorded clip.
 
-import { type LessonBuild, SEL, settle, tell, visible, yourTurn } from './lesson-kit';
+import { chooseAfter, type LessonBuild, SEL, settle, tell, visible, yourTurn } from './lesson-kit';
 import { LESSON_LINES } from './lines';
 
 /** The slide "Write a slide" adds when it does the step for the user. */
@@ -69,6 +69,7 @@ const addSlide: LessonBuild = () => async (ctx) => {
 		missing: A.missing,
 	});
 	if (who === 'nobody') return;
+	await chooseAfter(ctx);
 	if (!(await settle(ctx, () => visible(SEL.pickerBlank)() != null))) {
 		await tell(ctx, { say: A.notReady });
 		return;

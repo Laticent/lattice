@@ -37,7 +37,7 @@ import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/del
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
 import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
-import { unitText } from '@/lib/fuoco/outline';
+import { partText, unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
@@ -81,7 +81,7 @@ import { listStudioComponents, type StudioComponent } from './component-library'
 import { activeCorners, CORNERS } from './corners-catalog';
 import { useDeckFileDrop } from './deck-drop';
 import { deckImportAccept } from './deck-import-accept';
-import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SLIDE_SEP } from './deck-ops';
+import { addAfterAt, addBeforeAt, deleteAt, deleteTargetName, duplicateAt, moveAt, replaceSlide, SLIDE_SEP, type SlideAt } from './deck-ops';
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
@@ -113,7 +113,7 @@ import { LENSES, LensPicker, lensEntriesFrom } from './lens-picker';
 import { LESSONS } from './lessons/catalog';
 import { doneLessons, markOffered, wasOffered } from './lessons/progress';
 import { RESERVED_COMPONENT_NAMES, RESERVED_THEME_NAMES } from './library/reserved-names';
-import { type PresentLens, presentationIndices, splitSlides, unknownComponents, usedComponents } from './lint';
+import { type PresentLens, presentationIndices, slideTitle, splitSlides, unknownComponents, usedComponents } from './lint';
 import { followBus, type PresentPlace, rowIdOf, useAppliedKey, useFollowRow, useViewKey } from './live/follow-bus';
 import { FOLLOW_GHOST, FollowChip } from './live/follow-ui';
 import { liveColor } from './live/live-model';
@@ -127,6 +127,7 @@ import { type DiagramError, extractDiagrams } from './mermaid-check';
 import { activeMode, MODES } from './mode-catalog';
 import { activeMotionSpeed, activeMotionStyle, MOTION_SPEED_ENTRIES, MOTION_STYLE_ENTRIES } from './motion-catalog';
 import { readTargets, setSlideMotionOff } from './motion-sheet';
+import { NewSlideButton, type NewSlideSide } from './NewSlideButton';
 import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph, SizeChip, tagGlyph } from './option-glyphs';
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
@@ -1016,6 +1017,31 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [cmdOpen, setCmdOpen] = React.useState(false);
 	const [moreOpen, setMoreOpen] = React.useState(false); // the compact "⋯ More" overflow menu
 	const [insertOpen, setInsertOpen] = React.useState(false);
+	// WHERE the gallery's pick goes, fixed when it opens (2026-10-27-slide-structure-strip.md §5): a focus move while it is
+	// open cannot change it. Null means after the slide in view at the time of the pick (the palette, Compose's divider).
+	const [insertTarget, setInsertTarget] = React.useState<{ side: NewSlideSide; at: SlideAt; name: string } | null>(null);
+	// What a strip action just did, said ON the strip (just above it, where the read hint sits) with its Undo there, not in
+	// a toast: the owner's call, 2026-10-28 ("toast stuff is out of character"). The next action replaces it.
+	const [stripNote, setStripNote] = React.useState<{ text: string; undo: string | null; n: number } | null>(null);
+	const sayOnStrip = (text: string, undo: string | null = null) => setStripNote((p) => ({ text, undo, n: (p?.n ?? 0) + 1 }));
+	// The note's Undo is the one history's newest step only until the deck changes again: any later change, even one that
+	// leaves the text as the op left it (a letter typed and erased), takes the Undo away for good, so it never undoes
+	// something other than the op it names. ⌘Z still walks the history back to it.
+	React.useEffect(() => {
+		setStripNote((p) => (p && p.undo !== null && p.undo !== source ? { ...p, undo: null } : p));
+	}, [source]);
+	React.useEffect(() => {
+		if (!stripNote) return;
+		const t = setTimeout(() => setStripNote(null), 6000);
+		return () => clearTimeout(t);
+	}, [stripNote]);
+	// What the New slide door says for a moment after an add, in the door itself, instead of a toast.
+	const [addedNote, setAddedNote] = React.useState<string | null>(null);
+	React.useEffect(() => {
+		if (!addedNote) return;
+		const t = setTimeout(() => setAddedNote(null), 1800);
+		return () => clearTimeout(t);
+	}, [addedNote]);
 	const [iconsOpen, setIconsOpen] = React.useState(false);
 	// Every surface a StudioDrawer row can launch. The drawer comes back when the LAST of
 	// them closes — see `drawerPendingReturn` above for why this is a set, not a wrapper.
@@ -1471,6 +1497,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	deckIdRef.current = deck.id;
 	// The spend ledger books each charge under the open deck, so the chat can say what THIS deck has cost.
 	React.useEffect(() => setSpendDeck(deck.id), [deck.id]);
+	// The text a strip op just wrote. In a Live session the shared-text write makes it an undo step of its own in the
+	// binding's history, rather than merging it with typing next to it (live-controller `structural`). Cleared as soon as
+	// the deck moves on, so a later write that happens to match it is not taken for an op.
+	const structuralRef = React.useRef<string | null>(null);
 	const completionAssets = React.useCallback(
 		() =>
 			import('./media-urls').then(async (m) => {
@@ -3178,6 +3208,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// insert one tap away). This is the #1058 "one insert door" for the divider control.
 	function openInsertAfter(fullIdx: number) {
 		focusFullSlide(fullIdx);
+		setInsertTarget(null);
 		setInsertOpen(true);
 	}
 
@@ -4140,6 +4171,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const liveSource = practice ? practice.real : source;
 	const live = useLiveSession({
 		source: liveSource,
+		structural: (s: string) => s === structuralRef.current,
 		// Remote edits during a practice run update the shared text kept aside, not the practice deck.
 		setSource: (next: string) => {
 			if (practiceRef.current) setPractice((p) => (p ? { ...p, real: next } : p));
@@ -4947,19 +4979,46 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// slide the op names, ONCE THE HUB HOLDS THE NEW TEXT — so the rail, the preview and BOTH
 	// editors land on it (Compose used to be skipped here), with no frame to wait for.
 	const curIndex = slideNo - 1;
-	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean; label?: string } = {}) {
+	// `label` names the change in the one undo history (Filo); `note` is what the strip then says, with an Undo while the
+	// deck is still exactly what the op left (2026-10-27-slide-structure-strip.md §7). An op without a note (the Library
+	// renaming a photo, an insert the New slide door reports itself) says nothing on the strip.
+	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean; label?: string; note?: string } = {}) {
+		if (r.source !== sourceRef.current) structuralRef.current = r.source;
 		setSource(r.source, { label: o.label ?? 'Slide change', origin: 'rail' });
+		if (o.note) sayOnStrip(o.note, r.source);
 		goToChunk(r.active, { after: r.source, grab: o.grab });
 	}
+	React.useEffect(() => {
+		if (source !== structuralRef.current) structuralRef.current = null;
+	}, [source]);
 	/** The Library rewrote the open deck's text (a photo's decks moved to its new name): same path as any slide edit. */
 	const replaceDeckSource = (next: string) => applyDeckOp({ source: next, active: activeFullIndex }, { label: 'Photo renamed' });
-	// "Add slide" opens the unified add-slide gallery (its Blank tile keeps a quick blank
+	// "New slide" opens the unified add-slide gallery (its Blank tile keeps a quick blank
 	// insert one tap away) — the #1058 "one insert door" — inserting after the current
 	// slide, rather than dropping a bare blank with no component choice.
-	const opAddSlide = () => setInsertOpen(true);
-	const opDuplicate = () => { applyDeckOp(duplicateSlide(source, curIndex), { label: 'Duplicate slide' }); notify('Slide duplicated.'); };
-	const opDelete = () => { if (slides.length <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteSlide(source, curIndex), { label: 'Delete slide' }); notify('Slide deleted.'); };
-	const opMove = (dir: -1 | 1) => applyDeckOp(moveSlide(source, curIndex, curIndex + dir), { label: dir < 0 ? 'Move slide earlier' : 'Move slide later' });
+	const opAddSlide = (side: NewSlideSide) => {
+		setInsertTarget({ side, at: hereAt, name: deleteTargetName(hereTitle(hereAt), 1) });
+		setInsertOpen(true);
+	};
+	// The one add door (2026-10-27-slide-structure-strip.md §5): wherever the author works, never at Read,
+	// whose strip leads with "Edit this slide" instead. Not gated on the catalog: the gallery always has its
+	// Blank tile, so the door never opens onto nothing.
+	const newSlideShown = effectiveStop !== 'read';
+	// What deleting block `i` takes, named for the confirm: its title and how many rendered slides go with it
+	// (2026-10-27-slide-structure-strip.md §12 item 2). `slides` and `deckIndex.units` are both full-deck.
+	const deleteName = (i: number) => deleteTargetName(slideTitle(slides[i] ?? ''), deckIndex.units[i]?.parts.length ?? 1);
+	// THE SLIDE YOU SEE (2026-10-27-slide-structure-strip.md §6): the strip's ops act on one RENDERED slide, a part of
+	// the focused block, in the full deck. A block that headings split is cut at that slide's heading first (deck-ops
+	// `cut`), so Duplicate, Delete and Move take one slide, not the whole block. The part counts only while the focus is
+	// on the block in view; a reader lens can show a block other than the focused one.
+	const hereAt: SlideAt = { unit: activeFullIndex, part: focusChunk === activeFullIndex ? Math.max(0, Math.min(focusSection, (deckIndex.units[activeFullIndex]?.parts.length ?? 1) - 1)) : 0 };
+	const hereTitle = (s: SlideAt) => slideTitle(deckIndex.units[s.unit] ? partText(deckIndex, s.unit, s.part) : '');
+	const renderedSlides = deckIndex.units.reduce((n, u) => n + u.parts.length, 0);
+	const atFirstSlide = hereAt.unit <= 0 && hereAt.part <= 0;
+	const atLastSlide = hereAt.unit >= deckIndex.units.length - 1 && hereAt.part >= (deckIndex.units[hereAt.unit]?.parts.length ?? 1) - 1;
+	const opDuplicate = () => applyDeckOp(duplicateAt(source, hereAt), { label: 'Duplicate slide', note: 'Slide duplicated.' });
+	const opDelete = () => { if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteAt(source, hereAt), { label: 'Delete slide', note: 'Slide deleted.' }); };
+	const opMove = (dir: -1 | 1) => applyDeckOp(moveAt(source, hereAt, dir), { label: dir < 0 ? 'Move slide earlier' : 'Move slide later', note: 'Slide moved.' });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -4995,10 +5054,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [deleteArmed]);
 	// Re-arm fresh for whatever slide is current — never carry an arm across a nav.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: disarm on slide change only.
-	React.useEffect(() => setDeleteArmed(false), [curIndex]);
+	React.useEffect(() => setDeleteArmed(false), [hereAt.unit, hereAt.part]);
+	// One tap deletes, because ⌘Z can always put it back (§7). It asks first only while other people are
+	// in a Live session with you: their view changes too, and an Undo after they have typed may no longer apply.
+	const othersLive = live.view.people.some((p) => !p.me);
 	const onDeleteClick = () => {
-		if (slides.length <= 1) { notify('A deck needs at least one slide.'); return; }
-		if (deleteArmed) { setDeleteArmed(false); opDelete(); }
+		if (renderedSlides <= 1) { notify('A deck needs at least one slide.'); return; }
+		if (deleteArmed || !othersLive) { setDeleteArmed(false); opDelete(); }
 		else setDeleteArmed(true);
 	};
 	// Recently-inserted component names (newest first) — pins a Recent band in the
@@ -5006,21 +5068,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const [recentComponents, setRecentComponents] = React.useState<string[]>([]);
 	// Insert a gallery slide as a new slide after the current one (its authored
 	// skeleton), via the same deck-op the toolbar uses. Uses the FULL-deck index
-	// (`activeFullIndex`), NOT the viewed `curIndex`: `addSlideAfter` splices the full
+	// (`activeFullIndex`), NOT the viewed `curIndex`: `addAfterAt` splices the full
 	// deck array, so under a filtering reader lens the viewed index would land the new
-	// slide after the wrong slide. The empty-deck case is handled by addSlideAfter's
+	// slide after the wrong slide. The empty-deck case is handled by addAfterAt's
 	// clamp; a Blank tile carries the NEW_SLIDE body.
 	const onInsertComponent = (c: ComponentEntry) => {
-		// Take the index from the OP, not from a second derivation of it. `addSlideAfter`
+		// Take the index from the OP, not from a second derivation of it. `addAfterAt`
 		// already returns the clamped `active`, and re-computing `activeFullIndex + 1` here
 		// diverges from it whenever the clamp bites — e.g. under a reader lens that filters
 		// every slide out, where `activeFullIndex` resolves to 0 and this said 1 while the op
 		// said 0, so `revealSlide` silently returned past the end of the doc.
-		const r = addSlideAfter(source, activeFullIndex, c.skeleton);
+		const t = insertTarget ?? { side: 'after' as const, at: hereAt, name: deleteTargetName(hereTitle(hereAt), 1) };
+		const r = (t.side === 'before' ? addBeforeAt : addAfterAt)(source, t.at, c.skeleton);
 		// GO TO THE SLIDE YOU JUST ADDED, caret and keyboard focus included: the next thing an
-		// author types fills in the skeleton they just chose, not the OLD slide.
+		// author types fills in the skeleton they just chose, not the OLD slide. The door says what it did, in the door.
 		applyDeckOp(r, { grab: hasFinePointer(), label: `Insert “${c.label ?? c.name}”` });
-		notify(`Inserted “${c.label ?? c.name}”.`);
+		setInsertTarget(null);
+		setAddedNote(`Added ${t.side} ${t.name}`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 	};
 
@@ -6324,7 +6388,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// Without this, a keyboard / screen-reader user could Tab into an invisible
 			// editable region in the newcomer's first view (M3 Munger a11y finding).
 			inert={!mobile && (effectiveStop === 'read' || split.collapsed === 'a') ? true : undefined}
-			className="flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=a]/split:hidden group-data-[split-dragging]/split:select-none"
+			className="group/editpane relative flex min-h-0 flex-1 flex-col overflow-hidden transition-opacity [container-type:inline-size] group-data-[split-collapsed=a]/split:hidden group-data-[split-dragging]/split:select-none"
 		>
 			{/* The EDIT toolbar band — HIDDEN on mobile (its actions move to the ⋯ menu below), so
 			    the phone rests at two bands, not three. Desktop/tablet keep it.
@@ -6368,21 +6432,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						</DropdownMenuContent>
 					</DropdownMenu>
 				)}
-				{/* "Add slide" — the same name the preview rail's `+` carries, because it is the
-				    same door (#1654). Two controls sharing one accessible name is correct for one
-				    action reachable from two places, but it makes a bare `getByRole('button',
-				    { name: 'Add slide' })` ambiguous: e2e opens the gallery through
-				    `openAddSlide` in docs/e2e/studio-fixture.ts, never by open-coded name.
-				    The VISIBLE label is the bare verb, and that is a fit constraint rather than a
-				    style choice: this row is `flex … gap-2` with no wrap and no shrink guard, and
-				    it has ~0 slack between the container query that reveals the labels (36rem) and
-				    the width at which they all fit. Spelling this one "Add slide" cost ~18px and
-				    wrapped the whole toolbar onto a second line at editor-pane widths 576-591px —
-				    which is where a 1280x900 laptop sits at the default split (measured: the band
-				    grew 46.19px → 61.38px). "Add" is SHORTER than the "Insert" it replaces, so the
-				    row now has more slack than before, and the accessible name still contains the
-				    visible text (WCAG 2.5.3). */}
-				{insertComponents.length > 0 && <Tip label="Add slide"><button type="button" onClick={() => setInsertOpen(true)} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)] hover:bg-[var(--accent-soft)]" aria-label="Add slide"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button></Tip>}
+				{/* "New slide" here only while the preview, and with it the strip's own door, is collapsed out of
+				    sight: one visible door at a time (engineering/decisions/2026-10-27-slide-structure-strip.md §5).
+				    It shares the strip door's accessible name, so e2e opens the gallery through `openAddSlide` in
+				    docs/e2e/studio-fixture.ts, never by open-coded name. Drawn only when the preview is collapsed,
+				    the editor pane has the whole width, so the wider label costs this no-wrap row nothing. */}
+				{newSlideShown && split.collapsed === 'b' && <NewSlideButton variant="header" onChoose={opAddSlide} confirmation={addedNote} />}
 				{/* ALWAYS RENDERED, inert when the slide's component offers no looks. It used to be
 				    gated on `reshapeVariants.length > 0`, which made this toolbar's control set a
 				    function of the ACTIVE SLIDE — the row's shape changed as you arrowed through the
@@ -6410,7 +6465,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
+				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} describeDelete={deleteName} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
@@ -6420,6 +6475,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
+			{/* A phone's edit pane has no toolbar and no strip, so the floating add door sits here too
+			    (2026-10-27-slide-structure-strip.md §5), drawn only while this pane is the one on screen, so a
+			    phone never carries two live doors. It steps aside while an editor holds focus, which on
+			    a phone is when the keyboard is up: CodeMirror marks itself `.cm-focused`, ProseMirror
+			    `.ProseMirror-focused`. */}
+			{newSlideShown && mobile && effPane === 'edit' && <NewSlideButton variant="fab" onChoose={opAddSlide} confirmation={addedNote} className="absolute right-4 bottom-[calc(16px+env(safe-area-inset-bottom,0px))] z-20 group-has-[.cm-focused,.ProseMirror-focused]/editpane:hidden" />}
 		</section>
 	);
 
@@ -6434,10 +6495,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const slideOpsShown = composeLens === 'full' && effectiveStop !== 'read';
 	// The slide actions: ONE group that lays itself out for the height the strip gives it. It reads the
 	// tallest thing BESIDE it (the pills, or the map), not its own row, so it can grow and shrink back
-	// without propping the strip open: one row of five beside the pills, two rows beside the taller map.
-	// The ORDER is the same in both (the owner's call, 2026-10-21): add, duplicate, delete, then the two
-	// moves, so a wrap always leaves the move pair alone on the second row, centered under the first.
-	// The width is set from the row count (`ceil(5 / rows)` buttons), which keeps it honest; a CSS-only
+	// without propping the strip open: one row of four beside the pills, two rows beside the taller map.
+	// The ORDER is the same in both (the owner's call, 2026-10-21): duplicate, delete, then the two moves, so
+	// a wrap always leaves the move pair alone on the second row. Add left this group for the strip's own
+	// "New slide" door (2026-10-27-slide-structure-strip.md §5). The width is set from the row count
+	// (`ceil(4 / rows)` buttons), which keeps it honest; a CSS-only
 	// `auto-fill` grid sizes its width as one row.
 	const slideOpsRef = React.useRef<HTMLDivElement>(null);
 	const [slideOpsRows, setSlideOpsRows] = React.useState(1);
@@ -6450,7 +6512,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			let room = 0;
 			for (const el of strip.children) if (el !== ops) room = Math.max(room, (el as HTMLElement).offsetHeight);
 			// A row is 28px with a 2px gap; the group's own border and padding take 6px.
-			setSlideOpsRows(Math.max(1, Math.min(5, Math.floor((room - 6 + 2) / 30))));
+			setSlideOpsRows(Math.max(1, Math.min(4, Math.floor((room - 6 + 2) / 30))));
 		};
 		read();
 		const ro = new ResizeObserver(read);
@@ -6461,12 +6523,11 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// A wrapping flex row, exactly `cols` buttons wide (28px each, 2px gaps, plus the 2px padding and
 		// 1px border each side), so a short last row CENTERS under the full one: the two moves sit in the
 		// middle, not hard left as a grid would put them. The strip centers the group vertically.
-		<div ref={slideOpsRef} className="flex shrink-0 flex-wrap content-center items-center justify-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" style={{ width: Math.ceil(5 / slideOpsRows) * 30 - 2 + 6 }}>
-			<RailOp label="Add slide" onClick={opAddSlide}><Plus className="size-3.5" /></RailOp>
+		<div ref={slideOpsRef} className="flex shrink-0 flex-wrap content-center items-center justify-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" style={{ width: Math.ceil(4 / slideOpsRows) * 30 - 2 + 6 }}>
 			<RailOp label="Duplicate slide" onClick={opDuplicate}><Copy className="size-3.5" /></RailOp>
-			<RailOp label={deleteArmed ? 'Confirm delete slide' : 'Delete slide'} onClick={onDeleteClick} disabled={slides.length <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
-			<RailOp label="Move slide earlier" onClick={() => opMove(-1)} disabled={curIndex <= 0}><ArrowLeftToLine className="size-3.5" /></RailOp>
-			<RailOp label="Move slide later" onClick={() => opMove(1)} disabled={curIndex >= slides.length - 1}><ArrowRightToLine className="size-3.5" /></RailOp>
+			<RailOp label={deleteArmed ? `Confirm delete ${deleteTargetName(hereTitle(hereAt), 1)}` : 'Delete slide'} onClick={onDeleteClick} disabled={renderedSlides <= 1} danger armed={deleteArmed}>{deleteArmed ? <Check className="size-3.5" /> : <Trash2 className="size-3.5" />}</RailOp>
+			<RailOp label="Move slide earlier" onClick={() => opMove(-1)} disabled={atFirstSlide}><ArrowLeftToLine className="size-3.5" /></RailOp>
+			<RailOp label="Move slide later" onClick={() => opMove(1)} disabled={atLastSlide}><ArrowRightToLine className="size-3.5" /></RailOp>
 		</div>
 	);
 	const previewPane = (
@@ -6645,6 +6706,25 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    cover nothing and sit with the navigation they belong to. Labels drop to
 				    icons on a narrow pane (the section is a size container), and the accessible
 				    name stays whole either way. */}
+				{stripNote && (
+					<div key={stripNote.n} role="status" data-strip-note="" className="absolute bottom-[calc(100%+8px)] left-3 z-20 flex max-w-[calc(100%-10rem)] items-center gap-2 rounded-full border border-border bg-[color-mix(in_srgb,var(--bg-alt)_96%,transparent)] py-1 pr-1 pl-3.5 text-[12.5px] text-[var(--text-heading)] shadow-sm backdrop-blur">
+						<span className={cn('truncate', stripNote.undo === null && 'pr-2.5')}>{stripNote.text}</span>
+						{stripNote.undo !== null && (
+						<button
+							type="button"
+							onClick={() => {
+								// The op is the newest step only while the deck is still what it left; then Undo is the one history's.
+								const left = stripNote.undo;
+								setStripNote(null);
+								if (sourceRef.current === left) runHistoryRef.current('undo');
+							}}
+							className="shrink-0 rounded-full px-2.5 py-0.5 font-semibold text-[var(--accent)] hover:bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] [@media(pointer:coarse)]:py-1.5"
+						>
+							Undo
+						</button>
+						)}
+					</div>
+				)}
 				{effectiveStop === 'read' && (
 					<>
 						{!readHintSeen && (
@@ -6690,6 +6770,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					</Frozen>
 				</div>
 			)}
+				{/* The one add door, floating over the preview's bottom-right corner just above the strip, like Gmail's
+				    Compose: the owner's call, so it stands out at every width (2026-10-27-slide-structure-strip.md §5).
+				    Anchored to this row, so it rides with the strip whatever height the strip takes. */}
+				{newSlideShown && (!mobile || effPane === 'preview') && <NewSlideButton variant="fab" onChoose={opAddSlide} confirmation={addedNote} className="absolute right-4 bottom-[calc(100%+16px)] z-20" />}
 				{/* The map toggle moved to the preview bar; only the Read stop, which has no bar, keeps
 				    it at the strip's end. */}
 				{previewChromeless && (
@@ -7084,7 +7168,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			},
 		},
 		{ id: 'reshape', group: 'actions', label: 'Reshape for a reader', icon: Sparkles, run: () => { revealCraftDock(); setLensesOpen(true); } },
-		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'Add a slide…', icon: Plus, keywords: ['insert', 'new slide', 'layout'], run: () => setInsertOpen(true) } satisfies StudioCommand] : []),
+		...(insertComponents.length > 0 ? [{ id: 'insert', group: 'actions', label: 'New slide…', icon: Plus, keywords: ['add', 'add slide', 'insert', 'layout'], run: () => { setInsertTarget(null); setInsertOpen(true); } } satisfies StudioCommand] : []),
 		{ id: 'insert-icon', group: 'actions', label: 'Insert an icon…', icon: Shapes, keywords: ['icon', 'symbol', 'glyph', 'picture', 'browse'], run: () => setIconsOpen(true) },
 		...(posture === 'craft' ? [{ id: 'focus', group: 'actions', label: 'Focus mode — just editor & preview', icon: Focus, run: () => setQuietened(true) } satisfies StudioCommand] : []),
 		// Coach, Fix all, light/dark and slide settings each had a button and no row: a learner who
@@ -7507,9 +7591,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 						onOpenChange={setMoreOpen}
 						onNavigate={closeDrawerAndOpen}
 						effPane={effPane}
-						insertComponents={insertComponents}
 						issues={issues}
-						onInsert={() => setInsertOpen(true)}
 						onFixAll={() => editorRef.current?.fixAll()}
 						fixableIssues={fixableIssues}
 						onVersionHistory={() => setHistoryOpen(true)}
@@ -7567,7 +7649,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -7756,7 +7838,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -7952,7 +8034,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activeDeckSource={source} onReplaceSource={replaceDeckSource}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton), { label: 'Insert slide' })}
+							onInsert={(skeleton) => applyDeckOp(addAfterAt(source, hereAt, skeleton), { label: 'Insert slide' })}
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}
@@ -7997,7 +8079,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					/>
 				</React.Suspense>
 			)}
-			<SlidePicker open={insertOpen} onOpenChange={setInsertOpen} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
+			<SlidePicker open={insertOpen} onOpenChange={(o) => { setInsertOpen(o); if (!o) setInsertTarget(null); }} placement={insertTarget ? `${insertTarget.side} ${insertTarget.name}` : undefined} items={insertComponents} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} recent={recentComponents} onInsert={onInsertComponent} />
 			<SlidePicker open={!!paneReq} onOpenChange={(v) => !v && setPaneReq(null)} items={paneItems} options={options} frontMatter={previewFm} paletteOverride={preview.paletteOverride} extraTheme={preview.extraTheme} modeOverride={preview.modeOverride} onInsert={onPanePick} pane={paneReq ? { where: paneReq.where, current: paneReq.current, fit: paneReq.fit } : undefined} />
 			{/* Hidden file input for "Import deck…". The list names extensions AND types: iOS
 			    Files grays out anything `accept` does not name, and `.lattice` has no
@@ -8066,9 +8148,11 @@ function ArchCard({ tag, title, children, demo }: { tag: React.ReactNode; title:
 		</div>
 	);
 }
+// An ARMED op holds its hint open, so the confirm says what the next tap takes where every pointer sees it, a
+// touch included, and above the button rather than over it as a bottom notice would be (2026-10-27-slide-structure-strip.md §12 item 2).
 function RailOp({ label, onClick, disabled, danger, armed, children }: { label: string; onClick: () => void; disabled?: boolean; danger?: boolean; armed?: boolean; children: React.ReactNode }) {
 	return (
-		<Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail-fill,#b3261e)] text-white hover:bg-[var(--fail-fill,#b3261e)] hover:text-white')}>{children}</button></Tip>
+		<Tip label={label} forceOpen={armed}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn('grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-[var(--accent-soft)] hover:text-[var(--accent)] disabled:opacity-30 disabled:hover:bg-transparent', danger && !armed && 'hover:bg-[color-mix(in_srgb,var(--fail,#b3261e)_12%,transparent)] hover:text-[var(--fail,#b3261e)]', armed && 'bg-[var(--fail-fill,#b3261e)] text-white hover:bg-[var(--fail-fill,#b3261e)] hover:text-white')}>{children}</button></Tip>
 	);
 }
 function InspGroup({ icon, label, desc, find, last, children }: { icon: React.ReactNode; label: string; desc?: string; find?: string; last?: boolean; children: React.ReactNode }) {

@@ -200,7 +200,7 @@ describe('Building and Polish lessons check that their control can act before po
 	});
 
 	it('"Add a chart" opens the gallery for a user who waits, then types the search for them', async () => {
-		onScreen({ 'aria-label': 'Add slide' });
+		onScreen({ 'aria-label': 'New slide' });
 		const build = await loadLesson('add-chart');
 		const { log, ctx } = harness('waits');
 		// The gallery appears once the lesson opens it.

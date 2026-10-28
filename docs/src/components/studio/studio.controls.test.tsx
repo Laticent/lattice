@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { loadStudioPanels, waitForPanels } from '@/test/panels';
+import { SEL } from './lessons/lesson-kit';
 import StudioShell from './StudioShell';
 
 // The Studio's panels load on first open; load them up front so no test races a shell.
@@ -346,46 +347,157 @@ describe('Studio — every top-bar control responds', () => {
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
 		expect(start).toBeGreaterThan(1);
-		// Add slide opens the unified add-slide gallery (the #1058 "one insert door"); its
-		// Blank tile inserts a blank slide, so the rail grows by one. `setup()` seeds no
-		// component catalog, so the editor header's twin launcher is absent here and the
-		// name resolves to exactly one control.
-		await user.click(screen.getByRole('button', { name: 'Add slide' }));
-		// "Add a slide" — every launcher and the gallery they open now say the same thing
-		// (#1654). Five names for one door was the defect; this assertion is what stops it
-		// drifting apart again.
-		const addDialog = await screen.findByRole('dialog', { name: /Add a slide/i });
+		// New slide opens the unified add-slide gallery (the #1058 "one insert door"); its
+		// Blank tile inserts a blank slide, so the rail grows by one. The preview is open, so
+		// its floating door is the only one on screen and the name resolves to one control
+		// (2026-10-27-slide-structure-strip.md §5).
+		await user.click(screen.getByRole('button', { name: 'New slide' }));
+		// The door splits in place into Before | After (2026-10-27-slide-structure-strip.md §5); After is the default.
+		await user.click(screen.getByRole('button', { name: 'New slide after' }));
+		// "New slide" — the door and the gallery it opens say the same thing (#1654). Five
+		// names for one door was the defect; this assertion is what stops it drifting apart again.
+		const addDialog = await screen.findByRole('dialog', { name: 'New slide' });
 		await user.click(within(addDialog).getByRole('button', { name: /Insert Blank/i }));
 		expect(railCount()).toBe(start + 1);
 		// Duplicate → grows again.
 		await user.click(screen.getByRole('button', { name: 'Duplicate slide' }));
 		expect(railCount()).toBe(start + 2);
-		// Delete is a two-tap confirm: the first tap arms (no deletion yet)…
+		// Delete takes one tap: the one undo history can put it back (2026-10-27-slide-structure-strip.md §7). It asks
+		// first only in a Live session with others, which this one is not.
 		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
-		expect(railCount()).toBe(start + 2);
-		// …the armed button confirms on the second tap.
-		await user.click(screen.getByRole('button', { name: 'Confirm delete slide' }));
 		expect(railCount()).toBe(start + 1);
+	});
+
+	it('after typing elsewhere the strip’s Undo goes away, and ⌘Z walks back the typing, then the delete (one history)', async () => {
+		const user = await setup();
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
+		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		const start = railCount();
+		const before: string = view().state.doc.toString();
+		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		expect(railCount()).toBe(start - 1);
+		expect(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' })).toBeTruthy();
+		// Type at the very end of the deck, in a slide the delete did not touch.
+		const v = view();
+		v.dispatch({ changes: { from: v.state.doc.length, insert: ' typed' }, userEvent: 'input.type' });
+		// The note's Undo would now take back the typing, not the delete it names, so it is gone.
+		await waitFor(() => expect(document.querySelector('[data-strip-note] button')).toBeNull());
+		screen.getByRole('button', { name: 'Duplicate slide' }).focus();
+		await user.keyboard('{Control>}z{/Control}');
+		expect(railCount()).toBe(start - 1);
+		await user.keyboard('{Control>}z{/Control}');
+		expect(railCount()).toBe(start);
+		expect(view().state.doc.toString()).toBe(before);
+	});
+
+	it('with nothing changed since, the strip’s Undo is the editor’s own undo, and ⌘Z then walks back the typing in place', async () => {
+		// The checker's case against the first cut (ops kept OUT of the editor's history): type in a slide, delete it,
+		// Undo, then ⌘Z put the typed text back inside the NEXT slide. One history keeps every step in its place.
+		const user = await setup();
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
+		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		const original: string = view().state.doc.toString();
+		const rail = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button') ?? [];
+		await user.click(rail()[1] as HTMLElement);
+		// Type inside slide 2, then delete slide 2.
+		const v = view();
+		const at = v.state.doc.toString().indexOf('\n---', v.state.selection.main.head);
+		v.dispatch({ changes: { from: at, insert: ' TYPED' }, userEvent: 'input.type' });
+		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		expect(view().state.doc.toString()).not.toContain('TYPED');
+		screen.getByRole('button', { name: 'Duplicate slide' }).focus();
+		await user.keyboard('{Control>}z{/Control}');
+		expect(view().state.doc.toString()).toBe(original.slice(0, at) + ' TYPED' + original.slice(at));
+		v.focus();
+		await user.keyboard('{Control>}z{/Control}');
+		expect(view().state.doc.toString()).toBe(original);
+	});
+
+	it('typing then Backspace after a delete takes the note’s Undo away, though the deck reads as the delete left it', async () => {
+		// The checker's case against an earlier cut: the deck read exactly as the delete left it, so an Undo keyed on the
+		// text took back the Backspace while the note said it undid the delete. Any change after the op retires its Undo.
+		const user = await setup();
+		// biome-ignore lint/suspicious/noExplicitAny: reaching CodeMirror through its DOM handle.
+		const view = () => (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
+		await user.click(screen.getByRole('button', { name: 'Delete slide' }));
+		const left: string = view().state.doc.toString();
+		const v = view();
+		const end = v.state.doc.length;
+		v.dispatch({ changes: { from: end, insert: 'x' }, userEvent: 'input.type' });
+		await waitFor(() => expect(document.querySelector('[data-strip-note] button')).toBeNull());
+		v.dispatch({ changes: { from: end, to: end + 1 }, userEvent: 'delete.backward' });
+		await waitFor(() => expect(view().state.doc.toString()).toBe(left));
+		expect(document.querySelector('[data-strip-note] button')).toBeNull();
+	});
+
+	it('⌘Z with focus in the strip undoes the newest slide op', async () => {
+		const user = await setup();
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const start = railCount();
+		await user.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		expect(railCount()).toBe(start + 1);
+		await user.click(screen.getByRole('button', { name: 'Move slide later' }));
+		screen.getByRole('button', { name: 'Duplicate slide' }).focus();
+		await user.keyboard('{Control>}z{/Control}');
+		await user.keyboard('{Control>}z{/Control}');
+		expect(railCount()).toBe(start);
+	});
+
+	it('the door splits into Before | After: Before puts the new slide ahead of the current one, and the door says so', async () => {
+		// Where the slide goes is asked at the door, in place (the owner's call, 2026-10-28), not offered afterwards on a
+		// toast. Nothing happens on its own: Escape puts the pill back.
+		const user = await setup();
+		const source = () => screen.getByLabelText('Deck source').textContent ?? '';
+		const firstHeading = () => /#+\s*([^\n]+)/.exec(source())?.[1]?.trim();
+		const before = firstHeading();
+		await user.click(screen.getByRole('button', { name: 'New slide' }));
+		expect(document.activeElement?.getAttribute('aria-label')).toBe('New slide after');
+		await user.keyboard('{Escape}');
+		expect(screen.queryByRole('button', { name: 'New slide after' })).toBeNull();
+		await user.click(screen.getByRole('button', { name: 'New slide' }));
+		await user.click(screen.getByRole('button', { name: 'New slide before' }));
+		const dialog = await screen.findByRole('dialog', { name: 'New slide' });
+		expect(dialog.textContent).toMatch(/add it before “/);
+		await user.click(within(dialog).getByRole('button', { name: /Insert Blank/i }));
+		await waitFor(() => expect(firstHeading()).not.toBe(before));
+		expect(document.querySelector('[data-confirming]')?.textContent).toMatch(/Added before “/);
+		expect(screen.queryByRole('button', { name: 'Move before' })).toBeNull();
 	});
 
 	it('the add-slide gallery inserts a component as a new slide', async () => {
 		const user = await setupWithCatalog();
 		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
 		const start = railCount();
-		// Open the add-slide gallery from the editor header. With a catalog seeded there are
-		// TWO controls named "Add slide" — the preview rail's `+` and the editor header's
-		// button — because they are one door reached from two places (#1654). Deliberately
-		// `getAllByRole`: asserting both exist is the fix, and either one opens the gallery.
-		const launchers = screen.getAllByRole('button', { name: 'Add slide' });
-		expect(launchers.length).toBe(2);
+		// Open the add-slide gallery. ONE visible door at a time (2026-10-27-slide-structure-strip.md §5):
+		// with the preview open it is the "New slide" floating over the preview, and the editor header draws none.
+		// Five doors under two names was the defect this pins.
+		const launchers = screen.getAllByRole('button', { name: 'New slide' });
+		expect(launchers.length).toBe(1);
+		expect(launchers[0].getAttribute('data-new-slide')).toBe('fab');
 		await user.click(launchers[0]);
-		const dialog = await screen.findByRole('dialog', { name: /Add a slide/i });
+		await user.click(screen.getByRole('button', { name: 'New slide after' }));
+		const dialog = await screen.findByRole('dialog', { name: 'New slide' });
 		// Search narrows to the quote component; clicking its tile adds a slide.
 		await user.type(within(dialog).getByPlaceholderText(/Search/i), 'quote');
 		await user.click(await within(dialog).findByText('quote'));
 		expect(railCount()).toBe(start + 1);
 		// The inserted slide carries the component's real skeleton class.
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/_class:\s*quote/);
+	});
+
+	it('the lessons find the chrome they point at, by the selectors they use', async () => {
+		// A lesson whose target is missing falls back to "I'll open the gallery for you" and never fails, so a
+		// renamed control silently stops the lesson teaching (2026-10-27-slide-structure-strip.md §11). This pins
+		// the selectors for the Studio's resting chrome, then the gallery's own, against the rendered shell.
+		const user = await setupWithCatalog();
+		const found = (aim: string | readonly string[]) => (typeof aim === 'string' ? [aim] : aim).some((sel) => document.querySelector(sel));
+		for (const key of ['editor', 'preview', 'addSlide', 'present', 'share', 'fixAll', 'reshape'] as const) expect(found(SEL[key]), `SEL.${key}`).toBe(true);
+		await user.click(document.querySelector<HTMLElement>(SEL.addSlide) as HTMLElement);
+		expect(found(SEL.addAfter), 'SEL.addAfter').toBe(true);
+		await user.click(document.querySelector<HTMLElement>(SEL.addAfter) as HTMLElement);
+		await screen.findByRole('dialog', { name: 'New slide' });
+		for (const key of ['pickerBlank', 'pickerSearch'] as const) expect(found(SEL[key]), `SEL.${key}`).toBe(true);
 	});
 
 	it('edits survive a deck switch (persistence)', async () => {

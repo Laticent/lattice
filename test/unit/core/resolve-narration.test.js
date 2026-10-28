@@ -2,9 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 // ESM module under test — dynamic import from this CJS test.
-let parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap;
+let parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap, renumberFrontMatterSay;
 test.before(async () => {
   ({ parseNarrationFrontMatter, frontMatterSayMap, frontMatterLang, lexiconMap } = await import('../../../lib/core/resolve-narration.mjs'));
+  ({ renumberFrontMatterSay } = await import('../../../lib/core/renumber-say.mjs'));
 });
 
 const fm = (body) => `---\n${body}\n---\n\n# Deck\n`;
@@ -206,4 +207,32 @@ test('frontMatterLang: bad input and a language: look-alike key never mis-fire',
   for (const v of [null, undefined, 42, {}]) assert.equal(frontMatterLang(v), null);
   // `language:` must NOT match the `lang:` key (the `:` follows `lang` exactly).
   assert.equal(frontMatterLang(fm('language: klingon')), null);
+});
+
+// renumberFrontMatterSay — the deck ops' rewrite of the `say:` keys after slides move
+// (engineering/decisions/2026-10-27-slide-structure-strip.md §8).
+test('renumberFrontMatterSay: maps keys, drops and copies entries, and keeps every other byte', () => {
+  const md = fm('title: Q3\nsay:\n  1: one\n  2: "two"  # kept\n  3: three\nlang: en');
+  const out = renumberFrontMatterSay(md, (n) => (n === 1 ? [2] : n === 2 ? [1, 3] : []));
+  assert.equal(out, fm('title: Q3\nsay:\n  2: one\n  1: "two"  # kept\n  3: "two"  # kept\nlang: en'));
+  assert.deepEqual([...frontMatterSayMap(out).keys()].sort(), [1, 2, 3]);
+});
+
+test('renumberFrontMatterSay: an identity map, no say: block, or no front matter returns the input itself', () => {
+  const md = fm('say:\n  1: one');
+  assert.equal(renumberFrontMatterSay(md, (n) => [n]), md);
+  assert.equal(renumberFrontMatterSay(fm('title: x'), () => []), fm('title: x'));
+  assert.equal(renumberFrontMatterSay('# no front matter\n', () => []), '# no front matter\n');
+});
+
+test('renumberFrontMatterSay: CRLF line endings and a last line with no newline survive', () => {
+  const crlf = '---\r\nsay:\r\n  1: one\r\n  2: two\r\n---\r\n\r\n# Deck\r\n';
+  assert.equal(renumberFrontMatterSay(crlf, (n) => [3 - n]), '---\r\nsay:\r\n  2: one\r\n  1: two\r\n---\r\n\r\n# Deck\r\n');
+  const flush = '---\nsay:\n  1: one\n---';
+  assert.equal(renumberFrontMatterSay(flush, () => [4, 5]), '---\nsay:\n  4: one\n  5: one\n---');
+});
+
+test('renumberFrontMatterSay: a say: key nested under another block is not the narration map', () => {
+  const md = fm('notes:\n  say:\n    1: not narration\nsay:\n  1: narration');
+  assert.equal(renumberFrontMatterSay(md, () => [2]), fm('notes:\n  say:\n    1: not narration\nsay:\n  2: narration'));
 });
