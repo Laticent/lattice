@@ -402,7 +402,7 @@ second, on one surface, before the catalog migrates.
 |---|---|---|---|
 | **P0** | Cleanup and guard rails. The CLI calls `structuralSplit` (one assembly). Delete `split-slides.js`, with its `affected-tests` row, the comments that name it, and `engineering/architecture.md`'s two references. Fix the nine stale claims in §2.4: issue #506's body is shared state, so that edit goes to the owner. Create the parity golden (§7). Add `checkPaginationOwners`. Strip author-written `data-fluid-*`/`data-split-*`. Create `engineering/fluid.md` as the canonical doc, with a glossary separating **the fluid view** (the box) from **Fluid** (the plan). Mark 06-25 and 07-20 §9 P2–P4 as absorbed. | none | parity golden green; gate arms fail on a planted second paginator |
 | **P1** | The `@laticent/fluido` core: `plan()` (structural, plus budget rescue for `lines`, which generalizes `carousel.js:1272`), with `families.js` moved in whole. `splitDoc` becomes a connector over it. Benchmark scenario, plus bless. | none | parity golden; bench |
-| **P2** | **The vertical slice on the Playground.** `/dom` `read`/`apply`/`unapply`/`watch`, structural plan only, enrolled components only, today's seams. Host-side page building. The identity rig. The jank canvas axis. The inventory of render-time family reads (§5.6). Closes #506 for the Playground. | a 16:9 deck paginates in a narrow Playground frame | identity ≥ 96.8%; jank canvas axis; three-width screenshots |
+| **P2** | **The vertical slice on the Playground** (revised 2026-10-28 to fit first, §13). `/dom` `read`/`apply`/`unapply`/`watch`, structural plan only, enrolled components only, today's seams. Host-side page building. The identity rig. The jank canvas axis. The inventory of render-time family reads (§5.6). Closes #506 for the Playground. | a 16:9 deck paginates in a narrow Playground frame | identity ≥ 96.8%; jank canvas axis; three-width screenshots |
 | **P3** | **The catalog.** A seam census sorts every strategy into seam or presentation and extends `Seam` first. Then components migrate to `data-fluid-*` one at a time, behind a ratchet (an enrolled-via-markup count that only rises). The baked capacity map and the `splitCapacityFrom` whitelist retire when the count reaches 37. `perPage` gives way to budgets, and code keeps its line cut through the P1 budget rescue, so no slide regresses. Each of the four silent clips (`logo-wall`, `matrix-grid`, `state-chart`, `obligation-matrix`) gets a seam or an explicit ring-by-rule. | gallery page counts change only where a census entry says so | **owner check:** the gallery page-count diff |
 | **P4** | **Live everywhere else.** The HTML viewer and the player (baked authored plan, plus a `<template>` re-plan when JS runs), and the Studio (authored size plus the device toggle). Anchor transport for Present, the player, narration and comments. Panes become seams on these surfaces, with dotted numbering. | a 16:9 deck paginates on a phone; panes split in the fluid view; panes decks keep their authored count | **export sign-off** (the HTML bytes change); **owner check:** numbering |
 | **P5** | **The measured rescue** on live surfaces: the probe pass, rescue hysteresis, the frame-budget kill criterion. `splitSlideInHalf` reads the plan instead of its own halving rule. | rings become rescued pages on live screens | rescue census; **owner check** |
@@ -575,3 +575,73 @@ changed the note.
   every page back. `engineering/fluid.md` now says to rebuild.
 - **The Libraries page.** `/libraries/fluido/` drives the real core: pick a box and some content
   and it shows the decision and the pages it names. Its Learn page is the catalog entry.
+
+## 13. Spike: fit first, then cut the rendered flow (2026-10-28)
+
+The owner asked whether P2 should measure at all, given that a measurement step is easy for the next
+component to forget, and suggested the problem is really fitting rendered output into a box and
+cutting it like a tall poster. A throwaway spike tested that on six galleries (inventory,
+comparison, evidence, progression, statement, chart) at `square`, `story` and `mobile`. Scripts are
+in `.scratch/spike/` (not committed). It changes nothing that ships.
+
+**Method.** Render each deck twice: today's split, and with the structural split switched off so
+every slide renders whole at the page's own size. On the whole render, a slide fits when no
+clipping box overflows and no content leaf falls below the footer line. For slides that do not fit,
+collect cut lines that cross no member box and cut greedily, with the continuation pages reserving
+one small running-head line instead of the full heading.
+
+**What it found.**
+
+| Size | Slides split today | Pages today | Fit whole, no split | Pages if they stayed whole | Truly overflow |
+|---|---|---|---|---|---|
+| square | 25 | 123 | 23 | 23 (instead of 111) | 2 |
+| story | 27 | 131 | 19 | 19 (instead of 90) | 8 |
+| mobile | 27 | 131 | 23 | 23 (instead of 114) | 4 |
+
+1. **Most splits are not needed.** The structural rule splits every enrolled slide with more than
+   one member at a non-wide size, whether or not it overflows. 65 of the 79 slides it split fit
+   whole, and the screenshots confirm they read well (the agenda at `story` is six lines on one
+   page, which today becomes a cover plus six one-line pages). A body page today repeats the full
+   heading, 11 to 18% of the page height at the median, and stretches one member's card over most of
+   the rest.
+2. **Cutting the overflowing ones is cheap and stable.** Where the spike found the right members, a
+   cut at member boundaries needs 2 pages where today's run has 5 to 7 (team profile 7 → 2,
+   evidence 5 → 2, progression 5 → 2). Reading the boxes and solving took 0.3 to 1.3 ms a slide in
+   the page, and two runs on one machine gave identical plans.
+3. **The members must be declared, not guessed.** The spike's guess (the element with the most
+   children) picked the wrong level on nested layouts such as the roadmap's phases. Cutting needs the
+   component to mark its unbreakable pieces in the markup, which is the seam declaration §8 P3
+   already plans.
+4. **Not every component is responsive.** The pricing comparison at `story` squeezes three tiers
+   into one narrow column, one word a line, and clips. No cut fixes that: the component has to
+   stack its tiers on a tall box. That is a component defect a catalog-wide fit check would catch.
+5. **A catalog fit check is affordable.** One gallery renders at one size in about 3.4 s, so all 94
+   galleries at three sizes take about 16 minutes on one core, or about 4 on four.
+
+**Not tested.** Plans on two different machines (CI and the sandbox), which decides whether files
+stay reproducible when the trigger is a measured fit. Cracking a single member taller than a page.
+The visual design of continuation pages.
+
+**Owner decisions (2026-10-28).**
+
+- **Fit first, measured on the rendered output.** A slide that fits its box after the layout has
+  reflowed stays one page. Only a slide that overflows is cut, like a tall poster, into as few
+  pages as it needs. This reverses the 2026-09-01 trigger (§3) and §1's "structure decides".
+  Whether a file can use the same measured fit and still be reproducible is the first thing P2
+  measures, on CI against the sandbox. Until that answer is in, §9.5 (files rescue from budgets)
+  stands.
+- **Cut boundaries are inferred, not declared.** The host reads the rendered markup for the pieces
+  that must stay whole. The spike's one-level guess failed on nested layouts, so P2 has to infer
+  better: try each candidate level and keep the one whose cut lines cross no box, with the
+  manifest's `capacity.axis` as a hint where it exists. No per-component markup work.
+- **Continuation pages follow carousel practice.** Page 1 carries the full heading. A later page
+  carries one small running line (the heading at eyebrow size) beside the k/N rail. When a page
+  holds one member, that member's own title is the page's headline. The section keeps the full
+  title as its accessible name.
+- **The catalog fit gate is decided later**, when P2 lands, with the cost above.
+
+**What changes in the plan.** P2 becomes the fit-first vertical slice on the Playground: render
+whole, check the fit, cut only what overflows at inferred boundaries, and lay out continuation pages
+as above. Its gates gain two arms: the same plan on two machines, and the page-count change across
+the six spike galleries. Still open for P2's design: whether a cut slide still opens on a separate
+cover page, or keeps its heading on page 1 with the first members.
