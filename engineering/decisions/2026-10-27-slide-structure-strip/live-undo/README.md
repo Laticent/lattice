@@ -38,5 +38,17 @@ Backspace, not the delete. ⌘Z from the strip then walks back in order:
 | 2 (the typing) | Alpha Bravo Delta Echo | no |
 | 3 (the delete) | Alpha Bravo **Charlie** Delta Echo, guest the same | no |
 
+**D. Ending the session while the note is up** (rerun on `de70344`, which added this case). The host deletes Bravo and
+ends the session for everyone inside the note's 6s. Undo moves from the session's back to Filo's there, where the same
+tap would undo something else, so the note keeps its words and loses its Undo.
+
+| | Note | Undo shown |
+|---|---|---|
+| While live, after the delete | "Slide deleted." | 1 |
+| After "End session" | "Slide deleted." | **0** |
+| **Failing arm:** the retire-on-join/leave effect removed | "Slide deleted." | 1 |
+
+Cases A to C were rerun on `de70344` with the same results as the table above.
+
 The first build of item 6 had its own slide history beside the editor's undo; its two-browser record is in this PR's
 history. Filo's one history replaced it, and these runs pin the result.

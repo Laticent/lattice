@@ -6,6 +6,8 @@
 // C. The host deletes a slide, types, pauses, and Backspaces it away, so the deck reads as the delete left it. The note's
 //    Undo is gone (it would undo the Backspace, not the delete), and ⌘Z walks back the Backspace, the typing, then the
 //    delete, in order.
+// D. The host deletes a slide and ends the session while the note is still up: the note's Undo goes, since undo moves
+//    from the session's back to Filo's, where the same tap would undo something else.
 import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
@@ -137,6 +139,19 @@ log(`C. ⌘Z 2 — host: ${await headings(host)} | stray x: ${await stray()}`);
 await strikeZ(host);
 await guest.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('Body of Charlie'), null, { timeout: 20000 }).catch(() => {});
 log(`C. ⌘Z 3 — host: ${await headings(host)} | guest: ${await headings(guest)} | stray x: ${await stray()}`);
+
+// D. Delete, then end the session at once, inside the note's 6s.
+await (await pill(host, 'Bravo')).click();
+await host.waitForTimeout(400);
+await host.getByRole('button', { name: 'Delete slide' }).click();
+await host.getByRole('button', { name: /^Confirm delete/ }).click();
+await host.locator('[data-strip-note]').getByRole('button', { name: 'Undo' }).waitFor();
+log(`D. note's Undo shown while live: ${await host.locator('[data-strip-note] button').count()}`);
+await host.getByRole('button', { name: 'Session options' }).first().click();
+await host.getByRole('menuitem', { name: /End session for everyone/ }).click();
+await host.getByRole('button', { name: 'End session', exact: true }).click();
+await host.locator('[data-live-pill]').waitFor({ state: 'detached', timeout: 15000 }).catch(() => {});
+log(`D. after ending the session — note: ${JSON.stringify(await host.locator('[data-strip-note]').innerText().catch(() => '(gone)'))} | note's Undo shown: ${await host.locator('[data-strip-note] button').count()}`);
 
 await hb.close();
 await gb.close();
