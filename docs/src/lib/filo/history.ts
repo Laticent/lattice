@@ -12,7 +12,7 @@
 //   · A change made outside this history (`sync`) becomes one GAP entry on the next undo, and
 //     that undo stops there: an old patch is never applied to text it was not recorded against.
 
-import { applyPatch, composePatch, type Edit, invertPatch, type Patch, patchOf, patchSize, trimPatch } from './patch';
+import { applyPatch, composePatch, type Edit, invertPatch, type Patch, patchOf, patchSize, trimPatch } from './patch.js';
 
 export const DEFAULT_ENTRIES = 100;
 export const MAX_ENTRIES = 500;
@@ -108,6 +108,19 @@ export interface Move {
 	readonly gap?: boolean;
 }
 
+/** One step, as a history panel shows it. */
+export interface StepInfo {
+	/** The id of the step's newest entry: stable while the step exists. */
+	readonly id: number;
+	readonly label: string;
+	readonly origin: string;
+	/** The step's patch size as the byte cap counts it: its characters plus 16 per change. */
+	readonly size: number;
+	/** False for a step on the redo branch (undone, not yet redone or dropped). */
+	readonly done: boolean;
+	readonly ts: number;
+}
+
 export interface HistoryState {
 	readonly canUndo: boolean;
 	readonly canRedo: boolean;
@@ -179,6 +192,16 @@ export class History<M = unknown> {
 			steps: this.done.length,
 			stale: this.outside !== null,
 		};
+	}
+
+	/**
+	 * The steps, for a history panel: the done ones oldest first, then the redo branch in the order
+	 * redo would replay it. The last done step is the one ⌘Z undoes next. Steps folded into the floor
+	 * by the caps are gone from the list (a mark older than the window still restores).
+	 */
+	steps(): StepInfo[] {
+		const info = (s: Step<M>, done: boolean): StepInfo => ({ id: s.last.id, label: s.label, origin: s.origin, size: s.size, done, ts: s.last.ts });
+		return [...this.done.map((s) => info(s, true)), ...this.undone.map((s) => info(s, false)).reverse()];
 	}
 
 	// ── Recording ─────────────────────────────────────────────────────────────

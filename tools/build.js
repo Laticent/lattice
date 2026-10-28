@@ -231,6 +231,7 @@ const STEPS = [
   // publishes ./dist like its siblings, so it builds like them.
   { label: 'Fuoco library dist (ESM + CJS + .d.ts)', script: 'build-fuoco-lib.js', uncommitted: true },
   { label: 'Veduta library dist (ESM + CJS + .d.ts)', script: 'build-veduta-lib.js', uncommitted: true },
+  { label: 'Filo library dist (ESM + CJS + .d.ts)', script: 'build-filo-lib.js', uncommitted: true },
   // Lente has no root CJS consumer today, but its package.json promises
   // ./dist/index.cjs (main/require) and it is a workspace member, so it must
   // build like its siblings or `require('@laticent/lente')` / publish break.

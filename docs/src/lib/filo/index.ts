@@ -5,12 +5,12 @@
 // core (slice 2 of engineering/decisions/2026-10-27-filo-undo-history.md); persistence, the
 // cross-document byte budget and the worker arrive in slice 5.
 
-import { History, type HistoryOptions } from './history';
+import { History, type HistoryOptions } from './history.js';
 
-export type { CommitInput, CommitResult, Entry, HistoryOptions, HistoryState, Limits, Mark, Move } from './history';
-export { DEFAULT_BYTES, DEFAULT_COALESCE_MS, DEFAULT_ENTRIES, DEFAULT_GROUP_QUIET_MS, History, MAX_ENTRIES } from './history';
-export type { Change, Edit, Patch } from './patch';
-export { applyPatch, composePatch, hashText, invertPatch, mapPos, patchOf, patchSize, trimPatch } from './patch';
+export type { CommitInput, CommitResult, Entry, HistoryOptions, HistoryState, Limits, Mark, Move, StepInfo } from './history.js';
+export { DEFAULT_BYTES, DEFAULT_COALESCE_MS, DEFAULT_ENTRIES, DEFAULT_GROUP_QUIET_MS, History, MAX_ENTRIES } from './history.js';
+export type { Change, Edit, Patch } from './patch.js';
+export { applyPatch, composePatch, hashText, invertPatch, mapPos, patchOf, patchSize, trimPatch } from './patch.js';
 
 export interface Filo<M = unknown> {
 	/** Open (or return) the history for `doc`. By default it becomes the base: the document the keys

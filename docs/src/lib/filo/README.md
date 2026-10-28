@@ -62,6 +62,7 @@ if (m) editor.apply(m.patch, m.caret);
 | `mark(label)` · `marks()` · `markText(id)` · `restore(id)` | Named versions. A mark ends any open typing run and records any outside change first, so it names exactly what the author sees; a restore is a step you can undo |
 | `sync(text)` | The host's text moved without a commit; the next undo records the gap first |
 | `subscribe(select, listener)` | Hear `canUndo`, `canRedo`, labels and more, only when the selected value changes |
+| `steps()` | The steps for a history panel: the done ones oldest first, then the redo branch in replay order |
 
 Typing coalesces into one step when it has the same origin and label, comes within 500 ms and sits
 next to the previous edit, and never across a `boundary` the host names (a slide break).

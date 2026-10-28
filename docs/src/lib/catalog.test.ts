@@ -10,7 +10,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
-import { REQUIRED_SECTIONS } from './catalog.mjs';
+import { REQUIRED_SECTIONS, wrapTables } from './catalog.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../content/catalog');
 const files = ['libraries', 'plugins'].flatMap((kind) =>
@@ -26,8 +26,8 @@ function split(text: string) {
 }
 
 describe('catalog content', () => {
-	it('has the twelve libraries and nine plugins', () => {
-		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(12);
+	it('has the thirteen libraries and nine plugins', () => {
+		expect(files.filter((f) => f.kind === 'libraries')).toHaveLength(13);
 		expect(files.filter((f) => f.kind === 'plugins')).toHaveLength(9);
 	});
 
@@ -76,4 +76,14 @@ describe('catalog content', () => {
 			}
 		});
 	}
+});
+
+describe('wrapTables', () => {
+	it('frames every Markdown table, so a Learn page table reads as a table and scrolls on its own', () => {
+		const html = '<p>a</p><table><tr><td>1</td></tr></table><table><tr><td>2</td></tr></table>';
+		const out = wrapTables(html);
+		expect(out.match(/<div class="cat-prose-table"><div class="cat-prose-table-frame" tabindex="0"><table>/g)).toHaveLength(2);
+		expect(out.match(/<\/table><\/div><\/div>/g)).toHaveLength(2);
+		expect(wrapTables('<p>no table</p>')).toBe('<p>no table</p>');
+	});
 });

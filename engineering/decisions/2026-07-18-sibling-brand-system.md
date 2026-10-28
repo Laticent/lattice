@@ -306,3 +306,39 @@ Calco or Tavola.
 | ring | `#33250a` | `#2a1f08` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#2a2110` | `#f3ead6` | Fraunces "Fluido" |
+
+## Filo — the thread (built 2026-10-28)
+
+Filo (the undo history, `docs/src/lib/filo`) joined the family with its catalog entry. *Filo* is
+Italian for **thread**, after Ariadne's: the line you lay as you go, so you can follow it back.
+The owner picked this mark from three concepts (the clew, a round labyrinth, a loop of stitches).
+The mark is a clew, a ball of thread wound out from the hub:
+
+- **the spiral**: an even spiral from radius 25 to 53, 1.85 turns, round caps; following it
+  inward is walking back through the history;
+- **the live end**: the last tenth of the thread, after a small gap, in the warm accent (leaf green) and a
+  touch heavier, where the author is now (the step ⌘Z takes back first);
+- **the ringed hub** at the center, the family tie.
+
+The favicon (`-min`) winds 1.5 turns at stroke 9 with the hub at 1.15× so it survives 16 px.
+
+Assets: `docs/public/filo-mark.svg`, `filo-mark-min.svg` (favicon), `filo-lockup.svg`. Unlike
+Veduta's page, `/libraries/filo/` draws the mark inline with the page's own tokens, so it follows
+that page's theme toggle as well as the OS color scheme.
+
+**Palette**, crimson with a leaf-green live end. The owner asked for a crimson thread in place of the
+first draft's magenta. Measured in OKLab (ΔE × 100) against every sibling's mark colors, light and
+dark: the crimson's nearest sibling is Segno's dark coral at 8.9 (Vetrina's light rose is 10.7),
+and the green's is Tavola's mark green at 9.1 (dark; Fluido's jade is 9.3). Mosaico shipped with 8.6
+as its nearest distance, so both clear the family's existing floor. The live end was jade until
+Fluido landed with a jade of its own, 2.9 away in light mode; a search over hue and lightness for
+the pair furthest from every sibling picked this green.
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| thread (`pri`) | `#91123f` | `#fb6188` | the history (crimson) |
+| live end (`warm`) | `#2b9217` | `#83e773` | where the author is now (leaf green) |
+| hub | `#91123f` | `#fb6188` | the focal point |
+| ring | `#3a0619` | `#2a0d15` | the hub's inner ring |
+| halo | `#f6f3ec` | `#121012` | paper (separation) |
+| ink (wordmark) | `#2a1418` | `#f3e5e8` | Fraunces "Filo" |

@@ -73,6 +73,14 @@ const CODE_THEME = {
 	],
 };
 
+/** Wrap each rendered table in a frame that scrolls sideways on a narrow screen (catalog.css
+ *  `.cat-prose-table-frame`), so the table itself can stay a table and fill the column. The
+ *  outer element takes the prose flow's padding-top, which inside the border would show as a
+ *  strip above the header band. */
+export function wrapTables(html) {
+	return html.replace(/<table>/g, '<div class="cat-prose-table"><div class="cat-prose-table-frame" tabindex="0"><table>').replace(/<\/table>/g, '</table></div></div>');
+}
+
 let processorPromise;
 export async function renderCatalogMarkdown(source) {
 	if (!processorPromise) {
@@ -84,5 +92,5 @@ export async function renderCatalogMarkdown(source) {
 	}
 	const processor = await processorPromise;
 	const { code, metadata } = await processor.render(source);
-	return { html: code, headings: metadata.headings };
+	return { html: wrapTables(code), headings: metadata.headings };
 }
