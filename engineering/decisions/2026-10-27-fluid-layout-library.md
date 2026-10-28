@@ -673,3 +673,55 @@ whole, check the fit, cut only what overflows at inferred boundaries, and lay ou
 as above. Its gates gain two arms: the same plan on two machines, and the page-count change across
 the six spike galleries. Still open for P2's design: whether a cut slide still opens on a separate
 cover page, or keeps its heading on page 1 with the first members.
+
+### 13.1 Spike 2: the original P2 against fit first, both built (2026-10-28)
+
+The owner asked for both designs built for real and compared. Six galleries, at `square` and
+`story`, at the `laptop`, `conference` and `hall` venues. Arm A is today's structural split (the
+original P2's plan). Arm B renders each slide whole at its venue's type size, keeps it whole when it
+fits, and otherwise builds pages on the real DOM: it finds the pieces that stay whole by measurement
+(the container where showing only the first child makes the slide fit), packs as many as fit on a
+page by re-measuring after each one, and gives continuation pages a one-line running head. Both
+arms' final pages go through one detector (a clipping box overflowing by more than 8 px, or content
+below the footer line). Scripts are in `.scratch/spike2/`.
+
+| Size | Venue | A: pages / clipped / thin | B: pages / clipped / thin | C hybrid: pages / clipped / thin |
+|---|---|---|---|---|
+| square | laptop | 127 / 8 / 52 | 44 / 18 / 21 | 34 / 8 / 10 |
+| square | conference | 130 / 12 / 43 | 59 / 19 / 29 | 51 / 8 / 20 |
+| square | hall | 132 / 22 / 20 | 79 / 24 / 38 | 78 / 11 / 27 |
+| story | laptop | 134 / 13 / 57 | 52 / 21 / 21 | 45 / 13 / 12 |
+| story | conference | 137 / 16 / 39 | 65 / 25 / 24 | 63 / 13 / 13 |
+| story | hall | 140 / 21 / 19 | 90 / 30 / 33 | 92 / 16 / 23 |
+
+"Thin" is a page whose text and media span less than 40% of the space above the footer. C is
+computed from A and B: B when its cut is clean, otherwise A's pages.
+
+**What it found.**
+
+1. **Fit first wins on page count everywhere,** by about two thirds at `laptop` and about a third at
+   `hall`, and it follows the venue, as §13 found.
+2. **The generic builder loses content.** The roadmap's status legend (Shipped, In flight, Missed) is
+   on every page today and on none of B's pages: the builder treated it as trailing material for
+   the last page, and the last page had no room. The Bloom ladder at `hall` came out as a squeezed,
+   clipped page 2 and an empty page 3. On overflowing charts, B cut one clipped slide into three to
+   seven clipped pages. Today's builders conserve content by construction (the envelope's
+   conservation rule); the spike's builder does not, and a heuristic does not know that a legend is
+   a key every page needs.
+3. **B clips more than A** on 28 slide-cells, all of them slides with no clean cut: charts whose
+   overflow is not in a list, the pricing tiers that do not stack, and pieces taller than a page.
+   Today's recipes handle several of these (code line runs, the row-to-card reshape).
+4. **The hybrid dominates today's split on every row:** fewer pages, never more clipped pages (about
+   half at `hall`), and far fewer thin pages at `laptop` and `conference`.
+5. **Cheap and stable on one machine.** Building took 0.1 ms for a slide that fits and about 13 ms
+   (at most 162 ms) for one that is cut, and two runs gave identical plans. Two machines remain
+   untested.
+6. **The running head needs design.** One line at the footer's size truncates the title at `hall`,
+   and continuation pages stretch their members over the page.
+
+**What it means.** The win is in the trigger and the page count, not in a new page builder. The
+measured direction is: keep today's builders (the envelope, the recipes, the legend and note
+handling, which the golden already pins), and change two things in them: split only when the slide
+overflows at its venue's size, and replace `perPage: 1` with a measured count (add members to a page
+while it still fits). The generic DOM cut stays a fallback for a component with no recipe, and a
+cut that leaves clipped pages is not taken (the slide stays whole and rings).
