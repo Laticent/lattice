@@ -916,6 +916,7 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
   // (the same 2 s bound settleFonts gives the runtime's boot sweep), and again once the
   // faces do land, since the status then changes the redraw signature.
   const FONT_DEADLINE = 2000;
+  const FONT_RECHECK = 100;
   function fontsLoading(): boolean {
     const fonts = doc.fonts;
     if (!fonts || typeof fonts.status !== 'string') return false;
@@ -940,9 +941,18 @@ export function installGraphPass<M extends { shapes: { id: string }[] }>(rootDoc
     }, FONT_DEADLINE);
     // `ready` settles when the faces in flight do, but a face requested meanwhile starts a
     // new round with a new promise; follow it until the status really leaves `loading`.
+    let followed: unknown = fonts.ready;
     const onReady = () => {
       if (D[key('FontWait')] !== wait) return;
-      if (fonts.status === 'loading') { fonts.ready.then(onReady, onReady); return; }
+      if (fonts.status === 'loading') {
+        // A new round has a new promise: follow it at once. The SAME promise again means it had
+        // already settled while a face is still in flight (WebKit hands one back), and following
+        // it from itself would call this again in the same microtask checkpoint, forever,
+        // starving the 2 s deadline above along with the page. Look again from a timer.
+        if (fonts.ready === followed) w.setTimeout(() => fonts.ready.then(onReady, onReady), FONT_RECHECK);
+        else { followed = fonts.ready; fonts.ready.then(onReady, onReady); }
+        return;
+      }
       if (wait.timer) w.clearTimeout(wait.timer);
       D[key('FontWait')] = null;
       drawAll();

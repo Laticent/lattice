@@ -98,6 +98,24 @@ describe('trama pipeline — it draws once, in the page\'s own fonts', () => {
     assert.equal(t.drawn(), true, 'drawn when the second round ends');
   });
 
+  test('a ready that is already settled while a face is still loading does not spin the page', async () => {
+    // WebKit's shape: `ready` resolves at once yet `status` stays `loading`. Following it from the
+    // promise itself loops in one microtask checkpoint and starves every timer, the deadline
+    // included. The thenable flips the status after 5000 subscriptions so a regression ends
+    // this test with a failed assertion instead of a hung run.
+    let thens = 0;
+    const fonts = { status: 'loading' };
+    // biome-ignore lint/suspicious/noThenProperty: a counting thenable IS the stand-in for the settled `ready`
+    fonts.ready = { then(res, rej) { if (++thens > 5000) fonts.status = 'loaded'; return Promise.resolve(fonts).then(res, rej); } };
+    const t = setup({ fonts });
+    t.run();
+    await new Promise((r) => setTimeout(r, 350));
+    assert.ok(thens < 20, `ready followed ${thens} times in 350 ms; it must be re-checked from a timer`);
+    fonts.status = 'loaded';
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(t.drawn(), true, 'drawn once the face lands');
+  });
+
   test('a face that never loads still gets a draw, at the deadline', async () => {
     const fonts = fontSet();
     const t = setup({ fonts });
