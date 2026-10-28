@@ -85,5 +85,5 @@ golden run reported 468 drifts across the galleries for exactly that reason, and
 |---|---|
 | P0 cleanup and guard rails | built: one CLI assembly, the parity golden, the paginator census, reserved attributes stripped, the dead splitter deleted, stale claims fixed |
 | P1 the core package | built: `@laticent/fluido` holds the decision (`planSlide`), the size gate (`paginates`), the budget rescue (`rescueRuns`) and the 64-page cap on every built run (`fitsCap`); `splitDoc`, `splitApplies` and code's line run delegate to it; the Libraries page has its entry |
-| P2 the vertical slice on the Playground, now fit first (a slide splits only when it overflows; decision note §13) | next |
+| P2 the vertical slice on the Playground: today's builders, split only on a measured overflow at the venue's size, as many members per page as fit (decision note §13.1) | next |
 | P2–P7 | planned; see the decision note §8 |

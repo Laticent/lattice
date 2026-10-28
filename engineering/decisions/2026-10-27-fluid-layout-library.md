@@ -725,3 +725,9 @@ handling, which the golden already pins), and change two things in them: split o
 overflows at its venue's size, and replace `perPage: 1` with a measured count (add members to a page
 while it still fits). The generic DOM cut stays a fallback for a component with no recipe, and a
 cut that leaves clipped pages is not taken (the slide stays whole and rings).
+
+**Owner decision (2026-10-28): the hybrid.** P2 keeps today's page builders and changes two things
+in them: a slide splits only when it overflows at its venue's size, and each page holds as many
+members as fit, measured, instead of one. The generic DOM cut is only a fallback for a component
+with no recipe, and a cut that leaves clipped pages is not taken. This replaces the "cut boundaries
+are inferred" decision above for every component that has a builder today.
