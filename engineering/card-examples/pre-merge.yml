@@ -11,7 +11,11 @@ confidence:
   # level is low, medium, high or very high
   level: high
   limited_by: unknowns
+  # who set the level: the checker agent, never the maker
+  graded_by: checker agent, against the artifacts
 raise_it: a second live use, and a look on GitHub mobile
+# each raise round and where it stopped; "none" only at VERY HIGH
+raised: "2 rounds to HIGH; stopped: a taste call for the owner"
 change:
   what: "❓ decision card; all four cards share one 38-column layout"
   why: open items were buried; cards scrolled sideways on phones
@@ -24,3 +28,5 @@ proof:
 risk:
   if_wrong: all four cards change shape for every future session
   revert: one squash commit restores the old cards
+  # follow-ups this PR adds to followups.d/; the target is "none"
+  left_behind: none

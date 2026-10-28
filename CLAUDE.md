@@ -39,7 +39,8 @@ choice:
 |---|---|
 | a branch's meaty work is complete, verified, pushed (a design/decision doc counts — the doc *is* the deliverable) | **open the PR** via the template (rule 6) — **one PR for the session's line of work, one commit per item**, not a PR per slice (`workflow.md` §Batch a session's slices) |
 | a PR is open | **subscribe + drive CI green**; rebase **only on a real conflict** (rule 4). **A check red, or green you doubt? Read `engineering/gotchas/ci.md` first** (stale-head events, a canceled "green" beacon, route-budget bytes, `studio-smoke`, a stale `dist/` or missing workspace link) |
-| the PR is green and `npm run queue:precheck` exits 0 (being *behind* `main` is fine) | **ask to merge, with a fenced 🚦 pre-merge card (build it with `npm run card`) — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution, the `raise it` line and the `pick` line are all in that section and all load-bearing (HARD RULE #28) |
+| the PR is green and the card would be below VERY HIGH | **run the raise loop before asking** — `npm run evidence`, drive every surface it lists (Playwright Chromium/WebKit/Gecko, the macOS/Windows/iOS-Simulator suites by dispatch), have a `checker` agent grade the card, do its `raise it` line, regrade; up to 3 rounds. Never ask me to run a check a runner can reach; a visual taste call goes with the artifact attached (`workflow.md` §The raise loop) |
+| the PR is green and `npm run queue:precheck` exits 0 (being *behind* `main` is fine) | **ask to merge, with a fenced 🚦 pre-merge card (build it with `npm run card`) — posted on the PR *and* in the ask** — the *one* user gate in this flow. No card, no ask. Several green at once → **one batched round**, one card each. **This row is an INDEX, not the spec: open `workflow.md` §Pre-merge card and build the card from the template there** — the four-level scale, the lowest-axis floor rule, the axis attribution, the `raise it` line, the checker's `graded by`, the `raised` rounds, `left behind` and the `pick` line are all in that section and all load-bearing (HARD RULE #28) |
 | merge confirmed + local `main` synced | **post the standup + the continuation brief** — two fenced cards, always fenced, **as one comment on the PR *and* in chat, same wording** (`workflow.md` §Post-merge standup + §Where the cards go) |
 | a session stops with a decision, question or veto-able call still open, **or I ask for "open items / questions / decisions"** | **post the ❓ decision card** (build it with `npm run card`) — fenced, plain words, each item with options (+/−/→), a recommendation and a default-if-silent; **on the PR as well as in chat** (`workflow.md` §❓ Decision card — build it from the template there, not from this row). Never answer "open items?" with a free-form list |
 | a session goes idle with work still pending — parked at the merge gate, or out of scope | **post the continuation brief** so a fresh session can pick it up cold — **on the PR as well as in chat** (same §) — and **write every item that has no issue to `followups.d/`** in the PR. A pending item that exists only in chat or a PR comment is lost work (`followups.d/README.md`; `npm run followups` lists them) |
@@ -228,7 +229,10 @@ checker agent that bug-hunts the diff (correctness, edge cases, footguns) and
 judges fit/risk; fold findings back, *then* commit. **One checker by default;
 two (split inspection vs. assessment) only for the riskiest changes.** Skip it
 for trivial or low-risk edits — this earns its latency *and cost* only when a
-second set of eyes changes the merge decision. See `engineering/visual-review.md`.
+second set of eyes changes the merge decision. **The card grader is separate and
+always runs:** one `checker` per merge ask sets the pre-merge card's level
+(HARD RULE #28). It is mandated here, so it counts toward #25's session total but
+needs no OK of its own. See `engineering/visual-review.md`.
 
 **Every agent runs on Opus** (HARD RULE #27) — the ladder decides *whether* an
 agent runs, and there is no second question about what it runs on.
@@ -425,6 +429,11 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
     diff — that boundary keeps #8 (gallery isolation) and #17 (one feature, one PR)
     intact. The follow-up-issue path is **exclusively** for these; it is never a
     home for something you broke.
+    **Small or moderate work is never a follow-up.** A `followups.d/` item must say
+    `deferred: large|blocked|off-path — <why>`; anything else, including jank the
+    change made visible, is fixed in the PR. 161 items filed in the 14 days to
+    2026-10-28 are why (`engineering/decisions/2026-10-28-raise-before-ask.md`;
+    gated by `checkFollowups`).
     **On the path** means the surface the change touches, teaches or lints, and
     any defect the owner or a reviewer hits while exercising the PR. When unsure,
     it is on the path. A follow-up is never the home for a defect in a surface this
@@ -603,8 +612,10 @@ lint/test catches a violation, *discipline* = no automated gate, so it's on you)
   one-line index entry). The DEFAULT OPERATING MODE table above names the four levers the
   card must carry; the section defines them. **Same wording in the ask and on the PR** — a
   card that lives only in a chat transcript is invisible to whoever opens the PR, including
-  a future session. *(discipline — no automated gate, and that is a known hole: nothing in
-  the tree can tell a conforming card from a plausible-looking one.)*
+  a future session. **The level is set by a `checker` agent, never the maker, and below
+  VERY HIGH the raise loop runs before the ask** (`workflow.md` §The raise loop): the owner
+  is asked to merge, not to raise the card or to check by hand. *(partly gated — `npm run card` refuses a self-graded card and `raised: none` below VERY
+  HIGH; nothing in the tree can tell a real checker run or a real round from a typed one.)*
 
 - **#29 — A typed glyph never reaches a rendered surface; we draw the shape.** A character
   doing the job of a DRAWING — `✓` `✗` `→` `❯` `●` `⚠` — is not in the deck's type family,

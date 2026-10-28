@@ -195,3 +195,22 @@ test('a symbolic link at the top of followups.d is refused, and is not listed as
   assert.match(followupProblems(dir).join('\n'), /42-p1-fix-the-thing: a symbolic link/);
   assert.equal(listFollowups(dir).find((i) => i.file === '42-p1-fix-the-thing.md').evidence, false);
 });
+
+test('a new item must say why it was deferred: large, blocked or off-path', () => {
+  const fresh = GOOD.replace('origin: 42', 'origin: 3001').replace('recorded: 2026-09-22', 'recorded: 2026-10-29');
+  const name = '3001-p1-x.md';
+  const [p] = followupProblems(folder({ [name]: fresh }));
+  assert.match(p, /deferred: large\|blocked\|off-path/);
+  for (const ok of ['large — rewrites the export path', 'blocked — waits on the WebKit fix', 'off-path — the Studio sidebar, not touched here']) {
+    assert.deepEqual(followupProblems(folder({ [name]: fresh.replace('area:', `deferred: ${ok}\narea:`) })), [], ok);
+  }
+  for (const bad of ['small', 'large', 'large —', 'later — no time', 'moderate — easy']) {
+    assert.equal(followupProblems(folder({ [name]: fresh.replace('area:', `deferred: ${bad}\narea:`) })).length, 1, bad);
+  }
+});
+
+test('either a new date OR a new origin PR triggers the deferral check; the old ledger is exempt', () => {
+  assert.deepEqual(followupProblems(folder({ '42-p1-x.md': GOOD })), [], 'old date, old origin');
+  assert.equal(followupProblems(folder({ '42-p1-x.md': GOOD.replace('2026-09-22', '2026-10-29') })).length, 1, 'new date');
+  assert.equal(followupProblems(folder({ '2953-p1-x.md': GOOD.replace('origin: 42', 'origin: 2953') })).length, 1, 'new origin');
+});

@@ -56,6 +56,7 @@ recorded: 2026-09-22
 area: chart
 severity: high
 swimlane: engineering/decisions/2026-09-24-six-state-marks.md §3
+deferred: large — needs the six-state model in every chart first
 source: https://github.com/Laticent/lattice/pull/2311#issuecomment-…
 ---
 
@@ -82,6 +83,7 @@ without opening the PR that left it:
 | `area` | yes | One `area:*` label name from `.github/labels.json`, without the prefix (`engine`, `chart`, `website`, …). The same word the issue would carry. |
 | `severity` | yes | `high`, `medium` or `low`: the `priority:*` words an issue uses, so promotion maps 1:1. `critical` is refused. "Drop everything" needs a board column and an owner, so file an issue instead. |
 | `swimlane` | yes | The governing doc, as the repo path of a file that must exist, optionally followed by a section: `engineering/decisions/x.md §8.1`. Without it, "the runbook is note §8.1" leaves the reader nothing to find. Renaming or deleting a doc that an item names fails `build:check` until the item is updated, which is the point: the pointer must not go stale. |
+| `deferred` | yes, for items recorded on or after 2026-10-29 or with an origin PR above #2952 | Why this was not done in the PR that found it: `large — <why>`, `blocked — <what it waits on>` or `off-path — <the surface>`. See §Why it was not done now. |
 | `source` | no | A link to the brief. |
 
 How to pick `severity`:
@@ -98,6 +100,27 @@ A `backfill: true` file is exempt from the `done when` line, because one backfil
 predates that field and the copy is kept verbatim. `checkFollowups` in
 `tools/check-ownership.js`, via `build:check`, fails on a missing or invalid field. The
 format is defined once, in `tools/followups.js`.
+
+## Why it was not done now
+
+A follow-up is a deferral, and HARD RULE #18 allows exactly three:
+
+- **`large`** — it does not fit this PR: a new subsystem, a migration, a redesign, or
+  work that would double the diff. "Would take an hour" is not large.
+- **`blocked`** — it waits on something outside this repo or outside the agent's reach: an
+  upstream fix, an owner decision, a secret.
+- **`off-path`** — the change that found it does not touch, teach or lint that surface. Name
+  the surface. When unsure, it is on the path, and on-path work is fixed now.
+
+Small or moderate work, jank the change made visible, and broken windows it touched do not
+get a file: they get fixed in the PR. Before this field, 161 items were filed in the 14 days
+to 2026-10-28, most of them small (`engineering/decisions/2026-10-28-raise-before-ask.md`).
+`checkFollowups` refuses a new item without the field. It checks the shape only. Whether
+`large` is true is for the checker that grades the pre-merge card, which reads the card's
+`left behind` row.
+
+Items recorded before the rule are exempt by date **and** origin PR, so the old ledger is not
+rewritten.
 
 ## The lifecycle
 
