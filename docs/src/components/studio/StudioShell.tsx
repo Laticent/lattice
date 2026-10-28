@@ -7484,12 +7484,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    drawer's own Workspace row below to avoid the exact "same setting, two
 				    homes" problem just fixed for Slide settings. */}
 				{mobile && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
-				{/* A phone has no ⌘Z: Undo and Redo for the deck's one history (Filo note §3.5). The Compose
-				    pane's pill carries the same pair (the same history), so these step aside there. */}
-				{mobile && !(effPane === 'edit' && editMode === 'compose') && (
+				{/* A phone has no ⌘Z: Undo and Redo for the deck's one history (Filo note §3.5). They show
+				    in every pane, Compose included, because the pre-paint skeleton (StudioChromeSkeleton)
+				    draws them before it can know the stored pane, and the two must match at hand-off. Below 360 px
+				    both drop them, or the deck title has no room left (studio-instant-shell's 320 px case). */}
+				{mobile && (
 					<>
-						<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
-						<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+						<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+						<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
 					</>
 				)}
 				{mobile && (

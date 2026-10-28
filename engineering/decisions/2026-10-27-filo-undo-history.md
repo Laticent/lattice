@@ -594,8 +594,13 @@ Where it differs from the plan above, and why:
 - **Live sessions.** The root ⌘Z reaches the session's `Y.UndoManager` through `LiveCollab.undo` /
   `redo`, so undo outside the editor works in a session too; the shared deck's changes reach Filo
   as one outside change when the session ends.
-- **The phone's Undo and Redo** sit in the header beside the mode toggle, outside the Compose pane,
-  which keeps its own pair until slice 4. At 390 px the deck switcher's title truncates sooner.
+- **The phone's Undo and Redo** sit in the header beside the mode toggle, in every pane. The
+  pre-paint skeleton (`StudioChromeSkeleton.tsx`) draws the same two buttons, disabled, because it
+  paints before the stored pane is known and `studio-smoke`'s shell-parity tests fail on any control
+  the app adds at hand-off (a first cut hid them in Compose and shrank the deck switcher from 182 px
+  to 106 px on hydration). At 390 px the deck switcher's title truncates sooner; below 360 px both
+  drop the pair, because at 320 px it left the deck title no width at all. Those phones keep Undo
+  in Compose's pill and have none in the Markdown pane, which is filed as a follow-up.
 - **The carry is gone** (#2), with `editor-carry.test.ts`; `studio-filo.test.ts` pins the same
   invariant (two new decks with identical bytes keep separate histories), and the e2e oracles in
   `markdown-stress.spec.ts` now assert that a Compose edit is on the one history.
