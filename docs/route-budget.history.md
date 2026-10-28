@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-28 — ceiling raised by hand, measured on the built tree at ed71fee
+
+Owner OK 2026-10-28 (asked in the PR 2919 session). The notes-scrub fix (followups.d/2012) makes notes-core parse with the lint core's markdown-it to find live comments, which adds about 0.5KB gz to the Studio lint core; main alone left 0.1KB under the ceiling. The tool's own reset re-slacks to 10% over the measurement (ceiling 136967); the owner approved about 1KB, so only the ceiling moved, to 125200, and the soft target stayed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 125200 (was 124089, +1111) |
+
 ### 2026-10-22 — measured on the built tree at b4552e5
 
 the callout layer's lane and markers load only for a deck that writes @callout (#2855 follow-up): the largest kernel closure fell 85.7 to 80.3 KB and the union 226.1 to 220.5 KB, and the three ceilings the owner raised for the layer come back down
