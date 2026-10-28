@@ -51,14 +51,19 @@ curl -sf "$ready" >/dev/null
 
 sudo safaridriver --enable
 driver=
-# (Re)start safaridriver and wait until it answers. It can die after a timed-out session (a nightly's iPhone then got
-# ECONNREFUSED on :4444 before it began), so this runs before every device, not once.
+# (Re)start safaridriver and wait until it answers. It can die after a timed-out session (a PR run's next session attempt then
+# got ECONNREFUSED on :4444), so this runs before every start, not once. Every curl is bounded: a driver that accepts the
+# connection and never replies must not hold the job until its timeout.
 start_driver() {
-  if [ -n "$driver" ] && kill -0 "$driver" 2>/dev/null && curl -sf http://localhost:4444/status >/dev/null; then return 0; fi
-  [ -n "$driver" ] && { echo 'safaridriver is not answering: restarting it'; kill "$driver" 2>/dev/null || true; }
+  if [ -n "$driver" ] && kill -0 "$driver" 2>/dev/null && curl -sf -m 5 http://localhost:4444/status >/dev/null; then return 0; fi
+  if [ -n "$driver" ]; then
+    echo 'safaridriver is not answering: restarting it'
+    kill "$driver" 2>/dev/null || true
+    wait "$driver" 2>/dev/null || true
+  fi
   safaridriver --port 4444 &
   driver=$!
-  for _ in $(seq 1 30); do curl -sf http://localhost:4444/status >/dev/null && return 0; sleep 1; done
+  for _ in $(seq 1 30); do curl -sf -m 5 http://localhost:4444/status >/dev/null && return 0; sleep 1; done
   echo 'safaridriver did not answer on :4444 within 30 s' >&2
   return 1
 }
@@ -97,30 +102,41 @@ for family in $families; do
     xcrun simctl spawn "$udid" defaults write "${key%%:*}" "${key#*:}" -bool true
   done
   # Exit 3 from run.mjs means no session was ever created, so no probe code ran: safaridriver could not reach this
-  # simulator, or safaridriver itself died. In main's first three iOS nightlies every failure was this one, and its own
-  # three session attempts do not help when the device or the driver is what is stuck. So restart both, ONCE: reboot the
-  # device, relaunch Safari, restart safaridriver if it stopped answering. A probe failure (exit 1) is never retried.
+  # simulator, or safaridriver itself died. In main's first three iOS nightlies every failure was this one, and run.mjs's own
+  # session attempts do not help when the device or the driver is what is stuck. So a stuck start gets ONE second start: a
+  # reboot, a fresh Safari and a fresh safaridriver. A probe failure (exit 1) is never retried. The second start is skipped
+  # once START_BUDGET seconds of this script have gone: a start that fails costs about 7 minutes, and the job's limit is
+  # 30 (.github/workflows/platform-suites.yml), so two stuck devices must not both get one. The first start makes 2 session
+  # attempts, not 3, for the same reason.
   rc=3
+  why=''
   for start in 1 2; do
-    xcrun simctl shutdown "$udid" || true
-    xcrun simctl boot "$udid"
-    xcrun simctl bootstatus "$udid" -b
-    xcrun simctl launch "$udid" com.apple.mobilesafari
-    sleep 5
-    start_driver || { rc=3; break; }
-    rc=0
-    PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
-    [ "$rc" = 3 ] || break
-    echo "$family: no session on start $start of 2"
-    if [ "$start" = 1 ]; then
+    if [ "$start" = 2 ]; then
+      if [ "$SECONDS" -ge "${START_BUDGET:-840}" ]; then
+        echo "$family: no second start: ${SECONDS} s of the suite have gone (budget ${START_BUDGET:-840} s)"
+        break
+      fi
+      echo "$family: $why on start 1 of 2; rebooting it and restarting safaridriver"
       kill "$driver" 2>/dev/null || true
       wait "$driver" 2>/dev/null || true
       driver=
     fi
+    xcrun simctl shutdown "$udid" || true
+    if ! { xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b && xcrun simctl launch "$udid" com.apple.mobilesafari; }; then
+      rc=5; why='the simulator did not boot or Safari did not launch'; continue
+    fi
+    sleep 5
+    if ! start_driver; then rc=4; why='safaridriver did not answer'; continue; fi
+    rc=0
+    attempts=3
+    [ "$start" = 1 ] && attempts=2
+    SESSION_ATTEMPTS=$attempts PROBE="$PROBE" SIM_UDID="$udid" SIM_LABEL="$family" ARTIFACT_DIR="$OUT" STUDIO_URL="http://localhost:$PORT" node docs/scripts/ios-safari/run.mjs || rc=$?
+    [ "$rc" = 3 ] || break
+    why='no session'
   done
   if [ "$rc" != 0 ]; then
     status=1
-    [ "$rc" = 3 ] && echo "$family: no session after two starts (the simulator or safaridriver, not the probe)" >&2
+    [ "$rc" -ge 3 ] && echo "$family: $why on the last start: the simulator or safaridriver failed, not the probe" >&2
     xcrun simctl list devices booted || true
     for domain in com.apple.webinspectord com.apple.mobilesafari; do
       echo "--- $domain"; xcrun simctl spawn "$udid" defaults read "$domain" || true

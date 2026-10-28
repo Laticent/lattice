@@ -530,10 +530,11 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   **Start failures.** safaridriver sometimes cannot reach a fresh simulator ("The host application never became ready", "timed
   out while connecting to a Safari instance", "Booting Simulator.app"), and can die after such a timeout. Every iOS failure in
   `main`'s first three nightlies (2026-10-26 to 10-28) was one of these, on either device, before any probe code ran. `run.mjs`
-  tries the session three times, 20 s apart, then exits **3** (no session, so no probe ran); it exits 3 at once when nothing
-  answers on :4444. On exit 3, `run.sh` reboots the device, relaunches Safari, restarts safaridriver and runs the device once
-  more. It also checks safaridriver answers before every device, so one device's dead driver does not fail the next. A probe
-  failure (exit 1) is never retried.
+  tries the session `SESSION_ATTEMPTS` times, 20 s apart, then exits **3** (no session, so no probe ran); it exits 3 at once
+  when nothing answers on :4444. On exit 3, a boot failure, or a safaridriver that will not answer `/status`, `run.sh` gives the
+  device one second start: a reboot, a fresh Safari and a fresh safaridriver. The first start makes 2 session attempts and the
+  second 3, and the second start is skipped once `START_BUDGET` (840 s) of the script has gone, so two stuck devices still end
+  inside the job's 30 minutes. A probe failure (exit 1) is never retried.
 
 ## Integration test cache
 

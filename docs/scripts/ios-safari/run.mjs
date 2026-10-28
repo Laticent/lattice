@@ -8,7 +8,7 @@
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
  *
  * Env: WEBDRIVER_URL (safaridriver, default http://localhost:4444), STUDIO_URL (the served docs build, default
- * http://localhost:4321), ARTIFACT_DIR (where the screenshot and result JSON go). Exits 1 when the probe fails or
+ * http://localhost:4321), ARTIFACT_DIR (where the screenshot and result JSON go), SESSION_ATTEMPTS (default 3). Exits 1 when the probe fails or
  * the session is not really iOS (a silent fallback to macOS Safari must never read as a pass). Exits 3 when no session
  * could be created at all (safaridriver never reached the simulator, or safaridriver itself is gone): no probe code ran,
  * so run.sh restarts safaridriver, reboots the device and tries once more.
@@ -57,10 +57,11 @@ const NO_SESSION = 3;
 /**
  * safaridriver sometimes cannot reach a freshly booted simulator ("The host application never became ready", "timed out
  * while connecting to a Safari instance", "Booting Simulator.app if not already running"): main's nightly lost 3 of its
- * first 3 days of iOS runs to it, each before any probe code ran, on either device. Retry the session a bounded number of
- * times. When safaridriver itself is gone (a refused connection: it can die after a timed-out session), retrying here is
+ * first 3 days of iOS runs to it, each before any probe code ran, on either device. Retry the session SESSION_ATTEMPTS
+ * times (default 3; run.sh passes 2 when it can still restart the device). When safaridriver itself is gone (a refused connection: it can die after a timed-out session), retrying here is
  * useless, so exit NO_SESSION at once and let run.sh restart it. Any other error is real.
  */
+const ATTEMPTS = Number(process.env.SESSION_ATTEMPTS || 3);
 async function createSession() {
 	for (let attempt = 1; ; attempt++) {
 		try {
@@ -72,12 +73,12 @@ async function createSession() {
 		} catch (e) {
 			const message = String(e.message);
 			const gone = /fetch failed/.test(message) || e.cause?.code === 'ECONNREFUSED';
-			if (gone || (attempt >= 3 && /session not created/.test(message))) {
-				console.log(`${LABEL}: no session (${gone ? 'safaridriver is not answering' : `attempt ${attempt} of 3`}): ${message.slice(0, 300)}`);
+			if (gone || (attempt >= ATTEMPTS && /session not created/.test(message))) {
+				console.log(`${LABEL}: no session (${gone ? 'safaridriver is not answering' : `attempt ${attempt} of ${ATTEMPTS}`}): ${message.slice(0, 300)}`);
 				process.exit(NO_SESSION);
 			}
 			if (!/session not created/.test(message)) throw e;
-			console.log(`${LABEL}: session not created (attempt ${attempt} of 3): ${message.slice(0, 200)}; trying again in 20 s`);
+			console.log(`${LABEL}: session not created (attempt ${attempt} of ${ATTEMPTS}): ${message.slice(0, 200)}; trying again in 20 s`);
 			await new Promise((r) => setTimeout(r, 20000));
 		}
 	}
