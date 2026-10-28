@@ -18,3 +18,9 @@ where     — `docs/src/components/studio/coach/photo-contrast-watch.ts`; a deck
             off-screen render per slide or a CLI-side sampler.
 
 done when — A deck-wide photo-contrast read exists (Studio or CLI), or the owner decides the on-screen slide is enough and this file is deleted.
+
+asked     — 2026-10-28, put to the owner as D1 of the ❓ card on the PR from branch
+            `claude/photo-contrast-continuation-6g5921`. Options: A keep the on-screen check only (delete this
+            file), B a Studio pass that renders each photo slide off-screen, C a CLI sampler in
+            `check-slide-contrast.js`. Pick and default if silent: A. Until the owner answers, a session applies
+            A's behavior (builds nothing) and leaves this file open.
