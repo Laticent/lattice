@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Veduta — a standalone showcase driven by the REAL core (docs/src/lib/veduta, the
 // `@laticent/veduta` workspace). A list of N units (up to 100,000) with a stage and a map beside
 // it. The page owns a tiny connector: it mounts exactly the units the core asks for, and shows
@@ -16,24 +17,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Veduta — only what you see exists</title>
 		<link rel="icon" href="/veduta-mark-min.svg" type="image/svg+xml" />
+		<LibraryTheme lib="veduta" />
 		<style is:global>
-			:root {
-				--paper: #f6f3ec; --stage: #efebf2; --ink: #241a2b; --muted: #6a5d73; --line: #ddd5e3;
-				--accent: #6b3a8c; --accent-ink: #fff; --warm: #8a9a00; --panel: #fdfcfa; --soft: #ece1f4;
-				--shadow: 0 1px 2px rgba(36,26,43,.06), 0 8px 24px rgba(36,26,43,.07);
-				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", Menlo, monospace;
-				color-scheme: light;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root:not([data-theme="light"]) {
-					--paper: #121012; --stage: #181519; --ink: #ece4f3; --muted: #a396ad; --line: #2c242f;
-					--accent: #c9a2e8; --accent-ink: #1d1226; --warm: #d9e75a; --panel: #161317; --soft: #2a1f33;
-					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-					color-scheme: dark;
-				}
-			}
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
 				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }

@@ -13909,6 +13909,10 @@ function declaredCustomProps(src, into) {
 }
 
 const DANGLING_SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.astro', '.css'];
+// A token DECLARED in data counts, but only in this file: the library demo pages' theme tokens are
+// written once in it and emitted as CSS by LibraryTheme.astro. Any other JSON under docs/src with a
+// `"--x":` key is not a declaration until someone says so here.
+const DANGLING_JSON_DECLARATIONS = ['docs/src/lib/library-palettes.json'];
 const DANGLING_THIRD_PARTY = [/^--sl-/, /^--radix-/, /^--tw-/];
 
 function checkDanglingTokenReads(errors, dirs = {}) {
@@ -13921,6 +13925,13 @@ function checkDanglingTokenReads(errors, dirs = {}) {
 
   const defined = new Set();
   for (const f of [...docsFiles, ...engineCss]) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
+  for (const rel of DANGLING_JSON_DECLARATIONS) {
+    const f = path.join(dirs.docsSrc ? path.resolve(dirs.docsSrc, '..', '..') : ROOT, rel);
+    if (fs.existsSync(f)) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
+    else if (!dirs.docsSrc) {
+      errors.push(`checkDanglingTokenReads: declaration source ${rel} is missing; the tokens it declared now read as undeclared. Update DANGLING_JSON_DECLARATIONS if it moved.`);
+    }
+  }
 
   const authored = docsFiles.filter((f) => {
     const rel = relPosix(ROOT, f);
