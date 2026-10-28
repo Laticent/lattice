@@ -56,6 +56,8 @@ const CORPUS = flag('corpus', 'galleries');
 // Temp decks sit beside their source (so relative assets resolve); the run tag keeps two runs
 // from deleting each other's inputs.
 const RUN = `${process.pid}-${Date.now().toString(36)}`;
+// Spare room, as a share of the content area, for the margin and hysteresis arms.
+const MARGINS = [0.05, 0.1, 0.2];
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
   { name: 'fit-balanced', policy: { pack: 'balanced' } },
@@ -180,7 +182,12 @@ async function main() {
     counts[size].forEach((c, i) => { for (let k = 0; k < c; k++) owner.push(i); });
 
     const pw = await open(W);
-    const wInfo = await pw.evaluate(() => ({ check: window.__fit.census(), leaves: window.__fit.sections().map((s) => window.__fit.leaves(s)) }));
+    const wInfo = await pw.evaluate((margins) => ({
+      check: window.__fit.census(),
+      leaves: window.__fit.sections().map((s) => window.__fit.leaves(s)),
+      // Per section: does it fit with each margin of spare room (for the margin and hysteresis arms)?
+      margin: window.__fit.sections().map((s) => Object.fromEntries(margins.map((m) => [m, window.__fit.fitsWithMargin(s, m)]))),
+    }), MARGINS);
     await pw.close();
     if (!wInfo.check.ok || wInfo.leaves.length !== owner.length) {
       problems.push(`rejected ${key} (whole): ${wInfo.leaves.length} sections, engine says ${owner.length}; deckSlideSections ${wInfo.check.deck} of ${wInfo.check.all}`);
@@ -217,6 +224,9 @@ async function main() {
       });
       arms[arm.name] = per;
     }
+    // A batch slide fits with a margin when every one of its sections does.
+    const margin = map.map(() => Object.fromEntries(MARGINS.map((m) => [m, true])));
+    wInfo.margin.forEach((mm, w) => { for (const m of MARGINS) if (!mm[m]) margin[owner[w]][m] = false; });
     const source = map.map(() => []);
     wInfo.leaves.forEach((l, w) => { source[owner[w]].push(...l); });
     map.forEach((meta, i) => {
@@ -225,7 +235,7 @@ async function main() {
         if (!r.pages.length) { problems.push(`no pages: ${key} ${arm} slide ${meta.slide} ${meta.variant}`); continue; }
         const where = {};
         for (const l of source[i]) if (!(l in where)) where[l] = r.pages.findIndex((pg) => pg.leaves.includes(l));
-        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages),
+        rows.push({ src, slide: meta.slide, variant: meta.variant, size, venue, arm, how: r.how, ms: r.ms, lost: lostCount(source[i], r.pages), margin: margin[i],
           pages: r.pages.map((pg) => ({ fits: pg.fits, px: pg.px, cut: pg.cut, fill: pg.fill })), where });
       }
     });
@@ -242,6 +252,33 @@ async function main() {
     const whole = g.how === 'fits';
     rows.push({ ...(whole ? g : r), arm: 'fit-then-structural', how: whole ? 'fits' : r.how, ms: whole ? g.ms : null });
   }
+  // Margin (stateless; what a file can do): whole only when the slide fits with room to spare.
+  // Hysteresis (stateful; what a live screen can do): an edit keeps the original's decision unless
+  // it must change. A whole slide stays whole until it overflows; a split slide rejoins only with
+  // room to spare. Scored on the edit pairs: each variant's decision depends on its original's.
+  const byStructural = new Map(rows.filter((r) => r.arm === 'structural').map((r) => [`${r.src}#${r.slide}#${r.variant}#${r.size}#${r.venue}`, r]));
+  const greedy = rows.filter((r) => r.arm === 'fit-greedy');
+  const greedyOrig = new Map(greedy.filter((r) => r.variant === 'orig').map((r) => [`${r.src}#${r.slide}#${r.size}#${r.venue}`, r]));
+  const pick = (g, whole, arm) => {
+    const st = byStructural.get(`${g.src}#${g.slide}#${g.variant}#${g.size}#${g.venue}`);
+    if (!st) return;
+    rows.push({ ...(whole ? g : st), arm, how: whole ? 'fits' : st.how, ms: whole ? g.ms : null });
+  };
+  for (const m of MARGINS) for (const g of greedy) pick(g, g.how === 'fits' && g.margin[m], `margin-${m * 100}`);
+  // Hysteresis with two thresholds: the FIRST decision (the original) keeps a slide whole only with
+  // `enter` to spare; after that, a whole slide stays whole until it overflows, and a split slide
+  // rejoins only with `exit` to spare. enter = 0 is plain hysteresis.
+  const hyst = (enter, exit) => {
+    const firstWhole = (g) => g.how === 'fits' && (enter === 0 || g.margin[enter]);
+    for (const g of greedy) {
+      const o = greedyOrig.get(`${g.src}#${g.slide}#${g.size}#${g.venue}`);
+      const fits = g.how === 'fits';
+      const whole = g.variant === 'orig' || !o ? firstWhole(g) : firstWhole(o) ? fits : fits && g.margin[exit];
+      pick(g, whole, `hysteresis-${enter * 100}-${exit * 100}`);
+    }
+  };
+  hyst(0, 0.2);
+  hyst(0.1, 0.2);
   const tScore = Date.now();
   fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(rows));
   const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });

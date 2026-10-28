@@ -40,6 +40,22 @@ function install(cfg) {
     return { ok: true, px: 0, chrome: false };
   }
 
+  /** Would the slide still fit with `m` (a share of its content area) more content? An invisible
+   *  block that tall joins the end of the content cell and the export's probe asks again. This is
+   *  the margin a stateless file can decide with: whole only with room to spare, so a small edit
+   *  near the edge does not flip it. */
+  function fitsWithMargin(s, m) {
+    if (!fitsSplit(s).ok) return false;
+    const stage = s.querySelector('.cell-stage') || s;
+    const spacer = document.createElement('div');
+    spacer.className = 'fit-margin-probe';
+    spacer.style.cssText = `height:${Math.round(m * stage.clientHeight)}px;flex:none;width:1px;`;
+    stage.appendChild(spacer);
+    const ok = fitsSplit(s).ok;
+    spacer.remove();
+    return ok;
+  }
+
   /** The slide sections, as the export enumerates them. */
   const sections = () => deckSlideSections(document);
   /** Broken markup (an unclosed tag) can reparent slides inside one another; the export then sees
@@ -241,7 +257,7 @@ function install(cfg) {
     return done(made, 'cut');
   }
 
-  window.__fit = { fits, leaves, fill, page, build, sections, census };
+  window.__fit = { fits, fitsWithMargin, leaves, fill, page, build, sections, census };
 }
 
 module.exports = { PAGE_SRC: `(${install.toString()})` };
