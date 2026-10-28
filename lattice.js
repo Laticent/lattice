@@ -3199,9 +3199,15 @@ ${ENGINE_SCRIPT_OPEN}
 // rebuilds the extension in LOWERCASE: `deck.HTML` resolved to `deck.html`, so the
 // path the caller asked for was never written and the run still exited 0
 // (red-team, this PR). Case-insensitive filesystems hide it; CI does not.
+const KEEP_HTML = !!flags['keep-html'] || process.env.LATTICE_KEEP_HTML === '1';
+// A byproduct sidecar (the cases `removeSidecarHtml` below deletes) gets a name no author file and
+// no parallel export can share. `<out>.html` was an author's `deck.html` to overwrite and then
+// delete, and two exports of one deck (`<deck>` and `<deck>-dark`) raced on it. The run owns
+// this file, so deleting it is safe.
+const SIDECAR_IS_BYPRODUCT = OUT_FORMAT !== 'html' && !!OUT_EXT && !(PLAYER || (FLUID_VIEW && FLUID_BEATS_READ) || READ_VIEW) && !KEEP_HTML;
 const outHtml = OUT_FORMAT === 'html'
   ? outFile
-  : outFile.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + '.html';
+  : outFile.replace(/\.(pdf|pptx|odp|png|zip|html)$/i, '') + (SIDECAR_IS_BYPRODUCT ? `.lattice-${process.pid}-${Math.random().toString(36).slice(2, 8)}` : '') + '.html';
 
 // THE HTML SIDECAR IS A BYPRODUCT, deleted after a successful raster unless asked for.
 // The `.html` beside a .pdf/.pptx/.odp/.png/.zip is the page the raster was captured from
@@ -3215,7 +3221,6 @@ const outHtml = OUT_FORMAT === 'html'
 //   · `--keep-html` or `LATTICE_KEEP_HTML=1` asks to keep it (the opt-in our own tools use).
 // A reader that needs the sidecar opts in rather than every export leaving a live file behind.
 // engineering/decisions/2026-08-17-theme-css-is-a-preview-sink.md § 14.
-const KEEP_HTML = !!flags['keep-html'] || process.env.LATTICE_KEEP_HTML === '1';
 function removeSidecarHtml() {
   // `FLUID_BEATS_READ` decides which viewer `--fluid`+`--read` resolves to; the sidecar is a
   // deliverable whenever any viewer rewrote it (the same arms as the post-raster rewrite).
