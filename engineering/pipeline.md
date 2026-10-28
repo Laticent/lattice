@@ -498,10 +498,7 @@ the page-level `<svg><defs>` that accessibility and print textures fill from (cl
 came out empty); a form feed or other XML-illegal character pasted into a slide (stripped, or the SVG would not parse and
 the export failed); relative `url()` in author CSS, inline styles and Marp's `backgroundImage:` (made absolute, since a
 data: SVG has no base); `<picture>` and `<video poster>`; and a stylesheet cache keyed on a count, which served slide 1's
-Calco freeze sheet to every later slide (now keyed on the text). A slide with no box (hidden by CSS, or not laid out) stops the camera with a
-`SlideNotLaidOut` error: it used to come out as a blank 1 × 1 picture with no word. The Studio reports the error, and the CLI stops
-the export naming the slide (Chrome's screenshot cannot take it either). The CLI's PDF writer then prints with Chrome, which leaves the
-hidden slide out. A slide the camera still cannot photograph falls back, for
+Calco freeze sheet to every later slide (now keyed on the text). A slide the camera still cannot photograph falls back, for
 that slide only, to Chrome's own screenshot with a warning on stderr; a picture the CLI cannot read is named once on stderr.
 
 What the camera does not do: video playback frames, an `<iframe>`'s content, `:nth-*`, sibling and cross-slide counter rules
