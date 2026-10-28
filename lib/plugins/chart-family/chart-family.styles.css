@@ -1214,7 +1214,8 @@ section.chart-frame .chart-caption::before {
   align-items: center;
   gap: 0.3em;
 }
-:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .state-node-row):is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"])::before {
+:is(section.chart-frame, figure.chart-frame) :is(.chart-status, .state-node-row):is([data-s="on-track"], [data-s="done"], [data-s="pass"], [data-s="at-risk"], [data-s="warn"], [data-s="blocked"], [data-s="fail"], [data-s="deferred"])::before,
+:is(section.chart-frame:not(.print), figure.chart-frame:not(.print)) :is(.chart-status, .state-node-row):is([data-s="live"], [data-s="pilot"], [data-s="decision"])::before {
   content: '';
   flex: none;
   width: 0.95em;

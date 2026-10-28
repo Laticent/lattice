@@ -645,7 +645,14 @@ describe('hub-spoke under a chart finish', () => {
     const m = finishCss.match(/section\.marks-tone :where\(\.hub-spoke-svg:has\(:is\(\.hub-spoke-node, \.hub-spoke-leaf\)\[data-hue\]\) \.hub-spoke-hub\)[^{]*\{([^}]*)\}/);
     assert.ok(m, 'the grouped-hub lift is missing or no longer scoped to grouped charts under tone');
     assert.match(m[1], /fill: var\(--text-heading\) !important/);
-    // Pigment's hub is the neutral solid (REGIONS) and etch's body never comes near it, so neither needs the lift.
+    // Pigment's and etch's hub is the first hue on a plain chart, and the NEUTRAL solid (or whisper) on a chart that draws groups:
+    // the first hue is group 1's, so a first-hue hub or satellite read as a member of group 1. Neither needs tone's heading-ink lift.
+    for (const f of ['pigment', 'etch']) {
+      const grouped = new RegExp(`section\\.marks-${f}:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\) :where\\(\\.hub-spoke-hub\\)`);
+      assert.match(finishCss, grouped, `${f} keeps a neutral hub on a grouped chart`);
+      const plain = new RegExp(`section\\.marks-${f}:not\\(:has\\(:is\\(\\.hub-spoke-node, \\.hub-spoke-leaf\\)\\[data-hue\\]\\)\\) :where\\(\\.hub-spoke-hub\\)`);
+      assert.match(finishCss, plain, `${f} draws the first-hue hub only on a plain chart`);
+    }
     assert.doesNotMatch(finishCss, /marks-(pigment|etch) :where\(\.hub-spoke-svg:has/);
     const member = fs.readFileSync(path.join(ROOT, 'lib/components/chart/hub-spoke/hub-spoke.styles.css'), 'utf8');
     assert.doesNotMatch(member, /\.marks-(pigment|etch|tone)/, 'the member does not name a finish');

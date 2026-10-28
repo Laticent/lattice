@@ -312,6 +312,18 @@ function rule(finishes, mark, decls, important = true) {
   return `${sel} {\n${decls.map((d) => `  ${d}${important ? ' !important' : ''};`).join('\n')}\n}`;
 }
 
+/** `rule`, but only on a slide whose own markup satisfies `guard` (a pseudo-class chain on the section, such as `:not(:has(...))`). */
+function ruleIf(finishes, guard, mark, decls, important = true) {
+  const sel = [`${head('section', finishes)}${guard} :where(${mark})`, `${head('figure', finishes)}${guard} :where(${mark})`].join(',\n');
+  return `${sel} {\n${decls.map((d) => `  ${d}${important ? ' !important' : ''};`).join('\n')}\n}`;
+}
+// A hub-spoke that draws GROUPS (a satellite with a category) keeps its neutral hub and satellites: the first hue is category 1's.
+const HS_GROUPED = ':has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])';
+const HS_PLAIN = `:not(${HS_GROUPED})`;
+// A flowchart or state chart that uses CATEGORIES (a node with a slot) keeps its neutral tile for the same reason.
+const FC_FIG = '.flowchart-figure:not([data-cats])';
+const SC_FIG = '.state-chart-figure:not([data-cats])';
+
 /** Every mark class a stroke member declares, for tone to leave alone. */
 function strokeMemberClasses() {
   const { loadAll } = require('../lib/components');
@@ -679,14 +691,14 @@ function build() {
       // satellite is held under the hub by its own mix, so a neutral or status-only chart keeps the dimmed hub.
       // Pigment's hub is the first-hue solid (REGIONS) and groups are washes there; etch's body (40%) never comes near the hub.
       // The hub is the deepest mark on the slide: the one hue at full strength (its name is the page ground, from the member).
-      w(rule(name, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
+      w(ruleIf(name, HS_PLAIN, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
       // The hub's name and value sit on that solid, so they take the solid's own ink (white on a light-face palette solid, 4.6:1
       // or better on a dark-face one); the member's page-ground ink measured 3.69:1 on indaco dark.
       w(rule(name, '.hub-spoke-svg:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-on-mark)']));
       // A chart that draws GROUPS keeps the heading-ink hub: a group disc takes tone's deep step, which reaches the one hue's own lightness.
       w(rule(name, '.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub', ['fill: var(--text-heading)', 'stroke: var(--text-heading)']));
       // A neutral satellite (no status, no hue) is a pale step with the one ink edge, like every etch body.
-      w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${mix(ONE, `${TONE[5]}%`)}`, `stroke: ${ONE_INK}`]));
+      w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${mix(ONE, `${TONE[5]}%`)}`, `stroke: ${ONE_INK}`]));
       // ONE INK FOR EVERY EDGE. With one ladder the bodies already tell the categories apart by depth, so the outline no
       // longer has to carry the category's hue: every mark wears the one tone ink, and a tone chart is one hue plus status.
       w(rule(name, SLOT_SEL, ['--finish-mark-edge: var(--chart-cat-1-ink)'], false));
@@ -768,8 +780,13 @@ function build() {
     // or slate neutral read as a second color beside the other marks, so the tile takes it; a status node and a category node (the `:not`s) keep theirs. Set on the member's own hue property rather
     // than re-pointing `--chart-neutral-hue`, which test/helpers/chart-color.js reads from dist as the theme's grey.
     const bare = ':not([data-s]):not([data-slot])';
-    w(supports(rule(name, `:is(.fc-node, .fc-node-group)${bare}`, [`--fc-hue: ${ONE}`])));
-    w(supports(rule(name, `:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch)${bare}`, [`--fill-hue: ${ONE}`])));
+    // A node whose author set its own text or border color keeps the neutral tile too: cN text on the first hue clashed.
+    w(supports(rule(name, `${FC_FIG} :is(.fc-node, .fc-node-group)${bare}:not([data-text]):not([data-border])`, [`--fc-hue: ${ONE}`])));
+    w(supports(rule(name, `${SC_FIG} :is(.state-node, .state-node-shape, .state-label-t, .state-node-row)${bare}`, [`--fill-hue: ${ONE}`])));
+    // A gantt has no categories, so its unstated bar is the first hue on every slide (a live bar wears its dot).
+    w(supports(rule(name, `:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch)${bare}`, [`--fill-hue: ${ONE}`])));
+    // A status mark's shape sits on a pale wash under etch and tone, so it is drawn in the heading ink (white stays on pigment's solid).
+    if (name !== 'pigment') w(rule(name, '.chart-status-mark', ['stroke: var(--text-heading)']));
     }
     if (name === 'etch') {
       // Etch's Plan / Actual anchors: the same pale wash and edge every other etch body wears, in the first hue.
@@ -812,11 +829,14 @@ function build() {
       const wash = name === 'pigment' ? 12 : name === 'tone' ? 12 : null;
       const tint = wash !== null ? `color-mix(in oklab, ${ONE} ${wash}%, var(--bg))` : `light-dark(color-mix(in oklab, ${ONE} ${f.backdrop[0]}%, var(--bg)), color-mix(in oklab, ${ONE} ${f.backdrop[1]}%, var(--bg)))`;
       // Pigment is the default finish and its card keeps the shipped surface: a tint under the inline code a card carries
-      // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only.
-      const cardDecls = [`box-shadow: inset ${name === 'pigment' ? 5 : name === 'etch' ? 4 : 3}px 0 0 ${name === 'pigment' ? ONE : ONE_INK}`];
+      // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only. The accent is a
+      // left border (padding gives its width back), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
+      // A `keyline` or `tinted` board already colors by lane, and the done lane keeps its status color.
+      const KBOARD = ':not(.keyline):not(.tinted)';
+      const cardDecls = ['border-left: calc(var(--chart-hairline) * 3) solid ' + (name === 'pigment' ? ONE : ONE_INK), 'padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2)'];
       if (name !== 'pigment') cardDecls.unshift(`background: ${tint}`);
-      w(supports(rule(name, '.kanban-card:not([data-s])', cardDecls)));
-      w(supports(rule(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
+      w(supports(ruleIf(name, KBOARD, '.kanban-column:not([data-done]) .kanban-card:not([data-s])', cardDecls)));
+      w(supports(ruleIf(name, KBOARD, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
     }
 
     // ── A NEUTRAL hub-spoke node — no status and no hue ─────────────────────
@@ -825,8 +845,12 @@ function build() {
     // left alone, a whole etched chart read as pigment with two recolored nodes.
     if (name === 'etch') {
       const body = pair(ONE, f.backdrop);
-      w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
+      const grey = ld(mix('var(--hs-neutral-ink)', `${f.backdrop[0]}%`), mix('var(--hs-neutral-ink)', `${f.backdrop[1]}%`));
+      w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
         `fill: ${body}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+      ]));
+      w(ruleIf(name, HS_GROUPED, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
+        `fill: ${grey}`, 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
       w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [
         `--hs-icon-ink: ${ld(inkOn(mix('var(--text-body)', `${f.backdrop[0]}%`)), inkOn(mix('var(--text-body)', `${f.backdrop[1]}%`)))}`,
@@ -838,13 +862,19 @@ function build() {
     // ink. Tone keeps the member's solid hub: tone's claim is depth, and the largest mark is its deepest step.
     if (name === 'etch') {
       const body = pair(ONE, f.backdrop);
-      w(rule(name, '.hub-spoke-hub', [`fill: ${body}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
+      const grey = ld(mix('var(--hs-neutral-ink)', `${f.backdrop[0]}%`), mix('var(--hs-neutral-ink)', `${f.backdrop[1]}%`));
+      w(ruleIf(name, HS_PLAIN, '.hub-spoke-hub', [`fill: ${body}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
+      w(ruleIf(name, HS_GROUPED, '.hub-spoke-hub', [`fill: ${grey}`, 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke']));
       w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--text-heading)']));
     }
     if (name === 'pigment') {
       // Pigment paints the neutral node with the neutral SOLID, like every other unstated mark in the family.
-      w(rule(name, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
+      w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
         `fill: ${ONE}`, `stroke: ${ONE_INK}`, `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
+      ]));
+      // On a chart that draws groups the first hue is group 1's, so the neutral satellite keeps the neutral solid.
+      w(ruleIf(name, HS_GROUPED, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [
+        'fill: var(--chart-neutral-hue)', 'stroke: var(--hs-neutral-ink)', `stroke-width: ${edge(f.edge)}`, 'vector-effect: non-scaling-stroke',
       ]));
       w(supports(rule(name, '.hub-spoke-icon:not([data-s]):not([data-hue])', [`--hs-icon-ink: ${textInk(name)}`])));
     }
@@ -888,8 +918,10 @@ function build() {
       w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'stroke: var(--bg)', 'stroke-width: 1.2']));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${ONE}`, `stroke: ${ONE}`]));
-      // The hub-spoke HUB is the one mark with no category and no status: the neutral solid, its name in the solid ink.
-      w(rule(name, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
+      // The hub-spoke HUB is the one mark with no category and no status: the first hue, or the neutral solid on a chart whose
+      // groups already wear the first hue; its name in the solid ink.
+      w(ruleIf(name, HS_PLAIN, '.hub-spoke-hub', [`fill: ${ONE}`, `stroke: ${ONE}`]));
+      w(ruleIf(name, HS_GROUPED, '.hub-spoke-hub', ['fill: var(--chart-neutral-hue)', 'stroke: var(--chart-neutral-hue)']));
       w(rule(name, ':is(.hub-spoke-hub-name, .hub-spoke-hub-value)', ['fill: var(--chart-on-mark)']));
       // A roadmap workstream cell is a row header: neutral ground, its phase kept on the left rule.
       // It carries the workstream's name, so it moves with the other text-bearing marks (TEXT WAITS).

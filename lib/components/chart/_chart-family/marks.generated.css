@@ -693,33 +693,47 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.radar-tick) {
 
 /* ══ PIGMENT ONLY ═══════════════════════════════════════════════════════════ */
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])),
-figure.marks-pigment :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])) {
+section.marks-pigment :where(.flowchart-figure:not([data-cats]) :is(.fc-node, .fc-node-group):not([data-s]):not([data-slot]):not([data-text]):not([data-border])),
+figure.marks-pigment :where(.flowchart-figure:not([data-cats]) :is(.fc-node, .fc-node-group):not([data-s]):not([data-slot]):not([data-text]):not([data-border])) {
   --fc-hue: var(--chart-cat-1-hue) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
-figure.marks-pigment :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+section.marks-pigment :where(.state-chart-figure:not([data-cats]) :is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])),
+figure.marks-pigment :where(.state-chart-figure:not([data-cats]) :is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])) {
   --fill-hue: var(--chart-cat-1-hue) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment :where(.kanban-card:not([data-s])),
-figure.marks-pigment :where(.kanban-card:not([data-s])) {
-  box-shadow: inset 5px 0 0 var(--chart-cat-1-hue) !important;
+section.marks-pigment :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
+figure.marks-pigment :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+  --fill-hue: var(--chart-cat-1-hue) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-pigment :where(.kanban-column:not([data-done]) .kanban-column-header),
-figure.marks-pigment :where(.kanban-column:not([data-done]) .kanban-column-header) {
+section.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
+figure.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
+  border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-hue) !important;
+  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-pigment:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
 }
 }
-section.marks-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
-figure.marks-pigment :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
+section.marks-pigment:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
+figure.marks-pigment:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
   fill: var(--chart-cat-1-hue) !important;
   stroke: var(--chart-cat-1-ink) !important;
+  stroke-width: var(--chart-edge) !important;
+  vector-effect: non-scaling-stroke !important;
+}
+section.marks-pigment:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
+figure.marks-pigment:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
+  fill: var(--chart-neutral-hue) !important;
+  stroke: var(--hs-neutral-ink) !important;
   stroke-width: var(--chart-edge) !important;
   vector-effect: non-scaling-stroke !important;
 }
@@ -772,10 +786,15 @@ figure.marks-pigment :where(.waterfall-bar[data-s="total"]) {
   fill: var(--chart-cat-1-hue) !important;
   stroke: var(--chart-cat-1-hue) !important;
 }
-section.marks-pigment :where(.hub-spoke-hub),
-figure.marks-pigment :where(.hub-spoke-hub) {
+section.marks-pigment:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(.hub-spoke-hub),
+figure.marks-pigment:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(.hub-spoke-hub) {
   fill: var(--chart-cat-1-hue) !important;
   stroke: var(--chart-cat-1-hue) !important;
+}
+section.marks-pigment:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(.hub-spoke-hub),
+figure.marks-pigment:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(.hub-spoke-hub) {
+  fill: var(--chart-neutral-hue) !important;
+  stroke: var(--chart-neutral-hue) !important;
 }
 section.marks-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)),
 figure.marks-pigment :where(:is(.hub-spoke-hub-name, .hub-spoke-hub-value)) {
@@ -941,16 +960,26 @@ figure.marks-etch :where(.bullet-measure[data-hue]) {
   fill: light-dark(color-mix(in oklab, var(--finish-mark-edge) 52%, var(--bg)), color-mix(in oklab, var(--finish-mark-edge) 60%, var(--bg))) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])),
-figure.marks-etch :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])) {
+section.marks-etch :where(.flowchart-figure:not([data-cats]) :is(.fc-node, .fc-node-group):not([data-s]):not([data-slot]):not([data-text]):not([data-border])),
+figure.marks-etch :where(.flowchart-figure:not([data-cats]) :is(.fc-node, .fc-node-group):not([data-s]):not([data-slot]):not([data-text]):not([data-border])) {
   --fc-hue: var(--chart-cat-1-hue) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
-figure.marks-etch :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+section.marks-etch :where(.state-chart-figure:not([data-cats]) :is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])),
+figure.marks-etch :where(.state-chart-figure:not([data-cats]) :is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])) {
   --fill-hue: var(--chart-cat-1-hue) !important;
 }
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-etch :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
+figure.marks-etch :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+  --fill-hue: var(--chart-cat-1-hue) !important;
+}
+}
+section.marks-etch :where(.chart-status-mark),
+figure.marks-etch :where(.chart-status-mark) {
+  stroke: var(--text-heading) !important;
 }
 section.marks-etch :where(.waterfall-bar[data-s="total"]),
 figure.marks-etch :where(.waterfall-bar[data-s="total"]) {
@@ -992,22 +1021,30 @@ figure.marks-etch :where(:is(.risk-band-ring, .risk-key-marker[data-band="critic
   --chart-ring: calc(var(--state-signal-w) * 2.6) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(.kanban-card:not([data-s])),
-figure.marks-etch :where(.kanban-card:not([data-s])) {
+section.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
+figure.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
-  box-shadow: inset 4px 0 0 var(--chart-cat-1-ink) !important;
+  border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-ink) !important;
+  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-etch :where(.kanban-column:not([data-done]) .kanban-column-header),
-figure.marks-etch :where(.kanban-column:not([data-done]) .kanban-column-header) {
+section.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-etch:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
 }
 }
-section.marks-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
-figure.marks-etch :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
+section.marks-etch:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
+figure.marks-etch:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
   fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
+  stroke-width: calc(var(--chart-edge) * 2.6) !important;
+  vector-effect: non-scaling-stroke !important;
+}
+section.marks-etch:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
+figure.marks-etch:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
+  fill: light-dark(color-mix(in oklab, var(--hs-neutral-ink) 14%, var(--bg)), color-mix(in oklab, var(--hs-neutral-ink) 19%, var(--bg))) !important;
+  stroke: var(--hs-neutral-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.6) !important;
   vector-effect: non-scaling-stroke !important;
 }
@@ -1017,10 +1054,17 @@ figure.marks-etch :where(.hub-spoke-icon:not([data-s]):not([data-hue])) {
   --hs-icon-ink: light-dark(color(from color-mix(in oklab, var(--text-body) 14%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--text-body) 19%, var(--bg)) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
-section.marks-etch :where(.hub-spoke-hub),
-figure.marks-etch :where(.hub-spoke-hub) {
+section.marks-etch:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(.hub-spoke-hub),
+figure.marks-etch:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(.hub-spoke-hub) {
   fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 19%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
+  stroke-width: calc(var(--chart-edge) * 2.6) !important;
+  vector-effect: non-scaling-stroke !important;
+}
+section.marks-etch:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(.hub-spoke-hub),
+figure.marks-etch:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) :where(.hub-spoke-hub) {
+  fill: light-dark(color-mix(in oklab, var(--hs-neutral-ink) 14%, var(--bg)), color-mix(in oklab, var(--hs-neutral-ink) 19%, var(--bg))) !important;
+  stroke: var(--hs-neutral-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.6) !important;
   vector-effect: non-scaling-stroke !important;
 }
@@ -1102,8 +1146,8 @@ figure.marks-tone :where(:is(.roadmap .horizon-head > .lat-pill, .roadmap thead 
   --lat-pill-ink: color(from var(--chart-cat-1-hue) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))) !important;
 }
 }
-section.marks-tone :where(.hub-spoke-hub),
-figure.marks-tone :where(.hub-spoke-hub) {
+section.marks-tone:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(.hub-spoke-hub),
+figure.marks-tone:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(.hub-spoke-hub) {
   fill: var(--chart-cat-1-hue) !important;
   stroke: var(--chart-cat-1-hue) !important;
 }
@@ -1116,8 +1160,8 @@ figure.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf
   fill: var(--text-heading) !important;
   stroke: var(--text-heading) !important;
 }
-section.marks-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
-figure.marks-tone :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
+section.marks-tone:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
+figure.marks-tone:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
@@ -1326,16 +1370,26 @@ figure.marks-tone :where(.slope-svg.slope-slopegraph:not(.slope-signal) .slope-d
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])),
-figure.marks-tone :where(:is(.fc-node, .fc-node-group):not([data-s]):not([data-slot])) {
+section.marks-tone :where(.flowchart-figure:not([data-cats]) :is(.fc-node, .fc-node-group):not([data-s]):not([data-slot]):not([data-text]):not([data-border])),
+figure.marks-tone :where(.flowchart-figure:not([data-cats]) :is(.fc-node, .fc-node-group):not([data-s]):not([data-slot]):not([data-text]):not([data-border])) {
   --fc-hue: var(--chart-cat-1-hue) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
-figure.marks-tone :where(:is(.state-node, .state-node-shape, .state-label-t, .state-node-row, .gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+section.marks-tone :where(.state-chart-figure:not([data-cats]) :is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])),
+figure.marks-tone :where(.state-chart-figure:not([data-cats]) :is(.state-node, .state-node-shape, .state-label-t, .state-node-row):not([data-s]):not([data-slot])) {
   --fill-hue: var(--chart-cat-1-hue) !important;
 }
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])),
+figure.marks-tone :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, .gantt-legend-swatch):not([data-s]):not([data-slot])) {
+  --fill-hue: var(--chart-cat-1-hue) !important;
+}
+}
+section.marks-tone :where(.chart-status-mark),
+figure.marks-tone :where(.chart-status-mark) {
+  stroke: var(--text-heading) !important;
 }
 
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */
@@ -1364,15 +1418,16 @@ figure.marks-tone :where(.risk-cell[data-band="critical"]) {
   stroke-width: 1.2 !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone :where(.kanban-card:not([data-s])),
-figure.marks-tone :where(.kanban-card:not([data-s])) {
+section.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
+figure.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
   background: color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) !important;
-  box-shadow: inset 3px 0 0 var(--chart-cat-1-ink) !important;
+  border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-ink) !important;
+  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
-section.marks-tone :where(.kanban-column:not([data-done]) .kanban-column-header),
-figure.marks-tone :where(.kanban-column:not([data-done]) .kanban-column-header) {
+section.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
+figure.marks-tone:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
 }
 }

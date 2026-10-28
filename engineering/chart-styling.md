@@ -296,7 +296,7 @@ measurement, and most undo a defect a render or the adversarial review found:
   Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone; pigment keeps the shipped card surface, because a tint under a card's inline code measured 4.19:1 on carbone) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
   property (`--fc-hue`, `--fill-hue`, `--hs-*`) and not `--chart-neutral-hue`, which the palette tests read as the theme's
-  grey. A status or category mark keeps its own color. Because the first hue can match the theme's info blue, `live`,
+  grey. A status or category mark keeps its own color, and so does the neutral mark on a slide where the first hue is already a category: a hub-spoke with groups keeps its neutral hub and satellites (a `:has()` guard on the section), and a flowchart or state chart that uses category nodes keeps its neutral tile (the transform sets `data-cats` on the figure, because a `:has()` guard on those made the contrast probe lose the node backdrops). A `keyline` or `tinted` kanban board and the done lane are left alone for the same reason. Because the first hue can match the theme's info blue, `live`,
   `pilot` and `decision` now draw a dot (`lib/core/status-marks.js`), so a live bar is told from an unstated one by shape,
   and the gantt key's swatches wear their status mark.
 - **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,

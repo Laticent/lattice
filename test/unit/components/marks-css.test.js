@@ -52,7 +52,10 @@ describe('marks.generated.css', () => {
     const tokenHeads = [];
     for (const s of selectors) {
       if (/^(section|figure)\.marks-(pigment|etch|tone)$|^:is\(section, figure\)\.marks-(pigment|etch|tone) \.chart-frame$/.test(s)) { tokenHeads.push(s); continue; }
-      assert.match(s, new RegExp(`^(section|figure)${head} :where\\(.+\\)$`), s);
+      // A rule may add a slide-level GUARD (`:not(:has(...))`, `:not(.keyline)`) after the head, so a first-hue neutral mark waits for a
+      // slide whose own markup does not already use that hue for a category.
+      const guard = '(?::(?:not|has)\\((?:[^()]|\\((?:[^()]|\\([^()]*\\))*\\))*\\))*';
+      assert.match(s, new RegExp(`^(section|figure)${head}${guard} :where\\(.+\\)$`), s);
     }
     assert.equal(tokenHeads.length, 9, 'one token block per finish: the slide, the re-hosted figure, and the chart frame inside a pane');
   });
@@ -224,7 +227,7 @@ describe('marks.generated.css', () => {
     // The other is tone's hub-spoke HUB, a disc body (not text on a body) that goes back to the full heading ink beside group discs.
     // The finish's text ink is a VALUE in its token block, which paints nothing; what matters is that no rule outside the guard reads it.
     assert.doesNotMatch(outside, /var\(--finish-ink\)/, 'every rule that reads the finish\'s text ink waits behind the guard');
-    const withoutTicks = outside.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '');
+    const withoutTicks = outside.replace(/--finish-ink:[^;]*;/g, '').replace(/[^}]*\.radar-tick[^}]*\}/g, '').replace(/[^}]*\.hub-spoke-hub[^}]*\}/g, '').replace(/[^}]*\.wc-word[^}]*\}/g, '').replace(/[^}]*\.chart-status-mark[^}]*\}/g, '');
     assert.doesNotMatch(withoutTicks, /var\(--text-(body|heading)\)/, 'no fixed-ink fallback is left');
     assert.match(outside, /\.radar-tick[^}]*fill: var\(--text-heading\)/, 'the radar tick takes the heading ink under every finish');
     // The plain categorical rule skips the text-bearing marks, or they would take its full body.
@@ -362,7 +365,7 @@ describe('marks.generated.css', () => {
   // an unstated mark is told from a live one by the live status's dot, lib/core/status-marks.js).
   test('every finish gives the neutral tile and the waterfall anchors the first hue', () => {
     for (const f of ['pigment', 'etch', 'tone']) {
-      const tile = headed(f).find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
+      const tile = serving(f).find((x) => x.sel.includes('.fc-node-group)') && x.body.includes('--fc-hue'));
       assert.match(tile?.body || '', /--fc-hue: var\(--chart-cat-1-hue\) !important/, `${f} re-points the neutral tile`);
       const wf = headed(f).find((x) => x.sel.includes('.waterfall-bar[data-s="total"]'));
       assert.match(wf?.body || '', /var\(--chart-cat-1-hue\)/, `${f} paints the anchors from the first hue`);
