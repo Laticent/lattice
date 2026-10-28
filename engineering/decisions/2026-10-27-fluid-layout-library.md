@@ -662,13 +662,11 @@ a hall deck many, each page at the room's type size. Where the spike's guess at 
 (6 to 10 overflowing slides per row of the table, about 40% of them), it did not cut at all; P2's
 inference has to do better than one level, or those slides ring.
 
-**Tables cut in two directions (owner, 2026-10-28).** A table that does not fit is cut like a
-spreadsheet printed across several sheets, a proven technique: rows into bands, and columns into
-windows, with the first column (the row labels) repeated on every page and the header row repeated
-on every band, so the pages read c1+c2, c1+c3, and so on. Today's portrait behavior is different: the
-`cover-cards` recipe reshapes each row into a card (the column headers become labels inside the card)
-and gives each card a page. P2 records which one the slice uses; the owner's direction is the
-sticky-first-column cut.
+**Tables keep today's reshape (owner, 2026-10-28).** A wide table cannot be cut into a narrow box
+by rows alone, so it keeps the proven move it has today: the `cover-cards` recipe reshapes each row
+into a card titled by its first-column cell, with the column headers as labels inside the card. What
+fit first changes is only how many cards share a page: as many as fit at the venue's type size,
+instead of one card per page.
 
 **What changes in the plan.** P2 becomes the fit-first vertical slice on the Playground: render
 whole, check the fit, cut only what overflows at inferred boundaries, and lay out continuation pages
