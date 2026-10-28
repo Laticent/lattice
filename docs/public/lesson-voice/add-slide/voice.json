@@ -6,132 +6,132 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 156528,
+	"bytes": 152928,
 	"lines": [
 		{
-			"key": "cfdf6351eab2",
-			"text": "To add a ready-made slide (a chart, a big number, a comparison), click Add slide.",
-			"file": "cfdf6351eab2.mp3",
-			"bytes": 39312,
-			"speechMs": 6488,
+			"key": "8215cf741338",
+			"text": "To add a ready-made slide (a chart, a big number, a comparison), click New slide.",
+			"file": "8215cf741338.mp3",
+			"bytes": 35712,
+			"speechMs": 5889,
 			"leadMs": 46,
 			"track": {
 				"cues": [
 					{
-						"display": "To add a ready-made slide (a chart, a big number, a comparison), click Add slide.",
+						"display": "To add a ready-made slide (a chart, a big number, a comparison), click New slide.",
 						"words": [
 							{
 								"display": "To",
 								"spoken": "To",
 								"startMs": 0,
-								"endMs": 246,
+								"endMs": 223,
 								"charOffset": 0
 							},
 							{
 								"display": "add",
 								"spoken": "add",
-								"startMs": 246,
-								"endMs": 492,
+								"startMs": 223,
+								"endMs": 446,
 								"charOffset": 3
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 492,
-								"endMs": 738,
+								"startMs": 446,
+								"endMs": 669,
 								"charOffset": 7
 							},
 							{
 								"display": "ready-made",
 								"spoken": "ready-made",
-								"startMs": 738,
-								"endMs": 1475,
+								"startMs": 669,
+								"endMs": 1339,
 								"charOffset": 9
 							},
 							{
 								"display": "slide",
 								"spoken": "slide",
-								"startMs": 1475,
-								"endMs": 1721,
+								"startMs": 1339,
+								"endMs": 1562,
 								"charOffset": 20
 							},
 							{
 								"display": "(a",
 								"spoken": "a",
-								"startMs": 1721,
-								"endMs": 1967,
+								"startMs": 1562,
+								"endMs": 1785,
 								"charOffset": 26
 							},
 							{
 								"display": "chart,",
 								"spoken": "chart,",
-								"startMs": 1967,
-								"endMs": 2249,
+								"startMs": 1785,
+								"endMs": 2041,
 								"charOffset": 29
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 2488,
-								"endMs": 2734,
+								"startMs": 2259,
+								"endMs": 2482,
 								"charOffset": 36
 							},
 							{
 								"display": "big",
 								"spoken": "big",
-								"startMs": 2734,
-								"endMs": 2980,
+								"startMs": 2482,
+								"endMs": 2705,
 								"charOffset": 38
 							},
 							{
 								"display": "number,",
 								"spoken": "number,",
-								"startMs": 2980,
-								"endMs": 3508,
+								"startMs": 2705,
+								"endMs": 3184,
 								"charOffset": 42
 							},
 							{
 								"display": "a",
 								"spoken": "a",
-								"startMs": 3748,
-								"endMs": 3994,
+								"startMs": 3402,
+								"endMs": 3625,
 								"charOffset": 50
 							},
 							{
 								"display": "comparison),",
 								"spoken": "comparison,",
-								"startMs": 3994,
-								"endMs": 5013,
+								"startMs": 3625,
+								"endMs": 4550,
 								"charOffset": 52
 							},
 							{
 								"display": "click",
 								"spoken": "click",
-								"startMs": 5253,
-								"endMs": 5499,
+								"startMs": 4768,
+								"endMs": 4991,
 								"charOffset": 65
 							},
 							{
-								"display": "Add",
-								"spoken": "Add",
-								"startMs": 5499,
-								"endMs": 5744,
+								"display": "New",
+								"spoken": "New",
+								"startMs": 4991,
+								"endMs": 5214,
 								"charOffset": 71
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 5744,
-								"endMs": 6026,
+								"startMs": 5214,
+								"endMs": 5470,
 								"charOffset": 75
 							}
 						],
 						"startMs": 0,
-						"endMs": 6488,
+						"endMs": 5889,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 6488
+				"durationMs": 5889
 			}
 		},
 		{

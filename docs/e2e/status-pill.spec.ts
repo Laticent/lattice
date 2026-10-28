@@ -186,31 +186,34 @@ function exitingPill(page: import('@playwright/test').Page) {
 test('a status message raised inside the previous one’s exit window survives it', async ({ page }) => {
 	await gotoStudio(page);
 
-	// The slide rail's Duplicate is a single-click status raiser — no menu in front of
-	// it, so the observer can re-run the same route from inside the window.
-	const duplicate = page.getByRole('button', { name: 'Duplicate slide' });
-	await duplicate.click();
-	await expect(pills(page).first()).toContainText('Slide duplicated.');
-	// Take the pointer off the pill. At 1440px the bottom-center pill lands on top of the
-	// rail's Duplicate button, so the pointer that clicked it now HOVERS the pill, and Sonner
-	// pauses every dwell while the stack is hovered (`dist/index.mjs:605`) — it never expires.
+	// "Save a version" is a single-click status raiser — no menu in front of it, so the observer can re-run the
+	// same route from inside the window. (It was the strip's Duplicate until Duplicate began confirming on the
+	// strip itself rather than in a toast, 2026-10-27-slide-structure-strip.md §5.)
+	await page.getByRole('button', { name: 'Version history' }).click();
+	const save = page.getByRole('button', { name: 'Save a version' }).first();
+	await save.click();
+	await expect(pills(page).first()).toContainText('Version saved to history.');
+	// Take the pointer off the pill: Sonner pauses every dwell while the stack is hovered
+	// (`dist/index.mjs:605`), and a hovered pill never expires.
 	await page.mouse.move(0, 0);
 
-	await armExitReply(page, 'button[aria-label="Duplicate slide"]');
+	// The observer finds the button by a mark, since it has no name of its own to select by.
+	await save.evaluate((el) => el.setAttribute('data-exit-reply-target', ''));
+	await armExitReply(page, '[data-exit-reply-target]');
 
 	// Now let the pill expire on its own 2600ms dwell. The observer catches the exit.
 	await expect.poll(async () => (await exitReplyFired(page))?.at ?? null, {
 		timeout: 10_000,
 		message: 'the pill never started exiting — the observer had nothing to reply to',
 	}).not.toBeNull();
-	expect((await exitReplyFired(page))?.clicked, 'the observer found no Duplicate button to click').toBe(true);
+	expect((await exitReplyFired(page))?.clicked, 'the observer found no Save a version button to click').toBe(true);
 
 	// Both messages share the `status` slot. With the id rotated on close, the second is
 	// a NEW element that outlives the first's removal; on a shared fixed id it merges
 	// into the exiting one and goes out with it, so the count lands on 0.
 	await expect(exitingPill(page)).toHaveCount(0);
 	await expect(pills(page)).toHaveCount(1);
-	await expect(pills(page).first()).toContainText('Slide duplicated.');
+	await expect(pills(page).first()).toContainText('Version saved to history.');
 });
 
 test('an action message raised inside a CLICKED affordance’s exit window survives it', async ({ page }) => {

@@ -618,6 +618,24 @@ describe('what you share (2026-10-12)', () => {
 		await until(() => h.view().typing.includes('Amina'), h, a);
 	});
 
+	it('a Studio write that brings back a text the shared deck had before still reaches the shared deck', async () => {
+		// An undo restores the deck exactly as it was before a delete. That text had come from the shared
+		// deck once, so the echo filter still held it and took the Undo for the delete's own echo (found in the two-browser
+		// Live run, 2026-10-27-slide-structure-strip/live-undo/).
+		const { h } = await hostSession();
+		const { g } = await guestOf(h, 'Amina');
+		// biome-ignore lint/suspicious/noExplicitAny: tests reach the private runtime's shared text.
+		const yOf = (c: Ctl) => (c as any).rt.ytext as { toString(): string; insert(i: number, t: string): void };
+		yOf(g).insert(yOf(g).toString().length, 'peer\n');
+		await until(() => yOf(h).toString().endsWith('peer\n'), h, g);
+		const withPeer = yOf(h).toString();
+		h.update(deps('host-deck', { source: withPeer })); // the shell mirrors the peer's edit
+		h.update(deps('host-deck', { source: `${withPeer}deleted\n` })); // an op
+		h.update(deps('host-deck', { source: withPeer })); // its Undo: the text from before
+		await until(() => yOf(g).toString() === withPeer, h, g);
+		expect(yOf(h).toString()).toBe(withPeer);
+	});
+
 	it('turning typing off still protects you from being moved while you type (checker, 2026-10-13)', async () => {
 		const { h } = await hostSession();
 		const { g, notes } = await guestOf(h, 'Amina');

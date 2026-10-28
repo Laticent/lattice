@@ -3,9 +3,11 @@ import path from 'node:path';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import sectionSplit from '../../../../lib/core/section-source-split.js';
+import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide } from '../../components/studio/deck-ops';
 import { splitSlides } from '../../components/studio/lint';
+import { createFocusHub } from '../fuoco/hub';
 import { flatPart, partAt, partOfFlat, partText, unitText } from '../fuoco/outline';
-import { buildDeckIndex, type DeckIndex, indexStats, updateDeckIndex } from './deck-outline';
+import { buildDeckIndex, type DeckIndex, deckOutliner, indexStats, updateDeckIndex } from './deck-outline';
 
 const { splitSourceToSections } = sectionSplit as { splitSourceToSections: (s: string) => string[] };
 const ROOT = path.resolve(__dirname, '../../../..');
@@ -197,6 +199,96 @@ describe('DeckIndex — stable ids', () => {
 		expect(next.units.length).toBe(2);
 		expect(next.units[0].id).toBe(ix.units[0].id);
 		expect(next.units[1].id).toBe(ix.units[2].id);
+	});
+});
+
+// A SLIDE'S ID FOLLOWS THE SLIDE through a structural edit (engineering/decisions/2026-10-27-slide-structure-strip.md §10).
+// By offset alone, deleting B handed B's id to C and adding after B handed C's id to the new slide; the focus hub
+// re-places a viewer by id, so a Live viewer on C landed on the wrong slide. `moved` from the slide ops is the answer key.
+describe('DeckIndex — ids follow the slide through structural edits', () => {
+	const deck = '# A\n\na\n\n---\n\n# B\n\nb\n\n---\n\n# C\n\n## C1\n\nx\n\n## C2\n\ny\n\n---\n\n# D\n\nd\n\n---\n\n# E\n\ne\n';
+	const keeps = (src: string, r: { source: string; moved?: number[] }, path: 'incremental' | 'full') => {
+		const ix = buildDeckIndex(src);
+		const next = path === 'full' ? buildDeckIndex(r.source, ix, () => undefined) : updateDeckIndex(ix, r.source);
+		(r.moved ?? []).forEach((to, from) => {
+			if (to >= 0) expect(next.units[to].id, `${path}: slide ${from} → ${to}`).toBe(ix.units[from].id);
+		});
+		const ids = next.units.map((u) => u.id);
+		expect(new Set(ids).size).toBe(ids.length);
+	};
+
+	it('delete, add, move and duplicate each keep every surviving slide its own id', () => {
+		for (const path of ['incremental', 'full'] as const) {
+			keeps(deck, deleteSlide(deck, 1), path);
+			keeps(deck, addSlideAfter(deck, 1), path);
+			keeps(deck, moveSlide(deck, 1, 3), path);
+			keeps(deck, duplicateSlide(deck, 1), path);
+		}
+	});
+
+	it('the slide a viewer is on is still found by its id after a peer adds a slide before it', () => {
+		const ix = buildDeckIndex(deck);
+		const charlie = ix.units[2].id;
+		const next = updateDeckIndex(ix, addSlideAfter(deck, 1).source);
+		expect(unitText(next, next.units.findIndex((u) => u.id === charlie))).toMatch(/^# C/);
+	});
+
+	it('a reader whose caret sits at the top of a slide stays on it when a slide is added just before it', () => {
+		// A view puts the caret at the top of the slide it shows (its first character, or the blank line above it). An
+		// insertion there leaves `mapOffset`'s caret on the near side, in the NEW slide; the hub moves it to the top of the
+		// slide the reader was on, which its id still names.
+		const sched = { frame: (f: () => void) => f(), idle: (f: () => void) => f() };
+		for (const at of ['start', 'from'] as const) {
+			const hub = createFocusHub({ outliner: deckOutliner, scheduler: sched });
+			hub.update(deck);
+			const c = (hub.outline() as DeckIndex).units[2];
+			hub.report('markdown', { head: at === 'start' ? c.start : c.from });
+			hub.update(addSlideAfter(deck, 1).source);
+			const f = hub.get();
+			expect(unitText(hub.outline() as DeckIndex, f.unitIndex), `caret at ${at}`).toMatch(/^# C/);
+		}
+	});
+
+	it('a reader at the top of a slide that a peer merges into the one above stays with its text', () => {
+		// The slide's id is gone, so the hub must not move the caret to the "top" of whatever now sits at its index.
+		const sched = { frame: (f: () => void) => f(), idle: (f: () => void) => f() };
+		for (const at of ['start', 'from'] as const) {
+			const hub = createFocusHub({ outliner: deckOutliner, scheduler: sched });
+			hub.update(deck);
+			const c = (hub.outline() as DeckIndex).units[2];
+			hub.report('markdown', { head: at === 'start' ? c.start : c.from });
+			const cut = deck.indexOf('\n---\n\n# C');
+			hub.update(deck.slice(0, cut) + deck.slice(cut + '\n---\n'.length));
+			expect(unitText(hub.outline() as DeckIndex, hub.get().unitIndex), `caret at ${at}`).toMatch(/^# B[\s\S]*# C/);
+		}
+	});
+
+	it('typing in a slide that has an identical copy keeps both their ids, on both paths', () => {
+		// `$$` forces the full rebuild on every keystroke (a forward-scanning rule), the path where text alone would match
+		// the untouched copy to the edited original's old text.
+		const math = '# A\n\na\n\n---\n\n# B\n\n$$\nx\n$$\n\n---\n\n# C\n\nc\n';
+		for (const src of [math, deck]) {
+			const dup = duplicateSlide(src, 1).source;
+			const ix = buildDeckIndex(dup);
+			const at = ix.units[1].start + '# B'.length;
+			const typed = `${dup.slice(0, at)}!${dup.slice(at)}`;
+			const next = updateDeckIndex(ix, typed);
+			expect(next.units[1].id, 'the edited original').toBe(ix.units[1].id);
+			expect(next.units[2].id, 'the untouched copy').toBe(ix.units[2].id);
+		}
+	});
+
+	it('holds on random decks and random ops', () => {
+		fc.assert(
+			fc.property(fc.integer({ min: 2, max: 7 }), fc.nat(), fc.nat(), fc.constantFrom('move', 'delete', 'add', 'dup'), fc.boolean(), (n, a, b, op, full) => {
+				const src = Array.from({ length: n }, (_, k) => `# S${k}\n\ntext ${k}`).join('\n\n---\n\n');
+				const i = a % n;
+				const j = b % n;
+				const r = op === 'move' ? moveSlide(src, i, j) : op === 'delete' ? deleteSlide(src, i) : op === 'add' ? addSlideAfter(src, i) : duplicateSlide(src, i);
+				keeps(src, r, full ? 'full' : 'incremental');
+			}),
+			{ numRuns: 300 },
+		);
 	});
 });
 

@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Plus, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Trash2, Undo2,
+	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Trash2, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -308,8 +308,6 @@ export function StudioActivityRailSkeleton() {
  *
  * Every control here is gated on width or stop, per this file's own rule, and two of them only
  * became drawable because the app stopped gating them on DECK DATA:
- *   · `Add slide` — `insertComponents.length > 0`, and `components` is the build-time catalog
- *     inlined into the page, so it is never empty.
  *   · `Reshape slide` — was `reshapeVariants.length > 0`, i.e. a function of the ACTIVE SLIDE's
  *     component. It is now always rendered and `disabled` when the slide offers no looks (the
  *     idiom `Fix all issues` beside it already used), which makes the row's shape constant for
@@ -319,7 +317,9 @@ export function StudioActivityRailSkeleton() {
  *     not render on mobile or at Read at all (see studio.astro's `.ssr-editpane` gates).
  *
  * NOT drawn, because they are genuinely unknowable and start ABSENT in the app too: the issue
- * count pill (`issues > 0`, nothing is linted yet) and `Refine selection` (`hasSelection`).
+ * count pill (`issues > 0`, nothing is linted yet), `Refine selection` (`hasSelection`), and
+ * `New slide`, which the app draws here only while the preview is collapsed (the floating door over the preview
+ * is the one on screen otherwise; 2026-10-27-slide-structure-strip.md §5).
  * Both appear later on their own; neither is present at hand-off.
  */
 export function StudioEditorPaneSkeleton() {
@@ -332,7 +332,6 @@ export function StudioEditorPaneSkeleton() {
 				    which resolve against the EDITOR PANE — so `.ssr-editpane` carries
 				    `container-type: inline-size` in studio.astro, or every label here would
 				    resolve against the wrong box and the row would measure short. */}
-				<button type="button" aria-label="Add slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Plus className="size-3" /><span className="hidden @[36rem]:inline">Add</span></button>
 				<button type="button" aria-label="Reshape slide" className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 font-sans text-[12px] font-semibold normal-case tracking-normal text-[var(--accent)]"><Shapes className="size-3" /><span className="hidden @[36rem]:inline">Reshape</span></button>
 				{/* Inert in the app until the deck is linted, and the shell has linted nothing —
 				    so `disabled` here is the honest state, not a copy of a style. */}
@@ -451,8 +450,9 @@ export function StudioPreviewBarSkeleton() {
 export function StudioPreviewFooterSkeleton() {
 	return (
 		<>
-			{/* The app's navigator row: `px-3 py-2`, the five ops in a bordered `p-0.5` group of
-			    `size-7` buttons, then the slide pills. Both rows below carry the app's own text
+			{/* The app's navigator row: `px-3 py-2`, the four ops in a bordered `p-0.5` group of
+			    `size-7` buttons, then the slide pills. The floating "New slide" door
+			    is not drawn: it arrives with the app, over the preview, and changes no band. Both rows below carry the app's own text
 			    classes for the reason in StudioPreviewBarSkeleton's note — the strut is what
 			    tracks a raised browser minimum font size, and a skeleton without text has none. */}
 			{/* No border-t here: the .ssr-paneftr band already draws the footer's top hairline, so
@@ -461,7 +461,6 @@ export function StudioPreviewFooterSkeleton() {
 			<div className="ssr-rail flex flex-1 items-center gap-1.5 overflow-hidden bg-background px-3 py-2">
 				{/* Slide ops are fixed chrome — the app's own icons, at the app's own button size. */}
 				<span className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
-					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Plus className="size-3.5" /></span>
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Copy className="size-3.5" /></span>
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><Trash2 className="size-3.5" /></span>
 					<span className="grid size-7 place-items-center rounded-md text-muted-foreground"><ArrowLeftToLine className="size-3.5" /></span>

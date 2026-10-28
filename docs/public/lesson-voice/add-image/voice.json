@@ -6,7 +6,7 @@
 		"kbps": 48,
 		"pace": "moderate"
 	},
-	"bytes": 85680,
+	"bytes": 84672,
 	"lines": [
 		{
 			"key": "29ed8594db37",
@@ -100,45 +100,45 @@
 			}
 		},
 		{
-			"key": "aa85f5a80e50",
-			"text": "Click Add slide.",
-			"file": "aa85f5a80e50.mp3",
-			"bytes": 11088,
-			"speechMs": 1786,
+			"key": "de9c7d8e7ad6",
+			"text": "Click New slide.",
+			"file": "de9c7d8e7ad6.mp3",
+			"bytes": 10080,
+			"speechMs": 1610,
 			"leadMs": 46,
 			"track": {
 				"cues": [
 					{
-						"display": "Click Add slide.",
+						"display": "Click New slide.",
 						"words": [
 							{
 								"display": "Click",
 								"spoken": "Click",
 								"startMs": 0,
-								"endMs": 355,
+								"endMs": 320,
 								"charOffset": 0
 							},
 							{
-								"display": "Add",
-								"spoken": "Add",
-								"startMs": 355,
-								"endMs": 711,
+								"display": "New",
+								"spoken": "New",
+								"startMs": 320,
+								"endMs": 641,
 								"charOffset": 6
 							},
 							{
 								"display": "slide.",
 								"spoken": "slide.",
-								"startMs": 711,
-								"endMs": 1118,
+								"startMs": 641,
+								"endMs": 1008,
 								"charOffset": 10
 							}
 						],
 						"startMs": 0,
-						"endMs": 1786,
+						"endMs": 1610,
 						"charOffset": 0
 					}
 				],
-				"durationMs": 1786
+				"durationMs": 1610
 			}
 		},
 		{

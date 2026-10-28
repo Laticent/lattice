@@ -13,6 +13,8 @@
 export const SHARED_LINES = {
 	/** Said when the user waited out a turn and the lesson does the step itself. */
 	takeover: 'No rush — I’ll do this one for you.',
+	/** Said once New slide has split into Before | After (2026-10-27-slide-structure-strip.md §5). */
+	after: 'Then click After. Before would put it ahead of this slide.',
 } as const;
 
 /** Each lesson's own lines, keyed by lesson id and then by a name the track's code uses. */
@@ -32,7 +34,7 @@ export const LESSON_LINES = {
 		made: 'That is the slide those lines made. Change any word and the slide follows.',
 	},
 	'add-slide': {
-		click: 'To add a ready-made slide (a chart, a big number, a comparison), click Add slide.',
+		click: 'To add a ready-made slide (a chart, a big number, a comparison), click New slide.',
 		missing: 'I’ll open the slide gallery for you.',
 		notReady: 'The slide gallery isn’t ready yet. Try this lesson again in a moment.',
 		cards: 'Each card is one kind of slide. Type in the search box to find one by name.',
@@ -62,7 +64,7 @@ export const LESSON_LINES = {
 	// BUILDING — the slides people reach for after the first one.
 	'add-chart': {
 		what: 'A chart is a ready-made slide. You add it from the slide gallery.',
-		click: 'Click Add slide.',
+		click: 'Click New slide.',
 		missing: 'I’ll open the slide gallery for you.',
 		search: 'Typing in the search box narrows the gallery. I’ll type chart.',
 		pick: 'Pick the bar chart.',
@@ -70,7 +72,7 @@ export const LESSON_LINES = {
 	},
 	'add-table': {
 		what: 'A table slide lays out rows and columns for you, with the house style already applied.',
-		click: 'Click Add slide.',
+		click: 'Click New slide.',
 		missing: 'I’ll open the slide gallery for you.',
 		search: 'I’ll type table in the search box.',
 		pick: 'Pick the table.',
@@ -78,7 +80,7 @@ export const LESSON_LINES = {
 	},
 	'add-comparison': {
 		what: 'A comparison puts two options side by side and marks the one you recommend.',
-		click: 'Click Add slide.',
+		click: 'Click New slide.',
 		missing: 'I’ll open the slide gallery for you.',
 		search: 'I’ll type compare in the search box.',
 		pick: 'Pick split compare.',
@@ -86,7 +88,7 @@ export const LESSON_LINES = {
 	},
 	'add-image': {
 		what: 'An image slide shows one picture, sized to the slide.',
-		click: 'Click Add slide.',
+		click: 'Click New slide.',
 		missing: 'I’ll open the slide gallery for you.',
 		search: 'I’ll type image in the search box.',
 		pick: 'Pick image.',

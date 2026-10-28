@@ -363,8 +363,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  would put everyone's edits on your stack), seeds its document from `seed()` — the shared
 	 *  text, which may be ahead of `value` — and stops syncing from `value`, because the binding
 	 *  already carries every change and a second copy would apply it twice. `key` changes when the
-	 *  binding must be rebuilt (a role change makes it read-only). */
-	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string } | null;
+	 *  binding must be rebuilt (a role change makes it read-only). `isPeer` says whether a
+	 *  transaction came in through the shared text rather than this editor: another person's edit, or this
+	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
+	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
 }>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
@@ -886,7 +888,31 @@ export const Editor = React.forwardRef<EditorHandle, {
 									onUserEditRef.current?.();
 								}
 							}
-								if (u.docChanged || u.selectionSet) {
+								// A Live peer's edit only MAPS this editor's caret, and the hub maps the focus through the same
+								// change itself, keeping it on the slide the reader was on. Reported here, the mapped caret would
+								// override that: an insertion at the caret leaves it on the near side, inside the new text, and
+								// pulled a Live viewer onto a slide a peer had just added (2026-10-27-slide-structure-strip.md
+								// §10). Every other change reports as before: a lint fix that replaces the whole text maps the
+								// caret to 0 here but to the END in the hub, and the report is what keeps the two in step.
+								const isPeer = collabRef.current?.isPeer;
+								const fromPeer = !!isPeer && u.transactions.some((tr) => isPeer(tr));
+								// ...and the caret follows the hub when the hub kept the reader on a slide the mapped caret left: a
+								// caret at the top of a slide stays on the near side of a peer's insertion, inside the new slide,
+								// where the reader's next arrow press or keystroke would land. Deferred, since an update listener
+								// may not dispatch; dropped if anything changed the text in between.
+								if (fromPeer && hub && u.state.selection.main.empty) {
+									const f = hub.get();
+									const ix = hub.outline();
+									const doc = u.state.doc;
+									if (f.head !== null && f.head !== u.state.selection.main.head && f.head <= doc.length && ix && partAt(ix, u.state.selection.main.head)?.unit !== f.unitIndex) {
+										const to = f.head;
+										const v = u.view;
+										queueMicrotask(() => {
+											if (v.state.doc === doc && v.state.selection.main.empty) v.dispatch({ selection: { anchor: to } });
+										});
+									}
+								}
+								if (u.selectionSet || (u.docChanged && !fromPeer)) {
 									// THE CARET, to the hub: where it is and the line it is on. Constant work per
 									// update (a binary search in the hub), and the hub publishes only when a
 									// subscriber's selected value changed — so an arrow press along a line costs
