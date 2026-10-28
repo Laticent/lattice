@@ -73,10 +73,10 @@ encodes exactly that:
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| bar | `#2f6d5b` | `#63c9a6` | the sound (deep green / mint) |
-| onset | `#c67a12` | `#f6b64a` | the live clip (warm) |
-| hub | `#2f6d5b` | `#63c9a6` | the owned clock |
-| ring | `#123528` | `#0c1512` | the hub's inner ring |
+| bar | `#0b703f` | `#61da92` | the sound (emerald) |
+| onset | `#ab6900` | `#f6b64a` | the live clip (warm) |
+| hub | `#0b703f` | `#61da92` | the owned clock |
+| ring | `#002a14` | `#0c1512` | the hub's inner ring |
 | halo | `#f6f3ec` | `#101613` | paper (separation) |
 | ink (wordmark) | `#1b2b25` | `#e6ede9` | Fraunces "Suono" |
 
@@ -90,14 +90,14 @@ each on the DNA above with its own metaphor + accent. Assets: `docs/public/<name
 `-lockup.svg` (cadenza also `-mark-min.svg`, its caption being dense small; lente/vetrina hold at
 16px on the full mark).
 
-- **Lente** ("lens", reader lenses) — **built**. A camera **iris/aperture** (blue `#2f5fa6` /
-  `#6fa3e6`): tangent blades frame the aperture around the hub, one blade warm (the focal lens). Worn
+- **Lente** ("lens", reader lenses) — **built**. A camera **iris/aperture** (cyan `#00787d` /
+  `#64d1d7`): tangent blades frame the aperture around the hub, one blade warm (the focal lens). Worn
   by the `/lente` demo (built to the storyboard standard) + favicon.
 - **Vetrina** ("shop window", the walkthrough engine) — **built**. A framed **vitrine** (rose
   `#a8446a` / `#e08aa8`): a rounded-rect window around the hub with a self-driving **cursor** aimed at
   it — theater over real state. Worn by `/vetrina-tour` + favicon.
 - **Cadenza** (the caption timeline) — **built**. A **caption with the current word lit** (indigo
-  `#3f3d8f` / `#9491f2`, matching its demo): the hub is the lit word (warm ring), spoken word-bars
+  `#3f3d8f` / `#9491f2`, matching its demo): the hub is the lit word (magenta ring, `#b83997` / `#f999da`), spoken word-bars
   behind, upcoming dimmed ahead. Worn by `/cadenza` + favicon.
 - **Anima** (animation) — **staged** (WIP library). Direction: *motion made legible* — a rotation /
   arc-sweep around the hub; "information a still frame cannot carry." Its mark lands with its build.
@@ -128,10 +128,10 @@ inline so it follows the page's own theme toggle. The generator was kept out of 
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| thread (`pri`) | `#a0522d` | `#e0916a` | the woven threads (terracotta) |
-| main path (`warm`) | `#b5860f` | `#e8bd4f` | the gold weft |
-| hub | `#a0522d` | `#e0916a` | the hub node |
-| ring | `#4a1f0c` | `#1c0f08` | the hub's inner ring |
+| thread (`pri`) | `#8a6509` | `#e8bd4f` | the woven threads (ochre) |
+| main path (`warm`) | `#a0522d` | `#e0916a` | the sienna weft |
+| hub | `#8a6509` | `#e8bd4f` | the hub node |
+| ring | `#3d2a03` | `#1c1404` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#241f1b` | `#e6e2dd` | Fraunces "Trama" |
 
@@ -193,10 +193,10 @@ vermilion, Segno's charcoal and red):
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| brackets (`pri`) | `#0e6b67` | `#5cc6bc` | the viewfinder (teal) |
-| ticks (`warm`) | `#e2661c` | `#ff9d57` | the focused line (ember) |
-| hub | `#0e6b67` | `#5cc6bc` | the focal point |
-| ring | `#06302e` | `#0a201f` | the hub's inner ring |
+| brackets (`pri`) | `#b8490b` | `#ff9d57` | the viewfinder (ember) |
+| ticks (`warm`) | `#0e6b67` | `#5cc6bc` | the focused line (teal) |
+| hub | `#b8490b` | `#ff9d57` | the focal point |
+| ring | `#3a1503` | `#1f0d03` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#1b2423` | `#e3ebea` | Fraunces "Fuoco" |
 
@@ -260,7 +260,7 @@ and vermilion, Segno's charcoal and red, Fuoco's teal and ember):
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | frame and rail (`pri`) | `#6b3a8c` | `#c9a2e8` | the window (violet) |
-| current tile (`warm`) | `#8a9a00` | `#d9e75a` | the unit the reader is on (chartreuse) |
+| current tile (`warm`) | `#7b8a00` | `#d9e75a` | the unit the reader is on (chartreuse) |
 | hub | `#6b3a8c` | `#c9a2e8` | the focal point |
 | ring | `#2e1740` | `#1d1226` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
@@ -342,3 +342,44 @@ the pair furthest from every sibling picked this green.
 | ring | `#3a0619` | `#2a0d15` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#2a1418` | `#f3e5e8` | Fraunces "Filo" |
+
+## Palette diversity (2026-10-28)
+
+**Problem.** The marks shared too much color. Four libraries (Cadenza, Lente, Suono, Vetrina) used
+the same amber live accent, because the system said each library owns "one warm live accent". Fuoco's
+teal sat 0.027 from Suono's green in OKLab, close enough to read as one color, and Calco, Lente and
+Cadenza were three blues within 37 degrees of hue.
+
+**What changed.** The primaries now sit at least 0.071 apart in light and 0.077 in dark (the closest
+pair was 0.027). Five libraries moved; Segno, Mosaico, Calco, Veduta and Tavola did not.
+
+| Library | Primary (light / dark) | Accent (light / dark) | Change |
+|---|---|---|---|
+| Fuoco | ember `#b8490b` / `#ff9d57` | teal `#0e6b67` / `#5cc6bc` | swapped its two colors |
+| Trama | ochre `#8a6509` / `#e8bd4f` | sienna `#a0522d` / `#e0916a` | swapped its two colors |
+| Lente | cyan `#00787d` / `#64d1d7` | amber `#ab6900` / `#f6b64a` | primary moved off blue |
+| Suono | emerald `#0b703f` / `#61da92` | amber `#ab6900` / `#f6b64a` | primary moved toward green, amber darkened |
+| Cadenza | indigo (unchanged) | magenta `#b83997` / `#f999da` | accent moved off amber |
+| Vetrina | rose (unchanged) | violet `#734dbe` / `#b7a0fb` | accent moved off amber |
+| Veduta | purple (unchanged) | chartreuse `#7b8a00` / `#d9e75a` | light accent darkened from `#8a9a00` (2.83:1) |
+
+**Rule change.** The family DNA still has a hub, a halo and a warm-or-cool second color, but the
+second color is no longer required to be warm, and no accent may be shared by more than two
+libraries. Amber now belongs to Suono and Lente only.
+
+**Contrast.** Every drawn color holds 3:1 or better against the site's light paper (`#f6f3ec`) and
+dark paper (`#121012`), the WCAG 1.4.11 bar for graphical objects. The old light amber was 3.1:1, so
+it moved to `#ab6900` (4.0:1). The seven library demo pages carry the same colors as `--accent` and
+`--glow`, and those color small text, so they are held to 4.5:1 against their own paper and against
+`--glow-bg` where the text sits on it. That is why Suono and Lente's light-mode `--glow` is a darker
+amber (`#8b5500`, 4.5:1 on its tint) than their mark's (`#ab6900`), and why Cadenza's light `--glow-bg`
+is the paler `#fef1f9` (4.7:1). Measured by parsing each page's tokens; every `--accent`, `--glow`
+and ink-on-accent pair clears 4.5:1 in both schemes.
+
+**Guard.** `test/unit/docs/library-mark-palette.test.js` checks the contrast floor on every mark,
+the distance floor between hubs, and the shared-accent limit. Run against the old palette it fails
+five arms (including `fuoco` against `suono` at 0.035 in dark and `#c67a12` shared by four).
+
+**Page neutrals did not move.** Each demo page's paper, stage and line tints stayed. They still sit in
+family with the new colors: Fuoco's teal-tinted neutrals now frame a teal accent, Trama's warm
+browns match its ochre, and Lente's and Suono's cool and green tints sit beside cyan and emerald.

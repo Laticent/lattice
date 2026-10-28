@@ -25,8 +25,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<style is:global>
 			:root {
 				--paper: #f6f4ef; --stage: #ecefea; --ink: #1b2423; --muted: #5f6d6b; --line: #d6dedb;
-				--accent: #0e6b67; --accent-ink: #fff; --glow: #e2661c; --glow-ink: #b8490b; --glow-bg: #fbe7d8;
-				--panel: #fdfdfb; --soft: #e2efed; --ring: #06302e; --shadow: 0 1px 2px rgba(20,36,35,.06), 0 8px 24px rgba(20,36,35,.07);
+				--accent: #b8490b; --accent-ink: #fff; --glow: #0e6b67; --glow-ink: #0e6b67; --glow-bg: #e2efed;
+				--panel: #fdfdfb; --soft: #fbe7d8; --ring: #3a1503; --shadow: 0 1px 2px rgba(20,36,35,.06), 0 8px 24px rgba(20,36,35,.07);
 				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
 				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
@@ -35,15 +35,15 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			@media (prefers-color-scheme: dark) {
 				:root:not([data-theme="light"]) {
 					--paper: #101313; --stage: #151a1a; --ink: #e3ebea; --muted: #93a3a1; --line: #263130;
-					--accent: #5cc6bc; --accent-ink: #062320; --glow: #ff9d57; --glow-ink: #ffb27c; --glow-bg: #33231a;
-					--panel: #131818; --soft: #183230; --ring: #0a201f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+					--accent: #ff9d57; --accent-ink: #1f0d03; --glow: #5cc6bc; --glow-ink: #7ad3ca; --glow-bg: #183230;
+					--panel: #131818; --soft: #33231a; --ring: #1f0d03; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
 					color-scheme: dark;
 				}
 			}
 			:root[data-theme="dark"] {
 				--paper: #101313; --stage: #151a1a; --ink: #e3ebea; --muted: #93a3a1; --line: #263130;
-				--accent: #5cc6bc; --accent-ink: #062320; --glow: #ff9d57; --glow-ink: #ffb27c; --glow-bg: #33231a;
-				--panel: #131818; --soft: #183230; --ring: #0a201f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+				--accent: #ff9d57; --accent-ink: #1f0d03; --glow: #5cc6bc; --glow-ink: #7ad3ca; --glow-bg: #183230;
+				--panel: #131818; --soft: #33231a; --ring: #1f0d03; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
 				color-scheme: dark;
 			}
 			* { box-sizing: border-box; }
