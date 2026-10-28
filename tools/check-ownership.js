@@ -7435,6 +7435,12 @@ const SANCTIONED_EOL_BOUNDARIES = [
        + 'pass while the split under test never ran at that size.',
   },
   {
+    file: 'tools/fit-harness.js',
+    why: 'splits each source deck into slides on `---` lines and rewrites its front matter to set '
+       + '`size:` and `venue:`. A CRLF or lone-CR gallery would mis-split into the wrong slides, '
+       + 'and a BOM would hide the front matter, so the harness would score the wrong box.',
+  },
+  {
     file: 'tools/lint-deck.js',
     why: 'the file read. Without it a Windows author got DIFFERENT LINT ADVICE for identical '
        + 'content — the lint is a reader like any other.',
