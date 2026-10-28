@@ -903,7 +903,10 @@ jobs:
   studio-smoke:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
+    # Playwright pin supports the new image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20 # raised from 15 on 2026-10-22 (PR #2822): a passing run took 14m56s (tests 12m17s) and two runs were cancelled at the old cap
     steps:
       - uses: actions/checkout@v4
@@ -968,9 +971,9 @@ jobs:
   player-webkit:
     needs: changes
     if: needs.changes.outputs.player == 'true'
-    # Pinned: on 2026-10-27 `ubuntu-latest` began handing out Ubuntu 26.04, where Playwright 1.56.1 has no WebKit
-    # ("Playwright does not support webkit on ubuntu26.04-x64"), so the install step failed before any test ran
-    # (PR #2936). Move to `ubuntu-latest` again once the Playwright pin supports the newer image.
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
+    # Playwright pin supports the new image.
     runs-on: ubuntu-24.04
     # 25, not 12: `--with-deps` pulls about 70 apt packages, and on 2026-10-26 a slow Ubuntu
     # mirror took that step from 34 s to over 10 min on two of three runs (PR #2910), so a
