@@ -39,24 +39,50 @@ function lsOffCenter(n) {
 	return Math.abs((r.top + r.bottom) / 2 - win.innerHeight / 2);
 }
 
-// biome-ignore lint/correctness/noUnusedVariables: globals for WebDriver's execute-script and Playwright's addScriptTag
+/** Busy the main thread: `ms` of work in every 100 ms, so a frame (and the scroll event it delivers) can come well past
+ *  the sync's 120 ms echo window. Both frames share this thread. Replaces any burner already running. */
+function lsBurn(ms) {
+	clearInterval(window.__lsBurner);
+	if (ms <= 0) return;
+	window.__lsBurner = setInterval(() => {
+		const t = performance.now();
+		while (performance.now() - t < ms) {}
+	}, 100);
+}
+
+/** Record every event a tap produces (and whether the browser or a script made it: a `*` marks an untrusted one). */
+// biome-ignore lint/correctness/noUnusedVariables: see above
+function lsWatch() {
+	if (window.__lsEv) return;
+	window.__lsEv = [];
+	for (const t of ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'selectionchange']) {
+		document.addEventListener(
+			t,
+			(e) => {
+				if (window.__lsEv.length < 40) window.__lsEv.push(`${t}${e.isTrusted ? '' : '*'}:${String(e.target?.className || e.target?.nodeName || '').slice(0, 24)}`);
+			},
+			true,
+		);
+	}
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: see above
+function lsEvents() {
+	const e = window.__lsEv || [];
+	window.__lsEv = [];
+	return e;
+}
+
+// biome-ignore lint/correctness/noUnusedVariables: a global for WebDriver's execute-script and Playwright's addScriptTag
 async function lsPrepare(slides, burnMs) {
 	await lsUntil(() => document.querySelector('.cm-content'), 90000, 'the editor');
 	await lsUntil(() => document.querySelector('.pg-preview-wrap.is-live'), 90000, 'the live preview');
 	await lsUntil(() => lsSections().length >= slides, 90000, `${slides} slides in the preview`);
 	if (innerWidth <= 820) throw new Error(`the panes are stacked at ${innerWidth}px: the probe needs the two-pane layout`);
-	// Busy the main thread: `burnMs` of work in every 100 ms, so a frame (and the scroll event it delivers) can
-	// come well past the sync's 120 ms echo window. Both frames share this thread.
-	if (burnMs > 0) {
-		window.__lsBurner = setInterval(() => {
-			const t = performance.now();
-			while (performance.now() - t < burnMs) {}
-		}, 100);
-	}
+	lsBurn(burnMs);
 	return { width: innerWidth, burnMs };
 }
 
-// biome-ignore lint/correctness/noUnusedVariables: see above
 function lsFind(slide) {
 	const line = [...document.querySelectorAll('.cm-line')].find((l) => l.textContent === `- point ${slide}.3`);
 	if (!line) throw new Error(`the line "- point ${slide}.3" is not in the editor's viewport`);
@@ -74,7 +100,16 @@ function lsState(slide) {
 		editorTop: Math.round(lsScroller().scrollTop),
 		previewTop: Math.round(lsPreview().contentWindow.scrollY),
 		offCenter: Math.round(lsOffCenter(slide)),
+		hit: lsHit(slide),
+		events: window.__lsEv || [],
 	});
+}
+
+/** What sits under the middle of the slide's line: an overlay here would take the tap. */
+function lsHit(slide) {
+	const c = lsCenter(slide);
+	const el = document.elementFromPoint(c.x, c.y);
+	return `${String(el?.className || el?.nodeName || '').slice(0, 40)} @${c.x},${c.y}`;
 }
 
 /** Whether the tap on slide `n`'s line has put the caret there (the sync centers the preview only after it has). */
@@ -90,7 +125,6 @@ async function lsCaret(slide, ms) {
 }
 
 /** The middle of the slide's line in the page, for a touch tap by coordinates. */
-// biome-ignore lint/correctness/noUnusedVariables: see above
 function lsCenter(slide) {
 	const r = lsFind(slide).getBoundingClientRect();
 	return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) };

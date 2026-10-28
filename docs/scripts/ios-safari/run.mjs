@@ -126,20 +126,22 @@ async function runFocusSyncProbe(id) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?view=edit` });
 	const result = { ua: '', width: 0, steps: [], ok: false };
 	try {
-		const ready = await call(`lsPrepare(${SLIDES}, ${burn})`);
+		const ready = await call(`lsPrepare(${SLIDES}, 0)`);
 		if (ready?.error) throw new Error(ready.error);
 		result.width = ready.width;
 		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
+		await call('lsWatch()');
 		const rows = [];
-		for (let i = 0; i < TAPS; i++) {
-			const slide = TARGETS[i % TARGETS.length];
+		const methods = new Set();
+		/** One tap on the line of `slide`: an element click first, then a touch tap by coordinates if the caret did not land. */
+		const tap = async (label, slide) => {
 			const before = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsBefore();`, args: [] });
+			await call('lsEvents()');
 			const line = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsFind(${slide});`, args: [] });
 			const ref = line['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(line)[0];
 			await wd('POST', `/session/${id}/element/${ref}/click`, {});
 			let method = 'element click';
 			if (!(await call(`lsCaret(${slide}, 3000)`))) {
-				// The element click did not place the caret: tap again as a finger would, by coordinates.
 				const at = await call(`lsCenter(${slide})`);
 				await wd('POST', `/session/${id}/actions`, {
 					actions: [
@@ -159,14 +161,19 @@ async function runFocusSyncProbe(id) {
 				method = 'touch actions';
 				if (!(await call(`lsCaret(${slide}, 5000)`))) {
 					const state = await call(`lsState(${slide})`);
-					throw new Error(`tap ${i + 1} on slide ${slide}: neither an element click nor a touch tap placed the caret; page: ${JSON.stringify(state)}`);
+					throw new Error(`${label} on slide ${slide}: neither an element click nor a touch tap placed the caret; page: ${state}`);
 				}
 			}
-			if (i < 2) result.steps.push({ name: `tap ${i + 1} on slide ${slide} placed the caret`, pass: true, detail: method });
+			methods.add(method);
 			const row = await call(`lsAfter(${slide}, ${before})`);
-			if (row?.error) throw new Error(`tap ${i + 1} on slide ${slide}: ${row.error}`);
-			rows.push(row);
-		}
+			if (row?.error) throw new Error(`${label} on slide ${slide}: ${row.error}`);
+			return row;
+		};
+		// Four taps on a quiet page first: they tell a tap that never lands (the harness) from one the burner starves.
+		for (let i = 0; i < 4; i++) await tap(`quiet tap ${i + 1}`, TARGETS[i % TARGETS.length]);
+		result.steps.push({ name: 'four taps on a quiet page placed the caret and centered the slide', pass: true, detail: [...methods].join(', ') });
+		await call(`lsBurn(${burn})`);
+		for (let i = 0; i < TAPS; i++) rows.push(await tap(`tap ${i + 1}`, TARGETS[i % TARGETS.length]));
 		const v = verdict(rows);
 		result.steps.push({ name: `${v.taps} taps leave the editor alone (burner ${burn} ms)`, pass: v.ok, detail: `${v.jumps} moved it, worst ${Math.round(v.worst)} px` });
 		result.rows = rows;
