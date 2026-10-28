@@ -12,6 +12,6 @@
 - **Tables on every library and plugin Learn page read as tables.** A Markdown table now sits in a
   bordered frame with a header band and column rules, like the page's own tables, fills the column,
   and scrolls sideways on its own on a phone.
-- **Filo's demo has a played tour.** "Play the tour" runs the real Vetrina library over the page: a
-  narrated cursor types, changes the theme, moves a section and lets the AI tighten one, then undoes
-  three times from outside the editor. The first real click or key hands the page over.
+- **Filo's demo has "Eight things to try"**, laid out like Suono's and Cadenza's: numbered cards
+  under the stage, each naming the call it shows, and a "Play all eight" button that plays them in
+  order and stops on a second press.

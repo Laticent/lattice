@@ -68,9 +68,6 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			.theme:hover { color: var(--accent); border-color: var(--accent); }
 			.theme svg { width: 12px; height: 12px; }
 			.promise { font-family: var(--serif); font-size: clamp(21px, 3vw, 27px); line-height: 1.3; color: var(--ink); max-width: 34ch; margin: 14px 0 0; text-wrap: balance; }
-			section.block { margin-top: 34px; }
-			.block-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-			.block-head p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; max-width: 70ch; }
 
 			/* ── The stage ───────────────────────────────────────────────────── */
 			.stage { margin-top: 22px; background: var(--stage); border: 1px solid var(--line); border-radius: 18px;
@@ -176,10 +173,10 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; display: block; }
 			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
 
-			.start { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
-			.btn.big { font-size: 15px; padding: 11px 20px; }
-			.start-hint { font-size: 13.5px; color: var(--muted); max-width: 62ch; }
-			.start-hint b { color: var(--ink); font-weight: 600; }
+			.rail { margin-top: 26px; }
+			.rail-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+			.rail-head h2 { font-size: 21px; }
+			.rail-head .btn { font-size: 14px; padding: 9px 18px; }
 			.foot { margin-top: 34px; color: var(--muted); font-size: 12px; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 16px; }
 			.foot a { color: var(--accent); }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -201,11 +198,6 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			</header>
 			<p class="promise">One undo history for every way a document changes.</p>
 			<p class="sub">Four writers change one document: the <b>editor</b>, a <b>settings</b> panel, a list of <b>sections</b> you can reorder or have an AI tighten, and a <b>lint fix</b>. None of them keeps its own undo. Each commits to one Filo history, drawn below as a thread. Change things in any of them, then press <kbd>⌘Z</kbd> or <kbd>Ctrl+Z</kbd> <b>with focus anywhere on this page</b>: the last change goes back, whoever made it.</p>
-
-			<div class="start">
-				<button class="btn primary big" type="button" id="playBtn">▸ Play the tour</button>
-				<span class="start-hint">A narrated cursor changes the document through all four writers, then undoes from outside the editor. <b>Click or type anywhere</b> and the page is yours.</span>
-			</div>
 
 			<div class="stage" id="stage">
 				<div class="toolbar">
@@ -254,13 +246,13 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 				<p class="diag" id="diag" role="status" aria-live="polite">Type in the editor, change a setting or move a section. Then press <kbd>⌘Z</kbd> from anywhere.</p>
 			</div>
 
-			<section class="block" aria-labelledby="sb">
-				<div class="block-head">
-					<div><h2 id="sb">The storyboard</h2><p>Each beat drives the stage above through the public API it names.</p></div>
-					<button class="btn" type="button" id="tourBtn">Play all eight</button>
+			<div class="rail">
+				<div class="rail-head">
+					<h2>Eight things to try</h2>
+					<button class="btn primary" type="button" id="tourBtn">▸ Play all eight</button>
 				</div>
 				<div class="beats" id="beats"></div>
-			</section>
+			</div>
 
 			<p class="foot">This page runs the real library in your browser. <a href="/libraries/filo/learn/">Learn how Filo works, and how to use it →</a></p>
 		</div>
@@ -548,83 +540,6 @@ Move the sensors up the bank, and check them after every storm.
 			src.value = shown;
 			render();
 
-			// ── The played tour: the real Vetrina library narrates and drives this page ──────────
-			// Every change still goes through this page's own writers (write, move, tighten, undo),
-			// so the tour is the same code a visitor's clicks run; Vetrina only points and speaks.
-			// Its typing lands through `tourType`, one Filo commit per chunk, so it coalesces like
-			// real typing. The visitor's first real click or key ends the tour and hands over.
-			let tourAt = 0;
-			const tourType = {
-				set: () => {},
-				append: (t: string) => {
-					const r = h.commit({ base: h.head, edits: [{ from: tourAt, to: tourAt, insert: t }], label: 'Typing', origin: 'editor', before: tourAt, after: tourAt + t.length });
-					if (!r.ok) return;
-					shown = h.text;
-					tourAt += t.length;
-					render();
-					src.setSelectionRange(tourAt, tourAt);
-					scrollCaret(tourAt);
-				},
-			};
-			const tourActions = {
-				theme: (v: string) => { themeSel.value = v; write(setFm(shown, 'theme', v), `Theme → ${name(v)}`, 'settings'); },
-				move: (i: number, dir: -1 | 1) => move(i, dir),
-				tighten: (i: number) => tighten(i),
-				undo: () => undo(),
-				redo: () => redo(),
-			};
-			const playBtn = $<HTMLButtonElement>('#playBtn');
-			let tourHandle: { stop(): void } | null = null;
-			async function playTour() {
-				if (tourHandle) { tourHandle.stop(); return; }
-				const { run, wait } = await import('@/lib/vetrina');
-				reset();
-				playBtn.textContent = '■ Stop the tour';
-				tourHandle = run({
-					root: document.body,
-					actions: tourActions,
-					type: tourType,
-					takeover: { scope: 'window' },
-					onStop: (reason: string) => {
-						tourHandle = null;
-						playBtn.textContent = '▸ Play the tour';
-						if (reason === 'takeover') say('<b>The page is yours.</b> Change anything, then press ⌘Z from anywhere.');
-					},
-					play: async (ctx: any) => {
-						const { stage, actions, signal } = ctx;
-						const stamp = (sel: string) => (document.querySelector(sel) as HTMLElement | null) ?? '#stage';
-						stage.say('One document, four writers, and one history behind all of them.');
-						await stage.point('#src', signal); await wait(900, signal);
-						tourAt = shown.indexOf('river trip') + 'river trip'.length;
-						src.focus({ preventScroll: true });
-						stage.say('The editor types. A burst of keystrokes is one step.');
-						await ctx.type('#src', ' last week', { cadence: 70 });
-						await stage.gesture('underline', stamp('#thread li.head'), signal); await wait(700, signal);
-						stage.say('A settings panel rewrites a line of front matter.');
-						await stage.point('#themeSel', signal); actions.theme('cuoio');
-						await stage.gesture('check', '#themeSel', signal); await wait(600, signal);
-						stage.say('The section list moves a section…');
-						await stage.point('[data-down="0"]', signal); actions.move(0, 1);
-						await stage.gesture('check', '#sections', signal); await wait(500, signal);
-						stage.say('…and an AI rewrite tightens one. Each is one labeled step on the thread.');
-						await stage.point(stamp('[data-ai]:not([disabled])'), signal); actions.tighten(0);
-						await stage.gesture('circle', '#thread', signal); await wait(900, signal);
-						stage.say('Now undo, with focus on the page, not in the editor. The last change goes back, whoever made it.');
-						(document.activeElement as HTMLElement | null)?.blur?.();
-						await stage.point('#undoBtn', signal);
-						for (let i = 0; i < 3; i++) { actions.undo(); await stage.gesture('tap', '#undoBtn', signal); await wait(850, signal); }
-						stage.say('Three undos: the AI rewrite, the move, the theme. The typing is still there.');
-						await stage.gesture('underline', stamp('#thread li.head'), signal); await wait(1100, signal);
-						stage.say('Redo brings the theme back.');
-						await stage.point('#redoBtn', signal); actions.redo();
-						await stage.gesture('check', '#themeSel', signal); await wait(900, signal);
-						stage.say('Your turn: change anything, then press ⌘Z from anywhere on this page.');
-						await wait(2200, signal);
-					},
-				});
-			}
-			playBtn.addEventListener('click', playTour);
-
 			// ── The storyboard: each beat drives the stage through the API it names ──
 			const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 			const typeAt = async (needle: string, text: string) => {
@@ -660,10 +575,20 @@ Move the sensors up the bank, and check them after every storm.
 				running = true;
 				try { await play(Number(b.dataset.beat)); } finally { running = false; }
 			});
-			$('#tourBtn').addEventListener('click', async () => {
+			// Play all: one beat after another, and the same button stops it (as Suono's and Cadenza's do).
+			const tourBtn = $<HTMLButtonElement>('#tourBtn');
+			let touring = false;
+			tourBtn.addEventListener('click', async () => {
+				if (touring) { touring = false; return; }
 				if (running) return;
-				running = true;
-				try { for (let i = 0; i < BEATS.length; i++) { await play(i); await wait(1800); } } finally { running = false; }
+				running = touring = true;
+				tourBtn.textContent = '■ Stop tour';
+				try {
+					for (let i = 0; i < BEATS.length && touring; i++) { await play(i); if (touring) await wait(1800); }
+				} finally {
+					running = touring = false;
+					tourBtn.textContent = '▸ Play all eight';
+				}
 			});
 		</script>
 	</body>
