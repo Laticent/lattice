@@ -48,7 +48,7 @@ import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.ge
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
-import { captureSlideCanvas } from '../../../../../lib/core/slide-camera.mjs';
+import { captureSlideCanvas, pseudoContentText } from '../../../../../lib/core/slide-camera.mjs';
 // A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
 // only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
@@ -1048,6 +1048,10 @@ function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake
  *  (`article-projection.ts` › warmArticleProjection) without running a capture. */
 export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 
+// Everything the export will draw, for the emoji slice picker: the text, and what pseudo-elements draw through `content:`,
+// which `textContent` never holds (an emoji set only there lost its slice and drew in a fallback face).
+const deckTextOf = (doc) => `${doc?.body?.textContent || ''}\n${pseudoContentText(doc?.body)}`;
+
 async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
@@ -1062,7 +1066,7 @@ async function sectionsOf(frame, fonts) {
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
-	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '', fonts);
+	const fontEmbedCSS = await buildFontEmbedCss(deckTextOf(doc), fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
 	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
 	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
@@ -1642,22 +1646,23 @@ function canvasToPng(canvas) {
 	return sharedPictureEncoder().encode(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
 }
 
-// The author's `images:` line for the slide pictures of the PPTX and Office exports
+// `images` below is the author's `images:` line for the slide pictures of the PPTX and Office exports
 // (lib/core/image-policy.js): `original` keeps every slide a lossless PNG, and an explicit quality
-// replaces the default. Set by exportPptx / exportOffice for the length of one export.
-let pictureImages = null;
+// replaces the default. Each export passes its own down the call. It was a module variable until the #2904
+// follow-up, and two exports started in one frame (a double click past the panel's `busy` state) overwrote
+// each other's.
 
 /**
  * What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/office-export-policy.js `cropRules`): the
  * policy, and the shared writers in the worker pool to write them with, installed under the name the rules carry.
  */
-function officePicturePolicy() {
+export function officePicturePolicy(images) {
 	globalThis[officePolicyCore.PICTURE_WRITER] = (canvas, format) => sharedPictureEncoder().encode(canvas, format);
-	return officePolicyCore.cropRules(pictureImages || {}, { writer: true });
+	return officePolicyCore.cropRules(images || {}, { writer: true });
 }
 
-async function canvasToPictureBlob(canvas, section) {
-	const setting = pictureImages || {};
+export async function canvasToPictureBlob(canvas, section, images) {
+	const setting = images || {};
 	const { resolveImagePolicy } = imagePolicyCore;
 	const { choosePicture } = officePolicyCore;
 	const { isContinuousTone } = await import('@/lib/calco');
@@ -1675,11 +1680,11 @@ async function canvasToPictureBlob(canvas, section) {
 // PowerPoint lanes take this picture: the worker lane transfers its bytes to the assembly worker, which base64s them there;
 // the main-thread fallback makes the data URL itself. The fallback used to take `rasterizeSection` instead, a lossless PNG
 // of the PDF's flat face for every slide: a different look, and 52 photo slides at about 3.5 times the worker lane's size.
-async function rasterizeSlidePicture(section, fontEmbedCSS, cornerTarget, log) {
+async function rasterizeSlidePicture(section, fontEmbedCSS, cornerTarget, log, images) {
 	try {
 		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => {
 			const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'screen');
-			return await canvasToPictureBlob(canvas, section);
+			return await canvasToPictureBlob(canvas, section, images);
 		}, undefined, cornerTarget, 'screen');
 	} catch (e) {
 		throw captureError(e);
@@ -2254,7 +2259,7 @@ const PPTX_WORKER_MAX_IN_FLIGHT = 2;
  * top was one 717 ms freeze at the END: pptxgenjs writing an XML part per slide,
  * JSZip base64-decoding every image, and the zip write, none of it yielding.
  */
-async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log) {
+async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images) {
 	const worker = new Worker(new URL('./pptx-assemble-worker.js', import.meta.url), { type: 'module' });
 	try {
 		const total = sections.length;
@@ -2287,7 +2292,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bytes = await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log)).arrayBuffer();
+			const bytes = await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images)).arrayBuffer();
 			worker.postMessage({ type: 'slide', index: i, bytes, altText: altTextFor(i) }, [bytes]);
 			await new Promise((r) => setTimeout(r));
 		}
@@ -2302,7 +2307,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 
 /** `opts.embedSource`: the `.lattice` bytes to carry, as for `exportPdf`. */
 export async function exportPptx(render, name, onStatus, meta, opts) {
-	pictureImages = opts?.images || null;
+	const images = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
@@ -2337,7 +2342,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const altTextFor = (i) => (describeRecord[i]?.description || '').trim() || `Slide ${i + 1}`;
 	if (canUsePptxWorker()) {
 		try {
-			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log), 'pptx', opts?.embedSource, onStatus);
+			const blob = await withEmbeddedSource(await buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, altTextFor, onStatus, log, images), 'pptx', opts?.embedSource, onStatus);
 			download(blob, safeName(name) + '.pptx');
 			return missingImageReason(log);
 		} catch (e) {
@@ -2360,7 +2365,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log));
+		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log, images));
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -2411,7 +2416,7 @@ const OFFICE = {
  * into a text box; `opts.embedSource` (PowerPoint only) carries the `.lattice`.
  */
 export async function exportOffice(format, render, name, onStatus, meta, opts) {
-	pictureImages = opts?.images || null;
+	const images = opts?.images || null;
 	const kind = OFFICE[format];
 	if (!kind) throw new Error(`Unknown office format: ${format}`);
 	const editable = !!opts?.editable;
@@ -2447,7 +2452,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					const canvas = await shootSection(sections[i], now.pixelRatio, fontEmbedCSS, log, 'screen');
 					// A background is a picture to store, and so is the whole slide a slide falls back to: a photograph is a JPEG.
 					// The foreground carries transparency, which only a PNG keeps.
-					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined);
+					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined, images);
 					return new Uint8Array(await blob.arrayBuffer());
 				},
 				guard: async (i, fn) => {
@@ -2486,7 +2491,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 				},
 			};
-			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(images), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
 			slides = captured.slides.map((sl, i) => ({ ...sl, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
 		} else {
@@ -2498,7 +2503,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 						sections[i],
 						async (_w, _h, pixelRatio) => {
 							const canvas = await shootSection(sections[i], pixelRatio, fontEmbedCSS, log, 'screen');
-							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i])).arrayBuffer());
+							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i], images)).arrayBuffer());
 						},
 						undefined,
 						format,
@@ -2668,7 +2673,7 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
 			// Embed the faces + wait for them, so the nodes lay out with the real font
 			// before we read computed styles (mirrors the PDF/PPTX path).
-			const fontCssAll = await buildFontEmbedCss(doc.body?.textContent || '');
+			const fontCssAll = await buildFontEmbedCss(deckTextOf(doc));
 			await ensureFontsLoaded(doc, fontCssAll);
 			const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win, { collectTokens: true }));
 			const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
@@ -2782,7 +2787,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 				]);
 				const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
 				const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
-				const fontCssAll = await buildFontEmbedCss(svgFrame.contentDocument.body?.textContent || '');
+				const fontCssAll = await buildFontEmbedCss(deckTextOf(svgFrame.contentDocument));
 				await ensureFontsLoaded(svgFrame.contentDocument, fontCssAll);
 				// The canvas baked behind each standalone SVG (null = transparent) — the SAME
 				// neutral literals the CLI uses, via the shared kernel.
