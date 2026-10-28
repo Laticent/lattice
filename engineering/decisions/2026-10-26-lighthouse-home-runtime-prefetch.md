@@ -337,6 +337,21 @@ never shows the editor never fetches or evaluates CodeMirror. Same method, eight
 About 330 ms less blocking time, 380 ms less main-thread time, and every head run is below the base median. No `.cm-editor`
 exists on the head page ten seconds after load; on the base page one does.
 
+**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** `/playground/`, the §1 mobile profile, from this
+sandbox. Base is #2921's last preview (`f9f79ae2`, the lazy-index build, built from the same engine as `main` at `992664b`;
+that equivalence was not checked byte for byte). Head is this change's preview (`73e3506e`, `9c84259`).
+
+| Build | Score | FCP | LCP | TBT |
+|---|---|---|---|---|
+| base | 36, 42, 46, 43, 34 (median 42) | 2.87-7.64 s | 4.82-10.19 s (median 6.03) | 4208, 2176, 2233, 2147, 1128 ms (median 2,176) |
+| head | 56, 60, 60, 57, 56 (median 57) | 2.24-2.42 s | 3.33-3.78 s (median 3.62) | 2439, 2048, 1876, 1885, 2745 ms (median 2,048) |
+
+Median score 42 to 57 and median LCP 6.0 s to 3.6 s; every head score is above every base score. TBT alone is inside the
+noise (the base runs span 1,128-4,208 ms). The Playground's bar is 60: head reached it on two of five runs. These base
+scores read lower than §11's (44-46) and vary widely, so compare the two columns with each other and not with §11; the
+sandbox load and the Lighthouse flags were not the same. The simulated metric moved through FCP and LCP, which is what
+dropping 263 KB of eager JavaScript (616.7 to 353.7 KB gzipped, `check:route-budget`) would move, and not through TBT.
+
 **The cost, stated.** An Edit-first load now fetches and evaluates the chunk after hydration instead of inside it, so the
 editor appears later: 1,358 ms against 1,567 ms by median (six runs each, 4x CPU, local HTTP/2, time from navigation to
 `.cm-content`; +209 ms). The text paints from the server-rendered placeholder throughout, so LCP does not move. The same
