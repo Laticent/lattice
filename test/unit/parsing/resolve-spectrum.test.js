@@ -87,7 +87,7 @@ describe('resolve-spectrum — STYLE (`spectrum:`)', () => {
 
   test('SPECTRUM_NAMES / SPECTRUM_TOKENS list the recognized STYLE set', () => {
     assert.deepEqual([...SPECTRUM_NAMES], ['on', 'solid', 'duo', 'mono', 'off']);
-    assert.deepEqual([...SPECTRUM_TOKENS], ['spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']);
+    assert.deepEqual([...SPECTRUM_TOKENS], ['spectrum-on', 'spectrum-solid', 'spectrum-duo', 'spectrum-mono', 'spectrum-off']);
   });
 
   test('isSpectrumStyleToken matches STYLE tokens but NOT edge tokens', () => {
@@ -140,7 +140,7 @@ describe('resolve-spectrum — EDGE (`spectrum-edge:`)', () => {
 
   test('SPECTRUM_EDGE_NAMES / SPECTRUM_EDGE_TOKENS list the recognized EDGE set', () => {
     assert.deepEqual([...SPECTRUM_EDGE_NAMES], ['top', 'left', 'right', 'bottom', 'off']);
-    assert.deepEqual([...SPECTRUM_EDGE_TOKENS], ['spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off']);
+    assert.deepEqual([...SPECTRUM_EDGE_TOKENS], ['spectrum-edge-top', 'spectrum-edge-left', 'spectrum-edge-right', 'spectrum-edge-bottom', 'spectrum-edge-off']);
   });
 
   test('isSpectrumEdgeToken matches EDGE tokens but NOT style tokens', () => {
@@ -224,7 +224,7 @@ describe('resolve-spectrum — CARD EDGE (`spectrum-card-edge:`)', () => {
   test('SPECTRUM_CARD_EDGE_NAMES / TOKENS list the recognized set + override tokens', () => {
     assert.deepEqual([...SPECTRUM_CARD_EDGE_NAMES], ['left', 'top', 'right', 'bottom']);
     assert.deepEqual([...SPECTRUM_CARD_EDGE_TOKENS], [
-      'spectrum-card-edge-top', 'spectrum-card-edge-right', 'spectrum-card-edge-bottom',
+      'spectrum-card-edge-left', 'spectrum-card-edge-top', 'spectrum-card-edge-right', 'spectrum-card-edge-bottom',
     ]);
   });
 
@@ -386,9 +386,12 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
   // capture behind `spectrum-card: rainbow` reads it. Redefining it on the slide broke that pin in
   // every packed host (2026-09-24-one-style-delivery-spine.md §8.2).
   test('every STYLE token has a rule; solid/duo/mono set the shared STYLE token, never --spectrum', () => {
-    for (const cls of SPECTRUM_TOKENS) {
+    // `spectrum-on` is the restore token: the rainbow is what an unstyled slide draws, so it has
+    // no rule of its own, and must not grow one.
+    for (const cls of SPECTRUM_TOKENS.filter((t) => t !== 'spectrum-on')) {
       assert.ok(block.includes(`.${cls}`), `${cls} has no rule in the SPECTRUM block`);
     }
+    assert.ok(!css.includes('.spectrum-on'), 'spectrum-on is a restore token and draws nothing');
     for (const cls of ['spectrum-solid', 'spectrum-duo', 'spectrum-mono']) {
       const rule = block.match(new RegExp(`section\\.${cls}\\s*\\{[^}]*\\}`))[0];
       assert.match(rule, /--spectrum-style\s*:/, `${cls} must set --spectrum-style so all accents follow`);
@@ -414,8 +417,11 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
       'a spectrum-off rule must not use the `background:` shorthand — it restates the color '
         + "and takes a frame's own canvas with the bar (#2291)",
     );
-    // explicit styles restore a full-thickness bar on bookends/dark, gated off when an edge is set.
-    assert.match(block, /section:is\(\.spectrum-solid, \.spectrum-duo, \.spectrum-mono\):not\(\.divider\):not\(\[class\*="spectrum-edge-"\]\)/);
+    // explicit styles restore a full-thickness bar on bookends/dark, gated off when an edge MOVES or
+    // DROPS the bar — and only then: `spectrum-edge-top` (the restore token) is the top bar, so it
+    // must keep the style. A `[class*="spectrum-edge-"]` gate would strip it from that slide.
+    assert.match(block, /section:is\(\.spectrum-solid, \.spectrum-duo, \.spectrum-mono\):not\(\.divider\):not\(\.spectrum-edge-left, \.spectrum-edge-right, \.spectrum-edge-bottom, \.spectrum-edge-off\)/);
+    assert.doesNotMatch(block, /\[class\*="spectrum-edge-"\]/, 'no wildcard edge gate: it would catch the restore token spectrum-edge-top');
   });
 
   test('EDGE tokens paint a per-side bar and drop the top border', () => {

@@ -152,7 +152,7 @@ function classify(file) {
 function buildDeckAsync(job) {
   return new Promise((resolve, reject) => {
     process.stderr.write(`build-staged-pdfs: rendering ${job.out}\n`);
-    const child = spawn('node', [EMULATOR, job.src, job.out], { cwd: ROOT, stdio: 'inherit' });
+    const child = spawn('node', [EMULATOR, job.src, job.out, '--size', 'deck'], { cwd: ROOT, stdio: 'inherit' });
     child.on('error', (err) => reject(new Error(`${job.out}: ${err.message}`)));
     child.on('close', (code) => {
       if (code === 0) resolve(job.out);

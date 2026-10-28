@@ -1,0 +1,1 @@
+- **Playground:** Deck settings now use the Studio's picker. Every list opens on one `Auto — <what it resolves to>` row, each option shows a preview chip or icon, and a tap outside an open list closes it on iPhone and iPad. Theme, Preset, Finish, the look registers, Size, Venue and Slide splitting all follow this shape.

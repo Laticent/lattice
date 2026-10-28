@@ -78,8 +78,9 @@ test('the accent rule on a dark slide keeps its color, and the row under it stay
 test("at 4K the section's own edge is a vector: the dark hairline and the light bar match Chrome's print", { timeout: 180_000 }, () => {
   const writer = path.join(tmp, 'writer-4k.pdf');
   const chrome = path.join(tmp, 'chrome-4k.pdf');
-  render(writer, [], FIXTURE_4K);
-  render(chrome, ['--chrome-pdf'], FIXTURE_4K);
+  // A 4K deck exports at HD unless asked (lib/core/export-canvas.js); this arm is about 4K, so it asks.
+  render(writer, ['--size', '4k'], FIXTURE_4K);
+  render(chrome, ['--chrome-pdf', '--size', '4k'], FIXTURE_4K);
   // Page 2, dark: the 1 px hairline at row 0 and the canvas under it.
   const [w0, w1] = topRows(writer, 2);
   const [c0, c1] = topRows(chrome, 2);

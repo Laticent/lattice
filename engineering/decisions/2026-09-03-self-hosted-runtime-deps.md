@@ -35,8 +35,8 @@ Three patterns were already correct and are untouched here:
 
 - **Build-time fetch, vendored output.** `lib/components/chart/map/map.basemap.json` is a
   committed 21KB file carrying its `sourceUrl` as PROVENANCE metadata and
-  `generator: tools/build-basemap.js`. `tools/fetch-emoji-font.js` does the same for the
-  emoji font. Fetching a CDN at build time and committing the result is the *wanted* shape.
+  `generator: tools/build-basemap.js`. `tools/fetch-emoji-font.js` did the same for the
+  emoji font (retired 2026-10-26: the font ships as slices, `2026-10-26-fonts-policy.md`). Fetching a CDN at build time and committing the result is the *wanted* shape.
 - **The exported player is contained.** `default-src 'none'; script-src 'sha256-…';
   img-src data:; font-src data:` — hash-pinned inline script, zero outbound.
 - **The assets were already staged.** `sync-playground-assets.mjs` puts
@@ -193,7 +193,7 @@ runtime dependency of ours:
   `staleWhileRevalidate` *hostname branches*, i.e. the service worker reacting to such a
   request, not making one. **Verified vestigial**: nothing under `themes/`, `lib/`,
   `docs/public/playground/` or any built HTML references Google Fonts, because
-  `fetch-emoji-font.js` vendors it at build time. Dead code, pre-existing and off the path of
+  the emoji font was vendored at build time (`fetch-emoji-font.js`, since retired). Dead code, pre-existing and off the path of
   this change, so logged rather than pulled into the diff (HARD RULE #18).
 
 ## What this does not do

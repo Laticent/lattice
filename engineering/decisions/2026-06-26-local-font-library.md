@@ -1,9 +1,13 @@
 ---
 status: shipped
-summary: The library self-hosts every text + KaTeX face (zero network); the Google-Fonts @import is gone, with an opt-in full-offline colour-emoji tier
+summary: The library self-hosts every text + KaTeX face (zero network); the Google-Fonts @import is gone. Colour emoji, first an opt-in tier, is now self-hosted as slices too (2026-10-26-fonts-policy.md)
 ---
 
 # Local font library — zero network dependency
+
+> **Superseded in part (2026-10-26):** the emoji font is no longer an opt-in 25 MB tier. It ships in `dist/` as 11 unicode-range
+> woff2 slices (about 2 MB) and exports embed only what a deck uses; `npm run fonts:emoji` and the contents of
+> `dist/lattice-emoji.css` are retired. See `2026-10-26-fonts-policy.md`. The text below is the 2026-06-26 record.
 
 **Date:** 2026-06-26
 **Status:** shipped

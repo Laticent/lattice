@@ -18,34 +18,41 @@ export type RuleEntry = {
 	swatch: { background: string; backgroundSize?: string };
 };
 
-const HAIR = 'var(--border)';
+// The chip draws the hairline in the MUTED ink, not --border: at 16px a --border rule on the
+// panel ground is near-invisible, and the chip's job is to show the rule's length.
+const HAIR = 'var(--text-muted)';
+// A heading stroke up top, then the rule under it — so the chip reads as "the line under a
+// heading", and the rule sits clear of the chip's own border.
+const HEAD = 'linear-gradient(var(--text-heading), var(--text-heading)) 3px 34% / 56% 2.5px no-repeat';
+const ruled = (ink: string, width: string, weight: string) =>
+	`${HEAD}, linear-gradient(${ink}, ${ink}) 3px 70% / ${width} ${weight} no-repeat, var(--bg)`;
 
 // Ordered as the picker shows them. `auto` is the named baseline (today's render).
 export const RULES: RuleEntry[] = [
 	{
 		name: 'auto', label: 'Auto', autoLabel: 'Hairline',
 		blurb: 'Today’s render — a hairline where the masthead already draws one, else nothing.',
-		swatch: { background: `linear-gradient(${HAIR}, ${HAIR}) left bottom / 66% 1.5px no-repeat, var(--bg)` },
+		swatch: { background: ruled(HAIR, '66%', '1.5px') },
 	},
 	{
 		name: 'full', label: 'Full',
 		blurb: 'A full-width hairline under the heading.',
-		swatch: { background: `linear-gradient(${HAIR}, ${HAIR}) left bottom / 100% 1.5px no-repeat, var(--bg)` },
+		swatch: { background: ruled(HAIR, 'calc(100% - 6px)', '1.5px') },
 	},
 	{
 		name: 'short', label: 'Short',
 		blurb: 'A short left-aligned rule under the heading.',
-		swatch: { background: `linear-gradient(${HAIR}, ${HAIR}) left bottom / 40% 2px no-repeat, var(--bg)` },
+		swatch: { background: ruled(HAIR, '40%', '2px') },
 	},
 	{
 		name: 'accent', label: 'Accent',
 		blurb: 'A short rule in the accent color — a signature without shouting.',
-		swatch: { background: 'linear-gradient(var(--accent), var(--accent)) left bottom / 40% 2px no-repeat, var(--bg)' },
+		swatch: { background: ruled('var(--accent)', '40%', '2px') },
 	},
 	{
 		name: 'none', label: 'None',
 		blurb: 'No heading underline anywhere.',
-		swatch: { background: 'var(--bg)' },
+		swatch: { background: `${HEAD}, var(--bg)` },
 	},
 ];
 

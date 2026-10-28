@@ -22,10 +22,10 @@
  * `fonts.googleapis.com` / `fonts.gstatic.com` URL in the engine source CSS or
  * the shipped bundle fails the gate.
  *
- * Noto Color Emoji is intentionally absent from the manifest: at ~23 MB it is
- * not bundled by default (color emoji uses the installed system font), and the
- * opt-in full-offline tier (`npm run fonts:emoji`) vendors it separately. So it
- * is not a parity face. Read-only; never writes.
+ * Noto Color Emoji is self-hosted too, as 11 unicode-range woff2 slices
+ * (lib/fonts/emoji-faces.js). They are not text faces, so the set checks above
+ * skip them; this gate only checks that every slice's woff2 is on disk. The
+ * Studio reads the same files from assets/fonts/. Read-only; never writes.
  *
  * Background: engineering/decisions/2026-06-12-export-font-embedding.md,
  * engineering/decisions/2026-06-26-local-font-library.md.
@@ -35,6 +35,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { TEXT_FACES, faceKey } = require('../lib/fonts/text-faces');
+const { EMOJI_SLICES } = require('../lib/fonts/emoji-faces');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -130,6 +131,11 @@ function main() {
   for (const { file } of TEXT_FACES) {
     const src = path.join(ASSET_FONTS, `${file}.woff2`);
     if (!fs.existsSync(src)) missingFiles.push(`${rel(src)} (manifest face, no woff2 source)`);
+  }
+
+  for (const { file } of EMOJI_SLICES) {
+    const src = path.join(ASSET_FONTS, `${file}.woff2`);
+    if (!fs.existsSync(src)) missingFiles.push(`${rel(src)} (emoji slice, no woff2 source)`);
   }
 
   const webExport = webExportFaces(missingFiles);

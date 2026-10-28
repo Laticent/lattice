@@ -83,7 +83,7 @@ function main() {
     const rel = path.relative(ROOT, src);
     process.stdout.write(`  ${rel} → ${path.basename(out)} … `);
     try {
-      execFileSync('node', [EMULATOR, src, out, '-q'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
+      execFileSync('node', [EMULATOR, src, out, '-q', '--size', 'deck'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
       console.log('ok');
     } catch (e) {
       console.log('FAILED');

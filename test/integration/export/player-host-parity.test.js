@@ -46,8 +46,10 @@ const { playerStagesFixture } = require(path.join(ROOT, 'test', 'fixtures', 'pla
 // Re-blessed 2026-10-26 for #1501: the player runtime finds its slide and frame lists under its own
 // #lp-stage (two declarations and their comment), so the inlined script grows 421 bytes and the CSP
 // `script-src` hash moves with it. Both hosts produce the new SHA, so parity holds.
-const GOLDEN_SHA = '4242bd0e0450a9c63f39c96d3530e3c7bb7869eb0e73da117a80de933bbfc567';
-const GOLDEN_BYTES = 102178;
+// Re-blessed again 2026-10-26 on the merge of that change with the fonts policy (#2904): the Read view's
+// font stacks end in 'Noto Color Emoji' (101,890 -> +421 bytes of #1501 = 102,311). Both hosts agree.
+const GOLDEN_SHA = 'ec7e35990876d45f194ba2979a09d8910272cea55131be9519349bf457985406';
+const GOLDEN_BYTES = 102311;
 
 const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 

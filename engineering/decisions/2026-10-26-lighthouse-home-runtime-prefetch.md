@@ -229,3 +229,80 @@ only when the registered base text is byte-equal to the one the build packed. A 
 and an extra 560 KB download (not measured compressed) is likely to cost more on the Lighthouse link than the 70 ms it saves, so the packed base must REPLACE the raw
 base for the Playground, not sit beside it. That changes the engine's input contract, and every consumer of `lattice-min.css`
 (export to Marp, the CLI) keeps the raw one. So it is a design decision, not a slice: **not built.** Default if no one answers: not built.
+
+## 11. Lever A built: no lint while the Playground editor is hidden (followup 2913-p1)
+
+`lintSource` in `docs/src/playground/editor.js` now returns no findings while the editor has no layout. Explore and a phone's
+preview pane hide the editor with `display: none`, and a box with no layout has no client rects, so that one check covers
+both. It also arms a `ResizeObserver` on the editor. When the pane gets a size, the observer dispatches the effect the
+linter's `needsRefresh` already reads for plugin-default changes, so the lint runs the moment the editor shows, with no
+edit. The lint core (`esm/lint.js`) is therefore not fetched at all on an Explore load. An Edit-first load lints as before.
+
+`docs/e2e/playground-lint-hidden.spec.ts` pins three things at desktop and phone width: an Explore load fetches no lint
+core and the switch to Edit does; an Edit-first load underlines a stray component; and an editor hidden before first paint
+lints with no edit once it shows. With the gate reverted, the first and third fail on "the lint core loaded while the
+editor was hidden", so the spec can fail.
+
+**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** Base is PR #2913's last preview (`2c46a003`, commit
+`3bfedbe`, the same tree as `main` at `34b07aa`). Head is this change's preview (`414dae84`, `f867717`). `/playground/`, the
+§1 mobile profile, from this sandbox.
+
+| Build | Score | FCP | LCP | TBT | `esm/lint.js` fetched |
+|---|---|---|---|---|---|
+| base | 46, 44, 41, 46, 45 | 3.18-3.56 s | 5.11-6.33 s | 1630, 1817, 1786, 1566, 1686 ms | every run (95 KB Brotli) |
+| head | 43, 45, 45, 47, 46 | 3.15-3.40 s | 5.10-6.00 s | 1528, 1385, 1562, 1532, 1628 ms | never |
+
+Median TBT 1,686 ms to 1,532 ms (−154 ms), close to the −190 ms the throwaway build measured locally. Four of the five
+head runs are below every base run. The median score is 45 on both builds, so this lever alone does not move the Playground
+toward its bar of 60. It removes one long task and a 95 KB download that nobody in Explore needed.
+
+## 12. Lever D measured: time-sliced hydration is a no-go; the picker's search index ships instead (followup 2913-p2)
+
+**The prototype.** `<React.Suspense fallback={null}>` around three server-rendered subtrees of `PlaygroundApp` whose refs
+the parent's mount effects never read: the toolbar (`.pg-bar`), the `WalkBar` and the `EditorHost`. With a boundary in the
+server HTML, React can commit the shell first and hydrate each boundary as a later unit of work. The preview pane and the
+chart layer were left alone, because the parent's effects read their refs on mount.
+
+**Result, local HTTP/2 (§1), three Lighthouse runs each, interleaved:** TBT 1,138-1,315 ms without the boundaries and
+1,213-1,388 ms with them. The first React task was 323-404 ms on both builds. **No gain.** The prototype also changed the
+server HTML: React 19 outlines a large boundary (the toolbar) into a `<!--$?-->` placeholder plus a hidden segment that an
+inline `$RC` script swaps in at the end of the document. That is a first-paint and CSP question the gain would have had
+to pay for, and there is no gain.
+
+**Why, from a CPU profile of an unminified build** (phone profile, 4x CPU, 250 µs samples). The React task that the
+earlier tables called "commits" is 748 ms, and it is not many small pieces that a boundary could separate:
+
+| Inside the 748 ms task | ms (4x) |
+|---|---|
+| render: `ComponentPicker`'s `useMemo(makeSearchIndex)` (Fuse + BM25 index of the catalog) | 160-171 |
+| passive effects: `EditorHost`'s mount effect, `createEditor` (CodeMirror `EditorView` 108 ms of it) | 171 |
+| the rest of `PlaygroundApp`'s render and commit | about 400 |
+
+Each of the two large pieces is one call inside one component, and no boundary splits a single call. So the lever is
+deferral, not slicing.
+
+**What shipped: the search index waits for a query.** `rankedFor` reads the index only when the box holds two or more
+characters, so `ComponentPicker` now builds it on the first such query (a memoized getter) instead of during render.
+Most visitors never search. A first search pays the build once, about 40 ms at 1x. `ComponentPicker.index.test.tsx`
+pins it: with the old memo restored, its first arm fails.
+
+Measured with the page's own `longtask` entries (local HTTP/2, phone viewport, 4x CPU, 10 s after navigation, five runs
+each, interleaved), the sum of each task's time over 50 ms:
+
+| Build | Blocking time, five runs | Median |
+|---|---|---|
+| lint gate only (§11) | 2585, 2561, 2650, 2429, 2646 ms | 2,585 ms |
+| plus the lazy index | 2405, 2626, 2340, 2323, 2626 ms | 2,405 ms |
+
+About 180 ms less by median, in line with the profile's 160-171 ms, with overlapping ranges. Lighthouse's simulated TBT on
+the same pair was too noisy to show a change of that size (1,235-1,482 ms against 1,083-1,640 ms, four runs each).
+
+**On the CDN it does not show.** Five Lighthouse runs each, interleaved, `/playground/`, the §1 profile: the lint-gate
+preview (`414dae84`) read TBT 1402, 1671, 1569, 1484, 1350 ms (median 1,484) and the lazy-index preview (`f9f79ae2`) read 1206,
+1735, 1434, 1669, 2714 ms (median 1,669, one outlier). That is noise around a change worth about 45 ms of real CPU, not a
+regression and not a win: the simulated metric cannot resolve it. The evidence for this change is the profile and the
+long-task table above, not Lighthouse.
+
+**Not done, recorded as followup 2921-p1:** deferring `createEditor` while the editor is hidden in Explore (the other
+171 ms). It is the larger change. The tour, the Explore-to-Edit switch and the seeded draft all read the editor, so it
+needs its own design pass.

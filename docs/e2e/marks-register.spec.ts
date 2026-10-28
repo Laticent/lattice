@@ -28,7 +28,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).toMatch(line('etch vivid'));
 		// The default finish on a vivid deck still has to say vivid, so the line stays.
 		await picker.click();
-		await page.getByRole('option', { name: /^Pigment/ }).click();
+		await page.getByRole('option', { name: 'Auto — Pigment' }).click();
 		await expect.poll(() => persistedSource(page)).toMatch(line('pigment vivid'));
 	});
 
@@ -53,7 +53,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await picker.scrollIntoViewIfNeeded();
 		await expect(picker).toContainText('Tone');
 		await picker.click();
-		await page.getByRole('option', { name: /^Pigment/ }).click();
+		await page.getByRole('option', { name: 'Auto — Pigment' }).click();
 		await expect.poll(() => persistedSource(page)).not.toContain('marks:');
 	});
 }

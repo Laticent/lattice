@@ -141,7 +141,7 @@ function render(outPdf, extraArgs = []) {
   // `--keep-html`: the export-shell arm reads the `.html` sidecar beside the PDF, which is deleted
   // on success by default (P1). The `--player`/`--read` arms rewrite it into a viewer and keep it
   // regardless; passing the flag is harmless there.
-  const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), DECK, outPdf, '--keep-html', ...extraArgs], {
+  const res = spawnSync('node', [path.join(ROOT, 'lattice.js'), DECK, outPdf, '--keep-html', '--size', 'deck', ...extraArgs], {
     cwd: ROOT, encoding: 'utf8', timeout: 900000,
   });
   assert.equal(res.status, 0, `render failed (${extraArgs.join(' ') || 'export'}):\n${res.stderr}`);

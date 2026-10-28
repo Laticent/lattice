@@ -69,13 +69,36 @@ resizing; pictures of single objects are not, so a photo can be replaced or move
 
 ## Fonts
 
-`prepareFonts(deck, host)` collects the faces the text uses and asks your host for them:
+Calco does no font processing and holds no font policy. `prepareFonts(deck, host, onSkip)` lists the faces the deck's text draws with (`facesUsed`:
+family, weight, slant, whether ligatures stay on, and `chars`, every character the deck draws in that face, capitals from `text-transform` and small
+caps included) and asks your host for each one:
 
-- `load({ family, weight, italic })` returns a WOFF2/TTF/OTF, or `null` for a system font;
-- `pin(bytes, { weight, ligatures })` returns a static sfnt at that weight with **every**
-  character kept (a reader of an editable file types new words). A variable font must be
-  pinned: an office suite draws a variable file at its default weight. HarfBuzz's subsetter
-  does this (`hb_subset_input_pin_axis_location` plus an inverted, empty Unicode set).
+- `host.font(face)` returns the **finished** font: a static sfnt pinned to `face.weight` (a variable font must be pinned: an office suite draws a
+  variable file at its default weight; HarfBuzz's `hb_subset_input_pin_axis_location` does it), with ligature features dropped when `face.ligatures` is
+  false (`pinFeatures`), and cut to `face.chars` or whole, whichever your policy says;
+- return `'system'` to embed nothing on purpose (the reader's office suite draws that text in its own font): Calco leaves the face out without a word;
+- return `null` when you have no file for the face (a system font such as Arial): Calco leaves it out and `onSkip` hears `'unavailable'`;
+- throw, and `onSkip` hears `'failed'` with the error and the other faces still embed.
+
+A face whose license forbids embedding is left out too (`embeddingAllowed`, `'license'`). Lattice's own host reads its `fonts:` tiers through
+`lib/core/office-export-policy.js` (`faceCut`); Calco never sees the words.
+
+**Emoji.** `splitEmojiRuns(deck, family)` splits each text run at its emoji, naming the emoji run's family (and marking it `style.emoji`, so a line's
+height still comes from its text), so a host can embed an emoji font like any other face. A color emoji font is often sliced by code point range and
+one family is one file, so `family(sequence)` answers with the slice that holds every part of the sequence. Without the call the emoji stay in their
+text runs and the reader's own emoji font draws them. **Check what your font is before you embed one.** A COLR v1 color emoji face (Noto Color Emoji
+from Google Fonts) embeds fine and draws blank in LibreOffice 24.2, with or without a system emoji font, because the embedded family wins over the
+fallback; a face an office suite can paint (COLR v0, SBIX, CBDT) is the one to embed. Lattice does not embed its emoji font in Office files for this
+reason.
+
+## Pictures
+
+Calco is handed the pictures it writes. A slide is photographed by the host (PNG or JPEG bytes; `imageMime` names the part from the bytes), and which
+encoding to take is the host's rule: Lattice's is `choosePicture` in `lib/core/image-policy.js`. `isContinuousTone(section)` is the one helper here, because
+only a reader of the page can say whether a slide is photographic (a host asks it before it shoots, to pick the cheap order).
+
+For the pictures Calco crops out of a slide itself (a photo, an icon), pass `captureOfficeSlides` `pictures`: `{ lossless, quality, toneBytes, flatBytes,
+share }`, the instructions it encodes by. Leave it out and every crop is a lossless PNG.
 
 Both formats embed the faces. The `.odp` carries them as TrueType. The `.pptx` carries them as
 Embedded OpenType in `ppt/fonts/` when you pass JSZip as `writePptx`'s fourth argument; a regular or
@@ -114,6 +137,13 @@ nothing, so a headless browser can receive them as source.
   backgrounds, foreground, these crops) for any host that can `run` a function in the page and `shoot` a slide:
   the CLI (puppeteer) and the Studio (html-to-image) are two such hosts. A host that does not crop them gets one
   foreground picture instead, and a card that holds picture content stays in it.
+  A picture that holds a box's own fill or edge and sits outside that box's text's card (a focused table
+  column's tint and ring span every row, so no row holds them) and draws AFTER that card leaves that text
+  free, drawn on top: the text paints over its own box, and in its row's group it would come out under the
+  picture. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
+  gradient panel behind it) changes nothing.
+- An `outline` pulled in by its own width (`outline-offset: -W`, the focus highlight's card edge) is drawn as
+  an inside stroke, replacing a border no wider than that band. Any other outline keeps its box a picture.
 - The `.pptx` picture lock is markup only: PowerPoint's Lock honors it; LibreOffice does not.
   Google Slides and Collabora on iOS are not verified.
 

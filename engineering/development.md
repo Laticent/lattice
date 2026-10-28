@@ -511,6 +511,10 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   and the result JSON upload as the run's `platform-suite-…` artifact. `node docs/scripts/ios-safari/probe.selftest.mjs` runs the same
   probe on Playwright WebKit against a local `preview:e2e`, to prove a probe change before spending a macOS job on it. A simulator
   runs on the Mac's hardware, so it is not a physical device.
+  `ios-safari-jpeg` runs the same recipe with `PROBE=jpeg`: `jpeg-probe.js` encodes a slide-sized synthetic photograph and four
+  committed screenshots with the shared JPEG encoder (`lib/core/jpeg-encode.mjs`) and with Safari's own `toBlob`, on a blank page
+  (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
+  38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
 
 ## Integration test cache
 
@@ -1150,10 +1154,13 @@ MATH of the shadcn bridge and `tools/contrast-audit.js` grades the theme token p
 see which CSS rule wins. The 1:1 nav label that motivated the `@a11y` gate passed both. Token
 gates and a rendered-DOM scan are complements, not alternatives.
 
-The pinned Chromium is **pre-installed** at `PLAYWRIGHT_BROWSERS_PATH=
-/opt/pw-browsers` (build 1194 ↔ `@playwright/test` 1.56.1) — do **NOT** run
-`playwright install` *for Chromium*. `CHROME_PATH` is the *Puppeteer* cache and
-is irrelevant to Playwright.
+The pinned Chromium (build 1194 ↔ `@playwright/test` 1.56.1) belongs at
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. Some sandbox images ship a different build
+there instead (seen 2026-10-27: only 1243), and the run then stops with "chromium is not
+installed … fix PLAYWRIGHT_BROWSERS_PATH". Install the pinned build with the docs
+package's own CLI, never a bare `npx playwright`, which can fetch another version:
+`cd docs && node node_modules/playwright/cli.js install chromium chromium-headless-shell`
+(about 30 s). `CHROME_PATH` is the *Puppeteer* cache and is irrelevant to Playwright.
 
 **The `@visual` snapshot bless DOES run here** (corrected 2026-09-01). This
 section used to say it "genuinely can't run here (runner-specific AA)" and

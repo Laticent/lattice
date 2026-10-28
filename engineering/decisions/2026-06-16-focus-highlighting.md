@@ -146,7 +146,8 @@ mask-image** (§6).
 | **spotlight** | recede the rest (dim `.lat-recede`), lift the target | lists, grids, code, prose | ✅ |
 | **ring** | accent outline on target, **no dimming, no layout shift** | data tables (keeps comparison legible) | ✅ |
 | **list-fill** | accent-soft **fill** on the target item, rest untouched | lists / cards where dimming is too much but you want a "selected" read | ✅ |
-| **blur** | recede the rest by **defocus** (`filter: blur`), target stays sharp | the literal camera-focus; opt-in (added post-ratification, verified to survive PDF + PPTX) | ✅ |
+| **blur** | recede the rest by **defocus** (`filter: blur`), target stays sharp **and in place** | the literal camera-focus; opt-in (added post-ratification, verified to survive PDF + PPTX). Its target lift (a 1.02 scale plus a hard accent shadow) was removed on 2026-10-27 for the fault that removed `pop`: at 1280px it sheared outer cards by up to 14.75px at the stage clip and moved the cards by up to 23px | ✅ |
+| **highlight** | accent **tint + edge** on the target (cards, rows, columns, cells, code lines; an edge on a chart mark and a heavier line on a series), rest untouched, no weight or size change; the `verdict-grid` `preferred` look without the spark (added 2026-10, replacing `pop`) | when dimming is too much and a bare ring or fill is too faint | ✅ |
 | pointer | margin caret at the target, nothing dimmed/filled | tables where even a fill is too much | deferred |
 | lift | fill + weight + accent bar on target | tables, middle ground | deferred |
 | both | spotlight + ring | a single "this one number" climax | deferred |
@@ -166,7 +167,7 @@ is the precise signal:
   list-fill -->`; the named style always wins over the auto default.
 
 This is the confirmed decision: *content-aware default, with `spotlight`,
-`ring`, and `list-fill` as explicit variants.*
+`ring`, and `list-fill` as explicit variants.* (`blur` and `highlight` joined later; `pop` was removed before GA because it scaled the target and cast a shadow past its edge, which moved the layout and clipped at the stage.)
 
 ### 5.3 CSS contract & tokens
 
@@ -205,6 +206,22 @@ exported formats. They do, because of the pipeline (`engineering/pipeline.md`
   Chromium render**, then placed in the slide. *Not* rebuilt as native shapes.
   So any effect that survives the screenshot survives PPTX — which is all of
   them.
+- **Editable PPTX** (`--editable`, Calco) rebuilds the slide as native text and
+  shapes, and a focused column's inset `box-shadow` ring and tint cannot be a
+  native shape, so they become one picture spanning every row. Each focused
+  cell's text is drawn free, above that picture (the reader's `underPicture`
+  test, `docs/src/lib/calco/reader.ts`); before that fix the header and the last
+  cell's text sat inside their rows' groups and the picture covered them. The
+  cost: in the editable file, a focused cell's text no longer moves with its
+  row. The test fires only for a picture drawn after the text's card, so a card
+  over a gradient panel keeps its text grouped.
+  Known limit: free text is drawn at the very top, so a positioned overlay on
+  a focused cell would sit under that cell's text (no shipped deck does this).
+  A highlighted card's edge is an inset `outline`; Calco draws it as a native
+  inside stroke, so the card stays an editable shape grouped with its text.
+  `blur` is the one treatment the editable PPTX bakes: the receded cards are a
+  picture, because no office format blurs live text.
+  Regression: `test/integration/export/calco-focus-column.test.js`.
 
 The **only** fragile primitive is SVG `mask-image` (Apple PDFKit drops soft
 masks — `engineering/gotchas.md`). The focus treatments deliberately use

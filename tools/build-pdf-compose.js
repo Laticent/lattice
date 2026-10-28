@@ -27,8 +27,9 @@ const DIST = path.join(ROOT, 'dist', 'lattice-pdf-compose-min.js');
 const ENTRY = path.join(ROOT, 'lib', 'core', 'pdf-compose', '.bundle-entry.tmp.mjs');
 const ENTRY_SRC = `
 import { composeDeckPdf, makeHtmlToImageCamera } from './compose.mjs';
+import { captureSlide, captureSlideCanvas, encodeCanvas } from '../slide-camera.mjs';
 import { toCanvas, toJpeg, getFontEmbedCSS } from 'html-to-image';
-globalThis.LatticePdfCompose = { composeDeckPdf, makeHtmlToImageCamera, toCanvas, toJpeg, getFontEmbedCSS };
+globalThis.LatticePdfCompose = { composeDeckPdf, makeHtmlToImageCamera, captureSlide, captureSlideCanvas, encodeCanvas, toCanvas, toJpeg, getFontEmbedCSS };
 `;
 
 function build({ check = false, silent = false } = {}) {
