@@ -6,12 +6,13 @@ summary: >
   family of Segno and Cadenza (no dependencies beyond a sibling library, no DOM, no fs in the core, language parsers as plugins), built in four
   releasable milestones with Lattice as its first user. Its guarantee is that it refuses a rule that cannot prove it
   fires, fixes and converges on its own examples. The owner chose the library over a kernel on 2026-10-26 and chose the
-  name; the milestones, the guarantee and the rewrite of HARD RULE #7 are for the owner to confirm in review.
+  name. On 2026-10-28, after an adversarial review, the owner decided that Lattice's deck language reads the Segno deck
+  pipeline's document model, that rules migrate one at a time, and that the generic surface lands by M4.
 ---
 
 # Squadra: a lint-and-fix library (2026-10-26)
 
-Status: proposed. No code changes. The census behind the numbers is `2026-10-26-squadra-lint-library/census.md`. The
+Status: proposed; revised 2026-10-28 after the adversarial review (§11). No code changes. The census behind the numbers is `2026-10-26-squadra-lint-library/census.md`. The
 full design (API, the language and fix-engine interfaces with their reference implementations, manifest files, configuration, how Lattice adopts it) is
 `2026-10-26-squadra-lint-library/design.md`. Where this note's §5 summary and the design differ, the design wins.
 
@@ -48,14 +49,16 @@ magnitude, not benchmarks.
    fence the rule forgot to skip, the fixer can edit the wrong one. `applyAllFixes` then applies one fix, re-lints the
    whole deck, and repeats, up to 500 passes.
 2. **Fixes do not compose.** Nothing checks that two fixes overlap. Nothing grades a fix safe or unsafe. Nothing checks
-   that a fix is idempotent or leaves the file parseable. Ordering is implicit: `retired-logo-key` only works because its
-   merge line is rewritten before the old lines are deleted (`lint-core.js:8915`), and the one-fix-per-pass loop hides
-   that dependency.
+   that a fix is idempotent or leaves the file parseable. Ordering is implicit: `retired-logo-key` depends on its merge line
+   being rewritten before the old lines are deleted (`lint-core.js:8915`), which the rule guards by hand (`mergeDone`).
+   And nothing checks that a fix keeps the deck's slides: deleting the last front-matter key leaves an empty `---`/`---`
+   block that swallows the title slide, a live bug the adversarial review found
+   (`followups.d/2901-p1-fix-all-deletes-title-slide-when-front-matter-empties.md`).
 3. **Every rule rebuilds the plumbing.** Each rule masks code fences and hidden comments, handles CRLF, and reads front
    matter on its own (`stripFencedCode`, `withoutCodeBlocks`, `withoutCodeCommentMarkers`, `\r?\n`). The comments in the file record bugs where one
    rule missed one of these.
-4. **"Allowlist with a justification that fails when stale" is hand-built.** That is a sound pattern, and it exists as 35
-   separate implementations. The census found 8 allowlists with no staleness check at all (`CO_OWNED_LAYOUTS`,
+4. **"Allowlist with a justification that fails when stale" is hand-built.** That is a sound pattern, and 33 checks re-implement it
+   across 35 lists. The census found 8 allowlists with no staleness check at all (`CO_OWNED_LAYOUTS`,
    `VARIANT_DECL_IGNORE`, `SINGLETON_TAGS` among them).
 5. **Rules are not data.** You cannot list, document, disable, ratchet or self-test them uniformly.
    Nothing guarantees a deck rule or an ownership check can still fire.
@@ -112,35 +115,44 @@ All three checks run when a rule is registered:
 
 1. **The rule fires on its own bad example and stays quiet on its good one.** A rule without examples does not load.
    This gives Lattice's own rules the guarantee that `check-lint-coverage.js`'s teeth probe gives Biome, as a property of the library.
-2. **The rule's fix converges on its own examples.** The fix edits must not overlap, applying them twice must change
-   nothing the second time, and the result must still parse.
-3. **The rule has a work budget.** A hostile input cannot hang a run. This follows the parser bake-off's finding
-   (`2026-09-28-parser-library-bakeoff.md`) that hostile input makes every general library go super-linear on the context-sensitive grammars.
+2. **The rule's fix converges on its own examples.** The fix must produce the `fixed` example, must resolve its own
+   finding, must not keep growing the text, and must keep the document's shape (for a deck: the same slides and front
+   matter). A parse check alone would never fire on Markdown, which has no parse errors.
+3. **The rule has a work budget and a findings cap.** This follows the parser bake-off's finding
+   (`2026-09-28-parser-library-bakeoff.md`) that hostile input makes every general library go super-linear on the
+   context-sensitive grammars. Whether a declarative rule can be made to hang is a target M1 measures, not a claim.
+
+The guarantee proves a rule is alive and precise on its own examples; it does not prove the rule right on inputs its
+author did not write. Lattice's migration therefore also diffs every rule against the old one on inputs nobody wrote
+for it (design §15.3).
 
 ### 5.3 The model
 
-- **Finding:** `{rule, severity, span: {start, end}, message, data, fixes[]}`. Offsets, never line text.
-- **Fix:** `{edits: [{start, end, text}], safety: 'safe' | 'suggested' | 'unsafe', description}`. This is the LSP and
+- **Finding:** `{rule, severity, span: {from, to}, message, hint, data, fixes[]}`. Offsets, never line text.
+- **Fix:** `{engine, safety: 'safe' | 'suggested' | 'unsafe', description, edits: [{from, to, text}]}`. This is the LSP and
   ESLint edit model. A rule can state the common "swap this token for that one" fix declaratively, with captures from
   the match.
 - **Rule:** data plus an optional function. A declarative rule says what to select and what to report. A computed rule
   is a function `check(ctx)` that emits findings with spans, with query helpers on `ctx` so it is as short as a
   declarative one. Both forms are first-class, because 44% of deck rules need code.
 - **Language plugin:** `parse(text) → tree`, node kinds, the "inert" ranges (code fences, comments, strings) supplied
-  once, and a text-to-offset map. Any Segno grammar becomes a language through one adapter, and Lattice's deck language
-  is built on Segno's Markdown grammar plus the slide and front-matter kernels the engine already uses. JS and TS use
+  once, and a text-to-offset map. Any Segno grammar becomes a language through one adapter. Lattice's deck language reads
+  the Segno deck pipeline's document model (`2026-10-22-segno-deck-pipeline.md`), the one parse the renderer and the
+  Studio will also read, so lint and render agree by construction. JS and TS use
   acorn or the TypeScript API (both already used by the ownership checks). Writing a new parser is out of scope.
-- **Project scope:** a rule declares the files and facts it reads (globs, manifests, other rules' output). The engine
+- **Project scope:** a project rule declares the files it reads (globs) and splits into a per-file `collect` and a
+  cross-file `decide`. The engine
   re-runs a rule only when its declared inputs change. This is the main performance lever, and it is what the 75 R
   checks need.
-- **Waivers and ratchets:** `{rule, target, reason, expires?}` records with built-in stale detection and budget ratchets.
-  They replace the 35 hand-built allowlists and close the 8 that have no staleness check.
+- **Waivers and ratchets:** `{rule, target, count, reason, expires?}` records with built-in stale detection, and
+  per-file ratchets. They replace most of the 35 hand-built allowlists and close the 8 that have no staleness check.
 - **Fix engine:** an interface, with a reference implementation in Squadra; every engine lowers its fix to text edits, and Lattice's
   current line-based fixers become one engine. The driver collects the fixes, drops overlapping edits deterministically, applies the rest in one pass, re-parses,
   re-runs the touched rules, and caps the passes. It offers dry-run, diff, and flags per rule and per safety grade.
   The Studio's "Fix all" and the CLI's `--fix` call the same function.
-- **Output:** one JSON format, SARIF for CI annotations, and editor code-action output. Inline suppression comments are
-  part of the design because any outside user will expect them.
+- **Output:** one JSON format first; SARIF, GitHub annotations and editor code actions by M4. Inline suppression
+  comments are designed for languages with comments and built by M4; decks have none, because a comment in a deck is a
+  speaker note.
 
 ### 5.4 Speed
 
@@ -159,21 +171,27 @@ multiple is promised here. M1 adds a benchmark (HARD RULE #19) and the target is
 
 ## 6. Milestones
 
-Each milestone ships on its own and Lattice adopts it before the next starts. Lattice migrates by strangling:
-`lint-core.js` keeps working while Squadra takes rules over a family at a time.
+Each milestone ships on its own and Lattice adopts it before the next starts. Rules migrate one at a time, each gated by
+its own diff against lint-core (owner, 2026-10-28). Until a rule moves, it reaches users through a bridge that puts
+every finding through Squadra's one fix driver (design §15.4). The full table, with dependencies, is design §15.5.
 
 | | Delivers | Lattice adopts | Evidence |
 |---|---|---|---|
-| M1 | Findings with spans, the edit model, the fix engine, the three registration refusals, the deck-markdown language plugin | The ~23 near-mechanical deck rules, the Studio's "Fix all" and `lint:deck --fix` | Before/after fix counts; a benchmark scenario (#19); a non-Lattice fixture (§7) |
-| M2 | Project scope, waivers, ratchets | The `SANCTIONED_*` allowlists, starting with the 8 that have no staleness check | Count of allowlists moved; staleness now caught in all of them |
-| M3 | CSS and JS language plugins, the cache, workers | The ownership checks whose core detector is D (43 by the census) | Wall-clock for `check-ownership` against the 21.8 s baseline |
-| M4 | Learn pages, demo, README, publish | Nothing new | The docs-site pages at three widths (CLAUDE.md quality bar) |
+| M1a | Findings with spans, the edit kernel, the fix driver with its shape check, the `edits` engine, the registration refusals, waivers, reference YAML | The bridge: "Fix all" and `lint:deck --fix` go through the driver, which stops the live slide-deleting bug | The whole-deck fix diff; a benchmark scenario (#19); the Studio bundle delta against `lintCoreGz` |
+| M1b | `lattice-deck` and the reference Markdown, on the Segno deck pipeline | The ~23 near-mechanical deck rules | The three-corpus migration diff; lint-core line count and rules on `lattice-line`, both falling; effort per rule |
+| M2 | Waivers adopted, reference JSON | `check-ownership.js` reads `squadra.waivers.json`, starting with the 8 lists that have no staleness check | Lists moved; staleness caught in all of them |
+| M3 | Reference CSS, the JS/TS adapter, project rules, the cache, workers | Ownership checks, after profiling `check-ownership.js` | Wall-clock against the 21.8 s baseline |
+| M4 | The generic surface: the outside-domain fixture, inline suppressions, SARIF/GitHub/LSP output, the selector language (sooner if ~15 rules share a shape); learn and demo pages, README, publish | Nothing new | The docs-site pages at three widths (CLAUDE.md quality bar) |
+
+**M1b waits on the deck pipeline.** `lattice-deck` needs the pipeline's block pass (its phase P2) and its front-matter
+and directive islands (P3). As of 2026-10-28, `main` has the pipeline's census harness (P0) and native-run code
+generation (G6), not `deckModel`. M1a does not need the pipeline and can start now.
 
 ## 7. Proving it is generic
 
 "General-purpose" is a claim about Lattice's own shapes until something else uses it. Lattice already supplies three
 languages, two consumer kinds (per-file and cross-file) and two runtimes (Node and browser), which is more range than
-most libraries have at the start. M1 also adds a small outside ruleset as a conformance fixture, for example a
+most libraries have at the start. By M4, a small outside ruleset joins as a conformance fixture, for example a
 Dockerfile or an OpenAPI YAML file, and the learn pages use it as their worked example. If that fixture needs a special
 case in the core, the core is not generic yet.
 
@@ -185,27 +203,41 @@ case in the core, the core is not generic yet.
 | **ESLint v9 language plugins** | The language-plugin and range-edit design is sound and Squadra borrows from it. It is JS-config-centric and slower, and the relational checks do not fit. |
 | **Biome GritQL plugins** | Declarative, but limited to JS, CSS and JSON. |
 | **A kernel inside the repo, no library** | The owner chose the library on 2026-10-26: the data points support it and Lattice's other libraries set the bar. |
-| **Fixer only, no engine** | Becomes M1. It is the first milestone, not a separate choice. |
+| **Fixer only, no engine** | Becomes M1a. It is the first milestone, not a separate choice. |
+| **Wrap every lint-core rule at M1** (the inversion's proposal) | One system from day one, but the owner chose rule-by-rule migration on 2026-10-28; the bridge (design §15.4) gives users one fix driver either way. |
+| **Deck language on markdown-it's tokens** (the red team's and inversion's proposal) | Agrees with the renderer today, but the owner decided the deck pipeline is Segno's (2026-10-22) and that `lattice-deck` reads it (2026-10-28). |
 
 ## 9. Rules this changes
 
 - **HARD RULE #7 (`CLAUDE.md`).** Today it reads "Edit lint rules in `lib/authoring/lint-core.js` only — pure, fs-free,
   shared by CLI / `validate()` / browser. Never duplicate." The intent is a single source for lint rules. During the
   strangler migration a rule lives in exactly one place: `lint-core.js` until it moves, then Squadra's ruleset. Proposed
-  wording for M1: "Edit deck lint rules in the one place they live — the Squadra deck ruleset once a rule has moved,
-  `lib/authoring/lint-core.js` until then. Never in both." This note does not edit `CLAUDE.md`; the wording lands with
-  M1, after the owner has seen it.
+  wording for M1b: "Edit deck lint rules in the one place they live — the Squadra deck ruleset
+  (`lib/authoring/rules/`) once a rule has moved, `lib/authoring/lint-core.js` until then. Never in both. Both places
+  stay pure, fs-free, and shared by CLI, `validate()` and browser." This note does not edit `CLAUDE.md`; the wording
+  lands with M1b, after the owner has seen it.
 - **HARD RULE #15** (reuse before building). Squadra is the reuse target for new lint and check tooling once M2 lands.
   Until then new rules go where the rule above says.
-- **`tools/check-ownership.js` allowlists.** New `SANCTIONED_*` lists stop being added once M2 lands. Waivers replace
-  them. HARD RULE #22 names three of these lists (and `DOC_STYLE_SINK_ROOTS`), so M2 updates that rule's wording too.
+- **`tools/check-ownership.js` allowlists.** New `SANCTIONED_*` lists stop being added once M2 lands. Most become
+  waivers; census lists, scope lists and contract tables become rules, scopes and vocabulary (design §9.1). HARD RULES
+  #3, #20, #22, #24, #26 and #29 name lists that move, so each rule's wording changes in the PR that moves its list, and
+  that PR puts the wording to the owner.
 
 ## 10. Open items
 
 1. **Name check.** Squadra is chosen. Availability on npm and trademark were not checked.
-2. **Rule syntax.** The selector or pattern language for declarative rules is open. The census suggests the escape
-   hatch carries most of the weight, so the syntax can wait until M1 shows which shapes repeat.
-3. **Where the unclassified ~70 rule ids fall.** They are read in M1, when the first families migrate.
+2. **Design §21's three defaults:** JSON manifests, CSS-like selectors, fixtures in a separate file only.
+3. **Where the unclassified ~70 rule ids fall.** They are read in M1b, when the first families migrate.
 4. **Whether the Studio's browser bundle takes Squadra directly** or through the existing `authoring-core:build` step.
-   Decided in M1 by bundle size against `docs/route-budget.json`.
-5. **Performance targets.** Set from the M1 benchmark.
+   Decided in M1a by bundle size against `docs/route-budget.json`.
+5. **Performance targets.** Set from the M1a benchmark.
+6. **The live "Fix all" bug.** It ships in its own PR now, independent of Squadra
+   (`followups.d/2901-p1-fix-all-deletes-title-slide-when-front-matter-empties.md`).
+
+## 11. The adversarial review (2026-10-26)
+
+A red team, a Munger inversion and an independent checker reviewed this note and the design (HARD RULE #25). The red
+team demonstrated the slide-deleting fix on the real engine and measured that the tracked decks give the migration diff
+nothing to compare. The checker found a missing path for unmigrated rules and that deck suppressions would ship as
+speaker notes. The inversion argued for wrapping every rule at M1 and against generic scope before Lattice value. What
+each finding changed is design §22. The owner's three decisions of 2026-10-28 are recorded in §6 and design §21.
