@@ -65,9 +65,12 @@ const TONE = [92, 76, 61, 47, 34, 22, 14, 9];
 const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
 // tone's light-slide ladder mixes toward a PALE BLUE that keeps the hue's color, not toward white: a pale tint of a deep
 // blue taken toward white keeps a fifth of its chroma and reads grey (a journey stage bar, a flowchart node). The base
-// is the theme's own curated pale tint of that hue (`--cat-1-fill`) taken 40% toward the canvas: no relative color, so
-// it needs no @supports guard, and every theme supplies it. The dark ladder still mixes toward the canvas.
-const TONE_BASE = 'color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))';
+// is the tone hue ITSELF lifted to near-white with 30% of its color (relative color, so it waits behind the same
+// @supports guard as the text inks; an engine without it keeps the plain canvas, the old look). It is NOT a theme token:
+// `--cat-1-fill` is the palette's slot-1 fill, a different hue from `--chart-cat-1-hue` on most themes (atelier, laguna,
+// crepuscolo), and a base of another hue dragged every pale step toward it (the checker, #2908). The dark ladder mixes
+// toward the canvas.
+const TONE_BASE_REL = 'oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc(b * 0.3))';
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
 // 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
@@ -167,8 +170,8 @@ const STATUS_MARKS = [
 // black lands darker than the slide itself and reads as a hole, not a quiet mark. In light
 // mode the two bases are the same color, so only the dark face differs.
 let BASE = 'var(--chart-cat-base)';
-const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: `light-dark(${TONE_BASE}, var(--bg))` };
-const BODY_BASE_L = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: TONE_BASE };
+const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'light-dark(var(--finish-base), var(--bg))' };
+const BODY_BASE_L = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
@@ -188,7 +191,7 @@ const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${
 const ld = (a, b) => (a === b ? a : `light-dark(${a}, ${b})`);
 const pair = (hue, [l, d]) => ld(mix(hue, `${l}%`), mix(hue, `${d}%`));
 /** Tone ladder step k as one color for both modes: the light ladder over the tinted base, the dark ladder over the canvas. */
-const tstep = (k) => ld(`color-mix(in oklab, ${ONE} ${TONE[k]}%, ${TONE_BASE})`, `color-mix(in oklab, ${ONE} ${TONE_D[k]}%, var(--bg))`);
+const tstep = (k) => ld(`color-mix(in oklab, ${ONE} ${TONE[k]}%, var(--finish-base))`, `color-mix(in oklab, ${ONE} ${TONE_D[k]}%, var(--bg))`);
 /**
  * The ink that clears a body, picked by the browser from the body's own color: black above
  * CIE relative luminance Y 0.1791, white below it. That is the exact point where the two inks give
@@ -458,6 +461,9 @@ function build() {
 
   w('\n/* ══ THE FINISHES — the values each one sets ══ */');
   for (const name of ALL) w(`\n/* ${name} */\n${finishTokens(name)}`);
+  // Tone's light base: the tone hue lifted to near-white, where the engine has relative color (see TONE_BASE_REL).
+  const toneHeads = ['section.marks-tone', 'figure.marks-tone', ':is(section, figure).marks-tone .chart-frame'];
+  w(supports(`${toneHeads.join(',\n')} {\n  ${T.base}: ${TONE_BASE_REL};\n}`));
 
   const MARK_BODY = 'light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))';
   const MARK_TEXT = 'light-dark(var(--finish-mark-text-l), var(--finish-mark-text-d))';
@@ -530,7 +536,10 @@ function build() {
     // A status that carries text takes the text level under every finish: a status hue can be far darker than a
     // category's (concrete's is near-black), and at pigment's 40% the text on it read 3.6:1 where tone's 30% held.
     const textLevel = s.bears || s.keysText;
-    const body = textLevel ? tld(s.hue, T.statusText, T.statusTextD, T.statusBase) : tld(s.hue, T.status, T.statusD, T.statusBase);
+    // A row with NO status (`:not([data-s])`, the first-hue neutral) is a category mark, so it mixes toward the finish's own
+    // base like every other category body; a real status mixes toward the plain canvas.
+    const sBase = s.sel.includes(':not([data-s])') ? null : T.statusBase;
+    const body = textLevel ? tld(s.hue, T.statusText, T.statusTextD, sBase) : tld(s.hue, T.status, T.statusD, sBase);
     const kTok = s.bears ? T.edgeText : T.edge;
     const decls = paintShared(s.paint, body, s.ink, kTok);
     // THE SIGNAL RING SCALES WITH THE EDGE. An exception's ring replaces its edge, and "nothing else rings" only
@@ -953,9 +962,10 @@ function build() {
       // Tone's stage bar is a pale step of the one hue with the one ink on its top rule: the shipped slate was a second color.
       w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${tstep(5)}`, '--section-accent: var(--chart-cat-1-ink)']));
       // A journey persona is a small disc, and four adjacent ladder steps on a disc that size read as one blue (the tone audit).
-      // Personas take every other step, so slot n is ladder step 2n - 1: the same ladder, spaced for a mark too small for adjacent steps.
-      for (const n of [1, 2, 3, 4]) {
-        const k = (n - 1) * 2;
+      // Personas take every other step (slots 1-4 are steps 1, 3, 5, 7): the same ladder, spaced for a mark too small for adjacent steps.
+      // Slots 5-8 (a fifth persona and on) take the odd steps, so all eight stay distinct.
+      for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
+        const k = [0, 2, 4, 6, 1, 3, 5, 7][n - 1];
         w(rule(name, `.journey-actor-dot[data-hue="${n}"]`, [
           `${T.body(n)}: ${TONE[k]}%`, `${T.bodyD(n)}: ${TONE_D[k]}%`, `${T.text(n)}: ${TONE[k]}%`, `${T.textD(n)}: ${TONE_D[k]}%`,
         ], false));
@@ -1036,7 +1046,7 @@ function build() {
       // Pigment's zones are the neutral ground (REGIONS, above): the dots carry the category color.
       // Tone's zones on a dark slide stay quiet (30 down to 15% of the hue): at the dark ladder's own steps they were as bright as
       // the dots on them, and a dot on its zone fell under 1.5:1 (the tone audit).
-      const body = tone ? ld(`color-mix(in oklab, ${ONE} ${TONE[c]}%, ${TONE_BASE})`, `color-mix(in oklab, ${ONE} ${[30, 25, 20, 15][c]}%, var(--bg))`) : name === 'pigment' ? 'var(--bg-alt)' : pair(hueOf(c + 1), f.backdrop);
+      const body = tone ? ld(`color-mix(in oklab, ${ONE} ${TONE[c]}%, var(--finish-base))`, `color-mix(in oklab, ${ONE} ${[30, 25, 20, 15][c]}%, var(--bg))`) : name === 'pigment' ? 'var(--bg-alt)' : pair(hueOf(c + 1), f.backdrop);
       // The zone names are printed on these tints, so they wait with the text (TEXT WAITS).
       w(supports(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : name === 'pigment' ? '1' : '0.5'}`])));
     }

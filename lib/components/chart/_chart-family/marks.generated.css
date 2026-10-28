@@ -173,7 +173,7 @@ figure.marks-etch,
 section.marks-tone,
 figure.marks-tone,
 :is(section, figure).marks-tone .chart-frame {
-  --finish-base: color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg));
+  --finish-base: var(--bg);
   --finish-base-d: var(--bg);
   --finish-status-base: var(--bg);
   --finish-ink: var(--text-heading);
@@ -248,6 +248,13 @@ figure.marks-tone,
   --finish-ramp-text-k: 0.82;
   --finish-ramp-text-d-lo: 10%;
   --finish-ramp-text-d-k: 0.82;
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-tone,
+figure.marks-tone,
+:is(section, figure).marks-tone .chart-frame {
+  --finish-base: oklab(from var(--chart-cat-1-hue) 0.97 calc(a * 0.3) calc(b * 0.3));
+}
 }
 
 /* ══ THE SLOT — the finish's values for the category a mark is. ══ */
@@ -390,7 +397,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar[data-s]) {
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar:not([data-s])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar:not([data-s])) {
-  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * var(--finish-edge-text)) !important;
   vector-effect: non-scaling-stroke !important;
@@ -398,7 +405,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-bar:not([data-
 }
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-milestone:not([data-s])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-milestone:not([data-s])) {
-  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-d), var(--finish-status-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-d), var(--finish-base-d))) !important;
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * var(--finish-edge)) !important;
   vector-effect: non-scaling-stroke !important;
@@ -406,7 +413,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-milestone:not(
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-legend-swatch:not([data-s])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.gantt-legend-swatch:not([data-s])) {
-  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * var(--finish-edge)) !important;
   vector-effect: non-scaling-stroke !important;
@@ -441,7 +448,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.state-node, .sta
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.state-node, .state-node-row):not([data-s])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.state-node, .state-node-row):not([data-s])) {
-  background: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
+  background: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--fill-ink) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
   color: var(--finish-ink) !important;
@@ -451,7 +458,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(:is(.state-node, .sta
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.state-node-shape:not([data-s])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.state-node-shape:not([data-s])) {
-  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   stroke: var(--fill-ink) !important;
   stroke-width: calc(var(--chart-edge) * var(--finish-edge-text)) !important;
   vector-effect: non-scaling-stroke !important;
@@ -490,7 +497,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.progress-fill[data-s
 }
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.progress-fill:not([data-s])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.progress-fill:not([data-s])) {
-  background: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status), var(--finish-status-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-d), var(--finish-status-base))) !important;
+  background: light-dark(color-mix(in oklab, var(--fill-hue) var(--finish-status), var(--finish-base)), color-mix(in oklab, var(--fill-hue) var(--finish-status-d), var(--finish-base-d))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge)) var(--fill-ink) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge)) !important;
 }
@@ -506,7 +513,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-shape[data-s]:not
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-shape:not([data-s]):not([data-slot]):not([data-fill])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-shape:not([data-s]):not([data-slot]):not([data-fill])) {
-  fill: light-dark(color-mix(in oklab, var(--fc-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fc-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
+  fill: light-dark(color-mix(in oklab, var(--fc-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fc-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   stroke: var(--fc-hue-mark) !important;
   stroke-width: calc(var(--chart-edge) * var(--finish-edge-text)) !important;
   vector-effect: non-scaling-stroke !important;
@@ -524,7 +531,7 @@ figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-node[data-s]:not(
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-node:not([data-s]):not([data-slot]):not([data-fill])),
 figure:is(.marks-pigment, .marks-etch, .marks-tone) :where(.fc-node:not([data-s]):not([data-slot]):not([data-fill])) {
-  background: light-dark(color-mix(in oklab, var(--fc-hue) var(--finish-status-text), var(--finish-status-base)), color-mix(in oklab, var(--fc-hue) var(--finish-status-text-d), var(--finish-status-base))) !important;
+  background: light-dark(color-mix(in oklab, var(--fc-hue) var(--finish-status-text), var(--finish-base)), color-mix(in oklab, var(--fc-hue) var(--finish-status-text-d), var(--finish-base-d))) !important;
   box-shadow: inset 0 0 0 calc(var(--chart-edge) * var(--finish-edge-text)) var(--fc-hue-mark) !important;
   --chart-ring: calc(var(--state-signal-w) * var(--finish-edge-text)) !important;
   color: var(--finish-ink) !important;
@@ -1272,7 +1279,7 @@ figure.marks-tone :where(.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf
 }
 section.marks-tone:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
 figure.marks-tone:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where(:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])),
@@ -1298,23 +1305,23 @@ figure.marks-tone :where(.matrix-grid-figure tbody tr) {
 }
 section.marks-tone :where(.waterfall-bar[data-s="total"]),
 figure.marks-tone :where(.waterfall-bar[data-s="total"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 76%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 78%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 78%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where(.waterfall-bar[data-s="up"]),
 figure.marks-tone :where(.waterfall-bar[data-s="up"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 47%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 56%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 56%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where(.waterfall-bar[data-s="down"]),
 figure.marks-tone :where(.waterfall-bar[data-s="down"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 92%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.cell-filled:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]),
 figure.marks-tone :where(.cell-filled:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]) {
-  background-color: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
+  background-color: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
   color: var(--text-heading) !important;
 }
 }
@@ -1515,66 +1522,66 @@ figure.marks-tone :where(.chart-status-mark) {
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */
 section.marks-tone :where(.risk-key-marker[data-band="low"]),
 figure.marks-tone :where(.risk-key-marker[data-band="low"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 18%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 18%, light-dark(var(--finish-base), var(--bg)))) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.risk-key-number[data-band="low"]),
 figure.marks-tone :where(.risk-key-number[data-band="low"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 12%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 18%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 12%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 18%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 section.marks-tone :where(.risk-cell[data-band="low"]),
 figure.marks-tone :where(.risk-cell[data-band="low"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 18%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 18%, light-dark(var(--finish-base), var(--bg)))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-tone :where(.risk-key-marker[data-band="medium"]),
 figure.marks-tone :where(.risk-key-marker[data-band="medium"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 28%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 34%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 28%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 34%, light-dark(var(--finish-base), var(--bg)))) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.risk-key-number[data-band="medium"]),
 figure.marks-tone :where(.risk-key-number[data-band="medium"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 28%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 34%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 28%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 34%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 section.marks-tone :where(.risk-cell[data-band="medium"]),
 figure.marks-tone :where(.risk-cell[data-band="medium"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 28%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 34%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 28%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 34%, light-dark(var(--finish-base), var(--bg)))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-tone :where(.risk-key-marker[data-band="high"]),
 figure.marks-tone :where(.risk-key-marker[data-band="high"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 52%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 52%, light-dark(var(--finish-base), var(--bg)))) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.risk-key-number[data-band="high"]),
 figure.marks-tone :where(.risk-key-number[data-band="high"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 48%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 52%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 48%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 52%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 section.marks-tone :where(.risk-cell[data-band="high"]),
 figure.marks-tone :where(.risk-cell[data-band="high"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 52%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 52%, light-dark(var(--finish-base), var(--bg)))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-tone :where(.risk-key-marker[data-band="critical"]),
 figure.marks-tone :where(.risk-key-marker[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 72%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 76%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 72%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 76%, light-dark(var(--finish-base), var(--bg)))) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.risk-key-number[data-band="critical"]),
 figure.marks-tone :where(.risk-key-number[data-band="critical"]) {
-  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 72%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 76%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
+  fill: light-dark(color(from color-mix(in oklab, var(--chart-cat-1-hue) 72%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1))), color(from color-mix(in oklab, var(--chart-cat-1-hue) 76%, light-dark(var(--finish-base), var(--bg))) xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) !important;
 }
 }
 section.marks-tone :where(.risk-cell[data-band="critical"]),
 figure.marks-tone :where(.risk-cell[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 72%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 76%, light-dark(color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg)), var(--bg)))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 72%, light-dark(var(--finish-base), var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 76%, light-dark(var(--finish-base), var(--bg)))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
@@ -1594,7 +1601,7 @@ figure.marks-tone.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([d
 }
 section.marks-tone :where(:is(.journey-stage, .journey-vstage-name)),
 figure.marks-tone :where(:is(.journey-stage, .journey-vstage-name)) {
-  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
+  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 22%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 40%, var(--bg))) !important;
   --section-accent: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where(.journey-actor-dot[data-hue="1"]),
@@ -1625,33 +1632,61 @@ figure.marks-tone :where(.journey-actor-dot[data-hue="4"]) {
   --finish-text-4: 14%;
   --finish-text-d-4: 34%;
 }
+section.marks-tone :where(.journey-actor-dot[data-hue="5"]),
+figure.marks-tone :where(.journey-actor-dot[data-hue="5"]) {
+  --finish-body-5: 76%;
+  --finish-body-d-5: 78%;
+  --finish-text-5: 76%;
+  --finish-text-d-5: 78%;
+}
+section.marks-tone :where(.journey-actor-dot[data-hue="6"]),
+figure.marks-tone :where(.journey-actor-dot[data-hue="6"]) {
+  --finish-body-6: 47%;
+  --finish-body-d-6: 56%;
+  --finish-text-6: 47%;
+  --finish-text-d-6: 56%;
+}
+section.marks-tone :where(.journey-actor-dot[data-hue="7"]),
+figure.marks-tone :where(.journey-actor-dot[data-hue="7"]) {
+  --finish-body-7: 22%;
+  --finish-body-d-7: 40%;
+  --finish-text-7: 22%;
+  --finish-text-d-7: 40%;
+}
+section.marks-tone :where(.journey-actor-dot[data-hue="8"]),
+figure.marks-tone :where(.journey-actor-dot[data-hue="8"]) {
+  --finish-body-8: 9%;
+  --finish-body-d-8: 29%;
+  --finish-text-8: 9%;
+  --finish-text-d-8: 29%;
+}
 
 /* The quadrant ZONE tints — colored furniture, so they move with the finish. */
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.quadrant-tint[data-cell="0"]),
 figure.marks-tone :where(.quadrant-tint[data-cell="0"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 92%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 30%, var(--bg))) !important;
   fill-opacity: 0.38 !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.quadrant-tint[data-cell="1"]),
 figure.marks-tone :where(.quadrant-tint[data-cell="1"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 76%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 25%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 25%, var(--bg))) !important;
   fill-opacity: 0.38 !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.quadrant-tint[data-cell="2"]),
 figure.marks-tone :where(.quadrant-tint[data-cell="2"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 61%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 20%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 61%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 20%, var(--bg))) !important;
   fill-opacity: 0.38 !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.quadrant-tint[data-cell="3"]),
 figure.marks-tone :where(.quadrant-tint[data-cell="3"]) {
-  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 47%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 15%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--finish-base)), color-mix(in oklab, var(--chart-cat-1-hue) 15%, var(--bg))) !important;
   fill-opacity: 0.38 !important;
 }
 }

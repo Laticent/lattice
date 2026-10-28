@@ -15,7 +15,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { build, F, STATUS_MARKS, KEY_FOLLOWS } = require('../../../tools/build-marks-css');
+const { build, F, STATUS_MARKS, KEY_FOLLOWS, TONE, TONE_D } = require('../../../tools/build-marks-css');
 const { loadAll } = require('../../../lib/components');
 
 const OUT = path.join(__dirname, '../../../lib/components/chart/_chart-family/marks.generated.css');
@@ -58,7 +58,8 @@ describe('marks.generated.css', () => {
       // A kanban board guard names the board element itself: the slide (`section.marks-X.kanban:not(.keyline)`), or a figure.
       assert.match(s, new RegExp(`^(section|figure)${head}(?:\\.kanban)?${guard} :where\\(.+\\)$`), s);
     }
-    assert.equal(tokenHeads.length, 9, 'one token block per finish: the slide, the re-hosted figure, and the chart frame inside a pane');
+    // One token block per finish (the slide, the re-hosted figure, the chart frame inside a pane), plus tone's guarded base block.
+    assert.equal(tokenHeads.length, 12, 'one token block per finish, plus tone\'s guarded light base');
   });
 
   test('every painting declaration is !important — member paint arrives as inline url() fills — and every token is plain', () => {
@@ -106,6 +107,44 @@ describe('marks.generated.css', () => {
       assert.doesNotMatch(m[1], /light-dark\(\s*\d/, m[0]);
       assert.doesNotMatch(m[1], /^\s*\d+(\.\d+)?%/, m[0]);
     }
+  });
+
+  // ONE STATUS LEVEL (#2908). A status chart is one class, so a text-free status mark (a progress bar) takes the same level as a
+  // text-bearing one (a gantt bar): the paler level exists for the text, and nothing about a bar without text earns more.
+  test('every status mark in a finish takes one level, mixed toward the plain canvas', () => {
+    for (const f of FINISHES) {
+      const t = tokens(f);
+      assert.equal(t['--finish-status'], t['--finish-status-text'], `${f}: plain status level is the text level`);
+      assert.equal(t['--finish-status-d'], t['--finish-status-text-d'], `${f}: dark plain status level is the dark text level`);
+    }
+    assert.equal(tokens('tone')['--finish-status-base'], 'var(--bg)');
+    assert.equal(tokens('etch')['--finish-status-base'], 'var(--bg)');
+  });
+
+  // THE TONE LADDER (#2908 audit). Dark slides take their own ladder with a floor, so a low step never sinks into the navy
+  // canvas; the light ladder mixes toward the tone hue lifted to near-white, behind the relative-color guard.
+  test('tone has a dark ladder with a floor and a guarded tinted light base', () => {
+    const t = tokens('tone');
+    for (let n = 1; n <= 8; n++) {
+      assert.equal(t[`--finish-body-${n}`], `${TONE[n - 1]}%`);
+      assert.equal(t[`--finish-body-d-${n}`], `${TONE_D[n - 1]}%`);
+    }
+    assert.ok(Math.min(...TONE_D) >= 29, 'the dark ladder keeps its floor');
+    assert.equal(t['--finish-base'], 'var(--bg)', 'unguarded, the light base is the canvas');
+    assert.equal(t['--finish-base-d'], 'var(--bg)');
+    assert.match(css, /@supports \(color: color\(from red[^{]*\{\nsection\.marks-tone,\nfigure\.marks-tone,\n:is\(section, figure\)\.marks-tone \.chart-frame \{\n {2}--finish-base: oklab\(from var\(--chart-cat-1-hue\) /);
+    assert.doesNotMatch(css, /--cat-1-fill/, 'the tone base comes from the tone hue, never the palette slot fill');
+  });
+
+  test('tone gives journey personas eight distinct, spaced ladder steps', () => {
+    const steps = [];
+    for (let n = 1; n <= 8; n++) {
+      const r = headed('tone').find((x) => x.sel.includes(`.journey-actor-dot[data-hue="${n}"]`));
+      const m = new RegExp(`--finish-body-${n}: (\\d+)%`).exec(r?.body || '');
+      assert.ok(m, `slot ${n} has a body override`);
+      steps.push(m[1]);
+    }
+    assert.equal(new Set(steps).size, 8, `persona steps are distinct: ${steps}`);
   });
 
   test('pigment paints every mark with its solid, and text on a solid is --chart-on-mark; etch and tone use --text-heading', () => {
@@ -382,8 +421,8 @@ describe('marks.generated.css', () => {
     assert.match(r?.body || '', /--row-ink: var\(--chart-cat-1-ink\) !important/);
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.sel.includes('matrix-grid-figure')), `${f} leaves rows alone`);
     const cell = headed('tone').find((x) => x.sel.includes('.cell-filled') && x.body.includes('background-color'));
-    // Ladder step 6 in both modes: the light ladder over tone's tinted base, the dark ladder over the canvas.
-    assert.match(cell?.body || '', /background-color: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%, color-mix\(in oklab, var\(--cat-1-fill\) 60%, var\(--bg\)\)\), color-mix\(in oklab, var\(--chart-cat-1-hue\) 40%, var\(--bg\)\)\) !important/);
+    // Ladder step 6 in both modes: the light ladder over tone's base (`--finish-base`), the dark ladder over the canvas.
+    assert.match(cell?.body || '', /background-color: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%, var\(--finish-base\)\), color-mix\(in oklab, var\(--chart-cat-1-hue\) 40%, var\(--bg\)\)\) !important/);
     assert.match(cell?.body || '', /color: var\(--text-heading\) !important/);
   });
 

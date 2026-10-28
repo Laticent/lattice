@@ -208,7 +208,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue on a light slide, 92…29% on a dark one, the same ladder on every chart | one ink for every mark, 1× (2.5× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue on a light slide, 92…29% on a dark one, the same ladder on every chart (a journey persona takes every other step) | one ink for every mark, 1× (2.5× on a text-bearing mark) |
 
 **A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
@@ -304,8 +304,11 @@ measurement, and most undo a defect a render or the adversarial review found:
   are not done, at-risk or blocked. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
   signal lines take the hue (not its text ink, which is neon on dark) 38 to 42% toward the slide.
 - **Tone's ladder keeps its color at the pale end and its floor on a dark slide.** On a light slide the ladder mixes toward
-  a pale blue (the theme's `--cat-1-fill` taken 40% toward the canvas) instead of white: a pale tint of a deep blue taken
-  toward white kept a fifth of its chroma and read grey, which made a journey stage bar, a flowchart node and a matrix
+  the tone hue itself lifted to near-white with 30% of its color (`oklab(from …)`, behind the relative-color guard; an
+  engine without relative color keeps the plain canvas) instead of white. A theme token cannot serve: `--cat-1-fill` is
+  the palette's slot-1 fill, a different hue from the tone hue on most themes, and an early base built on it dragged
+  atelier's, laguna's and crepuscolo's pale steps to olive, pink and yellow. Mixed toward white, a pale tint of a deep blue
+  kept a fifth of its chroma and read grey, which made a journey stage bar, a flowchart node and a matrix
   cell look muddy. On a dark slide the ladder is 92, 78, 66, 56, 47, 40, 34, 29% (`TONE_D`): the light ladder's last
   steps sat within a hair of the navy canvas, so a map's low regions, a tower's small cells and a hub-spoke satellite
   vanished. A text-free ramp (a map) takes a 40% dark floor for the same reason, and a quadrant's dark zones stay at
