@@ -14,6 +14,18 @@ Owner OK 2026-10-28 (asked in the PR 2919 session). The notes-scrub fix (followu
 |---|---|---|---|---|---|
 | studio | lintCoreGz | 112808 | 112808 | +0 | 125200 |
 
+### 2026-10-27 — measured on the built tree at c3f3f8ced
+
+htmlRaw has outgrown its soft targets on every route (all five over, home within 0.5KB of its ceiling); Fluido joining the Libraries menu (PR #2923) adds ~720 bytes to the home page and would cross it. Reset to today's measurement on main, owner-approved 2026-10-27.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | htmlRaw | 206840 | 226628 | +19788 | 249291 |
+| playground | htmlRaw | 440187 | 471849 | +31662 | 519034 |
+| home | htmlRaw | 101200 | 110840 | +9640 | 121924 |
+| components | htmlRaw | 555586 | 599431 | +43845 | 659374 |
+| getting-started | htmlRaw | 81000 | 85352 | +4352 | 93887 |
+
 ### 2026-10-22 — measured on the built tree at b4552e5
 
 the callout layer's lane and markers load only for a deck that writes @callout (#2855 follow-up): the largest kernel closure fell 85.7 to 80.3 KB and the union 226.1 to 220.5 KB, and the three ceilings the owner raised for the layer come back down

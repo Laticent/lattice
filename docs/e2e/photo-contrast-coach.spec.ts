@@ -8,7 +8,7 @@ import { CHROME, expect, gotoStudio, persistedSource, test, typeDeck } from './s
 // `card-clear` drops the card's backing, so the theme's own (dark, in light mode) ink sits on a dark photo.
 // A heading alone, so the pin's verdict is the heading's: the theme's muted body ink is a second text the pin must also clear.
 const DARK_PHOTO_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\n![bg](sample:photo-wide.svg)\n';
-// With a paragraph the muted body ink on this photo stays under 4.5:1 even pinned dark, so no pin is offered.
+// With a paragraph the muted body ink on this photo stays under 4.5:1 even pinned dark, so no pin is offered: the card ink is.
 const BODY_DECK = '---\ntitle: Photos\n---\n\n<!-- _class: image spotlight card-clear -->\n\n## A quiet harbor.\n\nThe words sit right on the photo.\n\n![bg](sample:photo-wide.svg)\n';
 // The mirror case: a bright photo under light ink (a dark deck), where the fix is to pin the slide light.
 const BRIGHT_PHOTO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAABsCAIAAACzYCrFAAAA1klEQVR42u3SMQ0AAAgEsfcvEwEMKMADYWxSBZfLdMFZJMBAGAgDYSAwEAbCQBgIDISBMBAGAgNhIAyEgcBAGAgDYSAMBAbCQBgIA4GBMBAGwkBgIAyEgTAQGAgDYSAMhIHAQBgIA2EgMBAGwkAYCAyEgTAQBgIDYSAMhIHAQBgIA2EgDAQGwkAYCAOBgTAQBsJAYCAMhIEwEBgIA2EgDISBwEAYCANhIDAQBsJAGAgMhIEwEAYCA2EgDISBMBAYCANhIAwEBsJAGAgDgYEwEAbCQGAgPi0bG28SdoIc2AAAAABJRU5ErkJggg==';
@@ -82,14 +82,27 @@ test('a solid card raises no photo warning, and a warning clears when the card g
 	await expect(warning).toHaveCount(0);
 });
 
-test('a pin that would not clear the floor is not offered', async ({ page }) => {
-	await page.setViewportSize({ width: 1440, height: 900 });
-	await gotoStudio(page);
-	await typeDeck(page, BODY_DECK);
-	await openCoach(page);
-	await expect(page.getByText(/Neither a dark nor a light slide clears it/).filter({ visible: true }).first()).toBeVisible({ timeout: 20_000 });
-	await expect(page.getByRole('button', { name: /Pin this slide/ })).toHaveCount(0);
-});
+// No pin clears this slide, so the finding offers the card ink that does (the dark photo wants light ink) and no pin.
+for (const width of [1440, 390]) {
+	const engines = width === 1440 ? ' @webkit-tablet @crosswidth' : ' @webkit-phone @crosswidth';
+	test(`a pin that would not clear the floor is not offered; the card ink that does is, and fixes it (${width}px)${engines}`, async ({ page }, info) => {
+		await page.setViewportSize({ width, height: width < 600 ? 844 : 900 });
+		await gotoStudio(page);
+		await typeDeck(page, BODY_DECK);
+		await openCoach(page);
+		const warning = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
+		await expect(warning).toContainText('setting the card ink light', { timeout: 20_000 });
+		await expect(page.getByRole('button', { name: /Pin this slide/ })).toHaveCount(0);
+		await expect(page.getByRole('button', { name: 'Set card ink dark' })).toHaveCount(0);
+		await warning.scrollIntoViewIfNeeded();
+		await page.screenshot({ path: info.outputPath(`ink-offered-${width}.png`) });
+
+		await page.getByRole('button', { name: 'Set card ink light' }).filter({ visible: true }).first().click();
+		await expect.poll(() => persistedSource(page)).toMatch(/_class: image spotlight card-clear ink-light/);
+		await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
+		await page.screenshot({ path: info.outputPath(`ink-set-${width}.png`) });
+	});
+}
 
 // The editor's own tooltip on the same slide (`thin-card-no-ink`) is not auto-fixable in lint, so the Studio reads the
 // photo from the preview and offers the ONE ink that reads (the dark sample photo wants light ink). Only when the slide is
