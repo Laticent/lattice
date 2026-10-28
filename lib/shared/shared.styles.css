@@ -42,11 +42,11 @@ section.compact {
  * removed, and the tie on specificity (both `section.<class>`) would be settled by
  * source order in this file's favor. They honor `accent` by recoloring their own
  * ribbon segment instead; see each component's styles file. */
-section.accent:not(.split-panel, .split-compare) {
-  border-top: calc(0.3125 * var(--_sec-1cqi, 1cqi)) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
+section.accent:not(.split-panel, .split-compare):where(:not(.image, .scene, .collage.bleed)) {
+  border-top: var(--_bar-w) solid var(--accent); /* section-OWN cqi: route through --_sec-1cqi (preview self-reference) */
   border-image-source: none; /* the longhand, not `border-image: none`: lightningcss empties that (engineering/gotchas/css.md) */
   --_edge-t: 0; /* this bar is the top edge, even in a `spectrum: off` deck (base.modifiers.css) */
-  --_bar-t: calc(0.3125 * var(--_sec-1cqi, 1cqi));
+  --_bar-t: var(--_bar-w);
 }
 section.accent h2 { color: var(--accent); }
 /* On the dark canvas the rainbow border is suppressed entirely; the accent
@@ -85,6 +85,8 @@ section.accent.dark {
   border-top: none;
   --_edge-t: 0; /* the stripe is the top edge (base.modifiers.css, "The slide's EDGE") */
   --_bar-t: 0px; /* …painted as a background, so it takes no border room */
+  /* `--_bar-room-t` stays its default: the padding keeps the room a light accent slide holds as its border, so
+     a dark slide's content sits where a light one's does (base.modifiers.css, `section.dark`). */
 }
 section.accent.dark h2 { color: var(--accent); }
 

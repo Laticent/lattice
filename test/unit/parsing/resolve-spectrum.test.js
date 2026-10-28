@@ -434,8 +434,17 @@ describe('resolve-spectrum — CSS contract (base.variants.css)', () => {
   });
 
   test('a divider is EXEMPT from the per-side edge rail (no doubled bar over its signature rail)', () => {
-    assert.match(block, /section\.spectrum-edge-left:not\(\.divider\)/);
-    assert.match(block, /section\.spectrum-edge-bottom:not\(\.divider\)/);
+    assert.match(block, /section\.spectrum-edge-left:not\(\.divider[,)]/);
+    assert.match(block, /section\.spectrum-edge-bottom:not\(\.divider[,)]/);
+  });
+
+  test('the full-bleed frames are exempt too: a side border would shrink their panels (check:edge-shift)', () => {
+    for (const side of ['left', 'right', 'bottom']) {
+      const rule = block.match(new RegExp(`section\\.spectrum-edge-${side}:not\\(([^)]*)\\)`))[1];
+      for (const frame of ['.divider', '.image', '.scene', '.split-panel', '.split-compare']) {
+        assert.ok(rule.includes(frame), `spectrum-edge-${side} must exclude ${frame}`);
+      }
+    }
   });
 
   // Comments are stripped first, matching the canonical HARD RULE #3 gate

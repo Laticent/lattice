@@ -590,8 +590,8 @@ describe('check-ownership', () => {
       const slide = planes.filter((p) => p.name !== '--z-viewer');
       assert.deepEqual(
         slide.map((p) => p.name),
-        ['--z-canvas', '--z-atmosphere', '--z-content', '--z-chrome', '--z-alarm', '--z-mark'],
-        'the six slide planes, in paint order — canvas at the bottom, mark on top',
+        ['--z-canvas', '--z-atmosphere', '--z-content', '--z-chrome', '--z-alarm', '--z-mark', '--z-spectrum'],
+        'the seven slide planes, in paint order — canvas at the bottom, the spectrum bar on top',
       );
       // The SIGNS carry the design. Canvas and atmosphere are negative so they paint at
       // step 3 of the painting algorithm — after the section's own background, before every
@@ -618,7 +618,8 @@ describe('check-ownership', () => {
       // annotation on a delivered artifact.
       assert.ok(v['--z-mark'] > v['--z-alarm'],
         'a status stamp must paint OVER an engine marker — it ships in the export, the marker annotates it');
-      for (const name of ['--z-chrome', '--z-mark', '--z-alarm']) {
+      assert.ok(v['--z-spectrum'] > v['--z-mark'], 'the spectrum bar is the frame: it paints over every stamp, tab and mark');
+      for (const name of ['--z-chrome', '--z-mark', '--z-alarm', '--z-spectrum']) {
         assert.equal(v[name] % 10, 0, `${name} sits on the ten-spaced scale, leaving room for a sub-plane`);
       }
       // `--z-viewer` is NOT on that scale on purpose: the fluid-view toggle floats above the

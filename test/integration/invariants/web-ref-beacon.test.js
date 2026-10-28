@@ -36,7 +36,8 @@ describe('web references: a rewritten deck fetches nothing', { skip: SKIP, timeo
   test.before(async () => {
     hits = [];
     server = http.createServer((req, res) => {
-      hits.push(req.url.slice(1).split('?')[0]);
+      // a browser that navigates to a payload asks for the site's icon too; that is not a payload
+      if (req.url !== '/favicon.ico') hits.push(req.url.slice(1).split('?')[0]);
       res.end('');
     });
     await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -60,14 +61,24 @@ describe('web references: a rewritten deck fetches nothing', { skip: SKIP, timeo
     hits.length = 0;
     await Promise.all(docs.map(async (html) => {
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      // As a document in a frame (`srcdoc`), the way a preview frame loads it: the browser's preload scanner
+      // reads a document ahead of its parser, and `setContent` (document.write) does not use it.
+      await page.setContent('<!doctype html><div id="root"></div>', { waitUntil: 'networkidle0' });
+      await page.evaluate((doc) => new Promise((resolve) => {
+        const f = document.createElement('iframe');
+        f.onload = () => resolve();
+        f.srcdoc = doc;
+        document.getElementById('root').appendChild(f);
+      }), html);
+      await new Promise((r) => setTimeout(r, 300));
       await page.close();
     }));
     return [...new Set(hits)].sort();
   }
 
   test('control: every payload fetches as written', async () => {
-    const payloads = webRefBeacons(base);
+    // a row only another engine fetches (`onlyIn`) cannot be expected of this one
+    const payloads = webRefBeacons(base).filter((p) => !p.onlyIn);
     const got = await fetched(payloads.map(asHtml));
     assert.deepEqual(got, payloads.map((p) => p.name).sort());
   });

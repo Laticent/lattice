@@ -294,6 +294,17 @@ section.collage.bleed {
 	align-content: start;
 	justify-content: start;
 	padding: 0 0 0 var(--frame-x);
+	/* The photos run to all four slide edges, so a bleed collage draws no bar and the photos hold still
+	 * under every placement (check:edge-shift). `--_edge-t: 1` hands the top edge to the host keyline. */
+	border-top: 0;
+	--_bar-t: 0px; --_bar-room-t: 0px; --_edge-t: 1;
+}
+/* …and the same for the sides. Scoped to the placement classes so this out-ranks their side borders
+ * (base.variants.css) without a specificity trick. The bar there is the `.slide-bar` overlay
+ * (lib/core/slide-bar.js), which takes no room. */
+section.collage.bleed:is(.spectrum-edge-left, .spectrum-edge-right, .spectrum-edge-bottom) {
+	border-inline: 0; border-bottom: 0; /* both sides together, so it reads as logical */
+	--_bar-l: 0px; --_bar-r: 0px; --_bar-b: 0px;
 }
 section.collage.bleed > .cell-masthead,
 section.collage.bleed > p {

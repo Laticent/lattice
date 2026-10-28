@@ -237,9 +237,9 @@ problems. Cascade layers decide **which declaration wins**; z-planes decide
 **what paints over what** once the winner is known. Layers are inert here (above);
 planes are live.
 
-A slide is six named planes, defined in `lib/base/base.tokens.css` § depth axis:
+A slide is seven named planes, defined in `lib/base/base.tokens.css` § depth axis:
 `--z-canvas` (−2) and `--z-atmosphere` (−1) sink below the words, content rests at
-the natural flow, and `--z-chrome` (30), `--z-alarm` (90) and `--z-mark` (100) rise
+the natural flow, and `--z-chrome` (30), `--z-alarm` (90), `--z-mark` (100) and `--z-spectrum` (110) rise
 above it. Every layering decision at slide scale names one; inside an occupant the
 band is `0–9`. The model, and what happens without it:
 

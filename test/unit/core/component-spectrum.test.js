@@ -1,0 +1,81 @@
+/**
+ * A component's manifest `spectrum` answer (lib/core/component-spectrum.js): none, a pinned style, or the default.
+ */
+const { test, describe } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { applyComponentSpectrum } = require('../../../lib/core/component-spectrum');
+
+const ROOT = path.join(__dirname, '..', '..', '..');
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+const catalog = { kpi: false, 'cards-grid': 'solid', table: 'on', bullet: false };
+
+describe('applyComponentSpectrum', () => {
+	test('a component with no entry keeps its class list untouched (same array)', () => {
+		const cur = ['content', 'spectrum-edge-left', 'spectrum-solid'];
+		assert.equal(applyComponentSpectrum(cur, catalog), cur);
+	});
+
+	test('spectrum: false drops the author\'s spectrum classes and turns the bar off', () => {
+		const out = applyComponentSpectrum(['kpi', 'spectrum-edge-left', 'spectrum-duo', 'dark'], catalog);
+		assert.deepEqual(out, ['kpi', 'dark', 'spectrum-off', 'spectrum-edge-off']);
+	});
+
+	test('a style name pins the style and leaves the placement to the author', () => {
+		const out = applyComponentSpectrum(['cards-grid', 'spectrum-edge-left', 'spectrum-mono'], catalog);
+		assert.deepEqual(out, ['cards-grid', 'spectrum-edge-left', 'spectrum-solid']);
+	});
+
+	test('a pin never overrides spectrum-off: a de-branded deck stays de-branded', () => {
+		for (const name of ['cards-grid', 'table']) {
+			const cur = [name, 'spectrum-off'];
+			assert.equal(applyComponentSpectrum(cur, catalog), cur, name);
+		}
+	});
+
+	test('"on" pins the rainbow: it removes an author style and adds no token', () => {
+		assert.deepEqual(applyComponentSpectrum(['table', 'spectrum-duo'], catalog), ['table']);
+	});
+
+	test('the slide\'s component answers, not a variant word that is another component\'s name', () => {
+		// `bullet` is a chart component AND a variant word on `list`; only `list` is this slide's component.
+		const cur = ['list', 'bullet'];
+		assert.equal(applyComponentSpectrum(cur, catalog), cur);
+		assert.deepEqual(applyComponentSpectrum(['bullet'], catalog), ['bullet', 'spectrum-off', 'spectrum-edge-off']);
+	});
+
+	test('it never removes a component name, and running twice changes nothing', () => {
+		for (const name of ['kpi', 'cards-grid', 'table']) {
+			const once = applyComponentSpectrum([name, 'spectrum-edge-bottom'], catalog);
+			assert.ok(once.includes(name), name);
+			assert.deepEqual(applyComponentSpectrum(once, catalog), once, `${name} idempotent`);
+		}
+	});
+});
+
+describe('the field reaches both render paths and the contract', () => {
+	test('schema, generator, engine plugin list, Marp ledger and runtime all carry it', () => {
+		assert.match(read('lib/components/manifest.schema.json'), /"spectrum": \{/);
+		assert.match(read('tools/build-stage-catalog.js'), /spectrum-catalog\.generated\.js/);
+		assert.match(read('lib/engine/index.js'), /componentSpectrum,/);
+		assert.match(read('lib/core/marp-fidelity.js'), /plugin: 'componentSpectrum'/);
+		const runtime = read('lib/runtime/index.js');
+		assert.match(runtime, /applyComponentSpectrum\(cur\)/);
+		// The runtime must wait for the deck's own classes: a pin applied first reads as the slide's OWN style
+		// class to the deck-class pass, which then never adds the deck's `spectrum-off`.
+		const fn = /function applyComponentSpectrumToSections\(\) \{[\s\S]*?\n  \}\n/.exec(runtime)[0];
+		assert.match(fn, /if \(!deckFrontMatterSettled\) return;/);
+		assert.match(runtime, /applyDefaultComponent\(\);\n\s+applyComponentSpectrumToSections\(\);/);
+	});
+
+	test('the shipped catalog only names real components with a valid answer', () => {
+		const cat = require('../../../lib/core/spectrum-catalog.generated.js');
+		const { loadAll } = require('../../../lib/components');
+		const names = new Set(loadAll().map((m) => m.name));
+		for (const [name, answer] of Object.entries(cat)) {
+			assert.ok(names.has(name), name);
+			assert.ok(answer === false || ['on', 'solid', 'duo', 'mono'].includes(answer), name);
+		}
+	});
+});

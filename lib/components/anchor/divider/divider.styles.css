@@ -46,7 +46,7 @@ section.divider {
   align-items: var(--headline-justify, flex-start);
 }
 /* No top bar; the rail is the LEFT edge (the engine keyline yields to it — base.modifiers.css, "The slide's EDGE"). */
-section.divider { border-top: none; --_edge-t: 1; --_bar-t: 0px; }
+section.divider { border-top: none; --_edge-t: 1; --_bar-t: 0px; --_bar-room-t: 0px; /* owns its top edge: no bar room to hold */ }
 /* Section heading slot is h2 — a divider names a section of the deck, not
  * its document title; the lone h1 belongs to `title`. Rendered at --fs-h1
  * so the section headline keeps its full dark-canvas weight. */

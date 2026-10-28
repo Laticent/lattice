@@ -555,6 +555,13 @@
       },
       "description": "Layout-specific modifier names. MUST NOT include universal or semi-universal variants — those are added automatically by effectiveVariants()."
     },
+    "spectrum": {
+      "description": "Whether this component carries the spectrum bar. Absent or true: the default (the deck's `spectrum:` and `spectrum-edge:` registers apply). false: the component has no spectrum, so its slides get `spectrum-off` and `spectrum-edge-off` and the author's spectrum classes are dropped. A style name (\"on\", \"solid\", \"duo\", \"mono\"): the component pins that style. The manifest says only whether the component has a spectrum and in which style; the engine decides how a bar is drawn (border or overlay). Generated into lib/core/spectrum-catalog.generated.js by tools/build-stage-catalog.js.",
+      "oneOf": [
+        { "type": "boolean" },
+        { "type": "string", "enum": ["on", "solid", "duo", "mono"] }
+      ]
+    },
     "excludes": {
       "type": "array",
       "items": {

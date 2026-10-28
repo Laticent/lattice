@@ -75,6 +75,16 @@ function census() {
 			b: px(cs.borderBottomWidth) > 0.5,
 			l: px(cs.borderLeftWidth) > 0.5 || (bgImage && bh === '100%' && /px$/.test(bw) && cs.backgroundPositionX === '0%'),
 		};
+		// A full-bleed frame draws its bar as overlay strips (`.slide-bar`, lib/core/slide-bar.js) over the slide: a strip
+		// with a box is that side's bar, and a zero-size one (the bar the slide did not ask for) is not.
+		for (const strip of s.querySelectorAll(':scope > .slide-bar')) {
+			const a = s.getBoundingClientRect();
+			const r = strip.getBoundingClientRect();
+			if (!(r.width > 0 && r.height > 0)) continue;
+			if (r.width >= a.width - 1) { if (r.top - a.top < 1) bar.t = true; else bar.b = true; }
+			else if (r.left - a.left < 1) bar.l = true;
+			else bar.r = true;
+		}
 		// A tone mark is an inset box-shadow: the rail is the left edge, the glow every edge.
 		if (/\btone-(pass|warn|fail|skip)\b/.test(s.className) && !/\btone-edge\b/.test(s.className)) {
 			bar.l = true;

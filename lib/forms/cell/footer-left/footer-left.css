@@ -8,7 +8,7 @@
 section.form > footer {
   /* inset: top right bottom left — default anchors bottom-left. A Frame override
    * (e.g. relocate to the right, or vertically center) just sets this one token. */
-  inset: var(--footerleft-inset, auto auto var(--frame-inset-y) var(--frame-inset-x));
+  inset: var(--footerleft-inset, auto auto var(--frame-inset-b) var(--frame-inset-l));
   /* Stay clear of the right-hand wayfinding group (rail + pagination) — the band
    * no longer dodges a centered rail with a magic-number calc; it is simply
    * width-bounded on its own side.

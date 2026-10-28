@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { files, MB } from './corpus.mjs';
 import { blockSignature, md } from './oracle.mjs';
 
-const require = createRequire(new URL('../../package.json', import.meta.url));
+const require = createRequire(new URL('../../../package.json', import.meta.url));
 const MarkdownIt = require('markdown-it');
 const Base = md.block.State;
 function LineState(src, md2, env, tokens) {

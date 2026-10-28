@@ -1,0 +1,1 @@
+- **The Studio's Compose editor takes the `prosemirror-view` paste fix.** `prosemirror-view` 1.42.1 had a paste-handling XSS (GHSA-c8x8-7fp4-3x9w, fixed in 1.42.3); the Studio now bundles 1.42.8 with `prosemirror-model` 1.25.12. A hostile clipboard could otherwise run script in the Studio origin, where API keys live.

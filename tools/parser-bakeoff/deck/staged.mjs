@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = fileURLToPath(new URL('../../', import.meta.url)); // the repo root: this folder is followups.d/<item>/
+const ROOT = fileURLToPath(new URL('../../../', import.meta.url)); // the repo root
 const require = createRequire(path.join(ROOT, 'package.json'));
 const MarkdownIt = require('markdown-it');
 

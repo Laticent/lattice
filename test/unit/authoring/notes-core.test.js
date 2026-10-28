@@ -942,6 +942,77 @@ describe('notes-core: say channel (say:)', () => {
       }
     });
 
+    // #2012: the line scanner has no container stack, so a fence in a list item, a code span across a
+    // line break and an HTML block nested in a container each hid a comment markdown-it renders as a
+    // live note. `maskCodeRegions` now asks the engine's parser and gives those comments back.
+    test('container shapes: a live note inside a list, a quote or a broken span is never hidden', () => {
+      const cases = [
+        '- a\n  ```\n<!-- S -->\n', // markdown-it closes the fence when the item ends
+        '`\nb` <!-- S --> `\n', // a code span cannot cross a blank-line-free break here
+        '> <span>\n> `a <!-- S --> a`\n',
+        '- <div>\n  `a <!-- S --> a`\n',
+      ];
+      for (const src of cases) {
+        assert.match(core.maskCodeRegions(src), /S/, JSON.stringify(src));
+        assert.doesNotMatch(core.stripNotesFromSource(src, new Set(['S'])), /S/, JSON.stringify(src));
+        assert.deepEqual(core.auditStrippedSource(core.stripNotesFromSource(src, new Set(['S']))), [], JSON.stringify(src));
+      }
+    });
+
+    // The same differential, widened to containers: every line may carry a quote, list or indent
+    // prefix, and the atoms include broken code spans. 20,000 documents here; the same generator over
+    // 100,000 (seed 7) hid 1,278 live notes before the parser check and 0 after.
+    // The checker's repros: an earlier `<!--` shown in code with no `-->` of its own starts a match that
+    // runs to the live note's `-->`, so the live opener was never tagged, restored or scrubbed.
+    test('an unclosed <!-- in code does not hide or swallow a live note after it', () => {
+      const cases = [
+        'Write `<!--` to open a note.\n\n- a\n  ```\n<!-- S -->\n',
+        'Use `<!--` to open a note.\n\n`\nb` <!-- S --> `\n',
+        'Write `<!--` to open.\n\n> <span>\n> `a <!-- S --> a`\n',
+        '```md\n<!-- start a note\n```\n\n- a\n  ```\n<!-- S -->\n',
+        'Para `<!--` and <!-- S --> end\n',
+        '---\ntitle: <!-- x\n---\n- a\n  ```\n<!-- S -->\n',
+        '---\ntitle: a\n---<div>\n---\n```\n<!-- S -->\n```\n',
+      ];
+      for (const src of cases) {
+        const out = core.stripNotesFromSource(src, new Set(['S']));
+        assert.doesNotMatch(out, /\bS\b/, JSON.stringify(src));
+      }
+    });
+
+    test('runs of unclosed openers and long look-alike tags stay fast', () => {
+      const t0 = process.hrtime.bigint();
+      core.stripNotesFromSource(`x ${'<!-- '.repeat(30_000)}`, new Set(['a']));
+      core.maskCodeRegions(`zq0lcn${'x'.repeat(100_000)}\n\n<!-- a -->\n`);
+      assert.ok(Number(process.hrtime.bigint() - t0) / 1e6 < 2_000);
+    });
+
+    test('no live note is masked, over generated documents with containers', () => {
+      const md = new (require('markdown-it'))({ html: true });
+      const FR = ['', ' ', 'text', '===', '---', '>', '# H', '[a]: /u', 'a | b', '--|--', '<span>', '<span>x</span>', '<a href="x">', '<div>', '</div>', '```', '```js', '~~~', '    <!-- C -->', '<!-- C -->', 'x <!-- C --> y', '<!--', '-->', '<script>', '`<!-- C -->`', '`', 'b` <!-- C --> `', '`a <!-- C --> a`', 'a`', '<!-- C --> `', '`x <!-- C -->', '<!-- C --> x`', '- a', '1. a'];
+      const PRE = ['', '', '', '> ', '- ', '  ', '1. ', '> - ', '- > ', '    ', '>> ', '- - '];
+      let seed = 7;
+      const rnd = (k) => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) % k;
+      let live = 0;
+      for (let n = 0; n < 20_000; n++) {
+        let id = 0;
+        const lines = [];
+        for (let i = 2 + rnd(6); i > 0; i--) lines.push(PRE[rnd(PRE.length)] + FR[rnd(FR.length)].replace(/C/g, () => `Q${id++}Z`));
+        const src = `${lines.join('\n')}\n`;
+        const out = md.render(src);
+        const masked = core.maskCodeRegions(src);
+        for (let j = 0; j < id; j++) {
+          const at = out.indexOf(`Q${j}Z`);
+          if (at < 0) continue;
+          const before = out.slice(0, at);
+          if (!(before.lastIndexOf('<!--') > Math.max(before.lastIndexOf('-->'), before.lastIndexOf('--!>')))) continue;
+          live++;
+          assert.ok(masked.includes(`Q${j}Z`), `a live note was masked in ${JSON.stringify(src)}`);
+        }
+      }
+      assert.ok(live > 5_000, `the generator produced ${live} live notes`);
+    });
+
     test('the HTML block names match markdown-it\'s own list', async () => {
       const { default: names } = await import('markdown-it/lib/common/html_blocks.mjs');
       assert.deepEqual(core.HTML_BLOCK_NAMES.split('|'), names);

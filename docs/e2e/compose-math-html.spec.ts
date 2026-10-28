@@ -26,13 +26,24 @@ const DECK = [
 
 const panel = (page: Page) => page.locator('[data-slot="popover-content"], [data-slot="sheet-content"]').last();
 
+/** Close the edit panel and WAIT until it is gone. One Escape is not enough: Firefox sometimes takes the key before the popover
+ *  has focus, leaving it open over the paragraph, and the next click on that paragraph lands on the popover and times out
+ *  (the stale panel failed 5 of 24 Firefox runs on prosemirror-view 1.42.1 alone, so the library version was never the cause). */
+async function closePanels(page: Page): Promise<void> {
+	const open = page.locator('[data-slot="popover-content"], [data-slot="sheet-content"]');
+	await expect(async () => {
+		if (await open.count()) await page.keyboard.press('Escape');
+		await expect(open).toHaveCount(0, { timeout: 1_000 });
+	}).toPass({ timeout: 10_000 });
+}
+
 /** Copy what is selected and paste it at the caret. WebKit under Playwright refuses a keyboard or `execCommand` paste (a plain
  *  text copy fails the same way), so there the real copy event's data is handed to the editor as a paste event: the node's HTML
  *  round trip (`toDOM`, `parseDOM`, the provenance gate) is still the engine's own. */
 async function copyThenPaste(page: Page, browserName: string, goTo: () => Promise<void>): Promise<void> {
 	if (browserName !== 'webkit') {
 		await page.keyboard.press('ControlOrMeta+c');
-		await page.keyboard.press('Escape'); // the panel is over the paragraph
+		await closePanels(page); // the panel is over the paragraph
 		await goTo();
 		await page.keyboard.press('ControlOrMeta+v');
 		return;
@@ -51,7 +62,7 @@ async function copyThenPaste(page: Page, browserName: string, goTo: () => Promis
 		DataTransfer.prototype.setData = original;
 		return { html: seen['text/html'] ?? '', text: seen['text/plain'] ?? '' };
 	});
-	await page.keyboard.press('Escape');
+	await closePanels(page);
 	await goTo();
 	await page.evaluate(({ html, text }) => {
 		const dt = new DataTransfer();
@@ -141,6 +152,7 @@ test.describe('compose math and html', () => {
 			await page.getByText('Closing words.').click();
 			// The block: select it by its button, copy, paste after the closing paragraph.
 			await page.getByRole('button', { name: 'Edit HTML block' }).click();
+			await expect(panel(page)).toBeVisible(); // it opens a moment after the press; closing before then closes nothing
 			await copyThenPaste(page, browserName, async () => {
 				await page.getByText('Closing words.').click();
 				await page.keyboard.press('End');
@@ -151,6 +163,7 @@ test.describe('compose math and html', () => {
 		// The span: the same, into the closing paragraph.
 		await page.getByText('Closing words.').click();
 		await page.getByRole('button', { name: 'Edit math: A = \\pi r^2' }).click();
+		await expect(panel(page)).toBeVisible();
 		await copyThenPaste(page, browserName, async () => {
 			await page.getByText('Closing words.').click();
 			await page.keyboard.press('End');

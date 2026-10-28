@@ -668,14 +668,14 @@ section img.emoji {
  * header the ink for THAT field; split-panel.styles.css does this per field. */
 section header {
   z-index: var(--z-chrome);
-  position:absolute; top:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-inset-x);
+  position:absolute; top:var(--frame-inset-t); left:var(--frame-inset-l); right:var(--frame-inset-r);
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
   letter-spacing:0.10em; text-transform:uppercase; text-align:left;
   color:var(--marp-slide-header-color, var(--text-muted));
 }
 section footer {
   z-index: var(--z-chrome);
-  position:absolute; bottom:var(--frame-inset-y); left:var(--frame-inset-x); right:var(--frame-page-reserve);
+  position:absolute; bottom:var(--frame-inset-b); left:var(--frame-inset-l); right:calc(var(--frame-page-reserve) - var(--_bar-r, 0px));
   font-family:var(--font-label); font-size:var(--chrome-fs); font-weight:500;
   line-height:1; letter-spacing:0.06em; text-align:left;
   color:var(--marp-slide-footer-color, var(--text-muted));
@@ -936,6 +936,8 @@ section.dark:not(:where(.title, .divider, .closing, .topic, .decision-cover, .co
   border-top: none;
   --_edge-t: 0; /* the hairline is the top edge */
   --_bar-t: 0px; /* …painted as a background, so it takes no border room */
+  /* The padding keeps the bar room a light slide holds as its border (`--_bar-room-t` stays its default), so a
+     dark slide's content sits where a light slide's does: a deck that mixes the two no longer steps 4px. */
 }
 
 
@@ -1116,6 +1118,7 @@ section.print {
   border-top: none;
   --_edge-t: 1;                     /* so a host's keyline draws the top edge ("The slide's EDGE") */
   --_bar-t: 0px;
+  --_bar-room-t: 0px;
 }
 
 
@@ -2232,7 +2235,7 @@ section.divider.numbered {
     var(--_mark-top) + var(--fs-hero) + var(--_mark-rule-gap) + 1px +
     var(--_sec-1cqi, 1cqi) * 2.5
   );
-  padding-top: var(--_mark-band);
+  padding-top: calc(var(--_mark-band) - var(--_bar-t, 0px)); /* gives up a top bar `accent`, `tone-edge` or a deck-wide `spectrum:` adds */
   padding-bottom: var(--_mark-band);
   justify-content: safe center;
 }
@@ -2435,8 +2438,12 @@ section.overflow:not([data-lattice-overflow-marker="reader"]):not([data-lattice-
  * manufacture the overflow it reports. */
 section > .marker-rail {
   position: absolute !important;
-  bottom: 0;
-  left: 50%;
+  /* The rail sits one bar width above the SLIDE's bottom edge in every placement and centers on the slide,
+     not on the padding box a bar border shrinks: it holds still under every `spectrum-edge:` and never
+     sits inside a bottom bar (check:edge-shift). Its height gives up the same bar width below, so it
+     still ends where the footer's strip ends. */
+  bottom: calc(var(--_bar-w) - var(--_bar-b, 0px));
+  left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2);
   transform: translateX(-50%);
   display: flex;
   width: max-content;
@@ -2492,9 +2499,9 @@ section > .marker-rail {
      overflowed — where it yields 13.2px on 1080, i.e. 1.22% of frame width against hd's
      1.17%. The marker reads the same size relative to the slide on every preset, which is
      what it always should have done. */
-  height: var(--frame-inset-y);
+  height: calc(var(--frame-inset-y) - var(--_bar-w));
   align-items: center;
-  font-size: min(var(--fs-meta), calc(var(--frame-inset-y) * 0.65));
+  font-size: min(var(--fs-meta), calc((var(--frame-inset-y) - var(--_bar-w)) * 0.65));
   z-index: var(--z-alarm);
   /* The capsule rises from the bottom edge, so the TOP corners round. */
   border-top-left-radius: var(--radius-md);
@@ -2809,8 +2816,10 @@ section.fit-marked > .fixme-tab {
   /* Same corner treatment as the two berths above — the BOTTOM-right is rounded by the
      same clip, so this one insets too. See `.overflow-tab`'s note, including why the
      token is typed `0px`. */
-  bottom: calc(var(--slide-radius, 0px) * 0.45);
-  right: calc(var(--slide-radius, 0px) * 0.45);
+  /* One bar width in from the SLIDE's edge in every placement (a bar border shrinks the padding box these
+     measure from), so the tab holds still and never sits under a bottom or right bar. */
+  bottom: calc(var(--slide-radius, 0px) * 0.45 + var(--_bar-w) - var(--_bar-b, 0px));
+  right: calc(var(--slide-radius, 0px) * 0.45 + var(--_bar-w) - var(--_bar-r, 0px));
   z-index: var(--z-alarm);
   /* Okabe-Ito CVD-safe yellow, and a FIXED color rather than a theme token —
    * the same exception the overflow red and the type-floor amber take: an
@@ -2965,8 +2974,8 @@ img.deck-logo {
   position: absolute;
   /* Default: the top-right corner via frame insets. The `logo-finish:` register moves and sizes
    * the mark with section classes (below) — a placement word, a size word. */
-  top: var(--frame-inset-y);
-  right: var(--frame-inset-x);
+  top: var(--frame-inset-t);
+  right: var(--frame-inset-r);
   width: calc(6.25cqi * var(--logo-scale, 1));
   height: calc(4cqi * var(--logo-scale, 1));
   object-fit: contain;
@@ -3001,11 +3010,11 @@ img.deck-logo {
  * The deck's words and a slide's own land as classes on the section, so every rule below reads the
  * slide's FINAL word on each axis. `no-logo` removes the mark itself (the injectors skip the
  * slide), which is why the stand-down rules guard on `:not(.no-logo)`. */
-section.logo-top-left img.deck-logo { right: auto; left: var(--frame-inset-x); }
-section.logo-top-center img.deck-logo { right: auto; left: 50%; transform: translateX(-50%); }
-section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-y); right: auto; left: var(--frame-inset-x); }
-section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-y); right: auto; left: 50%; transform: translateX(-50%); }
-section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-y); }
+section.logo-top-left img.deck-logo { right: auto; left: var(--frame-inset-l); }
+section.logo-top-center img.deck-logo { right: auto; left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2); transform: translateX(-50%); }
+section.logo-bottom-left img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: var(--frame-inset-l); }
+section.logo-bottom-center img.deck-logo { top: auto; bottom: var(--frame-inset-b); right: auto; left: calc(50% + (var(--_bar-r, 0px) - var(--_bar-l, 0px)) / 2); transform: translateX(-50%); }
+section.logo-bottom-right img.deck-logo { top: auto; bottom: var(--frame-inset-b); }
 section.logo-sm img.deck-logo { --logo-scale: 0.75; }
 section.logo-lg img.deck-logo { --logo-scale: 1.5; }
 
@@ -3081,14 +3090,17 @@ section.logo-plate img.deck-logo {
    lib/base/base.docs.md and engineering/decisions/2026-06-16-social-mobile-portrait-sizes.md. */
 section.safe[data-orientation='portrait'],
 section.safe[data-orientation='square'] {
-  padding-top: max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875));
-  padding-bottom: max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875));
+  /* Gives up the bar border like the base padding, so the safe box holds under every `spectrum-edge:`. */
+  padding-top: calc(max(var(--safe-top, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
+  padding-bottom: calc(max(var(--safe-bottom, 0px), calc(var(--_sec-1cqi, 1cqi) * 6.875)) - var(--_bar-b, 0px));
 }
 /* Lift the bottom chrome (footer / pagination / progress) above the caption band
    so it isn't buried under the overlay. */
-section.safe[data-orientation='portrait'] :is(.cell-footer, .tile-meta, [class*='pagination'], [class*='progress']),
-section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='pagination'], [class*='progress']) {
-  bottom: calc(var(--frame-inset-y) + var(--safe-bottom, 0px));
+/* `.tile-progress`, not `[class*='progress']`: that also matched the `progress` chart's own `.progress-track` and
+   `.progress-row`, lifting them as if they were footer chrome. */
+section.safe[data-orientation='portrait'] :is(.cell-footer, .tile-meta, [class*='pagination'], .tile-progress),
+section.safe[data-orientation='square'] :is(.cell-footer, .tile-meta, [class*='pagination'], .tile-progress) {
+  bottom: calc(var(--frame-inset-b) + var(--safe-bottom, 0px));
 }
 
 /* ── Auto-split continuation marker ──────────────────────────────────────────
