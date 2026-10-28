@@ -3,3 +3,4 @@
 - **Under `tone`, line and ep-curve series are steps of the one ink told apart by dash pattern, and a slope's quiet lines are a pale step of the one hue** (its red/green direction signal is unchanged).
 - **Pigment's risk matrix is less saturated, and etch's bullet measure is stronger than its range bands.**
 - **Under `etch`, the heatmap and map ramps are a lighter wash (6% plus 0.5 of the step, was 0.82), the outline is heavier (2.6 hairlines), and the word cloud and slope take the one hue, as `tone` does.** The heatmap's top step against an empty cell loses magnitude contrast; each cell's value still picks its own ink.
+- **On a dark slide, word-cloud words are 25% lighter toward the heading ink**, so every word clears AA (the raw category hue measured 3.1 to 3.9:1; the worst word is now 5.46:1 across the 32 themes).
