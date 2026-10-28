@@ -197,13 +197,13 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'boardroom',
 		room: 'The boardroom',
 		who: 'Executives, finance, founders',
-		body: 'A decision slide that names the call, a verdict grid that scores the options, a waterfall that explains the change. Every page of the board pack matches, and every number on it is one you wrote.',
+		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches, and every number on it is one you wrote.',
 	},
 	{
 		live: 'pitch',
 		room: 'The pitch',
 		who: 'Sales and marketing teams',
-		body: 'Funnels, pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
+		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
 	},
 	{
 		live: 'briefing',
@@ -221,7 +221,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'mission',
 		room: 'The mission',
 		who: 'Nonprofits and foundations',
-		body: 'Impact numbers, a map of the countries or states you serve, the people who do the work. It’s free, so the donor report looks professional without a design budget.',
+		body: 'Impact numbers like these, plus layouts for a map of the countries or states you serve and the people who do the work. It’s free, so the donor report looks professional without a design budget.',
 	},
 	{
 		live: 'review',
@@ -289,24 +289,20 @@ const WHY_CARDS: WhyCard[] = [
 		title: 'Brand colors live in one file.',
 		body: (
 			<>
-				Change a palette once; every deck picks it up on the next build. Layouts never name a color — they read{' '}
-				<code className="font-mono text-[0.88em] text-primary">var(--token)</code>.
+				Change your palette once and every deck picks it up on the next build. No layout picks its own color, so
+				nothing drifts.
 			</>
 		),
 	},
 	{
 		id: 'git-diff',
-		title: (
-			<>
-				A <code className="font-mono text-[0.88em] text-primary">git diff</code> shows what changed.
-			</>
-		),
-		body: 'A deck is text. Revisions read like code review — line by line — instead of hunting for the box that moved three pixels.',
+		title: 'Every change is visible.',
+		body: 'A deck is a text file, so a revision shows exactly which words changed, line by line, instead of leaving you to hunt for the box that moved three pixels.',
 	},
 	{
 		id: 'mermaid',
-		title: 'Mermaid diagrams render in the palette.',
-		body: 'Flowcharts and sequence diagrams pick up the deck’s tokens automatically, so a diagram never needs styling of its own.',
+		title: 'Diagrams match the deck.',
+		body: 'Flowcharts and sequence diagrams take the deck’s colors and type automatically, so a diagram never needs styling of its own.',
 	},
 	{
 		id: 'contrast',
@@ -326,7 +322,7 @@ const WHY_CARDS: WhyCard[] = [
 	{
 		id: 'no-service',
 		title: 'No service, no account, no telemetry.',
-		body: 'The engine is a build step. It runs where your code runs and sends nothing anywhere.',
+		body: 'The engine runs on your own machine, or in your own build, and sends nothing anywhere.',
 	},
 ];
 
@@ -630,24 +626,23 @@ export function WaitlistForm() {
 // ── Next-step cards ─────────────────────────────────────────────────────────
 // Most cards are a single whole-card link. A card flagged `form` instead holds
 // an inline CTA link plus the waitlist form — a form can't nest inside the
-// card's <a>, so that card renders as a <div>. A card flagged `links` renders
-// as a <div> for the same reason: its body carries links of its own.
+// card's <a>, so that card renders as a <div>.
 // `body` is a ReactNode, not a string, so a card can carry an inline link — the
 // Studio card needs to name the playground mid-sentence without spending its
 // own CTA on it.
-type NextStep = { href: string; title: string; body: React.ReactNode; cta: string; form?: boolean; links?: boolean };
+type NextStep = { href: string; title: string; body: React.ReactNode; cta: string; form?: boolean };
 
 /**
  * The four next-step cards. This lives here rather than in `index.astro`
- * because cards 1 and 4 carry inline links, and JSX cannot appear in Astro
+ * because card 4's body carries an inline link, and JSX cannot appear in Astro
  * frontmatter — which is also the more consistent home, since every other block
  * of landing copy (HOW_STEPS, ROOM_CARDS, WHY_CARDS) is already in this file.
  *
  * Card 1 is the developer door. The libraries and specs used to hold two full
  * sections of the home scroll; they are real assets for developers and they
- * spent a general visitor's attention, so they live behind this card, the
- * header's Libraries menu, and the footer
- * (2026-10-28-home-positioning-audit.md §7).
+ * spent a general visitor's attention, so they live in the DevStrip line under
+ * these cards, the header's Libraries menu, and the footer
+ * (2026-10-28-home-positioning-audit.md §7, §12).
  * The base-aware `url` helper is passed in so the module stays free of
  * `import.meta.env`.
  */
@@ -656,21 +651,8 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 		{
 			href: url('getting-started/'),
 			title: 'For developers',
-			body: (
-				<>
-					Render decks from the command line or in CI. The engine is built from{' '}
-					<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
-						{librariesNav(url).length} libraries
-					</a>{' '}
-					you can use on their own, and its file formats are published as{' '}
-					<a className="font-semibold text-primary hover:underline" href={url('spec/lfm/')}>
-						open specs
-					</a>
-					.
-				</>
-			),
+			body: 'Install the command line, render your first deck in a few minutes, and build decks in CI.',
 			cta: 'Getting started',
-			links: true,
 		},
 		{
 			href: url('guides/authoring/'),
@@ -709,7 +691,7 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 	return (
 		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
 			{links.map((l) =>
-				l.form || l.links ? (
+				l.form ? (
 					<div
 						key={l.href + l.title}
 						className="flex flex-col rounded-xl border border-border bg-card p-[26px] text-card-foreground shadow-sm"
@@ -724,7 +706,7 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 						>
 							{l.cta} <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
 						</a>
-						{l.form && <WaitlistForm />}
+						<WaitlistForm />
 					</div>
 				) : (
 					<a
@@ -743,5 +725,29 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 				),
 			)}
 		</div>
+	);
+}
+
+// ── Developer strip ─────────────────────────────────────────────────────────
+// One slim line under the Next-steps cards for the technical visitor, who lost
+// the most when the Libraries and Specs sections left the home scroll: both
+// independent reviews of the page said so (positioning audit §12). It also says,
+// in plain words, what AGPL means for a deck — a procurement or legal reader
+// otherwise stops at the license name. The library count comes from nav.mjs, so
+// it updates itself (counts policy, July copy note §7.3).
+export function DevStrip({ url }: { url: (p: string) => string }) {
+	return (
+		<p className="m-0 mt-7 text-[14px] leading-[1.6] text-muted-foreground">
+			<span className="font-semibold text-foreground">Building on Lattice?</span> The engine is made of{' '}
+			<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
+				{librariesNav(url).length} libraries
+			</a>{' '}
+			you can use on their own, its file formats are{' '}
+			<a className="font-semibold text-primary hover:underline" href={url('spec/lfm/')}>
+				open specs
+			</a>{' '}
+			(CC-BY-4.0), and it is open source under AGPL-3.0, with an exception that leaves every deck you make free of
+			any license.
+		</p>
 	);
 }

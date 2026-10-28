@@ -26,8 +26,12 @@ export const SAY_MORE_SLIDE = `<!-- _class: waterfall -->
 - This year \`$14.6M\`
 `;
 
-export const ROOM_SLIDES: Record<string, string> = {
-	boardroom: `<!-- _class: decision -->
+// The hero's slide. Both independent reviews of this page found the old hero, the
+// verdict-grid manifest sample ("Option one", "Criterion"), the least persuasive
+// slide on it: a layout describing itself, the first thing every visitor sees. A
+// real board decision says what the page is for. The Source tab shows this text
+// verbatim, so "write this, get this" stays literally true.
+export const HERO_SLIDE = `<!-- _class: decision -->
 
 \`Board decision · Q3\`
 
@@ -39,6 +43,28 @@ export const ROOM_SLIDES: Record<string, string> = {
   - Both vendors lock the pricing rules inside their product, and cost more by year three.
 - Why not wait
   - Two competitors launch next spring. Waiting hands them the window.
+`;
+
+export const ROOM_SLIDES: Record<string, string> = {
+	boardroom: `<!-- _class: verdict-grid -->
+
+## Partnering is the only route inside budget and on time.
+
+- Build
+  - [x] Control
+  - [!] Cost
+  - [!] Timeline
+  - Over budget, two years out.
+- Acquire
+  - [x] Control
+  - [!] Cost
+  - [x] Timeline
+  - Fast, and far too costly.
+- Partner
+  - [-] Control
+  - [x] Cost
+  - [x] Timeline
+  - Inside budget, live next year.
 `,
 	pitch: `<!-- _class: funnel -->
 

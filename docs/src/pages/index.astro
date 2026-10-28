@@ -22,6 +22,7 @@ import { HeroCopy } from '../components/landing/HeroCopy.tsx';
 import HeroPreview from '../components/landing/HeroPreview.tsx';
 import {
 	ByomSection,
+	DevStrip,
 	HowItWorks,
 	NextSteps,
 	nextStepsFor,
@@ -35,7 +36,7 @@ import {
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
-import { ROOM_SLIDES, SAY_MORE_SLIDE } from '../components/landing/room-decks';
+import { HERO_SLIDE, ROOM_SLIDES, SAY_MORE_SLIDE } from '../components/landing/room-decks';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
@@ -67,13 +68,14 @@ const tokensCss = readFileSync(join(docsRoot, 'src/styles/lattice-tokens.generat
 const palettes = [...new Set([...tokensCss.matchAll(/data-palette="([^"]+)"/g)].map((m) => m[1]))];
 const titleCase = (s) => s.replace(/(^|-)(\w)/g, (_, sep, c) => (sep ? ' ' : '') + c.toUpperCase());
 
-// The hero's left panel shows the REAL manifest sample that produced the right
-// panel's rendered slide image — so "write this, get this" is literally true.
-// Hero = the component flagged `showcase.hero` in its manifest; its sample is
-// shown verbatim as the headline source and rendered as the hero slide.
-const heroComp = manifests.find((m) => m.showcase && m.showcase.hero);
+// The hero's Source tab shows the REAL text that produced the Preview tab's
+// rendered slide — so "write this, get this" is literally true. The text is a
+// board decision authored for the home page (room-decks.ts HERO_SLIDE), not a
+// manifest sample: a sample describes its own layout, and the hero is the first
+// slide every visitor sees (positioning audit §12).
+const heroClass = HERO_SLIDE.match(/_class:\s*([\w-]+)/)[1];
 const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const heroSource = heroComp.sample.trim();
+const heroSource = HERO_SLIDE.trim();
 const heroCodeHtml = heroSource
 	.split('\n')
 	.map((line) => {
@@ -132,10 +134,10 @@ const dagreUrl = url(pg + 'lattice-dagre.js');
 const katexUrl = url(pg + 'katex/katex.min.css');
 
 const heroData = {
-	sample: heroComp.sample,
-	drawn: needsDrawn(heroComp.sample),
+	sample: HERO_SLIDE,
+	drawn: needsDrawn(HERO_SLIDE),
 	codeHtml: heroCodeHtml,
-	componentName: heroComp.name,
+	componentName: heroClass,
 	themeBase,
 	runtimeUrl,
 	engineUrl,
@@ -247,9 +249,10 @@ const nextSteps = nextStepsFor(url);
 			     professions are the last card, "The review". -->
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<SectionHead eyebrow="Every room where you need to be understood" title="From the boardroom to the lecture hall.">
+					<SectionHead eyebrow="Every room where you need to be understood" title="Your room already has its layouts.">
 						Executives, sales and marketing teams, public servants, teachers, nonprofit staff, and engineers all make
-						the same kind of deck: one that has to land with people who have little time. Each room already has the layouts it needs.
+						the same kind of deck: one that has to land with people who have little time. Every figure on these sample slides
+						is made up for illustration.
 					</SectionHead>
 					<RoomCards playgroundHref={url('playground/')} layoutCount={manifests.length} />
 				</div>
@@ -261,9 +264,20 @@ const nextSteps = nextStepsFor(url);
 				<FieldCardsLive client:idle data={fieldCardsData} />
 			</section>
 
+			<!-- Proof — one receipt from /comparison, a slim band. Directly after the
+			     rooms, so the line that sets Lattice apart from AI deck generators lands
+			     BEFORE the page brings in an AI section (Bring your own model). Both
+			     independent reviews of this page asked for that order (audit §12). -->
+			<section class="border-y border-border bg-muted py-[clamp(40px,5vw,64px)]">
+				<div class="wrap">
+					<ProofStrip comparisonHref={url('comparison/')} />
+				</div>
+			</section>
+
 			<!-- How it works — a slim three-step band, after the "why" (say-more and
-			     the rooms) so the mechanism arrives once the visitor knows what it is for. -->
-			<section class="border-y border-border bg-muted py-[clamp(28px,3.5vw,44px)]">
+			     the rooms) so the mechanism arrives once the visitor knows what it is for.
+			     Plain with a bottom rule: the muted proof band sits directly above it. -->
+			<section class="border-b border-border py-[clamp(28px,3.5vw,44px)]">
 				<div class="wrap">
 					<HowItWorks />
 				</div>
@@ -330,17 +344,9 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- Proof — one receipt from /comparison, a slim band -->
-			<section class="border-y border-border bg-muted py-[clamp(40px,5vw,64px)]">
-				<div class="wrap">
-					<ProofStrip comparisonHref={url('comparison/')} />
-				</div>
-			</section>
-
-			<!-- Showcase — plain. The bands alternate light/muted from the hero down;
-			     with say-more and the rooms added above, this one lands light, and Next
-			     steps (also light) is divided from it by its top rule. -->
-			<section class="py-[clamp(48px,6vw,88px)]">
+			<!-- Showcase — muted. The bands alternate light/muted from the hero down,
+			     and Next steps below closes the page light, above the muted footer. -->
+			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="One source, every palette" title="Change one line. Restyle the whole deck.">
 						Watch a single slide move through every palette — in light or dark. This is the one-file palette
@@ -360,6 +366,7 @@ const nextSteps = nextStepsFor(url);
 						The engine ships today; the Laticent desktop app is on the way.
 					</SectionHead>
 					<NextSteps links={nextSteps} />
+					<DevStrip url={url} />
 				</div>
 			</section>
 		</main>

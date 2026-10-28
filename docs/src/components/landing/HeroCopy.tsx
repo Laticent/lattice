@@ -38,8 +38,8 @@ export function HeroCopy({
 				Write the <span className="italic text-primary">words</span>. The deck is already designed.
 			</h1>
 			<p className="m-0 mb-[30px] max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
-				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of plain
-				text and name the layout that fits it. Lattice sets every page so your audience gets the point at a glance:
+				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of Markdown
+				in one text file, and name the layout that fits it. Lattice sets every page so your audience gets the point at a glance:
 				one design throughout, nothing to drag into place.
 			</p>
 			<div className="flex flex-wrap items-center gap-3">

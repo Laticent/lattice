@@ -243,3 +243,45 @@ cat docs/src/pages/index.astro docs/src/components/landing/HeroCopy.tsx \
   `lint:deck`.
 
 Screenshots at 1440, 820 and 390 px are in the PR.
+
+## 12. Independent before/after assessment, and what it changed
+
+The owner asked for two independent assessments of the page before and after this
+change. Each agent got only stitched screenshots of both versions (desktop and phone,
+captured from the same local server with every live slide rendered) and the copy
+sources. Neither saw this note or the reasoning behind it.
+
+- **Visitor lens.** It walked the page as a CFO, a sales lead, a public-sector analyst, a
+  lecturer, a nonprofit director, and an engineer already on Marp or Slidev. Its verdict:
+  after is better. Four of the five non-technical visitors went from "no" or "partly" to
+  "yes", and the sales lead from "no" to "partly". The engineer went from "yes" to
+  "partly".
+- **Positioning and craft lens.** Its verdict: after is better, with gaps. Narrative order
+  scored 5 → 8, proof 6 → 8 and differentiation 7 → 8. The developer visitor scored
+  8 → 5.
+
+Both independently named the same defects. The owner picked the fix for each:
+
+| Finding (both agents) | Fix in this PR |
+|---|---|
+| The hero preview was the weakest slide: the verdict-grid manifest sample ("Option one", "Criterion") | The hero renders a board decision authored for the page (`room-decks.ts` `HERO_SLIDE`). The Source tab still shows its exact text. The boardroom card now shows a real verdict grid. `showcase.hero` stays on verdict-grid for the showcase rasterizer, and its schema description now says the hero no longer reads it |
+| Two cards promised what their slides did not show (pitch: logos and quotes; mission: map and people) | The bodies now name the slide shown ("like this one") and list the rest as other layouts |
+| The developer visitor lost the most | "Markdown in one text file" is back in the hero lead. A slim "Building on Lattice?" line under Next steps links the libraries and specs, and says in plain words that the AGPL exception leaves decks license-free |
+| Developer jargon in the drift cards (`var(--token)`, `git diff`) | Rewritten in plain words. The protected section heading is unchanged |
+| The AI section came before the line that sets Lattice apart from AI generators | The proof strip ("The artsy deck wins the demo…") moved to directly after the rooms |
+
+Single-agent findings acted on:
+
+- The room list appeared three times in two screens. The rooms H2 is now "Your room
+  already has its layouts."
+- The sample figures were unlabeled next to "never invents a number". The rooms lead now
+  says they are made up for illustration.
+
+Checked and left as is:
+
+- **The "20%" statistic.** It looked unsourced from the home page, but `comparison.astro`
+  cites and links the study, and the proof strip links there.
+- **Slide label size inside cards.** This is a tile-scale limit of every live card on the
+  site, not new here.
+- **Two in-browser products.** Explaining the Studio versus the Playground is the July
+  router line's job. It was out of this change's scope.

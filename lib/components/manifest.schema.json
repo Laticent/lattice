@@ -839,7 +839,7 @@
         },
         "hero": {
           "type": "boolean",
-          "description": "Use this component as the landing hero — its `sample` is shown as the headline source and rendered as the hero slide. Exactly one component should set this."
+          "description": "Rasterize this component into the landing showcase images (docs/scripts/rasterize-showcase.mjs). The landing hero itself no longer reads this flag: it renders a slide authored for the home page (docs/src/components/landing/room-decks.ts, HERO_SLIDE). Exactly one component should set this."
         },
         "page": {
           "type": "integer",
