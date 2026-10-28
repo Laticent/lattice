@@ -14,8 +14,9 @@ export const deck = (() => {
 /** Script text that seeds the deck on the Playground's origin before it loads. */
 export const seedScript = `try { localStorage.setItem(${JSON.stringify(SOURCE_KEY)}, ${JSON.stringify(deck)}); } catch {}`;
 
-/** A tap passes when the editor stayed put (under 2 px, as the e2e spec asserts) and the slide was centered. */
+/** A tap passes when the editor stayed put (under 2 px, as the e2e spec asserts) and, for a slide past the first, the preview centered it. */
 export const verdict = (rows) => {
 	const jumps = rows.filter((r) => r.moved >= 2);
-	return { ok: jumps.length === 0, jumps: jumps.length, worst: Math.max(0, ...rows.map((r) => r.moved)), taps: rows.length };
+	const uncentered = rows.filter((r) => r.centered === false);
+	return { ok: jumps.length === 0 && uncentered.length === 0, jumps: jumps.length, uncentered: uncentered.length, worst: Math.max(0, ...rows.map((r) => r.moved)), taps: rows.length };
 };

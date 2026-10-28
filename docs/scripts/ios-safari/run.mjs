@@ -221,15 +221,22 @@ async function runFocusSyncProbe(id) {
 			return row;
 		};
 		// Four taps on a quiet page first: they tell a tap that never lands (the harness) from one the burner starves.
-		for (let i = 0; i < 4; i++) await tap(`quiet tap ${i + 1}`, TARGETS[i % TARGETS.length]);
-		result.steps.push({ name: 'four taps on a quiet page placed the caret and centered the slide', pass: true, detail: [...methods].join(', ') });
+		const quiet = [];
+		for (let i = 0; i < 4; i++) quiet.push(await tap(`quiet tap ${i + 1}`, TARGETS[i % TARGETS.length]));
+		const q = verdict(quiet);
+		result.steps.push({ name: 'four taps on a quiet page', pass: q.ok, detail: `${q.uncentered} left the slide uncentered, ${q.jumps} moved the editor; landed by ${[...methods].join(', ')}` });
+		if (q.uncentered) {
+			// Say what the page looked like once, with the first slide that did not center.
+			const miss = quiet.findIndex((x) => x.centered === false);
+			result.steps.push({ name: 'a slide that did not center', pass: false, detail: `${await call(`lsState(${quiet[miss].slide})`)} frame: ${await call(`lsFrame(${quiet[miss].slide})`)}` });
+		}
 		await call(`lsBurn(${burn})`);
 		for (let i = 0; i < TAPS; i++) rows.push(await tap(`tap ${i + 1}`, TARGETS[i % TARGETS.length]));
 		const v = verdict(rows);
-		result.steps.push({ name: `${v.taps} taps leave the editor alone (burner ${burn} ms)`, pass: v.ok, detail: `${v.jumps} moved it, worst ${Math.round(v.worst)} px` });
+		result.steps.push({ name: `${v.taps} taps under the burner (${burn} ms)`, pass: v.ok, detail: `${v.uncentered} left the slide uncentered, ${v.jumps} moved the editor, worst ${Math.round(v.worst)} px` });
 		result.rows = rows;
-		result.ok = v.ok;
-		if (!v.ok) result.error = `${v.jumps} of ${v.taps} taps moved the editor, worst ${Math.round(v.worst)} px`;
+		if (!v.ok || !q.ok) result.error = `quiet: ${q.uncentered} uncentered, ${q.jumps} jumps of ${q.taps}; under the burner: ${v.uncentered} uncentered, ${v.jumps} jumps of ${v.taps}, worst ${Math.round(v.worst)} px`;
+		result.ok = v.ok && q.ok;
 	} catch (e) {
 		result.error = String(e?.message ?? e);
 	}

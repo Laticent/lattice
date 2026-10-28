@@ -84,6 +84,7 @@ function lsWatch() {
 }
 
 /** What the preview frame is like on this engine, and whether a script can scroll it at all. */
+// biome-ignore lint/correctness/noUnusedVariables: see above
 async function lsFrame(slide) {
 	const f = lsPreview();
 	const win = f.contentWindow;
@@ -128,7 +129,23 @@ function lsFind(slide) {
 	return line;
 }
 
+/** The text of the lines the editor's slide band covers, and the slide the preview marks: both are painted as soon as the sync hears a caret move. */
+function lsHeard() {
+	const wash = document.querySelector('.cm-slide-band')?.getBoundingClientRect();
+	const band = [];
+	if (wash && wash.height > 0) {
+		for (const line of document.querySelectorAll('.cm-line')) {
+			const r = line.getBoundingClientRect();
+			const mid = (r.top + r.bottom) / 2;
+			if (mid >= wash.top && mid <= wash.bottom) band.push((line.textContent || '').slice(0, 18));
+		}
+	}
+	const marked = [...(lsPreview().contentDocument?.querySelectorAll('.lattice > section.db-active') ?? [])].map((el) => el.getAttribute('data-lattice-slide')).join(',');
+	return { bandLines: band.length, bandFirst: band[0] ?? null, bandLast: band.at(-1) ?? null, marked };
+}
+
 /** What a failure message needs to say where the page was: the caret, the focus, both scrolls, the slide's place. */
+// biome-ignore lint/correctness/noUnusedVariables: see above
 function lsState(slide) {
 	const sel = getSelection();
 	return JSON.stringify({
@@ -140,6 +157,7 @@ function lsState(slide) {
 		previewTop: Math.round(lsPreview().contentWindow.scrollY),
 		offCenter: Math.round(lsOffCenter(slide)),
 		hit: lsHit(slide),
+		heard: lsHeard(),
 		events: window.__lsEv || [],
 	});
 }
@@ -175,14 +193,15 @@ const lsBefore = () => lsScroller().scrollTop;
 // biome-ignore lint/correctness/noUnusedVariables: see above
 async function lsAfter(slide, before) {
 	// The first slide sits at the top of the preview rather than its middle, so it is only waited out.
+	let centered = true;
 	if (slide > 1) {
 		try {
-			await lsUntil(() => lsOffCenter(slide) < 4, 15000, `slide ${slide} centered in the preview`);
-		} catch (e) {
-			throw new Error(`${e.message}; page: ${lsState(slide)}; frame: ${await lsFrame(slide)}`);
+			await lsUntil(() => lsOffCenter(slide) < 4, 5000, `slide ${slide} centered in the preview`);
+		} catch {
+			centered = false;
 		}
 	}
 	// The scroll events of the sync's own moves arrive on later frames; give the busiest page time to deliver them.
 	await lsSleep(1200);
-	return { slide, moved: Math.abs(lsScroller().scrollTop - before) };
+	return { slide, centered, moved: Math.abs(lsScroller().scrollTop - before) };
 }
