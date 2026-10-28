@@ -64,7 +64,8 @@ const RESCORE = argv.includes('--rescore');
 // sandbox killed picks up where it stopped. Delete any half-written render first.
 const RESUME = argv.includes('--resume');
 // --rearm: read <out>/results.json, drop its computed arms and compute them again, then write a
-// new report. Seconds instead of a re-score, for a change to the computed arms only.
+// new report. Seconds instead of a re-score, for a change to the computed arms only. Pass the
+// run's own --packs: the packed rows kept are the ones it names.
 const REARM = argv.includes('--rearm');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [

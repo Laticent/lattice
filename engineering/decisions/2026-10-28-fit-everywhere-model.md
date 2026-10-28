@@ -134,8 +134,11 @@ lost leaf names it.
 two venues. The full table is the run's `report.md`. Every number below comes from it.
 
 **The frontier.** Over the six cells where a slide can split (square, portrait and story, each at
-laptop and hall), four policies are not beaten on both stability and pages at once. Today's split
-is the zero-jank anchor, at the most pages.
+laptop and hall), four policies are not beaten on both stability and pages at once by any policy
+that passes the hard rules. Today's split is the zero-jank anchor, at the most pages. The packed
+arms (`packed-2`, `packed-3`: K members a page, always) score better on both, but they fail the
+hard rules: they clip more than today's split (634 against 555 slides at portrait hall), and their
+0% jank comes from a fixed K, not from a decision.
 
 | Policy | Pages, six cells | vs today | Jank ±10%, mean | Jank, worst cell |
 |---|---|---|---|---|
@@ -155,23 +158,26 @@ The pure fit-first arms halve the pages but move the plan on about 1 edit in 10 
 jank this work exists to stop, so they are out.
 
 **Hard rules.** Clips are flat across the finalists: they split where today's builders split,
-so they clip where today's split clips (13 to 549 a cell, nearly all "unfixable", meaning the
-fit-first arm clips there too). The losses (5 to 36 slides a cell) are today's builders' own, and
+so they clip where today's split clips (13 to 549 a cell). About two-thirds of those are
+"unfixable", meaning the fit-first arm clips there too: 737 of 1,137 for hysteresis-20-30, from 1
+of 13 at square laptop to 397 of 549 at portrait hall. The losses (5 to 36 slides a cell) are today's builders' own, and
 the finalists inherit them only where they split.
 
 **Found on the way.** None of these is caused by this work.
 
 1. **At 16:9 and `hall`, 435 of 1,158 slides clip.** Today's split never splits a wide box, so
    nothing catches them. Fit-first, which splits on a measured overflow, clears 288 of them; the
-   other 147 clip even one member a page. The P2 hybrid therefore has to split a wide box when it
+   other 147 clip under fit-first too. The P2 hybrid therefore has to split a wide box when it
    overflows at the venue, and the harness has no packed render at hd to score that yet.
 2. **Today's split drops content on 41 slides** at every split box. Read from the renders, four
-   cases are real. The compare-prose split drops the slide's eyebrow (`Decision · Close Time`,
-   seven copies whole, none split). The obligation-matrix split drops its key on one slide. The
+   cases are real. The compare-prose and compare-code splits drop the slide's eyebrow
+   (`Decision · Close Time`: seven copies whole, none split; likewise three more compare-prose
+   slides and `compare-code · stress`). The obligation-matrix split drops its key on one slide. The
    content split joins two paragraphs into one, keeping the text and losing the break. The
    row-to-card reshape drops column 1's header label on about 25 slides, as designed (§5), so
    that one is a choice to confirm rather than a bug. The compare-code pane labels move into the
-   running head, so their loss is the harness counting chrome, not a real loss.
+   running head, so their loss is the harness counting chrome, not a real loss. One lost code
+   leaf (`); }`, code gallery slide 3) is not settled; it is probably the same kind of artifact.
    `followups.d/2953-p2-today-split-drops-eyebrow-legend-paragraph-breaks.md`.
 3. **The diagram gallery's split emits broken markup** (10 of 62 sections survive), the
    carousel's unclosed `<strong>`:
