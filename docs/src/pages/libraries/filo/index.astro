@@ -176,6 +176,10 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			.beat .bd { font-size: 12.5px; color: var(--muted); margin: 0 0 4px; line-height: 1.45; display: block; }
 			.beat .api { font-family: var(--mono); font-size: 11px; color: var(--accent); overflow-wrap: anywhere; }
 
+			.start { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+			.btn.big { font-size: 15px; padding: 11px 20px; }
+			.start-hint { font-size: 13.5px; color: var(--muted); max-width: 62ch; }
+			.start-hint b { color: var(--ink); font-weight: 600; }
 			.foot { margin-top: 34px; color: var(--muted); font-size: 12px; line-height: 1.7; border-top: 1px solid var(--line); padding-top: 16px; }
 			.foot a { color: var(--accent); }
 			:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -198,7 +202,12 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 			<p class="promise">One undo history for every way a document changes.</p>
 			<p class="sub">Four writers change one document: the <b>editor</b>, a <b>settings</b> panel, a list of <b>sections</b> you can reorder or have an AI tighten, and a <b>lint fix</b>. None of them keeps its own undo. Each commits to one Filo history, drawn below as a thread. Change things in any of them, then press <kbd>⌘Z</kbd> or <kbd>Ctrl+Z</kbd> <b>with focus anywhere on this page</b>: the last change goes back, whoever made it.</p>
 
-			<div class="stage">
+			<div class="start">
+				<button class="btn primary big" type="button" id="playBtn">▸ Play the tour</button>
+				<span class="start-hint">A narrated cursor changes the document through all four writers, then undoes from outside the editor. <b>Click or type anywhere</b> and the page is yours.</span>
+			</div>
+
+			<div class="stage" id="stage">
 				<div class="toolbar">
 					<div class="group">
 						<button class="btn primary" type="button" id="undoBtn"><svg viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M5 9 2 6l3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /><path d="M2 6h6.5a3.5 3.5 0 0 1 0 7H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>Undo <span class="lbl" id="undoLbl"></span></button>
@@ -538,6 +547,83 @@ Move the sensors up the bank, and check them after every storm.
 			});
 			src.value = shown;
 			render();
+
+			// ── The played tour: the real Vetrina library narrates and drives this page ──────────
+			// Every change still goes through this page's own writers (write, move, tighten, undo),
+			// so the tour is the same code a visitor's clicks run; Vetrina only points and speaks.
+			// Its typing lands through `tourType`, one Filo commit per chunk, so it coalesces like
+			// real typing. The visitor's first real click or key ends the tour and hands over.
+			let tourAt = 0;
+			const tourType = {
+				set: () => {},
+				append: (t: string) => {
+					const r = h.commit({ base: h.head, edits: [{ from: tourAt, to: tourAt, insert: t }], label: 'Typing', origin: 'editor', before: tourAt, after: tourAt + t.length });
+					if (!r.ok) return;
+					shown = h.text;
+					tourAt += t.length;
+					render();
+					src.setSelectionRange(tourAt, tourAt);
+					scrollCaret(tourAt);
+				},
+			};
+			const tourActions = {
+				theme: (v: string) => { themeSel.value = v; write(setFm(shown, 'theme', v), `Theme → ${name(v)}`, 'settings'); },
+				move: (i: number, dir: -1 | 1) => move(i, dir),
+				tighten: (i: number) => tighten(i),
+				undo: () => undo(),
+				redo: () => redo(),
+			};
+			const playBtn = $<HTMLButtonElement>('#playBtn');
+			let tourHandle: { stop(): void } | null = null;
+			async function playTour() {
+				if (tourHandle) { tourHandle.stop(); return; }
+				const { run, wait } = await import('@/lib/vetrina');
+				reset();
+				playBtn.textContent = '■ Stop the tour';
+				tourHandle = run({
+					root: document.body,
+					actions: tourActions,
+					type: tourType,
+					takeover: { scope: 'window' },
+					onStop: (reason: string) => {
+						tourHandle = null;
+						playBtn.textContent = '▸ Play the tour';
+						if (reason === 'takeover') say('<b>The page is yours.</b> Change anything, then press ⌘Z from anywhere.');
+					},
+					play: async (ctx: any) => {
+						const { stage, actions, signal } = ctx;
+						const stamp = (sel: string) => (document.querySelector(sel) as HTMLElement | null) ?? '#stage';
+						stage.say('One document, four writers, and one history behind all of them.');
+						await stage.point('#src', signal); await wait(900, signal);
+						tourAt = shown.indexOf('river trip') + 'river trip'.length;
+						src.focus({ preventScroll: true });
+						stage.say('The editor types. A burst of keystrokes is one step.');
+						await ctx.type('#src', ' last week', { cadence: 70 });
+						await stage.gesture('underline', stamp('#thread li.head'), signal); await wait(700, signal);
+						stage.say('A settings panel rewrites a line of front matter.');
+						await stage.point('#themeSel', signal); actions.theme('cuoio');
+						await stage.gesture('check', '#themeSel', signal); await wait(600, signal);
+						stage.say('The section list moves a section…');
+						await stage.point('[data-down="0"]', signal); actions.move(0, 1);
+						await stage.gesture('check', '#sections', signal); await wait(500, signal);
+						stage.say('…and an AI rewrite tightens one. Each is one labeled step on the thread.');
+						await stage.point(stamp('[data-ai]:not([disabled])'), signal); actions.tighten(0);
+						await stage.gesture('circle', '#thread', signal); await wait(900, signal);
+						stage.say('Now undo, with focus on the page, not in the editor. The last change goes back, whoever made it.');
+						(document.activeElement as HTMLElement | null)?.blur?.();
+						await stage.point('#undoBtn', signal);
+						for (let i = 0; i < 3; i++) { actions.undo(); await stage.gesture('tap', '#undoBtn', signal); await wait(850, signal); }
+						stage.say('Three undos: the AI rewrite, the move, the theme. The typing is still there.');
+						await stage.gesture('underline', stamp('#thread li.head'), signal); await wait(1100, signal);
+						stage.say('Redo brings the theme back.');
+						await stage.point('#redoBtn', signal); actions.redo();
+						await stage.gesture('check', '#themeSel', signal); await wait(900, signal);
+						stage.say('Your turn: change anything, then press ⌘Z from anywhere on this page.');
+						await wait(2200, signal);
+					},
+				});
+			}
+			playBtn.addEventListener('click', playTour);
 
 			// ── The storyboard: each beat drives the stage through the API it names ──
 			const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));

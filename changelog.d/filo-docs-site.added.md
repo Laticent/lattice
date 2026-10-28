@@ -9,3 +9,9 @@
 - **`@laticent/filo` is a workspace package** like its siblings: `npm run filo-lib:build` writes
   `dist/` (ESM, CJS and type declarations), and `npm run build` runs it. Publishing to npm waits
   until the Studio's use of it has settled.
+- **Tables on every library and plugin Learn page read as tables.** A Markdown table now sits in a
+  bordered frame with a header band and column rules, like the page's own tables, fills the column,
+  and scrolls sideways on its own on a phone.
+- **Filo's demo has a played tour.** "Play the tour" runs the real Vetrina library over the page: a
+  narrated cursor types, changes the theme, moves a section and lets the AI tighten one, then undoes
+  three times from outside the editor. The first real click or key hands the page over.

@@ -686,20 +686,41 @@
 	width: 100%;
 	border-collapse: collapse;
 	font-size: 15px;
-	display: block;
+	line-height: 1.5;
+}
+/* A Markdown table gets the same frame as the page's own tables (.cat-table): a bordered,
+   rounded box with a header band and a rule between rows, so it reads as a table rather than
+   spaced text. The frame (catalog.mjs wrapTables) scrolls sideways on a narrow screen; the
+   table itself stays display:table so it fills the column. The outer .cat-prose-table takes the
+   prose flow's padding-top, outside the border. */
+.cat-prose .cat-prose-table-frame {
 	overflow-x: auto;
+	border: 1px solid var(--border);
+	border-radius: var(--radius-md);
+	background: var(--bg);
 }
 .cat-prose th,
 .cat-prose td {
-	padding: 9px 12px;
+	padding: 11px 16px;
 	border-bottom: 1px solid var(--border);
 	text-align: left;
 	vertical-align: top;
 }
+.cat-prose tr:last-child > td {
+	border-bottom: 0;
+}
 .cat-prose th {
-	font-size: 13px;
-	color: var(--text-muted);
+	font-family: var(--font-mono);
+	font-size: 11.5px;
 	font-weight: 600;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	background: var(--bg-alt);
+	white-space: nowrap;
+}
+.cat-prose td + td {
+	border-left: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 .cat-prose pre {
 	padding: 16px 18px;
