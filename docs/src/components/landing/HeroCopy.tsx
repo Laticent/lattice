@@ -56,11 +56,11 @@ export function HeroCopy() {
 // shape). On a phone the slide used to fall below the first screen, under the
 // buttons and three paragraphs of small print; both scoring reviews flagged it.
 //
-// The fold offers exactly TWO doors — browser and machine — and names the job
-// of each. See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1.
-// "Same slides", NOT "same output": the command line emits a vector PDF with
-// selectable text and note annotations, while the Studio's one-click PDF is a
-// 2x raster, and our own getting-started page says so.
+// The fold offers exactly TWO doors — browser and machine — and the button labels
+// name the job of each ("Open the Studio", "Use the command line"). The sentence
+// that used to explain them under the buttons repeated the Studio section and the
+// How-it-works band, so the third scoring round's dedupe cut it.
+// See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1.
 export function HeroActions({
 	studioHref,
 	getStartedHref,
@@ -79,9 +79,7 @@ export function HeroActions({
 				</Button>
 			</div>
 			<p className="m-0 mt-4 max-w-[46ch] text-[13px] text-muted-foreground">
-				The Studio runs in a browser tab; one command renders the same deck on your laptop or in CI.{' '}
-				<span className="font-semibold text-foreground">Same engine, same slides.</span> Free and open source, no
-				sign-up. Or skim{' '}
+				Free and open source, no sign-up. Or skim{' '}
 				<a className="font-semibold text-primary hover:underline" href={galleryHref} target="_blank" rel="noopener">
 					a finished deck, as a PDF
 				</a>
@@ -90,3 +88,25 @@ export function HeroActions({
 		</div>
 	);
 }
+
+// The "before" half of the hero's before/after: a memo paragraph a decision-maker
+// skims past, set above the live waterfall that says the same thing (room-decks.ts
+// HERO_SLIDE). It was a section of its own one scroll down until the third scoring
+// round, where both reviewers named it the page's strongest proof and asked for it
+// at the fold. Kept to three lines on a phone (line-clamp) so the slide and the
+// buttons stay near the first screen.
+export function HeroBeforeAfter() {
+	return (
+		<figure className="lx-ui m-0 mb-4 rounded-xl border border-border bg-card px-4 py-3 text-card-foreground">
+			<figcaption className="mb-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+				Before · the memo
+			</figcaption>
+			<p className="m-0 text-[13.5px] leading-[1.55] text-muted-foreground max-sm:line-clamp-3">
+				Revenue grew from $12.0M last year to $14.6M. New customers added $3.1M and price increases $0.8M, partly offset
+				by churn, which cost $1.2M, and currency, a further $0.1M. In short, growth came mainly from new customers, and
+				churn is now the largest drag.
+			</p>
+		</figure>
+	);
+}
+

@@ -27,6 +27,8 @@ source: https://github.com/Laticent/lattice/pull/2956
                    (5) room cards describe layouts, not outcomes; give each one before/after line.
                    (6) the palette carousel can open on "A11y Deuteranopia"; label the a11y
                    palettes in plain words ("Color-blind safe") or start the cycle on the brand palette.
+       status    — items (1)-(6) landed in PR 2956 itself (audit §15); what remains is the
+                   rescore and real-user proof.
        blocked   — a 9.5 also needs real-user proof (a quote, a named pilot, a measured outcome);
                    the page has none and must not invent one.
        done when — a rescore with the same two-lens rubric reads 9+ on both, and the page passes

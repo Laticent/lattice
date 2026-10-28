@@ -361,3 +361,28 @@ Still open:
 caption broke "in-house" across lines, and a beat started with a fragment. Both are fixed.
 The next round's gaps are in `followups.d/2956-p2-home-page-next-round.md`.
 
+
+## 15. The 9.5 pass (owner: "raise it to 9.5")
+
+This pass works through every follow-up from the final rescore that page changes can
+reach. It is mapped to `followups.d/2956-p2-home-page-next-round.md`:
+
+| Follow-up | Change |
+|---|---|
+| (1) The hero undersold the product; the strongest proof sat one section down | The hero shows the before/after: a memo card ("Before · the memo"), then the live waterfall with its six-line Source tab and a caption pointing at Source. On a phone the memo clamps to three lines. "Say more with less" keeps the thesis and its three beats and no longer repeats the demonstration |
+| (2) Repeats | The hero's router sentence is gone (the button labels name the two doors, and How it works and the Studio section say the rest). The proof strip no longer repeats the hero's "renders what you wrote, the same way every time". The drift cards and the brand carousel are one section, "Your brand, on every deck", under the protected drift heading |
+| (3) Blank-canvas contrast told, not shown | `DriftDemo`: four slides from four blank canvases (drifting font, size, alignment and accent shade) beside the same four in one Lattice palette. Drawn in CSS from real tokens; the ownership gate caught two raw-`var()` reads of Tailwind bridge names (`--card`, `--primary`) that resolve to nothing outside a class, and they now read `--bg-alt` / `--bg` |
+| (4) Marp/Slidev engineer | "For builders" adds "Coming from Marp or Slidev?" with the live layout count, linked to the comparison page's Marp section (new anchor `#vs-marp`) |
+| (5) Room cards described layouts, not outcomes | Each card leads with what its audience gets ("The board reads the decision, not the decoration.") before naming any layout |
+| (6) Palette carousel jargon | The accessibility palettes read "Color-blind safe (red-green)" and so on, instead of "A11y Deuteranopia" |
+
+**Not reachable by page changes.** The H1 ("Write the *words*") was the owner's pick
+(hero option B, §11), so it stays, even though one reviewer argued against it. Real-user
+proof is still absent and is not invented.
+
+**Verification:**
+
+- No horizontal overflow at 390, 820 or 1440 px.
+- No word runs into an inline element.
+- `build:check` passes.
+- studio-smoke `reader-alarms`: 8/8 locally with `--retries=0`.

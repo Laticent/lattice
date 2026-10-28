@@ -2,9 +2,8 @@ import * as React from 'react';
 import { seedPlaygroundSource } from '@/lib/landing-handoff';
 import { createSingleSlideRenderer } from '@/lib/single-slide-render';
 
-// Invisible controller island for the home page's live slide cards: the
-// say-more before/after slide and the six audience rooms. The cards themselves
-// are static (server-rendered in <SayMoreSection> and <RoomCards>); this fills
+// Invisible controller island for the home page's live slide cards: the six
+// audience rooms. The cards themselves are static (server-rendered in <RoomCards>); this fills
 // each `data-live-card` host with a real, palette-reactive slide via the shared
 // engine bridge, each one lazily as it nears the viewport. It also wires
 // the "Edit this deck" handoff (seed the playground source key before nav).
@@ -58,8 +57,8 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 		};
 
 		// Lazy PER HOST: each card renders as IT nears the viewport (rootMargin 300px).
-		// The say-more slide sits directly under the hero, so one observer on the
-		// first host's section started all seven slide frames at page load — seven
+		// When a live slide sat directly under the hero, one observer on the first
+		// host's section started all seven slide frames at page load — seven
 		// font sets and runtimes at once, which kept the landing from ever reaching
 		// network idle on a loaded CI runner (studio-smoke `reader-alarms` on #2956).
 		let io: IntersectionObserver | null = null;

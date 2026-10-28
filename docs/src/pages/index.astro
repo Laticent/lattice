@@ -18,10 +18,11 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import '../styles/landing.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
-import { HeroActions, HeroCopy } from '../components/landing/HeroCopy.tsx';
+import { HeroActions, HeroBeforeAfter, HeroCopy } from '../components/landing/HeroCopy.tsx';
 import HeroPreview from '../components/landing/HeroPreview.tsx';
 import {
 	ByomSection,
+	DriftDemo,
 	HowItWorks,
 	NextSteps,
 	nextStepsFor,
@@ -35,7 +36,7 @@ import {
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
-import { BRAND_SLIDE, HERO_SLIDE, ROOM_SLIDES, SAY_MORE_SLIDE } from '../components/landing/room-decks';
+import { BRAND_SLIDE, HERO_SLIDE, ROOM_SLIDES } from '../components/landing/room-decks';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
@@ -88,11 +89,21 @@ const heroCodeHtml = heroSource
 // "Your brand, one line" demo = ONE slide (room-decks.ts BRAND_SLIDE) re-rendered live through every
 // palette. Swatch colors are each palette's light `--accent`, read from the
 // generated tokens CSS (the same source the topbar selector lists).
+// The four accessibility palettes are named for the condition (a11y-deuteranopia),
+// which reads as jargon to a business visitor — the carousel landed on "A11y
+// Deuteranopia" in the third scoring round. Say what they are for.
+const A11Y_LABELS = {
+	'a11y-deuteranopia': 'Color-blind safe (red-green)',
+	'a11y-protanopia': 'Color-blind safe (red-blind)',
+	'a11y-tritanopia': 'Color-blind safe (blue-yellow)',
+	'a11y-achromatopsia': 'Color-blind safe (grayscale)',
+};
+const paletteLabel = (name) => A11Y_LABELS[name] ?? titleCase(name);
 const paletteAccents = palettes.map((name) => {
 	const hit = tokensCss.match(
 		new RegExp(`\\[data-palette="${name}"\\]\\[data-mode="light"\\]\\{[^}]*?--accent:(#[0-9A-Fa-f]{3,8})`),
 	);
-	return { name, label: titleCase(name), accent: hit ? hit[1] : '#888888' };
+	return { name, label: paletteLabel(name), accent: hit ? hit[1] : '#888888' };
 });
 
 // Live-render data: the islands render the hero, the field cards, and the
@@ -102,14 +113,11 @@ const paletteAccents = palettes.map((name) => {
 // what the CLI bakes (`~~~`, indented and blockquoted fences count).
 const needsDrawn = (s) => sourceHasDrawnFence(s || '');
 
-// The "say more" before/after slide and the six audience-room cards each render a
-// REAL slide live (no static image) through the same engine runtime the hero +
-// carousel use. The sources live in room-decks.ts.
+// The six audience-room cards each render a REAL slide live (no static image)
+// through the same engine runtime the hero + carousel use. The sources live in
+// room-decks.ts.
 const cardData = Object.fromEntries(
-	[['say-more', SAY_MORE_SLIDE], ...Object.entries(ROOM_SLIDES)].map(([key, sample]) => [
-		key,
-		{ sample, drawn: needsDrawn(sample) },
-	]),
+	Object.entries(ROOM_SLIDES).map(([key, sample]) => [key, { sample, drawn: needsDrawn(sample) }]),
 );
 
 // Shared engine endpoints handed to every live island. `engineUrl` is the
@@ -227,7 +235,11 @@ const nextSteps = nextStepsFor(url);
 					<div class="min-w-0 lg:col-start-1 lg:row-start-1 lg:self-end"><HeroCopy /></div>
 					<!-- Interactive Preview/Source flip + live render (hydrates). -->
 					<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+						<HeroBeforeAfter />
 						<HeroPreview client:load data={heroData} />
+						<p class="m-0 mt-3 text-[13px] text-muted-foreground">
+							The same facts as six lines of text, one per bar. Open <span class="font-semibold text-foreground">Source</span> to see them.
+						</p>
 					</div>
 					<div class="min-w-0 lg:col-start-1 lg:row-start-2 lg:self-start">
 						<HeroActions
@@ -246,7 +258,7 @@ const nextSteps = nextStepsFor(url);
 			     See engineering/decisions/2026-10-28-home-positioning-audit.md §5. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<SayMoreSection playgroundHref={url('playground/')} />
+					<SayMoreSection />
 				</div>
 			</section>
 
@@ -284,7 +296,7 @@ const nextSteps = nextStepsFor(url);
 						layout gallery</a> are Lattice decks, each one plain text file.
 					</p>
 				</div>
-				<!-- Invisible controller: fills the say-more slide's and the cards' live hosts, each as it nears the viewport, + wires "Edit this
+				<!-- Invisible controller: fills the room cards' live hosts, each as it nears the viewport, + wires "Edit this
 				     deck". client:load (not client:visible) because this island renders
 				     null — a zero-box element has nothing for client:visible's observer to
 				     intersect, so it would never hydrate. It does its OWN lazy render
@@ -302,30 +314,32 @@ const nextSteps = nextStepsFor(url);
 				</div>
 			</section>
 
-			<!-- Why -->
+			<!-- Your brand, on every deck — the "why decks drift" argument and the brand
+			     carousel as ONE section. They were two in a row that made one point twice
+			     (third scoring round). The protected heading and line stay verbatim; the
+			     drift picture shows the blank-canvas problem instead of describing it, the
+			     carousel shows the fix, and the four cards say what else holds still. -->
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<SectionHead eyebrow="Why decks drift, and why these don't" title="Every deck looks like it came from the same team — because it did.">
+					<SectionHead eyebrow="Your brand, on every deck" title="Every deck looks like it came from the same team — because it did.">
 						Slide tools make every slide a blank canvas, so the headline font on page 4 drifts from page 5 and the accent
 						blue wanders between two shades. Lattice removes the canvas. You choose meaning; the engine owns the pixels.
 					</SectionHead>
-					<WhyCards />
-				</div>
-			</section>
-
-			<!-- Your brand, one line — muted. The palette carousel, retitled for the visitor
-			     it serves: a sales or marketing lead whose question is "will every rep's deck
-			     look like ours?". It renders a real quarterly-review slide carrying a logo
-			     (room-decks.ts BRAND_SLIDE), not a slide about tile counts. -->
-			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<SectionHead eyebrow="Your brand, one line" title="Change one line. Restyle the whole deck.">
-						Your brand colors live in one palette file and your logo in one{' '}
-						<code class="font-mono text-[0.88em] text-primary">logo:</code>{' '}line, so every deck anyone on the team makes comes out
-						on brand. Change the{' '}<code class="font-mono text-[0.88em] text-primary">theme:</code>{' '}line and the whole deck follows,
-						in light or dark. Watch one quarterly review move through every palette:
-					</SectionHead>
+					<DriftDemo />
+					<div class="mt-[clamp(40px,5vw,64px)] mb-6 max-w-[62ch]">
+						<h3 class="m-0 mb-2 font-[family-name:var(--font-display)] text-[clamp(22px,2.4vw,30px)] leading-[1.15] tracking-[-0.01em] text-[var(--text-heading)]">
+							Change one line. Restyle the whole deck.
+						</h3>
+						<p class="m-0 text-[17px] text-foreground">
+							Your brand colors live in one palette file and your logo in one{' '}<code class="font-mono text-[0.88em] text-primary">logo:</code>{' '}line,
+							so every deck anyone on the team makes comes out on brand. Change the{' '}<code class="font-mono text-[0.88em] text-primary">theme:</code>{' '}line
+							and the whole deck follows, in light or dark. Watch one quarterly review move through every palette:
+						</p>
+					</div>
 					<RestyleShowcase client:visible data={restyleData} />
+					<div class="mt-[clamp(40px,5vw,64px)]">
+						<WhyCards />
+					</div>
 				</div>
 			</section>
 
@@ -375,7 +389,7 @@ const nextSteps = nextStepsFor(url);
 			     the bookkeeping. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<ByomSection featuresHref={url('features/') + '#ai-authoring'} url={url} />
+					<ByomSection featuresHref={url('features/') + '#ai-authoring'} url={url} layoutCount={manifests.length} />
 				</div>
 			</section>
 

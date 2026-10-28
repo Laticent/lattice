@@ -90,13 +90,10 @@ export function HowItWorks() {
 }
 
 // ── "Say more with less" ────────────────────────────────────────────────────
-// The communication thesis, directly under the hero: a deck exists to get what
-// you know into the heads of the people who decide, and a slide built for one
-// idea does that faster than a paragraph. The proof is a before/after — a real
-// memo paragraph beside the same content as one live slide (the `data-live-card`
-// host is filled by the FieldCardsLive island, like the rooms below). It is the
-// "visuals say more than words" claim shown, not asserted.
-// See engineering/decisions/2026-10-28-home-positioning-audit.md §5.
+// The communication thesis, in words, directly under the hero that SHOWS it: the
+// memo-to-waterfall before/after moved up into the hero in the third scoring
+// round, so this band states the idea and its three beats and does not repeat the
+// demonstration. See engineering/decisions/2026-10-28-home-positioning-audit.md §5, §15.
 const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	{
 		lead: 'One idea per slide.',
@@ -112,7 +109,7 @@ const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	},
 ];
 
-export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
+export function SayMoreSection() {
 	return (
 		<div className="lx-ui grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-8 lg:grid-cols-[1fr_1.05fr]">
 			<div className="min-w-0">
@@ -122,59 +119,19 @@ export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
 				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
 					People decide in seconds. Give them a slide, not a paragraph.
 				</h2>
-				<p className="m-0 mb-6 text-[17px] leading-[1.6] text-foreground">
+				<p className="m-0 text-[17px] leading-[1.6] text-foreground">
 					A deck has one job: to move what you know into the heads of the people who decide. A paragraph makes them hunt
 					for the point; a slide built for one idea puts it in front of them.
 				</p>
-				<dl className="m-0 flex flex-col gap-3">
-					{SAY_MORE_BEATS.map((b) => (
-						<div key={b.lead}>
-							<dt className="inline text-[15px] font-semibold text-[var(--text-heading)]">{b.lead}</dt>{' '}
-							<dd className="m-0 inline text-[15px] leading-[1.55] text-foreground">{b.body}</dd>
-						</div>
-					))}
-				</dl>
 			</div>
-			{/* The before/after. Two stacked panels, labeled, so the eye reads the memo
-			    first and the slide second — the order the claim argues in. */}
-			<div className="flex min-w-0 flex-col gap-4">
-				<figure className="m-0 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm">
-					<figcaption className="mb-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-						Before · the memo
-					</figcaption>
-					<p className="m-0 text-[14px] leading-[1.6] text-muted-foreground">
-						Revenue grew from $12.0M last year to $14.6M this year. New customers added $3.1M and price increases added
-						$0.8M. Those gains were partly offset by churn, which cost $1.2M, and by currency movements, which cost a
-						further $0.1M. In short, growth came mainly from new customers, and churn is now the largest drag on it.
-					</p>
-				</figure>
-				<figure className="m-0">
-					<figcaption className="mb-2 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-primary">
-						After · six lines, one slide
-					</figcaption>
-					{/* Live-preview host — filled by FieldCardsLive (data-live-card). */}
-					<div
-						className="live-host relative aspect-video overflow-hidden"
-						data-slide-frame
-						style={slideFrameStyle('tile')}
-						data-live-card="say-more"
-					/>
-					{/* Says who did the writing. Without it the pair reads "Lattice converted
-					    my memo", the AI-generator promise the page positions against (July
-					    copy note §3) — the red-team round on this change caught it. */}
-					<p className="m-0 mt-3 text-[13.5px] leading-[1.5] text-muted-foreground">
-						You write the same facts as six short lines, one per bar, and name the layout. The chart is the layout’s
-						job.
-					</p>
-					<a
-						className="mt-2 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
-						href={playgroundHref}
-						data-open-deck="say-more"
-					>
-						Edit this slide in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
-					</a>
-				</figure>
-			</div>
+			<dl className="m-0 flex min-w-0 flex-col gap-4 lg:pt-10">
+				{SAY_MORE_BEATS.map((b) => (
+					<div key={b.lead}>
+						<dt className="text-[17px] font-semibold text-[var(--text-heading)]">{b.lead}</dt>
+						<dd className="m-0 text-[15.5px] leading-[1.55] text-foreground">{b.body}</dd>
+					</div>
+				))}
+			</dl>
 		</div>
 	);
 }
@@ -193,7 +150,16 @@ export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
 // `deck` is a full worked deck from exemplars/ for that room: a whole deck, not one
 // slide, committed with its PDF (the nightly bless renders it). The site does not
 // serve those PDFs, so the link opens GitHub's PDF preview of `main`.
-type RoomCard = { live: string; room: string; who: string; body: React.ReactNode; deck: { label: string; path: string } };
+// `outcome` is what the room's audience gets, in their words, before any layout is
+// named: the third scoring round found the cards described layouts, not results.
+type RoomCard = {
+	live: string;
+	room: string;
+	who: string;
+	outcome: string;
+	body: React.ReactNode;
+	deck: { label: string; path: string };
+};
 
 const EXEMPLAR_PDF = (path: string) => `https://github.com/Laticent/lattice/blob/main/exemplars/${path}.pdf`;
 
@@ -202,6 +168,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'boardroom',
 		room: 'The boardroom',
 		who: 'Executives, finance, founders',
+		outcome: 'The board reads the decision, not the decoration.',
 		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches.',
 		deck: { label: 'a full board update', path: 'corporate/board-update' },
 	},
@@ -209,6 +176,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'pitch',
 		room: 'The pitch',
 		who: 'Sales and marketing teams',
+		outcome: 'Every rep sends a deck that looks like the brand.',
 		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
 		deck: { label: 'a full sales deck', path: 'corporate/sales-deck' },
 	},
@@ -216,6 +184,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'briefing',
 		room: 'The briefing',
 		who: 'Government and the public sector',
+		outcome: 'Members see the recommendation and its evidence in one view.',
 		body: 'A policy recommendation with its evidence cited, a regulatory update, a risk matrix. It runs offline on your own machine, and every layout meets WCAG AA contrast.',
 		deck: { label: 'a full policy briefing', path: 'government-public/policy-briefing' },
 	},
@@ -223,6 +192,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'lecture',
 		room: 'The lecture hall',
 		who: 'Faculty, researchers, students',
+		outcome: 'Students follow the argument one step at a time.',
 		body: 'Real math notation, plots, diagrams, and a glossary. Free and open source. Each lecture is a text file you can keep, share, and reuse next term.',
 		deck: { label: 'a full lecture', path: 'academic/lecture' },
 	},
@@ -230,6 +200,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'mission',
 		room: 'The mission',
 		who: 'Nonprofits and foundations',
+		outcome: 'Donors see what their gift did.',
 		body: 'Impact numbers like these, plus layouts for a map of the countries or states you serve and the people who do the work. It’s free, so the donor report looks professional without a design budget.',
 		deck: { label: 'a full annual impact report', path: 'nonprofit/impact-annual-report' },
 	},
@@ -237,6 +208,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'review',
 		room: 'The review',
 		who: 'Engineers, lawyers, analysts, project leads',
+		outcome: 'The team sees the plan, the risk, and the code on one page.',
 		body: '', // filled below with the live layout count
 		deck: { label: 'a full project status review', path: 'general-team/project-status' },
 	},
@@ -280,6 +252,7 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 							{c.room}
 						</h3>
 						<p className="m-0 mb-2 text-[13.5px] font-medium text-muted-foreground">{c.who}</p>
+						<p className="m-0 mb-2 text-[15.5px] leading-[1.45] font-semibold text-[var(--text-heading)]">{c.outcome}</p>
 						<p className="m-0 text-[15px] text-foreground">{c.body}</p>
 						<a
 							className="mt-3.5 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
@@ -303,6 +276,96 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 				</Card>
 			))}
 		</div>
+	);
+}
+
+// ── Drift picture ───────────────────────────────────────────────────────────
+// The blank-canvas problem SHOWN, not described: four slides four people made on
+// blank canvases (each picks its own font, size, alignment and shade of the brand
+// color), beside the same four slides from one Lattice palette. Both scoring
+// reviewers in the third round found the contrast with blank-canvas tools told in
+// prose only. An illustration, drawn in CSS from the page's own tokens so it
+// follows the palette and light/dark like everything else; no hex (HARD RULE #3's
+// spirit on a docs surface), no typed glyphs (#29).
+type MiniSlide = { title: string; font: string; size: string; align: string; bar: string; weight: string };
+
+const DRIFTED: MiniSlide[] = [
+	{ title: 'Q3 revenue', font: 'var(--font-display)', size: '15px', align: 'left', bar: 'var(--accent)', weight: '700' },
+	{
+		title: 'PIPELINE UPDATE',
+		font: 'var(--font-body)',
+		size: '11px',
+		align: 'center',
+		bar: 'color-mix(in srgb, var(--accent) 55%, var(--text-heading))',
+		weight: '600',
+	},
+	{
+		title: 'Hiring Plan',
+		font: 'ui-serif, Georgia, serif',
+		size: '17px',
+		align: 'left',
+		bar: 'color-mix(in srgb, var(--accent) 45%, var(--bg-alt))',
+		weight: '400',
+	},
+	{
+		title: 'risks & next steps',
+		font: 'ui-monospace, monospace',
+		size: '12px',
+		align: 'right',
+		bar: 'color-mix(in srgb, var(--accent) 70%, var(--bg))',
+		weight: '500',
+	},
+];
+const ALIGNED: MiniSlide[] = ['Q3 revenue', 'Pipeline update', 'Hiring plan', 'Risks and next steps'].map((title) => ({
+	title,
+	font: 'var(--font-display)',
+	size: '14px',
+	align: 'left',
+	bar: 'var(--accent)',
+	weight: '700',
+}));
+
+function MiniSlideRow({ slides, label }: { slides: MiniSlide[]; label: string }) {
+	return (
+		<div className="min-w-0">
+			<p className="m-0 mb-2.5 font-mono text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+				{label}
+			</p>
+			<ul className="m-0 grid list-none grid-cols-2 gap-2.5 p-0 sm:grid-cols-4">
+				{slides.map((m) => (
+					<li
+						key={m.title}
+						className="relative aspect-video overflow-hidden rounded-[3px] border border-border bg-card px-3 py-2.5 shadow-sm"
+					>
+						<span
+							aria-hidden="true"
+							className="absolute top-0 right-0 left-0 h-[3px]"
+							style={{ background: m.bar }}
+						/>
+						<span
+							className="block text-[var(--text-heading)]"
+							style={{ fontFamily: m.font, fontSize: m.size, fontWeight: m.weight, textAlign: m.align as 'left' }}
+						>
+							{m.title}
+						</span>
+						<span aria-hidden="true" className="mt-2 block h-[5px] w-[70%] rounded-full bg-[var(--border)]" />
+						<span aria-hidden="true" className="mt-1.5 block h-[5px] w-[55%] rounded-full bg-[var(--border)]" />
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
+export function DriftDemo() {
+	return (
+		<figure className="lx-ui m-0 flex flex-col gap-6 rounded-xl border border-border bg-muted p-[clamp(16px,2.5vw,28px)]">
+			<MiniSlideRow slides={DRIFTED} label="Four people, four blank canvases" />
+			<MiniSlideRow slides={ALIGNED} label="The same four slides, one Lattice palette" />
+			<figcaption className="m-0 text-[13px] text-muted-foreground">
+				An illustration: the same deck, made twice.
+			</figcaption>
+		</figure>
 	);
 }
 
@@ -339,9 +402,9 @@ const WHY_CARDS: WhyCard[] = [
 
 export function WhyCards() {
 	return (
-		// Four cards, two by two. The brand-colors card moved into "Your brand, one line"
-		// (the section right after this one said it again) and the contrast card into the
-		// briefing room card: both scoring reviews counted the repeats (audit §14).
+		// Four cards, two by two, closing the "Your brand, on every deck" section. The
+		// brand-colors card became that section's carousel and the contrast card lives
+		// in the briefing room card: the scoring reviews counted the repeats (audit §14).
 		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
 			{WHY_CARDS.map((c) => (
 				<Card
@@ -384,7 +447,7 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 					one team fact-checked six AI deck generators
 				</a>{' '}
 				in February 2026, the best got 20% of its claims right. Models predict plausible text instead of looking facts
-				up. Lattice never invents a number or reshuffles a layout — it renders what you wrote, the same way every time.
+				up. Lattice never invents a number or reshuffles a layout.
 			</p>
 			<a
 				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
@@ -572,7 +635,11 @@ export function StudioTrust() {
 // Every string is the original, verbatim, at its original altitude. It sits
 // immediately AFTER the Studio section so the page still holds one AI
 // conversation rather than two in two registers.
-export function ByomSection({ featuresHref, url }: { featuresHref: string; url: (p: string) => string }) {
+export function ByomSection({
+	featuresHref,
+	url,
+	layoutCount,
+}: { featuresHref: string; url: (p: string) => string; layoutCount: number }) {
 	return (
 		<div className="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-10 lg:grid-cols-[1.15fr_1fr]">
 			<div className="min-w-0 max-w-[62ch]">
@@ -602,7 +669,7 @@ export function ByomSection({ featuresHref, url }: { featuresHref: string; url: 
 					How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
 				</a>
 			</div>
-			<BuildersPanel url={url} />
+			<BuildersPanel url={url} layoutCount={layoutCount} />
 		</div>
 	);
 }
@@ -616,7 +683,7 @@ export function ByomSection({ featuresHref, url }: { featuresHref: string; url: 
 // reasons to trust the engine. Three proof points, each with its link, and the
 // AGPL line in plain words, because a procurement reader stops at the license
 // name. The library count comes from nav.mjs, so it updates itself.
-function BuildersPanel({ url }: { url: (p: string) => string }) {
+function BuildersPanel({ url, layoutCount }: { url: (p: string) => string; layoutCount: number }) {
 	const points: { lead: string; body: React.ReactNode }[] = [
 		{
 			lead: 'Open formats.',
@@ -639,6 +706,19 @@ function BuildersPanel({ url }: { url: (p: string) => string }) {
 						{librariesNav(url).length} framework-free libraries
 					</a>
 					, each usable without Lattice.
+				</>
+			),
+		},
+		{
+			lead: 'Coming from Marp or Slidev?',
+			body: (
+				<>
+					You keep writing Markdown, and gain {layoutCount} named layouts, a linter that knows them, and an engine that
+					renders the same way on every machine.{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('comparison/#vs-marp')}>
+						The honest comparison
+					</a>
+					.
 				</>
 			),
 		},

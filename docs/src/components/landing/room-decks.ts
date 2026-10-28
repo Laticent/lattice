@@ -1,5 +1,5 @@
-// The one-slide sources the home page renders live: the "say more with less"
-// before/after slide and one slide per audience room. Each is authored for its
+// The one-slide sources the home page renders live: the hero's before/after slide,
+// the brand carousel's slide, and one slide per audience room. Each is authored for its
 // room rather than lifted from a manifest `sample`, because a manifest sample
 // describes its own layout ("The grid scores options against shared criteria")
 // and a room card has to read as that room's real work. Every figure on these
@@ -9,12 +9,15 @@
 // keyed by the `data-live-card` name the host carries in sections.tsx.
 // See engineering/decisions/2026-10-28-home-positioning-audit.md §5–§6.
 
-// The "after" half of the before/after. The "before" memo in sections.tsx says
-// the same thing in prose. A waterfall, not a verdict grid: the hero preview
-// directly above already shows a verdict grid, and a walk from one number to
-// another is the clearest case of a picture beating a paragraph. The steps
+// The hero's slide: the "after" half of the before/after the hero shows. The memo
+// above it in index.astro says the same thing in prose. History: the verdict-grid
+// manifest sample described itself; a three-card decision slide read as 6px text;
+// a lone big-number was readable but empty. Both reviewers of the third scoring
+// round asked for the page's strongest proof, this transformation, at the fold. A
+// waterfall is the clearest case of a picture beating a paragraph, and its Source
+// tab is six lines, so "write this, get this" holds at a glance. The steps
 // reconcile: 12.0 + 3.1 + 0.8 - 1.2 - 0.1 = 14.6.
-export const SAY_MORE_SLIDE = `<!-- _class: waterfall -->
+export const HERO_SLIDE = `<!-- _class: waterfall -->
 
 ## New customers drove the growth. Churn is the biggest drag.
 
@@ -24,20 +27,6 @@ export const SAY_MORE_SLIDE = `<!-- _class: waterfall -->
 - Churn \`-$1.2M\`
 - Currency \`-$0.1M\`
 - This year \`$14.6M\`
-`;
-
-// The hero's slide. The first review round found the old hero, the verdict-grid
-// manifest sample ("Option one", "Criterion"), a layout describing itself. The next
-// hero, a three-card decision slide, read as about 6px text at hero size, so the
-// second scoring round could not read the first proof on the page. A big-number
-// slide carries one claim in display type, readable at any width, and its Source
-// tab is five lines, so "write this, get this" is literally true at a glance.
-export const HERO_SLIDE = `<!-- _class: big-number -->
-
-\`Board decision · Q3\`
-
-- $4M
-  - saved by year three: $6M to build it ourselves vs $10M to buy.
 `;
 
 // The "Your brand, one line" carousel's slide: one quarterly review re-rendered
