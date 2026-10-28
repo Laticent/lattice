@@ -598,7 +598,15 @@ Where it differs from the plan above, and why:
   body: on 2026-10-28 its own edit went, the guest's stayed on both sides, and Ctrl+Shift+Z brought
   it back. The same run then typed in Compose and pressed Ctrl+Z with focus there: the edit went on
   both sides, the guest's stayed, and focus stayed in Compose. The pill's Undo and settings writes
-  in a session are still untested (P4).
+  in a session are pinned in CI by `docs/e2e/filo-live.spec.ts` (added 2026-10-28; nightly, in
+  Chromium, Firefox and WebKit): two browser contexts in one real session, real WebRTC between
+  them, and `docs/e2e/live-relay.ts`, a Nostr relay inside the test process that
+  `routeWebSocket` puts in place of the public relays. A rename made from the deck menu is undone
+  by ⌘Z from the settings panel, and the guest's edit stays on both sides; each person's pill Undo
+  in Compose takes back only that person's edit. A mutation that lets the undo manager track the
+  other person's edits too (`trackedOrigins: [null, REMOTE]`) fails both tests. Not covered: AI
+  applies and rail moves in a session (the same null-origin path), and the settings toast's Undo,
+  which can still merge a write made within 500 ms with the typing before it.
 - **The phone's Undo and Redo** sit in the header beside the mode toggle, in every pane. The
   pre-paint skeleton (`StudioChromeSkeleton.tsx`) draws the same two buttons, disabled, because it
   paints before the stored pane is known and `studio-smoke`'s shell-parity tests fail on any control
