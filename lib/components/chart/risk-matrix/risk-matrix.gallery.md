@@ -104,6 +104,7 @@ A 5 × 5 likelihood × impact grid shaded by severity, with each risk as a numbe
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · risk-matrix" -->
 
 ## When NOT to reach for risk-matrix.

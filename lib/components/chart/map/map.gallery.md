@@ -194,6 +194,7 @@ A world-countries (or US-states) basemap that fills regions by value (choropleth
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · map" -->
 
 ## When NOT to reach for map.

@@ -194,6 +194,7 @@ Bars split into parts, so one chart carries both the total for each category and
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · stacked-bar · 1 of 2" -->
 
 ## When NOT to reach for stacked-bar.
@@ -206,6 +207,7 @@ Bars split into parts, so one chart carries both the total for each category and
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · stacked-bar · 2 of 2" -->
 
 ## When NOT to reach for stacked-bar.

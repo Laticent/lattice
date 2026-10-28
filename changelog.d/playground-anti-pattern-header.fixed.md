@@ -1,0 +1,1 @@
+- A component gallery's "When NOT to reach for X" slide no longer prints the deck's running header over its heading. `claim-hero` drops the masthead and footer bands but not a deck-level `header:`, which every generated gallery sets, so the header collided with the title; those slides now clear it with `_header: ''`.

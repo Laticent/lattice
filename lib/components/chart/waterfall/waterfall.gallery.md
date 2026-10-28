@@ -144,6 +144,7 @@ A bridge from one total to another through signed contributions, each bar starti
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · waterfall · 1 of 2" -->
 
 ## When NOT to reach for waterfall.
@@ -156,6 +157,7 @@ A bridge from one total to another through signed contributions, each bar starti
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · waterfall · 2 of 2" -->
 
 ## When NOT to reach for waterfall.

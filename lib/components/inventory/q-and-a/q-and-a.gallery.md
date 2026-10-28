@@ -160,6 +160,7 @@ Anticipated questions paired with prepared answers — the end-of-pitch 'what we
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · q-and-a" -->
 
 ## When NOT to reach for q-and-a.

@@ -301,6 +301,7 @@ Horizontal row of ordered step cards, each with a full description body (the `ve
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · list-steps" -->
 
 ## When NOT to reach for list-steps.

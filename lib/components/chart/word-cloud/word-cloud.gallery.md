@@ -188,6 +188,7 @@ Spiral-packed word cloud — items sized by weight.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · word-cloud" -->
 
 ## When NOT to reach for word-cloud.

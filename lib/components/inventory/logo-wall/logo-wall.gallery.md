@@ -163,6 +163,7 @@ A grid of customer, partner, or funder logos as social proof.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · logo-wall" -->
 
 ## When NOT to reach for logo-wall.

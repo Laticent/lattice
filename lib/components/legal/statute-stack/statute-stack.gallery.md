@@ -172,6 +172,7 @@ Citation hierarchy — federal / state / local rows with citation, headline obli
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · statute-stack" -->
 
 ## When NOT to reach for statute-stack.

@@ -763,7 +763,10 @@ function renderAntiPatternsSlide(m, page = m.antiPatterns, index = 0, count = 1)
   // clips near 94 words a card with it and near 58 without. The slide's heading still names the
   // component, so the footer it hides carried nothing the reader needs.
   const klass = `${cols === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
+  // `_header: ''` because `claim-hero` drops the bands but not the deck's running `header:` (every
+  // gallery's front matter sets one), which then prints over the heading.
   return `<!-- _class: ${klass} -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · ${m.name}${part}" -->
 
 ## When NOT to reach for ${m.name}.

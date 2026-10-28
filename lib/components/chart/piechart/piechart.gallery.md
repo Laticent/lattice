@@ -139,6 +139,7 @@ Nearly half went to producing decks; the deciding itself was the smallest slice.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · piechart" -->
 
 ## When NOT to reach for piechart.

@@ -110,6 +110,7 @@ Two-column term/definition table with auto-derived alphabetic range pill.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · glossary" -->
 
 ## When NOT to reach for glossary.

@@ -157,6 +157,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · citation-card · 1 of 2" -->
 
 ## When NOT to reach for citation-card.
@@ -169,6 +170,7 @@ Single authoritative reference — heading + citation + verbatim quote + plain-E
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · citation-card · 2 of 2" -->
 
 ## When NOT to reach for citation-card.

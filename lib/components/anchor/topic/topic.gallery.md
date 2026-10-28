@@ -57,6 +57,7 @@ Three of the nine paths route to a team that no longer owns the service.
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · topic · 1 of 2" -->
 
 ## When NOT to reach for topic.
@@ -69,6 +70,7 @@ Three of the nine paths route to a team that no longer owns the service.
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · topic · 2 of 2" -->
 
 ## When NOT to reach for topic.

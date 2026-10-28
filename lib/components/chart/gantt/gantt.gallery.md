@@ -130,6 +130,7 @@ Bars are spans, diamonds are moments, color is status, and tasks that run at the
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · gantt" -->
 
 ## When NOT to reach for gantt.

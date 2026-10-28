@@ -98,6 +98,7 @@ Ninety seconds, unscripted: signup to a published deck without touching support.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · video" -->
 
 ## When NOT to reach for video.

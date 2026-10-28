@@ -106,6 +106,7 @@ Snapshot at 14:00 UTC. Status pills reflect the most optimistic reading of the a
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · progress" -->
 
 ## When NOT to reach for progress.

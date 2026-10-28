@@ -124,6 +124,7 @@ Row of 3–5 stat tiles, each with a big number and a label.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · stats" -->
 
 ## When NOT to reach for stats.

@@ -151,6 +151,7 @@ Clause-by-clause comparison — verbatim language with inline `<ins>`/`<del>` tr
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · redline" -->
 
 ## When NOT to reach for redline.

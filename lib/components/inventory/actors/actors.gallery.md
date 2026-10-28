@@ -108,6 +108,7 @@ Roster of responsibilities owned by named actors.
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · actors" -->
 
 ## When NOT to reach for actors.

@@ -43,6 +43,7 @@ test('every gallery anti-pattern slide is cards-grid within the per-column word 
       assert.ok(page.length <= antiPatternColumns(max), `${m.name}: ${page.length} cards but the longest (${max} words) only fits ${antiPatternColumns(max)} across`);
       const klass = `${page.length === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
       assert.ok(slides[i].md.startsWith(`<!-- _class: ${klass} -->`), `${m.name}: class for ${page.length} cards`);
+      assert.match(slides[i].md, /<!-- _header: '' -->/, `${m.name}: claim-hero needs the deck header cleared, or it prints over the heading`);
     });
   }
 });

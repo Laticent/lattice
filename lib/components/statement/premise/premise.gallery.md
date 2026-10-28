@@ -168,6 +168,7 @@ Six cognitive verbs map the questions an engineer learns to ask — your level i
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · premise" -->
 
 ## When NOT to reach for premise.

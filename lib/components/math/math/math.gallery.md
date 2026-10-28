@@ -253,6 +253,7 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 ---
 
 <!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · math" -->
 
 ## When NOT to reach for math.

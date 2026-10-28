@@ -173,6 +173,7 @@ return signals;
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · compare-code · 1 of 2" -->
 
 ## When NOT to reach for compare-code.
@@ -185,6 +186,7 @@ return signals;
 ---
 
 <!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · compare-code · 2 of 2" -->
 
 ## When NOT to reach for compare-code.
