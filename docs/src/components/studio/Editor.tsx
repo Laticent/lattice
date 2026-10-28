@@ -364,7 +364,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  text, which may be ahead of `value` — and stops syncing from `value`, because the binding
 	 *  already carries every change and a second copy would apply it twice. `key` changes when the
 	 *  binding must be rebuilt (a role change makes it read-only). `isPeer` says whether a
-	 *  transaction carries another person's edit, which only maps this editor's caret. */
+	 *  transaction came in through the shared text rather than this editor: another person's edit, or this
+	 *  browser's own Studio write (a strip op) reaching the editor through the session. Either only maps the caret. */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string; isPeer?: (tr: Transaction) => boolean } | null;
 	className?: string;
 }>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {

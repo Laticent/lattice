@@ -414,6 +414,34 @@ describe('Studio — every top-bar control responds', () => {
 		expect(view().state.doc.toString()).toBe(original);
 	});
 
+	it('two quick identical ops are two steps: the note’s Undo takes back only the second', async () => {
+		// The checker's case against the Filo rebase: inside Filo's typing window, two Duplicates with one label and one
+		// origin joined into one step, and one Undo took back both.
+		await setup();
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const start = railCount();
+		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		expect(railCount()).toBe(start + 2);
+		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
+		await waitFor(() => expect(railCount()).toBe(start + 1));
+	});
+
+	it('an op that changes nothing shows no note, so its Undo cannot take back the step before it', async () => {
+		// Duplicate, then move the copy past its identical original: the deck reads the same. The checker found the
+		// note still said "Slide moved." with an Undo that took back the Duplicate.
+		await setup();
+		const railCount = () => document.querySelector('nav[aria-label="Slide navigator"]')?.querySelectorAll('button').length ?? 0;
+		const start = railCount();
+		fireEvent.click(screen.getByRole('button', { name: 'Duplicate slide' }));
+		expect(railCount()).toBe(start + 1);
+		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
+		fireEvent.click(screen.getByRole('button', { name: 'Move slide earlier' }));
+		expect(document.querySelector('[data-strip-note]')?.textContent).toContain('Slide duplicated');
+		fireEvent.click(within(document.querySelector('[data-strip-note]') as HTMLElement).getByRole('button', { name: 'Undo' }));
+		await waitFor(() => expect(railCount()).toBe(start));
+	});
+
 	it('typing then Backspace after a delete takes the note’s Undo away, though the deck reads as the delete left it', async () => {
 		// The checker's case against an earlier cut: the deck read exactly as the delete left it, so an Undo keyed on the
 		// text took back the Backspace while the note said it undid the delete. Any change after the op retires its Undo.

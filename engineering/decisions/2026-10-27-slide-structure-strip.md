@@ -127,9 +127,12 @@ behavior.
   button on a notice that phase 1 built; the notice color and the dead tap came from the owner's iPhone test: "added
   after is a message. for it to add a new slide is astonishing".)*
 - **Strip actions confirm on the strip.** Duplicate, Delete and Move say what they did in a chip just above the strip,
-  with its Undo, where the read hint sits; the next action replaces it, and it clears after 6s. Undo's own result
-  ("Undid 'Slide deleted'", or why it could not) says itself there too. No toast.
-- **Delete happens at once, with a real Undo** (§7). It names what went ("Deleted 'Market size' · Undo").
+  with its Undo, where the read hint sits; the next action replaces it, and it clears after 6s. The Undo is Filo's,
+  so its result is Filo's too: the slide it brings back is revealed and the screen reader hears "Undid: Delete
+  slide". The Undo leaves the note as soon as the deck changes again, and an op that changes nothing shows no note.
+  No toast.
+- **Delete happens at once, with a real Undo** (§7). The note says what happened ("Slide deleted. · Undo"); the
+  Live confirm, the one place delete still asks first, names the slide it takes.
 
 **Where the affordances exist.** Only on the full view: never under a reader lens (it shows a filtered, possibly
 reordered subset, and today's `op*` functions take a view index, `curIndex`, that would hit the wrong slide), never at the
@@ -195,8 +198,12 @@ any other stack, so the rebase onto it replaced that slide history rather than k
   through the commit path with origin `rail`. ⌘Z from anywhere, the strip included, walks back ops and typing in the
   order they happened, and Filo's reveal lands each undo on the slide it changed.
 - The strip's note keeps its Undo only while the op is the newest step: any later change to the deck takes it away,
-  even one that leaves the text as the op left it (a letter typed and erased), so the note never undoes something
-  other than the op it names. After that, ⌘Z still reaches the op. This drops the first build's "Undo after typing in
+  even one that leaves the text as the op left it (a letter typed and erased), and so does joining or leaving a Live
+  session, which moves undo between Filo and the session's own. So the note never undoes something other than the op it
+  names. After that, ⌘Z still reaches the op. Each op closes Filo's open step before it writes, so two quick identical
+  ops (a double tap on Duplicate) are two steps rather than one under Filo's typing window, and an op that changes
+  nothing (moving one of two identical slides past the other) writes nothing and shows no note. The checker that
+  reviewed the rebase found both of those. This drops the first build's "Undo after typing in
   another slide" (a patch written back as an edit): under one linear history, the typing comes back off first.
 - In a Live session Filo hands ⌘Z to the binding's undo manager, which undoes only this browser's edits. The shared-text
   write of a strip op is a step of its own there (`stopCapturing` on both sides, live-controller `structural`), so one

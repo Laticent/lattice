@@ -4415,6 +4415,12 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// person), so Filo records nothing for it: the session's changes reach Filo as one outside
 	// change when it ends (§3.2 rule 5, §6.2).
 	const liveShared = !!live.collab && !practice;
+	// A note's Undo belongs to the history it was raised under: joining or leaving a session switches undo between
+	// Filo and the session's own, where the same tap would undo something else (or the whole session as one step).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: joining or leaving the session IS the trigger.
+	React.useEffect(() => {
+		setStripNote((p) => (p && p.undo !== null ? { ...p, undo: null } : p));
+	}, [liveShared]);
 	const liveSharedRef = React.useRef(liveShared);
 	liveSharedRef.current = liveShared;
 	const liveCollabRef = React.useRef(live.collab);
@@ -4982,10 +4988,17 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `label` names the change in the one undo history (Filo); `note` is what the strip then says, with an Undo while the
 	// deck is still exactly what the op left (2026-10-27-slide-structure-strip.md §7). An op without a note (the Library
 	// renaming a photo, an insert the New slide door reports itself) says nothing on the strip.
+	// An op that changes nothing (moving one of two identical slides past the other) writes nothing and says
+	// nothing: a note over an unchanged deck would offer an Undo of whatever step came before it.
 	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean; label?: string; note?: string } = {}) {
-		if (r.source !== sourceRef.current) structuralRef.current = r.source;
-		setSource(r.source, { label: o.label ?? 'Slide change', origin: 'rail' });
-		if (o.note) sayOnStrip(o.note, r.source);
+		if (r.source !== sourceRef.current) {
+			// Each op is a step of its own: close the open step first, or two identical ops inside Filo's
+			// typing window (a double tap on Duplicate) would join into one, and one Undo would take back both.
+			closeGroupRef.current();
+			structuralRef.current = r.source;
+			setSource(r.source, { label: o.label ?? 'Slide change', origin: 'rail' });
+			if (o.note) sayOnStrip(o.note, r.source);
+		}
 		goToChunk(r.active, { after: r.source, grab: o.grab });
 	}
 	React.useEffect(() => {
