@@ -355,3 +355,9 @@ Still open:
 - Real users or quotes, which no change to the page can supply.
 - Room-card thumbnails are small at tile scale.
 - The PREVIEW badge.
+
+**Final rescore** (fresh reviewers, same rubric, current page vs `main`): visitor lens
+6.4 → **7.9**, craft lens 6.2 → **8.0**. Both caught one last copy defect each: the hero
+caption broke "in-house" across lines, and a beat started with a fragment. Both are fixed.
+The next round's gaps are in `followups.d/2956-p2-home-page-next-round.md`.
+
