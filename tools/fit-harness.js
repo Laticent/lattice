@@ -53,13 +53,13 @@ const JOBS = Number(flag('jobs', '4'));
 const OUT = path.resolve(ROOT, flag('out', '.scratch/fit-harness'));
 const ONLY = flag('only', '');
 const CORPUS = flag('corpus', 'galleries');
-// Temp decks sit beside their source (so relative assets resolve); the run tag keeps two runs
-// from deleting each other's inputs.
-const RUN = `${process.pid}-${Date.now().toString(36)}`;
 // Spare room, as a share of the content area, for the margin and hysteresis arms.
 const MARGINS = [0.1, 0.2, 0.3];
 // Members a page for the packed arms: today's builders, K a page instead of one (render-packed.js).
 // Not at hd: the wide box never splits, so a packed render would equal today's.
+// --rescore: reuse the renders already in <out>/html (same sources, sizes and venues) and only
+// score again, for a change that touches scoring and not rendering.
+const RESCORE = argv.includes('--rescore');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
@@ -93,7 +93,17 @@ function batch(src) {
       if (v && squash(v) !== squash(s)) { out.push(v); map.push({ slide: k + 1, variant: name }); }
     }
   });
-  return { keep, slides: out, map };
+  return { keep, slides: out.map((x) => absolutize(x, path.dirname(src))), map };
+}
+
+/** Relative asset references made absolute, so a batch deck can live outside the tracked tree
+ *  (beside its source it was swept by repository tests). Galleries mostly use `sample:` refs,
+ *  which resolve anywhere. */
+function absolutize(md, dir) {
+  return md
+    .replace(/\]\((\.\.?\/[^)\s]+)/g, (_m, p) => `](${path.resolve(dir, p)}`)
+    .replace(/\b(src|href)="(\.\.?\/[^"]+)"/g, (_m, a, p) => `${a}="${path.resolve(dir, p)}"`)
+    .replace(/url\((['"]?)(\.\.?\/[^)'"]+)\1\)/g, (_m, q, p) => `url(${q}${path.resolve(dir, p)}${q})`);
 }
 
 /** Sections each batch slide renders as at one box: the engine, one slide at a time. */
@@ -133,6 +143,7 @@ function lostCount(source, pages) {
 async function main() {
   const t0 = Date.now();
   fs.mkdirSync(path.join(OUT, 'html'), { recursive: true });
+  fs.mkdirSync(path.join(OUT, 'decks'), { recursive: true });
   const engine = createEngine();
   const srcs = sources();
   const jobs = [];
@@ -144,9 +155,11 @@ async function main() {
     decks[id] = { src: path.relative(ROOT, src), map, counts: Object.fromEntries(SIZES.map((size) => [size, sectionCounts(engine, keep, slides, size)])) };
     const body = slides.join('\n\n---\n\n');
     for (const size of SIZES) for (const venue of VENUES) {
-      const deck = path.join(path.dirname(src), `.fit-harness-${RUN}-${id}-${size}-${venue}.md`);
-      fs.writeFileSync(deck, `---\n${keep ? `${keep}\n` : ''}size: ${size}\nvenue: ${venue}\n---\n\n${body}\n`);
-      temps.push(deck);
+      const deck = path.join(OUT, 'decks', `${id}-${size}-${venue}.md`);
+      if (!RESCORE) {
+        fs.writeFileSync(deck, `---\n${keep ? `${keep}\n` : ''}size: ${size}\nvenue: ${venue}\n---\n\n${body}\n`);
+        temps.push(deck);
+      }
       const key = `${id}@${size}@${venue}`;
       jobs.push({ key, args: ['lattice.js', deck, path.join(OUT, 'html', `${key}-A.html`)] });
       jobs.push({ key, args: ['tools/lib/fit-harness/render-whole.js', deck, path.join(OUT, 'html', `${key}-W.html`)] });
@@ -155,7 +168,7 @@ async function main() {
   }
   const problems = [];
   try {
-    await pool(jobs, JOBS, async (j) => { const r = await run(process.execPath, j.args); if (r.code) problems.push(`render failed: ${path.basename(j.args[j.args.length - 1])}`); });
+    if (!RESCORE) await pool(jobs, JOBS, async (j) => { const r = await run(process.execPath, j.args); if (r.code) problems.push(`render failed: ${path.basename(j.args[j.args.length - 1])}`); });
   } finally {
     for (const t of temps) fs.rmSync(t, { force: true });
   }
@@ -304,15 +317,22 @@ async function main() {
   const k3 = (r) => `${r.src}#${r.slide}#${r.variant}#${r.size}#${r.venue}`;
   const byArm = (arm) => new Map(rows.filter((r) => r.arm === arm).map((r) => [k3(r), r]));
   const packed = PACKS.slice().sort((a, b) => b - a).map((k) => byArm(`packed-${k}`));
-  const cleanSplit = (r) => r && !r.pages.some((p) => !p.fits && p.cut !== 'footer');
+  const structural = byArm('structural');
+  // A packed render leaves a slide with K or fewer members whole; that is not a split, so a packed
+  // row counts only when it splits wherever today's split does.
+  const cleanSplit = (r) => r && !r.pages.some((p) => !p.fits && p.cut !== 'footer') && (r.pages.length > 1 || (structural.get(k3(r))?.pages.length ?? 1) === 1);
   const packedFit = new Map();
-  for (const st of rows.filter((r) => r.arm === 'structural')) {
+  // Only where a packed render exists (not at wide boxes, which never split): elsewhere the packed
+  // arms would only repeat today's split and the hysteresis arm under another name.
+  const packedKeys = new Set(packed.flatMap((m) => [...m.keys()]));
+  for (const st of rows.filter((r) => r.arm === 'structural' && packedKeys.has(k3(r)))) {
     const best = packed.map((m) => m.get(k3(st))).find(cleanSplit) || st;
     packedFit.set(k3(st), best);
     rows.push({ ...best, arm: 'packed-fit' });
   }
   const hyb = byArm('hysteresis-10-20');
   for (const [k, h] of hyb) {
+    if (!packedKeys.has(k)) continue;
     const pf = packedFit.get(k);
     rows.push(h.how === 'fits' || !pf ? { ...h, arm: 'hybrid' } : { ...pf, arm: 'hybrid', ms: null });
   }
@@ -322,6 +342,7 @@ async function main() {
   const ladder = [...perPage.keys()].sort((a, b) => b - a);
   const chosenK = (key) => ladder.find((k) => cleanSplit(perPage.get(k).get(key))) ?? 1;
   for (const [k, h] of hyb) {
+    if (!packedKeys.has(k)) continue;
     if (h.how === 'fits') { rows.push({ ...h, arm: 'hybrid-sticky' }); continue; }
     const origKey = `${h.src}#${h.slide}#orig#${h.size}#${h.venue}`;
     const start = h.variant === 'orig' ? chosenK(k) : chosenK(origKey);
@@ -391,7 +412,8 @@ function summarize(rows, run) {
     const ms = orig.map((r) => r.ms).filter((x) => x !== null);
     lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
-  lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here.');
+  lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
+  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. The packed arms appear only at boxes that split (not 16:9).');
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;
 }

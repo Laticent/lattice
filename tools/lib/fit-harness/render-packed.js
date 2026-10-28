@@ -20,12 +20,22 @@ if (!Number.isInteger(K) || K < 1) {
 }
 const resolved = require.resolve('@laticent/fluido', { paths: [path.join(__dirname, '../../..')] });
 const fluido = require(resolved);
+// Count the calls, so a swap that stops taking effect (the engine loaded first, a bundled CLI, an
+// ESM build) fails loudly instead of quietly scoring today's split under a packed name.
+let calls = 0;
 require.cache[resolved].exports = {
   ...fluido,
   planSlide: (facts, readSeam) => {
+    calls++;
     const move = fluido.planSlide(facts, readSeam);
     return move.kind === 'paginate' ? { ...move, perPage: K } : move;
   },
 };
+process.on('exit', (code) => {
+  if (code === 0 && calls === 0) {
+    process.stderr.write('render-packed: the split never asked the replaced planSlide; nothing was packed\n');
+    process.exitCode = 3;
+  }
+});
 process.argv.splice(1, 2, path.join(__dirname, '../../../lattice.js'));
 require('../../../lattice.js');

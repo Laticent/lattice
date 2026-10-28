@@ -44,7 +44,11 @@ function install(cfg) {
    *  for one read, then restored. An invisible spacer was tried first and is wrong for layouts that
    *  absorb it (a list measured 60% spare while its content filled 96% of the cell). */
   function contentShare(s) {
-    const stage = s.querySelector('.cell-stage') || s;
+    const stage = s.querySelector('.cell-stage');
+    // UNKNOWN (null) where natural height is not the content's need: no content cell (the section's
+    // own children are positioned chrome), or a drawing (svg, canvas, a chart body), which sizes
+    // from its width once the cell's height is released. The margin then falls back to plain fit.
+    if (!stage || stage.querySelector('svg, canvas, [class*="chart-"]')) return null;
     const box = stage.clientHeight;
     const prev = stage.getAttribute('style');
     stage.style.setProperty('height', 'auto', 'important');
@@ -53,14 +57,16 @@ function install(cfg) {
     stage.style.setProperty('flex', 'none', 'important');
     const natural = stage.scrollHeight;
     if (prev === null) stage.removeAttribute('style'); else stage.setAttribute('style', prev);
-    return box > 0 ? natural / box : 1;
+    return box > 0 ? natural / box : null;
   }
   /** Would the slide still fit with `m` (a share of its content cell) more content? It must fit by
    *  the export's probe, and its natural content height must leave `m` of the cell free. This is
    *  the margin a stateless file can decide with: whole only with room to spare, so a small edit
    *  near the edge does not flip it. */
   function fitsWithMargin(s, m) {
-    return fitsSplit(s).ok && contentShare(s) <= 1 - m;
+    if (!fitsSplit(s).ok) return false;
+    const share = contentShare(s);
+    return share === null ? true : share <= 1 - m;
   }
 
   /** The slide sections, as the export enumerates them. */
