@@ -593,7 +593,10 @@ Where it differs from the plan above, and why:
   before it.
 - **Live sessions.** The root ⌘Z reaches the session's `Y.UndoManager` through `LiveCollab.undo` /
   `redo`, so undo outside the editor works in a session too; the shared deck's changes reach Filo
-  as one outside change when the session ends.
+  as one outside change when the session ends. `tools/live-session-check.mjs` (on demand, two
+  Chromium processes over the real relays) now has the host press Ctrl+Z with focus on the page
+  body: on 2026-10-28 its own edit went, the guest's stayed on both sides, and Ctrl+Shift+Z brought
+  it back. Compose's ⌘Z and the pill in a session, and settings writes, are still untested (P4).
 - **The phone's Undo and Redo** sit in the header beside the mode toggle, in every pane. The
   pre-paint skeleton (`StudioChromeSkeleton.tsx`) draws the same two buttons, disabled, because it
   paints before the stored pane is known and `studio-smoke`'s shell-parity tests fail on any control
