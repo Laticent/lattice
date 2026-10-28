@@ -430,3 +430,13 @@ because a reader's scroll lands elsewhere. That second arm exists because one ru
 The whole spec file passes on `desktop`, `webkit-tablet` and `gecko`: 33 of 33. The unit rig now delivers the scroll
 event of the sync's own move on the next frame, as a browser does; before, it never delivered one, which is why no
 unit test could see this. The new unit test "the preview's late echo does not move the editor" fails on the old code.
+
+**Independent check (2026-10-28).** A checker agent read the diff and found no blocking bug; it confirmed that only the
+new late-echo test fails on the old code. It named one trade-off, now stated here: the first scroll event after a move
+lands the echo whoever caused it. If the move's own event is late (or never comes) and the reader scrolls that pane
+within 600 ms, the reader's event lands the echo and the other pane skips about 120 ms of their scroll; a continuous
+wheel recovers, a single-event scroll (a PageDown) is not followed until the next one. Two changes follow from it.
+A write the pane clamped to its current position fires no event, so `written()` records it as already landed and it
+can swallow nothing; the unit rig likewise delivers no event for such a write. The late-event case stays: it is the
+price of the fix, and 600 ms is the longest delay measured to date outside the position arm. Not reproduced in a
+browser. The e2e results after this change: 48 of 48 at six workers, 33 of 33 across the whole spec.

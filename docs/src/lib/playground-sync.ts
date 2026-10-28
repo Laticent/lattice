@@ -279,10 +279,14 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 	const isEcho = (e: Echo | null) => e !== null && ports.now() - e.at < ECHO_MS;
 
 	/** A move's scroll event is delivered on a later frame, and a page under load delivers it after `ECHO_MS` has
-	 *  run out (WebKit: up to 362 ms), which made the sync's own move read as the reader's and drove the other pane
+	 *  run out (WebKit: 139 to 607 ms), which made the sync's own move read as the reader's and drove the other pane
 	 *  (the editor jumped 136 px under a click). So the window starts when the FIRST event after the move lands, not
 	 *  when the move was written; the events that follow it (CodeMirror re-anchoring) fall inside that window. Only the
 	 *  first event counts, so a later scroll by the reader is never taken for the move's echo. */
+	/** The record of a move. A write the pane clamped to where it already was fires no scroll event, so it has nothing
+	 *  to land: the reader's next scroll must not be taken for its echo. */
+	const written = (before: number, y: number): Echo => ({ y, at: ports.now(), landed: Math.abs(y - before) < 1 });
+
 	function landEcho(e: Echo | null, y: number) {
 		if (!e || e.landed) return;
 		const t = ports.now();
@@ -330,7 +334,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		if (!L) return;
 		const ed = ports.editor();
 		const target = L.map.toA(L.pv.scroll);
-		if (ed && Math.abs(target - L.ed.scroll) >= 1) echo.editor = { y: ed.setScroll(target), at: ports.now() };
+		if (ed && Math.abs(target - L.ed.scroll) >= 1) echo.editor = written(L.ed.scroll, ed.setScroll(target));
 		// A pick's own scroll passes through slides on the way; it moves the editor along but names no new focus
 		// until the preview has been still for a moment, and then names the slide it stopped on.
 		if (settling()) {
@@ -379,7 +383,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 			return;
 		}
 		const target = L.map.toB(L.ed.scroll);
-		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(target));
 		if (ports.now() - lastCaretMove < CARET_SCROLL_MS) return;
 		report(sectionAt(L.ed, L.ed.scroll), 'editor-view');
 	}
@@ -389,7 +393,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const L = pair();
 		if (!L) return false;
 		const target = L.map.toB(L.ed.scroll);
-		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(target));
 		return true;
 	}
 
@@ -407,7 +411,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		// centered, which scrolls it by the frame's padding). Another slide, or a scroll that no longer names the
 		// focus (a drag-collapse squeezes the frame before the pane reports it): center the focus slide.
 		if (keptScroll >= 0 && flat === keptFlat && sectionAt(L.pv, keptScroll) === flat) {
-			if (Math.abs(keptScroll - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(keptScroll), at: ports.now() };
+			if (Math.abs(keptScroll - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(keptScroll));
 		} else if (!centerPreview(flat)) return false;
 		owedFocus = false;
 		keptScroll = -1;
@@ -419,7 +423,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const L = pair();
 		if (!L || flat < 0 || flat >= L.pv.tops.length) return false;
 		const target = Math.max(0, Math.min(centeredAt(L.pv, flat), maxScroll(L.pv)));
-		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = { y: ports.setPreviewScroll(target), at: ports.now() };
+		if (Math.abs(target - L.pv.scroll) >= 1) echo.preview = written(L.pv.scroll, ports.setPreviewScroll(target));
 		lastCenter = ports.now();
 		return true;
 	}
@@ -430,7 +434,7 @@ export function createPlaygroundSync(hub: FocusHub, ports: SyncPorts): Playgroun
 		const ed = ports.editor();
 		if (!L || !ed) return false;
 		const target = L.map.toA(L.pv.scroll);
-		if (Math.abs(target - L.ed.scroll) >= 1) echo.editor = { y: ed.setScroll(target), at: ports.now() };
+		if (Math.abs(target - L.ed.scroll) >= 1) echo.editor = written(L.ed.scroll, ed.setScroll(target));
 		return true;
 	}
 

@@ -35,9 +35,11 @@ function rig(source = deck) {
 						getLayout: (ranges) => ({ ...edLayout(ranges.length), scroll: state.ed }),
 						getScroll: () => state.ed,
 						setScroll: (y) => {
+							const was = state.ed;
 							state.ed = clamp(y, edLayout(parts));
 							log.push(`editor-scroll ${Math.round(state.ed)}`);
-							owedEvents.push('editor');
+							// A browser fires no scroll event for a write that leaves the position where it was.
+							if (Math.abs(state.ed - was) >= 1) owedEvents.push('editor');
 							return state.ed;
 						},
 					}
@@ -45,9 +47,10 @@ function rig(source = deck) {
 		previewScroll: () => state.pv,
 		previewLayout: (groups) => (state.previewOk ? { ...pvLayout(groups.length), scroll: state.pv } : null),
 		setPreviewScroll: (y) => {
+			const was = state.pv;
 			state.pv = clamp(y, pvLayout(parts));
 			log.push(`preview-scroll ${Math.round(state.pv)}`);
-			owedEvents.push('preview');
+			if (Math.abs(state.pv - was) >= 1) owedEvents.push('preview');
 			return state.pv;
 		},
 		markPages: (p) => log.push(`mark ${p ? p.join(',') : 'none'}`),
