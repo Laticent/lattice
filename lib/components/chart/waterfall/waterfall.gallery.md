@@ -70,16 +70,16 @@ A bridge from one total to another through signed contributions, each bar starti
 
 <!-- _class: waterfall -->
 <!-- stress-slide -->
-<!-- _footer: "Stress test · waterfall — Eight bars, a mid-walk subtotal, a step that takes the running total below zero and back, and a level authored as a negative — the geometries that break a naive bridge." -->
+<!-- _footer: "Stress test · waterfall — A subtotal mid-walk, a step below zero and back, and a level authored as a negative." -->
 
 ## The quarter we went negative and came back.
 
 - Opening cash `2.4M`
-- Receipts `+3.1M`
+- Sales `+3.1M`
 - Payroll `-2.9M`
-- Tax settlement `-4.2M`
+- Tax bill `-4.2M`
 - Trough `-1.6M` `total`
-- Facility draw `+5.0M`
+- Credit line `+5.0M`
 - Working capital `-0.9M`
 - Closing cash `2.5M`
 
