@@ -1125,7 +1125,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const wrapBox = fr.parentElement;
 			const boxKey = wrapBox ? `${wrapBox.clientWidth}x${wrapBox.clientHeight}` : '';
 			const last = lastPgCaptureRef.current;
-			if (now - last.t < 500 && last.box === boxKey) return 'a capture of this box ran under 500 ms ago';
+			if (now - last.t < 500 && last.box === boxKey) return 'a capture ran under 500 ms ago';
 			// Stamp the identity from the source that produced THIS frame, not the live
 			// SOURCE_KEY (which races ahead of the async render on every keystroke). Null →
 			// no Edit render has landed yet → nothing trustworthy to snapshot; skip.
