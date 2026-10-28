@@ -172,7 +172,7 @@ it in per-component CSS.**
 | Moving from → to | You gain | You spend |
 |---|---|---|
 | `framed → quiet` | ~1 step tighter, calmer edges | the **section-dot rail** + **meta chips** (fine-grained in-section wayfinding) |
-| `quiet → hero` | the whole stage minus a hairline; content fills the freed space | the **footer band** (running footer), the **section rail**, and **deck identity (logo/meta)**. The **title and the page number STAY** (as-built §15) — an unlabeled slide has no place in a board deck; drop the number with `no-paginate` |
+| `quiet → hero` | the whole stage minus a hairline; content fills the freed space | the **running header** (the deck's `header:`, which otherwise prints over the heading; dropped 2026-10-28), the **footer band** (running footer), the **section rail**, and **deck identity (logo/meta)**. The **title and the page number STAY** (as-built §15) — an unlabeled slide has no place in a board deck; drop the number with `no-paginate` |
 | `hero → bleed` | the last hairline of safe margin (media/canvas only) | on **edge-media** (chart, big-number, diagram, image, video): the **title + page number + projector/print safety**. On everything else `bleed` degrades to `hero` (it can't crop), so the only extra spend there is none |
 
 The design's value is not that it hides chrome — it's that it **prices** hiding

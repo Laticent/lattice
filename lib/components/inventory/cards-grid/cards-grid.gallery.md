@@ -149,7 +149,6 @@ header: "Lattice · cards-grid"
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · cards-grid · 1 of 2" -->
 
 ## When NOT to reach for cards-grid.
@@ -162,7 +161,6 @@ header: "Lattice · cards-grid"
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · cards-grid · 2 of 2" -->
 
 ## When NOT to reach for cards-grid.

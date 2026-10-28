@@ -364,7 +364,6 @@ Two-thirds of trials that reach the first generated report convert to paid; the 
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · image" -->
 
 ## When NOT to reach for image.

@@ -200,7 +200,6 @@ The poster freezes the hero frame; on screen the rotor turns and a bead traces i
 ---
 
 <!-- _class: cards-grid three claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · scene" -->
 
 ## When NOT to reach for scene.

@@ -1,0 +1,1 @@
+- `claim-hero` and `claim-bleed` now drop the deck's running `header:` along with the footer and meta bay, so it no longer prints over the slide heading. A slide that set `_header: ''` only to clear it can drop that line.

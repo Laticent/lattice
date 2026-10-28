@@ -77,8 +77,8 @@
   "skeleton": "<!-- _class: waterfall -->\n\n## How the number moved.\n\n- Opening `100`\n- First driver `+18`\n- Second driver `-7`\n- Third driver `-11`\n- Closing `100`\n",
   "sample": "<!-- _class: waterfall -->\n\n`FY26 plan · actual`\n\n## Price paid for the volume we lost.\n\n- Plan `12.0M`\n- Price `+1.4M`\n  - Two list-price rises, both held\n- Volume `-0.8M`\n- Mix `-0.6M`\n- FX `-0.3M`\n- Cost base `-1.9M`\n- Actual `9.8M`\n",
   "stressDoc": {
-    "summary": "Eight bars, a mid-walk subtotal, a step that takes the running total below zero and back, and a level authored as a negative — the geometries that break a naive bridge.",
-    "sample": "<!-- _class: waterfall -->\n\n## The quarter we went negative and came back.\n\n- Opening cash `2.4M`\n- Receipts `+3.1M`\n- Payroll `-2.9M`\n- Tax settlement `-4.2M`\n- Trough `-1.6M` `total`\n- Facility draw `+5.0M`\n- Working capital `-0.9M`\n- Closing cash `2.5M`\n"
+    "summary": "A subtotal mid-walk, a step below zero and back, and a level authored as a negative.",
+    "sample": "<!-- _class: waterfall -->\n\n## The quarter we went negative and came back.\n\n- Opening cash `2.4M`\n- Sales `+3.1M`\n- Payroll `-2.9M`\n- Tax bill `-4.2M`\n- Trough `-1.6M` `total`\n- Credit line `+5.0M`\n- Working capital `-0.9M`\n- Closing cash `2.5M`\n"
   },
   "whenToUse": [
     {

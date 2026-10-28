@@ -183,7 +183,6 @@ Neutral ink — data first.
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · obligation-matrix · 1 of 2" -->
 
 ## When NOT to reach for obligation-matrix.
@@ -196,7 +195,6 @@ Neutral ink — data first.
 ---
 
 <!-- _class: cards-grid claim-hero -->
-<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · obligation-matrix · 2 of 2" -->
 
 ## When NOT to reach for obligation-matrix.
