@@ -12,9 +12,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // engine's pixels.
 
 vi.mock('@/playground/editor.js', () => ({
-	// A minimal in-memory editor adapter. setValue does NOT fire onChange:
-	// programmatic deck swaps (applyDeck) already call syncPickers explicitly,
-	// and the real createEditor's setValue is likewise a silent document swap.
+	// A minimal in-memory editor. EditorHost only builds a view once the host has a size or a reader shows up;
+	// jsdom has no layout, so these tests mostly run on EditorHost's string-backed adapter and reach this mock only
+	// after a user event. Its setValue does NOT fire onChange (the adapter's does, as CodeMirror's does).
 	createEditor: ({ doc, onChange }: { doc: string; onChange?: (v: string) => void }) => {
 		let value = doc ?? '';
 		return {

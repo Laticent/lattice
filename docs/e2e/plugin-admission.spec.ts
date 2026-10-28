@@ -193,7 +193,8 @@ test('under defaults: [] the rail splits a `$$` block as the engine does; the Ma
 	const zipPath = await (await download).path();
 	const zip = await JSZip.loadAsync(fs.readFileSync(zipPath as string));
 	const md = await Object.values(zip.files).find((f) => /\.md$/.test(f.name) && !/README|AGENTS/i.test(f.name))!.async('string');
-	expect(md).toContain('"pluginsOff":["anima","avatars","chart-family","code","function-plot","icons","legend","math","mermaid","sparks"]');
+	// Every registered plugin the deck did not load: `callout` (#2864) and `video` (#2874) joined the list after it was first written.
+	expect(md).toContain('"pluginsOff":["anima","avatars","callout","chart-family","code","function-plot","icons","legend","math","mermaid","sparks","video"]');
 	// Marp typesets math itself, so the bundle's own config turns it off for this deck.
 	const cfg = await Object.values(zip.files).find((f) => /marp\.config\.cjs$/.test(f.name))!.async('string');
 	expect(cfg).toContain('options: { math: false }');

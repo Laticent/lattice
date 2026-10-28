@@ -1,5 +1,13 @@
 import * as React from 'react';
-import { createEditor } from '@/playground/editor.js';
+import type { createEditor as CreateEditor } from '@/playground/editor.js';
+
+type Editor = ReturnType<typeof CreateEditor>;
+
+/** An Edit load is about to show the editor, so its chunk starts downloading now, in parallel with hydration, rather
+ *  after it. An Explore load (the seed's `data-pg-view="read"`) fetches nothing until the editor is shown or a reader
+ *  appears. */
+const editorChunk: Promise<typeof import('@/playground/editor.js')> | null =
+	typeof document !== 'undefined' && document.documentElement.getAttribute('data-pg-view') === 'edit' ? import('@/playground/editor.js') : null;
 
 /** The editor adapter the controller reads/writes source through (a subset of
  *  createEditor's return — the same contract as the old window.__pgEditor). */
@@ -64,7 +72,8 @@ export function EditorHost({
 	vocab?: unknown;
 }) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
-	const viewRef = React.useRef<ReturnType<typeof createEditor> | null>(null);
+	const adapterMade = React.useRef(false);
+	const viewRef = React.useRef<Editor | null>(null);
 	// Show an SSR text placeholder (the starter source) until CodeMirror mounts,
 	// so the editor's text paints at first paint instead of after hydration. This
 	// is what keeps the playground's LCP element from being a post-hydration
@@ -97,57 +106,136 @@ export function EditorHost({
 		(typeof window !== 'undefined' ? (window as unknown as { __pgEditorSeed?: string }).__pgEditorSeed : '') || initialDoc,
 	);
 
+	const placeholderEl = React.useRef<HTMLPreElement>(null);
+
 	React.useEffect(() => {
 		const host = hostRef.current;
-		if (!host || viewRef.current) return; // StrictMode double-mount guard
+		if (!host || viewRef.current || adapterMade.current) return; // StrictMode double-mount guard
+		adapterMade.current = true;
 		let replacing = false;
-		const ed = createEditor({
-			parent: host,
-			// The SEEDED text, not the starter — the same string the placeholder is showing.
-			// Opening CodeMirror on the starter and letting the controller's `onReady` swap in
-			// the saved draft worked only because both land in one commit flush; that was an
-			// unwritten ordering invariant this change introduced, and one React scheduling
-			// change away from a visible starter-deck flash. Opening on the draft removes the
-			// invariant instead of relying on it (the controller's later setValue is then a
-			// no-op on identical text).
-			doc: placeholderRef.current,
-			vocab: vocabRef.current,
-			autocomplete: false, // validation only on this surface; the picker owns templates
-			onChange: (v: string, span?: EditSpan) => onChangeRef.current(v, span),
-			// Not while `setValue` is replacing the document: a Deck settings change, a component
-			// pick and a gallery load all rewrite the whole text, which puts the caret on line 1 —
-			// the author did not move it there, so the preview must not follow it there.
-			onCursor: (line: number) => {
-				if (!replacing) onCursorRef.current?.(line);
-			},
-			// A whole-document replace puts the caret on line 1; that is not a move the reader made, so it
-			// is reported as the host's own, and nothing follows it.
-			onScroll: () => onScrollRef.current?.(),
-			onSelection: (at: EditorSelection) => onSelectionRef.current?.(replacing ? { ...at, user: false } : at),
-		});
-		viewRef.current = ed;
-		setMounted(true); // drop the placeholder now that the real editor is up
+		// Until CodeMirror exists the adapter is a string. The controller restores the draft and renders the deck
+		// through it exactly as before; the real editor opens on that string later. `caret` and `band` are the
+		// two things a reader of the adapter can set that live only in a view; they are replayed on mount.
+		let doc = placeholderRef.current;
+		let caret = 0;
+		let reveal: Parameters<EditorAdapter['revealSlide']>[0] | null = null;
+		let band: { from: number; to: number } | null = null;
+		let ed: Editor | null = null;
+		let loading: Promise<Editor | null> | null = null;
+		let dead = false;
+		let off: (() => void) | null = null;
+		const select = (head: number) => onSelectionRef.current?.({ head, anchor: head, line: '', user: false });
+		const build = (createEditor: typeof CreateEditor): Editor => {
+			if (ed) return ed;
+			ed = createEditor({
+				parent: host,
+				// The text the adapter holds now (the draft, once the controller restored it), so the view opens on
+				// what the placeholder shows (the controller's later setValue of the same text still reports a change, as it always did).
+				doc,
+				vocab: vocabRef.current,
+				autocomplete: false, // validation only on this surface; the picker owns templates
+				onChange: (v: string, span?: EditSpan) => onChangeRef.current(v, span),
+				// Not while `setValue` is replacing the document: a Deck settings change, a component
+				// pick and a gallery load all rewrite the whole text, which puts the caret on line 1 —
+				// the author did not move it there, so the preview must not follow it there.
+				onCursor: (line: number) => {
+					if (!replacing) onCursorRef.current?.(line);
+				},
+				// A whole-document replace puts the caret on line 1; that is not a move the reader made, so it
+				// is reported as the host's own, and nothing follows it.
+				onScroll: () => onScrollRef.current?.(),
+				onSelection: (at: EditorSelection) => onSelectionRef.current?.(replacing ? { ...at, user: false } : at),
+			});
+			viewRef.current = ed;
+			if (reveal) ed.revealSlide(reveal);
+			if (band) ed.setBand(band);
+			off?.();
+			// Hide the placeholder now: the state update below removes it, but it can wait behind hydration for most of
+			// a second, and until then the placeholder's text sits over the editor's.
+			if (placeholderEl.current) placeholderEl.current.style.display = 'none';
+			setMounted(true); // drop the placeholder now that the real editor is up
+			return ed;
+		};
+		// CodeMirror and the editor's extensions are a chunk of their own: a page that never shows the editor never
+		// fetches or evaluates it.
+		const mount = (): Promise<Editor | null> => {
+			if (ed) return Promise.resolve(ed);
+			loading ??= (editorChunk ?? import('@/playground/editor.js')).then(
+				(m) => (dead ? null : build(m.createEditor)),
+			).catch((err) => {
+				// A chunk that fails to load (offline, a deploy in between) or a view that throws leaves the text in
+				// the placeholder; the next ask (a resize, a focus) tries again.
+				loading = null;
+				console.warn('[playground] the editor did not load', err);
+				return null;
+			});
+			return loading;
+		};
+		// The editor is built when someone can see it, or looks about to: an Explore load never pays for it.
+		// The first sign of a reader (a key, a tap, the pointer) buys it on an idle moment, so the switch to
+		// Edit is not the first time CodeMirror starts.
+		const sees = () => host.getClientRects().length > 0;
+		const watch = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => sees() && void mount());
+		watch?.observe(host);
+		const warm = () => {
+			if (ed) return;
+			const idle = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+			if (idle) idle(() => void mount(), { timeout: 2000 });
+			else setTimeout(() => void mount(), 200);
+		};
+		const events = ['pointerdown', 'keydown', 'touchstart', 'pointermove'] as const;
+		for (const e of events) document.addEventListener(e, warm, { once: true, passive: true });
+		off = () => {
+			watch?.disconnect();
+			for (const e of events) document.removeEventListener(e, warm);
+		};
+		if (sees()) void mount();
 		onReadyRef.current({
-			getValue: () => ed.getValue(),
+			getValue: () => ed?.getValue() ?? doc,
 			setValue: (t: string) => {
-				replacing = true;
-				try {
-					ed.setValue(t);
-				} finally {
-					replacing = false;
+				if (ed) {
+					replacing = true;
+					try {
+						ed.setValue(t);
+					} finally {
+						replacing = false;
+					}
+					return;
+				}
+				const old = doc;
+				doc = t;
+				caret = 0;
+				reveal = null;
+				if (placeholderEl.current) placeholderEl.current.textContent = t;
+				// What the view would have reported: the text changed, and the caret went to the top.
+				onChangeRef.current(t, { from: 0, toA: old.length, toB: t.length });
+				select(0);
+			},
+			focus: () => void mount().then((e) => e?.focus()),
+			setBand: (range) => {
+				if (ed) ed.setBand(range);
+				else band = range;
+			},
+			revealSlide: (at) => {
+				if (ed) ed.revealSlide(at);
+				else {
+					caret = Math.min(Math.max(0, at.caret), doc.length);
+					reveal = at;
+					select(caret);
 				}
 			},
-			focus: () => ed.focus(),
-			setBand: (range) => ed.setBand(range),
-			revealSlide: (at) => ed.revealSlide(at),
-			getLayout: (ranges) => ed.getLayout(ranges),
-			getScroll: () => ed.getScroll(),
-			setScroll: (y) => ed.setScroll(y),
-			getCaret: () => ed.getCaret(),
+			// Nothing is laid out while there is no view, and nothing aligns to an editor that is not shown.
+			getLayout: (ranges) => (ed ? ed.getLayout(ranges) : { tops: ranges.map(() => 0), bottoms: ranges.map(() => 0), viewport: 0, content: 0, scroll: 0 }),
+			getScroll: () => ed?.getScroll() ?? 0,
+			setScroll: (y) => (ed ? ed.setScroll(y) : 0),
+			getCaret: () => (ed ? ed.getCaret() : { head: caret, anchor: caret }),
 		});
 		return () => {
-			ed.destroy();
+			dead = true;
+			off?.();
+			ed?.destroy();
 			viewRef.current = null;
+			adapterMade.current = false;
 			setMounted(false);
 		};
 	}, []);
@@ -160,7 +248,7 @@ export function EditorHost({
 		<div className="pg-editor-host" id="editor-host">
 			<div className="pg-editor-mount" ref={hostRef} />
 			{!mounted && (
-				<pre className="pg-editor-placeholder" aria-hidden="true" suppressHydrationWarning>
+				<pre ref={placeholderEl} className="pg-editor-placeholder" aria-hidden="true" suppressHydrationWarning>
 					{placeholderRef.current}
 				</pre>
 			)}

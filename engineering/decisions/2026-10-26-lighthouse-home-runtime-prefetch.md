@@ -159,150 +159,43 @@ Chromium with a remembered `kpi` and a 3 s plan delay: the baked caption is hidd
 is still the caption and LCP equals FCP (5.4-5.7 s base, 5.4 s head; one head run scored 51 with FCP 2.5 s). Locally the caption was
 only 0.9 s behind FCP already, so the 10 s gap in §6 does not exist here: §7's warning applies, and the CDN decides.
 
-**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** Base is PR #2907's preview (`claude/fix-g-webkit-pptx`, which
-has the same engine and no baked caption); head is this PR's preview. `/playground/`, the §1 mobile profile, from this sandbox.
+**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** `/playground/`, the §1 mobile profile, from this
+sandbox. Base is #2921's last preview (`f9f79ae2`, the lazy-index build, built from the same engine as `main` at `992664b`;
+that equivalence was not checked byte for byte). Head is this change's final preview (`be54231c`, `d467435`).
 
 | Build | Score | FCP | LCP | TBT |
 |---|---|---|---|---|
-| base | 41, 42, 40, 42, 42 | 2.6-4.5 s | 7.5, 8.3, 10.0, 7.5, 10.3 s | 940-2200 ms |
-| head | 44, 47, 55, 57, 55 | 3.0-4.6 s | 5.7, 5.1, 3.8, 3.6, 4.2 s | 990-1430 ms |
+| base | 41, 41, 43, 39, 44 (median 41) | 3.06-3.39 s (median 3.19) | 5.14-6.17 s (median 5.85) | 2105, 2198, 2237, 2607, 2140 ms (median 2,198) |
+| head | 60, 59, 57, 58, 57 (median 58) | 2.23-2.65 s (median 2.41) | 3.18-3.63 s (median 3.46) | 1970, 2173, 1974, 2045, 2136 ms (median 2,045) |
 
-Median LCP 8.3 s to 4.2 s, median score 42 to 55. The followup's bar was Playground LCP under 4 s: **NOT met** (2 of 5 runs
-under 4 s, median 4.2 s). The caption now paints with the page, so what is left is FCP itself (3.0-4.6 s, bimodal on both builds),
-and the Playground's TBT (1.0-1.4 s, §9). The LCP element is still the caption, which is correct: it is real content in the HTML.
+Median score 41 to 58, LCP 5.85 s to 3.46 s and FCP 3.19 s to 2.41 s; every head run is above every base run. TBT moved by
+about 150 ms at the median, inside the base's own spread (2,105-2,607 ms). The Playground's bar is 60: one of five head runs
+reached it. An earlier set at `9c84259` (base 34-46, median 42; head 56-60, median 57) agrees on the size of the gain, and its
+base runs were noisier, so compare the two columns with each other and not with §11's 44-46. The simulated metric moved
+through FCP and LCP, which is what dropping 263 KB of eager JavaScript (616.7 to 353.7 KB gzipped, `check:route-budget`)
+would move, and not through TBT.
 
-## 9. Boot-order redesign for TBT: design and the question for the owner (followup 2868-p1, next item 3)
+**The cost, and how it was removed.** Loading the chunk on demand first made an Edit-first load show the editor later:
+1,358 ms against 1,567 ms by median (six runs each, 4x CPU, local HTTP/2, time from navigation to `.cm-content`; +209 ms),
+because the fetch started only after hydration. An Edit load (the pre-paint seed's `data-pg-view="edit"`) now starts the
+`import()` when `EditorHost`'s module evaluates, in parallel with hydration, and an Explore load still fetches nothing.
+Measured again on a fresh production build, six runs each: 1,961 ms (base) against 1,969 ms, so Edit-first is back to parity.
+The Explore win held with the prefetch in: blocking time 4,088 ms against 3,561 ms by median, every head run below every base
+run (that sandbox was slower than the first measurement, so the absolute numbers are higher). The text paints from the
+server-rendered placeholder throughout, and the placeholder is now hidden in the DOM the moment the view is built; before, the
+state update that removed it could wait behind hydration for most of a second with its text over the editor's.
 
-**Why TBT.** On the CDN preview the Playground's metric scores are FCP 0.14-0.39, LCP 0.16-0.56, TBT 0.15-0.22; CLS and speed index
-are already 1.0 and 0.7-0.8. TBT carries 30% of the score. Studio is the same shape (TBT 1,435-1,731 ms, score 0.13).
+**A defect this exposed, fixed here (HARD RULE #18).** `playground-focus-sync.spec.ts` "the next key in the editor brings the
+preview and the band back to the caret" failed on the dynamic build and passed on the first. It had been passing by
+accident: an editor created before it is measured renders every line of a short deck (92 `.cm-line` elements on the test's 8-slide deck),
+so the caret on line 1 was always in the rendered range. CodeMirror measured earlier renders about 71 lines, line 1 falls out
+once the preview scroll carries the editor to slide 6, and CodeMirror's own ArrowDown steps from the viewport instead of the
+caret: line 1 went to line 23. The same jump happens on the synchronous build with a 16-slide deck (line 1 to line 111).
+`editor.js` now steps by the document's lines from the caret when the caret is outside `view.viewport`, and leaves
+CodeMirror's visual-line stepping alone when it is drawn. `playground-editor-deferred.spec.ts` pins it on a 40-slide deck:
+without the handler it lands on line 161, with it on line 2.
 
-**Where the blocking time is.** Lighthouse's long-task list, head build, local HTTP/2, 3 runs, averaged (blocking = duration over 50 ms):
-
-| Script | Studio | Playground |
-|---|---|---|
-| React `client` chunk (render and commit) | 1,061 ms | 609 ms |
-| the island (`StudioIsland` / `PlaygroundIsland`) | 51 ms | 1,509 ms |
-| unattributable (parse, style, layout, GC) | 939 ms | 819 ms |
-| `lattice-runtime.js` (the frame) | 406 ms | 470 ms |
-| `single-slide-render` | 96 ms | not in the top 8 |
-
-The `PlaygroundIsland` row hides one task. A CDP profile of `/playground/` on the phone profile (4x CPU, 250 us samples), split
-at idle gaps, shows the heaviest tasks by what runs inside them:
-
-| Task (4x CPU) | What is in it |
-|---|---|
-| 1,141 ms | the first render: `theme-fetch` to `engine.render`; `cssFor` composition is 319 ms of it (P3, §10) |
-| 669 ms | the frame evaluating `lattice-runtime.js` |
-| 575 ms | the editor's lint source loading the 279 KB lint core (`esm/lint.js`) and linting the draft, while the editor is hidden in Explore |
-| 533 ms | the runtime's chart builders and layout in the frame |
-| 472 + 441 ms | React commits |
-
-**Candidate levers**, each with what it buys. Only A was measured end to end; the rest are sized from the profile.
-
-| | Lever | Measured or sized | Cost and risk |
-|---|---|---|---|
-| A | Do not load or run the lint while the editor is hidden (Explore, a phone's preview pane); lint when it appears (`forceLinting` on show) | **Measured**: Playground TBT 1,870-1,990 ms to 1,620-1,790 ms (4 runs each, local, interleaved), score +0 to +3 | One condition in `src/playground/editor.js` and one re-lint trigger; the Studio editor already has the same hidden-pane gate (`useFirstSlideShown`). Edit-first visitors are unchanged |
-| B | Skip the first `cssFor` composition (P3, §10) | sized: 319 ms of a 1,141 ms task at 4x | Changes what the engine ships; touches the CSP scan |
-| C | Chart builders out of the preview runtime | sized: 0.2 s of first slide (2026-10-23 §3); about half of the 533 ms task | Export bytes stay identical only if the split output is docs-only; otherwise export sign-off |
-| D | Time-slice hydration: `React.lazy` + `Suspense` around the toolbar sheets, the map, the editor host, so each hydrates in its own task | unmeasured; the 441-472 ms commits are the target | Touches every load of both apps; needs the trio |
-
-**What this does not do.** A, B and C together are about 1.3 s of the 4x long-task time, out of about 4.3 s. Lighthouse wants TBT
-near 200-300 ms for a 90 on this metric. Boot-order changes alone do not get there; the remaining work is the React tree
-itself (D) and a first paint that does not need React. So the honest forecast for 90 is "not from this list".
-
-**Recommendation.** Take A now (small, reversible, measured), D as a measured spike before any commitment, and treat B and C as
-separate decisions. **Default if no one answers: A only, built in the next session; D spiked, not shipped.** A is NOT built in
-this PR: followup 2868-p1 requires a design note and one owner question round first, and A changes every Playground load.
-
-## 10. First-render stylesheet composition (followup 2794-p7)
-
-Re-measured here with a profile instead of a harness. `composeCss` in Node, one cold call: 86-89 ms at 1x on the 1,013 KB
-`dist/lattice-min.css` plus `cuoio.css`; a second call costs the same (no warm-up gain), so the cost is the work, not the JIT.
-`packTheme` is 140 of 189 ms across the two calls in the CPU profile, `isPaginationTarget` and `packSelector` most of the rest.
-In the Playground the same call shows as `cssFor` 319 ms inclusive at 4x on one profiled load, against the followup's 104 ms for the
-composition alone; I did not find which of the two differs (profiler overhead is the likeliest), so treat the range as 100-320 ms.
-
-Why a faster `packTheme` does not fix the first render: the base is one rule stream and the theme another, so packing them
-apart and memoizing the base pack would speed every LATER palette change (about 70 of 88 ms) but not the first one. Only a build-time
-answer removes the first cost, and a build-time answer has one safe shape: ship the packed base for our own sheet and trust it
-only when the registered base text is byte-equal to the one the build packed. A hash key is a CSP bypass on collision (HARD RULE #22),
-and an extra 560 KB download (not measured compressed) is likely to cost more on the Lighthouse link than the 70 ms it saves, so the packed base must REPLACE the raw
-base for the Playground, not sit beside it. That changes the engine's input contract, and every consumer of `lattice-min.css`
-(export to Marp, the CLI) keeps the raw one. So it is a design decision, not a slice: **not built.** Default if no one answers: not built.
-
-## 11. Lever A built: no lint while the Playground editor is hidden (followup 2913-p1)
-
-`lintSource` in `docs/src/playground/editor.js` now returns no findings while the editor has no layout. Explore and a phone's
-preview pane hide the editor with `display: none`, and a box with no layout has no client rects, so that one check covers
-both. It also arms a `ResizeObserver` on the editor. When the pane gets a size, the observer dispatches the effect the
-linter's `needsRefresh` already reads for plugin-default changes, so the lint runs the moment the editor shows, with no
-edit. The lint core (`esm/lint.js`) is therefore not fetched at all on an Explore load. An Edit-first load lints as before.
-
-`docs/e2e/playground-lint-hidden.spec.ts` pins three things at desktop and phone width: an Explore load fetches no lint
-core and the switch to Edit does; an Edit-first load underlines a stray component; and an editor hidden before first paint
-lints with no edit once it shows. With the gate reverted, the first and third fail on "the lint core loaded while the
-editor was hidden", so the spec can fail.
-
-**On the CDN (Cloudflare Pages, Brotli), five runs each, interleaved.** Base is PR #2913's last preview (`2c46a003`, commit
-`3bfedbe`, the same tree as `main` at `34b07aa`). Head is this change's preview (`414dae84`, `f867717`). `/playground/`, the
-§1 mobile profile, from this sandbox.
-
-| Build | Score | FCP | LCP | TBT | `esm/lint.js` fetched |
-|---|---|---|---|---|---|
-| base | 46, 44, 41, 46, 45 | 3.18-3.56 s | 5.11-6.33 s | 1630, 1817, 1786, 1566, 1686 ms | every run (95 KB Brotli) |
-| head | 43, 45, 45, 47, 46 | 3.15-3.40 s | 5.10-6.00 s | 1528, 1385, 1562, 1532, 1628 ms | never |
-
-Median TBT 1,686 ms to 1,532 ms (−154 ms), close to the −190 ms the throwaway build measured locally. Four of the five
-head runs are below every base run. The median score is 45 on both builds, so this lever alone does not move the Playground
-toward its bar of 60. It removes one long task and a 95 KB download that nobody in Explore needed.
-
-## 12. Lever D measured: time-sliced hydration is a no-go; the picker's search index ships instead (followup 2913-p2)
-
-**The prototype.** `<React.Suspense fallback={null}>` around three server-rendered subtrees of `PlaygroundApp` whose refs
-the parent's mount effects never read: the toolbar (`.pg-bar`), the `WalkBar` and the `EditorHost`. With a boundary in the
-server HTML, React can commit the shell first and hydrate each boundary as a later unit of work. The preview pane and the
-chart layer were left alone, because the parent's effects read their refs on mount.
-
-**Result, local HTTP/2 (§1), three Lighthouse runs each, interleaved:** TBT 1,138-1,315 ms without the boundaries and
-1,213-1,388 ms with them. The first React task was 323-404 ms on both builds. **No gain.** The prototype also changed the
-server HTML: React 19 outlines a large boundary (the toolbar) into a `<!--$?-->` placeholder plus a hidden segment that an
-inline `$RC` script swaps in at the end of the document. That is a first-paint and CSP question the gain would have had
-to pay for, and there is no gain.
-
-**Why, from a CPU profile of an unminified build** (phone profile, 4x CPU, 250 µs samples). The React task that the
-earlier tables called "commits" is 748 ms, and it is not many small pieces that a boundary could separate:
-
-| Inside the 748 ms task | ms (4x) |
-|---|---|
-| render: `ComponentPicker`'s `useMemo(makeSearchIndex)` (Fuse + BM25 index of the catalog) | 160-171 |
-| passive effects: `EditorHost`'s mount effect, `createEditor` (CodeMirror `EditorView` 108 ms of it) | 171 |
-| the rest of `PlaygroundApp`'s render and commit | about 400 |
-
-Each of the two large pieces is one call inside one component, and no boundary splits a single call. So the lever is
-deferral, not slicing.
-
-**What shipped: the search index waits for a query.** `rankedFor` reads the index only when the box holds two or more
-characters, so `ComponentPicker` now builds it on the first such query (a memoized getter) instead of during render.
-Most visitors never search. A first search pays the build once, about 40 ms at 1x. `ComponentPicker.index.test.tsx`
-pins it: with the old memo restored, its first arm fails.
-
-Measured with the page's own `longtask` entries (local HTTP/2, phone viewport, 4x CPU, 10 s after navigation, five runs
-each, interleaved), the sum of each task's time over 50 ms:
-
-| Build | Blocking time, five runs | Median |
-|---|---|---|
-| lint gate only (§11) | 2585, 2561, 2650, 2429, 2646 ms | 2,585 ms |
-| plus the lazy index | 2405, 2626, 2340, 2323, 2626 ms | 2,405 ms |
-
-About 180 ms less by median, in line with the profile's 160-171 ms, with overlapping ranges. Lighthouse's simulated TBT on
-the same pair was too noisy to show a change of that size (1,235-1,482 ms against 1,083-1,640 ms, four runs each).
-
-**On the CDN it does not show.** Five Lighthouse runs each, interleaved, `/playground/`, the §1 profile: the lint-gate
-preview (`414dae84`) read TBT 1402, 1671, 1569, 1484, 1350 ms (median 1,484) and the lazy-index preview (`f9f79ae2`) read 1206,
-1735, 1434, 1669, 2714 ms (median 1,669, one outlier). That is noise around a change worth about 45 ms of real CPU, not a
-regression and not a win: the simulated metric cannot resolve it. The evidence for this change is the profile and the
-long-task table above, not Lighthouse.
-
-**Not done, recorded as followup 2921-p1:** deferring `createEditor` while the editor is hidden in Explore (the other
-171 ms). It is the larger change. The tour, the Explore-to-Edit switch and the seeded draft all read the editor, so it
-needs its own design pass.
+`docs/e2e/playground-editor-deferred.spec.ts` also pins the deferral: an Explore load builds no editor and the switch to
+Edit builds one that types and saves; a pointer move builds it ahead of the switch with Explore still showing; an
+Edit-first load builds it at once. `playground-lint-hidden.spec.ts` "showing a hidden editor lints it with no edit" now
+moves the pointer first, because an editor hidden from the start is built only once a reader shows up.

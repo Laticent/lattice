@@ -14,6 +14,14 @@ Owner OK 2026-10-28 (asked in the PR 2919 session). The notes-scrub fix (followu
 |---|---|---|---|---|---|
 | studio | lintCoreGz | 112808 | 112808 | +0 | 125200 |
 
+### 2026-10-27 — measured on the built tree at 5ed0b8f
+
+the Playground editor's CodeMirror chunk loads only when the editor is shown (#2937, followup 2921-p1): playground eagerJsGz fell from 616.7 to 353.7 KB gzipped
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| playground | eagerJsGz | 631462 | 362145 | -269317 | 398360 |
+
 ### 2026-10-27 — measured on the built tree at c3f3f8ced
 
 htmlRaw has outgrown its soft targets on every route (all five over, home within 0.5KB of its ceiling); Fluido joining the Libraries menu (PR #2923) adds ~720 bytes to the home page and would cross it. Reset to today's measurement on main, owner-approved 2026-10-27.

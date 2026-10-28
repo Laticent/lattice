@@ -685,6 +685,22 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		})();
 		return true;
 	};
+	// A caret outside the rendered lines: a preview scroll can carry the editor a screen or more away from it, and
+	// CodeMirror then moves a line from where it can measure, which is the viewport and not the caret (the caret on
+	// line 1 went to line 23 on an 8-slide deck). Step by the document's own lines from the caret instead. A caret
+	// that is drawn keeps CodeMirror's visual-line stepping.
+	const stepFromUnrenderedCaret = (dir, extend) => (v) => {
+		const sel = v.state.selection.main;
+		if (sel.head >= v.viewport.from && sel.head <= v.viewport.to) return false;
+		const doc = v.state.doc;
+		const line = doc.lineAt(sel.head);
+		const n = line.number + dir;
+		// Past the first or last line the caret goes to that line's end, as CodeMirror's own step does.
+		const to = doc.line(Math.min(Math.max(n, 1), doc.lines));
+		const pos = n < 1 ? to.from : n > doc.lines ? to.to : to.from + Math.min(sel.head - line.from, to.length);
+		v.dispatch({ selection: extend ? EditorSelection.range(sel.anchor, pos) : EditorSelection.cursor(pos), scrollIntoView: true, userEvent: 'select' });
+		return true;
+	};
 	const listener = EditorView.updateListener.of((u) => {
 		if (u.docChanged && onChange) onChange(u.state.doc.toString(), changedSpan(u.changes));
 		if (u.docChanged || u.selectionSet) {
@@ -802,6 +818,8 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 				// every autofixable finding at once. Harmless when validation is off.
 				keymap.of([
 					{ key: 'Alt-Shift-f', run: fixAllCommand },
+					{ key: 'ArrowDown', run: stepFromUnrenderedCaret(1, false), shift: stepFromUnrenderedCaret(1, true) },
+					{ key: 'ArrowUp', run: stepFromUnrenderedCaret(-1, false), shift: stepFromUnrenderedCaret(-1, true) },
 					indentWithTab,
 					...defaultKeymap,
 					...historyKeymap,
