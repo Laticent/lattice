@@ -30,6 +30,8 @@ reads on this photo.
    transitions off, reading the same styles, and putting the classes back.
 3. **One slide, the one on screen.** The preview frame holds one slide at a time, so the finding is for the slide in view
    and follows the author. It is not a deck-wide sweep. The deck-wide read stays with `lint` and the scorecard.
+   The owner confirmed this on 2026-10-28 (PR #2942, D1 A): a Studio pass over every photo slide and a CLI check at
+   export time were both offered and declined, so the on-screen check is the whole of it.
 4. **Outside the grade.** The scorecard is the engine's `scorecard.scoreDeck`; this finding reads pixels in one browser, so
    it does not move Craft or Style.
 5. **Silence means "could not measure".** No preview, a preview still showing another slide, a photo the browser cannot read
