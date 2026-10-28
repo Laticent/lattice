@@ -127,13 +127,30 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 
 	const slideIndex = h.slideOf();
 	const measured = measuredFor(h, slideIndex);
-	// The measured message is the Coach's, word for word. Lint's stays until the slide is measured: changing the words
-	// after the tooltip opened would resize it.
+	// The measured message is the Coach's, word for word.
 	text.textContent = measured?.low ? measured.message : message;
 	if (measured) {
 		show(measured);
 		return root;
 	}
+	// Opened before the slide on screen was measured: when the measured verdict lands, this tooltip takes it, words and
+	// button, so it never goes on saying something other than the Coach while it stays open. The tooltip may grow by a
+	// line once; a tooltip that disagrees with the Coach is worse.
+	let settled = false;
+	if (h.onScreen()) {
+		const t0 = Date.now();
+		const watch = setInterval(() => {
+			const m = measuredFor(h, slideIndex);
+			if (m || !root.isConnected || Date.now() - t0 > 10_000) clearInterval(watch);
+			if (!m || !root.isConnected) return;
+			settled = true;
+			text.textContent = m.low ? m.message : message;
+			show(m);
+		}, 200);
+	}
+	const showRead = (v: { fix: Fix | null; src: 'live' | 'estimate' } | null) => {
+		if (!settled) show(v);
+	};
 	const chunk = splitSlides(stripFrontMatter(h.source()))[slideIndex] ?? '';
 	const card = cardOf(chunk, h.source());
 	const kept = card.ref ? cachedFix({ ...card, ref: card.ref }) : undefined;
@@ -143,7 +160,7 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 		// changes only if the measured fix differs.
 		if (h.onScreen())
 			void readVerdict(chunk, h.source(), slideIndex, true).then((v) => {
-				if (v && v.fix !== kept.fix) show(v);
+				if (v && v.fix !== kept.fix) showRead(v);
 			}, () => {});
 		return root;
 	}
@@ -155,7 +172,7 @@ export function inkFixNode(message: string, h: Handles): HTMLElement {
 	checking.setAttribute('aria-busy', 'true');
 	checking.style.opacity = '0.6';
 	row.append(checking);
-	void readVerdict(chunk, h.source(), slideIndex, h.onScreen()).then(show, () => show(null));
+	void readVerdict(chunk, h.source(), slideIndex, h.onScreen()).then(showRead, () => showRead(null));
 	return root;
 }
 

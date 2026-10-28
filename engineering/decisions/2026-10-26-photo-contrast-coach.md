@@ -359,3 +359,30 @@ because a statement's words can sit where its scrim has faded to nothing.
 **Cost.** The watch now runs whenever the Studio is open, not only while the Coach is, because the editor needs it. It reads
 once per pause on a photo slide, 900 ms after the last change. Each read toggles four classes on the preview section and decodes
 the photo once.
+
+## Proved in Mobile Safari, and the last two gaps (2026-10-28)
+
+The owner asked for very high confidence, on the surface they test on, without being asked to run it themselves. The
+`ios-safari-studio` platform suite already drives real Mobile Safari in an iPad and an iPhone iOS Simulator on a macOS runner.
+Its run now ends with a second page-side probe: `docs/scripts/ios-safari/photo-probe.js`, run by `run.mjs` on a fresh page
+after `studio-probe.js`. No CI job or step was added. On each device it checks:
+
+- **The statement slide.** A `card-clear` statement on a bright photo: the Coach flags it under 4.5:1, and the editor's
+  underline gives the same message and the same **Set card ink dark** button.
+- **The fix.** The Coach's button writes `ink-dark`, and the preview never shows another slide while the fix lands. The probe
+  samples the preview frame's heading every 16 ms. Both warnings then clear.
+- **The thin card.** A thin spotlight card: the Coach's message and button equal the editor tooltip's, word for word.
+- **Leaving a slide.** Moving off a flagged slide drops its finding at once.
+
+`node docs/scripts/ios-safari/probe.selftest.mjs` runs the same probe on Playwright WebKit at iPad and iPhone size, and it
+passes there.
+
+**Two more gaps the probe found, both fixed:**
+
+- **A tooltip opened before the measurement kept lint's words and an estimated fix while it stayed open.** It now takes the
+  measured verdict in place when it lands. A new e2e opens the tooltip with every photo read slowed, holds the pointer still,
+  and requires the SAME tooltip element to end on the Coach's words. With the upgrade switched off, that test fails.
+- **The `mobile` caret-tooltip "flake" was a test bug.** A trace of a failing run showed one removal, 2 ms after the hover's own
+  mousemove, of a tooltip opened BEFORE the hover: the test's earlier click left the mouse over another underline. The test now
+  parks the mouse and starts from no tooltip. Its Chromium-at-390 waiver is deleted, and it passed 48 runs out of 48 across
+  every project and both widths.

@@ -223,6 +223,12 @@ for (const width of [1440, 390]) {
 		await page.keyboard.press('ControlOrMeta+Home');
 		for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowDown');
 		const light = page.locator('.cm-diagnosticAction', { hasText: 'Set card ink light' });
+		// The click above leaves the mouse resting on the editor, and at phone width that can be over a lint underline, whose
+		// tooltip then opens on its own. Hovering the target later REPLACES that tooltip, which the count below would read as
+		// the jank it guards. Park the mouse away and start from no tooltip at all (traced 2026-10-28: the only removal in a
+		// failing run was that earlier tooltip, 2 ms after the hover's own mousemove).
+		await page.mouse.move(1, 1);
+		await expect(page.locator('.cm-tooltip-lint')).toHaveCount(0, { timeout: 5000 });
 		// The jank this guards: the tooltip opened with BOTH inks, was closed by a re-lint, and reopened with one. The buttons are
 		// now filled in place, so record every mutation from before the hover: "Set card ink dark" must never appear, and the open
 		// tooltip must never be taken out of the page.
@@ -240,11 +246,10 @@ for (const width of [1440, 390]) {
 		await expect(light).toBeVisible({ timeout: 20_000 });
 		const jank = await page.evaluate(() => (window as unknown as { __jank: { dark: boolean; removed: number } }).__jank);
 		expect(jank.dark, 'the tooltip offered both inks before the one that reads').toBe(false);
-		// Chromium with a MOUSE parked over the line at phone width: when the parked preview redraws, the browser fires a
-		// synthetic mousemove and CodeMirror's hover closes the tooltip and reopens it 300 ms later (traced: an effects-only hover
-		// transaction, no doc, selection or lint change). A finger cannot do that; on WebKit's iPhone profile it never happened in
-		// 12 runs, so the "never removed" half is held there and at desktop width, not in Chromium at 390.
-		if (!(test.info().project.name === 'desktop' && width < 700)) expect(jank.removed, 'the open tooltip was taken out of the page').toBe(0);
+		// Held in every project and at every width. It used to be waived for Chromium at 390 as a "synthetic mousemove on a
+		// preview redraw"; the trace showed the removal was an earlier tooltip opened by the click above, which the mouse park
+		// now rules out (followups.d/2932-p3-mobile-caret-tooltip-jank-flake.md, closed).
+		expect(jank.removed, 'the open tooltip was taken out of the page').toBe(0);
 	});
 }
 
@@ -424,4 +429,39 @@ test('a Coach fix on the first slide keeps the preview on that slide', async ({ 
 	await expect.poll(() => persistedSource(page)).toMatch(/_class: image spotlight card-clear ink-light/);
 	await expect(page.getByText(/The text on this photo reads at/).filter({ visible: true })).toHaveCount(0, { timeout: 20_000 });
 	await expect(label).toContainText('Slide 1 / 2');
+});
+
+// A tooltip opened BEFORE the slide on screen is measured must not go on disagreeing with the Coach while it stays open: when
+// the measured verdict lands, it takes the Coach's words and button in place. Every photo read is slowed from the first
+// script, so the tooltip opens first.
+test('a tooltip opened before the measurement takes the Coach words when it lands', async ({ page }) => {
+	await page.setViewportSize({ width: 1440, height: 900 });
+	await page.addInitScript(() => {
+		Object.defineProperty(HTMLImageElement.prototype, 'onload', {
+			configurable: true,
+			set(fn: (e: Event) => void) {
+				this.addEventListener('load', (e: Event) => setTimeout(() => fn.call(this, e), 2500));
+			},
+		});
+	});
+	await gotoStudio(page);
+	await typeDeck(page, BODY_DECK);
+	await page.locator('.cm-lintRange-warning').first().hover();
+	const tip = page.locator('.cm-tooltip-lint');
+	// Opened before the measurement: lint's own words. The pointer stays put from here, so this is the SAME tooltip.
+	await expect(tip).toContainText('A spotlight card at 0%', { timeout: 20_000 });
+	await page.evaluate(() => {
+		(window as unknown as { __tip: Element | null }).__tip = document.querySelector('.cm-tooltip-lint');
+	});
+	await expect(tip).toContainText(/The text on this photo reads at/, { timeout: 20_000 });
+	expect(await page.evaluate(() => (window as unknown as { __tip: Element | null }).__tip === document.querySelector('.cm-tooltip-lint')), 'the tooltip was replaced, not upgraded in place').toBe(true);
+	// The measured sentence the tooltip took: "The text on this photo reads at N:1 (needs 4.5:1)."
+	const upgraded = ((await tip.textContent()) ?? '').match(/The text on this photo reads at [\d.]+:1 \(needs 4\.5:1\)\./)?.[0] ?? '';
+	expect(upgraded, 'the tooltip names the measured ratio').not.toBe('');
+	await expect(tip.locator('.cm-diagnosticAction')).toHaveText(['Set card ink light']);
+	// And those are the Coach's words.
+	await openCoach(page);
+	const finding = page.getByText(/The text on this photo reads at/).filter({ visible: true }).first();
+	await expect(finding).toBeVisible({ timeout: 20_000 });
+	expect((await finding.textContent())?.trim()).toContain(upgraded);
 });
