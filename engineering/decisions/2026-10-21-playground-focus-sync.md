@@ -440,3 +440,20 @@ A write the pane clamped to its current position fires no event, so `written()` 
 can swallow nothing; the unit rig likewise delivers no event for such a write. The late-event case stays: it is the
 price of the fix, and 600 ms is the longest delay measured to date outside the position arm. Not reproduced in a
 browser. The e2e results after this change: 48 of 48 at six workers, 33 of 33 across the whole spec.
+
+**On real iPad Safari (macOS CI, 2026-10-28).** The `ios-safari-focus-sync` platform suite (`docs/scripts/ios-safari/`) taps editor
+lines through safaridriver in Mobile Safari 26.5 on an iPad Pro 13-inch simulator (1032 px, two panes) while the page works 150 ms
+and rests 75 ms. Same probe, same device, two builds:
+
+| Sync code | Quiet page (4 taps) | Under the burner (40 taps) |
+|---|---|---|
+| Before 2937-p2 (`origin/main`) | 0 moved the editor | **29 moved it, worst 224 px** |
+| With the fix | 0 moved it, 0 uncentered | **0 moved it, 0 uncentered** |
+
+So the bug is not a Linux-WebKit artifact: iPad Safari delivers the preview's scroll event late under load and the old window read
+it as the reader's. Four traps in the harness, each found on the runner and each fixed in the probe, are worth keeping:
+a pane taller than the slide's offset cannot center slide 2 (that needs a negative scroll), so the probe picks a slide it can
+center; a burner that never rests stalls iOS taps (`touchstart` without `touchend`); safaridriver sometimes cannot reach a fresh
+simulator (the runner retries the session three times, and the other iOS suites fail the same way on `main`'s nightly); and the
+first `Element Click` is enough, with no touch-action fallback needed (it is still tried if the click fails to place the caret).
+Not covered: a physical iPad or iPhone, and the iPhone layout (one pane at a time, so the bug cannot occur there).
