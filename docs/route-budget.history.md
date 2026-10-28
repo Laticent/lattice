@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-28 — ceiling raised by hand, measured on the built tree at be19565
+
+Owner OK 2026-10-28 (asked in the PR 2927 session). Filo (#2940) brought the Studio's eager JS to within 2KB of its ceiling, and PR 2927 (one New slide door, strip ops on the rendered slide, undo on Filo) adds 3,711 bytes over main, measured with `measure-route-base.sh`: 1.6KB past the ceiling. The owner chose a 4KB raise over loading the slide ops lazily, so only the ceiling moved, from 555316 to 559412 (+4096), and the soft target stayed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | eagerJsGz | 504833 | 504833 | +0 | 559412 |
+
 ### 2026-10-28 — ceiling raised by hand, measured on the built tree at ed71fee
 
 Owner OK 2026-10-28 (asked in the PR 2919 session). The notes-scrub fix (followups.d/2012) makes notes-core parse with the lint core's markdown-it to find live comments, which adds about 0.5KB gz to the Studio lint core; main alone left 0.1KB under the ceiling. The tool's own reset re-slacks to 10% over the measurement (ceiling 136967); the owner approved about 1KB, so only the ceiling moved, from 124089 to 125200 (+1111), and the soft target stayed.
