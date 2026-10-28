@@ -54,6 +54,10 @@ tr.f td:last-child{box-shadow:inset 0 3px 0 #069,inset 0 -3px 0 #069,inset -3px 
 <tr><td>Cost</td><td>Low</td><td>High</td></tr></tbody>
 </table></section></body></html>`;
 
+// A ROUNDED card with top and bottom bands (the elevation recipe) and a side accent bar: CSS runs the bar into the curved
+// corners, which a native line between them cannot, so the card stays a picture, as it did before row rings were native.
+const ROUND = ROW.replace('tr.f td{', '.x{box-shadow:inset 0 3px 0 #069,inset 0 -3px 0 #069,inset 4px 0 0 #069;background:#e8f0fa;border-radius:12px;position:absolute;left:64px;top:400px;width:300px;height:80px}\ntr.f td{').replace('</table>', '</table><div class="x">card</div>');
+
 // The other side: a picture drawn BEFORE the card (a gradient panel behind it) is already under the card's text,
 // so the text stays in its card, and so stays under a box that covers it in the browser.
 const PANEL = `<!doctype html><html><head><style>
@@ -148,6 +152,15 @@ describe('calco: a focused column keeps its text above its picture', () => {
     const last = Math.max(...top.map((l) => l.x + l.w));
     assert.ok(Math.abs(sides.find((l) => l.side === 'left').x - 1.5 - first) < 0.6, 'the left line sits on the ring\'s left edge');
     assert.ok(Math.abs(sides.find((l) => l.side === 'right').x + 1.5 - last) < 0.6, 'the right line sits on the ring\'s right edge');
+  });
+
+  test('a rounded box with top, bottom and side bands stays a picture', async () => {
+    await tab.setContent(ROUND, { waitUntil: 'load' });
+    const h = await tab.$('#s');
+    const slide = await h.evaluate(readSlide, { hide: true, shapes: true, sprites: true });
+    await h.evaluate(restoreSlide);
+    assert.equal(slide.shapes.filter((s) => s.kind === 'line' && s.side === 'left').length, 1, 'only the ringed row has a left line, not the rounded card');
+    assert.equal(slide.shapes.filter((s) => s.kind === 'picture').length, 1, 'the rounded card is one picture');
   });
 
   test('a card inside a gradient panel keeps its text, under the box that covers it', async () => {

@@ -1143,7 +1143,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			/** Hard inset layers offset straight down, up, right or left (no blur, no spread): a band along that inner edge, one per edge. */
 			rims: Array<Paint & { x: number; y: number }>;
 		};
-		const shadowOf = (v: string, opacity: number): Shadows | false => {
+		const shadowOf = (v: string, opacity: number, square = false): Shadows | false => {
 			const out: Shadows = { outer: null, ring: null, outerRing: null, struck: [], rims: [] };
 			// Bands along the left or right edge join `rims` only beside a top AND a bottom band (see after the loop).
 			const sideBands: Array<Paint & { x: number; y: number }> = [];
@@ -1193,10 +1193,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				}
 				out.outer = next;
 			}
-			// A cell with a top and a bottom band is a cell of a ringed row, so a side band is that row's end, drawn like
-			// them. Without both, the band is one edge of a ringed column, which spans its rows as one picture.
+			// A square cell with a top and a bottom band is a cell of a ringed row, so a side band is that row's end, drawn
+			// like them. Without both, the band is one edge of a ringed column, which spans its rows as one picture. A
+			// rounded box stays a picture: CSS runs a band into its curved corners, and a line drawn between them is shorter.
 			if (sideBands.length) {
-				if (!(out.rims.some((r) => r.y > 0) && out.rims.some((r) => r.y < 0))) return false;
+				if (!square || !(out.rims.some((r) => r.y > 0) && out.rims.some((r) => r.y < 0))) return false;
 				out.rims.push(...sideBands);
 			}
 			return out;
@@ -1444,7 +1445,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			let outerRing: (Paint & { width: number }) | null = null;
 			let struck: Shadows['struck'] = [];
 			let rims: Shadows['rims'] = [];
-			const shadows = shadowOf(cs.boxShadow, op);
+			const shadows = shadowOf(cs.boxShadow, op, [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].every((v) => !(Number.parseFloat(v) > 0)));
 			if (shadows === false) shadow = false;
 			else {
 				shadow = shadows.outer;
@@ -2280,7 +2281,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					shapeEls.push(c.el);
 				}
 			}
-			// The inset bands: each along the inner top or bottom edge, inside the border, between the corners.
+			// The inset bands: each along an inner edge, inside the border, between the corners.
 			for (const rim of c.rims || []) {
 				const bt = c.sides[0]?.width || 0;
 				const bb = c.sides[2]?.width || 0;
