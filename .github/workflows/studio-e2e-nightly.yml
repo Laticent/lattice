@@ -49,7 +49,10 @@ jobs:
     # rather than the workflow. The cron cannot fire, and neither job below has run.
     # Nothing catches this, because no workflow lints workflows and this one has no
     # pull_request trigger.
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
+    # Playwright pin supports the new image.
+    runs-on: ubuntu-24.04
     # 60, not 30. This ceiling is OURS, not GitHub's (a hosted job may run 360
     # minutes), and 30 was set when the suite fit it: the last run that actually
     # executed before the blackout took 20m02s of test time (2026-08-03). The
@@ -338,7 +341,7 @@ jobs:
   security:
     # No `spec` filter: it runs on every dispatch too (about 3 minutes), so a hand-run probe of a
     # branch proves this job as well. Its issue steps file only for `main`.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -490,7 +493,7 @@ jobs:
   player-parity:
     # No `spec` filter, like `security`: it runs on every dispatch, so a hand-run on a branch
     # proves this job as well. Its issue steps file only for `main`.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -636,7 +639,7 @@ jobs:
   e2e-ai:
     # A filtered probe (the `spec` input) runs only the specs it names.
     if: inputs.spec == ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
