@@ -166,7 +166,12 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 				className="live-host relative m-0 aspect-video w-full overflow-hidden"
 				aria-label="A slide re-rendered through the selected palette"
 			/>
-			<div className="mt-[18px] flex items-center justify-between gap-4">
+			{/* The palette name sits on its OWN line under the swatches, never beside
+			    them. Beside them, a long name ("A11y Achromatopsia") took width from
+			    the swatch row, so the swatches re-wrapped as the cycle advanced and the
+			    name ran off a phone's edge (seen on iPhone, 2026-10-28). On its own line
+			    with its height reserved, nothing moves whatever the name's length. */}
+			<div className="mt-[18px] flex flex-col items-start gap-3">
 				<div
 					className="flex flex-wrap gap-[9px]"
 					role="tablist"
@@ -191,7 +196,10 @@ export default function RestyleShowcase({ data }: { data: RestyleData }) {
 						/>
 					))}
 				</div>
-				<p className="m-0 min-w-[7ch] text-right text-[15px] font-semibold text-[var(--text-heading)]" aria-live="polite">
+				<p
+					className="m-0 min-h-[1.5em] max-w-full truncate text-[15px] leading-[1.5] font-semibold text-[var(--text-heading)]"
+					aria-live="polite"
+				>
 					{active?.label ?? ''}
 				</p>
 			</div>
