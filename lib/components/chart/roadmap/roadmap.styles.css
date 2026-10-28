@@ -99,7 +99,7 @@
   position:absolute;
   inset:0;
   border-radius:50%;
-  background-color:var(--state-color, var(--muted-mark));
+  background-color:var(--state-fill, var(--state-color, var(--muted-mark)));
   /* An exception wears the signal ring inside its edge (--state-signal is transparent otherwise), and every disc a
    * hairline rim in its status ink outside it: on a tinted cell ground the rim is the disc's edge (base.tokens.css
    * § State-disc recipe). */
@@ -341,6 +341,9 @@
      skipped  → ╱ diagonal slash (out of scope; plus strike-through on text)
    The eyebrow label is rendered for the heavy treatment but hidden here. */
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-label { display:none; }
+/* Every disc below (the cell's, the key's, the `.status` corner's) paints `--state-fill` when a finish sets it on the
+ * cell or key item: the status at the finish's one status level (tools/build-marks-css.js § ROADMAP). With no
+ * finish it falls back to the status solid. */
 /* Leading state token = a solid --state-color disc (::before) carrying the
  * shared --state-mark symbol (::after), knocked out in the canvas color via
  * a CSS mask — the SAME recipe checklist / verdict-grid / obligation-matrix
@@ -371,7 +374,7 @@
 :is(section.roadmap, figure.roadmap) td.cell-state .cell-state-text::before,
 :is(section.roadmap, figure.roadmap).horizons .horizon-rows > li.cell-state .row-text::before {
   border-radius:50%;
-  background-color:var(--state-color, var(--muted-mark));
+  background-color:var(--state-fill, var(--state-color, var(--muted-mark)));
   /* An exception wears the signal ring inside its edge (--state-signal is transparent otherwise), and every disc a
    * hairline rim in its status ink outside it: on a tinted cell ground the rim is the disc's edge (base.tokens.css
    * § State-disc recipe). */
@@ -540,7 +543,7 @@
 }
 :is(section.roadmap, figure.roadmap).status td.cell-state::after {
   border-radius:50%;
-  background-color:var(--state-color, var(--muted-mark));
+  background-color:var(--state-fill, var(--state-color, var(--muted-mark)));
   /* An exception wears the signal ring inside its edge (--state-signal is transparent otherwise), and every disc a
    * hairline rim in its status ink outside it: on a tinted cell ground the rim is the disc's edge (base.tokens.css
    * § State-disc recipe). */

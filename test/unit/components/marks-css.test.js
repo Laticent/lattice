@@ -121,6 +121,25 @@ describe('marks.generated.css', () => {
     assert.equal(tokens('etch')['--finish-status-base'], 'var(--bg)');
   });
 
+  // A ROADMAP is a status chart, so its filled status discs take the finish's one status level, like a gantt bar
+  // (#2908's P2 follow-up: they stayed solid under etch and tone). The discs are pseudo-elements, so the finish sets the
+  // member's disc channel on the cell and key item; pigment's level is the solid, so it emits nothing.
+  test('a roadmap status disc takes the one status level under etch and tone', () => {
+    const at = css.indexOf('section:is(.marks-etch, .marks-tone) :where(:is(.roadmap :is(td.cell-state');
+    assert.ok(at >= 0, 'one etch+tone rule for the roadmap discs');
+    const head = css.slice(at, css.indexOf('{', at));
+    for (const st of ['shipped', 'wip', 'missed', 'skipped']) assert.match(head, new RegExp(`\\.state-${st}\\b`));
+    assert.match(head, /\.roadmap\.heat :is\([^)]*\)\.state-planned/, 'heat\'s green planned disc moves too');
+    assert.doesNotMatch(head, /state-unknown/, 'a hollow ring has no body to move');
+    assert.match(head, /\.roadmap-legend-item/, 'the key follows its discs');
+    const body = css.slice(at, css.indexOf('}', at));
+    assert.match(body, /--state-fill: light-dark\(color-mix\(in oklab, var\(--state-color\) var\(--finish-status-text\), var\(--finish-status-base\)\)/);
+    assert.match(body, /--state-glyph-mark: var\(--finish-ink\)/);
+    assert.doesNotMatch(css, /marks-pigment[^{]*state-shipped/, 'pigment leaves the solid disc alone');
+    const member = fs.readFileSync(path.join(__dirname, '../../../lib/components/chart/roadmap/roadmap.styles.css'), 'utf8');
+    assert.equal((member.match(/background-color:var\(--state-fill, var\(--state-color/g) || []).length, 3, 'all three disc recipes read --state-fill');
+  });
+
   // THE TONE LADDER (#2908 audit). Dark slides take their own ladder with a floor, so a low step never sinks into the navy
   // canvas; the light ladder mixes toward the tone hue lifted to near-white, behind the relative-color guard.
   test('tone has a dark ladder with a floor and a guarded tinted light base', () => {
@@ -510,7 +529,8 @@ describe('marks.generated.css', () => {
     const body = css.slice(at, css.indexOf('}', at));
     assert.match(body, /--phase-accent: var\(--chart-cat-1-hue\)/);
     assert.match(body, /--phase-ink: var\(--chart-cat-1-ink\)/);
-    assert.doesNotMatch(css, /marks-etch :where\([^)]*\.roadmap/, 'etch leaves a roadmap alone');
+    // Etch reaches a roadmap's status discs only (the next test); its phases keep their colors.
+    assert.doesNotMatch(css, /marks-etch :where\([^)]*\.roadmap (thead|td:first-child|\.horizon)/, 'etch leaves a roadmap phase alone');
     // Pigment reaches ONE roadmap surface: the workstream row header goes to the neutral ground (REGIONS), and
     // nothing else of the roadmap moves under it.
     const pigmentRoadmap = [...css.matchAll(/section\.marks-pigment :where\(([^)]*\.roadmap[^)]*)\)[^{]*\{([^}]*)\}/g)];

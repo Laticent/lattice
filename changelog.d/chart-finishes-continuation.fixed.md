@@ -1,0 +1,1 @@
+- A roadmap's status discs and its key now take the one status level under the `etch` and `tone` finishes, as a gantt bar does. They stayed solid green, amber and red there, the loudest status marks in the class. `pigment`, the default, is unchanged.

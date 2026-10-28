@@ -564,6 +564,24 @@ function build() {
     w(textLevel ? supports(rule(ALL, s.sel, decls)) : rule(ALL, s.sel, decls));
   }
 
+  // ROADMAP — a status chart, so its status discs take the one status level like a gantt bar (#2908's P2 follow-up:
+  // they stayed solid under etch and tone, the loudest status marks in the class). A disc is a cell's or key item's
+  // ::before / ::after, which no `:where()` can name, so the finish sets the member's own disc channels on the cell and
+  // the pseudo-elements inherit them: `--state-fill` (roadmap.styles.css paints it in place of the solid) and the
+  // glyph's ink, which on a pale disc is the finish ink, as a gantt key's status mark is. Every FILLED disc moves:
+  // shipped, in flight, missed, a planned cell `heat` paints green, and out of scope, whose solid muted disc was the
+  // loudest mark on an etch slide once the rest went pale. The hollow rings (planned, uncertain) have no body to move.
+  // Pigment's status level is the solid itself, so pigment emits nothing here.
+  // It waits behind the guard with the gantt key it matches, so an older engine keeps the shipped discs.
+  {
+    const rm = ':is(td.cell-state, .horizon-rows > li.cell-state, .roadmap-legend-item)';
+    const stated = `:is(.roadmap ${rm}:is(.state-shipped, .state-wip, .state-missed, .state-skipped), .roadmap.heat ${rm}.state-planned)`;
+    w(supports(rule(MOVERS, stated, [
+      `--state-fill: ${tld('var(--state-color)', T.statusText, T.statusTextD, T.statusBase)}`,
+      `--state-glyph-mark: ${tv(T.ink)}`,
+    ])));
+  }
+
   // An SVG mark's ring is its own element beside the shape (`.chart-signal-ring`, a gantt bar's), so it cannot
   // inherit the shape's width and is reached by name, at the edge of the text-bearing mark it rings.
   // It waits behind the same guard as the bar's own wider edge (TEXT WAITS), so an engine that keeps the bar's

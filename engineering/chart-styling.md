@@ -425,6 +425,12 @@ measurement, and most undo a defect a render or the adversarial review found:
   hollow through `fill-opacity`, which a finish never sets. Measured on indaco,
   carbone, concrete and a11y-deuteranopia in both schemes, every state label
   clears 4.5:1 (worst 4.72, concrete light).
+  A roadmap's status discs follow the same level. A disc is a cell's or key item's `::before`, which no `:where()`
+  can name, so under etch and tone the generator sets the member's own disc channel on the cell and key item
+  (`--state-fill`, the status at the finish's one status level, and `--state-glyph-mark`, the finish ink) and the
+  pseudo-elements inherit it. Every FILLED disc moves, the neutral out-of-scope disc included (left solid, it was the
+  loudest mark on an etch slide); the hollow planned and uncertain rings have no body to move. Pigment's status level
+  is the solid, so a pigment roadmap is unchanged.
 - **The key follows the marks.** A legend swatch carries the mark contract, so a
   tone finish cannot leave a key of five categorical colors beside tonal wedges.
   A key takes the level of the mark it keys (`KEY_FOLLOWS`). A key whose marks the
