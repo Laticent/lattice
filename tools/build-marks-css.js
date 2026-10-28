@@ -811,7 +811,11 @@ function build() {
     {
       const wash = name === 'pigment' ? 12 : name === 'tone' ? 12 : null;
       const tint = wash !== null ? `color-mix(in oklab, ${ONE} ${wash}%, var(--bg))` : `light-dark(color-mix(in oklab, ${ONE} ${f.backdrop[0]}%, var(--bg)), color-mix(in oklab, ${ONE} ${f.backdrop[1]}%, var(--bg)))`;
-      w(supports(rule(name, '.kanban-card:not([data-s])', [`background: ${tint}`, `box-shadow: inset ${name === 'pigment' ? 5 : name === 'etch' ? 4 : 3}px 0 0 ${name === 'pigment' ? ONE : ONE_INK}`])));
+      // Pigment is the default finish and its card keeps the shipped surface: a tint under the inline code a card carries
+      // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only.
+      const cardDecls = [`box-shadow: inset ${name === 'pigment' ? 5 : name === 'etch' ? 4 : 3}px 0 0 ${name === 'pigment' ? ONE : ONE_INK}`];
+      if (name !== 'pigment') cardDecls.unshift(`background: ${tint}`);
+      w(supports(rule(name, '.kanban-card:not([data-s])', cardDecls)));
       w(supports(rule(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
     }
 

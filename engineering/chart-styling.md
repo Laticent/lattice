@@ -293,7 +293,7 @@ measurement, and most undo a defect a render or the adversarial review found:
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
 - **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
-  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban card and lane rule were the
+  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone; pigment keeps the shipped card surface, because a tint under a card's inline code measured 4.19:1 on carbone) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
   property (`--fc-hue`, `--fill-hue`, `--hs-*`) and not `--chart-neutral-hue`, which the palette tests read as the theme's
   grey. A status or category mark keeps its own color. Because the first hue can match the theme's info blue, `live`,

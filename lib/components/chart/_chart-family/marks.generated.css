@@ -707,7 +707,6 @@ figure.marks-pigment :where(:is(.state-node, .state-node-shape, .state-label-t, 
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(.kanban-card:not([data-s])),
 figure.marks-pigment :where(.kanban-card:not([data-s])) {
-  background: color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) !important;
   box-shadow: inset 5px 0 0 var(--chart-cat-1-hue) !important;
 }
 }
