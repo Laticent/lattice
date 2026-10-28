@@ -64,34 +64,73 @@ async function latticePhotoProbe() {
 	const coachButton = () => byText(/^(Set card ink (light|dark)|Pin this slide (light|dark)|Use a solid card)$/);
 
 	const coachOpen = () => [...document.querySelectorAll('*')].some((e) => visible(e) && e.textContent?.trim() === 'Deck read');
+	/** Whether the editor is what a tap on it would reach, not something laid over it (the Coach as a sheet). */
+	const editorOnTop = () => {
+		const ed = document.querySelector('[aria-label="Deck source"]');
+		if (!visible(ed)) return false;
+		// The middle of the part of the editor inside the window: the editor's own toolbar sits at its top edge.
+		const r = ed.getBoundingClientRect();
+		const top = Math.max(0, r.top);
+		const bottom = Math.min(innerHeight, r.bottom);
+		if (bottom <= top) return false;
+		return !!document.elementFromPoint(r.left + r.width / 2, (top + bottom) / 2)?.closest('.cm-editor');
+	};
 	const openSource = async () => {
-		if (!narrow) return;
-		// A phone shows the Coach as a sheet OVER the editor: close it with its back button, as a person would, or every tap
-		// below lands on an editor nobody can see.
-		if (coachOpen()) {
-			(await until(() => byText(/^Deck$/), 5000, 'the sheet back button')).click();
-			await until(() => !coachOpen(), 5000, 'the Coach sheet to close');
+		// Where the Coach is a sheet OVER the editor (a phone, or iPad Safari's desktop-site width), close it with its back
+		// button, as a person would, or every tap below lands on an editor nobody can see.
+		if (coachOpen() && !editorOnTop()) {
+			const back = byText(/^Deck$/);
+			if (back) back.click();
+			else document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+			await until(() => !coachOpen() || editorOnTop(), 5000, 'the Coach sheet to close');
 		}
+		if (!narrow) return;
 		(await until(() => byLabel('Markdown source'), 15000, 'the Markdown source button')).click();
 		await until(() => visible(document.querySelector('[aria-label="Deck source"]')), 15000, 'the editor');
 	};
 	const openCoach = async () => {
 		// A click that lands before the panel's code has loaded can be lost: click again until the panel is up.
+		// Where the bar has room, Coach is its own button; where it does not (iPad Safari asks for the desktop site and lays the
+		// Studio out at about 1030 px), it is an item in the "More controls" menu, as docs/e2e's openCoach allows.
+		const menuCoach = () => [...document.querySelectorAll('[role="menuitem"]')].find((m) => visible(m) && /^Coach/.test(m.textContent.trim()));
 		for (let i = 0; i < 4 && !coachOpen(); i++) {
-			const coach = await until(() => byLabel('Toggle Coach') || byText(/^Coach$/), 15000, 'the Coach button');
-			if (coach.getAttribute('aria-pressed') !== 'true') coach.click();
+			// The live menu trigger carries aria-expanded; the loading skeleton's look-alike does not, and does nothing.
+			const liveMenu = () => [...document.querySelectorAll('button[aria-label="More controls"]')].find((b) => visible(b) && b.hasAttribute('aria-expanded'));
+			const coach = await until(() => byLabel('Toggle Coach') || byText(/^Coach$/) || liveMenu(), 30000, 'the Coach button');
+			if (coach.getAttribute('aria-label') === 'More controls') {
+				// A Radix menu trigger opens on a mouse-type pointerdown, not on a bare click event. One press only: a second
+				// one (or an Enter) toggles the menu shut again. The editor lets go of focus first, as a tap elsewhere makes it:
+				// with the caret still in the editor the menu opens and shuts at once.
+				if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+				coach.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, buttons: 1, pointerType: 'mouse', isPrimary: true }));
+				const item = await until(menuCoach, 5000, 'the Coach item in More controls').catch(() => null);
+				if (!item) continue;
+				item.click();
+			} else if (coach.getAttribute('aria-pressed') !== 'true') coach.click();
 			const t0 = Date.now();
 			while (!coachOpen() && Date.now() - t0 < 5000) await sleep(100);
 		}
 		await until(coachOpen, 1000, 'the Coach panel');
 	};
+	/**
+	 * Put this probe's deck in the editor and keep it there. The Studio's starter deck can land after the editor is up and
+	 * replace what was typed, so wait for the editor to hold OUR deck (a heading no starter deck has) and for the preview to
+	 * render it, and type it again if the starter won the race.
+	 */
 	const setDeck = async (text) => {
-		await openSource();
-		const el = document.querySelector('[aria-label="Deck source"]');
-		el.focus();
-		document.execCommand('selectAll');
-		document.execCommand('insertText', false, text);
-		await until(() => editorText().includes('Next steps'), 15000, 'the deck in the editor');
+		const ours = () => editorText().includes('A quiet harbor.') && editorText().includes('A plain slide after the photos.');
+		for (let i = 0; i < 4; i++) {
+			await openSource();
+			const el = document.querySelector('[aria-label="Deck source"]');
+			el.focus();
+			document.execCommand('selectAll');
+			document.execCommand('insertText', false, text);
+			// A cold first render can take seconds: give the preview time to draw our deck before deciding it was replaced.
+			const t0 = Date.now();
+			while (!(ours() && HEADINGS.includes(shown())) && Date.now() - t0 < 8000) await sleep(200);
+			if (ours() && HEADINGS.includes(shown())) return;
+		}
+		throw new Error(`the probe deck did not stay (the editor ${ours() ? 'holds it' : 'does not hold it'}; the preview shows "${shown()}")`);
 	};
 	/**
 	 * Put the caret on the editor line holding `text`, the way a tap does, and wait for the preview to follow it to the
@@ -162,6 +201,10 @@ async function latticePhotoProbe() {
 
 	try {
 		await until(() => window.__latticeRenderMetrics && document.querySelector('[aria-label="Deck source"]'), 90000, 'the Studio editor');
+		// The Studio's first load (its starter deck, its first preview render) settles before anything is typed, as it has by
+		// the time a person starts: typing into it mid-load can be replaced by the starter deck landing late.
+		await until(() => shown() !== '', 90000, 'the first preview render');
+		await sleep(1000);
 		await setDeck(DECK);
 
 		// 1. The statement: the Coach flags it, the editor underlines it, same words and same button.

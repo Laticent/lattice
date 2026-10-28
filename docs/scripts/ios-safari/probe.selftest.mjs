@@ -22,6 +22,8 @@ const SEED = fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8');
 
 const shapes = [
 	{ label: 'iPad-sized', options: { viewport: { width: 1180, height: 820 } } },
+	// iPad Safari asks for the desktop site and reports about 1030 px: the bar folds Coach into "More controls" there.
+	{ label: 'iPad-Safari-width', options: { viewport: { width: 1032, height: 1300 } } },
 	{ label: 'iPhone-sized', options: { ...devices['iPhone 15 Pro'] } },
 ];
 let failed = 0;
