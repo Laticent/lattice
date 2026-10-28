@@ -18,7 +18,9 @@ const JSZip = require('jszip');
 const { checkPptxSchema, checkOpenXml, checkOdp, openXmlAvailable } = require('../../conformance/office/office-conformance');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
-const DECKS = ['accent-finishes', 'card-tags', 'sample-images', 'marks', 'calco-edge-cases'];
+// focus + focus-highlight-axes: the focus treatments, whose column pictures, free text and inset-outline cards
+// are the editable export's hardest z-order and stroke cases (#2933).
+const DECKS = ['accent-finishes', 'card-tags', 'sample-images', 'marks', 'calco-edge-cases', 'focus', 'focus-highlight-axes'];
 
 describe('office export conformance', () => {
   const out = {};

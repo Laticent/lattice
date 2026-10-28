@@ -137,6 +137,13 @@ nothing, so a headless browser can receive them as source.
   backgrounds, foreground, these crops) for any host that can `run` a function in the page and `shoot` a slide:
   the CLI (puppeteer) and the Studio (html-to-image) are two such hosts. A host that does not crop them gets one
   foreground picture instead, and a card that holds picture content stays in it.
+  A picture that holds a box's own fill or edge and sits outside that box's text's card (a focused table
+  column's tint and ring span every row, so no row holds them) and draws AFTER that card leaves that text
+  free, drawn on top: the text paints over its own box, and in its row's group it would come out under the
+  picture. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
+  gradient panel behind it) changes nothing.
+- An `outline` pulled in by its own width (`outline-offset: -W`, the focus highlight's card edge) is drawn as
+  an inside stroke, replacing a border no wider than that band. Any other outline keeps its box a picture.
 - The `.pptx` picture lock is markup only: PowerPoint's Lock honors it; LibreOffice does not.
   Google Slides and Collabora on iOS are not verified.
 
