@@ -73,6 +73,7 @@ import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_MET
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
+import type { Pin } from './coach/photo-contrast-read';
 import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
@@ -141,7 +142,7 @@ import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
 import { canEditClass, getClassTokens, setClassTokens } from './slide-directives';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords, setImageCard } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -4820,9 +4821,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const activeChunk = slides[activeFullIndex] ?? '';
 	// The Coach's photo-contrast read of the slide on screen (measured in the preview, so it only runs while the Coach is open).
 	const { findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex + 1, coachOpen, `${mode}|${palette}|${source}`);
-	// Pin the slide light or dark: the one click the photo-contrast warning offers. Never applied on its own.
+	// Pin the slide light or dark, or (when no pin clears) set the card ink: the one click the photo-contrast warning offers.
+	// Never applied on its own.
 	const pinActiveSlide = React.useCallback(
-		(pin: 'dark' | 'light') => mutateSlideFromPanel((c) => (canEditClass(c) ? setClassTokens(c, [...getClassTokens(c).filter((t) => t !== 'dark' && t !== 'light'), pin]) : c)),
+		(pin: Pin) =>
+			mutateSlideFromPanel((c) => {
+				if (!canEditClass(c)) return c;
+				if (pin === 'ink-light' || pin === 'ink-dark') return setImageCard(c, 'ink', pin.slice(4));
+				return setClassTokens(c, [...getClassTokens(c).filter((t) => t !== 'dark' && t !== 'light'), pin]);
+			}),
 		[mutateSlideFromPanel],
 	);
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
@@ -5165,7 +5172,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								finding={f}
 								state={fixStates[key]}
 								canFix={ai.ready && !!f.slide && f.rule !== PHOTO_RULE}
-								pin={f.rule === PHOTO_RULE && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? ((f as { pin?: 'dark' | 'light' | null }).pin ?? null) : null}
+								pin={f.rule === PHOTO_RULE && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? ((f as { pin?: Pin | null }).pin ?? null) : null}
 								onPin={pinActiveSlide}
 								costLabel={fixCostLabel}
 								onFix={() => fixFinding(f, key)}

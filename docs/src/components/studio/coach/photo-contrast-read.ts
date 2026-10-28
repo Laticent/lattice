@@ -2,7 +2,7 @@ import { describe, judge } from '../../../../../lib/core/photo-contrast.mjs';
 import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, sameSlide } from '../card-ink-sampler';
 
 // The Coach's photo-contrast read: does the text on THIS slide's photo reach 4.5:1, measured in the
-// live preview, and would pinning the slide dark or light fix it? The preview frame holds one slide
+// live preview, and would pinning the slide dark or light fix it, or failing that, setting the card ink? The preview frame holds one slide
 // at a time, so this answers for the slide on screen. The arithmetic is the kernel's
 // (lib/core/photo-contrast.mjs); this file only reads the page: the photo behind the card, the
 // card's fill, and the ink, each as the browser actually painted it. It never edits the deck.
@@ -11,8 +11,12 @@ import { boxInSection, CARD_CLASS, meanUnderBox, photoMatches, previewDocument, 
 // browser cannot read), and an empty answer is `null`: no finding. Silence here means "could not
 // measure", not "passes", and the panel does not claim otherwise.
 
-export type Pin = 'dark' | 'light';
+/** A fix the finding can offer: a slide pin, or (when no pin clears) the card's ink class. */
+export type Pin = 'dark' | 'light' | 'ink-light' | 'ink-dark';
 export type PhotoRead = { ratio: number; floor: number; fix: Pin | null; fixRatio: number | null; message: string };
+
+/** Each fix's class and the classes it replaces: a slide carries one pin and one ink at most. */
+const GROUP: Record<Pin, readonly Pin[]> = { dark: ['dark', 'light'], light: ['dark', 'light'], 'ink-light': ['ink-light', 'ink-dark'], 'ink-dark': ['ink-light', 'ink-dark'] };
 
 type Rgb = number[];
 type Scene = { card: number[] | null; ink: number[][] };
@@ -48,23 +52,22 @@ function readScene(card: HTMLElement): Scene | null {
 }
 
 /**
- * The scene as it would paint with `pin` on the section. Styles are read synchronously inside one
- * task (the browser paints nothing in between) with transitions off, since a computed color read
- * right after a class change would otherwise be the old one. Both pin classes are put back.
+ * The scene as it would paint with `pin` on the section (a pin, or a card ink). Styles are read
+ * synchronously inside one task (the browser paints nothing in between) with transitions off, since
+ * a computed color read right after a class change would otherwise be the old one. Every class of
+ * the fix's group is put back as it was.
  */
 function readPinned(section: HTMLElement, card: HTMLElement, pin: Pin): Scene | null {
 	const doc = section.ownerDocument;
-	const was = { dark: section.classList.contains('dark'), light: section.classList.contains('light') };
+	const was = GROUP[pin].map((c) => [c, section.classList.contains(c)] as const);
 	const hush = doc.createElement('style');
 	hush.textContent = '*,*::before,*::after{transition:none!important;animation:none!important}';
 	doc.head.appendChild(hush);
 	try {
-		section.classList.toggle('dark', pin === 'dark');
-		section.classList.toggle('light', pin === 'light');
+		for (const c of GROUP[pin]) section.classList.toggle(c, c === pin);
 		return readScene(card);
 	} finally {
-		section.classList.toggle('dark', was.dark);
-		section.classList.toggle('light', was.light);
+		for (const [c, on] of was) section.classList.toggle(c, on);
 		hush.remove();
 	}
 }
@@ -97,7 +100,7 @@ export async function readPhotoContrast(slideNumber: number, heading: string | n
 		const now = readScene(card);
 		if (!box || !now) return null;
 		const pins: Record<string, Scene | undefined> = {};
-		for (const pin of ['dark', 'light'] as const) {
+		for (const pin of ['dark', 'light', 'ink-light', 'ink-dark'] as const) {
 			if (section.classList.contains(pin)) continue;
 			pins[pin] = readPinned(section, card, pin) ?? undefined;
 		}

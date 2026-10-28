@@ -696,3 +696,12 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **Fix:** a package a Tavola (or any workspace library) entry imports goes in the root `devDependencies` at the same pinned version
   as `docs/package.json`, and in the lockfile. `trystero` is already there for the same reason.
 - **Removable when:** the library builds resolve their types from the package they ship rather than from whichever install is nearest.
+
+## Every job that installs a Playwright browser fails at setup with `Playwright does not support <browser> on ubuntu26.04-x64`
+
+- **Symptom:** `studio-smoke` and `player no-JS (WebKit)` go red on every PR at once, in under a minute, with no test run. The `ci` gate goes red with them, because `player-webkit` is in its `needs`. The log ends at the install step: `BEWARE: your OS is not officially supported by Playwright; installing dependencies for ubuntu26.04-x64 as a fallback. Cannot install dependencies for ubuntu26.04-x64 with Playwright 1.56.1! ... Playwright does not support webkit on ubuntu26.04-x64`.
+- **Cause:** `runs-on: ubuntu-latest` moved to Ubuntu 26.04 on 2026-10-27. #2904's `studio-smoke` and `player-webkit` passed at 19:15 to 19:32 UTC that day; the first red run on #2909 was at 23:30 UTC. Playwright 1.56.1 (the browser pin, `docs/package.json`) has no `--with-deps` list for 26.04.
+- **Fix:** the jobs that run `npx playwright install --with-deps` are pinned to `ubuntu-24.04` (`golden-diff` already was, for another reason). Nothing else in them changes.
+- **How to tell it from a real failure:** the job log stops at `npx playwright install` and the Playwright report artifact is empty. A real test failure prints the failing spec.
+- **Triggered by:** GitHub moving the `ubuntu-latest` label.
+- **Removable when:** the Playwright pin (and the pinned browser builds the goldens and `@visual` baselines depend on) moves to a version that supports the new image; then unpin each job in the same PR as the bump.
