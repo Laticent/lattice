@@ -269,7 +269,20 @@ const nextSteps = nextStepsFor(url);
 						the same kind of deck: one that has to land with people who have little time. Every figure on these sample slides
 						is made up for illustration.
 					</SectionHead>
+					<!-- Phone only: the swipe row shows one room at a time, so name all six above it.
+					     The second scoring round found five of six personas hidden off-screen. -->
+					<p class="m-0 mb-4 text-[13.5px] text-muted-foreground sm:hidden">
+						Swipe for all six: the boardroom, the pitch, the briefing, the lecture hall, the mission, and the review.
+					</p>
 					<RoomCards playgroundHref={url('playground/')} layoutCount={manifests.length} />
+					<!-- Dogfooding, the one proof the page can give without inventing a user: we
+					     make our own decks with it. Both links are decks that ship today. -->
+					<p class="m-0 mt-8 max-w-[62ch] text-[15px] leading-[1.6] text-foreground">
+						<span class="font-semibold text-[var(--text-heading)]">We make our own decks with it.</span> The{' '}
+						<a class="font-semibold text-primary hover:underline" href={url('studio/')}>Studio's welcome deck</a> and
+						the{' '}<a class="font-semibold text-primary hover:underline" href={url('gallery.pdf')} target="_blank" rel="noopener">full
+						layout gallery</a> are Lattice decks, each one plain text file.
+					</p>
 				</div>
 				<!-- Invisible controller: fills the say-more slide's and the cards' live hosts, each as it nears the viewport, + wires "Edit this
 				     deck". client:load (not client:visible) because this island renders

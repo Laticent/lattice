@@ -190,44 +190,55 @@ export function SayMoreSection({ playgroundHref }: { playgroundHref: string }) {
 // island fills with a real slide, plus an "Edit this" link (its data-open-deck
 // handoff seeds the playground via landing-handoff.ts). The slide sources live in
 // room-decks.ts. See engineering/decisions/2026-10-28-home-positioning-audit.md §6.
-type RoomCard = { live: string; room: string; who: string; body: React.ReactNode };
+// `deck` is a full worked deck from exemplars/ for that room: a whole deck, not one
+// slide, committed with its PDF (the nightly bless renders it). The site does not
+// serve those PDFs, so the link opens GitHub's PDF preview of `main`.
+type RoomCard = { live: string; room: string; who: string; body: React.ReactNode; deck: { label: string; path: string } };
+
+const EXEMPLAR_PDF = (path: string) => `https://github.com/Laticent/lattice/blob/main/exemplars/${path}.pdf`;
 
 const ROOM_CARDS: RoomCard[] = [
 	{
 		live: 'boardroom',
 		room: 'The boardroom',
 		who: 'Executives, finance, founders',
-		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches, and Lattice never adds a number you didn’t write.',
+		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches.',
+		deck: { label: 'a full board update', path: 'corporate/board-update' },
 	},
 	{
 		live: 'pitch',
 		room: 'The pitch',
 		who: 'Sales and marketing teams',
 		body: 'A funnel that shows where the pipeline leaks, like this one, plus layouts for pricing tiers, customer logos, and quotes. The brand lives in one file, so every rep’s deck matches, and any deck exports to PowerPoint.',
+		deck: { label: 'a full sales deck', path: 'corporate/sales-deck' },
 	},
 	{
 		live: 'briefing',
 		room: 'The briefing',
 		who: 'Government and the public sector',
 		body: 'A policy recommendation with its evidence cited, a regulatory update, a risk matrix. It runs offline on your own machine, and every layout meets WCAG AA contrast.',
+		deck: { label: 'a full policy briefing', path: 'government-public/policy-briefing' },
 	},
 	{
 		live: 'lecture',
 		room: 'The lecture hall',
 		who: 'Faculty, researchers, students',
 		body: 'Real math notation, plots, diagrams, and a glossary. Free and open source. Each lecture is a text file you can keep, share, and reuse next term.',
+		deck: { label: 'a full lecture', path: 'academic/lecture' },
 	},
 	{
 		live: 'mission',
 		room: 'The mission',
 		who: 'Nonprofits and foundations',
 		body: 'Impact numbers like these, plus layouts for a map of the countries or states you serve and the people who do the work. It’s free, so the donor report looks professional without a design budget.',
+		deck: { label: 'a full annual impact report', path: 'nonprofit/impact-annual-report' },
 	},
 	{
 		live: 'review',
 		room: 'The review',
 		who: 'Engineers, lawyers, analysts, project leads',
 		body: '', // filled below with the live layout count
+		deck: { label: 'a full project status review', path: 'general-team/project-status' },
 	},
 ];
 
@@ -280,6 +291,14 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 							    slide verb, not a deck verb. */}
 							Edit this in the playground <ArrowRight aria-hidden="true" className="size-3.5" />
 						</a>
+						<a
+							className="mt-2 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-primary hover:underline focus-visible:underline"
+							href={EXEMPLAR_PDF(c.deck.path)}
+							target="_blank"
+							rel="noopener"
+						>
+							See {c.deck.label} (PDF) <ArrowRight aria-hidden="true" className="size-3.5" />
+						</a>
 					</CardContent>
 				</Card>
 			))}
@@ -292,16 +311,6 @@ type WhyCard = { id: string; title: React.ReactNode; body: React.ReactNode };
 
 const WHY_CARDS: WhyCard[] = [
 	{
-		id: 'one-file',
-		title: 'Brand colors live in one file.',
-		body: (
-			<>
-				Change your palette once and every deck picks it up on the next build. No layout picks its own color, so
-				nothing drifts.
-			</>
-		),
-	},
-	{
 		id: 'git-diff',
 		title: 'Every change is visible.',
 		body: 'A deck is a text file, so a revision shows exactly which words changed, line by line, instead of leaving you to hunt for the box that moved three pixels.',
@@ -310,11 +319,6 @@ const WHY_CARDS: WhyCard[] = [
 		id: 'mermaid',
 		title: 'Diagrams match the deck.',
 		body: 'Flowcharts and sequence diagrams take the deck’s colors and type automatically, so a diagram never needs styling of its own.',
-	},
-	{
-		id: 'contrast',
-		title: 'Contrast is WCAG AA across every layout.',
-		body: 'Accessibility is built into the token contract, not bolted on. Light and dark both clear the bar.',
 	},
 	{
 		id: 'vocabulary',
@@ -335,7 +339,10 @@ const WHY_CARDS: WhyCard[] = [
 
 export function WhyCards() {
 	return (
-		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+		// Four cards, two by two. The brand-colors card moved into "Your brand, one line"
+		// (the section right after this one said it again) and the contrast card into the
+		// briefing room card: both scoring reviews counted the repeats (audit §14).
+		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2">
 			{WHY_CARDS.map((c) => (
 				<Card
 					key={c.id}
@@ -576,9 +583,9 @@ export function ByomSection({ featuresHref, url }: { featuresHref: string; url: 
 					Point your copilot at Lattice.
 				</h2>
 				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-					Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or any
-					agent can draft a valid deck. The engine renders that draft deterministically — the design was finished long
-					before the model arrived.
+					Lattice itself never guesses, but a model can still draft the words. Lattice ships a machine-readable layout
+					catalog and a published authoring spec, so Claude, Cursor, or any agent can draft a valid deck, and the
+					engine renders only what is in the file — the design was finished long before the model arrived.
 				</p>
 				{/* The one new sentence. "The split holds", not "the same rule holds" —
 				    the paragraph above describes a split (the model drafts, the engine
@@ -737,6 +744,25 @@ type NextStep = { href: string; title: string; body: React.ReactNode; cta: strin
 export function nextStepsFor(url: (p: string) => string): NextStep[] {
 	return [
 		{
+			href: url('studio/'),
+			// First: the business visitor's door, titled for what they get, not for a
+			// constraint (the second scoring round asked to lead with it). It keeps the
+			// two-door split: the Studio for a whole deck, the playground for a quick
+			// paste-and-render.
+			title: 'Make your first deck in your browser',
+			body: (
+				<>
+					The Studio runs the whole deck in your browser — nothing to install. For a quick paste-and-render there's{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('playground/')}>
+						the playground
+					</a>
+					.
+				</>
+			),
+			cta: 'Open the Studio',
+			form: true,
+		},
+		{
 			href: url('getting-started/'),
 			title: 'For developers',
 			body: 'Install the command line, render your first deck in a few minutes, and build decks in CI.',
@@ -753,24 +779,6 @@ export function nextStepsFor(url: (p: string) => string): NextStep[] {
 			title: 'Browse the layouts',
 			body: 'Every layout (the reference calls them components) with a live preview and an in-browser editor — themable in all palettes.',
 			cta: 'Layout reference',
-		},
-		{
-			href: url('studio/'),
-			// Keeps its P3-persona hook ("can't install anything?") and gains the
-			// two-door split: the Studio for a whole deck, the playground for a quick
-			// paste-and-render.
-			title: "Can't install anything?",
-			body: (
-				<>
-					The Studio runs the whole deck in your browser — nothing to install. For a quick paste-and-render there's{' '}
-					<a className="font-semibold text-primary hover:underline" href={url('playground/')}>
-						the playground
-					</a>
-					.
-				</>
-			),
-			cta: 'Open the Studio',
-			form: true,
 		},
 	];
 }

@@ -323,3 +323,35 @@ Verification:
 - Swiping renders the next card's slide.
 - studio-smoke `reader-alarms`: 8/8 locally with `--retries=0`.
 - Every slide on the page lints clean.
+
+## 14. Second scoring round, and the readability-and-repeats pass
+
+Fresh reviewers rescored the §13 page against `main`. Visitor lens: 5.0 → 7.5. Craft lens:
+6.2 → 7.7. Both landed below the 8.5–9 this note had predicted. They agreed on three gaps.
+
+1. **The slides carrying the thesis could not be read.** At hero size the three-card
+   decision slide's text was about 6 px.
+2. **The back half repeated itself.** The brand-colors card sat directly above "Your brand,
+   one line". Accessible contrast appeared twice. The "never invents a number" claim
+   appeared three times.
+3. **There was no proof from real people.**
+
+Both also caught a typo: Astro drops the space when an inline element starts a new
+source line ("Change thetheme:"). The owner chose to fix gaps 1 and 2, use our own decks
+for gap 3, and merge.
+
+| Gap | Change |
+|---|---|
+| Hero unreadable | The hero is a `big-number` board decision ("$4M saved by year three: $6M to build in-house vs $10M to buy"). It is readable at 390 px, and its Source tab is five lines |
+| Repeats | The "why" grid drops the brand-colors and contrast cards and becomes two by two. The boardroom card drops its number line, so the proof strip is the claim's one home |
+| "Not an AI that guesses" beside "Point your copilot at Lattice" | The AI section opens with the bridge: Lattice itself never guesses, a model can still draft the words, and the engine renders only what is in the file |
+| Five rooms hidden in the phone swipe row | A phone-only line above the row names all six rooms |
+| Business visitors meet "For developers" first in Next steps | "Make your first deck in your browser" leads; the developer card is second |
+| No real proof | Each room card links a full worked deck from `exemplars/`, committed with its PDF and opened via GitHub's preview of `main`, since the site does not serve those PDFs. A "We make our own decks with it" line links the Studio's welcome deck and the layout gallery. No user or quote is invented |
+| Typo | Every inline element that starts a source line carries an explicit `{' '}`. A scan of the rendered page finds no glued word |
+
+Still open:
+
+- Real users or quotes, which no change to the page can supply.
+- Room-card thumbnails are small at tile scale.
+- The PREVIEW badge.

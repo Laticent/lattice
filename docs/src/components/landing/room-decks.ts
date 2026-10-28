@@ -26,23 +26,18 @@ export const SAY_MORE_SLIDE = `<!-- _class: waterfall -->
 - This year \`$14.6M\`
 `;
 
-// The hero's slide. Both independent reviews of this page found the old hero, the
-// verdict-grid manifest sample ("Option one", "Criterion"), the least persuasive
-// slide on it: a layout describing itself, the first thing every visitor sees. A
-// real board decision says what the page is for. The Source tab shows this text
-// verbatim, so "write this, get this" stays literally true.
-export const HERO_SLIDE = `<!-- _class: decision -->
+// The hero's slide. The first review round found the old hero, the verdict-grid
+// manifest sample ("Option one", "Criterion"), a layout describing itself. The next
+// hero, a three-card decision slide, read as about 6px text at hero size, so the
+// second scoring round could not read the first proof on the page. A big-number
+// slide carries one claim in display type, readable at any width, and its Source
+// tab is five lines, so "write this, get this" is literally true at a glance.
+export const HERO_SLIDE = `<!-- _class: big-number -->
 
 \`Board decision · Q3\`
 
-## We build the platform in-house.
-
-- Build
-  - We keep the pricing logic, the roadmap, and the customer data. Ready in two quarters.
-- Why not buy
-  - Both vendors lock the pricing rules inside their product, and cost more by year three.
-- Why not wait
-  - Two competitors launch next spring. Waiting hands them the window.
+- $4M
+  - saved by year three: $6M to build in-house vs $10M to buy.
 `;
 
 // The "Your brand, one line" carousel's slide: one quarterly review re-rendered
