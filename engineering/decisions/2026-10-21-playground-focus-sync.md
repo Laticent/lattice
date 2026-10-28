@@ -401,3 +401,32 @@ unchanged code: both cases end on slide 1 (expected 9 and 3). After: the frames 
 (Chromium), `gecko` and `webkit-tablet`. The phone layout has no collapse (tabs own visibility), so `webkit-phone` does
 not apply. Real Safari and touch are UNVERIFIED. Not done: a collapse by dragging the divider has no e2e; the
 `sectionAt` check on the kept scroll is the guard for it.
+
+## A late scroll event is still the move's echo (2026-10-28, followup `2937-p2`)
+
+**Symptom.** The spec "a click on a line in the editor centers its slide in the preview and leaves the editor alone"
+failed on `webkit-tablet`: the editor's `scrollTop` moved 136 px after the click. It is a load flake, not a WebKit
+quirk: on this 4-core sandbox it passed 20 of 20 with one worker and failed **9 of 24** with six workers.
+
+**Cause.** `isEcho` measured the 120 ms window from the moment the sync WROTE the preview's scroll. A scroll event is
+delivered on a later frame. A busy page delivers that frame late, and the event reached `drivenByPreview` after the
+window had closed, so the sync read its own move as the reader scrolling the preview and moved the editor to follow.
+Timestamps from the 24-run probe (write → event): every failing run was 139–362 ms; every passing run was ≤ 119 ms.
+Nothing else separated them.
+
+**Fix.** `landEcho` (`playground-sync.ts`) restarts the window when the FIRST scroll event after a move arrives, on
+`previewScrolled` and `editorScrolled`. Only that first event counts, so a later scroll by the reader is never taken
+for the echo, and the events that follow it (CodeMirror re-anchoring) fall inside the new window. An event more than
+`ECHO_LATE_MS` (600) late counts only if it arrives at the position the move set (`ECHO_LATE_AT_POSITION_MS`, 3 s),
+because a reader's scroll lands elsewhere. That second arm exists because one run in 48 had the event 607 ms late.
+
+**Evidence** (`webkit-tablet`, `build:e2e`, same sandbox):
+
+| Run | Before | After the first cut (600 ms cap) | After |
+|---|---|---|---|
+| 6 workers, `--retries=0` | 9 of 24 failed | 1 of 24, 1 of 48 failed (event 607 ms late) | 48 of 48 passed |
+| 1 worker | 20 of 20 passed | — | 20 of 20 passed |
+
+The whole spec file passes on `desktop`, `webkit-tablet` and `gecko`: 33 of 33. The unit rig now delivers the scroll
+event of the sync's own move on the next frame, as a browser does; before, it never delivered one, which is why no
+unit test could see this. The new unit test "the preview's late echo does not move the editor" fails on the old code.
