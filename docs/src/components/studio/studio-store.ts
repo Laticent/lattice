@@ -22,6 +22,9 @@ const INDEX_LS = 'lattice-studio-deck-index'; // [{id,title,builtin}]
 // the REAL prefix (storage-metrics.test.ts) — a rename here then fails that test
 // instead of silently mis-bucketing the overlay's breakdown.
 export const SRC_PREFIX = 'lattice-studio-src-'; // + deckId → edited source
+/** + deckId → the hash of the source the Studio itself last wrote (Filo's reload sidecar, studio-filo-persist.ts).
+ *  Its own prefix, never under SRC_PREFIX: a prefix scan for sources must not read it as a deck. */
+export const FILO_SUM_PREFIX = 'lattice-studio-filo-sum-';
 const ACTIVE_LS = 'lattice-studio-active'; // { deckId, slideIndex } — the deck+slide last viewed, so a reload boots where you left off
 const SETTINGS_LS = 'lattice-studio-settings'; // { validation, pageNumbers, headerFooter, language }
 const INSTRUCTIONS_LS = 'lattice-studio-instructions'; // CLOUD standing instructions (free text)
@@ -347,7 +350,21 @@ export function loadSource(id: string): string | null {
 export function saveSource(id: string, source: string): void {
 	write(SRC_PREFIX + id, source);
 }
+/**
+ * Record the hash of the source the Studio just wrote for `id`, in the same synchronous moment, or
+ * remove it (`null`) for a write the history did not see. Filo compares it on the next open: equal
+ * to the source means the Studio wrote it; different means something outside the Studio did.
+ */
+export function saveSourceSum(id: string, hash: number | null): void {
+	if (hash === null) remove(FILO_SUM_PREFIX + id);
+	else write(FILO_SUM_PREFIX + id, hash);
+}
+export function loadSourceSum(id: string): number | null {
+	const v = read<number>(FILO_SUM_PREFIX + id);
+	return typeof v === 'number' ? v : null;
+}
 function dropSource(id: string): void {
+	remove(FILO_SUM_PREFIX + id);
 	try {
 		localStorage.removeItem(SRC_PREFIX + id);
 	} catch {
@@ -615,6 +632,8 @@ export function clearAllDecks(): void {
 	// `lastCheckpointClear()`. Like the source writes guarded by DECKS_CLEARED_EVENT, a
 	// checkpoint saved in the moment before that reload is not refused here.
 	void clearCheckpoints();
+	// Every deck's undo history (Filo, IndexedDB) is cleared by the caller, governance.ts, which
+	// awaits it: this module stays free of the history store, which only the Studio loads.
 	remove(INDEX_LS);
 	remove(ACTIVE_LS); // the boot pointer is deck CONTENT state — clear it with the rest
 	// The live editor has no other way to learn its in-memory deck/source state
@@ -826,7 +845,7 @@ export const CHAT_DRAFT_PREFIX = 'lattice-studio-chatdraft-'; // + deckId → st
  * new content prefix fails CI until it is listed here (#1930; the two sweeps used to spell the
  * set out inline, and a prefix with no export of its own could drift past the overlay).
  */
-export const DECK_CONTENT_PREFIXES: readonly string[] = Object.freeze([SRC_PREFIX, SNAP_PREFIX, CHAT_PREFIX, CHAT_DRAFT_PREFIX, COMMENTS_KEY_PREFIX]);
+export const DECK_CONTENT_PREFIXES: readonly string[] = Object.freeze([SRC_PREFIX, FILO_SUM_PREFIX, SNAP_PREFIX, CHAT_PREFIX, CHAT_DRAFT_PREFIX, COMMENTS_KEY_PREFIX]);
 const isDeckContentKey = (k: string) => DECK_CONTENT_PREFIXES.some((p) => k.startsWith(p));
 export function loadChatDraft(deckId: string): string {
 	return read<string>(CHAT_DRAFT_PREFIX + deckId) ?? '';

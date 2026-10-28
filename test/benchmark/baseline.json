@@ -264,6 +264,50 @@
       "p95": 113.59
     }
   },
+  "filoDatasets": {
+    "filo · type 200 characters": {
+      "steps": 1,
+      "ms": 0.17,
+      "p95": 0.22
+    },
+    "filo · AI apply (two distant slides)": {
+      "storedChars": 210694,
+      "ms": 0.03,
+      "p95": 0.08
+    },
+    "filo · undo + redo of it": {
+      "steps": 1,
+      "ms": 0.31,
+      "p95": 0.51
+    },
+    "filo · snapshot (100 steps)": {
+      "steps": 90,
+      "bytes": 2181166,
+      "ms": 0.57,
+      "p95": 0.67
+    },
+    "filo · verify after reload (worker)": {
+      "steps": 90,
+      "ms": 21.72,
+      "p95": 22.74
+    },
+    "filo · restore after reload (main thread)": {
+      "steps": 90,
+      "ms": 0.35,
+      "p95": 0.47
+    },
+    "filo · restore, verifying in place (no worker)": {
+      "steps": 90,
+      "ms": 19.5,
+      "p95": 64.38
+    },
+    "filo · narrow broad steps (worker)": {
+      "bytes": 2181166,
+      "narrowedBytes": 279520,
+      "ms": 28.95,
+      "p95": 36.51
+    }
+  },
   "inlineDatasets": {
     "inline · ordinary code / retired kernel": {
       "spans": 4961,

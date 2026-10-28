@@ -53,7 +53,8 @@ export type StorageCategory = {
 // snapshot-cache.js — kept in sync by hand (deckContentStats does the same).
 type CategoryDef = { key: string; label: string; match: (k: string) => boolean };
 const CATEGORY_DEFS: CategoryDef[] = [
-	{ key: 'sources', label: 'deck sources', match: (k) => k.startsWith('lattice-studio-src-') },
+	// A deck's source and the small hash the Studio writes beside it (Filo's reload sidecar, FILO_SUM_PREFIX).
+	{ key: 'sources', label: 'deck sources', match: (k) => k.startsWith('lattice-studio-src-') || k.startsWith('lattice-studio-filo-sum-') },
 	{ key: 'checkpoints', label: 'checkpoints', match: (k) => k.startsWith('lattice-studio-snap-') },
 	{ key: 'chats', label: 'AI chats', match: (k) => k.startsWith('lattice-studio-chat-') },
 	{ key: 'drafts', label: 'chat drafts', match: (k) => k.startsWith('lattice-studio-chatdraft-') },

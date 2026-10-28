@@ -35,7 +35,7 @@ import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
-import { createFilo } from '@/lib/filo';
+import { createFilo, hashText } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
 import { unitText } from '@/lib/fuoco/outline';
 import { placeAt } from '@/lib/fuoco/place';
@@ -156,9 +156,10 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
+import { createFiloPersistence, filoStore, narrowInWorker, verifyInWorker } from './studio-filo-persist';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
-import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
+import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, loadSourceSum, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
 import { BUILTIN_PALETTES, ThemeMenuItems, themeSelectGroups } from './ThemePicker';
 import { deleteStudioTheme, listStudioThemes, type StudioTheme } from './theme-library';
 import { DEFAULT_TOUR, TOURS, tourMeta } from './tours';
@@ -502,6 +503,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// source to Filo once React settles. `setSourceRaw` is used nowhere outside this block; the
 	// `checkFiloCommitPath` gate (tools/check-ownership.js) holds that.
 	const filo = React.useMemo(() => createFilo({ boundary: slideBoundary }), []);
+	// The history survives a reload (Filo slice 5, studio-filo-persist.ts): one IndexedDB store,
+	// the Studio's own sidecar hash beside each saved source, broad steps narrowed in a worker.
+	const filoPersist = React.useMemo(() => createFiloPersistence({ store: filoStore(), sidecar: loadSourceSum, narrow: narrowInWorker, verify: verifyInWorker, notify }), []);
 	const intentRef = React.useRef<StampedIntent | null>(null);
 	const intentSeqRef = React.useRef(0);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
@@ -2006,6 +2010,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// A practice deck is never saved: the deck keeps the shared text.
 		if (practiceRef.current) src = practiceRef.current.real;
 		saveSource(id, src);
+		// Filo's reload sidecar, in the same synchronous write: the Studio wrote this text through the
+		// open deck's history. Not for another deck (a retired-plugin rewrite, `onRetire`), and not
+		// during a live session: the history did not record those, so they read as outside changes.
+		saveSourceSum(id, liveSharedRef.current || id !== deckIdRef.current ? null : hashText(src));
 		// Refresh the pre-paint shell's mirror. Deliberately derived from `src` HERE
 		// rather than passed in: this is the deck's real title as the deck states it —
 		// its `title:` override, else its heading — never its creation label (which stays
@@ -4399,7 +4407,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				// A document switch is a load, never a commit (§3.2 rule 3). A practice deck left behind
 				// is forgotten.
 				if (h?.doc.startsWith('practice:')) filo.drop(h.doc);
-				filo.load(doc, text);
+				const opened = filo.load(doc, text);
+				// Its stored past, if any, goes under it once storage answers (§5). A practice deck is memory only.
+				if (!doc.startsWith('practice:')) void filoPersist.open(opened, text);
 				return;
 			}
 			if (liveSharedRef.current) {
@@ -4412,7 +4422,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			}
 			timed('filo:commit', () => commitSource(h, text, intent));
 		},
-		[filo],
+		[filo, filoPersist],
 	);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `filoDoc` IS a trigger — a tour's practice deck switches documents with no source change of its own.
 	React.useEffect(() => {
@@ -4420,7 +4430,26 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}, [source, filoDoc, filoCommit]);
 	// A deck deleted takes its history with it (§6.4). "Clear all" reloads the Studio, which empties
 	// every in-memory history.
-	const filoDropDeck = React.useCallback((id: string) => filo.drop(id), [filo]);
+	const filoDropDeck = React.useCallback(
+		(id: string) => {
+			filo.drop(id);
+			filoPersist.drop(id);
+		},
+		[filo, filoPersist],
+	);
+	// The history is stored on idle; a page hiding stores it now, after the source flush above.
+	React.useEffect(() => {
+		const flush = () => filoPersist.flush();
+		const onVisibility = () => {
+			if (document.visibilityState === 'hidden') flush();
+		};
+		window.addEventListener('pagehide', flush);
+		document.addEventListener('visibilitychange', onVisibility);
+		return () => {
+			window.removeEventListener('pagehide', flush);
+			document.removeEventListener('visibilitychange', onVisibility);
+		};
+	}, [filoPersist]);
 	filoDropRef.current = filoDropDeck;
 
 	// What the last undo or redo did, for assistive tech (`Announce`). A sighted author sees it: the

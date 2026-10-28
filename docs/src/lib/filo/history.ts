@@ -12,7 +12,7 @@
 //   · A change made outside this history (`sync`) becomes one GAP entry on the next undo, and
 //     that undo stops there: an old patch is never applied to text it was not recorded against.
 
-import { applyPatch, composePatch, type Edit, invertPatch, type Patch, patchOf, patchSize, trimPatch } from './patch.js';
+import { applyPatch, composePatch, type Edit, hashText, invertPatch, type Patch, patchOf, patchSize, trimPatch } from './patch.js';
 
 export const DEFAULT_ENTRIES = 100;
 export const MAX_ENTRIES = 500;
@@ -129,6 +129,50 @@ export interface HistoryState {
 	readonly redoLabel: string | null;
 	readonly steps: number;
 	readonly stale: boolean;
+	/** Bumped on every change this history reports: what a persistence layer subscribes to. */
+	readonly revision: number;
+}
+
+/** One step as stored. Entries keep their caret offsets and ids, not their patches: a stored step
+ *  is closed, so only its net patch is ever applied again. */
+export interface SnapshotStep {
+	readonly label: string;
+	readonly origin: string;
+	readonly net: Patch;
+	readonly first: SnapshotEntry;
+	readonly last: SnapshotEntry;
+}
+export interface SnapshotEntry {
+	readonly id: number;
+	readonly label: string;
+	readonly origin: string;
+	readonly before: number;
+	readonly after: number;
+	readonly ts: number;
+}
+export interface SnapshotMark extends Mark {
+	readonly at: number | null;
+	readonly anchor: Patch | null;
+}
+
+/**
+ * A history as plain data, for storage (structured-clone and JSON safe). `hash` is the cyrb53 hash
+ * of `text`, so a host can compare it with the document it holds without replaying anything.
+ * Restoring replays the floor through every done step and refuses a snapshot whose replay does not
+ * land on `text`: a stack is never applied to text it was not recorded against.
+ */
+export interface Snapshot {
+	readonly v: 1;
+	readonly doc: string;
+	readonly text: string;
+	readonly hash: number;
+	readonly floor: string;
+	readonly done: readonly SnapshotStep[];
+	/** The redo branch, newest undone last (the order `redo` pops). */
+	readonly undone: readonly SnapshotStep[];
+	readonly marks: readonly SnapshotMark[];
+	readonly nextId: number;
+	readonly nextMarkId: number;
 }
 
 type Listener = () => void;
@@ -152,6 +196,7 @@ export class History<M = unknown> {
 	private readonly now: () => number;
 	private readonly listeners = new Set<Listener>();
 	private bytes = 0;
+	private revision = 0;
 
 	constructor(doc: string, text: string, opts: HistoryOptions = {}) {
 		this.doc = doc;
@@ -191,6 +236,7 @@ export class History<M = unknown> {
 			redoLabel: this.outside === null ? (r?.label ?? null) : null,
 			steps: this.done.length,
 			stale: this.outside !== null,
+			revision: this.revision,
 		};
 	}
 
@@ -553,6 +599,83 @@ export class History<M = unknown> {
 		this.bytes -= step.size;
 	}
 
+	// ── Storage ───────────────────────────────────────────────────────────────
+
+	/**
+	 * This history as plain data. The strings and patches are shared, not copied, so it is cheap to
+	 * take on every save; the storage layer clones it. An outside change not yet recorded is not in
+	 * it: the snapshot names the text this history recorded, and the host's own comparison on load
+	 * finds the difference again.
+	 */
+	toSnapshot(): Snapshot {
+		const step = (s: Step<M>): SnapshotStep => ({ label: s.label, origin: s.origin, net: s.net, first: entryRec(s.first), last: entryRec(s.last) });
+		return {
+			v: 1,
+			doc: this.doc,
+			text: this.text_,
+			hash: hashText(this.text_),
+			floor: this.floor,
+			done: this.done.map(step),
+			undone: this.undone.map(step),
+			marks: this.marks_.map(({ id, label, ts, auto, at, anchor }) => ({ id, label, ts, auto, at, anchor })),
+			nextId: this.nextId,
+			nextMarkId: this.nextMarkId,
+		};
+	}
+
+	/**
+	 * Replace this history's thread with `snap`'s, in place, so every subscriber and every writer's
+	 * reference stays valid. Returns false and changes nothing when the snapshot is for another
+	 * document, malformed, or does not replay to its own text. This history's caps apply to the
+	 * restored thread. The host decides what to do about any difference between the restored text
+	 * and the document it shows (commit it, or `sync` it as an outside change). `verified` skips the
+	 * replay for a snapshot the host already checked with `replaySnapshot` (in a worker).
+	 */
+	restoreSnapshot(snap: Snapshot, opts: { verified?: boolean } = {}): boolean {
+		this.guardBatch('restoreSnapshot');
+		// Replaying the thread checks every step against the text it was recorded on. On a long
+		// history that costs more than one frame, so a host may run `replaySnapshot` off the main
+		// thread first and pass `verified`; the cheap checks still run here.
+		if (opts.verified) {
+			if (!snap || snap.v !== 1 || snap.doc !== this.doc || typeof snap.text !== 'string' || hashText(snap.text) !== snap.hash) return false;
+		} else if (!replaySnapshot(snap, this.doc)) return false;
+		const step = (s: SnapshotStep): Step<M> => ({ label: s.label, origin: s.origin, net: s.net, first: entryOf<M>(s.first), last: entryOf<M>(s.last), size: patchSize(s.net), open: null });
+		this.text_ = snap.text;
+		this.floor = snap.floor;
+		this.done = snap.done.map(step);
+		this.undone = snap.undone.map(step);
+		this.marks_ = snap.marks.map((m) => ({ ...m }));
+		this.nextId = Math.max(snap.nextId, this.nextId);
+		this.nextMarkId = Math.max(snap.nextMarkId, this.nextMarkId);
+		this.outside = null;
+		this.groupLabel = null;
+		this.groupOrigin = null;
+		this.bytes = 0;
+		for (const s of this.done) this.bytes += s.size;
+		for (const s of this.undone) this.bytes += s.size;
+		for (const m of this.marks_) if (m.anchor) this.bytes += patchSize(m.anchor);
+		this.enforceLimits();
+		this.emit();
+		return true;
+	}
+
+	/**
+	 * Fold every step into the floor and drop the redo branch, keeping every mark (re-anchored).
+	 * What a storage budget does to a deck before it gives up its history entirely (§4.4).
+	 */
+	compact(): void {
+		this.guardBatch('compact');
+		this.recordGap();
+		this.closeGroup();
+		if (this.undone.length) {
+			this.detachMarksBeyond(this.done.length);
+			for (const s of this.undone) this.bytes -= s.size;
+			this.undone = [];
+		}
+		while (this.done.length) this.foldOldest();
+		this.emit();
+	}
+
 	// ── Subscriptions ─────────────────────────────────────────────────────────
 
 	/** Hear changes to `select(state)`. Called synchronously, only when the selected value changes. */
@@ -569,6 +692,7 @@ export class History<M = unknown> {
 	}
 
 	private emit(): void {
+		this.revision++;
 		for (const fn of this.listeners) fn();
 	}
 
@@ -576,6 +700,45 @@ export class History<M = unknown> {
 	get size(): number {
 		return this.bytes;
 	}
+}
+
+const entryRec = (e: Entry<unknown>): SnapshotEntry => ({ id: e.id, label: e.label, origin: e.origin, before: e.before, after: e.after, ts: e.ts });
+const entryOf = <M>(e: SnapshotEntry): Entry<M> => ({ ...e, patch: [] });
+
+/** Every text `snap`'s thread passes through, from the floor: the done steps, then the redo branch
+ *  in replay order. Null when the snapshot is malformed or its replay misses its own text. */
+export function replaySnapshot(snap: Snapshot, doc?: string): string[] | null {
+	try {
+		if (!snap || snap.v !== 1 || (doc !== undefined && snap.doc !== doc)) return null;
+		if (typeof snap.text !== 'string' || typeof snap.floor !== 'string' || !Array.isArray(snap.done) || !Array.isArray(snap.undone) || !Array.isArray(snap.marks)) return null;
+		if (hashText(snap.text) !== snap.hash) return null;
+		const texts = [snap.floor];
+		let text = snap.floor;
+		const step = (s: SnapshotStep) => {
+			if (!fits(text, s.net)) throw new Error('filo: a stored step does not fit its text');
+			texts.push((text = applyPatch(text, s.net)));
+		};
+		for (const s of snap.done) step(s);
+		if (text !== snap.text) return null;
+		for (let i = snap.undone.length - 1; i >= 0; i--) step(snap.undone[i]);
+		for (const m of snap.marks) if (m.at !== null && (m.at < 0 || m.at >= texts.length)) return null;
+		return texts;
+	} catch {
+		return null;
+	}
+}
+
+/** True when every change of `patch` is in order, inside `text`, and deletes exactly the text it
+ *  says it deletes: the patch was recorded against this text. */
+function fits(text: string, patch: Patch): boolean {
+	if (!Array.isArray(patch)) return false;
+	let pos = 0;
+	for (const c of patch) {
+		if (!Number.isInteger(c.from) || !Number.isInteger(c.to) || c.from < pos || c.to < c.from || c.to > text.length) return false;
+		if (typeof c.insert !== 'string' || text.slice(c.from, c.to) !== c.deleted) return false;
+		pos = c.to;
+	}
+	return true;
 }
 
 function afterOffset(patch: Patch): number {

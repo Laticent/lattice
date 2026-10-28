@@ -1,16 +1,20 @@
 // Filo — one undo history for every way a document changes.
 //
 // *Filo* is Italian for "thread": every change leaves a length of thread, and ⌘Z walks back
-// along it, whichever view you are in. Framework-free, zero dependencies. This is the in-memory
-// core (slice 2 of engineering/decisions/2026-10-27-filo-undo-history.md); persistence, the
-// cross-document byte budget and the worker arrive in slice 5.
+// along it, whichever view you are in. Framework-free, zero dependencies. The in-memory core is
+// slice 2 of engineering/decisions/2026-10-27-filo-undo-history.md; slice 5 adds storage
+// (`store.ts`: IndexedDB, one writer per document, Clear all, a cross-document budget) and the
+// narrowing of broad patches (`narrow.ts`), which the host runs off the main thread.
 
 import { History, type HistoryOptions } from './history.js';
 
-export type { CommitInput, CommitResult, Entry, HistoryOptions, HistoryState, Limits, Mark, Move, StepInfo } from './history.js';
-export { DEFAULT_BYTES, DEFAULT_COALESCE_MS, DEFAULT_ENTRIES, DEFAULT_GROUP_QUIET_MS, History, MAX_ENTRIES } from './history.js';
+export type { CommitInput, CommitResult, Entry, HistoryOptions, HistoryState, Limits, Mark, Move, Snapshot, SnapshotEntry, SnapshotMark, SnapshotStep, StepInfo } from './history.js';
+export { DEFAULT_BYTES, DEFAULT_COALESCE_MS, DEFAULT_ENTRIES, DEFAULT_GROUP_QUIET_MS, History, MAX_ENTRIES, replaySnapshot } from './history.js';
+export { NARROW_MAX_D, NARROW_MIN, narrowPatch, narrowSnapshot } from './narrow.js';
 export type { Change, Edit, Patch } from './patch.js';
 export { applyPatch, composePatch, hashText, invertPatch, mapPos, patchOf, patchSize, trimPatch } from './patch.js';
+export type { Backend, Eviction, FiloStore, FiloStoreOptions, StoredIndex } from './store.js';
+export { compactSnapshot, createFiloStore, DEFAULT_BUDGET, idbBackend, memoryBackend, planEviction, snapshotBytes } from './store.js';
 
 export interface Filo<M = unknown> {
 	/** Open (or return) the history for `doc`. By default it becomes the base: the document the keys

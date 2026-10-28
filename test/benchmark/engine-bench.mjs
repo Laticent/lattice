@@ -679,6 +679,137 @@ async function splitTier() {
   return { summary };
 }
 
+// ── FILO TIER (the undo history, on the 134 KB deck) ─────────────────────────
+//
+// docs/src/lib/filo is the Studio's one undo history (engineering/decisions/2026-10-27-filo-undo-history.md).
+// Its budget is "no history step over 16 ms on the main thread" (§4.3), measured in real browsers by
+// docs/e2e/filo-undo.spec.ts; this tier is the durable before/after record HARD RULE #19 asks for,
+// in Node, on the same deck (examples/system-design-foundations.md).
+//
+// IT GATES ON WORK. Each row's integers (steps recorded, characters a step stores, bytes a stored
+// history counts, characters left after narrowing) are the same on every machine, so a moved one is
+// a behavior change to re-bless with the PR saying why. `ms` (median) and `p95` are the cost record,
+// reported and not gated, as in the split tier. The clock is injected, so typing coalesces the same
+// way on every run.
+const FILO_DECK = join(ROOT, 'examples/system-design-foundations.md');
+function median(xs) {
+  const s = [...xs].sort((a, b) => a - b);
+  return { ms: s[s.length >> 1], p95: s[Math.floor(s.length * 0.95)] };
+}
+function timeRuns(n, fn) {
+  const out = [];
+  for (let i = 0; i < 3; i++) fn(); // warm
+  for (let i = 0; i < n; i++) {
+    const t0 = process.hrtime.bigint();
+    fn();
+    out.push(Number(process.hrtime.bigint() - t0) / 1e6);
+  }
+  return median(out);
+}
+async function filoTier() {
+  const libPath = join(ROOT, 'docs/src/lib/filo/dist/index.cjs');
+  if (!existsSync(libPath) || !existsSync(FILO_DECK)) {
+    console.log('\n=== FILO · not comparable (no built @laticent/filo, or no deck, in this tree) ===');
+    return { summary: [] };
+  }
+  const { createRequire } = await import('node:module');
+  const filo = createRequire(import.meta.url)(libPath);
+  // A tree before slice 5 has no storage: its typing, AI and undo rows still measure.
+  const stores = typeof filo.History?.prototype?.toSnapshot === 'function';
+  const deck = readFileSync(FILO_DECK, 'utf8').replace(/\r\n?/g, '\n');
+  // An AI apply that edits two distant slides: the trimmed replace spans everything between them.
+  const ai = (text) => {
+    const l = text.split('\n');
+    const a = Math.floor(l.length * 0.1);
+    const b = Math.floor(l.length * 0.9);
+    l[a] = `${l[a]} (tightened)`;
+    l[b] = `${l[b]} (tightened)`;
+    return l.join('\n');
+  };
+  const make = () => {
+    let t = 0;
+    return { h: new filo.History('bench', deck, { now: () => (t += 100) }), tick: () => (t += 1000) };
+  };
+  const summary = [];
+  // Typing: 200 single characters at one spot, as an author types them.
+  {
+    const at = deck.indexOf('\n', Math.floor(deck.length / 2));
+    let steps = 0;
+    const r = timeRuns(20, () => {
+      const { h } = make();
+      for (let i = 0; i < 200; i++) h.commit({ base: h.head, edits: [{ from: at + i, to: at + i, insert: 'x' }], label: 'Typing', origin: 'markdown' });
+      steps = h.state().steps;
+    });
+    summary.push({ dataset: 'filo · type 200 characters', work: { steps }, ms: r.ms / 200, p95: r.p95 / 200 });
+  }
+  // A broad commit (an AI apply), then its undo and redo.
+  {
+    const next = ai(deck);
+    let stored = 0;
+    const commit = timeRuns(30, () => {
+      const { h } = make();
+      h.commit({ base: h.head, next, label: 'AI', origin: 'ai' });
+      stored = h.size;
+    });
+    summary.push({ dataset: 'filo · AI apply (two distant slides)', work: { storedChars: stored }, ms: commit.ms, p95: commit.p95 });
+    const { h } = make();
+    h.commit({ base: h.head, next, label: 'AI', origin: 'ai' });
+    const u = timeRuns(30, () => {
+      h.undo();
+      h.redo();
+    });
+    summary.push({ dataset: 'filo · undo + redo of it', work: { steps: h.state().steps }, ms: u.ms, p95: u.p95 });
+  }
+  // A full history (100 steps: typing runs and AI applies), stored and restored, as a reload does.
+  if (stores) {
+    const { h, tick } = make();
+    let text = deck;
+    for (let i = 0; i < 100; i++) {
+      tick();
+      if (i % 10 === 9) {
+        text = ai(text);
+        h.commit({ base: h.head, next: text, label: 'AI', origin: 'ai' });
+      } else {
+        const at = text.indexOf('\n', Math.floor((text.length * (i % 9)) / 9) + 1);
+        h.commit({ base: h.head, edits: [{ from: at, to: at, insert: ` edit ${i}` }], label: 'Typing', origin: 'markdown' });
+        text = h.text;
+      }
+    }
+    let snap = null;
+    const take = timeRuns(30, () => {
+      snap = h.toSnapshot();
+    });
+    const bytes = filo.snapshotBytes(snap);
+    const restore = timeRuns(10, () => {
+      const r = new filo.History('bench', text);
+      if (!r.restoreSnapshot(snap)) throw new Error('filo tier: the snapshot did not restore');
+    });
+    // After a reload the Studio replays the stored history in its worker (`replaySnapshot`), then
+    // restores it on the main thread with `verified`, which is the row that holds the 16 ms budget.
+    const verify = timeRuns(10, () => {
+      if (!filo.replaySnapshot(snap)) throw new Error('filo tier: the snapshot did not replay');
+    });
+    const restoreMain = timeRuns(30, () => {
+      const r = new filo.History('bench', text);
+      if (!r.restoreSnapshot(snap, { verified: true })) throw new Error('filo tier: the verified snapshot did not restore');
+    });
+    summary.push({ dataset: 'filo · snapshot (100 steps)', work: { steps: snap.done.length, bytes }, ms: take.ms, p95: take.p95 });
+    summary.push({ dataset: 'filo · verify after reload (worker)', work: { steps: snap.done.length }, ms: verify.ms, p95: verify.p95 });
+    summary.push({ dataset: 'filo · restore after reload (main thread)', work: { steps: snap.done.length }, ms: restoreMain.ms, p95: restoreMain.p95 });
+    summary.push({ dataset: 'filo · restore, verifying in place (no worker)', work: { steps: snap.done.length }, ms: restore.ms, p95: restore.p95 });
+    // What the worker does before a write: narrow the broad steps to the lines that changed.
+    let narrowed = null;
+    const n = timeRuns(5, () => {
+      narrowed = filo.narrowSnapshot(snap);
+    });
+    summary.push({ dataset: 'filo · narrow broad steps (worker)', work: { bytes, narrowedBytes: filo.snapshotBytes(narrowed) }, ms: n.ms, p95: n.p95 });
+  }
+  console.log('\n=== FILO · the undo history on the 134 KB deck (system-design-foundations) ===');
+  console.log(`${'dataset'.padEnd(48)}${'work'.padEnd(40)}${'median ms'.padStart(11)}${'p95 ms'.padStart(9)}`);
+  for (const r of summary) console.log(`${r.dataset.padEnd(48)}${JSON.stringify(r.work).padEnd(40)}${r.ms.toFixed(3).padStart(11)}${r.p95.toFixed(3).padStart(9)}`);
+  return { summary };
+}
+
 // ── INLINE-SPAN TIER (the inline-code dispatcher, per span) ──────────────────
 //
 // Every inline-code span an author writes passes through lib/core/inline-code-directives.js,
@@ -1404,7 +1535,7 @@ function comparableMachine(base, here, probeNow) {
  *   transposition away from blessing the sweep rows into `printDatasets`.
  */
 function blessBaseline(summary, render, opts = {}) {
-  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
+  const { printSummary = null, sweepSummary = null, cliSummary = null, exportSummary = null, editSummary = null, flowchartSummary = null, collageSummary = null, splitSummary = null, filoSummary = null, inlineSummary = null, inlineSkipped = null } = opts;
   // A bless restamps `blessedOn` (the render tier always runs), and `tierRows` would carry the prior
   // inline rows forward under that new stamp. `checkInlineRows` gates on the fingerprint alone, so
   // those rows would then gate a machine they were never measured on. Refuse instead.
@@ -1504,6 +1635,8 @@ function blessBaseline(summary, render, opts = {}) {
   const splitOut = tierRows(splitSummary?.length ? splitSummary : null, 'splitDatasets', (s) => ({
     slides: s.slides, split: s.split, pages: s.pages, ms: round2(s.ms), p95: round2(s.p95),
   }));
+  // THE FILO TIER BLESSES ITS WORK COUNTS; `ms` and `p95` are the cost record, as in the split tier.
+  const filoOut = tierRows(filoSummary?.length ? filoSummary : null, 'filoDatasets', (s) => ({ ...s.work, ms: round2(s.ms), p95: round2(s.p95) }));
   // THE INLINE-SPAN TIER BLESSES ITS PAIRED RATIO, which is what `checkInlineRows` compares; the
   // two ns columns ride along so the diff shows the size of a change in real units.
   const inlineOut = tierRows(inlineSummary, 'inlineDatasets', (s) => ({
@@ -1575,6 +1708,8 @@ function blessBaseline(summary, render, opts = {}) {
     ...(collageOut ? { collageDatasets: collageOut } : {}),
     // The structural split over the gallery: slides split and pages emitted. Blessed on every bless.
     ...(splitOut ? { splitDatasets: splitOut } : {}),
+    // The undo history on the 134 KB deck: work counts gated, timings recorded. Blessed on every bless.
+    ...(filoOut ? { filoDatasets: filoOut } : {}),
     // The inline-code dispatcher per span, as a paired ratio against the retired kernel.
     // Blessed on every bless.
     ...(inlineOut ? { inlineDatasets: inlineOut } : {}),
@@ -1589,6 +1724,7 @@ function blessBaseline(summary, render, opts = {}) {
   if (flowchartSummary?.length) wrote.push(`${flowchartSummary.length} flowchart`);
   if (collageSummary?.length) wrote.push(`${collageSummary.length} collage`);
   if (splitSummary?.length) wrote.push(`${splitSummary.length} split`);
+  if (filoSummary?.length) wrote.push(`${filoSummary.length} filo`);
   if (inlineSummary?.length) wrote.push(`${inlineSummary.length} inline`);
   console.log(`\nBlessed baseline → test/benchmark/baseline.json (${wrote.join(' + ')} datasets).`);
 }
@@ -1666,6 +1802,7 @@ function checkBaseline(summary, render, opts = {}) {
   const flowchartSummary = opts.flowchartSummary ?? null;
   const collageSummary = opts.collageSummary ?? null;
   const splitSummary = opts.splitSummary ?? null;
+  const filoSummary = opts.filoSummary ?? null;
   const inlineSummary = opts.inlineSummary ?? null;
   const inlineSkipped = opts.inlineSkipped ?? null;
   const confirming = opts.confirming ?? null;
@@ -1998,6 +2135,30 @@ function checkBaseline(summary, render, opts = {}) {
     }
   }
 
+  // THE FILO TIER. Gates on WORK, like the split tier: a moved count is a behavior change of the
+  // history (what a step stores, what a stored history weighs, what narrowing saves). Re-bless with
+  // the PR saying why.
+  if (filoSummary?.length) {
+    console.log('\n=== FILO CHECK \u00b7 work counts vs committed baseline ===');
+    for (const s2 of filoSummary) {
+      const b = base.filoDatasets?.[s2.dataset];
+      if (!b) {
+        drift = true;
+        console.log(`${s2.dataset.padEnd(48)}  NEW (re-bless)`);
+        continue;
+      }
+      const moved = Object.entries(s2.work).filter(([k, v]) => b[k] !== v);
+      if (moved.length) drift = true;
+      console.log(`${s2.dataset.padEnd(48)}  ${moved.length ? `MOVED ${moved.map(([k, v]) => `${k} ${b[k]} \u2192 ${v}`).join(', ')} (re-bless, and say why)` : 'ok'}`);
+    }
+    for (const name of Object.keys(base.filoDatasets ?? {})) {
+      if (!filoSummary.some((s2) => s2.dataset === name)) {
+        drift = true;
+        console.log(`${name.padEnd(48)}  MISSING (re-bless)`);
+      }
+    }
+  }
+
   if (inlineSkipped === 'failed') {
     // Drift, not a timing verdict: the rows recorded nothing this run, on any machine.
     drift = true;
@@ -2240,6 +2401,8 @@ async function main() {
   const collage = await collageTier();
   // In-process (~3s), and blessed on its work counts: the structural split's cost record (Fluid).
   const split = await splitTier();
+  // In-process (~3s), and blessed on its work counts: the undo history's HARD RULE #19 record.
+  const filoT = await filoTier();
   // Its own process (~5s), and blessed: the inline-code dispatcher's HARD RULE #19 record.
   const inline = await inlineSpanTier(inlineRuns);
   const exp = wantExport ? await exportTier() : null;
@@ -2249,7 +2412,7 @@ async function main() {
   const cli = wantCli ? await cliTier() : null;
   if (wantBless) {
     blessBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
   }
   if (wantCheck && wantBless) {
@@ -2273,7 +2436,7 @@ async function main() {
     // Cost is paid only when something already looks red, so a green run is
     // unchanged. Noise is not correlated across passes; a real regression is.
     const pass1 = checkBaseline(render.summary, render, {
-      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
+      printSummary: print?.summary, sweepSummary: sweep?.summary, cliSummary: cli?.summary, exportSummary: exp?.summary, editSummary: edit?.summary, flowchartSummary: flow?.summary, collageSummary: collage?.summary, splitSummary: split?.summary, filoSummary: filoT?.summary, inlineSummary: inline.summary, inlineSkipped: inline.skipped,
     });
     if (pass1.regressedDatasets.length) {
       // ONLY THE RENDER TIER IS RE-MEASURED. `renderTier()` is what pass 2 runs, and it is
