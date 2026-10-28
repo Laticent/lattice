@@ -128,10 +128,10 @@ inline so it follows the page's own theme toggle. The generator was kept out of 
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| thread (`pri`) | `#8a6509` | `#e8bd4f` | the woven threads (ochre) |
-| main path (`warm`) | `#a0522d` | `#e0916a` | the sienna weft |
-| hub | `#8a6509` | `#e8bd4f` | the hub node |
-| ring | `#3d2a03` | `#1c1404` | the hub's inner ring |
+| thread (`pri`) | `#923a37` | `#ff958d` | the woven threads (brick) |
+| main path (`warm`) | `#8a6509` | `#e8bd4f` | the gold weft |
+| hub | `#923a37` | `#ff958d` | the hub node |
+| ring | `#431614` | `#180807` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
 | ink (wordmark) | `#241f1b` | `#e6e2dd` | Fraunces "Trama" |
 
@@ -301,7 +301,7 @@ Calco or Tavola.
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | vessels (`pri`) | `#7a5a12` | `#e3b860` | the boxes (honey) |
-| waterline and tint (`warm`, `tint`) | `#13a17a` | `#5fe0b8` | the content (jade) |
+| waterline and tint (`warm`, `tint`) | `#009772` | `#5fe0b8` | the content (jade; light darkened from `#13a17a`, which was 2.96:1) |
 | hub | `#7a5a12` | `#e3b860` | the focal point |
 | ring | `#33250a` | `#2a1f08` | the hub's inner ring |
 | halo | `#f6f3ec` | `#121012` | paper (separation) |
@@ -350,18 +350,20 @@ the same amber live accent, because the system said each library owns "one warm 
 teal sat 0.027 from Suono's green in OKLab, close enough to read as one color, and Calco, Lente and
 Cadenza were three blues within 37 degrees of hue.
 
-**What changed.** The primaries now sit at least 0.071 apart in light and 0.077 in dark (the closest
-pair was 0.027). Five libraries moved; Segno, Mosaico, Calco, Veduta and Tavola did not.
+**What changed.** The primaries now sit at least 0.070 apart in light and 0.071 in dark (the closest
+pair was 0.027), counting Filo and Fluido, which landed on `main` while this was in review. Five
+libraries moved; Segno, Mosaico, Calco and Tavola did not, and Filo and Fluido kept their hues.
 
 | Library | Primary (light / dark) | Accent (light / dark) | Change |
 |---|---|---|---|
 | Fuoco | ember `#b8490b` / `#ff9d57` | teal `#0e6b67` / `#5cc6bc` | swapped its two colors |
-| Trama | ochre `#8a6509` / `#e8bd4f` | sienna `#a0522d` / `#e0916a` | swapped its two colors |
+| Trama | brick `#923a37` / `#ff958d` | gold `#8a6509` / `#e8bd4f` | primary moved off sienna to brick; accent kept gold. An ochre primary collided with Fluido's honey (0.024 apart in dark) |
 | Lente | cyan `#00787d` / `#64d1d7` | amber `#ab6900` / `#f6b64a` | primary moved off blue |
 | Suono | emerald `#0b703f` / `#61da92` | amber `#ab6900` / `#f6b64a` | primary moved toward green, amber darkened |
 | Cadenza | indigo (unchanged) | magenta `#b83997` / `#f999da` | accent moved off amber |
 | Vetrina | rose (unchanged) | violet `#734dbe` / `#b7a0fb` | accent moved off amber |
 | Veduta | purple (unchanged) | chartreuse `#7b8a00` / `#d9e75a` | light accent darkened from `#8a9a00` (2.83:1) |
+| Fluido | honey (unchanged) | jade `#009772` / `#5fe0b8` | light accent darkened from `#13a17a` (2.96:1) |
 
 **Rule change.** The family DNA still has a hub, a halo and a warm-or-cool second color, but the
 second color is no longer required to be warm, and no accent may be shared by more than two
@@ -393,11 +395,11 @@ min mark, the lockup and the demo page, in up to four token blocks per page. Now
 - `test/unit/docs/library-mark-palette.test.js` fails if an SVG differs from what the palette generates.
 
 To recolor a library, edit its roles in the palette file and run the tool. The migration was checked two
-ways: the generator reproduced all 33 existing SVG `<style>` blocks byte for byte, and a snapshot of
-every theme token on all 11 pages in four theme states (OS light or dark, with and without an explicit
-`data-theme`) matched across the move, 817 values identical. The only differences were two fixes: the five
+ways: the generator reproduced all 33 existing SVG `<style>` blocks byte for byte (27 for the first eleven libraries, 6 for Filo and Fluido), and a snapshot of
+every theme token on all 13 pages in four theme states (OS light or dark, with and without an explicit
+`data-theme`) matched across the move, 965 values identical. The only differences were two fixes: the five
 pages whose `data-theme` blocks never restored `--shadow` now do, and Veduta, which ignored
-`data-theme="dark"`, now honors it. Segno, Tavola and Veduta also gain an unused `--stage-serif`.
+`data-theme="dark"`, now honors it. Segno, Tavola, Veduta, Filo and Fluido also gain an unused `--stage-serif`.
 
 **Page neutrals did not move.** Each demo page's paper, stage and line tints stayed. They still sit in
 family with the new colors: Fuoco's teal-tinted neutrals now frame a teal accent, Trama's warm

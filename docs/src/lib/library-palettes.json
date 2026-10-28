@@ -956,16 +956,16 @@
   "trama": {
    "roles": {
     "primary": [
+     "#923a37",
+     "#ff958d"
+    ],
+    "accent": [
      "#8a6509",
      "#e8bd4f"
     ],
-    "accent": [
-     "#a0522d",
-     "#e0916a"
-    ],
     "ring": [
-     "#3d2a03",
-     "#1c1404"
+     "#431614",
+     "#180807"
     ],
     "halo": [
      "#f6f3ec",
@@ -1042,7 +1042,7 @@
      "--accent": "@primary",
      "--glow": "@accent",
      "--glow-ink": "@accent",
-     "--glow-bg": "#fee1d7",
+     "--glow-bg": "#fdf2dd",
      "--panel": "#fffcf8",
      "--thread": "#8a5a42",
      "--ring": "@ring",
@@ -1059,7 +1059,7 @@
      "--accent-ink": "@ring",
      "--glow": "@accent",
      "--glow-ink": "@accent",
-     "--glow-bg": "#33201a",
+     "--glow-bg": "#2f2816",
      "--panel": "#171311",
      "--thread": "#c9a08a",
      "--ring": "@ring",
@@ -1314,6 +1314,255 @@
      "--panel": "#191016",
      "--shadow": "0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35)",
      "--vt-accent": "@primary"
+    }
+   }
+  },
+  "filo": {
+   "roles": {
+    "primary": [
+     "#91123f",
+     "#fb6188"
+    ],
+    "accent": [
+     "#2b9217",
+     "#83e773"
+    ],
+    "ring": [
+     "#3a0619",
+     "#2a0d15"
+    ],
+    "halo": [
+     "#f6f3ec",
+     "#121012"
+    ],
+    "wm": [
+     "#2a1418",
+     "#f3e5e8"
+    ]
+   },
+   "mark": [
+    [
+     "pri",
+     [
+      [
+       "stroke",
+       "@primary"
+      ]
+     ]
+    ],
+    [
+     "warm",
+     [
+      [
+       "stroke",
+       "@accent"
+      ]
+     ]
+    ],
+    [
+     "hub",
+     [
+      [
+       "fill",
+       "@primary"
+      ]
+     ]
+    ],
+    [
+     "ring",
+     [
+      [
+       "stroke",
+       "@ring"
+      ]
+     ]
+    ],
+    [
+     "halo",
+     [
+      [
+       "fill",
+       "@halo"
+      ]
+     ]
+    ],
+    [
+     "wm",
+     [
+      [
+       "fill",
+       "@wm"
+      ]
+     ]
+    ],
+    [
+     "dot",
+     [
+      [
+       "fill",
+       "@accent"
+      ]
+     ]
+    ]
+   ],
+   "page": {
+    "light": {
+     "--paper": "@halo",
+     "--stage": "#f1ebe9",
+     "--ink": "@wm",
+     "--muted": "#6e5a5f",
+     "--line": "#e2d6d6",
+     "--accent": "@primary",
+     "--live": "@accent",
+     "--live-ink": "#226b12",
+     "--live-bg": "#e1f2dc",
+     "--panel": "#fdfbfa",
+     "--soft": "#f6e6ea",
+     "--ring": "@ring",
+     "--shadow": "0 1px 2px rgba(42,20,24,.06), 0 8px 24px rgba(42,20,24,.07)",
+     "--serif": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, Georgia, \"Times New Roman\", serif",
+     "color-scheme": "light"
+    },
+    "dark": {
+     "--paper": "@halo",
+     "--stage": "#1a1517",
+     "--ink": "@wm",
+     "--muted": "#b29aa1",
+     "--line": "#33272b",
+     "--accent": "@primary",
+     "--accent-ink": "#2a0610",
+     "--live": "@accent",
+     "--live-ink": "@accent",
+     "--live-bg": "#14301a",
+     "--panel": "#171214",
+     "--soft": "#3a1a24",
+     "--ring": "@ring",
+     "--shadow": "0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35)",
+     "color-scheme": "dark"
+    }
+   }
+  },
+  "fluido": {
+   "roles": {
+    "primary": [
+     "#7a5a12",
+     "#e3b860"
+    ],
+    "accent": [
+     "#009772",
+     "#5fe0b8"
+    ],
+    "ring": [
+     "#33250a",
+     "#2a1f08"
+    ],
+    "halo": [
+     "#f6f3ec",
+     "#121012"
+    ],
+    "wm": [
+     "#2a2110",
+     "#f3ead6"
+    ]
+   },
+   "mark": [
+    [
+     "pri",
+     [
+      [
+       "stroke",
+       "@primary"
+      ]
+     ]
+    ],
+    [
+     "warm",
+     [
+      [
+       "stroke",
+       "@accent"
+      ]
+     ]
+    ],
+    [
+     "tint",
+     [
+      [
+       "fill",
+       "@accent"
+      ]
+     ]
+    ],
+    [
+     "hub",
+     [
+      [
+       "fill",
+       "@primary"
+      ]
+     ]
+    ],
+    [
+     "ring",
+     [
+      [
+       "stroke",
+       "@ring"
+      ]
+     ]
+    ],
+    [
+     "halo",
+     [
+      [
+       "fill",
+       "@halo"
+      ]
+     ]
+    ],
+    [
+     "wm",
+     [
+      [
+       "fill",
+       "@wm"
+      ]
+     ]
+    ]
+   ],
+   "page": {
+    "light": {
+     "--paper": "@halo",
+     "--stage": "#eeeae0",
+     "--ink": "@wm",
+     "--muted": "#6b604a",
+     "--line": "#ddd5c4",
+     "--accent": "@primary",
+     "--alarm": "#c4412b",
+     "--jade": "@accent",
+     "--jade-soft": "#d5efe6",
+     "--panel": "#fdfcf9",
+     "--soft": "#efe6d2",
+     "--shadow": "0 1px 2px rgba(42,33,16,.06), 0 8px 24px rgba(42,33,16,.07)",
+     "--serif": "\"Iowan Old Style\", \"Palatino Linotype\", Palatino, Georgia, serif",
+     "--mono": "ui-monospace, \"SF Mono\", Menlo, monospace",
+     "color-scheme": "light"
+    },
+    "dark": {
+     "--paper": "@halo",
+     "--stage": "#19160f",
+     "--ink": "@wm",
+     "--muted": "#b3a688",
+     "--line": "#2f2a1e",
+     "--accent": "@primary",
+     "--accent-ink": "#1d1606",
+     "--alarm": "#ff8a73",
+     "--jade": "@accent",
+     "--jade-soft": "#123528",
+     "--panel": "#17140e",
+     "--soft": "#2b2414",
+     "--shadow": "0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35)",
+     "color-scheme": "dark"
     }
    }
   }
