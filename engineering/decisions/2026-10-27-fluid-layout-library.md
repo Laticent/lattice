@@ -495,8 +495,9 @@ changed the note.
   CI, because it hashes engine output and would force every markup-changing PR to re-bless it.
 - **The dead splitter.** `lib/core/split-slides.js` and its test are deleted, along with every
   reference to it.
-- **Stale claims.** Eight of the nine in §2.4 are fixed. The ninth is the body of issue #506, which
-  is shared state and waits on the owner. The 07-29 note keeps `status: shipped`, because its
+- **Stale claims.** Eight of the nine in §2.4 are fixed. The ninth, the body of issue #506, is
+  shared state; the owner approved the edit on 2026-10-27, and it now names `lattice.js` and points
+  at P2 and P4. The 07-29 note keeps `status: shipped`, because its
   directive retirement still stands; its summary now opens by saying the fit trigger was reversed.
 - **Reserved attributes.** `lib/core/reserved-attrs.mjs` renames every `data-split-` and
   `data-fluid-` in author raw HTML to `data-x-split-` / `data-x-fluid-`, wherever it appears. The
@@ -536,3 +537,41 @@ changed the note.
   PDFs (7 and 9 pages) match pixel for pixel.
 - **Not driven:** the `/playground/` route itself (it runs the same engine bundle as the Studio),
   and PPTX output.
+
+### P1 (2026-10-27)
+
+- **The package.** `@laticent/fluido` (`docs/src/lib/fluido`) is a pure, dependency-free
+  TypeScript core, built to ESM and CJS like Mosaico and guarded by `checkFluidoBoundary` (no
+  import may leave the folder, not even `node:`) and its own standalone typecheck
+  (`npm run check:fluido` in `docs/`). It exports `planSlide`, `paginates`, `rescueRuns`,
+  `fitsCap`, `MAX_PAGES` (64) and `ONE_PER_PAGE` (1).
+- **The decision moved, the builders stayed.** `splitDoc` reads the facts (the opt-outs, the
+  enrollment, the recipe and whether its refusal is a veto, whether the slide is a re-split) and
+  asks `planSlide`, then runs the recipe or the envelope the answer names. The seam is passed as a
+  `readSeam` callback that Fluido calls only when the decision gets that far, so a slide a recipe
+  handles never has its axis derived, as before. `splitApplies` asks `paginates`, and code's line
+  run asks `rescueRuns`.
+- **Parity.** The 80-gallery golden is byte-identical, and a one-off sweep of all 402 decks at
+  `square`, `portrait` and `mobile` (1,206 renders) against the commit before P1 found 0 diffs.
+- **One deliberate behavior change.** A run of more than 64 pages now stays whole and rings, however
+  it was built: `splitDoc` checks the run it actually built with Fluido's `fitsCap`, after the
+  envelope, the partition or a component's recipe. The longest run in the 402 decks is 41 pages.
+  The first version estimated the count inside `planSlide`, assumed every run had a cover and a
+  closing page, and never saw recipe-built runs (a 70-block code slide still became 70 pages). The
+  P1 checker caught both, and a unit test now pins the exact edge: 64 built pages ship, 65 ring.
+- **Cost.** `planSlide` takes about 23 ns a call. `structuralSplit` over the 120-slide gallery
+  took 73.8 and 81.8 ms (median of 30) before P1 and 76.2 and 76.4 ms after, inside the noise.
+  The benchmark gains a split tier that gates on its slide and page counts, and P0's CLI rows are
+  renamed from "(3 nav)" and "(4 nav)" to "(2 nav)": one preprocessor now re-navigates once. P0's
+  saving, timed on the real CLI (median of three, the first cold run dropped): auto-split
+  8,464 → 7,749 ms, cover-paginate 10,293 → 9,833 ms, against a non-splitting control that moved
+  5,653 → 5,408 ms, so about 0.2 to 0.5 s of it is the dropped navigation.
+- **A deviation from §8 P1.** The family classifier did NOT move into Fluido. `lib/adaptive/families.js`
+  is bundled into the runtime that every exported HTML carries, so re-pointing it at a package
+  changes exported bytes, which is export territory. Fluido takes the family as an input instead,
+  and the classifier moves at P4, which already stops for export sign-off.
+- **The trap P1 hit.** Lattice requires Fluido's built `dist/`, which is not committed. The first
+  golden run after an edit to `plan.ts` reported 468 drifts across the galleries, because `dist/` was stale; a rebuild put
+  every page back. `engineering/fluid.md` now says to rebuild.
+- **The Libraries page.** `/libraries/fluido/` drives the real core: pick a box and some content
+  and it shows the decision and the pages it names. Its Learn page is the catalog entry.

@@ -50,7 +50,8 @@ Until the P7 rename lands, "auto-split" and `split-*` in the code mean **Fluid's
 | Piece | File |
 |---|---|
 | the one preprocessor every surface calls (stamp, size gate, split, run adornments) | `lib/core/structural-split.js` `structuralSplit` |
-| the split kernel | `lib/core/auto-split.js` `splitDoc` |
+| the decision: which slides divide, on which seam, how many pages | `@laticent/fluido` (`docs/src/lib/fluido/plan.ts`) `planSlide`, `paginates`, `rescueRuns` |
+| the split kernel, the connector that reads the facts and builds the pages | `lib/core/auto-split.js` `splitDoc` |
 | cover, body and closing pages | `lib/core/split-envelope.js` |
 | the 14 per-component strategies | `lib/core/carousel.js` `CAROUSEL_STRATEGIES` |
 | panes split per pane at non-`wide` sizes | `lib/core/panes.js` `installPaneSplit` |
@@ -67,15 +68,22 @@ Studio (`docs/src/lib/single-slide-render.ts`) and the Studio's player export
 | parity | `npm run split:golden:check` | every gallery at `square`, `portrait` and `mobile` emits the same pages, byte for byte, as the CLI and as the live previews (`settle`) call it (80 decks, about 8 s) |
 | enrollment facts | `npm run oracle:check` | each component's split facts match `test/oracle/split-oracle.json` |
 | one paginator | `npm run build:check` | no unsanctioned module stamps split pages |
+| cost | `npm run bench` (the split tier) | the split's slides, pages and milliseconds over the gallery at the three sizes, against `test/benchmark/baseline.json`; a moved page count is drift to re-bless with a reason |
+| the core alone | `npm run test:fluido` | `planSlide`'s decision order, the size gate, the budget rescue, the cap, and ESM/CJS parity |
 | jank | `npm run check:jank` | anchors hold position as content grows (no canvas axis yet; P2 adds it) |
 
 Re-bless the parity golden (`npm run split:golden`) only in a change that means to move pages, and
 say in the PR why each moved page is right.
+
+**After editing Fluido's TypeScript, rebuild it** (`npm run fluido-lib:build`). Lattice requires the
+built `dist/`, which is not committed, so a stale one silently runs the old decision: P1's own first
+golden run reported 468 drifts across the galleries for exactly that reason, and a rebuild put every page back.
 
 ## Status
 
 | Phase | State |
 |---|---|
 | P0 cleanup and guard rails | built: one CLI assembly, the parity golden, the paginator census, reserved attributes stripped, the dead splitter deleted, stale claims fixed |
-| P1 the core package | next |
+| P1 the core package | built: `@laticent/fluido` holds the decision (`planSlide`), the size gate (`paginates`), the budget rescue (`rescueRuns`) and the 64-page cap on every built run (`fitsCap`); `splitDoc`, `splitApplies` and code's line run delegate to it; the Libraries page has its entry |
+| P2 the vertical slice on the Playground | next |
 | P2–P7 | planned; see the decision note §8 |
