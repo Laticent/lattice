@@ -293,12 +293,16 @@ measurement, and most undo a defect a render or the adversarial review found:
   column or a roadmap phase). Filled cells are one flat pale tint of that hue with the heading ink on it, the way a
   quadrant's zones read: the row label and the cell's own text carry the meaning, so depth does not have to.
 - **Every finish draws a no-category, no-status mark in the first hue.** A flowchart, state-chart or gantt node, a waterfall's
-  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone; pigment keeps the shipped card surface, because a tint under a card's inline code measured 4.19:1 on carbone) were the
+  Plan / Actual columns, a hub-spoke hub and satellite, a journey stage bar and a kanban lane rule and card edge (a tinted card under etch and tone; pigment takes a 12% tint and a wider solid bar; a stronger tint under a card's inline code measured 4.19:1 on carbone, and 12% measured clean on carbone, indaco and cuoio, light and dark) were the
   chart's grey or slate; beside the other marks that read as a second color. The generator re-points the member's own hue
   property (`--fc-hue`, `--fill-hue`, `--hs-*`) and not `--chart-neutral-hue`, which the palette tests read as the theme's
   grey. A status or category mark keeps its own color, and so does the neutral mark on a slide where the first hue is already a category: a hub-spoke with groups keeps its neutral hub and satellites (a `:has()` guard on the section), and a flowchart or state chart that uses category nodes keeps its neutral tile (the transform sets `data-cats` on the figure, because a `:has()` guard on those made the contrast probe lose the node backdrops). A `keyline` or `tinted` kanban board and the done lane are left alone for the same reason. Because the first hue can match the theme's info blue, `live`,
   `pilot` and `decision` now draw a dot (`lib/core/status-marks.js`), so a live bar is told from an unstated one by shape,
   and the gantt key's swatches wear their status mark.
+- **Tone's severity and direction are shades of the one hue, not status colors.** A risk matrix's four bands rise in strength (12 to 76%
+  of the hue) and a waterfall's up step is a lighter shade than its down step; green and red there were a second and third hue on marks that
+  are not done, at-risk or blocked. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
+  signal lines take the hue (not its text ink, which is neon on dark) 38 to 42% toward the slide.
 - **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,
   with a dash per series (none, dash, dot, dash-dot) and the dots and end label in the same color; a slope's quiet lines
   are a pale step of the one hue and its direction-signal lines keep their status color. No manifest contract change was

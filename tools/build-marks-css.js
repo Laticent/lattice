@@ -731,6 +731,10 @@ function build() {
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
       // A waterfall's Plan / Actual anchors are neutral columns; under tone they are a solid step of the one hue, like tone's other bars.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${mix(ONE, `${TONE[1]}%`)}`, `stroke: ${ONE_INK}`]));
+      // A delta is a direction, not a status, so green and red were a second and third hue: up is a lighter step of the one hue, down a darker
+      // one (the signed value label still names it).
+      w(rule(name, '.waterfall-bar[data-s="up"]', [`fill: ${mix(ONE, `${TONE[3]}%`)}`, `stroke: ${ONE_INK}`]));
+      w(rule(name, '.waterfall-bar[data-s="down"]', [`fill: ${mix(ONE, `${TONE[6]}%`)}`, `stroke: ${ONE_INK}`]));
       // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
       // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
       w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [
@@ -812,19 +816,21 @@ function build() {
     // The matrix's four bands rise in strength with severity (risk-matrix.styles.css), so order survives
     // grayscale print. Pigment IS that shipped ramp, so it adds nothing. Etch takes the same order at about
     // a third of the strength and draws each cell's edge in the band's ink at 2px (the line is the identity,
-    // and it turns the cell hairline into a visible grid). Tone keeps the status hues, quieter, with a 1px edge.
+    // and it turns the cell hairline into a visible grid). Tone is one hue: severity is the shade, with a 1px edge.
     if (name !== 'pigment') {
       const BANDS = [
-        ['low', 'pass', { etch: [10, 18], tone: [14, 22] }],
-        ['medium', 'warn', { etch: [16, 26], tone: [24, 32] }],
-        ['high', 'fail', { etch: [26, 38], tone: [40, 48] }],
-        ['critical', 'fail', { etch: [44, 56], tone: [66, 70] }],
+        ['low', 'pass', { etch: [10, 18], tone: [12, 18] }],
+        ['medium', 'warn', { etch: [16, 26], tone: [28, 34] }],
+        ['high', 'fail', { etch: [26, 38], tone: [48, 52] }],
+        ['critical', 'fail', { etch: [44, 56], tone: [72, 76] }],
       ];
       w('\n/* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */');
       for (const [band, st, lv] of BANDS) {
         const [l, d] = lv[name];
         w(rule(name, `.risk-cell[data-band="${band}"]`, [
-          `fill: ${ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
+          // Etch keeps the status hue (the band IS a severity). Tone is one hue, so severity is the SHADE: a second hue family
+          // on non-status marks broke the rule every other tone chart keeps.
+          `fill: ${name === 'tone' ? ld(mix(ONE, `${l}%`), mix(ONE, `${d}%`)) : ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
           `stroke: ${name === 'etch' ? `var(--state-${st}-ink)` : 'var(--bg)'}`,
           `stroke-width: ${name === 'etch' ? edge(f.edge) : '1.2'}`,
           ...(name === 'etch' ? ['vector-effect: non-scaling-stroke'] : []),
@@ -847,8 +853,11 @@ function build() {
       // measured 4.19:1 on carbone (palette-sweep), so pigment takes the accent edge and the lane rule only. The accent is a
       // left border (padding gives its width back), not a box-shadow: the card's own elevation stack stays, and a border exports as vector.
       // A `keyline` or `tinted` board already colors by lane, and the done lane keeps its status color.
-      const cardDecls = ['border-left: calc(var(--chart-hairline) * 3) solid ' + (name === 'pigment' ? ONE : ONE_INK), 'padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2)'];
-      if (name !== 'pigment') cardDecls.unshift(`background: ${tint}`);
+      // Pigment's accent is a solid bar, wider than the washed finishes' edge (5 hairlines against 3), and a card takes a 12% tint of
+      // the hue (the AA audit measures inline code on a card).
+      const bar = name === 'pigment' ? 5 : 3;
+      const cardDecls = [`border-left: calc(var(--chart-hairline) * ${bar}) solid ` + (name === 'pigment' ? ONE : ONE_INK), `padding-left: calc(var(--sp-sm) - var(--chart-hairline) * ${bar - 1})`];
+      cardDecls.unshift(`background: ${name === 'pigment' ? `color-mix(in oklab, ${ONE} 12%, var(--bg))` : tint}`);
       w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-card:not([data-s])', cardDecls)));
       w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
     }
@@ -927,9 +936,14 @@ function build() {
       // toward black, so it outranks `high` in both intensities; its ring and marks come from the kernel
       // (risk-matrix.styles.css says the same).
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: var(--state-${st}-hue)`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+        // On a dark slide the vivid status hue is a fire-engine block, louder than every other pigment chart, so dark takes it 28%
+        // toward the slide (light keeps the full solid).
+        w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
-      w(rule(name, '.risk-cell[data-band="critical"]', ['fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      // A slope's signal lines wear the status hue, not its text ink (which is neon on a dark slide): the same solid a risk cell takes.
+      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', [`stroke: ${ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))')}`])));
+      w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', [`stroke: ${ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))')}`])));
       // A waterfall's Plan and Actual are totals, not a direction: the neutral solid, the bar's full strength.
       w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${ONE}`, `stroke: ${ONE}`]));
       // The hub-spoke HUB is the one mark with no category and no status: the first hue, or the neutral solid on a chart whose

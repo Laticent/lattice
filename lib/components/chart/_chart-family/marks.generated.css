@@ -713,8 +713,9 @@ figure.marks-pigment :where(:is(.gantt-bar, .gantt-milestone, .gantt-bar-label, 
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])),
 figure.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-card:not([data-s])) {
-  border-left: calc(var(--chart-hairline) * 3) solid var(--chart-cat-1-hue) !important;
-  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 2) !important;
+  background: color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)) !important;
+  border-left: calc(var(--chart-hairline) * 5) solid var(--chart-cat-1-hue) !important;
+  padding-left: calc(var(--sp-sm) - var(--chart-hairline) * 4) !important;
 }
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
@@ -759,27 +760,39 @@ figure.marks-pigment :where(.radar-poly) {
 }
 section.marks-pigment :where(.risk-cell[data-band="low"]),
 figure.marks-pigment :where(.risk-cell[data-band="low"]) {
-  fill: var(--state-pass-hue) !important;
+  fill: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 72%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-pigment :where(.risk-cell[data-band="medium"]),
 figure.marks-pigment :where(.risk-cell[data-band="medium"]) {
-  fill: var(--state-warn-hue) !important;
+  fill: light-dark(var(--state-warn-hue), color-mix(in oklab, var(--state-warn-hue) 72%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-pigment :where(.risk-cell[data-band="high"]),
 figure.marks-pigment :where(.risk-cell[data-band="high"]) {
-  fill: var(--state-fail-hue) !important;
+  fill: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 72%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-pigment :where(.risk-cell[data-band="critical"]),
 figure.marks-pigment :where(.risk-cell[data-band="critical"]) {
-  fill: color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black)) !important;
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black)), color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="up"]),
+figure.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="up"]) {
+  stroke: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))) !important;
+}
+}
+@supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
+section.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="down"]),
+figure.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="down"]) {
+  stroke: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))) !important;
+}
 }
 section.marks-pigment :where(.waterfall-bar[data-s="total"]),
 figure.marks-pigment :where(.waterfall-bar[data-s="total"]) {
@@ -1191,6 +1204,16 @@ figure.marks-tone :where(.waterfall-bar[data-s="total"]) {
   fill: color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg)) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
+section.marks-tone :where(.waterfall-bar[data-s="up"]),
+figure.marks-tone :where(.waterfall-bar[data-s="up"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) 47%, var(--bg)) !important;
+  stroke: var(--chart-cat-1-ink) !important;
+}
+section.marks-tone :where(.waterfall-bar[data-s="down"]),
+figure.marks-tone :where(.waterfall-bar[data-s="down"]) {
+  fill: color-mix(in oklab, var(--chart-cat-1-hue) 14%, var(--bg)) !important;
+  stroke: var(--chart-cat-1-ink) !important;
+}
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.cell-filled:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]),
 figure.marks-tone :where(.cell-filled:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]) {
@@ -1395,25 +1418,25 @@ figure.marks-tone :where(.chart-status-mark) {
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */
 section.marks-tone :where(.risk-cell[data-band="low"]),
 figure.marks-tone :where(.risk-cell[data-band="low"]) {
-  fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 14%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 22%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 18%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-tone :where(.risk-cell[data-band="medium"]),
 figure.marks-tone :where(.risk-cell[data-band="medium"]) {
-  fill: light-dark(color-mix(in oklab, var(--state-warn-hue) 24%, var(--bg)), color-mix(in oklab, var(--state-warn-hue) 32%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 28%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 34%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-tone :where(.risk-cell[data-band="high"]),
 figure.marks-tone :where(.risk-cell[data-band="high"]) {
-  fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 40%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 48%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 52%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
 section.marks-tone :where(.risk-cell[data-band="critical"]),
 figure.marks-tone :where(.risk-cell[data-band="critical"]) {
-  fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 66%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 70%, var(--bg))) !important;
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 72%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
