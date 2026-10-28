@@ -1,1 +1,2 @@
 - Under `tone`, a risk matrix's bands and a waterfall's up and down steps are shades of the one hue instead of status colors. Under `pigment`, a risk band, a slope's signal lines and a kanban card take quieter solids on a dark slide, and a card wears a wider solid accent bar.
+- A pigment timeline's dots are solid, a pigment kanban lane rule is wider, and a risk matrix's legend discs wear the same band fill as its cells under all three finishes (one hue under tone).

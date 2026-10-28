@@ -721,6 +721,7 @@ figure.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not
 section.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header),
 figure.marks-pigment.kanban:not(.keyline):not(.tinted) :where(.kanban-column:not([data-done]) .kanban-column-header) {
   border-bottom-color: var(--chart-cat-1-hue) !important;
+  border-bottom-width: calc(var(--chart-hairline) * 3) !important;
 }
 }
 section.marks-pigment:not(:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue])) :where(:is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])),
@@ -780,6 +781,26 @@ figure.marks-pigment :where(.risk-cell[data-band="critical"]) {
   fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black)), color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
+}
+section.marks-pigment :where(.timeline-dot),
+figure.marks-pigment :where(.timeline-dot) {
+  --timeline-dot-fill: var(--timeline-dot-ink) !important;
+}
+section.marks-pigment :where(.risk-key-marker[data-band="low"]),
+figure.marks-pigment :where(.risk-key-marker[data-band="low"]) {
+  fill: light-dark(var(--state-pass-hue), color-mix(in oklab, var(--state-pass-hue) 72%, var(--bg))) !important;
+}
+section.marks-pigment :where(.risk-key-marker[data-band="medium"]),
+figure.marks-pigment :where(.risk-key-marker[data-band="medium"]) {
+  fill: light-dark(var(--state-warn-hue), color-mix(in oklab, var(--state-warn-hue) 72%, var(--bg))) !important;
+}
+section.marks-pigment :where(.risk-key-marker[data-band="high"]),
+figure.marks-pigment :where(.risk-key-marker[data-band="high"]) {
+  fill: light-dark(var(--state-fail-hue), color-mix(in oklab, var(--state-fail-hue) 72%, var(--bg))) !important;
+}
+section.marks-pigment :where(.risk-key-marker[data-band="critical"]),
+figure.marks-pigment :where(.risk-key-marker[data-band="critical"]) {
+  fill: light-dark(color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black)), color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))) !important;
 }
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-pigment :where(.slope-svg.slope-signal .slope-line[data-dir="up"]),
@@ -1000,12 +1021,20 @@ figure.marks-etch :where(.waterfall-bar[data-s="total"]) {
 }
 
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */
+section.marks-etch :where(.risk-key-marker[data-band="low"]),
+figure.marks-etch :where(.risk-key-marker[data-band="low"]) {
+  fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 10%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 18%, var(--bg))) !important;
+}
 section.marks-etch :where(.risk-cell[data-band="low"]),
 figure.marks-etch :where(.risk-cell[data-band="low"]) {
   fill: light-dark(color-mix(in oklab, var(--state-pass-hue) 10%, var(--bg)), color-mix(in oklab, var(--state-pass-hue) 18%, var(--bg))) !important;
   stroke: var(--state-pass-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.6) !important;
   vector-effect: non-scaling-stroke !important;
+}
+section.marks-etch :where(.risk-key-marker[data-band="medium"]),
+figure.marks-etch :where(.risk-key-marker[data-band="medium"]) {
+  fill: light-dark(color-mix(in oklab, var(--state-warn-hue) 16%, var(--bg)), color-mix(in oklab, var(--state-warn-hue) 26%, var(--bg))) !important;
 }
 section.marks-etch :where(.risk-cell[data-band="medium"]),
 figure.marks-etch :where(.risk-cell[data-band="medium"]) {
@@ -1014,12 +1043,21 @@ figure.marks-etch :where(.risk-cell[data-band="medium"]) {
   stroke-width: calc(var(--chart-edge) * 2.6) !important;
   vector-effect: non-scaling-stroke !important;
 }
+section.marks-etch :where(.risk-key-marker[data-band="high"]),
+figure.marks-etch :where(.risk-key-marker[data-band="high"]) {
+  fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 26%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 38%, var(--bg))) !important;
+}
 section.marks-etch :where(.risk-cell[data-band="high"]),
 figure.marks-etch :where(.risk-cell[data-band="high"]) {
   fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 26%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 38%, var(--bg))) !important;
   stroke: var(--state-fail-ink) !important;
   stroke-width: calc(var(--chart-edge) * 2.6) !important;
   vector-effect: non-scaling-stroke !important;
+}
+section.marks-etch :where(.risk-key-marker[data-band="critical"]),
+figure.marks-etch :where(.risk-key-marker[data-band="critical"]) {
+  fill: light-dark(color-mix(in oklab, var(--state-fail-hue) 44%, var(--bg)), color-mix(in oklab, var(--state-fail-hue) 56%, var(--bg))) !important;
+  stroke: var(--state-fail-ink) !important;
 }
 section.marks-etch :where(.risk-cell[data-band="critical"]),
 figure.marks-etch :where(.risk-cell[data-band="critical"]) {
@@ -1415,11 +1453,19 @@ figure.marks-tone :where(.chart-status-mark) {
 }
 
 /* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */
+section.marks-tone :where(.risk-key-marker[data-band="low"]),
+figure.marks-tone :where(.risk-key-marker[data-band="low"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 18%, var(--bg))) !important;
+}
 section.marks-tone :where(.risk-cell[data-band="low"]),
 figure.marks-tone :where(.risk-cell[data-band="low"]) {
   fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 12%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 18%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
+}
+section.marks-tone :where(.risk-key-marker[data-band="medium"]),
+figure.marks-tone :where(.risk-key-marker[data-band="medium"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 28%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 34%, var(--bg))) !important;
 }
 section.marks-tone :where(.risk-cell[data-band="medium"]),
 figure.marks-tone :where(.risk-cell[data-band="medium"]) {
@@ -1427,11 +1473,20 @@ figure.marks-tone :where(.risk-cell[data-band="medium"]) {
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
 }
+section.marks-tone :where(.risk-key-marker[data-band="high"]),
+figure.marks-tone :where(.risk-key-marker[data-band="high"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 52%, var(--bg))) !important;
+}
 section.marks-tone :where(.risk-cell[data-band="high"]),
 figure.marks-tone :where(.risk-cell[data-band="high"]) {
   fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 48%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 52%, var(--bg))) !important;
   stroke: var(--bg) !important;
   stroke-width: 1.2 !important;
+}
+section.marks-tone :where(.risk-key-marker[data-band="critical"]),
+figure.marks-tone :where(.risk-key-marker[data-band="critical"]) {
+  fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 72%, var(--bg)), color-mix(in oklab, var(--chart-cat-1-hue) 76%, var(--bg))) !important;
+  stroke: var(--chart-cat-1-ink) !important;
 }
 section.marks-tone :where(.risk-cell[data-band="critical"]),
 figure.marks-tone :where(.risk-cell[data-band="critical"]) {

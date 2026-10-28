@@ -827,6 +827,11 @@ function build() {
       w('\n/* RISK BANDS — the status hue is the meaning; the finish sets the strength and the edge. */');
       for (const [band, st, lv] of BANDS) {
         const [l, d] = lv[name];
+        // The key's disc wears its band's fill (one hue under tone), so the legend matches the cells instead of a solid status badge.
+        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [
+          `fill: ${name === 'tone' ? ld(mix(ONE, `${l}%`), mix(ONE, `${d}%`)) : ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
+          ...(band === 'critical' ? [`stroke: ${name === 'tone' ? ONE_INK : 'var(--state-fail-ink)'}`] : []),
+        ]));
         w(rule(name, `.risk-cell[data-band="${band}"]`, [
           // Etch keeps the status hue (the band IS a severity). Tone is one hue, so severity is the SHADE: a second hue family
           // on non-status marks broke the rule every other tone chart keeps.
@@ -859,7 +864,7 @@ function build() {
       const cardDecls = [`border-left: calc(var(--chart-hairline) * ${bar}) solid ` + (name === 'pigment' ? ONE : ONE_INK), `padding-left: calc(var(--sp-sm) - var(--chart-hairline) * ${bar - 1})`];
       if (name !== 'pigment') cardDecls.unshift(`background: ${tint}`);
       w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-card:not([data-s])', cardDecls)));
-      w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`])));
+      w(supports(ruleBoard(name, '.kanban-column:not([data-done]) .kanban-column-header', [`border-bottom-color: ${ONE}`, ...(name === 'pigment' ? ['border-bottom-width: calc(var(--chart-hairline) * 3)'] : [])])));
     }
 
     // ── A NEUTRAL hub-spoke node — no status and no hue ─────────────────────
@@ -941,6 +946,13 @@ function build() {
         w(rule(name, `.risk-cell[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
       }
       w(rule(name, '.risk-cell[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`, 'stroke: var(--bg)', 'stroke-width: 1.2']));
+      // A timeline's dots are hollow rings by default; pigment is the solid finish, so its dot is filled with its own ink.
+      w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));
+      // The risk KEY's discs wear the same band fill as the cells (tamed on dark), not the vivid status hue.
+      for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
+        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`]));
+      }
+      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`]));
       // A slope's signal lines wear the status hue, not its text ink (which is neon on a dark slide): the same solid a risk cell takes.
       w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', [`stroke: ${ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))')}`])));
       w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', [`stroke: ${ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))')}`])));
