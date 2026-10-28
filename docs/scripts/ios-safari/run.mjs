@@ -49,11 +49,27 @@ async function wd(method, url, body) {
 	return json.value;
 }
 
-const session = await wd('POST', '/session', {
-	capabilities: {
-		alwaysMatch: { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
-	},
-});
+/**
+ * safaridriver sometimes cannot reach a freshly booted simulator ("The host application never became ready", "timed out
+ * while connecting to a Safari instance"): seen on the studio suite's iPhone and the focus-sync suite's iPad on hosted
+ * runners, both before any probe code ran. Retry the session a bounded number of times; any other error is real.
+ */
+async function createSession() {
+	for (let attempt = 1; ; attempt++) {
+		try {
+			return await wd('POST', '/session', {
+				capabilities: {
+					alwaysMatch: { browserName: 'Safari', platformName: 'iOS', 'safari:useSimulator': true, 'safari:deviceUDID': UDID },
+				},
+			});
+		} catch (e) {
+			if (attempt >= 3 || !/session not created/.test(String(e.message))) throw e;
+			console.log(`${LABEL}: session not created (attempt ${attempt} of 3): ${String(e.message).slice(0, 200)}; trying again in 20 s`);
+			await new Promise((r) => setTimeout(r, 20000));
+		}
+	}
+}
+const session = await createSession();
 const id = session.sessionId;
 const caps = session.capabilities || {};
 let ok = false;
