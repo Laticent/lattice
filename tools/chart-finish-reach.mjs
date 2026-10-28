@@ -86,7 +86,6 @@ const SANCTIONED_NEUTRAL = [
   ['flowchart', 'fc-head', 'an edge arrowhead is the head of a connector line, drawn in the edge ink, not a body'],
   ['flowchart', 'fc-key-swatch', 'a key swatch with no status keys an edge STYLE (a line), and a body behind a line would be a box'],
   ['risk-matrix', 'risk-marker', 'a risk disc is the canvas color with the heading ink for its rim and number, the one pairing that holds over every deep band in both modes (risk-matrix.styles.css)'],
-  ['risk-matrix', 'risk-key-marker', 'a key disc wears its risk\'s BAND, the same status fill under every finish, so the key decodes the grid whatever the finish'],
   ['tower', 'chart-key-swatch', 'the `open` and `retained` swatches key the tower\'s two neutral segments, which carry no hue to finish (tower.styles.css)'],
 ];
 
