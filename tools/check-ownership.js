@@ -9495,6 +9495,36 @@ function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
   }
 }
 
+// ── Filo (docs/src/lib/filo) — one undo history per document ────────────────
+// Filo records every change to a document as an invertible patch and knows nothing about what
+// the document is or which views edit it: the Studio's glue (the commit path, the root keymap,
+// the Fuoco reveal) lives OUTSIDE the folder (engineering/decisions/2026-10-27-filo-undo-history.md
+// §3). So the core imports nothing outside it, not even `node:`, and not `react`: it has no
+// framework adapter yet.
+const FILO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'filo');
+function checkFiloBoundary(errors, dir = FILO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Filo folder. Filo takes the document as text ` +
+      `and knows nothing about the Studio, so every import must resolve inside docs/src/lib/filo/; ` +
+      `the Studio's glue lives outside it (engineering/decisions/2026-10-27-filo-undo-history.md §3).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Filo core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/filo/.`,
+      );
+    }
+  }
+}
+
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -14092,6 +14122,7 @@ function run() {
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
+  checkFiloBoundary(errors);
   checkMosaicoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -14161,6 +14192,7 @@ module.exports = {
   checkTavolaBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkFiloBoundary,
   checkMosaicoBoundary,
   checkReadingRole,
   checkHandRolledPills,

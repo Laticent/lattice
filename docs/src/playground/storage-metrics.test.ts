@@ -88,11 +88,11 @@ describe('scanLocalStorage', () => {
 	it('every lattice-studio-…- prefix literal in the deck stores is in DECK_CONTENT_PREFIXES', () => {
 		// A NEW content prefix is a string literal first; reading the sources catches one that was
 		// never exported, which the import-based test above cannot see. A future NON-content key
-		// prefix in these two files would trip this too: give it a name outside `lattice-studio-…-`
+		// prefix in these files would trip this too: give it a name outside `lattice-studio-…-`
 		// or narrow the scan, rather than adding it to the list (clearAllDecks sweeps the list).
 		const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'components', 'studio');
 		const literals = new Set<string>();
-		for (const file of ['studio-store.ts', 'slide-comments.ts']) {
+		for (const file of ['studio-store.ts', 'slide-comments.ts', 'checkpoint-store.ts']) {
 			for (const m of readFileSync(join(dir, file), 'utf8').matchAll(/['"`](lattice-studio-[a-z0-9-]*-)['"`]/g)) literals.add(m[1]);
 		}
 		expect(literals.size).toBeGreaterThanOrEqual(5);

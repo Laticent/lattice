@@ -1,15 +1,14 @@
 /**
  * Unit: the universal deck-setup module's pure front-matter helpers.
  *
- * The drawer DOM (createConfigPanel) is verified headless. Here we prove the
+ * The sheet's rows are React (DeckConfigPanel.test.tsx). Here we prove the
  * pure, fs-free parse/serialize pair the controls read + write through:
  * readFrontMatter (pre-fill the form) and writeFrontMatter (rewrite the deck
  * source for one field). No DOM, no storage — the module loads in Node.
  */
 
-const { test, describe, before, after } = require('node:test');
+const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
-const { JSDOM } = require('jsdom');
 
 const MOD = '../../../docs/src/playground/deck-config.js';
 
@@ -373,208 +372,17 @@ describe('writeFrontMatter', () => {
   });
 });
 
-describe('createConfigPanel (DOM)', () => {
-  let dom;
-  before(() => {
-    dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'https://example.com/' });
-    global.document = dom.window.document;
-    global.window = dom.window;
-  });
-  after(() => { delete global.document; delete global.window; });
-
-  // A tiny editor stand-in: holds the source, hands it out, takes it back.
-  function mount(initial) {
-    let source = initial;
-    const host = document.createElement('div');
-    const trigger = document.createElement('button');
-    return import(MOD).then(({ createConfigPanel }) => {
-      const panel = createConfigPanel({
-        host,
-        trigger,
-        getSource: () => source,
-        setSource: (next) => { source = next; },
-        palettes: ['indaco', 'cuoio', 'atelier'],
-        getDefaultTheme: () => 'indaco',
-      });
-      return { panel, host, trigger, get: () => source };
-    });
-  }
-
-  test('renders controls pre-filled from the deck front matter', async () => {
-    const { panel, host } = await mount('---\nmarp: true\nsize: 4K\npaginate: true\n---\n\n# Deck\n');
-    panel.render();
-    const size = host.querySelector('select[aria-label="Slide size"]');
-    assert.equal(size.value, '4K', 'size select reflects the deck');
-    // The full author set renders two switches (auto-split, page numbers) — target
-    // each by its aria-label rather than the first .db-switch-input.
-    const paginate = host.querySelector('input[aria-label="Page numbers"]');
-    assert.equal(paginate.checked, true, 'paginate switch reflects the deck');
-  });
-
-  test('toggling the paginate switch writes it into the source', async () => {
-    const { panel, host, get } = await mount(CLEAN);
-    panel.render();
-    const sw = host.querySelector('input[aria-label="Page numbers"]');
-    sw.checked = false;
-    sw.dispatchEvent(new dom.window.Event('change'));
-    assert.ok(get().includes('paginate: false'), 'source rewritten with the directive');
-    assert.ok(get().startsWith('---\nmarp: true'), 'managed block added');
-  });
-
-  test('the trigger lights (is-set) only when the deck carries front matter', async () => {
-    const { panel, host, trigger, get } = await mount(CLEAN);
-    panel.render();
-    assert.equal(trigger.classList.contains('is-set'), false, 'clean deck → quiet chip');
-    const sw = host.querySelector('input[aria-label="Page numbers"]');
-    sw.checked = false;
-    sw.dispatchEvent(new dom.window.Event('change'));
-    panel.syncTrigger();
-    assert.equal(trigger.classList.contains('is-set'), true, 'configured deck → lit chip');
-    assert.ok(get().includes('paginate: false'));
-  });
-
-
-  test('toggling the auto-glossary switch writes glossary: auto (and clears it back off) — #920', async () => {
-    const { panel, host, get } = await mount(CLEAN);
-    panel.render();
-    const sw = host.querySelector('input[aria-label="Auto-glossary"]');
-    assert.ok(sw, 'the auto-glossary switch renders in the deck-setup drawer');
-    assert.equal(sw.checked, false, 'off by default on a clean deck');
-    sw.checked = true;
-    sw.dispatchEvent(new dom.window.Event('change'));
-    assert.ok(get().includes('glossary: auto'), 'enabling writes the canonical glossary: auto');
-    sw.checked = false;
-    sw.dispatchEvent(new dom.window.Event('change'));
-    assert.ok(!get().includes('glossary'), 'disabling clears the key (back to default)');
-  });
-
-  test('theme select is pre-filled (deck theme, else Automatic) and writes on change', async () => {
-    const withTheme = await mount('---\nmarp: true\ntheme: cuoio\n---\n\n# Deck\n');
-    withTheme.panel.render();
-    assert.equal(withTheme.host.querySelector('select').value, 'cuoio', 'reflects the deck theme');
-
-    const clean = await mount(CLEAN);
-    clean.panel.render();
-    const themeSel = clean.host.querySelector('select');
-    // A deck that declares no theme sits at the AUTOMATIC stop — the empty value, which
-    // is a real state (follow the host palette), not a pin. It used to show the fallback
-    // palette's own name, which read as "this deck is pinned to indaco" when it was not,
-    // and left no option that could clear the key again.
-    assert.equal(themeSel.value, '', 'a deck with no theme sits at Automatic, not at the fallback name');
-    assert.match(themeSel.options[0].textContent, /^Automatic/, 'Automatic is the first stop');
-    assert.match(themeSel.options[0].textContent, /Indaco/, 'and it names where an un-pinned deck lands');
-
-    themeSel.value = 'atelier';
-    themeSel.dispatchEvent(new dom.window.Event('change'));
-    assert.ok(clean.get().includes('theme: atelier'), 'picking writes theme into the source');
-    assert.equal(clean.trigger.classList.contains('is-set'), false, 'theme alone does not light the chip');
-
-    // …and Automatic takes it back out, which is the half that did not exist before.
-    const back = clean.host.querySelector('select');
-    back.value = '';
-    back.dispatchEvent(new dom.window.Event('change'));
-    assert.ok(!clean.get().includes('theme:'), 'Automatic clears the key rather than pinning another palette');
-  });
-
-  test('an unknown deck theme shows a caution note and falls back', async () => {
-    const { panel, host } = await mount('---\nmarp: true\ntheme: made-up\n---\n\n# Deck\n');
-    panel.render();
-    const warn = host.querySelector('.db-config-warn');
-    assert.ok(warn, 'a caution note renders for the unknown theme');
-    assert.match(warn.textContent, /made-up/);
-    // `resolveDeckTheme` drops an unknown name to the SITE palette, so the row reports
-    // the same thing the renderer does: Automatic, with the fallback named in the note.
-    assert.equal(host.querySelector('select').value, '', 'the select shows Automatic, not the bad value');
-    assert.match(warn.textContent, /Indaco/, 'the note names the palette it actually falls back to');
-  });
-
-  test('palette naming is injected, not derived here', async () => {
-    // The host owns how a palette is written and which ones group (the docs site's own
-    // `paletteLabel` + the Accessibility heading). Without an injection the panel stays
-    // on its flat, title-cased list — which is what keeps this module runnable under
-    // plain `node --test`, where the site's TypeScript catalog is not resolvable.
-    const host = document.createElement('div');
-    let source = CLEAN;
-    const { createConfigPanel } = await import(MOD);
-    createConfigPanel({
-      host,
-      getSource: () => source,
-      setSource: (next) => { source = next; },
-      palettes: ['indaco', 'a11y-tritanopia'],
-      getDefaultTheme: () => 'indaco',
-      paletteNaming: { label: (n) => n.replace(/^a11y-/, '').toUpperCase(), group: { label: 'Accessibility', has: (n) => n.startsWith('a11y-') } },
-    }).render();
-    const sel = host.querySelector('select[aria-label="Theme"]');
-    const group = sel.querySelector('optgroup');
-    assert.ok(group, 'a grouped palette lands under its heading');
-    assert.equal(group.label, 'Accessibility');
-    assert.equal(group.querySelector('option').textContent, 'TRITANOPIA', 'the injected label wins');
-    assert.equal([...sel.children].filter((c) => c.tagName === 'OPTION').map((o) => o.value).join(','), ',indaco',
-      'ungrouped palettes stay at the top level, Automatic first');
-  });
-
-  // A profile mount: pass an explicit `fields` allow-list + finishes/note.
-  function mountProfile(initial, fields, extra = {}) {
-    let source = initial;
-    const host = document.createElement('div');
-    return import(MOD).then(({ createConfigPanel }) => {
-      const panel = createConfigPanel({
-        host, trigger: document.createElement('button'),
-        getSource: () => source, setSource: (next) => { source = next; },
-        palettes: ['indaco', 'cuoio'], getDefaultTheme: () => 'indaco',
-        finishes: ['none', 'atrium', 'gallery'], fields, ...extra,
-      });
-      return { panel, host, get: () => source };
-    });
-  }
-
-  // The `preview` and `noTheme` profile tests were removed with the profiles themselves
-  // (2026-09-15): both were callerless, so each asserted on a field list nothing
-  // constructed. They were, however, the only tests asserting that the allow-list
-  // EXCLUDES anything — with `show()` stubbed to always-true the rest of this file still
-  // passed 44/44 — so the exclusion half moved here, onto an explicit array rather than
-  // onto a named profile. It matters more now, not less: `author` is null, so no caller
-  // passes an array and `fields` has no production exercise left at all.
-  test('an explicit fields array EXCLUDES every key it omits', async () => {
-    // `glossary` stands in for the retired `form` entry here: this arm needs THREE
-    // listed keys to prove the allow-list includes and excludes, and `form` left the
-    // panel with the Form toggle (Form is the composition model, not a setting).
-    const { panel, host } = await mountProfile(CLEAN, ['finish', 'size', 'paginate', 'glossary']);
-    panel.render();
-    const labels = [...host.querySelectorAll('.db-pref-label')].map((n) => n.textContent);
-    assert.ok(labels.includes('Finish') && labels.includes('Slide size') && labels.includes('Auto-glossary'), 'the listed keys draw');
-    assert.ok(!labels.includes('Theme'), 'theme excluded — it is not in the list');
-    assert.ok(!labels.includes('Header') && !labels.includes('Footer'), 'deck chrome excluded');
-    assert.ok(!labels.includes('Default slide class'), 'class excluded');
-    assert.ok(!host.textContent.includes('Advanced'), 'no Advanced section when the list omits every key in it');
-  });
-
-  test('the author profile is the full set — every managed row draws, Advanced included', async () => {
-    const { CONFIG_PROFILES } = await import(MOD);
-    assert.equal(CONFIG_PROFILES.author, null, 'author is the no-allow-list spelling of "every field"');
-    const { panel, host } = await mountProfile(CLEAN, CONFIG_PROFILES.author);
-    panel.render();
-    const labels = [...host.querySelectorAll('.db-pref-label')].map((n) => n.textContent);
-    assert.ok(labels.includes('Theme'), 'theme present — the deck can pin its own palette here');
-    assert.ok(labels.includes('Finish') && labels.includes('Header') && labels.includes('Default slide class'));
-    assert.ok(host.textContent.includes('Advanced'), 'Advanced section present');
-  });
-
-  test('the finish row writes through and a custom note replaces the default intro', async () => {
-    const { panel, host, get } = await mountProfile(CLEAN, ['finish'], { note: 'Behind the scenes.' });
-    panel.render();
-    assert.ok(host.querySelector('.db-settings-note').textContent.includes('Behind the scenes.'));
-    const sel = host.querySelector('select[aria-label="Finish"]');
-    sel.value = 'atrium';
-    sel.dispatchEvent(new dom.window.Event('change'));
-    assert.ok(get().includes('finish: atrium'));
-  });
-
-  test('no backdrop control renders — backdrop is a baked finish layer, not a Deck-setup field', async () => {
-    const { panel, host } = await mountProfile(CLEAN, null); // full author set
-    panel.render();
-    assert.equal(host.querySelector('input[aria-label="Finish strength"]'), null, 'no strength slider');
-    assert.equal(host.querySelector('input[aria-label="Clear behind content"]'), null, 'no clearance toggle');
+describe('PRESET_OPTIONS (the preset picker rows)', () => {
+  test('one row per engine preset, in its order, each naming the finish it sets', async () => {
+    const { PRESET_OPTIONS } = await import(MOD);
+    const fmk = require('../../../lib/core/front-matter-key.js');
+    assert.deepEqual(PRESET_OPTIONS.map((p) => p.name), [...fmk.PRESET_NAMES]);
+    for (const p of PRESET_OPTIONS) {
+      assert.equal(p.label, fmk.PRESETS[p.name].label);
+      assert.equal(p.finish, fmk.presetEffective(p.name, 'finish') || 'none');
+    }
+    // Editorial sets a backdrop (the preset tests below lean on `ledger`), so its chip has one.
+    assert.equal(PRESET_OPTIONS.find((p) => p.name === 'editorial').finish, 'ledger');
   });
 });
 
