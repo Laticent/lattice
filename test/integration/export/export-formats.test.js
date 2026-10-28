@@ -1465,6 +1465,43 @@ describe('export-formats', () => {
       assert.ok(fs.existsSync(`${out}.html`), 'and the HTML sidecar the player verifiers read');
     });
 
+    // The byproduct sidecar used to be `<out>.html`: an author's `deck.html` beside `deck.md`
+    // was overwritten and then deleted by every .pdf/.pptx/.odp/.png export, and two exports
+    // of one deck raced on it. It now carries a name only this run owns.
+    test('an export never overwrites or deletes a sibling deck.html, and parallel exports both succeed', { timeout: TIMEOUT * 2 }, async () => {
+      const dir = tmpDir();
+      const md = path.join(dir, 'd.md');
+      fs.copyFileSync(FIXTURE, md);
+      const SENTINEL = 'author file, not ours';
+      const exportOnce = (out, extra = []) => new Promise((resolve) => {
+        const p = require('child_process').spawn(process.execPath, [EMULATOR, md, out, '--quiet', ...extra], { cwd: ROOT });
+        let stderr = '';
+        p.stderr.on('data', (c) => { stderr += c; });
+        p.on('close', (status) => resolve({ status, stderr }));
+      });
+      for (const [name, extra] of [['d.pptx', ['--editable']], ['d.pdf', []], ['d.odp', ['--editable']]]) {
+        fs.writeFileSync(path.join(dir, 'd.html'), SENTINEL);
+        const r = await exportOnce(path.join(dir, name), extra);
+        assert.equal(r.status, 0, `${name} failed: ${r.stderr}`);
+        assert.equal(fs.readFileSync(path.join(dir, 'd.html'), 'utf8'), SENTINEL, `${name} export touched d.html`);
+      }
+      const both = await Promise.all([exportOnce(path.join(dir, 'a.pdf')), exportOnce(path.join(dir, 'b.pdf'))]);
+      for (const r of both) assert.equal(r.status, 0, `parallel export failed: ${r.stderr}`);
+      assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), ['d.html'], 'no sidecar left behind');
+    });
+
+    test('a failed export leaves no unique-named sidecar behind', { timeout: TIMEOUT }, () => {
+      const dir = tmpDir();
+      const md = path.join(dir, 'f.md');
+      fs.copyFileSync(FIXTURE, md);
+      const r = spawnSync(process.execPath, [EMULATOR, md, path.join(dir, 'f.pdf'), '--quiet'], {
+        cwd: ROOT, encoding: 'utf8', timeout: TIMEOUT,
+        env: { ...process.env, CHROME_PATH: '/bin/false', PUPPETEER_EXECUTABLE_PATH: '/bin/false' },
+      });
+      assert.notEqual(r.status, 0, 'the export was meant to fail');
+      assert.deepEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), [], 'a failed run left its sidecar');
+    });
+
     // That the table is CLOSED but not EMPTY is proven by the render tests above rather
     // than here: .pdf, .pptx, .png, .zip and .html each render end-to-end in this file,
     // and every one of them now has to pass the dispatch to do it.

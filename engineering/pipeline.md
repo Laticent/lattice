@@ -27,8 +27,12 @@ The output extension picks the format — `.pdf` (vector, selectable text),
 LibreOffice Impress / OpenDocument deck), `.png` (one file
 per slide, `<output>.NNN.png`), `.zip` (an **image set** — see §5), `.html`
 (the rendered HTML *as* the deliverable, no PDF). For every format except
-`.html`, an HTML sidecar is written alongside; with `.html` that sidecar **is**
-the output file.
+`.html`, an HTML sidecar is written alongside the output, and deleted once the raster
+is done unless `--keep-html`, a viewer flag or an extensionless output keeps it. That
+byproduct is named `<out>.lattice-<pid>-<random>.html`, never `<out>.html`: a sibling
+`deck.html` the author wrote is not overwritten or deleted, and two exports of one deck
+to different formats (`d.pdf` and `d.pptx`) cannot race on one file. With `.html` the sidecar **is** the
+output file.
 
 **That list is closed** — an extension not on it is a usage error. It used to fall
 through to the PDF path, which wrote PDF bytes under whatever name was asked for:
