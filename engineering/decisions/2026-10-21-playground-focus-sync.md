@@ -457,3 +457,16 @@ center; a burner that never rests stalls iOS taps (`touchstart` without `touchen
 simulator (the runner retries the session three times, and the other iOS suites fail the same way on `main`'s nightly); and the
 first `Element Click` is enough, with no touch-action fallback needed (it is still tried if the click fails to place the caret).
 Not covered: a physical iPad or iPhone, and the iPhone layout (one pane at a time, so the bug cannot occur there).
+
+**The iOS suites restart a stuck start (2026-10-28, followup `2950-p3`).** `main`'s nightly failed on the iOS suites on each of
+its first three days with them (runs 40307494617, 40485085426, 40674748940). All three were the same failure: safaridriver
+answered `POST /session` with "session not created" after the device had booted and Safari had launched, so no probe ran. Each
+made one attempt, because the three-attempt retry landed with #2950 after them. PR runs on 2026-10-28 that did have the retry
+showed two cases it cannot fix: safaridriver itself died (`ECONNREFUSED` on :4444 for the next device), and the stuck state
+outlived three attempts on the same device and driver. So `run.mjs` now exits 3 for "no session", and `run.sh` answers that
+once with a full restart: reboot the device, relaunch Safari, restart safaridriver. A probe failure is never retried. Proved
+locally with stub `xcrun`, `safaridriver` and `node` (recover on the second start, give up after two, a probe failure not
+retried, a dead driver restarted for the next device), and by dispatching the three suites on the branch; whether the
+nightly holds for 10 runs is the follow-up's evidence. Three probe assertions also failed in PR runs that day (a 90 s wait for
+the Studio editor, a 15 s wait for the Coach button, two quiet focus-sync taps uncentered); those are not start failures and
+are recorded in the follow-up.

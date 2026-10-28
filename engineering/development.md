@@ -526,8 +526,14 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   `touchend` never does), so it works 150 ms and rests 75 ms (`FOCUS_SYNC_BURN_MS`, default 150). `node
   docs/scripts/ios-safari/focus-sync.selftest.mjs` runs the same loop on Playwright WebKit (`VIEWPORT=1032x1376` for the iPad
   Pro shape): on the code before `2937-p2` 37 of 40 taps move the editor, on the fix 0 of 40; without the burner both pass, and
-  resting as long as it works catches only 1 to 5 of 40. The suite is as flaky as the other iOS suites: safaridriver sometimes
-  cannot reach a fresh simulator (`run.mjs` retries the session three times).
+  resting as long as it works catches only 1 to 5 of 40.
+  **Start failures.** safaridriver sometimes cannot reach a fresh simulator ("The host application never became ready", "timed
+  out while connecting to a Safari instance", "Booting Simulator.app"), and can die after such a timeout. Every iOS failure in
+  `main`'s first three nightlies (2026-10-26 to 10-28) was one of these, on either device, before any probe code ran. `run.mjs`
+  tries the session three times, 20 s apart, then exits **3** (no session, so no probe ran); it exits 3 at once when nothing
+  answers on :4444. On exit 3, `run.sh` reboots the device, relaunches Safari, restarts safaridriver and runs the device once
+  more. It also checks safaridriver answers before every device, so one device's dead driver does not fail the next. A probe
+  failure (exit 1) is never retried.
 
 ## Integration test cache
 
