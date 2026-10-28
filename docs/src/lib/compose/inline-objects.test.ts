@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { toggleMark } from 'prosemirror-commands';
-import { history, redo, undo, undoDepth } from 'prosemirror-history';
+import { history, undo, undoDepth } from 'prosemirror-history';
 import { DOMParser as PMDOMParser } from 'prosemirror-model';
 import { EditorState, NodeSelection, type Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';

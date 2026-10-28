@@ -19,7 +19,6 @@ const decks = [
 		.map((f) => join(ROOT, 'examples', f)),
 	join(ROOT, 'test/integration/baseline-decks/gallery.md'),
 ];
-const SEP = '\n\n---\n\n';
 
 type Op = 'edit' | 'delete' | 'insert' | 'frontmatter';
 const OPS: Op[] = ['edit', 'delete', 'insert', 'frontmatter'];
