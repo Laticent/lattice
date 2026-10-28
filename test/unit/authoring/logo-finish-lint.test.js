@@ -70,6 +70,38 @@ describe('the retired keys warn and fix', () => {
     assert.doesNotMatch(out, /logo-on|logo-finish/);
   });
 
+  // When the retired key is the ONLY front-matter key, deleting it used to leave `---\n---`, an empty block that every
+  // front-matter reader reads on to the first slide break, so "Fix all" turned the title slide into front matter.
+  test('deleting the only front-matter key keeps every slide', () => {
+    const { render } = require('../../../lib/engine/index.js');
+    const headings = (src) => [...String(render(src).html).matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map((m) => m[1]);
+    const src = '---\nlogo-on: all\n---\n<!-- _class: title -->\n# Q3 Board Review\n\n---\n\n# Agenda\n';
+    const out = fixed(src);
+    assert.equal(out, '<!-- _class: title -->\n# Q3 Board Review\n\n---\n\n# Agenda\n');
+    assert.deepEqual(headings(out), headings(src));
+    assert.deepEqual(headings(out), ['Q3 Board Review', 'Agenda']);
+  });
+  test('the emptied block goes in a CRLF deck too', () => {
+    assert.equal(fixed('---\r\nlogo-on: all\r\n---\r\n# Title\r\n'), '# Title\r\n');
+  });
+  test('a body that starts with its own `---` keeps that line a slide break', () => {
+    const { render } = require('../../../lib/engine/index.js');
+    const headings = (src) => [...String(render(src).html).matchAll(/<h1[^>]*>(.*?)<\/h1>/g)].map((m) => m[1]);
+    for (const src of ['---\nlogo-on: all\n---\n---\n\n# B\n\n---\n\n# C\n', '---\r\nlogo-on: all\r\n---\r\n---\r\n# B\r\n\r\n---\r\n# C\r\n']) {
+      const out = fixed(src);
+      assert.doesNotMatch(out, /logo-on/);
+      assert.deepEqual(headings(out), ['B', 'C'], JSON.stringify(out));
+    }
+  });
+  test('`--- ` with a trailing space opens a slide, not front matter, so nothing is dropped', () => {
+    const src = '--- \n<!-- paginate: true -->\n---\n# A\n\n---\n\n# B\n';
+    assert.equal(fixed(src).startsWith('--- \n---\n'), true);
+  });
+  test('a deck that already began with an empty block is left as the author wrote it', () => {
+    const src = '---\n---\n\n## A\n\nlogo-on: all\n';
+    assert.equal(fixed(src).startsWith('---\n---\n'), true);
+  });
+
   test('a CRLF deck keeps its line endings through the merge', () => {
     const out = fixed('---\r\nlogo: lattice\r\nlogo-scale: 2\r\n---\r\n\r\n## A\r\n');
     assert.match(out, /logo-finish: lg\r\n---/);
