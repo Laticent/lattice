@@ -169,3 +169,18 @@ test('a `<section` quoted in a comment, a <style> or an attribute is text, not a
   assert.deepEqual(slideNumbers(ss.stampSlideNumbers(html)), ['1', '2']);
   assert.equal(ss.splitTopLevelSections(html).length, 2);
 });
+
+test('the page cap holds on the run actually built: exactly 64 pages ship, 65 ring (Fluid P1)', () => {
+  // A checklist with a `#` title and no trailer gets no closing page, so its run is its members plus
+  // a cover only when the masthead hoists. The cap counts what was BUILT, not an estimate.
+  const deck = (n, trail) => `---\ntheme: indaco\nsize: portrait\n---\n\n<!-- _class: checklist -->\n\n# Launch checklist\n\n${Array.from({ length: n }, (_, i) => `- Item number ${i + 1}`).join('\n')}\n${trail ? '\n> The key insight here.\n' : ''}`;
+  const pages = (md) => {
+    const out = engine.render(md, 'indaco', { preview: true });
+    return ss.splitTopLevelSections(ss.structuralSplit(out.html, { deckSource: md, width: out.width, height: out.height, capacity: CAPACITY }).html).length;
+  };
+  assert.equal(pages(deck(63, false)), 63, '63 members with no trailer is a 63-page run, under the cap');
+  assert.equal(pages(deck(64, false)), 64);
+  assert.equal(pages(deck(65, false)), 1, 'a 65-page run stays one page and rings');
+  assert.equal(pages(deck(63, true)), 64, 'the closing page counts');
+  assert.equal(pages(deck(64, true)), 1);
+});
