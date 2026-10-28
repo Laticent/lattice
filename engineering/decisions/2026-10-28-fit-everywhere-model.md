@@ -1,13 +1,14 @@
 ---
 status: in-progress
-summary: Fit everywhere. A component designed once must read well on any box and at any distance (a laptop, a boardroom, a stadium, an Instagram or LinkedIn post, a poster, a kiosk, 4K). The model has two independent axes, the box (Fluid; the named sizes are breakpoints) and the venue (type scale for reading distance), and pagination takes what no longer fits. Measured: a square post in a phone feed reads like a boardroom back row (8.7 arcminutes of x-height at the default venue). Before P2, a Monte Carlo harness scores split policies on every real deck, perturbed, at every box and venue, with no clip, no lost content and readability as hard rules and stability ahead of page count.
+summary: Fit everywhere. A component designed once must read well on any box and at any distance (a laptop, a boardroom, a stadium, an Instagram or LinkedIn post, a poster, a kiosk, 4K). The model has two independent axes, the box (Fluid; the named sizes are breakpoints) and the venue (type scale for reading distance), and pagination takes what no longer fits. Measured: a square post in a phone feed reads like a boardroom back row (8.7 arcminutes of x-height at the default venue). Before P2, a Monte Carlo harness scores split policies on every real deck, perturbed, at every box and venue, with no clip, no lost content and readability as hard rules and stability ahead of page count. The first corpus run leaves four finalists on one frontier, from hysteresis-20-30 (16.6% fewer pages than today, 0.9% jank) to hybrid-sticky (25.9% fewer, 2.3%), and finds that 16:9 at hall clips 435 of 1,158 gallery slides with nothing to split them.
 builds-on: 2026-10-27-fluid-layout-library.md, 2026-09-29-one-reading-size-per-venue.md, 2026-06-16-social-mobile-portrait-sizes.md
 ---
 
 # Fit everywhere: two axes, and a simulation to tune them (2026-10-28)
 
 **Status: in progress.** The owner set the model and the plan on 2026-10-28 (§5). The harness (§4)
-is next.
+is built, and its first corpus run (§7) narrows the split policy to four finalists on one
+measured frontier. The owner picks the point on it.
 
 **The goal (owner, 2026-10-28).** A component is designed once and reads well, on brand, on any
 screen: a laptop, a boardroom, a stadium, an Instagram or LinkedIn post, a printed poster, a kiosk,
@@ -99,10 +100,10 @@ plan), then **page count**, then **page balance** (fill variance across a run), 
 that pass the hard rules and rank best on the objectives; a montage of sampled pages from each
 finalist goes to the owner for the aesthetic call.
 
-**Cost.** The spikes rendered through the CLI at about 3.4 s a deck. The harness renders in one warm
-browser page instead; spike 2 built and scored a slide in about 13 ms. About 20,000 samples should
-take 20–40 minutes on four cores. That is an estimate, and the harness's first deliverable is the
-measured number.
+**Cost, measured.** The first corpus run (§7) rendered 2,632 exports in 1,637 s and scored them in
+2,424 s, about 68 minutes on four cores. `--resume` keeps finished renders across a sandbox
+restart, `--rescore` scores again without rendering, and `--rearm` recomputes only the arms derived
+from the rendered ones, in about 20 s.
 
 **What it leaves behind.** The same harness on a fixed sample, run nightly, is the catalog fit check
 deferred in the Fluid note: a new component is sampled at every box and venue, and the first clip or
@@ -125,3 +126,62 @@ lost leaf names it.
    (`2026-10-27-fluid-layout-library.md` §13.1).
 4. **Venue guidance**: §2's table goes into the venue docs, so an author knows that a square feed post
    wants `hall`. Whether the linter should also say so is decided when this ships.
+
+## 7. Results: the first corpus run (2026-10-28)
+
+`npm run fit:harness -- --sizes hd,square,portrait,story --venues laptop,hall`: the 94 galleries
+(1,127 slides at the split boxes, 1,158 at hd), each slide plus up to seven edits, at four boxes and
+two venues. The full table is the run's `report.md`. Every number below comes from it.
+
+**The frontier.** Over the six cells where a slide can split (square, portrait and story, each at
+laptop and hall), four policies are not beaten on both stability and pages at once. Today's split
+is the zero-jank anchor, at the most pages.
+
+| Policy | Pages, six cells | vs today | Jank ±10%, mean | Jank, worst cell |
+|---|---|---|---|---|
+| structural (today) | 17,860 | — | 0.0% | 0.0% |
+| hysteresis-20-30 | 14,904 | −16.6% | 0.9% | 2.0% (square, laptop) |
+| hysteresis-10-20 | 14,314 | −19.9% | 1.4% | 2.4% (square, laptop) |
+| hybrid-sticky-20-30 | 13,684 | −23.4% | 1.8% | 2.7% (square, laptop) |
+| hybrid-sticky | 13,238 | −25.9% | 2.3% | 3.0% (square, laptop) |
+| fit-greedy (no memory) | 8,516 | −52.3% | 8.0% | 11.1% (portrait, hall) |
+
+The order holds cell by cell. In every one of the six, the four finalists rank the same on pages,
+and hysteresis-20-30 has the lowest jank, tied with 10-20 at portrait hall. Each step down the
+table buys about three points of pages for about half a point of jank. The saving sits at laptop,
+where most structurally split slides fit whole (square: 2,933 pages today, 1,519 for
+hybrid-sticky-20-30). At hall it is 1–15%, because a slide at 1.5× type mostly has to split anyway.
+The pure fit-first arms halve the pages but move the plan on about 1 edit in 10 at hall. That is the
+jank this work exists to stop, so they are out.
+
+**Hard rules.** Clips are flat across the finalists: they split where today's builders split,
+so they clip where today's split clips (13 to 549 a cell, nearly all "unfixable", meaning the
+fit-first arm clips there too). The losses (5 to 36 slides a cell) are today's builders' own, and
+the finalists inherit them only where they split.
+
+**Found on the way.** None of these is caused by this work.
+
+1. **At 16:9 and `hall`, 435 of 1,158 slides clip.** Today's split never splits a wide box, so
+   nothing catches them. Fit-first, which splits on a measured overflow, clears 288 of them; the
+   other 147 clip even one member a page. The P2 hybrid therefore has to split a wide box when it
+   overflows at the venue, and the harness has no packed render at hd to score that yet.
+2. **Today's split drops content on 41 slides** at every split box. Read from the renders, four
+   cases are real. The compare-prose split drops the slide's eyebrow (`Decision · Close Time`,
+   seven copies whole, none split). The obligation-matrix split drops its key on one slide. The
+   content split joins two paragraphs into one, keeping the text and losing the break. The
+   row-to-card reshape drops column 1's header label on about 25 slides, as designed (§5), so
+   that one is a choice to confirm rather than a bug. The compare-code pane labels move into the
+   running head, so their loss is the harness counting chrome, not a real loss.
+   `followups.d/2953-p2-today-split-drops-eyebrow-legend-paragraph-breaks.md`.
+3. **The diagram gallery's split emits broken markup** (10 of 62 sections survive), the
+   carousel's unclosed `<strong>`:
+   `followups.d/2953-p2-split-panel-carousel-unclosed-strong.md`.
+4. **Footer-only cuts are common at narrow boxes**, 330 to 366 slides at story. The footer line
+   does not fit, while the content does. Splitting cannot fix that, so the harness counts it apart.
+
+**What this run does not cover.** Galleries only, not the ~400 examples and exemplars. Two venues
+of four, so `huddle` and `conference` are interpolated. The named sizes only, not the boxes Fluid
+serves between them. Jank is measured on the page count alone, not on where members land (the
+pair-flip column has that, and it favors today's split by construction). And no montage yet, so
+nothing here says the pages look good.
+

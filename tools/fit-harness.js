@@ -63,6 +63,9 @@ const RESCORE = argv.includes('--rescore');
 // --resume: keep the renders already in <out>/html and render only the missing ones, so a run the
 // sandbox killed picks up where it stopped. Delete any half-written render first.
 const RESUME = argv.includes('--resume');
+// --rearm: read <out>/results.json, drop its computed arms and compute them again, then write a
+// new report. Seconds instead of a re-score, for a change to the computed arms only.
+const REARM = argv.includes('--rearm');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
@@ -277,6 +280,30 @@ async function main() {
     process.stdout.write('.');
   });
   await browser.close();
+  addComputedArms(rows);
+  const tScore = Date.now();
+  fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(rows));
+  const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });
+  fs.writeFileSync(path.join(OUT, 'report.md'), report);
+  console.log(`\n${report}`);
+}
+
+/** Stability: of the leaves an edit did not touch, the share of pairs whose same-page status flipped. */
+function pairFlips(a, b) {
+  const shared = Object.keys(a.where).filter((l) => l in b.where && a.where[l] >= 0 && b.where[l] >= 0);
+  let pairs = 0;
+  let flips = 0;
+  for (let i = 0; i < shared.length; i++) for (let j = i + 1; j < shared.length; j++) {
+    pairs++;
+    const x = shared[i];
+    const y = shared[j];
+    if ((a.where[x] === a.where[y]) !== (b.where[x] === b.where[y])) flips++;
+  }
+  return pairs ? flips / pairs : 0;
+}
+
+/** The arms computed from the rendered ones (structural, fit-first, packed-K), added to `rows`. */
+function addComputedArms(rows) {
   // The hybrid's trigger, computed from the two arms already scored: the whole slide when it
   // fits at its box and venue, today's structural pages otherwise. Packing members per page
   // inside today's builders needs the engine change P2 makes; this arm isolates the trigger.
@@ -334,45 +361,32 @@ async function main() {
     packedFit.set(k3(st), best);
     rows.push({ ...best, arm: 'packed-fit' });
   }
-  const hyb = byArm('hysteresis-10-20');
-  for (const [k, h] of hyb) {
-    if (!packedKeys.has(k)) continue;
-    const pf = packedFit.get(k);
-    rows.push(h.how === 'fits' || !pf ? { ...h, arm: 'hybrid' } : { ...pf, arm: 'hybrid', ms: null });
-  }
-  // hybrid-sticky: packing with memory too. An edit keeps the original's members-a-page while
-  // that still fits, steps down only when it must, and never steps up on an edit.
+  // The hybrids, one per hysteresis trigger: `hybrid` and `hybrid-sticky` on 10-20, and
+  // `hybrid-sticky-20-30` on the steadier 20-30 trigger.
   const perPage = new Map([[1, byArm('structural')], ...PACKS.map((k) => [k, byArm(`packed-${k}`)])]);
   const ladder = [...perPage.keys()].sort((a, b) => b - a);
   const chosenK = (key) => ladder.find((k) => cleanSplit(perPage.get(k).get(key))) ?? 1;
-  for (const [k, h] of hyb) {
-    if (!packedKeys.has(k)) continue;
-    if (h.how === 'fits') { rows.push({ ...h, arm: 'hybrid-sticky' }); continue; }
-    const origKey = `${h.src}#${h.slide}#orig#${h.size}#${h.venue}`;
-    const start = h.variant === 'orig' ? chosenK(k) : chosenK(origKey);
-    const kk = ladder.filter((x) => x <= start).find((x) => cleanSplit(perPage.get(x).get(k))) ?? 1;
-    const r = perPage.get(kk).get(k) || perPage.get(1).get(k);
-    if (r) rows.push({ ...r, arm: 'hybrid-sticky', ms: null });
+  for (const [trigger, plain, sticky] of [['hysteresis-10-20', 'hybrid', 'hybrid-sticky'], ['hysteresis-20-30', null, 'hybrid-sticky-20-30']]) {
+    const hyb = byArm(trigger);
+    if (plain) {
+      for (const [k, h] of hyb) {
+        if (!packedKeys.has(k)) continue;
+        const pf = packedFit.get(k);
+        rows.push(h.how === 'fits' || !pf ? { ...h, arm: plain } : { ...pf, arm: plain, ms: null });
+      }
+    }
+    // The sticky hybrid: packing with memory too. An edit keeps the original's members-a-page
+    // while that still fits, steps down only when it must, and never steps up on an edit.
+    for (const [k, h] of hyb) {
+      if (!packedKeys.has(k)) continue;
+      if (h.how === 'fits') { rows.push({ ...h, arm: sticky }); continue; }
+      const origKey = `${h.src}#${h.slide}#orig#${h.size}#${h.venue}`;
+      const start = h.variant === 'orig' ? chosenK(k) : chosenK(origKey);
+      const kk = ladder.filter((x) => x <= start).find((x) => cleanSplit(perPage.get(x).get(k))) ?? 1;
+      const r = perPage.get(kk).get(k) || perPage.get(1).get(k);
+      if (r) rows.push({ ...r, arm: sticky, ms: null });
+    }
   }
-  const tScore = Date.now();
-  fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(rows));
-  const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });
-  fs.writeFileSync(path.join(OUT, 'report.md'), report);
-  console.log(`\n${report}`);
-}
-
-/** Stability: of the leaves an edit did not touch, the share of pairs whose same-page status flipped. */
-function pairFlips(a, b) {
-  const shared = Object.keys(a.where).filter((l) => l in b.where && a.where[l] >= 0 && b.where[l] >= 0);
-  let pairs = 0;
-  let flips = 0;
-  for (let i = 0; i < shared.length; i++) for (let j = i + 1; j < shared.length; j++) {
-    pairs++;
-    const x = shared[i];
-    const y = shared[j];
-    if ((a.where[x] === a.where[y]) !== (b.where[x] === b.where[y])) flips++;
-  }
-  return pairs ? flips / pairs : 0;
 }
 
 function summarize(rows, run) {
@@ -417,9 +431,20 @@ function summarize(rows, run) {
     lines.push(`| ${size} | ${venue} | ${arm} | ${orig.length} | ${footerOnly} | ${clips.length} | ${unfix} | ${orig.filter((r) => r.lost).length} | ${pages.length} | ${pages.filter((p) => p.fill < 0.4).length} | ${q(pages.map((p) => p.fill), 0.5)} | ${pct(mean(jank))} | ${pct(mean(flips))} | ${pct(mean(big))} | ${ms.length ? q(ms, 0.5) : 'n/a'} |`);
   }
   lines.push('', 'Perturbed slides count toward stability only; the per-cell counts are the original slides. `ms/slide` is the fit-first build in the page; today\'s split runs in the export and is not timed here, and the computed arms reuse the fit-first time, so do not compare it across arms.');
-  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. The packed arms appear only at boxes that split (not 16:9).');
+  lines.push('', '**Arms.** `margin-M`: whole only with M of the content cell spare (natural content height; a slide with a drawing or no content cell falls back to plain fit). `hysteresis-E-X`: the authored slide is whole only with E spare; an edit keeps that decision unless it must change, and a split slide rejoins only with X spare. For the stateful arms, jank and pair flips measure edits FROM the authored state. `packed-K`: today\'s builders, K members a page; components with their own split recipe keep their pacing, so their packed rows equal today\'s. `packed-fit`: the most a page that still fits and still splits. `hybrid`: the hysteresis-10-20 decision, packed-fit pages when it splits. `hybrid-sticky`: the same, and an edit keeps its members a page while that fits. `hybrid-sticky-20-30`: the sticky hybrid on the hysteresis-20-30 decision. The packed arms appear only at boxes that split (not 16:9).');
   if (run.problems.length) lines.push('', '## Problems', '', ...run.problems.map((p) => `- ${p}`));
   return `${lines.join('\n')}\n`;
 }
 
-main().catch((e) => { console.error(e); process.exit(2); });
+async function rearm() {
+  const file = path.join(OUT, 'results.json');
+  const RENDERED = new Set(['structural', 'fit-greedy', 'fit-balanced', ...PACKS.map((k) => `packed-${k}`)]);
+  const rows = JSON.parse(fs.readFileSync(file, 'utf8')).filter((r) => RENDERED.has(r.arm));
+  addComputedArms(rows);
+  fs.writeFileSync(file, JSON.stringify(rows));
+  const report = summarize(rows, { renders: 0, problems: ['rearmed from an earlier run: its render count, timings and problems are in that run\'s report'], renderS: 0, scoreS: 0, sources: new Set(rows.map((r) => r.src)).size });
+  fs.writeFileSync(path.join(OUT, 'report.md'), report);
+  console.log(report);
+}
+
+(REARM ? rearm() : main()).catch((e) => { console.error(e); process.exit(2); });
