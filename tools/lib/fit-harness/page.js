@@ -40,20 +40,27 @@ function install(cfg) {
     return { ok: true, px: 0, chrome: false };
   }
 
-  /** Would the slide still fit with `m` (a share of its content area) more content? An invisible
-   *  block that tall joins the end of the content cell and the export's probe asks again. This is
+  /** The content's natural height as a share of the content cell: the cell sized to its content
+   *  for one read, then restored. An invisible spacer was tried first and is wrong for layouts that
+   *  absorb it (a list measured 60% spare while its content filled 96% of the cell). */
+  function contentShare(s) {
+    const stage = s.querySelector('.cell-stage') || s;
+    const box = stage.clientHeight;
+    const prev = stage.getAttribute('style');
+    stage.style.setProperty('height', 'auto', 'important');
+    stage.style.setProperty('min-height', '0', 'important');
+    stage.style.setProperty('max-height', 'none', 'important');
+    stage.style.setProperty('flex', 'none', 'important');
+    const natural = stage.scrollHeight;
+    if (prev === null) stage.removeAttribute('style'); else stage.setAttribute('style', prev);
+    return box > 0 ? natural / box : 1;
+  }
+  /** Would the slide still fit with `m` (a share of its content cell) more content? It must fit by
+   *  the export's probe, and its natural content height must leave `m` of the cell free. This is
    *  the margin a stateless file can decide with: whole only with room to spare, so a small edit
    *  near the edge does not flip it. */
   function fitsWithMargin(s, m) {
-    if (!fitsSplit(s).ok) return false;
-    const stage = s.querySelector('.cell-stage') || s;
-    const spacer = document.createElement('div');
-    spacer.className = 'fit-margin-probe';
-    spacer.style.cssText = `height:${Math.round(m * stage.clientHeight)}px;flex:none;width:1px;`;
-    stage.appendChild(spacer);
-    const ok = fitsSplit(s).ok;
-    spacer.remove();
-    return ok;
+    return fitsSplit(s).ok && contentShare(s) <= 1 - m;
   }
 
   /** The slide sections, as the export enumerates them. */
@@ -257,7 +264,7 @@ function install(cfg) {
     return done(made, 'cut');
   }
 
-  window.__fit = { fits, fitsWithMargin, leaves, fill, page, build, sections, census };
+  window.__fit = { fits, fitsWithMargin, contentShare, leaves, fill, page, build, sections, census };
 }
 
 module.exports = { PAGE_SRC: `(${install.toString()})` };

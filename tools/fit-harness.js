@@ -57,7 +57,10 @@ const CORPUS = flag('corpus', 'galleries');
 // from deleting each other's inputs.
 const RUN = `${process.pid}-${Date.now().toString(36)}`;
 // Spare room, as a share of the content area, for the margin and hysteresis arms.
-const MARGINS = [0.05, 0.1, 0.2];
+const MARGINS = [0.1, 0.2, 0.3];
+// Members a page for the packed arms: today's builders, K a page instead of one (render-packed.js).
+// Not at hd: the wide box never splits, so a packed render would equal today's.
+const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
   { name: 'fit-balanced', policy: { pack: 'balanced' } },
@@ -147,11 +150,12 @@ async function main() {
       const key = `${id}@${size}@${venue}`;
       jobs.push({ key, args: ['lattice.js', deck, path.join(OUT, 'html', `${key}-A.html`)] });
       jobs.push({ key, args: ['tools/lib/fit-harness/render-whole.js', deck, path.join(OUT, 'html', `${key}-W.html`)] });
+      if (size !== 'hd') for (const k of PACKS) jobs.push({ key, args: ['tools/lib/fit-harness/render-packed.js', String(k), deck, path.join(OUT, 'html', `${key}-P${k}.html`)] });
     }
   }
   const problems = [];
   try {
-    await pool(jobs, JOBS, async (j) => { const r = await run(process.execPath, j.args); if (r.code) problems.push(`render failed: ${path.basename(j.args[2])}`); });
+    await pool(jobs, JOBS, async (j) => { const r = await run(process.execPath, j.args); if (r.code) problems.push(`render failed: ${path.basename(j.args[j.args.length - 1])}`); });
   } finally {
     for (const t of temps) fs.rmSync(t, { force: true });
   }
@@ -193,21 +197,35 @@ async function main() {
       problems.push(`rejected ${key} (whole): ${wInfo.leaves.length} sections, engine says ${owner.length}; deckSlideSections ${wInfo.check.deck} of ${wInfo.check.all}`);
       return;
     }
-    const pa = await open(A);
-    const aInfo = await pa.evaluate(() => ({
-      check: window.__fit.census(),
-      pages: window.__fit.sections().map((s) => ({ run: Number(s.dataset.splitRun || s.dataset.latticeSlide), ...window.__fit.page(s) })),
-    }));
-    await pa.close();
-    if (!aInfo.check.ok) { problems.push(`rejected ${key} (structural): deckSlideSections ${aInfo.check.deck} of ${aInfo.check.all} — broken markup`); return; }
-
-    const arms = { structural: map.map(() => ({ pages: [], how: 'whole', ms: null })) };
-    for (const pg of aInfo.pages) {
-      const i = owner[pg.run - 1];
-      if (i === undefined) { problems.push(`unmapped structural page in ${key}: run ${pg.run}`); continue; }
-      arms.structural[i].pages.push(pg);
+    // Today's builders: one member a page (structural) and K a page (packed-K).
+    const splitArm = async (file, label) => {
+      const pa = await open(file);
+      const info = await pa.evaluate(() => ({
+        check: window.__fit.census(),
+        pages: window.__fit.sections().map((s) => ({ run: Number(s.dataset.splitRun || s.dataset.latticeSlide), ...window.__fit.page(s) })),
+      }));
+      await pa.close();
+      if (!info.check.ok) { problems.push(`rejected ${key} (${label}): deckSlideSections ${info.check.deck} of ${info.check.all} — broken markup`); return null; }
+      const per = map.map(() => ({ pages: [], how: 'whole', ms: null }));
+      for (const pg of info.pages) {
+        const i = owner[pg.run - 1];
+        if (i === undefined) { problems.push(`unmapped ${label} page in ${key}: run ${pg.run}`); continue; }
+        per[i].pages.push(pg);
+      }
+      for (const r of per) if (r.pages.length > 1) r.how = 'split';
+      return per;
+    };
+    const structuralArm = await splitArm(A, 'structural');
+    if (!structuralArm) return;
+    const arms = { structural: structuralArm };
+    if (size !== 'hd') {
+      for (const k of PACKS) {
+        const P = path.join(OUT, 'html', `${key}-P${k}.html`);
+        if (!fs.existsSync(P)) { problems.push(`missing render: ${key} P${k}`); continue; }
+        const per = await splitArm(P, `packed-${k}`);
+        if (per) arms[`packed-${k}`] = per;
+      }
     }
-    for (const r of arms.structural) if (r.pages.length > 1) r.how = 'split';
     for (const arm of FIT_ARMS) {
       const p = await open(W);
       const built = await p.evaluate((policy) => window.__fit.sections().map((s) => {
@@ -279,6 +297,38 @@ async function main() {
   };
   hyst(0, 0.2);
   hyst(0.1, 0.2);
+  hyst(0.2, 0.3);
+  // packed-fit: today's builders with the most members a page that still fits, per slide (one a
+  // page when nothing denser fits). hybrid: the hysteresis-10-20 decision on whether to split,
+  // and packed-fit pages when it does: the P2 candidate (2026-10-27-fluid-layout-library.md §13.1).
+  const k3 = (r) => `${r.src}#${r.slide}#${r.variant}#${r.size}#${r.venue}`;
+  const byArm = (arm) => new Map(rows.filter((r) => r.arm === arm).map((r) => [k3(r), r]));
+  const packed = PACKS.slice().sort((a, b) => b - a).map((k) => byArm(`packed-${k}`));
+  const cleanSplit = (r) => r && !r.pages.some((p) => !p.fits && p.cut !== 'footer');
+  const packedFit = new Map();
+  for (const st of rows.filter((r) => r.arm === 'structural')) {
+    const best = packed.map((m) => m.get(k3(st))).find(cleanSplit) || st;
+    packedFit.set(k3(st), best);
+    rows.push({ ...best, arm: 'packed-fit' });
+  }
+  const hyb = byArm('hysteresis-10-20');
+  for (const [k, h] of hyb) {
+    const pf = packedFit.get(k);
+    rows.push(h.how === 'fits' || !pf ? { ...h, arm: 'hybrid' } : { ...pf, arm: 'hybrid', ms: null });
+  }
+  // hybrid-sticky: packing with memory too. An edit keeps the original's members-a-page while
+  // that still fits, steps down only when it must, and never steps up on an edit.
+  const perPage = new Map([[1, byArm('structural')], ...PACKS.map((k) => [k, byArm(`packed-${k}`)])]);
+  const ladder = [...perPage.keys()].sort((a, b) => b - a);
+  const chosenK = (key) => ladder.find((k) => cleanSplit(perPage.get(k).get(key))) ?? 1;
+  for (const [k, h] of hyb) {
+    if (h.how === 'fits') { rows.push({ ...h, arm: 'hybrid-sticky' }); continue; }
+    const origKey = `${h.src}#${h.slide}#orig#${h.size}#${h.venue}`;
+    const start = h.variant === 'orig' ? chosenK(k) : chosenK(origKey);
+    const kk = ladder.filter((x) => x <= start).find((x) => cleanSplit(perPage.get(x).get(k))) ?? 1;
+    const r = perPage.get(kk).get(k) || perPage.get(1).get(k);
+    if (r) rows.push({ ...r, arm: 'hybrid-sticky', ms: null });
+  }
   const tScore = Date.now();
   fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(rows));
   const report = summarize(rows, { renders: jobs.length, problems, renderS: (tRender - t0) / 1000, scoreS: (tScore - tRender) / 1000, sources: srcs.length });
