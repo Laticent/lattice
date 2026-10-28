@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { History } from './history';
 import { NARROW_MIN, narrowPatch, narrowSnapshot } from './narrow';
 import { applyPatch, trimPatch } from './patch';
+import { compactHistory, restoreSnapshot, toSnapshot } from './snapshot';
 
 function make(text = '') {
 	let t = 1_000;
@@ -25,9 +26,9 @@ function busy() {
 describe('snapshot and restore', () => {
 	it('a restored history undoes, redoes and restores marks exactly as the original', () => {
 		const { h, mark } = busy();
-		const snap = JSON.parse(JSON.stringify(h.toSnapshot()));
+		const snap = JSON.parse(JSON.stringify(toSnapshot(h)));
 		const { h: r } = make(h.text);
-		expect(r.restoreSnapshot(snap)).toBe(true);
+		expect(restoreSnapshot(r, snap)).toBe(true);
 		expect(r.text).toBe(h.text);
 		expect(r.state().canRedo).toBe(true);
 		expect(r.markText(mark)).toBe(h.markText(mark));
@@ -40,15 +41,15 @@ describe('snapshot and restore', () => {
 
 	it('refuses a snapshot for another document, with a wrong hash, or whose steps do not fit', () => {
 		const { h } = busy();
-		const snap = h.toSnapshot();
+		const snap = toSnapshot(h);
 		const fresh = () => make('untouched').h;
 		const other = new History('other', 'x');
-		expect(other.restoreSnapshot(snap)).toBe(false);
-		expect(fresh().restoreSnapshot({ ...snap, hash: snap.hash + 1 })).toBe(false);
-		expect(fresh().restoreSnapshot({ ...snap, floor: `${snap.floor}!` })).toBe(false);
+		expect(restoreSnapshot(other, snap)).toBe(false);
+		expect(restoreSnapshot(fresh(), { ...snap, hash: snap.hash + 1 })).toBe(false);
+		expect(restoreSnapshot(fresh(), { ...snap, floor: `${snap.floor}!` })).toBe(false);
 		const bad = { ...snap, undone: [{ ...snap.undone[0], net: [{ from: 0, to: 3, insert: 'q', deleted: 'zzz' }] }] };
 		const r = fresh();
-		expect(r.restoreSnapshot(bad)).toBe(false);
+		expect(restoreSnapshot(r, bad)).toBe(false);
 		expect(r.text, 'a refused snapshot changes nothing').toBe('untouched');
 		expect(r.state().canUndo).toBe(false);
 	});
@@ -56,7 +57,7 @@ describe('snapshot and restore', () => {
 	it('keeps a writer’s head valid: ids continue after the restored ones', () => {
 		const { h } = busy();
 		const { h: r } = make(h.text);
-		r.restoreSnapshot(h.toSnapshot());
+		restoreSnapshot(r, toSnapshot(h));
 		const res = r.commit({ base: r.head, edits: [{ from: 0, to: 0, insert: 'Z' }], label: 'Typing', origin: 'markdown' });
 		expect(res.ok).toBe(true);
 		expect(res.ok && res.id).toBeGreaterThan(h.head);
@@ -65,11 +66,11 @@ describe('snapshot and restore', () => {
 	it('compact folds every step into the floor and keeps every mark', () => {
 		const { h, mark } = busy();
 		const before = h.markText(mark);
-		h.compact();
+		compactHistory(h);
 		expect(h.state().canUndo).toBe(false);
 		expect(h.state().canRedo).toBe(false);
 		expect(h.markText(mark)).toBe(before);
-		expect(h.restoreSnapshot(h.toSnapshot())).toBe(true);
+		expect(restoreSnapshot(h, toSnapshot(h))).toBe(true);
 	});
 
 	it('reports every change through the revision', () => {
@@ -144,13 +145,13 @@ describe('narrowing broad patches', () => {
 		h.commit({ base: h.head, next: deck.replace('Line 1 of', 'L1').replace('Line 300 of', 'L300'), label: 'AI', origin: 'ai' });
 		h.commit({ base: h.head, next: deck.replace('Line 5 of', 'L5').replace('Line 350 of', 'L350'), label: 'AI', origin: 'ai' });
 		h.undo();
-		const snap = h.toSnapshot();
+		const snap = toSnapshot(h);
 		const narrowed = narrowSnapshot(snap);
 		expect(narrowed).not.toBe(snap);
 		const size = (s: typeof snap) => JSON.stringify(s).length;
 		expect(size(narrowed)).toBeLessThan(size(snap) - NARROW_MIN);
 		const { h: r } = make(h.text);
-		expect(r.restoreSnapshot(narrowed)).toBe(true);
+		expect(restoreSnapshot(r, narrowed)).toBe(true);
 		expect(r.redo()?.text).toBe(h.redo()?.text);
 		expect(r.undo()?.text).toBe(h.undo()?.text);
 		expect(r.undo()?.text).toBe(deck);

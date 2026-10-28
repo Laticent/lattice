@@ -20,7 +20,20 @@
 // a second tab keeps its own in memory and says so, and does not claim the deck later.
 // Broad steps are narrowed to the lines that changed in a worker before they are stored.
 
-import { createFiloStore, type FiloStore, type History, hashText, idbBackend, memoryBackend, NARROW_MIN, type Patch, replaySnapshot, type Snapshot } from '@/lib/filo';
+// The source modules, not the package entry: the Studio's eager bundle imports `@/lib/filo` (the
+// built package, one module), and a lazy chunk importing the same module would keep the store and
+// the diff in the eager chunk with it (route budget, 2.1 KB over the ceiling on the first cut).
+import type { History } from '@/lib/filo';
+import { NARROW_MIN } from '@/lib/filo/narrow';
+import { hashText, type Patch } from '@/lib/filo/patch';
+import { replaySnapshot, restoreSnapshot, type Snapshot, toSnapshot } from '@/lib/filo/snapshot';
+
+// The Studio's histories come from the package entry; `snapshot.ts` is typed against the source
+// class. The two are the same code, and the functions reach the same fields, so this is the one cast.
+type SourceHistory = Parameters<typeof toSnapshot>[0];
+const src = (h: History): SourceHistory => h as unknown as SourceHistory;
+
+import { createFiloStore, type FiloStore, idbBackend, memoryBackend } from '@/lib/filo/store';
 
 export const FILO_DB = 'lattice-filo';
 /** The label of the step a reload adds when the Studio saved text Filo had not stored yet. */
@@ -54,7 +67,7 @@ export function adoptStored(h: History, source: string, sidecar: number | null, 
 	const now = h.text;
 	// The early changes must have started from `source`, or the bridge below would mislabel them.
 	if (now !== source && h.state().steps === 0 && !h.state().canRedo) return null;
-	if (!h.restoreSnapshot(stored, { verified })) return null;
+	if (!restoreSnapshot(src(h), stored, { verified })) return null;
 	const c = reloadCase(source, sidecar, stored);
 	if (c === 'ahead') h.commit({ base: h.head, next: source, label: UNSAVED_LABEL, origin: 'reload' });
 	else if (c === 'outside') h.sync(source);
@@ -128,7 +141,7 @@ export function createFiloPersistence(opts: PersistOptions): FiloPersistence {
 	const write = async (w: Watched, narrow: boolean) => {
 		const rev = w.h.state().revision;
 		if (!w.owned || rev === w.written || rev <= w.queued) return;
-		const raw = w.h.toSnapshot();
+		const raw = toSnapshot(src(w.h));
 		// Nothing to undo, redo or restore: storing it would only spend quota (every deck opened, at every boot).
 		if (raw.done.length + raw.undone.length + raw.marks.length === 0) return;
 		let snap = withCached(raw);

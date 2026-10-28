@@ -1,12 +1,13 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { describe, expect, it } from 'vitest';
 import { History } from './history';
+import { restoreSnapshot, toSnapshot } from './snapshot';
 import { type Backend, createFiloStore, idbBackend, memoryBackend, planEviction, type StoredIndex } from './store';
 
 function snapOf(doc: string, text: string, edits = 1) {
 	const h = new History(doc, text);
 	for (let i = 0; i < edits; i++) h.commit({ base: h.head, next: `${h.text}${'x'.repeat(10)}\n`, label: 'Typing', origin: 'markdown' });
-	return h.toSnapshot();
+	return toSnapshot(h);
 }
 
 const backends: Array<[string, () => Backend]> = [
@@ -25,7 +26,7 @@ for (const [name, make] of backends) {
 			const back = await store.read('a');
 			expect(back?.text).toBe(snap.text);
 			const h = new History('a', 'x');
-			expect(h.restoreSnapshot(back as NonNullable<typeof back>)).toBe(true);
+			expect(restoreSnapshot(h, back as NonNullable<typeof back>)).toBe(true);
 			expect(h.undo()?.text).toBe('hello\n');
 		});
 
@@ -87,7 +88,7 @@ for (const [name, make] of backends) {
 			// A rewrite: its step stores the deleted and the inserted text, so compacting it saves both.
 			old.commit({ base: old.head, next: text.toUpperCase(), label: 'AI', origin: 'ai' });
 			old.mark('Named');
-			await store.write(old.toSnapshot());
+			await store.write(toSnapshot(old));
 			await store.write(snapOf('mid', text, 3));
 			// Over budget now: the oldest is compacted first, and its named mark survives.
 			const o = await store.read('old');

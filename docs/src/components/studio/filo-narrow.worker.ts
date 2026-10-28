@@ -6,9 +6,8 @@
 //   · `verify`: replay a stored history after a reload, checking every step against the text it was
 //     recorded on. On a 100-step history that costs 16-34 ms (`npm run bench`, the filo tier).
 
-import type { Snapshot } from '@/lib/filo';
-import { replaySnapshot } from '@/lib/filo/history';
 import { narrowSnapshot } from '@/lib/filo/narrow';
+import { replaySnapshot, type Snapshot } from '@/lib/filo/snapshot';
 
 type Ask = { id: number; kind: 'narrow' | 'verify'; snap: Snapshot };
 

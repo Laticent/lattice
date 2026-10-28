@@ -12,8 +12,8 @@
 // The diff is Myers' O(ND) on lines, bounded: past `maxD` edits it gives up and keeps the change
 // as it was (two unrelated decks have nothing to narrow, and the bound keeps that case cheap).
 
-import { replaySnapshot, type Snapshot, type SnapshotStep } from './history.js';
 import { applyPatch, type Change, type Patch } from './patch.js';
+import { replaySnapshot, type Snapshot, type SnapshotStep } from './snapshot.js';
 
 /** A change narrower than this many characters (deleted plus inserted) is left alone. */
 export const NARROW_MIN = 1024;

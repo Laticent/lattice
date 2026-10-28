@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createFiloStore, History, hashText, memoryBackend, type Snapshot } from '@/lib/filo';
+import { createFiloStore, History, hashText, memoryBackend, type Snapshot, toSnapshot } from '@/lib/filo';
 import { adoptStored, createFiloPersistence, EARLY_LABEL, reloadCase, UNSAVED_LABEL } from './studio-filo-persist';
 
 const A = '# Deck\n\nOne.\n';
@@ -10,7 +10,7 @@ const C = '# Deck\n\nOne. Two. Three.\n';
 function storedAB(): Snapshot {
 	const h = new History('deck', A);
 	h.commit({ base: h.head, next: B, label: 'Typing', origin: 'markdown' });
-	return h.toSnapshot();
+	return toSnapshot(h);
 }
 
 describe('reloadCase (Filo note §5)', () => {

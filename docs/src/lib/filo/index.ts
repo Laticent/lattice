@@ -8,11 +8,13 @@
 
 import { History, type HistoryOptions } from './history.js';
 
-export type { CommitInput, CommitResult, Entry, HistoryOptions, HistoryState, Limits, Mark, Move, Snapshot, SnapshotEntry, SnapshotMark, SnapshotStep, StepInfo } from './history.js';
-export { DEFAULT_BYTES, DEFAULT_COALESCE_MS, DEFAULT_ENTRIES, DEFAULT_GROUP_QUIET_MS, History, MAX_ENTRIES, replaySnapshot } from './history.js';
+export type { CommitInput, CommitResult, Entry, HistoryOptions, HistoryState, Limits, Mark, Move, StepInfo } from './history.js';
+export { DEFAULT_BYTES, DEFAULT_COALESCE_MS, DEFAULT_ENTRIES, DEFAULT_GROUP_QUIET_MS, History, MAX_ENTRIES } from './history.js';
 export { NARROW_MAX_D, NARROW_MIN, narrowPatch, narrowSnapshot } from './narrow.js';
 export type { Change, Edit, Patch } from './patch.js';
 export { applyPatch, composePatch, hashText, invertPatch, mapPos, patchOf, patchSize, trimPatch } from './patch.js';
+export type { Snapshot, SnapshotEntry, SnapshotMark, SnapshotStep } from './snapshot.js';
+export { compactHistory, replaySnapshot, restoreSnapshot, toSnapshot } from './snapshot.js';
 export type { Backend, Eviction, FiloStore, FiloStoreOptions, StoredIndex } from './store.js';
 export { compactSnapshot, createFiloStore, DEFAULT_BUDGET, idbBackend, memoryBackend, planEviction, snapshotBytes } from './store.js';
 

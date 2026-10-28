@@ -13,16 +13,16 @@ apply when the author presses ⌘Z. It is framework-free with zero dependencies,
 about what the document is.
 
 Design and measurements: `engineering/decisions/2026-10-27-filo-undo-history.md`. This folder is
-the in-memory core (slice 2) and its storage (slice 5): `toSnapshot` / `restoreSnapshot` turn a
-history into plain data and back, `store.ts` keeps one per document in IndexedDB, and `narrow.ts`
+the in-memory core (slice 2) and its storage (slice 5): `snapshot.ts` turns a history into plain
+data and back (functions, not methods, so an app that keeps history in memory only never loads them), `store.ts` keeps one per document in IndexedDB, and `narrow.ts`
 shrinks broad steps before they are stored. The host decides where the heavy work runs.
 
 **Storage** (slice 5):
 
 | Piece | What it does |
 |---|---|
-| `h.toSnapshot()` · `h.restoreSnapshot(snap, { verified? })` | A history as plain data, and back in place (writers' heads stay valid). A restore replays the floor through every step and refuses a snapshot that does not land on its own text; `verified` skips the replay for one the host already checked with `replaySnapshot` in a worker |
-| `h.compact()` | Fold every step into the floor, keeping marks: what a storage budget does before it drops a document |
+| `toSnapshot(h)` · `restoreSnapshot(h, snap, { verified? })` | A history as plain data, and back in place (writers' heads stay valid). A restore replays the floor through every step and refuses a snapshot that does not land on its own text; `verified` skips the replay for one the host already checked with `replaySnapshot` in a worker |
+| `compactHistory(h)` | Fold every step into the floor, keeping marks: what a storage budget does before it drops a document |
 | `createFiloStore(idbBackend(name))` | One stored history per document. `claim(doc)` takes a Web Lock, so one tab writes; `clear()` raises a generation, so a write already on its way after Clear all is refused; a 50 MB budget across documents compacts, then drops, the least recently written |
 | `narrowSnapshot(snap)` | Split each broad change (an AI apply, an import) into the lines that differ. A line diff, bounded; it checks its result and keeps the original when the check fails |
 

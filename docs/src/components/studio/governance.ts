@@ -27,7 +27,6 @@ import { clearClips, clipStats } from '@/playground/narration-store.js';
 import { disconnectOpenRouter } from './architect';
 import { checkpointsSettled, hydrateCheckpoints, lastCheckpointClear } from './checkpoint-store';
 import { formatBytes } from './reference-doc';
-import { filoStore } from './studio-filo-persist';
 import { clearAllDecks, deckContentStats } from './studio-store';
 
 // Cache Storage names this SITE owns — kept in sync BY HAND with the PAGES/
@@ -143,7 +142,7 @@ export async function clearDecksAndTheirPhotos(): Promise<void> {
 	clearAllDecks();
 	// Every deck's undo history goes too, and the store's generation rises, so a flush already on its
 	// way (this page's own `pagehide` on the reload) cannot write a cleared history back (Filo §6.4).
-	const histories = filoStore().clear();
+	const histories = import('./studio-filo-persist').then((m) => m.filoStore().clear());
 	// The checkpoint and undo-history clears run in IndexedDB; let them finish before the caller reloads.
 	await checkpointsSettled();
 	await histories;
@@ -225,7 +224,7 @@ export async function clearRetiredDrawingBoardData(): Promise<void> {
 export async function clearEverything(): Promise<ClearEverythingResult> {
 	clearAllDecks();
 	// The undo histories too (Filo §6.4); their result counts toward "decks" below.
-	const historiesCleared = filoStore().clear();
+	const historiesCleared = import('./studio-filo-persist').then((m) => m.filoStore().clear());
 	await checkpointsSettled();
 	// Crash records carry deck titles, page URLs, the user agent and error stacks
 	// — "your data" by any reading, so the sweep has to reach them or the promise

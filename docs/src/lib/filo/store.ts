@@ -17,7 +17,8 @@
 // Reads and writes are async; Filo's undo never waits on them (§4.2). The host reads once, when it
 // opens a document, and writes on idle and when the page hides.
 
-import { History, type Snapshot } from './history.js';
+import { History } from './history.js';
+import { compactHistory, restoreSnapshot, type Snapshot, toSnapshot } from './snapshot.js';
 
 export const DEFAULT_BUDGET = 50_000_000;
 
@@ -126,9 +127,9 @@ export function planEviction(rows: StoredIndex[], keep: string, budget: number, 
 /** A stored history with every step folded into its floor (marks kept). */
 export function compactSnapshot(snap: Snapshot): Snapshot {
 	const h = new History(snap.doc, snap.text, { limits: { entries: 500, bytes: Number.MAX_SAFE_INTEGER } });
-	if (!h.restoreSnapshot(snap)) return snap;
-	h.compact();
-	return h.toSnapshot();
+	if (!restoreSnapshot(h, snap)) return snap;
+	compactHistory(h);
+	return toSnapshot(h);
 }
 
 export function createFiloStore(backend: Backend, opts: FiloStoreOptions = {}): FiloStore {

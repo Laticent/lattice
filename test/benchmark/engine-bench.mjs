@@ -715,7 +715,7 @@ async function filoTier() {
   const { createRequire } = await import('node:module');
   const filo = createRequire(import.meta.url)(libPath);
   // A tree before slice 5 has no storage: its typing, AI and undo rows still measure.
-  const stores = typeof filo.History?.prototype?.toSnapshot === 'function';
+  const stores = typeof filo.toSnapshot === 'function';
   const deck = readFileSync(FILO_DECK, 'utf8').replace(/\r\n?/g, '\n');
   // An AI apply that edits two distant slides: the trimmed replace spans everything between them.
   const ai = (text) => {
@@ -777,12 +777,12 @@ async function filoTier() {
     }
     let snap = null;
     const take = timeRuns(30, () => {
-      snap = h.toSnapshot();
+      snap = filo.toSnapshot(h);
     });
     const bytes = filo.snapshotBytes(snap);
     const restore = timeRuns(10, () => {
       const r = new filo.History('bench', text);
-      if (!r.restoreSnapshot(snap)) throw new Error('filo tier: the snapshot did not restore');
+      if (!filo.restoreSnapshot(r, snap)) throw new Error('filo tier: the snapshot did not restore');
     });
     // After a reload the Studio replays the stored history in its worker (`replaySnapshot`), then
     // restores it on the main thread with `verified`, which is the row that holds the 16 ms budget.
@@ -791,7 +791,7 @@ async function filoTier() {
     });
     const restoreMain = timeRuns(30, () => {
       const r = new filo.History('bench', text);
-      if (!r.restoreSnapshot(snap, { verified: true })) throw new Error('filo tier: the verified snapshot did not restore');
+      if (!filo.restoreSnapshot(r, snap, { verified: true })) throw new Error('filo tier: the verified snapshot did not restore');
     });
     summary.push({ dataset: 'filo · snapshot (100 steps)', work: { steps: snap.done.length, bytes }, ms: take.ms, p95: take.p95 });
     summary.push({ dataset: 'filo · verify after reload (worker)', work: { steps: snap.done.length }, ms: verify.ms, p95: verify.p95 });

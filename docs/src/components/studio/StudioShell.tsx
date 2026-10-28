@@ -156,7 +156,7 @@ import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
 import { commitSource, historyInput, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
-import { createFiloPersistence, filoStore, narrowInWorker, verifyInWorker } from './studio-filo-persist';
+import type { FiloPersistence } from './studio-filo-persist';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, loadSourceSum, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, saveSourceSum, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -505,7 +505,23 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const filo = React.useMemo(() => createFilo({ boundary: slideBoundary }), []);
 	// The history survives a reload (Filo slice 5, studio-filo-persist.ts): one IndexedDB store,
 	// the Studio's own sidecar hash beside each saved source, broad steps narrowed in a worker.
-	const filoPersist = React.useMemo(() => createFiloPersistence({ store: filoStore(), sidecar: loadSourceSum, narrow: narrowInWorker, verify: verifyInWorker, notify }), []);
+	// Loaded after the first paint, off the Studio's eager bundle (route budget): nothing is stored
+	// before a history changes, and opens and drops queue on the load in the order they were asked.
+	const filoPersist = React.useMemo((): FiloPersistence => {
+		let ready: FiloPersistence | null = null;
+		const loading = import('./studio-filo-persist').then((m) => {
+			ready = m.createFiloPersistence({ store: m.filoStore(), sidecar: loadSourceSum, narrow: m.narrowInWorker, verify: m.verifyInWorker, notify });
+			return ready;
+		});
+		return {
+			open: (h, text) => loading.then((p) => p.open(h, text)),
+			flush: () => ready?.flush(),
+			drop: (id) => {
+				if (ready) ready.drop(id);
+				else void loading.then((p) => p.drop(id));
+			},
+		};
+	}, []);
 	const intentRef = React.useRef<StampedIntent | null>(null);
 	const intentSeqRef = React.useRef(0);
 	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {

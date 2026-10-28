@@ -703,9 +703,14 @@ nothing left to undo.
 **5. Persistence.** The IndexedDB store, the sidecar and the reload path, tombstones, the two-tab
 lock, the LRU, and the worker that narrows broad patches.
 
-**Slice 5 as built** (2026-10-28). The library half is `docs/src/lib/filo`: `History.toSnapshot` /
-`restoreSnapshot` (in place, so every writer's head and every subscriber stay valid), `compact`,
-`replaySnapshot`, `narrow.ts` and `store.ts`. The Studio half is
+**Slice 5 as built** (2026-10-28). The library half is `docs/src/lib/filo`: `snapshot.ts` (`toSnapshot`,
+`restoreSnapshot` in place so every writer's head and every subscriber stay valid,
+`compactHistory`, `replaySnapshot`), `narrow.ts` and `store.ts`. The storage half is functions
+outside the `History` class, so a bundler can drop it where only the in-memory history is used, and
+the Studio loads it and its glue after the first paint, importing the source modules rather than
+the package entry. The first cut imported the package entry from the lazy glue too; the package is
+one built module, so the store and the diff stayed in the eager chunk, 2.1 KB past the Studio's
+route-budget ceiling (`check:route-budget`). Now 540.8 KB against a 542.3 KB ceiling. The Studio half is
 `docs/src/components/studio/studio-filo-persist.ts` and its worker, `filo-narrow.worker.ts`. Where
 it differs from the plan above, and why:
 
