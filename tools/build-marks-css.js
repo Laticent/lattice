@@ -828,10 +828,14 @@ function build() {
       for (const [band, st, lv] of BANDS) {
         const [l, d] = lv[name];
         // The key's disc wears its band's fill (one hue under tone), so the legend matches the cells instead of a solid status badge.
+        const kl = name === 'tone' ? mix(ONE, `${l}%`) : mix(`var(--state-${st}-hue)`, `${l}%`);
+        const kd = name === 'tone' ? mix(ONE, `${d}%`) : mix(`var(--state-${st}-hue)`, `${d}%`);
         w(rule(name, `.risk-key-marker[data-band="${band}"]`, [
-          `fill: ${name === 'tone' ? ld(mix(ONE, `${l}%`), mix(ONE, `${d}%`)) : ld(mix(`var(--state-${st}-hue)`, `${l}%`), mix(`var(--state-${st}-hue)`, `${d}%`))}`,
+          `fill: ${ld(kl, kd)}`,
           ...(band === 'critical' ? [`stroke: ${name === 'tone' ? ONE_INK : 'var(--state-fail-ink)'}`] : []),
         ]));
+        // The number picks black or white from its own disc (a wash is not the solid the shipped ink was solved for).
+        w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
         w(rule(name, `.risk-cell[data-band="${band}"]`, [
           // Etch keeps the status hue (the band IS a severity). Tone is one hue, so severity is the SHADE: a second hue family
           // on non-status marks broke the rule every other tone chart keeps.
@@ -950,9 +954,16 @@ function build() {
       w(rule(name, '.timeline-dot', ['--timeline-dot-fill: var(--timeline-dot-ink)']));
       // The risk KEY's discs wear the same band fill as the cells (tamed on dark), not the vivid status hue.
       for (const [band, st] of [['low', 'pass'], ['medium', 'warn'], ['high', 'fail']]) {
-        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: ${ld(`var(--state-${st}-hue)`, `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`)}`]));
+        const kl = `var(--state-${st}-hue)`;
+        const kd = `color-mix(in oklab, var(--state-${st}-hue) 72%, var(--bg))`;
+        w(rule(name, `.risk-key-marker[data-band="${band}"]`, [`fill: ${ld(kl, kd)}`]));
+        // The number picks black or white from its OWN disc: the shipped ink assumes the vivid solid, which the dark mix is not.
+        w(supports(rule(name, `.risk-key-number[data-band="${band}"]`, [`fill: ${ld(inkOn(kl), inkOn(kd))}`])));
       }
-      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${ld('color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))', 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))')}`]));
+      const cl = 'color-mix(in oklab, var(--fail-vivid-mark) 82%, var(--on-mark-shade, black))';
+      const cd = 'color-mix(in oklab, var(--fail-vivid-mark) 66%, var(--bg))';
+      w(rule(name, '.risk-key-marker[data-band="critical"]', [`fill: ${ld(cl, cd)}`]));
+      w(supports(rule(name, '.risk-key-number[data-band="critical"]', [`fill: ${ld(inkOn(cl), inkOn(cd))}`])));
       // A slope's signal lines wear the status hue, not its text ink (which is neon on a dark slide): the same solid a risk cell takes.
       w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="up"]', [`stroke: ${ld('var(--state-pass-hue)', 'color-mix(in oklab, var(--state-pass-hue) 58%, var(--bg))')}`])));
       w(supports(rule(name, '.slope-svg.slope-signal .slope-line[data-dir="down"]', [`stroke: ${ld('var(--state-fail-hue)', 'color-mix(in oklab, var(--state-fail-hue) 62%, var(--bg))')}`])));

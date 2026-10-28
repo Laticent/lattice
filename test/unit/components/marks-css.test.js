@@ -130,7 +130,8 @@ describe('marks.generated.css', () => {
     assert.match(text[0].body, /color: var\(--finish-ink\) !important/);
     const picked = css.split('\n}').filter((b) => /(?:^|\s)(?:color|fill|--tower-ink|--state-node-ink|--state-index-ink):\s*(?:light-dark\()?color\(from/.test(b));
     // Tone's text-bearing marks also pick their ink from their own body (one ladder, any shade): the finish's text-level colors.
-    for (const b of picked) assert.match(b, /heatmap-value|hub-spoke-icon|lat-pill|finish-mark-text/, b.slice(0, 160));
+    // The risk key's number is one too: its disc is a wash or a tamed solid, which the shipped ink was not solved for (1 to 3.4:1 measured).
+    for (const b of picked) assert.match(b, /heatmap-value|hub-spoke-icon|lat-pill|finish-mark-text|risk-key-number/, b.slice(0, 160));
   });
 
   test('a ramp mixes toward its own member base, never through a var() fallback chain', () => {
