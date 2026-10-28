@@ -48,6 +48,25 @@ const REQUIRED_FIELD = /^\s*done when\s*—/im;
 //              and no way to find the note.
 // `priority: P<n>` is a different thing and stays: the item's position in the brief that left it.
 const SEVERITIES = ['high', 'medium', 'low'];
+
+// WHY IT WAS NOT DONE NOW. A follow-up is a deferral, and HARD RULE #18 allows only three: the
+// work is genuinely large, something outside this repo blocks it, or it is off the path of the
+// change that found it. Small and moderate work on the path is fixed in the PR, not filed. Before
+// this field, 149 items were filed in the 14 days to 2026-10-28, 89 of them `severity: low`
+// (engineering/decisions/2026-10-28-raise-before-ask.md §4). The field names which exit the item
+// takes and why, in one line:
+//   deferred: large — <why it does not fit this PR>
+//   deferred: blocked — <the thing outside our control it waits on>
+//   deferred: off-path — <the surface, and why the change that found it does not touch it>
+// The gate checks only the SHAPE; whether the reason is true is the reviewer's and the checker's.
+// Items recorded before the rule are exempt by DATE, so the old ledger is not rewritten. The cutoff is a
+// date and not an origin PR number on purpose: PRs already open when this landed (#2953 among them) carry
+// items with origin numbers above it and today's date, and an origin cutoff would fail their build:check in
+// the merge queue. Backdating `recorded` evades the gate; the card's `left behind` row and its grader are
+// the check on that.
+const DEFERRED = /^(large|blocked|off-path)\s+—\s+\S/;
+const DEFERRED_SINCE = '2026-10-29';
+const needsDeferred = (meta) => (meta.recorded || '') >= DEFERRED_SINCE;
 const SEVERITY_RANK = { high: 0, medium: 1, low: 2 };
 
 /** A file (not a folder) inside the repo. A `../` path or a directory is not a governing doc. */
@@ -124,6 +143,9 @@ function followupProblems(dir = DIR, root = ROOT) {
     // Backfilled items are verbatim copies of older briefs, and one of them predates the
     // `done when` field. Rewriting it would change the record, so a backfill is exempt.
     if (p.meta.backfill !== 'true' && !REQUIRED_FIELD.test(p.body)) problems.push(`${where}: needs a \`done when\` line — the acceptance check a reviewer can run.`);
+    if (needsDeferred(p.meta) && !DEFERRED.test(p.meta.deferred || '')) {
+      problems.push(`${where}: front matter needs \`deferred: large|blocked|off-path — <why>\`. Small or moderate work on the path is fixed in the PR, not filed (HARD RULE #18, followups.d/README.md §Why it was not done now).`);
+    }
   }
   return problems;
 }

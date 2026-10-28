@@ -2049,14 +2049,69 @@ not "high with a caveat". Grade the axes first, then read off the floor:
   is not forbidden; it is a card that must say plainly what I am accepting.
 
 **Every card names the ONE thing that would raise it.** That line is the most
-useful in the card: it turns "are you sure?" into a decision I can act on — merge
-anyway, or spend ten more minutes and get a better answer. If nothing would raise
-it, say so; `very high` with no raise-path is a legitimate answer.
+useful in the card. It used to be an offer to the owner (merge anyway, or spend ten more
+minutes); since 2026-10-28 the agent spends those minutes first, in the raise loop below,
+so by the time the card is posted the line names only what the loop could not reach. If
+nothing would raise it, say so; `very high` with no raise-path is a legitimate answer.
 
 **Grade the change, not the effort.** A long session with many mutations tested
 is not evidence; the artifact is. Inflating a level to look diligent destroys the
 only thing the card is for — and the failure mode to watch is the drift where
 everything becomes `high` because the work felt thorough.
+
+### The raise loop — the agent raises the card, the owner does not
+
+The `raise it` line used to end the agent's work: name the next step, then ask. So the
+owner ran the loop by hand: "what's the level?", "do the thing", "now?". **The loop is
+the agent's.** Below `VERY HIGH`, before any merge ask:
+
+1. **Plan the surfaces.** Run `npm run evidence`. It reads the diff and prints every real
+   surface the change reaches and the command for each: the Playwright engines
+   (Chromium at three widths, `webkit-phone`, `webkit-tablet`, `gecko`), the
+   integration tier, and a `workflow_dispatch` of the matching macOS / Windows / iOS
+   Simulator platform suites. Run every `local` row and dispatch every `dispatch` row.
+   "Not installed" is not a stop (#23).
+2. **Get the grade** from the checker (below).
+3. **If it is below `VERY HIGH`, do the `raise it` line**: drive the surface, add the
+   test, fix the gap. Then grade again.
+4. **Stop after three rounds**, or earlier when the only thing left is out of your reach:
+   a taste call on a visual, the export sign-off, something irreversible, or a surface
+   no runner here or in CI can reach. Name which one in `raised`.
+
+The card's `raised` row lists the rounds and what stopped them, e.g. `2 rounds: MEDIUM
+to HIGH (webkit-phone), HIGH to VERY HIGH (iOS sim)`. `npm run card` refuses `raised:
+none` below `VERY HIGH`. Record: `engineering/decisions/2026-10-28-raise-before-ask.md`.
+
+### Who grades — a checker, never the maker
+
+The maker does not set the level. Spawn one `checker` agent (Opus, `effort: medium`
+unless the work earned the trio, #25) and give it the diff, the `npm run evidence`
+plan, and the artifacts, **not your own grade**. It grades the five axes and returns
+the level, `limited by` and `raise it`. Put its answer on the card unchanged and name
+it in `graded_by`. `npm run card` refuses `self`, `maker` and `me`. The grader is not
+the maker-checker review (#25): it grades the card from the artifacts and does not
+review the code, so it does not satisfy the "Independent eyes" axis on its own. When you disagree
+with the grade, raise the change rather than arguing the grade down.
+
+### What the owner is asked — a decision, never a manual check
+
+The owner is asked to **merge or hold**, nothing else. Never ask the owner to try it,
+click through it or confirm it works: if a runner here or in CI can reach the surface,
+that is the agent's job (#23). The exceptions are:
+
+- **a taste call on a visual**, with the artifact attached (`SendUserFile` the PNGs or
+  PDF, light and dark), so the spot check takes seconds;
+- **export bytes**, the Quality Bar's sign-off;
+- **a surface nothing can reach** (a physical device's feel, for example), marked
+  UNVERIFIED in `not run`.
+
+### What the PR leaves behind
+
+The card's `left behind` row lists the `followups.d/` items this PR adds, and the target
+is `none`. Each one needs `deferred: large|blocked|off-path — <why>` (`followups.d/README.md`
+§Why it was not done now). Small or moderate work on the path, including jank and broken
+windows the PR touched, is fixed in the PR, not filed (#18). The checker reads this row
+too: a `large` that is really an afternoon's work lowers the grade.
 
 Template:
 
@@ -2073,9 +2128,15 @@ BOTTOM LINE
     <LOW | MEDIUM | HIGH |
     VERY HIGH> · limited by:
     <the axis>
+  graded by
+    <the checker agent; never the
+    maker>
   raise it
     <the one thing that moves it
     up, or "nothing outstanding">
+  raised
+    <the rounds run and what stopped
+    them; "none" only at VERY HIGH>
 
 CHANGE
   what
@@ -2103,6 +2164,9 @@ RISK
     <blast radius>
   revert
     <how it is undone>
+  left behind
+    <followups.d/ items this PR
+    adds, or "none">
 ```
 
 ## ❓ Decision card — what is waiting on the owner, in plain words

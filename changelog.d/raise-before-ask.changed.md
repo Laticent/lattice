@@ -1,0 +1,3 @@
+- The pre-merge card now carries `graded by` (a checker agent, never the maker), `raised` (the rounds of the raise loop) and `left behind` (follow-ups the PR adds); `npm run card` refuses a self-graded card and an unraised one below VERY HIGH.
+- `npm run evidence` plans the real-surface evidence a diff owes: Playwright Chromium, WebKit and Gecko, the three widths, and which macOS / Windows / iOS Simulator suites to dispatch.
+- New `followups.d/` items must say `deferred: large|blocked|off-path — <why>`; `build:check` refuses one without it.

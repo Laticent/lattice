@@ -27,7 +27,7 @@ const str = { type: 'string', pattern: '^[^\\r\\n]*\\S[^\\r\\n]*$' };
 const SCHEMAS = {
   'pre-merge': {
     type: 'object',
-    required: ['card', 'pr', 'pick', 'confidence', 'raise_it', 'change', 'proof', 'risk'],
+    required: ['card', 'pr', 'pick', 'confidence', 'raise_it', 'raised', 'change', 'proof', 'risk'],
     additionalProperties: false,
     properties: {
       card: { const: 'pre-merge' },
@@ -42,11 +42,12 @@ const SCHEMAS = {
       },
       confidence: {
         type: 'object',
-        required: ['level', 'limited_by'],
+        required: ['level', 'limited_by', 'graded_by'],
         additionalProperties: false,
-        properties: { level: { enum: ['low', 'medium', 'high', 'very high'] }, limited_by: str },
+        properties: { level: { enum: ['low', 'medium', 'high', 'very high'] }, limited_by: str, graded_by: str },
       },
       raise_it: str,
+      raised: str,
       change: {
         type: 'object',
         required: ['what', 'why'],
@@ -61,9 +62,9 @@ const SCHEMAS = {
       },
       risk: {
         type: 'object',
-        required: ['if_wrong', 'revert'],
+        required: ['if_wrong', 'revert', 'left_behind'],
         additionalProperties: false,
-        properties: { if_wrong: str, revert: str },
+        properties: { if_wrong: str, revert: str, left_behind: str },
       },
     },
   },
@@ -365,9 +366,19 @@ function renderPreMerge(d, page) {
     `${d.confidence.level.toUpperCase()} · limited by: ${d.confidence.limited_by}`,
     'confidence',
   );
+  page.field('graded by', d.confidence.graded_by, 'confidence.graded_by');
+  // The maker does not grade its own card (workflow.md §Pre-merge card, "Who grades").
+  if (/^\s*(self|maker|me|myself|the maker|this session|nobody|none)\s*([,.;:(]|$)/i.test(d.confidence.graded_by)) {
+    page.errors.push('confidence.graded_by: the maker cannot grade its own card; name the checker that did');
+  }
   page.field('raise it', d.raise_it, 'raise_it');
   if (/^\s*(nothing|none|n\/a)\b/i.test(d.raise_it) && d.proof.not_run) {
     page.errors.push('raise_it: says nothing is left to raise but proof.not_run is not empty');
+  }
+  page.field('raised', d.raised, 'raised');
+  // Below VERY HIGH the raise loop must have run before the ask (workflow.md §The raise loop).
+  if (d.confidence.level !== 'very high' && /^\s*(none|nothing|no\b|n\/a|0 rounds?|zero|not (attempted|tried|run)|did not run|skipped)/i.test(d.raised)) {
+    page.errors.push('raised: the card is below VERY HIGH, so the raise loop must run before the ask; list the rounds and what stopped them');
   }
   page.section('CHANGE');
   page.field('what', d.change.what, 'change.what');
@@ -381,6 +392,7 @@ function renderPreMerge(d, page) {
   page.section('RISK');
   page.field('if wrong', d.risk.if_wrong, 'risk.if_wrong');
   page.field('revert', d.risk.revert, 'risk.revert');
+  page.field('left behind', d.risk.left_behind, 'risk.left_behind');
 }
 
 function renderStandup(d, page) {
