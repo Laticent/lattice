@@ -146,6 +146,9 @@ nothing, so a headless browser can receive them as source.
   free, drawn on top: the text paints over its own box, and in its row's group it would come out under the
   picture, right after the picture (`TextFrame.above`), so a shape painted later stays above it. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
   gradient panel behind it) changes nothing.
+- A focused table row's ring (`box-shadow: inset 0 W 0` and `inset 0 -W 0` on every cell, plus `inset W 0 0` on the first and `inset -W 0 0` on
+  the last) is native lines, one band per cell edge, so it reads as one outline. A side band with no top and bottom band beside it (a focused
+  column's) stays a picture of the whole column.
 - An `outline` pulled in by its own width (`outline-offset: -W`, the focus highlight's card edge) is drawn as
   an inside stroke, replacing a border no wider than that band. Any other outline keeps its box a picture.
 - The `.pptx` picture lock is markup only: PowerPoint's Lock honors it; LibreOffice does not.

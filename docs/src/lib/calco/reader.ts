@@ -1105,8 +1105,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			outerRing?: Paint & { width: number };
 			/** Hard-edged shadows under the box (struck elevation), each a solid box. */
 			struck?: Array<Paint & { x: number; y: number; spread: number }>;
-			/** Hard inset bands along the inner top (y > 0) and bottom (y < 0) edges: a highlight and a shade. */
-			rims?: Array<Paint & { y: number }>;
+			/** Hard inset bands along the inner top (y > 0), bottom (y < 0), left (x > 0) or right (x < 0) edge: one of x and y is 0. */
+			rims?: Array<Paint & { x: number; y: number }>;
 		}
 		const candidates: Candidate[] = [];
 		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
@@ -1140,11 +1140,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			stacked?: boolean;
 			/** Hard-edged outer layers (no blur, an offset): each is a solid copy of the box, moved and grown by its spread. */
 			struck: Array<Paint & { x: number; y: number; spread: number }>;
-			/** Hard inset layers offset straight down or up (no blur, no spread): a band along that inner edge, one per edge. */
-			rims: Array<Paint & { y: number }>;
+			/** Hard inset layers offset straight down, up, right or left (no blur, no spread): a band along that inner edge, one per edge. */
+			rims: Array<Paint & { x: number; y: number }>;
 		};
 		const shadowOf = (v: string, opacity: number): Shadows | false => {
 			const out: Shadows = { outer: null, ring: null, outerRing: null, struck: [], rims: [] };
+			// Bands along the left or right edge join `rims` only beside a top AND a bottom band (see after the loop).
+			const sideBands: Array<Paint & { x: number; y: number }> = [];
 			if (!v || v === 'none') return out;
 			for (const layer of splitTop(v)) {
 				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
@@ -1158,7 +1160,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					// The engine's struck elevation lights the top inner edge with a hard band and shades the bottom
 					// one: one band per edge, so a second band on the same edge is not this recipe.
 					if (!x && y && !blur && !spread && !out.rims.some((r) => r.y > 0 === y > 0)) {
-						out.rims.push({ ...paint, y });
+						out.rims.push({ ...paint, x: 0, y });
+						continue;
+					}
+					if (x && !y && !blur && !spread && !sideBands.some((b) => b.x > 0 === x > 0)) {
+						sideBands.push({ ...paint, x, y: 0 });
 						continue;
 					}
 					if (x || y || blur || !(spread > 0) || out.ring) return false;
@@ -1186,6 +1192,12 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					continue;
 				}
 				out.outer = next;
+			}
+			// A cell with a top and a bottom band is a cell of a ringed row, so a side band is that row's end, drawn like
+			// them. Without both, the band is one edge of a ringed column, which spans its rows as one picture.
+			if (sideBands.length) {
+				if (!(out.rims.some((r) => r.y > 0) && out.rims.some((r) => r.y < 0))) return false;
+				out.rims.push(...sideBands);
 			}
 			return out;
 		};
@@ -2274,14 +2286,26 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const bb = c.sides[2]?.width || 0;
 				const bl = c.sides[3]?.width || 0;
 				const br = c.sides[1]?.width || 0;
-				const band = Math.abs(rim.y);
+				const rimStroke = { color: rim.color, alpha: rim.alpha, width: Math.abs(rim.x || rim.y) };
+				const band = rimStroke.width;
+				if (rim.x) {
+					const left = rim.x > 0;
+					const [rt, rb] = left ? [c.radii[0], c.radii[3]] : [c.radii[1], c.radii[2]];
+					const y0 = y + Math.max(bt, rt);
+					const y1 = y + h - Math.max(bb, rb);
+					if (y1 > y0) {
+						shapes.push({ kind: 'line', x: left ? x + bl + band / 2 : x + w - br - band / 2, y: y0, w: 0, h: y1 - y0, stroke: rimStroke, side: left ? 'left' : 'right', pseudo: true });
+						shapeEls.push(c.el);
+					}
+					continue;
+				}
 				const top = rim.y > 0;
 				const [rl, rr] = top ? [c.radii[0], c.radii[1]] : [c.radii[3], c.radii[2]];
 				const x0 = x + Math.max(bl, rl);
 				const x1 = x + w - Math.max(br, rr);
 				if (x1 > x0) {
 					const ly = top ? y + bt + band / 2 : y + h - bb - band / 2;
-					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: { color: rim.color, alpha: rim.alpha, width: band }, side: top ? 'top' : 'bottom', pseudo: true });
+					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: rimStroke, side: top ? 'top' : 'bottom', pseudo: true });
 					shapeEls.push(c.el);
 				}
 			}

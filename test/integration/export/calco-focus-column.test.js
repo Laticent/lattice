@@ -36,6 +36,24 @@ const TABLE_OVERLAY = TABLE.replace('</table></section>', '</table><div class="c
   '.cover{position:absolute;left:880px;top:236px;width:160px;height:40px;background:#c00;z-index:3}</style>',
 );
 
+// A focused ROW (`_focus: row`): every cell has a top and a bottom band, and the first and last also one side band. The
+// ring is one native outline of lines that abut, not a picture in the end cells and lines in the middle (which came out
+// as pieces that did not meet, examples/focus.md slide 3).
+const ROW = `<!doctype html><html><head><style>
+body{margin:0;font-family:sans-serif}
+section{width:1280px;height:720px;position:relative;background:#fff;color:#123;isolation:isolate}
+table{position:absolute;left:64px;top:200px;width:1100px;border-collapse:collapse;font-size:20px}
+tr{background:#f2f5fa}
+th,td{padding:8px 16px;text-align:left}
+tr.f td{background:#e8f0fa;box-shadow:inset 0 3px 0 #069,inset 0 -3px 0 #069}
+tr.f td:first-child{box-shadow:inset 0 3px 0 #069,inset 0 -3px 0 #069,inset 3px 0 0 #069}
+tr.f td:last-child{box-shadow:inset 0 3px 0 #069,inset 0 -3px 0 #069,inset -3px 0 0 #069}
+</style></head><body><section id="s" data-lattice-slide="1"><table>
+<tbody><tr><td>Speed</td><td>Slow</td><td>Fast</td></tr>
+<tr class="f"><td>Setup</td><td>1 day</td><td>Same day</td></tr>
+<tr><td>Cost</td><td>Low</td><td>High</td></tr></tbody>
+</table></section></body></html>`;
+
 // The other side: a picture drawn BEFORE the card (a gradient panel behind it) is already under the card's text,
 // so the text stays in its card, and so stays under a box that covers it in the browser.
 const PANEL = `<!doctype html><html><head><style>
@@ -113,6 +131,23 @@ describe('calco: a focused column keeps its text above its picture', () => {
     const coverAt = order.findIndex((d) => 'shape' in d && d.shape.kind === 'box' && d.shape.fill?.color === '#cc0000');
     assert.ok(coverAt >= 0, 'the covering box is a shape');
     assert.ok(picAt < textAt && textAt < coverAt, `picture (${picAt}) < text (${textAt}) < overlay (${coverAt})`);
+  });
+
+  test('a focused row is one native ring: top and bottom lines in every cell, a side line at each end, no picture', async () => {
+    await tab.setContent(ROW, { waitUntil: 'load' });
+    const h = await tab.$('#s');
+    const slide = await h.evaluate(readSlide, { hide: true, shapes: true, sprites: true });
+    await h.evaluate(restoreSlide);
+    assert.equal(slide.shapes.filter((s) => s.kind === 'picture').length, 0, 'no cell of the row is a picture');
+    const ring = slide.shapes.filter((s) => s.kind === 'line' && s.stroke?.color === '#006699');
+    const count = (side) => ring.filter((l) => l.side === side).length;
+    assert.deepEqual([count('top'), count('bottom'), count('left'), count('right')], [3, 3, 1, 1], 'a band per cell edge, a side at each end');
+    const sides = ring.filter((l) => l.side === 'left' || l.side === 'right');
+    const top = ring.filter((l) => l.side === 'top');
+    const first = Math.min(...top.map((l) => l.x));
+    const last = Math.max(...top.map((l) => l.x + l.w));
+    assert.ok(Math.abs(sides.find((l) => l.side === 'left').x - 1.5 - first) < 0.6, 'the left line sits on the ring\'s left edge');
+    assert.ok(Math.abs(sides.find((l) => l.side === 'right').x + 1.5 - last) < 0.6, 'the right line sits on the ring\'s right edge');
   });
 
   test('a card inside a gradient panel keeps its text, under the box that covers it', async () => {

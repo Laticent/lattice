@@ -1,1 +1,2 @@
 - Editable PPTX/ODP export: text lifted above a focused column's picture is now drawn right after that picture, so a box painted later stays above the text.
+- Editable PPTX/ODP export: a focused table row's ring is drawn as one native outline, where it came out in pieces that did not meet (a picture in the end cells, lines in the rest).
