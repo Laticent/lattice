@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Lente — a standalone, framework-free showcase driven by the REAL engine
 // (docs/src/lib/lente): parseLensRegistry + the fluent lens() front door projecting one deck at the
 // altitude a reader chose — but ONLY a view a human approved. No React, no slide engine — the honest
@@ -17,30 +18,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Lente — one deck, at the altitude you chose</title>
 		<link rel="icon" href="/lente-mark.svg" type="image/svg+xml" />
+		<LibraryTheme lib="lente" />
 		<style is:global>
-			:root {
-				--paper: #f4f6fb; --stage: #eaeef7; --ink: #1a2230; --muted: #8b93a5; --spent: #b9c1d2;
-				--line: #d7deec; --accent: #00787d; --accent-ink: #fff; --glow: #8b5500; --glow-bg: #f6e2c4;
-				--panel: #fbfcff; --shadow: 0 1px 2px rgba(26,34,48,.06), 0 8px 24px rgba(26,34,48,.06);
-				--stage-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root {
-					--paper: #0d1017; --stage: #141926; --ink: #dfe6f2; --muted: #5c6678; --spent: #3a4356;
-					--line: #222a3a; --accent: #64d1d7; --accent-ink: #001112; --glow: #f6b64a; --glow-bg: #2f2a1c;
-					--panel: #111624; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-				}
-			}
-			:root[data-theme="light"] {
-				--paper: #f4f6fb; --stage: #eaeef7; --ink: #1a2230; --muted: #8b93a5; --spent: #b9c1d2;
-				--line: #d7deec; --accent: #00787d; --accent-ink: #fff; --glow: #8b5500; --glow-bg: #f6e2c4; --panel: #fbfcff;
-			}
-			:root[data-theme="dark"] {
-				--paper: #0d1017; --stage: #141926; --ink: #dfe6f2; --muted: #5c6678; --spent: #3a4356;
-				--line: #222a3a; --accent: #64d1d7; --accent-ink: #001112; --glow: #f6b64a; --glow-bg: #2f2a1c; --panel: #111624;
-			}
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans);
 				line-height: 1.5; -webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }

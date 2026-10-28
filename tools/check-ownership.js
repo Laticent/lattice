@@ -13908,7 +13908,10 @@ function declaredCustomProps(src, into) {
   return into;
 }
 
-const DANGLING_SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.astro', '.css'];
+// `.json` so a token DECLARED in data counts: the library demo pages' theme tokens are written once
+// in docs/src/lib/library-palettes.json and emitted as CSS by LibraryTheme.astro. Reads still match
+// only `var(...)`, which a JSON file never contains, so this widens declarations and nothing else.
+const DANGLING_SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.astro', '.css', '.json'];
 const DANGLING_THIRD_PARTY = [/^--sl-/, /^--radix-/, /^--tw-/];
 
 function checkDanglingTokenReads(errors, dirs = {}) {

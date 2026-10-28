@@ -12,8 +12,11 @@
  *     site's paper in each scheme. Wordmark, halo and ring classes are chrome, not the mark.
  *   · DISTINCTNESS — the hub colors (a mark's primary) stay at least `MIN_HUB_DISTANCE`
  *     apart in OKLab, in each scheme, and no two libraries share a hub-plus-accent pair.
+ *   · SOURCE — the SVG colors are generated from `docs/src/lib/library-palettes.json`, so each
+ *     file's <style> must equal what the palette produces (run `node tools/build-library-marks.js`),
+ *     and the demo-page text tokens (`--accent`, `--glow`) hold 4.5:1 on their own paper.
  */
-const { test, describe } = require('node:test');
+const { test, describe, before } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -25,6 +28,10 @@ const CHROME = new Set(['halo', 'wm', 'ring', 'plate', 'paper', 't']);
 const MIN_CONTRAST = 3;
 const MIN_HUB_DISTANCE = 0.06; // today's closest pair is 0.071 (light) / 0.077 (dark); it was 0.027
 const MAX_SHARED_ACCENT = 2;
+const MIN_TEXT_CONTRAST = 4.5;
+
+let palette_;
+before(async () => { palette_ = await import('../../../docs/src/lib/library-palette.mjs'); });
 
 // The Lattice mark is the house jewel-tone lattice, not a library's mark.
 const libs = fs.readdirSync(PUBLIC)
@@ -100,4 +107,42 @@ describe('library marks — the set reads as different libraries', () => {
       assert.ok(owners.length <= MAX_SHARED_ACCENT, `${accent} is the accent of ${owners.join(', ')}`);
     }
   });
+});
+
+describe('library marks — one source', () => {
+  for (const lib of libs) {
+    test(`${lib}: every SVG's <style> is what library-palettes.json generates`, () => {
+      const want = `<style>${palette_.markStyle(lib)}</style>`;
+      for (const file of files(lib)) {
+        const got = fs.readFileSync(file, 'utf8').match(/<style>.*?<\/style>/s)[0];
+        assert.equal(got, want, `${path.basename(file)} drifted from the palette; run: node tools/build-library-marks.js`);
+      }
+    });
+  }
+
+  test('every library mark has a palette, and every palette has a mark', () => {
+    assert.deepEqual([...palette_.libraries].sort(), libs);
+  });
+});
+
+describe('library demo pages — text tokens hold contrast in both schemes', () => {
+  for (const lib of libs) {
+    for (const scheme of ['light', 'dark']) {
+      test(`${lib} (${scheme}): --accent, --accent-ink and --glow are readable`, () => {
+        const t = palette_.pageTokens(lib);
+        const tok = scheme === 'light' ? t.light : { ...t.light, ...t.dark };
+        const need = (fg, bg, label) => {
+          if (!tok[fg] || !tok[bg]) return;
+          const r = contrastRatio(tok[fg], tok[bg]);
+          assert.ok(r >= MIN_TEXT_CONTRAST, `${lib} ${scheme}: ${label} ${tok[fg]} on ${tok[bg]} is ${r.toFixed(2)}:1 (needs ${MIN_TEXT_CONTRAST}:1)`);
+        };
+        need('--accent', '--paper', '--accent on --paper');
+        need('--accent-ink', '--accent', '--accent-ink on --accent');
+        // A page that defines `--glow-ink` keeps `--glow` for graphics and sets its text in the ink.
+        const glow = tok['--glow-ink'] ? '--glow-ink' : '--glow';
+        need(glow, '--paper', `${glow} on --paper`);
+        need(glow, '--glow-bg', `${glow} on --glow-bg`);
+      });
+    }
+  }
 });

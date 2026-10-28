@@ -1,4 +1,5 @@
 ---
+import LibraryTheme from '../../../components/LibraryTheme.astro';
 // Segno — a standalone, framework-free showcase driven by the REAL library (docs/src/lib/segno):
 // the inline notation parsed and bound live against example slot schemas (general ones, then its
 // first user Lattice's), the per-document
@@ -18,33 +19,8 @@ import DemoBar from '../../../components/catalog/DemoBar.astro';
 		<meta name="robots" content="noindex, nofollow" />
 		<title>Segno — one inline notation, read in one pass</title>
 		<link rel="icon" href="/segno-mark.svg" type="image/svg+xml" />
+		<LibraryTheme lib="segno" />
 		<style is:global>
-			:root {
-				--paper: #f6f1ea; --stage: #efe8de; --ink: #1f2430; --muted: #776f64; --line: #e0d5c7;
-				--accent: #c4412b; --accent-ink: #fff; --accent-bg: #f7ddd5; --panel: #fffdf9; --mark-plate: #efe6d8;
-				--ok: #2f7a55; --ok-bg: #dcefe4; --warn: #9a5b00; --warn-bg: #f6e6c8;
-				--tok-brace: #1f2430; --tok-name: #6b4fb3; --tok-quote: #2f7a55; --tok-bare: #1f2430; --tok-sep: #a79c8e;
-				--shadow: 0 1px 2px rgba(31,36,48,.06), 0 8px 24px rgba(31,36,48,.06);
-				--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
-				--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-				--mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
-			}
-			@media (prefers-color-scheme: dark) {
-				:root:not([data-theme="light"]) {
-					--paper: #111318; --stage: #171a21; --ink: #e8e4de; --muted: #8d877c; --line: #272b34;
-					--accent: #ff7a5c; --accent-ink: #1a0d09; --accent-bg: #3a1f19; --panel: #14171d; --mark-plate: #1d2129;
-					--ok: #6fcf9a; --ok-bg: #173226; --warn: #f0b449; --warn-bg: #33270f;
-					--tok-brace: #e8e4de; --tok-name: #b9a2ff; --tok-quote: #6fcf9a; --tok-bare: #e8e4de; --tok-sep: #6c6a66;
-					--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-				}
-			}
-			:root[data-theme="dark"] {
-				--paper: #111318; --stage: #171a21; --ink: #e8e4de; --muted: #8d877c; --line: #272b34;
-				--accent: #ff7a5c; --accent-ink: #1a0d09; --accent-bg: #3a1f19; --panel: #14171d; --mark-plate: #1d2129;
-				--ok: #6fcf9a; --ok-bg: #173226; --warn: #f0b449; --warn-bg: #33270f;
-				--tok-brace: #e8e4de; --tok-name: #b9a2ff; --tok-quote: #6fcf9a; --tok-bare: #e8e4de; --tok-sep: #6c6a66;
-				--shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
-			}
 			* { box-sizing: border-box; }
 			body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5;
 				-webkit-font-smoothing: antialiased; padding: clamp(16px, 4vw, 48px); }

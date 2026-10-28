@@ -380,6 +380,25 @@ and ink-on-accent pair clears 4.5:1 in both schemes.
 the distance floor between hubs, and the shared-accent limit. Run against the old palette it fails
 five arms (including `fuoco` against `suono` at 0.035 in dark and `#c67a12` shared by four).
 
+**One source for the colors.** Every library's colors now live in `docs/src/lib/library-palettes.json`:
+named roles (primary, accent, ring, halo, wordmark) as `[light, dark]` pairs, the rules that apply them
+to each mark's classes, and the page tokens. Before, the same hex was written by hand in the mark, the
+min mark, the lockup and the demo page, in up to four token blocks per page. Now:
+
+- `tools/build-library-marks.js` writes the inline `<style>` of the three SVGs from the roles
+  (`--check` exits 1 on drift). The SVGs still carry their own colors because an `<img>`-loaded SVG
+  cannot read a stylesheet; generating them is what keeps them in step. Geometry stays hand-drawn.
+- `docs/src/components/LibraryTheme.astro` emits each demo page's tokens from the same roles, and the
+  fonts and white button ink that eleven pages repeated sit once in the file's `shared` block.
+- `test/unit/docs/library-mark-palette.test.js` fails if an SVG differs from what the palette generates.
+
+To recolor a library, edit its roles in the palette file and run the tool. The migration was checked two
+ways: the generator reproduced all 33 existing SVG `<style>` blocks byte for byte, and a snapshot of
+every theme token on all 11 pages in four theme states (OS light or dark, with and without an explicit
+`data-theme`) matched across the move, 817 values identical. The only differences were two fixes: the five
+pages whose `data-theme` blocks never restored `--shadow` now do, and Veduta, which ignored
+`data-theme="dark"`, now honors it. Segno, Tavola and Veduta also gain an unused `--stage-serif`.
+
 **Page neutrals did not move.** Each demo page's paper, stage and line tints stayed. They still sit in
 family with the new colors: Fuoco's teal-tinted neutrals now frame a teal accent, Trama's warm
 browns match its ochre, and Lente's and Suono's cool and green tints sit beside cyan and emerald.
