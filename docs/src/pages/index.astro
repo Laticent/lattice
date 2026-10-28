@@ -253,11 +253,11 @@ const nextSteps = nextStepsFor(url);
 					</SectionHead>
 					<RoomCards playgroundHref={url('playground/')} layoutCount={manifests.length} />
 				</div>
-				<!-- Invisible controller: fills the say-more slide's and the cards' live hosts + wires "Edit this
+				<!-- Invisible controller: fills the say-more slide's and the cards' live hosts, each as it nears the viewport, + wires "Edit this
 				     deck". client:load (not client:visible) because this island renders
 				     null — a zero-box element has nothing for client:visible's observer to
 				     intersect, so it would never hydrate. It does its OWN lazy render
-				     (IntersectionObserver on the section), so eager hydration is cheap. -->
+				     (an IntersectionObserver per host), so eager hydration is cheap. -->
 				<FieldCardsLive client:idle data={fieldCardsData} />
 			</section>
 

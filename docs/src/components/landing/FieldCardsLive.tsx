@@ -6,7 +6,7 @@ import { createSingleSlideRenderer } from '@/lib/single-slide-render';
 // say-more before/after slide and the six audience rooms. The cards themselves
 // are static (server-rendered in <SayMoreSection> and <RoomCards>); this fills
 // each `data-live-card` host with a real, palette-reactive slide via the shared
-// engine bridge, lazily as the first host's section nears the viewport. It also wires
+// engine bridge, each one lazily as it nears the viewport. It also wires
 // the "Edit this deck" handoff (seed the playground source key before nav).
 //
 // Kept as a zero-DOM island (renders null) so the static card markup stays
@@ -48,31 +48,33 @@ export default function FieldCardsLive({ data }: { data: FieldCardsData }) {
 			});
 		};
 
-		const renderAll = () => {
+		const renderSome = (some: HTMLElement[]) => {
 			// Kick the theme CSS fetch off in PARALLEL with the engine-bundle load
 			// (not behind it) — same fix as DeckPreview.tsx's paint().
 			engine.prefetchTheme?.();
 			engine.whenReady().then(() => {
-				if (!canceled) hosts.forEach(renderCard);
+				if (!canceled) some.forEach(renderCard);
 			});
 		};
 
-		// Lazy: render as the first host's section (say-more) nears the viewport (rootMargin 300px).
-		const section = hosts[0]?.closest('section') ?? null;
+		// Lazy PER HOST: each card renders as IT nears the viewport (rootMargin 300px).
+		// The say-more slide sits directly under the hero, so one observer on the
+		// first host's section started all seven slide frames at page load — seven
+		// font sets and runtimes at once, which kept the landing from ever reaching
+		// network idle on a loaded CI runner (studio-smoke `reader-alarms` on #2956).
 		let io: IntersectionObserver | null = null;
-		if ('IntersectionObserver' in window && section) {
+		if ('IntersectionObserver' in window) {
 			io = new IntersectionObserver(
 				(entries) => {
-					if (entries.some((e) => e.isIntersecting)) {
-						io?.disconnect();
-						renderAll();
-					}
+					const near = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement);
+					for (const h of near) io?.unobserve(h);
+					if (near.length) renderSome(near);
 				},
 				{ rootMargin: '300px' },
 			);
-			io.observe(section);
+			for (const h of hosts) io.observe(h);
 		} else {
-			renderAll();
+			renderSome(hosts);
 		}
 
 		// Re-render the already-shown cards on palette / mode change.
