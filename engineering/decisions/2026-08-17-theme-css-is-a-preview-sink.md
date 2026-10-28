@@ -1149,11 +1149,23 @@ and pinned in `marp-bundle-author-script.test.js`, whose new arms fail on the en
 - *A deck ending inside an open HTML `<title>`* (also `<title/>`, and one inside a table cell). A
   `<title>` is raw text to the browser, so the runtime lines became its text after markdown-it was
   done, where peeling cannot reach. *Inside an open block-level `<svg>`* they parsed as SVG
-  `<script>` elements, which never load their `src`. The engine now writes `</title></svg>` before the
-  lines it peels off: `</title>` ends an open title, `</svg>` the author's open SVG, and with nothing
+  `<script>` elements, which never load their `src`. The engine now writes `</title></svg></svg></math></iframe>` before the
+  lines it peels off (the last three came from the 2026-10-27 hostile-tail sweep, below): `</title>` ends an open title, `</svg>` the author's open SVG, and with nothing
   open both are ignored and neither climbs past the slide's `<section>`. `</title>` alone is a trap
   the parallel branch's third checker caught: it closes an SVG `<title>` and leaves the lines inside
   the SVG.
+- *Hostile-tail sweep, 2026-10-27 (followups.d/2599-p1).* 47 tails through the real exporter, marp-cli and
+  Chromium (open `<textarea>`, `<style>`, `<xmp>`, `<noscript>`, `<noembed>`, `<plaintext>`, `<title>`,
+  `<svg><svg>`, `<math>`, `<svg><desc>`, `<svg><foreignObject>`, tables, `<template>`, `<select>`,
+  `<form>`, `<object>`, `<embed>`, `<frameset>`, an unclosed `<!--`, and wrapped in a list or quote;
+  at the deck end, and 11 of them mid-deck) found no script run, no event-handler attribute, no
+  `<base>` and no unlisted resource, in the stripped bundle and in the raw deck plus trailer. It found
+  four availability and notes defects, each pinned by an arm that failed first: an open `<iframe>`
+  (frame content is raw text, so the runtime never loaded; `</iframe>` closes it), an open `<math>`
+  (`</svg>` does not close MathML; `</math>`), a nested `<svg>` (each trailer line is its own block, so
+  one `</svg>` per line left Mermaid parsed as an SVG script; a second `</svg>`), and an unclosed `<!--`
+  (it ran on into the guard line, whose `-->` closed it, so the guard text came out in the speaker
+  notes; the note is now cut at the guard, anchored to the end).
 - *A deck ending in an unclosed `<style>`.* Marpit lifts a block that opens with `<style>` into the
   theme before any renderer runs, so the runtime lines became CSS and the peel never saw them. The
   trailer now opens with a guard comment carrying every terminator markdown-it reads

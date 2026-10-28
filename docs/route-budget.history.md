@@ -6,6 +6,14 @@ A PR may add up to 2KB of eager JS per route over `main` while the route stays a
 
 <!-- resets: newest first, below this line -->
 
+### 2026-10-28 — ceiling raised by hand, measured on the built tree at ed71fee
+
+Owner OK 2026-10-28 (asked in the PR 2919 session). The notes-scrub fix (followups.d/2012) makes notes-core parse with the lint core's markdown-it to find live comments, which adds about 0.5KB gz to the Studio lint core; main alone left 0.1KB under the ceiling. The tool's own reset re-slacks to 10% over the measurement (ceiling 136967); the owner approved about 1KB, so only the ceiling moved, from 124089 to 125200 (+1111), and the soft target stayed.
+
+| Route | Metric | Soft before | Soft after | Change | Ceiling after |
+|---|---|---|---|---|---|
+| studio | lintCoreGz | 112808 | 112808 | +0 | 125200 |
+
 ### 2026-10-27 — measured on the built tree at c3f3f8ced
 
 htmlRaw has outgrown its soft targets on every route (all five over, home within 0.5KB of its ceiling); Fluido joining the Libraries menu (PR #2923) adds ~720 bytes to the home page and would cross it. Reset to today's measurement on main, owner-approved 2026-10-27.
