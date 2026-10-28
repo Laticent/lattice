@@ -1,0 +1,593 @@
+#!/usr/bin/env node
+/**
+ * check-edge-shift — does choosing a different spectrum-bar placement MOVE anything on the slide?
+ *
+ * The spectrum bar is a real `border` on the `section` (`spectrum-edge: top|left|right|bottom`),
+ * and a border takes layout room, so the content box, and every absolutely positioned element
+ * that measures from the padding box (header, footer, page number, the draft/confidential stamp),
+ * lands somewhere slightly different for each placement. The same deck, one front-matter key
+ * apart, wobbles by the bar's width. This tool measures that.
+ *
+ * `check:jank` asks whether a layout stays put as CONTENT grows. This asks the sibling question:
+ * does it stay put as the BAR moves. Same instrument (render through the CLI, measure real
+ * geometry in Chromium), different axis.
+ *
+ * METHOD. Build ONE deck: every component's own manifest skeleton (light and dark), plus a fixed
+ * set of ordinary slides carrying each state stamp. Render it once per placement with the running
+ * chrome on (`header:`, `footer:`, `paginate:`). For every element of every slide, record its
+ * distance from each of the four slide edges. The same element in the same slide must sit at the
+ * same distances under every placement; the spread is the shift.
+ *
+ *   --placements a,b   which `spectrum-edge:` values to compare (default top,left,right,bottom,off)
+ *   --components a,b   only these components (default: every manifest with a skeleton/sample)
+ *   --limit N          the first N components only (a quick pass)
+ *   --no-dark          skip the dark twin of each slide
+ *   --variants         also render each component once per modifier its manifest declares
+ *                      (`topic fact`, `collage bleed`, ...), light only
+ *   --each-class a,b|all  one plain `content` slide per class instead of the components (`all` is every
+ *                      class the engine reserves), to find the modifier that moves the box
+ *   --classes 'a b'    add these classes to every slide (`footer-inset`, `claim-bleed`, `safe`, ...)
+ *   --front-matter 'k: v'  add a deck directive (`spectrum: off`, `finish: atrium`); repeatable
+ *   --no-chrome        render without header / footer / page number
+ *   --family NAME      canvas family (wide|square|tall|strip, default wide)
+ *   --tolerance PX     movement below this is rounding (default 0.5)
+ *   --detail           list every moved element, not just the worst per slide
+ *   --bars             also list the components that draw NO bar under a placement (a border OR the
+ *                      `.slide-bar` overlay counts), so a bar lost silently cannot read as stable
+ *   --positions FILE   write every element's measured position to FILE (JSON), to diff two builds
+ *   --dump DIR         also save each placement's rendered HTML as DIR/edge-<placement>.html
+ *   --json             machine-readable result
+ *   --advisory         always exit 0 once it has measured (the default exits 1 on any shift)
+ *
+ * NOT MEASURED: the `finish:` backdrop (`.backdrop`). It fills the area the bar leaves, because a layer
+ * that reached under the bar would paint over it, so its edge differs by the bar's strip by design.
+ *
+ * EXIT. 0 = nothing moved. 1 = something moved. 2 = it could not measure (no Chromium, a
+ * placement that did not take effect, a render that dropped slides): never a silent pass
+ * (HARD RULE #23). The placement check is the arm that proves the tool can fail: under `top`
+ * the section must carry a top border and under `off` none, or the sweep is comparing a deck
+ * with itself.
+ *
+ * Context: engineering/decisions/2026-10-26-spectrum-edge-shift.md.
+ */
+
+const fs = require('node:fs');
+const path = require('node:path');
+const {
+  ROOT, SIZE_ALIAS, FAMILIES, findManifest, renderProbe,
+} = require('./lib/calibrate-core.js');
+const { resolveChrome } = require('./lib/resolve-chrome.js');
+
+const USAGE = 'usage: node tools/check-edge-shift.js [--placements top,left,right,bottom,off] '
+  + '[--components a,b] [--limit N] [--no-dark] [--variants] [--each-class a,b|all] [--classes "a b"] [--front-matter "k: v"] [--no-chrome] [--family wide] [--tolerance 0.5] '
+  + '[--theme indaco] [--detail] [--json] [--advisory] [--dump DIR] [--bars] [--positions FILE]';
+
+function die(msg, code = 2) { console.error(`check-edge-shift: ${msg}`); process.exit(code); }
+
+// ── argv — parsed, and unknown flags are refusals (the check-jank lesson) ──────────────────
+const VALUE_FLAGS = new Set(['placements', 'components', 'limit', 'family', 'tolerance', 'theme', 'dump', 'positions', 'classes', 'front-matter', 'each-class']);
+const BOOL_FLAGS = new Set(['no-dark', 'no-chrome', 'detail', 'json', 'advisory', 'help', 'variants', 'bars']);
+const opts = new Map();
+for (let i = 2; i < process.argv.length; i++) {
+  const m = /^--([\w-]+)(?:=(.*))?$/.exec(process.argv[i]);
+  if (!m) die(`unexpected argument '${process.argv[i]}'.\n\n${USAGE}`);
+  const [, name, inline] = m;
+  if (BOOL_FLAGS.has(name)) { opts.set(name, true); continue; }
+  if (!VALUE_FLAGS.has(name)) die(`unknown flag --${name}.\n\n${USAGE}`);
+  const value = inline ?? process.argv[++i];
+  if (value == null || value === '' || value.startsWith('--')) die(`--${name} needs a value.`);
+  if (name === 'front-matter') opts.set(name, [...(opts.get(name) || []), value]); else opts.set(name, value);
+}
+if (opts.has('help')) { console.log(USAGE); process.exit(0); }
+
+const PLACEMENTS = (opts.get('placements') || 'top,left,right,bottom,off').split(',').map((s) => s.trim());
+const KNOWN_PLACEMENTS = ['top', 'left', 'right', 'bottom', 'off'];
+for (const p of PLACEMENTS) if (!KNOWN_PLACEMENTS.includes(p)) die(`unknown placement '${p}'. Known: ${KNOWN_PLACEMENTS.join(', ')}.`);
+if (PLACEMENTS.length < 2) die('--placements needs at least two values; one placement has nothing to compare against.');
+const FAMILY = opts.get('family') || 'wide';
+if (!FAMILIES.includes(FAMILY)) die(`unknown family '${FAMILY}'. Known: ${FAMILIES.join(', ')}.`);
+const TOL = Number(opts.get('tolerance') ?? 0.5);
+if (!(TOL >= 0)) die('--tolerance must be a number of pixels, 0 or more.');
+const THEME = opts.get('theme') || 'indaco';
+const LIMIT = opts.has('limit') ? Number(opts.get('limit')) : Infinity;
+if (!(LIMIT >= 1)) die('--limit must be at least 1.');
+const DARK = !opts.has('no-dark');
+const CHROME = !opts.has('no-chrome');
+const JSON_OUT = opts.has('json');
+const REFERENCE = PLACEMENTS.includes('top') ? 'top' : PLACEMENTS[0];
+const EXTRA_CLASSES = (opts.get('classes') || '').trim();
+const EXTRA_FRONT_MATTER = opts.get('front-matter') || [];
+for (const entry of EXTRA_FRONT_MATTER) {
+  if (!/^[A-Za-z_][\w-]*:\s*\S/.test(entry) || /[\r\n]/.test(entry)) die(`--front-matter '${entry}' is not a one-line \`key: value\` entry.`);
+  if (/^(size|spectrum-edge):/.test(entry)) die(`--front-matter cannot set '${entry.split(':')[0]}': the sweep owns it.`);
+}
+
+// ── the deck ───────────────────────────────────────────────────────────────────────────────
+
+/** Every component manifest that carries a slide to render, in catalog order. */
+function componentNames() {
+  const root = path.join(ROOT, 'lib', 'components');
+  const names = [];
+  for (const bucket of fs.readdirSync(root).sort()) {
+    const dir = path.join(root, bucket);
+    if (!fs.statSync(dir).isDirectory()) continue;
+    for (const name of fs.readdirSync(dir).sort()) {
+      const m = findManifest(name);
+      if (m && (m.skeleton || m.sample)) names.push(name);
+    }
+  }
+  return names;
+}
+
+/** The skeleton as an author writes it: its own `_class` comment dropped so ours leads. */
+function bodyOf(name) {
+  const m = findManifest(name);
+  const text = m.skeleton || m.sample;
+  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+}
+
+/** The variant's own sample when the manifest has one, else the component skeleton. */
+function variantBody(name, variant) {
+  const m = findManifest(name);
+  const doc = m.variantDocs?.[variant];
+  const text = doc?.sample ? doc.sample : (m.skeleton || m.sample);
+  return text.split('\n').filter((l) => !/^\s*<!--\s*_class:/.test(l)).join('\n').trim();
+}
+
+// Ordinary slides carrying each state stamp and each canvas, so the corner marks that anchor
+// to the section are measured even though no component's skeleton carries one.
+const STAMP_BODY = '# Heading\n\n- One\n- Two\n- Three';
+const FIXED = [
+  { label: 'plain-content', cls: 'content' },
+  { label: 'content+accent', cls: 'content accent' },
+  { label: 'content+draft', cls: 'content draft' },
+  { label: 'content+confidential', cls: 'content confidential' },
+  { label: 'content+wip', cls: 'content wip' },
+  { label: 'content+draft+dark', cls: 'content draft dark' },
+  // The overflow alarm capsule, forced on by the engine's own class so the rail is measured on a slide that fits.
+  { label: 'content+clip-marked', cls: 'content', forceMark: 'clip-marked' },
+  { label: 'content+fit-marked', cls: 'content', forceMark: 'fit-marked' },
+  // One slide per stamp STYLE, each carrying a state, so every anchor shape (a corner tab, a full-width band,
+  // a full-slide wash, a ribbon, a pin) is measured against every bar placement.
+  ...require('../lib/core/resolve-stamp.js').STAMP_STYLE_NAMES.map((n) => ({ label: `content+stamp-${n}`, cls: `content confidential stamp-${n}` })),
+].map((s) => ({ ...s, body: STAMP_BODY }));
+
+function slideList() {
+  if (opts.has('each-class')) {
+    const v = opts.get('each-class');
+    const classes = v === 'all' ? [...require('../lib/packages/reserved-classes.generated.js').names] : v.split(',').map((c) => c.trim()).filter(Boolean);
+    return [...classes.map((c) => ({ label: `.${c}`, cls: `content ${c}`, body: STAMP_BODY })), { ...FIXED[0], probe: true }];
+  }
+  const wanted = opts.has('components') ? opts.get('components').split(',').map((s) => s.trim()) : null;
+  let names = wanted || componentNames();
+  if (wanted) for (const n of wanted) if (!findManifest(n)) die(`no manifest for '${n}'.`);
+  names = names.slice(0, LIMIT);
+  const slides = [];
+  for (const n of names) {
+    slides.push({ label: n, cls: n, body: bodyOf(n) });
+    if (DARK) slides.push({ label: `${n}+dark`, cls: `${n} dark`, body: bodyOf(n) });
+  }
+  if (opts.has('variants')) {
+    for (const n of names) {
+      const m = findManifest(n);
+      for (const v of m.variants || []) slides.push({ label: `${n}+${v}`, cls: `${n} ${v}`, body: variantBody(n, v) });
+    }
+  }
+  // The plain `content` slide is always present: it is the probe that proves each placement took.
+  slides.push(...FIXED.map((x, i) => (i === 0 ? { ...x, probe: true } : x)));
+  // A topic's track band: derived from the topic slides that follow a divider, so it needs the three in a row.
+  slides.push({ label: 'divider+track', cls: 'divider', body: '## Section two' });
+  slides.push({ label: 'topic+track', cls: 'topic', body: '`Section 02`\n\n## Payback\n\nFourteen months blended.' });
+  slides.push({ label: 'topic+track-2', cls: 'topic', body: '`Section 02`\n\n## Cost to win\n\nNine months planned.' });
+  slides.push({ label: 'divider+track-dark', cls: 'divider dark', body: '## Section three' });
+  slides.push({ label: 'topic+track-dark', cls: 'topic dark', body: '`Section 03`\n\n## Margin\n\nTwo points up.' });
+  slides.push({ label: 'topic+track-dark-2', cls: 'topic dark', body: '`Section 03`\n\n## Churn\n\nHalf a point down.' });
+  // A stamp on a frame that owns its top edge, with a top strip drawn (`accent`): the tab must hang below the strip.
+  for (const [n, variant] of [['image'], ['scene'], ['collage', 'bleed'], ['split-panel'], ['title'], ['closing']]) {
+    if (!findManifest(n)) continue;
+    slides.push({ label: `${n}+accent+stamp`, cls: `${n}${variant ? ` ${variant}` : ''} accent confidential`, body: variant ? variantBody(n, variant) : bodyOf(n) });
+  }
+  return slides;
+}
+
+function deckFor(slides, placement) {
+  const fm = [
+    '---',
+    `size: ${SIZE_ALIAS[FAMILY]}`,
+    `spectrum-edge: ${placement}`,
+    ...(CHROME ? ['header: HEADER', 'footer: FOOTER', 'paginate: true'] : []),
+    ...EXTRA_FRONT_MATTER,
+    '---',
+  ].join('\n');
+  return `${fm}\n\n${slides.map((s) => `<!-- _class: ${s.cls}${EXTRA_CLASSES && !s.probe ? ` ${EXTRA_CLASSES}` : ''} -->\n\n${s.body}\n`).join('\n---\n\n')}`;
+}
+
+// ── the measurement, run inside the page ───────────────────────────────────────────────────
+
+function measureInPage(force) {
+  const px = (v) => (v && v !== 'auto' ? parseFloat(v) : null);
+  const kindOf = (el) => {
+    const tag = el.tagName.toLowerCase();
+    const cls = typeof el.className === 'string' ? el.className : '';
+    if (tag === 'header') return 'header';
+    if (tag === 'footer') return 'footer';
+    if (/\blat-pagination\b/.test(cls)) return 'pagination';
+    if (/\b(marker-rail|overflow-tab|illegible-tab|fixme-tab)\b/.test(cls)) return 'alarm'; // engine tabs: chrome with no text node of their own
+    if (/\bdeck-logo\b/.test(cls)) return 'logo'; // the deck mark: an image, so no text node, but it is chrome
+    if (/^h[1-6]$/.test(tag)) return 'heading';
+    return 'content';
+  };
+  // The overflow capsule shows only on a slide the engine's watcher has marked `clip-marked`, and only where the
+  // export's `--overflow-marker` asks for it. The sweep does both on the slides it flagged, so the capsule's rail
+  // is measured. Index-for-index only: a component that splits into extra sections shifts the numbering.
+  {
+    const all = [...document.querySelectorAll('section')];
+    if (all.length === force.total) {
+      for (const [i, cls] of force.marks) {
+        all[i].classList.add(cls);
+        all[i].setAttribute('data-lattice-overflow-marker', 'author');
+      }
+    }
+  }
+  return [...document.querySelectorAll('section')].map((sec) => {
+    const sb = sec.getBoundingClientRect();
+    const cs = getComputedStyle(sec);
+    const els = {};
+    const walk = (el, path) => {
+      [...el.children].forEach((child, i) => {
+        const tag = child.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'style' || tag === 'link' || tag === 'meta') return;
+        // The finish backdrop fills what the bar leaves: a layer that extended under the bar would paint
+        // over it (negative z-planes paint above the section's own border), so its edge differs by the
+        // strip the bar occupies. It is the canvas, not content or chrome, and is not measured.
+        if (typeof child.className === 'string' && /(^|\s)backdrop(\s|$)/.test(child.className)) return;
+        const key = `${path}/${i}:${tag}`;
+        const r = child.getBoundingClientRect();
+        const ccs = getComputedStyle(child);
+        if (r.width > 0 && r.height > 0 && ccs.display !== 'none' && ccs.visibility !== 'hidden') {
+          const cls = typeof child.className === 'string' ? child.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
+          els[key] = {
+            name: cls ? `${tag}.${cls}` : tag,
+            kind: kindOf(child),
+            edges: [r.left - sb.left, r.top - sb.top, sb.right - r.right, sb.bottom - r.bottom],
+            size: [r.width, r.height],
+            // The glyph extent of this element's own text, as distances from the slide edges: a stretched row or card is
+            // a tall box around a short word, and the bar crowds the word, not the box.
+            ink: (() => {
+              const rects = [];
+              for (const n of child.childNodes) {
+                if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+                const rg = document.createRange(); rg.selectNodeContents(n);
+                for (const q of rg.getClientRects()) if (q.width > 0 && q.height > 0) rects.push(q);
+              }
+              if (!rects.length) return null;
+              const l = Math.min(...rects.map((q) => q.left)); const t = Math.min(...rects.map((q) => q.top));
+              const rr = Math.max(...rects.map((q) => q.right)); const bb = Math.max(...rects.map((q) => q.bottom));
+              return [l - sb.left, t - sb.top, sb.right - rr, sb.bottom - bb];
+            })(),
+            inMath: tag !== 'math' && !!child.closest('math'), // MathML internals report glyph boxes that can brush the slide edge
+            textual: [...child.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim() !== ''),
+          };
+        }
+        if (tag !== 'svg') walk(child, key);
+      });
+    };
+    walk(sec, '');
+    // The area the section's own background image paints in (an `![bg]` photo, a gradient line): where
+    // it starts depends on `background-origin` and on the borders, so it is measured like a box.
+    if (cs.backgroundImage && cs.backgroundImage !== 'none') {
+      const bw = [px(cs.borderLeftWidth), px(cs.borderTopWidth), px(cs.borderRightWidth), px(cs.borderBottomWidth)];
+      const pw = [px(cs.paddingLeft), px(cs.paddingTop), px(cs.paddingRight), px(cs.paddingBottom)];
+      const origin = cs.backgroundOrigin.split(',')[0].trim();
+      const edges = origin === 'border-box' ? [0, 0, 0, 0] : origin === 'content-box' ? bw.map((b, i) => b + pw[i]) : bw;
+      els['::background'] = { name: 'section background', kind: 'content', edges, size: [sb.width - edges[0] - edges[2], sb.height - edges[1] - edges[3]] };
+    }
+    // Generated boxes hung on the section itself (the state stamp, the paginator): not in the
+    // DOM, so read their resolved inset and size from computed style.
+    for (const pseudo of ['::before', '::after']) {
+      const ps = getComputedStyle(sec, pseudo);
+      if (ps.content === 'none' || ps.content === 'normal' || ps.display === 'none') continue;
+      if (ps.position !== 'absolute' && ps.position !== 'fixed') continue;
+      // `width` / `height` exclude padding and border under `content-box`; the painted box includes them.
+      const outerW = (px(ps.paddingLeft) || 0) + (px(ps.paddingRight) || 0) + (px(ps.borderLeftWidth) || 0) + (px(ps.borderRightWidth) || 0);
+      const outerH = (px(ps.paddingTop) || 0) + (px(ps.paddingBottom) || 0) + (px(ps.borderTopWidth) || 0) + (px(ps.borderBottomWidth) || 0);
+      const boxSizing = ps.boxSizing === 'border-box';
+      const w = px(ps.width) == null ? null : px(ps.width) + (boxSizing ? 0 : outerW);
+      const h = px(ps.height) == null ? null : px(ps.height) + (boxSizing ? 0 : outerH);
+      const l = px(ps.left); const t = px(ps.top); const rr = px(ps.right); const bb = px(ps.bottom);
+      if (![l, t, rr, bb].every((n) => n != null)) continue;
+      // `left/right` are insets from the PADDING box; convert to distances from the slide edge.
+      const bl = px(cs.borderLeftWidth); const bt = px(cs.borderTopWidth);
+      const br = px(cs.borderRightWidth); const bbw = px(cs.borderBottomWidth);
+      els[pseudo] = {
+        name: `section${pseudo}`, kind: 'stamp',
+        // A stamp prints words; a mark, texture or wash has `content: ''` and is decoration the bar paints over.
+        textual: /\S/.test(ps.content.replace(/^["']|["']$/g, '')),
+        edges: [l + bl, t + bt, rr + br, bb + bbw], size: [w, h],
+      };
+    }
+    // The `.slide-bar` overlay is two strips, a placement strip and a top strip. A strip counts as a bar
+    // only when it has a box AND paints (a background image or a visible color): geometry alone would
+    // call a strip whose gradient resolved to nothing (print mode once did) a bar. The side it sits on is
+    // the edge it touches. `strayBars` counts any `.slide-bar` that is not a direct child of the section:
+    // a pass that folded the bar into a panel or a cell moved it off the edge.
+    const bars = [...sec.querySelectorAll(':scope > .slide-bar')];
+    const overlaySides = [];
+    const overlayThick = {};
+    for (const bar of bars) {
+      const r = bar.getBoundingClientRect();
+      const bc = getComputedStyle(bar);
+      const paints = bc.backgroundImage !== 'none' || !/^rgba\(\s*0,\s*0,\s*0,\s*0\)$|^transparent$/.test(bc.backgroundColor);
+      if (!(r.width > 0 && r.height > 0 && paints)) continue;
+      const near = (a, b) => Math.abs(a - b) < 1;
+      const side = r.width < r.height ? (near(r.left, sb.left) ? 'left' : 'right') : (near(r.top, sb.top) ? 'top' : 'bottom');
+      overlaySides.push(side);
+      overlayThick[side] = Math.max(overlayThick[side] || 0, r.width < r.height ? r.width : r.height);
+    }
+    const strayBars = sec.querySelectorAll('.slide-bar').length - bars.length;
+    return {
+      bgImage: cs.backgroundImage !== 'none',
+      slideSize: [sb.width, sb.height],
+      overlay: overlaySides,
+      overlayThick,
+      barCount: bars.length,
+      strayBars,
+      cls: sec.className,
+      border: [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth].map(px),
+      els,
+    };
+  });
+}
+
+// ── run ────────────────────────────────────────────────────────────────────────────────────
+
+const EDGES = ['left', 'top', 'right', 'bottom'];
+
+async function main() {
+  const chrome = resolveChrome();
+  if (!chrome) die('no Chromium (set CHROME_PATH): nothing was measured.');
+  const slides = slideList();
+  if (!JSON_OUT) console.error(`check-edge-shift: ${slides.length} slides × ${PLACEMENTS.length} placements (${PLACEMENTS.join(', ')}), theme ${THEME}, family ${FAMILY}`);
+
+  const puppeteer = require('puppeteer');
+  const browser = await puppeteer.launch({ executablePath: chrome, args: ['--no-sandbox'] });
+  const byPlacement = {};
+  try {
+    for (const placement of PLACEMENTS) {
+      const render = renderProbe(deckFor(slides, placement), `edge-shift-${placement}`, { format: 'html', palette: THEME, keep: true });
+      try {
+        if (!fs.existsSync(render.out)) die(`the render for '${placement}' produced no HTML.`);
+        const page = await browser.newPage();
+        await page.setViewport({ width: 1920, height: 1200 });
+        if (opts.has('dump')) {
+          fs.mkdirSync(opts.get('dump'), { recursive: true });
+          fs.copyFileSync(render.out, path.join(opts.get('dump'), `edge-${placement}.html`));
+        }
+        await page.goto(`file://${render.out}`, { waitUntil: 'networkidle0', timeout: 180_000 });
+        await page.evaluate(() => document.fonts.ready);
+        byPlacement[placement] = await page.evaluate(measureInPage, { total: slides.length, marks: slides.flatMap((x, i) => (x.forceMark ? [[i, x.forceMark]] : [])) });
+        await page.close();
+      } finally {
+        render.cleanup();
+      }
+      if (byPlacement[placement].length !== byPlacement[PLACEMENTS[0]].length) {
+        die(`'${placement}' rendered ${byPlacement[placement].length} slides but '${PLACEMENTS[0]}' rendered ${byPlacement[PLACEMENTS[0]].length}: the placements are not comparable slide for slide.`);
+      }
+      if (!JSON_OUT) console.error(`  measured ${placement}`);
+    }
+  } finally {
+    await browser.close();
+  }
+
+  if (opts.has('positions')) fs.writeFileSync(opts.get('positions'), JSON.stringify({ slides: slides.map((x) => x.label), byPlacement }));
+  // A component that splits into several sections on a narrow canvas breaks the name-per-slide
+  // mapping; the placements still agree with each other, so compare by position and label by index.
+  const count = byPlacement[PLACEMENTS[0]].length;
+  const named = count === slides.length;
+  if (!named && !JSON_OUT) console.error(`  note: ${count} sections rendered for ${slides.length} slides written (a component split); labelling by section index.`);
+  const labelOf = (i) => (named ? slides[i].label : `#${i + 1}`);
+  // The arm that proves the tool can fail: the placement must have taken effect.
+  const side = { top: 0, right: 1, bottom: 2, left: 3 };
+  const barRegister = EXTRA_FRONT_MATTER.some((e) => /^spectrum(-trim|-card)?:/.test(e));
+  if (barRegister && !JSON_OUT) console.error('  note: a deck-level `spectrum:` register is set, so the placement-took-effect check is skipped.');
+  for (const placement of barRegister ? [] : PLACEMENTS) {
+    const probe = byPlacement[placement][named ? slides.findIndex((x) => x.label === 'plain-content') : count - FIXED.length];
+    const want = placement in side ? side[placement] : -1;
+    const bad = probe.border.some((w, i) => (i === want ? !(w > 0) : w > 0));
+    if (bad) die(`placement '${placement}' did not take effect on a plain slide (border widths t/r/b/l = ${probe.border.join('/')}). The sweep would compare a deck with itself.`);
+  }
+
+  // ── compare ──────────────────────────────────────────────────────────────────────────────
+  const moved = []; // one row per (slide, element) whose spread exceeds TOL
+  const totals = {}; // kind -> { n, moved, max }
+  const vsRef = {}; // placement -> kind -> [max |Δ| per edge]
+  let compared = 0;
+  Array.from({ length: count }, (_, i) => ({ label: labelOf(i) })).forEach((slide, i) => {
+    const sets = PLACEMENTS.map((p) => byPlacement[p][i].els);
+    const keys = Object.keys(sets[0]).filter((k) => sets.every((s) => s[k] && s[k].name === sets[0][k].name));
+    for (const key of keys) {
+      const ref = byPlacement[REFERENCE][i].els[key];
+      const kind = ref.kind;
+      const t = (totals[kind] ||= { n: 0, moved: 0, max: 0 });
+      t.n++; compared++;
+      const spread = [0, 1, 2, 3].map((e) => {
+        const vals = sets.map((s) => s[key].edges[e]);
+        return Math.max(...vals) - Math.min(...vals);
+      });
+      const worst = Math.max(...spread);
+      if (worst > t.max) t.max = worst;
+      if (worst > TOL) {
+        t.moved++;
+        moved.push({ slide: slide.label, key, name: ref.name, kind, spread, worst });
+      }
+      for (const p of PLACEMENTS) {
+        if (p === REFERENCE) continue;
+        const cur = byPlacement[p][i].els[key];
+        const rec = ((vsRef[p] ||= {})[kind] ||= [0, 0, 0, 0]);
+        for (let e = 0; e < 4; e++) rec[e] = Math.max(rec[e], Math.abs(cur.edges[e] - ref.edges[e]));
+      }
+    }
+  });
+
+  if (compared === 0) die('no element was comparable across placements: nothing was measured.');
+
+  const sideOf = { top: 0, right: 1, bottom: 2, left: 3 };
+  const barless = {};
+  if (opts.has('bars')) {
+    Array.from({ length: count }, (_, i) => i).forEach((i) => {
+      const label = labelOf(i);
+      if (/^(plain-content|content\+)/.test(label)) return;
+      // A dark slide paints its top bar as a background line, which this census does not read.
+      const miss = (/\+dark$/.test(label) ? ['left', 'right', 'bottom'] : ['top', 'left', 'right', 'bottom']).filter((pl) => {
+        if (!byPlacement[pl]) return false;
+        const sec = byPlacement[pl][i];
+        return !(sec.border[sideOf[pl]] > 0 || sec.overlay.includes(pl));
+      });
+      if (miss.length) (barless[miss.join('+')] ||= []).push(label);
+    });
+  }
+  // INTEGRITY: a bleed slide carries exactly two strips, both direct children of the section, in every
+  // placement. A stray one means a pass folded the bar away from the edge; a third means two passes injected.
+  const SPECTRUM_CATALOG = require('../lib/core/spectrum-catalog.generated.js');
+  const integrity = [];
+  Array.from({ length: count }, (_, i) => i).forEach((i) => {
+    for (const pl of PLACEMENTS) {
+      const sec = byPlacement[pl][i];
+      // A component whose manifest says `spectrum: false` has no bar: no border, no strip, in any placement.
+      const optedOut = SPECTRUM_CATALOG[String(labelOf(i)).split(/[+\s.:]/)[0]] === false;
+      if (optedOut && (Object.values(sec.border).some((w) => w > 0) || sec.overlay.length)) {
+        integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars, optedOut: true, drawn: `border ${sec.border.join('/')} overlay ${sec.overlay.join('+') || '-'}` });
+      }
+      if (sec.strayBars > 0 || ![0, 2].includes(sec.barCount)) integrity.push({ slide: labelOf(i), placement: pl, direct: sec.barCount, stray: sec.strayBars });
+    }
+  });
+  // SUPREMACY: nothing that carries words or is chrome (a heading, text, the header, footer, page number,
+  // a stamp, a tab) may sit inside the strip the bar occupies, whatever draws the bar and wherever it is.
+  // Art may run under an overlay bar (the bar is above it); text and chrome may not touch it.
+  const SIDE_IX = { left: 0, top: 1, right: 2, bottom: 3 };
+  const overlaps = [];
+  Array.from({ length: count }, (_, i) => i).forEach((i) => {
+    for (const pl of PLACEMENTS) {
+      const sec = byPlacement[pl][i];
+      const thick = { top: sec.border[0], right: sec.border[1], bottom: sec.border[2], left: sec.border[3] };
+      for (const [side, t] of Object.entries(sec.overlayThick || {})) thick[side] = Math.max(thick[side] || 0, t);
+      for (const e of Object.values(sec.els)) {
+        if (e.inMath) continue;
+        if (!e.textual && (e.kind === 'content' || e.kind === 'stamp')) continue;
+        const at = e.ink || e.edges; // the glyphs when the element has text of its own, else its box
+        // A slide the engine marks as overflowing or illegible has body text running to the frame by definition; its
+        // chrome (header, footer, page number, the alarm rail itself) is still measured.
+        if (/\b(clip-marked|illegible)\b/.test(sec.cls) && (e.kind === 'content' || e.kind === 'heading')) continue;
+        for (const [side, t] of Object.entries(thick)) {
+          // A band or wash that spans the whole slide across the bar (a full-width `stamp-notch`, a `stamp-veil`)
+          // lies UNDER the bar by design: the bar paints above it. Only an element that stops short of the far
+          // edge, so it hangs near the bar, can crowd it.
+          const across = side === 'left' || side === 'right' ? 0 : 1;
+          if (!e.ink && e.size[across] >= 0.95 * sec.slideSize[across]) continue;
+          // Past the slide's edge on the bar's own side is an overflow, which the engine's own marker reports.
+          if (at[SIDE_IX[side]] < -0.5) continue;
+          if (t > 0 && at[SIDE_IX[side]] < t - 0.5) {
+            overlaps.push({ slide: `${labelOf(i)} (${sec.cls.split(/\s+/).slice(0, 3).join('.')})`, placement: pl, element: e.name, side, edge: +at[SIDE_IX[side]].toFixed(2), bar: +t.toFixed(2) });
+          }
+        }
+      }
+    }
+  });
+  // SCHEME PARITY: a dark slide and its light twin place their words in the same spot, so a deck that mixes
+  // the two never steps. Compared at the reference placement, on elements both slides have.
+  const parity = [];
+  let parityPairs = 0;
+  {
+    // Twins are paired by class set (minus `dark`, the placement and the engine's own marks) and by order within a
+    // set, so a component that splits into extra sections (a tall or strip canvas) still pairs page for page.
+    const key = (cls) => cls.split(/\s+/).filter((c) => c && c !== 'dark' && !/^(spectrum-edge-|marks-)/.test(c) && c !== 'form').sort().join(' ');
+    const secs = byPlacement[REFERENCE];
+    const light = new Map();
+    secs.forEach((sec, i) => { if (!/(^|\s)dark(\s|$)/.test(sec.cls)) { const k = key(sec.cls); (light.get(k) || light.set(k, []).get(k)).push(i); } });
+    const seen = new Map();
+    secs.forEach((d, i) => {
+      if (!/(^|\s)dark(\s|$)/.test(d.cls)) return;
+      const k = key(d.cls);
+      const n = seen.get(k) || 0; seen.set(k, n + 1);
+      const j = (light.get(k) || [])[n];
+      if (j == null) return;
+      const l = secs[j];
+      parityPairs++;
+      for (const [elKey, e] of Object.entries(d.els)) {
+        const o = l.els[elKey];
+        // The page number and the section rail depend on the slide's ordinal (a wider "10"), not on its scheme.
+        if (!o || o.kind === 'stamp' || o.kind === 'pagination' || /tile-progress|\bdot\b/.test(e.name) || e.name !== o.name) continue;
+        const dx = Math.max(Math.abs(e.edges[0] - o.edges[0]), Math.abs(e.edges[1] - o.edges[1]));
+        if (dx > TOL) parity.push({ slide: `${labelOf(i)} (${key(d.cls) || 'content'})`, element: e.name, kind: e.kind, shift: +dx.toFixed(2) });
+      }
+    });
+  }
+  // A frame that paints its own canvas in `background-image` (a topic's track band) keeps that paint under every
+  // placement: choosing a bar side must not delete a layer the bar does not own.
+  Array.from({ length: count }, (_, i) => i).forEach((i) => {
+    const ref = byPlacement[REFERENCE][i];
+    if (!/(^|\s)topic(\s|$)/.test(ref.cls)) return;
+    for (const pl of PLACEMENTS) {
+      if (pl === 'off') continue;
+      if (byPlacement[pl][i].bgImage !== ref.bgImage) integrity.push({ slide: `${labelOf(i)} (canvas paint)`, placement: pl, direct: 0, stray: 0, optedOut: false, paint: true });
+    }
+  });
+  const slidesMoved = new Set(moved.map((m) => m.slide));
+  const result = {
+    placements: PLACEMENTS, reference: REFERENCE, tolerance: TOL, slides: slides.length,
+    elementsCompared: compared, elementsMoved: moved.length, slidesMoved: slidesMoved.size, integrity, overlaps, parity, parityPairs,
+    slidesStable: Array.from({ length: count }, (_, i) => labelOf(i)).filter((l) => !slidesMoved.has(l)),
+    byKind: totals, vsReference: vsRef, ...(opts.has('bars') ? { barless } : {}),
+    worst: [...moved].sort((a, b) => b.worst - a.worst).slice(0, opts.has('detail') ? Infinity : 25),
+  };
+
+  if (JSON_OUT) {
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    const f = (n) => n.toFixed(1).padStart(5);
+    console.log(`\nCompared ${compared} elements across ${count} slides; ${moved.length} moved more than ${TOL}px between placements (${slidesMoved.size} slides affected).\n`);
+    if (opts.has('bars')) {
+      console.log('Bars: components that draw no bar under a placement (a border or the overlay counts):');
+      for (const [k, v] of Object.entries(barless)) console.log(`  none on ${k.padEnd(22)} ${v.length}: ${v.join(', ')}`);
+      if (!Object.keys(barless).length) console.log('  none: every component draws a bar on every placement measured');
+      console.log('');
+    }
+    if (result.slidesStable.length) console.log(`Slides that do not move: ${result.slidesStable.join(', ')}\n`);
+    console.log('By kind (spread = largest difference for ONE element across all placements):');
+    console.log('  kind         elements   moved   max spread');
+    for (const [kind, t] of Object.entries(totals).sort((a, b) => b[1].max - a[1].max)) {
+      console.log(`  ${kind.padEnd(12)} ${String(t.n).padStart(8)} ${String(t.moved).padStart(7)}   ${f(t.max)}px`);
+    }
+    console.log(`\nShift of each placement against '${REFERENCE}' (largest |Δ| in px; columns are distance from the slide's ${EDGES.join(' / ')} edge):`);
+    for (const p of PLACEMENTS) {
+      if (p === REFERENCE) continue;
+      console.log(`  ${p}`);
+      for (const [kind, v] of Object.entries(vsRef[p] || {})) {
+        if (Math.max(...v) > TOL) console.log(`    ${kind.padEnd(11)} ${v.map(f).join(' ')}`);
+      }
+    }
+    console.log(`\n${opts.has('detail') ? 'Every moved element' : 'Worst 25 moved elements'} (slide · element · spread l/t/r/b):`);
+    for (const m of result.worst) {
+      console.log(`  ${m.slide.padEnd(34)} ${m.name.padEnd(36)} ${m.spread.map(f).join(' ')}`);
+    }
+    if (integrity.length) {
+      console.log('\nBar integrity (a bleed slide carries exactly two strips as direct children; an opted-out component draws no bar):');
+      for (const x of integrity.slice(0, 25)) console.log(x.paint ? `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} its own background paint disappears` : x.optedOut ? `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} OPTED OUT (manifest spectrum:false) but draws a bar: ${x.drawn}` : `  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} direct ${x.direct}, stray ${x.stray}`);
+    }
+    if (overlaps.length) {
+      console.log('\nSupremacy (no text or chrome may sit inside the strip the bar occupies):');
+      for (const x of overlaps.slice(0, 25)) console.log(`  ${x.slide.padEnd(34)} ${x.placement.padEnd(7)} ${x.element.padEnd(40)} ${x.side}: ${x.edge}px from the edge, bar ${x.bar}px`);
+      if (overlaps.length > 25) console.log(`  ... and ${overlaps.length - 25} more`);
+    }
+    if (parity.length) {
+      console.log('\nScheme parity (a dark slide places its elements where its light twin does):');
+      for (const x of parity.slice(0, 25)) console.log(`  ${x.slide.padEnd(34)} ${x.element.padEnd(40)} ${x.kind.padEnd(10)} ${x.shift}px`);
+      if (parity.length > 25) console.log(`  ... and ${parity.length - 25} more`);
+    }
+    console.log(`\nCompared ${parityPairs} dark/light twin pairs for scheme parity.`);
+    console.log(moved.length || integrity.length || overlaps.length || parity.length ? `\nFAIL: ${moved.length ? 'the bar placement moves content' : integrity.length ? 'the bar overlay is malformed' : overlaps.length ? 'something sits inside the bar' : 'a dark slide steps from its light twin'}.` : '\nPASS: no element moves with the bar placement.');
+  }
+  process.exit((moved.length || integrity.length || overlaps.length || parity.length) && !opts.has('advisory') ? 1 : 0);
+}
+
+main().catch((e) => die(e.stack || String(e)));

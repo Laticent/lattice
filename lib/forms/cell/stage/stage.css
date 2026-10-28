@@ -100,13 +100,19 @@ section.form {
    * number so the two wayfinding marks read as one group. Sized for the page
    * number's own width (≈ up to two digits) plus a hair of gap, tighter than the
    * legacy --frame-page-reserve (6.25cqi) the centered rail used to clear. */
-  --footer-pag-reserve: calc(var(--frame-inset-x) + var(--_sec-1cqi, 1cqi) * 3.25);
+  --footer-pag-reserve: calc(var(--frame-inset-r) + var(--_pag-gap));
   position: relative;
   /* Explicit frame inset on every side so the in-flow masthead + stage clear the
    * deck header (top) and keep their side margins EVEN on components that zero
    * the section padding (e.g. section.chart-frame sets `padding: 0`). No masthead
    * height-reserve — the in-flow band supplies its own height. */
-  padding: var(--frame-y) var(--frame-x) var(--footer-reserve);
+  /* Each side gives up the bar border it carries (`--_bar-*`), so the content box is the same
+     rectangle under every `spectrum-edge:` (base.elements.css owns the reasoning). */
+  padding:
+    calc(var(--frame-y) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px))
+    calc(var(--frame-x) - var(--_bar-r, 0px))
+    calc(var(--footer-reserve) - var(--_bar-b, 0px))
+    calc(var(--frame-x) - var(--_bar-l, 0px));
   /* `isolation: isolate` USED to live here, and it was the only rule in the engine
    * creating a slide stacking context — so a sovereign frame (`title`, `divider`,
    * `image`, …) never got one and its z values escaped to the page root. It is now
@@ -215,9 +221,9 @@ section.form > .cell-footer {
    * masthead band at the other edge. base.tokens.css § depth axis. */
   z-index: var(--z-chrome);
   position: absolute;
-  left: var(--frame-inset-x);
-  right: var(--frame-inset-x);
-  bottom: var(--frame-inset-y);   /* hug — mirrors `section header { top: --frame-inset-y }` */
+  left: var(--frame-inset-l);
+  right: var(--frame-inset-r);
+  bottom: var(--frame-inset-b);   /* hug — mirrors `section header { top: --frame-inset-y }` */
   display: flex;
   align-items: center;            /* footer text · rail · page no. share a vertical center */
   justify-content: flex-end;      /* wayfinding group (rail · page no.) sits right */
@@ -227,10 +233,10 @@ section.form > .cell-footer {
  * the frame (so the bottom inset mirrors the top by a full band height) instead of
  * hugging the page edge. Opt in per slide or per deck; the default is hug. */
 section.form.footer-inset > .cell-footer {
-  bottom: calc(var(--frame-inset-y) + var(--footer-h));
+  bottom: calc(var(--frame-inset-b) + var(--footer-h));
 }
 section.form.footer-inset:has(> .cell-footer) {
-  padding-bottom: calc(var(--footer-reserve) + var(--footer-h));
+  padding-bottom: calc(var(--footer-reserve) + var(--footer-h) - var(--_bar-b, 0px)); /* gives up the bar border like the base padding (check:edge-shift) */
 }
 /* RANK 3 of the band's allocation policy (stated in full below, at the rail): the author's
  * own words take everything the wayfinding marks don't need, and ellipsise past that.
@@ -485,7 +491,7 @@ section.form.fill-anchor  { justify-content: safe flex-end; }
  * geometric center as low) — extra bottom reserve biases it up. */
 section.form.fill-optical {
   justify-content: safe center;
-  padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl));
+  padding-bottom: calc(var(--footer-reserve) + var(--sp-2xl) - var(--_bar-b, 0px)); /* gives up the bar border like the base padding (check:edge-shift) */
 }
 
 /* ── CLAIM · let content claim the stage (2026-07-03 decision) ───────────────
@@ -560,6 +566,27 @@ section.form.claim-bleed:is(.chart-frame, .big-number, .diagram, .image, .video)
   border-top: 0;                     /* kill the top spectrum only where it bleeds */
   --_edge-t: 1;                      /* so the engine keyline draws the top edge (base.modifiers.css) */
   --_bar-t: 0px;
+  --_bar-room-t: 0px;                /* it bleeds to the true edge: no bar room to hold either */
+  /* Media at the true edge has no inset to give a bar border, so its side and bottom bars are the
+   * `.slide-bar` overlay (lib/core/slide-bar.js), as for `image` and `scene`: a border here would
+   * shrink the media by the bar's width. These out-rank the placement rules (check:edge-shift). */
+  border-inline: 0; border-bottom: 0;
+  --_bar-l: 0px; --_bar-r: 0px; --_bar-b: 0px;
+}
+/* A claimed CHART keeps its title (the sentence above says charts stay labeled), but the stage's
+ * zero inset left the title's first letter on the slide's true edge, under a left bar and colliding
+ * with the running header at the top. The media bleeds; the words keep the safe inset. These are the
+ * bar-aware per-side tokens, and a bleed frame carries no border flags, so the inset is the same under
+ * every placement. */
+section.form.claim-bleed.chart-frame > .cell-masthead {
+  padding-block-start: var(--frame-inset-t);
+  padding-inline: var(--frame-inset-l) var(--frame-inset-r);
+}
+/* `video` has no masthead band (its title lives in `.video-head` and its caption beside the player, inside the stage), so the rule
+ * above cannot reach them, and at the true edge they began under a left bar. Same inset, same reason. */
+section.form.claim-bleed.video .video-head,
+section.form.claim-bleed.video .video-card > p {
+  padding-inline: var(--frame-inset-l) var(--frame-inset-r);
 }
 /* Chrome recede — the footer text, rail, and meta bay recede on EVERY bleed
  * slide (as hero). Title + page number stay unless the layout is edge-media. */

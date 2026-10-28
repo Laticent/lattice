@@ -50,8 +50,8 @@ section::after {
    * that had always been hidden APPEARED. Naming the plane settles it in one place.
    * base.tokens.css § depth axis. */
   z-index: var(--z-chrome);
-  bottom: var(--frame-inset-y);
-  right: var(--frame-inset-x);
+  bottom: var(--frame-inset-b);
+  right: var(--frame-inset-r);
   padding: 0;
   margin: 0;
   font-family: var(--font-label);

@@ -1348,7 +1348,42 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
   --frame-inset-x:      calc(2.34375 * var(--_sec-1cqi, 1cqi) + var(--_wide-gutter, 0px)); /* edge chrome follows the content column on a wide canvas */
   --frame-inset-y:      calc(1.875   * var(--_sec-1cqi, 1cqi));
   --frame-page-reserve: calc(6.25    * var(--_sec-1cqi, 1cqi));
+  /* The same insets as ABSOLUTE OFFSETS from the padding box, which sits inside the bar border:
+   * each side gives up the border it carries, so header, footer, page number and stamps hold the
+   * same distance from the slide edge under every `spectrum-edge:` (check:edge-shift). Top also
+   * adds back the room the default bar always took, so no default deck moves. */
+  --_pag-gap:           calc(3.25 * var(--_sec-1cqi, 1cqi)); /* the page number's own width + a hair: what the progress rail clears (stage.css) */
+  /* What to add to an absolute offset measured from the padding box so it lands the same distance from
+   * the SLIDE edge under every `spectrum-edge:` (check:edge-shift). Top clears the room the default bar
+   * always took; the other three reach the slide edge, so a stamp or a mark may sit over a side bar. */
+  --_hold-w:            calc(var(--_bar-l, 0px) + var(--_bar-r, 0px)); /* the width a percentage of the padding box is short by */
+  --_hold-h:            calc(var(--_bar-t, 0px) + var(--_bar-b, 0px));
+  /* One bar width of room at the top even on a frame that owns its top edge (room 0): a stamp or mark hangs
+     inside the frame the bar may draw (a `.slide-bar-top` strip on `image`, `scene`, `collage bleed`), never under it. */
+  --_hold-t:            calc(max(var(--_bar-room-t, 0px), var(--_bar-w, 0px)) - var(--_bar-t, 0px));
+  --_hold-r:            calc(-1 * var(--_bar-r, 0px));
+  --_hold-b:            calc(-1 * var(--_bar-b, 0px));
+  --_hold-l:            calc(-1 * var(--_bar-l, 0px));
+  --frame-inset-t:      calc(var(--frame-inset-y) + var(--_bar-room-t, 0px) - var(--_bar-t, 0px));
+  --frame-inset-b:      calc(var(--frame-inset-y) - var(--_bar-b, 0px));
+  --frame-inset-l:      calc(var(--frame-inset-x) - var(--_bar-l, 0px));
+  --frame-inset-r:      calc(var(--frame-inset-x) - var(--_bar-r, 0px));
+}
 
+/* A `lat-pane` is a slide inside the slide: its chrome measures from the PANE's own padding box,
+ * which carries no bar border, so it must not inherit the section's compensated insets (it would
+ * subtract a bar it does not have, and the rail docked in a pane moved 4px with the placement).
+ * The pane clears the bar flags and re-derives the same tokens, so inside it they read as the raw
+ * insets they were before the bar was carved out of the padding. `--footer-pag-reserve` is derived
+ * from `--frame-inset-r` in stage.css, so it is re-derived here too (check:edge-shift: columns, rows). */
+lat-pane {
+  --_bar-room-t: 0px; --_bar-t: 0px; --_bar-r: 0px; --_bar-b: 0px; --_bar-l: 0px;
+  --_hold-t: 0px; --_hold-r: 0px; --_hold-b: 0px; --_hold-l: 0px; --_hold-w: 0px; --_hold-h: 0px;
+  --frame-inset-t: var(--frame-inset-y);
+  --frame-inset-b: var(--frame-inset-y);
+  --frame-inset-l: var(--frame-inset-x);
+  --frame-inset-r: var(--frame-inset-x);
+  --footer-pag-reserve: calc(var(--frame-inset-x) + var(--_pag-gap));
 }
 
 /* ── The slide's DEPTH axis — seven named planes ────────────────────────
@@ -1446,6 +1481,7 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
 @property --z-chrome     { syntax: "<integer>"; inherits: true; initial-value: 30; }
 @property --z-alarm      { syntax: "<integer>"; inherits: true; initial-value: 90; }
 @property --z-mark       { syntax: "<integer>"; inherits: true; initial-value: 100; }
+@property --z-spectrum   { syntax: "<integer>"; inherits: true; initial-value: 110; }
 
 :root, section {
   --z-canvas:       -2;  /* the sheet: the finish .backdrop field, the .lattice-bg photo
@@ -1492,6 +1528,13 @@ section.marks-vivid, figure.marks-vivid, .marks-vivid {
                           * classification marking outranks an engine annotation on a delivered
                           * artifact. Restored to the order the engine has always shipped
                           * (stamps were 100, tabs 50). */
+  --z-spectrum:    110;  /* the spectrum bar's overlay strips (`.slide-bar`, full-bleed frames only).
+                          * THE FRAME ITSELF, so nothing on the slide paints over it: not a stamp, not an
+                          * alarm tab, not a decorative mark, not deck CSS. Everything else is positioned to
+                          * stay clear of the bar's strip (`--_hold-*`, the per-side `--frame-inset-*`), so
+                          * the top plane costs no stamp or tab any pixel; it only guarantees that a full-slide
+                          * decoration (`inset: 0`) or an authored overlay cannot bleed into the spectrum.
+                          * A border-drawn bar needs no plane: it is the section's own border. */
 }
 
 /* VIEWER chrome is NOT a slide plane, and must not borrow one. The fluid-view toggle

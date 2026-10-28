@@ -81,7 +81,7 @@ section.split-panel .panel-left { width:var(--_panel-w); flex-shrink:0; backgrou
  * oversized quote glyph.
  * engineering/decisions/2026-08-18-split-frame-edge-ownership.md */
 /* The two-segment bar below IS the top edge, so the engine keyline yields to it (base.modifiers.css). */
-section.split-panel { border-top: none; --_edge-t: 0; --_bar-t: 0px; }
+section.split-panel { border-top: none; --_edge-t: 0; --_bar-t: 0px; --_bar-room-t: 0px; }
 section.split-panel .panel-left::after {
   content: ''; position: absolute; top: 0; left: 0; right: 0;
   height: calc(var(--_sec-1cqi, 1cqi) * 0.3125); /* section-OWN cqi: route through --_sec-1cqi */

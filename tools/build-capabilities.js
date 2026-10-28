@@ -129,7 +129,7 @@ const TOOL_GROUP = {
   'palette-sweep.js': 'Lint / audit', 'conformance-render.js': 'Lint / audit',
   'pixel-check.js': 'Lint / audit', 'sweep-guide-gestures.mjs': 'Lint / audit', 'mutate-guide-gestures.mjs': 'Lint / audit', 'mutate-segno.mjs': 'Lint / audit', 'check-shadcn-bridge-contrast.js': 'Lint / audit',
   'measure-glyph-advances.js': 'Lint / audit', 'quality-assessment.js': 'Lint / audit', 'change-coupling.js': 'Lint / audit', 'complexity-report.js': 'Lint / audit',
-  'check-jank.js': 'Lint / audit',
+  'check-jank.js': 'Lint / audit', 'check-edge-shift.js': 'Lint / audit',
   // Render/visual
   'emulator-engine-parity.mjs': 'Render / visual',
   'regression-gate.mjs': 'Render / visual',

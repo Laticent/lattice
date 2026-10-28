@@ -264,3 +264,13 @@ describe('scene applyToDom (runtime path)', () => {
     assert.doesNotThrow(() => scene.applyToDom({}));
   });
 });
+
+
+describe('scene leaves the spectrum bar strips on the section', () => {
+  const BAR = '<i class="slide-bar" aria-hidden="true"></i><i class="slide-bar slide-bar-top" aria-hidden="true"></i>';
+  test('strips already in the section stay outside .scene-text, after the footer', () => {
+    const out = scene.renderSection(`<h2>T</h2><svg viewBox="0 0 1 1"></svg><p>caption</p>${BAR}`);
+    assert.ok(out.endsWith(BAR), out);
+    assert.doesNotMatch(out.match(/<div class="scene-text">[\s\S]*?<\/div>/)[0], /slide-bar/);
+  });
+});

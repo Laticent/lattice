@@ -31,7 +31,7 @@ section > .lat-pagination {
   /* The pagination-right Cell's hook (lib/forms/cell/pagination-right/pagination-right.css)
    * — the page number stays INDEPENDENTLY MOVABLE (design/forms.md §7.3) by the same
    * token on both marks. Default: bottom-right, the pseudo's berth unchanged. */
-  inset: var(--pagination-inset, auto var(--frame-inset-x) var(--frame-inset-y) auto);
+  inset: var(--pagination-inset, auto var(--frame-inset-r) var(--frame-inset-b) auto);
   padding: 0;
   font-family: var(--font-label);
   font-size: var(--chrome-fs);
