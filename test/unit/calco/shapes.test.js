@@ -11,7 +11,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 const JSZip = require('jszip');
 const PptxGenJS = require('pptxgenjs');
-const { drawOrder, groupShapes, labelInsets, shapeGeometry, writeOdp, writePptx } = require('@laticent/calco');
+const { drawOrder, groupShapes, labelInsets, placePictures, shapeGeometry, writeOdp, writePptx } = require('@laticent/calco');
 const { ONE_PX_JPEG, ONE_PX_PNG, style, frame } = require('./_fixtures');
 
 const card = { kind: 'box', x: 100, y: 100, w: 300, h: 160, radii: [10, 10, 10, 10], fill: { color: '#f2f5fa', alpha: 1 }, stroke: { color: '#898e95', alpha: 1, width: 1 }, group: 0 };
@@ -243,3 +243,31 @@ describe('calco shapes — a group never draws a member under a shape that is ab
   });
 });
 
+describe('calco shapes — free text that clears a picture', () => {
+  test('is drawn right after the picture, ahead of a shape painted later', () => {
+    const pic = { kind: 'picture', x: 0, y: 0, w: 100, h: 100, image: ONE_PX_PNG };
+    const cover = { kind: 'box', x: 10, y: 10, w: 20, h: 20, radii: [0, 0, 0, 0], fill: { color: '#c00', alpha: 1 } };
+    const frame = (above) => ({ x: 10, y: 10, w: 20, h: 20, firstLineHeight: 10, lineHeight: 10, align: 'left', lines: [[{ text: 'x' }]], ...(above === undefined ? {} : { above }) });
+    const flat = (fr) => drawOrder({ frames: [fr], shapes: [pic, cover] }, () => false).flatMap((o) => o.items.map((d) => ('frame' in d ? 'text' : d.index)));
+    assert.deepEqual(flat(frame(0)), [0, 'text', 1]);
+    assert.deepEqual(flat(frame()), [0, 1, 'text'], 'without `above`, free text stays on top');
+  });
+});
+
+describe('calco capture — placePictures moves `TextFrame.above` with its picture', () => {
+  const piece = (x) => ({ x, y: 0, w: 10, h: 10, data: 'AA==' });
+  const lines = [[{ text: 'x' }]];
+  const mk = (above) => ({ x: 0, y: 0, w: 5, h: 5, firstLineHeight: 5, lineHeight: 5, align: 'left', lines, above });
+  test('points at the last piece of a picture cropped into several, and is dropped when the picture has no ink', () => {
+    const shapes = [
+      { kind: 'box', x: 0, y: 0, w: 5, h: 5, radii: [0, 0, 0, 0] },
+      { kind: 'picture', x: 0, y: 0, w: 30, h: 10, image: new Uint8Array(1) },
+      { kind: 'picture', x: 0, y: 0, w: 5, h: 5, image: new Uint8Array(1) },
+    ];
+    const read = { shapes, frames: [mk(1), mk(2)] };
+    placePictures(read, [shapes[1], shapes[2]], { residual: null, images: [[piece(0), piece(20)], []] });
+    assert.equal(read.shapes.length, 3, 'box + two pieces; the picture with no ink is gone');
+    assert.equal(read.frames[0].above, 2, 'the last piece of the first picture');
+    assert.equal(read.frames[1].above, undefined, 'no ink, so nothing to clear');
+  });
+});

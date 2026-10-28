@@ -128,6 +128,10 @@ nothing, so a headless browser can receive them as source.
 - Lines do not reflow: typing more text grows the box, not the layout.
 - PowerPoint: weight is bold or not (600 and up is bold), and `text-transform` is applied to
   the text itself. Placement is measured in LibreOffice; PowerPoint is not verified.
+- A `.pptx` opened in LibreOffice older than 24.8 (24.2.7 measured) ignores the embedded fonts and draws the text in its own substitute. A wider
+  substitute (Inter for Outfit) runs a card's body lines past the card edge, because lines are fixed where the browser broke them and the text
+  frames do not wrap. With the face installed on the machine the same file stays inside its cards (examples/focus-highlight-axes.md slide 8), and
+  the `.odp` embeds fonts that this LibreOffice does use.
 - No native charts, diagrams or equations.
 - An inline chip (a code span, a mark) is a highlight on its words: its corners, border and padding are not
   carried, and it is opaque (its tint is blended over what is behind it).
@@ -140,8 +144,11 @@ nothing, so a headless browser can receive them as source.
   A picture that holds a box's own fill or edge and sits outside that box's text's card (a focused table
   column's tint and ring span every row, so no row holds them) and draws AFTER that card leaves that text
   free, drawn on top: the text paints over its own box, and in its row's group it would come out under the
-  picture. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
+  picture, right after the picture (`TextFrame.above`), so a shape painted later stays above it. Free text no longer moves with its row when the row is dragged. A picture drawn before the card (a
   gradient panel behind it) changes nothing.
+- A focused table row's ring (`box-shadow: inset 0 W 0` and `inset 0 -W 0` on every cell, plus `inset W 0 0` on the first and `inset -W 0 0` on
+  the last) is native lines, one band per cell edge, so it reads as one outline. A side band with no top and bottom band beside it (a focused
+  column's) stays a picture of the whole column.
 - An `outline` pulled in by its own width (`outline-offset: -W`, the focus highlight's card edge) is drawn as
   an inside stroke, replacing a border no wider than that band. Any other outline keeps its box a picture.
 - The `.pptx` picture lock is markup only: PowerPoint's Lock honors it; LibreOffice does not.

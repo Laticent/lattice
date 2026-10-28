@@ -71,6 +71,11 @@ export interface TextFrame {
 	/** The group this text moves with: the index of its card in `Slide.shapes`. */
 	group?: number;
 	/**
+	 * Free text only: the index in `Slide.shapes` of the picture this text must clear. The text is drawn right
+	 * after that picture, so a shape painted after the picture stays above the text.
+	 */
+	above?: number;
+	/**
 	 * What the text is on the slide, when the page says so: the slide's `title`, the
 	 * `eyebrow` kicker above a heading, the `subtitle` below one, the running `header` and
 	 * `footer`, and the page `number`. A writer names the box by it, and where the format has

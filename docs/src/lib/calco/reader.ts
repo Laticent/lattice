@@ -1105,8 +1105,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			outerRing?: Paint & { width: number };
 			/** Hard-edged shadows under the box (struck elevation), each a solid box. */
 			struck?: Array<Paint & { x: number; y: number; spread: number }>;
-			/** Hard inset bands along the inner top (y > 0) and bottom (y < 0) edges: a highlight and a shade. */
-			rims?: Array<Paint & { y: number }>;
+			/** Hard inset bands along the inner top (y > 0), bottom (y < 0), left (x > 0) or right (x < 0) edge: one of x and y is 0. */
+			rims?: Array<Paint & { x: number; y: number }>;
 		}
 		const candidates: Candidate[] = [];
 		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
@@ -1140,11 +1140,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			stacked?: boolean;
 			/** Hard-edged outer layers (no blur, an offset): each is a solid copy of the box, moved and grown by its spread. */
 			struck: Array<Paint & { x: number; y: number; spread: number }>;
-			/** Hard inset layers offset straight down or up (no blur, no spread): a band along that inner edge, one per edge. */
-			rims: Array<Paint & { y: number }>;
+			/** Hard inset layers offset straight down, up, right or left (no blur, no spread): a band along that inner edge, one per edge. */
+			rims: Array<Paint & { x: number; y: number }>;
 		};
-		const shadowOf = (v: string, opacity: number): Shadows | false => {
+		const shadowOf = (v: string, opacity: number, square = false): Shadows | false => {
 			const out: Shadows = { outer: null, ring: null, outerRing: null, struck: [], rims: [] };
+			// Bands along the left or right edge join `rims` only beside a top AND a bottom band (see after the loop).
+			const sideBands: Array<Paint & { x: number; y: number }> = [];
 			if (!v || v === 'none') return out;
 			for (const layer of splitTop(v)) {
 				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
@@ -1158,7 +1160,11 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					// The engine's struck elevation lights the top inner edge with a hard band and shades the bottom
 					// one: one band per edge, so a second band on the same edge is not this recipe.
 					if (!x && y && !blur && !spread && !out.rims.some((r) => r.y > 0 === y > 0)) {
-						out.rims.push({ ...paint, y });
+						out.rims.push({ ...paint, x: 0, y });
+						continue;
+					}
+					if (x && !y && !blur && !spread && !sideBands.some((b) => b.x > 0 === x > 0)) {
+						sideBands.push({ ...paint, x, y: 0 });
 						continue;
 					}
 					if (x || y || blur || !(spread > 0) || out.ring) return false;
@@ -1186,6 +1192,13 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					continue;
 				}
 				out.outer = next;
+			}
+			// A square cell with a top and a bottom band is a cell of a ringed row, so a side band is that row's end, drawn
+			// like them. Without both, the band is one edge of a ringed column, which spans its rows as one picture. A
+			// rounded box stays a picture: CSS runs a band into its curved corners, and a line drawn between them is shorter.
+			if (sideBands.length) {
+				if (!square || !(out.rims.some((r) => r.y > 0) && out.rims.some((r) => r.y < 0))) return false;
+				out.rims.push(...sideBands);
 			}
 			return out;
 		};
@@ -1432,7 +1445,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			let outerRing: (Paint & { width: number }) | null = null;
 			let struck: Shadows['struck'] = [];
 			let rims: Shadows['rims'] = [];
-			const shadows = shadowOf(cs.boxShadow, op);
+			const shadows = shadowOf(cs.boxShadow, op, [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomRightRadius, cs.borderBottomLeftRadius].every((v) => !(Number.parseFloat(v) > 0)));
 			if (shadows === false) shadow = false;
 			else {
 				shadow = shadows.outer;
@@ -2268,20 +2281,32 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					shapeEls.push(c.el);
 				}
 			}
-			// The inset bands: each along the inner top or bottom edge, inside the border, between the corners.
+			// The inset bands: each along an inner edge, inside the border, between the corners.
 			for (const rim of c.rims || []) {
 				const bt = c.sides[0]?.width || 0;
 				const bb = c.sides[2]?.width || 0;
 				const bl = c.sides[3]?.width || 0;
 				const br = c.sides[1]?.width || 0;
-				const band = Math.abs(rim.y);
+				const rimStroke = { color: rim.color, alpha: rim.alpha, width: Math.abs(rim.x || rim.y) };
+				const band = rimStroke.width;
+				if (rim.x) {
+					const left = rim.x > 0;
+					const [rt, rb] = left ? [c.radii[0], c.radii[3]] : [c.radii[1], c.radii[2]];
+					const y0 = y + Math.max(bt, rt);
+					const y1 = y + h - Math.max(bb, rb);
+					if (y1 > y0) {
+						shapes.push({ kind: 'line', x: left ? x + bl + band / 2 : x + w - br - band / 2, y: y0, w: 0, h: y1 - y0, stroke: rimStroke, side: left ? 'left' : 'right', pseudo: true });
+						shapeEls.push(c.el);
+					}
+					continue;
+				}
 				const top = rim.y > 0;
 				const [rl, rr] = top ? [c.radii[0], c.radii[1]] : [c.radii[3], c.radii[2]];
 				const x0 = x + Math.max(bl, rl);
 				const x1 = x + w - Math.max(br, rr);
 				if (x1 > x0) {
 					const ly = top ? y + bt + band / 2 : y + h - bb - band / 2;
-					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: { color: rim.color, alpha: rim.alpha, width: band }, side: top ? 'top' : 'bottom', pseudo: true });
+					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: rimStroke, side: top ? 'top' : 'bottom', pseudo: true });
 					shapeEls.push(c.el);
 				}
 			}
@@ -2361,8 +2386,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// free, on top: in its row's group it would come out under the picture, which paints after that row. Only
 		// then: a picture drawn BEFORE the card (a gradient panel behind it) is already under its text, and lifting
 		// that text would also lift it over whatever covers it (drawOrder draws a group where its first member paints).
-		// Free text goes to the very top, so it also lands over an overlay drawn after the picture: a known limit
-		// (followups.d/2933-p2-*).
+		// Free text is drawn right after the last such picture (`TextFrame.above`), so an overlay painted after that
+		// picture stays above the text.
 		const firstOf = (h: number) => {
 			let first = h;
 			shapes.forEach((sh, j) => {
@@ -2371,21 +2396,25 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			return first;
 		};
 		const drawnAt = (k: number) => (shapes[k].group === undefined ? k : firstOf(shapes[k].group as number));
-		const underPicture = (i: number, g: number) => {
+		/** The picture that paints over frame `i`'s own box and is drawn latest, or -1 when none does. */
+		const pictureOver = (i: number, g: number) => {
 			const f = frames[i];
 			const cardAt = firstOf(g);
-			return [...paintedBy].some(
-				([p, boxes]) =>
-					shapes[p].group !== g &&
-					drawnAt(p) > cardAt &&
-					overlaps(shapes[p], { x: f.x, y: f.y, w: f.w, h: f.h }) &&
-					boxes.some((box) => box.contains(frameBlocks[i])),
-			);
+			let last = -1;
+			for (const [p, boxes] of paintedBy) {
+				if (shapes[p].group === g || drawnAt(p) <= cardAt) continue;
+				if (!overlaps(shapes[p], { x: f.x, y: f.y, w: f.w, h: f.h }) || !boxes.some((box) => box.contains(frameBlocks[i]))) continue;
+				if (last < 0 || p > last) last = p;
+			}
+			return last;
 		};
 		frames.forEach((f, i) => {
 			if (carried.has(i)) return;
 			const g = cardOf(frameBlocks[i], true);
-			if (g >= 0 && !underPicture(i, g)) {
+			if (g < 0) return;
+			const over = pictureOver(i, g);
+			if (over >= 0) f.above = over;
+			else {
 				f.group = g;
 				groups.add(g);
 			}

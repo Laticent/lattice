@@ -361,7 +361,7 @@ export async function cropPictures(section: HTMLElement, { fg, boxes, rules }: {
  * Put the cropped pictures into the slide's shapes. Each picture takes the box of its ink and becomes one
  * picture per piece (a photo, and the thin rule beside it); a box with no ink is no picture. Ink that no
  * picture accounts for is one more picture, placed first (under everything), which is where the old
- * whole-slide picture sat. Shapes refer to each other by index (`group`, `sub`, and a frame's `group`), so
+ * whole-slide picture sat. Shapes refer to each other by index (`group`, `sub`, and a frame's `group` and `above`), so
  * every index is moved to where its shape went.
  */
 export function placePictures(read: { shapes: Shape[]; frames: TextFrame[] }, pics: Shape[], got: CropResult): void {
@@ -369,6 +369,7 @@ export function placePictures(read: { shapes: Shape[]; frames: TextFrame[] }, pi
   const next: Shape[] = [];
   if (got.residual) next.push({ kind: 'picture', x: got.residual.x, y: got.residual.y, w: got.residual.w, h: got.residual.h, image: fromBase64(got.residual.data) });
   const moved = new Map<number, number>();
+  const lastPiece = new Map<number, number>(); // old index of a picture → where its last piece went
   // The pieces of one picture, so they can be one object (a group, or a part of their card's group).
   const whole: Array<{ first: number; count: number; inCard: boolean }> = [];
   read.shapes.forEach((sh, i) => {
@@ -386,6 +387,7 @@ export function placePictures(read: { shapes: Shape[]; frames: TextFrame[] }, pi
       if (k > 0) delete piece.alt;
       next.push(piece);
     }
+    if (list.length) lastPiece.set(i, next.length - 1);
     if (list.length > 1) whole.push({ first, count: list.length, inCard: sh.group !== undefined });
   });
   const to = (old: number | undefined) => (old === undefined ? undefined : moved.get(old));
@@ -398,6 +400,11 @@ export function placePictures(read: { shapes: Shape[]; frames: TextFrame[] }, pi
     }
   }
   for (const f of read.frames) {
+    if (f.above !== undefined) {
+      const over = lastPiece.get(f.above);
+      if (over === undefined) delete f.above;
+      else f.above = over;
+    }
     if (f.group === undefined) continue;
     const at = to(f.group);
     if (at === undefined) delete f.group;

@@ -166,7 +166,7 @@ export interface DrawnGroup {
 /**
  * The order a slide is drawn in, over its picture: shapes back to front, each group whole
  * where its card first paints (its shapes, then its text), then the text that belongs to no
- * group, on top. `carries(shape, frame)` says whether a label's shape can hold its text
+ * group, on top (text that must clear a picture, `TextFrame.above`, right after it). `carries(shape, frame)` says whether a label's shape can hold its text
  * (`labelInsets` is not null); when it cannot, the shape and its text are grouped instead.
  */
 export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame) => boolean): DrawnGroup[] {
@@ -237,10 +237,16 @@ export function drawOrder(slide: Slide, carries: (shape: Shape, frame: TextFrame
 		items.push(...text);
 		out.push({ group: g, items });
 	});
+	// Free text that must clear a picture (`TextFrame.above`) is drawn right after the part that holds that
+	// picture, so a shape painted later stays above it; the rest goes on top.
+	const after = new Map<number, DrawnGroup[]>(); // index in `out` → the free text drawn after it
 	frames.forEach((f, fi) => {
 		if (carried.has(fi) || !hasText(f)) return;
 		const g = memberGroup(fi);
-		if (g === undefined || !groupsWithMembers.has(g)) out.push({ items: [{ frame: f, index: fi }] });
+		if (g !== undefined && groupsWithMembers.has(g)) return;
+		const at = f.above === undefined ? -1 : out.findIndex((o) => o.items.some((d) => 'shape' in d && d.index === f.above));
+		if (at < 0) out.push({ items: [{ frame: f, index: fi }] });
+		else after.set(at, [...(after.get(at) || []), { items: [{ frame: f, index: fi }] }]);
 	});
-	return out;
+	return after.size ? out.flatMap((o, i) => [o, ...(after.get(i) || [])]) : out;
 }
