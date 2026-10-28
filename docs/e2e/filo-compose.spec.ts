@@ -104,6 +104,38 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Compose on Filo $
 	});
 });
 
+// THE BROWSER'S OWN IME PIPELINE (Chromium only: the DevTools protocol drives it). The test above
+// fires bare composition events; `Input.imeSetComposition` makes Chromium compose for real: the
+// composing text lands in the editor and the browser fires its own compositionstart/update/end, as
+// a Japanese keyboard does. An undo pressed mid-composition must not touch the deck or tear the
+// composition; when the IME commits, the undo lands, and the committed text is never left half-made.
+// Still not a device's IME (UNVERIFIED there), but the same path in the browser.
+test('an undo during a real Chromium IME composition waits for the commit, then lands', async ({ page, browserName }) => {
+	test.skip(browserName !== 'chromium', 'the DevTools protocol drives the IME in Chromium only');
+	await openDeckInCompose(page, DECK);
+	await caretInBody(page, 1);
+	await page.keyboard.type(' IME');
+	await expect.poll(() => savedDeck(page)).toContain('Body two. IME');
+	// Compose in another slide: typing never joins across a slide break, so the commit is its own
+	// step and the undo's target is unambiguous (no timer to wait out).
+	await caretInBody(page, 0);
+	const cdp = await page.context().newCDPSession(page);
+	await cdp.send('Input.imeSetComposition', { text: 'にほ', selectionStart: 2, selectionEnd: 2 });
+	await expect(slides(page).nth(0)).toContainText('Body one.にほ');
+	await page.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+	// Mid-composition: the deck did not move and the composing text is intact.
+	await expect.poll(() => savedDeck(page)).toContain('Body two. IME');
+	await expect(slides(page).nth(0)).toContainText('Body one.にほ');
+	// Commit the composition as composed (Chromium's insertText mid-composition commits the composing
+	// text). Then the queued undo lands and takes back exactly one step, the commit, leaving the
+	// typing before it.
+	await cdp.send('Input.insertText', { text: 'にほ' });
+	await expect.poll(() => savedDeck(page)).not.toContain('にほ');
+	await expect.poll(() => savedDeck(page)).toContain('Body two. IME');
+	await expect(slides(page).nth(0)).not.toContainText('にほ');
+	await expect(slides(page).nth(1)).toContainText('IME');
+});
+
 // THE BUDGET FOR COMPOSE (§4.3): the history's own work in applying an undo to Compose (the scoped
 // transaction, the change diff, the emit check and the silent object pass: `filo:compose-work`) on
 // the 134 KB deck stays under 16 ms on the main thread, in all three engines. ProseMirror's render of

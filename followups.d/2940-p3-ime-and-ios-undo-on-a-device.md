@@ -12,9 +12,10 @@ source: https://github.com/Laticent/lattice/pull/2940
 
 ```text
   P3 · [no ticket] verify undo with a real IME and on iOS
-       why now   — PR 2940's e2e fires composition events itself; a real IME (Japanese, Chinese,
-                   Android's per-word composition), iOS shake and three-finger swipe, and the macOS
-                   Edit menu were not driven. Android may hold a composition for a whole word, so
+       why now   — PR 2940's e2e drives Chromium's own IME pipeline (DevTools protocol), and it
+                   holds; a device's IME (Japanese, Chinese, Android's
+                   per-word composition), iOS shake and three-finger swipe, and the macOS Edit menu
+                   were not driven. Android may hold a composition for a whole word, so
                    the pill's Undo would wait for it.
        where     — docs/src/components/studio/StudioShell.tsx runHistory, ComposeView afterComposition
        done when — each input method undoes once, at the right moment, on a real device.

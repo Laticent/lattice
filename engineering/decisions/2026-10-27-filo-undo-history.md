@@ -596,7 +596,9 @@ Where it differs from the plan above, and why:
   as one outside change when the session ends. `tools/live-session-check.mjs` (on demand, two
   Chromium processes over the real relays) now has the host press Ctrl+Z with focus on the page
   body: on 2026-10-28 its own edit went, the guest's stayed on both sides, and Ctrl+Shift+Z brought
-  it back. Compose's ⌘Z and the pill in a session, and settings writes, are still untested (P4).
+  it back. The same run then typed in Compose and pressed Ctrl+Z with focus there: the edit went on
+  both sides, the guest's stayed, and focus stayed in Compose. The pill's Undo and settings writes
+  in a session are still untested (P4).
 - **The phone's Undo and Redo** sit in the header beside the mode toggle, in every pane. The
   pre-paint skeleton (`StudioChromeSkeleton.tsx`) draws the same two buttons, disabled, because it
   paints before the stored pane is known and `studio-smoke`'s shell-parity tests fail on any control
@@ -650,6 +652,14 @@ What the build and the independent check found, all fixed in this slice:
 - **Live session**: the session's undo is mirrored into Compose at once too, or a focused Compose
   parked it and the next keystroke pushed the undone text back.
 - **IME**: several undos asked for during one composition queue as one (the last one asked for).
+- **A real IME pipeline** (added 2026-10-28): `filo-compose.spec.ts` also drives Chromium's own
+  IME through the DevTools protocol (`Input.imeSetComposition`, then `Input.insertText`), so the
+  composing text is real and the browser fires its own composition events. An undo pressed
+  mid-composition leaves the deck and the composition alone, and lands on the commit, taking back
+  exactly that step. It passes on the e2e build, also at 6x CPU throttling. On the slower dev
+  server the queued undo once failed to land, alongside timing failures in four unrelated Compose
+  tests there; it did not reproduce on the build that ships, so no change was made for it. A
+  device's IME is still unverified (P3).
 - **The caret after an undo** sat at the edge of the slide the undo replaced (and the reveal then
   moved it to the slide's first line), so the next keystroke landed there. The undo now puts the
   caret at the end of the change, using the replaced slide's own `findDiffEnd`, and a reveal from
