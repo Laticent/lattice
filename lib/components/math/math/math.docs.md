@@ -47,9 +47,9 @@ Use when the slide IS the equation. `$$…$$` renders as a centered display bloc
 
 ## When NOT to use
 
-- **Two display equations in the base layout.** The bare math layout is built around one hero equation. For side-by-side display, use `math compare`. For a derivation chain, use `math derivation`. Stacking two `$$` blocks in the base layout breaks the visual contract.
-- **Symbols without a legend.** An equation with three undefined symbols is a puzzle, not a claim. Either every non-trivial symbol gets a legend entry, or the equation is simple enough that the audience knows it cold.
-- **ASCII math instead of real math markup.** Writing `beta_hat = (X'X)^-1 X'y` as plain text bypasses the renderer. Always wrap math in `$$…$$` (display) or `$…$` (inline) — typeset math is the entire reason this layout exists.
+- **Two display equations in the base layout.** The base layout holds one hero equation. Use `math compare` side by side, or `math derivation` for a chain.
+- **Symbols without a legend.** Three undefined symbols make a puzzle, not a claim. Give every non-trivial symbol a legend entry, or keep the equation simple enough to know cold.
+- **ASCII math instead of real math markup.** Plain text like `beta_hat = (X'X)^-1 X'y` bypasses the renderer. Wrap math in `$$…$$` (display) or `$…$` (inline).
 
 ## Authoring
 

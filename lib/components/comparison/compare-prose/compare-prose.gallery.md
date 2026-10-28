@@ -189,7 +189,8 @@ The verb is one axis — how you think. **Reach** is the other — how far what 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · compare-prose" -->
 
 ## When NOT to reach for compare-prose.

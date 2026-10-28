@@ -137,7 +137,8 @@ A parallel set of related items of similar weight — one content shape, four in
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · inventory · 1 of 2" -->
 
 ## When NOT to reach for inventory.
@@ -146,16 +147,17 @@ A parallel set of related items of similar weight — one content shape, four in
   - Past five rows at 16:9 the looks lose scannability (cards and timeline past four). Escalate to list-tabular or split across slides.
 - Ordered steps
   - If sequence carries meaning, use list-steps or `list takeaway numbered`. inventory entries are parallel, of similar weight.
-- Nested-bullet authoring
-  - inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · inventory · 2 of 2" -->
 
 ## When NOT to reach for inventory.
 
+- Nested-bullet authoring
+  - inventory takes an inline bold lead (`- **Lead.** detail`), not the nested `- Title` / `  - body` shape that card-style components use.
 - Lopsided density
   - Equalize the prose when one entry has three sentences and the rest have one — uneven density unbalances every look.
 

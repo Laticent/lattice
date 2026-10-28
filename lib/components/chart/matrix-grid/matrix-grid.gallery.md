@@ -127,7 +127,8 @@ Illustrative — placements vary by company.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · matrix-grid" -->
 
 ## When NOT to reach for matrix-grid.

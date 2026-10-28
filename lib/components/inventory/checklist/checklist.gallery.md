@@ -94,8 +94,9 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · checklist · 1 of 2" -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
+<!-- _footer: "Anti-patterns · checklist" -->
 
 ## When NOT to reach for checklist.
 
@@ -103,14 +104,6 @@ Items with state markers — done, partial, failed, unknown, to do, skipped.
   - If every item is `\[x]` the state markers are decoration. Use `list` (or its `takeaway` variant) for celebratory recaps; checklist earns its weight when the mix matters.
 - Long per-item prose
   - Each item is one short line. If a row needs a sentence of explanation, the right home is cards-stack or list-tabular.
-
----
-
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · checklist · 2 of 2" -->
-
-## When NOT to reach for checklist.
-
 - Custom state markers
   - Only the six markers — `\[x]` `\[-]` `\[!]` `\[?]` `\[ ]` `\[/]` — map to the mark palette. Anything else in brackets (`[X]`, `[~]`, `[>]`) renders as literal text and breaks the visual contract. `[X]` is the trap: GitHub-flavored markdown reads it as a checked box, and it does not draw a mark here.
 

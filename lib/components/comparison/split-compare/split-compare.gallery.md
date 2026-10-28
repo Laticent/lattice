@@ -125,7 +125,8 @@ One question on the left; two option cards and a verdict on the right.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · split-compare" -->
 
 ## When NOT to reach for split-compare.

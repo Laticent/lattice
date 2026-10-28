@@ -369,7 +369,8 @@ A dark left panel carries the headline, and the bright right column holds up to 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · split-panel" -->
 
 ## When NOT to reach for split-panel.

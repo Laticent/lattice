@@ -252,25 +252,18 @@ $$ \hat\beta = (X^\top X)^{-1} X^\top y $$
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · math · 1 of 2" -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
+<!-- _footer: "Anti-patterns · math" -->
 
 ## When NOT to reach for math.
 
 - Two display equations in the base layout
-  - The bare math layout is built around one hero equation. For side-by-side display, use `math compare`. For a derivation chain, use `math derivation`. Stacking two `$$` blocks in the base layout breaks the visual contract.
+  - The base layout holds one hero equation. Use `math compare` side by side, or `math derivation` for a chain.
 - Symbols without a legend
-  - An equation with three undefined symbols is a puzzle, not a claim. Either every non-trivial symbol gets a legend entry, or the equation is simple enough that the audience knows it cold.
-
----
-
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · math · 2 of 2" -->
-
-## When NOT to reach for math.
-
+  - Three undefined symbols make a puzzle, not a claim. Give every non-trivial symbol a legend entry, or keep the equation simple enough to know cold.
 - ASCII math instead of real math markup
-  - Writing `beta_hat = (X'X)^-1 X'y` as plain text bypasses the renderer. Always wrap math in `$$…$$` (display) or `$…$` (inline) — typeset math is the entire reason this layout exists.
+  - Plain text like `beta_hat = (X'X)^-1 X'y` bypasses the renderer. Wrap math in `$$…$$` (display) or `$…$` (inline).
 
 ---
 

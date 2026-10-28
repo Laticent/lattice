@@ -141,7 +141,8 @@ An exceedance-probability curve: the loss to expect once every N years, with ret
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · ep-curve" -->
 
 ## When NOT to reach for ep-curve.

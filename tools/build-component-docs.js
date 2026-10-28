@@ -691,65 +691,82 @@ function injectFooter(slide, footer) {
 }
 
 /**
- * The anti-patterns, packed onto as few slides as fit at BODY size: greedy, in manifest order,
- * a new slide once the next card would take the slide past ANTI_PATTERN_WORDS_PER_SLIDE words
- * (title + body), and never more than three cards. A card longer than the budget gets a slide
- * to itself.
+ * The anti-patterns, packed into COLUMNS: `cards-grid` (three across, two across, or one) with
+ * `claim-hero`, never a vertical stack. Body type is never touched: the slide holds the words
+ * because the layout fits them. A card's word cap is about two thirds of the point where that
+ * layout clips at design size (title + body):
  *
- * WHY A BUDGET AND NOT `compact`. The slide used to be one `cards-stack compact` slide, and
- * cards-stack's `compact` dropped the card text to `--fs-body-compact` to fit four cards. A
- * modifier may not change a type role's size (engineering/typography.md §7, "One size across
- * modifiers"), so the shrink is gone; at body size 19 of the 71 generated slides of this kind clipped.
- * 100 is measured, not chosen: every component's anti-patterns rendered this way at a wide
- * @size clip on 0 of 108 slides, where 110 clips 2 and 130 clips 6
- * (engineering/decisions/2026-09-25-font-scale-fit.md, Amendment 2026-09-27 (2)).
+ *   three across  ≤ 60 words per card (clips near 94)
+ *   two across    ≤ 100             (clips past 144)
+ *   one           ≤ 200             (clips past 264)
+ *
+ * WHY NOT `cards-stack`. A stack is calibrated for ~16 words per item and the manifests'
+ * anti-patterns run a median 29 (p90 41): three of them filled the frame to 716 of 720 px, so a
+ * little more text or a different font clipped them. Columns spend the stage's width, which the
+ * stack left to two-line paragraphs (sweep: engineering/decisions/2026-10-26-playground-anti-pattern-slide.md).
+ *
+ * PACKING. When every card fits three across, pages are balanced (4 → 2+2, 5 → 3+2) rather
+ * than greedy (4 → 3+1, a lone card on its own slide). A longer card pulls its page down to
+ * two across or one, and the other cards pack greedily around it.
  */
-const ANTI_PATTERN_WORDS_PER_SLIDE = 100;
-const ANTI_PATTERN_CARDS_PER_SLIDE = 3;
+const ANTI_PATTERN_WORD_CAPS = [200, 100, 60]; // index = columns - 1
+function antiPatternWords(p) {
+  return `${p.title} ${p.body}`.split(/\s+/).filter(Boolean).length;
+}
+function antiPatternColumns(maxWords) {
+  for (let cols = 3; cols >= 1; cols--) if (maxWords <= ANTI_PATTERN_WORD_CAPS[cols - 1]) return cols;
+  return 1; // over the one-column cap: sits alone, and the audit names it
+}
 function antiPatternPages(antiPatterns) {
-  const words = (p) => `${p.title} ${p.body}`.split(/\s+/).filter(Boolean).length;
+  const n = antiPatterns.length;
+  if (antiPatterns.every((p) => antiPatternWords(p) <= ANTI_PATTERN_WORD_CAPS[2])) {
+    const count = Math.ceil(n / 3);
+    const pages = [];
+    let at = 0;
+    for (let i = 0; i < count; i++) {
+      const size = Math.ceil((n - at) / (count - i));
+      pages.push(antiPatterns.slice(at, at + size));
+      at += size;
+    }
+    return pages;
+  }
   const pages = [[]];
-  let sum = 0;
+  let max = 0;
   for (const p of antiPatterns) {
-    const w = words(p);
+    const w = antiPatternWords(p);
     const page = pages[pages.length - 1];
-    if (page.length && (sum + w > ANTI_PATTERN_WORDS_PER_SLIDE || page.length >= ANTI_PATTERN_CARDS_PER_SLIDE)) {
+    if (page.length && page.length + 1 > antiPatternColumns(Math.max(max, w))) {
       pages.push([]);
-      sum = 0;
+      max = 0;
     }
     pages[pages.length - 1].push(p);
-    sum += w;
+    max = Math.max(max, w);
   }
   return pages;
 }
 
 function renderAntiPatternsSlide(m, page = m.antiPatterns, index = 0, count = 1) {
-  // Use `cards-stack` for the anti-patterns meta-slide (paged by antiPatternPages above). Each
-  // anti-pattern is a title + body card, authored with the HARD RULE #5
-  // nested contract (`- Title` / `  - body`) so the body renders as prose
-  // and any inline code in it stays inline code — NOT promoted to a status
-  // pill (the failure mode that ruled out cards-grid, whose title-trailing
-  // `code` becomes a pill).
-  // Full-width stacked cards read as a cautionary ledger; the old `list`
-  // register laid each <li> out as flex, so an inline-code body shattered
-  // into scattered chips and overflowed.
+  // `cards-grid` (three across, two across or one — see antiPatternPages). Each anti-pattern is
+  // a title + body card, authored with the HARD RULE #5 nested contract (`- Title` /
+  // `  - body`) so the body renders as prose and inline code in it stays inline code.
   //
-  // Titles are stripped of backticks: cards-stack promotes a `code` span on
-  // the title line to a right-anchored pill (no :last-child guard), which
-  // would scatter a title that carries inline vocab. Bodies keep their
-  // backticks — nested-list code is never pilled — so this only defends the
-  // title line, matching the old format's inline-code resilience. No shipping
-  // manifest has a code-bearing title today; this keeps a future one safe.
-  //
-  // No `cards-stretch`: the register default (`center`, #2317) sizes each card to its text.
-  // Stretch was kept while one slide held every anti-pattern at `compact` size, because on
-  // kpi `center` turned an overrun into visibly clipped lines. Paged by antiPatternPages,
-  // no slide overruns, and a stretched lone card filled the whole stage with empty space.
+  // Titles are stripped of backticks: cards-grid promotes a `code` span at the end of a title
+  // line to a pill, which would scatter a title that carries inline vocab. Bodies keep their
+  // backticks — nested-list code is never pilled. No shipping manifest has a code-bearing
+  // title today; this keeps a future one safe.
   const items = page.map(
     (p) => `- ${p.title.replace(/`/g, '')}\n  - ${escapeDeckMarkers(p.body)}`
   );
   const part = count > 1 ? ` · ${index + 1} of ${count}` : '';
-  return `<!-- _class: cards-stack -->
+  const cols = Math.min(page.length, antiPatternColumns(Math.max(...page.map(antiPatternWords))));
+  // `claim-hero` drops the masthead and footer bands, so the cards get that height: three across
+  // clips near 94 words a card with it and near 58 without. The slide's heading still names the
+  // component, so the footer it hides carried nothing the reader needs.
+  const klass = `${cols === 3 ? 'cards-grid three' : 'cards-grid'} claim-hero`;
+  // `_header: ''` because `claim-hero` drops the bands but not the deck's running `header:` (every
+  // gallery's front matter sets one), which then prints over the heading.
+  return `<!-- _class: ${klass} -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · ${m.name}${part}" -->
 
 ## When NOT to reach for ${m.name}.
@@ -943,7 +960,8 @@ module.exports = {
   renderGallery,
   galleryPlan,
   antiPatternPages,
-  ANTI_PATTERN_WORDS_PER_SLIDE,
+  ANTI_PATTERN_WORD_CAPS,
+  antiPatternColumns,
   stressDocOf,
   injectFooter,
   expectedGallerySlideCount,

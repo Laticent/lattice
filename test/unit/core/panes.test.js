@@ -624,3 +624,22 @@ test('widenStyleBlocks slices the document it scans: a length-changing lower-cas
   const doc = '<p>İİİİ</p><style>section.list > .cell-stage > ul { a: b }</style><lat-pane class="list form"></lat-pane>';
   assert.match(paneCss.widenStyleBlocks(doc, ['form', 'list'], ['list']), /<p>İİİİ<\/p><style>section\.list > \.cell-stage > ul, section lat-pane\.list > \.cell-stage > ul\{ a: b \}<\/style>/);
 });
+
+test('a pane carries no footer Cell or page number of its own — the host slide owns them (#2826 regression)', () => {
+  const html = render(`---\npaginate: true\n---\n\n${DECK}`);
+  const paneHtml = [...html.matchAll(/<lat-pane\b[\s\S]*?<\/lat-pane>/g)].map((m) => m[0]);
+  assert.ok(paneHtml.length >= 2, 'the deck renders its panes');
+  for (const p of paneHtml) {
+    assert.doesNotMatch(p, /cell-footer|lat-pagination/, 'a pane minted its own page number');
+  }
+  assert.equal(count(html, /class="lat-pagination"/g), 1, 'one page number: the host slide\'s');
+});
+
+test('dropFooter cuts the engine\'s footer Cell, not a `cell-footer` an author wrote in a comment', () => {
+  const md = `---\npaginate: true\n---\n\n## T\n\n<!-- panes: 50/50 -->\n\n<!-- pane: list -->\n\n- one <!-- <div class="cell-footer"> -->\n- two\n- three\n\n<!-- pane: table -->\n\n| A | B |\n|---|---|\n| 1 | 2 |\n`;
+  const html = render(md);
+  const list = html.match(/<lat-pane class="list form"[\s\S]*?<\/lat-pane>/)[0];
+  assert.match(list, /<li>two<\/li>/);
+  assert.match(list, /<li>three<\/li>/);
+  assert.doesNotMatch(list, /lat-pagination/);
+});

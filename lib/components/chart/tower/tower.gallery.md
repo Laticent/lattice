@@ -138,7 +138,8 @@ A reinsurance program as stacked layers, each written as its limit in excess of 
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · tower" -->
 
 ## When NOT to reach for tower.

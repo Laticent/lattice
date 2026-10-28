@@ -159,7 +159,8 @@ Phased multi-workstream grid — phases across the top, workstreams down the sid
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · roadmap" -->
 
 ## When NOT to reach for roadmap.

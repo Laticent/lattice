@@ -261,25 +261,18 @@ How a draft moves from author to publication.
 
 ---
 
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · state-chart · 1 of 2" -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
+<!-- _footer: "Anti-patterns · state-chart" -->
 
 ## When NOT to reach for state-chart.
 
 - More than ~12 states
-  - A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
-
----
-
-<!-- _class: cards-stack -->
-<!-- _footer: "Anti-patterns · state-chart · 2 of 2" -->
-
-## When NOT to reach for state-chart.
-
+  - Past about a dozen states the machine reads as a list. Group them into phases and show one phase at a time.
 - Parallel regions, history or guards
-  - A composite state is a sub-list of states, but orthogonal regions, history states and guard conditions are not in this grammar. Those belong in a Mermaid fence via the `diagram` component.
+  - A composite state is a sub-list, but orthogonal regions, history states and guards are not in this grammar. Use a Mermaid fence via `diagram`.
 - Continuous processes
-  - If the diagram is really a workflow with stages that overlap or block (queue depth, throughput, capacity), a `gantt` or `kanban` chart reads better. State charts are for discrete, mutually-exclusive states the system flips between.
+  - Stages that overlap or block (queue depth, throughput, capacity) read better as `gantt` or `kanban`. A state chart is for discrete, mutually exclusive states.
 
 ---
 

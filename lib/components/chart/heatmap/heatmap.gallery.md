@@ -124,7 +124,8 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · heatmap · 1 of 2" -->
 
 ## When NOT to reach for heatmap.
@@ -136,7 +137,8 @@ A numeric matrix read as intensity — where the value concentrates across two d
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · heatmap · 2 of 2" -->
 
 ## When NOT to reach for heatmap.

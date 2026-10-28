@@ -64,7 +64,8 @@ The payload bullet renders as a QR code sized for the back row.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · closing" -->
 
 ## When NOT to reach for closing.

@@ -167,7 +167,8 @@ Two components side by side on one slide, at a ratio you choose.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid three claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · columns" -->
 
 ## When NOT to reach for columns.

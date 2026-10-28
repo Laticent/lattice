@@ -49,9 +49,9 @@ Use to show a finite-state machine — the discrete states a system can be in an
 
 ## When NOT to use
 
-- **More than ~12 states.** A long chain wraps onto more lines rather than shrinking, so eight or ten states still read. Past about a dozen the machine stops reading as a machine and starts reading as a list, however it is laid out. Group the states into phases and show one phase at a time, or step back to a higher-level abstraction. The chart's job is to make the topology obvious in one glance.
-- **Parallel regions, history or guards.** A composite state is a sub-list of states, but orthogonal regions, history states and guard conditions are not in this grammar. Those belong in a Mermaid fence via the `diagram` component.
-- **Continuous processes.** If the diagram is really a workflow with stages that overlap or block (queue depth, throughput, capacity), a `gantt` or `kanban` chart reads better. State charts are for discrete, mutually-exclusive states the system flips between.
+- **More than ~12 states.** Past about a dozen states the machine reads as a list. Group them into phases and show one phase at a time.
+- **Parallel regions, history or guards.** A composite state is a sub-list, but orthogonal regions, history states and guards are not in this grammar. Use a Mermaid fence via `diagram`.
+- **Continuous processes.** Stages that overlap or block (queue depth, throughput, capacity) read better as `gantt` or `kanban`. A state chart is for discrete, mutually exclusive states.
 
 ## Authoring
 

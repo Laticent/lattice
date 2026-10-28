@@ -1108,6 +1108,11 @@ export function createSingleSlideRenderer(opts: SingleSlideOptions) {
 			// also doing double duty for: `iframe.live { background: var(--bg) }` (landing.css)
 			// paints the element itself, which is what iOS Safari flashes, not the document.
 			'}html,body{background:transparent}' +
+			// A slide is laid out at a fixed 1280 CSS px and scaled down to fit the pane, so on a phone
+			// iOS Safari's text autosizing sees a wide page in a narrow view and enlarges long text
+			// blocks (not headings), which pushed a three-card slide past the frame. The slide's own
+			// type scale is the contract, so opt out. UNVERIFIED on iOS: no iOS surface reachable from CI.
+			'html{-webkit-text-size-adjust:100%;text-size-adjust:100%}' +
 			// PREVIEW-ONLY (this srcdoc builder is never an export path): a motion-eligible chart figure the
 			// live host has pre-hidden starts invisible, so the viewer never sees the static poster flash
 			// before the async Anima host mounts + reveals it (hidden → build → settle). `visibility:hidden`

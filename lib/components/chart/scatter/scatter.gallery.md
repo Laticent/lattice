@@ -159,7 +159,8 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · scatter · 1 of 2" -->
 
 ## When NOT to reach for scatter.
@@ -168,16 +169,17 @@ Cost is the renewal we signed; adoption is the share of teams with a weekly acti
   - If the axes are unitless 1-to-10 judgments and the read is which of four named zones an item lands in, use `quadrant`.
 - A trend line over a handful of points
   - `scatter trend` refuses a least-squares line under five points. Even at eight it says 'these move together', not 'this predicts'.
-- Points closer together than the eye can separate
-  - Four tools within four points are four dots inside one dot's width: the ring keeps the overlap visible, but the names travel.
 
 ---
 
-<!-- _class: cards-stack -->
+<!-- _class: cards-grid claim-hero -->
+<!-- _header: '' -->
 <!-- _footer: "Anti-patterns · scatter · 2 of 2" -->
 
 ## When NOT to reach for scatter.
 
+- Points closer together than the eye can separate
+  - Four tools within four points are four dots inside one dot's width: the ring keeps the overlap visible, but the names travel.
 - Time on the x axis
   - A series measured at successive dates is a line, not a cloud — the reader needs the connection between points. Use `line`.
 
