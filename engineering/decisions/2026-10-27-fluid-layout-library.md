@@ -640,6 +640,36 @@ The visual design of continuation pages.
   title as its accessible name.
 - **The catalog fit gate is decided later**, when P2 lands, with the cost above.
 
+**Readability is the input, and fit is measured under it (2026-10-28).** Fitting is not the goal by
+itself: the deck has to read at the room it is shown in (a conference room, a hall) and on a phone.
+Lattice already fixes that before any fit question: `venue:` sets the type size for the back row
+(1.3x at `conference`, 1.5x at `hall`; `engineering/typography.md` §7), portrait and square carry
+their own larger hierarchy, and the engine never shrinks text to fit. So the fit check runs on the
+slide at its venue's size, and "fits" can only mean "fits at a readable size". The spike re-ran at
+each venue:
+
+| Venue | Size | Pages today | Fit whole | Overflow | Pages for the cut slides (today → cut) |
+|---|---|---|---|---|---|
+| laptop | square | 123 | 23 of 25 | 2 | — |
+| laptop | story | 131 | 19 of 27 | 8 | — |
+| conference | square | 123 | 14 of 25 | 11 | 16 → 6 (3 slides) |
+| conference | story | 131 | 12 of 27 | 15 | 47 → 18 (9 slides) |
+| hall | square | 123 | 6 of 25 | 19 | 46 → 19 (9 slides) |
+| hall | story | 131 | 2 of 27 | 25 | 73 → 31 (15 slides) |
+
+The structural rule gives the same pages at every venue. Fit first gives a laptop deck few splits and
+a hall deck many, each page at the room's type size. Where the spike's guess at the members failed
+(6 to 10 overflowing slides per row of the table, about 40% of them), it did not cut at all; P2's
+inference has to do better than one level, or those slides ring.
+
+**Tables cut in two directions (owner, 2026-10-28).** A table that does not fit is cut like a
+spreadsheet printed across several sheets, a proven technique: rows into bands, and columns into
+windows, with the first column (the row labels) repeated on every page and the header row repeated
+on every band, so the pages read c1+c2, c1+c3, and so on. Today's portrait behavior is different: the
+`cover-cards` recipe reshapes each row into a card (the column headers become labels inside the card)
+and gives each card a page. P2 records which one the slice uses; the owner's direction is the
+sticky-first-column cut.
+
 **What changes in the plan.** P2 becomes the fit-first vertical slice on the Playground: render
 whole, check the fit, cut only what overflows at inferred boundaries, and lay out continuation pages
 as above. Its gates gain two arms: the same plan on two machines, and the page-count change across
