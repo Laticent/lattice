@@ -78,6 +78,31 @@ function lsWatch() {
 			true,
 		);
 	}
+	// The preview's own scrolls, and the editor's: who moved what, and when.
+	lsPreview().contentWindow.addEventListener('scroll', () => window.__lsEv.push(`${Math.round(performance.now() - t0)}ms preview-scroll->${Math.round(lsPreview().contentWindow.scrollY)}`));
+	lsScroller().addEventListener('scroll', () => window.__lsEv.push(`${Math.round(performance.now() - t0)}ms editor-scroll->${Math.round(lsScroller().scrollTop)}`));
+}
+
+/** What the preview frame is like on this engine, and whether a script can scroll it at all. */
+async function lsFrame(slide) {
+	const f = lsPreview();
+	const win = f.contentWindow;
+	const doc = f.contentDocument;
+	const sec = lsSections()[slide - 1]?.getBoundingClientRect();
+	const info = {
+		iframe: `${Math.round(f.getBoundingClientRect().width)}x${Math.round(f.getBoundingClientRect().height)}`,
+		inner: `${win.innerWidth}x${win.innerHeight}`,
+		scrollHeight: doc.documentElement.scrollHeight,
+		scrollY: Math.round(win.scrollY),
+		slide: sec ? `top ${Math.round(sec.top)} height ${Math.round(sec.height)}` : null,
+		pageScrollY: Math.round(window.scrollY),
+	};
+	const before = win.scrollY;
+	win.scrollTo({ top: Math.min(200, Math.max(0, doc.documentElement.scrollHeight - win.innerHeight)), behavior: 'auto' });
+	await lsSleep(400);
+	info.scrollToWorked = `${Math.round(before)} -> ${Math.round(win.scrollY)}`;
+	win.scrollTo({ top: before, behavior: 'auto' });
+	return JSON.stringify(info);
 }
 
 // biome-ignore lint/correctness/noUnusedVariables: see above
@@ -154,7 +179,7 @@ async function lsAfter(slide, before) {
 		try {
 			await lsUntil(() => lsOffCenter(slide) < 4, 15000, `slide ${slide} centered in the preview`);
 		} catch (e) {
-			throw new Error(`${e.message}; page: ${lsState(slide)}`);
+			throw new Error(`${e.message}; page: ${lsState(slide)}; frame: ${await lsFrame(slide)}`);
 		}
 	}
 	// The scroll events of the sync's own moves arrive on later frames; give the busiest page time to deliver them.

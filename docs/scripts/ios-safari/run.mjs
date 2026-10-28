@@ -215,6 +215,7 @@ async function runFocusSyncProbe(id) {
 				throw new Error(`${label} on slide ${slide}: no way of tapping placed the caret.\n  ${attempts.join('\n  ')}\n  page: ${state}`);
 			}
 			methods.add(method);
+			console.log(`${LABEL}: ${label} on slide ${slide} landed by ${method}`);
 			const row = await call(`lsAfter(${slide}, ${before})`);
 			if (row?.error) throw new Error(`${label} on slide ${slide}: ${row.error}`);
 			return row;
