@@ -8,7 +8,7 @@
 // WebRTC between two browser contexts, and an in-test Nostr relay (`live-relay.ts`) in place of
 // the public ones, so it runs in CI without the network. tools/live-session-check.mjs drives the
 // same flows over the public relays, on demand. Runs in all three engines.
-import type { Browser, Page, TestInfo } from '@playwright/test';
+import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import { savedDeck } from './compose-insert';
 import { localRelay } from './live-relay';
 import { expect, gotoStudio, setEditorContent, test } from './studio-fixture';
@@ -26,12 +26,21 @@ async function undoChord(page: Page): Promise<void> {
 
 type Pair = { host: Page; guest: Page; relayed: () => number };
 
+// Each test's two contexts, closed after it: a live Studio left running would keep its peer
+// connection and its relay routes alive and load every later test in the worker.
+const open: BrowserContext[] = [];
+test.afterEach(async () => {
+	await Promise.all(open.splice(0).map((c) => c.close()));
+});
+
 /** Two browsers in one live session: the host starts it with DECK, the guest knocks, the host admits. */
 async function liveSession(browser: Browser, info: TestInfo): Promise<Pair> {
 	const relay = localRelay();
-	const opts = { baseURL: info.project.use.baseURL, viewport: { width: 1440, height: 900 } };
+	// The project's own box: WebKit runs at the tablet box its project exists for.
+	const opts = { baseURL: info.project.use.baseURL, viewport: info.project.use.viewport ?? { width: 1440, height: 900 } };
 	const hctx = await browser.newContext(opts);
 	const gctx = await browser.newContext(opts);
+	open.push(hctx, gctx);
 	await relay.attach(hctx);
 	await relay.attach(gctx);
 	const host = await hctx.newPage();
@@ -81,16 +90,10 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 	// Two Studios boot and a session connects before the first step: more than the 60 s default.
 	test.describe.configure({ timeout: 180_000 });
 
-	test('a settings write is undone by the person who made it, and only theirs', async ({ browser }, info) => {
+	test('a settings write is undone by the person who made it, past a newer edit of the other person', async ({ browser }, info) => {
 		const pair = await liveSession(browser, info);
 		const { host, guest } = pair;
 		expect(pair.relayed(), 'witness: the session signaled through the local relay').toBeGreaterThan(0);
-
-		// The guest's own edit, in its editor: the host's undo must leave it alone.
-		await guest.locator('.cm-content').first().click();
-		await guest.keyboard.press('ControlOrMeta+End');
-		await guest.keyboard.type('\nGuest line.');
-		await bothHold(pair, (s) => s.includes('Guest line.'), 'the guest edit crossed');
 
 		// The host renames the deck: a settings write, through the settings funnel to the shared text.
 		host.once('dialog', (d) => d.accept('Renamed live'));
@@ -98,13 +101,21 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await host.getByRole('menuitem', { name: /^Rename/ }).click();
 		await bothHold(pair, (s) => s.includes('# Renamed live'), 'the rename crossed');
 
-		// ⌘Z with focus in the settings panel: the session's undo takes back the rename only.
-		await host.getByRole('button', { name: 'Deck scope' }).first().click();
-		await host.getByRole('button', { name: 'Deck scope' }).first().focus();
-		expect(await host.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'witness: focus is in the settings panel').toBe('Deck scope');
+		// Then the guest edits, so the guest's change is the NEWEST in the deck: an undo that took
+		// anyone's newest change would take this one. One insert, one transaction, so the undo
+		// manager's 500 ms capture window cannot split it on a slow runner.
+		await guest.locator('.cm-content').first().click();
+		await guest.keyboard.press('ControlOrMeta+End');
+		await guest.keyboard.insertText('\nGuest line.');
+		await bothHold(pair, (s) => s.includes('Guest line.') && s.includes('# Renamed live'), 'the guest edit crossed');
+
+		// The chord with focus on the Studio chrome (the Deck scope launcher, outside every editor):
+		// the session's undo takes back the host's rename, and the guest's newer edit stays.
+		const launcher = host.locator('nav[aria-label="Studio panels"]').getByRole('button', { name: 'Deck scope' }).first();
+		await launcher.focus();
+		expect(await host.evaluate(() => !!document.activeElement?.closest('nav[aria-label="Studio panels"]') && !document.activeElement?.closest('[data-filo-owned]')), 'witness: focus is on the chrome, outside every editor').toBe(true);
 		await undoChord(host);
-		await bothHold(pair, (s) => s.includes('# Live deck') && !s.includes('Renamed live'), 'the rename was not undone');
-		await bothHold(pair, (s) => s.includes('Guest line.'), "the host's undo took the guest's edit");
+		await bothHold(pair, (s) => s.includes('# Live deck') && !s.includes('Renamed live') && s.includes('Guest line.'), "the host's undo took the wrong change");
 
 		// The guest's undo takes its own edit, and never the host's rename back.
 		await guest.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -112,17 +123,17 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await bothHold(pair, (s) => s === DECK, "the guest's undo did not restore the deck");
 	});
 
-	test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
+		test("Compose's pill undoes each person's own edit, and only theirs", async ({ browser }, info) => {
 		const pair = await liveSession(browser, info);
 		const { host, guest } = pair;
 		await openCompose(host);
 		await openCompose(guest);
 
 		await caretInCompose(host, 2);
-		await host.keyboard.type(' HOSTPILL');
+		await host.keyboard.insertText(' HOSTPILL');
 		await bothHold(pair, (s) => s.includes('Body three. HOSTPILL'), 'the host edit crossed');
 		await caretInCompose(guest, 0);
-		await guest.keyboard.type(' GUESTPILL');
+		await guest.keyboard.insertText(' GUESTPILL');
 		await bothHold(pair, (s) => s.includes('Body one. GUESTPILL') && s.includes('HOSTPILL'), 'the guest edit crossed');
 
 		// The host's pill: its own edit goes on both sides, the guest's stays.
@@ -133,10 +144,19 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo in a live se
 		await bothHold(pair, (s) => !s.includes('HOSTPILL') && s.includes('GUESTPILL'), "the host's pill undid the wrong edit");
 		await expect(host.locator('.cs-host .cs-slide').nth(2), 'Compose shows the undo at once').not.toContainText('HOSTPILL');
 
-		// The guest's pill: its own edit goes, and the deck is back where the session started.
+		// The host edits again, so the HOST's change is now the newest. The guest's pill takes the
+		// guest's own edit, past it.
+		await caretInCompose(host, 2);
+		await host.keyboard.insertText(' HOSTAGAIN');
+		await bothHold(pair, (s) => s.includes('HOSTAGAIN') && s.includes('GUESTPILL'), 'the second host edit crossed');
 		await caretInCompose(guest, 0);
 		await guest.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
-		await bothHold(pair, (s) => s === DECK, "the guest's pill did not restore the deck");
+		await bothHold(pair, (s) => !s.includes('GUESTPILL') && s.includes('HOSTAGAIN'), "the guest's pill undid the wrong edit");
 		await expect(guest.locator('.cs-host .cs-slide').first()).not.toContainText('GUESTPILL');
+
+		// The host's pill once more, and the deck is back where the session started.
+		await caretInCompose(host, 2);
+		await host.locator('.cs-slide-active').getByRole('button', { name: 'Undo' }).click();
+		await bothHold(pair, (s) => s === DECK, "the host's second undo did not restore the deck");
 	});
 });

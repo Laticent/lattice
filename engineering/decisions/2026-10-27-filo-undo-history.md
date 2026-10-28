@@ -601,12 +601,14 @@ Where it differs from the plan above, and why:
   in a session are pinned in CI by `docs/e2e/filo-live.spec.ts` (added 2026-10-28; nightly, in
   Chromium, Firefox and WebKit): two browser contexts in one real session, real WebRTC between
   them, and `docs/e2e/live-relay.ts`, a Nostr relay inside the test process that
-  `routeWebSocket` puts in place of the public relays. A rename made from the deck menu is undone
-  by ⌘Z from the settings panel, and the guest's edit stays on both sides; each person's pill Undo
-  in Compose takes back only that person's edit. A mutation that lets the undo manager track the
+  `routeWebSocket` puts in place of the public relays. The host renames the deck (a settings
+  write), the guest then types, and ⌘Z with focus on the Studio chrome takes back the rename while
+  the guest's newer line stays on both sides; in Compose each person's pill Undo takes back that
+  person's edit past a newer edit of the other's. A mutation that lets the undo manager track the
   other person's edits too (`trackedOrigins: [null, REMOTE]`) fails both tests. Not covered: AI
   applies and rail moves in a session (the same null-origin path), and the settings toast's Undo,
-  which can still merge a write made within 500 ms with the typing before it.
+  which can still merge a write made within 500 ms with the typing before it
+  (`followups.d/2940-p7-live-undo-toast-and-ai.md`).
 - **The phone's Undo and Redo** sit in the header beside the mode toggle, in every pane. The
   pre-paint skeleton (`StudioChromeSkeleton.tsx`) draws the same two buttons, disabled, because it
   paints before the stored pane is known and `studio-smoke`'s shell-parity tests fail on any control
