@@ -756,9 +756,6 @@ function build() {
       // one (the signed value label still names it).
       w(rule(name, '.waterfall-bar[data-s="up"]', [`fill: ${tstep(3)}`, `stroke: ${ONE_INK}`]));
       w(rule(name, '.waterfall-bar[data-s="down"]', [`fill: ${tstep(0)}`, `stroke: ${ONE_INK}`]));
-      // A progress bar's LENGTH is the datum and its status is already printed on its pill, so under tone the bar is the one
-      // hue and the status is its edge: four solid status bars were the loudest, least tone-like chart in the set (scored 6.5).
-      w(rule(name, '.progress-fill[data-s]', [`background: ${tstep(2)}`, 'box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2) var(--fill-ink)']));
       // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
       // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
       w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [

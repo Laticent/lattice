@@ -1311,11 +1311,6 @@ figure.marks-tone :where(.waterfall-bar[data-s="down"]) {
   fill: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 92%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 92%, var(--bg))) !important;
   stroke: var(--chart-cat-1-ink) !important;
 }
-section.marks-tone :where(.progress-fill[data-s]),
-figure.marks-tone :where(.progress-fill[data-s]) {
-  background: light-dark(color-mix(in oklab, var(--chart-cat-1-hue) 61%, color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))), color-mix(in oklab, var(--chart-cat-1-hue) 66%, var(--bg))) !important;
-  box-shadow: inset 0 0 0 calc(var(--chart-edge) * 2) var(--fill-ink) !important;
-}
 @supports (color: color(from red xyz-d65 calc(0.95047 * clamp(0, (0.1791 - y) * 1000000, 1)) clamp(0, (0.1791 - y) * 1000000, 1) calc(1.08883 * clamp(0, (0.1791 - y) * 1000000, 1)))) {
 section.marks-tone :where(.cell-filled:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]),
 figure.marks-tone :where(.cell-filled:is([data-hue="1"], [data-key-hue="1"], [data-hue="2"], [data-key-hue="2"], [data-hue="3"], [data-key-hue="3"], [data-hue="4"], [data-key-hue="4"], [data-hue="5"], [data-key-hue="5"], [data-hue="6"], [data-key-hue="6"], [data-hue="7"], [data-key-hue="7"], [data-hue="8"], [data-key-hue="8"])[data-encodes="hue"][data-paint="bg"]) {

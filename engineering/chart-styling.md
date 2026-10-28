@@ -313,8 +313,9 @@ measurement, and most undo a defect a render or the adversarial review found:
   canvas: at the ladder's middle step it turned grey-sage, tan and brown. A journey persona is a small disc, so personas
   take every other ladder step; four adjacent steps on a disc that size read as one blue. Found by an audit of all 28
   tone charts in both modes on #2908.
-  A progress bar is the one exception to a status keeping its fill: its length is the datum and its pill already names
-  the status, so under tone the bar is the one hue (ladder step 3) and its status is a 2x edge in the status ink.
+  A progress bar is a STATUS chart, like a gantt, a state chart and a roadmap, so under tone it keeps its status fill: a
+  status chart follows the status rule in every finish. It reads stronger than a gantt only because its bar carries no
+  text, so it takes the plain status level where a gantt bar takes the paler text level.
 - **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,
   with a dash per series (none, dash, dot, dash-dot) and the dots and end label in the same color; a slope's quiet lines
   are a pale step of the one hue and its direction-signal lines keep their status color. No manifest contract change was
