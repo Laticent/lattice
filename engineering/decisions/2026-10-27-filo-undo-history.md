@@ -660,6 +660,11 @@ What the build and the independent check found, all fixed in this slice:
   server the queued undo once failed to land, alongside timing failures in four unrelated Compose
   tests there; it did not reproduce on the build that ships, so no change was made for it. A
   device's IME is still unverified (P3).
+- **WebKit's own undo command** (added 2026-10-28): Safari's Edit menu and iOS's shake reach the
+  page as a `historyUndo` beforeinput, not as ⌘Z. `filo-undo.spec.ts` raises it with
+  `document.execCommand('undo')` in WebKit, with focus in the editor, and Filo undoes the last
+  change. In Chromium and Firefox that call raises no event (measured), so the test runs in WebKit
+  only; Chrome's own Edit menu and the device gestures themselves are still not driven (P3).
 - **The caret after an undo** sat at the edge of the slide the undo replaced (and the reveal then
   moved it to the slide's first line), so the next keystroke landed there. The undo now puts the
   caret at the end of the change, using the replaced slide's own `findDiffEnd`, and a reveal from

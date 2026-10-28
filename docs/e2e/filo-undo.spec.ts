@@ -57,6 +57,26 @@ for (const tag of ['@gecko', '@webkit-tablet']) test.describe(`Filo: ⌘Z from a
 		}
 	});
 
+	// Safari's Edit menu Undo and iOS's shake / three-finger undo do not press ⌘Z: WebKit runs its
+	// own undo command, which reaches the page as a `historyUndo` beforeinput. That command is
+	// reachable here as `document.execCommand('undo')`, which raises the same event in WebKit; in
+	// Chromium and Firefox it raises none (measured), so there it would test nothing. A device's
+	// gesture itself, and Chrome's own Edit menu, are still not driven.
+	test('WebKit\'s own undo command (Safari Edit menu, iOS shake) goes to Filo, not the editor', async ({ page, browserName }) => {
+		test.skip(browserName !== 'webkit', 'execCommand raises historyUndo in WebKit only');
+		const { before } = await editedDeck(page);
+		await page.locator('.cm-content').first().click();
+		const seen = await page.evaluate(() => {
+			let type = '';
+			addEventListener('beforeinput', (e) => { type ||= (e as InputEvent).inputType; }, { capture: true, once: true });
+			document.execCommand('undo');
+			return type;
+		});
+		expect(seen, 'witness: the browser raised its own history event').toBe('historyUndo');
+		await expect.poll(() => editorDoc(page)).toBe(before);
+		await expect(announced(page)).toHaveText(/^Undid: Typing/);
+	});
+
 	test('from the rail, and the undo reveals the slide it changed', async ({ page }) => {
 		const { before } = await editedDeck(page);
 		await railButtons(page).first().click();
