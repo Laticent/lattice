@@ -155,30 +155,64 @@ async function runFocusSyncProbe(id) {
 			await call('lsEvents()');
 			const line = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsFind(${slide});`, args: [] });
 			const ref = line['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(line)[0];
-			await wd('POST', `/session/${id}/element/${ref}/click`, {});
-			let method = 'element click';
-			if (!(await call(`lsCaret(${slide}, 3000)`))) {
-				const at = await call(`lsCenter(${slide})`);
-				await wd('POST', `/session/${id}/actions`, {
+			/** One way of tapping, tried until the caret lands: what each did, as the page saw it, goes into the failure message. */
+			const attempts = [];
+			const touch = (x, y, move, hold) => [
+				{
+					type: 'pointer',
+					id: 'finger',
+					parameters: { pointerType: 'touch' },
 					actions: [
-						{
-							type: 'pointer',
-							id: 'finger',
-							parameters: { pointerType: 'touch' },
-							actions: [
-								{ type: 'pointerMove', duration: 0, x: at.x, y: at.y },
-								{ type: 'pointerDown', button: 0 },
-								{ type: 'pause', duration: 80 },
-								{ type: 'pointerUp', button: 0 },
-							],
-						},
+						{ type: 'pointerMove', duration: move, x, y },
+						{ type: 'pointerDown', button: 0 },
+						{ type: 'pause', duration: hold },
+						{ type: 'pointerUp', button: 0 },
 					],
-				});
-				method = 'touch actions';
-				if (!(await call(`lsCaret(${slide}, 5000)`))) {
-					const state = await call(`lsState(${slide})`);
-					throw new Error(`${label} on slide ${slide}: neither an element click nor a touch tap placed the caret; page: ${state}`);
+				},
+			];
+			const mouse = (x, y) => [
+				{
+					type: 'pointer',
+					id: 'mouse',
+					parameters: { pointerType: 'mouse' },
+					actions: [
+						{ type: 'pointerMove', duration: 0, x, y },
+						{ type: 'pointerDown', button: 0 },
+						{ type: 'pause', duration: 50 },
+						{ type: 'pointerUp', button: 0 },
+					],
+				},
+			];
+			const ways = [
+				['element click', () => wd('POST', `/session/${id}/element/${ref}/click`, {})],
+				['touch tap', async () => wd('POST', `/session/${id}/actions`, { actions: touch(...Object.values(await call(`lsCenter(${slide})`)), 0, 80) })],
+				['slow touch tap', async () => wd('POST', `/session/${id}/actions`, { actions: touch(...Object.values(await call(`lsCenter(${slide})`)), 100, 200) })],
+				['mouse click', async () => wd('POST', `/session/${id}/actions`, { actions: mouse(...Object.values(await call(`lsCenter(${slide})`))) })],
+			];
+			let method = '';
+			const release = () => wd('DELETE', `/session/${id}/actions`).catch(() => {});
+			for (const [name, run] of ways) {
+				await release();
+				await call('lsEvents()');
+				let note = '';
+				try {
+					await run();
+				} catch (e) {
+					note = ` threw ${String(e.message).slice(0, 120)}`;
 				}
+				const landed = await call(`lsCaret(${slide}, 3000)`);
+				const seen = await call('lsEvents()');
+				await release();
+				attempts.push(`${name}${note}: ${landed ? 'caret placed' : 'no caret'}; events ${JSON.stringify(seen)}`);
+				if (landed) {
+					method = name;
+					break;
+				}
+				await call('lsEvents()');
+			}
+			if (!method) {
+				const state = await call(`lsState(${slide})`);
+				throw new Error(`${label} on slide ${slide}: no way of tapping placed the caret.\n  ${attempts.join('\n  ')}\n  page: ${state}`);
 			}
 			methods.add(method);
 			const row = await call(`lsAfter(${slide}, ${before})`);

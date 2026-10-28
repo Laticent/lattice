@@ -55,11 +55,25 @@ function lsBurn(ms) {
 function lsWatch() {
 	if (window.__lsEv) return;
 	window.__lsEv = [];
-	for (const t of ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'selectionchange']) {
+	const t0 = performance.now();
+	for (const t of [
+		'touchstart',
+		'touchmove',
+		'touchend',
+		'touchcancel',
+		'pointerdown',
+		'pointerup',
+		'pointercancel',
+		'mousedown',
+		'mouseup',
+		'click',
+		'focusin',
+		'selectionchange',
+	]) {
 		document.addEventListener(
 			t,
 			(e) => {
-				if (window.__lsEv.length < 40) window.__lsEv.push(`${t}${e.isTrusted ? '' : '*'}:${String(e.target?.className || e.target?.nodeName || '').slice(0, 24)}`);
+				if (window.__lsEv.length < 60) window.__lsEv.push(`${Math.round(performance.now() - t0)}ms ${t}${e.isTrusted ? '' : '*'}:${String(e.target?.className || e.target?.nodeName || '').slice(0, 24)}`);
 			},
 			true,
 		);
