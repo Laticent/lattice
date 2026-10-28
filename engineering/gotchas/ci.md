@@ -705,3 +705,22 @@ this file is the detail. Entry shape and the rule for adding one are in the [gui
 - **How to tell it from a real failure:** the job log stops at `npx playwright install` and the Playwright report artifact is empty. A real test failure prints the failing spec.
 - **Triggered by:** GitHub moving the `ubuntu-latest` label.
 - **Removable when:** the Playwright pin (and the pinned browser builds the goldens and `@visual` baselines depend on) moves to a version that supports the new image; then unpin each job in the same PR as the bump.
+
+## `studio-smoke` red on "the pre-paint replay never ran"
+
+- **Symptom:** `@smoke a reload paints one geometry per element` in `docs/e2e/playground-first-paint.spec.ts` fails
+  on some runs with `the pre-paint replay never ran`, on PRs that touch nothing near the Playground (six runs from
+  2026-10-27, among them 40431166278 and 40727236903), and passes 60 times in a row locally.
+- **Cause:** the Playground's snapshot capture skipped any capture within 500 ms of the last one
+  (`PlaygroundApp.tsx` `captureFirstSlide`). The test seeds a snapshot, drags the divider and reloads; when the app's
+  first capture landed less than 500 ms before that reload (run 40727236903's trace: the poll that saw the snapshot
+  took 45 ms instead of 3, because the page was busy capturing, and the reload followed 0.34 to 0.42 s later), the
+  reload's `pagehide` capture was skipped. The stored snapshot kept the pre-drag pane width, and the replay in
+  `playground.astro`, which paints only into the box a snapshot was measured in, returned without a word.
+- **Fix:** the dedupe now skips only a capture of the SAME box (followups.d/2908-p1). `@smoke a reload right after
+  a capture still replays the slide at the new pane width` holds it still: it freezes `Date.now()` with
+  `page.clock.setFixedTime`, so the reload always lands inside the old window. It fails 5 of 5 on the pre-fix build
+  with the CI message and passes 10 of 10 with the fix.
+- **Reading a smoke trace without the 2.5 GB artifact:** the artifact zip's central directory is at its end, so HTTP
+  range reads fetch one test's `trace.zip` (4 MB here). `0-trace.trace` is JSON lines; the `before` / `after` pairs
+  give each action's timing and every `page.evaluate` result.

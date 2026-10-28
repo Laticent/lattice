@@ -261,6 +261,43 @@ test('@smoke a reload paints one geometry per element — nothing assembles in v
 	assertOneGeometry(log, TRACKED);
 });
 
+// THE FLAKE ABOVE, HELD STILL (followups.d/2908-p1). The case above failed on CI with "the pre-paint replay never ran"
+// (runs 40431166278 … 40727236903). Run 40727236903's trace names the cause: the app's first snapshot capture landed
+// about 0.4s before the reload, so the reload's `pagehide` capture was refused as "a capture ran under 500 ms ago".
+// The stored snapshot kept the PRE-DRAG pane width, and the replay, which paints only into the box a snapshot was
+// measured in, returned without painting. Whether the case above hit it depended on where its polls happened to land.
+//
+// So land there on purpose: capture (a `pagehide`, the event the app captures on), move the divider at once, and
+// reload. The reload's own capture then falls inside 500ms of the last one, in a box of a different size. The test
+// checks the precondition (the window was hit, from the snapshot's own timestamp) and the outcome (the replay
+// painted, which it can only do from a snapshot measured at the new width).
+test('@smoke a reload right after a capture still replays the slide at the new pane width', async ({ page }) => {
+	await seedRealSession(page);
+	const share = () => page.evaluate(([k, b]) => JSON.parse(localStorage.getItem(k) || 'null')?.[b]?.['pg-split-editor'] ?? null, [PG_SPLIT_KEY, PG_SPLIT_BUCKET] as const);
+	const before = await share();
+	await sampleFrames(page);
+	// Hold the clock still (timers keep running), so the reload's capture is "under 500 ms" after the last one by
+	// construction rather than by a race this sandbox loses at ~600 ms and a slow runner would lose more often.
+	await page.clock.setFixedTime(Date.now());
+	await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+	// The keyboard moves the divider without a pointer: the seed's drag leaves the pointer resting on the handle, and a
+	// second pointer drag from there did not register.
+	const handle = page.locator('#pg-split [data-slot="resizable-handle"]').first();
+	await handle.focus();
+	await page.keyboard.press('ArrowRight');
+	await expect.poll(share, { intervals: [16], timeout: 5_000, message: 'the divider move was never persisted' }).not.toBe(before);
+	const gap = await page.evaluate(() => Date.now() - (JSON.parse(localStorage.getItem('lattice-docs-pg-last-slide') || '{}').ts ?? 0));
+	expect(gap, 'the reload must land inside the 500ms the old dedupe refused, or this case proves nothing').toBeLessThan(500);
+	await throttle(page);
+	await page.goto('/playground/?view=edit', { waitUntil: 'domcontentloaded' });
+	await expect(page.locator('.pg-preview-wrap.is-live')).toBeVisible({ timeout: 30_000 });
+	const log = (await page.evaluate(() => (window as unknown as { __frameLog: FrameLog }).__frameLog)) as FrameLog;
+	expect(
+		log.shellFired?.length ?? 0,
+		'the pre-paint replay never ran: the reload kept a snapshot measured before the divider moved (the capture dedupe refused the new one)',
+	).toBeGreaterThan(0);
+});
+
 // THE SAME DEFECT, HELD STILL (#1800). The case above samples frames and hopes the window is
 // wide enough to land in one; on a 4-core box it never is, and on the 2-core CI runner it was —
 // once, as `editorPane was laid out 2 different ways … [1193 … ] [337 … ]`, which is the pane at

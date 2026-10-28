@@ -552,7 +552,7 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 	// Stacked, the map's strip is drawn into the walk bar (WalkBar `mapSlot`), which shares it with Prev, the position and Next.
 	const [walkMapEl, setWalkMapEl] = React.useState<HTMLElement | null>(null);
 	// Capture dedupe + one-shot-after-first-render bookkeeping (mirrors the Studio).
-	const lastPgCaptureRef = React.useRef(0);
+	const lastPgCaptureRef = React.useRef({ t: 0, box: '' });
 	const firstCaptureDoneRef = React.useRef(false);
 	// The Edit-view source that produced the CURRENT frame (last COMPLETED render). The
 	// snapshot's identity hash must describe the same bytes as the captured html — NOT the
@@ -1115,15 +1115,23 @@ export function PlaygroundApp({ data }: { data: PlaygroundData }) {
 			const fr = frameRef.current;
 			if (!fr) return 'no preview frame';
 			// Dedupe back-to-back captures: pagehide + visibilitychange both fire on a
-			// mobile nav, and the post-first-render timer can overlap.
+			// mobile nav, and the post-first-render timer can overlap. Only a capture of the
+			// SAME box is a duplicate: the replay paints only into the box a snapshot was
+			// measured in, so a pane resized since the last capture (a dragged divider) needs a
+			// new one. Keyed on time alone, a reload within 500 ms of the first capture kept the
+			// pre-drag snapshot and the next load painted nothing (the studio-smoke flake,
+			// followups.d/2908-p1: run 40727236903's trace).
 			const now = Date.now();
-			if (now - lastPgCaptureRef.current < 500) return 'a capture ran under 500 ms ago';
+			const wrapBox = fr.parentElement;
+			const boxKey = wrapBox ? `${wrapBox.clientWidth}x${wrapBox.clientHeight}` : '';
+			const last = lastPgCaptureRef.current;
+			if (now - last.t < 500 && last.box === boxKey) return 'a capture of this box ran under 500 ms ago';
 			// Stamp the identity from the source that produced THIS frame, not the live
 			// SOURCE_KEY (which races ahead of the async render on every keystroke). Null →
 			// no Edit render has landed yet → nothing trustworthy to snapshot; skip.
 			const renderedSrc = lastRenderedEditSrcRef.current;
 			if (renderedSrc == null) return 'no edit render has landed';
-			lastPgCaptureRef.current = now;
+			lastPgCaptureRef.current = { t: now, box: boxKey };
 			const root = document.documentElement;
 			// captureFirstSectionFromFrame sanitizes at the chokepoint (#22) before the HTML
 			// can be stored + replayed into the top document — nothing to do here.
