@@ -60,6 +60,9 @@ const MARGINS = [0.1, 0.2, 0.3];
 // --rescore: reuse the renders already in <out>/html (same sources, sizes and venues) and only
 // score again, for a change that touches scoring and not rendering.
 const RESCORE = argv.includes('--rescore');
+// --resume: keep the renders already in <out>/html and render only the missing ones, so a run the
+// sandbox killed picks up where it stopped. Delete any half-written render first.
+const RESUME = argv.includes('--resume');
 const PACKS = flag('packs', '2,3').split(',').map(Number).filter((k) => k > 1);
 const FIT_ARMS = [
   { name: 'fit-greedy', policy: { pack: 'greedy' } },
@@ -168,7 +171,8 @@ async function main() {
   }
   const problems = [];
   try {
-    if (!RESCORE) await pool(jobs, JOBS, async (j) => { const r = await run(process.execPath, j.args); if (r.code) problems.push(`render failed: ${path.basename(j.args[j.args.length - 1])}`); });
+    const todo = RESUME ? jobs.filter((j) => !fs.existsSync(j.args[j.args.length - 1])) : jobs;
+    if (!RESCORE) await pool(todo, JOBS, async (j) => { const r = await run(process.execPath, j.args); if (r.code) problems.push(`render failed: ${path.basename(j.args[j.args.length - 1])}`); });
   } finally {
     for (const t of temps) fs.rmSync(t, { force: true });
   }
