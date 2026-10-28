@@ -382,7 +382,8 @@ describe('marks.generated.css', () => {
     assert.match(r?.body || '', /--row-ink: var\(--chart-cat-1-ink\) !important/);
     for (const f of ['pigment', 'etch']) assert.ok(!serving(f).some((x) => x.sel.includes('matrix-grid-figure')), `${f} leaves rows alone`);
     const cell = headed('tone').find((x) => x.sel.includes('.cell-filled') && x.body.includes('background-color'));
-    assert.match(cell?.body || '', /background-color: color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%, var\(--bg\)\) !important/);
+    // Ladder step 6 in both modes: the light ladder over tone's tinted base, the dark ladder over the canvas.
+    assert.match(cell?.body || '', /background-color: light-dark\(color-mix\(in oklab, var\(--chart-cat-1-hue\) 22%, color-mix\(in oklab, var\(--cat-1-fill\) 60%, var\(--bg\)\)\), color-mix\(in oklab, var\(--chart-cat-1-hue\) 40%, var\(--bg\)\)\) !important/);
     assert.match(cell?.body || '', /color: var\(--text-heading\) !important/);
   });
 

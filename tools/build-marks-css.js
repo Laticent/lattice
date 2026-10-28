@@ -59,6 +59,18 @@ const { MARKS_FINISHES } = require('../lib/core/resolve-marks');
 const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
 // tone: one hue, eight value steps (the ramp the tone key publishes).
 const TONE = [92, 76, 61, 47, 34, 22, 14, 9];
+// tone on a DARK slide: the same order with a higher floor. Taken toward the navy canvas, the light ladder's last three
+// steps (22, 14, 9%) sat within a hair of the slide, so a map's low regions, a quadrant's dots and a tower's small cells
+// vanished (the tone audit, #2908). The dark ladder stops at 29%.
+const TONE_D = [92, 78, 66, 56, 47, 40, 34, 29];
+// tone's light-slide ladder mixes toward a PALE BLUE that keeps the hue's color, not toward white: a pale tint of a deep
+// blue taken toward white keeps a fifth of its chroma and reads grey (a journey stage bar, a flowchart node). The base
+// is the theme's own curated pale tint of that hue (`--cat-1-fill`) taken 40% toward the canvas: no relative color, so
+// it needs no @supports guard, and every theme supplies it. The dark ladder still mixes toward the canvas.
+const TONE_BASE = 'color-mix(in oklab, var(--cat-1-fill) 60%, var(--bg))';
+// A status under tone keeps its own hue at a level near its solid: at the ladder's middle step a status hue taken toward
+// the canvas turned grey-sage, tan and brown (progress, gantt, state-chart in the audit).
+const TONE_STATUS = [70, 80];
 // tone for a mark that CARRIES TEXT — same order, quiet enough to keep its text above
 // 4.5:1. The levels and their measurement are finish-coherence.md §Levels (in
 // engineering/decisions/2026-09-07-chart-design-language/); the two modes differ.
@@ -89,7 +101,7 @@ const F = {
   // body, so the band no longer protects the text, and a finish whose premise is "value is the datum" may not flatten the
   // ramp for it: tone's dark top step against an empty cell was 1.67:1 and is measured in the PR. Etch keeps its whisper.
   // A ramp already encodes VALUE, which is tone's whole idea, so on a ramp member tone and pigment differ only by band.
-  tone: { ramp: [10, 0.82], rampText: [[10, 0.82], [10, 0.82]], edge: 1, edgeBackdrop: 2.5, border: 0 },
+  tone: { ramp: [10, 0.82], rampD: [40, 0.6], rampText: [[10, 0.82], [10, 0.82]], edge: 1, edgeBackdrop: 2.5, border: 0 },
 };
 
 /**
@@ -158,7 +170,10 @@ const STATUS_MARKS = [
 // black lands darker than the slide itself and reads as a hole, not a quiet mark. In light
 // mode the two bases are the same color, so only the dark face differs.
 let BASE = 'var(--chart-cat-base)';
-const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
+const BODY_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: `light-dark(${TONE_BASE}, var(--bg))` };
+const BODY_BASE_L = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: TONE_BASE };
+const BODY_BASE_D = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
+const STATUS_BASE = { pigment: 'var(--chart-cat-base)', etch: 'var(--bg)', tone: 'var(--bg)' };
 const ONE = 'var(--chart-cat-1-hue)';
 const ONE_INK = 'var(--chart-cat-1-ink)';
 /**
@@ -175,6 +190,8 @@ const inkOf = (n) => `var(--chart-cat-${n}-ink)`;
 const mix = (hue, pct) => (pct === '100%' ? hue : `color-mix(in oklab, ${hue} ${pct}, ${BASE})`);
 const ld = (a, b) => (a === b ? a : `light-dark(${a}, ${b})`);
 const pair = (hue, [l, d]) => ld(mix(hue, `${l}%`), mix(hue, `${d}%`));
+/** Tone ladder step k as one color for both modes: the light ladder over the tinted base, the dark ladder over the canvas. */
+const tstep = (k) => ld(`color-mix(in oklab, ${ONE} ${TONE[k]}%, ${TONE_BASE})`, `color-mix(in oklab, ${ONE} ${TONE_D[k]}%, var(--bg))`);
 /**
  * The ink that clears a body, picked by the browser from the body's own color: black above
  * CIE relative luminance Y 0.1791, white below it. That is the exact point where the two inks give
@@ -354,19 +371,19 @@ function strokeMemberClasses() {
 // so a rule's only job is to say WHICH mark takes WHICH token. They are plain declarations: nothing here is `!important`,
 // because nothing here paints.
 const T = {
-  base: '--finish-base', ink: '--finish-ink', edge: '--finish-edge', edgeText: '--finish-edge-text',
+  base: '--finish-base', baseD: '--finish-base-d', statusBase: '--finish-status-base', ink: '--finish-ink', edge: '--finish-edge', edgeText: '--finish-edge-text',
   hue: (n) => `--finish-hue-${n}`, body: (n) => `--finish-body-${n}`, bodyD: (n) => `--finish-body-d-${n}`,
   text: (n) => `--finish-text-${n}`, textD: (n) => `--finish-text-d-${n}`,
   layer: (n) => `--finish-layer-${n}`, layerInk: (n) => `--finish-layer-ink-${n}`,
   status: '--finish-status', statusD: '--finish-status-d', statusText: '--finish-status-text', statusTextD: '--finish-status-text-d',
-  rampLo: '--finish-ramp-lo', rampK: '--finish-ramp-k',
+  rampLo: '--finish-ramp-lo', rampK: '--finish-ramp-k', rampDLo: '--finish-ramp-d-lo', rampDK: '--finish-ramp-d-k',
   rampTextLo: '--finish-ramp-text-lo', rampTextK: '--finish-ramp-text-k',
   rampTextDLo: '--finish-ramp-text-d-lo', rampTextDK: '--finish-ramp-text-d-k',
 };
 const tv = (name) => `var(${name})`;
 /** A hue taken to a percent toward the finish base: the one expression every body, text body and ink picker reads. */
-const tmix = (hue, pct) => `color-mix(in oklab, ${hue} ${tv(pct)}, ${tv(T.base)})`;
-const tld = (hue, l, d) => `light-dark(${tmix(hue, l)}, ${tmix(hue, d)})`;
+const tmix = (hue, pct, base = T.base) => `color-mix(in oklab, ${hue} ${tv(pct)}, ${tv(base)})`;
+const tld = (hue, l, d, base = null) => `light-dark(${tmix(hue, l, base || T.base)}, ${tmix(hue, d, base || T.baseD)})`;
 const tEdge = (token) => `calc(var(--chart-edge) * ${tv(token)})`;
 const tRing = (token) => `calc(var(--state-signal-w) * ${tv(token)})`;
 const num = (v) => String(v);
@@ -376,7 +393,9 @@ function finishTokens(name) {
   const f = F[name];
   const tone = name === 'tone';
   const d = [
-    `${T.base}: ${BODY_BASE[name]}`,
+    `${T.base}: ${BODY_BASE_L[name]}`,
+    `${T.baseD}: ${BODY_BASE_D[name]}`,
+    `${T.statusBase}: ${STATUS_BASE[name]}`,
     `${T.ink}: ${textInk(name)}`,
     `${T.edge}: ${num(f.edge)}`,
     `${T.edgeText}: ${num(f.edgeBackdrop)}`,
@@ -386,8 +405,8 @@ function finishTokens(name) {
   for (const n of SLOTS) {
     const i = n - 1;
     d.push(`${T.hue(n)}: ${tone ? ONE : hueOf(n)}`);
-    d.push(`${T.body(n)}: ${tone ? TONE[i] : f.body[0]}%`, `${T.bodyD(n)}: ${tone ? TONE[i] : f.body[1]}%`);
-    d.push(`${T.text(n)}: ${tone ? TONE[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE[i] : f.backdrop[1]}%`);
+    d.push(`${T.body(n)}: ${tone ? TONE[i] : f.body[0]}%`, `${T.bodyD(n)}: ${tone ? TONE_D[i] : f.body[1]}%`);
+    d.push(`${T.text(n)}: ${tone ? TONE[i] : f.backdrop[0]}%`, `${T.textD(n)}: ${tone ? TONE_D[i] : f.backdrop[1]}%`);
     // Tone's alpha runs 0.32 (the strongest slot) down to 0.104. It used to run 0.6 down to 0.24, and three
     // translucent polygons at that strength stack to a mid-tone center that no ink can read a scale tick on
     // (near-black on concrete's overlap measured 3.73:1, the unfinished paint 4.67:1). tools/chart-finish-reach.mjs
@@ -399,9 +418,11 @@ function finishTokens(name) {
   }
   // A status keeps its own hue under every finish; the finish sets only the level. A mark that carries text takes the
   // quieter one. Under tone the plain level is the middle step and the text level is the first text step.
-  d.push(`${T.status}: ${tone ? TONE[2] : f.body[0]}%`, `${T.statusD}: ${tone ? TONE[2] : f.body[1]}%`);
+  d.push(`${T.status}: ${tone ? TONE_STATUS[0] : f.body[0]}%`, `${T.statusD}: ${tone ? TONE_STATUS[1] : f.body[1]}%`);
   d.push(`${T.statusText}: ${tone ? TONE_TEXT[0] : f.backdrop[0]}%`, `${T.statusTextD}: ${tone ? TONE_TEXT_D[0] : f.backdrop[1]}%`);
   d.push(`${T.rampLo}: ${f.ramp[0]}%`, `${T.rampK}: ${f.ramp[1]}`);
+  // A text-free ramp on a dark slide: tone lifts its floor, so a map's low regions stand off the navy land (the tone audit).
+  d.push(`${T.rampDLo}: ${(f.rampD || f.ramp)[0]}%`, `${T.rampDK}: ${(f.rampD || f.ramp)[1]}`);
   d.push(`${T.rampTextLo}: ${f.rampText[0][0]}%`, `${T.rampTextK}: ${f.rampText[0][1]}`);
   d.push(`${T.rampTextDLo}: ${f.rampText[1][0]}%`, `${T.rampTextDK}: ${f.rampText[1][1]}`);
   // The values name the chart family's own variables (`--chart-cat-N-hue`, `--chart-on-mark`), and a custom property
@@ -457,9 +478,9 @@ function build() {
       // custom property to :root, where a mark's own value beats it, so dark mode kept the light level. In a real
       // property (the fill, below) it is scoped to its own rule and survives.
       `--finish-mark-body-l: ${tmix(tv(T.hue(n)), T.body(n))}`,
-      `--finish-mark-body-d: ${tmix(tv(T.hue(n)), T.bodyD(n))}`,
+      `--finish-mark-body-d: ${tmix(tv(T.hue(n)), T.bodyD(n), T.baseD)}`,
       `--finish-mark-text-l: ${tmix(tv(T.hue(n)), T.text(n))}`,
-      `--finish-mark-text-d: ${tmix(tv(T.hue(n)), T.textD(n))}`,
+      `--finish-mark-text-d: ${tmix(tv(T.hue(n)), T.textD(n), T.baseD)}`,
       // The edge is the mark's own category ink under EVERY finish, tone included: tone has one hue for bodies, and the
       // edge is the one place the category survives (tone-is-the-third-finish.md).
       `--finish-mark-edge: ${inkOf(n)}`,
@@ -508,7 +529,7 @@ function build() {
     // A status that carries text takes the text level under every finish: a status hue can be far darker than a
     // category's (concrete's is near-black), and at pigment's 40% the text on it read 3.6:1 where tone's 30% held.
     const textLevel = s.bears || s.keysText;
-    const body = textLevel ? tld(s.hue, T.statusText, T.statusTextD) : tld(s.hue, T.status, T.statusD);
+    const body = textLevel ? tld(s.hue, T.statusText, T.statusTextD, T.statusBase) : tld(s.hue, T.status, T.statusD, T.statusBase);
     const kTok = s.bears ? T.edgeText : T.edge;
     const decls = paintShared(s.paint, body, s.ink, kTok);
     // THE SIGNAL RING SCALES WITH THE EDGE. An exception's ring replaces its edge, and "nothing else rings" only
@@ -568,7 +589,7 @@ function build() {
     // changes nothing about the cells and emits nothing for them nor for their values: the theme-solved ink
     // (--heatmap-stepN-ink, ~100 hand-tuned declarations) keeps the cell it was solved for.
     for (const [classes, body, who] of [
-      [m.plain, rampAt(T.rampLo, T.rampK, m.base), ALL],
+      [m.plain, `light-dark(${rampAt(T.rampLo, T.rampK, m.base)}, ${rampAt(T.rampDLo, T.rampDK, m.base)})`, ALL],
       [m.text, `light-dark(${rampAt(T.rampTextLo, T.rampTextK, m.base)}, ${rampAt(T.rampTextDLo, T.rampTextDK, m.base)})`, MOVERS],
     ]) {
       if (!classes.length) continue;
@@ -619,7 +640,7 @@ function build() {
   w(supports(rule(MOVERS, `.hub-spoke-icon${HUE_SEL}`, [`--hs-icon-ink: ${`light-dark(${inkOn('var(--finish-mark-body-l)')}, ${inkOn('var(--finish-mark-body-d)')})`}`])));
   const hsStatus = STATUS_MARKS.find((x) => x.sel.includes('.hub-spoke-node'));
   w(supports(rule('pigment', '.hub-spoke-icon[data-s]', [`--hs-icon-ink: ${tv(T.ink)}`])));
-  w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status))}, ${inkOn(tmix(hsStatus.hue, T.statusD))})`])));
+  w(supports(rule(MOVERS, '.hub-spoke-icon[data-s]', [`--hs-icon-ink: light-dark(${inkOn(tmix(hsStatus.hue, T.status, T.statusBase))}, ${inkOn(tmix(hsStatus.hue, T.statusD, T.statusBase))})`])));
 
   // ── LAYERED — translucent and composited, so a FLAT alpha ────────────────
   // A gradient here reads as a fourth color where two polygons cross.
@@ -713,7 +734,7 @@ function build() {
       // A chart that draws GROUPS keeps the heading-ink hub: a group disc takes tone's deep step, which reaches the one hue's own lightness.
       w(rule(name, '.hub-spoke-svg:has(:is(.hub-spoke-node, .hub-spoke-leaf)[data-hue]) .hub-spoke-hub', ['fill: var(--text-heading)', 'stroke: var(--text-heading)']));
       // A neutral satellite (no status, no hue) is a pale step with the one ink edge, like every etch body.
-      w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${mix(ONE, `${TONE[5]}%`)}`, `stroke: ${ONE_INK}`]));
+      w(ruleIf(name, HS_PLAIN, ':is(.hub-spoke-node, .hub-spoke-leaf):not([data-s]):not([data-hue])', [`fill: ${tstep(5)}`, `stroke: ${ONE_INK}`]));
       // ONE INK FOR EVERY EDGE. With one ladder the bodies already tell the categories apart by depth, so the outline no
       // longer has to carry the category's hue: every mark wears the one tone ink, and a tone chart is one hue plus status.
       w(rule(name, SLOT_SEL, ['--finish-mark-edge: var(--chart-cat-1-ink)'], false));
@@ -730,15 +751,15 @@ function build() {
       // are; the filled cells keep the one ladder (a row's depth is its category).
       w(rule(name, '.matrix-grid-figure tbody tr', [`--row-hue: ${ONE}`, `--row-ink: ${ONE_INK}`]));
       // A waterfall's Plan / Actual anchors are neutral columns; under tone they are a solid step of the one hue, like tone's other bars.
-      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${mix(ONE, `${TONE[1]}%`)}`, `stroke: ${ONE_INK}`]));
+      w(rule(name, '.waterfall-bar[data-s="total"]', [`fill: ${tstep(1)}`, `stroke: ${ONE_INK}`]));
       // A delta is a direction, not a status, so green and red were a second and third hue: up is a lighter step of the one hue, down a darker
       // one (the signed value label still names it).
-      w(rule(name, '.waterfall-bar[data-s="up"]', [`fill: ${mix(ONE, `${TONE[3]}%`)}`, `stroke: ${ONE_INK}`]));
-      w(rule(name, '.waterfall-bar[data-s="down"]', [`fill: ${mix(ONE, `${TONE[6]}%`)}`, `stroke: ${ONE_INK}`]));
+      w(rule(name, '.waterfall-bar[data-s="up"]', [`fill: ${tstep(3)}`, `stroke: ${ONE_INK}`]));
+      w(rule(name, '.waterfall-bar[data-s="down"]', [`fill: ${tstep(0)}`, `stroke: ${ONE_INK}`]));
       // A tone grid's filled cells read like the quadrant's zones: one flat pale tint of the tone hue, the heading ink on it.
       // The row label and the cell's own text carry the meaning, so depth no longer has to say which row a cell is in.
       w(supports(rule(name, `.cell-filled${SLOT_SEL}[data-encodes="hue"][data-paint="bg"]`, [
-        `background-color: color-mix(in oklab, ${ONE} ${TONE[5]}%, var(--bg))`,
+        `background-color: ${tstep(5)}`,
         'color: var(--text-heading)',
       ])));
       // Tone dashes a layered series from the fifth, so overlapping outlines stay apart.
@@ -929,7 +950,15 @@ function build() {
     }
     if (tone) {
       // Tone's stage bar is a pale step of the one hue with the one ink on its top rule: the shipped slate was a second color.
-      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${mix(ONE, `${TONE[5]}%`)}`, '--section-accent: var(--chart-cat-1-ink)']));
+      w(rule(name, ':is(.journey-stage, .journey-vstage-name)', [`background: ${tstep(5)}`, '--section-accent: var(--chart-cat-1-ink)']));
+      // A journey persona is a small disc, and four adjacent ladder steps on a disc that size read as one blue (the tone audit).
+      // Personas take every other step, so slot n is ladder step 2n - 1: the same ladder, spaced for a mark too small for adjacent steps.
+      for (const n of [1, 2, 3, 4]) {
+        const k = (n - 1) * 2;
+        w(rule(name, `.journey-actor-dot[data-hue="${n}"]`, [
+          `${T.body(n)}: ${TONE[k]}%`, `${T.bodyD(n)}: ${TONE_D[k]}%`, `${T.text(n)}: ${TONE[k]}%`, `${T.textD(n)}: ${TONE_D[k]}%`,
+        ], false));
+      }
     }
 
     // ── REGIONS — pigment puts color on the MARKS and keeps the ground under them neutral ──
@@ -1004,7 +1033,9 @@ function build() {
     w('\n/* The quadrant ZONE tints — colored furniture, so they move with the finish. */');
     for (let c = 0; c < 4; c++) {
       // Pigment's zones are the neutral ground (REGIONS, above): the dots carry the category color.
-      const body = tone ? mix(ONE, `${TONE[c]}%`) : name === 'pigment' ? 'var(--bg-alt)' : pair(hueOf(c + 1), f.backdrop);
+      // Tone's zones on a dark slide stay quiet (30 down to 15% of the hue): at the dark ladder's own steps they were as bright as
+      // the dots on them, and a dot on its zone fell under 1.5:1 (the tone audit).
+      const body = tone ? ld(`color-mix(in oklab, ${ONE} ${TONE[c]}%, ${TONE_BASE})`, `color-mix(in oklab, ${ONE} ${[30, 25, 20, 15][c]}%, var(--bg))`) : name === 'pigment' ? 'var(--bg-alt)' : pair(hueOf(c + 1), f.backdrop);
       // The zone names are printed on these tints, so they wait with the text (TEXT WAITS).
       w(supports(rule(name, `.quadrant-tint[data-cell="${c}"]`, [`fill: ${body}`, `fill-opacity: ${tone ? '0.38' : name === 'pigment' ? '1' : '0.5'}`])));
     }
@@ -1029,4 +1060,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { build, F, TONE, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };
+module.exports = { build, F, TONE, TONE_D, TONE_STATUS, TONE_TEXT, TONE_TEXT_D, STATUS_MARKS, KEY_FOLLOWS, STROKE_MEMBERS };

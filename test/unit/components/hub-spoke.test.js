@@ -817,9 +817,10 @@ describe('hub-spoke — icon ink under a chart finish', () => {
     const slotDisc = rulesOf.find((x) => x.sel.startsWith(ALL) && x.sel.includes('[data-encodes="hue"][data-paint="fill"]') && x.body.includes('light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))'));
     assert.equal(decl(slotDisc.body, 'fill'), 'light-dark(var(--finish-mark-body-l), var(--finish-mark-body-d))');
     // A status disc and its icon share the status body the finish sets, at its plain level, both arms (light and dark).
+    // A status mixes toward its own base (`--finish-status-base`, the plain canvas), never the finish's tinted category base.
     const statusDisc = decl(bodyOf(ALL, ':is(.hub-spoke-node, .hub-spoke-leaf)[data-s]'), 'fill');
     const statusInk = decl(bodyOf(MOVERS, '.hub-spoke-icon[data-s]'), '--hs-icon-ink');
-    const [l, d] = [/^light-dark\((color-mix\(.*?var\(--finish-status\), var\(--finish-base\)\)), (color-mix\(.*?var\(--finish-status-d\), var\(--finish-base\)\))\)$/.exec(statusDisc)].flatMap((m) => (m ? [m[1], m[2]] : []));
+    const [l, d] = [/^light-dark\((color-mix\(.*?var\(--finish-status\), var\(--finish-status-base\)\)), (color-mix\(.*?var\(--finish-status-d\), var\(--finish-status-base\)\))\)$/.exec(statusDisc)].flatMap((m) => (m ? [m[1], m[2]] : []));
     assert.ok(l && d, `the status disc body is a light-dark of two mixes: ${statusDisc}`);
     assert.ok(statusInk.includes(`color(from ${l} xyz-d65`) && statusInk.includes(`color(from ${d} xyz-d65`), `${statusInk} does not derive from ${statusDisc}`);
   });

@@ -208,7 +208,7 @@ flat: no chart grades, mixes or filters its fill, and a finish styles the solids
 |---|---|---|---|---|
 | **`pigment`** | the body's **hue** | you want color | the flat solid | ink, 1× |
 | **`etch`** | the **line and the letter** | a modern look | 30/40% | ink, 2× (3× on a text-bearing mark) |
-| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue, the same ladder on every chart | one ink for every mark, 1× (2.5× on a text-bearing mark) |
+| **`tone`** | the body's **value**, one hue | a conservative, restrained look | 92…9% of one hue on a light slide, 92…29% on a dark one, the same ladder on every chart | one ink for every mark, 1× (2.5× on a text-bearing mark) |
 
 **A finish is always on, and `pigment` is the default.** `marks:` is a look
 like `icon:` and `spark:`, not a layer that can be absent: a deck that names none, or names
@@ -303,6 +303,16 @@ measurement, and most undo a defect a render or the adversarial review found:
   of the hue) and a waterfall's up step is a lighter shade than its down step; green and red there were a second and third hue on marks that
   are not done, at-risk or blocked. Pigment keeps the status hue on a risk band but takes it 28% toward the slide on a dark slide, and a slope's
   signal lines take the hue (not its text ink, which is neon on dark) 38 to 42% toward the slide.
+- **Tone's ladder keeps its color at the pale end and its floor on a dark slide.** On a light slide the ladder mixes toward
+  a pale blue (the theme's `--cat-1-fill` taken 40% toward the canvas) instead of white: a pale tint of a deep blue taken
+  toward white kept a fifth of its chroma and read grey, which made a journey stage bar, a flowchart node and a matrix
+  cell look muddy. On a dark slide the ladder is 92, 78, 66, 56, 47, 40, 34, 29% (`TONE_D`): the light ladder's last
+  steps sat within a hair of the navy canvas, so a map's low regions, a tower's small cells and a hub-spoke satellite
+  vanished. A text-free ramp (a map) takes a 40% dark floor for the same reason, and a quadrant's dark zones stay at
+  30…15% so its dots stand off them. A status keeps its own hue at 70% (light) and 80% (dark), mixed toward the plain
+  canvas: at the ladder's middle step it turned grey-sage, tan and brown. A journey persona is a small disc, so personas
+  take every other ladder step; four adjacent steps on a disc that size read as one blue. Found by an audit of all 28
+  tone charts in both modes on #2908.
 - **Tone draws a series stroke in steps of its one ink.** Line and ep-curve series take 100, 88, 78 and 68% of the one ink,
   with a dash per series (none, dash, dot, dash-dot) and the dots and end label in the same color; a slope's quiet lines
   are a pale step of the one hue and its direction-signal lines keep their status color. No manifest contract change was

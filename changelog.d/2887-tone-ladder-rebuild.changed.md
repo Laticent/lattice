@@ -1,0 +1,1 @@
+- Under `tone`, pale shades stay blue instead of turning grey, dark-slide shades keep a floor (92 down to 29%) so low values no longer vanish into the background, status fills keep a clean hue instead of grey-sage, tan and brown, journey personas take every other shade so they read apart, and a waterfall's down step is the dark shade it was meant to be.
