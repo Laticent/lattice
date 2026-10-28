@@ -100,7 +100,7 @@ export function HowItWorks() {
 const SAY_MORE_BEATS: { lead: string; body: string }[] = [
 	{
 		lead: 'One idea per slide.',
-		body: 'Each in a layout built for that idea, and Lattice warns you when a slide runs long.',
+		body: 'Each idea gets a layout built for it, and Lattice warns you when a slide runs long.',
 	},
 	{
 		lead: 'Show it instead of saying it.',

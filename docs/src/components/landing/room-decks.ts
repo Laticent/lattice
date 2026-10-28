@@ -37,7 +37,7 @@ export const HERO_SLIDE = `<!-- _class: big-number -->
 \`Board decision · Q3\`
 
 - $4M
-  - saved by year three: $6M to build in-house vs $10M to buy.
+  - saved by year three: $6M to build it ourselves vs $10M to buy.
 `;
 
 // The "Your brand, one line" carousel's slide: one quarterly review re-rendered
