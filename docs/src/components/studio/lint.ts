@@ -60,6 +60,29 @@ export function splitSlides(src: string): string[] {
 	return out;
 }
 
+/**
+ * Where each slide `splitSlides` returns sits in `src`: `[from, to)` of its TRIMMED text, so `src.slice(from, to)` is
+ * exactly `splitSlides(src)[i]`. Same chunking, same dropped blank first chunk. An edit to one slide splices this range and
+ * leaves every other byte of the deck alone (deck-ops.ts `replaceSlide`).
+ */
+export function slideRanges(src: string): Array<{ from: number; to: number }> {
+	const text = String(src ?? '');
+	const out: Array<{ from: number; to: number }> = [];
+	let pos = 0;
+	const push = (a: number, b: number) => {
+		while (a < b && /\s/.test(text[a])) a++;
+		while (b > a && /\s/.test(text[b - 1])) b--;
+		out.push({ from: a, to: b });
+	};
+	for (const s of separatorPositions(text)) {
+		push(pos, s.index);
+		pos = s.index + s.length;
+	}
+	push(pos, text.length);
+	if (out.length && out[0].from === out[0].to) out.shift();
+	return out;
+}
+
 // WHICH `_class` GOVERNS A SLIDE — asked of the ONE module that already knows.
 //
 // This used to be a regex here, and it was wrong twice in opposite directions. Unanchored,

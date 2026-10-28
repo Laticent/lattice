@@ -1746,3 +1746,16 @@ never turn "passed in headless" into "works on iOS."
   `relint` / `wantsRelint` in `docs/src/components/studio/Editor.tsx`; the Playground's
   `admissionChanged` in `docs/src/playground/editor.js` is the same pattern.
   `docs/e2e/spark-fit-relint.spec.ts` fails on the old `forceLinting` call and passes on the effect.
+
+## A Slide-panel or Coach fix sends the preview to the last slide
+
+- **Symptom** — with the preview on slide 1 of 6, a one-click edit to that slide (a Slide-panel row, the Coach's
+  **Set card ink dark**) lands, and the preview jumps to slide 6. Typing the same change by hand does not jump.
+- **Cause** — `replaceSlide` (`docs/src/components/studio/deck-ops.ts`) rebuilt the whole deck from its slide list,
+  which dropped the deck's final newline. So a 9-character edit on slide 1 also changed the deck's LAST byte. The focus
+  hub's `update` finds the change by common prefix and suffix (`diffSpan` in `docs/src/lib/fuoco/outline.ts`), saw one
+  span from slide 1 to the end of the deck, and `mapOffset` mapped a caret inside it to the span's end: slide 6.
+  Measured 2026-10-28: the span was `{from: 76, toA: 1952, toB: 1960}` for a 9-character insert.
+- **Fix** — `replaceSlide` now splices only that slide's trimmed range (`slideRanges` in `lint.ts`), so every other byte,
+  the final newline included, stays as written. The span is then the 9 characters and the caret stays on slide 1. Any
+  shell edit that rebuilds the whole deck (`rejoin`) can still move the caret this way; keep one-slide edits surgical.

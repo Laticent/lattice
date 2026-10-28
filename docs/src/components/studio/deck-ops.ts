@@ -1,5 +1,5 @@
 import { frontMatterBlock, stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
+import { slideRanges, splitSlides } from './lint';
 
 // Structural slide editing on the deck SOURCE — add / delete / duplicate / move.
 // Pure string transforms: split the body into slides (front-matter held aside so
@@ -59,11 +59,24 @@ export function deleteSlide(source: string, index: number): DeckOpResult {
 	return { source: rejoin(source, slides), active: clampIndex(i, slides.length - 1) };
 }
 
-/** Replace slide `index`'s body in place (e.g. after editing its speaker note). */
+/**
+ * Replace slide `index`'s body in place (e.g. after editing its speaker note). Only that slide's text changes: the
+ * separators, the blank lines around them and the deck's final newline stay as the author wrote them. Rejoining the whole
+ * list here used to drop the final newline, so a one-word Slide-panel edit also changed the deck's LAST byte; the focus hub
+ * then saw one edit spanning from this slide to the end, mapped the caret to the end, and the preview jumped to the last
+ * slide (engineering/gotchas/studio-playground.md).
+ */
 export function replaceSlide(source: string, index: number, body: string): DeckOpResult {
 	const slides = bodySlides(source);
 	if (!slides.length) return { source, active: 0 };
 	const i = clampIndex(index, slides.length);
+	const text = stripFrontMatter(source);
+	const at = source.length - text.length;
+	const r = slideRanges(text)[i];
+	// The ranges come from the same chunking as `bodySlides`; if they ever disagree, rebuild the list as before.
+	if (r && source.endsWith(text) && text.slice(r.from, r.to) === slides[i]) {
+		return { source: source.slice(0, at + r.from) + body.trim() + source.slice(at + r.to), active: i };
+	}
 	slides[i] = body.trim();
 	return { source: rejoin(source, slides), active: i };
 }

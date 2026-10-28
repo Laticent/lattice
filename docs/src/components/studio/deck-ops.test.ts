@@ -2,9 +2,9 @@
 // This file touches no DOM. Under the suite default it paid for a jsdom window it
 // never used; see engineering/decisions/2026-09-20-dom-library-bakeoff.md.
 import { describe, expect, it } from 'vitest';
-import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, NEW_SLIDE } from './deck-ops';
+import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, NEW_SLIDE, replaceSlide } from './deck-ops';
 import { stripFrontMatter } from './front-matter';
-import { splitSlides } from './lint';
+import { slideRanges, splitSlides } from './lint';
 import { canSplitSlide, splitSlideInHalf } from './split-slide';
 
 const DECK = '<!-- _class: title -->\n\n# A\n\n---\n\n<!-- _class: kpi -->\n\n## B\n\n---\n\n<!-- _class: closing -->\n\n## C';
@@ -81,6 +81,29 @@ describe('deck-ops — structural slide editing', () => {
 			expect(r.source).toMatch(/^---\nsize: square\npaginate: true\n---\n/);
 			// The front-matter is not counted as a slide.
 			expect(count(r.source)).toBeGreaterThanOrEqual(2);
+		}
+	});
+});
+
+describe('replaceSlide — changes one slide and no other byte', () => {
+	// A Slide-panel edit used to rejoin the whole deck, which dropped the final newline: the edit then also touched the
+	// LAST byte, the focus hub mapped the caret through one span reaching the end, and the preview jumped to the last slide.
+	const AUTHORED = '---\ntitle: X\n---\n\n<!-- _class: image statement card-clear -->\n\n## A\n\n---\n\n## B\n\n\n---\n## C\n\nlast line\n';
+
+	it('keeps the final newline, the separators and the other slides byte for byte', () => {
+		const next = replaceSlide(AUTHORED, 0, '<!-- _class: image statement card-clear ink-dark -->\n\n## A').source;
+		expect(next).toBe(AUTHORED.replace('card-clear -->', 'card-clear ink-dark -->'));
+	});
+
+	it('edits a middle and a last slide in place too', () => {
+		expect(replaceSlide(AUTHORED, 1, '## B2').source).toBe(AUTHORED.replace('## B\n', '## B2\n'));
+		expect(replaceSlide(AUTHORED, 2, '## C\n\nnew line').source).toBe(AUTHORED.replace('last line', 'new line'));
+	});
+
+	it('slideRanges point at exactly the text splitSlides returns', () => {
+		for (const deck of [AUTHORED, DECK, '\n\n---\n\n## X\n\n---\n\n\n\n---\n\n## Y  \n']) {
+			const body = stripFrontMatter(deck);
+			expect(slideRanges(body).map((r) => body.slice(r.from, r.to))).toEqual(splitSlides(body));
 		}
 	});
 });
