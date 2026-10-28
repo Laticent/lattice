@@ -352,11 +352,15 @@ scores read lower than §11's (44-46) and vary widely, so compare the two column
 sandbox load and the Lighthouse flags were not the same. The simulated metric moved through FCP and LCP, which is what
 dropping 263 KB of eager JavaScript (616.7 to 353.7 KB gzipped, `check:route-budget`) would move, and not through TBT.
 
-**The cost, stated.** An Edit-first load now fetches and evaluates the chunk after hydration instead of inside it, so the
-editor appears later: 1,358 ms against 1,567 ms by median (six runs each, 4x CPU, local HTTP/2, time from navigation to
-`.cm-content`; +209 ms). The text paints from the server-rendered placeholder throughout, so LCP does not move. The same
-work is paid at a different time for the visitors who do open the editor; the Explore visitors, who are the Playground's
-default, stop paying it.
+**The cost, and how it was removed.** Loading the chunk on demand first made an Edit-first load show the editor later:
+1,358 ms against 1,567 ms by median (six runs each, 4x CPU, local HTTP/2, time from navigation to `.cm-content`; +209 ms),
+because the fetch started only after hydration. An Edit load (the pre-paint seed's `data-pg-view="edit"`) now starts the
+`import()` when `EditorHost`'s module evaluates, in parallel with hydration, and an Explore load still fetches nothing.
+Measured again on a fresh production build, six runs each: 1,961 ms (base) against 1,969 ms, so Edit-first is back to parity.
+The Explore win held with the prefetch in: blocking time 4,088 ms against 3,561 ms by median, every head run below every base
+run (that sandbox was slower than the first measurement, so the absolute numbers are higher). The text paints from the
+server-rendered placeholder throughout, and the placeholder is now hidden in the DOM the moment the view is built; before, the
+state update that removed it could wait behind hydration for most of a second with its text over the editor's.
 
 **A defect this exposed, fixed here (HARD RULE #18).** `playground-focus-sync.spec.ts` "the next key in the editor brings the
 preview and the band back to the caret" failed on the dynamic build and passed on the first. It had been passing by

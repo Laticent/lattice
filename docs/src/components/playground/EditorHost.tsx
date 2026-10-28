@@ -3,6 +3,12 @@ import type { createEditor as CreateEditor } from '@/playground/editor.js';
 
 type Editor = ReturnType<typeof CreateEditor>;
 
+/** An Edit load is about to show the editor, so its chunk starts downloading now, in parallel with hydration, rather
+ *  after it. An Explore load (the seed's `data-pg-view="read"`) fetches nothing until the editor is shown or a reader
+ *  appears. */
+const editorChunk: Promise<typeof import('@/playground/editor.js')> | null =
+	typeof document !== 'undefined' && document.documentElement.getAttribute('data-pg-view') === 'edit' ? import('@/playground/editor.js') : null;
+
 /** The editor adapter the controller reads/writes source through (a subset of
  *  createEditor's return — the same contract as the old window.__pgEditor). */
 export type EditorAdapter = {
@@ -144,6 +150,9 @@ export function EditorHost({
 			if (reveal) ed.revealSlide(reveal);
 			if (band) ed.setBand(band);
 			off?.();
+			// Hide the placeholder now: the state update below removes it, but it can wait behind hydration for most of
+			// a second, and until then the placeholder's text sits over the editor's.
+			if (placeholderEl.current) placeholderEl.current.style.display = 'none';
 			setMounted(true); // drop the placeholder now that the real editor is up
 			return ed;
 		};
@@ -151,7 +160,7 @@ export function EditorHost({
 		// fetches or evaluates it.
 		const mount = (): Promise<Editor | null> => {
 			if (ed) return Promise.resolve(ed);
-			loading ??= import('@/playground/editor.js').then(
+			loading ??= (editorChunk ?? import('@/playground/editor.js')).then(
 				(m) => (dead ? null : build(m.createEditor)),
 			).catch((err) => {
 				// A chunk that fails to load (offline, a deploy in between) or a view that throws leaves the text in
