@@ -73,7 +73,6 @@ import { ActivityRail, BAR_CONTROL, BAR_RULE, BarIcon, ComposeSkeleton, DECK_MET
 import { activeClaim, CLAIMS } from './claim-catalog';
 import { applyProfileToSource, assessDeck, type CoachAssessment, type CoachCard, type DeckScorecard, pacing, rankFindings, structureCheck, theAsk, topFixes, weakestSlide } from './coach/coach-core';
 import { FindingCard, type FindingFixState } from './coach/FindingCard';
-import type { Pin } from './coach/photo-contrast-read';
 import { PHOTO_RULE, usePhotoContrast } from './coach/photo-contrast-watch';
 import { listStudioComponents, type StudioComponent } from './component-library';
 import { activeCorners, CORNERS } from './corners-catalog';
@@ -129,6 +128,7 @@ import { DEFAULT_STAMP, DEFAULT_TONE, glyphs, imageGlyph, logoGlyph, optionGlyph
 import { PresetPicker } from './PresetPicker';
 import { mayHavePaneSlides } from './pane-probe';
 import { ChatShell, LensesShell, LibraryShell, ShareShell, type SlideBaseline, SlideSettingsShell, WorkspaceShell } from './panel-shells';
+import type { Fix } from './photo-verdict';
 import { deleteStudioPlugin, listStudioPlugins, type StudioPluginRecord } from './plugin-library';
 import { PreviewPool } from './preview-pool';
 import { PREVIEW_CHROME, PREVIEW_RECT_KEY, STUDIO_SPLIT_KEY, STUDIO_SPLIT_PANEL_IDS } from './preview-rect';
@@ -141,8 +141,8 @@ import { listStudioScenes, type StudioScene } from './scene-library';
 import { ScrollFade } from './scroll-fade';
 import { SettingsDock } from './settings-dock';
 import { COMMENTS_EVENT, importComments, listComments, mergeSessionComments, setCommentRelay } from './slide-comments';
-import { canEditClass, getClassTokens, setClassTokens } from './slide-directives';
-import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords, setImageCard } from './slide-provenance';
+import { canEditClass, getClassTokens } from './slide-directives';
+import { BACKDROP_MASKS, BACKDROP_STRENGTHS, backdropDeckValue, CARD_TAG_AXES, type CardTagAxis, cardTagDeckValue, deckBackdrop, deckCardTag, deckImageCard, type ImageCardAxis, imageCardDeckValue, imageCardWords } from './slide-provenance';
 import { sizeRatio } from './slide-size';
 import { hasDrawnFence } from './slide-thumb';
 import { applyVariant } from './slide-variants';
@@ -3464,6 +3464,9 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// — surfaced in the Coach panel so each can be fixed with AI. A proposed fix is a
 	// reviewable diff keyed by finding; nothing applies until the author clicks Apply.
 	const [findings, setFindings] = React.useState<Finding[]>([]);
+	// The slide whose measured photo finding the Coach shows (set where the photo verdict is read, below), so "Fix all" drafts
+	// the set the panel shows.
+	const photoSlideRef = React.useRef<number | null>(null);
 	// The REAL engine deck assessment (scorecard + lint/review findings), replacing the
 	// toy lint.ts scoreDeck. `hasContent` false → a blank deck shows a placeholder, never
 	// a fabricated grade (K1). Populated by the debounced effect below.
@@ -3809,7 +3812,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const fixAll = React.useCallback(async () => {
 		if (fixingAll) return;
 		const snap = source;
-		const targets = rankFindings(findings)
+		// The same set the panel shows: a slide whose measured photo finding is up hides lint's thin-card finding (below).
+		const targets = rankFindings(findings.filter((f) => !(f.rule === 'thin-card-no-ink' && f.slide === photoSlideRef.current)))
 			.slice(0, 6)
 			.filter((f) => {
 				if (!f.slide) return false;
@@ -4819,19 +4823,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// edit-mode Reshape control (a variant is a class token; recast = swap the token).
 	const reshapeAxes = React.useMemo(() => (lintVocab as { exclusiveAxes?: Record<string, string[]> } | null)?.exclusiveAxes ?? {}, [lintVocab]);
 	const activeChunk = slides[activeFullIndex] ?? '';
-	// The Coach's photo-contrast read of the slide on screen (measured in the preview, so it only runs while the Coach is open).
-	const { findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex + 1, coachOpen, `${mode}|${palette}|${source}`);
-	// Pin the slide light or dark, or (when no pin clears) set the card ink: the one click the photo-contrast warning offers.
-	// Never applied on its own.
+	// THE PHOTO VERDICT for the slide on screen (photo-verdict.ts), measured in the preview. One read feeds both views: the
+	// Coach's `photo-contrast` finding and the editor's measured underline and `thin-card-no-ink` fix, so they cannot disagree.
+	const { verdict: photoVerdict, fresh: photoFresh, findings: photoFindings, settled: photoSettled } = usePhotoContrast(activeChunk, activeFullIndex, source, `${mode}|${palette}|${source}`);
+	// The one click the photo verdict offers, the same edit the editor's button makes (photo-verdict.ts `applyFix`). Never
+	// applied on its own. Loaded with the verdict, which is already in memory by the time a button shows.
 	const pinActiveSlide = React.useCallback(
-		(pin: Pin) =>
-			mutateSlideFromPanel((c) => {
-				if (!canEditClass(c)) return c;
-				if (pin === 'ink-light' || pin === 'ink-dark') return setImageCard(c, 'ink', pin.slice(4));
-				return setClassTokens(c, [...getClassTokens(c).filter((t) => t !== 'dark' && t !== 'light'), pin]);
-			}),
+		(fix: Fix) =>
+			void import('./photo-verdict').then(({ applyFix }) => mutateSlideFromPanel((c) => (canEditClass(c) ? applyFix(c, fix) : c))),
 		[mutateSlideFromPanel],
 	);
+	// The editor's half: the verdict for the slide on screen, by source slide index (the full view only, as the spark
+	// measurement: a reader lens reshapes the set the preview shows).
+	const measuredPhoto = React.useMemo(() => (composeLens === 'full' && photoVerdict && photoFresh ? { slideIndex: activeFullIndex, verdict: photoVerdict } : null), [composeLens, photoVerdict, photoFresh, activeFullIndex]);
 	const reshapeComponent = React.useMemo(() => getClassTokens(activeChunk)[0] ?? '', [activeChunk]);
 	// THE PANE GALLERY — Compose's "Change" on a pane bar opens the slide gallery in pane mode
 	// (SlidePicker `pane`): only the components that fit that pane, each saying whether it keeps the
@@ -4887,7 +4891,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 
 	// The photo finding is measured, not linted, and "Fix all" cannot draft it, so it rides alongside the lint top six
 	// instead of competing with them for a slot: the count the panel shows and the set "Fix all" drafts stay one set.
-	const rankedFindings = rankFindings(findings);
+	// A measured photo finding and lint's `thin-card-no-ink` on the same slide say one thing with one fix: show the measured
+	// one, as the editor does.
+	photoSlideRef.current = photoFindings[0]?.slide ?? null;
+	const rankedFindings = rankFindings(photoFindings.length ? findings.filter((f) => !(f.rule === 'thin-card-no-ink' && f.slide === photoFindings[0].slide)) : findings);
 	const shownFindings = rankFindings([...rankedFindings.slice(0, 6), ...photoFindings]);
 	// A finding is DRAFTABLE when it has no active fix (idle) or a previously-stale one to
 	// re-draft — the same set fixAll targets, so the count and the action agree (trio #4).
@@ -5172,7 +5179,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 								finding={f}
 								state={fixStates[key]}
 								canFix={ai.ready && !!f.slide && f.rule !== PHOTO_RULE}
-								pin={f.rule === PHOTO_RULE && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? ((f as { pin?: Pin | null }).pin ?? null) : null}
+								pin={(f.rule === PHOTO_RULE || f.rule === 'thin-card-no-ink') && f.slide === activeFullIndex + 1 && canEditClass(activeChunk) ? (photoVerdict?.fix ?? null) : null}
+								pinLabel={photoVerdict?.label ?? null}
 								onPin={pinActiveSlide}
 								costLabel={fixCostLabel}
 								onFix={() => fixFinding(f, key)}
@@ -6156,7 +6164,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 		</section>

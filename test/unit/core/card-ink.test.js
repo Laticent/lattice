@@ -109,6 +109,8 @@ test('the fills and inks restated here are the ones image.styles.css paints', as
     const rule = block.slice(0, end);
     assert.ok(rule.includes(`--_card-fill: ${rgb(k.INK_FILL[ink])}`), `ink-${ink} fill`);
     assert.ok(rule.includes(`--_card-heading-ink: ${rgb(k.INK_TEXT[ink])}`) || rule.includes(`--_card-heading-ink: rgb(${k.INK_TEXT[ink].join(' ')} / `), `ink-${ink} heading ink`);
+    const [r, g, b, a] = k.INK_BODY[ink];
+    assert.ok(rule.includes(`--_card-body-ink: rgb(${r} ${g} ${b} / ${a})`), `ink-${ink} body ink`);
   }
   assert.equal(k.THIN_BACKING, 60);
 });
