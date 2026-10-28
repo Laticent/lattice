@@ -177,7 +177,7 @@ every finding through Squadra's one fix driver (design §15.4). The full table, 
 
 | | Delivers | Lattice adopts | Evidence |
 |---|---|---|---|
-| M1a | Findings with spans, the edit kernel, the fix driver with its shape check, the `edits` engine, the registration refusals, waivers, reference YAML | The bridge: "Fix all" and `lint:deck --fix` go through the driver, which stops the live slide-deleting bug | The whole-deck fix diff; a benchmark scenario (#19); the Studio bundle delta against `lintCoreGz` |
+| M1a | Findings with spans, the edit kernel, the fix driver with its shape check, the `edits` engine, the registration refusals, waivers, reference YAML | The bridge: "Fix all" and `lint:deck --fix` go through the driver, which stops the live slide-deleting bug | The whole-deck fix diff; a benchmark scenario (#19); the Studio bundle delta against `lintCoreGz`; the measured strict-compile cost (design §8.2) |
 | M1b | `lattice-deck` and the reference Markdown, on the Segno deck pipeline | The ~23 near-mechanical deck rules | The three-corpus migration diff; lint-core line count and rules on `lattice-line`, both falling; effort per rule |
 | M2 | Waivers adopted, reference JSON | `check-ownership.js` reads `squadra.waivers.json`, starting with the 8 lists that have no staleness check | Lists moved; staleness caught in all of them |
 | M3 | Reference CSS, the JS/TS adapter, project rules, the cache, workers | Ownership checks, after profiling `check-ownership.js` | Wall-clock against the 21.8 s baseline |

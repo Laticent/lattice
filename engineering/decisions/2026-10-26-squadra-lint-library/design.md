@@ -535,7 +535,7 @@ bytes, which needs the owner's sign-off under CLAUDE.md's export rule.
 | `markdown` | The Segno deck pipeline's CommonMark document model (S0-S2), adapted to Squadra's node shape | Squadra (`./languages/markdown`) | with `lattice-deck`, once pipeline P2 lands | the base of `lattice-deck`; `*.docs.md` and `engineering/` docs |
 | `yaml` | a Segno grammar | Squadra (`./languages/yaml`) | M1 | workflow files; the shape `lattice-deck`'s front-matter island reads |
 | `json` | a Segno grammar | Squadra (`./languages/json`) | M2 | component, plugin and theme manifests (22 ownership checks) |
-| `css` | the pipeline's CSS dialect when its P5 lands ("one CSS tokenizer every consumer reads"); a Segno grammar plus a rule/declaration refine until then | Squadra (`./languages/css`) | M3 | themes and component styles (36 ownership checks) |
+| `css` | the pipeline's CSS dialect when its P5 lands ("one CSS tokenizer on the spine"); a Segno grammar plus a rule/declaration refine until then | Squadra (`./languages/css`) | M3 | themes and component styles (36 ownership checks) |
 | `js`, `ts` | an adapter over acorn or the TypeScript API, both already used by `tools/check-ownership.js` | Lattice | M3 | the 37 ownership checks that read JS |
 | outside-domain fixture (Dockerfile or OpenAPI YAML) | a Segno grammar | Squadra's tests and the learn page | by M4 | nothing: it proves the interfaces are not shaped only by Lattice |
 
@@ -546,7 +546,7 @@ no BOM, LF line endings. Every span, edit and line number refers to that text. T
 
 - On read, the Node host strips a BOM and converts CRLF and lone CR to LF, and records what it removed.
 - On write, it restores the file's original line endings and BOM, so a fix never rewrites a whole file's line endings.
-- The deck pipeline's S0 does the same normalization for the renderer, so lint and render see the same text.
+- The deck pipeline's S0, once built, does the same normalization for the renderer, so lint and render see the same text.
 
 The conformance fixtures include CR, CRLF, mixed and BOM variants of every structure test.
 
@@ -1390,7 +1390,7 @@ squadra bench                 the benchmark scenarios (§11.6)
 |---|---|
 | A detector function in `lib/authoring/lint-core.js` | A code rule; a declarative rule once the selector language exists (§6) |
 | `{ slide, rule, severity, classToken, line, message, fix }` | A finding with a span, `location.slide`, `hint`, `legacy` (§12.1); the legacy-shape adapter rebuilds the old record for consumers that still read it (§15.4) |
-| Severity `info` (5 sites in lint-core) | Severity `info` |
+| Severity `info` (12 sites in lint-core: 5 literal, 7 conditional) | Severity `info` |
 | The `fix:` advice string (214 of them) | `hint` |
 | `autofixable` / `replace` / `replaceLine` / the `fixReplacement` switch | A declarative fix (§7.3), or the `lattice-line` engine until the rule moves |
 | `applyFix` / `applyAllFixes` (one fix per pass, 500-pass cap) | `fix()` (§7.4) |
@@ -1438,7 +1438,7 @@ Each difference is either fixed or written into the PR as an intended improvemen
 fenced example, the deleted title slide) as the first entries.
 
 When a rule's diff is clean, its lint-core detector is deleted in the same PR, unless something outside the linter
-imports it: `lib/components/index.js` imports detectors such as `findInlineTitleBodyLine` for the render path. Such a
+imports it: `lib/components/index.js` imports detectors such as `findInlineTitleBodyLine` for component-manifest validation (`checkCardStyleForms`). Such a
 detector moves to a shared kernel that both the Squadra rule and the importer read (HARD RULE #1), never into a copy.
 
 **Progress is measured, so a stalled migration shows.** Each migration PR reports the lint-core line count and the
@@ -1463,11 +1463,11 @@ Rule-by-rule migration means some rules run in Squadra and the rest in lint-core
 
 | Consumer | Reads | Moves when |
 |---|---|---|
-| `docs/src/playground/editor-diagnostics.js` | `line` text, to place squiggles | it reads `span` (offsets make this exact) |
-| `docs/src/components/studio/Editor.tsx` | `didYouMean` for the button label; `lintTextWith` with a vocab | it reads `fixes[0].description` |
+| `docs/src/playground/editor-diagnostics.js` | `line` text, to place squiggles; `didYouMean` for the quick-fix button label | it reads `span` (offsets make this exact) |
+| `docs/src/components/studio/Editor.tsx` | `lintTextWith` with a vocab | it calls Lattice's lint entry point |
 | `docs/src/components/studio/StudioShell.tsx` | `${slide}:${rule}:${message}` as a fix-state key; rule id `capacity-scale` | it keys on `rule` + `span` |
-| `docs/src/components/studio/coach/coach-core.ts` | rule ids and messages | it reads Squadra findings |
-| `lattice.js` (lines near 1114-1151) | `shapeChange` | the field moves to `data.shapeChange` |
+| `docs/src/components/studio/coach/coach-core.ts`, `coach/FindingCard.tsx` | messages, severity, slide (core); rule id (card) | it reads Squadra findings |
+| `lattice.js` (lines 1115 and 1152) | `shapeChange` | the field moves to `data.shapeChange` |
 | `tools/lint-deck.js`, `tools/score-variance.js` | rule id `typed-shape-glyph`; host filters | they compare `legacy` ids |
 | `lib/conformance/kinds/*.contract.js` | finding shape | they read Squadra findings |
 | `lib/components/index.js` | imported detectors | §15.3: detectors move to shared kernels |
@@ -1482,7 +1482,7 @@ while `deck/capacity-scale` is the Squadra id.
 | M1a | Core, fix driver, `edits` engine, refusals, waivers, reference YAML; the bridge (§15.4) with `lattice-line`, so "Fix all" goes through the driver and gains the structure check | nothing |
 | M1b | `lattice-deck` and the reference Markdown; the first migrated deck rules (the ~23 near-mechanical ones) | Segno deck pipeline P2 (blocks, slides), then P3 (front matter and directive islands) |
 | M2 | Waivers adopted: `check-ownership.js` reads `squadra.waivers.json` through the core's waiver functions (which need no language) while its checks are still its own; reference JSON | M1a |
-| M3 | Ownership checks move: reference CSS, the JS/TS adapter, project rules, the cache; profile `check-ownership.js` first (§6.6) | M2 |
+| M3 | Ownership checks move: reference CSS, the JS/TS adapter, project rules, the cache, workers; profile `check-ownership.js` first (§6.6) | M2 |
 | M4 | The generic surface (§2.3), learn and demo pages | M3 |
 
 M1 also carries two acceptance rows: the Studio bundle delta against `lintCoreGz` in `docs/route-budget.json` (about 11 KB
