@@ -10,7 +10,7 @@ test('classifyPath: one answer for a component file, a theme, prose, a shared sh
 	assert.deepEqual(classifyPath('themes/indaco/indaco.css'), { kind: 'theme', name: 'indaco' });
 	assert.deepEqual(classifyPath('lib/components/inventory/actors/actors.docs.md'), { kind: 'non-render' }, 'prose cannot change a render');
 	assert.deepEqual(classifyPath('engineering/decisions/x.md'), { kind: 'non-render' });
-	assert.deepEqual(classifyPath('lib/components/chart/_chart-family/chart-finish.generated.css'), { kind: 'other' }, 'a shared folder is nobody\'s component');
+	assert.deepEqual(classifyPath('lib/components/chart/_chart-family/marks.generated.css'), { kind: 'other' }, 'a shared folder is nobody\'s component');
 	assert.deepEqual(classifyPath('lib/core/resolve-cards.js'), { kind: 'other' });
 });
 

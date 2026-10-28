@@ -100,7 +100,7 @@ for (const tag of [' @gecko', ' @webkit-tablet']) {
 		await shareExport(page, 'pdf');
 		const d = await download;
 		expect(d.suggestedFilename()).toMatch(/\.pdf$/);
-		await expect(toastText(page)).toContainText('PDF ready.');
+		await expect(toastText(page)).toContainText(/PDF ready( \([^)]+\))?\./);
 		const pdfPath = (await d.path()) as string;
 		expect(fs.statSync(pdfPath).size).toBeGreaterThan(1000);
 		if (evidence) fs.copyFileSync(pdfPath, `${evidence}/plugin-slots-share-${browserName}.pdf`);

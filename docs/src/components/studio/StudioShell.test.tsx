@@ -675,7 +675,7 @@ describe('StudioShell — e2e flows (jsdom)', () => {
 		await user.click(within(presets).getByRole('radio', { name: 'Editorial' }));
 		await waitFor(() => expect(within(presets).getByRole('radio', { name: 'Editorial' })).toBeChecked());
 		expect(screen.getByRole('combobox', { name: 'Choose deck theme' })).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Choose deck color mode' })).toBeInTheDocument();
+		expect(screen.getByRole('combobox', { name: 'Choose deck color mode' })).toBeInTheDocument();
 		expect(screen.getByRole('switch', { name: 'Page numbers' })).toBeInTheDocument();
 		expect(screen.getByLabelText('Logo')).toBeInTheDocument();
 		expect(screen.queryByRole('switch', { name: 'Inline validation' })).not.toBeInTheDocument();

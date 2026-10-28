@@ -588,7 +588,8 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 	// demand so editor surfaces that never validate don't pull the authoring-core
 	// bundle. The source is async — CodeMirror's linter awaits the returned promise.
 	let lintCoreMod = null;
-	// Dispatched when the host changes its plugin defaults: the lint's `needsRefresh` reads it.
+	// Dispatched when the host changes its plugin defaults, or a hidden editor is shown: the lint's
+	// `needsRefresh` reads it.
 	const admissionChanged = StateEffect.define();
 	// The bundle the lint runs in, and the `off` set its boundary parser was last pointed at.
 	let authoringCore = null;
@@ -606,8 +607,29 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		offApplied = key;
 		authoringCore.setBoundaryPluginsOff(off);
 	};
+	// NOT WHILE HIDDEN. Explore and a phone's preview pane hide the editor with `display: none`
+	// (playground.css), and a lint there loaded the 279 KB lint core and linted the draft in one
+	// 575 ms task (4x CPU) that nobody could see (2026-10-26-lighthouse-home-runtime-prefetch.md §9,
+	// lever A). A box with no layout has no client rects, so the source returns nothing and arms
+	// `showWatch`; the ResizeObserver fires when the pane gets a size, and the `relint` effect
+	// below re-runs the lint then. Edit-first visitors see the editor at once and lint as before.
+	let showWatch = null;
+	const hiddenNow = (view) => {
+		if (view.dom.getClientRects().length > 0 || typeof ResizeObserver !== 'function') return false;
+		if (!showWatch) {
+			showWatch = new ResizeObserver(() => {
+				if (view.dom.getClientRects().length === 0) return;
+				showWatch.disconnect();
+				showWatch = null;
+				view.dispatch({ effects: admissionChanged.of(null) });
+			});
+			showWatch.observe(view.dom);
+		}
+		return true;
+	};
 	const lintSource = async (view) => {
 		if (!vocab) return [];
+		if (hiddenNow(view)) return [];
 		const src = view.state.doc.toString();
 		if (!readFrontMatter(src).validate) return []; // deck opted out via front matter
 		if (!lintCoreMod) {
@@ -816,6 +838,7 @@ export function createEditor({ parent, doc = '', onChange, onCursor, onSelection
 		focus: () => view.focus(),
 		destroy: () => {
 			globalThis.removeEventListener?.('lattice:plugin-defaults', relint);
+			showWatch?.disconnect();
 			view.destroy();
 		},
 		// Toggle deck-grammar autocomplete live (workspace preference). Reconfigures

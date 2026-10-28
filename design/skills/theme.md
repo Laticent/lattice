@@ -133,7 +133,7 @@ A theme is one CSS file that declares **CSS custom properties (tokens) only** an
 4. **Build & verify both canvases**: render the baseline gallery and a Mermaid deck
    in light and dark. Give the manifest **`"role": "base"`**: `test/unit/palette/token-parity.test.js`
    builds its `THEMES` list from the manifests (`baseThemeNames()` in `test/helpers/palette.js`),
-   so that one field is what enrolls your theme in the full 98-token contract. There is no list
+   so that one field is what enrolls your theme in the full 108-token contract. There is no list
    to edit there. Add the theme's two stylesheets to `.vscode/settings.json` under
    `markdown.marp.themes`, which is still a hand list. (`contrast.test.js`
    is hardcoded to `['indaco','cuoio']` by design — sibling palettes ride the indaco
@@ -233,7 +233,7 @@ within OKLab 0.030 of `--text-body` — a quiet tier has to be quieter, and a co
 floor alone cannot say that.)
 
 But those 11 are the floor, not the contract. A **from-scratch theme must define
-the full 98-token contract directly** (the `CONTRACT` list in
+the full 108-token contract directly** (the `CONTRACT` list in
 `test/unit/palette/token-parity.test.js`) or the untuned tokens fall back to
 indaco's cascade values and your deck renders code, diagrams, and categoricals in
 *indaco's* colors — a mediocre "indaco in disguise" that still lints clean. Beyond
@@ -250,7 +250,7 @@ rather than by eye. Also define **all 12**
 `--cat-N-fill` / `--cat-N-mark` pairs (the skeleton shows only cat-1); `--text-display`,
 `--text-label`, `--code-text`; `--pass-bg` / `--fail-bg` / `--warn-bg`; the
 `--scheme-dark-*` block; the `--diagram-*` semantic palette; `--c-container` /
-`--c-subcontainer`; the `--chart-cat1..8` / `--chart-state-*` chart palette; and
+`--c-subcontainer`; the `--chart-cat1..8` / `--chart-neutral-mark` chart palette; the status inks `--pass` … `--mute`; the status FILLS `--pass-mark` … `--mute-mark` and their vivid twins, the two exceptions' SIGNAL rings `--warn-signal-mark` and `--fail-signal-mark`, and the one ink on every fill, `--on-mark`, white (base.tokens.css § STATUS, IN TWO JOBS; run `node tools/curate-chart-solids.js` rather than picking them by eye); and
 `--seq-500`, the sequential ramp's anchor. That last one is a `light-dark()`
 **pair**, and BOTH arms must sit mid-range on their own canvas — the engine
 derives nine more stops from it, receding toward `--seq-pole-low` and advancing
@@ -263,7 +263,7 @@ largest subject to every painted stop clearing 3:1 — and check where the stops
 LAND, not where the anchor sits: `node tools/composed-contrast.js <name>`.
 **Note:** `token-parity` only checks the themes *listed* in its `THEMES` array — so
 until you add your theme there, a passing `npm test` does **not** prove the contract
-is complete. The 12 `--cat-N-texture` tokens are **not** in this 98-token contract —
+is complete. The 12 `--cat-N-texture` tokens are **not** in this 108-token contract —
 texture is an *optional* adoption channel (recipe step 5), declared only by a
 monochrome/CVD theme.
 
@@ -331,7 +331,7 @@ The **dark variant in full** — this is the whole file:
       per-slide `_class: dark` while the pinned chips stay put.
 - [ ] `<name>-dark.css` is the 3-line wrapper.
 - [ ] Gallery + mermaid gallery rendered in light AND dark and looked at.
-- [ ] Full 98-token contract defined directly (not just the 11 core) — all 12
+- [ ] Full 108-token contract defined directly (not just the 11 core) — all 12
       `--cat-*` pairs, all `--syntax-*`, `--chart-*`, `--diagram-*`, `--seq-500`.
 - [ ] `--seq-500`'s DARK arm re-anchored at OKLab L 0.68 in your own hue (not the
       dark `--accent`, which is near-white by design and leaves the derived stops

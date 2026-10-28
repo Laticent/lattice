@@ -27,22 +27,22 @@ export const CLAIMS: ClaimEntry[] = [
 	{
 		name: 'framed', label: 'Framed',
 		blurb: 'The standard frame — content sits inside the usual margins. The default.',
-		swatch: { background: block('60% 46%', 22) },
+		swatch: { background: block('60% 46%', 40) },
 	},
 	{
 		name: 'quiet', label: 'Quiet',
 		blurb: 'A restrained frame — less presence around the content, for dense or serial slides.',
-		swatch: { background: block('52% 38%', 14) },
+		swatch: { background: block('52% 38%', 30) },
 	},
 	{
 		name: 'hero', label: 'Hero',
 		blurb: 'The content claims the slide — a larger, more assertive frame for a statement.',
-		swatch: { background: block('76% 60%', 30) },
+		swatch: { background: block('76% 60%', 52) },
 	},
 	{
 		name: 'bleed', label: 'Bleed',
 		blurb: 'Content runs to the slide edges, with no frame at all.',
-		swatch: { background: block('100% 100%', 26) },
+		swatch: { background: block('100% 100%', 46) },
 	},
 ];
 

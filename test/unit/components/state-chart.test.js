@@ -225,6 +225,16 @@ describe('state chart — the adapter', () => {
     }
   });
 
+  test('its status marks are the kernel\'s', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib/components/chart/state-chart/state-chart.layout.js'), 'utf8');
+    const kernel = require('../../../lib/core/status-marks.js');
+    for (const name of ['STATUS_MARK', 'MARK_PATH']) {
+      const block = new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n  \\});`).exec(src)[1];
+      // eslint-disable-next-line no-new-func
+      assert.deepEqual(new Function(`return ${block}`)(), { ...kernel[name] }, `${name} matches lib/core/status-marks.js`);
+    }
+  });
+
   test('the serialized pass parses, imports nothing and closes over nothing', () => {
     const js = browserJs();
     assert.doesNotMatch(js, /\brequire\(/);

@@ -2,7 +2,7 @@
 /**
  * chart-style-catalog — what style each chart ACTUALLY paints, measured.
  *
- * The family has no chart-finish register (grep chart-finish -> 0), so every
+ * The family has no marks register (grep chart-finish -> 0), so every
  * member paints whatever its own file says and nothing reconciles them. This
  * reads the rendered gallery and reports body shape, body depth and edge depth
  * per member, which is the baseline any finish work starts from: a finish

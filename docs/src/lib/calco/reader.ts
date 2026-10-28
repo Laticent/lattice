@@ -1093,7 +1093,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			/** A sized layer drawn as a second shape above this box (a stripe over a colored panel). */
 			extra?: { rect: Rect; fill: Paint; gradient?: Gradient };
 			radii: [number, number, number, number];
-			sides: Array<(Paint & { width: number }) | null>;
+			sides: Array<(Paint & { width: number; dash?: 'dash' | 'dot' }) | null>;
 			shadow: Shadow | null;
 			/** Fill, outline or shadow: the box covers its area, not just its edges. */
 			covers: boolean;
@@ -1103,9 +1103,16 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			mark?: Shape;
 			/** An outline drawn just outside the box (`box-shadow: 0 0 0 Wpx`). */
 			outerRing?: Paint & { width: number };
+			/** Hard-edged shadows under the box (struck elevation), each a solid box. */
+			struck?: Array<Paint & { x: number; y: number; spread: number }>;
+			/** Hard inset bands along the inner top (y > 0) and bottom (y < 0) edges: a highlight and a shade. */
+			rims?: Array<Paint & { y: number }>;
 		}
 		const candidates: Candidate[] = [];
 		const SIDES = ['Top', 'Right', 'Bottom', 'Left'] as const;
+		// The border styles a native line draws: solid, and the two dash patterns. `double`, `groove` and the rest are
+		// drawn by the browser in ways an office line cannot repeat, so they stay in the picture.
+		const LINE_STYLES = new Set(['solid', 'dashed', 'dotted']);
 		const CORNERS = ['TopLeft', 'TopRight', 'BottomRight', 'BottomLeft'] as const;
 		const splitTop = (v: string) => {
 			const out: string[] = [];
@@ -1126,8 +1133,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		// inset ring (no offset, no blur, a spread) is a border drawn inside the edge, which is
 		// how a tag outlines itself without moving its text: it comes back as `ring`. `false`
 		// when a layer is neither (an inner glow, an outer spread).
-		const shadowOf = (v: string, opacity: number): { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null; stacked?: boolean } | false => {
-			const out: { outer: Shadow | null; ring: (Paint & { width: number }) | null; outerRing: (Paint & { width: number }) | null; stacked?: boolean } = { outer: null, ring: null, outerRing: null };
+		type Shadows = {
+			outer: Shadow | null;
+			ring: (Paint & { width: number }) | null;
+			outerRing: (Paint & { width: number }) | null;
+			stacked?: boolean;
+			/** Hard-edged outer layers (no blur, an offset): each is a solid copy of the box, moved and grown by its spread. */
+			struck: Array<Paint & { x: number; y: number; spread: number }>;
+			/** Hard inset layers offset straight down or up (no blur, no spread): a band along that inner edge, one per edge. */
+			rims: Array<Paint & { y: number }>;
+		};
+		const shadowOf = (v: string, opacity: number): Shadows | false => {
+			const out: Shadows = { outer: null, ring: null, outerRing: null, struck: [], rims: [] };
 			if (!v || v === 'none') return out;
 			for (const layer of splitTop(v)) {
 				const color = layer.match(/^((?:rgba?|color|oklab|oklch|lab|lch|hsla?|hwb)\([^)]*\)|#[0-9a-f]+|[a-z]+)\s*/i);
@@ -1138,8 +1155,20 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				// A layer that draws nothing (every length zero) is no layer.
 				if (!x && !y && !blur && !spread) continue;
 				if (/\binset\b/.test(rest)) {
+					// The engine's struck elevation lights the top inner edge with a hard band and shades the bottom
+					// one: one band per edge, so a second band on the same edge is not this recipe.
+					if (!x && y && !blur && !spread && !out.rims.some((r) => r.y > 0 === y > 0)) {
+						out.rims.push({ ...paint, y });
+						continue;
+					}
 					if (x || y || blur || !(spread > 0) || out.ring) return false;
 					out.ring = { ...paint, width: spread };
+					continue;
+				}
+				// STRUCK ELEVATION (base.tokens.css --elevation-recipe): no blur, an offset, shaped by its spread. It is a
+				// solid copy of the box under it, exact as a native shape, so it is never approximated.
+				if (!blur && (x || y)) {
+					out.struck.push({ ...paint, x, y, spread: spread || 0 });
 					continue;
 				}
 				// An outer spread with no offset or blur is a ring just outside the box: an outline.
@@ -1393,17 +1422,27 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const st = cs[`border${sd}Style`];
 				if (!(width > 0) || st === 'none' || st === 'hidden') return null;
 				const p = paintOf(cs[`border${sd}Color`], op);
-				return p ? { ...p, width, style: st } : null;
+				// A dashed or dotted side is the same line with a dash pattern, which both office formats draw natively.
+				const dash = st === 'dashed' ? { dash: 'dash' as const } : st === 'dotted' ? { dash: 'dot' as const } : {};
+				return p ? { ...p, width, style: st, ...dash } : null;
 			});
 			const approx: string[] = [];
 			if (fill && [cs.backdropFilter, cs.webkitBackdropFilter].some((v) => v && v !== 'none')) approx.push('backdrop-blur');
 			let shadow: Shadow | null | false = null;
 			let outerRing: (Paint & { width: number }) | null = null;
+			let struck: Shadows['struck'] = [];
+			let rims: Shadows['rims'] = [];
 			const shadows = shadowOf(cs.boxShadow, op);
 			if (shadows === false) shadow = false;
 			else {
 				shadow = shadows.outer;
 				outerRing = shadows.outerRing;
+				struck = shadows.struck;
+				rims = shadows.rims;
+				// A hard shadow under a translucent fill would show through it in an office suite, where CSS clips it to
+				// outside the box; and the highlight band is drawn straight across, its ends not following the corners.
+				if (struck.length && !(fill && fill.alpha >= 1)) shadow = false;
+				if (rims.length) approx.push('inset-highlight');
 				if (shadows.stacked) approx.push('stacked-shadow');
 				// A ring inside a border would be a second outline: that box stays a picture.
 				if (shadows.ring && sides.some(Boolean)) shadow = false;
@@ -1417,7 +1456,10 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			if (shadow && !(fill && fill.alpha >= 1)) shadow = false;
 			const image = (!layer && cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
 			const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
-			if (!(fill || image || outline || shadow !== null || outerRing || sides.some(Boolean))) return null;
+			if (!(fill || image || outline || shadow !== null || outerRing || struck.length || sides.some(Boolean))) return null;
+			// A box with no area paints nothing of its own (its border box IS its paint): a rule of zero length, such as
+			// a plumb line at the top of its range. Only what draws OUTSIDE the box would still show.
+			if (!(rect.w > 0 && rect.h > 0) && !outline && !outerRing && !(shadow && (shadow.x || shadow.y || shadow.blur))) return null;
 			// Corner radii: circular only, `%` resolved, scaled down as CSS scales them.
 			const rx = CORNERS.map((c) => {
 				const parts = (cs[`border${c}Radius`] || '0px').split(/\s+/);
@@ -1474,7 +1516,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				}
 			}
 			const plain =
-				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || sd.style === 'solid') &&
+				!image && !outline && !clipBad && shadow !== false && circular && rect.w >= 1 && rect.h >= 1 && sides.every((sd) => !sd || LINE_STYLES.has(sd.style)) &&
 				cs.backgroundClip !== 'text' && !effected(owner) && unclipped(owner, rect, tag === 'pseudo') && tag !== 'html' && tag !== 'body';
 			const why = plain
 				? ''
@@ -1484,16 +1526,18 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 						clipBad && 'bg-clip',
 						shadow === false && 'shadow',
 						!circular && 'elliptical-radius',
-						!sides.every((sd) => !sd || sd.style === 'solid') && 'border-style',
+						!sides.every((sd) => !sd || LINE_STYLES.has(sd.style)) && 'border-style',
 						cs.backgroundClip === 'text' && 'clip-text',
 						effected(owner) && 'effect',
 						!unclipped(owner, rect, tag === 'pseudo') && 'overflow-clipped',
 					]
 						.filter(Boolean)
 						.join('+') || 'other';
-			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, approx, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width } : null)), shadow: shadow || null, covers: false };
+			const box: Candidate = { el: owner, rect: shape, alpha: op, fill, gradient: !extra ? layer?.gradient || undefined : undefined, extra, approx, radii, sides: sides.map((sd) => (sd ? { color: sd.color, alpha: sd.alpha, width: sd.width, ...(sd.dash ? { dash: sd.dash } : {}) } : null)), shadow: shadow || null, covers: false };
 			box.covers = !!fill || !!box.shadow || box.sides.every(Boolean);
 			if (outerRing) box.outerRing = outerRing;
+			if (struck.length) box.struck = struck;
+			if (rims.length) box.rims = rims;
 			return { plain, box, why };
 		};
 
@@ -1723,12 +1767,22 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			// Only <path>: a circle or a text node in the mask would be dropped.
 			if (!paths.length || dom.querySelectorAll('*').length !== paths.length + 1) return null;
 			if ((ps.maskRepeat || ps.webkitMaskRepeat || 'no-repeat').split(/\s+/).some((v) => v !== 'no-repeat')) return null;
+			// Every size below is placed CENTERED in the box, so a mask placed anywhere else is not this shape.
+			const pos = (ps.maskPosition || ps.webkitMaskPosition || '50% 50%').trim();
+			if (!/^50%\s+50%$/.test(pos)) return null;
 			const size = (ps.maskSize || ps.webkitMaskSize || 'auto').trim();
 			let sx = r.w / vb[2];
 			let sy = r.h / vb[3];
+			const pct = size.match(/^(\d+(?:\.\d+)?)%(?:\s+(\d+(?:\.\d+)?)%)?$/);
 			if (size === 'contain' || size === 'auto' || size === 'auto auto') {
 				// Uniform, centered (mask-position 50% 50%).
 				const s = size === 'auto' || size === 'auto auto' ? 1 : Math.min(sx, sy);
+				sx = s;
+				sy = s;
+			} else if (pct && !(pct[1] === '100' && (pct[2] ?? '100') === '100')) {
+				// A mark drawn at a share of its box (a status glyph at 72% of its disc): the image fills that centered
+				// area and the SVG meets it uniformly, as the browser draws a viewBox with the default aspect ratio.
+				const s = Math.min((r.w * Number(pct[1])) / 100 / vb[2], (r.h * Number(pct[2] ?? pct[1])) / 100 / vb[3]);
 				sx = s;
 				sy = s;
 			} else if (!/^100%\s+100%$/.test(size)) return null;
@@ -1998,7 +2052,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 		const unlift = (c: Candidate, reason: string, by?: Item) => {
 			const cover = coverOf(c);
 			lifted.delete(c);
-			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0), kind: 'refused-box' });
+			items.push({ node: c.el, owner: c.el, rect: c.rect, paintOf: c.el, bleed: Math.max(c.shadow ? Math.ceil(c.shadow.blur + Math.max(Math.abs(c.shadow.x), Math.abs(c.shadow.y))) : 0, c.outerRing ? Math.ceil(c.outerRing.width) : 0, ...(c.struck || []).map((st) => Math.ceil(Math.max(Math.abs(st.x), Math.abs(st.y)) + st.spread))), kind: 'refused-box' });
 			if (options?.diagnose) {
 				const above_ = by || items.find((p) => p.node !== c.el && cover.some((r) => overlaps(r, p.rect)) && above(p, c.el));
 				const own = items.find((p) => p.node === c.el && p.kind !== 'refused-box' && cover.some((r) => overlaps(r, p.rect)));
@@ -2117,7 +2171,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			}
 		}
 
-		const same = (a: Paint & { width: number }, b: Paint & { width: number }) => a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01;
+		const same = (a: Paint & { width: number; dash?: string }, b: Paint & { width: number; dash?: string }) =>
+			a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01 && a.dash === b.dash;
 		const order = paintOrder();
 		// Pictures go in at their place in the paint order, each one in the group of the card it sits in.
 		const emitPictures = (at: number) => {
@@ -2152,6 +2207,25 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				// A side thinner than the outline would show the outline on both sides of it.
 				if (all.some((sd) => sd.width < (stroke as Paint & { width: number }).width)) stroke = undefined;
 			}
+			// Struck elevation: each hard shadow is the box again, moved by its offset and grown by its spread (shrunk,
+			// when the spread is negative, as the engine's recipe shapes it), painted UNDER the box.
+			for (const st of c.struck || []) {
+				const g = st.spread;
+				const sw = w + 2 * g;
+				const sh = h + 2 * g;
+				if (!(sw > 0 && sh > 0)) continue;
+				shapes.push({
+					kind: 'box',
+					x: x + st.x - g,
+					y: y + st.y - g,
+					w: sw,
+					h: sh,
+					radii: c.radii.map((v) => Math.max(0, Math.round((v + g) * 100) / 100)) as Candidate['radii'],
+					fill: { color: st.color, alpha: st.alpha },
+					pseudo: true,
+				});
+				shapeEls.push(c.el);
+			}
 			if (c.fill || stroke || c.shadow) {
 				const box: Shape = { kind: 'box', x, y, w, h, radii: c.radii };
 				if (c.fill) box.fill = c.fill;
@@ -2166,6 +2240,23 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 					const tileShape: Shape = { kind: 'box', x: e.rect.x, y: e.rect.y, w: e.rect.w, h: e.rect.h, radii: [0, 0, 0, 0], fill: e.fill };
 					if (e.gradient) tileShape.gradient = e.gradient;
 					shapes.push(tileShape);
+					shapeEls.push(c.el);
+				}
+			}
+			// The inset bands: each along the inner top or bottom edge, inside the border, between the corners.
+			for (const rim of c.rims || []) {
+				const bt = c.sides[0]?.width || 0;
+				const bb = c.sides[2]?.width || 0;
+				const bl = c.sides[3]?.width || 0;
+				const br = c.sides[1]?.width || 0;
+				const band = Math.abs(rim.y);
+				const top = rim.y > 0;
+				const [rl, rr] = top ? [c.radii[0], c.radii[1]] : [c.radii[3], c.radii[2]];
+				const x0 = x + Math.max(bl, rl);
+				const x1 = x + w - Math.max(br, rr);
+				if (x1 > x0) {
+					const ly = top ? y + bt + band / 2 : y + h - bb - band / 2;
+					shapes.push({ kind: 'line', x: x0, y: ly, w: x1 - x0, h: 0, stroke: { color: rim.color, alpha: rim.alpha, width: band }, side: top ? 'top' : 'bottom', pseudo: true });
 					shapeEls.push(c.el);
 				}
 			}

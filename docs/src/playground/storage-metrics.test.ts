@@ -2,11 +2,14 @@
 // localStorage; the async APIs (Storage estimate, Cache Storage) aren't in jsdom,
 // so those functions are asserted to degrade to null rather than throw.
 
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { COMMENTS_KEY_PREFIX } from '@/components/studio/slide-comments';
 // Import the REAL key prefixes so the category matchers are drift-tested against
 // their source, not against strings this test independently re-declares.
-import { CHAT_DRAFT_PREFIX, CHAT_PREFIX, SNAP_PREFIX, SRC_PREFIX } from '@/components/studio/studio-store';
+import { CHAT_DRAFT_PREFIX, CHAT_PREFIX, DECK_CONTENT_PREFIXES, SNAP_PREFIX, SRC_PREFIX } from '@/components/studio/studio-store';
 import { PG_SNAPSHOT_KEY, SNAPSHOT_KEY } from './snapshot-cache';
 import { BYTES_PER_UNIT, estimateQuota, formatBytes, formatMs, rate, scanCaches, scanLocalStorage } from './storage-metrics';
 
@@ -52,8 +55,8 @@ describe('scanLocalStorage', () => {
 	// from studio-store's key prefixes. Assert each REAL prefix (imported from its source)
 	// still routes to its DEDICATED category — so renaming a prefix in studio-store, or a
 	// matcher falling out of sync, fails here instead of silently dumping that data into
-	// the 'app' catch-all and rotting the breakdown. A brand-new content prefix with no
-	// const of its own still can't be caught automatically (logged follow-up).
+	// the 'app' catch-all and rotting the breakdown. A brand-new content prefix is caught by the
+	// two tests after this one, which read studio-store's canonical list (#1930).
 	it('every real studio-store content prefix routes to its dedicated category (no catch-all drift)', () => {
 		const cases: [string, string][] = [
 			[`${SRC_PREFIX}deck1`, 'sources'],
@@ -70,6 +73,30 @@ describe('scanLocalStorage', () => {
 			const [cat] = scanLocalStorage().categories;
 			expect(cat.key, `${key} should route to '${expected}', not the '${cat.key}' catch-all`).toBe(expected);
 		}
+	});
+
+	it('every prefix in studio-store DECK_CONTENT_PREFIXES routes to a dedicated category', () => {
+		expect(DECK_CONTENT_PREFIXES.length).toBeGreaterThanOrEqual(5);
+		for (const prefix of DECK_CONTENT_PREFIXES) {
+			localStorage.clear();
+			localStorage.setItem(`${prefix}deck1`, 'v');
+			const [cat] = scanLocalStorage().categories;
+			expect(['app', 'other'], `${prefix} lands in the '${cat.key}' catch-all`).not.toContain(cat.key);
+		}
+	});
+
+	it('every lattice-studio-…- prefix literal in the deck stores is in DECK_CONTENT_PREFIXES', () => {
+		// A NEW content prefix is a string literal first; reading the sources catches one that was
+		// never exported, which the import-based test above cannot see. A future NON-content key
+		// prefix in these files would trip this too: give it a name outside `lattice-studio-…-`
+		// or narrow the scan, rather than adding it to the list (clearAllDecks sweeps the list).
+		const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'components', 'studio');
+		const literals = new Set<string>();
+		for (const file of ['studio-store.ts', 'slide-comments.ts', 'checkpoint-store.ts']) {
+			for (const m of readFileSync(join(dir, file), 'utf8').matchAll(/['"`](lattice-studio-[a-z0-9-]*-)['"`]/g)) literals.add(m[1]);
+		}
+		expect(literals.size).toBeGreaterThanOrEqual(5);
+		for (const lit of literals) expect(DECK_CONTENT_PREFIXES, `${lit} is a key prefix the content sweeps do not know`).toContain(lit);
 	});
 
 	it('reports the single largest entry', () => {

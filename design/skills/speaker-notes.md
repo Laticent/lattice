@@ -123,8 +123,13 @@ field of every format, on slides whose author had written no note at all.
 
 **A note comment shown inside a code fence is safe.** A deck that documents this syntax
 keeps its sample: `--strip-notes` matches a note body *in a position where a note can
-live*, so a `<!-- … -->` inside a fenced block or an inline code span is left alone even
-when the same words are a real note elsewhere in the deck.
+live*, so a `<!-- … -->` inside a fenced block, an indented code block (four spaces or a
+tab) or an inline code span is left alone even when the same words are a real note elsewhere
+in the deck. The scan reads code the way markdown-it does: a fence right under a one-line
+comment or a `<span>…</span>` line is still a fence, and an indented line that continues a
+paragraph or sits under a list item is not code, so a note there is still removed. Inline code
+follows CommonMark too: a run of backticks closes only on a run of the same length, an escaped
+backtick opens nothing, and backticks inside a raw HTML block are markup, not code.
 
 ---
 

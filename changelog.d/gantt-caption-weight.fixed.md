@@ -1,0 +1,1 @@
+- **gantt:** bar and milestone captions are weight 500 instead of 600, so they no longer match the lane names. The lane name keeps 600 and the item inside it reads one step lighter, as `.quadrant-dot-label` and flowchart node labels already do.

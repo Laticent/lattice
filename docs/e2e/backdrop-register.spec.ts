@@ -28,9 +28,9 @@ for (const tag of ['', ' @webkit-tablet']) {
 		await expect.poll(() => persistedSource(page)).toMatch(/\\nbackdrop: (\\"40 clear\\"|40 clear)\\n/);
 		// Both halves back to Auto removes the key rather than writing an empty value.
 		await page.getByRole('combobox', { name: 'Backdrop strength' }).click();
-		await page.getByRole('option', { name: "Finish's own" }).click();
+		await page.getByRole('option', { name: "Auto — Finish's own" }).click();
 		await page.getByRole('combobox', { name: 'Backdrop mask' }).click();
-		await page.getByRole('option', { name: "Finish's own" }).click();
+		await page.getByRole('option', { name: "Auto — Finish's own" }).click();
 		await expect.poll(() => persistedSource(page)).not.toContain('backdrop:');
 	});
 

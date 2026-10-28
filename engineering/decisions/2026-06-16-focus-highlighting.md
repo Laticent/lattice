@@ -146,7 +146,8 @@ mask-image** (§6).
 | **spotlight** | recede the rest (dim `.lat-recede`), lift the target | lists, grids, code, prose | ✅ |
 | **ring** | accent outline on target, **no dimming, no layout shift** | data tables (keeps comparison legible) | ✅ |
 | **list-fill** | accent-soft **fill** on the target item, rest untouched | lists / cards where dimming is too much but you want a "selected" read | ✅ |
-| **blur** | recede the rest by **defocus** (`filter: blur`), target stays sharp | the literal camera-focus; opt-in (added post-ratification, verified to survive PDF + PPTX) | ✅ |
+| **blur** | recede the rest by **defocus** (`filter: blur`), target stays sharp **and in place** | the literal camera-focus; opt-in (added post-ratification, verified to survive PDF + PPTX). Its target lift (a 1.02 scale plus a hard accent shadow) was removed on 2026-10-27 for the fault that removed `pop`: at 1280px it sheared outer cards by up to 14.75px at the stage clip and moved the cards by up to 23px | ✅ |
+| **highlight** | accent **tint + edge** on the target (cards, rows, columns, cells, code lines; an edge on a chart mark and a heavier line on a series), rest untouched, no weight or size change; the `verdict-grid` `preferred` look without the spark (added 2026-10, replacing `pop`) | when dimming is too much and a bare ring or fill is too faint | ✅ |
 | pointer | margin caret at the target, nothing dimmed/filled | tables where even a fill is too much | deferred |
 | lift | fill + weight + accent bar on target | tables, middle ground | deferred |
 | both | spotlight + ring | a single "this one number" climax | deferred |
@@ -166,7 +167,7 @@ is the precise signal:
   list-fill -->`; the named style always wins over the auto default.
 
 This is the confirmed decision: *content-aware default, with `spotlight`,
-`ring`, and `list-fill` as explicit variants.*
+`ring`, and `list-fill` as explicit variants.* (`blur` and `highlight` joined later; `pop` was removed before GA because it scaled the target and cast a shadow past its edge, which moved the layout and clipped at the stage.)
 
 ### 5.3 CSS contract & tokens
 

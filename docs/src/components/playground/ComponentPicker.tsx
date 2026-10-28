@@ -67,14 +67,20 @@ export function ComponentPicker({
 	onPick: (name: string) => void;
 }) {
 	const [open, setOpen] = React.useState(false);
-	const index = React.useMemo(() => makeSearchIndex(components), [components]);
+	// BUILT ON THE FIRST QUERY, not at mount. `rankedFor` reads the index only once the box holds two or more
+	// characters, and building it at mount cost 160 ms of the Playground's 748 ms hydration task on the phone
+	// profile (4x CPU), for every visitor, most of whom never search (2026-10-26-lighthouse-home-runtime-prefetch.md §12).
+	const getIndex = React.useMemo(() => {
+		let built: ReturnType<typeof makeSearchIndex> | null = null;
+		return () => (built ??= makeSearchIndex(components));
+	}, [components]);
 
 	// MEMOIZED, not recomputed per render. `rankedFor` runs Fuse and a BM25 pass over the
 	// whole catalog, and this component re-renders with its parent — which, now that the
 	// walk index follows the reader's scroll, is once per animation frame while they are
 	// scrolling the deck. Unmemoized that is a full search per frame for as long as a
 	// query is in the box, on the same thread as the scroll (#2124).
-	const ranked = React.useMemo(() => rankedFor(components, index, query), [components, index, query]);
+	const ranked = React.useMemo(() => (query.trim().length >= 2 ? rankedFor(components, getIndex(), query) : null), [components, getIndex, query]);
 	const lens = lenses.find((l) => l.id === lensId) ?? lenses[0];
 	const groups = React.useMemo(() => (ranked ? null : groupBy(components, lens)), [ranked, components, lens]);
 

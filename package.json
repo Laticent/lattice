@@ -74,7 +74,6 @@
     "TRADEMARKS.md",
     "!**/*.pdf",
     "!**/*.gallery.md",
-    "!dist/fonts/noto-color-emoji.ttf",
     "!dist/marp-kit/",
     "!dist/agent-kit/",
     "!dist/engineering/"
@@ -240,10 +239,10 @@
     "conformance:render": "node tools/conformance-render.js",
     "conformance:office": "node tools/office-conformance.js",
     "check:chart-fit": "node tools/check-chart-fit.js",
+    "check:chart-finish-reach": "node tools/chart-finish-reach.mjs --check",
     "check:jank": "node tools/check-jank.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",
-    "fonts:emoji": "node tools/fetch-emoji-font.js",
     "fonts:measure": "node tools/measure-glyph-advances.js",
     "build:galleries": "node tools/build-galleries.js",
     "build:galleries:check": "node tools/build-galleries.js --check",
@@ -279,6 +278,7 @@
     "overflow:check": "node tools/check-overflow-corpus.js",
     "css:values": "node tools/check-css-values.js",
     "overflow:bless": "node tools/check-overflow-corpus.js --bless",
+    "verify:narrated-player": "node tools/verify-narrated-player.mjs",
     "geometry:check": "node tools/check-geometry-parity.js --scaled",
     "oracle:bless": "node tools/bless-split-oracle.js",
     "oracle:check": "node tools/bless-split-oracle.js --check",
@@ -419,6 +419,7 @@
     "prettier": "3.9.10",
     "prettier-plugin-java": "2.11.0",
     "sql-formatter": "15.9.0",
+    "fontverter": "^2.0.0",
     "subset-font": "^2.5.0"
   }
 }

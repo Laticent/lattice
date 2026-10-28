@@ -42,6 +42,8 @@ export interface TextStyle {
 	ligatures: boolean;
 	/** CSS `font-variant-caps: small-caps` (or `all-small-caps`). */
 	smallCaps?: boolean;
+	/** Set by `splitEmojiRuns` on the run an emoji was split out into: it draws in an emoji face, and leaves a line's height to the text. */
+	emoji?: boolean;
 }
 
 /** A stretch of text in one style. `text` is the SOURCE text, before `transform`. */
@@ -138,7 +140,8 @@ export interface Shape {
 	fill?: Paint;
 	/** A linear gradient the box is filled with. `fill` then holds a stand-in color for a reader that ignores it. */
 	gradient?: Gradient;
-	stroke?: Paint & { width: number };
+	/** `dash` is a CSS `dashed` or `dotted` border; absent, the stroke is solid. */
+	stroke?: Paint & { width: number; dash?: 'dash' | 'dot' };
 	shadow?: Shadow;
 	/** A line: the side of its box it was. */
 	side?: 'top' | 'right' | 'bottom' | 'left';

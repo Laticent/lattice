@@ -31,4 +31,37 @@ async function ttf(file = 'outfit-400') {
   return new Uint8Array(await decompress(fs.readFileSync(path.join(__dirname, '../../../assets/fonts', `${file}.woff2`))));
 }
 
-module.exports = { ONE_PX_PNG, ONE_PX_JPEG, style, frame, ttf };
+/**
+ * A minimal sfnt with only head, hhea and OS/2 — enough for the metric and license reads.
+ * `hhea` and the typographic metrics DIFFER, so a read from the wrong table (or offset)
+ * fails the test, which the real Outfit face (hhea == typo) could not show.
+ */
+function synthFont({ useTypo = true, fsType = 0, headAt, hheaAt } = {}) {
+  const tables = { head: 54, hhea: 36, 'OS/2': 78 };
+  const names = Object.keys(tables);
+  const dirLen = 12 + names.length * 16;
+  const offsets = {};
+  let at = dirLen;
+  for (const n of names) { offsets[n] = at; at += tables[n]; }
+  const buf = new Uint8Array(at);
+  const v = new DataView(buf.buffer);
+  v.setUint32(0, 0x00010000);
+  v.setUint16(4, names.length);
+  names.forEach((n, i) => {
+    const rec = 12 + i * 16;
+    for (let k = 0; k < 4; k++) buf[rec + k] = n.charCodeAt(k);
+    const off = n === 'head' && headAt !== undefined ? headAt : n === 'hhea' && hheaAt !== undefined ? hheaAt : offsets[n];
+    v.setUint32(rec + 8, off);
+    v.setUint32(rec + 12, tables[n]);
+  });
+  v.setUint16(offsets.head + 18, 2000); // unitsPerEm
+  v.setInt16(offsets.hhea + 4, 1800); // hhea ascent  → 0.9
+  v.setInt16(offsets.hhea + 6, -400); // hhea descent → 0.2
+  v.setUint16(offsets['OS/2'] + 8, fsType);
+  v.setUint16(offsets['OS/2'] + 62, useTypo ? 0x80 : 0); // fsSelection USE_TYPO_METRICS
+  v.setInt16(offsets['OS/2'] + 68, 1600); // typo ascender  → 0.8
+  v.setInt16(offsets['OS/2'] + 70, -600); // typo descender → 0.3
+  return buf;
+}
+
+module.exports = { ONE_PX_PNG, ONE_PX_JPEG, style, frame, ttf, synthFont };

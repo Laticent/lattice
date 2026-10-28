@@ -16,6 +16,7 @@ export type EyebrowEntry = {
 };
 
 const AC = 'var(--accent)';
+const stroke = (dir: string) => `linear-gradient(${dir}, transparent calc(50% - 1px), ${AC} calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px))`;
 
 // Ordered as the picker shows them. `plain` is the named baseline (the bare label).
 export const EYEBROWS: EyebrowEntry[] = [
@@ -27,7 +28,7 @@ export const EYEBROWS: EyebrowEntry[] = [
 	{
 		name: 'dot', label: 'Dot',
 		blurb: 'A small filled accent dot before the label.',
-		swatch: { background: `radial-gradient(circle at 4px 50%, ${AC} 0 3px, transparent 3.5px), var(--bg)` },
+		swatch: { background: `radial-gradient(circle at 4px 50%, ${AC} 0 3px, transparent 3.5px) no-repeat, var(--bg)` },
 	},
 	{
 		name: 'bar', label: 'Bar',
@@ -37,12 +38,14 @@ export const EYEBROWS: EyebrowEntry[] = [
 	{
 		name: 'arrow', label: 'Arrow',
 		blurb: 'A leading chevron (›) in the accent color.',
-		swatch: { background: `linear-gradient(45deg, transparent 46%, ${AC} 46% 54%, transparent 54%) 1px 50% / 7px 7px no-repeat, var(--bg)` },
+		// Two diagonal strokes meeting at a point — a real chevron. Each half is its own tile:
+		// a `to <corner>` gradient puts its 50% line through the other two corners.
+		swatch: { background: `${stroke('to bottom left')} 4px 3px / 6px 5px no-repeat, ${stroke('to top left')} 4px 8px / 6px 5px no-repeat, var(--bg)` },
 	},
 	{
 		name: 'underline', label: 'Underline',
 		blurb: 'A hairline rule beneath the label.',
-		swatch: { background: 'linear-gradient(var(--border), var(--border)) left bottom / 60% 1.5px no-repeat, var(--bg)' },
+		swatch: { background: 'linear-gradient(var(--text-muted), var(--text-muted)) 2px 75% / 60% 1.5px no-repeat, var(--bg)' },
 	},
 ];
 

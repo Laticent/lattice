@@ -35,6 +35,10 @@ const FIXTURE = `<!doctype html><html><head><style>
   .counted::before { content: '01'; position: absolute; left: 6px; top: 6px; color: #00a; font-size: 14px; }
   .oddmask { position: absolute; left: 40px; top: 340px; width: 80px; height: 40px; background: #eef; }
   .oddmask::after { content: ''; position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; background-color: #a0a; -webkit-mask: ${CIRCLE} center / 100% 100% no-repeat; mask: ${CIRCLE} center / 100% 100% no-repeat; }
+  .disc { position: absolute; left: 340px; top: 340px; width: 24px; height: 24px; border-radius: 50%; background: #0a5; }
+  .disc::after { content: ''; position: absolute; inset: 0; background-color: #fff; -webkit-mask: ${CHECK} center / 72% 72% no-repeat; mask: ${CHECK} center / 72% 72% no-repeat; }
+  .offdisc { position: absolute; left: 400px; top: 340px; width: 24px; height: 24px; border-radius: 50%; background: #0a5; }
+  .offdisc::after { content: ''; position: absolute; inset: 0; background-color: #fff; -webkit-mask: ${CHECK} left top / 72% 72% no-repeat; mask: ${CHECK} left top / 72% 72% no-repeat; }
   .rot { position: absolute; left: 200px; top: 340px; width: 80px; height: 40px; background: #eef; }
   .rot::before { content: ''; position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; background: #d70; transform: rotate(20deg); }
 </style></head><body>
@@ -45,6 +49,8 @@ const FIXTURE = `<!doctype html><html><head><style>
   <div class="counted" id="counted"></div>
   <div class="oddmask" id="oddmask"></div>
   <div class="rot" id="rot"></div>
+  <div class="disc" id="disc"></div>
+  <div class="offdisc" id="offdisc"></div>
 </section></body></html>`;
 
 const COUNTERS = `<!doctype html><html><head><style>
@@ -191,6 +197,22 @@ describe('calco lifts pseudo-elements in Chromium', () => {
     assert.ok(near(res.shapes[rule].w, 260 - 24), 'as wide as the content box');
   });
 
+  // A status glyph drawn at a share of its disc (`mask-size: 72%`, the engine's roadmap and state discs): the SVG meets
+  // that centered area uniformly, so the path is the check at 0.72 of the disc, centered on it, its stroke scaled too.
+  // Placed off center it is not that shape, and stays in the picture.
+  test('a mask sized to a share of its box lifts as a centered path; one placed off center does not', async () => {
+    const disc = await rectOf('#disc');
+    const k = 24 * 0.72 / 24;
+    const mark = res.shapes.find((s) => s.kind === 'path' && s.x > disc.x && s.x < disc.x + disc.w && s.y > disc.y - 1 && s.y < disc.y + disc.h);
+    assert.ok(mark, `the 72% check is a path: ${JSON.stringify(res.shapes.filter((s) => s.kind === 'path'))}`);
+    assert.ok(near(mark.stroke.width, 2.5 * k, 0.05), `stroke scales with the share: ${mark.stroke.width}`);
+    assert.ok(near(mark.w, 12 * k, 0.1) && near(mark.h, 9 * k, 0.1), `size: ${mark.w} x ${mark.h}`);
+    // The check spans 6..18 of a 24 viewBox, so its box starts 6 units in from the centered area's left edge.
+    assert.ok(near(mark.x, disc.x + (24 - 24 * 0.72) / 2 + 6 * k, 0.1), `centered: x ${mark.x}`);
+    const off = await rectOf('#offdisc');
+    assert.equal(res.shapes.some((s) => s.kind === 'path' && s.x > off.x - 1 && s.x < off.x + off.w), false, 'an off-center mask stays in the picture');
+  });
+
   test('a mask that is not a path, and a rotated pseudo, stay in the picture; generated text is read', async () => {
     const counted = await rectOf('#counted');
     assert.ok(at(counted.x, counted.y, 'box') >= 0, 'a box under generated text lifts: the text is read as text now');
@@ -328,5 +350,106 @@ describe('calco says what it approximated', () => {
 
   test('an inner glow is still not drawn, and nothing is claimed for it', () => {
     assert.equal(at(40, 200), undefined);
+  });
+});
+
+// A dashed or dotted border is a line with a dash pattern, which both office formats draw natively (#2887: a journey
+// plumb line and a key swatch went out as pictures). A `double` border is drawn in a way an office line cannot repeat,
+// so it stays in the picture.
+const DASHES = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; }
+  .plumb { position: absolute; left: 100px; top: 100px; width: 0; height: 60px; border-left: 2px dashed #1e3a5f; }
+  .dots { position: absolute; left: 200px; top: 100px; width: 40px; height: 20px; border: 1px dotted #888; box-sizing: border-box; }
+  .double { position: absolute; left: 300px; top: 100px; width: 40px; height: 20px; border: 4px double #888; box-sizing: border-box; }
+  .flat { position: absolute; left: 400px; top: 100px; width: 0; height: 0; border-left: 2px dashed #1e3a5f; }
+</style></head><body><section id="s"><div class="plumb"></div><div class="dots"></div><div class="double"></div><div class="flat"></div></section></body></html>`;
+
+describe('calco lifts dashed and dotted borders as native dashed lines', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(DASHES, { waitUntil: 'load' });
+    res = await (await page.$('#s')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+
+  test('a dashed side is a line with a dash; a dotted box is a box with a dotted stroke', () => {
+    const plumb = res.shapes.find((s) => s.kind === 'line' && s.side === 'left' && Math.abs(s.x - 101) < 0.6);
+    assert.ok(plumb, `the dashed rule is a line: ${JSON.stringify(res.shapes)}`);
+    assert.equal(plumb.stroke.dash, 'dash');
+    assert.equal(plumb.stroke.width, 2);
+    const dots = res.shapes.find((s) => s.kind === 'box' && Math.abs(s.x - 200) < 0.6);
+    assert.ok(dots, 'the dotted box is a box');
+    assert.equal(dots.stroke?.dash, 'dot');
+  });
+
+  test('a rule of zero length paints nothing, so it is neither a shape nor a refusal', () => {
+    assert.equal(res.shapes.some((s) => Math.abs(s.x - 401) < 1.5), false, JSON.stringify(res.shapes));
+    assert.equal(res.refused.filter((r) => r.w === 2 && r.h === 0).length, 0, JSON.stringify(res.refused));
+  });
+
+  test('a double border stays in the picture', () => {
+    assert.equal(res.shapes.some((s) => s.kind !== 'picture' && Math.abs(s.x - 300) < 0.6), false);
+    assert.ok(res.refused.some((r) => /border-style/.test(r.reason)), JSON.stringify(res.refused));
+  });
+});
+
+// STRUCK ELEVATION (base.tokens.css --elevation-recipe): hard-edged shadows with no blur, shaped by an offset and a
+// negative spread, so the PDF never rasters them. Each is a solid copy of the box under it, which a native shape draws
+// exactly (#2887: every kanban card exported as a picture). Its two hard inset bands, in the recipe's order, light the top
+// inner edge and shade the bottom one.
+const STRUCK = `<!doctype html><html><head><style>
+  body { margin: 0; font-family: sans-serif; }
+  section { width: 1280px; height: 720px; position: relative; background: #fff; }
+  .card { position: absolute; left: 100px; top: 100px; width: 200px; height: 40px; background: #f5f7fa; border: 1px solid #ccd; border-radius: 10px; box-sizing: border-box;
+    box-shadow: inset 0 1.2px 0 0 rgba(255, 255, 255, 0.5), inset 0 -1px 0 0 rgba(0, 0, 0, 0.05), 0 1px 0 -0.25px rgba(0, 0, 0, 0.07), 0 4px 0 -1.5px rgba(0, 0, 0, 0.08); }
+  .ghost { position: absolute; left: 400px; top: 100px; width: 200px; height: 40px; background: rgba(245, 247, 250, 0.5); box-shadow: 0 4px 0 -1.5px rgba(0, 0, 0, 0.08); }
+</style></head><body><section id="s"><div class="card"></div><div class="ghost"></div></section></body></html>`;
+
+describe('calco lifts struck elevation as native shapes', () => {
+  let browser;
+  let res;
+  before(async () => {
+    browser = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 720 });
+    await page.setContent(STRUCK, { waitUntil: 'load' });
+    res = await (await page.$('#s')).evaluate(readSlide, { shapes: true, diagnose: true });
+  });
+  after(async () => {
+    await browser?.close();
+  });
+  const near = (a, b, tol = 0.05) => Math.abs(a - b) <= tol;
+
+  test('each hard shadow is a solid box under the card, moved by its offset and shrunk by its spread', () => {
+    const card = res.shapes.findIndex((s) => s.kind === 'box' && near(s.x, 100) && near(s.w, 200) && s.fill && s.stroke);
+    assert.ok(card >= 0, JSON.stringify(res.shapes));
+    const lip = res.shapes.findIndex((s) => s.kind === 'box' && near(s.x, 100.25) && near(s.y, 101.25) && near(s.w, 199.5) && near(s.h, 39.5));
+    const float = res.shapes.findIndex((s) => s.kind === 'box' && near(s.x, 101.5) && near(s.y, 105.5) && near(s.w, 197) && near(s.h, 37));
+    assert.ok(lip >= 0 && float >= 0, `both layers: ${JSON.stringify(res.shapes.filter((s) => s.kind === 'box'))}`);
+    assert.ok(lip < card && float < card, 'painted under the card');
+    assert.ok(near(res.shapes[float].fill.alpha, 0.08, 0.01));
+    assert.ok(near(res.shapes[float].radii[0], 8.5, 0.01), 'the corner shrinks with the spread');
+  });
+
+  test('each inset band is a line along its inner edge, between the corners, and says it approximated', () => {
+    const lines = JSON.stringify(res.shapes.filter((s) => s.kind === 'line'));
+    const lit = res.shapes.find((s) => s.kind === 'line' && s.side === 'top' && near(s.stroke.width, 1.2));
+    assert.ok(lit, lines);
+    assert.ok(near(lit.y, 101 + 0.6) && near(lit.x, 110) && near(lit.w, 180), `${lit.x} ${lit.y} ${lit.w}`);
+    const shade = res.shapes.find((s) => s.kind === 'line' && s.side === 'bottom' && near(s.stroke.width, 1));
+    assert.ok(shade, lines);
+    assert.ok(near(shade.y, 139 - 0.5) && near(shade.x, 110) && near(shade.w, 180) && near(shade.stroke.alpha, 0.05, 0.01), `${shade.x} ${shade.y} ${shade.w}`);
+    assert.ok(res.approximated.includes('inset-highlight'), JSON.stringify(res.approximated));
+  });
+
+  test('a hard shadow under a translucent box would show through it, so that box stays a picture', () => {
+    assert.equal(res.shapes.some((s) => s.kind === 'box' && near(s.x, 400, 2)), false);
   });
 });

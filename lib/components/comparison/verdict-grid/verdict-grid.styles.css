@@ -11,19 +11,22 @@
  * state-half / state-empty / state-slashed. Replaces the prior Unicode
  * ✓/–/✗ glyphs (font-dependent) with a font-independent disc+mask recipe;
  * the SHAPE carries the meaning independently of color. */
-.badge { position:relative; display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; gap:6px; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--muted-mark); color:var(--text-body); }
-.badge.pass { --state-color:var(--pass); }
-.badge.warn { --state-color:var(--warn); }
-.badge.fail { --state-color:var(--fail); }
+.badge { position:relative; display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1; gap:6px; font-family:var(--pill-font); font-size:var(--pill-fs); font-weight:var(--pill-weight); letter-spacing:var(--pill-tracking); border-radius:var(--pill-radius); padding:var(--pill-pad-y) var(--pill-pad-x); white-space:nowrap; background:var(--bg); border:1px solid var(--muted-mark); color:var(--text-body);
+  /* A badge with no state class (hand-written HTML) takes the neutral roles, so its disc still draws: the readers
+   * below take no fallback (base.tokens.css § State-disc recipe). */
+  --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+.badge.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+.badge.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+.badge.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 /* The two unsettled answers — `[ ]` open (todo) and `[?]` unknown — are hollow
  * rings on --muted-mark. Ring geometry: `.badge.todo` / `.badge.unknown` beside
  * `.state.todo` in base.modifiers.css. */
 .badge.todo,
-.badge.unknown { --state-color:var(--muted-mark); }
-.badge.skip { --state-color:var(--muted-mark); color:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent); }
+.badge.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
+.badge.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); color:var(--text-muted); text-decoration:line-through; text-decoration-color:color-mix(in srgb, var(--muted-mark) 60%, transparent); }
 /* Disc (leading ::before, in flex flow) + mark (::after, overlaid on the
  * disc). Colors mixed here from --state-color + the scalar knobs; disc
- * style follows the default (Ringed Solid) or a .checks-* variant. Mirror
+ * style follows the default (the status solid with an ink rim) or a .checks-* variant. Mirror
  * recipe: checklist.styles.css, obligation-matrix.styles.css. */
 .badge::before {
   content:'';
@@ -34,8 +37,9 @@
   box-sizing:border-box;
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
 /* Mark overlay — anchored to the disc, which sits at the badge's left pad. */
 .badge::after {
@@ -43,7 +47,7 @@
   position:absolute;
   left:var(--pill-pad-x); top:50%; transform:translateY(-50%);
   width:calc(0.95em * var(--state-disc-scale)); height:calc(0.95em * var(--state-disc-scale));
-  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }

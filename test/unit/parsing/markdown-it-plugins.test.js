@@ -28,6 +28,13 @@ const fitBerth = require('../../../lib/core/fit-berth');
 // Derived, not typed, so a fourth berth or a second rail cannot silently pass this.
 const BERTHS_PER_SLIDE = fitBerth.BERTHS.length + 1;
 
+/**
+ * The chart finish is stamped on EVERY section by deckClassPropagate's own pass (a look with no
+ * absent state: lib/core/resolve-marks.js), so it is not one of the DECK class tokens the
+ * "adds nothing" cases below count. They assert the deck-wide registers, not that stamp.
+ */
+const noFinishStamp = (c) => !c.startsWith('marks-');
+
 describe('markdown-it-plugins', () => {
   // Apply ONE plugin in isolation on the owned slide pipeline (markdown-it +
   // lib/engine/slides — the slide/directive tokenizer the
@@ -102,7 +109,7 @@ describe('markdown-it-plugins', () => {
     ].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.deepEqual(cls, ['title'], `expected only 'title'; got [${cls.join(', ')}]`);
+    assert.deepEqual(cls.filter(noFinishStamp), ['title'], `expected only 'title'; got [${cls.join(', ')}]`);
   });
 
   test('deckClassPropagate: handles space-separated multi-token deck class', () => {
@@ -251,7 +258,7 @@ describe('markdown-it-plugins', () => {
     const md = ['---', 'finish: sketchh', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.deepEqual(cls, ['title'], `unknown finish should add nothing; got [${cls.join(', ')}]`);
+    assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown finish should add nothing; got [${cls.join(', ')}]`);
   });
 
   test('deckClassPropagate: a per-slide finish-* OVERRIDES the deck finish (no two presets stacked)', () => {
@@ -330,7 +337,7 @@ describe('markdown-it-plugins', () => {
       const md = ['---', `claim: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
       const { html } = m.render(md);
       const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-      assert.deepEqual(cls, ['title'], `claim: ${v} should add nothing; got [${cls.join(', ')}]`);
+      assert.deepEqual(cls.filter(noFinishStamp), ['title'], `claim: ${v} should add nothing; got [${cls.join(', ')}]`);
     }
   });
 
@@ -395,7 +402,7 @@ describe('markdown-it-plugins', () => {
     const md = ['---', 'stamp: sael', 'tone: raill', '---', '', '<!-- _class: title -->', '# Slide'].join('\n');
     const { html } = m.render(md);
     const cls = html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-    assert.deepEqual(cls, ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
+    assert.deepEqual(cls.filter(noFinishStamp), ['title'], `unknown shapes should add nothing; got [${cls.join(', ')}]`);
   });
 
   // ── deck-wide `spectrum:` register (white-label brand bar) ─────────────
@@ -411,7 +418,7 @@ describe('markdown-it-plugins', () => {
     }
     for (const v of ['on', 'nonsense']) {
       const cls = m.render(['---', `spectrum: ${v}`, '---', '', '<!-- _class: title -->', '# Slide'].join('\n')).html.match(/<section[^>]*class="([^"]*)"/)[1].split(/\s+/).filter(Boolean);
-      assert.deepEqual(cls, ['title'], `spectrum: ${v} should add nothing; got [${cls.join(', ')}]`);
+      assert.deepEqual(cls.filter(noFinishStamp), ['title'], `spectrum: ${v} should add nothing; got [${cls.join(', ')}]`);
     }
   });
 
@@ -482,6 +489,40 @@ describe('markdown-it-plugins', () => {
     assert.ok(s[3].includes('spectrum-card-edge-top'), `slide 4 missing its card-edge; got [${s[3].join(', ')}]`);
     assert.ok(s[3].includes('spectrum-card'), `slide 4 lost the deck card rail; got [${s[3].join(', ')}]`);
     assert.ok(s[3].includes('spectrum-duo'), `slide 4 lost deck STYLE 'spectrum-duo'; got [${s[3].join(', ')}]`);
+  });
+
+  // THE RESTORE TOKENS. A deck value writes no token when it is the default, so a slide inside a
+  // deck that set another value needs the default's own token to ask for it back. Each one is in
+  // its register's override set, so carrying it drops the deck's token on THAT axis only, and the
+  // slide renders as the default. (`claim-framed` is the older instance of the same move.)
+  test('deckClassPropagate: a restore token drops the deck token on its own axis, and only there', () => {
+    const m = makeHost(plugins.deckClassPropagate);
+    const restores = [
+      ['spectrum-on', 'spectrum-solid'],
+      ['spectrum-edge-top', 'spectrum-edge-left'],
+      ['spectrum-card-edge-left', 'spectrum-card-edge-top'],
+      ['rule-auto', 'rule-accent'],
+      ['eyebrow-plain', 'eyebrow-dot'],
+      ['head-auto', 'head-center'],
+    ];
+    const md = ['---',
+      'spectrum: solid', 'spectrum-edge: left', 'spectrum-card: auto', 'spectrum-card-edge: top',
+      'rule: accent', 'eyebrow: dot', 'headline: center',
+      '---', '', '# Slide 1',
+      ...restores.flatMap(([own]) => ['', '---', '', `<!-- _class: content ${own} -->`, `# ${own}`]),
+    ].join('\n');
+    const s = [...m.render(md).html.matchAll(/<section[^>]*class="([^"]*)"/g)].map(x => x[1].split(/\s+/).filter(Boolean));
+    const deckTokens = restores.map(([, deck]) => deck);
+    // Slide 1 carries every deck token, so the evictions below are real, not an absent stamp.
+    for (const t of deckTokens) assert.ok(s[0].includes(t), `slide 1 missing deck '${t}'; got [${s[0].join(', ')}]`);
+    restores.forEach(([own, deck], i) => {
+      const cls = s[i + 1];
+      assert.ok(cls.includes(own), `${own} slide lost its own token; got [${cls.join(', ')}]`);
+      assert.ok(!cls.includes(deck), `${own} slide still carries the deck's '${deck}'; got [${cls.join(', ')}]`);
+      for (const other of deckTokens.filter((t) => t !== deck)) {
+        assert.ok(cls.includes(other), `${own} slide dropped '${other}' from another axis; got [${cls.join(', ')}]`);
+      }
+    });
   });
 
   test('deckClassPropagate: spectrum-trim propagates + a per-slide token overrides the deck', () => {

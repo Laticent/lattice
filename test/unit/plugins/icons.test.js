@@ -27,8 +27,8 @@ const attrsOfHtml = (html) => {
 
 describe('icons — reading `^{…}`', () => {
   test('the name first, then option words in any order; an alias reads as its icon', () => {
-    assert.deepEqual(icons.read('^{database, lg, c3, bare, etching, rounded}'), {
-      name: 'database', c: 'c3', size: 'lg', frame: 'bare', look: 'etching', corners: 'rounded', label: 'database',
+    assert.deepEqual(icons.read('^{database, lg, c3, bare, etch, rounded}'), {
+      name: 'database', c: 'c3', size: 'lg', frame: 'bare', look: 'etch', corners: 'rounded', label: 'database',
     });
     assert.equal(icons.read('^{db}').name, 'database');
     assert.equal(icons.read('^{load-balancer}').label, 'load balancer');
@@ -53,7 +53,7 @@ describe('icons — reading `^{…}`', () => {
 });
 
 describe('icons — both render paths', () => {
-  const spans = ['^{database}', '^{bucket, c4, lg}', '^{shield, etching, rounded, c12}', '^{db, bare}', '^{server, label="A <b>&\\"x\\""}'];
+  const spans = ['^{database}', '^{bucket, c4, lg}', '^{shield, etch, rounded, c12}', '^{db, bare}', '^{server, label="A <b>&\\"x\\""}'];
   test('the HTML string and the DOM element carry the same attributes and drawing', () => {
     for (const s of spans) {
       const html = icons.iconHtml(s);

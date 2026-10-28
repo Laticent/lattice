@@ -570,6 +570,15 @@ section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="lg"] { --lp-chip:2.4em; }
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"][data-size="xl"] { --lp-chip:4em; }
 section :is(div, span)[data-lattice-plugin-off][data-placement="chip"] .lattice-plugin-mark { width:100%; height:100%; }
+/* A plugin's FENCE output (code-door-fence.mjs wraps it in `div[data-lattice-plugin]`) keeps every style its renderer
+ * wrote: a block drawing has real uses for positioning. `contain:paint` makes the root the containing block for its
+ * `absolute` AND `fixed` descendants and clips their paint at its own edge, so a `position:fixed; inset:0` box stays
+ * inside the plugin's block instead of covering the slide (the red team on PR 2687; followup 2687-p7). It also clips
+ * what a drawing paints outside its box and stops a child's margins collapsing through the root. The top layer is
+ * outside every box, so the door drops `popover` and `command` attributes too (door-attr.mjs `doorFinishFence`). */
+section div[data-lattice-plugin] {
+  contain:paint;
+}
 /* A zip plugin's DRAWN inline span (`@kind{…}`, 2026-10-14-plugin-inline-door.md): the root is ours, and it keeps
  * what the plugin draws inside the word it stands for. `unicode-bidi: isolate` stops a direction change in its text
  * from reordering the author's sentence; an inline-block with contained paint, no wider than its line and no taller
@@ -1041,11 +1050,21 @@ section.print {
   --heatmap-step3: var(--print-heatmap-step3); --heatmap-step3-ink: var(--print-heatmap-step3-ink);
   --heatmap-step4: var(--print-heatmap-step4); --heatmap-step4-ink: var(--print-heatmap-step4-ink);
   --heatmap-step5: var(--print-heatmap-step5); --heatmap-step5-ink: var(--print-heatmap-step5-ink);
-  --chart-state-pass: var(--print-pass);
-  --chart-state-warn: var(--print-warn);
-  --chart-state-fail: var(--print-fail);
-  --chart-state-info: var(--print-text-secondary);
-  --chart-state-mute: var(--print-text-muted);
+  --info: var(--print-info);
+  --mute: var(--print-mute);
+  --on-mark: var(--print-on-mark);
+  --pass-mark: var(--print-pass-mark);
+  --warn-mark: var(--print-warn-mark);
+  --fail-mark: var(--print-fail-mark);
+  --pass-vivid-mark: var(--print-pass-mark);
+  --warn-vivid-mark: var(--print-warn-mark);
+  --fail-vivid-mark: var(--print-fail-mark);
+  --warn-signal-mark: var(--print-signal);
+  --fail-signal-mark: var(--print-signal);
+  --info-mark: var(--print-info-mark);
+  --info-vivid-mark: var(--print-info-mark);
+  --mute-mark: var(--print-mute-mark);
+  --chart-neutral-mark: var(--print-mute);
   --seq-500: var(--print-seq-500);
   /* …and the ramp's POLES with it. The base pair is `light-dark()` so the ramp
    * follows the canvas (#1697), and this band ALREADY pins `color-scheme: light`
@@ -1680,7 +1699,7 @@ section.heat > .cell-stage > ul > li.state.pass,
 section.heat > .cell-stage > ol > li.state.pass,
 section.heat .badge.pass,
 section.heat td .state.pass,
-section.heat td.cell-state.state-shipped { --state-color:var(--fail); }
+section.heat td.cell-state.state-shipped { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
 
 /* half → caution (unchanged, but redeclared for symmetry and so per-layout
  * source-order overrides under .heat resolve to the universal palette) */
@@ -1690,7 +1709,7 @@ section.heat > .cell-stage > ul > li.state.warn,
 section.heat > .cell-stage > ol > li.state.warn,
 section.heat .badge.warn,
 section.heat td .state.warn,
-section.heat td.cell-state.state-wip { --state-color:var(--warn); }
+section.heat td.cell-state.state-wip { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
 
 /* empty → relief */
 section.heat > ul > li.state.fail,
@@ -1700,7 +1719,7 @@ section.heat > .cell-stage > ol > li.state.fail,
 section.heat .badge.fail,
 section.heat td .state.fail,
 section.heat td.cell-state.state-planned,
-section.heat td.cell-state.state-missed { --state-color:var(--pass); }
+section.heat td.cell-state.state-missed { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
 
 /* skip → muted (unchanged, redeclared for symmetry) */
 section.heat > ul > li.state.skip,
@@ -1709,7 +1728,7 @@ section.heat > .cell-stage > ul > li.state.skip,
 section.heat > .cell-stage > ol > li.state.skip,
 section.heat .badge.skip,
 section.heat td .state.skip,
-section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); }
+section.heat td.cell-state.state-skipped { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 
 /* ════════════════════════════════════════════════════════════════════════
  * UNIVERSAL STATE-TOKEN MARKS + STYLE VARIANTS
@@ -1808,20 +1827,21 @@ section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state {
   line-height: 1;
   background: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
 }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color: var(--pass); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color: var(--warn); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color: var(--fail); }
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color: var(--muted-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.todo,
-section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color: var(--muted-mark); }
+section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section.state-cells:not(.obligation-matrix):not(.matrix-grid) td .state::after {
   content: '';
   position: absolute;
   inset: 0;
-  background-color: color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  background-color: color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask: var(--state-mark) center / 100% 100% no-repeat;
           mask: var(--state-mark) center / 100% 100% no-repeat;
 }
@@ -1874,28 +1894,32 @@ section.note-warn:not(.quote):not(.math):not(.citation-card):not(.redline):not(.
 /* Style variants — author opts in per slide (`_class: checklist checks-bold`)
  * or per deck (`class: checks-outline`). Each sets ONLY scalar knobs (plus,
  * for bold, the heavier mark tokens) — never a value embedding --state-color
- * — so the leaf color-mix stays correct. Default (no class) = Ringed Solid. */
-section.checks-ringed {            /* = default; explicit so it can reset an inherited deck-level variant */
+ * — so the leaf color-mix stays correct. Default (no class) = the status solid with a
+ * hairline ink rim (base.tokens.css § State-disc recipe). Every variant keeps an edge in the
+ * status INK (`--state-ink`), never the solid: on a dark slide no solid clears 3:1 against a
+ * tinted row, and the ink does. outline and tonal draw their ring and mark in the ink; on
+ * warn and fail that ring IS the signal (one inset ring, which Calco lifts as a native shape). */
+section.checks-ringed {            /* a heavier 1.6px rim, its ink taken halfway to black */
   --state-fill-pct:100%; --state-ring-outer-w:1.6px; --state-ring-mix:50%;
   --state-ring-inner-w:0px; --state-mark-pct:0%; --state-disc-scale:1;
 }
-section.checks-knockout {          /* flat saturated disc, knockout mark */
-  --state-fill-pct:100%; --state-ring-outer-w:0px; --state-ring-inner-w:0px;
+section.checks-knockout {          /* = default; kept so a deck that names it resets an inherited variant */
+  --state-fill-pct:100%; --state-ring-outer-w:var(--state-signal-w); --state-ring-mix:100%; --state-ring-inner-w:0px;
   --state-mark-pct:0%; --state-disc-scale:1;
 }
-section.checks-bold {              /* larger disc + heavier marks, knockout */
-  --state-fill-pct:100%; --state-ring-outer-w:0px; --state-ring-inner-w:0px;
+section.checks-bold {              /* larger disc + heavier marks, knockout, the hairline ink rim kept */
+  --state-fill-pct:100%; --state-ring-outer-w:var(--state-signal-w); --state-ring-mix:100%; --state-ring-inner-w:0px;
   --state-mark-pct:0%; --state-disc-scale:1.16;
   --mark-check:var(--mark-check-bold); --mark-dash:var(--mark-dash-bold);
   --mark-x:var(--mark-x-bold);         --mark-slash:var(--mark-slash-bold);
   --mark-question:var(--mark-question-bold);
 }
-section.checks-outline {           /* transparent fill, inner ring + status-color mark */
-  --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px;
+section.checks-outline {           /* transparent fill, inner ring + mark in the status ink */
+  --state-fill-pct:0%; --state-ring-outer-w:0px; --state-ring-inner-w:2px; --state-ring-signal-w:0px;
   --state-mark-pct:100%; --state-disc-scale:1;
 }
-section.checks-tonal {             /* soft tint fill, inner ring + status-color mark */
-  --state-fill-pct:17%; --state-ring-outer-w:0px; --state-ring-inner-w:1.6px;
+section.checks-tonal {             /* soft tint of the solid, inner ring + mark in the status ink */
+  --state-fill-pct:17%; --state-ring-outer-w:0px; --state-ring-inner-w:1.6px; --state-ring-signal-w:0px;
   --state-mark-pct:100%; --state-disc-scale:1;
 }
 
@@ -4265,8 +4289,9 @@ section .lat-state {
   line-height:1;
   background:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-fill-pct), transparent);
   box-shadow:
-    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-ring-mix), black),
-    inset 0 0 0 var(--state-ring-inner-w) var(--state-color, var(--muted-mark));
+    inset 0 0 0 var(--state-ring-signal-w) var(--state-signal, transparent),
+    0 0 0 var(--state-ring-outer-w) color-mix(in srgb, var(--state-ink) var(--state-ring-mix), black),
+    inset 0 0 0 var(--state-ring-inner-w) var(--state-signal, var(--state-ink));
   /* Same sanctioned horizontal margin as the pill above, and for the same measured
    * reason. On the disc padding is worse than useless: the box is a fixed 1em square
    * with `box-sizing:border-box`, so padding-inline shrinks the CIRCLE rather than
@@ -4281,17 +4306,17 @@ section .lat-state {
    * centres on the text with `vertical-align`. */
   margin-inline:0.22em;
 }
-section .lat-state.pass { --state-color:var(--pass); }
-section .lat-state.warn { --state-color:var(--warn); }
-section .lat-state.fail { --state-color:var(--fail); }
-section .lat-state.skip { --state-color:var(--muted-mark); }
+section .lat-state.pass { --state-color:var(--state-pass-hue); --state-ink:var(--pass); --state-signal:initial; --state-glyph-mark:var(--on-mark); }
+section .lat-state.warn { --state-color:var(--state-warn-hue); --state-ink:var(--warn); --state-signal:var(--warn-signal-mark); --state-glyph-mark:var(--on-mark); }
+section .lat-state.fail { --state-color:var(--state-fail-hue); --state-ink:var(--fail); --state-signal:var(--fail-signal-mark); --state-glyph-mark:var(--on-mark); }
+section .lat-state.skip { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section .lat-state.todo,
-section .lat-state.unknown { --state-color:var(--muted-mark); }
+section .lat-state.unknown { --state-color:var(--muted-mark); --state-ink:var(--muted-mark); --state-signal:initial; --state-glyph-mark:var(--bg); }
 section .lat-state::after {
   content:'';
   position:absolute;
   inset:0;
-  background-color:color-mix(in srgb, var(--state-color, var(--muted-mark)) var(--state-mark-pct), var(--bg));
+  background-color:color-mix(in srgb, var(--state-ink) var(--state-mark-pct), var(--state-glyph-mark));
   -webkit-mask:var(--state-mark) center / 100% 100% no-repeat;
           mask:var(--state-mark) center / 100% 100% no-repeat;
 }

@@ -196,7 +196,7 @@ function buildOne(bucket, manifests, theme) {
     fs.writeFileSync(tmpPath, mdSource);
     execFileSync(
       process.execPath,
-      [EMULATOR, tmpPath, THEME_CSS, outPdf, 'indaco', '-q'],
+      [EMULATOR, tmpPath, THEME_CSS, outPdf, 'indaco', '-q', '--size', 'deck'],
       { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
     );
   } finally {

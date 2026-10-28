@@ -17,10 +17,21 @@
  * the tolerance sits.
  *
  * WHAT IT MEASURES. One deck, rendered once by the real CLI, loaded in both
- * engines. For every `<text>` inside an `<svg>`, the vertical center of its box,
- * expressed in SLIDE px (the section's own 720-unit space, so the two engines'
- * page scales cancel). The reported number is WebKit minus Chromium: negative
- * means WebKit paints it higher.
+ * engines. For every `<text>` inside an `<svg>`, how far the vertical center of
+ * its painted box sits from the label's own anchor (its `x`/`y`, located by
+ * measuring a throwaway rect in the same parent), expressed in SLIDE px (the
+ * section's own 720-unit space, so the two engines' page scales cancel). The
+ * reported number is WebKit minus Chromium: negative means WebKit paints it
+ * higher than its anchor. Every label past the tolerance is listed by name.
+ *
+ * WHAT IT NO LONGER MEASURES (dropped 2026-10-25, #2405, logged here per HARD
+ * RULE #25). Until then the number was the center's position on the SLIDE, which
+ * also counted a label the two engines LAID OUT in different places: WebKit's
+ * text metrics send the state-chart router to a different layout, and "reject"
+ * really does sit 7.64px lower on the slide in WebKit. That is engine-dependent
+ * layout, not a baseline that misses its glyphs, and it filed #2405 every night.
+ * Nothing in the repo reports cross-engine LAYOUT drift now; if that is ever
+ * wanted, it is a separate measurement with its own tolerance.
  *
  * WHAT IT IS NOT. Not a gate, and not a CI arm — CI runs no WebKit, and adding one
  * is a CI-contract decision (#2297 "The gap this leaves open"). This is the
@@ -48,8 +59,8 @@
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { chromium, webkit } = await import(join(ROOT, 'docs/node_modules/@playwright/test/index.mjs'));
@@ -82,9 +93,41 @@ if (!html) {
 }
 
 // Runs INSIDE the page. Every `<text>` under an `<svg>`, in document order, with
-// the one number that survives a page-scale difference: the box center as a
-// fraction of its slide, multiplied back up to the 720px slide height.
+// the one number that isolates the BASELINE: how far the painted box's center sits
+// from the label's own anchor point (its `y`), as a fraction of its slide,
+// multiplied back up to the 720px slide height.
+//
+// Relative to the anchor, not to the slide. This used to be the center's position
+// on the slide, which also moves whenever the two engines LAY THE CHART OUT
+// differently, and a chart that places labels from measured text does exactly that:
+// WebKit's state-chart router put "reject" at y=86.5 where Chromium put it at 81.4,
+// and #2405 reported that layout difference as baseline drift (7.64px) every night.
+// Measured from each label's own anchor, both engines read 0.00 on every state-chart
+// edge label, while a tspan that drops `dominant-baseline` (the defect this audit
+// exists for, 2026-09-22-webkit-tspan-baseline.md) still reads high in WebKit only.
+//
+// The anchor is found by MEASURING a throwaway 0.01px rect placed at the label's
+// (x, y) in the same parent, so it shares every transform. getScreenCTM() is not used
+// because WebKit's ignores the slide's CSS scale (off by 3-39px on this deck). The
+// loop is synchronous, so the probe is gone before any observer can see it.
 const probe = () => {
+	const first = (v) => parseFloat(String(v ?? '').trim().split(/[\s,]+/)[0]) || 0;
+	const anchorTop = (t, tsp) => {
+		const y = first(t.getAttribute('y') ?? tsp?.getAttribute('y'));
+		const x = first(t.getAttribute('x') ?? tsp?.getAttribute('x'));
+		const pr = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+		pr.setAttribute('x', String(x));
+		pr.setAttribute('y', String(y));
+		pr.setAttribute('width', '0.01');
+		pr.setAttribute('height', '0.01');
+		// A label placed by its OWN transform must carry it to the probe, or the probe sits
+		// where the label would be without it.
+		if (t.hasAttribute('transform')) pr.setAttribute('transform', t.getAttribute('transform'));
+		t.parentNode.insertBefore(pr, t);
+		const top = pr.getBoundingClientRect().top;
+		pr.remove();
+		return top;
+	};
 	const rows = [];
 	for (const t of document.querySelectorAll('svg text')) {
 		const sec = t.closest('section');
@@ -115,7 +158,7 @@ const probe = () => {
 			src,
 			tspanDb: tsp ? (tspanAttr != null ? 'attr'
 				: (getComputedStyle(tsp).dominantBaseline || 'auto') !== 'auto' ? 'css' : 'none') : null,
-			cy: ((r.top + r.height / 2) - sr.top) / sr.height * 720,
+			cy: ((r.top + r.height / 2) - anchorTop(t, tsp)) / sr.height * 720,
 		});
 	}
 	return rows;
@@ -124,7 +167,9 @@ const probe = () => {
 async function measure(engine) {
 	const b = await engine.launch();
 	const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
-	await p.goto('file://' + html, { waitUntil: 'load' });
+	// pathToFileURL, not 'file://' + path: a relative `--html` (the usage example below) became
+	// `file://.scratch/x.html`, which no browser opens (ERR_INVALID_URL).
+	await p.goto(pathToFileURL(resolve(html)).href, { waitUntil: 'load' });
 	// The export's own runtime lays slides out after load; give it a frame budget
 	// rather than a fixed sleep, then one more settle for font swap-in.
 	await p.evaluate(() => document.fonts?.ready);
@@ -172,6 +217,13 @@ for (const g of table) {
 	console.log(`${mark} ${String(g.n).padStart(4)}  ${g.mean.toFixed(2).padStart(8)}  ${g.worst.toFixed(2).padStart(8)}  ${g.baseline.padEnd(10)} ${g.src.padEnd(5)} ${g.cls}`);
 }
 console.log(`\n${over.length} of ${rows.length} labels drift more than ${TOLERANCE}px.`);
+// NAME the offenders. The table groups by emitter and marks a group only when its MEAN is past
+// tolerance, so two bad labels in a group of twenty were counted here and named nowhere: #2405
+// read "2 of 365 labels drift" every night with no way to tell which two. One line per label,
+// worst first, printed right under the verdict so the nightly's `tail` keeps them.
+for (const r of [...over].sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift))) {
+	console.log(`  over ${r.shift.toFixed(2).padStart(7)}  ${r.baseline.padEnd(10)} ${r.src.padEnd(9)} ${r.cls || '(no class)'}  "${r.txt}"`);
+}
 
 if (JSON_OUT) {
 	writeFileSync(JSON_OUT, JSON.stringify({ deck: DECK, theme: THEME, tolerance: TOLERANCE, table, rows, skipped }, null, 2));

@@ -32,9 +32,9 @@ let playerJs;
 let resolveCanvas;
 let hoistInlineLightDark;
 let hoistRuleLightDark;
-let dropUnusedChartFinishRules;
+let dropUnusedMarksRules;
 test.before(async () => {
-	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark, dropUnusedChartFinishRules } =
+	({ minifyCss, resolveLightDark, themeDualMode, playerCss, playerJs, resolveCanvas, hoistInlineLightDark, hoistRuleLightDark, dropUnusedMarksRules } =
 		await import('../../../lib/export/player-core.mjs'));
 });
 
@@ -238,41 +238,41 @@ test('hoistInlineLightDark dedupes identical pairs onto one class', () => {
 // the base is everything collapsed to the light arm, so a pair in `box-shadow` / `fill` /
 // `background-image` kept light and lost dark with nothing to restore it.
 
-// The `chart-finish:` rules repaint through light-dark(), so every one the deck cannot use would
+// The `marks:` rules repaint through light-dark(), so every one the deck cannot use would
 // be copied into #lattice-dual-mode once per scheme scope. They go first, and nothing else moves.
-test('dropUnusedChartFinishRules cuts the finish rules the deck cannot use, byte for byte', () => {
+test('dropUnusedMarksRules cuts the finish rules the deck cannot use, byte for byte', () => {
 	const css = [
 		'/* c */ .a{x:1}',
-		'section.chart-finish-tone :where(.m), figure.chart-finish-tone :where(.m) { fill: light-dark(red, blue) }',
-		'@supports (color: oklch(from red l c h)) { section.chart-finish-tone .z { color: red } }',
+		'section.marks-tone :where(.m), figure.marks-tone :where(.m) { fill: light-dark(red, blue) }',
+		'@supports (color: oklch(from red l c h)) { section.marks-tone .z { color: red } }',
 		'@media screen { }',
-		'section.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }',
+		'section.marks-pigment :where(:is(.k, .j)) { content: "}" }',
 		'.b{z:2}',
 	].join('\n');
 	// Only the pigment rule matches; the tone rule, and the @supports group it emptied, go.
 	assert.equal(
-		dropUnusedChartFinishRules(css, (sel) => sel.includes('.k')),
-		'/* c */ .a{x:1}\n@media screen { }\nsection.chart-finish-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
+		dropUnusedMarksRules(css, (sel) => sel.includes('.k')),
+		'/* c */ .a{x:1}\n@media screen { }\nsection.marks-pigment :where(:is(.k, .j)) { content: "}" }\n.b{z:2}',
 	);
 	// A selector the host cannot test is kept, and a sheet with no finish rule is returned as is.
-	assert.equal(dropUnusedChartFinishRules(css, () => { throw new Error('unsupported'); }), css);
-	const plain = '.chart-finish-tonal{a:1}';
-	assert.equal(dropUnusedChartFinishRules(plain, () => false), plain);
+	assert.equal(dropUnusedMarksRules(css, () => { throw new Error('unsupported'); }), css);
+	const plain = '.marks-tonal{a:1}';
+	assert.equal(dropUnusedMarksRules(plain, () => false), plain);
 });
 
 // Checker findings: the prelude runs from the last `}`, so a comment in front of a rule rode
 // in its selector. A comment naming a finish class made a plain rule a candidate (and cut it),
 // and a comma in one split off a selector that threw and kept a finish rule on doubt. And
 // `\b` matched after a hyphen, so a class merely ending in a finish name was a candidate.
-test('dropUnusedChartFinishRules reads a selector without its comment, and a finish class whole', () => {
+test('dropUnusedMarksRules reads a selector without its comment, and a finish class whole', () => {
 	const noMatch = (sel) => {
 		if (/[^\w\s.:()[\]="*>-]/.test(sel)) throw new Error(`unparseable: ${sel}`);
 		return false;
 	};
-	assert.equal(dropUnusedChartFinishRules('/* like .chart-finish-tone */ .lp-state{color:red}', noMatch), '/* like .chart-finish-tone */ .lp-state{color:red}');
-	assert.equal(dropUnusedChartFinishRules('/* a, b */ section.chart-finish-tone .m{fill:red}', noMatch), '');
-	const custom = '.my-chart-finish-tone{a:1}';
-	assert.equal(dropUnusedChartFinishRules(custom, () => false), custom);
+	assert.equal(dropUnusedMarksRules('/* like .marks-tone */ .lp-state{color:red}', noMatch), '/* like .marks-tone */ .lp-state{color:red}');
+	assert.equal(dropUnusedMarksRules('/* a, b */ section.marks-tone .m{fill:red}', noMatch), '');
+	const custom = '.my-marks-tone{a:1}';
+	assert.equal(dropUnusedMarksRules(custom, () => false), custom);
 });
 
 test('hoistRuleLightDark routes a real-property pair through a private token, in place', () => {
@@ -285,6 +285,19 @@ test('hoistRuleLightDark routes a real-property pair through a private token, in
 	assert.match(darkBlock, /:root\[data-lp-scheme=dark\] \.card\{--lp-ld-0-0:0 1px #111\}/);
 	// Untouched: a custom property is themeDualMode's job, not this one's.
 	assert.equal(hoistRuleLightDark('.card{--x:light-dark(#eee,#111)}').darkBlock, '');
+});
+
+test('hoistRuleLightDark keeps a declaration\'s !important OUTSIDE the var() fallback', () => {
+	// `fill: light-dark(a, b) !important` is what every marks rule is. With the flag left inside
+	// the fallback (`var(--lp-ld-0-0,a !important)`) the engine drops the whole declaration at parse time:
+	// the rule matched, set nothing, and the player showed the shipped paint under a finished deck's ink
+	// (tower share values 2.45:1 on onyx, against 8.33:1 in the HTML export).
+	const { css, darkBlock } = hoistRuleLightDark('.m{fill:light-dark(#eee,#111) !important;color:red}');
+	assert.match(css, /\.m\{fill:var\(--lp-ld-0-0,#eee\) !important;color:red\}/);
+	assert.doesNotMatch(css, /!important\)/, 'no flag inside a var() fallback');
+	assert.match(darkBlock, /--lp-ld-0-0:#111\}/);
+	// A declaration without the flag is untouched by the change.
+	assert.match(hoistRuleLightDark('.m{fill:light-dark(#eee,#111)}').css, /\.m\{fill:var\(--lp-ld-0-0,#eee\)\}/);
 });
 
 test('hoistRuleLightDark emits no COPY of the rule — the cascade for that property is untouched', () => {
@@ -1271,7 +1284,7 @@ test('read-slides + the no-JS floor scale each slide with a wrapped transform, n
 	assert.match(html, /html:not\(\.lp-js\) \.lp-frame\{width:calc\(1280px \* var\(--lp-fit\)\)/, 'the no-JS floor frame also carries the scaled footprint');
 	assert.match(html, /html:not\(\.lp-js\) section\[data-lattice-slide\]\{width:1280px!important;height:720px!important;transform:scale\(var\(--lp-fit\)\)/, 'the no-JS floor scales with transform, not zoom');
 	assert.match(html, /function fitRead\(\)/, 'the script fits the read-slides miniatures fluidly to the column');
-	assert.match(html, /var frames=\[\]\.slice\.call\(document\.querySelectorAll\('\.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
+	assert.match(html, /var frames=lpStage\?\[\]\.slice\.call\(lpStage\.querySelectorAll\(':scope > \.lp-frame'\)\)/, 'present toggles visibility on the frame wrapper, not the section');
 });
 
 // ── the deck's own canvas reaches the player (#1577) ─────────────────────────
@@ -1710,7 +1723,14 @@ test('the assembled player is byte-for-byte stable (frozen-artifact golden)', as
 	// slide now takes its attributes in name order, so the CLI and the Studio serialize a slide the
 	// same way whatever wrote them. Diffed: exactly three lines move, two <section> tags and one
 	// <aside>, each the same attributes reordered; nothing else.
-	assert.equal(sha, 'e4861b03e066275d67b35a33425aacfeca0232cba48393d1b4c46777a2081b03', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
+	// Re-blessed for #1501: the slide and frame lists are rooted at the player's own #lp-stage
+	// (`:scope > .lp-frame`, `:scope > section[data-lattice-slide]`) instead of the document.
+	// Diffed before/after: the runtime script's two list declarations (and their comment) move,
+	// and the CSP `script-src` sha256 moves with them. No markup, CSS or block order moved.
+	// Re-blessed 2026-10-26 (#2904) on top of that: the Read view's font stacks (Outfit and Playfair) end in
+	// 'Noto Color Emoji', so an emoji in the article draws from the embedded font like the slides do. Seven stacks
+	// in the player CSS moved; nothing else.
+	assert.equal(sha, 'db5ca48f826216584dad6b6d423ec6330ebbe6eb76ce9bba4454b08f487df2b5', 'player bytes moved — if intentional, re-bless this sha in the same commit and say why');
 });
 
 test('generic article-table chrome is scoped away from chart re-hosts (.lp-chart)', async () => {
@@ -2251,6 +2271,37 @@ test('the transport chrome is unforgeable too, not just the caption band and pla
 		const forgedNode = d.querySelector(`section[data-lattice-slide] #${id}`);
 		if (forgedNode) assert.ok(forgedNode.closest('#lp-stage'), `the forged ${id} stays inside the deck content`);
 	}
+});
+
+test('a slide cannot add frames or slides to the transport with a fake frame or a nested slide (#1501)', async () => {
+	// The last two document-wide lookups in the player, and the assembler's own: `class` and
+	// `data-lattice-slide` survive sanitizing, so one slide carrying <div class="lp-frame"> and a
+	// nested <section data-lattice-slide> made a real Chromium export of a two-slide deck read
+	// "1 / 4", show a div from slide 1 on Next, and play slide 2's audio over it.
+	const forged = '<div class="lp-frame"><p>forged frame</p></div><section data-lattice-slide="99"><h2>forged slide</h2></section>';
+	const hostile = docHtml.replace('<p>Intro paragraph.</p>', `<p>Intro paragraph.</p>${forged}`);
+	const { html } = await buildPlayerHtml({ docHtml: hostile, source, now: 0 });
+	const { JSDOM } = require('jsdom');
+	const real = new JSDOM(html).window.document;
+	const slidesIn = new JSDOM(docHtml).window.document.querySelectorAll('section[data-lattice-slide]').length;
+	const stage = real.querySelector('body > #lp-app > #lp-stage');
+	assert.equal(stage.querySelectorAll(':scope > .lp-frame').length, slidesIn, 'one frame per REAL slide: the nested one is not promoted');
+	assert.ok(real.querySelector('section[data-lattice-slide] section[data-lattice-slide="99"]'), "the author's nested section still ships inside their slide");
+	// The article and its contents count the same slides (the trio found the TOC listing the
+	// nested section as a slide of its own, and the timing track a segment too many).
+	const toc = [...real.querySelectorAll('#lp-toc a')].map((a) => a.textContent);
+	assert.ok(!toc.includes('forged slide'), `the contents list no nested slide: ${JSON.stringify(toc)}`);
+
+	// Execute the real player and read what it bound.
+	const dom = new JSDOM(html, { runScripts: 'dangerously' });
+	const d = dom.window.document;
+	assert.ok(d.documentElement.classList.contains('lp-js'), 'the player script actually ran');
+	const counter = d.querySelector('body > #lp-bar > #lp-count');
+	assert.equal(counter.textContent.trim(), `1 / ${slidesIn}`, 'the count is the real slide count');
+	d.querySelector('body > #lp-app > #lp-nav > #lp-next').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+	const active = d.querySelector('body > #lp-app > #lp-stage > .lp-frame.lp-active > section[data-lattice-slide]');
+	assert.equal(counter.textContent.trim(), `2 / ${slidesIn}`);
+	assert.equal(active?.getAttribute('data-lattice-slide'), '2', 'Next shows the real second slide, not a forged frame');
 });
 
 // ── the swipe rule counts the fingers (#1558) ────────────────────────────────

@@ -245,7 +245,10 @@ section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of
 section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of-type(8n+3) { color:var(--fail); border-color:var(--fail); }
 section.regulatory-update.regulatory-update.diff-bands > .cell-stage > h3:nth-of-type(8n+4) { color:var(--accent); border-color:var(--accent); }
 
-/* .priority — tiered priority badges. */
+/* .priority — tiered priority badges. A tier past the third keeps the accent chip; the first three
+ * borrow the status colors, so they are status MARKS (engineering/decisions/2026-10-24-status-is-one-system.md):
+ * the deck's status solid under the one ink, the two urgent tiers wearing the signal ring, and the row's
+ * rail the slide ink. The word TIER n is the second channel. */
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li::before {
   content:'TIER ' counter(upd);
   display:inline-flex; align-items:center; justify-content:center; line-height:1;
@@ -259,11 +262,11 @@ section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul)
   padding:0.3em 0.75em;
 }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1) { border-left-color:var(--fail); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1)::before { background:var(--fail); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(1)::before { background:var(--state-fail-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) var(--fail-signal-mark); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2) { border-left-color:var(--warn); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2)::before { background:var(--warn); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(2)::before { background:var(--state-warn-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) var(--warn-signal-mark); }
 section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3) { border-left-color:var(--pass); }
-section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--pass); }
+section.regulatory-update.regulatory-update.priority > .cell-stage > :is(ol, ul) > li:nth-child(3)::before { background:var(--state-pass-hue); color:var(--on-mark); box-shadow:inset 0 0 0 var(--state-signal-w) transparent; }
 
 /* ── Family reflow (2026-06-20-native-to-reflow-feasibility.md, Batch
    A1). The DEFAULT changelog row is a five-column `auto auto auto 1fr auto` grid

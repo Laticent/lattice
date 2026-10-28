@@ -9,7 +9,7 @@
 //   - PPTX     : image-slides — the same 2x PNGs, full-bleed via PptxGenJS.
 //   - Print    : the browser print path — true vector, selectable, but a dialog.
 //
-// Rasterization uses html-to-image (toPng): it clones the slide, inlines the
+// Rasterization uses the shared slide camera (lib/core/slide-camera.mjs; formerly html-to-image's toPng): it clones the slide, inlines the
 // computed styles AND embeds the web fonts, then renders to a 2x canvas. The
 // fonts are NOT left to html-to-image's own collection (it chased the engine
 // CSS's cross-origin Google-Fonts @import and lost a lazy-load race — off-screen
@@ -17,6 +17,10 @@
 // sketch` deck's Shantell body font dropped to a system fallback). Instead we
 // pass a precomputed `fontEmbedCSS` of vendored, data-URI'd faces (font-embed.js)
 // to every call, so each clone is self-contained and every font embeds.
+//
+// Every capture draws through the shared slide camera (lib/core/slide-camera.mjs) and `settleSlideDraw` (settled-canvas.js), which
+// adds the wait WebKit needs: it decodes a slide's pictures only after the first draw, so one draw shipped slides with no
+// pictures. Chromium and Firefox take one plain draw.
 //
 // IMPORTANT: do NOT pass a `backgroundColor` — a forced white overrides the
 // solid dark canvas of the title/closing/divider slides
@@ -35,13 +39,19 @@ import base64Utf8 from '../../../../../lib/core/base64-utf8.js';
 import { captureStyleProperties } from '../../../../../lib/core/capture-style-properties.mjs';
 import cardTagEqualizeCore from '../../../../../lib/core/card-tag-equalize.js';
 import { cornerSurvivesExport } from '../../../../../lib/core/corner-export-capability.mjs';
-// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
-// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
 import dataBlockCore from '../../../../../lib/core/data-block.js';
+import fontPolicyCore from '../../../../../lib/core/font-policy.js';
+import frontMatterKeyCore from '../../../../../lib/core/front-matter-key.js';
+import imagePolicyCore from '../../../../../lib/core/image-policy.js';
+import officePolicyCore from '../../../../../lib/core/office-export-policy.js';
 import { SVG_CHART_LAYOUTS } from '../../../../../lib/core/projection-catalog.generated.mjs';
 import remoteRef from '../../../../../lib/core/remote-ref.js';
 import overflowMarkerCore from '../../../../../lib/core/resolve-overflow-marker.js';
 import { sanitizeStyleText } from '../../../../../lib/core/sanitize-style-text.mjs';
+import { captureSlideCanvas } from '../../../../../lib/core/slide-camera.mjs';
+// A DEFAULT import, destructured below: a CommonJS leaf, served in dev by the shim that emits
+// only `export default` (docs/src/plugins/vite-cjs-lib-dev.mjs).
+import emojiFacesCore from '../../../../../lib/fonts/emoji-faces.js';
 import { PENDING_FIGURES, releaseFigure } from '../../../../../lib/plugins/host-browser.mjs';
 import bakedFigureCore from '../../../../../lib/plugins/mermaid/shared/baked-figure-tag.js';
 import initDirectiveCore from '../../../../../lib/plugins/mermaid/shared/init-directive.js';
@@ -51,8 +61,10 @@ import { buildSrcdoc, handoutRegions, nUpCells } from '../../../playground/deck-
 import { embedComponentsInMarkdown } from '../../../playground/layout-core.generated.js';
 import { addPageStickyNotes } from '../../../playground/pdf-sticky-notes.js';
 import { downloadBlob } from '../download.js';
-import { ribbonCaptureStyle } from './capture-ribbon.js';
+import { applyFontsOverride, applyImagesOverride } from './images-override.js';
 import { collectSlideTextRuns } from './pdf-text-extract.js';
+import { sharedPictureEncoder } from './picture-encoder-pool.js';
+import { settleSlideDraw } from './settled-canvas.js';
 
 const { resolveOverflowMarker, stripMarkerForLevel } = overflowMarkerCore;
 const { bakedFigureOpenTag } = bakedFigureCore;
@@ -252,7 +264,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 	// `marp` is the eager door a test stubs; the engine itself loads the bundle builder on demand.
 	const marp = PG?.marp ?? (await PG?.loadMarp?.());
 	if (!marp) throw new Error('engine not ready — try again in a moment');
-	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
+	const { bakeSplits, stripPaneMarkers, appendAutoGlossary, sampleAssetNames, withSampleAssets, STATIC_ASSETS, AGENT_ASSETS, fontAssetsFor, marpScopableCss, withoutEmojiFont, marpConfigCjs, withRuntimeScriptsReport, packageJson, vscodeSettings, vscodeExtensions, vscodeTasks, readme, agentsMd } = marp;
 	const slug = safeName(name);
 	const baseName = (p) => p.split('/').pop();
 
@@ -388,7 +400,7 @@ export async function exportMarp(source, name, palette, themeBase, { includeAgen
 		const r = await fetch(exportBase + baseName(from)).catch(() => null);
 		if (!r?.ok) return;
 		if (to === 'lattice.css') {
-			bundledCssText = marpScopableCss(await r.text());
+			bundledCssText = marpScopableCss(withoutEmojiFont(await r.text()));
 			dir.file(to, bundledCssText);
 			return;
 		}
@@ -1036,9 +1048,12 @@ function finishBake(doc, { authoredAttrs, bakeSvg, win, freezeTokens, playerBake
  *  (`article-projection.ts` › warmArticleProjection) without running a capture. */
 export const loadFontEmbed = () => import('../../../playground/font-embed.js');
 
-async function sectionsOf(frame) {
+async function sectionsOf(frame, fonts) {
 	const doc = frame?.contentDocument;
 	if (!doc) throw new Error('Preview not ready yet.');
+	clearDataUriMemo();
+	// The PNG workers load while the fonts and the first slide are prepared.
+	sharedPictureEncoder().warm();
 	const sections = doc.querySelectorAll('.lattice>section');
 	if (!sections.length) throw new Error('Nothing to export yet.');
 	// Build the data-URI font sheet once, inject it into the preview doc, and wait
@@ -1047,8 +1062,11 @@ async function sectionsOf(frame) {
 	// Lazy-imported (its bundled .woff2 imports are not Node-loadable, so the pure
 	// markdown kernels above stay unit-testable) — same split as jspdf/pptxgenjs.
 	const { buildFontEmbedCss, ensureFontsLoaded } = await loadFontEmbed();
-	const fontEmbedCSS = await buildFontEmbedCss();
+	const fontEmbedCSS = await buildFontEmbedCss(doc.body?.textContent || '', fonts);
 	await ensureFontsLoaded(doc, fontEmbedCSS);
+	// `fonts: system-emoji`: the camera leaves the emoji font out of every picture it draws (lib/core/slide-camera.mjs), as the command line does.
+	if (fontPolicyCore.resolveFontPolicy(fonts).emoji === 'system') doc.documentElement.setAttribute('data-lattice-omit-fonts', emojiFacesCore.EMOJI_FAMILY);
+	else doc.documentElement.removeAttribute('data-lattice-omit-fonts');
 	await flattenChartSvgs(frame, sections);
 	return { sections, fontEmbedCSS };
 }
@@ -1121,6 +1139,11 @@ function slideGeom(section) {
 // `content-visibility:auto` (subtree rendering skipped) and the whole `.lattice`
 // starts `visibility:hidden`, revealed by the in-iframe FIT agent only once the
 // preview has a non-zero width — i.e. once it has actually been SHOWN. Neither
+// NOTE (2026-10-25): every comment from here to `shootSection` that names html-to-image describes the camera this module
+// used before the shared slide camera (lib/core/slide-camera.mjs). The mechanisms they describe (computed-style copying, the
+// font-size floor, the ribbon and border-image repaints, a clone with no ancestors) no longer apply: the camera lays the slide
+// out with the page's own stylesheet. They stay as the record of why each fixup below exists; the fixups still serve the
+// camera where they act on the LIVE section (visibility, web references, corners, the export face).
 // state survives an export: html-to-image clones the section and copies its
 // COMPUTED styles, so a skipped or hidden slide rasterizes to a blank page. That
 // is exactly what happens when you export straight from the Drawing Board's Edit
@@ -1243,32 +1266,10 @@ export function sweepWebRefsForCapture(section) {
 	};
 }
 
-export async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTarget) {
-	// The spectrum ribbon is a `border-top` whose `border-image-source` is a
-	// linear-gradient. html-to-image inlines that computed border-image and
-	// MIS-RENDERS it — filling the gradient across the whole element instead of
-	// the border strip. So:
-	//   - Bookend slides (title/closing/divider) carry the spectrum as an INERT
-	//     border (`border-top:none`) over a solid canvas — html-to-image would
-	//     fill it and bury the canvas. Just drop the border-image.
-	//   - Content slides carry a REAL ~12px ribbon — left alone it fills the whole
-	//     slide with rainbow, burying the content. Repaint it as a top background
-	//     strip (html-to-image renders gradient BACKGROUNDS correctly) and make the
-	//     now-blank border transparent. Layout is unchanged (the border keeps its
-	//     width), so this is invisible in the preview and faithful in the export.
-	const cs = getComputedStyle(section);
-	const prev = {
-		borderImageSource: section.style.borderImageSource,
-		borderTopColor: section.style.borderTopColor,
-		backgroundImage: section.style.backgroundImage,
-		backgroundRepeat: section.style.backgroundRepeat,
-		backgroundPosition: section.style.backgroundPosition,
-		backgroundSize: section.style.backgroundSize,
-		backgroundOrigin: section.style.backgroundOrigin,
-	};
-	// The ribbon repaint itself is a pure function of the computed style (capture-ribbon.js), shared with the slide
-	// map's poster capture, which hands it to html-to-image as the clone's style instead of writing the live node.
-	Object.assign(section.style, ribbonCaptureStyle(cs));
+export async function withCaptureFixups(section, capture, pixelRatioOverride, cornerTarget, face = 'export') {
+	// No ribbon repaint: html-to-image mis-drew the spectrum ribbon's border-image, and this function used to repaint it as a
+	// background strip. The shared camera (lib/core/slide-camera.mjs) lays the slide out natively, so the ribbon draws as it
+	// does on screen, and the CLI takes the same picture.
 	// Force the finish OPAQUE (export-safe) face for the raster. A finish shows its
 	// RICH screen face by default — directional alpha fades the browser composites
 	// fine, but html-to-image can mis-serialize (color-mix / fade-to-transparent), and
@@ -1277,7 +1278,7 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 	// html-to-image clones the section + its descendants only (NOT its ancestors), so
 	// a root-only class would be dropped in the clone. Removed in the finally.
 	const hadExporting = section.classList.contains('lattice-exporting');
-	if (!hadExporting) section.classList.add('lattice-exporting');
+	if (!hadExporting && face === 'export') section.classList.add('lattice-exporting');
 	// SQUARE THE CORNER when this target cannot hold it. A rounded corner is a HOLE —
 	// the slide stops painting and whatever is behind shows through — so it only reads
 	// as a corner in an artifact that can carry "nothing". A `.pdf` page is paper; a
@@ -1348,13 +1349,6 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 		return await capture(w, h, pixelRatio);
 	} finally {
 		restoreWeb();
-		section.style.borderImageSource = prev.borderImageSource;
-		section.style.borderTopColor = prev.borderTopColor;
-		section.style.backgroundImage = prev.backgroundImage;
-		section.style.backgroundRepeat = prev.backgroundRepeat;
-		section.style.backgroundPosition = prev.backgroundPosition;
-		section.style.backgroundSize = prev.backgroundSize;
-		section.style.backgroundOrigin = prev.backgroundOrigin;
 		restoreVisibility();
 		if (!hadExporting) section.classList.remove('lattice-exporting');
 		if (hadRounded) section.classList.add('corners-rounded');
@@ -1378,36 +1372,59 @@ export async function withCaptureFixups(section, capture, pixelRatioOverride, co
 // every capture on the page: lib/core/capture-style-properties.mjs.
 export { captureStyleProperties };
 
-function captureOptions(w, h, pixelRatio, fontEmbedCSS, log) {
-	return {
-		width: w,
-		height: h,
-		pixelRatio,
-		cacheBust: true,
-		fontEmbedCSS,
-		includeStyleProperties: captureStyleProperties(),
-		onImageErrorHandler: (event) => {
-			if (log) log.count += 1;
-			// HIDE the failed `<img>` in the clone. Resolving alone is not "the picture is
-			// simply absent": the browser paints its own broken-image glyph AND the author's
-			// alt text into the box, so the exported slide ships a platform icon (a different
-			// one per machine, the divergence HARD RULE #29 exists for) and a line of prose
-			// nobody wrote — measured, on a real export, before this line. `visibility`
-			// rather than `display`, so the box keeps its size and nothing around it moves.
-			const el = event?.target;
-			if (el?.style) el.style.visibility = 'hidden';
-		},
-		// No `borderRadius` here: it is set on the SECTION in withCaptureFixups, which is
-		// the only place that knows whether this corner is being kept or squared. A blanket
-		// reset at this layer is what used to flatten the preview chrome's 6px AND the
-		// deck's own corner indiscriminately — see the note there. No `boxShadow` either: the
-		// preview's lift rides `.lattice` now (deck-preview.js, THE SLIDE FRAME), and a section's
-		// box-shadow is the DECK's — the tone rail (`tone-warn`) and the finish frame — which a
-		// blanket `none` erased from every Studio image export while the CLI kept it.
-		style: { transform: 'none', margin: '0', outline: 'none' },
-		filter: (n) => !(n.classList?.contains('db-active')),
-	};
+// THE SHARED CAMERA (lib/core/slide-camera.mjs): the one way a slide becomes a picture, the CLI's too. It lays the slide
+// out again with the page's own stylesheet instead of copying computed styles, so there is no style to drift: against a
+// native Chrome screenshot, at most 0.0065% of pixels differ by more than 8 levels (html-to-image: 4.3% on average).
+// `face` is 'export' for the PDF's photo layer and 'screen' for the picture formats (PowerPoint, LibreOffice, PNG).
+const dataUriMemo = new Map();
+// Bounded by size, not by count: an iPhone photo is megabytes of base64, and the keys are one-off blob: URLs that never hit again after the export.
+const MEMO_MAX_CHARS = 24_000_000;
+let memoChars = 0;
+function clearDataUriMemo() {
+	dataUriMemo.clear();
+	memoChars = 0;
 }
+function blobToDataUri(blob) {
+	return new Promise((resolve, reject) => {
+		const r = new FileReader();
+		r.onload = () => resolve(r.result);
+		r.onerror = () => reject(r.error);
+		r.readAsDataURL(blob);
+	});
+}
+/** A picture's address to a data: URI: same-origin, blob: and data: only. A web image outside the deck's allow-list is never fetched from the author's machine (sweepWebRefsForCapture has already swapped it for a placeholder). */
+async function studioDataUri(url) {
+	if (url.startsWith('data:')) return url;
+	if (!/^blob:/.test(url) && new URL(url, location.href).origin !== location.origin) throw new Error('web asset: not fetched');
+	if (dataUriMemo.has(url)) return dataUriMemo.get(url);
+	const r = await fetch(url);
+	if (!r.ok) throw new Error(`image fetch ${r.status}`);
+	const uri = await blobToDataUri(await r.blob());
+	while (dataUriMemo.size && memoChars + uri.length > MEMO_MAX_CHARS) {
+		const [oldest, value] = dataUriMemo.entries().next().value;
+		dataUriMemo.delete(oldest);
+		memoChars -= value.length;
+	}
+	if (uri.length <= MEMO_MAX_CHARS) {
+		dataUriMemo.set(url, uri);
+		memoChars += uri.length;
+	}
+	return uri;
+}
+function shootSection(section, pixelRatio, fontEmbedCSS, log, face) {
+	return captureSlideCanvas(section, {
+		scale: pixelRatio,
+		face,
+		fontCss: fontEmbedCSS,
+		toDataUri: studioDataUri,
+		onImageError: () => {
+			if (log) log.count += 1;
+		},
+		// WebKit decodes a picture nested in the slide's SVG only after the first draw; this waits for them (settled-canvas.js).
+		settle: (svg, drawSlide) => settleSlideDraw(svg, drawSlide, log),
+	});
+}
+
 
 // Rasterize one rendered slide to a PNG data URL at its native box. `fontEmbedCSS`
 // (the vendored, data-URI'd faces) is handed to html-to-image so the clone embeds
@@ -1565,10 +1582,14 @@ export function missingImageReason(log) {
 	return `the export could not load every image, so the file ships without: ${shown}${more}${hint}`;
 }
 
+/** A canvas as a `data:image/png` URL, written by the shared PNG encoder: the same bytes as every other lane (the browser's own `toDataURL` makes a file three times larger). */
+async function canvasToPngDataUrl(canvas) {
+	return blobToDataUri(await canvasToPng(canvas));
+}
+
 async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
-	const { toPng } = await import('html-to-image');
 	try {
-		return await withCaptureFixups(section, (w, h, pixelRatio) => toPng(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log)), undefined, cornerTarget);
+		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => canvasToPngDataUrl(await shootSection(section, pixelRatio, fontEmbedCSS, log, 'export')), undefined, cornerTarget);
 	} catch (e) {
 		throw captureError(e);
 	}
@@ -1587,10 +1608,9 @@ async function rasterizeSection(section, fontEmbedCSS, cornerTarget, log) {
 // rides back with the bitmap so the worker can write it over the page image as an
 // invisible text layer — see `pdf-text-layer.js`.
 async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log) {
-	const { toCanvas } = await import('html-to-image');
 	try {
-		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
-			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => {
+			const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'export');
 			// Never let the text layer cost the export its PDF: the picture is the
 			// deliverable and the words are the improvement, so a measurement that throws
 			// (an exotic node a Range cannot span) degrades to an image-only page.
@@ -1610,55 +1630,57 @@ async function rasterizeSectionToBitmap(section, fontEmbedCSS, cornerTarget, log
 }
 
 // A slide picture as a Blob: PNG, or JPEG when that is much smaller. A flat slide stays a
-// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a q92 JPEG of a fifth the
-// size. Calco owns the thresholds and the measurement (docs/src/lib/calco/picture.ts). The ORDER
+// lossless PNG; a photograph, 2 to 6 MB per slide as PNG, becomes a JPEG (quality 90 by default) of a fifth the
+// size. The rule and its thresholds are the shared kernel's (lib/core/office-export-policy.js `choosePicture`). The ORDER
 // is the cost: a PNG of a photograph takes about 1.2 s to encode and its JPEG 0.36 s, so a
 // continuous-tone slide (`isContinuousTone(section)`: raster images or smooth gradients cover a
 // quarter of it) is a JPEG first, and the PNG is never encoded when the JPEG is large; any other
 // slide is a PNG first. The JPEG is drawn onto a white canvas, so a transparent pixel is white,
 // not black. Only for an opaque picture: the PPTX and Office captures square their corners.
 function canvasToPng(canvas) {
-	return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), 'image/png'));
+	// The shared PNG encoder (lib/core/slide-camera.mjs), the CLI's too: smaller than the browser's own and the same file in both hosts.
+	return sharedPictureEncoder().encode(canvas).then((bytes) => new Blob([bytes], { type: 'image/png' }));
+}
+
+// The author's `images:` line for the slide pictures of the PPTX and Office exports
+// (lib/core/image-policy.js): `original` keeps every slide a lossless PNG, and an explicit quality
+// replaces the default. Set by exportPptx / exportOffice for the length of one export.
+let pictureImages = null;
+
+/**
+ * What Calco is told for the pictures cropped out of a slide in an editable Office export (lib/core/office-export-policy.js `cropRules`): the
+ * policy, and the shared writers in the worker pool to write them with, installed under the name the rules carry.
+ */
+function officePicturePolicy() {
+	globalThis[officePolicyCore.PICTURE_WRITER] = (canvas, format) => sharedPictureEncoder().encode(canvas, format);
+	return officePolicyCore.cropRules(pictureImages || {}, { writer: true });
 }
 
 async function canvasToPictureBlob(canvas, section) {
-	const { worthTryingJpeg, jpegWins, isContinuousTone, PICTURE_JPEG_QUALITY, PICTURE_TONE_JPEG_BYTES } = await import('@/lib/calco');
-	const encode = (c, type, quality) => new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), type, quality));
-	const jpegOf = async () => {
-		const flat = document.createElement('canvas');
-		flat.width = canvas.width;
-		flat.height = canvas.height;
-		const ctx = flat.getContext('2d');
-		ctx.fillStyle = '#fff';
-		ctx.fillRect(0, 0, flat.width, flat.height);
-		ctx.drawImage(canvas, 0, 0);
-		const jpeg = await encode(flat, 'image/jpeg', PICTURE_JPEG_QUALITY);
-		// A browser that cannot encode JPEG hands back a PNG; that is no saving.
-		return jpeg.type === 'image/jpeg' ? jpeg : null;
-	};
-	if (section && isContinuousTone(section)) {
-		const jpeg = await jpegOf();
-		if (jpeg && jpeg.size >= PICTURE_TONE_JPEG_BYTES) return jpeg;
-		const png = await encode(canvas, 'image/png');
-		return jpeg && worthTryingJpeg(png.size) && jpegWins(png.size, jpeg.size) ? jpeg : png;
-	}
-	const png = await encode(canvas, 'image/png');
-	if (!worthTryingJpeg(png.size)) return png;
-	const jpeg = await jpegOf();
-	return jpeg && jpegWins(png.size, jpeg.size) ? jpeg : png;
+	const setting = pictureImages || {};
+	const { resolveImagePolicy } = imagePolicyCore;
+	const { choosePicture } = officePolicyCore;
+	const { isContinuousTone } = await import('@/lib/calco');
+	// Both through the shared writers (lib/core/slide-camera.mjs `encodeCanvas`) in the worker pool. The JPEG writer lands transparency
+	// on white itself; the browser's own JPEG encoder is not used, because its size depends on the engine (an iPhone's picture
+	// PowerPoint came out 43.3 MB where Chromium's was 12.5 MB).
+	const encode = async (format) => new Blob([await sharedPictureEncoder().encode(canvas, format)], { type: `image/${format.type}` });
+	const jpegOf = (quality) => encode({ type: 'jpeg', quality });
+	// The rule is the shared kernel's (`choosePicture`), so the command line chooses the same way.
+	const tone = !!section && resolveImagePolicy(setting).mode !== 'original' && isContinuousTone(section);
+	return choosePicture({ png: () => encode({ type: 'png' }), jpeg: jpegOf, size: (blob) => blob.size }, { tone }, setting);
 }
 
-// Rasterize one slide to raw PNG BYTES. Same clone + draw as rasterizeSection; it
-// stops at `canvas.toBlob` instead of `toDataURL`, so the base64 that a PowerPoint
-// needs is never built on this thread — the bytes transfer to the assembly worker for
-// free and it encodes them there.
-async function rasterizeSectionToPngBytes(section, fontEmbedCSS, cornerTarget, log) {
-	const { toCanvas } = await import('html-to-image');
+// One slide of a picture PowerPoint: the screen face, PNG or JPEG by the picture policy (`canvasToPictureBlob`). BOTH
+// PowerPoint lanes take this picture: the worker lane transfers its bytes to the assembly worker, which base64s them there;
+// the main-thread fallback makes the data URL itself. The fallback used to take `rasterizeSection` instead, a lossless PNG
+// of the PDF's flat face for every slide: a different look, and 52 photo slides at about 3.5 times the worker lane's size.
+async function rasterizeSlidePicture(section, fontEmbedCSS, cornerTarget, log) {
 	try {
-		return await withCaptureFixups(section, async (w, h, pixelRatio) => {
-			const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-			return await (await canvasToPictureBlob(canvas, section)).arrayBuffer();
-		}, undefined, cornerTarget);
+		return await withCaptureFixups(section, async (_w, _h, pixelRatio) => {
+			const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'screen');
+			return await canvasToPictureBlob(canvas, section);
+		}, undefined, cornerTarget, 'screen');
 	} catch (e) {
 		throw captureError(e);
 	}
@@ -1777,11 +1799,9 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 	}
 }
 
-// The legacy lane's JPEG flavor: same clone + draw, composited over a white
-// underlay (JPEG has no alpha; a bare encode composites stray transparency onto
-// BLACK), encoded on this thread. NOT html-to-image's toJpeg — its
-// `backgroundColor` option overrides the slide's own background (see the header
-// warning), so we composite ourselves, exactly like the worker lane does.
+// The legacy lane's JPEG flavor: same clone + draw, written by the shared JPEG writer, which lands transparency on
+// white (JPEG has no alpha; the browser's own encode composites stray transparency onto BLACK). NOT html-to-image's
+// toJpeg — its `backgroundColor` option overrides the slide's own background (see the header warning).
 // Forwards `cornerTarget` on BOTH branches. Today every caller passes 'pdf', which squares
 // either way, so letting the JPEG branch drop it was inert — and inert is exactly how a
 // wired parameter rots: the next caller wanting JPEG bytes in an alpha-capable container
@@ -1789,17 +1809,9 @@ async function buildPdfBlobViaWorker(sections, fontEmbedCSS, name, onStatus, met
 // fail-safe default would mask that rather than catch it.
 async function rasterizeSectionToDataUrl(section, fontEmbedCSS, pageFormat, cornerTarget, log) {
 	if (pageFormat !== 'jpeg') return rasterizeSection(section, fontEmbedCSS, cornerTarget, log);
-	const { toCanvas } = await import('html-to-image');
-	return withCaptureFixups(section, async (w, h, pixelRatio) => {
-		const canvas = await toCanvas(section, captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
-		const out = document.createElement('canvas');
-		out.width = canvas.width;
-		out.height = canvas.height;
-		const ctx = out.getContext('2d');
-		ctx.fillStyle = '#fff';
-		ctx.fillRect(0, 0, out.width, out.height);
-		ctx.drawImage(canvas, 0, 0);
-		return out.toDataURL('image/jpeg', 0.95);
+	return withCaptureFixups(section, async (_w, _h, pixelRatio) => {
+		const canvas = await shootSection(section, pixelRatio, fontEmbedCSS, log, 'export');
+		return blobToDataUri(new Blob([await sharedPictureEncoder().encode(canvas, { type: 'jpeg', quality: 95 })], { type: 'image/jpeg' }));
 	}, undefined, cornerTarget);
 }
 
@@ -1861,7 +1873,7 @@ export async function rasterizeDeckImages(render, onStatus, opts) {
 	const log = opts?.imageFailures || null;
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
 		const images = [];
@@ -2002,14 +2014,14 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
 	}
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
 		// THE SHARED WRITER first: the same code as the CLI's PDF (lib/core/pdf-compose) —
 		// real text, vector charts and original images over one photo per slide. The
 		// image-per-page lanes below stay as the fallback, so a deck is never lost to it.
 		if (opts?.writer !== 'photo') {
 			try {
-				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log);
+				return await buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, opts?.images, opts?.fonts);
 			} catch (e) {
 				console.warn('[lattice-export] shared PDF writer failed (' + (e?.message || e) + ') — falling back to one photo per page.');
 			}
@@ -2040,11 +2052,22 @@ async function buildPdfBlob(render, name, onStatus, meta, opts, log) {
  *     where `sweepWebRefsForCapture` already replaces it;
  *   · document properties and comment sticky notes, as the photo lanes write them.
  */
-async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log) {
-	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, { toCanvas }, pdfLib, { stickyNotePlacements }] = await Promise.all([
+/** The deck's `fonts:` line (lib/core/font-policy.js) with the panel's choice on top, read the way the CLI reads it. */
+export function deckFontSetting(source) {
+	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
+	return applyFontsOverride(fontPolicyCore.parseFontsSetting(frontMatterKeyCore.frontMatterValue(fm, 'fonts')));
+}
+
+/** The deck's `images:` line (lib/core/image-policy.js), read the way the CLI reads them, so both hosts choose alike. */
+export function deckImageSetting(source) {
+	const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(source || ''))?.[1] ?? '';
+	return applyImagesOverride(imagePolicyCore.parseImagesSetting(frontMatterKeyCore.frontMatterValue(fm, 'images')));
+}
+
+async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, annotations, log, images, fonts) {
+	const [{ composeDeckPdf, canvasCamera }, { default: hbUrl }, pdfLib, { stickyNotePlacements }] = await Promise.all([
 		import('../../../../../lib/core/pdf-compose/compose.mjs'),
 		import('harfbuzzjs/hb-subset.wasm?url'),
-		import('html-to-image'),
 		import('pdf-lib'),
 		import('../../../playground/pdf-sticky-notes.js'),
 	]);
@@ -2053,13 +2076,26 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 	// The writer asks for PNG, and for JPEG too on a busy slide (compose.mjs pngIsFlat); the
 	// canvas camera captures each slide once for both. toJpeg was this same canvas encoded at
 	// 0.92, so a JPEG it keeps is the bytes this camera used to return.
-	const camera = canvasCamera(async (section, scale) => {
-		try {
-			return await withCaptureFixups(section, (w, h, pr) => toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log)), scale, 'pdf');
-		} catch (e) {
-			throw captureError(e);
-		}
-	}, 0.92);
+	// Pictures are written by workers, so the next slide is captured while this one compresses (`photoLookahead` below).
+	const pictureWriter = sharedPictureEncoder();
+	// Captures take turns: a capture edits the shared document (the web-reference sweep's <style>, the section's classes), so two at once
+	// would see each other's edits. Only the PNG writing overlaps a capture.
+	let captureTurn = Promise.resolve();
+	const camera = canvasCamera(
+		(section, scale) => {
+			const run = captureTurn.then(async () => {
+				try {
+					return await withCaptureFixups(section, (_w, _h, pr) => shootSection(section, pr, fontEmbedCSS, log, 'export'), scale, 'pdf');
+				} catch (e) {
+					throw captureError(e);
+				}
+			});
+			captureTurn = run.catch(() => {});
+			return run;
+		},
+		imagePolicyCore.resolveImagePolicy(images || {}).quality / 100,
+		(canvas, format) => pictureWriter.encode(canvas, format),
+	);
 	const withSlide = (section, fn) => {
 		const restore = forceSectionVisibleForCapture(section);
 		const had = section.classList.contains('lattice-exporting');
@@ -2112,7 +2148,7 @@ async function buildPdfBlobShared(sections, fontEmbedCSS, name, onStatus, meta, 
 		else if (phase === 'write') onStatus('Writing PDF…', { current: total, total });
 	};
 	// Fonts through the same guard as images: no web font is fetched from the author's machine.
-	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date() });
+	const { bytes } = await composeDeckPdf(list, { camera, withSlide, fetchAsset, images: images || undefined, fetchBytes: fetchAsset, harfbuzzWasm: wasm, onProgress, date: new Date(), fonts: fontPolicyCore.resolveFontPolicy(fonts), photoLookahead: 1 });
 	// Document properties and review comments, exactly as the photo lanes write them.
 	const { PDFDocument, PDFHexString, PDFName } = pdfLib;
 	const doc = await PDFDocument.load(bytes, { updateMetadata: false });
@@ -2251,7 +2287,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 				if (failure) throw failure;
 			}
 			if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + total + '…', { current: i, total });
-			const bytes = await rasterizeSectionToPngBytes(sections[i], fontEmbedCSS, 'pptx', log);
+			const bytes = await (await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log)).arrayBuffer();
 			worker.postMessage({ type: 'slide', index: i, bytes, altText: altTextFor(i) }, [bytes]);
 			await new Promise((r) => setTimeout(r));
 		}
@@ -2266,6 +2302,7 @@ async function buildPptxViaWorker(sections, fontEmbedCSS, { layout, props }, alt
 
 /** `opts.embedSource`: the `.lattice` bytes to carry, as for `exportPdf`. */
 export async function exportPptx(render, name, onStatus, meta, opts) {
+	pictureImages = opts?.images || null;
 	if (onStatus) onStatus('Preparing PowerPoint…');
 	const log = createImageFailureLog();
 	// Lift the `describe:` channel from the ENGINE render, before the capture frame
@@ -2273,7 +2310,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	const describeRecord = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-	const { sections, fontEmbedCSS } = await sectionsOf(frame);
+	const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 	await recordUnreachableAssets(sections, log);
 	// The record and the rasterized sections come from two different splits of the same
 	// render, and the alt text below binds them BY INDEX. If they ever disagree on length,
@@ -2323,7 +2360,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 	}
 	for (let i = 0; i < sections.length; i++) {
 		if (onStatus) onStatus('Rendering slide ' + (i + 1) + ' of ' + sections.length + '…', { current: i, total: sections.length });
-		const png = await rasterizeSection(sections[i], fontEmbedCSS, 'pptx', log);
+		const picture = await blobToDataUri(await rasterizeSlidePicture(sections[i], fontEmbedCSS, 'pptx', log));
 		// Alt text: the slide's own `describe:` description, else a neutral "Slide N"
 		// (never let pptxgenjs default `descr` to the image filename — junk a screen
 		// reader reads).
@@ -2334,7 +2371,7 @@ export async function exportPptx(render, name, onStatus, meta, opts) {
 		// readers "Slide 1" while the author's description sat intact in the engine render
 		// one step upstream. Same root cause as the webpage export's lost notes; the record
 		// is lifted before the frame exists.
-		pptx.addSlide().addImage({ data: png, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
+		pptx.addSlide().addImage({ data: picture, x: 0, y: 0, w: '100%', h: '100%', altText: xmlSafe(altTextFor(i)).trim() || `Slide ${i + 1}` });
 		// Yield between slides so the progress paints and input stays live (see the
 		// matching note in buildPdfDoc) — the per-slide rasterize is synchronous.
 		await new Promise((r) => setTimeout(r));
@@ -2374,6 +2411,7 @@ const OFFICE = {
  * into a text box; `opts.embedSource` (PowerPoint only) carries the `.lattice`.
  */
 export async function exportOffice(format, render, name, onStatus, meta, opts) {
+	pictureImages = opts?.images || null;
 	const kind = OFFICE[format];
 	if (!kind) throw new Error(`Unknown office format: ${format}`);
 	const editable = !!opts?.editable;
@@ -2384,16 +2422,17 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 	const record = await slideChannelRecord(render.html);
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		await recordUnreachableAssets(sections, log);
 		if (record.length !== sections.length) {
 			console.warn(`[deck-export] slide record/slide mismatch (${record.length} vs ${sections.length}); exporting without notes and descriptions rather than risk mis-binding them.`);
 			record.length = 0;
 		}
-		const [calco, { toCanvas }] = await Promise.all([import('@/lib/calco'), import('html-to-image')]);
+		const calco = await import('@/lib/calco');
 		let slides = [];
 		let backgrounds;
 		const unreadable = [];
+		const unembeddedFonts = [];
 		const progress = async (i) => {
 			if (onStatus) onStatus(`Rendering slide ${i + 1} of ${sections.length}…`, { current: i, total: sections.length });
 		};
@@ -2405,7 +2444,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 			const host = {
 				run: async (i, fn, arg) => fn(sections[i], arg),
 				shoot: async (i, kind) => {
-					const canvas = await toCanvas(sections[i], captureOptions(now.w, now.h, now.pixelRatio, fontEmbedCSS, log));
+					const canvas = await shootSection(sections[i], now.pixelRatio, fontEmbedCSS, log, 'screen');
 					// A background is a picture to store, and so is the whole slide a slide falls back to: a photograph is a JPEG.
 					// The foreground carries transparency, which only a PNG keeps.
 					const blob = kind === 'foreground' ? await canvasToPng(canvas) : await canvasToPictureBlob(canvas, kind === 'full' ? sections[i] : undefined);
@@ -2437,6 +2476,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 							},
 							undefined,
 							format,
+							'screen',
 						);
 					} catch (e) {
 						throw captureError(e);
@@ -2446,7 +2486,7 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 					}
 				},
 			};
-			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', onWarn: (m) => console.warn(`[deck-export] ${m}`) });
+			const captured = await calco.captureOfficeSlides(host, sections.length, { backdrop: 'whole', pictures: officePicturePolicy(), onWarn: (m) => console.warn(`[deck-export] ${m}`) });
 			slides = captured.slides.map((sl, i) => ({ ...sl, notes: record[i]?.note || null, description: (record[i]?.description || '').trim() || null }));
 			backgrounds = captured.backgrounds;
 		} else {
@@ -2456,12 +2496,13 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 				try {
 					shot = await withCaptureFixups(
 						sections[i],
-						async (w, h, pixelRatio) => {
-							const canvas = await toCanvas(sections[i], captureOptions(w, h, pixelRatio, fontEmbedCSS, log));
+						async (_w, _h, pixelRatio) => {
+							const canvas = await shootSection(sections[i], pixelRatio, fontEmbedCSS, log, 'screen');
 							return new Uint8Array(await (await canvasToPictureBlob(canvas, sections[i])).arrayBuffer());
 						},
 						undefined,
 						format,
+						'screen',
 					);
 				} catch (e) {
 					throw captureError(e);
@@ -2476,7 +2517,20 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		if (editable) {
 			if (onStatus) onStatus('Embedding fonts…', { current: sections.length, total: sections.length });
 			const { calcoFontHost } = await import('./calco-font-host.js');
-			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost());
+			// A face left out is reported with the export, not dropped: the reader's office suite will use its own font for that text.
+			const skippedFonts = new Map();
+			// The `fonts:` policy for text, as the command line's editable export reads it (lib/export/office-export.js): `exact` cuts a face to the
+			// characters the deck draws in it, `used` and `full` keep the whole face, `system` embeds nothing. Emoji are not embedded: see there.
+			deck.fonts = await calco.prepareFonts(deck, await calcoFontHost(fontPolicyCore.resolveFontPolicy(opts?.fonts).text), (face, why) => {
+				// Named with its slant: "Outfit italic" is missing, not Outfit, which embeds fine.
+				const label = face.italic ? `${face.family} italic` : face.family;
+				if (!skippedFonts.has(label)) skippedFonts.set(label, why);
+			});
+			if (skippedFonts.size) {
+				const names = [...skippedFonts.keys()].map((f) => `“${f}”`).join(', ');
+				console.warn(`[deck-export] fonts not embedded (${names}): the reader's office suite will substitute its own.`);
+				unembeddedFonts.push(...skippedFonts.keys());
+			}
 		}
 		if (onStatus) onStatus(`Building .${kind.ext}…`, { current: sections.length, total: sections.length });
 		const bytes =
@@ -2488,9 +2542,14 @@ export async function exportOffice(format, render, name, onStatus, meta, opts) {
 		if (format === 'pptx') blob = await withEmbeddedSource(blob, 'pptx', opts?.embedSource, onStatus);
 		download(blob, `${safeName(name)}.${kind.ext}`);
 		const imageReason = missingImageReason(log);
-		if (!unreadable.length) return imageReason;
-		const picture = `${unreadable.length === 1 ? `slide ${unreadable[0]} is` : `slides ${unreadable.join(", ")} are`} one picture in the file, not editable`;
-		return imageReason ? `${picture}; ${imageReason}` : picture;
+		const parts = [];
+		if (unreadable.length) parts.push(`${unreadable.length === 1 ? `slide ${unreadable[0]} is` : `slides ${unreadable.join(', ')} are`} one picture in the file, not editable`);
+		if (imageReason) parts.push(imageReason);
+		if (unembeddedFonts.length) {
+			const names = unembeddedFonts.map((f) => `“${f}”`).join(', ');
+			parts.push(`${names} ${unembeddedFonts.length === 1 ? 'is' : 'are'} not embedded, so ${kind.label} uses its own font for that text where the font is missing`);
+		}
+		return parts.length ? parts.join('; ') : imageReason;
 	} finally {
 		dispose();
 	}
@@ -2609,7 +2668,7 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 			const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
 			// Embed the faces + wait for them, so the nodes lay out with the real font
 			// before we read computed styles (mirrors the PDF/PPTX path).
-			const fontCssAll = await buildFontEmbedCss();
+			const fontCssAll = await buildFontEmbedCss(doc.body?.textContent || '');
 			await ensureFontsLoaded(doc, fontCssAll);
 			const markup = new XMLSerializer().serializeToString(flattenSvgStyles(svg, win, { collectTokens: true }));
 			const fontFaceCss = subsetFontFaceCss(fontCssAll, collectFontFamilies(markup));
@@ -2642,29 +2701,19 @@ export async function exportChart(render, activeIndex, name, onStatus) {
 // three with a quality arg. The pixelRatio is the image-set size preset (or the
 // thumbnail scale), already OOM-capped by the shared kernel.
 async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pixelRatio, FORMAT_META, log) {
-	const { toCanvas } = await import('html-to-image');
-	return withCaptureFixups(section, async (w, h, pr) => {
-		const src = await toCanvas(section, captureOptions(w, h, pr, fontEmbedCSS, log));
+	return withCaptureFixups(section, async (_w, _h, pr) => {
+		const src = await shootSection(section, pr, fontEmbedCSS, log, 'screen');
 		const meta = FORMAT_META[format] || FORMAT_META.png;
-		let canvas = src;
-		// The underlay is about ALPHA, not about lossiness — those are different axes and
-		// conflating them is what would flatten WebP's corner. JPEG genuinely has no alpha
-		// channel, so a bare encode composites stray transparency onto BLACK and it needs an
-		// opaque underlay. WebP is lossy but DOES carry alpha, so it keeps the corner the
-		// capability table says it can hold (lib/core/corner-export-capability.mjs).
-		if (!cornerSurvivesExport(format)) {
-			const flat = document.createElement('canvas');
-			flat.width = src.width;
-			flat.height = src.height;
-			const ctx = flat.getContext('2d');
-			ctx.fillStyle = '#ffffff';
-			ctx.fillRect(0, 0, flat.width, flat.height);
-			ctx.drawImage(src, 0, 0);
-			canvas = flat;
+		// PNG and JPEG go through the shared writers in the worker pool, so the set is the same bytes in every browser and the CLI's.
+		// The JPEG writer lands transparency on white: JPEG has no alpha channel, and the browser's own encode painted it BLACK.
+		// WebP is lossy but DOES carry alpha, so it keeps the corner the capability table says it can hold
+		// (lib/core/corner-export-capability.mjs); it has no shared writer, and the browser encodes it.
+		if (meta.mime === 'image/png' || meta.mime === 'image/jpeg') {
+			const format = meta.mime === 'image/png' ? { type: 'png' } : { type: 'jpeg', quality: Math.min(100, Math.max(1, Math.round(quality))) };
+			return new Blob([await sharedPictureEncoder().encode(src, format)], { type: meta.mime });
 		}
-		const q = meta.lossy ? Math.min(1, Math.max(0.01, quality / 100)) : undefined;
-		const blob = await new Promise((resolve, reject) =>
-			canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
+		const q = Math.min(1, Math.max(0.01, quality / 100));
+		const blob = await new Promise((resolve, reject) => src.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))), meta.mime, q));
 		// canvas.toBlob MUST fall back to image/png when the UA can't encode the requested type
 		// (e.g. WebP on older Safari / some WebViews). Reject rather than let the zip ship a `.webp`
 		// full of PNG bytes with a manifest that claims WebP — a clear error beats a silent mislabel.
@@ -2672,7 +2721,7 @@ async function rasterizeSectionToBlob(section, fontEmbedCSS, format, quality, pi
 			throw new Error(`This browser can't encode ${meta.mime}. Try PNG.`);
 		}
 		return blob;
-	}, pixelRatio, format);
+	}, pixelRatio, format, 'screen');
 }
 
 // Export the whole deck as an image set — a .zip of one raster per slide plus
@@ -2687,7 +2736,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 	const log = createImageFailureLog();
 	const { frame, dispose } = await createCaptureFrame(render);
 	try {
-		const { sections, fontEmbedCSS } = await sectionsOf(frame);
+		const { sections, fontEmbedCSS } = await sectionsOf(frame, opts?.fonts);
 		if (!sections.length) throw new Error('Nothing to export — the deck rendered no slides.');
 		await recordUnreachableAssets(sections, log);
 		const { w, h } = slideGeom(sections[0]);
@@ -2733,7 +2782,7 @@ export async function exportImageSet(render, name, opts, onStatus, svgRender, me
 				]);
 				const { flattenSvgStyles, collectFontFamilies, finalizeStandaloneSvg } = svgCore;
 				const { buildFontEmbedCss, ensureFontsLoaded } = fontMod;
-				const fontCssAll = await buildFontEmbedCss();
+				const fontCssAll = await buildFontEmbedCss(svgFrame.contentDocument.body?.textContent || '');
 				await ensureFontsLoaded(svgFrame.contentDocument, fontCssAll);
 				// The canvas baked behind each standalone SVG (null = transparent) — the SAME
 				// neutral literals the CLI uses, via the shared kernel.

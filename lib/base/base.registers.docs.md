@@ -42,7 +42,7 @@ model, see `design/concepts.md`.
 | [`inline-code:`](#the-inline-code-front-matter-register-pills-and-marks) | Whether `{LABEL}` pills and `[x]` marks are drawn | `rich` |
 | [`headline:`](#the-headline-front-matter-register-framing-text-alignment) | Framing-text alignment | *(none)* |
 | [`lift:`](#the-lift-front-matter-register-card-elevation) | Card elevation | *(none)* |
-| [`chart-finish:`](#the-chart-finish-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etching or tone | `off` |
+| [`marks:`](#the-marks-front-matter-register-how-charts-spend-color) | How every chart spends its color: pigment, etch or tone; and how loud every status color on the slide is (charts, checklist and verdict discs, kpi pills, policy badges): muted or vivid | `pigment muted` |
 | [`cards:`](#the-cards-front-matter-register-where-a-card-row-puts-its-spare-height) | Where a card row puts the height it does not need | *(the component's)* |
 | [`tag:`](#the-tag-front-matter-register-card-tags) | The look of every card tag: its color, size, placement on the card and text alignment | *(the component's)* |
 | [`image-card:`](#the-image-card-front-matter-register-the-text-card-on-a-photo) | The text card on every image slide that floats its words over the photo: placement, backing, ink, size, density, shape | *(bottom-left, solid, md)* |
@@ -446,11 +446,22 @@ theme's `--accent` to their brand.
 
 | `spectrum:` value | Token | Effect |
 |---|---|---|
-| `on` | *(none)* | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
+| `on` | *(none)*; per slide `spectrum-on` | The rainbow 3-stop theme ribbon. **The default** (omit the key). |
 | `solid` | `spectrum-solid` | A single **`--accent`** — everywhere. |
 | `duo` | `spectrum-duo` | Two-tone: accent → the theme's duotone partner (`--tag-bg`). |
 | `mono` | `spectrum-mono` | A quiet single-hue tint ramp (accent → canvas). |
 | `off` | `spectrum-off` | Drops the section-edge / divider bar only. Structural accents (table rails, `list-steps` spine, `hr`) keep the current style — `off` never kills a structural rule (the white-label baseline) — and it no longer takes a frame's CANVAS with the bar. It used to: the rule cleared the bar with the `background:` shorthand, which restated the color at a specificity a frame's own canvas could not beat, so a dark `title`, `closing`, `topic` or accent cover flattened to the deck ground (#2291). It clears `background-image` now. |
+
+**Back to the default on one slide — the restore tokens.** A deck value writes no token when it
+is the default, so the default needs a token of its own for one slide to ask for it inside a deck
+that set something else. Each of these registers has one, named for its default value:
+`spectrum-on`, `spectrum-edge-top`, `spectrum-card-edge-left`, `rule-auto`, `eyebrow-plain` and
+`head-auto`. A restore token draws nothing; the engine drops the deck's token on its axis for
+that slide (as any per-slide token does), and the slide renders as the default. So in a
+`spectrum-edge: left` deck, `_class: spectrum-edge-top` puts one slide's bar back on top. It is
+the move `claim-framed` already makes for `claim:`. Write one token per axis: beside a rival
+from its own axis (`spectrum-on spectrum-solid`) a restore token always loses, so `lint:deck`
+warns `conflicting-variants`.
 
 **`spectrum-edge:` — the PLACEMENT (where the section-edge bar sits).** Moves or removes
 ONLY the bar, via a per-side `border-image`; it never touches the structural accents, so a
@@ -458,7 +469,7 @@ bar-off deck keeps its table rails and `---` rules.
 
 | `spectrum-edge:` value | Token | Effect |
 |---|---|---|
-| `top` | *(none)* | The top border. **The default** (omit the key). |
+| `top` | *(none)*; per slide `spectrum-edge-top` | The top border. **The default** (omit the key). |
 | `left` | `spectrum-edge-left` | A left rail (the divider look, generalized). |
 | `right` | `spectrum-edge-right` | A right rail. |
 | `bottom` | `spectrum-edge-bottom` | A bottom rail — reads as a baseline. |
@@ -486,7 +497,7 @@ caught as `unknown-spectrum-card` / `unknown-spectrum-card-edge`.
 
 | `spectrum-card-edge:` value | Token | Effect |
 |---|---|---|
-| `left` | *(none)* | A rail on the card's left edge. **The default** (omit the key). |
+| `left` | *(none)*; per slide `spectrum-card-edge-left` | A rail on the card's left edge. **The default** (omit the key). |
 | `top` | `spectrum-card-edge-top` | A rail across the card's top edge. |
 | `right` | `spectrum-card-edge-right` | A rail on the card's right edge. |
 | `bottom` | `spectrum-card-edge-bottom` | A rail across the card's bottom edge. |
@@ -528,7 +539,7 @@ caught as `unknown-rule`. Palette-blind; defaults to today's render.
 
 | `rule:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)* | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
+| `auto` | *(none)*; per slide `rule-auto` | Today's render — a full hairline where the masthead already draws one, nothing on a plain slide. **The default**. |
 | `full` | `rule-full` | An explicit full-width hairline. |
 | `short` | `rule-short` | A short rule under the heading. |
 | `accent` | `rule-accent` | A short rule painted in `--accent` — a signature without shouting. |
@@ -649,7 +660,7 @@ cleanly.
 
 | `eyebrow:` value | Token | Effect |
 |---|---|---|
-| `plain` | *(none)* | The bare mono-caps label. **The default** (omit the key). |
+| `plain` | *(none)*; per slide `eyebrow-plain` | The bare mono-caps label. **The default** (omit the key). |
 | `dot` | `eyebrow-dot` | A small filled `--accent` disc before the label. |
 | `bar` | `eyebrow-bar` | A short vertical `--accent` tick before the label. |
 | `arrow` | `eyebrow-arrow` | A leading chevron (`›`) in the accent color. |
@@ -680,7 +691,7 @@ a typo is caught as `unknown-headline`.
 
 | `headline:` value | Token | Effect |
 |---|---|---|
-| `auto` | *(none)* | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
+| `auto` | *(none)*; per slide `head-auto` | **The default** (omit the key). Each component keeps its own baked alignment — left content masthead, centered title/closing/divider-light, centered chart caption. Byte-identical to today's render. |
 | `left` | `head-left` | Pin the whole framing cluster to the left margin — even on a layout that centers by default (title, closing, stats, charts). |
 | `center` | `head-center` | Center the whole framing cluster — **even on a layout that lefts by default** (the content masthead, kpi, most Form layouts). Aligns the framing *boxes*, not just their text, so a capped heading and its eyebrow/rule land on one axis; with a masthead bay (`meta:`/`logo:`) the cluster centers *beside* the bay, never under it. |
 | `right` | `head-right` | Right-align the whole framing cluster — the rare escape hatch. Same box machinery as `center` (one `--headline-justify` axis on the flex lede), just the far edge. |
@@ -819,28 +830,61 @@ neighbors, so `lint:deck` warns (`spot-scale`) — set the room once, in the fro
 angle, the reading thresholds and the room bands — is `engineering/typography.md` §7
 "Venue". Resolver: `lib/core/resolve-venue.js`.
 
-## The `chart-finish:` front-matter register (how charts spend color)
+## The `marks:` front-matter register (how charts spend color)
 
-`chart-finish:` picks how every chart on the deck spends its color. A finish moves color;
-it never adds any, never removes any, and never changes a chart's structure.
+`marks:` picks how every chart on the deck spends its color. A finish moves color;
+it never adds any, never removes any, and never changes a chart's structure. Its second word, the
+intensity, sets every status mark on the slide, not only a chart's: a checklist disc, a kpi pill,
+a policy badge.
 
-| `chart-finish:` value | Token | Identity lives in | Choose it for |
+**It was called `chart-finish:`.** The old key and the old `chart-finish-*` slide classes still
+render, and `lint:deck` names the new spelling (`marks-renamed`, info). When a deck sets both keys,
+`marks:` wins.
+
+Like `icon:` and `spark:`, it is a look rather than a layer that can be switched off: a chart
+always spends its color some way, so there is no `off`. A deck that names none wears `pigment`,
+and so does one that names a word that is not a finish (`unknown-marks` catches it).
+
+| `marks:` value | Token | Identity lives in | Choose it for |
 |---|---|---|---|
-| `off` | *(none)* | each chart's own design. **The default** (omit the key). | charts exactly as they ship |
-| `pigment` | `chart-finish-pigment` | the body's hue: flat, full-strength color | a colorful deck |
-| `etching` | `chart-finish-etching` | the line: a whisper of color under a doubled edge | a modern look |
-| `tone` | `chart-finish-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
+| `pigment` | `marks-pigment` | the body's hue: flat, full-strength color. **The default** (omit the key). | a colorful deck |
+| `etch` | `marks-etch` | the line: a whisper of color under a doubled edge | a modern look |
+| `tone` | `marks-tone` | the body's value: one hue in stepped shades | a restrained, conservative look |
 
 ```markdown
 ---
 theme: indaco
-chart-finish: tone
+marks: tone
 ---
 ```
 
-**Per slide.** `<!-- _class: bar chart-finish-etching -->` gives one chart its own finish.
-`<!-- _class: bar chart-finish-off -->` keeps one chart's shipped paint inside a finished
-deck. The slide token replaces the deck's; it never stacks with it.
+**Intensity: `muted` or `vivid`.** A second word sets how loud the status colors (done, at
+risk, blocked) are, under any finish, and not only in charts: every status mark on the slide
+takes it, so a checklist disc, a verdict badge, a kpi status pill or a policy badge matches
+the chart beside it. Write the two words in either order.
+
+| Second word | Token | Light slide | Dark slide |
+|---|---|---|---|
+| `muted` | `marks-muted` | deep status fills under white text, each theme's own: done a quiet sage, at risk a burnt orange, blocked a crimson. **The default** (omit the word). | the same hues as mid-tones |
+| `vivid` | `marks-vivid` | every status rich under white text, done an emerald | the same, as mid-tones |
+
+```markdown
+---
+marks: pigment vivid
+---
+```
+
+Each theme curates both sets (`--pass-mark` … and `--pass-vivid-mark` …), and text on every
+fill clears 7:1 on a light slide and 4.5:1 on a dark one. For a reader who is colorblind,
+pick one of the `a11y-*` palettes: they keep the one set that clears every colorblind floor,
+in both intensities.
+
+**Per slide.** `<!-- _class: bar marks-etch -->` gives one chart its own finish, and
+`<!-- _class: bar marks-pigment -->` asks for the default inside a `tone` deck. The slide
+token replaces the deck's; it never stacks with it. The two axes are separate:
+`<!-- _class: bar marks-vivid -->` changes only the intensity and keeps the deck's finish.
+Every slide is stamped, including a chart
+in a pane of a `columns` slide, so a finish never depends on where the chart sits.
 
 **What a finish reaches.** A finish repaints a mark only through the mark contract
 (`data-hue` · `data-encodes` · `data-paint`), so it reaches every mark that encodes a
@@ -848,11 +892,19 @@ category, a magnitude (a heatmap or map ramp) or a layered series, and the chart
 with it. It does not reach a mark painted by a stroke or by type, which is `line`, `slope`
 and `word-cloud`. A status color (a gantt bar's `done` or `blocked`) is a meaning, not a
 category, so it keeps its own hue under every finish, `tone` included, at the finish's
-quieter level.
+quieter level, and a task with no status wears the neutral one, so a chart never has one
+gradient bar among flat ones.
+
+**What a finish does not reach yet.** `flowchart`, `kanban`, `risk-matrix`, `slope`, `map` and
+`journey` keep their own paint under every finish: their data marks are not on the mark
+contract, so a finish cannot find them. They are consistent inside the chart and not with a
+finished deck, and `tools/chart-finish-reach.mjs` names them (and every other unreached mark,
+with its reason) so the list cannot drift. A few marks are neutral on purpose and stay so: a
+waterfall total, a heatmap's empty cell, an alarm halo, the status stripe on a gantt bar.
 
 **Limits.** Under `tone`, a mark that carries text (a flowchart shape, a matrix-grid
 cell) can use only the quiet top of the one hue, so about four of its categories separate
-by eye. `etching` puts identity on a thin edge, the hardest place to tell hues apart: for
+by eye. `etch` puts identity on a thin edge, the hardest place to tell hues apart: for
 colorblind readers on an ordinary theme, prefer `pigment` or an a11y theme. A container,
 such as a slotted flowchart group, a tinted kanban column or a roadmap phase, is never repainted as a mark:
 it keeps its own faint tint, and under `tone` that tint joins the one hue.
@@ -862,11 +914,11 @@ white from its own cell's color and clears 4.5:1 on every step of every theme. O
 themes and in print, the categorical **pattern fills win over any finish**, so a colorblind
 reader keeps the texture channel.
 
-In the Studio, pick it in deck settings (**Look → Chart finish**). A chart slide's own
-settings carry a **Chart finish** row (**Look**) that follows the deck unless you pin one.
-`unknown-chart-finish` catches a typo. The design is `engineering/chart-styling.md` §3. The
+In the Studio, pick it in deck settings (**Look → Marks**). A chart slide's own
+settings carry a **Marks** row (**Look**) that follows the deck unless you pin one.
+`unknown-marks` catches a typo. The design is `engineering/chart-styling.md` §3. The
 rules are generated from each chart manifest's `kernel.marks` by
-`tools/build-chart-finish-css.js`. Resolver: `lib/core/resolve-chart-finish.js`.
+`tools/build-marks-css.js`. Resolver: `lib/core/resolve-marks.js`.
 
 ## The `cards:` front-matter register (where a card row puts its spare height)
 
@@ -1130,14 +1182,14 @@ It takes up to three words, one per axis, in any order:
 | Frame | `framed` | `spark-framed` | The squared frame. **The default** (omit the key) |
 | Frame | `bare` | `spark-bare` | No frame: the spark is bare ink in the line |
 | Look | `pigment` | `spark-pigment` | The color fills the tile; the marks read on it. **The default** |
-| Look | `etching` | `spark-etching` | The color is the line: a clear tile, ink edge and marks |
+| Look | `etch` | `spark-etch` | The color is the line: a clear tile, ink edge and marks |
 | Look | `tone` | `spark-tone` | One hue by value: a pale tile, a mid edge and body, a deep line |
 | Corners | `square` | `spark-square` | Hard corners. **The default** |
 | Corners | `rounded` | `spark-rounded` | The theme's small radius (`--radius-sm`) |
 
 ```markdown
 ---
-spark: etching rounded
+spark: etch rounded
 ---
 
 <!-- _class: table spark-bare -->
@@ -1147,7 +1199,7 @@ spark: etching rounded
 the slide's class, then the deck's `spark:`, then the default. A spark that names its own
 corners keeps a frame in a bare deck unless it also says `bare`. A ring's frame is
 square rather than 3:2. The table slide above drops the
-frame and keeps the deck's etching and rounded words for any spark that asks for a frame back.
+frame and keeps the deck's etch and rounded words for any spark that asks for a frame back.
 `lint:deck` warns (`unknown-spark`) on a word it does not know and on a second word for one axis.
 
 ## The `callout:` front-matter register (chart callouts)

@@ -45,7 +45,7 @@ describe('resolve-eyebrow', () => {
 
   test('EYEBROW_NAMES / EYEBROW_TOKENS list the recognized set', () => {
     assert.deepEqual([...EYEBROW_NAMES], ['plain', 'dot', 'bar', 'arrow', 'underline']);
-    assert.deepEqual([...EYEBROW_TOKENS], ['eyebrow-dot', 'eyebrow-bar', 'eyebrow-arrow', 'eyebrow-underline']);
+    assert.deepEqual([...EYEBROW_TOKENS], ['eyebrow-plain', 'eyebrow-dot', 'eyebrow-bar', 'eyebrow-arrow', 'eyebrow-underline']);
   });
 
   test('readFrontMatterEyebrow extracts from the front-matter block only; quotes + absence', () => {
@@ -59,9 +59,12 @@ describe('resolve-eyebrow', () => {
 
   test('CSS contract — every token decorates the kicker; palette-blind (base.accent-finish.css)', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
-    for (const cls of EYEBROW_TOKENS) {
+    // `eyebrow-plain` is the restore token (a slide back on the default inside a deck that set another
+    // value): it draws nothing of its own, so it has no rule, and must not grow one.
+    for (const cls of EYEBROW_TOKENS.filter((t) => t !== 'eyebrow-plain')) {
       assert.ok(css.includes(`.${cls}`), `${cls} has no rule in base.accent-finish.css`);
     }
+    assert.ok(!css.includes('.eyebrow-plain'), 'eyebrow-plain is a restore token and draws nothing');
     // Leading marks use gap, never margin (HARD RULE #20).
     assert.ok(!/section\.eyebrow-[a-z]+[^{]*\{[^}]*margin/.test(css), 'eyebrow marks must space with gap/padding, not margin');
     assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css), 'accent-finish CSS must be palette-blind (var(--token) only)');

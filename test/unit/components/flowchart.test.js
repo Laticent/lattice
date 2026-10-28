@@ -51,7 +51,7 @@ describe('flowchart — the figure through the real engine', () => {
 
   test('the key span is consumed and drawn as the key; the caption is left to the frame', () => {
     assert.doesNotMatch(html, /\[\{=&gt;, Paging path\}\]/, 'the bracketed span must not print as text');
-    assert.match(html, /<ol class="fc-key">.*Paging path/s);
+    assert.match(html, /<ol class="fc-key" data-chart="flowchart">.*Paging path/s);
     assert.match(html, /<p class="chart-caption"[^>]*>Most alerts close themselves\.<\/p>/);
   });
 
@@ -147,6 +147,16 @@ describe('flowchart — a forged model cannot inject markup (HARD RULE #22)', ()
   dom.window.__latticeDagre = globalThis.__latticeDagre;
   dom.window.eval(browserJs());
   const svg = document.querySelector('svg.flowchart-svg');
+
+  test('its status marks are the kernel\'s', () => {
+    const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '../../../lib/components/chart/flowchart/flowchart.layout.js'), 'utf8');
+    const kernel = require('../../../lib/core/status-marks.js');
+    for (const name of ['STATUS_MARK', 'MARK_PATH']) {
+      const block = new RegExp(`const ${name} = (\\{[\\s\\S]*?\\n  \\});`).exec(src)[1];
+      // eslint-disable-next-line no-new-func
+      assert.deepEqual(new Function(`return ${block}`)(), { ...kernel[name] }, `${name} matches lib/core/status-marks.js`);
+    }
+  });
 
   test('the serialized pass runs and paints (or the assertions below prove nothing)', () => {
     assert.ok(svg.querySelector('.fc-node-group'), svg.innerHTML.slice(0, 200));

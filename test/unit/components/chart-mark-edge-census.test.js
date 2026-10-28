@@ -54,11 +54,9 @@ const KNOCKOUTS = {
   'scatter-dot': 'scatter',
   'sbar-seg': 'stacked-bar',
   'tower-share': 'tower',
-  // The risk grid strokes the canvas between cells and round each marker, so a
-  // marker reads apart from the cell under it: separators, not outlines.
+  // The risk grid strokes the canvas between cells: a separator, not an outline. (Its
+  // markers are light discs outlined in the heading ink, so they join the shared rule.)
   'risk-cell': 'risk-matrix',
-  'risk-marker': 'risk-matrix',
-  'risk-key-marker': 'risk-matrix',
   // An EP curve's dots are knocked out of the other curve where two cross, as line's are.
   'ep-dot': 'ep-curve',
   'quadrant-trail-after': 'quadrant',
@@ -249,7 +247,9 @@ test('every excluded knockout really strokes the canvas color', () => {
     // var(--bg) }` would satisfy a naive scan while the mark paints an ordinary
     // outline every moment a pointer is not on it — and a PDF has no pointer at
     // all. Only a rule that applies in the mark's resting state counts.
-    const strokes = owning.filter((r) => /(^|[;{\s])stroke:\s*var\(--bg\)/.test(r.body))
+    // A two-face knockout (`light-dark(<edge>, var(--bg))`) counts: the risk cell is seamed with the canvas on the
+    // dark face and drawn in its status edge on the light face, where its bright fill alone sits under 3:1.
+    const strokes = owning.filter((r) => /(^|[;{\s])stroke:\s*(var\(--bg\)|light-dark\([^;]*,\s*var\(--bg\)\))/.test(r.body))
       .filter((r) => !/:(hover|focus|focus-within|active|target|checked)\b/.test(r.sel))
       .filter((r) => !/\.chart-mark-active\b/.test(r.sel));
     if (!strokes.length) {

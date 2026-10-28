@@ -802,9 +802,9 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Size control writes a `size` directive to the source', async () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
-		// The Size control opens a menu of real @size tokens; picking one writes it.
-		await user.click(await screen.findByRole('button', { name: /Widescreen|16 : 9/ }));
-		await user.click(await screen.findByRole('menuitem', { name: /Square/ }));
+		// The Size control lists the real @size tokens; picking one writes it.
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck size' }));
+		await user.click(await screen.findByRole('option', { name: /Square/ }));
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/size:\s*square/);
 	});
 
@@ -834,8 +834,8 @@ describe('Studio — Inspector controls respond', () => {
 	it('the Size control preserves front matter it did not come to change', async () => {
 		const user = await setup();
 		await pasteRichDeck(user);
-		await user.click(await screen.findByRole('button', { name: /Widescreen|16 : 9/ }));
-		await user.click(await screen.findByRole('menuitem', { name: /Square/ }));
+		await user.click(await screen.findByRole('combobox', { name: 'Choose deck size' }));
+		await user.click(await screen.findByRole('option', { name: /Square/ }));
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/size:\s*square/);
 		expectFrontMatterIntact('Size');
 	});
@@ -929,12 +929,15 @@ describe('Studio — Inspector controls respond', () => {
 		const user = await setup();
 		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
 		await clickSection(user, 'General');
-		// The Debug overlay control is a preset menu with every value; picking the
-		// verbose variant writes `debug: on-always verbose`.
-		await user.click(await screen.findByRole('button', { name: 'Debug overlay' }));
-		await user.click(await screen.findByRole('menuitem', { name: 'Always on · verbose' }));
+		// The Debug overlay control lists every value; picking the verbose variant writes
+		// `debug: on-always verbose`, and its Auto head (Off) removes the key again.
+		await user.click(await screen.findByRole('combobox', { name: 'Debug overlay' }));
+		await user.click(await screen.findByRole('option', { name: 'Always on · verbose' }));
 		// A multi-word value is YAML-quoted; the parser + lint both strip the quotes.
 		expect(screen.getByLabelText('Deck source').textContent).toMatch(/debug:\s*"?on-always verbose"?/);
+		await user.click(await screen.findByRole('combobox', { name: 'Debug overlay' }));
+		await user.click(await screen.findByRole('option', { name: 'Auto — Off' }));
+		expect(screen.getByLabelText('Deck source').textContent).not.toMatch(/debug:/);
 	});
 });
 
@@ -965,13 +968,13 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await user.click(await screen.findByRole('option', { name: option }));
 	}
 
-	it('Chart finish writes and clears the `chart-finish:` register', async () => {
+	it('Marks writes and clears the `marks:` register', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
-		await pick(user, 'Choose chart finish', /^Tone/);
-		await waitFor(() => expect(source()).toMatch(/chart-finish: tone/));
-		await pick(user, 'Choose chart finish', /^As designed/); // the baseline → no key, never `chart-finish: off`
-		await waitFor(() => expect(source()).not.toMatch(/chart-finish:/));
+		await pick(user, 'Choose marks', /^Tone/);
+		await waitFor(() => expect(source()).toMatch(/marks: tone/));
+		await pick(user, 'Choose marks', 'Auto — Pigment'); // the default → no key, never `marks: pigment`
+		await waitFor(() => expect(source()).not.toMatch(/marks:/));
 	});
 
 	it('Corners writes and clears the `corners:` register', async () => {
@@ -979,16 +982,44 @@ describe('Studio — Inspector covers the registers that had no control', () => 
 		await openDeckTab(user, 'Look');
 		await pick(user, 'Choose corners', 'Rounded');
 		await waitFor(() => expect(source()).toMatch(/corners: rounded/));
-		await pick(user, 'Choose corners', 'Square'); // back to the baseline → no key
+		await pick(user, 'Choose corners', 'Auto — Square'); // back to the baseline → no key
 		await waitFor(() => expect(source()).not.toMatch(/corners:/));
 	});
+
+	// THE list shape every deck picker shares (`withAutoHead`): one `Auto — <resolved>` head,
+	// first, and the value it resolves to never listed again beside it. Walks every tab, so a
+	// new picker that rolls its own head ("(default)", "Default — tab", a bare "Auto") fails here.
+	it('every deck picker leads with one `Auto — <resolved>` head and never repeats what it resolves to', async () => {
+		const user = await setup();
+		await user.click(screen.getByRole('button', { name: 'Deck scope' }));
+		const PINNABLE = ['Choose deck theme', 'Choose deck language', 'Choose AI output language'];
+		const seen: string[] = [];
+		for (const tab of ['Look', 'Chrome', 'General', 'Accent', 'Image', 'Motion', 'Speech']) {
+			await clickSection(user, tab);
+			for (const box of screen.queryAllByRole('combobox')) {
+				const name = box.getAttribute('aria-label') ?? '';
+				if (seen.includes(name)) continue;
+				seen.push(name);
+				await user.click(box);
+				const labels = (await screen.findAllByRole('option')).map((o) => (o.textContent ?? '').trim());
+				expect(labels[0], `${name}: the first row`).toMatch(/^Auto — \S/);
+				expect(labels.filter((l) => /^Auto\b/.test(l)), `${name}: one Auto row`).toHaveLength(1);
+				// Theme and language Auto FOLLOW a live source (the website theme, the workspace
+				// language), so the same name below it is a different choice: it PINS the value.
+				if (!PINNABLE.includes(name)) expect(labels.slice(1), `${name}: the head's value listed again`).not.toContain(labels[0].replace(/^Auto — /, ''));
+				expect(new Set(labels).size, `${name}: a repeated row`).toBe(labels.length);
+				await user.keyboard('{Escape}');
+			}
+		}
+		expect(seen.length).toBeGreaterThanOrEqual(25);
+	}, 120_000);
 
 	it('Claim writes and clears the `claim:` register', async () => {
 		const user = await setup();
 		await openDeckTab(user, 'Look');
 		await pick(user, 'Choose claim', 'Bleed');
 		await waitFor(() => expect(source()).toMatch(/claim: bleed/));
-		await pick(user, 'Choose claim', 'Framed');
+		await pick(user, 'Choose claim', 'Auto — Framed');
 		await waitFor(() => expect(source()).not.toMatch(/claim:/));
 	});
 

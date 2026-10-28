@@ -74,6 +74,40 @@ async function greenShare(page: Page, png: Buffer): Promise<number> {
 	}, png.toString('base64'));
 }
 
+/** A PDF page picture's pixels as plain RGB, 8 bits. The writer stores a PNG's compressed rows as they are, with `/Predictor 15`, so each row
+ *  starts with its PNG filter byte (0 None, 1 Sub, 2 Up, 3 Average, 4 Paeth); without a predictor the rows are already pixels. */
+function pngRows(inflated: Buffer, w: number, h: number, decodeParms: string): Buffer {
+	const stride = w * 3;
+	if (!/\/Predictor\s+1[0-5]/.test(decodeParms)) {
+		expect(inflated.length, 'RGB, 8 bits, no predictor').toBe(stride * h);
+		return inflated;
+	}
+	expect(inflated.length, 'RGB, 8 bits, one filter byte per row').toBe((stride + 1) * h);
+	const out = Buffer.alloc(stride * h);
+	for (let y = 0; y < h; y++) {
+		const type = inflated[y * (stride + 1)];
+		for (let x = 0; x < stride; x++) {
+			const v = inflated[y * (stride + 1) + 1 + x];
+			const a = x >= 3 ? out[y * stride + x - 3] : 0;
+			const b = y > 0 ? out[(y - 1) * stride + x] : 0;
+			const c = x >= 3 && y > 0 ? out[(y - 1) * stride + x - 3] : 0;
+			let pred = 0;
+			if (type === 1) pred = a;
+			else if (type === 2) pred = b;
+			else if (type === 3) pred = (a + b) >> 1;
+			else if (type === 4) {
+				const p = a + b - c;
+				const pa = Math.abs(p - a);
+				const pb = Math.abs(p - b);
+				const pc = Math.abs(p - c);
+				pred = pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+			}
+			out[y * stride + x] = (v + pred) & 255;
+		}
+	}
+	return out;
+}
+
 /** The most probe-green any one picture on page 1 of a PDF holds. The export draws the slide as one raster and the
  *  photo over it as its own picture, so the page's pictures together are what a viewer sees; the photo is on the
  *  page when one of them is the probe's green. Handles the two encodings the writers produce: plain Flate RGB
@@ -95,8 +129,7 @@ async function greenShareOfPageImage(page: Page, pdf: Uint8Array): Promise<numbe
 			continue;
 		}
 		expect(filter, 'a page picture is plain Flate RGB or JPEG').toBe('/FlateDecode');
-		const raw = inflateSync(img.getContents());
-		expect(raw.length, 'RGB, 8 bits, no predictor').toBe(w * h * 3);
+		const raw = pngRows(inflateSync(img.getContents()), w, h, img.dict.get(PDFName.of('DecodeParms'))?.toString() ?? '');
 		let n = 0;
 		for (let i = 0; i < raw.length; i += 3) if (Math.abs(raw[i] - 16) < 40 && Math.abs(raw[i + 1] - 160) < 40 && Math.abs(raw[i + 2] - 90) < 40) n++;
 		best = Math.max(best, n / (w * h));
@@ -166,17 +199,18 @@ onEveryEngine('@smoke the PDF export draws the photo on the page, and does not r
 	expect(await greenShareOfPageImage(page, new Uint8Array(readFileSync(path))), 'the photo is painted on the PDF page').toBeGreaterThan(0.02);
 });
 
-// NOT on WebKit: its PowerPoint raster capture drops EVERY picture today, a repo sample image included, and
-// still says "PowerPoint ready." (followups.d/2640-p2-webkit-pptx-drops-images.md). Asserting the photo
-// there would fail for a reason this feature did not introduce; Firefox and Chromium carry the oracle.
-test('@smoke the PowerPoint export carries the photo, and does not report a missing image @gecko', async ({ page }) => {
+// On every engine, WebKit included: WebKit decodes a slide's pictures only after the first draw, and the
+// PowerPoint capture used to ship that first draw, with no picture and no warning. settled-canvas.js waits.
+onEveryEngine('@smoke the PowerPoint export carries the photo, and does not report a missing image', async ({ page }) => {
 	await setUp(page);
 	const path = await download(page, 'pptx');
 	// The message carries the toast text, so a failure names which image the capture could not load.
 	const toasts = (await page.locator('[data-sonner-toast]').allInnerTexts()).join(' | ');
 	expect(toasts, 'the PowerPoint toast').not.toMatch(/could not load every image/i);
 	const zip = await JSZip.loadAsync(readFileSync(path));
-	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.png$/i.test(n));
+	// PNG or JPEG: a photographic slide is written as a JPEG when that is much smaller (canvasToPictureBlob), and which
+	// one wins depends on the engine's encoder. Firefox writes this deck's slide as a JPEG; a PNG-only filter found no picture.
+	const media = Object.keys(zip.files).filter((n) => /^ppt\/media\/.+\.(png|jpe?g)$/i.test(n));
 	expect(media.length, `ppt/media holds pictures (found: ${Object.keys(zip.files).filter((n) => n.includes('media')).join(', ') || 'nothing'})`).toBeGreaterThan(0);
 	let best = 0;
 	for (const name of media) best = Math.max(best, await greenShare(page, Buffer.from(await (zip.file(name) as JSZip.JSZipObject).async('uint8array'))));

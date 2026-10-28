@@ -458,8 +458,21 @@
    and dismissed the moment the live filmstrip paints (.is-live). The captured
    snapshot CSS is scoped under .pg-ssr-shell and injected at runtime, so the
    box-layout rules below win via the data-pg-shell qualifier (higher specificity
-   than the re-targeted `body{…}` the capture folds onto the box). */
-.pg-ssr-shell {
+   than the re-targeted `body{…}` the capture folds onto the box).
+   TWO classes, not one, and that is load-bearing. The capture folds the filmstrip's `body`
+   rule onto `.pg-ssr-shell` itself (display:flex, position:relative, min-height:100vh), at
+   the same one-class specificity this box rule used to have, so SOURCE ORDER decided, and in
+   the shipped build (`npm run build`) the capture won, twice:
+   while the shell was on, the box was `position:relative` with a height of 0, so the cached
+   slide was clipped to nothing; after the hand-off dropped `data-pg-shell`, the emptied box
+   stayed in flow at 100vh and pushed the live slide one viewport below the pane, a blank
+   preview on every returning desktop visit (also measured live on lattice.style).
+   `build:e2e`, which CI's e2e runs against, resolved the order the other way, which is
+   why no gate saw it; why the two builds differ
+   was not established, and this selector no longer depends on it.
+   `.pg-preview-wrap .pg-ssr-shell` outranks the capture in any order; the `data-pg-shell`
+   rule below still outranks this one. */
+.pg-preview-wrap .pg-ssr-shell {
 	position: absolute;
 	inset: 0;
 	z-index: 0; /* under #preview (z-index 1); the pane's solid brand fill is behind it */
@@ -880,6 +893,12 @@
 	-webkit-line-clamp: var(--pg-walk-cap-lines);
 	line-clamp: var(--pg-walk-cap-lines);
 	overflow: hidden;
+}
+/* The server-rendered caption belongs to the newcomer the bake was built for (playground.astro sets `data-pg-newcomer`). A returning
+   visitor, a deep link or an Edit-first load would see the wrong slide's words for the moment before the plan lands, so it is
+   hidden for them: `visibility` keeps the box, and a hidden element is not a largest-paint candidate. */
+:root:not([data-pg-newcomer]) .pg-walk-caption[data-baked] {
+	visibility: hidden;
 }
 .pg-walk-caption.is-notice {
 	color: var(--accent);

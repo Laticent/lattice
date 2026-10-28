@@ -105,6 +105,25 @@ const lockHeld = (job) => {
 };
 
 
+/**
+ * Has THIS waiter taken the job? Its record names its pid, and it writes the record only after it
+ * holds the lock, so a matching first line means the lock is held and the record is readable.
+ *
+ * The tests used to wait on lockHeld instead, and that probe TAKES the lock for an instant to ask
+ * (`flock -n`, or perl's LOCK_EX|LOCK_NB). A probe that lands between the holder opening the file
+ * and calling take_lock makes the real holder lose and exit 2, so "holder never claimed the lock"
+ * after the full budget. Measured: a probe hammering the file refused 37 of 40 holders; the suite's
+ * 50 ms probe hit it 1 run in 30 under CPU load. A read takes nothing. lockHeld stays for the
+ * checks made after a holder is gone or while one is known to hold the lock, where it cannot steal.
+ */
+const holds = (job, pid) => {
+  try {
+    return fs.readFileSync(lockPath(job), 'utf8').split('\n')[0].trim() === String(pid);
+  } catch {
+    return false;
+  }
+};
+
 // The kernel releases a killed holder's lock, but the (now unlocked) file
 // remains. Tidy them so the suite does not silt up the lock directory.
 after(() => {
@@ -198,7 +217,7 @@ describe('wait-for — one waiter per job', () => {
     job = jobName('dupe');
     holder = spawnHolder(job);
     // Poll for the lock rather than sleeping a guessed interval.
-    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
   });
 
   after(() => reap(holder));
@@ -230,7 +249,7 @@ describe('wait-for — a signal actually stops the wait', () => {
     const holder = spawn(SCRIPT,
       ['--job', job, '--timeout', '120', '--interval', '1', '--until', 'sleep 300'],
       { cwd: REPO, stdio: 'ignore', detached: true });
-    assert.ok(until(() => lockHeld(job)), 'poll waiter never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'poll waiter never claimed the lock');
 
     const started = Date.now();
     process.kill(holder.pid, 'SIGTERM');
@@ -245,7 +264,7 @@ describe('wait-for — a signal actually stops the wait', () => {
   test('SIGTERM stops it promptly and releases the lock', () => {
     const job = jobName('term');
     const holder = spawnHolder(job, 20);
-    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
 
     const started = Date.now();
     process.kill(holder.pid, 'SIGTERM');
@@ -262,7 +281,7 @@ describe('wait-for — --force replaces the holder', () => {
   test('stops the waiter it forces out, rather than running two at once', () => {
     const job = jobName('force');
     const victim = spawnHolder(job, 30);
-    assert.ok(until(() => lockHeld(job)), 'victim never claimed the lock');
+    assert.ok(until(() => holds(job, victim.pid)), 'victim never claimed the lock');
 
     const { code } = run(['--job', job, '--force', '--', 'true']);
     assert.equal(code, 0);
@@ -278,14 +297,14 @@ describe('wait-for — --force replaces the holder', () => {
   test('a forced-out waiter does not delete the new holder\'s lock', () => {
     const job = jobName('steal');
     const first = spawnHolder(job, 4);
-    assert.ok(until(() => lockHeld(job)), 'first never claimed the lock');
+    assert.ok(until(() => holds(job, first.pid)), 'first never claimed the lock');
 
     const second = spawnHolder(job, 30);
     // The forced path is what the second one needs; start it explicitly.
     reap(second);
     const forced = spawn(SCRIPT, ['--job', job, '--force', '--timeout', '30', '--', 'sleep', '30'],
       { cwd: REPO, stdio: 'ignore', detached: true });
-    assert.ok(until(() => lockHeld(job)), 'forced waiter never claimed the lock');
+    assert.ok(until(() => holds(job, forced.pid)), 'forced waiter never claimed the lock');
 
     // Let the first one reach its own exit and run its trap.
     until(() => !isLive(first.pid), 15_000);
@@ -314,7 +333,7 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
   test('frees the job when its holder is SIGKILLed, with no reclaim logic', () => {
     const job = jobName('kill');
     const holder = spawnHolder(job, 60);
-    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
     process.kill(holder.pid, 'SIGKILL');
     until(() => !isLive(holder.pid));
     reap(holder);
@@ -327,7 +346,7 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
   test('does not let the job it runs inherit and hold the lock', () => {
     const job = jobName('inherit');
     const holder = spawnHolder(job, 60);
-    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
     // Kill only the waiter; its `timeout`/`sleep` child outlives it briefly.
     process.kill(holder.pid, 'SIGKILL');
     until(() => !isLive(holder.pid));
@@ -368,7 +387,7 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
   test('records the holder so a refusal can name it', () => {
     const job = jobName('record');
     const holder = spawnHolder(job, 20);
-    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
     const [pid, recordedJob] = fs.readFileSync(lockPath(job), 'utf8').split('\n');
     const { err } = run(['--job', job, '--', 'true']);
     reap(holder);
@@ -377,13 +396,35 @@ describe('wait-for — the lock is the kernel\'s, not ours', () => {
     assert.match(err, new RegExp(`pid ${holder.pid}`), 'the refusal should name the live holder');
   });
 
+  // The window #2878 hit, held open on purpose. A holder takes the lock and only THEN writes its
+  // record, so a refuser can find the file empty. Here the "holder" is perl holding flock(2) on an
+  // empty file and writing the record a second later; the refusal must wait for it and name the
+  // pid, not print `pid , since`. Remove await_holder from wait-for.sh and this goes red.
+  test('names a holder that writes its record after the refuser arrives', () => {
+    const job = jobName('window');
+    const f = lockPath(job);
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    fs.writeFileSync(f, '');
+    const holder = spawn('perl', ['-e',
+      'use Fcntl ":flock"; open(my $fh, ">>", $ARGV[0]) or exit 3; flock($fh, LOCK_EX) or exit 4; '
+      + 'select(undef, undef, undef, 1); open(my $w, ">", $ARGV[0]) or exit 5; '
+      + 'print $w "4242\n$ARGV[1]\nT0\n"; close $w; sleep 10;', f, job],
+    { stdio: 'ignore', detached: true });
+    assert.ok(until(() => lockHeld(job)), 'the fake holder never took the lock');
+    assert.equal(fs.readFileSync(f, 'utf8'), '', 'the record appeared before the refuser ran — the window was not held open');
+    const { code, err } = run(['--job', job, '--', 'true']);
+    reap(holder);
+    assert.equal(code, 2, 'a held job must be refused');
+    assert.match(err, /pid 4242, since T0/, 'the refusal must wait for the record and name the holder');
+  });
+
   // A pid can be reused, and --force signals whatever the lock names. An
   // earlier version matched the job as a SUBSTRING, so `--job int` matched a
   // live `--job integration` waiter and --force TERM+KILLed it.
   test('does not confuse a job with one whose name it prefixes', () => {
     const long = `${jobName('pre')}-extended`;
     const holder = spawnHolder(long, 25);
-    assert.ok(until(() => lockHeld(long)), 'holder never claimed its lock');
+    assert.ok(until(() => holds(long, holder.pid)), 'holder never claimed its lock');
     const short = long.replace('-extended', '');
     const { code } = run(['--job', short, '--', 'true']);
     const survived = isLive(holder.pid);
@@ -406,7 +447,7 @@ for (const impl of ['flock', 'perl']) {
     test('refuses a second waiter while the job is held', () => {
       const job = jobName(`impl-${impl}`);
       const holder = spawnHolder(job, 20, impl);
-      assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+      assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
       const { code } = runWith(impl, ['--job', job, '--', 'true']);
       reap(holder);
       assert.equal(code, 2);
@@ -415,7 +456,7 @@ for (const impl of ['flock', 'perl']) {
     test('frees the job when its holder is SIGKILLed', () => {
       const job = jobName(`implkill-${impl}`);
       const holder = spawnHolder(job, 60, impl);
-      assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+      assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
       process.kill(holder.pid, 'SIGKILL');
       until(() => !isLive(holder.pid));
       reap(holder);
@@ -440,7 +481,7 @@ describe('wait-for — environment assumptions', () => {
   test('dedupes a job across different working directories', () => {
     const job = jobName('cwd');
     const holder = spawnHolder(job, 20);
-    assert.ok(until(() => lockHeld(job)), 'holder never claimed the lock');
+    assert.ok(until(() => holds(job, holder.pid)), 'holder never claimed the lock');
     const elsewhere = run(['--job', job, '--', 'true'], { cwd: os.tmpdir() });
     reap(holder);
     assert.equal(elsewhere.code, 2,

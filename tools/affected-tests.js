@@ -166,7 +166,7 @@ for (const f of process.argv.slice(2)) {
   }
 
   // A plugin's stylesheet — the chart frame (the chart family plugin) styles every chart, and the
-  // chart-contrast, mark-edge and chart-finish tests read it, as they did when it lived under
+  // chart-contrast, mark-edge and marks tests read it, as they did when it lived under
   // lib/components/chart/.
   if (rel.startsWith('lib/plugins/') && rel.endsWith('.css')) {
     scripts.add('test:components');

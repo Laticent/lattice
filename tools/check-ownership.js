@@ -184,6 +184,9 @@ const SHARED_SELECTORS = new Set([]);
 // that every root modifier is a declared variant.
 const VARIANT_DECL_IGNORE = new Map([
   ['kpi', new Set(['briefing'])],            // bare default appearance, documented as such
+  // `heat` is the state-markers FAMILY modifier (base.modifiers.css § heat, base.docs.md), documented once there for
+  // every family member; checklist only re-tints its row ground under it so the ground follows the inverted role.
+  ['checklist', new Set(['heat'])],
   // `left`: legacy alias of `mirror` (base.modifiers.css). The other three are DECK-REGISTER classes
   // (`rule:` → resolve-rule.js, `spectrum-trim:` → resolve-spectrum.js) that the card's divider reads
   // so it follows the deck's and the slide's own settings; they are not image variants.
@@ -6218,6 +6221,14 @@ function listSourceFiles(dir, out = []) {
 //   · a COUNT that drifted — e.g. a 24th `settle(page)` call, which no text grep would see.
 const SANCTIONED_E2E_SLEEPS = [
   {
+    file: 'docs/e2e/playground-lint-hidden.spec.ts', ms: 3000, count: 2,
+    why: 'TWO ABSENCE ASSERTIONS: while the Playground editor is hidden (Explore, or a style that hides it '
+       + 'before first paint), the page must NOT request the lint core `esm/lint.js` (followup 2913-p1). There '
+       + 'is no signal for a request that must not happen; a poll of the empty list goes green on its first '
+       + 'tick. 3000ms is several times the linter\'s 350ms delay after the editor mounts; each test\'s POSITIVE '
+       + 'arm (showing the editor) then sees the request or the underline, so the list can see what it says is absent.',
+  },
+  {
     file: 'docs/e2e/phone-sheet-tap-after-typing.spec.ts', ms: 500, count: 2,
     why: 'TWO ABSENCE ASSERTIONS, the arms that prove the spec can fail: with the tap hold stripped, a tap '
        + 'after typing must NOT select the Library tab and must NOT open the Language list (followup 2547-p2). '
@@ -7507,6 +7518,14 @@ const SANCTIONED_EOL_NON_BOUNDARIES = [
        + '`.gitattributes` guarantees LF in the working tree, so the BOM/CR fold is tolerance for '
        + 'a locally CRLF-saved file; the front matter it strips is the gallery\'s own, and the '
        + 'deck it builds is rendered by the engine, which normalizes its own input.',
+  },
+  {
+    file: 'tools/chart-finish-reach.mjs',
+    why: 'reads the REPO-COMMITTED `lib/components/chart/chart.gallery.md`, not author text. '
+       + '`.gitattributes` guarantees LF in the working tree, and the one anchor it uses strips the '
+       + 'gallery\'s own front matter so a `theme:` / `color-mode:` block can be prepended; the deck '
+       + 'it writes is rendered by the engine, which normalizes its own input. An on-demand '
+       + 'diagnostic, so a CRLF-saved gallery would misreport its own run, never a deck.',
   },
   {
     file: 'tools/build-capabilities.js',
@@ -9471,6 +9490,36 @@ function checkVedutaBoundary(errors, dir = VEDUTA_DIR) {
       errors.push(
         `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Veduta core declares ` +
           `no ambient types; import what it needs from inside docs/src/lib/veduta/.`,
+      );
+    }
+  }
+}
+
+// ── Filo (docs/src/lib/filo) — one undo history per document ────────────────
+// Filo records every change to a document as an invertible patch and knows nothing about what
+// the document is or which views edit it: the Studio's glue (the commit path, the root keymap,
+// the Fuoco reveal) lives OUTSIDE the folder (engineering/decisions/2026-10-27-filo-undo-history.md
+// §3). So the core imports nothing outside it, not even `node:`, and not `react`: it has no
+// framework adapter yet.
+const FILO_DIR = path.join(ROOT, 'docs', 'src', 'lib', 'filo');
+function checkFiloBoundary(errors, dir = FILO_DIR) {
+  checkStrictPackageImports(errors, dir, {
+    allowNode: false,
+    allowBare: new Set(),
+    describe: (rel, spec) =>
+      `${rel} imports '${spec}', which escapes the Filo folder. Filo takes the document as text ` +
+      `and knows nothing about the Studio, so every import must resolve inside docs/src/lib/filo/; ` +
+      `the Studio's glue lives outside it (engineering/decisions/2026-10-27-filo-undo-history.md §3).`,
+  });
+  if (!fs.existsSync(dir)) return;
+  for (const file of listPackageSources(path.resolve(dir))) {
+    if (TEST_FILE.test(file)) continue;
+    const raw = fs.readFileSync(file, 'utf8');
+    // A triple-slash reference is a comment to the stripper, but an ambient dependency to tsc.
+    for (const m of raw.matchAll(/^\s*\/\/\/\s*<reference\s+(?:types|path|lib)\s*=\s*["']([^"']+)["']/gm)) {
+      errors.push(
+        `${relPosix(ROOT, file)} has a triple-slash reference to '${m[1]}'. The Filo core declares ` +
+          `no ambient types; import what it needs from inside docs/src/lib/filo/.`,
       );
     }
   }
@@ -11875,7 +11924,7 @@ const NUL_TEXT_EXTENSIONS = [
 // the one thing that mattered, a MISSING extension.
 const NUL_BINARY_EXTENSIONS = [
   '.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.ico', '.mp3', '.mp4',
-  '.wav', '.woff', '.woff2', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
+  '.wav', '.woff', '.woff2', '.wasm', '.ttf', '.otf', '.eot', '.zip', '.pptx', '.docx', '.xlsx',
 ];
 
 /**
@@ -14073,6 +14122,7 @@ function run() {
   checkTavolaBoundary(errors);
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
+  checkFiloBoundary(errors);
   checkMosaicoBoundary(errors);
   checkAnimaBoundary(errors);
   checkSuonoBoundary(errors);
@@ -14142,6 +14192,7 @@ module.exports = {
   checkTavolaBoundary,
   checkFuocoBoundary,
   checkVedutaBoundary,
+  checkFiloBoundary,
   checkMosaicoBoundary,
   checkReadingRole,
   checkHandRolledPills,

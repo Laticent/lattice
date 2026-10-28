@@ -48,7 +48,8 @@ export const SPECTRA: SpectrumEntry[] = [
 	{
 		name: 'off', label: 'None',
 		blurb: 'De-brand — every accent flattens to a quiet neutral hairline and the edge bar drops.',
-		swatch: { background: 'var(--border)' },
+		// The neutral hairline the accents flatten to, where the bar was.
+		swatch: { background: 'linear-gradient(var(--text-muted), var(--text-muted)) top / 100% 1.5px no-repeat, var(--bg)' },
 	},
 ];
 

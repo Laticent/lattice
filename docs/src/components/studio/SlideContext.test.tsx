@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadAuthoring } from '@/playground/authoring-door.js';
@@ -174,7 +174,7 @@ describe('SlideContextBody controls', () => {
 		setup('<!-- _class: kpi -->\n\n# Hi', src);
 		await goTab('Accent');
 		const label = await selectedOptionText(/brand bar/i);
-		expect(label).toMatch(/^Auto — Solid$/);
+		expect(label).toMatch(/^Auto — Solid accent$/);
 		expect(label).not.toMatch(/inherit/i);
 	});
 
@@ -201,6 +201,42 @@ describe('SlideContextBody controls', () => {
 		}
 	});
 
+	// The slide half of the one list shape (`inheritGroups`): every picker leads with one
+	// `Auto — <what this slide inherits>` head and never lists that value again beside it.
+	// Two slides between them reach every tab: a photo slide (Image) and a stamped, toned
+	// chart in a deck with a finish (Look's finish rows, Marks, Accent, Motion).
+	it('every slide picker leads with one `Auto — <inherited>` head and never repeats it', async () => {
+		const user = userEvent.setup();
+		const seen: string[] = [];
+		const walk = async () => {
+			for (const tab of ['Look', 'Image', 'Chrome', 'Marks', 'Accent', 'Motion']) {
+				try {
+					await goTab(tab);
+				} catch {
+					continue; // this slide has no such tab
+				}
+				for (const box of screen.queryAllByRole('combobox')) {
+					const name = box.getAttribute('aria-label') ?? '';
+					if (seen.includes(name)) continue;
+					seen.push(name);
+					await user.click(box);
+					const labels = (await screen.findAllByRole('option')).map((o) => (o.textContent ?? '').trim());
+					expect(labels[0], `${name}: the first row`).toMatch(/^Auto — \S/);
+					expect(labels.filter((l) => /^Auto\b/.test(l)), `${name}: one Auto row`).toHaveLength(1);
+					expect(labels.slice(1), `${name}: the inherited value listed again`).not.toContain(labels[0].replace(/^Auto — /, ''));
+					await user.keyboard('{Escape}');
+				}
+			}
+		};
+		const deck = '---\nfinish: atrium\nmotion: on\n---\n\n';
+		setup('<!-- _class: image spotlight -->\n\n# Hi', `${deck}<!-- _class: image spotlight -->\n\n# Hi`);
+		await walk();
+		cleanup();
+		setup('<!-- _class: bar confidential tone-pass -->\n\n# Hi', `${deck}<!-- _class: bar confidential tone-pass -->\n\n# Hi`);
+		await walk();
+		expect(seen.length).toBeGreaterThanOrEqual(15);
+	}, 60_000);
+
 	it('overrides the stamp SHAPE from the Stamp style picker', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential -->\n\n# Hi');
 		await goTab('Marks');
@@ -211,7 +247,7 @@ describe('SlideContextBody controls', () => {
 	it('picking the inherited/default stamp head clears the per-slide shape', async () => {
 		const { applied } = setup('<!-- _class: kpi confidential stamp-notch -->\n\n# Hi');
 		await goTab('Marks');
-		await pickOption(/stamp style/i, /Default/);
+		await pickOption(/stamp style/i, 'Auto — Tab');
 		expect(applied().some((t) => t.startsWith('stamp-'))).toBe(false);
 	});
 

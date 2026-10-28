@@ -37,7 +37,10 @@ concurrency:
 
 jobs:
   nightly:
-    runs-on: ubuntu-latest
+    # Pinned to ubuntu-24.04: ubuntu-latest moved to 26.04, which Playwright 1.56.1 cannot install browsers on
+    # (`Playwright does not support <browser> on ubuntu26.04-x64`; engineering/gotchas/ci.md). Unpin when the
+    # Playwright pin supports the new image.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -351,6 +354,28 @@ jobs:
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # CHART FINISH REACH (tools/chart-finish-reach.mjs): every chart mark a finish should paint, painted;
+      # no finish pushing a text run under the floor the unfinished paint cleared; the default finish keeping
+      # a ramp's range; a heatmap value readable on its own cell. It renders the chart gallery once per theme
+      # x mode and flips the finish in a real Chrome, which is why it lives here and not per PR. Before this
+      # step it ran in no workflow, and its frozen baseline (test/fixtures/chart-finish-baseline.json) was
+      # only shape-checked, so a finish could lose reach or contrast with every gate green (#2887 inversion
+      # review). Owner-approved on #2887.
+      - name: Chart finish reach (every mark a finish should paint, and its text floor)
+        id: finishreach
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- chart finish reach ---'
+          } >> "$REPORT"
+          if npm run --silent check:chart-finish-reach 2>&1 | tee -a "$REPORT"; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Geometry parity (a slide must not measure by its window)
         id: geometry
         run: |
@@ -363,6 +388,32 @@ jobs:
           if npm run --silent geometry:check 2>&1 | tee -a "$REPORT"; then
             echo "failed=false" >> "$GITHUB_OUTPUT"
           else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # THE PLAYER'S FORGERY GUARD (#1501). `tools/verify-narrated-player.mjs` opens real `--player`
+      # exports in Chromium and clicks the real controls: narration, a deck that forges the
+      # player's chrome ids, and one that forges its frame and slide lists. It was the strongest
+      # check on that boundary and ran nowhere, so it rotted (its demo deck moved from `caption:`
+      # to `say:` and it timed out unnoticed). Too slow for per-PR CI; a jsdom arm in
+      # test/unit/export/html-player.test.js covers the per-PR half. It drives this job's
+      # puppeteer Chrome rather than installing Playwright's.
+      - name: Narrated player in a real browser (forged chrome and collections)
+        id: narrated
+        run: |
+          set -uo pipefail
+          REPORT="$GITHUB_WORKSPACE/integration-nightly-report.txt"
+          {
+            echo ''
+            echo '--- narrated player (real Chromium: narration, forged chrome, forged collections) ---'
+          } >> "$REPORT"
+          export PLAYWRIGHT_CHROMIUM_PATH="$(node -e "console.log(require('puppeteer').executablePath())")"
+          npm run --silent verify:narrated-player 2>&1 | tee -a "$REPORT"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -eq 0 ]; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "narrated-player: exit $code" | tee -a "$REPORT"
             echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -475,6 +526,15 @@ jobs:
       # reader needs, dropped by the reporter. So: grep the failure markers the gates
       # actually print and lead with those, then tail for context.
       #
+      # `^ *not ok ` and `^ +error: ` (2026-10-25, #1845): node's test runner INDENTS a failing
+      # subtest and its error, so `^not ok ` caught only the suite line ("not ok 3 -
+      # component-galleries") and the comment never said WHY. The causes were one line below
+      # it, e.g. "light PDF missing: …/tower.gallery.light.pdf", every night since 10-19.
+      # Those lines scale with the failure (one suite missing every gallery PDF printed 374
+      # lines, 32 KB), so the list is capped at 150 lines: a body past GitHub's 65,536
+      # characters is rejected and the night files nothing. `awk`, not `head`, so grep is
+      # never killed by SIGPIPE under `pipefail`.
+      #
       # `FAIL (want ` was added 2026-08-24 for the same class of loss, found the hard
       # way. `check-family-tiers` has TWO halves, and only the oracle half prints markers
       # this list knew. The probe half prints a TABLE, one row per @size, and says which
@@ -529,8 +589,8 @@ jobs:
           {
             echo '### Integration nightly — render-regression tier'
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
-              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'
+            { grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|^FAIL  |narrated-player: |no Chrom|^ *not ok |^ +error: |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
+              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers)'; } | awk 'NR<=150; NR==151 {print "… more failure lines: see the run artifact"}'
             echo '```'
             echo '<details><summary>Last 120 lines</summary>'
             echo ''
@@ -562,7 +622,7 @@ jobs:
         # cancelled run. Found by test/unit/tools/nightly-alarm-contract.test.js's filing-step
         # arm, added 2026-09-05 — the FIFTH instance of this bug in the family and the first not
         # found by a human reading the file.
-        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
+        if: always() && (steps.run.outputs.failed == 'true' || steps.families.outputs.failed == 'true' || steps.codewidth.outputs.failed == 'true' || steps.contrast.outputs.failed == 'true' || steps.examples.outputs.failed == 'true' || steps.palette.outputs.failed == 'true' || steps.chartfit.outputs.failed == 'true' || steps.finishreach.outputs.failed == 'true' || steps.geometry.outputs.failed == 'true' || steps.narrated.outputs.failed == 'true' || steps.regress.outputs.failed == 'true' || steps.conformance.outputs.failed == 'true')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -575,8 +635,8 @@ jobs:
             echo "What failed (full log in the run's artifact):"
             echo ""
             echo '```'
-            grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|no Chrom|^not ok |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
-              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'
+            { grep -E 'NEW CLIPS|FIXED \(re-bless\)|roster +CHANGED|[0-9]+ FAILURES|[0-9]+ DRIFTED|FAIL \(want |difference\(s\) from|check-chart-fit: [0-9]+ (clip|re-derived outer inset|STALE sanction)\(s\)|check-chart-fit: [^0-9]|[0-9]+ geometry disagreement\(s\)|geometry parity measured ZERO slides|geometry-parity error:|^FAIL  |narrated-player: |no Chrom|^ *not ok |^ +error: |^--- |component conformance, render tier|findings in [0-9]+ of|card-row trigger vs corpus|^WARNING: ' \
+              "$GITHUB_WORKSPACE/integration-nightly-report.txt" || echo '(no failure markers — see the tail below)'; } | awk 'NR<=150; NR==151 {print "… more failure lines: see the run artifact"}'
             echo '```'
             echo ""
             echo "<details><summary>Last 120 lines</summary>"
@@ -679,7 +739,9 @@ jobs:
           && steps.palette.outcome == 'success' && steps.palette.outputs.failed == 'false'
           && steps.codewidth.outcome == 'success' && steps.codewidth.outputs.failed == 'false'
           && steps.chartfit.outcome == 'success' && steps.chartfit.outputs.failed == 'false'
+          && steps.finishreach.outcome == 'success' && steps.finishreach.outputs.failed == 'false'
           && steps.geometry.outcome == 'success' && steps.geometry.outputs.failed == 'false'
+          && steps.narrated.outcome == 'success' && steps.narrated.outputs.failed == 'false'
           && steps.regress.outcome == 'success' && steps.regress.outputs.failed == 'false'
           && steps.conformance.outcome == 'success' && steps.conformance.outputs.failed == 'false'
         env:
@@ -698,7 +760,7 @@ jobs:
           # to start at column 0 to avoid leading spaces in the issue text, and a column-0 line
           # ENDS the `run: |` block scalar — the workflow then parses as something else entirely.
           {
-            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets, chart fit, geometry parity and committed-golden freshness."
+            echo "Measured green on \`main@${{ github.sha }}\`: every arm of the render-regression tier passed — integration slice, adaptive family tiers, player contrast, palette matrix, code-line budgets, chart fit, geometry parity, the narrated player and committed-golden freshness."
             echo ""
             echo "**Left open deliberately.** Three of those arms score against committed baselines (\`test/oracle/*.json\`, the golden PDFs), and blessing a baseline turns them green without fixing anything. This run cannot tell a fix from a re-bless. Check which happened and close by hand; a recurrence appends here."
             echo ""
