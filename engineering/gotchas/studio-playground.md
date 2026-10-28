@@ -1731,3 +1731,18 @@ never turn "passed in headless" into "works on iOS."
 - **Triggered by** — a long option label at phone width; a new picker whose rows are wider than its trigger.
 - **Removable when** — Radix's item-aligned position clamps against the list's measured width, or the Studio moves its selects to popper position.
 - **Commits** — the PR that gave the Settings pickers their icons and one Auto head.
+
+## A re-lint asked for with `forceLinting` never runs, and the warning waits for a keystroke
+
+- **Symptom** — something outside the document changes what the lint pass would say (a new preview
+  measurement, a host setting), the code calls `forceLinting(view)`, and the warning does not appear
+  until the author types. The Studio's measured `spark-too-big` warning did exactly this when the
+  author moved the caret onto a slide with an oversized spark: no edit, no warning.
+- **Cause** — in @codemirror/lint 6.9 `forceLinting` only hurries a pass that is ALREADY scheduled.
+  The lint plugin's `force()` returns at once unless `this.set` is true, and `set` turns false the
+  moment a pass starts. An idle linter, the normal state between edits, ignores it.
+- **Fix** — give the linter a `needsRefresh` that watches a `StateEffect` of your own, and dispatch
+  that effect: `needsRefresh` schedules a fresh pass after the linter's `delay`. The Studio's form is
+  `relint` / `wantsRelint` in `docs/src/components/studio/Editor.tsx`; the Playground's
+  `admissionChanged` in `docs/src/playground/editor.js` is the same pattern.
+  `docs/e2e/spark-fit-relint.spec.ts` fails on the old `forceLinting` call and passes on the effect.

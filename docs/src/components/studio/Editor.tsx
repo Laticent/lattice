@@ -3,9 +3,9 @@ import { defaultKeymap, history, historyField, historyKeymap } from '@codemirror
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
-import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
-import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
-import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
+import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
+import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
@@ -60,6 +60,12 @@ export function suggestFor(name: string, known: Set<string>): string {
 		'kpi'
 	);
 }
+
+// Re-run the lint pass with no edit, when something outside the doc changed what it would say (a new preview measurement).
+// `forceLinting` cannot do this: it only hurries a pass that is ALREADY scheduled, and an idle linter ignores it
+// (@codemirror/lint `force()` checks `this.set`). `needsRefresh` on the linter schedules a fresh pass for this effect.
+const relint = StateEffect.define<null>();
+const wantsRelint = (u: ViewUpdate) => u.transactions.some((tr) => tr.effects.some((e) => e.is(relint)));
 
 // ONE lint popup at a time (#1658).
 //
@@ -602,7 +608,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						}
 					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
-				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null })
+				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null, needsRefresh: wantsRelint })
 			: makeLinter(known, reportLint);
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,
@@ -1012,7 +1018,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	}, [vocabSets, known]);
 
 	// A new measurement from the preview re-runs the lint pass, so the warning appears (or clears)
-	// without waiting for the next keystroke. Keyed on the content, not the object identity.
+	// without waiting for the next keystroke. Keyed on the content, not the object identity. The
+	// `relint` effect, not `forceLinting`, which does nothing to a linter with no pass scheduled.
 	const measuredKey = measuredSparks ? `${measuredSparks.slideIndex}|${measuredSparks.reports.map((r) => `${r.src}>${r.to}`).join(',')}` : '';
 	const lastMeasuredKey = React.useRef('');
 	React.useEffect(() => {
@@ -1020,7 +1027,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 		// would run the linter before the real lint core is configured).
 		if (measuredKey === lastMeasuredKey.current) return;
 		lastMeasuredKey.current = measuredKey;
-		if (viewRef.current) forceLinting(viewRef.current);
+		viewRef.current?.dispatch({ effects: relint.of(null) });
 	}, [measuredKey]);
 
 	// External value changes — a version restore, an AI apply, a surgical slide-settings or
