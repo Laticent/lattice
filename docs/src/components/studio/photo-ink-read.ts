@@ -1,27 +1,19 @@
-import { coverSourceRect, effectiveCard, meanRgb, pickCardInk } from '../../../../lib/core/card-ink.mjs';
-import { photoRefOf, readBehindCard } from './card-ink-pick';
+import { compositionOf, coverSourceRect, effectiveCard, meanRgb } from '../../../../lib/core/card-ink.mjs';
+import { photoRefOf } from './card-ink-pick';
 import { ensureAssetUrls } from './media-urls';
 import { getClassTokens } from './slide-directives';
 import { deckImageCardClasses } from './slide-provenance';
 
-// The photo read behind the `thin-card-no-ink` tooltip, kept apart from the warning. Lint flags a thin card at once and
-// knows nothing about the picture; this runs when the tooltip opens and answers ONE question: which ink, if either, reads on
-// the photo behind the card. It tries, in order:
-//   1. the answer already found for this photo and card (kept in the browser, so a reload does not ask again);
-//   2. the live preview, when it shows this slide: the exact box the card occupies (card-ink-sampler.ts);
-//   3. the photo itself, loaded from its reference, averaged over the part of the frame the card's placement covers. An
-//      estimate, but it does not need the preview, which on a phone's Source tab can be showing another slide.
-// Best effort by design: a photo the browser cannot load or read (a relative path, a cross-origin web image) has no answer,
-// and neither does a photo where neither ink clears 4.5:1. The tooltip then says so and offers a solid card, which always reads.
+// The photo-file half of the photo verdict (photo-verdict.ts): for a slide the preview is not showing, the photo's mean
+// color over the part of the frame the card's placement covers, and the fix found for it, kept in the browser so a reload
+// does not ask again. An estimate, but it does not need the preview, which on a phone's Source tab can be showing another
+// slide. Best effort by design: a photo the browser cannot load or read (a relative path, a cross-origin web image) has
+// no answer, and the editor tooltip then says so and offers a solid card, which always reads on a spotlight.
 
-export type InkVerdict = { kind: 'ink'; ink: 'light' | 'dark' } | { kind: 'neither' } | { kind: 'unknown' };
-
-/** WCAG AA, the floor every other contrast check here uses. */
-const FLOOR = 4.5;
 const SAMPLE_PX = 24;
 const LOAD_MS = 4000;
 /** The cache's storage key; the version moves when the estimate or its inputs change meaning. */
-const CACHE_KEY = 'lattice-photo-ink:v2';
+const CACHE_KEY = 'lattice-photo-ink:v3';
 const CACHE_MAX = 200;
 /** A kept answer is trusted for a week: an `asset:` name or a web URL can come to hold a different photo. */
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -46,16 +38,11 @@ export function placementOf(classes: string[], deckClasses: string[]): string {
 	return own ?? [...deckClasses].reverse().find((c) => c in PLACEMENT_BOX) ?? DEFAULT_PLACEMENT;
 }
 
-/** The ink that reads on a photo whose color behind a card `backing` percent opaque averages `mean`, or neither. */
-export function decide(mean: number[], backing: number): InkVerdict {
-	const r = pickCardInk(mean, backing);
-	const best = Math.max(r.light, r.dark);
-	return best >= FLOOR ? { kind: 'ink', ink: r.ink } : { kind: 'neither' };
-}
-
-/** Where an answer came from: the live preview's exact card box, or an estimate from the photo file. */
+/** Where an answer came from: the live preview's measured slide, or an estimate from the photo file. */
 export type ReadSource = 'live' | 'estimate';
-type Cached = { ink: 'light' | 'dark' | null; at: number; src: ReadSource };
+/** A kept fix: an ink, or a solid card when no ink reads. A slide lint flags never gets a pin (photo-contrast.mjs `fixOrder`). */
+export type KeptFix = 'ink-light' | 'ink-dark' | 'solid' | null;
+type Cached = { fix: KeptFix; ratio: number | null; at: number; src: ReadSource };
 export type CardBox = { ref: string; placement: string; backing: number; shape: string };
 
 /** FNV-1a, so a `data:` photo is keyed by 8 hex digits rather than by its whole payload. */
@@ -67,6 +54,7 @@ function hashRef(ref: string): string {
 const cacheKey = (c: CardBox) => `${hashRef(c.ref)}|${c.placement}|${c.backing}|${c.shape}`;
 /** A `blob:` URL names one page's object and changes on every load, so an answer for it is never seen again. */
 const keepable = (ref: string) => !/^blob:/i.test(ref.trim());
+const FIXES = new Set(['ink-light', 'ink-dark', 'solid']);
 
 function cacheRead(): Record<string, Cached> {
 	try {
@@ -77,22 +65,25 @@ function cacheRead(): Record<string, Cached> {
 }
 
 /**
- * The kept answer for this photo and card, and where it came from, or undefined. Synchronous, so a known answer shows on
- * the tooltip's first frame. An entry past its week, or one this version did not write, is no answer.
+ * The kept fix for this photo and card, its ratio and where it came from, or undefined. Synchronous, so a known answer
+ * shows on the tooltip's first frame. An entry past its week, or one this version did not write, is no answer.
  */
-export function cachedVerdict(c: CardBox): { verdict: InkVerdict; src: ReadSource } | undefined {
+export function cachedFix(c: CardBox): { fix: KeptFix; ratio: number | null; src: ReadSource } | undefined {
 	const hit = cacheRead()[cacheKey(c)];
 	if (!hit || Date.now() - hit.at > CACHE_TTL_MS) return undefined;
-	if (hit.ink !== null && hit.ink !== 'light' && hit.ink !== 'dark') return undefined;
-	return { verdict: hit.ink ? { kind: 'ink', ink: hit.ink } : { kind: 'neither' }, src: hit.src === 'live' ? 'live' : 'estimate' };
+	if (hit.fix !== null && !FIXES.has(hit.fix)) return undefined;
+	return { fix: hit.fix, ratio: typeof hit.ratio === 'number' ? hit.ratio : null, src: hit.src === 'live' ? 'live' : 'estimate' };
 }
 
-/** Keep a found answer. "Unknown" is not kept: the next open should try again (the photo may load then). */
-export function keepVerdict(c: CardBox, v: InkVerdict, src: ReadSource): void {
-	if (v.kind === 'unknown' || !keepable(c.ref)) return;
+/** Keep a found fix. A pin is not kept (a slide lint flags is never offered one). */
+export function keepFix(c: CardBox, fix: string | null, ratio: number | null, src: ReadSource): void {
+	if ((fix !== null && !FIXES.has(fix)) || !keepable(c.ref)) return;
 	try {
 		const all = cacheRead();
-		all[cacheKey(c)] = { ink: v.kind === 'ink' ? v.ink : null, at: Date.now(), src };
+		const was = all[cacheKey(c)];
+		// The same answer again (the watch re-reads on every pause): leave the store alone, unless it is due to expire soon.
+		if (was && was.fix === fix && was.ratio === ratio && was.src === src && Date.now() - was.at < CACHE_TTL_MS / 2) return;
+		all[cacheKey(c)] = { fix: fix as KeptFix, ratio, at: Date.now(), src };
 		const keys = Object.keys(all);
 		// Oldest out first once full, so the store stays small however many photos a person tries.
 		if (keys.length > CACHE_MAX) for (const k of keys.sort((a, b) => all[a].at - all[b].at).slice(0, keys.length - CACHE_MAX)) delete all[k];
@@ -142,7 +133,7 @@ function load(url: string): Promise<HTMLImageElement | null> {
 }
 
 /** The photo's mean color over the card's part of a 16:9 frame, from the photo itself. Null when it will not load or read. */
-async function estimateFromPhoto(url: string, placement: string): Promise<number[] | null> {
+export async function estimateMean(url: string, placement: string): Promise<number[] | null> {
 	const img = await load(url);
 	if (!img) return null;
 	const W = 1280;
@@ -175,38 +166,17 @@ async function estimateFromPhoto(url: string, placement: string): Promise<number
 	}
 }
 
-/** What the tooltip needs to know about a slide before it reads anything: its photo, the card's place, opacity and shape. */
+/** Whether the slide has text under its heading (a paragraph, a list row): its ink is lighter, so a fix is judged on it too. */
+export function hasBodyText(chunk: string): boolean {
+	return /^(?![ \t]*(?:#|<!--|!\[|$)).*\S/m.test(chunk);
+}
+
+/** What the estimate needs to know about a slide before it reads anything: its photo, the card's place, opacity and shape. */
 export function cardOf(chunk: string, source: string): Omit<CardBox, 'ref'> & { ref: string | null } {
 	const tokens = getClassTokens(chunk);
 	const deck = deckImageCardClasses(source);
-	const shape = [...deck, ...tokens].filter((c) => BOX_CLASSES.test(c)).sort().join(' ');
+	// The composition the slide names and whether it has body text change the scenes a fix is judged on, so they key it too.
+	const body = hasBodyText(chunk) ? 'body' : 'heading';
+	const shape = [...[...deck, ...tokens].filter((c) => BOX_CLASSES.test(c)).sort(), compositionOf(tokens) ?? 'auto', body].join(' ');
 	return { ref: photoRefOf(chunk), placement: placementOf(tokens, deck), backing: effectiveCard(tokens, deck).backing, shape };
 }
-
-/**
- * Which ink reads on slide `slideIndex`'s photo (0-based, front matter not counted). `chunk` is that slide's text,
- * `onScreen` whether the live preview shows it (then its exact card box is used). Never throws.
- */
-export async function readPhotoInk(chunk: string, source: string, slideIndex: number, onScreen: boolean): Promise<InkVerdict> {
-	const { ref, ...rest } = cardOf(chunk, source);
-	if (!ref) return { kind: 'unknown' };
-	const card: CardBox = { ref, ...rest };
-	const kept = cachedVerdict(card);
-	// A kept live read is final. A kept estimate stands until the preview can measure the real card box, which then replaces it.
-	if (kept && (kept.src === 'live' || !onScreen)) return kept.verdict;
-	if (onScreen) {
-		const live = await readBehindCard(chunk, slideIndex + 1).catch(() => null);
-		if (live) {
-			const verdict = decide(live, card.backing);
-			keepVerdict(card, verdict, 'live');
-			return verdict;
-		}
-		if (kept) return kept.verdict;
-	}
-	const url = await photoUrl(ref).catch(() => null);
-	const mean = url ? await estimateFromPhoto(url, card.placement) : null;
-	const verdict: InkVerdict = mean ? decide(mean, card.backing) : { kind: 'unknown' };
-	keepVerdict(card, verdict, 'estimate');
-	return verdict;
-}
-

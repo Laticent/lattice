@@ -3,9 +3,9 @@ import { defaultKeymap, history, historyField, historyKeymap } from '@codemirror
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
-import { type Diagnostic, forceLinting, linter, lintGutter } from '@codemirror/lint';
-import { Annotation, ChangeSet, Compartment, EditorState, type Extension, Transaction } from '@codemirror/state';
-import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin } from '@codemirror/view';
+import { type Diagnostic, linter, lintGutter } from '@codemirror/lint';
+import { Annotation, ChangeSet, Compartment, EditorState, type Extension, StateEffect, Transaction } from '@codemirror/state';
+import { closeHoverTooltips, EditorView, hasHoverTooltips, hoverTooltip, keymap, lineNumbers, scrollPastEnd, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import * as React from 'react';
 import { buildDeckIndex, deckEditableOffset } from '@/lib/deck-outline';
 import { type FormatResult, formatCode, wantsFormat } from '@/lib/ensure-code-format';
@@ -18,6 +18,7 @@ import { type AssetChoice, type CompletionComponent, type CompletionVocab, front
 import { editorTheme, studioHighlight } from './editor-theme';
 import { firstSlideShown } from './first-slide';
 import { iconPreviewOption } from './icon-preview';
+import type { MeasuredPhoto } from './thin-card-fix';
 import { tourChromeMargin } from './tour-chrome';
 
 // The ink tooltip's `hideOn` (lint-tooltip-keep.ts), set when the thin-card module loads. It lives in that lazy chunk because
@@ -60,6 +61,12 @@ export function suggestFor(name: string, known: Set<string>): string {
 		'kpi'
 	);
 }
+
+// Re-run the lint pass with no edit, when something outside the doc changed what it would say (a new preview measurement).
+// `forceLinting` cannot do this: it only hurries a pass that is ALREADY scheduled, and an idle linter ignores it
+// (@codemirror/lint `force()` checks `this.set`). `needsRefresh` on the linter schedules a fresh pass for this effect.
+const relint = StateEffect.define<null>();
+const wantsRelint = (u: ViewUpdate) => u.transactions.some((tr) => tr.effects.some((e) => e.is(relint)));
 
 // ONE lint popup at a time (#1658).
 //
@@ -380,6 +387,9 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  slide at `slideIndex`. Lint cannot see a layout, so these arrive from the preview and
 	 *  join the lint pass as `spark-too-big` warnings with a one-click resize. */
 	measuredSparks?: { slideIndex: number; reports: SparkFitReport[] } | null;
+	/** The PHOTO VERDICT for the slide on screen (photo-verdict.ts), the one the Coach shows too. It becomes the measured
+	 *  `photo-contrast` underline where lint flags nothing, and the fix in the `thin-card-no-ink` tooltip where it does. */
+	measuredPhoto?: MeasuredPhoto;
 	/** A live-collaboration binding (live/use-live-session.ts). While present, the editor is bound
 	 *  to the shared text: it rebuilds with `extension` IN PLACE OF its own undo history (which
 	 *  would put everyone's edits on your stack), seeds its document from `seed()` — the shared
@@ -388,7 +398,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  binding must be rebuilt (a role change makes it read-only). */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, carryKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, carryKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const collabRef = React.useRef(collab);
@@ -488,6 +498,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// The latest measured sparks, read by the lint pass; a new measurement re-runs it.
 	const measuredRef = React.useRef(measuredSparks);
 	measuredRef.current = measuredSparks;
+	const measuredPhotoRef = React.useRef(measuredPhoto);
+	measuredPhotoRef.current = measuredPhoto;
 	const buildAutocomplete = () => [
 		autocompletion({ override: [makeStudioCompletion(completionComponents, completionFinishValues, completionFinishClasses, { modifiers: completionModifiers, palettes: completionPalettes, registers: completionRegisters, vocab: completionVocab, inlineNext }), makeAssetCompletion(() => assetsRef.current?.() ?? [])], activateOnTyping: true, icons: false, maxRenderedOptions: 300, addToOptions: [iconPreviewOption] }),
 		// Hover a front-matter key for what it does, its values and its default: the same row of
@@ -593,16 +605,27 @@ export const Editor = React.forwardRef<EditorHandle, {
 					// cannot be read (this slide is not the one on screen, a cross-origin photo). Lint's "Fix: …" prose is dropped
 					// since buttons do the fix (#1658).
 					const thin = diags.filter((d) => d.source === 'thin-card-no-ink');
-					if (thin.length) {
+					// The photo verdict for the slide on screen, measured in the preview: the Coach's finding, as an underline
+					// where lint flags nothing on that slide (a statement, a card that already names an ink).
+					const photo = measuredPhotoRef.current;
+					const photoWanted = !!photo?.verdict.low;
+					if (thin.length || photoWanted) {
 						// A chunk that will not load (offline after a deploy) must not take the editor's diagnostics with it.
 						const fix = await import('./thin-card-fix').catch(() => null);
 						if (fix) {
 							keepInkTooltip = fix.keepTooltipOnSameDiagnostics;
-							fix.attachInkFixes(thin, view.state.doc.toString(), () => hubRef.current?.get().unitIndex);
+							const text = view.state.doc.toString();
+							fix.attachInkFixes(thin, text, () => hubRef.current?.get().unitIndex, () => measuredPhotoRef.current);
+							if (photo && photoWanted) {
+								const ix = buildDeckIndex(text);
+								const flagged = thin.some((d) => Math.max(0, unitAt(ix, d.from)) === photo.slideIndex);
+								const d = flagged ? null : fix.photoDiagnostic(view.state.doc, photo, () => measuredPhotoRef.current);
+								if (d) measured.push(d);
+							}
 						}
 					}
 					return measured.length ? diags.concat(measured).sort((x, y) => x.from - y.from || x.to - y.to) : diags;
-				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null })
+				}, { hideOn: (tr, from, to) => keepInkTooltip?.(tr, from, to) ?? null, needsRefresh: wantsRelint })
 			: makeLinter(known, reportLint);
 
 	// SHOW THE FOCUS — the editor's half of navigation. Runs when another pane (the rail, a key,
@@ -1012,15 +1035,16 @@ export const Editor = React.forwardRef<EditorHandle, {
 	}, [vocabSets, known]);
 
 	// A new measurement from the preview re-runs the lint pass, so the warning appears (or clears)
-	// without waiting for the next keystroke. Keyed on the content, not the object identity.
-	const measuredKey = measuredSparks ? `${measuredSparks.slideIndex}|${measuredSparks.reports.map((r) => `${r.src}>${r.to}`).join(',')}` : '';
-	const lastMeasuredKey = React.useRef('');
+	// without waiting for the next keystroke. Keyed on the content, not the object identity. The
+	// `relint` effect, not `forceLinting`, which does nothing to a linter with no pass scheduled.
+	const measuredKey = `${measuredSparks ? `${measuredSparks.slideIndex}|${measuredSparks.reports.map((r) => `${r.src}>${r.to}`).join(',')}` : ''}#${measuredPhoto ? `${measuredPhoto.slideIndex}|${measuredPhoto.verdict.low}|${measuredPhoto.verdict.message}|${measuredPhoto.verdict.fix}` : ''}`;
+	const lastMeasuredKey = React.useRef('#');
 	React.useEffect(() => {
 		// Nothing measured before and nothing now: no pass to re-run (and forcing one on mount
 		// would run the linter before the real lint core is configured).
 		if (measuredKey === lastMeasuredKey.current) return;
 		lastMeasuredKey.current = measuredKey;
-		if (viewRef.current) forceLinting(viewRef.current);
+		viewRef.current?.dispatch({ effects: relint.of(null) });
 	}, [measuredKey]);
 
 	// External value changes — a version restore, an AI apply, a surgical slide-settings or

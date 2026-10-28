@@ -1,6 +1,7 @@
 /**
- * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js in the
- * real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against Safari's own (PROBE=jpeg).
+ * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
+ * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
+ * Safari's own (PROBE=jpeg).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
@@ -76,16 +77,32 @@ try {
 }
 process.exit(ok ? 0 : 1);
 
-async function runStudioProbe(id) {
-	// Seed the Studio's settings on its own origin, then load the Studio.
+/** Load a fresh Studio (settings seeded on its own origin first) and run one page-side probe in it. */
+async function studioPage(id, file, fn) {
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
 	await wd('POST', `/session/${id}/execute/sync`, { script: fs.readFileSync(path.join(here, 'seed-settings.js'), 'utf8'), args: [] });
 	await wd('POST', `/session/${id}/url`, { url: `${BASE}/studio/` });
-	const probe = fs.readFileSync(path.join(here, 'studio-probe.js'), 'utf8');
+	const probe = fs.readFileSync(path.join(here, file), 'utf8');
 	return wd('POST', `/session/${id}/execute/async`, {
-		script: `${probe}\nconst done = arguments[arguments.length - 1];\nlatticeStudioProbe().then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
+		script: `${probe}\nconst done = arguments[arguments.length - 1];\n${fn}().then(done, (e) => done({ ok: false, error: String(e), steps: [] }));`,
 		args: [],
 	});
+}
+
+/**
+ * The Studio suite: the preview payload probe (studio-probe.js), then the photo verdict probe (photo-probe.js), each on a
+ * fresh page. One result: every step, each named for its probe, and a pass only when both pass.
+ */
+async function runStudioProbe(id) {
+	const preview = await studioPage(id, 'studio-probe.js', 'latticeStudioProbe');
+	const photo = await studioPage(id, 'photo-probe.js', 'latticePhotoProbe');
+	return {
+		ok: !!preview.ok && !!photo.ok,
+		error: [preview.error && `preview: ${preview.error}`, photo.error && `photo: ${photo.error}`].filter(Boolean).join('; ') || undefined,
+		ua: photo.ua ?? preview.ua,
+		width: photo.width ?? preview.width,
+		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
+	};
 }
 
 async function runJpegProbe(id) {

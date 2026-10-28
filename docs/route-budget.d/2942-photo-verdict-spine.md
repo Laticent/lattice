@@ -1,0 +1,2 @@
+studio: +420
+The photo verdict's eager wiring (StudioShell runs the watch whenever the Studio is open, so the editor and the Coach share one verdict) and the jump fix (deck-ops `replaceSlide` splices one slide through lint.ts `slideRanges` instead of rejoining the deck, so a panel edit no longer sends the preview to the last slide). CI measured +376 B gz against main (StudioIsland +180, lint +111, deck-ops +83, theme-library +2); +420 leaves room for gzip spread. The reader and the kernel stay in the lazy chunk.

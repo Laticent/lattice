@@ -2,7 +2,8 @@
 status: shipped
 summary: >
   The Studio Coach now warns when the text on a photo slide falls below 4.5:1, measured from the live preview, and offers a
-  one-click "Pin this slide dark" (or light) only when that pin clears the floor, or, when no pin does, "Set card ink
+  one-click fix only when it clears the floor (since 2026-10-28 the editor shows the same verdict, and a thin card's fix is
+  its card ink: see "One verdict, two views" at the end). Originally: "Pin this slide dark" (or light), or, when no pin does, "Set card ink
   light" (or dark) if that ink clears it. It never flips a slide on its own. The
   contrast arithmetic, the photo sampler and the Coach finding list are all reused; the new code is a 90-line kernel
   (`lib/core/photo-contrast.mjs`), a reader that asks the preview what it painted, and a hook that keeps one finding for the
@@ -30,6 +31,8 @@ reads on this photo.
    transitions off, reading the same styles, and putting the classes back.
 3. **One slide, the one on screen.** The preview frame holds one slide at a time, so the finding is for the slide in view
    and follows the author. It is not a deck-wide sweep. The deck-wide read stays with `lint` and the scorecard.
+   The owner confirmed this on 2026-10-28 (PR #2942, D1 A): a Studio pass over every photo slide and a CLI check at
+   export time were both offered and declined, so the on-screen check is the whole of it.
 4. **Outside the grade.** The scorecard is the engine's `scorecard.scoreDeck`; this finding reads pixels in one browser, so
    it does not move Craft or Style.
 5. **Silence means "could not measure".** No preview, a preview still showing another slide, a photo the browser cannot read
@@ -37,13 +40,14 @@ reads on this photo.
 
 ## Scope and what it does not do
 
-- Spotlight compositions only. `clean`, `split` and `gallery` put the text beside the photo, and a statement's ink is fixed white on a scrim.
+- Spotlight and statement compositions only. `clean`, `split` and `gallery` put the text beside the photo. A statement is
+  judged against its scrim at its strongest (2026-10-28 section below).
 - Text over a photo outside the `image` component does not exist in Lattice: `![bg]` photos are painted by the `image`
   layout's own `.lattice-bg` panel.
 - Mean color, not a per-pixel worst case. A busy photo can pass the mean and still lose a word. The 24 by 24 sample is
   the existing card sampler's, kept so the two features agree.
 - Large text is not given 3:1, the stance `check-slide-contrast.js` already takes.
-- **A statement is not measured.** Its backing is the `.image-scrim` gradient (up to 0.86 alpha dark, two layers), not a fill on the text box, and the reader does not model it. The first cut read a statement as "no backing" and, over a bright photo, reported 1.2:1 for text that reads fine on the real scrim; an independent check found it and a probe reproduced it. Measuring a statement with the scrim off (`card-clear`) would need the gradient modelled.
+- **A statement was not measured at first** (measured since 2026-10-28, below). Its backing is the `.image-scrim` gradient (up to 0.86 alpha dark, two layers), not a fill on the text box, and the reader does not model it. The first cut read a statement as "no backing" and, over a bright photo, reported 1.2:1 for text that reads fine on the real scrim; an independent check found it and a probe reproduced it. Measuring a statement with the scrim off (`card-clear`) would need the gradient modelled.
 
 ## Reuse (HARD RULE #15)
 
@@ -67,7 +71,8 @@ even on the phone's Source tab, so the read works there. It falls back to both b
 
 One checker read the diff cold. Four findings were real and are fixed in this PR, each with a test that fails on the bug:
 
-- **A statement was flagged although its scrim made it read** (above). The e2e puts a statement over a bright photo and expects no finding.
+- **A statement was flagged although its scrim made it read** (above). The e2e puts a statement over a bright photo and expects
+  no finding. It still does, now that statements are measured against the scrim.
 - **The finding went stale** when the theme, mode or front matter changed, because the hook keyed on the slide's own text only. It now re-reads on a `context` (mode, palette, source). The e2e edits the front matter in place and expects the finding to clear.
 - **"Fix all" and the panel disagreed** when the photo finding displaced the sixth lint finding. The photo finding now rides alongside the lint top six instead of competing for a slot.
 - **One failed chunk load emptied the editor's diagnostics**, and a slow photo host could hold a lint pass for 4 s. The tooltip's import is caught and the photo read is capped at 1.2 s, after which both inks are offered. The tooltip also drops lint's "Fix:" prose now that buttons carry the fix.
@@ -194,7 +199,7 @@ written and at 7.1:1 with `ink-light` (Chromium, light mode, 1440 px). A spotlig
 does not depend on the theme: `ink-light` / `ink-dark` set the card's fill and both inks to fixed values (the thin-card
 classes). The finding now offers **Set card ink light** (or **dark**) when, and only when, no pin clears and that ink does.
 
-- **A pin still comes first.** The agreed design was the pin, and a pin keeps the theme's own palette while an ink
+- **A pin still comes first.** (Changed 2026-10-28 for thin cards: see "One verdict, two views".) The agreed design was the pin, and a pin keeps the theme's own palette while an ink
   overrides it. `judge` in `lib/core/photo-contrast.mjs` tries `PINS`, and moves on to `INKS` only when no pin clears. Inside
   each group the higher ratio wins, as before. A pin that clears beats an ink that clears higher.
 - **The ink is measured, not assumed.** `readPinned` simulates an ink the way it simulates a pin: it sets the class on the
@@ -226,3 +231,158 @@ The owner ran the tap script on the PR #2932 preview in Safari on an iPhone, in 
 
 So WebKit on the device parses the computed colors and decodes the photo the way the canvas probe expects, which closes the
 iOS follow-up from #2915.
+
+## A statement is measured against its scrim at its strongest (2026-10-28)
+
+A statement's words are fixed white (`--_card-heading-ink`) on the `.image-scrim` gradient. With `card-clear` the scrim's
+alpha is 0 (`--_card-alpha: 0`), so the white sits straight on the photo, and over a bright photo it vanishes. The reader
+skipped statements, so this went unwarned (follow-up from #2915).
+
+The reader cannot know the scrim's alpha under the words without modelling the angle, the `at-*` placement and the band
+variant, all of which move the dense end. So it does not model the point; it bounds it:
+
+- **The verdict uses the scrim at its strongest.** `scrimBacking` in `photo-contrast-read.ts` (now `photo-verdict.ts`) reads the scrim's computed
+  `background-image`, and `strongestScrim` in `lib/core/photo-contrast.mjs` takes each gradient layer at its densest stop
+  and stacks the layers into one color (for the default scrim, `rgb(8 14 24)` at 0.96 alpha). If the text fails even against
+  that, it fails under the real scrim on the mean photo. A statement whose scrim rescues it is never flagged, which keeps the
+  first cut's false 1.2:1 out. With `card-clear` every stop is transparent, the bound is exact, and the ratio is the real one.
+- **A partial scrim reads "at most".** For `card-o5` to `card-sheer` the ratio is a ceiling, and the message says so ("reads
+  at most 2.4:1"). `describe` takes an `atMost` flag for it.
+- **A fix is judged with the scrim off.** The scrim may be thin where the words are, so `readPinned` drops it for a statement
+  and offers a fix only when it clears with no help. In practice a pin does not move a statement's fixed white ink, so the
+  offer is **Set card ink dark**, which turns the ink near-black and the scrim light together.
+- **What it does not catch.** A statement whose scrim is partly on and whose words still fail at the scrim's thin end is not
+  flagged: the bound gives the scrim its best case. The bound also assumes the scrim backs the ink (dark under light ink,
+  light under `ink-dark`), which the ink classes guarantee by setting `--_scrim-rgb` with the ink. That pairing covers
+  only the heading and paragraph, which take `--_card-heading-ink` / `--_card-body-ink`. A statement's list row keeps the
+  theme's ink, so the reader leaves `li` out for statements; the independent check found that judging a dark row against
+  the strongest dark scrim is a floor, not a ceiling. Whether that row reads at all is
+  `followups.d/2932-p3-statement-list-row-ink.md`.
+
+The unit tests pin `strongestScrim` (the stacked alpha of the default scrim, `null` for `card-clear`, the browser's layer
+order) and the "at most" wording. The e2e puts a `card-clear` statement over the bright photo, expects **Set card ink dark**,
+no pin button and no "at most", clicks it, and expects `card-clear ink-dark` and the finding gone. A second case puts
+`card-o10` (a thin scrim) on the same slide and expects "reads at most" and the dark ink. It runs at 1440 and 390 in
+Chromium and in WebKit's tablet and phone projects. The existing "statement over a bright photo is not flagged" case still
+passes.
+
+## One verdict, two views (2026-10-28)
+
+The owner tried the statement check on an iPhone, reported jank, and doubted it worked as claimed. They asked for "a shared
+core spine so there is little room for discrepancy between the editor warning and the coach". A probe of the real Studio
+(Chromium and WebKit, the owner's test deck) found three things.
+
+1. **The two views disagreed by construction.** The editor's `thin-card-no-ink` tooltip had its own reader
+   (`photo-ink-read.ts`): `pickCardInk` on the heading ink alone, from fixed constants, with a guessed card box when the slide
+   was off screen. The Coach measured the painted page and judged heading, paragraph and list row. On the same slide the
+   tooltip offered **Add ink-light** while the Coach offered **Pin this slide dark**, and the pin would not even clear lint's
+   warning, which only an ink class satisfies. A `card-clear` statement was flagged by the Coach and never by the editor.
+2. **A Coach fix jumped the preview to the last slide.** Measured: preview and caret on slide 1 of 6, tap **Set card ink
+   dark**, and within 100 ms the preview showed slide 6. `replaceSlide` rebuilt the whole deck and dropped its final newline,
+   so the focus hub saw one change spanning from slide 1 to the end and mapped the caret to slide 6. Fixed at the root:
+   `replaceSlide` now splices only the slide's range (engineering/gotchas/studio-playground.md has the trace). Every Slide-panel
+   edit had the same jump.
+3. **A stale finding lingered.** Leaving a slide left its warning on screen, without its button, for about a second.
+
+**The spine.** One module reads the page for both views, and one kernel decides and words the answer:
+
+- `lib/core/photo-contrast.mjs` owns the policy and the words. `judge(scene, { inkFirst, wantFix, solidReads })` gives one
+  verdict. `fixOrder` says which fix goes first. `describe` writes the message, and `fixLabel` writes the button. `inkScenes`
+  builds an ink's scene from the stylesheet's own fills and inks (`INK_FILL`, `INK_TEXT`, and the new `INK_BODY`, all pinned to
+  `image.styles.css` by a test) for a slide the preview is not showing.
+- `docs/src/components/studio/photo-verdict.ts` is the one reader. `readVerdict(chunk, source, slideIndex, onScreen)` measures
+  the painted slide when it is on screen and estimates from the photo file when it is not. `applyFix` is the one edit a fix
+  makes. `photo-ink-read.ts` keeps only the photo-file mean and the cache.
+- **The Coach** (`coach/photo-contrast-watch.ts`) reads the slide on screen whenever the Studio is open, not only while the Coach
+  is, because the editor needs the same verdict. Its finding is the verdict's message and button. Lint's `thin-card-no-ink` for
+  the same slide is hidden while the measured finding shows, and its card carries the verdict's button when it does show.
+- **The editor** gets the verdict as `measuredPhoto`. Where lint flags the slide, the `thin-card-no-ink` tooltip shows the
+  verdict's fix, and once the slide is measured it uses the Coach's message word for word. Where lint flags nothing (a statement,
+  a card that already names an ink), the editor adds a measured `photo-contrast` underline on the `![bg]` line, with the same
+  message and button. Its button applies the change as one span (`applyAsSpan`), so the caret, and the preview with it, stay put.
+
+**Two owner decisions (2026-10-28).**
+
+- *Statements in the editor: the measured underline, not a lint rule.* Making lint flag a thin-scrim statement would add `ink-light`
+  to two shipped decks (`image.gallery.md`, `examples/image-card-controls.md`) and change what they render, since the body ink goes
+  from 0.9 to 0.88. The measured underline shows the Coach's finding for the slide on screen. Off screen, a statement has no
+  warning in either view.
+- *Ink first on a thin card.* Where lint's `thin-card-no-ink` flags the card, the fix order is the inks, then a solid card, and
+  never a pin, because only an ink class clears lint's warning. One click then clears both views. Everywhere else a pin still
+  comes first. On the sample photos, no card at 60% or more fails, so the pin path is covered by the unit tests only.
+
+**What changed for the author.** The tooltip says **Set card ink light** where it said **Add ink-light**, the same label as
+the Coach. A slide where no ink reads gets **Use a solid card** in both views. A solid card is offered only on a spotlight,
+because a statement's words can sit where its scrim has faded to nothing.
+
+**Tests.**
+
+- Unit: the kernel's ink-first order, the solid fallback, `wantFix`, the estimate with no ratio, `inkScenes` against the
+  stylesheet constants, and `fixLabel`; the cache (now `lattice-photo-ink:v3`, which keeps a fix and its ratio, never a pin);
+  `replaceSlide` and `slideRanges`, byte for byte.
+- E2E (`photo-contrast-coach.spec.ts`):
+  - The Coach's message and button equal the editor tooltip's, at 1440 and 390, in Chromium and WebKit.
+  - A statement is underlined in the editor, and the editor's button fixes it.
+  - A Coach fix on slide 1 of 2 keeps the preview on slide 1.
+  - The thin-card cases now expect the card ink.
+
+**Found by the independent check of the spine (2026-10-28), and fixed:**
+
+- **"Fix all" drafted the hidden finding.** It still drafted lint's `thin-card-no-ink` that the dedupe hides. It now drafts the
+  set the panel shows.
+- **A fix flashed its own warning back.** For about 80 ms after a click, the editor drew an underline from the verdict for the
+  slide's OLD text. The watch now reports `fresh`, and the editor takes only a fresh verdict.
+- **Ink-first reached slides lint does not flag.** The read took `inkFirst` from the composition the preview resolved, so an
+  unnamed composition the engine reads as spotlight went ink-first with no lint warning. `cardPolicy` now asks lint's own
+  question, on the composition the slide names.
+- **The tooltip offered dead or wrong buttons.**
+  - On a `_class` the Studio cannot edit, it showed a button whose click did nothing. It now shows none, as the Coach does.
+  - It offered a statement a solid card when its photo could not be read. It now offers a solid card only on a spotlight.
+- **The underline could land on the wrong `![bg]`.** It took the first `![bg]` in the slide's text, even one in a comment or a
+  fence. Those are now blanked before the search.
+- **A kept fix was reused after the slide changed.** The cache key ignored the composition the slide names and whether it has
+  body text, so a fix judged on a heading alone came back after a paragraph was added. Both are in the key now.
+- **The watch did needless work.** On a failed measure it loaded the photo a second time for an estimate it threw away, and it
+  rewrote the cache on every pause. It now asks for the measured verdict only (`liveOnly`), and the cache is written only when
+  the answer changes.
+- **A failing ratio could print as passing.** `describe` now rounds DOWN, so 4.46 can no longer read "4.5:1 (needs 4.5:1)".
+
+**Still different between the views, on purpose:**
+
+- *A slide not on screen:* the editor offers an estimated ink, but the Coach's `thin-card-no-ink` card has no button. The
+  Coach acts only on the slide in view.
+- *A reader lens:* the editor shows no measured underline, as with the measured sparks, because the lens reshapes the slides
+  the preview shows.
+- *A slide whose photo cannot be measured* (cross-origin, a lens): the editor falls back to the estimate, or to a solid card
+  with "Could not read this photo.", while the Coach shows lint's finding with no button.
+
+**Cost.** The watch now runs whenever the Studio is open, not only while the Coach is, because the editor needs it. It reads
+once per pause on a photo slide, 900 ms after the last change. Each read toggles four classes on the preview section and decodes
+the photo once.
+
+## Proved in Mobile Safari, and the last two gaps (2026-10-28)
+
+The owner asked for very high confidence, on the surface they test on, without being asked to run it themselves. The
+`ios-safari-studio` platform suite already drives real Mobile Safari in an iPad and an iPhone iOS Simulator on a macOS runner.
+Its run now ends with a second page-side probe: `docs/scripts/ios-safari/photo-probe.js`, run by `run.mjs` on a fresh page
+after `studio-probe.js`. No CI job or step was added. On each device it checks:
+
+- **The statement slide.** A `card-clear` statement on a bright photo: the Coach flags it under 4.5:1, and the editor's
+  underline gives the same message and the same **Set card ink dark** button.
+- **The fix.** The Coach's button writes `ink-dark`, and the preview never shows another slide while the fix lands. The probe
+  samples the preview frame's heading every 16 ms. Both warnings then clear.
+- **The thin card.** A thin spotlight card: the Coach's message and button equal the editor tooltip's, word for word.
+- **Leaving a slide.** Moving off a flagged slide drops its finding at once.
+
+`node docs/scripts/ios-safari/probe.selftest.mjs` runs the same probe on Playwright WebKit at iPad and iPhone size, and it
+passes there.
+
+**Two more gaps the probe found, both fixed:**
+
+- **A tooltip opened before the measurement kept lint's words and an estimated fix while it stayed open.** It now takes the
+  measured verdict in place when it lands. A new e2e opens the tooltip with every photo read slowed, holds the pointer still,
+  and requires the SAME tooltip element to end on the Coach's words. With the upgrade switched off, that test fails.
+- **The `mobile` caret-tooltip "flake" was a test bug.** A trace of a failing run showed one removal, 2 ms after the hover's own
+  mousemove, of a tooltip opened BEFORE the hover: the test's earlier click left the mouse over another underline. The test now
+  parks the mouse and starts from no tooltip. Its Chromium-at-390 waiver is deleted, and it passed 48 runs out of 48 across
+  every project and both widths.
