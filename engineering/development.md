@@ -517,6 +517,12 @@ The registry is `.github/platform-suites.json`, the workflow is `.github/workflo
   committed screenshots with the shared JPEG encoder (`lib/core/jpeg-encode.mjs`) and with Safari's own `toBlob`, on a blank page
   (no docs build). It fails when Safari's bytes for the reference picture differ from Node's or our luma falls under
   38 dB; the step summary records both encoders' sizes and Safari's color sampling, which Linux cannot show.
+  `ios-safari-focus-sync` runs it with `PROBE=focus-sync` on an iPad Pro 13-inch alone (a phone is never wide enough for the
+  Playground's two-pane layout, which starts above 820 px): `run.mjs` makes 40 real WebDriver taps on editor lines while
+  `focus-sync-probe.js` keeps the page busy (`FOCUS_SYNC_BURN_MS`, default 150 ms of work per 100 ms), and the suite fails when any
+  tap moves the editor 2 px or more. `node docs/scripts/ios-safari/focus-sync.selftest.mjs` runs the same loop on Playwright
+  WebKit (`BURN_MS=150`): 39 of 40 taps move the editor on the code before `2937-p2`, 0 of 40 after it. The burner is what lets the
+  probe fail; without it, both pass.
 
 ## Integration test cache
 

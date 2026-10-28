@@ -1,7 +1,8 @@
 /**
  * Drive Mobile Safari in ONE booted iOS Simulator through safaridriver and run a probe there: studio-probe.js and then
  * photo-probe.js in the real Studio (PROBE=studio, the default), or jpeg-probe.js, the shared JPEG encoder against
- * Safari's own (PROBE=jpeg).
+ * Safari's own (PROBE=jpeg), or focus-sync-probe.js, real taps on the Playground's editor under a busy page
+ * (PROBE=focus-sync).
  * Plain WebDriver over fetch: no client library, so nothing new to install on the macOS runner.
  *
  *   SIM_UDID=<udid> SIM_LABEL=iPad [PROBE=jpeg] node scripts/ios-safari/run.mjs
@@ -14,6 +15,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SLIDES, seedScript, TAPS, TARGETS, verdict } from './focus-sync-deck.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const WD = process.env.WEBDRIVER_URL || 'http://localhost:4444';
@@ -60,7 +62,7 @@ try {
 	if (platform !== 'ios') throw new Error(`the session is not iOS (platformName ${caps.platformName}): refusing a macOS fallback`);
 	console.log(`${LABEL}: session on ${caps.platformName} ${caps.platformVersion || ''}, Safari ${caps.browserVersion || '?'}`);
 	await wd('POST', `/session/${id}/timeouts`, { script: 240000, pageLoad: 180000 });
-	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : await runStudioProbe(id);
+	const result = PROBE === 'jpeg' ? await runJpegProbe(id) : PROBE === 'focus-sync' ? await runFocusSyncProbe(id) : await runStudioProbe(id);
 	result.session = { platformName: caps.platformName, platformVersion: caps.platformVersion, browserVersion: caps.browserVersion, label: LABEL };
 	console.log(`${LABEL}: ${result.ok ? 'PASS' : `FAIL (${result.error})`} at ${result.width}px — ${result.ua}`);
 	for (const s of result.steps) console.log(`  ${s.pass ? 'ok  ' : 'FAIL'} ${s.name}${s.detail ? ` (${s.detail})` : ''}`);
@@ -103,6 +105,51 @@ async function runStudioProbe(id) {
 		width: photo.width ?? preview.width,
 		steps: [...(preview.steps || []).map((s) => ({ ...s, name: `preview · ${s.name}` })), ...(photo.steps || []).map((s) => ({ ...s, name: `photo · ${s.name}` }))],
 	};
+}
+
+/**
+ * The Playground's click-a-line check (docs/e2e/playground-focus-sync.spec.ts) on real Mobile Safari. Each tap is a real
+ * WebDriver tap on the editor line, not a script: a scripted click would not move CodeMirror's caret the way a finger does.
+ * The page is kept busy on purpose (FOCUS_SYNC_BURN_MS of work per 100 ms), the load that made the old code move the editor.
+ */
+async function runFocusSyncProbe(id) {
+	const probe = fs.readFileSync(path.join(here, 'focus-sync-probe.js'), 'utf8');
+	const burn = Number(process.env.FOCUS_SYNC_BURN_MS ?? 150);
+	// Every call re-sends the probe source: WebDriver runs each script in its own scope. The burner lives on `window`.
+	const call = (expr) =>
+		wd('POST', `/session/${id}/execute/async`, {
+			script: `${probe}\nconst done = arguments[arguments.length - 1];\nPromise.resolve(${expr}).then(done, (e) => done({ error: String(e) }));`,
+			args: [],
+		});
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/` });
+	await wd('POST', `/session/${id}/execute/sync`, { script: seedScript, args: [] });
+	await wd('POST', `/session/${id}/url`, { url: `${BASE}/playground/?view=edit` });
+	const result = { ua: '', width: 0, steps: [], ok: false };
+	try {
+		const ready = await call(`lsPrepare(${SLIDES}, ${burn})`);
+		if (ready?.error) throw new Error(ready.error);
+		result.width = ready.width;
+		result.ua = await wd('POST', `/session/${id}/execute/sync`, { script: 'return navigator.userAgent', args: [] });
+		const rows = [];
+		for (let i = 0; i < TAPS; i++) {
+			const slide = TARGETS[i % TARGETS.length];
+			const before = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsBefore();`, args: [] });
+			const line = await wd('POST', `/session/${id}/execute/sync`, { script: `${probe}\nreturn lsFind(${slide});`, args: [] });
+			const ref = line['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(line)[0];
+			await wd('POST', `/session/${id}/element/${ref}/click`, {});
+			const row = await call(`lsAfter(${slide}, ${before})`);
+			if (row?.error) throw new Error(`tap ${i + 1} on slide ${slide}: ${row.error}`);
+			rows.push(row);
+		}
+		const v = verdict(rows);
+		result.steps.push({ name: `${v.taps} taps leave the editor alone (burner ${burn} ms)`, pass: v.ok, detail: `${v.jumps} moved it, worst ${Math.round(v.worst)} px` });
+		result.rows = rows;
+		result.ok = v.ok;
+		if (!v.ok) result.error = `${v.jumps} of ${v.taps} taps moved the editor, worst ${Math.round(v.worst)} px`;
+	} catch (e) {
+		result.error = String(e?.message ?? e);
+	}
+	return result;
 }
 
 async function runJpegProbe(id) {

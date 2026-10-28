@@ -119,6 +119,18 @@
       ],
       "run": "PROBE=jpeg bash docs/scripts/ios-safari/run.sh",
       "why": "Every export JPEG goes through the shared encoder (lib/core/jpeg-encode.mjs) because the platforms' own encoders differ: a picture PowerPoint was 43.3 MB from an iPhone where Chromium wrote 12.5 MB. Linux WebKit uses libjpeg-turbo, like Chromium, so it cannot show what Apple's encoder writes. This runs the encoder in real Mobile Safari (iPad and iPhone iOS Simulators): its bytes must equal Node's and its luma stay above 38 dB; the step summary records Safari's own size and color sampling beside ours for a slide-sized synthetic photograph and four committed screenshots. A simulator runs on the Mac's CPU, so its timings are not a phone's."
+    },
+    {
+      "name": "ios-safari-focus-sync",
+      "os": [
+        "macos-latest"
+      ],
+      "paths": [
+        "docs/scripts/ios-safari/*",
+        "docs/src/lib/playground-sync.ts"
+      ],
+      "run": "PROBE=focus-sync bash docs/scripts/ios-safari/run.sh",
+      "why": "A click on a line in the Playground editor must center its slide in the preview and leave the editor where it is. The sync once judged its own preview scroll by time since the write, so a busy page delivered the event after the 120 ms echo window and the editor jumped 136 px (followup 2937-p2). Linux WebKit showed it only under CPU load and is not iOS Safari. This taps the editor 40 times in real Mobile Safari on an iPad Pro iOS Simulator, with the page kept busy on purpose, and fails if any tap moves the editor 2 px or more. The same probe fails 39 of 40 taps on the old code in Playwright's WebKit, so it can fail. A simulator runs on the Mac's CPU, so it is not a physical device. The iPhone is not run: a phone is never wide enough for the two-pane layout."
     }
   ]
 }
