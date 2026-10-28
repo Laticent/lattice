@@ -26,10 +26,11 @@
  * (lib/fonts/text-faces.js) into the bundle at this point (the cascade slot the
  * `@import` held), each face resolving to `url('fonts/<file>.woff2')` relative
  * to the stylesheet — i.e. dist/fonts/, shipped in the npm tarball. Color emoji
- * is NOT bundled by default (~23 MB); it falls back to the installed system
- * emoji font (every stack below lists Apple/Segoe/Noto). The opt-in full-offline
- * tier (`npm run fonts:emoji` + dist/lattice-emoji.css) vendors it for air-gapped
- * use. See engineering/decisions/2026-06-26-local-font-library.md.
+ * is self-hosted the same way, as 11 unicode-range woff2 slices of Noto Color Emoji
+ * (lib/fonts/emoji-faces.js): a page fetches only the slices its emoji need, and an
+ * export inlines only those. 'Noto Color Emoji' leads the emoji fallbacks so a deck
+ * draws the same emoji on every machine; Apple/Segoe stay as the last resort.
+ * See engineering/decisions/2026-06-26-local-font-library.md.
  */
 
 :root {
@@ -44,18 +45,16 @@
      unicode emoji in headings, body, and chrome render inline at the local
      font's metrics. Without them, Chromium falls back unpredictably and the
      emoji may render larger than the text and push lines around.
-     'Noto Color Emoji' is the LAST fallback here, resolving to the installed
-     SYSTEM emoji font — it is no longer bundled by default (~25 MB), so a bare
-     CI/server with no system emoji font shows monochrome glyphs unless the
-     opt-in full-offline tier is loaded (`npm run fonts:emoji` +
-     dist/lattice-emoji.css, which @font-faces this same family to a local ttf).
+     'Noto Color Emoji' is the FIRST emoji fallback here, and it is our own hosted
+     face (11 unicode-range slices in dist/fonts/), so the same deck draws the same
+     emoji on every machine. Apple/Segoe only catch what the font lacks.
      The owned render paths (lattice-engine, lattice) emit emoji as
      plain text (no twemoji). The marp-cli / marp-vscode paths instead rewrite
      emoji to <img class="emoji"> (twemoji); section img.emoji handles that
      variant. */
-  --font-display: 'Playfair Display', Georgia, serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
-  --font-body:    'Outfit', system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
-  --font-mono:    'JetBrains Mono', 'Courier New', monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
+  --font-display: 'Playfair Display', Georgia, serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-body:    'Outfit', system-ui, sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono:    'JetBrains Mono', 'Courier New', monospace, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
   /* The "label voice" — small uppercase tracked labels (eyebrows, table
      column headers, stat sub-labels, KEY INSIGHT, running header/footer).
      Defaults to the mono face, so labels share the structural voice of code
@@ -72,8 +71,8 @@
      and used only under section.sketch, so non-sketch decks never load
      them as the active family. Swap either token to re-flavor the whole
      finish in one line. */
-  --sketch-font-display: 'Caveat', 'Bradley Hand', cursive, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
-  --sketch-font-body:    'Shantell Sans', system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
+  --sketch-font-display: 'Caveat', 'Bradley Hand', cursive, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --sketch-font-body:    'Shantell Sans', system-ui, sans-serif, 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji';
 
   /* ── Spacing scale ── moved to a `:root, section` block below so it routes
    * through `--_sec-1cqi` (same as the --fs-* tokens). A section-OWN consumer

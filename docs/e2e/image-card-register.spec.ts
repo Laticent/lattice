@@ -55,7 +55,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		// The Studio writer may quote a value with a space; the engine unquotes it.
 		await expect.poll(() => persistedSource(page)).toMatch(/\\nimage-card: (\\"top-right soft sm compact\\"|top-right soft sm compact)\\n/);
 		// Every axis back to its default removes the key rather than writing an empty value.
-		for (const [label, head] of [['Card placement', 'Bottom left (default)'], ['Card size', 'Medium (default)'], ['Card density', 'Regular (default)']]) {
+		for (const [label, head] of [['Card placement', 'Auto — Bottom left'], ['Card size', 'Auto — Medium'], ['Card density', 'Auto — Regular']]) {
 			await choose(page, label, head);
 		}
 		await chip(page, 'Auto: Solid').click();

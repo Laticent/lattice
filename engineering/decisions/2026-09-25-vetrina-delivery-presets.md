@@ -63,7 +63,7 @@ is true, and it is more true than the brief assumes:
 | Need | What exists | Where |
 |---|---|---|
 | Name a table row, column or cell; a list item; code lines | `<!-- _focus: row 4 \| col 5 \| cell 4,5 \| item 3 \| line 8-9 -->` resolves an ordinal target and tags it `.lat-focus` | `lib/transformers/focus.js`, `lib/base/base.docs.md` §Focus |
-| Theme-safe highlight looks | `_focusStyle: spotlight \| blur \| ring \| list-fill \| pop`, palette-blind, survives PDF and PPTX | `lib/base/base.focus.css` (`--focus-ring`, `--focus-fill`, `--focus-dim`) |
+| Theme-safe highlight looks | `_focusStyle: spotlight \| blur \| ring \| list-fill \| highlight`, palette-blind, survives PDF and PPTX | `lib/base/base.focus.css` (`--focus-ring`, `--focus-fill`, `--focus-dim`) |
 | Step a slide through its units | `_build` stamps `data-build-step`; **nothing sets `data-build-at` yet**, so no player drives it | `lib/transformers/build.js` |
 | Chart marks | bar `rect.bar[data-mark][data-label][data-value]`, line `path.line-path[data-series]` + `circle.line-dot`, pie `path.wedge[data-mark]` | `bar.transform.js:574`, `line.transform.js:817,864`, `piechart.transform.js:139` |
 | Word timings | LTT: one segment per slide, a Cadenza track with per-word `startMs`/`endMs` | `engineering/ltt.md`, `lib/core/ltt-deck.mjs` |
@@ -151,7 +151,7 @@ the target element for as long as the narration dwells on it, then clears it.
 | `mark` | "this one, among its siblings" | recolors the item's text to `--focus-ring` and swaps its bullet to a `--mark-*` shape | `--mark-*` mask tokens (HARD RULE #29), `list-fill` |
 | `spotlight` | "look only here" | recedes every sibling, the target stays full | `_focusStyle: spotlight` / `blur` |
 | `trace` | "follow this line" | draws a stroke along a chart path or SVG path, then holds it at the accent weight while the other series recede | `path.line-path[data-series]`, `stroke-dasharray` |
-| `lift` | "this bar / wedge / cell" | raises the mark forward and recedes its peers | `_focusStyle: pop`, `data-mark` |
+| `lift` | "this bar / wedge / cell" | raises the mark forward and recedes its peers | `_focusStyle: highlight` (its edge on a chart mark), `data-mark`. *(Corrected 2026-10-27: this row named `pop`, which #2920 removed because it scaled the target and moved the layout.)* |
 
 Three rules keep the family honest:
 

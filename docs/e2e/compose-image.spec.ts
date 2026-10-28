@@ -58,7 +58,8 @@ test.describe('compose images', () => {
 		// A web image is a stand-in that says what it is. Compose never reaches the network for it.
 		await expect(page.locator('.cs-img-stand')).toContainText('Elsewhere');
 		expect(requested.filter((u) => new URL(u).hostname === 'example.com')).toEqual([]);
-		expect(await savedDeck(page)).toBe(DECK);
+		// Polled: the save is debounced (~400ms, `persistedSource` in studio-fixture.ts); a single read raced it on CI.
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
 	test('a photo the Library does not hold is a stand-in that names it, not a broken image', async ({ page }) => {
@@ -75,7 +76,8 @@ test.describe('compose images', () => {
 		const alt = panel(page).getByRole('textbox', { name: 'Description' });
 		await alt.fill('Boats in the harbor');
 		// Nothing is written on each key.
-		expect(await savedDeck(page)).toBe(DECK);
+		// Polled: the save is debounced (~400ms, `persistedSource` in studio-fixture.ts); a single read raced it on CI.
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 		await alt.press('Enter');
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('![A harbor at dawn](asset:harbor)', '![Boats in the harbor](asset:harbor)'));
 		// The panel follows the write.

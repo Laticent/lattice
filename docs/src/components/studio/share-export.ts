@@ -21,6 +21,7 @@ import { unwrapFlatSheet } from '../../../../lib/export/unwrap-flat-sheet.mjs';
 import { sourceHasMath } from '../../../../lib/plugins/math/math.syntax.mjs';
 import { samplesBaseFor } from '../../lib/samples-base';
 import type { StudioComponent } from './component-library';
+import { exportSourceFor } from './export/images-override.js';
 import type { StudioFinish } from './finish-library';
 import { getFrontMatter, mergeClassTokens, stripFrontMatter, withPrintCanvas, writeFrontMatterLine } from './front-matter';
 import type { LatticeMedia } from './lattice-file';
@@ -323,6 +324,8 @@ type PlayerCore = {
 			/** `false` ships the still even when the deck asks for motion; undefined inherits
 			 *  the deck's own `motion:` / `player-motion:` registers. Suppression only. */
 			playerMotion?: boolean;
+			images?: { mode?: string; quality?: string | number };
+			fonts?: { text?: string; emoji?: string };
 			glossary?: { term: string; definition: string }[];
 			narration?: unknown;
 			/** `false` leaves the Guide out of a narrated export; otherwise it ships (player-core). */
@@ -460,13 +463,15 @@ export async function shareHtmlPlayer(
 	out = splitLikeCli(out, source);
 
 	onStatus?.('Embedding fonts…');
+	// The deck's `fonts:` line with the export panel's choice on top, the plan the command line runs.
+	const fontSetting = (await import('./export/deck-export.js')).deckFontSetting(source);
 	const [fontMod, coreMod, sanitizeMod, authoringMod] = await Promise.all([
 		import('@/playground/font-embed.js'),
 		import('@/playground/player-core.generated.js') as Promise<PlayerCore>,
 		import('@/lib/sanitize-slide-html.js'),
 		import('@/playground/authoring-door.js').then((door) => door.loadAuthoring()),
 	]);
-	const fontCss = await fontMod.buildFontEmbedCss();
+	const fontCss = await fontMod.buildFontEmbedCss(`${out.html}\n${getFrontMatter(source, 'title') || ''}`, fontSetting);
 	const notesCore = (authoringMod as unknown as { notesCore: NotesCore }).notesCore;
 	const splitSectionsCore = (authoringMod as unknown as { splitSectionsCore: SplitSectionsCore }).splitSectionsCore;
 	// THE COMMENT CHANNEL, LIFTED ONCE, BEFORE ANYTHING TOUCHES THE MARKUP. Notes,
@@ -878,6 +883,9 @@ export async function shareHtmlPlayer(
 			theme: { name: palette, mode: scheme },
 			// The deck's front-matter directives, read by the engine's own parser, as the CLI records them.
 			config: coreMod.parseFrontMatter(source).directives,
+			// The deck's `images:` with the export panel's choice on top: the same plan the command line runs.
+			images: (await import('./export/deck-export.js')).deckImageSetting(source),
+			fonts: fontSetting,
 			// Describes the ARTIFACT — does this file carry notes — not the FLAG that made it.
 			// Parity with the CLI export: `!stripNotes` was a one-bit answer to "did the author
 			// run the privacy flag?", in plain base64 at the bottom of a file people share. See
@@ -1154,13 +1162,13 @@ export async function shareMarp(options: SingleSlideOptions, source: string, nam
  *  (opt-in via the export panel) is the per-page comment sticky-note payload —
  *  index-aligned to the deck's slides; absent → a clean, comment-free PDF. */
 export async function sharePdf(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, annotations?: { title: string; contents: string }[][], embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
+	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pdf'), palette, mode, extra, extraCss));
 	const ex = await exporters();
 	const { loadSettings } = await import('./studio-store');
 	// Resolves to a DEGRADATION reason when the export shipped something lesser — today,
 	// an image it could not load. The caller folds it into the toast; see ShareSheet.
 	// `embedSource` — the `.lattice` to carry when the author chose "Re-openable in Lattice".
-	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource }), source);
+	return withOffFences(await ex.exportPdf(render, name, onStatus, { deck: name, engine: 'lattice' }, { pageFormat: loadSettings().pdfPages, writer: loadSettings().pdfWriter, annotations, embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** PowerPoint (image-slides, full-bleed). Each image's alt text is the slide's
@@ -1169,18 +1177,18 @@ export async function sharePdf(options: SingleSlideOptions, source: string, name
  *  section it rasterizes, so the alt stays index-locked to its slide even on
  *  front-matter or auto-split (`split: headings`) decks — no source re-split here. */
 export async function sharePptx(options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
+	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, 'pptx'), palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource }), source);
+	return withOffFences(await ex.exportPptx(render, name, onStatus, { deck: name, engine: 'lattice' }, { embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** LibreOffice (.odp) or an EDITABLE PowerPoint, through Calco (`exportOffice`): one
  *  picture per slide, or with `editable` every paragraph as a real text box over a picture
  *  of the slide with its text removed. Notes and alt text ride as in the CLI. */
 export async function shareOffice(format: 'odp' | 'pptx', options: SingleSlideOptions, source: string, name: string, palette: string, mode: 'light' | 'dark', extra?: ExtraTheme, onStatus?: (m: string) => void, extraCss?: string, editable = false, embedSource?: Uint8Array): Promise<string | undefined> {
-	const render = await withExportMarker(await buildDeckRender(options, source, palette, mode, extra, extraCss));
+	const render = await withExportMarker(await buildDeckRender(options, exportSourceFor(source, format), palette, mode, extra, extraCss));
 	const ex = await exporters();
-	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource }), source);
+	return withOffFences(await ex.exportOffice(format, render, name, onStatus, { deck: name, engine: 'lattice' }, { editable, embedSource, images: ex.deckImageSetting(source), fonts: ex.deckFontSetting(source) }), source);
 }
 
 /** Tuning for the image-set (.zip) export — mirrors lib/export/image-set.js's config
@@ -1259,12 +1267,12 @@ export async function shareImageSet(options: SingleSlideOptions, source: string,
 		}
 	}
 
-	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground };
+	const ex = await exporters();
+	const effectiveOpts = { ...imageOpts, mode: slideScheme, svgBackground: effectiveSvgBackground, fonts: ex.deckFontSetting(source) };
 	// Manifest provenance. Title from the deck's front-matter (else the filename); palette as
 	// rendered. The browser has no package version handy (unlike the CLI), so engineVersion is
 	// left null — the `generator: 'studio'` field already marks the source.
 	const meta = { title: getFrontMatter(source, 'title') || undefined, palette, engineVersion: null };
-	const ex = await exporters();
 	return withOffFences(await ex.exportImageSet(render, name, effectiveOpts, onStatus, svgRender, meta), source);
 }
 

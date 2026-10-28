@@ -38,10 +38,6 @@ tokenization/
 dist/lattice-runtime.js.check.tmp
 dist/lattice.js.check.tmp
 
-# Opt-in full-offline colour-emoji font (~25 MB) vendored on demand by
-# `npm run fonts:emoji`. Excluded from the npm tarball (package.json `files`)
-# AND from git so a fetch in a working tree can't be accidentally committed.
-dist/fonts/noto-color-emoji.ttf
 
 # Bucket-gallery build tempfiles — tools/build-bucket-galleries.js writes
 # <bucket>.gallery.<theme>.tmp.md next to the source during render and

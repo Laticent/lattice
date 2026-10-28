@@ -127,12 +127,12 @@ test('deck settings → Look → Venue writes venue:', async ({ page }) => {
 	await gotoStudio(page);
 	await setEditorContent(page, deck(3, ''));
 	await openInspectorTab(page, 'look');
-	await page.getByRole('button', { name: 'Choose deck venue' }).click();
-	await page.getByRole('menuitem', { name: /^Hall/ }).click();
+	await page.getByRole('combobox', { name: 'Choose deck venue' }).click();
+	await page.getByRole('option', { name: /^Hall/ }).click();
 	await expect.poll(async () => await persistedSource(page), { timeout: 10_000 }).toContain('venue: hall');
 	await expect.poll(async () => (await shown(live(page))).scale, { timeout: 20_000 }).toBe('1.5');
-	await page.getByRole('button', { name: 'Choose deck venue' }).click();
-	await page.getByRole('menuitem', { name: /^Default/ }).click();
+	await page.getByRole('combobox', { name: 'Choose deck venue' }).click();
+	await page.getByRole('option', { name: 'Auto — Designed size' }).click();
 	await expect.poll(async () => await persistedSource(page), { timeout: 10_000 }).not.toContain('venue:');
 });
 
@@ -147,8 +147,11 @@ test('the Studio lint warns on a slide past its venue budget, and names the fix'
 	await expect(squiggle).toBeVisible({ timeout: 20_000 });
 	await squiggle.hover();
 	const tip = page.locator('.cm-tooltip-lint');
-	await expect(tip).toContainText('at 1.3x', { timeout: 10_000 });
-	await expect(tip).toContainText('counted in wrapped lines');
+	// The message names the room size in words and the overrun as a share of the slide
+	// (lint-core's `sizeWords`, plain wording since #2858; the unit tier pins the full text in
+	// lint-scale-capacity.test.js).
+	await expect(tip).toContainText('At conference size', { timeout: 10_000 });
+	await expect(tip).toContainText(/runs about \d+% too long/);
 	await expect(tip).toContainText('Fix:');
 	await expect(tip).toContainText(/set `venue: (huddle|laptop)`/);
 

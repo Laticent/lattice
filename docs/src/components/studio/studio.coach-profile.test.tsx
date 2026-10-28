@@ -13,7 +13,7 @@
 // list, so adding a profile to the engine and forgetting the panel fails here.
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadStudioPanels } from '@/test/panels';
-import { declaredProfile, PROFILE_NAMES, PROFILES, withProfile } from '../../../../lib/authoring/deck-profiles.js';
+import { DEFAULT_PROFILE, declaredProfile, PROFILE_NAMES, PROFILES, withProfile } from '../../../../lib/authoring/deck-profiles.js';
 import { DECK_PROFILE_CHOICES } from './StudioShell';
 
 // The Studio's panels load on first open; load them up front so no test races a shell.
@@ -22,6 +22,12 @@ beforeAll(loadStudioPanels);
 describe('the Coach profile control mirrors the engine', () => {
 	it('offers exactly the profiles the engine grades', () => {
 		expect(DECK_PROFILE_CHOICES.map(([key]: [string, string]) => key).sort()).toEqual([...PROFILE_NAMES].sort());
+	});
+
+	// The picker's `Auto — <profile>` head reads the first choice as what an undeclared deck
+	// gets (StudioShell `autoProfile`), so the first choice must be the engine's default.
+	it('lists the engine default first, which is what Auto names on an undeclared deck', () => {
+		expect(DECK_PROFILE_CHOICES[0][0]).toBe(DEFAULT_PROFILE);
 	});
 
 	it('labels each one the way the engine labels it', () => {

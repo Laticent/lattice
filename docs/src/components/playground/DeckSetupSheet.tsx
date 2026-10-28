@@ -1,53 +1,40 @@
 import { Settings } from 'lucide-react';
 import * as React from 'react';
-import { MODES } from '@/components/studio/mode-catalog';
+import { lazyPanel, PanelLoader } from '@/components/studio/lazy-panel';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useOverlayBack } from '@/lib/overlay-back';
-import { A11Y_GROUP_LABEL, paletteLabel } from '@/lib/palette-label';
-import { isA11yPalette } from '@/lib/theme-catalog.generated';
 import { useIsPhone } from '@/lib/use-breakpoint';
 import { deckDebugOn } from '@/playground/debug-overlay.js';
 import { debugEffectiveOn, onDebugOverrideChange, setDebugOverride } from '@/playground/debug-prefs.js';
-import { CONFIG_PROFILES, createConfigPanel } from '@/playground/deck-config.js';
+
+// The rows load with the sheet, not with the page: the Studio's picker, catalogs and option
+// glyphs are ~8.5KB gz the Playground does not need until Deck settings opens. Pointing at or
+// focusing the trigger starts the fetch, so the panel is usually there before the tap lands,
+// and then it draws on the sheet's first frame (`lazyPanel`, not React.lazy, which suspends
+// for a frame even when the module is loaded). A failed load shows the chunk-load card inside
+// the sheet instead of taking the Playground down.
+const PANEL = lazyPanel('Deck settings', () => import('./DeckConfigPanel').then((m) => m.DeckConfigPanel));
+const loadPanel = () => void PANEL.load();
 
 /**
- * Deck setup — the universal front-matter config panel (createConfigPanel) mounted
- * inside a shadcn Sheet. "Universal" is now aspirational rather than descriptive: this
- * is the ONLY host. It used to be shared with the Workbench and the Drawing Board, both
- * deleted in the 2026-07-03 studio succession, and the panel stayed host-agnostic. The
- * panel itself is NOT rewritten: deck-config.js builds its own `.deck-config`
- * rows (styled by deck-config.css), and we host it in a React-owned div, calling
- * config.render() each time the Sheet opens. Writes flow setSource → editor →
- * onChange → live re-render, exactly as before.
+ * Deck settings — the Playground's front-matter panel (DeckConfigPanel) inside a shadcn
+ * Sheet. The rows are React and every select row is the Studio's `CatalogSelect`, so the
+ * Playground's pickers open on the same `Auto — <resolved>` head, carry the same option
+ * previews and close on the same outside tap as the Studio's Settings. Writes flow
+ * setSource → editor → onChange → live re-render. The Sheet remounts its body on each
+ * open, so the panel reads the deck fresh every time.
  *
- * The profile is `author` (every field, `theme` included) — since 2026-09-15 the only
- * profile `deck-config.js` exports. It was `noTheme`, on the
- * reasoning that "the top-bar palette picker owns theme on this surface" — true only
- * while that picker is on screen, and `PaletteControls` hides it below `lg` (its
- * `compact` prop). On a phone the near control was withheld in favor of a far one
- * that wasn't rendered, so the surface had no theme control anywhere. The row writes
- * the deck's own `theme:`, which is the authoritative axis (`@/lib/deck-theme`), with
- * an Automatic stop that clears the key and hands the deck back to the site palette.
+ * Every field is drawn, `theme` included. The theme row used to be withheld here on the
+ * reasoning that "the top-bar palette picker owns theme on this surface" — true only while
+ * that picker is on screen, and `PaletteControls` hides it below `lg` (its `compact`
+ * prop), so on a phone the surface had no theme control anywhere. The row writes the
+ * deck's own `theme:`, the authoritative axis (`@/lib/deck-theme`), and its Auto head
+ * clears the key and hands the deck back to the site palette.
  *
  * The trigger icon tints when the deck carries non-theme managed front matter
- * (readFrontMatter().configured) — the same cue the vanilla `is-set` class gave.
- * `theme` stays out of that cue, unchanged: it is excluded at the reader.
- *
- * `modes` is REQUIRED for the Mode row to render at all — deck-config gates it on
- * `modes.length`, and this host passed nothing, so the row was in the profile and
- * never drawn (found by the 2026-08-18 coverage audit, §4.2). The names come from the
- * Studio's mode catalog, which carries the engine rot-guard (mode-catalog.test.ts), so
- * the two surfaces cannot offer different modes.
+ * (readFrontMatter().configured). `theme` stays out of that cue: it is excluded at the reader.
  */
-// Module scope: a stable identity, so the mount callback's dep list doesn't change
-// every render (which would rebuild the whole vanilla panel on each parent update).
-const MODE_NAMES = MODES.map((m) => m.name);
-const PALETTE_NAMING = {
-	label: paletteLabel,
-	group: { label: A11Y_GROUP_LABEL, has: isA11yPalette },
-};
-
 export function DeckSetupSheet({
 	getSource,
 	setSource,
@@ -71,45 +58,6 @@ export function DeckSetupSheet({
 	const phone = useIsPhone();
 	useOverlayBack(phone && open, React.useCallback(() => setOpen(false), []));
 
-	const getSourceRef = React.useRef(getSource);
-	const setSourceRef = React.useRef(setSource);
-	getSourceRef.current = getSource;
-	setSourceRef.current = setSource;
-
-	// A CALLBACK ref, not useEffect: Radix mounts (and on close unmounts) the
-	// Sheet body, handing us a fresh host node each open. Building + rendering the
-	// vanilla config panel the instant the node attaches sidesteps any effect-vs-
-	// portal timing race (the node is guaranteed live here). createConfigPanel +
-	// render() are the deck-config.js contract — not reimplemented.
-	const mountHost = React.useCallback(
-		(host: HTMLDivElement | null) => {
-			if (!host) return; // detach on close — nothing to clean up (DOM goes with it)
-			const panel = createConfigPanel({
-				host,
-				getSource: () => getSourceRef.current(),
-				setSource: (next: string) => setSourceRef.current(next),
-				palettes,
-				finishes,
-				modes: MODE_NAMES,
-				// What an un-pinned deck renders with, so the theme row's Automatic stop can
-				// name it. Read from the DOM at render time rather than threaded as a prop:
-				// the site palette lives on `<html data-palette>` (site-chrome.ts) and the
-				// panel is rebuilt on every open, so this is always the current answer.
-				getDefaultTheme: () => document.documentElement.getAttribute('data-palette') || '',
-				// The site's OWN palette naming, handed down rather than re-derived in the
-				// panel: `paletteLabel` strips the `a11y-` prefix for a palette the manifests
-				// DECLARE as one of the curated color-vision themes, which is only legible
-				// because those options sit under the group heading below — the same pairing
-				// `PaletteSelectItems` uses in the header picker. Injected, not imported by
-				// deck-config.js, because that module is also run straight under `node --test`.
-				paletteNaming: PALETTE_NAMING,
-				fields: CONFIG_PROFILES.author,
-			});
-			panel.render();
-		},
-		[palettes, finishes],
-	);
-
 	// modal={false} + overlay={false}: a non-modal side sheet over a LIVE preview.
 	// A modal sheet engages react-remove-scroll's body scroll-lock, which lingers on
 	// iOS Safari after close and freezes the preview until focus changes (see
@@ -118,7 +66,7 @@ export function DeckSetupSheet({
 	return (
 		<Sheet open={open} onOpenChange={setOpen} modal={false}>
 			<SheetTrigger asChild>
-				<Button id="pg-setup-trigger" variant="outline" size="sm" aria-label="Deck settings" title="Deck settings — look, format and front matter for this deck">
+				<Button id="pg-setup-trigger" variant="outline" size="sm" onPointerEnter={loadPanel} onFocus={loadPanel} aria-label="Deck settings" title="Deck settings — look, format and front matter for this deck">
 					<Settings className={configured ? 'text-primary' : undefined} />
 					<span className="hidden sm:inline">Deck settings</span>
 				</Button>
@@ -144,7 +92,15 @@ export function DeckSetupSheet({
 						Front matter for this deck — applied to the whole deck and exported with the .md.
 					</SheetDescription>
 				</SheetHeader>
-				<div className="deck-config px-4 pb-4" ref={mountHost} />
+				<div className="deck-config px-4 pb-4">
+					{/* What an un-pinned deck renders with, so the Theme row's Auto head can name it:
+					    the site palette lives on `<html data-palette>` (site-chrome.ts). */}
+					<PanelLoader panel={PANEL} shell={(body) => body ?? <p className="db-settings-note">Loading deck settings…</p>}>
+						{(DeckConfigPanel) => (
+							<DeckConfigPanel getSource={getSource} setSource={setSource} palettes={palettes} finishes={finishes} getDefaultTheme={() => document.documentElement.getAttribute('data-palette') || ''} />
+						)}
+					</PanelLoader>
+				</div>
 				<div className="deck-config border-t border-border/60 px-4 pb-4 pt-3">
 					<div className="db-settings-head">Preview · debug</div>
 					<DebugPrefRow getSource={getSource} />

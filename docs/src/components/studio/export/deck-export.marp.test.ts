@@ -40,6 +40,7 @@ beforeEach(() => {
 			withSampleAssets,
 			withRuntimeScriptsReport: (s: string) => ({ markdown: s, removed: { scripts: 0, handlers: 0, urls: 0 } }),
 			marpScopableCss: (s: string) => s,
+			withoutEmojiFont: (s: string) => s,
 			fontAssetsFor: () => [],
 			STATIC_ASSETS: [],
 			AGENT_ASSETS: [],

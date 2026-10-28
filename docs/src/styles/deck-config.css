@@ -1,12 +1,12 @@
-/* deck-config.css — the universal deck-setup panel (createConfigPanel in
- * docs/src/playground/deck-config.js), styled for the surfaces that DON'T already
- * carry a surface's own full stylesheet.
+/* deck-config.css — the Playground's Deck settings panel (DeckConfigPanel.tsx, over the
+ * front-matter layer in docs/src/playground/deck-config.js), styled for the surfaces that
+ * DON'T already carry a surface's own full stylesheet. Its select rows are the Studio's
+ * CatalogSelect, which brings its own look; these rules lay out the rows around it.
  *
  * ONE HOST TODAY: the Playground's Deck settings sheet (DeckSetupSheet.tsx), the only
- * module that calls createConfigPanel and the only one that renders a `.deck-config`
- * wrapper. This header used to say "the Playground and the Studio"; the Studio never
- * mounted this panel, and the Workbench that did was deleted in the 2026-07-03 studio
- * succession. The sheet is still not the only POSSIBLE host — the `db-*` classes and
+ * module that renders a `.deck-config` wrapper. This header used to say "the Playground
+ * and the Studio"; the Studio never mounted this panel, and the Workbench that did was
+ * deleted in the 2026-07-03 studio succession. The sheet is still not the only POSSIBLE host — the `db-*` classes and
  * the container query below are written for a panel at any width — so the rules stay
  * host-agnostic.
  *
@@ -67,35 +67,19 @@
 	font-size: 0.7rem;
 	color: var(--text-muted);
 }
-.deck-config .db-pref-select {
-	/* The select keeps its preferred width (up to 11rem) and the LABEL column absorbs
-	 * the pressure — `.db-pref-text` has `min-width: 0` and can. Letting the select
+.deck-config .db-pref-catalog {
+	/* The picker keeps its preferred width (up to 11rem) and the LABEL column absorbs
+	 * the pressure — `.db-pref-text` has `min-width: 0` and can. Letting the picker
 	 * shrink too was the first attempt and it read worse than the bug: both halves have
 	 * shrink 1, so they gave proportionally and the desktop panel showed
 	 * "Boardroom — c", "HD · 1280×720 (1". A truncated option label is not a fix.
 	 *
 	 * What makes the overflow IMPOSSIBLE is the percentage in the cap, not the shrink:
-	 * the select can never claim more than 55% of the row, so the other 45% is always
+	 * the picker can never claim more than 55% of the row, so the other 45% is always
 	 * the label's, whatever the text size does to the 11rem half. */
 	flex: 0 0 auto;
 	min-width: 0;
 	max-width: min(11rem, 55%);
-	font: inherit;
-	font-size: 0.78rem;
-	color: var(--text-body);
-	background: var(--bg);
-	border: 1px solid var(--border);
-	border-radius: var(--radius-sm, 6px);
-	padding: 0.28rem 0.45rem;
-	cursor: pointer;
-}
-.deck-config .db-pref-select:hover {
-	border-color: var(--accent);
-}
-.deck-config .db-pref-select:focus-visible {
-	outline: none;
-	border-color: var(--accent);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* Below the width where a label and its control can sit side by side, stack them —
@@ -113,7 +97,7 @@
 		align-items: stretch;
 		gap: 0.3rem;
 	}
-	.deck-config .db-pref-select {
+	.deck-config .db-pref-catalog {
 		max-width: 100%;
 		width: 100%;
 	}

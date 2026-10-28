@@ -52,7 +52,7 @@ describe('resolve-headline', () => {
 
   test('HEADLINE_NAMES / HEADLINE_TOKENS list the recognized set', () => {
     assert.deepEqual([...HEADLINE_NAMES], ['auto', 'left', 'center', 'right']);
-    assert.deepEqual([...HEADLINE_TOKENS], ['head-left', 'head-center', 'head-right']);
+    assert.deepEqual([...HEADLINE_TOKENS], ['head-auto', 'head-left', 'head-center', 'head-right']);
   });
 
   test('readFrontMatterHeadline extracts from the front-matter block only; quotes + absence', () => {
@@ -66,9 +66,12 @@ describe('resolve-headline', () => {
 
   test('CSS contract — the token drives the alignment seam; palette-blind, no margin', () => {
     const css = fs.readFileSync(path.join(__dirname, '../../../lib/base/base.accent-finish.css'), 'utf8');
-    for (const cls of HEADLINE_TOKENS) {
+    // `head-auto` is the restore token (a slide back on the default inside a deck that set another
+    // value): it draws nothing of its own, so it has no rule, and must not grow one.
+    for (const cls of HEADLINE_TOKENS.filter((t) => t !== 'head-auto')) {
       assert.ok(css.includes(`.${cls}`), `${cls} has no rule in base.accent-finish.css`);
     }
+    assert.ok(!css.includes('.head-auto'), 'head-auto is a restore token and draws nothing');
     // The register drives one inherited property, not a scattered set of text-aligns.
     assert.ok(css.includes('--headline-align'), 'the register must set the shared --headline-align seam');
     // center + right ship (box machinery via the flex lede + flexed framing containers).

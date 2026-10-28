@@ -16,6 +16,7 @@
     "typecheck": "astro sync && tsc --noEmit",
     "check:vetrina": "tsc -p tsconfig.vetrina.json",
     "check:fuoco": "tsc -p tsconfig.fuoco.json",
+    "check:filo": "tsc -p tsconfig.filo.json",
     "check:veduta": "tsc -p tsconfig.veduta.json",
     "check:lente": "tsc -p tsconfig.lente.json",
     "check:mosaico": "tsc -p tsconfig.mosaico.json",

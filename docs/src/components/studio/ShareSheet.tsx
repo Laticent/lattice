@@ -6,7 +6,7 @@ import { deckColorMode } from '@/lib/deck-theme';
 import { notify } from '@/lib/notify';
 import type { SingleSlideOptions } from '@/lib/single-slide-render';
 import { deckFilename } from './decks';
-import { dismissPendingSave, iosNeedsShareSheet } from './download';
+import { dismissPendingSave, iosNeedsShareSheet, lastDownloadBytes } from './download';
 import { ExportOptionsPanel } from './ExportOptionsPanel';
 import { buildCommentAnnotations, type ExportOptions } from './export-options';
 import { mergeClassTokens, stripFrontMatter } from './front-matter';
@@ -31,6 +31,11 @@ import { type WebpageExportChoice, WebpageOptionsPanel } from './WebpageOptionsP
 // Markdown and Marp, whose exporters write their own note: each knows whether photos went in, were switched
 // off or were over the cap.
 const NO_PHOTO_NOTE = new Set(['printsrc', 'captions', 'lattice', 'md', 'marp']);
+
+/** 1.4 MB, 812 KB: what an author sees against the cost of a choice. */
+function fileSize(bytes: number): string {
+	return bytes >= 1_048_576 ? `${(bytes / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 
 export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, finishClass, finishExtraCss, localComponents, deckPackages, options, palette, mode, extraTheme, extraCss, onPresent, onCollaborate, onWrite, initialView = 'menu' }: { open: boolean; onOpenChange: (v: boolean) => void; deckTitle: string; source: string; deckId?: string; finishClass?: string; finishExtraCss?: string; localComponents?: ReadonlyArray<{ name: string; css: string }>; deckPackages?: DeckPackages; options: SingleSlideOptions; palette: string; mode: 'light' | 'dark'; extraTheme?: { name: string; css: string }; extraCss?: string; onPresent: () => void; onCollaborate?: () => void; /** Edits the deck: the off-fence notice's "Turn on" (#2758). */ onWrite?: (label: string, updater: (s: string) => string) => void; initialView?: 'menu' | 'pdf' }) {
 	const close = () => onOpenChange(false);
@@ -170,7 +175,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 					}
 				}
 				if (degraded) notify(`${label} ready — but ${degraded}.`, { duration: DEGRADED_TOAST_MS });
-				else if (!iosNeedsShareSheet()) notify(`${label} ready.`);
+				else if (!iosNeedsShareSheet()) notify(lastDownloadBytes() ? `${label} ready (${fileSize(lastDownloadBytes())}).` : `${label} ready.`);
 			} catch (e) {
 				// Every share row funnels through here, and each one lazy-imports its exporter.
 				// A stale tab or a dropped connection failed BEFORE the export began, so echoing
@@ -345,6 +350,7 @@ export function ShareSheet({ open, onOpenChange, deckTitle, source, deckId, fini
 						<ExportOptionsPanel format="odp" source={source} onWrite={onWrite} deckId={deckId} slideCount={slideCount} busy={busy === 'odp'} status={progress} onBack={() => setView('menu')} onExport={exportOdp} />
 					) : view === 'html' ? (
 						<WebpageOptionsPanel
+							deckId={deckId}
 							busy={busy === 'html'}
 							status={progress}
 							defaultScheme={deckDefaultScheme}

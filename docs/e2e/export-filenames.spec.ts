@@ -84,7 +84,7 @@ for (const [name, ua] of Object.entries(IOS_AGENTS)) {
 		await page.getByRole('dialog').getByRole('button', { name: /^Download PDF/ }).click();
 		await expect(saveToast(page)).toHaveCount(1, { timeout: 150_000 });
 		await expect(saveToast(page)).toContainText(/\.pdf is ready/);
-		await expect(page.locator('[data-sonner-toast]', { hasText: /^PDF ready\.?$/ }), 'the Share sheet\'s own "ready." doubles the Save toast').toHaveCount(0);
+		await expect(page.locator('[data-sonner-toast]', { hasText: /^PDF ready( \([^)]+\))?\.?$/ }), 'the Share sheet\'s own "ready." doubles the Save toast').toHaveCount(0);
 		expect(downloads, 'an iOS export must not fall back to a link download (Firefox names it after the UUID)').toEqual([]);
 
 		// 1b · The sheet answers to a keyboard only while one of its text fields has focus. A

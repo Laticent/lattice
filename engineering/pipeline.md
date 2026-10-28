@@ -220,7 +220,7 @@ shot (`isContinuousTone`: raster images or gradients cover a quarter of it), so 
 (`lib/export/slide-picture.js`) and the Studio (`canvasToPictureBlob`, `deck-export.js`) shoot a
 continuous-tone slide as a JPEG first and never take its PNG when the JPEG is 100 KB or more, and
 shoot any other slide as a PNG first, trying a JPEG only when the PNG is over 600 KB and keeping it
-only when it is under 70% of the PNG. The thresholds live in `docs/src/lib/calco/picture.ts`; the
+only when it is under 70% of the PNG. The rule and its thresholds live in `lib/core/office-export-policy.js` (`choosePicture`, `PICTURE`), not in Calco; the
 writers name the part by the bytes (`imageMime`). A capture that keeps a rounded corner as
 transparency (`.png` output only) is never a JPEG. A 35-slide photo deck: 76.6 MB and 44 s before,
 16 MB and 15.5 s now; the Studio, 8 photo slides: 38.2 MB and 7.4 s before, 8.9 MB and 5.3 s now.
@@ -310,7 +310,8 @@ before, then runs **the same code as the Studio's Export to PDF** inside that pa
    the alternates those features draw their own widths and text, which pdf-lib leaves out.
 3. **Photograph** what is left. The drawn text, shapes and images are hidden, and the slide is
    photographed on its export face (`.lattice-exporting`). The camera is the one piece each host
-   supplies: the CLI uses Chrome's own screenshot, the Studio uses html-to-image.
+   supplies. It used to be a native Chrome screenshot in the CLI and html-to-image in the Studio; both now run one camera
+   (`lib/core/slide-camera.mjs`, § 4a2), and only the bytes of a picture come from the host.
 4. **Write** (`write-pdf.mjs`, pdf-lib): the photo, then images at their original bytes, then
    chart shapes as vectors, then every word as real text, tagged (Document › H1…/P/LI/Figure)
    with the title and `/Lang`.
@@ -366,7 +367,7 @@ golden take the default encoder: `examples/topic.pdf` is 109 KB, against 245 KB 
 for the all-JPEG writer before #2503. On a flat slide background that is the PNG, which keeps
 a 1 px colored rule exact; JPEG stores color at half resolution at every quality, and wrote the
 top keyline of a dark slide as rgb(42,132,176) for rgb(0,146,216). On a photograph the JPEG is
-smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY`, default 92, sets its quality).
+smaller and is kept (`LATTICE_PDF_PHOTO_QUALITY` overrides the quality, which otherwise is the shared picture quality, 90 by default).
 
 **The CLI's file reader is a trust boundary.** The page calls back into Node for local images and
 fonts, and a deck's own scripts can call it too. So `lib/export/pdf-asset-reader.js` reads local
@@ -384,6 +385,136 @@ the `<text>`'s own fill: Mermaid paints a sequence participant's name on the `<t
 name in its box's color. `test/integration/export/pdf-svg-text-owner-fill.test.js` renders the
 real PDF and counts ink inside each box. After editing `read-slide.mjs`, run
 `node tools/build-pdf-compose.js`: the CLI runs the built `dist/` bundle, not the source.
+
+## 4a1. Pictures: one policy for PDF, player, Studio and CLI
+
+Before 2026-10-25 the PDF and the HTML player embedded every picture at the bytes the author added
+(a 2.5 MB PNG screenshot stayed 2.5 MB, and the player held each `<img>` twice), while the PPTX and ODP
+wrote slide pictures and already chose JPEG for photographs. One 52-slide deck of 21 PNG screenshots
+(23.9 MB) came out at 33.5 MB as a PDF and 66.6 MB as a player, against 13.7 MB as a PPTX.
+
+The plan is `lib/core/image-policy.js` (pure, no dependencies). `planRecode` says what to do per picture and
+`acceptRecode` says whether the result replaces the original:
+
+- **Optimized (default).** A PNG or JPEG of 150 KB or more is capped to 2560 px on its long edge and
+  re-encoded as JPEG at quality 90. A format change (PNG to JPEG) is kept only if it comes in under 70% of
+  the original; a resize that keeps JPEG must come in under 90%. A JPEG that is already at or under 0.5 bytes
+  per pixel at a size we would not shrink is skipped without an encode. A PNG that has any non-opaque pixel
+  stays a PNG (the header gives the hint; the encoder checks the pixels). GIF, WebP, AVIF and SVG are never touched.
+- **Original.** `images: original` in the front matter, or `--images original`, embeds every file as added.
+  A number on the same line sets the JPEG quality: `images: optimized 90`.
+- **Same answer in both hosts.** The encoder is `encodeJpegInPage` (`lib/core/image-recode.mjs`), Chromium's canvas.
+  The Studio calls it in the tab; the CLI sends the same source into a page (`lib/export/chrome-recode.js`).
+  The PDF applies it in `compose.mjs` (one place, both hosts run it in a page); the player applies it in
+  `assemblePlayer` (`lib/export/player-images.mjs`), after the host has baked pictures into `data:` URIs.
+
+Measured with the CLI on the deck above: PDF 33.5 to 6.0 MB, player 66.6 to 12.6 MB. A 35-slide deck of photos
+that were already 1920 px JPEGs: no change in either, because no re-encode won. PPTX and ODP store one picture per slide,
+not the source files, so for them the policy decides the slide picture: optimized keeps the existing
+PNG-or-JPEG rule (`lib/export/slide-picture.js`, `canvasToPictureBlob`), and `images: original` keeps every slide a
+lossless PNG (the same deck: 13.7 MB optimized, 26.3 MB original). The image-set zip keeps its own
+`--image-format` / `--image-quality` controls; those already are the author's choice.
+
+**One quality, one canvas rule.** Every picture an export writes takes `policy.quality` (90): source photos,
+PPTX/ODP slide pictures (`slide-picture.js`, `canvasToPictureBlob`) and the PDF's slide-photo layer
+(`PDF_PHOTO_QUALITY`, `canvasCamera`). 90 is measured: against 88 it costs 10% more bytes for about 1 dB, and
+the worst of 21 photos stays above 38 dB PSNR. The canvas rule is `lib/core/export-canvas.js`: a deck whose `size:` is
+4K exports PDF, PPTX and ODP at HD unless `--size 4k` (CLI) or the panel's Resolution (Studio) says otherwise; the deck is
+never rewritten. The design is resolution-independent, so HD vs 4K is only pixels: on the 52-slide photo deck the PDF is
+5.5 MB vs 8.4 MB and the PPTX 11.9 MB vs 27.5 MB (quality 90). The player, the HTML and the image set do not follow the canvas.
+
+**Where the author chooses.** One front-matter line, `images:` (`original`, `90`, `optimized 90`); the CLI flag `--images` takes the same words
+(the flag wins); and in the Studio, a **Pictures** control in each export panel (PDF, PowerPoint, LibreOffice,
+Webpage), remembered per deck, seeded to "Deck setting" (`PicturesControl.tsx`, `export/images-override.js`).
+
+Not done: the player still stores a repeated `<img src>` (a logo on every slide; each photo again in the
+Read article) once per use, because a no-JavaScript-safe store exists only for CSS backgrounds
+(`hoistRepeatedAssets`).
+
+## 4a2. One camera: how a slide becomes a picture
+
+A slide becomes pixels in six places (the PDF's photo layer, PowerPoint, LibreOffice, a PNG set, a raster PDF, and
+thumbnails). Until 2026-10-25 the two hosts photographed it differently: the CLI took a native Chrome screenshot and the
+Studio ran html-to-image, which copies computed styles onto a clone and floors every `font-size` to `floor(px) - 0.1`
+(`html-to-image/es/clone-node.js:96`). Measured on a 52-slide deck, every slide differed between hosts (median 3.2% of
+pixels off by more than 8 levels, worst 21%) and the Studio's PNG set was 39 MB against 26 MB.
+
+`lib/core/slide-camera.mjs` is now the only camera. It runs in a page (the Studio's tab, the CLI's headless Chrome) and
+needs one thing from its host, `toDataUri(url)`, which turns a picture address into a `data:` URI: the Studio fetches
+`blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js`).
+
+- **No style is copied.** The slide and a shallow clone of its ancestors go into an SVG `foreignObject` with the page's own
+  stylesheet text, `html`, `body` and `:root` re-pointed at two wrapper divs. The same selectors match the same elements, so
+  nothing can drift.
+- **Ancestors keep what inherits, lose their box.** The Studio's preview wraps a slide in a frame (shadow, margin, backdrop);
+  a native screenshot of the slide never includes it, so the wrappers get `ISOLATE` (`display:block`, no margin, padding,
+  background, shadow or transform). Custom properties, `color-scheme`, fonts and `container-type` still inherit.
+- **Face.** `face: 'screen'` is the slide as the live preview shows it: PowerPoint, LibreOffice, PNG and image sets, in both
+  hosts. `face: 'export'` adds `.lattice-exporting` (the flat finish): the PDF's photo layer only, because PDF viewers such as
+  poppler draw soft finishes and directional fades badly (`base.finish.css`, THE OPAQUE FLIP). That is a workaround for a
+  viewer deficiency, not a design choice, and the PDF therefore lacks, for example, a topic slide's lighter shelf.
+- **One PNG encoder** (`encodePng`): per-row adaptive filtering and the platform's deflate, 8-bit RGB for an opaque slide.
+  The browser's `toBlob('image/png')` wrote files about 40% larger.
+- **One JPEG encoder** (`lib/core/jpeg-encode.mjs`): baseline JFIF, 4:2:0 color, libjpeg's quality tables, Huffman tables built per picture, the AAN DCT with
+  its constants written out, transparency composited onto white. The browser's `toBlob('image/jpeg')` writes different bytes
+  in every engine: on the Yearn deck's 52 slide pictures Firefox's wrote 16.59 MB where ours writes 12.45 MB, and the same
+  picture PowerPoint was 12.5 MB from Chromium and 43.3 MB from an iPhone. Apple's encoder is the cause: in an iOS 26.5
+  Simulator (the `ios-safari-jpeg` platform suite) Safari's `toBlob('image/jpeg', 0.9)` wrote 1.5 to 2.2 times our bytes on
+  the same pictures, 4:2:0 like ours but with finer tables (3 to 5 dB more luma PSNR), and an Office export keeps a
+  continuous-tone slide's JPEG at that size without trying the PNG. No Linux engine uses Apple's encoder. Ours writes the same file from the same
+  pixels in Chromium, Firefox, WebKit and Node (`docs/e2e/jpeg-encode-engines.spec.ts` checks the bytes against the golden
+  hash in `test/unit/core/jpeg-encode.test.js`). Against libjpeg with optimized coding at the same quality it is within about
+  1% on real pictures (0.1% on the Yearn slides) and never meaningfully larger. A 2560 × 1440 slide takes 150 to 230 ms in
+  Node and 340 to 440 ms in Chromium, WebKit and Firefox on a CI-class machine.
+- **Every export picture in either host goes through them** (`encodeCanvas`), apart from three command-line fallbacks that
+  are always Chromium's own encoder: `cli-camera.js` `native()` (a slide the camera could not photograph), `slide-picture.js`
+  without a camera (the bundle is missing), and `makeHtmlToImageCamera`'s pre-#2503 `{ toJpeg }` signature. They are: the slide camera, the PDF's photo layer, the PDF worker lane,
+  image sets, PowerPoint and LibreOffice slide pictures, Calco's cropped pictures (the host installs the writer under
+  `PICTURE_WRITER`, lib/core/office-export-policy.js, and Calco stops with an error if a named writer is missing), and the author-photo
+  recode (`lib/core/image-recode.mjs`; the CLI sends both functions' source into its page). In the Studio the worker pool
+  (`docs/src/components/studio/export/picture-encoder-pool.js`) runs them off the main thread. WebP has no shared writer and
+  stays the browser's.
+
+Measured against a native screenshot on the 52-slide deck: at most 0.0065% of pixels differ by more than 8 levels at scale 1
+and at most 0.0003% at scale 2 (4 slides checked). Studio against CLI, same deck, same format: PNG set worst slide 0.03%, PowerPoint and
+LibreOffice 0.06%, PDF 0.14%; file sizes agree to 2 decimals. `test/integration/export/slide-camera.test.js` holds the
+camera to the native screenshot.
+
+Defects the independent review found, and what holds them now (`test/integration/export/slide-camera.test.js`):
+the page-level `<svg><defs>` that accessibility and print textures fill from (cloned into the image, or every textured wedge
+came out empty); a form feed or other XML-illegal character pasted into a slide (stripped, or the SVG would not parse and
+the export failed); relative `url()` in author CSS, inline styles and Marp's `backgroundImage:` (made absolute, since a
+data: SVG has no base); `<picture>` and `<video poster>`; and a stylesheet cache keyed on a count, which served slide 1's
+Calco freeze sheet to every later slide (now keyed on the text). A slide the camera still cannot photograph falls back, for
+that slide only, to Chrome's own screenshot with a warning on stderr; a picture the CLI cannot read is named once on stderr.
+
+What the camera does not do: video playback frames, an `<iframe>`'s content, `:nth-*`, sibling and cross-slide counter rules
+(the slide is the only child of its clone, so `section:nth-of-type(2)` and a `counter()` that runs across slides resolve
+against one slide), live `<canvas>` beyond a PNG snapshot, and a stylesheet comment or string that contains the word `html`
+or `body` (the rewrite is textual). Shipped engine CSS uses none of these; an author's own CSS might. A picture the host
+cannot read is hidden, not left broken, and counted. `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
+hack worked around html-to-image's border-image bug.
+
+## 4a3. Fonts in each format, and what is not embedded
+
+- **PDF:** the shared writer embeds every web font the deck draws with, cut to the characters used (HarfBuzz; the same code in
+  both hosts). Both hosts' PDFs of a 52-slide deck carry the same 14 embedded faces and no system font.
+- **PowerPoint and LibreOffice, picture mode:** no live text, so no fonts to embed; the type is in the picture.
+- **PowerPoint and LibreOffice, editable mode:** Calco embeds the deck's faces (`ppt/fonts/*.fntdata` in a `.pptx`, `Fonts/*.ttf`
+  in an `.odp`). A face is left out when the host has no file for the family (a system font such as Arial) or its OS/2 `fsType`
+  forbids embedding; since 2026-10-26 that is REPORTED (stderr in the CLI, the "ready" message in the Studio), not silent. Every
+  font file Lattice ships has an installable `fsType`.
+- **Emoji are self-hosted and embedded as a font.** Noto Color Emoji ships as 11 unicode-range woff2 slices
+  (`lib/fonts/emoji-faces.js`, `assets/fonts/noto-color-emoji-*.woff2`, about 2 MB together) and leads every emoji fallback, so a
+  deck draws the same emoji on every machine. The `fonts:` line (`lib/core/font-policy.js`) says how much a file carries:
+  `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
+  `full-emoji` all 11, `system-emoji` none, in every format: a PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
+  (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
+  drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use, so in a PDF a
+  text run that holds an emoji stays in the photo (not real text) and an emoji typed into PowerPoint later uses that machine's own
+  emoji font. The HTML player keeps real emoji text. HARD RULE #29 and
+  `lint:deck` steer authors to drawn shapes for the glyphs that
+  do a drawing's job (a check mark, an arrow).
 
 ## 4a. CLI PDF output is byte-reproducible
 

@@ -1,6 +1,6 @@
 import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 
-// The colour of the photo behind a spotlight card, read from the live preview.
+// The color of the photo behind a spotlight card, read from the live preview.
 //
 // card-ink-pick.ts reads this when an image slide opens, and the Card backing slider then asks the
 // kernel (lib/core/card-ink.mjs) which of `ink-light` / `ink-dark` reads better on it. This finds
@@ -10,13 +10,13 @@ import { coverSourceRect, meanRgb } from '../../../../lib/core/card-ink.mjs';
 // refuses to read), and an empty answer is `null`: the caller then leaves the ink alone and the
 // lint rule `thin-card-no-ink` is what tells the author.
 
-/** The canvas the region is averaged on; small, because only the mean colour is used. */
+/** The canvas the region is averaged on; small, because only the mean color is used. */
 const SAMPLE_PX = 24;
 const LOAD_MS = 4000;
 
 export type Rgb = number[];
 
-function previewDocument(): Document | null {
+export function previewDocument(): Document | null {
 	try {
 		const frame = document.querySelector<HTMLIFrameElement>('#studio-preview iframe.live') ?? document.querySelector<HTMLIFrameElement>('iframe.live');
 		return frame?.contentDocument ?? null;
@@ -112,10 +112,10 @@ export function photoMatches(ref: string | null, url: string): boolean {
 }
 
 /** The slide's classes that decide what its card looks like; the preview must already carry them. */
-const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|band|compact|mirror|at-.+|card-.+|ink-.+)$/;
+export const CARD_CLASS = /^(spotlight|statement|clean|split|gallery|full|contain|museum|band|compact|mirror|at-.+|card-.+|ink-.+)$/;
 
 /**
- * The mean colour of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
+ * The mean color of the photo behind the spotlight card on slide `slideNumber` (1-based), or null
  * when it cannot be read. The preview frame holds either the whole deck or just the slide on
  * screen, so the section is taken by position, falls back to the first, and must show `heading` and
  * the photo `photoRef` names, and already carry the slide's card classes `classes`: right after a class
@@ -138,48 +138,59 @@ export async function sampleBehindCard(slideNumber: number, heading: string | nu
 
 		// Measure first. Changing the slide's classes re-renders the preview, which replaces the section
 		// this function holds; after the photo loads it would be detached and read as zero-sized.
-		const sectionBox = section.getBoundingClientRect();
-		const cardBox = card.getBoundingClientRect();
 		const panelW = section.offsetWidth;
 		const panelH = section.offsetHeight;
-		// The preview may scale the slide to fit, so measure against the unscaled box.
-		const scale = panelW ? sectionBox.width / panelW : 1;
-		if (!(scale > 0)) return null;
-		const box = {
-			x: (cardBox.left - sectionBox.left) / scale,
-			y: (cardBox.top - sectionBox.top) / scale,
-			w: cardBox.width / scale,
-			h: cardBox.height / scale,
-		};
+		const box = boxInSection(section, card);
+		if (!box) return null;
 
-		const photo = await loadPhoto(url);
-		if (!photo) return null;
-
-		const canvas = document.createElement('canvas');
-		canvas.width = SAMPLE_PX;
-		canvas.height = SAMPLE_PX;
-		const ctx = canvas.getContext('2d', { willReadFrequently: true });
-		if (!ctx) return null;
-		if (photo.naturalWidth > 0 && photo.naturalHeight > 0) {
-			// A raster photo: the panel covers it, so map the card's box back to the photo's own pixels.
-			const src = coverSourceRect(photo.naturalWidth, photo.naturalHeight, panelW, panelH, box);
-			if (!src) return null;
-			ctx.drawImage(photo, src.x, src.y, src.w, src.h, 0, 0, SAMPLE_PX, SAMPLE_PX);
-		} else {
-			// A vector photo with no intrinsic size reports 0x0 and stretches to whatever it is drawn at,
-			// so draw it at a quarter of the panel and read the card's box from that.
-			const k = 0.25;
-			const full = document.createElement('canvas');
-			full.width = Math.max(1, Math.round(panelW * k));
-			full.height = Math.max(1, Math.round(panelH * k));
-			const fctx = full.getContext('2d');
-			if (!fctx) return null;
-			fctx.drawImage(photo, 0, 0, full.width, full.height);
-			ctx.drawImage(full, box.x * k, box.y * k, Math.max(1, box.w * k), Math.max(1, box.h * k), 0, 0, SAMPLE_PX, SAMPLE_PX);
-		}
-		return meanRgb(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
+		return await meanUnderBox(url, panelW, panelH, box);
 	} catch {
 		// A cross-origin photo taints the canvas and `getImageData` throws a SecurityError.
 		return null;
 	}
+}
+
+export type Box = { x: number; y: number; w: number; h: number };
+
+/** `el`'s box in the section's own (unscaled) pixels: the preview may scale the slide to fit. */
+export function boxInSection(section: HTMLElement, el: HTMLElement): Box | null {
+	const sectionBox = section.getBoundingClientRect();
+	const elBox = el.getBoundingClientRect();
+	const scale = section.offsetWidth ? sectionBox.width / section.offsetWidth : 1;
+	if (!(scale > 0)) return null;
+	return { x: (elBox.left - sectionBox.left) / scale, y: (elBox.top - sectionBox.top) / scale, w: elBox.width / scale, h: elBox.height / scale };
+}
+
+/**
+ * The mean color of the photo `url` inside `box`, a box in a `cover` panel of `panelW` x `panelH`.
+ * Null when the photo will not load or the canvas refuses to read it (a cross-origin photo throws a
+ * SecurityError, which the caller's catch turns into null).
+ */
+export async function meanUnderBox(url: string, panelW: number, panelH: number, box: Box): Promise<Rgb | null> {
+	const photo = await loadPhoto(url);
+	if (!photo) return null;
+
+	const canvas = document.createElement('canvas');
+	canvas.width = SAMPLE_PX;
+	canvas.height = SAMPLE_PX;
+	const ctx = canvas.getContext('2d', { willReadFrequently: true });
+	if (!ctx) return null;
+	if (photo.naturalWidth > 0 && photo.naturalHeight > 0) {
+		// A raster photo: the panel covers it, so map the card's box back to the photo's own pixels.
+		const src = coverSourceRect(photo.naturalWidth, photo.naturalHeight, panelW, panelH, box);
+		if (!src) return null;
+		ctx.drawImage(photo, src.x, src.y, src.w, src.h, 0, 0, SAMPLE_PX, SAMPLE_PX);
+	} else {
+		// A vector photo with no intrinsic size reports 0x0 and stretches to whatever it is drawn at,
+		// so draw it at a quarter of the panel and read the card's box from that.
+		const k = 0.25;
+		const full = document.createElement('canvas');
+		full.width = Math.max(1, Math.round(panelW * k));
+		full.height = Math.max(1, Math.round(panelH * k));
+		const fctx = full.getContext('2d');
+		if (!fctx) return null;
+		fctx.drawImage(photo, 0, 0, full.width, full.height);
+		ctx.drawImage(full, box.x * k, box.y * k, Math.max(1, box.w * k), Math.max(1, box.h * k), 0, 0, SAMPLE_PX, SAMPLE_PX);
+	}
+	return meanRgb(ctx.getImageData(0, 0, SAMPLE_PX, SAMPLE_PX).data);
 }

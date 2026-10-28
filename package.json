@@ -74,7 +74,6 @@
     "TRADEMARKS.md",
     "!**/*.pdf",
     "!**/*.gallery.md",
-    "!dist/fonts/noto-color-emoji.ttf",
     "!dist/marp-kit/",
     "!dist/agent-kit/",
     "!dist/engineering/"
@@ -244,7 +243,6 @@
     "check:jank": "node tools/check-jank.js",
     "check:render:bless": "node tools/check-viz-render.js --bless",
     "fonts:check": "node tools/check-fonts.js",
-    "fonts:emoji": "node tools/fetch-emoji-font.js",
     "fonts:measure": "node tools/measure-glyph-advances.js",
     "build:galleries": "node tools/build-galleries.js",
     "build:galleries:check": "node tools/build-galleries.js --check",
@@ -419,6 +417,7 @@
     "prettier": "3.9.10",
     "prettier-plugin-java": "2.11.0",
     "sql-formatter": "15.9.0",
+    "fontverter": "^2.0.0",
     "subset-font": "^2.5.0"
   }
 }

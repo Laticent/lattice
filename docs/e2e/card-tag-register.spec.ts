@@ -32,7 +32,7 @@ for (const tag of ['', ' @webkit-tablet']) {
 		// reads through the top-level front-matter scalar), so either spelling is the same register.
 		await expect.poll(() => persistedSource(page)).toMatch(/\\ntag: (\\"plain band center\\"|plain band center)\\n/);
 		// Every axis back to Auto removes the key rather than writing an empty value.
-		for (const label of ['Tag color', 'Tag placement', 'Tag text']) await choose(page, label, "Component's own");
+		for (const label of ['Tag color', 'Tag placement', 'Tag text']) await choose(page, label, "Auto — Component's own");
 		await expect.poll(() => persistedSource(page)).not.toContain('tag:');
 	});
 

@@ -29,7 +29,8 @@ test.describe('compose avatar and icon editors', () => {
 		await expect(editor(page)).toBeVisible();
 		await editor(page).getByRole('button', { name: 'Done' }).click();
 		await expect(editor(page)).toHaveCount(0);
-		expect(await savedDeck(page)).toBe(DECK);
+		// Polled: the save is debounced (~400ms, `persistedSource` in studio-fixture.ts); a single read raced it on CI.
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
 	test('@smoke a trait pick writes one word and leaves every other byte alone', async ({ page }) => {
@@ -63,7 +64,8 @@ test.describe('compose avatar and icon editors', () => {
 		const name = editor(page).getByRole('textbox', { name: 'Name' });
 		await name.fill('Grace Hopper');
 		// Nothing is written on each key.
-		expect(await savedDeck(page)).toBe(DECK);
+		// Polled: the save is debounced (~400ms, `persistedSource` in studio-fixture.ts); a single read raced it on CI.
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 		await name.press('Enter');
 		await expect.poll(() => savedDeck(page)).toBe(DECK.replace('!{Ada Okafor, c3}', '!{Grace Hopper, c3}'));
 		await expect(page.getByRole('button', { name: 'Edit avatar Grace Hopper' })).toBeVisible();
@@ -138,6 +140,7 @@ test.describe('compose avatar and icon editors', () => {
 		await editor(page).getByRole('button', { name: 'Edit as text' }).click();
 		await expect(page.locator('.cs-npill .lat-avatar')).toHaveCount(0);
 		await expect(page.locator('.cs-host .ProseMirror')).toContainText('!{Ada Okafor, c3}');
-		expect(await savedDeck(page)).toBe(DECK);
+		// Polled: the save is debounced (~400ms, `persistedSource` in studio-fixture.ts); a single read raced it on CI.
+		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 });

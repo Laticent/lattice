@@ -42,6 +42,8 @@ export interface TextStyle {
 	ligatures: boolean;
 	/** CSS `font-variant-caps: small-caps` (or `all-small-caps`). */
 	smallCaps?: boolean;
+	/** Set by `splitEmojiRuns` on the run an emoji was split out into: it draws in an emoji face, and leaves a line's height to the text. */
+	emoji?: boolean;
 }
 
 /** A stretch of text in one style. `text` is the SOURCE text, before `transform`. */

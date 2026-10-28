@@ -31,10 +31,12 @@ export interface PlacedBox {
 	h: number;
 }
 
-/** The style that sets a line's height: the largest run in it. */
+/** The style that sets a line's height: the largest run in it. An emoji split out of a run (`splitEmojiRuns`) does not set it: the text's face does. */
 export function dominantStyle(line: TextFrame['lines'][number]): TextStyle {
-	let best = line[0].style;
-	for (const run of line) if (run.style.size > best.size) best = run.style;
+	const text = line.filter((run) => !run.style.emoji);
+	const runs = text.length ? text : line;
+	let best = runs[0].style;
+	for (const run of runs) if (run.style.size > best.size) best = run.style;
 	return best;
 }
 

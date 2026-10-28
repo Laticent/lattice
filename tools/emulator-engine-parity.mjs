@@ -65,7 +65,7 @@ function structure(section) {
 function emulatorSlides(deck) {
   const dir = mkdtempSync(join(tmpdir(), 'p2-parity-'));
   try {
-    execFileSync('node', [join(ROOT, 'lattice.js'), deck, join(dir, 'o.pdf'), palette, '--quiet', '--keep-html'], {
+    execFileSync('node', [join(ROOT, 'lattice.js'), deck, join(dir, 'o.pdf'), palette, '--quiet', '--keep-html', '--size', 'deck'], {
       cwd: ROOT,
       stdio: 'pipe',
       env: process.env,

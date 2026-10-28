@@ -146,6 +146,8 @@ ${slide(5, 'photo', '<h2>Second, again</h2>', b)}
 		title: 'Stages',
 		now: 0,
 		build: 'GOLDEN',
+		// Pins the glyph-cut path on both hosts: the default (`used`) keeps text faces whole, which would skip that stage.
+		fonts: 'exact',
 		playerVersion: 'GOLDEN',
 	};
 }

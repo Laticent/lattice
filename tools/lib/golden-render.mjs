@@ -7,7 +7,7 @@
 // worktree with that commit's own engine (2026-10-06-goldens-bot-blessed.md §2.2).
 
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, join } from 'node:path';
 
@@ -69,6 +69,13 @@ export function goldenForGallery(galleryMd, theme) {
   return galleryMd.replace(/\.gallery\.md$/, `.gallery.${theme}.pdf`);
 }
 
+// Which CLI flags a tree understands. `--size deck` (render exactly the size the deck declares) arrived with the HD default for a
+// 4K deck (lib/core/export-canvas.js); a tree from before it has neither the default nor the flag, so asking it for the flag is an
+// error, and it has nothing to opt out of. The golden-diff job renders the BASE tree with these functions too.
+function deckSizeArgs(root) {
+  return existsSync(join(root, 'lib', 'core', 'export-canvas.js')) ? ['--size', 'deck'] : [];
+}
+
 // ── Fresh renders ─────────────────────────────────────────────────────────────
 // A gallery renders the same way build-galleries blesses the golden: emulator +
 // dist/lattice.css + indaco, dark via injectDark.
@@ -87,7 +94,7 @@ export function renderGallery(root, galleryMd, theme) {
   const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
   try {
     if (theme === 'light') {
-      execFileSync(process.execPath, [emulator, galleryMd, themeCss, outPdf, 'indaco', '-q'], {
+      execFileSync(process.execPath, [emulator, galleryMd, themeCss, outPdf, 'indaco', '-q', ...deckSizeArgs(root)], {
         cwd: root,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -95,7 +102,7 @@ export function renderGallery(root, galleryMd, theme) {
       const tmpMd = join(dir, `.regr-${name}.${theme}.md`);
       cleanup.push(tmpMd, tmpMd.replace(/\.md$/, '.html'));
       writeFileSync(tmpMd, injectDark(readFileSync(galleryMd, 'utf8')));
-      execFileSync(process.execPath, [emulator, tmpMd, themeCss, outPdf, 'indaco', '-q'], {
+      execFileSync(process.execPath, [emulator, tmpMd, themeCss, outPdf, 'indaco', '-q', ...deckSizeArgs(root)], {
         cwd: root,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -113,7 +120,7 @@ export function renderGallery(root, galleryMd, theme) {
 // A deck golden's fresh render. Same asset-resolution constraint as above.
 //
 // The invocation MUST match the producers' exactly — `build-staged-pdfs.js` (the
-// pre-commit hook) and `build-exemplar-pdfs.js` both run `[EMULATOR, src, out]` with no
+// pre-commit hook) and `build-exemplar-pdfs.js` both run `[EMULATOR, src, out, '--size', 'deck']` with no
 // CSS path and no palette argument, so the deck's own `theme:` front matter decides.
 // Passing a theme CSS / palette the way the gallery path does would override the deck's
 // theme and false-fail every deck that names another one.
@@ -122,7 +129,7 @@ export function renderDeck(root, md) {
   const outPdf = join(dirname(md), `.regr-${basename(md, '.md')}.pdf`);
   const cleanup = [outPdf, outPdf.replace(/\.pdf$/, '.html')];
   try {
-    execFileSync(process.execPath, [emulator, md, outPdf, '-q'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync(process.execPath, [emulator, md, outPdf, '-q', ...deckSizeArgs(root)], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (err) {
     cleanup.forEach((p) => { try { rmSync(p, { force: true }); } catch { /* ignore */ } });
     throw err;

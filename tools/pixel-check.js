@@ -81,7 +81,7 @@ function buildDeck(deck, outPath) {
   const src = path.join(ROOT, 'examples', `${deck}.md`);
   if (!fs.existsSync(src)) return { deck, ok: false, error: 'source missing' };
   const t0 = Date.now();
-  const r = spawnSync(process.execPath, [EMULATOR, src, outPath, '-q'], {
+  const r = spawnSync(process.execPath, [EMULATOR, src, outPath, '-q', '--size', 'deck'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     env: process.env,

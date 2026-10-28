@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { CHROME, expect, gotoStudio, openInspector, openSection, persistedByPrefix, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
+import { CHROME, expect, gotoStudio, openInspector, openSection, persistedCheckpoints, persistedSource, setEditorContent, test, toastText } from './studio-fixture';
 
 // The Deck inspector's front-matter controls, speaker notes, and version history.
 // Front-matter writes are asserted both on the immediate outer-DOM signal
@@ -11,10 +11,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('@smoke size control writes the size front-matter', async ({ page }) => {
-	await page.getByRole('button', { name: /Widescreen 16 . 9/ }).click();
-	await page.getByRole('menuitem', { name: /Standard 4 . 3/ }).click();
+	await page.getByRole('combobox', { name: 'Choose deck size' }).click();
+	await page.getByRole('option', { name: /Standard 4 . 3/ }).click();
 
-	await expect(page.getByRole('button', { name: /Standard 4 . 3/ })).toBeVisible();
+	await expect(page.getByRole('combobox', { name: 'Choose deck size' })).toContainText(/Standard 4 . 3/);
 	await expect.poll(() => persistedSource(page)).toContain('size: standard');
 });
 
@@ -29,11 +29,17 @@ async function openChromeTab(page: Page): Promise<void> {
 
 test('page-numbers toggle writes paginate front-matter', async ({ page }) => {
 	await openChromeTab(page);
+	// Page numbers are on by default (no front-matter), so the first click turns them OFF
+	// and writes `paginate: false`; a second click removes the directive again. The unit
+	// tier pins the same contract (studio.controls.test.tsx, "the Page-numbers switch").
 	const toggle = page.getByRole('switch', { name: 'Page numbers' });
+	await expect(toggle).toHaveAttribute('aria-checked', 'true');
+	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'false');
+	await expect.poll(() => persistedSource(page)).toContain('paginate: false');
 	await toggle.click();
 	await expect(toggle).toHaveAttribute('aria-checked', 'true');
-	await expect.poll(() => persistedSource(page)).toContain('paginate: true');
+	await expect.poll(() => persistedSource(page)).not.toContain('paginate');
 });
 
 test('the Header field declares running-header text into front-matter', async ({ page }) => {
@@ -65,10 +71,8 @@ test('saving a version records a checkpoint', async ({ page }) => {
 	await page.getByRole('button', { name: 'Save a version' }).click();
 	await expect(toastText(page)).toContainText('Version saved');
 
-	await expect.poll(async () => {
-		const snaps = await persistedByPrefix(page, 'snap');
-		return snaps ? JSON.parse(snaps).length : 0;
-	}).toBeGreaterThan(0);
+	// Checkpoints persist to IndexedDB, not localStorage (checkpoint-store.ts).
+	await expect.poll(async () => Object.values(await persistedCheckpoints(page)).reduce((a, b) => a + b, 0)).toBeGreaterThan(0);
 });
 
 /**
