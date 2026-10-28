@@ -128,6 +128,10 @@ nothing, so a headless browser can receive them as source.
 - Lines do not reflow: typing more text grows the box, not the layout.
 - PowerPoint: weight is bold or not (600 and up is bold), and `text-transform` is applied to
   the text itself. Placement is measured in LibreOffice; PowerPoint is not verified.
+- A `.pptx` opened in LibreOffice older than 24.8 (24.2.7 measured) ignores the embedded fonts and draws the text in its own substitute. A wider
+  substitute (Inter for Outfit) runs a card's body lines past the card edge, because lines are fixed where the browser broke them and the text
+  frames do not wrap. With the face installed on the machine the same file stays inside its cards (examples/focus-highlight-axes.md slide 8), and
+  the `.odp` embeds fonts that this LibreOffice does use.
 - No native charts, diagrams or equations.
 - An inline chip (a code span, a mark) is a highlight on its words: its corners, border and padding are not
   carried, and it is opaque (its tint is blended over what is behind it).
