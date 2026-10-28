@@ -2,7 +2,7 @@
 origin: 2935
 priority: P1
 recorded: 2026-10-27
-area: export
+area: engine
 severity: low
 swimlane: engineering/decisions/2026-10-26-spectrum-edge-shift.md
 source: https://github.com/Laticent/lattice/pull/2935
