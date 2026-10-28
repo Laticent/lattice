@@ -13928,6 +13928,9 @@ function checkDanglingTokenReads(errors, dirs = {}) {
   for (const rel of DANGLING_JSON_DECLARATIONS) {
     const f = path.join(dirs.docsSrc ? path.resolve(dirs.docsSrc, '..', '..') : ROOT, rel);
     if (fs.existsSync(f)) declaredCustomProps(fs.readFileSync(f, 'utf8'), defined);
+    else if (!dirs.docsSrc) {
+      errors.push(`checkDanglingTokenReads: declaration source ${rel} is missing; the tokens it declared now read as undeclared. Update DANGLING_JSON_DECLARATIONS if it moved.`);
+    }
   }
 
   const authored = docsFiles.filter((f) => {

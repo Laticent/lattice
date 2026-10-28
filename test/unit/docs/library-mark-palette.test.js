@@ -13,9 +13,10 @@
  *   · DISTINCTNESS — each library's signature color (its hub, or Segno's red cut) stays at least
  *     `MIN_HUB_DISTANCE` apart from every other library's in OKLab, in each scheme, and no two
  *     libraries share a hub-plus-accent pair. Tavola's four seat colors are NOT held to the floor:
- *     they are a category palette that reuses family colors (seat a is Calco's blue, 0.000; seat d
- *     is 0.004 from Veduta's dark violet; seat b 0.048 from Trama; seat c 0.049 from Suono). That
- *     predates this test, and no pair is nearer than before.
+ *     they are a category palette that reuses family colors. Five of its pairs sit under 0.06:
+ *     seat a is Calco's blue (0.000); seat b is 0.048 from Segno's red (light) and from Trama
+ *     (dark); seat c is 0.049 from Suono (light); seat d is 0.004 from Veduta's dark violet.
+ *     All but one predate this PR; seat c to Suono was 0.056 before Suono moved to emerald.
  *   · SOURCE — the SVG colors are generated from `docs/src/lib/library-palettes.json`, so each
  *     file's <style> must equal what the palette produces (run `node tools/build-library-marks.js`),
  *     and the demo-page text tokens (`--accent`, `--glow`) hold 4.5:1 on their own paper.
@@ -50,9 +51,9 @@ function palette(file) {
   const grab = css => Object.fromEntries(
     [...css.matchAll(/\.(\w+)\{[^}]*?(?:stroke|fill):(#[0-9a-fA-F]{6})/g)].map(m => [m[1], m[2].toLowerCase()]));
   const light = grab(lightCss);
-  const hexes = style.match(/#[0-9a-fA-F]+/g) ?? [];
-  const six = style.match(/#[0-9a-fA-F]{6}(?![0-9a-fA-F])/g) ?? [];
-  assert.equal(hexes.length, six.length, `${path.basename(file)} has a color that is not 6-digit hex; the contrast arm would skip it`);
+  const values = [...style.matchAll(/(?:stroke|fill):([^;}]+)/g)].map(m => m[1].trim());
+  const unmeasurable = values.filter(v => !/^(#[0-9a-fA-F]{6}|none)$/.test(v));
+  assert.deepEqual(unmeasurable, [], `${path.basename(file)} has a stroke or fill that is not 6-digit hex or none; the contrast and distance arms would skip it`);
   assert.ok(Object.keys(light).length > 0, `${path.basename(file)}: parsed no colors from its <style>`);
   return { light, dark: { ...light, ...grab(darkCss) } };
 }

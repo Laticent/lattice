@@ -361,7 +361,7 @@ was reverted). Segno, Mosaico, Calco, Tavola and Filo are unchanged.
 | Library | Primary (light / dark) | Accent (light / dark) | Change |
 |---|---|---|---|
 | Trama | brick `#923a37` / `#ff958d` | gold `#8a6509` / `#e8bd4f` | primary moved off sienna to brick; accent kept gold. An ochre primary collided with Fluido's honey (0.024 apart in dark) |
-| Lente | periwinkle `#505ba7` / `#aab9ff` | amber `#ab6900` / `#f6b64a` | primary moved from blue `#2f5fa6` clear of Calco, Cadenza and Fuoco's teal (0.067 from Calco) |
+| Lente | periwinkle `#505ba7` / `#aab9ff` | amber `#ab6900` / `#f6b64a` | primary moved from blue `#2f5fa6` to a periwinkle clear of Calco, Cadenza and Fuoco's teal (0.072 from Calco in light, 0.071 in dark; nearest in dark is Veduta at 0.068) |
 | Suono | emerald `#0b703f` / `#61da92` | amber `#ab6900` / `#f6b64a` | primary moved toward green, amber darkened |
 | Cadenza | indigo (unchanged) | magenta `#b83997` / `#f999da` | accent moved off amber |
 | Vetrina | rose (unchanged) | violet `#734dbe` / `#b7a0fb` | accent moved off amber |
@@ -375,10 +375,12 @@ libraries. Amber now belongs to Suono and Lente only.
 
 **What the distance floor covers.** The hub of every library with one, plus Segno's red cut. Tavola's
 four seat colors are a category palette that reuses family colors, so they are not held to it, and
-four of its pairs sit under 0.06: seat a is Calco's blue (0.000), seat d is 0.004 from Veduta's dark
-violet, seat b is 0.048 from Trama in dark, seat c is 0.049 from Suono in light. All predate this
-work and none is nearer than before (Trama's light distance to seat b went from 0.042 to 0.104).
-The unit test says the same.
+five of its pairs sit under 0.06: seat a is Calco's blue (0.000), seat b is 0.048 from Segno's red in
+light and from Trama in dark, seat c is 0.049 from Suono in light, and seat d is 0.004 from Veduta's
+dark violet. All but one predate this work; seat c to Suono was 0.056 before Suono moved to emerald.
+(Trama's light distance to seat b improved, 0.042 to 0.104.) The floor also does not compare a
+library's accent with another's hub: Fluido's dark hub sits 0.024 from Trama's gold accent, as it did
+before. The unit test says the same.
 
 **Contrast.** Every drawn color holds 3:1 or better against the site's light paper (`#f6f3ec`) and
 dark paper (`#121012`), the WCAG 1.4.11 bar for graphical objects. The old light amber was 3.1:1, so
