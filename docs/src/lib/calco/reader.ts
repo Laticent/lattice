@@ -1455,7 +1455,28 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			// suite, where CSS clips it to outside the box.
 			if (shadow && !(fill && fill.alpha >= 1)) shadow = false;
 			const image = (!layer && cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.borderImageSource && cs.borderImageSource !== 'none');
-			const outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
+			let outline = cs.outlineStyle !== 'none' && px(cs.outlineWidth) > 0 && !!paintOf(cs.outlineColor, 1);
+			// An outline pulled in by its own width (`outline-offset: -W`) lies in the box's outer band: the inside
+			// stroke a border would draw (a focused card's highlight edge). Over a border no wider than that band it
+			// hides the border, so the stroke replaces it (a child painting over that band covers the stroke, where the
+			// browser draws the outline above it). Chromium rounds the width to whole pixels and not the
+			// offset, so the band runs from the edge to the offset's depth (a sliver under half a pixel is dropped).
+			const ow = px(cs.outlineWidth);
+			const depth = -px(cs.outlineOffset);
+			if (
+				outline &&
+				['solid', 'dashed', 'dotted'].includes(cs.outlineStyle) &&
+				depth - ow <= 0.5 &&
+				depth >= ow - 0.5 &&
+				sides.every((sd) => !sd || sd.width <= depth + 0.01)
+			) {
+				const p = paintOf(cs.outlineColor, op);
+				if (p && p.alpha >= 1) {
+					const dash = cs.outlineStyle === 'dashed' ? { dash: 'dash' as const } : cs.outlineStyle === 'dotted' ? { dash: 'dot' as const } : {};
+					sides = SIDES.map(() => ({ ...p, width: Math.max(ow, depth), style: cs.outlineStyle, ...dash }));
+					outline = false;
+				}
+			}
 			if (!(fill || image || outline || shadow !== null || outerRing || struck.length || sides.some(Boolean))) return null;
 			// A box with no area paints nothing of its own (its border box IS its paint): a rule of zero length, such as
 			// a plumb line at the top of its range. Only what draws OUTSIDE the box would still show.
@@ -2175,6 +2196,7 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			a.color === b.color && Math.abs(a.alpha - b.alpha) < 0.01 && Math.abs(a.width - b.width) < 0.01 && a.dash === b.dash;
 		const order = paintOrder();
 		// Pictures go in at their place in the paint order, each one in the group of the card it sits in.
+		const paintedBy = new Map<number, Element[]>();
 		const emitPictures = (at: number) => {
 			for (const k of clusters) {
 				if (k.at !== at) continue;
@@ -2185,6 +2207,9 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				const alt = [...new Set(k.items.map((it) => it.alt).filter(Boolean))].join('. ');
 				if (alt) pic.alt = alt;
 				if (k.items.some((it) => /^drawn:(img|video|canvas|picture)$/.test(it.kind || ''))) pic.photo = true;
+				// The boxes whose own paint this picture holds: the text inside them paints over it.
+				const painted = k.items.flatMap((it) => (it.paintOf && !it.pseudo ? [it.paintOf] : []));
+				if (painted.length) paintedBy.set(shapes.length, painted);
 				shapes.push(pic);
 				shapeEls.push(rep);
 			}
@@ -2331,10 +2356,36 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 				groups.add(g);
 			}
 		});
+		// A box's text paints over the box's own fill and edge. When those are in a picture outside the text's card
+		// (a focused column's tint and ring span every row, so the table holds them, not a row), the text is drawn
+		// free, on top: in its row's group it would come out under the picture, which paints after that row. Only
+		// then: a picture drawn BEFORE the card (a gradient panel behind it) is already under its text, and lifting
+		// that text would also lift it over whatever covers it (drawOrder draws a group where its first member paints).
+		// Free text goes to the very top, so it also lands over an overlay drawn after the picture: a known limit
+		// (followups.d/2933-p2-*).
+		const firstOf = (h: number) => {
+			let first = h;
+			shapes.forEach((sh, j) => {
+				if (sh.group === h && j < first) first = j;
+			});
+			return first;
+		};
+		const drawnAt = (k: number) => (shapes[k].group === undefined ? k : firstOf(shapes[k].group as number));
+		const underPicture = (i: number, g: number) => {
+			const f = frames[i];
+			const cardAt = firstOf(g);
+			return [...paintedBy].some(
+				([p, boxes]) =>
+					shapes[p].group !== g &&
+					drawnAt(p) > cardAt &&
+					overlaps(shapes[p], { x: f.x, y: f.y, w: f.w, h: f.h }) &&
+					boxes.some((box) => box.contains(frameBlocks[i])),
+			);
+		};
 		frames.forEach((f, i) => {
 			if (carried.has(i)) return;
 			const g = cardOf(frameBlocks[i], true);
-			if (g >= 0) {
+			if (g >= 0 && !underPicture(i, g)) {
 				f.group = g;
 				groups.add(g);
 			}
@@ -2548,6 +2599,8 @@ export function readSlide(section: HTMLElement, options?: ReadOptions): ReadResu
 			]) {
 				el.style.setProperty(k, v, 'important');
 			}
+			// A lifted box's outline is its stroke now (an inset outline); a chip's outline is drawn by nothing else.
+			if (paintHidden.has(el)) el.style.setProperty('outline-color', 'transparent', 'important');
 			undo.push(() => flushStyle(el, saved));
 		}
 		if (pseudoHides.length) {

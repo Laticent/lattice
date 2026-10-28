@@ -45,3 +45,8 @@ test('a numeric character reference is the emoji it spells', () => {
   assert.deepEqual(slicesFor('&#127467;&#127479;'), ['noto-color-emoji-0']);
   assert.deepEqual(slicesFor('&#x41; &amp; &#0;'), []);
 });
+
+test('a CSS escape names the slices of the emoji it spells, as a pseudo-element would draw it', () => {
+  assert.deepEqual(slicesFor('h1::after{content:" \\1F680"}'), slicesFor('\u{1F680}'));
+  assert.deepEqual(slicesFor('h1::before{content:"\\201C"} a\\:b{}'), [], 'a quote mark or an escaped colon needs no emoji slice');
+});

@@ -206,6 +206,22 @@ exported formats. They do, because of the pipeline (`engineering/pipeline.md`
   Chromium render**, then placed in the slide. *Not* rebuilt as native shapes.
   So any effect that survives the screenshot survives PPTX — which is all of
   them.
+- **Editable PPTX** (`--editable`, Calco) rebuilds the slide as native text and
+  shapes, and a focused column's inset `box-shadow` ring and tint cannot be a
+  native shape, so they become one picture spanning every row. Each focused
+  cell's text is drawn free, above that picture (the reader's `underPicture`
+  test, `docs/src/lib/calco/reader.ts`); before that fix the header and the last
+  cell's text sat inside their rows' groups and the picture covered them. The
+  cost: in the editable file, a focused cell's text no longer moves with its
+  row. The test fires only for a picture drawn after the text's card, so a card
+  over a gradient panel keeps its text grouped.
+  Known limit: free text is drawn at the very top, so a positioned overlay on
+  a focused cell would sit under that cell's text (no shipped deck does this).
+  A highlighted card's edge is an inset `outline`; Calco draws it as a native
+  inside stroke, so the card stays an editable shape grouped with its text.
+  `blur` is the one treatment the editable PPTX bakes: the receded cards are a
+  picture, because no office format blurs live text.
+  Regression: `test/integration/export/calco-focus-column.test.js`.
 
 The **only** fragile primitive is SVG `mask-image` (Apple PDFKit drops soft
 masks — `engineering/gotchas.md`). The focus treatments deliberately use

@@ -425,7 +425,9 @@ never rewritten. The design is resolution-independent, so HD vs 4K is only pixel
 
 **Where the author chooses.** One front-matter line, `images:` (`original`, `90`, `optimized 90`); the CLI flag `--images` takes the same words
 (the flag wins); and in the Studio, a **Pictures** control in each export panel (PDF, PowerPoint, LibreOffice,
-Webpage), remembered per deck, seeded to "Deck setting" (`PicturesControl.tsx`, `export/images-override.js`).
+Webpage), remembered per deck, seeded to "Deck setting" (`PicturesControl.tsx`, `export/images-override.js`). Each Studio
+export passes its setting down its own calls (`deck-export.js`, `canvasToPictureBlob(canvas, section, images)`); until the #2904
+follow-up it sat in one module variable, so two exports started in the same frame could encode with each other's.
 
 Not done: the player still stores a repeated `<img src>` (a logo on every slide; each photo again in the
 Read article) once per use, because a no-JavaScript-safe store exists only for CSS backgrounds
@@ -442,6 +444,17 @@ pixels off by more than 8 levels, worst 21%) and the Studio's PNG set was 39 MB 
 `lib/core/slide-camera.mjs` is now the only camera. It runs in a page (the Studio's tab, the CLI's headless Chrome) and
 needs one thing from its host, `toDataUri(url)`, which turns a picture address into a `data:` URI: the Studio fetches
 `blob:` and same-origin URLs, the CLI reads confined local files (`lib/export/cli-camera.js`).
+
+In the CLI the camera runs in an **isolated world**, a second JavaScript context over the same page (the one browser extensions
+use), because the page also runs the deck's own scripts. The deck's world cannot see the camera's globals, so a script that
+defines `LatticePdfCompose` first cannot stand in for `captureSlide`, and the read hook is a CDP binding added to that world
+alone (`Runtime.addBinding` with the world's name, after `Runtime.enable` and before `Page.createIsolatedWorld`: measured, any
+other order leaves the world without it). Until the #2904 follow-up the camera shared the deck's world and guarded the hook with
+a per-run secret, which such a deck received on the camera's first call. The deck can still OBSERVE a picture the camera has
+inlined: a custom element on the slide runs its callbacks in the deck's world even inside the camera's clone, so it can read
+the `data:` URI of a confined picture the slide names, which the PDF path's `__latticePdfAsset` already answers it. Only the shared picture writers Calco needs go into the
+deck's world (`installPictureWriter`, editable office exports only): they encode pixels Calco hands them and read nothing.
+`test/integration/export/cli-camera-isolation.test.js` holds both halves.
 
 - **No style is copied.** The slide and a shallow clone of its ancestors go into an SVG `foreignObject` with the page's own
   stylesheet text, `html`, `body` and `:root` re-pointed at two wrapper divs. The same selectors match the same elements, so
@@ -490,8 +503,8 @@ that slide only, to Chrome's own screenshot with a warning on stderr; a picture 
 
 What the camera does not do: video playback frames, an `<iframe>`'s content, `:nth-*`, sibling and cross-slide counter rules
 (the slide is the only child of its clone, so `section:nth-of-type(2)` and a `counter()` that runs across slides resolve
-against one slide), live `<canvas>` beyond a PNG snapshot, and a stylesheet comment or string that contains the word `html`
-or `body` (the rewrite is textual). Shipped engine CSS uses none of these; an author's own CSS might. A picture the host
+against one slide), and live `<canvas>` beyond a PNG snapshot. The `html`/`body`/`:root` rewrite skips CSS comments and strings
+(`repointRootSelectors`), so `content:" body "` stays text; before the #2904 follow-up it drew as ` .__lc-body `. Shipped engine CSS uses none of these; an author's own CSS might. A picture the host
 cannot read is hidden, not left broken, and counted. `withCaptureFixups` (deck-export.js) no longer repaints the spectrum ribbon: that
 hack worked around html-to-image's border-image bug.
 
@@ -508,7 +521,7 @@ hack worked around html-to-image's border-image bug.
   (`lib/fonts/emoji-faces.js`, `assets/fonts/noto-color-emoji-*.woff2`, about 2 MB together) and leads every emoji fallback, so a
   deck draws the same emoji on every machine. The `fonts:` line (`lib/core/font-policy.js`) says how much a file carries:
   `exact-emoji` (default) cuts the font to the deck's own emoji, about 2 KB each, `used-emoji` keeps the whole slices that hold them,
-  `full-emoji` all 11, `system-emoji` none, in every format: a PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
+  `full-emoji` all 11, `system-emoji` none, in every format. An emoji a pseudo-element draws (`::before{content:"🎉"}`, or the escape `"\1F389"`) counts too: the Studio's picker and the camera read the computed `content` (`pseudoContentText`, `lib/core/slide-camera.mjs`), because `textContent` never holds it. In the CLI the slice picker runs before any page exists, so it reads the deck's HTML and the author's own CSS (the front matter's `style:`, and a `--css` stylesheet that is not the shipped one), and `slicesFor` reads a CSS escape as the emoji it spells. The shipped stylesheet stays out: its own escapes would pull two slices into every deck. A PDF or picture export under `system-emoji` draws with the drawing machine's own emoji font (the shared camera drops the emoji `@font-face`, `withoutFontFaces` in `lib/core/slide-camera.mjs`). The cut runs through a COLOR build of HarfBuzz's subsetter
   (`lib/fonts/subset-color.js` over `lib/fonts/hb/hb-subset-color.wasm`, rebuild recipe in the README beside it); the stock wasm
   drops the color tables and would leave every emoji blank. The font is COLR v1, which PDF and PowerPoint cannot use, so in a PDF a
   text run that holds an emoji stays in the photo (not real text) and an emoji typed into PowerPoint later uses that machine's own
