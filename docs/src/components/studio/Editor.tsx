@@ -1,5 +1,5 @@
 import { autocompletion, completionKeymap } from '@codemirror/autocomplete';
-import { defaultKeymap, history, historyField, historyKeymap } from '@codemirror/commands';
+import { defaultKeymap } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { yamlFrontmatter } from '@codemirror/lang-yaml';
 import { syntaxHighlighting } from '@codemirror/language';
@@ -135,63 +135,6 @@ const oneLintTooltip = ViewPlugin.define((view: EditorView) => {
 // author would otherwise see a stray byte they cannot select. Not a call to
 // `normalizeSourceText`: that helper takes a whole string, and re-scanning the document on
 // every keystroke buys nothing CodeMirror has not already done. This asks one character.
-// UNDO SURVIVES A TRIP THROUGH COMPOSE.
-//
-// The Studio mounts EITHER this editor or Compose, never both (StudioShell), so switching
-// panes destroys the `EditorView` and CodeMirror's history goes with it. Measured on the
-// built Studio: type, switch to Compose, switch back, press ⌘Z — nothing happens, and
-// nothing says why. That is not a lost fold or a lost scroll position; it is the author's
-// only route back from a mistake, removed by a two-click detour they took for an unrelated
-// reason.
-//
-// So the state is CARRIED across the unmount and restored, history field included. It is
-// held module-scoped rather than in a ref because the ref dies with the component, and only
-// one deck editor is ever mounted.
-//
-// GUARDED ON THE DECK **AND** THE DOCUMENT, and the deck half is not belt-and-braces — a
-// document-only guard leaks one deck's undo stack into another, and a checker pass
-// reproduced it end to end. `newDeckSource()` is deterministic, so EVERY new deck starts
-// from the same template bytes: type in deck A, undo, switch to Compose, create deck B,
-// switch back to the source pane, and `carried.doc === value` matched across decks. One ⌘⇧Z
-// in deck B then inserted text that was never typed into B — and `onChange` carried it
-// straight into `source`, where the autosave persisted it as deck B's content. Keying on the
-// deck id makes the match mean what the comment always claimed it meant.
-//
-// The DOCUMENT half still earns its place: an edit made in Compose changes the source, and
-// those edits are not in this history, so offering ⌘Z over them would undo the wrong thing.
-// A Compose edit therefore discards the carry, which is the honest answer.
-//
-// Consumed on use, so a stale carry can never be applied twice.
-export type CarriedState = { key: string; doc: string; state: ReturnType<EditorState['toJSON']> };
-let carried: CarriedState | null = null;
-
-/**
- * May `carried` be restored into the editor now mounting?
- *
- * EXPORTED SO IT CAN BE TESTED at the seam as well as end to end. Both pins exist because the
- * e2e one was hard-won, and the record of WHY is worth more than the test: two earlier attempts
- * PASSED against the broken guard, and two confident explanations for the second were written
- * down and refuted in turn. The first said redo does not fire on this surface. The second said
- * redo is `Ctrl+Y`, so `Ctrl+Shift+Z` performs a SECOND UNDO. Both were called measured; a
- * checker killed each. What is actually true, measured on the built Studio across Chromium,
- * WebKit and Firefox: `Ctrl+Shift+Z` REDOES on all three (`navigator.platform` reads
- * `Linux x86_64`, so `@codemirror/commands`' `linux: "Ctrl-Shift-z"` binding is live), and the
- * thing that made an attempt pass was FOCUS — after a Compose→Markdown switch `activeElement`
- * is the pane toggle BUTTON, so a bare chord reaches nothing at all. Every e2e oracle below
- * therefore witnesses focus before it presses anything. Do not resurrect either dead
- * explanation; findings note §6 keeps them, refuted, so they cannot come back a third time.
- *
- * BOTH halves are load-bearing. The DECK half: `newDeckSource()` is deterministic, so every
- * new deck holds the same template bytes, and a document-only guard matched ACROSS decks —
- * an independent checker reproduced deck A's history landing in deck B against the real
- * CodeMirror, where one redo inserted text never typed there and `onChange` carried it into
- * the autosave. The DOCUMENT half: an edit made in Compose is not in this history, so
- * offering ⌘Z over it would undo the wrong thing.
- */
-export function carryApplies(state: CarriedState | null, key: string | undefined, value: string): boolean {
-	return !!state && !!key && state.key === key && state.doc === value;
-}
-
 const BOM = '\uFEFF';
 const stripBom = (text: string) => (text.charCodeAt(0) === 0xfeff ? text.slice(1) : text);
 
@@ -205,7 +148,7 @@ async function formatInto(view: EditorView, all: boolean): Promise<FormatResult 
 	const before = view.state.doc.toString();
 	const result = await formatCode(before, { all });
 	if (view.state.doc.toString() !== before) return null;
-	if (result.changes.length) view.dispatch({ changes: result.changes, userEvent: 'input.format' });
+	if (result.changes.length) view.dispatch({ changes: result.changes, userEvent: 'input.format', annotations: editAs.of({ label: 'Format code' }) });
 	return result;
 }
 const noLeadingBom = EditorState.transactionFilter.of((tr) => {
@@ -242,7 +185,7 @@ function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Ar
 						{
 							name: `Quick fix → ${suggestion}`,
 							apply(v, a, b) {
-								v.dispatch({ changes: { from: a, to: b, insert: suggestion } });
+								v.dispatch({ changes: { from: a, to: b, insert: suggestion }, annotations: editAs.of({ label: `Quick fix → ${suggestion}`, origin: 'lint' }) });
 							},
 						},
 					],
@@ -259,6 +202,14 @@ function makeLinter(known: Set<string>, report?: (view: EditorView, findings: Ar
 
 /** Marks the value-sync's dispatch, so its caret is not reported as an author move. */
 const fromValueSync = Annotation.define<boolean>();
+/** How a command names its change in the undo history ("Fix all", "Format code"), and where it
+ *  came from when that is not the author's typing ('lint'). Typing has none and is "Typing". A
+ *  labeled change never coalesces with the typing around it. */
+const editAs = Annotation.define<{ label: string; origin?: string }>();
+
+/** What one editor change was, for the Studio's history (Filo): the edits against the text before
+ *  it, the caret around it, and the command's label when a command made it. */
+export type EditorChange = { edits: { from: number; to: number; insert: string }[]; before: number; after: number; label?: string; origin?: string };
 
 /** One span covering every change in `changes`, in the shape the slide index takes. */
 function changedSpan(changes: ChangeSet): { from: number; toA: number; toB: number } | undefined {
@@ -270,6 +221,19 @@ function changedSpan(changes: ChangeSet): { from: number; toA: number; toB: numb
 	});
 	if (toA < 0) return undefined;
 	return { from, toA, toB: toA + (changes.newLength - changes.length) };
+}
+
+/** The change an update made, for the Studio's history. Undefined when its offsets would not be the
+ *  shell's: a leading BOM is stripped on the way out, so a document holding one shifts every offset. */
+function editorChange(u: { startState: EditorState; state: EditorState; changes: ChangeSet; transactions: readonly Transaction[] }): EditorChange | undefined {
+	if (u.startState.doc.sliceString(0, 1) === BOM || u.state.doc.sliceString(0, 1) === BOM) return undefined;
+	const edits: EditorChange['edits'] = [];
+	u.changes.iterChanges((from, to, _fb, _tb, inserted) => {
+		edits.push({ from, to, insert: inserted.toString() });
+	});
+	let as: { label: string; origin?: string } | undefined;
+	for (const tr of u.transactions) as = tr.annotation(editAs) ?? as;
+	return { edits, before: u.startState.selection.main.head, after: u.state.selection.main.head, ...as };
 }
 
 /** A genuine authoring edit carries a user-event annotation; the value-sync, a collaborator's
@@ -289,7 +253,7 @@ export type EditorHandle = {
 	getSelection: () => EditorSelection;
 	/** Replace the current selection with `text` as one undoable transaction, then
 	 *  re-select the inserted run so a follow-up refine stacks on the same span. */
-	replaceSelection: (text: string) => void;
+	replaceSelection: (text: string, label?: string) => void;
 	/** Edit at the caret what `build` returns for the caret's line (`back` characters before the caret
 	 *  deleted, any selection replaced, `text` inserted, caret after it), as one undoable change.
 	 *  False when no editor is mounted or the one mounted is hidden or inert (Compose, the phone's
@@ -326,11 +290,16 @@ export type EditorHandle = {
 	 *  and flip its settings drawer read-only. No user-event annotation (won't trip
 	 *  `onUserEdit`); caret parked at the top so an empty reset can't jump the preview. */
 	resetDoc: (text: string) => void;
+	/** Put the caret at `offset` once the document holds `text` (an undo landing through the
+	 *  `value` sync): the change's own place, not the mapped old caret. */
+	placeCaret: (text: string, offset: number) => void;
 };
 
 export const Editor = React.forwardRef<EditorHandle, {
 	value: string;
-	onChange: (next: string) => void;
+	/** Every change to the document, with what changed when the editor knows it (an author's edit
+	 *  or a command; not the `value` sync, whose text the shell already holds). */
+	onChange: (next: string, change?: EditorChange) => void;
 	knownComponents?: string[];
 	/** The component catalog, for autocomplete (name/bucket/description). */
 	completionComponents?: CompletionComponent[];
@@ -365,11 +334,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	focusHub?: FocusHub | null;
 	/** Fired when the selection emptiness changes — gates the Refine control. */
 	onSelectionChange?: (hasSelection: boolean) => void;
-	/** Identity of the deck this editor is showing. The undo history is carried across the
-	 *  unmount a pane switch causes, and this is what stops it being carried into a DIFFERENT
-	 *  deck that happens to hold the same bytes — which every freshly created deck does. Omit
-	 *  it and nothing is carried at all, which is the pre-carry behavior and the safe default. */
-	carryKey?: string;
+	/** Identity of the deck this editor is showing. A different key builds a new view, so nothing
+	 *  of one deck's editor state (its caret, its selection) is ever shown on another. The undo
+	 *  history is not the editor's: the Studio keeps it in Filo, one history per deck. */
+	docKey?: string;
 	/** Fired after every lint pass with what that pass actually found: how many findings
 	 *  there are, and how many of them carry a machine fix. `null` when this editor is
 	 *  going away, so a consumer falls back to its own estimate rather than holding a
@@ -398,9 +366,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 	 *  binding must be rebuilt (a role change makes it read-only). */
 	collab?: { extension: Extension; key: string; readOnly: boolean; seed: () => string } | null;
 	className?: string;
-}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, carryKey, collab = null, className }, ref) {
+}>(function Editor({ value, onChange, knownComponents = [], completionComponents = [], completionAssets, completionFinishValues = [], completionFinishClasses = [], completionPalettes = [], completionVocab = null, lintVocab, extraComponentNames, focusHub = null, onSelectionChange, onUserEdit, onLintCounts, measuredSparks = null, measuredPhoto = null, docKey, collab = null, className }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
+	const pendingCaretRef = React.useRef<{ text: string; offset: number } | null>(null);
 	const collabRef = React.useRef(collab);
 	collabRef.current = collab;
 	const collabKey = collab?.key ?? null;
@@ -573,7 +542,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						// biome-ignore lint/suspicious/noExplicitAny: lint-core finding + CM view.
 						onFix: (v: any, f: any) => {
 							const out = core.applyFix(v.state.doc.toString(), f);
-							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out } });
+							if (out != null) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Quick fix', origin: 'lint' }) });
 						},
 					};
 					// Measured, not linted: sparks the preview found too big for their space. Only the
@@ -705,7 +674,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 					if (!core) return;
 					const cur = v.state.doc.toString();
 					const out = core.applyAllFixes(cur, vocabSets);
-					if (out != null && out !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out } });
+					if (out != null && out !== cur) v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: out }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
 				})();
 				return;
 			}
@@ -716,7 +685,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 				known.size && !known.has(name) ? full.replace(name, suggestFor(name, known)) : full,
 			);
 			if (text !== v.state.doc.toString()) {
-				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text } });
+				v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: text }, annotations: editAs.of({ label: 'Fix all', origin: 'lint' }) });
 			}
 		},
 		getSelection(): EditorSelection {
@@ -725,14 +694,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const r = v.state.selection.main;
 			return { empty: r.empty, text: v.state.sliceDoc(r.from, r.to), from: r.from, to: r.to };
 		},
-		replaceSelection(text: string) {
+		replaceSelection(text: string, label?: string) {
 			const v = viewRef.current;
 			if (!v) return;
 			const r = v.state.selection.main;
 			if (r.empty) return;
 			// One undoable transaction; re-select the inserted run so a follow-up refine
 			// (or ⌘Z) acts on the same span the author was working.
-			v.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from, head: r.from + text.length } });
+			v.dispatch({ changes: { from: r.from, to: r.to, insert: text }, selection: { anchor: r.from, head: r.from + text.length }, annotations: editAs.of(label ? { label, origin: 'ai' } : { label: 'Replace selection' }) });
 			v.focus();
 		},
 		insertAtCaret(build: (lineBefore: string, lineAfter: string) => { back: number; text: string }) {
@@ -747,7 +716,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			const { back, text } = build(v.state.sliceDoc(line.from, r.from), v.state.sliceDoc(r.to, line.to));
 			if (!text) return false;
 			const from = Math.max(line.from, r.from - Math.max(0, back));
-			v.dispatch({ changes: { from, to: r.to, insert: text }, selection: { anchor: from + text.length }, scrollIntoView: true, userEvent: 'input' });
+			v.dispatch({ changes: { from, to: r.to, insert: text }, selection: { anchor: from + text.length }, scrollIntoView: true, userEvent: 'input', annotations: editAs.of({ label: 'Insert' }) });
 			v.focus();
 			return true;
 		},
@@ -789,6 +758,14 @@ export const Editor = React.forwardRef<EditorHandle, {
 				effects: EditorView.scrollIntoView(v.state.doc.length, { y: 'nearest', yMargin: tourChromeMargin(v.scrollDOM) || undefined }),
 			});
 		},
+		placeCaret(text: string, offset: number) {
+			const v = viewRef.current;
+			if (!v) return;
+			if (stripBom(v.state.doc.toString()) === text) {
+				const at = Math.max(0, Math.min(offset, v.state.doc.length));
+				v.dispatch({ selection: { anchor: at }, scrollIntoView: true, annotations: fromValueSync.of(true) });
+			} else pendingCaretRef.current = { text, offset };
+		},
 		resetDoc(text: string) {
 			const v = viewRef.current;
 			if (!v || v.state.doc.toString() === text) return;
@@ -802,28 +779,18 @@ export const Editor = React.forwardRef<EditorHandle, {
 	// is the seed doc only — later changes flow through the effect below, not a
 	// re-init — so it is deliberately absent from the dep array.
 	//
-	// ONE EDITOR PER DECK — `carryKey` (the deck id) is in the dep array, so opening a
-	// different deck builds a new `EditorView` rather than replacing the text inside the old
-	// one. That is the fix for a pre-existing leak that cost a whole evening: the editor used
-	// to survive a deck switch, so the whole-document swap from deck A's text to deck B's was
-	// just another entry in CodeMirror's undo history, and ONE ⌘Z put deck A's entire document
-	// in front of you — from where `onChange` carried it into deck B's saved source. A fresh
-	// `EditorState` has a fresh history, so the leak has no place to live.
+	// ONE EDITOR PER DECK — `docKey` (the deck id) is in the dep array, so opening a different
+	// deck builds a new `EditorView` rather than replacing the text inside the old one. The editor
+	// used to survive a deck switch, so the swap from deck A's text to deck B's was one more entry
+	// in CodeMirror's undo history and one ⌘Z put deck A in front of you. The editor keeps no
+	// history now (the Studio's is Filo's, one per deck), but a fresh view per deck still keeps
+	// one deck's caret and selection off another (`2026-09-05-markdown-pane-fuzz-findings.md` §10).
 	//
-	// TRYING TO CLEAR THE STACK INSTEAD IS A TRAP, recorded because it looks like the smaller
-	// change and is not. `history()` in a `Compartment`, reconfigured to `[]` and back, is the
-	// documented way to empty it — a plain `reconfigure(history())` preserves the field value —
-	// but it needs TWO dispatches, and two synchronous `dispatch` calls do not reliably apply
-	// in sequence: one made while the view is mid-update is queued and built against the state
-	// as it stood before the earlier one landed, so the re-add can carry the old configuration,
-	// old stack included, straight back. Measured on the built Studio at two workers:
-	// `undoDepth` was 1 immediately after emptying it, and one ⌘Z produced the previous deck.
-	// Failure rate ~1 in 10 full-file runs, 0 in isolation — through two rounds of "fixes".
-	// See `engineering/decisions/2026-09-05-markdown-pane-fuzz-findings.md` §10.
-	//
-	// The Compose carry below is unaffected: a deck-switch rebuild stores a `carried` whose doc
-	// is the OLD deck's, so `carryApplies` rejects it on the document half.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`carryKey`/`collabKey`; `value` seeds the doc and is synced separately, and `collab` is read at build time through its key.
+	// NO UNDO HISTORY HERE, and no keymap for it. ⌘Z / ⌘⇧Z / Ctrl+Y bubble to the Studio root,
+	// which sends them to Filo (studio-filo.ts); `data-filo-owned` on the host tells the root this
+	// editor's undo is Filo's. Every change leaves through `onChange` with its edits, and an undo
+	// comes back through the `value` sync like any shell write.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the editor is rebuilt only on `known`/`docKey`/`collabKey`; `value` seeds the doc and is synced separately, and `collab` is read at build time through its key.
 	React.useEffect(() => {
 		if (viewRef.current || !hostRef.current) return;
 		try {
@@ -834,8 +801,8 @@ export const Editor = React.forwardRef<EditorHandle, {
 					extensions: [
 						lineNumbers(),
 						noLeadingBom,
-						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : [history()]),
-						keymap.of([...defaultKeymap, ...(collab ? [] : historyKeymap), ...completionKeymap]),
+						...(collab ? [collab.extension, EditorState.readOnly.of(collab.readOnly), EditorView.editable.of(!collab.readOnly)] : []),
+						keymap.of([...defaultKeymap, ...completionKeymap]),
 						// `yamlFrontmatter` WRAPS the Markdown language rather than sitting beside it, and
 						// without it a deck's front matter is parsed as a CommonMark SETEXT HEADING — the
 						// closing `---` reads as the underline — so `marp: true / theme: … ` rendered bold
@@ -902,16 +869,16 @@ export const Editor = React.forwardRef<EditorHandle, {
 							// own mapping, not a place the author chose.
 							const fromSync = u.transactions.some((tr) => tr.annotation(fromValueSync));
 							if (u.docChanged) {
-								// CANONICAL ON THE WAY OUT — see the `noLeadingBom` note above. An undo can put a
-								// leading BOM back in the document (undo bypasses transaction filters), and
-								// `source` is what the preview renders, the export ships and the autosave stores,
-								// so it is this boundary that has to hold rather than the filter alone.
+								// CANONICAL ON THE WAY OUT — see the `noLeadingBom` note above. A document seeded
+								// before the filter landed can still hold a leading BOM, and `source` is what the
+								// preview renders, the export ships and the autosave stores, so it is this boundary
+								// that has to hold rather than the filter alone.
 								const text = stripBom(u.state.doc.toString());
 								// The hub first, with the editor's own account of what changed: a text diff
 								// cannot tell which of two equal-looking edits the author made, and the slide
 								// ids that keep the rail stable depend on it.
 								if (hub) revRef.current = hub.update(text, { span: changedSpan(u.changes), by: isAuthorEdit(u) ? 'markdown' : 'sync' });
-								onChangeRef.current(text);
+								onChangeRef.current(text, fromSync ? undefined : editorChange(u));
 								// A genuine authoring edit carries a userEvent annotation; the
 								// external value-sync dispatch (deck switch, AI apply, restore)
 								// does not — so this fires for typing/paste/delete only.
@@ -938,17 +905,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 						}),
 					],
 			};
-			// Consume the carry here, not in the cleanup: a carry that does not match is
-			// dropped rather than kept for some later mount that might match by accident.
-			// A bound editor never restores a carried history: the binding owns undo while live.
-			const restored = !collab && carryApplies(carried, carryKey, value) ? carried : null;
-			carried = null;
-			const view = new EditorView({
-				parent: hostRef.current,
-				state: restored
-					? EditorState.fromJSON(restored.state, { extensions: seed.extensions }, { history: historyField })
-					: EditorState.create(seed),
-			});
+			const view = new EditorView({ parent: hostRef.current, state: EditorState.create(seed) });
 			viewRef.current = view;
 			// THE LATEST-REF BELONGS TO THE COMPONENT, NOT THE VIEW, so a new view leaves it holding
 			// the OLD one's answer — and the update listener above only emits on a CHANGE, so
@@ -957,19 +914,17 @@ export const Editor = React.forwardRef<EditorHandle, {
 			// SELECTION — ALWAYS, on every build. It gates a control ("Refine"), so it has to match
 			// the view that is actually on screen, and the emit-on-change comparison is what keeps
 			// that quiet: a first mount with an empty selection says nothing, because `false` is
-			// already what the ref holds. Guarding it to rebuilds instead inverted the very defect
-			// it was added for — a Compose round trip REMOUNTS this component, so `builtForRef` is
-			// empty, and the restored carry brings a live selection back with no announcement:
-			// measured on the built Studio, selection 0–1924 and no Refine button. The teardown
-			// withdrew it on the way out and nothing put it back.
+			// already what the ref holds. (A carried editor state once brought a live selection back
+			// after a Compose round trip with no announcement: measured, selection 0–1924 and no
+			// Refine button. The carry is gone with the editor's own history; the rule stays.)
 			const hasSel0 = !view.state.selection.main.empty;
 			if (hasSel0 !== lastHasSelRef.current) {
 				lastHasSelRef.current = hasSel0;
 				onSelectionChangeRef.current?.(hasSel0);
 			}
 			// A NEW VIEW FOLLOWS THE FOCUS; it does not announce its own caret. A view built after
-			// a Compose round trip restores a carried caret from before the trip, and a view built
-			// for a deck switch starts at the top: neither is where the author is now. The hub is
+			// a Compose round trip, or for a deck switch, starts at the top, which is not where the
+			// author is now. The hub is
 			// (the slide the rail and preview show), so the view moves to it. Before Fuoco this
 			// was a `lastSlideRef` seeded under rules that took three defects to get right.
 			// The view's text is the shell's text, which the hub already holds (the shell feeds it
@@ -985,23 +940,6 @@ export const Editor = React.forwardRef<EditorHandle, {
 		}
 		return () => {
 			const v = viewRef.current;
-			// Take the state BEFORE destroying the view — see `carried` above.
-			//
-			// THE KEY COMES FROM THIS EFFECT'S OWN CLOSURE, which is the deck the view being torn
-			// down was BUILT for — never `carryKeyRef.current`, which by now holds the deck we are
-			// switching TO. A checker caught that exact mis-pairing: stamping the new deck's id
-			// onto the old deck's document satisfies the key half of `carryApplies` by
-			// construction, leaving only the document half — and two fresh decks hold byte-
-			// identical template bytes, so deck A's history was restored into deck B and one redo
-			// put text typed in A into B's saved source, surviving a reload. It re-opened §6's
-			// leak through a door §6's own oracle does not walk. Pinned now by `an undo history
-			// does not cross decks WITHOUT a Compose detour` in `markdown-stress.spec.ts`.
-			//
-			// The ref was right while this effect was keyed on `[known]` alone (the closure would
-			// then hold whichever render happened to build it). It depends on `carryKey` now, so
-			// the closure is exactly the deck in question and the ref is the wrong answer.
-			const key = carryKey;
-			if (v && key && !collab) carried = { key, doc: v.state.doc.toString(), state: v.state.toJSON({ history: historyField }) };
 			v?.destroy();
 			viewRef.current = null;
 			// This editor's lint answers die with it. Withdraw them, so a consumer holding a
@@ -1018,7 +956,7 @@ export const Editor = React.forwardRef<EditorHandle, {
 			lastHasSelRef.current = false;
 			onSelectionChangeRef.current?.(false);
 		};
-	}, [known, carryKey, collabKey]);
+	}, [known, docKey, collabKey]);
 
 	// Reconfigure the completion when its vocabulary changes (a saved finish appears,
 	// a local component is added) — so it offers the fresh set without a remount.
@@ -1091,6 +1029,10 @@ export const Editor = React.forwardRef<EditorHandle, {
 		} else {
 			v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value }, selection: { anchor: 0 }, annotations: fromValueSync.of(true) });
 		}
+		// An undo's caret goes where its change was, once its text is here.
+		const caret = pendingCaretRef.current;
+		pendingCaretRef.current = null;
+		if (caret && caret.text === value) v.dispatch({ selection: { anchor: Math.max(0, Math.min(caret.offset, v.state.doc.length)) }, scrollIntoView: true, annotations: fromValueSync.of(true) });
 		// A navigation that was waiting for this text (see `revealFocus`) lands now.
 		const parked = pendingRevealRef.current;
 		if (parked) revealFocus(v, parked);
@@ -1108,5 +1050,5 @@ export const Editor = React.forwardRef<EditorHandle, {
 			/>
 		);
 	}
-	return <div ref={hostRef} className={className} style={{ height: '100%', overflow: 'auto' }} />;
+	return <div ref={hostRef} data-filo-owned="" className={className} style={{ height: '100%', overflow: 'auto' }} />;
 });

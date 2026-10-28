@@ -133,3 +133,35 @@ describe('mapPos at shared insertion points', () => {
 		expect(mapPos(p, 1, -1)).toBe(1);
 	});
 });
+
+describe('trimPatch on long texts', () => {
+	// The scan compares 512-character chunks natively before it goes character by character, so a
+	// change near a chunk edge, at either end, or in a repeated run must land exactly where a plain
+	// character scan puts it.
+	const naive = (a: string, b: string) => {
+		const min = Math.min(a.length, b.length);
+		let p = 0;
+		while (p < min && a[p] === b[p]) p++;
+		let q = 0;
+		while (q < min - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+		return { from: p, to: a.length - q, insert: b.slice(p, b.length - q) };
+	};
+	it('agrees with a character scan for 2,000 seeded edits of a 5,000-character text', () => {
+		const r = rng(77);
+		const base = Array.from({ length: 5000 }, () => 'ab\n-'[Math.floor(r() * 4)]).join('');
+		for (let i = 0; i < 2000; i++) {
+			const at = [0, 511, 512, 513, 1024, 4487, 4488, 4999, 5000][i % 9] ?? Math.floor(r() * 5000);
+			const pos = i % 3 ? at : Math.floor(r() * base.length);
+			const cut = Math.floor(r() * 3);
+			const ins = 'ab-'.slice(0, Math.floor(r() * 3));
+			const next = base.slice(0, pos) + ins + base.slice(Math.min(base.length, pos + cut));
+			const got = trimPatch(base, next);
+			if (base === next) expect(got).toEqual([]);
+			else {
+				const want = naive(base, next);
+				expect({ from: got[0].from, to: got[0].to, insert: got[0].insert }).toEqual(want);
+				expect(applyPatch(base, got)).toBe(next);
+			}
+		}
+	});
+});

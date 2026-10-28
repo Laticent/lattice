@@ -9654,6 +9654,100 @@ function checkFiloBoundary(errors, dir = FILO_DIR) {
   }
 }
 
+// ── Filo's commit path and the one undo history (HARD RULE-adjacent; §3.2 rule 6) ──
+// engineering/decisions/2026-10-27-filo-undo-history.md §3.2 rule 6: every write to the deck source
+// goes through the commit path, and no Studio surface keeps an undo stack of its own beside Filo's.
+// Without this, the next modal ships its own `history()` and ⌘Z splits again. Two halves:
+//   · `setSourceRaw` (React's raw setter for the deck source) appears in StudioShell.tsx only inside
+//     the `filo:commit-path begin` / `end` block, where every setter stamps an intent;
+//   · no file under the Studio's editors imports an undo stack (`history()` from @codemirror/commands,
+//     `prosemirror-history`, `closeHistory`, `historyKeymap`, `yUndoManagerKeymap`) or binds `Mod-z`,
+//     except an entry below, each with its reason. Each slice that moves a surface onto Filo removes
+//     its entry, and the gate fails on a stale one.
+const FILO_COMMIT_SHELL = path.join(ROOT, 'docs', 'src', 'components', 'studio', 'StudioShell.tsx');
+const FILO_UNDO_ROOTS = [path.join(ROOT, 'docs', 'src', 'components', 'studio'), path.join(ROOT, 'docs', 'src', 'lib', 'compose')];
+const UNDO_STACK_RE = /\bfrom\s+['"]prosemirror-history['"]|\bimport\(\s*['"]prosemirror-history['"]|\bcloseHistory\b|\bhistoryKeymap\b|\byUndoManagerKeymap\b|\bUndoManager\b|['"](?:(?:Shift|Mod|Ctrl|Cmd|Meta|Alt)-)+[zZyY]['"]|\bimport\s*\{[^}]*\bhistory\b[^}]*\}\s*from\s*['"]@codemirror\/commands['"]/;
+// A namespace or dynamic import of @codemirror/commands reaches `history` as a member call.
+const CM_COMMANDS_RE = /['"]@codemirror\/commands['"]/;
+const MEMBER_HISTORY_RE = /\.\s*history\s*\(/;
+// Comments out, strings kept: a glob like '**/*.ts' in a string must not open a "comment".
+const COMMENT_OR_STRING_RE = /("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+const SANCTIONED_UNDO_STACKS = Object.freeze([
+  {
+    file: 'docs/src/components/studio/live/live-controller.ts',
+    why: 'A live session undoes per person through Y.UndoManager (Filo note §6.2, owner decision). ' +
+      'The binding keeps its own keymap inside the editor; the Studio root reaches the same manager ' +
+      'through LiveCollab.undo/redo, so there is still one undo per surface.',
+  },
+  {
+    file: 'docs/src/components/studio/CodeField.tsx',
+    why: 'Code fields in Fabricate, FinishStudio, LayoutStudio and CraftLab edit their own documents and ' +
+      'keep CodeMirror\'s history until Filo slice 7; the root keymap leaves them alone (a contenteditable ' +
+      'owns its keys).',
+  },
+]);
+
+function listUndoScanFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) listUndoScanFiles(p, out);
+    else if (/\.(?:ts|tsx|js|mjs)$/.test(ent.name) && !TEST_FILE.test(ent.name)) out.push(p);
+  }
+  return out;
+}
+
+function checkFiloCommitPath(errors, { shell = FILO_COMMIT_SHELL, roots = FILO_UNDO_ROOTS, sanctioned = SANCTIONED_UNDO_STACKS } = {}) {
+  if (fs.existsSync(shell)) {
+    const lines = fs.readFileSync(shell, 'utf8').split('\n');
+    let inBlock = false;
+    lines.forEach((line, i) => {
+      if (/filo:commit-path begin/.test(line)) inBlock = true;
+      else if (/filo:commit-path end/.test(line)) inBlock = false;
+      else if (!inBlock && /\bsetSourceRaw\b/.test(line) && !/const \[source, setSourceRaw\] = React\.useState/.test(line)) {
+        errors.push(
+          `${relPosix(ROOT, shell)}:${i + 1} calls setSourceRaw outside the filo:commit-path block. Every ` +
+            `write to the deck source goes through setSource(next, intent) or another commit-path setter, so ` +
+            `Filo records it with a label (engineering/decisions/2026-10-27-filo-undo-history.md §3.2).`,
+        );
+      }
+    });
+    if (inBlock) {
+      errors.push(
+        `${relPosix(ROOT, shell)} opens a filo:commit-path block that never closes. Without its end marker ` +
+          `every line after it would pass the setSourceRaw check.`,
+      );
+    }
+  }
+  const allowed = new Map(sanctioned.map((e) => [e.file, e]));
+  const hit = new Set();
+  for (const root of roots) {
+    for (const file of listUndoScanFiles(root)) {
+      const rel = relPosix(ROOT, file);
+      const src = fs.readFileSync(file, 'utf8').replace(COMMENT_OR_STRING_RE, (_m, str) => str ?? '');
+      if (!UNDO_STACK_RE.test(src) && !(CM_COMMANDS_RE.test(src) && MEMBER_HISTORY_RE.test(src))) continue;
+      if (allowed.has(rel)) {
+        hit.add(rel);
+        continue;
+      }
+      errors.push(
+        `${rel} keeps an undo stack of its own (history(), prosemirror-history, closeHistory, an undo keymap ` +
+          `or a Mod-z binding). The Studio has one undo history, Filo: commit through the shell's commit path ` +
+          `and let the root keymap own ⌘Z. A surface that must keep its own goes on SANCTIONED_UNDO_STACKS ` +
+          `with its reason (engineering/decisions/2026-10-27-filo-undo-history.md §3.2 rule 6).`,
+      );
+    }
+  }
+  for (const e of sanctioned) {
+    if (!hit.has(e.file)) {
+      errors.push(
+        `SANCTIONED_UNDO_STACKS lists ${e.file}, which no longer keeps an undo stack (or no longer exists). ` +
+          `Remove the stale entry: the list only ever shrinks as surfaces move onto Filo.`,
+      );
+    }
+  }
+}
+
 // ── Suono (docs/src/lib/suono) — the audio playback/sequencing engine ───────
 // The same self-containment antibody as Cadenza, plus a HARDER security invariant
 // baked into the design (engineering/decisions/2026-07-12-suono-audio-library.md):
@@ -14252,6 +14346,7 @@ function run() {
   checkFuocoBoundary(errors);
   checkVedutaBoundary(errors);
   checkFiloBoundary(errors);
+  checkFiloCommitPath(errors);
   checkMosaicoBoundary(errors);
   checkFluidoBoundary(errors);
   checkPaginationOwners(errors);
@@ -14324,6 +14419,8 @@ module.exports = {
   checkFuocoBoundary,
   checkVedutaBoundary,
   checkFiloBoundary,
+  checkFiloCommitPath,
+  SANCTIONED_UNDO_STACKS,
   checkMosaicoBoundary,
   checkFluidoBoundary,
   checkPaginationOwners,

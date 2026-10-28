@@ -1,5 +1,5 @@
 import {
-	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Plus, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Trash2,
+	ArrowLeftToLine, ArrowRightToLine, ChevronDown, Copy, FileSliders, FileText, Gauge, History, ListChecks, Menu as MenuIcon, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, Play, Plus, Redo2, Search, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Trash2, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Kbd } from '@/components/ui/kbd';
@@ -203,11 +203,13 @@ export function StudioChromeSkeleton({ deckTitle }: { deckTitle: string }) {
 				</span>
 				<div className="flex-1" />
 
-				{/* PHONE tail: mode · workspace settings · menu. Below 700 the app still uses the
+				{/* PHONE tail: mode · undo · redo · workspace settings · menu. Below 700 the app still uses the
 				    Eight-Cell Bar and the StudioDrawer, so this tier is untouched by the width
 				    ladder above it. */}
 				<span className="contents min-[700px]:hidden">
 					<Button variant="ghost" size="icon-sm" aria-label="Switch to dark mode" className="ssr-mode-to-dark"><Moon className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled><Undo2 className="size-[18px]" /></Button>
+					<Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled><Redo2 className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Workspace settings"><SettingsCog className="size-[18px]" /></Button>
 					<Button variant="ghost" size="icon-sm" aria-label="Menu"><MenuIcon className="size-[18px]" /></Button>
 				</span>

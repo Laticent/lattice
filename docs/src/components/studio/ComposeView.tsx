@@ -1,5 +1,4 @@
 import { baseKeymap, toggleMark } from 'prosemirror-commands';
-import { history, isHistoryTransaction, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { inputRules, textblockTypeInputRule, wrappingInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { type MarkType, type Node as PMNode, type ResolvedPos, Slice } from 'prosemirror-model';
@@ -15,6 +14,7 @@ import { type CommentKind, commentInner, commentKind, editableNote, stripChannel
 import { deckSchema, deckToDoc, type EmitBaseline, emitDeck, initBaseline, rebaselineSlides, serializeSlideNode } from '@/lib/compose/deck-doc';
 import { slideClassOf } from '@/lib/compose/deck-source';
 import { deckFenceTags, highlightLanguageFor } from '@/lib/compose/fence-catalog';
+import { closesFiloGroup, historyTransaction, isFiloHistory } from '@/lib/compose/filo-history';
 import { descriptionAsAlt, insertImage, insertImageBlocker } from '@/lib/compose/image-objects';
 import { type InlineKernels, inlineObjectsPlugin, isSilentPass, normalizeDeck, type ObjectsPluginOptions, type OpenObject, objectNodeView, type PluginKindEntry, repaintObjects, setPluginKindProvider } from '@/lib/compose/inline-objects';
 import { insertLineBreak } from '@/lib/compose/line-break-command';
@@ -37,6 +37,7 @@ import { registerValue } from './deck-preset';
 import { InsertControls } from './InsertControls';
 import { imageNodeView } from './image-node-view';
 import { mathInlineNodeView, rawBlockNodeView } from './raw-node-view';
+import { undoChord, undoOwner } from './studio-filo';
 import { TableControls } from './table-controls';
 import { tourChromeOverlap } from './tour-chrome';
 import { useRailLayout, useVisualViewport } from './use-visual-viewport';
@@ -142,7 +143,7 @@ export function structuralGuard() {
 			// A deliberate slide op (insert/delete/move from the slide rail) is allowed to
 			// change the count and touch locked slides — it's intentional, not an accident.
 			if (tr.getMeta('slideOp')) return true;
-			// UNDO / REDO ARE NEVER FILTERED. Every rule below reasons about the author's
+			// UNDO / REDO ARE NEVER FILTERED (Filo's, marked `FILO_HISTORY`: Compose keeps no history of its own). Every rule below reasons about the author's
 			// CURRENT selection, and a history transaction has no such intent to read: it
 			// restores a document state this guard already approved once. Judging it by the
 			// caret that happens to be sitting there when ⌘Z is pressed is a category error,
@@ -153,7 +154,7 @@ export function structuralGuard() {
 			// This hole predates the selection rule (an undo of a `slideOp` rail-delete was
 			// rejected the same way), but the ⌘A path is what made it reachable by a
 			// documented shortcut, so it is fixed here rather than filed.
-			if (isHistoryTransaction(tr)) return true;
+			if (isFiloHistory(tr)) return true;
 			const oldDoc = state.doc;
 			const newDoc = tr.doc;
 			// A locked slide is immutable, whatever else this transaction does. Checked by
@@ -649,17 +650,29 @@ type FormatIsland = 'table' | 'code';
 // move — the applicable registers change as the caret moves between blocks WITHIN a slide, which
 // no node- or outer-decoration change would otherwise signal.
 const liveSlideViews = new Set<SlideView>();
+// THE UNDO BRIDGE. Compose keeps no undo stack: the Studio's one history (Filo) owns it. The pill's
+// Undo / Redo call `run`, and their enabled state is the Studio's `canUndo` / `canRedo`. Module
+// scoped because the pill lives in each slide's node view; only one Compose is ever mounted.
+const composeHistory: { run: (verb: 'undo' | 'redo') => void; canUndo: boolean; canRedo: boolean } = { run: () => {}, canUndo: false, canRedo: false };
+function syncHistoryButtons() {
+	for (const sv of liveSlideViews) {
+		try {
+			sv.syncHistory(composeHistory.canUndo, composeHistory.canRedo);
+		} catch (e) {
+			console.error('[compose] syncHistory', e);
+		}
+	}
+}
 function formatSyncPlugin() {
 	return new Plugin({
 		view() {
 			return {
-				update(view: EditorView) {
+				update() {
 					// Defense in depth: syncFormat rebuilds DOM from the pure register kernel; a throw here
 					// runs inside view.updateState, so it would propagate out and ABORT the transaction's
 					// emit branch — silently dropping the author's edits. Contain any per-view error so one
 					// bad slide can never wedge the whole editor.
-					const canUndo = undoDepth(view.state) > 0;
-					const canRedo = redoDepth(view.state) > 0;
+					const { canUndo, canRedo } = composeHistory;
 					for (const sv of liveSlideViews) {
 						try {
 							sv.syncHistory(canUndo, canRedo);
@@ -774,12 +787,13 @@ class SlideView {
 		const actions = document.createElement('div');
 		actions.className = 'cs-sb-actions';
 		// COMPOSE-WIDE UNDO / REDO. ⌘Z is keyboard-only, and on a phone iOS's own undo (shake,
-		// three-finger swipe) lists only what the BROWSER edited, never ProseMirror's history, so an
-		// author who picked the wrong color had no way back. The pair drives the one history for the
-		// whole deck, from whichever slide's bar is showing. It never takes focus, so no keyboard rises.
-		this.undoBtn = this.btn('Undo', 'undo-2', () => { undo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-undo', false);
-		this.redoBtn = this.btn('Redo', 'redo-2', () => { redo(this.view.state, this.view.dispatch); }, 'cs-pill-btn cs-redo', false);
-		this.undoBtn.disabled = this.redoBtn.disabled = true;
+		// three-finger swipe) lists only what the BROWSER edited, so an author who picked the wrong
+		// color had no way back. The pair drives the deck's one history (Filo, through the bridge
+		// above), from whichever slide's bar is showing. It never takes focus, so no keyboard rises.
+		this.undoBtn = this.btn('Undo', 'undo-2', () => composeHistory.run('undo'), 'cs-pill-btn cs-undo', false);
+		this.redoBtn = this.btn('Redo', 'redo-2', () => composeHistory.run('redo'), 'cs-pill-btn cs-redo', false);
+		this.undoBtn.disabled = !composeHistory.canUndo;
+		this.redoBtn.disabled = !composeHistory.canRedo;
 		// FIRST in the bar, before the Format group. On a narrow pane the bar wraps (CSS), with this pair
 		// and the insert doors on the first row.
 		const history = document.createElement('div');
@@ -1940,8 +1954,8 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 		...(notation ? [inlineObjectsPlugin(notation)] : []),
 		codeHighlightPlugin(),
 		formatSyncPlugin(),
-		history(),
-		keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo }),
+		// No history() and no Mod-z binding: ⌘Z / ⌘⇧Z / Ctrl+Y bubble to the Studio root, which sends them
+		// to Filo, and the undo comes back through `applyHistory` (Filo note §3.3).
 		// Table cell navigation FIRST — Tab hops cells and appends a row off the end
 		// (tabToNextCellOrAddRow), Shift-Tab hops back. Both return false outside a table, so Tab
 		// falls through to list-item sink/lift. Enter is a no-op inside a table: a GFM cell is
@@ -2006,7 +2020,7 @@ function buildPlugins(getDefaultTag: () => string, getPaneOpen: () => PaneOpen |
 export type ComposeHandle = {
 	/** Scroll slide `index` into view. `focus` also takes keyboard focus and parks the
 	 *  caret at the slide's first editable position (#1288). */
-	revealSlide: (index: number, opts?: { focus?: boolean }) => void;
+	revealSlide: (index: number, opts?: { focus?: boolean; keepCaret?: boolean }) => void;
 	/** Scroll the document's END into view — the twin of `EditorHandle.revealTail`, and owed
 	 *  for the same reason. A tour types through the CONTROLLED `source` path (`editorRef` is
 	 *  null in Compose mode, so `buildTypeOps` never picks the native channel), which replaces
@@ -2028,9 +2042,17 @@ export type ComposeHandle = {
 	/** Undo that pick, but only while nothing has been written since (the token is the document
 	 *  the pick produced): an Undo toast must never undo the author's later typing. */
 	undoPane: (token: unknown) => boolean;
+	/** Show the text a Filo undo or redo produced, now, even while the editor has focus (an outside
+	 *  change is parked until blur; an undo must not be, or ⌘Z would look like it did nothing and the
+	 *  next keystroke would put the undone change back). Only the slides that differ change. */
+	applyHistory: (text: string) => void;
+	/** Is an IME composition running? An undo waits for it to end. */
+	composing: () => boolean;
+	/** Run `fn` once the running composition ends. */
+	afterComposition: (fn: () => void) => void;
 };
 
-export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string) => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
+export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onChange: (next: string, meta?: { close?: boolean }) => void; onHistory?: (verb: 'undo' | 'redo') => void; canUndo?: boolean; canRedo?: boolean; onCloseGroup?: () => void; resetKey?: string; className?: string; visible?: boolean; onTypingCollapse?: (collapsed: boolean) => void; onOpenSlideSettings?: (index: number) => void; slideHeadings?: SlideHeadings; slideBlocks?: SlideBlocks; slideFences?: SlideFences; onInsertBelow?: (index: number) => void; onCursorSlide?: (index: number) => void; onCursorText?: (text: string) => void; paneCatalog?: PaneCatalogRow[]; onOpenPanePicker?: (req: PaneRequest) => void; onOpenLibrary?: (filter?: 'motion') => void; pluginKinds?: readonly PluginKindEntry[]; onRetire?: (source: string, resetKey: string) => void }>(function ComposeView({ source, onChange, onHistory, canUndo = false, canRedo = false, onCloseGroup, resetKey = '', className, visible = true, onTypingCollapse, onOpenSlideSettings, slideHeadings, slideBlocks, slideFences, onInsertBelow, onCursorSlide, onCursorText, paneCatalog, onOpenPanePicker, onOpenLibrary, pluginKinds, onRetire }, ref) {
 	const hostRef = React.useRef<HTMLDivElement>(null);
 	const viewRef = React.useRef<EditorView | null>(null);
 	const onChangeRef = React.useRef(onChange);
@@ -2039,7 +2061,27 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 	// then belongs to the next deck. Null the rest of the time.
 	const onRetireRef = React.useRef(onRetire);
 	onRetireRef.current = onRetire;
-	const retiringRef = React.useRef<((src: string) => void) | null>(null);
+	const retiringRef = React.useRef<((src: string, meta?: { close?: boolean }) => void) | null>(null);
+	const onCloseGroupRef = React.useRef(onCloseGroup);
+	onCloseGroupRef.current = onCloseGroup;
+	// The baseline advance of the history transaction being dispatched (applyHistory).
+	const historyCommitRef = React.useRef<((doc: PMNode) => void) | null>(null);
+	// `resyncFrom`, for the handle (declared above it): the full rebuild a history apply falls back to.
+	const resyncRef = React.useRef<((view: EditorView, src: string) => void) | null>(null);
+	// The pill's Undo / Redo: the Studio's history, through the bridge.
+	const onHistoryRef = React.useRef(onHistory);
+	onHistoryRef.current = onHistory;
+	React.useEffect(() => {
+		composeHistory.run = (verb) => onHistoryRef.current?.(verb);
+		return () => {
+			composeHistory.run = () => {};
+		};
+	}, []);
+	React.useEffect(() => {
+		composeHistory.canUndo = canUndo;
+		composeHistory.canRedo = canRedo;
+		syncHistoryButtons();
+	}, [canUndo, canRedo]);
 	const lastEmittedRef = React.useRef(source);
 	const baselineRef = React.useRef<EmitBaseline | null>(null);
 	// An external source change that arrived while the editor held focus — parked here
@@ -2224,15 +2266,123 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		undoPane(token: unknown) {
 			const v = viewRef.current;
 			if (!v || v.state.doc !== token) return false;
-			return undo(v.state, v.dispatch);
+			composeHistory.run('undo');
+			return true;
 		},
-		revealSlide(index: number, opts?: { focus?: boolean }) {
+		applyHistory(text: string) {
+			const v = viewRef.current;
+			if (!v) return;
+			// Filo's text supersedes anything parked: an outside change the undo just took back must not
+			// land on the next blur.
+			pendingResyncRef.current = null;
+			if (text === lastEmittedRef.current) return;
+			const prev = lastEmittedRef.current;
+			const base = baselineRef.current;
+			const before = v.state.doc;
+			let applied = false;
+			let spec: FlashSpec | null = null;
+			// `filo:compose-work` is the history's own work, without ProseMirror's render of the result
+			// (which every edit pays, a keystroke included); the budget e2e reads both measures.
+			let work = 0;
+			try {
+				let t = performance.now();
+				const r = base ? historyTransaction(v.state, base, prev, text) : null;
+				if (r) {
+					// The flash rides in the same transaction: a second, doc-less dispatch re-rendered the
+					// whole view again, measured at 38-57 ms in WebKit on the 134 KB deck.
+					try {
+						spec = diffFlash(before, r.tr.doc);
+						if (spec) r.tr.setMeta(flashKey, { flash: spec });
+					} catch (e) {
+						console.error('[compose] change flash', e);
+					}
+					// THE CARET GOES WHERE THE CHANGE WAS (Filo note §3.4). Replacing the slide the caret was in
+					// would otherwise map it to the slide's edge, and the next keystroke would land there. For
+					// one slide replaced by one, the slides' own diff says where the change ends.
+					if (r.removed === 1 && r.added === 1) {
+						const oldSlide = before.child(r.first);
+						const newSlide = r.tr.doc.child(r.first);
+						const end = oldSlide.content.findDiffEnd(newSlide.content);
+						if (end) {
+							let at = 0;
+							for (let i = 0; i < r.first; i++) at += r.tr.doc.child(i).nodeSize;
+							r.tr.setSelection(TextSelection.near(r.tr.doc.resolve(Math.min(at + 1 + end.b, r.tr.doc.content.size)), -1));
+						}
+					}
+					work += performance.now() - t;
+					historyCommitRef.current = r.commit;
+					try {
+						v.dispatch(r.tr);
+					} finally {
+						historyCommitRef.current = null;
+					}
+					// Belt and braces: the scoped apply must emit exactly the undo's text; if a deck shape
+					// ever defeats it, the full rebuild below shows the right text anyway.
+					t = performance.now();
+					applied = !!baselineRef.current && emitDeck(v.state.doc, baselineRef.current) === text;
+					work += performance.now() - t;
+				}
+			} catch (e) {
+				console.error('[compose] history apply', e);
+			}
+			if (!applied) {
+				try {
+					resyncRef.current?.(v, text);
+				} catch (e) {
+					console.error('[compose] history resync', e);
+				}
+				return;
+			}
+			lastEmittedRef.current = text;
+			pendingResyncRef.current = null;
+			// New slides arrive with their pills as text: a silent pass turns them back into objects.
+			const kernels = kernelsRef.current;
+			const t = performance.now();
+			if (kernels) normalizeDeck(v, kernels, kernels.isLiteralFromSource(text));
+			work += performance.now() - t;
+			try {
+				performance.measure('filo:compose-work', { start: 0, duration: work });
+			} catch {
+				// No User Timing: nothing to record.
+			}
+			// The chip that points at an off-screen change reads layout; it waits for the next frame
+			// rather than forcing one inside the undo.
+			const shown = spec;
+			if (shown)
+				requestAnimationFrame(() => {
+					if (viewRef.current === v && !v.isDestroyed) setFlashChip(offscreenChip(v, shown));
+				});
+		},
+		composing() {
+			return !!viewRef.current?.composing;
+		},
+		afterComposition(fn: () => void) {
+			const dom = viewRef.current?.dom;
+			if (!dom) return fn();
+			dom.addEventListener('compositionend', () => setTimeout(fn, 0), { once: true });
+		},
+		revealSlide(index: number, opts?: { focus?: boolean; keepCaret?: boolean }) {
 			const v = viewRef.current;
 			if (!v) return;
 			const doc = v.state.doc;
 			if (index < 0 || index >= doc.childCount) return;
 			let pos = 0;
 			for (let i = 0; i < index; i++) pos += doc.child(i).nodeSize;
+			// An undo already put the caret where its change was; when that is inside this slide, leave it.
+			if (opts?.keepCaret && v.state.selection.$head.depth >= 1 && v.state.selection.$head.index(0) === index) {
+				lastSlideRef.current = index;
+				// Bring the caret into view if it is off screen (the host scrolls, not the window).
+				const host = hostRef.current;
+				try {
+					const c = v.coordsAtPos(v.state.selection.head);
+					const box = host?.getBoundingClientRect();
+					if (host && box && (c.top < box.top || c.bottom > box.bottom)) host.scrollTop += c.top - box.top - box.height / 3;
+				} catch {
+					// No layout (a hidden pane): nothing to scroll.
+				}
+				if (opts.focus) v.focus();
+				return;
+			}
 			// `pos` is BEFORE the slide node; +1 enters it, and Selection.near finds the
 			// nearest real text position from there — the slide's first editable spot,
 			// whatever block happens to open it.
@@ -2543,6 +2693,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 		}
 	}, []);
 
+	resyncRef.current = resyncFrom;
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: construct-once per deck; `source` seeds the doc and syncs separately.
 	React.useEffect(() => {
 		if (!hostRef.current) return;
@@ -2597,7 +2749,12 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// no-op would null a PARKED external resync (`pendingResyncRef`), silently dropping
 					// an external `_class`/AI/undo change on the next blur — for a keystroke that did
 					// nothing. Only a real doc change supersedes the parked author.
-					if (next.doc !== prevDoc && isSilentPass(tr)) {
+					if (next.doc !== prevDoc && isFiloHistory(tr)) {
+						// A Filo undo landing (applyHistory): the Studio already holds this text, so nothing
+						// is emitted; the untouched slides keep their cached bytes.
+						historyCommitRef.current?.(next.doc);
+						pendingResyncRef.current = null;
+					} else if (next.doc !== prevDoc && isSilentPass(tr)) {
 						// The inline-object pass changes how a slide is REPRESENTED, never what it says: re-point
 						// the baseline at the new slide nodes and keep every cached byte, and emit nothing.
 						if (baselineRef.current) rebaselineSlides(next.doc, baselineRef.current);
@@ -2612,7 +2769,11 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 						const src = emitDeck(next.doc, base);
 						baselineRef.current = base;
 						lastEmittedRef.current = src;
-						(retiringRef.current ?? onChangeRef.current)(src);
+						// `close`: this change is its own undo step (a pane pick), never joined to the typing before it.
+						(retiringRef.current ?? onChangeRef.current)(src, closesFiloGroup(tr) ? { close: true } : undefined);
+					} else if (closesFiloGroup(tr)) {
+						// An object edit just committed: the next change starts a new undo step.
+						onCloseGroupRef.current?.();
 					}
 					// The caret's slide index — the top-level `slide` node it sits in. Edge-
 					// triggered so the shell only hears about real crossings.
@@ -2651,6 +2812,15 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 					// prosemirror-view never passes an Enter keydown to the keymaps and answers it with a plain Enter, which splits the
 					// block. A selected pill or image keeps Shift-Enter as the key that opens its editor, like Enter.
 					keydown(v, event) {
+						// ⌘Z / ⌘⇧Z / Ctrl+Y are Filo's. ProseMirror swallows Mod-[yz] itself (so the browser's
+						// native undo never touches its DOM), which hides the chord from the Studio root, so it
+						// is sent on from here. A note's own field keeps the browser's undo (`undoOwner`).
+						const verb = undoChord(event);
+						if (verb && !event.isComposing && undoOwner(event.target instanceof Element ? event.target : null) === 'filo') {
+							event.preventDefault();
+							composeHistory.run(verb);
+							return true;
+						}
 						if (event.key !== 'Enter' || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return false;
 						if (v.state.selection instanceof NodeSelection) return false;
 						event.preventDefault();
@@ -2763,7 +2933,8 @@ export const ComposeView = React.forwardRef<ComposeHandle, { source: string; onC
 			{/* No persistent formatting gutter/rail — the registers live on each slide's divider bar
 			    (context-sensitive). Just the writing surface. */}
 			<div className="cs-frame">
-				<div ref={hostRef} className="cs-host" />
+				{/* Compose's undo is the Studio's (Filo): the root keymap owns ⌘Z here as in the Markdown editor. */}
+				<div ref={hostRef} className="cs-host" data-filo-owned="" />
 				{flashChip && (
 					<button
 						type="button"

@@ -5,7 +5,9 @@
  * Two separate headless Chromium processes, the real Tavola + Trystero transport, the public
  * Nostr relays and real WebRTC — no mocks. The host starts a session and copies the link; the
  * guest opens it, waits in the lobby, knocks; the host admits; both type in the editor and see
- * each other's edits and carets; the guest undoes only its own edit; chat crosses; the host
+ * each other's edits and carets; the guest undoes only its own edit, and the host does the same
+ * with ⌘Z pressed from the page body (the Studio's root keymap) and redoes it, then types in
+ * Compose and undoes that from inside Compose; chat crosses; the host
  * removes the guest, whose copy of the deck stays; a second guest joins, both sides reload; then the
  * host's tab closes and the second guest takes over as host after the grace period, lets a third
  * person in, and ends the session. Each step logs its elapsed time, and the
@@ -153,6 +155,60 @@ log(`guest undo: own edit gone=${!gText.includes('hello from Amina')} host edit 
 await guest.waitForTimeout(800);
 await host.waitForFunction(() => !document.querySelector('.cm-content')?.textContent?.includes('hello from Amina'), null, { timeout: 10000 });
 log('the guest undo reached the host too');
+
+// Undo from OUTSIDE the editor: the Studio's root keymap (Filo, PR #2940) sends ⌘Z with focus on the
+// page body to the session's own undo manager, so it still undoes only this browser's edits.
+await hEditor.click();
+await host.keyboard.press('Control+Home');
+await host.keyboard.type('<!-- second from Sharmarke -->\n');
+await gEditor.click();
+await guest.keyboard.press('Control+Home');
+await guest.keyboard.type('<!-- second from Amina -->\n');
+await host.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('second from Amina'), null, { timeout: 30000 });
+await guest.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('second from Sharmarke'), null, { timeout: 30000 });
+await host.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
+log(`host focus before the body undo: ${await host.evaluate(() => document.activeElement?.tagName)}`);
+for (let i = 0; i < 12; i++) {
+  await host.keyboard.press('Control+z');
+  await host.waitForTimeout(150);
+  if (!(await host.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '')).includes('second from Sharmarke')) break;
+}
+await guest.waitForFunction(() => !document.querySelector('.cm-content')?.textContent?.includes('second from Sharmarke'), null, { timeout: 30000 });
+const hBody = await host.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '');
+const gBody = await guest.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '');
+log(`body undo (host, focus on the page): own edit gone=${!hBody.includes('second from Sharmarke')} guest edit kept on host=${hBody.includes('second from Amina')} on guest=${gBody.includes('second from Amina')} first host edit kept=${hBody.includes('reply from Sharmarke')}`);
+await host.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined));
+await host.keyboard.press('Control+Shift+z');
+await guest.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('second from Sharmarke'), null, { timeout: 30000 });
+log(`body redo (host): own edit back on both=${(await host.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '')).includes('second from Sharmarke')}`);
+await host.screenshot({ path: `${OUT}real-body-undo-${mode}.png` });
+
+// Undo IN COMPOSE during the session: Compose keeps no undo of its own (Filo, PR #2940), so ⌘Z
+// with focus in Compose goes to the session's undo manager and the result is mirrored back into
+// Compose. The host types in Compose; the guest must see it, then must see it go on the undo, and
+// the guest's own edit must stay.
+await host.getByRole('button', { name: 'Compose — rich editor', exact: true }).first().click();
+const hCompose = host.locator('.cs-host .ProseMirror').first();
+await hCompose.waitFor({ timeout: 15000 });
+await host.waitForTimeout(800);
+await hCompose.locator('h1, h2, p').first().click();
+await host.keyboard.press('End');
+await host.keyboard.type(' third from Sharmarke');
+await guest.waitForFunction(() => document.querySelector('.cm-content')?.textContent?.includes('third from Sharmarke'), null, { timeout: 30000 });
+log('guest editor shows the host Compose edit');
+log(`host focus in Compose before the undo: ${await host.evaluate(() => !!document.activeElement?.closest('.cs-host .ProseMirror'))}`);
+for (let i = 0; i < 12; i++) {
+  await host.keyboard.press('Control+z');
+  await host.waitForTimeout(150);
+  if (!(await hCompose.textContent())?.includes('third from Sharmarke')) break;
+}
+await guest.waitForFunction(() => !document.querySelector('.cm-content')?.textContent?.includes('third from Sharmarke'), null, { timeout: 30000 });
+const hC = (await hCompose.textContent()) ?? '';
+const gC = await guest.evaluate(() => document.querySelector('.cm-content')?.textContent ?? '');
+log(`compose undo (host, focus in Compose): own edit gone in Compose=${!hC.includes('third from Sharmarke')} on guest=${!gC.includes('third from Sharmarke')} guest edit kept on guest=${gC.includes('second from Amina')} focus still in Compose=${await host.evaluate(() => !!document.activeElement?.closest('.cs-host .ProseMirror'))}`);
+await host.screenshot({ path: `${OUT}real-compose-undo-${mode}.png` });
+await host.getByRole('button', { name: 'Markdown source', exact: true }).first().click();
+await host.locator('.cm-content').first().waitFor({ timeout: 15000 });
 
 // Chat.
 await guest.locator('nav[aria-label="Studio panels"] button[aria-label="Toggle Live"]').last().click();

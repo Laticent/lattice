@@ -1,5 +1,5 @@
-import {
-	AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, Upload, UsersRound, Volume2, Wand2, X, 
+import {AlertTriangle, ArrowLeftToLine, ArrowRightToLine, BookMarked, Braces, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileBox, FileDown, FileSliders, FileText, Focus, GalleryVerticalEnd, Gauge, History, Layers, ListChecks, Menu as MenuIcon, Monitor, MonitorPlay, Moon, Palette, PanelLeftClose, PanelRightClose, PencilLine, PencilRuler, Play, Plus, Printer, Redo2, Save, Settings2, Settings as SettingsCog, Shapes, Share2, SlidersHorizontal, Sparkles, Sun, SunMoon, Trash2, 
+	Undo2, Upload, UsersRound, Volume2, Wand2, X, 
 } from 'lucide-react';
 import * as React from 'react';
 import { pluginKindEntries } from '@/lib/compose/plugin-kind-entries';
@@ -26,6 +26,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tip, Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SplitSide, useResizableSplit } from '@/components/ui/use-resizable-split';
+import { Announce } from '@/lib/announce';
 import { messageForFailure } from '@/lib/chunk-load';
 import { codePackagesStamp, setCodePackages, setPlugins } from '@/lib/code-packages/entry';
 import { type CrashReport, collectCrashReports, breadcrumb as crashCrumb, noteError as noteCrashError, OPEN_CRASH_REPORT_EVENT, setCrashContext } from '@/lib/crash-sentinel';
@@ -34,8 +35,10 @@ import { type DeckIndex, deckOutliner } from '@/lib/deck-outline';
 import { pinnedMode, resolveDeckTheme } from '@/lib/deck-theme';
 import { DEFAULT_DELIVERY, DELIVERY_NAMES, frontMatterDelivery } from '@/lib/delivery-names';
 import { deriveKatexProviderUrl } from '@/lib/ensure-katex';
+import { createFilo } from '@/lib/filo';
 import { createFocusHub } from '@/lib/fuoco/hub';
 import { unitText } from '@/lib/fuoco/outline';
+import { placeAt } from '@/lib/fuoco/place';
 import { useFocus } from '@/lib/fuoco/react';
 import { applyTag, catalogFromComponents, type LensDef, type LensRegistry, lensIndices, parseLensRegistry, taggedLensIds, upsertLensRegistry } from '@/lib/lente';
 import { normalizeSourceText } from '@/lib/normalize-source-text';
@@ -82,7 +85,7 @@ import { addSlideAfter, deleteSlide, duplicateSlide, moveSlide, replaceSlide, SL
 import { applyPreset, clearPresetOverrides, PRESET_ENTRIES, presetBaseline, presetChanges, presetOf, registerValue, writeRegister } from './deck-preset';
 import { DECKS, deckSource, type StudioDeck } from './decks';
 import { DOCK, idealDockLayout } from './dock-layout';
-import type { EditorHandle } from './Editor';
+import type { EditorChange, EditorHandle } from './Editor';
 import type { CompletionVocab } from './editor-complete';
 import { activeEyebrow, EYEBROWS } from './eyebrow-catalog';
 import type { FabricateSeed } from './Fabricate';
@@ -152,6 +155,7 @@ import { activeSpectrum, SPECTRA } from './spectrum-catalog';
 import { activeSpectrumEdge, SPECTRUM_EDGES } from './spectrum-edge-catalog';
 import { activeSpectrumTrim, SPECTRUM_TRIMS } from './spectrum-trim-catalog';
 import { runFormatCode, type StudioCommand } from './studio-commands';
+import { commitSource, historyInput, LOAD, type SourceIntent, type StampedIntent, slideBoundary, timed, type UndoVerb, undoChord, undoOwner } from './studio-filo';
 import { deckOutputLang, languageLabel, resolveSupported } from './studio-language';
 import { chatPanel, DIAGRAMS_USED_KEY, FABRICATE_USED_KEY, lensesPanel, libraryPanel, liveCornerPanel, liveLobbyPanel, livePanel, livePillPanel, livePointersPanel, STUDIO_PANELS, sharePanel, slideSettingsPanel, workspacePanel } from './studio-panels';
 import { type Checkpoint, createDeck, DECKS_CLEARED_EVENT, deckLabels, deckWebOrigins, deleteDeck as deleteDeckStore, FLUSH_EVENT, hasStoredPosture, loadBootDeck, loadBootSlide, loadCheckpoints, loadDeckList, loadSettings, loadSettingsTier, loadSettingsView, loadSource, markBackupNudged, metaFor, type Posture, resolveTitle, retitleSource, SETTINGS_EVENT, type SettingsPanelTier, type SettingsPanelView, saveActiveDeck, saveCheckpoint, saveSettings, saveSettingsTier, saveSettingsView, saveSource, setDeckLabel, setDeckWebOrigins, shouldNudgeBackup, slideCountLabel, storedTitleFor, syncDerivedTitle, titleFromSource } from './studio-store';
@@ -491,9 +495,72 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// Getting it backwards (bump only on the paths we remember) makes every future omission
 	// a wrong-ink defect. See lib/core/swap-kind.mjs.
 	const [sourceEpoch, setSourceEpoch] = React.useState(0);
-	const setSource: typeof setSourceRaw = React.useCallback((next) => { setSourceEpoch((e) => e + 1); setSourceRaw(next); }, []);
-	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. */
-	const setSourceFromEditor = setSourceRaw;
+	// ── filo:commit-path begin ───────────────────────────────────────────────
+	// THE COMMIT PATH (Filo, engineering/decisions/2026-10-27-filo-undo-history.md §3). Every write
+	// to the deck source goes through one of the setters below, and each one STAMPS an intent first:
+	// what the change is called and where it came from. One effect further down commits the new
+	// source to Filo once React settles. `setSourceRaw` is used nowhere outside this block; the
+	// `checkFiloCommitPath` gate (tools/check-ownership.js) holds that.
+	const filo = React.useMemo(() => createFilo({ boundary: slideBoundary }), []);
+	const intentRef = React.useRef<StampedIntent | null>(null);
+	const intentSeqRef = React.useRef(0);
+	const stampIntent = React.useCallback((intent: SourceIntent, text: string) => {
+		intentRef.current = { ...intent, text, seq: ++intentSeqRef.current };
+	}, []);
+	/** A write that REPLACES the text shown (a load, an AI apply, a settings row, a restore). Bumps
+	 *  the epoch (above). The intent names the change in the undo history. */
+	const setSource = React.useCallback(
+		(next: string | ((s: string) => string), intent: SourceIntent) => {
+			setSourceEpoch((e) => e + 1);
+			// The intent is stamped with the text the update produces. An updater may run twice under
+			// StrictMode; stamping the same text twice is harmless.
+			setSourceRaw((prev) => {
+				const text = typeof next === 'function' ? next(prev) : next;
+				stampIntent(intent, text);
+				return text;
+			});
+		},
+		[stampIntent],
+	);
+	/** The editor's own `onChange` — the ONE path that is an edit of the text already shown. It
+	 *  carries the editor's own account of the change, so typing is recorded exactly. */
+	const setSourceFromEditor = React.useCallback(
+		(text: string, change?: EditorChange) => {
+			// No change: the editor's `value` sync echoing the text a shell writer just set. Child effects
+			// run before this shell's commit effect, so a fresh stamp here would relabel that writer's
+			// change ("Rename → …") as typing. Keep the writer's intent when it already names this text.
+			if (change || intentRef.current?.text !== text) stampIntent({ label: change?.label ?? 'Typing', origin: change?.origin ?? 'markdown', ...(change ? { edits: change.edits, before: change.before, after: change.after } : {}) }, text);
+			setSourceRaw(text);
+		},
+		[stampIntent],
+	);
+	/** Compose's emit. Compose keeps no undo of its own; its typing coalesces like the editor's. */
+	const setSourceFromCompose = React.useCallback(
+		(text: string, label = 'Typing') => {
+			stampIntent({ label, origin: 'compose' }, text);
+			setSourceRaw(text);
+		},
+		[stampIntent],
+	);
+	/** A change that is not this author's: a collaborator's edit in a live session. No intent, so the
+	 *  commit effect reports it to Filo as an outside change rather than as the author's typing. */
+	const setSourceRemote = React.useCallback((text: string) => setSourceRaw(text), []);
+	/** Filo's own undo or redo landing: Filo already holds the text, so nothing is recorded. */
+	const setSourceFromHistory = React.useCallback(
+		(text: string, label: string) => {
+			stampIntent({ label, origin: 'history', kind: 'history' }, text);
+			setSourceEpoch((e) => e + 1);
+			setSourceRaw(text);
+		},
+		[stampIntent],
+	);
+	/** Filo's undo and redo, and its forgetting of a deleted deck, set further down once the hub and
+	 *  the live session exist; earlier code (the settings toast, deck delete) calls through these. */
+	const runHistoryRef = React.useRef<(verb: UndoVerb) => void>(() => {});
+	/** End the open undo step, so the next change starts a new one (Compose's object edits, a pane pick). */
+	const closeGroupRef = React.useRef<() => void>(() => {});
+	const filoDropRef = React.useRef<(id: string) => void>(() => {});
+	// ── filo:commit-path end ─────────────────────────────────────────────────
 	// Live (2026-10-20 note §7.5): a tour in a session plays on a PRACTICE deck. `source` then holds the
 	// practice text, so the editor, preview and lint all show it, while `real` keeps the shared deck's text:
 	// what the session sees, what remote edits update, and what any save writes. The session's records are
@@ -1579,7 +1646,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// source, applies the (pure) update to the FRESHEST source, and raises a brief
 	// Undo toast. Palette / light-dark are runtime toggles that reverse instantly on
 	// their own, so they don't route here. `undoTimer` auto-dismisses the toast.
-	const showUndo = React.useCallback((label: string, prev: string, next: string) => {
+	const showUndo = React.useCallback((label: string, _prev: string, next: string) => {
 		// The ACTION kind (`lib/notify.ts`): its own slot, so unrelated status text can
 		// never replace this button mid-reach, and one at a time — raising this retires
 		// the previous Undo, which was already a DEAD button (its click is guarded on
@@ -1589,13 +1656,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// {next,id} for the reactive withdrawal below.
 		const id = notifyAction(label, {
 			label: 'Undo',
+			// Undo is Filo's: when nothing has changed since this write, its step is the newest one.
 			onClick: () => {
-				if (sourceRef.current === next) setSource(prev);
+				if (sourceRef.current === next) runHistoryRef.current('undo');
 			},
 		});
 		undoRaiseRef.current = actionRaise();
 		setUndo({ next, id });
-	}, [setSource]);
+	}, []);
 	const changedCountRef = React.useRef(0);
 	const settingsWrite = React.useCallback((label: string, updater: (s: string) => string) => {
 		const prev = sourceRef.current;
@@ -1607,7 +1675,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (changedRow) followBus.setLocal('changed', { what: changedRow, n: ++changedCountRef.current });
 		// Apply the precomputed result; fall back to re-running on the freshest source
 		// only if an editor flush landed between snapshot and commit.
-		setSource((s) => (s === prev ? next : updater(s)));
+		setSource((s) => (s === prev ? next : updater(s)), { label, origin: 'settings' });
 		showUndo(label, prev, next);
 	}, [showUndo, setSource]);
 	// Auto-dismiss the Undo toast the instant the source moves on its own — the user
@@ -2422,7 +2490,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// `verbose` (adds the class + box levers). The menu offers every value; a
 	// hand-typed value we don't recognize shows verbatim. No aliases.
 	const debugValue = getFrontMatter(source, 'debug');
-	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value));
+	const setDebug = (value: string | null) => setSource((s) => writeFrontMatterLine(s, 'debug', value), { label: value ? `Debug overlay → ${value}` : 'Debug overlay off', origin: 'settings' });
 	// Off is the absence of the key, which the picker's Auto head stands for.
 	const DEBUG_OPTIONS: Array<{ value: string; label: string }> = [
 		{ value: 'on-hover', label: 'On hover' },
@@ -2636,7 +2704,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		setDeck(d);
 		{
 			const text = loadSource(d.id) ?? deckSource(d);
-			setSource(text);
+			setSource(text, LOAD);
 			goToChunk(0, { after: text });
 		}
 		setView('compose');
@@ -2650,7 +2718,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const d = createDeck();
 		setDecks(loadDeckList());
 		setDeck(d);
-		setSource(deckSource(d));
+		setSource(deckSource(d), LOAD);
 		goToChunk(0, { after: deckSource(d) });
 		setView('compose');
 		notify('New deck created.');
@@ -2676,12 +2744,15 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// and reverted: it made re-running a tour silently delete a kept deck along with
 		// its checkpoints, chat, and comments.)
 		for (const { id, label } of deckLabels()) {
-			if (label === DEMO_FIRST_DECK_TITLE) deleteDeckStore(id);
+			if (label === DEMO_FIRST_DECK_TITLE) {
+				deleteDeckStore(id);
+				filoDropRef.current(id);
+			}
 		}
 		const d = createDeck(DEMO_FIRST_DECK_TITLE);
 		setDecks(loadDeckList());
 		setDeck(d);
-		setSource(''); // a blank canvas — the demo types the board deck into it
+		setSource('', LOAD); // a blank canvas — the demo types the board deck into it
 		// Clear the editor doc SYNCHRONOUSLY too. `setSource('')` only reaches the editor
 		// through the async value-prop sync; on a slow surface (real iPad Safari) that can
 		// lag the demo's first typeTail, which would then append the board deck AFTER the
@@ -2754,7 +2825,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		if (comments) importComments(d.id, comments);
 		setDecks(loadDeckList());
 		setDeck(d);
-		setSource(text);
+		setSource(text, LOAD);
 		goToChunk(0, { after: text });
 		setView('compose');
 		notify(`Imported “${d.title}”.`);
@@ -2930,6 +3001,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	}
 	function finishRemoveDeck(id: string, media: typeof import('./media-store') | null) {
 		deleteDeckStore(id);
+		filoDropRef.current(id);
 		media
 			?.deleteDeckMedia(id)
 			.then((n) => {
@@ -2945,7 +3017,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			const next = list[0] ?? DECKS[0];
 			setDeck(next);
 			const text = loadSource(next.id) ?? deckSource(next);
-			setSource(text);
+			setSource(text, LOAD);
 			goToChunk(0, { after: text });
 		}
 		notify('Deck deleted.');
@@ -3031,11 +3103,13 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// the text here, first, and the caret report that follows resolves against it rather than the
 	// index of the text before the edit.
 	const onComposeChange = React.useCallback(
-		(src: string) => {
+		(src: string, meta?: { close?: boolean }) => {
 			hub.update(src, { by: 'compose' });
-			setSourceFromEditor(src);
+			// A change that is its own step (a pane pick) closes the step before it.
+			if (meta?.close) closeGroupRef.current();
+			setSourceFromCompose(src, meta?.close ? 'Change pane' : 'Typing');
 		},
-		[hub],
+		[hub, setSourceFromCompose],
 	);
 	const onComposeCursorSlide = React.useCallback(
 		(full: number) => {
@@ -3057,7 +3131,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				(f) => f,
 				(f) => {
 					composeChunkRef.current = Math.max(0, f.unitIndex);
-					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab });
+					// An undo's reveal keeps the caret Compose already put where the change was (Filo note §3.4).
+					if (f.cause === 'nav' || f.cause === 'pick') composeRef.current?.revealSlide(f.unitIndex, { focus: f.grab, keepCaret: f.origin === 'history' });
 				},
 				{ ignoreOrigin: 'compose', equals: (a, b) => a.seq === b.seq },
 			),
@@ -3130,7 +3205,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	const { demoActive, startDemo, stopDemo } = useStudioDemo(rootRef, {
 		palette,
 		createFirstDeck: createDemoFirstDeck,
-		setSource,
+		// The demo's controlled typing path: typing like the author's, so it coalesces the same way.
+		setSource: (next: string) => setSource(next, { label: 'Typing', origin: 'demo' }),
 		typeTail: (t: string) => editorRef.current?.typeTail(t),
 		// The controlled typing path moves no caret, so the editor never scrolls to follow what
 		// the demo is typing. This is how it follows — CodeMirror's own reveal, not a scrollTop
@@ -3249,7 +3325,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// slide?". Two frames let the new source parse before the preview is asked to show it.
 		appendSlide: (md: string) => {
 			const next = `${sourceRef.current.replace(/\s+$/, '')}\n\n---\n\n${md}\n`;
-			setSource(next);
+			setSource(next, { label: 'Add slide', origin: 'studio' });
 			splitApiRef.current.expand('b');
 			// The last chunk of `next`, once the hub holds it (the hub clamps past the end).
 			goToChunk(Number.MAX_SAFE_INTEGER, { after: next, origin: 'lesson', grab: hasFinePointer() });
@@ -3572,7 +3648,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					notify('No change — the selection already reads well.');
 				} else {
 					setCheckpoints(saveCheckpoint(deck.id, source, `Before ${label}`, Date.now()));
-					editorRef.current?.replaceSelection(out.text);
+					editorRef.current?.replaceSelection(out.text, `AI: ${label}`);
 					notify(`${label} applied — ⌘Z or restore from History to undo.`);
 				}
 			} catch {
@@ -3797,10 +3873,10 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				return false;
 			}
 			setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI fix', Date.now()));
-			setSource(next);
+			setSource(next, { label: `AI fix${st.slide != null ? `: slide ${st.slide}` : ''}`, origin: 'ai' });
 			noteAiEdit(source, next);
 			discardFix(key);
-			notify('Fix applied — ⌘Z or restore from History to undo.');
+			notify(`Fix applied — ⌘Z or restore from History to undo.`);
 			return true;
 		},
 		[fixStates, source, deck.id, discardFix, setSource, noteAiEdit],
@@ -3865,7 +3941,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			discardFix(key);
 		}
 		if (applied) {
-			setSource(next);
+			setSource(next, { label: `Fix all (${applied})`, origin: 'ai' });
 			noteAiEdit(source, next);
 		}
 		if (stale.length) setFixStates((m) => { const n = { ...m }; for (const { key, slide } of stale) if (n[key]) n[key] = { phase: 'stale', slide }; return n; });
@@ -4067,7 +4143,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		// Remote edits during a practice run update the shared text kept aside, not the practice deck.
 		setSource: (next: string) => {
 			if (practiceRef.current) setPractice((p) => (p ? { ...p, real: next } : p));
-			else setSourceFromEditor(next);
+			else setSourceRemote(next);
 		},
 		deckId: deck.id,
 		deckTitle: titleFromSource(liveSource, deck.title),
@@ -4123,7 +4199,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			if (existing) saveSource(d.id, shared);
 			setDecks(loadDeckList());
 			setDeck(d);
-			setSourceFromEditor(shared);
+			setSource(shared, LOAD);
 			goToChunk(0, { after: shared });
 			setView('compose');
 			return d.id;
@@ -4214,14 +4290,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					const next = { real: sourceRef.current, records: liveRecords, slide: activeFullIndex, count: slides.length };
 					practiceRef.current = next;
 					setPractice(next);
-					setSource('');
+					setSource('', LOAD);
 				},
 				end: () => {
 					const was = practiceRef.current;
 					if (!was) return false;
 					practiceRef.current = null;
 					setPractice(null);
-					setSource(was.real);
+					setSource(was.real, LOAD);
 					return true;
 				},
 			}
@@ -4234,7 +4310,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			// The tour stops first: left running, it would go on typing into the real deck.
 			stopDemo();
 			setPractice(null);
-			setSource(was.real);
+			setSource(was.real, LOAD);
 			setEditorEpoch((e) => e + 1);
 		}
 	}, [live.collab, setSource, stopDemo]);
@@ -4287,12 +4363,189 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	};
 	// The editor's own writes are already in the shared text; tell the session so it never re-applies them.
 	const onLiveEditorChange = React.useCallback(
-		(next: string) => {
+		(next: string, change?: EditorChange) => {
 			live.noteEditorWrite(next);
-			setSourceFromEditor(next);
+			setSourceFromEditor(next, change);
 		},
-		[live.noteEditorWrite],
+		[live.noteEditorWrite, setSourceFromEditor],
 	);
+	// ── Filo: commit, undo, redo ─────────────────────────────────────────────
+	// The one history (§3). The effect below commits each new source once React has settled; the
+	// root keymap sends ⌘Z / ⌘⇧Z / Ctrl+Y, and the browser's own undo requests (`beforeinput`), to
+	// Filo from any focus that does not own its own undo (studio-filo.ts `undoOwner`).
+	//
+	// The active document: the open deck, or a tour's practice deck (memory only, dropped when the
+	// tour ends, so the practice never touches the real deck's history).
+	const filoDoc = practice ? `practice:${deck.id}` : deck.id;
+	const filoDocRef = React.useRef(filoDoc);
+	filoDocRef.current = filoDoc;
+	// While bound to a live session the shared deck's undo is the session's (Y.UndoManager, per
+	// person), so Filo records nothing for it: the session's changes reach Filo as one outside
+	// change when it ends (§3.2 rule 5, §6.2).
+	const liveShared = !!live.collab && !practice;
+	const liveSharedRef = React.useRef(liveShared);
+	liveSharedRef.current = liveShared;
+	const liveCollabRef = React.useRef(live.collab);
+	liveCollabRef.current = live.collab;
+	// The newest intent seq the commit has seen, so a flush never re-reads one already handled.
+	const seenSeqRef = React.useRef(0);
+	const filoCommit = React.useCallback(
+		(text: string) => {
+			const doc = filoDocRef.current;
+			const h = filo.active;
+			const intent = intentRef.current;
+			if (intent) seenSeqRef.current = Math.max(seenSeqRef.current, intent.seq);
+			if (!h || h.doc !== doc) {
+				// A document switch is a load, never a commit (§3.2 rule 3). A practice deck left behind
+				// is forgotten.
+				if (h?.doc.startsWith('practice:')) filo.drop(h.doc);
+				filo.load(doc, text);
+				return;
+			}
+			if (liveSharedRef.current) {
+				h.sync(text);
+				return;
+			}
+			if (intent?.kind === 'load' && intent.text === text) {
+				filo.load(doc, text);
+				return;
+			}
+			timed('filo:commit', () => commitSource(h, text, intent));
+		},
+		[filo],
+	);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `filoDoc` IS a trigger — a tour's practice deck switches documents with no source change of its own.
+	React.useEffect(() => {
+		filoCommit(source);
+	}, [source, filoDoc, filoCommit]);
+	// A deck deleted takes its history with it (§6.4). "Clear all" reloads the Studio, which empties
+	// every in-memory history.
+	const filoDropDeck = React.useCallback((id: string) => filo.drop(id), [filo]);
+	filoDropRef.current = filoDropDeck;
+
+	// What the last undo or redo did, for assistive tech (`Announce`). A sighted author sees it: the
+	// change lands where it was, and every pane moves there (§3.4).
+	const [undoSay, setUndoSay] = React.useState('');
+	const saySeqRef = React.useRef(0);
+	// The undo waiting for an IME composition to end, if any (see runHistory).
+	const composingVerbRef = React.useRef<UndoVerb | null>(null);
+	const say = React.useCallback((text: string) => {
+		// The same words twice in a row are still a new event: a zero-width tail makes them differ.
+		saySeqRef.current ^= 1;
+		setUndoSay(saySeqRef.current ? `${text}\u200b` : text);
+	}, []);
+	const runHistory = React.useCallback(
+		(verb: UndoVerb) => {
+			if (liveSharedRef.current) {
+				// The session's undo, scoped to this browser's own changes.
+				const c = liveCollabRef.current;
+				const moved = c ? (verb === 'undo' ? c.undo() : c.redo()) : false;
+				if (!moved) say(verb === 'undo' ? 'Nothing to undo' : 'Nothing to redo');
+				// The session mirrors the undone text into the source synchronously; Compose shows it at once,
+				// or a focused Compose would park it and the next keystroke would push the undone text back.
+				else if (c) composeRef.current?.applyHistory(c.seed());
+				return;
+			}
+			// An IME composition owns the keys: the undo waits for it to end (Filo note §3.3).
+			const compose = composeRef.current;
+			if (compose?.composing()) {
+				// One undo waits, the last one asked for: three taps during a composition are not three undos.
+				const queued = composingVerbRef.current !== null;
+				composingVerbRef.current = verb;
+				if (!queued)
+					compose.afterComposition(() => {
+						const v = composingVerbRef.current;
+						composingVerbRef.current = null;
+						if (v) runHistoryRef.current(v);
+					});
+				return;
+			}
+			// A write that has not reached the commit effect yet (a keystroke in this same frame) is
+			// committed first, so the undo never computes against text older than the screen's.
+			// Never a load: its document switch may not have rendered yet, and flushing it now would
+			// record the next deck's text against this one.
+			const pending = intentRef.current;
+			if (pending && pending.kind !== 'load' && pending.seq > seenSeqRef.current) filoCommit(pending.text);
+			const h = filo.active;
+			if (!h) return;
+			const m = timed(`filo:${verb}`, () => (verb === 'undo' ? h.undo() : h.redo()));
+			if (!m) {
+				say(verb === 'undo' ? 'Nothing to undo' : 'Nothing to redo');
+				return;
+			}
+			if (m.gap) {
+				// An outside change was recorded as its own step; the NEXT ⌘Z undoes it (§3.2 rule 4).
+				notify('Changed outside this history. ⌘Z again to undo it.');
+				say('Changed outside this history. Undo again to undo it.');
+				return;
+			}
+			// Compose shows it now, focused or not, touching only the slides that changed.
+			if (compose) timed('filo:compose-apply', () => compose.applyHistory(m.text));
+			setSourceFromHistory(m.text, m.label);
+			if (m.caret !== null) editorRef.current?.placeCaret(m.text, m.caret);
+			// THE REVEAL: every pane lands on the slide the change touched (§3.4). The hub takes the
+			// new text now, so the caret offset resolves against it.
+			if (m.caret !== null) {
+				hub.update(m.text, { by: 'history' });
+				const ol = hub.outline();
+				const at = ol ? placeAt(ol, m.caret) : null;
+				if (at) hub.go('history', { unitIndex: at.unit, part: at.part }, { after: m.text });
+			}
+			say(`${verb === 'undo' ? 'Undid' : 'Redid'}: ${m.label}`);
+		},
+		[filo, filoCommit, hub, say, setSourceFromHistory],
+	);
+	runHistoryRef.current = runHistory;
+	closeGroupRef.current = () => {
+		// Commit a change still on its way first, so the step it closes is the one the author made.
+		const pending = intentRef.current;
+		if (pending && pending.kind !== 'load' && pending.seq > seenSeqRef.current) filoCommit(pending.text);
+		filo.active?.closeGroup();
+	};
+	const filoCloseGroup = React.useCallback(() => closeGroupRef.current(), []);
+	// Undo / Redo enabled state for the shell's buttons, from the active history. Subscribed after
+	// the commit effect (declared above) has loaded the document this render switched to.
+	const [filoCan, setFiloCan] = React.useState({ undo: false, redo: false });
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `filoDoc` IS the trigger — a document switch makes a different history active.
+	React.useEffect(() => {
+		const h = filo.active;
+		if (!h) return;
+		const read = () => {
+			const st = h.state();
+			setFiloCan((c) => (c.undo === st.canUndo && c.redo === st.canRedo ? c : { undo: st.canUndo, redo: st.canRedo }));
+		};
+		read();
+		return h.subscribe((st) => `${st.canUndo}|${st.canRedo}`, read);
+	}, [filo, filoDoc]);
+	// THE ROOT KEYMAP (§3.5). Bubble phase, so an editor that handles the chord itself (a code field
+	// with its own history, the live binding) has already claimed it.
+	React.useEffect(() => {
+		const keysAreFilos = () => !presentOpenRef.current && viewRef.current !== 'fabricate';
+		const onKey = (e: KeyboardEvent) => {
+			if (e.defaultPrevented || e.isComposing) return;
+			const verb = undoChord(e);
+			if (!verb || !keysAreFilos() || undoOwner(e.target instanceof Element ? e.target : null) !== 'filo') return;
+			e.preventDefault();
+			runHistoryRef.current(verb);
+		};
+		// The Edit menu, iOS shake and three-finger swipe, the iPad shortcut bar and Android keyboard
+		// keys ask through `beforeinput`. Unanswered in the deck editor, the browser would change the
+		// editor's DOM behind its model.
+		const onBeforeInput = (e: InputEvent) => {
+			if (e.isComposing) return;
+			const verb = historyInput(e.inputType);
+			if (!verb || !keysAreFilos() || undoOwner(e.target instanceof Element ? e.target : null) !== 'filo') return;
+			e.preventDefault();
+			runHistoryRef.current(verb);
+		};
+		window.addEventListener('keydown', onKey);
+		window.addEventListener('beforeinput', onBeforeInput, true);
+		return () => {
+			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('beforeinput', onBeforeInput, true);
+		};
+	}, []);
+
 	// Who else is on each slide (full-deck index → people), for the navigator and preview corner.
 	const liveBySlide = React.useMemo(() => {
 		const m = new Map<number, typeof live.view.people>();
@@ -4694,19 +4947,19 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// slide the op names, ONCE THE HUB HOLDS THE NEW TEXT — so the rail, the preview and BOTH
 	// editors land on it (Compose used to be skipped here), with no frame to wait for.
 	const curIndex = slideNo - 1;
-	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean } = {}) {
-		setSource(r.source);
+	function applyDeckOp(r: { source: string; active: number }, o: { grab?: boolean; label?: string } = {}) {
+		setSource(r.source, { label: o.label ?? 'Slide change', origin: 'rail' });
 		goToChunk(r.active, { after: r.source, grab: o.grab });
 	}
 	/** The Library rewrote the open deck's text (a photo's decks moved to its new name): same path as any slide edit. */
-	const replaceDeckSource = (next: string) => applyDeckOp({ source: next, active: activeFullIndex });
+	const replaceDeckSource = (next: string) => applyDeckOp({ source: next, active: activeFullIndex }, { label: 'Photo renamed' });
 	// "Add slide" opens the unified add-slide gallery (its Blank tile keeps a quick blank
 	// insert one tap away) — the #1058 "one insert door" — inserting after the current
 	// slide, rather than dropping a bare blank with no component choice.
 	const opAddSlide = () => setInsertOpen(true);
-	const opDuplicate = () => { applyDeckOp(duplicateSlide(source, curIndex)); notify('Slide duplicated.'); };
-	const opDelete = () => { if (slides.length <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteSlide(source, curIndex)); notify('Slide deleted.'); };
-	const opMove = (dir: -1 | 1) => applyDeckOp(moveSlide(source, curIndex, curIndex + dir));
+	const opDuplicate = () => { applyDeckOp(duplicateSlide(source, curIndex), { label: 'Duplicate slide' }); notify('Slide duplicated.'); };
+	const opDelete = () => { if (slides.length <= 1) { notify('A deck needs at least one slide.'); return; } applyDeckOp(deleteSlide(source, curIndex), { label: 'Delete slide' }); notify('Slide deleted.'); };
+	const opMove = (dir: -1 | 1) => applyDeckOp(moveSlide(source, curIndex, curIndex + dir), { label: dir < 0 ? 'Move slide earlier' : 'Move slide later' });
 	// THE CLIP NOTICE — warn, plus a one-click fix, when the shown slide is too full for the deck's
 	// venue (owner ruling 2026-09-27). The preview reports the runtime's own overflow ring
 	// (`onOverflow`); nothing is measured for it. Only a deck at a venue above laptop gets the
@@ -4725,7 +4978,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const prev = sourceRef.current;
 		const r = split(prev, curIndex);
 		if (!r) return;
-		applyDeckOp(r);
+		applyDeckOp(r, { label: 'Split slide' });
 		// With an Undo, like the settings writes: one click rewrote the deck, so one click undoes it.
 		showUndo('Slide split in two', prev, r.source);
 	};
@@ -4766,7 +5019,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 		const r = addSlideAfter(source, activeFullIndex, c.skeleton);
 		// GO TO THE SLIDE YOU JUST ADDED, caret and keyboard focus included: the next thing an
 		// author types fills in the skeleton they just chose, not the OLD slide.
-		applyDeckOp(r, { grab: hasFinePointer() });
+		applyDeckOp(r, { grab: hasFinePointer(), label: `Insert “${c.label ?? c.name}”` });
 		notify(`Inserted “${c.label ?? c.name}”.`);
 		if (c.bucket) setRecentComponents((r) => [c.name, ...r.filter((n) => n !== c.name)].slice(0, 6));
 	};
@@ -4800,7 +5053,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	function restoreCheckpoint(cp: Checkpoint) {
 		// Snapshot the current state first so a restore is itself reversible.
 		saveCheckpoint(deck.id, source, 'Before restore', Date.now());
-		setSource(cp.source);
+		setSource(cp.source, { label: `Restored “${cp.label}”`, origin: 'restore' });
 		goToChunk(0, { after: cp.source });
 		setCheckpoints(loadCheckpoints(deck.id));
 		notify('Version restored.');
@@ -4881,7 +5134,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 	// History), then swap in the proposed source.
 	const applyChatEdit = (next: string) => {
 		setCheckpoints(saveCheckpoint(deck.id, source, 'Before AI chat edit', Date.now()));
-		setSource(next);
+		setSource(next, { label: 'AI chat edit', origin: 'ai' });
 		noteAiEdit(source, next);
 		goToChunk(0, { after: next });
 		// The AI edit jumps the preview to the top — reveal a collapsed preview so
@@ -5046,7 +5299,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 													return;
 												}
 												setCheckpoints(saveCheckpoint(deck.id, source, 'Before profile change', Date.now()));
-												setSource(next);
+												setSource(next, { label: `Profile → ${profileOverride}`, origin: 'settings' });
 												setProfileOverride(null);
 												notify(`Deck now declares profile: ${profileOverride} — ⌘Z or restore from History to undo.`);
 											});
@@ -6157,14 +6410,14 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			)}
 			{editMode === 'compose' ? (
 				<React.Suspense fallback={<ComposeSkeleton />}>
-				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
+				<ComposeView ref={composeRef} source={source} onChange={onComposeChange} onHistory={runHistory} canUndo={filoCan.undo || liveShared} canRedo={filoCan.redo || liveShared} onCloseGroup={filoCloseGroup} resetKey={deck.id} className="flex-1" visible={mobile ? effPane === 'edit' : !(effectiveStop === 'read' || split.collapsed === 'a')} onTypingCollapse={mobile ? setChromeCollapsed : undefined} onOpenSlideSettings={openSlideSettings} slideHeadings={slideHeadings} slideBlocks={slideBlocks} slideFences={slideFences} onInsertBelow={openInsertAfter} onCursorSlide={onComposeCursorSlide} onCursorText={onComposeCursorText} paneCatalog={components} onOpenPanePicker={setPaneReq} onOpenLibrary={(filter) => { if (filter) { setLibInitialFilter(filter); setLibFilterRequest((n) => n + 1); } revealCraftDock(); setLibraryOpen(true); }} pluginKinds={composePluginKinds} onRetire={(src, id) => (id === deckIdRef.current ? onComposeChange(src) : saveSourceGuarded(id, src))} />
 				</React.Suspense>
 			) : (
 				<React.Suspense fallback={<EditorSkeleton />}>
 					{/* On a phone the editor pane is hidden until the user opens it, so CodeMirror builds its view after the
 					    first slide, not beside it: a few hundred ms of main thread in the seconds the slide waits for. Where the
 					    editor is on screen (the desktop split, or the phone's edit pane) it mounts at once. */}
-					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} carryKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
+					{holdEditor ? <EditorSkeleton /> : <Editor ref={editorRef} value={source} onChange={live.collab && !practice ? onLiveEditorChange : setSourceFromEditor} collab={practice ? null : live.collab} knownComponents={validation ? knownWithLocal : NO_KNOWN} completionComponents={insertComponents} completionAssets={completionAssets} completionFinishValues={editorFinishValues} completionFinishClasses={editorFinishClasses} completionPalettes={editorPalettes} completionVocab={completionVocab} lintVocab={lintVocab} extraComponentNames={localNames} focusHub={hub} onSelectionChange={setHasSelection} onLintCounts={setLintCounts} measuredSparks={measuredSparks} measuredPhoto={measuredPhoto} docKey={editorEpoch ? `${deck.id}#${editorEpoch}` : deck.id} className="flex-1" /> }
 				</React.Suspense>
 			)}
 		</section>
@@ -6950,6 +7203,8 @@ export default function StudioShell({ options, components: seedComponents = [], 
 			    silent (M3/M4 a11y). `stopAnnounce` starts empty and is updated only on a
 			    real change (never on mount, never behind Fabricate) by the effect above. */}
 			<div role="status" aria-live="polite" className="sr-only">{stopAnnounce}</div>
+			{/* What the last undo or redo did ("Undid: Theme → Cuoio"), for assistive tech (Filo note §3.4). */}
+			<Announce message={undoSay} />
 			{/* ── Top bar ─────────────────────────────────────────────── */}
 			{/* ONE HEADER, EVERY STOP AND EVERY WIDTH (owner, 2026-09-05: *"the shell should
 			    also be consistent too. there should be zero shift when moving between these
@@ -7229,6 +7484,16 @@ export default function StudioShell({ options, components: seedComponents = [], 
 				    drawer's own Workspace row below to avoid the exact "same setting, two
 				    homes" problem just fixed for Slide settings. */}
 				{mobile && <Tip label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}><Button variant="ghost" size="icon-sm" data-demo="mode" aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'} onClick={toggleMode}>{mode === 'dark' ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}</Button></Tip>}
+				{/* A phone has no ⌘Z: Undo and Redo for the deck's one history (Filo note §3.5). They show
+				    in every pane, Compose included, because the pre-paint skeleton (StudioChromeSkeleton)
+				    draws them before it can know the stored pane, and the two must match at hand-off. Below 360 px
+				    both drop them, or the deck title has no room left (studio-instant-shell's 320 px case). */}
+				{mobile && (
+					<>
+						<Tip label="Undo"><Button variant="ghost" size="icon-sm" aria-label="Undo" className="max-[359px]:hidden" disabled={!filoCan.undo && !liveShared} onClick={() => runHistory('undo')}><Undo2 className="size-[18px]" /></Button></Tip>
+						<Tip label="Redo"><Button variant="ghost" size="icon-sm" aria-label="Redo" className="max-[359px]:hidden" disabled={!filoCan.redo && !liveShared} onClick={() => runHistory('redo')}><Redo2 className="size-[18px]" /></Button></Tip>
+					</>
+				)}
 				{mobile && (
 					<Tip label="Workspace settings"><Button variant="ghost" size="icon-sm" aria-label="Workspace settings" onClick={() => setWorkspaceOpen(true)}><SettingsCog className="size-[18px]" /></Button></Tip>
 				)}
@@ -7302,7 +7567,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 					    the heading would be page content sitting in no landmark. */}
 					<h1 className="sr-only">Lattice Studio</h1>
 					<React.Suspense fallback={<div className="grid flex-1 place-items-center text-[13px] text-muted-foreground">Loading the Fabricate studio…</div>}>
-						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onOpenWorkspace={() => setWorkspaceOpen(true)} />
+						<Fabricate options={options} catalog={components} seed={fabricateSeed} savedThemes={savedThemes} savedComponents={localComponents} savedFinishes={savedFinishes} savedScenes={savedScenes} onClose={() => { setFabricateSeed(null); setView('compose'); }} onSaved={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton), { label: 'Insert slide' })} onOpenWorkspace={() => setWorkspaceOpen(true)} />
 					</React.Suspense>
 				</main>
 			) : landscapePhone ? (
@@ -7491,7 +7756,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 									)}
 									{libraryOpen && (
 										<PanelLoader panel={libraryPanel} shell={(body) => <LibraryShell docked open onOpenChange={setLibraryOpen}>{body}</LibraryShell>}>
-											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
+											{(Library) => <Library docked open onOpenChange={setLibraryOpen} options={options} activePalette={palette} activeFinish={finish} initialFilter={libInitialFilter} filterRequest={libFilterRequest} activeDeckId={deck.id} activeDeckSource={source} onReplaceSource={replaceDeckSource} onApplyTheme={applyPalette} onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }} onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton), { label: 'Insert slide' })} onEditTheme={editTheme} onEditComponent={editComponent} onEditFinish={editFinish} onEditMotion={editMotion} onChanged={() => { refreshThemes(); refreshComponents(); refreshFinishes(); refreshScenes(); refreshAssets(); }} />}
 										</PanelLoader>
 									)}
 								</ResizablePanel>
@@ -7687,7 +7952,7 @@ export default function StudioShell({ options, components: seedComponents = [], 
 							activeDeckSource={source} onReplaceSource={replaceDeckSource}
 							onApplyTheme={applyPalette}
 							onApplyFinish={(name) => { const token = `finish-${name}`; setFinish(token); notify(`Applied ${token}.`); }}
-							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton))}
+							onInsert={(skeleton) => applyDeckOp(addSlideAfter(source, activeFullIndex, skeleton), { label: 'Insert slide' })}
 							onEditTheme={editTheme}
 							onEditComponent={editComponent}
 							onEditFinish={editFinish}

@@ -672,8 +672,9 @@ test('@smoke the rail names the component the engine actually renders', async ({
 // destroyed the `EditorView` and CodeMirror's history went with it. Type, switch to
 // Compose, switch back, press ⌘Z — nothing happened, and nothing said why. Not a lost fold
 // or a lost scroll offset: the author's only route back from a mistake, removed by a
-// two-click detour they took for an unrelated reason. `Editor.tsx` now carries the state
-// (history field included) across the unmount.
+// two-click detour they took for an unrelated reason. The history is not the editor's any
+// more: the Studio keeps it in Filo, one per deck (2026-10-27-filo-undo-history.md), so an
+// unmount cannot take it away.
 //
 // SELF-WITNESSING. The edit is made, the round trip is taken, and the undo is judged
 // against the EDITED document — so an oracle that never actually edited, or never actually
@@ -697,12 +698,11 @@ test('@smoke undo still works after a trip through Compose and back', async ({ p
 	await expect.poll(() => editorDoc(page), { message: '⌘Z did nothing — the history did not survive the pane switch' }).not.toContain('UNDOMARK');
 });
 
-// The BOUNDARY of that carry, pinned so it cannot widen by accident. Editing in Compose
-// changes the document, and those changes are not in this editor's history — offering ⌘Z
-// over them would undo the wrong thing. So the carry is guarded on the document being
-// byte-identical, and a Compose edit DISCARDS it. This test asserts the honest outcome:
-// the Compose edit stands, and one ⌘Z does not silently rewrite it.
-test('a Compose edit deliberately drops the carried history', async ({ page }) => {
+// ONE HISTORY FOR BOTH PANES. Before Filo, a Compose edit was not in this editor's history, so
+// the carry above was discarded on any Compose edit and ⌘Z in Markdown could not reach it ("undo
+// the last thing I did" had no answer). Filo records Compose's edits on the deck's one history,
+// so ⌘Z in the Markdown pane undoes the Compose edit, and ⌘⇧Z puts it back.
+test('a Compose edit is on the one history: ⌘Z in Markdown undoes it', async ({ page }) => {
 	await toCompose(page);
 	await caretIntoComposeSlide(page, 0);
 	await page.keyboard.type('COMPOSEMARK');
@@ -712,8 +712,9 @@ test('a Compose edit deliberately drops the carried history', async ({ page }) =
 
 	await focusEditor(page);
 	await page.keyboard.press('ControlOrMeta+z');
-	await page.keyboard.press('ControlOrMeta+z');
-	expect(await editorDoc(page), 'a stale history must not be replayed over a Compose edit').toContain('COMPOSEMARK');
+	await expect.poll(() => editorDoc(page), { message: '⌘Z in Markdown did not undo the Compose edit' }).not.toContain('COMPOSEMARK');
+	await page.keyboard.press('ControlOrMeta+Shift+z');
+	await expect.poll(() => editorDoc(page), { message: '⌘⇧Z did not redo the Compose edit' }).toBe(afterCompose);
 });
 
 // ── The carried history belongs to ONE deck (pinned OFF this tier, deliberately) ──
@@ -1118,13 +1119,12 @@ test('a deck switch withdraws a control that pointed at the deck you left', asyn
 });
 
 // AND BACK AGAIN — the return leg, which is where withdrawing on the way out inverted the
-// defect it was fixing. A Compose round trip REMOUNTS the editor and the carry restores its
-// state, selection included; the teardown had just told the shell there was none, and nothing
-// put it back. Measured on the built Studio before this pair was separated: the view held
-// selection 0–1924 and the toolbar had no Refine button at all — the same dead control as the
-// case above, wearing the opposite sign. The two legs have to be asserted together or a fix for
-// one silently becomes the other.
-test('coming back from Compose restores the control its selection gates', async ({ page }) => {
+// defect it was fixing. A Compose round trip REMOUNTS the editor; the carried state it used to
+// restore brought a selection back that the teardown had just withdrawn, and nothing put the
+// control back (measured: selection 0–1924 and no Refine button). The carry went with the
+// editor's own history (Filo), so the remounted editor holds no selection — and the invariant
+// is the same either way: the control matches the selection the editor actually holds.
+test('coming back from Compose leaves the selection control matching the editor', async ({ page }) => {
 	await focusEditor(page);
 	await page.keyboard.press('ControlOrMeta+a');
 	const refine = page.getByRole('button', { name: /Refine/i });
@@ -1138,8 +1138,9 @@ test('coming back from Compose restores the control its selection gates', async 
 		const v = (document.querySelector('.cm-content') as any)?.cmTile?.root?.view;
 		return v ? v.state.selection.main.empty : null;
 	});
-	expect(restored, 'witness: the carry really brought a live selection back').toBe(false);
-	await expect(refine, 'the editor holds a selection and its control is gone').toBeVisible();
+	expect(restored, 'witness: the remounted editor reports its selection').not.toBeNull();
+	if (restored === false) await expect(refine, 'the editor holds a selection and its control is gone').toBeVisible();
+	else await expect(refine, 'Refine is offered over an editor with nothing selected').toBeHidden();
 });
 
 // The same control through the OTHER door. `Refine` lives in the toolbar band ABOVE both
@@ -1259,10 +1260,10 @@ test('the caret still drives the rail after a deck switch', async ({ page }) => 
 });
 
 // The same invariant across the OTHER route — the Compose round trip, where the editor
-// unmounts and its state is carried by hand. Two new decks, because the carry is guarded on
-// the document and `newDeckSource()` is deterministic, so this is the one shape where two
-// different decks hold identical bytes.
-test('the carried history does not cross decks either', async ({ page }) => {
+// unmounts. Two new decks, because `newDeckSource()` is deterministic, so this is the one shape
+// where two different decks hold identical bytes: Filo keys its histories by deck id, never by
+// content, and this pins that it does.
+test('the undo history does not cross decks through a Compose detour either', async ({ page }) => {
 	await newDeck(page); // deck A, holding the new-deck template
 	const template = await editorDoc(page);
 

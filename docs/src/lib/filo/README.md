@@ -16,6 +16,13 @@ Design and measurements: `engineering/decisions/2026-10-27-filo-undo-history.md`
 the in-memory core (slice 2). Persistence, the cross-document byte budget, the docs site and the
 mark come in later slices.
 
+**In the Studio** (slice 3): the glue lives outside this folder, in
+`docs/src/components/studio/studio-filo.ts` (the commit rules, the ⌘Z routing) and the
+`filo:commit-path` block of `StudioShell.tsx` (every deck-source setter stamps an intent; one
+effect commits). `checkFiloCommitPath` in `tools/check-ownership.js` keeps every source write on
+that path and every Studio surface off an undo stack of its own. Compose (slice 4) applies an
+undo through `docs/src/lib/compose/filo-history.ts`, changing only the slides that differ.
+
 ## Sixty-second start
 
 ```ts

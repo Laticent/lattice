@@ -381,3 +381,52 @@ describe('ComposeView: an outside change is shown, not applied twice', () => {
 		expect(seen).toEqual([]);
 	});
 });
+
+// Filo slice 4 (engineering/decisions/2026-10-27-filo-undo-history.md §3.3): an undo from the Studio's
+// one history lands in Compose AT ONCE, even while the editor has focus. An outside change waits for
+// blur; an undo that waited would look like it did nothing, and the next keystroke would emit from the
+// stale document and put the undone change back.
+describe('applyHistory — a Filo undo lands now, focused or not', () => {
+	it('changes only the slide the undo touched, emits nothing, and puts the caret where the change was', () => {
+		const onChange = vi.fn();
+		const ref = React.createRef<ComposeHandle>();
+		render(<ComposeView ref={ref} source={DECK} onChange={onChange} />);
+		const view = theView();
+		view.focus();
+		moveCaretInto(view, 2);
+		const [s0, s1, s2] = [view.state.doc.child(0), view.state.doc.child(1), view.state.doc.child(2)];
+		const undone = DECK.replace('body two', 'body two, before');
+		ref.current?.applyHistory(undone);
+		expect(view.state.doc.child(1).textContent).toContain('body two, before');
+		// Untouched slides keep their nodes (so their emit bytes stay exact), and the caret moves to the
+		// end of the change (Filo note §3.4), as it does in the Markdown pane.
+		expect(view.state.doc.child(0)).toBe(s0);
+		expect(view.state.doc.child(2)).toBe(s2);
+		expect(view.state.doc.child(1)).not.toBe(s1);
+		expect(view.state.selection.$head.index(0)).toBe(1);
+		// The Studio already holds this text: Compose does not echo it back as an edit.
+		expect(onChange).not.toHaveBeenCalled();
+		// The next keystroke emits from the NEW document, not the stale one.
+		view.dispatch(view.state.tr.insertText('!', view.state.selection.head));
+		expect(onChange).toHaveBeenCalledTimes(1);
+		expect(onChange.mock.calls[0][0]).toContain('body two, before!');
+	});
+
+	// Found by the slice-4 checker: an outside change parked while Compose had focus, then undone by
+	// ⌘Z, came back on blur and the next keystroke would have re-recorded it.
+	it('an outside change parked while focused, then undone, does not land on blur', () => {
+		const onChange = vi.fn();
+		const ref = React.createRef<ComposeHandle>();
+		const { rerender } = render(<ComposeView ref={ref} source={DECK} onChange={onChange} />);
+		const view = theView();
+		view.focus();
+		moveCaretInto(view, 1);
+		const outside = DECK.replace('body two', 'body two AI');
+		rerender(<ComposeView ref={ref} source={outside} onChange={onChange} />);
+		expect(view.state.doc.child(1).textContent, 'witness: the outside change is parked while focused').not.toContain('AI');
+		ref.current?.applyHistory(DECK);
+		rerender(<ComposeView ref={ref} source={DECK} onChange={onChange} />);
+		view.dom.dispatchEvent(new FocusEvent('blur'));
+		expect(view.state.doc.child(1).textContent).not.toContain('AI');
+	});
+});

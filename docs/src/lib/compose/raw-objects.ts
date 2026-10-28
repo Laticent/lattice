@@ -9,11 +9,11 @@
 //     what the document refuses on the way in: a blank line inside an HTML block, a `---` line, a directive comment.
 //   · A locked slide's nodes never change.
 
-import { closeHistory } from 'prosemirror-history';
 import type { Node as PMNode } from 'prosemirror-model';
 import { NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
+import { closeFiloGroup } from './filo-history';
 import { inLockedSlide } from './image-objects';
 import { objectsKey } from './inline-objects';
 import { isInlineTex, isRawBlockText, type RawKind } from './raw-block';
@@ -63,7 +63,7 @@ export function inlineTexProblem(tex: string): string | null {
 
 /** Replace the node at `pos` with `next`, as one undo step, and keep it selected. Returns whether the document now holds it. */
 function replaceNode(view: EditorView, pos: number, node: PMNode, next: PMNode): boolean {
-	view.dispatch(closeHistory(view.state.tr));
+	view.dispatch(closeFiloGroup(view.state.tr));
 	const tr = view.state.tr.replaceWith(pos, pos + node.nodeSize, next);
 	tr.setSelection(NodeSelection.create(tr.doc, pos)).setMeta(objectsKey, { edited: true });
 	view.dispatch(tr);
@@ -94,7 +94,7 @@ export function removeRaw(view: EditorView, pos: number): boolean {
 	const $at = view.state.doc.resolve(pos);
 	const before = view.state.doc;
 	const alone = node.isInline && $at.parent.type.name === 'paragraph' && $at.parent.childCount === 1 && $at.depth >= 2;
-	view.dispatch(closeHistory(view.state.tr));
+	view.dispatch(closeFiloGroup(view.state.tr));
 	const tr = view.state.tr;
 	if (alone) tr.delete($at.before(), $at.after());
 	else tr.delete(pos, pos + node.nodeSize);

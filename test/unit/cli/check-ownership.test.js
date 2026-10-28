@@ -96,6 +96,7 @@ const {
   checkFuocoBoundary,
   checkVedutaBoundary,
   checkFiloBoundary,
+  checkFiloCommitPath,
   checkMosaicoBoundary,
   checkFluidoBoundary,
   checkTavolaBoundary,
@@ -2294,6 +2295,63 @@ describe('check-ownership', () => {
     });
     test('a triple-slash reference is an ambient dependency, and is caught', () => {
       assert.equal(run({ 'core.ts': '/// <reference types="node" />\nexport const x = 1;' }).length, 1);
+    });
+  });
+
+  // Filo's commit path (2026-10-27-filo-undo-history.md §3.2 rule 6): every deck-source write goes
+  // through the commit path, and no Studio surface keeps an undo stack beside Filo's.
+  describe('Filo commit-path gate', () => {
+    const ROOT = path.join(__dirname, '..', '..', '..');
+    const run = (files, sanctioned = []) => {
+      const dir = fs.mkdtempSync(path.join(ROOT, '.scratch-filo-gate-'));
+      try {
+        for (const [name, body] of Object.entries(files)) {
+          fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+          fs.writeFileSync(path.join(dir, name), body);
+        }
+        const errors = [];
+        const rel = path.relative(ROOT, dir).split(path.sep).join('/');
+        checkFiloCommitPath(errors, { shell: path.join(dir, 'StudioShell.tsx'), roots: [dir], sanctioned: sanctioned.map((f) => ({ file: `${rel}/${f}`, why: 'test' })) });
+        return errors;
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    };
+    test('the live tree is clean', () => {
+      const errors = [];
+      checkFiloCommitPath(errors);
+      assert.deepEqual(errors, [], errors.join('\n'));
+    });
+    test('setSourceRaw outside the commit-path block is caught', () => {
+      const ok = 'const [source, setSourceRaw] = React.useState("");\n// filo:commit-path begin\nconst s = (t) => setSourceRaw(t);\n// filo:commit-path end\n';
+      assert.deepEqual(run({ 'StudioShell.tsx': ok }), []);
+      assert.equal(run({ 'StudioShell.tsx': `${ok}setSourceRaw('x');\n` }).length, 1);
+      // A block that never closes would let every later line through.
+      assert.equal(run({ 'StudioShell.tsx': 'const [source, setSourceRaw] = React.useState("");\n// filo:commit-path begin\nsetSourceRaw(1);\n' }).length, 1);
+    });
+    test('an undo stack of its own is caught, in every import form', () => {
+      for (const src of [
+        "import { defaultKeymap, history } from '@codemirror/commands';",
+        "import { undo } from 'prosemirror-history';",
+        "view.dispatch(closeHistory(tr));",
+        "keymap.of([...historyKeymap]);",
+        "keymap({ 'Mod-z': undo });",
+        'keymap({ "Shift-Mod-z": redo });',
+        "keymap.of([{ key: 'Mod-Shift-z', run: redo }]);",
+        "keymap.of([{ key: 'Ctrl-y', run: redo }]);",
+        "import * as cm from '@codemirror/commands';\nconst ext = cm.history();",
+        'const um = new Y.UndoManager(text);',
+      ]) {
+        assert.equal(run({ 'X.tsx': src }).length, 1, `not caught: ${src}`);
+      }
+      assert.deepEqual(run({ 'X.tsx': "import { defaultKeymap } from '@codemirror/commands';\n// history() lives in Filo now" }), []);
+      assert.deepEqual(run({ 'X.test.tsx': "import { undo } from 'prosemirror-history';" }), []);
+      // A glob in a string is not a comment: the code after it is still scanned.
+      assert.equal(run({ 'X.tsx': "const g = '**/*.ts';\nimport { undo } from 'prosemirror-history';\nconst e = '*/';" }).length, 1);
+    });
+    test('a sanctioned file passes, and a stale sanction fails', () => {
+      assert.deepEqual(run({ 'X.tsx': "import { undo } from 'prosemirror-history';" }, ['X.tsx']), []);
+      assert.equal(run({ 'X.tsx': 'export const x = 1;' }, ['X.tsx']).length, 1);
     });
   });
 

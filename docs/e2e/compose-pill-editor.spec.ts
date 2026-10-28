@@ -185,13 +185,13 @@ test.describe('compose pill editor', () => {
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
 	});
 
-	test('Compose has its own Undo and Redo buttons, for the devices with no shortcut', async ({ page }) => {
+	test('Compose has Undo and Redo buttons, for the devices with no shortcut', async ({ page }) => {
 		await openDeckInCompose(page);
 		await bar(page).locator('.cs-slide-bar').first().hover();
 		const undo = bar(page).getByRole('button', { name: 'Undo' });
 		const redo = bar(page).getByRole('button', { name: 'Redo' });
-		// Opening the deck made nothing to undo.
-		await expect(undo).toBeDisabled();
+		// The pair steps the deck's ONE history (Filo): the setup typed this deck into the Markdown editor,
+		// so Undo is live from the start; nothing has been undone, so Redo is not.
 		await expect(redo).toBeDisabled();
 		await chip(page, 'SHIPPED').click();
 		await editor(page).getByRole('radio', { name: 'Color 7' }).click();
@@ -200,7 +200,6 @@ test.describe('compose pill editor', () => {
 		await expect(undo).toBeEnabled();
 		await undo.click();
 		await expect.poll(() => savedDeck(page)).toBe(DECK);
-		await expect(undo).toBeDisabled();
 		await expect(redo).toBeEnabled();
 		await redo.click();
 		await expect.poll(() => savedDeck(page)).toContain('`{SHIPPED, c7}`');

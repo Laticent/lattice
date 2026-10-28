@@ -13,11 +13,11 @@
 //   · The slide's markdown is written by prosemirror-markdown's own image rule, so a slide the author did not touch
 //     keeps its bytes (the emit baseline) and one they did touch writes `![alt](src "title")` as the editor always has.
 
-import { closeHistory } from 'prosemirror-history';
 import type { Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { deckSchema } from './deck-doc';
+import { closeFiloGroup } from './filo-history';
 import { objectsKey } from './inline-objects';
 
 export const imageType = () => deckSchema.nodes.image;
@@ -124,7 +124,7 @@ export function editImage(view: EditorView, pos: number, edit: ImageEdit): boole
 	if (edit.alt !== undefined) attrs.alt = edit.alt.replace(/[\r\n]+/g, ' ');
 	if (attrs.src === node.attrs.src && attrs.alt === node.attrs.alt) return true;
 	// A pick is its own undo step: close the open history group first, so it never joins the typing before it.
-	view.dispatch(closeHistory(view.state.tr));
+	view.dispatch(closeFiloGroup(view.state.tr));
 	const tr = view.state.tr.replaceWith(pos, pos + 1, imageType().create(attrs, null, node.marks));
 	tr.setSelection(NodeSelection.create(tr.doc, pos)).setMeta(objectsKey, { edited: true });
 	view.dispatch(tr);
@@ -139,7 +139,7 @@ export function removeImage(view: EditorView, pos: number): boolean {
 	const $at = view.state.doc.resolve(pos);
 	const before = view.state.doc;
 	const alone = $at.parent.type.name === 'paragraph' && $at.parent.childCount === 1 && $at.depth >= 2;
-	view.dispatch(closeHistory(view.state.tr));
+	view.dispatch(closeFiloGroup(view.state.tr));
 	const tr = view.state.tr;
 	if (alone) tr.delete($at.before(), $at.after());
 	else tr.delete(pos, pos + node.nodeSize);
