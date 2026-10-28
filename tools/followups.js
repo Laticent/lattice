@@ -59,11 +59,14 @@ const SEVERITIES = ['high', 'medium', 'low'];
 //   deferred: blocked — <the thing outside our control it waits on>
 //   deferred: off-path — <the surface, and why the change that found it does not touch it>
 // The gate checks only the SHAPE; whether the reason is true is the reviewer's and the checker's.
-// Items recorded before the rule are exempt by date AND origin, so the old ledger is not rewritten:
-// a new item needs both an old date and an old origin PR to skip it.
+// Items recorded before the rule are exempt by DATE, so the old ledger is not rewritten. The cutoff is a
+// date and not an origin PR number on purpose: PRs already open when this landed (#2953 among them) carry
+// items with origin numbers above it and today's date, and an origin cutoff would fail their build:check in
+// the merge queue. Backdating `recorded` evades the gate; the card's `left behind` row and its grader are
+// the check on that.
 const DEFERRED = /^(large|blocked|off-path)\s+—\s+\S/;
-const DEFERRED_SINCE = { recorded: '2026-10-29', origin: 2952 };
-const needsDeferred = (meta) => (meta.recorded || '') >= DEFERRED_SINCE.recorded || Number(meta.origin) > DEFERRED_SINCE.origin;
+const DEFERRED_SINCE = '2026-10-29';
+const needsDeferred = (meta) => (meta.recorded || '') >= DEFERRED_SINCE;
 const SEVERITY_RANK = { high: 0, medium: 1, low: 2 };
 
 /** A file (not a folder) inside the repo. A `../` path or a directory is not a governing doc. */

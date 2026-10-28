@@ -83,7 +83,7 @@ without opening the PR that left it:
 | `area` | yes | One `area:*` label name from `.github/labels.json`, without the prefix (`engine`, `chart`, `website`, …). The same word the issue would carry. |
 | `severity` | yes | `high`, `medium` or `low`: the `priority:*` words an issue uses, so promotion maps 1:1. `critical` is refused. "Drop everything" needs a board column and an owner, so file an issue instead. |
 | `swimlane` | yes | The governing doc, as the repo path of a file that must exist, optionally followed by a section: `engineering/decisions/x.md §8.1`. Without it, "the runbook is note §8.1" leaves the reader nothing to find. Renaming or deleting a doc that an item names fails `build:check` until the item is updated, which is the point: the pointer must not go stale. |
-| `deferred` | yes, for items recorded on or after 2026-10-29 or with an origin PR above #2952 | Why this was not done in the PR that found it: `large — <why>`, `blocked — <what it waits on>` or `off-path — <the surface>`. See §Why it was not done now. |
+| `deferred` | yes, for items recorded on or after 2026-10-29 | Why this was not done in the PR that found it: `large — <why>`, `blocked — <what it waits on>` or `off-path — <the surface>`. See §Why it was not done now. |
 | `source` | no | A link to the brief. |
 
 How to pick `severity`:
@@ -121,8 +121,9 @@ to 2026-10-28, 89 of them `severity: low` (`engineering/decisions/2026-10-28-rai
 `large` is true is for the checker that grades the pre-merge card, which reads the card's
 `left behind` row.
 
-Items recorded before the rule are exempt by date **and** origin PR, so the old ledger is not
-rewritten.
+Items recorded before 2026-10-29 are exempt, so the old ledger is not rewritten. The cutoff is a
+date rather than an origin PR number so that PRs already open when the rule landed are not ejected
+from the merge queue.
 
 ## The lifecycle
 

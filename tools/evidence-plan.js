@@ -53,7 +53,8 @@ const SURFACES = [
 	{
 		surface: 'docs site: screenshots at 1440, 820 and 390',
 		kind: 'local',
-		match: (f) => /^docs\/src\/(components|layouts|pages|styles|playground)\//.test(f),
+		// Any site source, not only UI folders: docs/src/lib renders what the Playground preview shows.
+		match: (f) => f.startsWith('docs/src/') && !/^docs\/src\/test\//.test(f) && !/\.(test|spec)\.[jt]s$/.test(f),
 		command: 'node tools/screenshot.js <url> <out>.png --width 1440|820|390   # then SendUserFile',
 		why: 'no website change is done without evidence at all three widths',
 	},

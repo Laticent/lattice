@@ -77,7 +77,7 @@ with the artifact attached. Export bytes keep their Quality Bar sign-off.
 | `graded_by` present and not the maker | `tools/agent-card.js` refuses `self`, `maker`, `me`, `this session` | A maker can type "checker" without spawning one. The checker's agent id on the PR is the evidence |
 | Below `VERY HIGH`, the loop ran | `raised: none` is refused unless the level is `VERY HIGH` | A round that did nothing still counts as a round |
 | `left behind` present | required on the card | The count is the maker's |
-| New follow-ups carry `deferred:` | `checkFollowups` via `build:check`, for items recorded on or after 2026-10-29 **or** with an origin PR above #2952 | The gate checks the shape. Whether `large` is true is the checker's job. Backdating both fields evades it, deliberately |
+| New follow-ups carry `deferred:` | `checkFollowups` via `build:check`, for items recorded on or after 2026-10-29 | The gate checks the shape. Whether `large` is true is the checker's job. Backdating `recorded` evades it. A date, not an origin PR number, because the card grader found that an origin cutoff would eject open PR #2953 (its item: origin 2953, recorded 2026-10-28) from the merge queue |
 
 ## 5. Cost
 

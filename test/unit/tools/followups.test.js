@@ -209,8 +209,10 @@ test('a new item must say why it was deferred: large, blocked or off-path', () =
   }
 });
 
-test('either a new date OR a new origin PR triggers the deferral check; the old ledger is exempt', () => {
-  assert.deepEqual(followupProblems(folder({ '42-p1-x.md': GOOD })), [], 'old date, old origin');
+test('the recorded date alone triggers the deferral check; an in-flight PR item recorded earlier is exempt', () => {
+  assert.deepEqual(followupProblems(folder({ '42-p1-x.md': GOOD })), [], 'old date');
   assert.equal(followupProblems(folder({ '42-p1-x.md': GOOD.replace('2026-09-22', '2026-10-29') })).length, 1, 'new date');
-  assert.equal(followupProblems(folder({ '2953-p1-x.md': GOOD.replace('origin: 42', 'origin: 2953') })).length, 1, 'new origin');
+  // #2953 was open when the rule landed: origin above the old ledger, recorded the day before.
+  const inflight = GOOD.replace('origin: 42', 'origin: 2953').replace('2026-09-22', '2026-10-28');
+  assert.deepEqual(followupProblems(folder({ '2953-p1-x.md': inflight })), [], 'in-flight PR, recorded before the cutoff');
 });

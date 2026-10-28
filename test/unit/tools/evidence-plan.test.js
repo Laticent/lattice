@@ -25,6 +25,11 @@ test('a docs-site change owes three widths, WebKit and Gecko, and screenshots', 
   assert.ok(s.some((x) => /screenshots at 1440, 820 and 390/.test(x)));
 });
 
+test('a docs/src/lib change owes screenshots too: it renders what the preview shows', () => {
+  assert.ok(surfaces(['docs/src/lib/single-slide-render.ts']).some((x) => /screenshots at 1440/.test(x)));
+  assert.ok(!surfaces(['docs/src/test/x.test.ts']).some((x) => /screenshots at 1440/.test(x)));
+});
+
 test('a theme CSS change owes the integration tier and a light/dark look, not the owner', () => {
   const plan = evidencePlan(['themes/indaco/indaco.css']);
   const s = plan.steps.map((x) => x.surface);
