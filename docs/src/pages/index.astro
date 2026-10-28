@@ -18,11 +18,10 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import '../styles/landing.css';
 import SiteHeader from '../components/site/SiteHeader.astro';
-import { HeroCopy } from '../components/landing/HeroCopy.tsx';
+import { HeroActions, HeroCopy } from '../components/landing/HeroCopy.tsx';
 import HeroPreview from '../components/landing/HeroPreview.tsx';
 import {
 	ByomSection,
-	DevStrip,
 	HowItWorks,
 	NextSteps,
 	nextStepsFor,
@@ -36,7 +35,7 @@ import {
 	WhyCards,
 } from '../components/landing/sections.tsx';
 import FieldCardsLive from '../components/landing/FieldCardsLive.tsx';
-import { HERO_SLIDE, ROOM_SLIDES, SAY_MORE_SLIDE } from '../components/landing/room-decks';
+import { BRAND_SLIDE, HERO_SLIDE, ROOM_SLIDES, SAY_MORE_SLIDE } from '../components/landing/room-decks';
 import RestyleShowcase from '../components/landing/RestyleShowcase.tsx';
 import StudioPreview from '../components/landing/StudioPreview.tsx';
 import { DECKS } from '../components/studio/decks';
@@ -86,10 +85,9 @@ const heroCodeHtml = heroSource
 	})
 	.join('\n');
 
-// "One source, every palette" demo = ONE slide re-rendered live through every
+// "Your brand, one line" demo = ONE slide (room-decks.ts BRAND_SLIDE) re-rendered live through every
 // palette. Swatch colors are each palette's light `--accent`, read from the
 // generated tokens CSS (the same source the topbar selector lists).
-const restyleComp = manifests.find((m) => m.name === 'kpi');
 const paletteAccents = palettes.map((name) => {
 	const hit = tokensCss.match(
 		new RegExp(`\\[data-palette="${name}"\\]\\[data-mode="light"\\]\\{[^}]*?--accent:(#[0-9A-Fa-f]{3,8})`),
@@ -146,8 +144,8 @@ const heroData = {
 };
 const fieldCardsData = { cards: cardData, themeBase, runtimeUrl, engineUrl, dagreUrl, katexUrl };
 const restyleData = {
-	sample: restyleComp.sample || restyleComp.skeleton,
-	drawn: needsDrawn(restyleComp.sample || restyleComp.skeleton),
+	sample: BRAND_SLIDE,
+	drawn: needsDrawn(BRAND_SLIDE),
 	palettes: paletteAccents,
 	themeBase,
 	runtimeUrl,
@@ -219,17 +217,25 @@ const nextSteps = nextStepsFor(url);
 		<SiteHeader palettes={palettes} />
 
 		<main>
-			<!-- Hero -->
+			<!-- Hero — THREE grid children, the Studio section's shape: below lg the
+			     order reads copy → live slide → actions, so on a phone the slide is on the
+			     first screen instead of under the buttons; at lg the copy and actions sit
+			     in column 1 and the slide spans both rows of column 2. -->
 			<section class="py-[clamp(48px,7vw,96px)] pb-[clamp(40px,5vw,72px)]">
-				<div class="wrap grid grid-cols-1 items-center gap-[clamp(28px,4vw,56px)] lg:grid-cols-[1.05fr_1fr]">
-					<!-- Static copy + CTAs (zero JS). -->
-					<HeroCopy
-						studioHref={url('studio/')}
-						getStartedHref={url('getting-started/')}
-						galleryHref={url('gallery.pdf')}
-					/>
+				<div class="wrap grid grid-cols-1 items-center gap-x-[clamp(28px,4vw,56px)] gap-y-7 lg:grid-cols-[1.05fr_1fr]">
+					<!-- Static copy (zero JS). -->
+					<div class="min-w-0 lg:col-start-1 lg:row-start-1 lg:self-end"><HeroCopy /></div>
 					<!-- Interactive Preview/Source flip + live render (hydrates). -->
-					<HeroPreview client:load data={heroData} />
+					<div class="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+						<HeroPreview client:load data={heroData} />
+					</div>
+					<div class="min-w-0 lg:col-start-1 lg:row-start-2 lg:self-start">
+						<HeroActions
+							studioHref={url('studio/')}
+							getStartedHref={url('getting-started/')}
+							galleryHref={url('gallery.pdf')}
+						/>
+					</div>
 				</div>
 			</section>
 
@@ -241,6 +247,15 @@ const nextSteps = nextStepsFor(url);
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SayMoreSection playgroundHref={url('playground/')} />
+				</div>
+			</section>
+
+			<!-- How it works — a slim three-step band directly after say-more: the thesis,
+			     then how you do it, then whose room it is. Both scoring reviews found it too
+			     late further down. Plain with a bottom rule, under the muted say-more band. -->
+			<section class="border-b border-border py-[clamp(28px,3.5vw,44px)]">
+				<div class="wrap">
+					<HowItWorks />
 				</div>
 			</section>
 
@@ -264,29 +279,47 @@ const nextSteps = nextStepsFor(url);
 				<FieldCardsLive client:idle data={fieldCardsData} />
 			</section>
 
-			<!-- Proof — one receipt from /comparison, a slim band. Directly after the
-			     rooms, so the line that sets Lattice apart from AI deck generators lands
-			     BEFORE the page brings in an AI section (Bring your own model). Both
-			     independent reviews of this page asked for that order (audit §12). -->
+			<!-- Proof — one receipt from /comparison, a slim band, directly after the rooms
+			     so the line that sets Lattice apart from AI deck generators lands BEFORE the
+			     page brings in an AI section. The "why decks drift" cards follow it: the
+			     contrast with AI generators, then the contrast with blank canvases. -->
 			<section class="border-y border-border bg-muted py-[clamp(40px,5vw,64px)]">
 				<div class="wrap">
 					<ProofStrip comparisonHref={url('comparison/')} />
 				</div>
 			</section>
 
-			<!-- How it works — a slim three-step band, after the "why" (say-more and
-			     the rooms) so the mechanism arrives once the visitor knows what it is for.
-			     Plain with a bottom rule: the muted proof band sits directly above it. -->
-			<section class="border-b border-border py-[clamp(28px,3.5vw,44px)]">
+			<!-- Why -->
+			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<HowItWorks />
+					<SectionHead eyebrow="Why decks drift, and why these don't" title="Every deck looks like it came from the same team — because it did.">
+						Slide tools make every slide a blank canvas, so the headline font on page 4 drifts from page 5 and the accent
+						blue wanders between two shades. Lattice removes the canvas. You choose meaning; the engine owns the pixels.
+					</SectionHead>
+					<WhyCards />
 				</div>
 			</section>
 
-			<!-- The Studio — the browser door, opened. It sits directly AFTER "How it
-			     works" on purpose, so the visitor reads the text-file → engine model
-			     before they learn there is an app. Ahead of it the page would read "web
-			     app that also has a CLI".
+			<!-- Your brand, one line — muted. The palette carousel, retitled for the visitor
+			     it serves: a sales or marketing lead whose question is "will every rep's deck
+			     look like ours?". It renders a real quarterly-review slide carrying a logo
+			     (room-decks.ts BRAND_SLIDE), not a slide about tile counts. -->
+			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
+				<div class="wrap">
+					<SectionHead eyebrow="Your brand, one line" title="Change one line. Restyle the whole deck.">
+						Your brand colors live in one palette file and your logo in one <code class="font-mono text-[0.88em] text-primary">logo:</code>
+						line, so every deck anyone on the team makes comes out on brand. Change the
+						<code class="font-mono text-[0.88em] text-primary">theme:</code> line and the whole deck follows, in light or dark. Watch one
+						quarterly review move through every palette:
+					</SectionHead>
+					<RestyleShowcase client:visible data={restyleData} />
+				</div>
+			</section>
+
+			<!-- The Studio — the browser door, opened. It sits well AFTER "How it works" on
+			     purpose, so the visitor reads the text-file → engine model before they learn
+			     there is an app. Ahead of it the page would read "web app that also has a
+			     CLI".
 			     Plain background; the section supplies its own inset bg-card panel. -->
 			<section class="py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
@@ -329,44 +362,20 @@ const nextSteps = nextStepsFor(url);
 			     the bookkeeping. -->
 			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
-					<ByomSection featuresHref={url('features/') + '#ai-authoring'} />
-				</div>
-			</section>
-
-			<!-- Why -->
-			<section class="py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<SectionHead eyebrow="Why decks drift, and why these don't" title="Every deck looks like it came from the same team — because it did.">
-						Slide tools make every slide a blank canvas, so the headline font on page 4 drifts from page 5 and the accent
-						blue wanders between two shades. Lattice removes the canvas. You choose meaning; the engine owns the pixels.
-					</SectionHead>
-					<WhyCards />
-				</div>
-			</section>
-
-			<!-- Showcase — muted. The bands alternate light/muted from the hero down,
-			     and Next steps below closes the page light, above the muted footer. -->
-			<section class="border-y border-border bg-muted py-[clamp(48px,6vw,88px)]">
-				<div class="wrap">
-					<SectionHead eyebrow="One source, every palette" title="Change one line. Restyle the whole deck.">
-						Watch a single slide move through every palette — in light or dark. This is the one-file palette
-						contract paying off: edit one <code class="font-mono text-[0.88em] text-primary">theme:</code> line and the whole deck follows.
-					</SectionHead>
-					<RestyleShowcase client:visible data={restyleData} />
+					<ByomSection featuresHref={url('features/') + '#ai-authoring'} url={url} />
 				</div>
 			</section>
 
 			<!-- Next steps — plain with a top rule, not muted: the footer below is
 			     muted, and a muted band above it would run into it. The libraries and
-			     specs that sat above it moved behind its "For developers" card
-			     (positioning audit §7). -->
+			     specs that sat above it moved to the "For builders" panel beside the AI
+			     section (positioning audit §7, §13). -->
 			<section class="border-t border-border py-[clamp(48px,6vw,88px)]">
 				<div class="wrap">
 					<SectionHead eyebrow="Where to go next" title="Pick a starting point.">
 						The engine ships today; the Laticent desktop app is on the way.
 					</SectionHead>
 					<NextSteps links={nextSteps} />
-					<DevStrip url={url} />
 				</div>
 			</section>
 		</main>

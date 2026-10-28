@@ -45,6 +45,33 @@ export const HERO_SLIDE = `<!-- _class: decision -->
   - Two competitors launch next spring. Waiting hands them the window.
 `;
 
+// The "Your brand, one line" carousel's slide: one quarterly review re-rendered
+// through every palette. It replaces the kpi manifest sample ("Four tiles the eye
+// sweeps in one pass"), a slide about slides that both scoring reviews singled out.
+// `logo: lattice` is the one built-in mark, so it paints on every surface and
+// takes the palette with the rest of the slide — the brand-follows-one-line claim,
+// shown. A deck's own logo is a path or URL (lib/base/base.docs.md § logo).
+export const BRAND_SLIDE = `---
+logo: lattice
+---
+
+<!-- _class: kpi -->
+
+\`Quarterly review · Q3\`
+
+## Revenue ahead of plan; margin and cash both up.
+
+1. $24M
+   - Revenue
+   - target $22M \`{On plan}\`
+2. 42%
+   - Gross margin
+   - +2 pts on Q2 \`{On plan}\`
+3. $11M
+   - Cash
+   - +$1.8M on Q2 \`{On plan}\`
+`;
+
 export const ROOM_SLIDES: Record<string, string> = {
 	boardroom: `<!-- _class: verdict-grid -->
 

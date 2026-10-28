@@ -24,11 +24,7 @@ import { Eyebrow } from './sections';
 // steps) and stays a top-level nav item on every page.
 // See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1, §3.1.
 
-export function HeroCopy({
-	studioHref,
-	getStartedHref,
-	galleryHref,
-}: { studioHref: string; getStartedHref: string; galleryHref: string }) {
+export function HeroCopy() {
 	return (
 		<div className="lx-ui min-w-0">
 			<div className="mb-[18px]">
@@ -37,11 +33,41 @@ export function HeroCopy({
 			<h1 className="mb-[22px] font-[family-name:var(--font-display)] text-[clamp(38px,5.4vw,68px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
 				Write the <span className="italic text-primary">words</span>. The deck is already designed.
 			</h1>
-			<p className="m-0 mb-[30px] max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
-				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of Markdown
-				in one text file, and name the layout that fits it. Lattice sets every page so your audience gets the point at a glance:
-				one design throughout, nothing to drag into place.
+			{/* "Markdown" stays (the developer visitor asked for it back) but is glossed
+			    in the same breath for everyone else: both scoring reviews on 2026-10-28
+			    split on it, and the gloss serves both. */}
+			<p className="m-0 max-w-[46ch] text-[clamp(17px,1.5vw,20px)] text-foreground">
+				For the boardroom, the pitch, the briefing, and the lecture hall. Write each slide as a few lines of plain
+				text (Markdown, as simple as a bulleted email) and name the layout that fits it. Lattice sets every page so
+				your audience gets the point at a glance.
 			</p>
+			{/* The contrast with AI deck generators, at the fold. Both scoring reviews
+			    found it only mid-page; the July note's §7.1 still holds — the page
+			    never lets the product write the deck. */}
+			<p className="m-0 mt-4 max-w-[46ch] text-[15px] font-semibold text-[var(--text-heading)]">
+				Not an AI that guesses your slides: Lattice renders what you wrote, the same way every time.
+			</p>
+		</div>
+	);
+}
+
+// The hero's actions, a SEPARATE grid child from the copy so that below `lg` the
+// order reads copy → live slide → buttons (the Studio section's three-child
+// shape). On a phone the slide used to fall below the first screen, under the
+// buttons and three paragraphs of small print; both scoring reviews flagged it.
+//
+// The fold offers exactly TWO doors — browser and machine — and names the job
+// of each. See engineering/decisions/2026-07-30-landing-studio-promotion.md §0 F1.
+// "Same slides", NOT "same output": the command line emits a vector PDF with
+// selectable text and note annotations, while the Studio's one-click PDF is a
+// 2x raster, and our own getting-started page says so.
+export function HeroActions({
+	studioHref,
+	getStartedHref,
+	galleryHref,
+}: { studioHref: string; getStartedHref: string; galleryHref: string }) {
+	return (
+		<div className="lx-ui min-w-0">
 			<div className="flex flex-wrap items-center gap-3">
 				<Button asChild size="lg">
 					<a href={studioHref}>
@@ -49,32 +75,15 @@ export function HeroCopy({
 					</a>
 				</Button>
 				<Button asChild variant="outline" size="lg">
-					<a href={getStartedHref}>Get started</a>
+					<a href={getStartedHref}>Use the command line</a>
 				</Button>
 			</div>
-			{/* The two-door router: which door is yours, and why they're the same
-			    product. It carries the "laptop or CI" clause the trust line below
-			    used to hold — the fact does more work here, attached to a door. */}
-			{/* Reader-facing verbs, not the app's: the H1 hands "write" to the visitor,
-			    and a fold that lets the product write the deck is the auto-generation
-			    echo this page exists to avoid (§7.1).
-			    "Same slides", NOT "same output" — the engine is shared, but the
-			    artifacts differ: the command line emits a vector PDF with selectable
-			    text and note annotations, while the Studio's one-click PDF is a 2x
-			    raster. "Same output" is the kind of parity claim a reader tests first,
-			    and our own getting-started page contradicts it. */}
 			<p className="m-0 mt-4 max-w-[46ch] text-[13px] text-muted-foreground">
-				Write, review, and present a deck in a browser tab — that's the Studio. One command renders the same deck on
-				your laptop or in CI. <span className="font-semibold text-foreground">Same engine, same slides.</span>
-			</p>
-			<p className="m-0 mt-2 text-[13px] text-muted-foreground">
-				No install to try it. Nothing to sign up for. Fully offline. Open source{' '}
-				<span className="whitespace-nowrap">(AGPL-3.0)</span>.
-			</p>
-			<p className="m-0 mt-2 text-[13px] text-muted-foreground">
-				Or skim a finished deck first —{' '}
+				The Studio runs in a browser tab; one command renders the same deck on your laptop or in CI.{' '}
+				<span className="font-semibold text-foreground">Same engine, same slides.</span> Free and open source, no
+				sign-up. Or skim{' '}
 				<a className="font-semibold text-primary hover:underline" href={galleryHref} target="_blank" rel="noopener">
-					the full gallery, as a PDF
+					a finished deck, as a PDF
 				</a>
 				.
 			</p>

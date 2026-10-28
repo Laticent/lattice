@@ -3,7 +3,7 @@ import { nextIndex, type Palette } from '@/lib/restyle-carousel';
 import { createSingleSlideRenderer } from '@/lib/single-slide-render';
 import { slideFrameStyle } from '@/lib/slide-frame';
 
-// "One source, every palette": one slide re-rendered live through every palette,
+// "Your brand, one line": one slide re-rendered live through every palette,
 // auto-advancing. The swatch rail + the active-name readout are React (shadcn-
 // styled buttons in a tablist); the live render WRAPS the shared engine bridge.
 // Behavior preserved from the old inline IIFE: 2.6s auto-cycle, pause on hover,

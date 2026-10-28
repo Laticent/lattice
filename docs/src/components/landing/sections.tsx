@@ -197,7 +197,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'boardroom',
 		room: 'The boardroom',
 		who: 'Executives, finance, founders',
-		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches, and every number on it is one you wrote.',
+		body: 'A verdict grid that scores the options, like this one; a decision slide that names the call; a waterfall that explains the change. Every page of the board pack matches, and Lattice never adds a number you didn’t write.',
 	},
 	{
 		live: 'pitch',
@@ -209,7 +209,7 @@ const ROOM_CARDS: RoomCard[] = [
 		live: 'briefing',
 		room: 'The briefing',
 		who: 'Government and the public sector',
-		body: 'A policy recommendation with its evidence cited, a regulatory update, a risk matrix. The engine runs offline on your own machine, with no account and no telemetry, and every layout meets WCAG AA contrast.',
+		body: 'A policy recommendation with its evidence cited, a regulatory update, a risk matrix. It runs offline on your own machine, and every layout meets WCAG AA contrast.',
 	},
 	{
 		live: 'lecture',
@@ -246,9 +246,16 @@ export function RoomCards({ playgroundHref, layoutCount }: { playgroundHref: str
 			: c,
 	);
 	return (
-		<div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+		// Below `sm` the six cards are a horizontal swipe row (scroll-snap), each 84%
+		// wide so the next one peeks in. Stacked, they were about six phone screens of
+		// scroll before the next section; both scoring reviews flagged the length. The
+		// row bleeds to the screen edge by cancelling `.wrap`'s 24px gutter, and its own
+		// overflow keeps the page itself from ever scrolling sideways.
+		// No tabIndex on the row: every card holds a focusable "Edit" link, and tabbing
+		// to it scrolls that card into view, so the keyboard reaches all six.
+		<div className="grid grid-cols-1 gap-[18px] max-sm:-mx-[24px] max-sm:flex max-sm:snap-x max-sm:snap-mandatory max-sm:overflow-x-auto max-sm:scroll-px-[24px] max-sm:px-[24px] max-sm:pb-3 sm:grid-cols-2 lg:grid-cols-3">
 			{cards.map((c) => (
-				<Card key={c.live} className="gap-0 overflow-hidden py-6">
+				<Card key={c.live} className="gap-0 overflow-hidden py-6 max-sm:w-[84%] max-sm:flex-none max-sm:snap-start">
 					<CardContent className="flex flex-col">
 						{/* Live-preview host — filled by FieldCardsLive (data-live-card). A slide
 						    frame (docs/src/lib/slide-frame.ts): it never shapes the slide. */}
@@ -349,6 +356,9 @@ export function WhyCards() {
 // ── Proof strip ─────────────────────────────────────────────────────────────
 // One receipt from /comparison, promoted to the landing. The headline is a
 // protected line (copy-positioning doc §10) — promote verbatim, never rewrite.
+// The study is linked INLINE (the same source and date comparison.astro cites):
+// a page that attacks AI tools for unsourced numbers cannot print one bare, and
+// both scoring reviews on 2026-10-28 read it as uncited from here.
 // The attribution carries the caveat; the full sourced treatment (with its
 // "read it as directional" footnote) lives one click away on /comparison.
 export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
@@ -358,9 +368,16 @@ export function ProofStrip({ comparisonHref }: { comparisonHref: string }) {
 				The artsy deck wins the demo. The deterministic deck wins the boardroom.
 			</h2>
 			<p className="m-0 mb-5 text-[16.5px] leading-[1.6] text-foreground">
-				When one team fact-checked six AI deck generators, the best got 20% of its claims right. Models predict
-				plausible text instead of looking facts up. Lattice never invents a number or reshuffles a layout — it renders
-				what you wrote, the same way every time.
+				When{' '}
+				<a
+					className="font-semibold text-primary hover:underline"
+					href="https://medium.com/@neel2108/we-fact-checked-6-ai-presentation-makers-heres-how-often-they-hallucinate-90e6093e42fc"
+					rel="noopener"
+				>
+					one team fact-checked six AI deck generators
+				</a>{' '}
+				in February 2026, the best got 20% of its claims right. Models predict plausible text instead of looking facts
+				up. Lattice never invents a number or reshuffles a layout — it renders what you wrote, the same way every time.
 			</p>
 			<a
 				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
@@ -548,34 +565,105 @@ export function StudioTrust() {
 // Every string is the original, verbatim, at its original altitude. It sits
 // immediately AFTER the Studio section so the page still holds one AI
 // conversation rather than two in two registers.
-export function ByomSection({ featuresHref }: { featuresHref: string }) {
+export function ByomSection({ featuresHref, url }: { featuresHref: string; url: (p: string) => string }) {
 	return (
-		<div className="max-w-[62ch]">
-			<div className="mb-3">
-				<Eyebrow>Bring your own model</Eyebrow>
+		<div className="grid grid-cols-1 items-start gap-x-[clamp(24px,3vw,44px)] gap-y-10 lg:grid-cols-[1.15fr_1fr]">
+			<div className="min-w-0 max-w-[62ch]">
+				<div className="mb-3">
+					<Eyebrow>Bring your own model</Eyebrow>
+				</div>
+				<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
+					Point your copilot at Lattice.
+				</h2>
+				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
+					Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or any
+					agent can draft a valid deck. The engine renders that draft deterministically — the design was finished long
+					before the model arrived.
+				</p>
+				{/* The one new sentence. "The split holds", not "the same rule holds" —
+				    the paragraph above describes a split (the model drafts, the engine
+				    renders), it never states a rule. */}
+				<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
+					The split holds in the Studio too: chat and fixes are optional, and they run on your own account. Connect
+					OpenRouter in one click, or download a model that runs on your device. Switch the AI off entirely and
+					nothing else changes.
+				</p>
+				<a
+					className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
+					href={featuresHref}
+				>
+					How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
+				</a>
 			</div>
-			<h2 className="mb-3.5 font-[family-name:var(--font-display)] text-[clamp(28px,3.4vw,42px)] leading-[1.08] tracking-[-0.02em] text-[var(--text-heading)]">
-				Point your copilot at Lattice.
-			</h2>
-			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-				Lattice ships a machine-readable layout catalog and a published authoring spec, so Claude, Cursor, or any
-				agent can draft a valid deck. The engine renders that draft deterministically — the design was finished long
-				before the model arrived.
+			<BuildersPanel url={url} />
+		</div>
+	);
+}
+
+// ── For builders ────────────────────────────────────────────────────────────
+// The technical visitor's band, beside "Point your copilot at Lattice" — the other
+// half of the same audience. When the Libraries and Specs sections left the home
+// scroll, a single sentence under Next steps replaced them, and both scoring
+// reviews (2026-10-28) marked the developer visitor down for it: a technical
+// buyer, often the gatekeeper for government and corporate adoption, lost the
+// reasons to trust the engine. Three proof points, each with its link, and the
+// AGPL line in plain words, because a procurement reader stops at the license
+// name. The library count comes from nav.mjs, so it updates itself.
+function BuildersPanel({ url }: { url: (p: string) => string }) {
+	const points: { lead: string; body: React.ReactNode }[] = [
+		{
+			lead: 'Open formats.',
+			body: (
+				<>
+					The deck format, the linter's findings, and narration timing are{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('spec/lfm/')}>
+						published specs
+					</a>{' '}
+					(CC-BY-4.0) that another tool can implement.
+				</>
+			),
+		},
+		{
+			lead: 'Parts you can reuse.',
+			body: (
+				<>
+					The engine is{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
+						{librariesNav(url).length} framework-free libraries
+					</a>
+					, each usable without Lattice.
+				</>
+			),
+		},
+		{
+			lead: 'Runs in your build.',
+			body: (
+				<>
+					One command renders the PDF, PowerPoint, PNG, or HTML on your laptop or in CI.{' '}
+					<a className="font-semibold text-primary hover:underline" href={url('getting-started/')}>
+						Get started
+					</a>
+					.
+				</>
+			),
+		},
+	];
+	return (
+		<div className="min-w-0 rounded-xl border border-border bg-card p-[clamp(20px,2.5vw,32px)] text-card-foreground shadow-sm">
+			<div className="mb-3">
+				<Eyebrow>For builders</Eyebrow>
+			</div>
+			<dl className="m-0 flex flex-col gap-3.5">
+				{points.map((p) => (
+					<div key={p.lead}>
+						<dt className="inline text-[15px] font-semibold text-[var(--text-heading)]">{p.lead}</dt>{' '}
+						<dd className="m-0 inline text-[15px] leading-[1.55] text-foreground">{p.body}</dd>
+					</div>
+				))}
+			</dl>
+			<p className="m-0 mt-5 border-t border-border pt-4 text-[13.5px] leading-[1.55] text-muted-foreground">
+				Open source under AGPL-3.0, with an exception that leaves every deck you make free of any license.
 			</p>
-			{/* The one new sentence. "The split holds", not "the same rule holds" —
-			    the paragraph above describes a split (the model drafts, the engine
-			    renders), it never states a rule. */}
-			<p className="m-0 mb-5 text-[17px] leading-[1.6] text-foreground">
-				The split holds in the Studio too: chat and fixes are optional, and they run on your own account. Connect
-				OpenRouter in one click, or download a model that runs on your device. Switch the AI off entirely and
-				nothing else changes.
-			</p>
-			<a
-				className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-primary hover:underline"
-				href={featuresHref}
-			>
-				How AI authoring works <ArrowRight aria-hidden="true" className="size-4" />
-			</a>
 		</div>
 	);
 }
@@ -640,9 +728,9 @@ type NextStep = { href: string; title: string; body: React.ReactNode; cta: strin
  *
  * Card 1 is the developer door. The libraries and specs used to hold two full
  * sections of the home scroll; they are real assets for developers and they
- * spent a general visitor's attention, so they live in the DevStrip line under
- * these cards, the header's Libraries menu, and the footer
- * (2026-10-28-home-positioning-audit.md §7, §12).
+ * spent a general visitor's attention, so they live in the "For builders" panel
+ * beside the AI section, the header's Libraries menu, and the footer
+ * (2026-10-28-home-positioning-audit.md §7, §13).
  * The base-aware `url` helper is passed in so the module stays free of
  * `import.meta.env`.
  */
@@ -725,29 +813,5 @@ export function NextSteps({ links }: { links: NextStep[] }) {
 				),
 			)}
 		</div>
-	);
-}
-
-// ── Developer strip ─────────────────────────────────────────────────────────
-// One slim line under the Next-steps cards for the technical visitor, who lost
-// the most when the Libraries and Specs sections left the home scroll: both
-// independent reviews of the page said so (positioning audit §12). It also says,
-// in plain words, what AGPL means for a deck — a procurement or legal reader
-// otherwise stops at the license name. The library count comes from nav.mjs, so
-// it updates itself (counts policy, July copy note §7.3).
-export function DevStrip({ url }: { url: (p: string) => string }) {
-	return (
-		<p className="m-0 mt-7 text-[14px] leading-[1.6] text-muted-foreground">
-			<span className="font-semibold text-foreground">Building on Lattice?</span> The engine is made of{' '}
-			<a className="font-semibold text-primary hover:underline" href={url('libraries/')}>
-				{librariesNav(url).length} libraries
-			</a>{' '}
-			you can use on their own, its file formats are{' '}
-			<a className="font-semibold text-primary hover:underline" href={url('spec/lfm/')}>
-				open specs
-			</a>{' '}
-			(CC-BY-4.0), and it is open source under AGPL-3.0, with an exception that leaves every deck you make free of
-			any license.
-		</p>
 	);
 }

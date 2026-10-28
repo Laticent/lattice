@@ -285,3 +285,41 @@ Checked and left as is:
   site, not new here.
 - **Two in-browser products.** Explaining the Studio versus the Playground is the July
   router line's job. It was out of this change's scope.
+
+## 13. The push toward 9.5 (owner: "do it here")
+
+Two fresh reviewers scored the page with a shared rubric. Overall, before → after:
+4.8 → 6.7 (visitor lens) and 6.4 → 7.6 (craft lens). The owner asked what a 9.5 across
+the board would take, then asked for the work in this PR rather than a second one. The
+changes, each mapped to the finding that asked for it:
+
+| Finding (scoring round) | Change |
+|---|---|
+| On a phone the hero slide fell below the first screen, under the buttons and three paragraphs of small print | The hero is three grid children (copy, slide, actions), like the Studio section. On a phone the slide sits right after the copy. The small print is one paragraph |
+| Nothing near the fold contrasts Lattice with AI generators | A line under the lead: "Not an AI that guesses your slides: Lattice renders what you wrote, the same way every time." |
+| "Markdown" splits the audiences | Kept, and glossed in the same breath ("as simple as a bulleted email") |
+| "Get started" sends a business visitor to a toolchain install | The secondary button now reads "Use the command line" |
+| "How it works" arrived late | It sits directly after "Say more with less" |
+| The drift argument (vs blank canvases) sat far from the proof strip (vs AI generators) | The two are adjacent, right after the rooms |
+| The palette demo was a slide about slides, and "the brand lives in one file" was never shown | Retitled "Your brand, one line". It cycles a quarterly-review kpi slide carrying `logo: lattice` (the one built-in mark) through every palette |
+| Developer depth was cut, not moved | A "For builders" panel beside "Point your copilot at Lattice": open specs, standalone libraries and CI rendering, each linked, plus the AGPL exception in plain words. It replaces the one-line strip |
+| Six stacked room cards were about six phone screens of scroll | Below `sm` they form a scroll-snap swipe row, each card 84% wide so the next peeks in. The row cancels the `.wrap` gutter and scrolls itself; the page stays 390 px wide |
+| The 20% statistic read as uncited | The proof strip links the study inline (the same source and date the comparison page cites). The protected headline is unchanged |
+| "No account / no telemetry" appeared four times | The hero and briefing card no longer repeat it. The drift card is its home |
+| "Every number on it is one you wrote" sat beside sample figures | It now reads "Lattice never adds a number you didn't write" |
+
+Left out, with the reason:
+
+- **Downloadable sample decks per room.** A pull request never commits PDFs
+  (HARD RULE #9), so this needs its own deck-plus-render path.
+- **Real customer quotes or logos.** None exist yet, and inventing them would contradict
+  the page.
+- **The PREVIEW badge.** A product decision, not a copy change.
+
+Verification:
+
+- No horizontal overflow at 390, 820 or 1440 px. The only elements past the right edge at
+  390 px are the off-screen cards inside the swipe row.
+- Swiping renders the next card's slide.
+- studio-smoke `reader-alarms`: 8/8 locally with `--retries=0`.
+- Every slide on the page lints clean.
